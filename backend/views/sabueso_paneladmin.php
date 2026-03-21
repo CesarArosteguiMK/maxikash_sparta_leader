@@ -139,6 +139,9 @@
     #modalRastreoCredito.consulta-sin-ticket .rastreo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     #modalRastreoCredito.consulta-sin-ticket .modal-title::after { content: ' (solo consulta)'; font-weight: 400; font-size: 0.85em; opacity: 0.85; }
     #modalRastreoCredito.consulta-sin-ticket #btnAsignarRastreo { display: none !important; }
+    /* Vista Reportería: solo consulta por ID — sin sufijo ni botón asignar en pie */
+    #modalRastreoCredito.consulta-reporteria-solo .modal-title::after { content: none !important; }
+    #modalRastreoCredito.consulta-reporteria-solo #btnAsignarRastreo { display: none !important; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
     /* Direcciones (maxi app): cada ubicación es una fila de 3 columnas (dirección | registros | fecha+distancia) */
     #modalRastreoCredito .rastreo-direcciones-lista { margin-bottom: 0.75rem; }
@@ -768,22 +771,75 @@
         #modalRastreoCredito .gestion-row .gestion-label { min-width: 4rem; }
         .card-header, .card { padding-left: 0.5rem; padding-right: 0.5rem; }
     }
-    body.panel-admin-primer-cargando #tablaTicketsPanel tbody .dataTables_empty { visibility: hidden !important; }
+    body.panel-admin-primer-cargando #wrapTablaTicketsPanel {
+        position: relative;
+        min-height: 240px;
+    }
+    body.panel-admin-primer-cargando #tablaTicketsPanel {
+        visibility: hidden !important;
+    }
+    body.panel-admin-primer-cargando #wrapTablaTicketsPanel::before {
+        content: "Cargando datos de la tabla...";
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        color: #6b7280;
+        background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.96));
+        border-top: 1px solid #eef0f2;
+        z-index: 2;
+    }
     body.panel-admin-primer-cargando #tablaTicketsPanel_info,
     body.panel-admin-primer-cargando #tablaTicketsPanel_paginate { visibility: hidden !important; }
 </style>
+<?php
+$panel_admin_es_simple = !empty($panel_admin_es_simple);
+$panel_admin_solo_consulta_credito = !empty($panel_admin_solo_consulta_credito);
+$panel_admin_titulo_label = isset($panel_admin_titulo_label) ? $panel_admin_titulo_label : 'Todos los tickets';
+$panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
+?>
+<?php if ($panel_admin_solo_consulta_credito): ?>
 <div class="card">
     <div class="card-header border-bottom">
-        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2">
-            <span><i class="fa-solid fa-list me-2"></i>Panel Admin – Todos los tickets</span>
-            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
-                <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
-            </button>
-            <i class="fa-solid fa-dog ms-2 sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
+        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
+            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Consulta por ID crédito</span>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
+                <button type="button" class="btn btn-sm btn-primary" id="btnAbrirConsultaCredito" title="Consultar por número de crédito">
+                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                </button>
+            </div>
         </h5>
     </div>
-    <!-- Filtros Panel Admin: se envían en cada getTicketsPanelAdmin (window.panelAdminFiltros) -->
-    <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10" id="panelAdminFiltrosWrap">
+</div>
+<?php else: ?>
+<div class="card">
+    <div class="card-header border-bottom">
+        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
+            <span id="panelAdminTitulo" class="me-auto flex-grow-1 min-w-0"><i class="fa-solid <?= htmlspecialchars($panel_admin_icono, ENT_QUOTES, 'UTF-8'); ?> me-2"></i>Panel Admin – <?= htmlspecialchars($panel_admin_titulo_label, ENT_QUOTES, 'UTF-8'); ?></span>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
+                <?php if (!empty($panel_admin_mostrar_volver) && !empty($panel_admin_url_inicio)): ?>
+                <a href="<?= htmlspecialchars($panel_admin_url_inicio, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary" id="btnPanelAdminVolver" title="Volver a la selección de paneles">
+                    <i class="fa-solid fa-arrow-left me-1"></i>Volver
+                </a>
+                <?php endif; ?>
+                <?php if ($panel_admin_es_simple): ?>
+                <button type="button" class="btn btn-sm btn-outline-primary d-none" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                </button>
+                <i class="fa-solid fa-dog sabueso-easter-icon d-none" id="sabuesoPanelEaster" aria-hidden="true"></i>
+                <?php else: ?>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                </button>
+                <i class="fa-solid fa-dog sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
+                <?php endif; ?>
+            </div>
+        </h5>
+    </div>
+    <!-- Filtros Panel Admin: solo visibles cuando la categoría es Sabueso o Todos (no módulos simples) -->
+    <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10 <?= $panel_admin_es_simple ? 'd-none' : ''; ?>" id="panelAdminFiltrosWrap">
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-6 col-lg">
                 <label class="form-label small text-muted mb-0" for="filtroAsignado">Asignado a</label>
@@ -818,12 +874,6 @@
                     <option value="prorroga_activa">Prórroga activa</option>
                 </select>
             </div>
-            <div class="col-12 col-md-6 col-lg">
-                <label class="form-label small text-muted mb-0" for="filtroPrioridad">Prioridad</label>
-                <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroPrioridad">
-                    <option value="0">Todas</option>
-                </select>
-            </div>
             <div class="col-12 col-lg-auto d-flex align-items-end">
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltrosPanel" title="Quitar filtros y mostrar todos">
                     <i class="fa-solid fa-rotate-left me-1"></i>Limpiar
@@ -836,10 +886,11 @@
             <thead>
                 <tr>
                     <th></th>
+                    <th></th>
                     <th>Folio / Tipo</th>
                     <th>Estado</th>
                     <th>Prioridad</th>
-                    <th>Crédito</th>
+                    <th>Referencia</th>
                     <th>Fechas</th>
                     <th>Quién levantó</th>
                     <th>Asignado a</th>
@@ -853,6 +904,7 @@
         </table>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Modal consulta solo por ID crédito (sin ticket): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
 <div class="modal fade" id="modalConsultaCreditoPaso1" tabindex="-1" aria-labelledby="modalConsultaCreditoPaso1Label" aria-hidden="true">
@@ -864,7 +916,9 @@
                         <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>
                     </div>
                     <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Consulta por ID crédito</h5>
+                    <?php if (!$panel_admin_solo_consulta_credito): ?>
                     <p class="small text-white-50 mb-0 px-3">Vista de direcciones, mapas y analítica sin levantar ticket. Solo lectura.</p>
+                    <?php endif; ?>
                 </div>
                 <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -878,19 +932,25 @@
                     </button>
                 </div>
                 <div id="consultaCreditoPaso1Error" class="alert alert-danger py-2 small d-none" role="alert"></div>
+                <?php if (!$panel_admin_solo_consulta_credito): ?>
                 <p class="small text-muted mb-0"><i class="fa-solid fa-circle-info me-1"></i>Se cargarán megareporte, direcciones alternas, mapas y analítica igual que en rastreo, sin bitácora ni dictamen.</p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Iniciar rastreo: datos de la persona/crédito del ticket (casi pantalla completa) -->
-<div class="modal fade" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
+<!-- Modal datos del crédito (desde ticket = rastreo; desde Reportería = solo consulta por ID) -->
+<div class="modal fade<?= $panel_admin_solo_consulta_credito ? ' consulta-sin-ticket consulta-reporteria-solo' : '' ?>" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-content-glass shadow-sm">
             <div class="modal-header py-2 border-bottom d-flex align-items-center">
                 <h6 class="modal-title text-primary mb-0" id="modalRastreoCreditoLabel">
+                    <?php if ($panel_admin_solo_consulta_credito): ?>
+                    <i class="fa-solid fa-magnifying-glass-chart me-2"></i>Consulta de crédito
+                    <?php else: ?>
                     <i class="fa-solid fa-magnifying-glass-plus me-2"></i>Iniciar rastreo – Datos del crédito
+                    <?php endif; ?>
                 </h6>
                 <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
@@ -1037,9 +1097,11 @@
                 </div>
             </div>
             <div class="modal-footer py-2 border-top d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                <?php if (!$panel_admin_solo_consulta_credito): ?>
                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnAsignarRastreo" onclick="mostrarAsignarOpciones()" title="Asignar este ticket">
                     <i class="fa-solid fa-user-plus me-1"></i>Asignar...
                 </button>
+                <?php endif; ?>
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -1342,6 +1404,7 @@
 </div>
 <!-- Scrim entre modales: se inyecta por JS cuando se abre un modal hijo sobre el de rastreo -->
 <script src="/assets/js/analytics-modals.js"></script>
+<script>window.PANEL_ADMIN_MODULO_URLS=<?= isset($panel_admin_modulo_urls_json) && $panel_admin_modulo_urls_json !== '' ? $panel_admin_modulo_urls_json : '{}'; ?>;</script>
 <script>
 (function() {
     var SCRIM_Z = 1060;
@@ -1536,28 +1599,23 @@
     }
     $(document).ready(function() {
         var apiBase = (function(){ var p = window.location.pathname || ''; var i = p.indexOf('/sabueso'); return i !== -1 ? p.substring(0, i) : ''; })();
-        // Oculta el estado vacío transitorio hasta que termine el primer request de tickets.
+        // Oculta el estado vacío y el loader hasta que la tabla termine de dibujar (clase y Swal se quitan en onSuccess/onError de getTicketsPanelAdmin).
+        if (!window.PANEL_ADMIN_SOLO_CONSULTA_CREDITO) {
         (function ocultarEstadoVacioPrimeraCarga() {
             document.body.classList.add('panel-admin-primer-cargando');
-            $(document).on('ajaxComplete.panelAdminPrimer', function(_e, _xhr, settings) {
-                var url = (settings && settings.url) ? String(settings.url) : '';
-                if (url.indexOf('/sabueso/getTicketsPanelAdmin') === -1) return;
-                document.body.classList.remove('panel-admin-primer-cargando');
-                $(document).off('ajaxComplete.panelAdminPrimer');
-            });
         })();
+        }
 
         // —— Filtros Panel Admin (window.panelAdminFiltros lo consume getTicketsPanelAdmin en Sabueso.php) ——
         window.panelAdminFiltros = window.panelAdminFiltros || {};
         function syncPanelAdminFiltrosFromUI() {
+            window.panelAdminFiltros.categoria_gestion = 'sabueso';
             var asignado = parseInt($('#filtroAsignado').val(), 10);
             if (isNaN(asignado)) asignado = 0;
             window.panelAdminFiltros.asignado = asignado;
             window.panelAdminFiltros.dictamen_enviado = ($('#filtroDictamenEnviado').val() || '').trim();
             window.panelAdminFiltros.ds_estado = ($('#filtroDsEstado').val() || '').trim();
             window.panelAdminFiltros.dictamen_visto = ($('#filtroDictamenVisto').val() || '').trim();
-            var pid = parseInt($('#filtroPrioridad').val(), 10);
-            window.panelAdminFiltros.prioridad_id = isNaN(pid) ? 0 : pid;
         }
         function aplicarFiltrosPanelAdminAlCambiar() {
             syncPanelAdminFiltrosFromUI();
@@ -1568,8 +1626,7 @@
             $('#filtroDictamenEnviado').val('');
             $('#filtroDsEstado').val('');
             $('#filtroDictamenVisto').val('');
-            $('#filtroPrioridad').val('0');
-            window.panelAdminFiltros = {};
+            window.panelAdminFiltros = { categoria_gestion: 'sabueso' };
             if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
         }
         if ($('#panelAdminFiltrosWrap').length && typeof http !== 'undefined') {
@@ -1585,19 +1642,9 @@
                     });
                 }
             });
-            http.request({
-                endpoint: '/sabueso/getCatalogosTicket',
-                metodo: 'POST',
-                onSuccess: function(resp) {
-                    var prioridades = (resp.datos && resp.datos.prioridades) ? resp.datos.prioridades : [];
-                    var $sel = $('#filtroPrioridad');
-                    $sel.find('option:not([value="0"])').remove();
-                    prioridades.forEach(function(pr) {
-                        if (pr.id) $sel.append($('<option></option>').attr('value', pr.id).text(pr.nombre || pr.id));
-                    });
-                }
+            $('#panelAdminFiltrosWrap').on('change', '.panel-admin-filtro-select', function () {
+                aplicarFiltrosPanelAdminAlCambiar();
             });
-            $('#panelAdminFiltrosWrap').on('change', '.panel-admin-filtro-select', aplicarFiltrosPanelAdminAlCambiar);
             $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
         }
 
@@ -1852,7 +1899,7 @@
             http.request({
                 endpoint: '/sabueso/getEvidenciasTicket',
                 metodo: 'POST',
-                data: JSON.stringify({ id_ticket: idTicket }),
+                data: JSON.stringify({ id_ticket: idTicket, tipo_origen: 'dictamen_sabueso' }),
                 contentType: 'application/json',
                 processData: false,
                 showLoader: false,

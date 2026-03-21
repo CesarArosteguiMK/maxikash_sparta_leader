@@ -132,6 +132,16 @@ class Database
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    /** Último AUTO_INCREMENT generado en esta conexión (tras INSERT). */
+    public function lastInsertId(): int
+    {
+        if (!$this->db) {
+            return 0;
+        }
+
+        return (int) $this->db->lastInsertId();
+    }
+
     public function CRUD($sql, $valores = null, &$retorno = null)
     {
         $stmt = $this->runQuery($sql, $valores, $retorno);

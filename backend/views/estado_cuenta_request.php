@@ -2164,11 +2164,36 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                                             if ($totalNotaCargo > 0): ?>
                                             <li><span class="contracargo-label"><?= htmlspecialchars($etiquetaCargoResidual) ?>:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
                                             <?php endif; ?>
-                                            <?php if (!$es_gasto_cobranza && $extemporaneos > 0): ?>
+                                            <?php if (!$es_gasto_cobranza && $extemporaneos > 0):
+                                                $gastoCobranzaPorFecha = $gastoCobranzaPorFecha ?? [];
+                                                $gastoNotaDia = ($fechaNorm !== '' && isset($gastoCobranzaPorFecha[$fechaNorm]))
+                                                    ? (float) $gastoCobranzaPorFecha[$fechaNorm]
+                                                    : 0.0;
+                                                if ($gastoNotaDia > 0.009) {
+                                                    $montoGastoMostrado = min($extemporaneos, $gastoNotaDia);
+                                                    $extRestanteEtiqueta = max(0, round($extemporaneos - $montoGastoMostrado, 2));
+                                                } else {
+                                                    $montoGastoMostrado = $extemporaneos;
+                                                    $extRestanteEtiqueta = 0.0;
+                                                }
+                                            ?>
+                                            <?php if ($gastoNotaDia > 0.009 && $montoGastoMostrado > 0.009): ?>
+                                            <li class="text-danger">
+                                                <span class="text-danger">Gasto cobranza: <?= format_currency($montoGastoMostrado) ?></span> -
+                                                <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
+                                            </li>
+                                            <?php elseif ($gastoNotaDia <= 0.009): ?>
                                             <li class="text-danger">
                                                 <span class="text-danger">Gasto cobranza: <?= format_currency($extemporaneos) ?></span> -
                                                 <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                             </li>
+                                            <?php endif; ?>
+                                            <?php if ($gastoNotaDia > 0.009 && $extRestanteEtiqueta > 0.009): ?>
+                                            <li class="text-secondary">
+                                                <span class="text-secondary">Extemporáneos (contracargo u otros): <?= format_currency($extRestanteEtiqueta) ?></span> -
+                                                <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
+                                            </li>
+                                            <?php endif; ?>
                                             <?php endif; ?>
                                             <?php endif; ?>
                                         <?php endforeach; ?>

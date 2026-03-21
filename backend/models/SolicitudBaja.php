@@ -78,6 +78,45 @@ class SolicitudBaja extends Model
     }
 
     /**
+     * Inserta un adjunto adicional para una solicitud de baja (tabla solicitud_baja_adjunto).
+     * Usar después de guardar() cuando hay múltiples archivos.
+     */
+    public static function guardarAdjunto($idSolicitudBaja, $nombreOriginal, $rutaArchivo, $orden = 0)
+    {
+        $idSolicitudBaja = (int) $idSolicitudBaja;
+        if ($idSolicitudBaja < 1) {
+            return false;
+        }
+        $nombreOriginal = trim((string) $nombreOriginal);
+        $rutaArchivo = trim((string) $rutaArchivo);
+        if ($rutaArchivo === '') {
+            return false;
+        }
+        if (strlen($nombreOriginal) > 255) {
+            $nombreOriginal = substr($nombreOriginal, 0, 255);
+        }
+        if (strlen($rutaArchivo) > 500) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                "INSERT INTO solicitud_baja_adjunto (id_solicitud_baja, nombre_original, ruta_archivo, orden) " .
+                "VALUES (:id_solicitud_baja, :nombre_original, :ruta_archivo, :orden)",
+                [
+                    'id_solicitud_baja' => $idSolicitudBaja,
+                    'nombre_original'   => $nombreOriginal,
+                    'ruta_archivo'       => $rutaArchivo,
+                    'orden'              => (int) $orden,
+                ]
+            );
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
      * Lista de solicitudes de baja para Panel Admin (con nombre del creador).
      *
      * @return array { success, mensaje, datos: array }
@@ -89,7 +128,8 @@ class SolicitudBaja extends Model
             $rows = $db->queryAll(
                 "SELECT sb.id, sb.motivo_baja, sb.detalle_motivo, sb.descripcion, sb.nombre_colaborador, " .
                 "sb.nombre_archivo_original, sb.ruta_adjunto, sb.fecha_creacion, " .
-                "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre " .
+                "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
+                "(SELECT COUNT(*) FROM solicitud_baja_adjunto a WHERE a.id_solicitud_baja = sb.id) AS num_adjuntos_extra " .
                 "FROM solicitud_baja sb " .
                 "LEFT JOIN persona p ON sb.id_persona_creador = p.id " .
                 "ORDER BY sb.fecha_creacion DESC"
@@ -97,6 +137,31 @@ class SolicitudBaja extends Model
             return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar solicitudes.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Adjuntos adicionales de una solicitud (tabla solicitud_baja_adjunto), ordenados por orden.
+     *
+     * @param int $idSolicitudBaja
+     * @return array Lista de { id, nombre_original, ruta_archivo, orden }
+     */
+    public static function getAdjuntosAdicionales($idSolicitudBaja)
+    {
+        $idSolicitudBaja = (int) $idSolicitudBaja;
+        if ($idSolicitudBaja < 1) {
+            return [];
+        }
+        try {
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, nombre_original, ruta_archivo, orden FROM solicitud_baja_adjunto " .
+                "WHERE id_solicitud_baja = :id ORDER BY orden ASC",
+                ['id' => $idSolicitudBaja]
+            );
+            return is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            return [];
         }
     }
 

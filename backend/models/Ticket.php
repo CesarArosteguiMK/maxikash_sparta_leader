@@ -7,6 +7,12 @@ use Core\Model;
 
 class Ticket extends Model
 {
+    /** Fotos/adjuntos al crear el ticket (validaciones, viáticos, plantilla, etc.). */
+    public const TIPO_ORIGEN_ADJUNTO_TICKET = 'adjunto_ticket';
+
+    /** Evidencias subidas desde el panel Sabueso (dictamen / rastreo). */
+    public const TIPO_ORIGEN_DICTAMEN_SABUESO = 'dictamen_sabueso';
+
     /**
      * Tiempo Sabueso/tickets: toda fecha/hora que se escribe en BD en este módulo debe ser hora CDMX
      * (America/Mexico_City), no la del reloj del servidor ni NOW()/CURDATE() en SQL al insertar/actualizar.
@@ -36,11 +42,35 @@ class Ticket extends Model
         $selCategoria = $tieneCategoriaGestion
             ? "COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') AS categoria_gestion, "
             : "'sabueso' AS categoria_gestion, ";
+        $tieneColsCategoria = false;
+        if ($tieneCategoriaGestion) {
+            try {
+                $colTipo = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'tipo_categoria' LIMIT 1");
+                $tieneColsCategoria = !empty($colTipo);
+            } catch (\Exception $e) {
+                $tieneColsCategoria = false;
+            }
+        }
+        $selColsCategoria = $tieneColsCategoria
+            ? "t.tipo_categoria, t.asunto, t.prioridad_categoria, t.contacto_telefono, t.contacto_email, "
+            : "";
+        $tieneNotaUrl = false;
+        if ($tieneCategoriaGestion) {
+            try {
+                $colNota = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'nota' LIMIT 1");
+                $tieneNotaUrl = !empty($colNota);
+            } catch (\Exception $e) {
+                $tieneNotaUrl = false;
+            }
+        }
+        $selColsNotaUrl = $tieneNotaUrl ? "t.nota, t.url_direccion, " : "";
         $baseSelect = "SELECT DISTINCT t.id_ticket, t.folio, t.id_credito, t.descripcion_inicial, t.fecha_creacion, t.fecha_vencimiento, " .
             $selCategoria .
+            $selColsCategoria .
+            $selColsNotaUrl .
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
-            "CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
+            "at.id_persona_asignada, CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
             "dm.dictamen_estado, dm.dictamen_fecha_visto, dm.dictamen_fecha_envio, " .
             "dsm.ds_resultado, dsm.ds_detalle " .
             "FROM ticket t " .
@@ -74,6 +104,27 @@ class Ticket extends Model
         // Filtros adicionales (Panel Admin): se aplican a todos los candidatos WHERE
         $extraWhere = [];
         if (!$soloDelUsuario && !empty($filtros)) {
+            // Filtro por lista de asignados (ej. Territorial: todos los gestores permitidos)
+            if (isset($filtros['asignado_ids']) && is_array($filtros['asignado_ids'])) {
+                $idAsignados = array_values(array_filter(array_map(function ($v) {
+                    return (int)$v;
+                }, $filtros['asignado_ids']), function ($id) {
+                    return $id > 0;
+                }));
+
+                if (empty($idAsignados)) {
+                    // Sin ids => no hay resultados
+                    $extraWhere[] = '1=0';
+                } else {
+                    $placeholders = [];
+                    foreach ($idAsignados as $i => $id) {
+                        $key = 'filtro_id_asignado_in_' . $i;
+                        $placeholders[] = ':' . $key;
+                        $params[$key] = (int)$id;
+                    }
+                    $extraWhere[] = 'at.id_persona_asignada IN (' . implode(',', $placeholders) . ')';
+                }
+            }
             $idAsignado = isset($filtros['asignado']) ? (int)$filtros['asignado'] : 0;
             if ($idAsignado === -1) {
                 $extraWhere[] = 'at.id_persona_asignada IS NULL';
@@ -109,9 +160,14 @@ class Ticket extends Model
                 $params['filtro_prioridad_id'] = $prioridadId;
             }
         }
-        // Panel Admin Sabueso: solo tickets de gestión Sabueso
-        if (!$soloDelUsuario && $tieneCategoriaGestion) {
-            $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = 'sabueso')";
+        // Panel Admin: filtro por categoría (vacío = todas; 'sabueso', 'plantilla', 'viaticos', etc. = solo esa)
+        $filtroCategoria = isset($filtros['categoria_gestion']) ? trim((string)$filtros['categoria_gestion']) : '';
+        if (!$soloDelUsuario && $tieneCategoriaGestion && $filtroCategoria !== '') {
+            $catVal = strtolower(preg_replace('/[^a-z0-9_]/', '', str_replace([' ', '-'], '_', $filtroCategoria)));
+            if ($catVal !== '') {
+                $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = :filtro_categoria_gestion)";
+                $params['filtro_categoria_gestion'] = $catVal;
+            }
         }
         if (!empty($extraWhere)) {
             $fragment = ' AND ' . implode(' AND ', $extraWhere);
@@ -435,6 +491,203 @@ class Ticket extends Model
     }
 
     /**
+     * Crea un ticket "simple" (por categoría: plantilla, viáticos, validaciones, etc.) sin crédito obligatorio.
+     * Se guarda en la misma tabla ticket con categoria_gestion y id_credito NULL.
+     * $datos: categoria_gestion (obligatorio), descripcion_inicial (obligatorio), id_credito (opcional),
+     *         tipo_categoria (opcional), asunto (opcional), prioridad_categoria (opcional), contacto_telefono (opcional), contacto_email (opcional),
+     *         nota (opcional), url_direccion (opcional; se guarda completa, sin recortar).
+     * Retorna { success, mensaje, datos: { id_ticket, folio } }.
+     */
+    public static function crearTicketSimple(array $datos, $idPersonaCreador)
+    {
+        $idPersonaCreador = (int) $idPersonaCreador;
+        if ($idPersonaCreador < 1) {
+            return self::resultado(false, 'Sesión inválida.', null);
+        }
+        $catRaw = isset($datos['categoria_gestion']) ? trim((string) $datos['categoria_gestion']) : '';
+        $descripcion = isset($datos['descripcion_inicial']) ? trim((string) $datos['descripcion_inicial']) : '';
+        $catRaw = strtolower(preg_replace('/[^a-z0-9_]/', '', str_replace([' ', '-'], '_', $catRaw)));
+        if ($catRaw === '') {
+            return self::resultado(false, 'La categoría de gestión es obligatoria.', null);
+        }
+        if ($descripcion === '') {
+            return self::resultado(false, 'La descripción es obligatoria.', null);
+        }
+        $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
+            ? (int) $datos['id_credito'] : null;
+        if ($idCredito !== null && $idCredito < 1) {
+            $idCredito = null;
+        }
+        $tipoCategoria = isset($datos['tipo_categoria']) ? trim((string) $datos['tipo_categoria']) : null;
+        if ($tipoCategoria !== null && strlen($tipoCategoria) > 150) {
+            $tipoCategoria = substr($tipoCategoria, 0, 150);
+        }
+        $asunto = isset($datos['asunto']) ? trim((string) $datos['asunto']) : null;
+        if ($asunto !== null && strlen($asunto) > 255) {
+            $asunto = substr($asunto, 0, 255);
+        }
+        $prioridadCat = isset($datos['prioridad_categoria']) ? trim((string) $datos['prioridad_categoria']) : null;
+        if ($prioridadCat !== null && strlen($prioridadCat) > 50) {
+            $prioridadCat = substr($prioridadCat, 0, 50);
+        }
+        $contactoTel = isset($datos['contacto_telefono']) ? trim((string) $datos['contacto_telefono']) : null;
+        if ($contactoTel !== null && strlen($contactoTel) > 50) {
+            $contactoTel = substr($contactoTel, 0, 50);
+        }
+        $contactoEmail = isset($datos['contacto_email']) ? trim((string) $datos['contacto_email']) : null;
+        if ($contactoEmail !== null && strlen($contactoEmail) > 100) {
+            $contactoEmail = substr($contactoEmail, 0, 100);
+        }
+        $nota = isset($datos['nota']) ? trim((string) $datos['nota']) : null;
+        $urlDireccion = isset($datos['url_direccion']) ? trim((string) $datos['url_direccion']) : null;
+
+        try {
+            $db = new Database();
+            $rowTipo = $db->queryOne("SELECT id_tipo_ticket FROM tipo_ticket WHERE (activo = 1 OR activo IS NULL) ORDER BY id_tipo_ticket ASC LIMIT 1");
+            $rowOrigen = $db->queryOne("SELECT id_origen_ticket FROM origen_ticket WHERE (activo = 1 OR activo IS NULL) ORDER BY id_origen_ticket ASC LIMIT 1");
+            if (!$rowTipo || !$rowOrigen) {
+                return self::resultado(false, 'No hay catálogos de tipo u origen de ticket.', null);
+            }
+            $idTipo = (int) $rowTipo['id_tipo_ticket'];
+            $idOrigen = (int) $rowOrigen['id_origen_ticket'];
+
+            $rowPrioridad = $db->queryOne("SELECT id_prioridad FROM prioridad_ticket WHERE LOWER(TRIM(nombre)) = 'alta' LIMIT 1");
+            if (!$rowPrioridad) {
+                $rowPrioridad = $db->queryOne("SELECT id_prioridad FROM prioridad_ticket WHERE LOWER(TRIM(nombre)) LIKE '%alta%' LIMIT 1");
+            }
+            $idPrioridad = $rowPrioridad ? (int) $rowPrioridad['id_prioridad'] : 0;
+            $rowEstado = $db->queryOne("SELECT id_estado_ticket FROM estado_ticket WHERE LOWER(TRIM(nombre)) = 'abierto' AND (activo = 1 OR activo IS NULL) LIMIT 1");
+            $idEstado = $rowEstado ? (int) $rowEstado['id_estado_ticket'] : 0;
+            if ($idPrioridad < 1 || $idEstado < 1) {
+                return self::resultado(false, 'No se encontró prioridad Alta o estado Abierto en catálogo.', null);
+            }
+
+            $now = self::ahoraCdmx();
+            $fechaVenc = self::cdmxNowImmutable()->modify('+24 hours')->format('Y-m-d H:i:s');
+
+            $db->beginTransaction();
+            $maxRow = $db->queryOne("SELECT MAX(id_ticket) AS max_id FROM ticket FOR UPDATE");
+            $siguienteId = ($maxRow && isset($maxRow['max_id']) && $maxRow['max_id'] !== null ? (int) $maxRow['max_id'] : 0) + 1;
+            $maxFolioRow = $db->queryOne("SELECT MAX(CAST(SUBSTRING(folio, 5) AS UNSIGNED)) AS max_num FROM ticket WHERE folio LIKE 'TCK-%' FOR UPDATE");
+            $num = ($maxFolioRow && isset($maxFolioRow['max_num']) && $maxFolioRow['max_num'] !== null ? (int) $maxFolioRow['max_num'] : 0) + 1;
+            $folio = 'TCK-' . str_pad((string) $num, 4, '0', STR_PAD_LEFT);
+
+            $paramsBase = [
+                'id_ticket'             => $siguienteId,
+                'folio'                 => $folio,
+                'id_tipo_ticket'        => $idTipo,
+                'id_estado_ticket'      => $idEstado,
+                'id_prioridad'          => $idPrioridad,
+                'id_origen_ticket'      => $idOrigen,
+                'id_credito'            => $idCredito,
+                'descripcion_inicial'   => $descripcion,
+                'fecha_creacion'        => $now,
+                'fecha_vencimiento'     => $fechaVenc,
+                'id_persona_creador'    => $idPersonaCreador,
+                'tipo_categoria'        => $tipoCategoria,
+                'asunto'                => $asunto,
+                'prioridad_categoria'   => $prioridadCat,
+                'contacto_telefono'     => $contactoTel,
+                'contacto_email'        => $contactoEmail,
+                'nota'                  => $nota,
+                'url_direccion'         => $urlDireccion,
+            ];
+            $paramsConCat = $paramsBase;
+            $paramsConCat['categoria_gestion'] = $catRaw;
+
+            $sqlConCatNotaUrl = "INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, categoria_gestion, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, nota, url_direccion, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :categoria_gestion, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :nota, :url_direccion, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)";
+            $sqlSinCatNotaUrl = "INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, nota, url_direccion, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :nota, :url_direccion, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)";
+            $sqlConCat = "INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, categoria_gestion, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :categoria_gestion, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)";
+            $sqlSinCat = "INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)";
+            $sqlConCatSinCols = "INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, categoria_gestion, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :categoria_gestion, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)";
+            $sqlSinCatSinCols = "INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)";
+
+            $paramsBaseSinCols = [
+                'id_ticket' => $siguienteId, 'folio' => $folio, 'id_tipo_ticket' => $idTipo, 'id_estado_ticket' => $idEstado,
+                'id_prioridad' => $idPrioridad, 'id_origen_ticket' => $idOrigen, 'id_credito' => $idCredito,
+                'descripcion_inicial' => $descripcion, 'fecha_creacion' => $now, 'fecha_vencimiento' => $fechaVenc, 'id_persona_creador' => $idPersonaCreador,
+            ];
+            $paramsConCatSinCols = $paramsBaseSinCols;
+            $paramsConCatSinCols['categoria_gestion'] = $catRaw;
+
+            try {
+                $db->CRUD($sqlConCatNotaUrl, $paramsConCat);
+            } catch (\Exception $e) {
+                $msg = $e->getMessage();
+                if (stripos($msg, 'Unknown column') !== false && (stripos($msg, 'nota') !== false || stripos($msg, 'url_direccion') !== false)) {
+                    try {
+                        $db->CRUD($sqlConCat, $paramsConCat);
+                    } catch (\Exception $e2) {
+                        $msg2 = $e2->getMessage();
+                        if (stripos($msg2, 'Unknown column') !== false && (stripos($msg2, 'tipo_categoria') !== false || stripos($msg2, 'asunto') !== false)) {
+                            try {
+                                $db->CRUD($sqlConCatSinCols, $paramsConCatSinCols);
+                            } catch (\Exception $e3) {
+                                if (stripos($e3->getMessage(), 'categoria_gestion') !== false || stripos($e3->getMessage(), 'Unknown column') !== false) {
+                                    $db->CRUD($sqlSinCatSinCols, $paramsBaseSinCols);
+                                } else {
+                                    throw $e3;
+                                }
+                            }
+                        } elseif (stripos($msg2, 'categoria_gestion') !== false || stripos($msg2, 'Unknown column') !== false) {
+                            try {
+                                $db->CRUD($sqlSinCat, $paramsBase);
+                            } catch (\Exception $e3) {
+                                if (stripos($e3->getMessage(), 'Unknown column') !== false) {
+                                    $db->CRUD($sqlSinCatSinCols, $paramsBaseSinCols);
+                                } else {
+                                    throw $e3;
+                                }
+                            }
+                        } else {
+                            throw $e2;
+                        }
+                    }
+                } elseif (stripos($msg, 'Unknown column') !== false && (stripos($msg, 'tipo_categoria') !== false || stripos($msg, 'asunto') !== false)) {
+                    try {
+                        $db->CRUD($sqlConCatSinCols, $paramsConCatSinCols);
+                    } catch (\Exception $e2) {
+                        if (stripos($e2->getMessage(), 'categoria_gestion') !== false || stripos($e2->getMessage(), 'Unknown column') !== false) {
+                            $db->CRUD($sqlSinCatSinCols, $paramsBaseSinCols);
+                        } else {
+                            throw $e2;
+                        }
+                    }
+                } elseif (stripos($msg, 'categoria_gestion') !== false || stripos($msg, 'Unknown column') !== false) {
+                    try {
+                        $db->CRUD($sqlSinCatNotaUrl, $paramsBase);
+                    } catch (\Exception $e2) {
+                        if (stripos($e2->getMessage(), 'Unknown column') !== false && (stripos($e2->getMessage(), 'nota') !== false || stripos($e2->getMessage(), 'url_direccion') !== false)) {
+                            try {
+                                $db->CRUD($sqlSinCat, $paramsBase);
+                            } catch (\Exception $e3) {
+                                if (stripos($e3->getMessage(), 'Unknown column') !== false) {
+                                    $db->CRUD($sqlSinCatSinCols, $paramsBaseSinCols);
+                                } else {
+                                    throw $e3;
+                                }
+                            }
+                        } elseif (stripos($e2->getMessage(), 'Unknown column') !== false) {
+                            $db->CRUD($sqlSinCatSinCols, $paramsBaseSinCols);
+                        } else {
+                            throw $e2;
+                        }
+                    }
+                } else {
+                    throw $e;
+                }
+            }
+            $db->commit();
+            return self::resultado(true, 'Ticket registrado correctamente.', ['id_ticket' => $siguienteId, 'folio' => $folio]);
+        } catch (\Exception $e) {
+            if (isset($db) && $db) {
+                try { $db->rollback(); } catch (\Exception $e2) {}
+            }
+            return self::resultado(false, 'Error al crear el ticket.', null, $e->getMessage());
+        }
+    }
+
+    /**
      * Tickets asociados a un id_credito (para mostrar en modal de datos del crédito).
      */
     public static function getTicketsPorIdCredito($idCredito)
@@ -593,7 +846,15 @@ class Ticket extends Model
                 "INSERT INTO asignacion_ticket (id_ticket, id_persona_asignada, fecha_asignacion, activo) VALUES (:id_ticket, :id_persona, :fecha_asignacion, 1)",
                 ['id_ticket' => $tid, 'id_persona' => $pid, 'fecha_asignacion' => $now]
             );
-            return self::resultado(true, 'Ticket asignado correctamente.');
+            $idAsignacion = $db->lastInsertId();
+            if ($idAsignacion < 1) {
+                $rowId = $db->queryOne(
+                    "SELECT id_asignacion FROM asignacion_ticket WHERE id_ticket = :id_ticket AND id_persona_asignada = :id_persona AND (activo = 1 OR activo IS NULL) ORDER BY fecha_asignacion DESC, id_asignacion DESC LIMIT 1",
+                    ['id_ticket' => $tid, 'id_persona' => $pid]
+                );
+                $idAsignacion = $rowId && isset($rowId['id_asignacion']) ? (int) $rowId['id_asignacion'] : 0;
+            }
+            return self::resultado(true, 'Ticket asignado correctamente.', ['id_asignacion' => $idAsignacion]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al asignar el ticket.', null, $e->getMessage());
         }
@@ -675,6 +936,91 @@ class Ticket extends Model
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener personas.', null, $e->getMessage());
         }
+    }
+
+    /** Segmento 1–7 por nombre de departamento. */
+    private static function esDepartamentoCampo1a7($nombreDepartamento)
+    {
+        $n = mb_strtolower(trim((string)$nombreDepartamento));
+        return $n !== '' && (bool) preg_match('/campo.*1\s*[-–]?\s*7|1\s*[-–]?\s*7.*campo|1\s+a\s+7/i', $n);
+    }
+
+    /** Segmento 8–21 por nombre de departamento. */
+    private static function esDepartamentoCampo8a21($nombreDepartamento)
+    {
+        $n = mb_strtolower(trim((string)$nombreDepartamento));
+        return $n !== '' && (bool) preg_match('/campo.*8\s*[-–]?\s*21|8\s*[-–]?\s*21.*campo|8\s+a\s+21/i', $n);
+    }
+
+    /**
+     * Busca el id del departamento "Campo 1-7" o "Campo 8-21" por nombre en tabla departamento.
+     */
+    private static function getDepartamentoCampoPorSegmento($campo)
+    {
+        try {
+            $db = new Database();
+            $rows = $db->queryAll("SELECT id, nombre FROM departamento ORDER BY nombre");
+            if (!is_array($rows)) {
+                return 0;
+            }
+            foreach ($rows as $r) {
+                $id = (int) ($r['id'] ?? 0);
+                $nombre = (string) ($r['nombre'] ?? '');
+                if ($id < 1 || $nombre === '') {
+                    continue;
+                }
+                if ($campo === '1_7' && self::esDepartamentoCampo1a7($nombre)) {
+                    return $id;
+                }
+                if ($campo === '8_21' && self::esDepartamentoCampo8a21($nombre)) {
+                    return $id;
+                }
+            }
+        } catch (\Exception $e) {
+            return 0;
+        }
+        return 0;
+    }
+
+    /**
+     * Personas de máximo rango por segmento (misma lógica de Organigrama).
+     * Toma el departamento "Campo 1-7" o "Campo 8-21" y llama al mismo DAO del organigrama.
+     *
+     * @param string $campo '1_7' | '8_21'
+     */
+    public static function getPersonasJefesSabuesoPorCampoMorosidad($campo)
+    {
+        $campo = strtolower(trim((string)$campo));
+        if ($campo !== '1_7' && $campo !== '8_21') {
+            return self::resultado(false, 'Segmento inválido.', []);
+        }
+        $idDepartamento = self::getDepartamentoCampoPorSegmento($campo);
+        if ($idDepartamento < 1) {
+            $txt = $campo === '1_7' ? 'Campo 1-7' : 'Campo 8-21';
+            return self::resultado(true, 'No se encontró el departamento "' . $txt . '" en Organigrama.', []);
+        }
+
+        $res = CapHum::getPersonasOrganigrama($idDepartamento, 0);
+        $datos = is_array($res['datos'] ?? null) ? $res['datos'] : [];
+        $out = [];
+        $seen = [];
+        foreach ($datos as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id < 1 || isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $out[] = [
+                'id' => $id,
+                'nombre_completo' => trim((string) ($row['nombre'] ?? $row['nombre_completo'] ?? '')),
+                'nombre_puesto' => '',
+            ];
+        }
+        usort($out, function ($a, $b) {
+            return strcasecmp($a['nombre_completo'], $b['nombre_completo']);
+        });
+
+        return self::resultado(true, empty($out) ? 'No hay personas de máximo rango para este segmento.' : 'OK', $out);
     }
 
     /**
@@ -1383,7 +1729,10 @@ class Ticket extends Model
                     ['id_ticket' => $id]
                 );
             }
-            $evidencias = $db->queryAll("SELECT id, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC", ['id_ticket' => $id]);
+            $evRes = self::getEvidenciasPorTicket($id, self::TIPO_ORIGEN_DICTAMEN_SABUESO);
+            $evidencias = ($evRes['success'] ?? false) && isset($evRes['datos']) && is_array($evRes['datos'])
+                ? $evRes['datos']
+                : [];
 
             $domicilios = [];
             $descripcionBase = $dictamen ? ($dictamen['descripcion'] ?? '') : '';
@@ -1446,9 +1795,11 @@ class Ticket extends Model
     }
 
     /**
-     * Lista de evidencias (imágenes) por ticket.
+     * Lista de evidencias por ticket.
+     *
+     * @param string|null $filtroTipoOrigen null = todas; {@see TIPO_ORIGEN_ADJUNTO_TICKET} o {@see TIPO_ORIGEN_DICTAMEN_SABUESO}
      */
-    public static function getEvidenciasPorTicket($idTicket)
+    public static function getEvidenciasPorTicket($idTicket, $filtroTipoOrigen = null)
     {
         $id = (int)$idTicket;
         if ($id < 1) {
@@ -1456,36 +1807,97 @@ class Ticket extends Model
         }
         try {
             $db = new Database();
-            $rows = $db->queryAll(
-                "SELECT id, id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida FROM ticket_evidencia WHERE id_ticket = :id_ticket ORDER BY fecha_subida ASC",
-                ['id_ticket' => $id]
-            );
+            $tieneTipo = self::ticketEvidenciaTieneColumnaTipoOrigen($db);
+            $sel = 'SELECT id, id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida';
+            if ($tieneTipo) {
+                $sel .= ', tipo_origen';
+            }
+            $sql = $sel . ' FROM ticket_evidencia WHERE id_ticket = :id_ticket';
+            $params = ['id_ticket' => $id];
+            if ($filtroTipoOrigen !== null && $filtroTipoOrigen !== '') {
+                if ($tieneTipo) {
+                    $sql .= ' AND (
+                        CASE
+                            WHEN tipo_origen IS NOT NULL AND TRIM(tipo_origen) <> \'\' THEN TRIM(tipo_origen)
+                            WHEN SUBSTRING_INDEX(ruta_archivo, \'/\', -1) LIKE \'ev_%\' THEN \'dictamen_sabueso\'
+                            ELSE \'adjunto_ticket\'
+                        END = :ftipo
+                    )';
+                    $params['ftipo'] = $filtroTipoOrigen;
+                } else {
+                    if ($filtroTipoOrigen === self::TIPO_ORIGEN_DICTAMEN_SABUESO) {
+                        $sql .= " AND SUBSTRING_INDEX(ruta_archivo, '/', -1) LIKE 'ev_%'";
+                    } elseif ($filtroTipoOrigen === self::TIPO_ORIGEN_ADJUNTO_TICKET) {
+                        $sql .= " AND SUBSTRING_INDEX(ruta_archivo, '/', -1) NOT LIKE 'ev_%'";
+                    }
+                }
+            }
+            $sql .= ' ORDER BY fecha_subida ASC';
+            $rows = $db->queryAll($sql, $params);
             return self::resultado(true, 'OK', is_array($rows) ? $rows : []);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener evidencias.', null, $e->getMessage());
         }
     }
 
+    private static function ticketEvidenciaTieneColumnaTipoOrigen(Database $db): bool
+    {
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+        try {
+            $c = $db->queryOne(
+                "SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket_evidencia' AND COLUMN_NAME = 'tipo_origen' LIMIT 1"
+            );
+            $cache = !empty($c);
+        } catch (\Exception $e) {
+            $cache = false;
+        }
+
+        return $cache;
+    }
+
     /**
      * Guardar registro de evidencia (ruta ya guardada en disco).
+     *
+     * @param string $tipoOrigen {@see TIPO_ORIGEN_ADJUNTO_TICKET} | {@see TIPO_ORIGEN_DICTAMEN_SABUESO}
      */
-    public static function guardarEvidencia($idTicket, $idPersona, $rutaArchivo, $nombreOriginal)
+    public static function guardarEvidencia($idTicket, $idPersona, $rutaArchivo, $nombreOriginal, $tipoOrigen = self::TIPO_ORIGEN_ADJUNTO_TICKET)
     {
         $tid = (int)$idTicket;
         $pid = (int)$idPersona;
         $ruta = trim((string)$rutaArchivo);
         $nombre = trim((string)$nombreOriginal) ?: 'imagen';
+        $origen = trim((string)$tipoOrigen);
+        if ($origen !== self::TIPO_ORIGEN_DICTAMEN_SABUESO) {
+            $origen = self::TIPO_ORIGEN_ADJUNTO_TICKET;
+        }
         if ($tid < 1 || $pid < 1 || $ruta === '') {
             return self::resultado(false, 'Datos inválidos.', null);
         }
         try {
             $db = new Database();
             $now = self::ahoraCdmx();
-            $db->CRUD(
-                "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :fecha_subida)",
-                ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'fecha_subida' => $now]
-            );
-            $lastId = $db->queryOne("SELECT LAST_INSERT_ID() AS id");
+            if (self::ticketEvidenciaTieneColumnaTipoOrigen($db)) {
+                $db->CRUD(
+                    'INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, tipo_origen, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :tipo_origen, :fecha_subida)',
+                    [
+                        'id_ticket' => $tid,
+                        'id_persona' => $pid,
+                        'ruta_archivo' => $ruta,
+                        'nombre_original' => $nombre,
+                        'tipo_origen' => $origen,
+                        'fecha_subida' => $now,
+                    ]
+                );
+            } else {
+                $db->CRUD(
+                    "INSERT INTO ticket_evidencia (id_ticket, id_persona, ruta_archivo, nombre_original, fecha_subida) VALUES (:id_ticket, :id_persona, :ruta_archivo, :nombre_original, :fecha_subida)",
+                    ['id_ticket' => $tid, 'id_persona' => $pid, 'ruta_archivo' => $ruta, 'nombre_original' => $nombre, 'fecha_subida' => $now]
+                );
+            }
+            $lastId = $db->queryOne('SELECT LAST_INSERT_ID() AS id');
             return self::resultado(true, 'Evidencia guardada.', ['id' => $lastId['id'] ?? null]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al guardar evidencia.', null, $e->getMessage());
@@ -2064,6 +2476,18 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         }
         $file = self::statsCacheDir() . DIRECTORY_SEPARATOR . md5($key) . '.json';
         @file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    /** Invalida un archivo de caché de estadísticas (p. ej. tras reconsultar EC en reporte semanal). */
+    private static function statsCacheDelete(string $key): void
+    {
+        if ($key === '') {
+            return;
+        }
+        $file = self::statsCacheDir() . DIRECTORY_SEPARATOR . md5($key) . '.json';
+        if (is_file($file)) {
+            @unlink($file);
+        }
     }
 
     /**
@@ -2695,7 +3119,12 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $out = [
             'success' => true,
             'mensaje' => 'OK',
-            'totales' => ['tickets_activos' => 0, 'con_dictamen_enviado' => 0, 'con_dictamen_visto' => 0],
+            'totales' => [
+                'tickets_activos' => 0,
+                'con_dictamen_enviado' => 0,
+                'con_dictamen_visto' => 0,
+                'tickets_cerrados' => 0,
+            ],
             'por_dia' => [],
             'por_semana' => [],
             'por_mes' => [],
@@ -2709,12 +3138,21 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         ];
 
         try {
+            // "Activos" = en flujo: no cerrados ni eliminados (misma condición que Panel Admin listado principal)
             $row = $db->queryOne("SELECT COUNT(*) AS c FROM ticket t WHERE $whereActivo");
             $out['totales']['tickets_activos'] = (int)($row['c'] ?? 0);
         } catch (\Exception $e) {
             $out['success'] = false;
             $out['mensaje'] = $e->getMessage();
             return $out;
+        }
+        try {
+            $row = $db->queryOne(
+                "SELECT COUNT(DISTINCT id_ticket) AS c FROM ticket_historico WHERE tipo_accion = 'cerrado'"
+            );
+            $out['totales']['tickets_cerrados'] = (int)($row['c'] ?? 0);
+        } catch (\Exception $e) {
+            $out['totales']['tickets_cerrados'] = 0;
         }
 
         // Conteos por día: solo semana calendario actual (lunes→domingo CDMX).
@@ -2981,7 +3419,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                                 $r['cumplimiento_etiqueta'] = $cmp['cumplimiento_etiqueta'];
                             }
                             // Misma lógica que getEstadisticasGestorDetalle (columna Pago)
-                            $r['__SPARTA_SECRET_REDACTED___consultado'] = array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $detJson) ? !empty($detJson['__SPARTA_SECRET_REDACTED___consultado']) : true;
+                            $r['__SPARTA_SECRET_REDACTED___consultado'] = (is_array($detJson) && array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $detJson)) ? !empty($detJson['__SPARTA_SECRET_REDACTED___consultado']) : true;
                             if ($res === 'cumplido_pago') {
                                 $r['pago_en_ventana_si'] = true;
                                 $r['pago_en_ventana_txt'] = 'Sí';
@@ -3674,7 +4112,22 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     public static function getReporteSemanalGestorGlobal(string $semanaInicio = ''): array
     {
         $db = new Database();
-        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
+        /**
+         * Cerrar ticket pone activo=0 y fecha_eliminacion (igual que eliminar en ticket).
+         * Para el reporte semanal histórico deben seguir contando los cerrados.
+         * Excluimos solo tickets cuyo ÚLTIMO registro en ticket_historico sea tipo_accion = 'eliminado'.
+         */
+        $whereReporteTicket = "NOT EXISTS (
+            SELECT 1
+            FROM ticket_historico he
+            WHERE he.id_ticket = t.id_ticket
+              AND he.tipo_accion = 'eliminado'
+              AND he.fecha_eliminacion = (
+                  SELECT MAX(hx.fecha_eliminacion)
+                  FROM ticket_historico hx
+                  WHERE hx.id_ticket = t.id_ticket
+              )
+        )";
         try {
             $tz = new \DateTimeZone('America/Mexico_City');
             $now = self::cdmxNowImmutable();
@@ -3693,7 +4146,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
             $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
-            $cacheKey = 'reporte_semanal_global:' . $semanaSelDt->format('Y-m-d');
+            $cacheKey = 'reporte_semanal_global:v2:' . $semanaSelDt->format('Y-m-d');
             $cacheHit = self::statsCacheRead($cacheKey, 300);
             if (is_array($cacheHit) && !empty($cacheHit['success'])) {
                 return $cacheHit;
@@ -3705,7 +4158,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
                 "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
                 "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
-                "WHERE $whereActivo AND d.fecha_actualizacion < :mondayCurrent " .
+                "WHERE $whereReporteTicket AND d.fecha_actualizacion < :mondayCurrent " .
                 "ORDER BY semana_inicio DESC LIMIT 32",
                 ['mondayCurrent' => $mondayCurrent->format('Y-m-d H:i:s')]
             );
@@ -3749,7 +4202,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
                 "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
                 "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
-                "WHERE $whereActivo AND d.fecha_actualizacion >= :fi AND d.fecha_actualizacion < :ff " .
+                "WHERE $whereReporteTicket AND d.fecha_actualizacion >= :fi AND d.fecha_actualizacion < :ff " .
                 "ORDER BY d.fecha_actualizacion DESC",
                 ['fi' => $semanaSelInicio, 'ff' => $semanaSelFinExcl]
             );
@@ -3904,19 +4357,173 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 ];
             }
 
+            $resumen = [
+                'total_tickets' => count($filas),
+                'ilocalizable' => 0,
+                'localizable' => 0,
+                'pago_12h' => 0,
+                'todas_direcciones' => 0,
+                'prorroga' => 0,
+                'pago_semana' => 0,
+            ];
+            foreach ($filas as $f) {
+                if (!empty($f['ilocalizable'])) {
+                    $resumen['ilocalizable']++;
+                }
+                if (!empty($f['pago_semana_consultado']) && empty($f['ilocalizable'])) {
+                    $resumen['localizable']++;
+                }
+                if ($f['pago_12h'] === true) {
+                    $resumen['pago_12h']++;
+                }
+                if ($f['fue_todas_direcciones'] === true) {
+                    $resumen['todas_direcciones']++;
+                }
+                if ($f['prorroga_si'] === true) {
+                    $resumen['prorroga']++;
+                }
+                if (!empty($f['pago_semana_si'])) {
+                    $resumen['pago_semana']++;
+                }
+            }
+
             $payload = [
                 'success' => true,
                 'mensaje' => 'OK',
                 'semana_inicio' => $semanaSelDt->format('Y-m-d'),
                 'semana_fin' => $semanaSelDt->modify('+6 days')->format('Y-m-d'),
                 'semanas' => $semanas,
+                'resumen' => $resumen,
                 'filas' => $filas,
             ];
             self::statsCacheWrite($cacheKey, $payload, 300);
             return $payload;
         } catch (\Throwable $e) {
             error_log('getReporteSemanalGestorGlobal error: ' . $e->getMessage());
-            return ['success' => false, 'mensaje' => $e->getMessage(), 'semana_inicio' => '', 'semana_fin' => '', 'semanas' => [], 'filas' => []];
+            return [
+                'success' => false,
+                'mensaje' => $e->getMessage(),
+                'semana_inicio' => '',
+                'semana_fin' => '',
+                'semanas' => [],
+                'resumen' => [],
+                'filas' => [],
+            ];
+        }
+    }
+
+    /**
+     * Reconsulta estado de cuenta para un solo crédito/ticket en el contexto del reporte semanal
+     * (evita el límite global max_api_calls del reporte masivo). Válido aunque el ticket esté cerrado.
+     */
+    public static function reconsultarPagoSemanaReporteSemanal(int $idTicket, string $semanaInicio = ''): array
+    {
+        $db = new Database();
+        $whereReporteTicket = "NOT EXISTS (
+            SELECT 1
+            FROM ticket_historico he
+            WHERE he.id_ticket = t.id_ticket
+              AND he.tipo_accion = 'eliminado'
+              AND he.fecha_eliminacion = (
+                  SELECT MAX(hx.fecha_eliminacion)
+                  FROM ticket_historico hx
+                  WHERE hx.id_ticket = t.id_ticket
+              )
+        )";
+        if ($idTicket < 1) {
+            return ['success' => false, 'mensaje' => 'id_ticket inválido'];
+        }
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = self::cdmxNowImmutable();
+            $dow = (int)$now->format('N');
+            $mondayCurrent = $now->modify('-' . ($dow - 1) . ' days')->setTime(0, 0, 0);
+            $mondayLastClosed = $mondayCurrent->modify('-7 days');
+
+            $semanaSelDt = $mondayLastClosed;
+            if ($semanaInicio !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicio)) {
+                $tmp = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $semanaInicio . ' 00:00:00', $tz);
+                if ($tmp instanceof \DateTimeImmutable && $tmp < $mondayCurrent) {
+                    $semanaSelDt = $tmp;
+                }
+            }
+
+            $semanaSelInicio = $semanaSelDt->format('Y-m-d') . ' 00:00:00';
+            $semanaSelFinExcl = $semanaSelDt->modify('+7 days')->format('Y-m-d') . ' 00:00:00';
+            $semanaSelFinIncl = $semanaSelDt->modify('+6 days')->format('Y-m-d') . ' 23:59:59';
+
+            $row = $db->queryOne(
+                "SELECT t.id_ticket, t.id_credito " .
+                "FROM ticket t " .
+                "INNER JOIN dictamen d ON d.id_ticket = t.id_ticket AND d.estado = 'enviado_al_gestor' " .
+                "INNER JOIN (SELECT id_ticket, MAX(fecha_actualizacion) AS mx FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) dm " .
+                "ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx " .
+                "WHERE t.id_ticket = :tid AND $whereReporteTicket " .
+                "AND d.fecha_actualizacion >= :fi AND d.fecha_actualizacion < :ff",
+                ['tid' => $idTicket, 'fi' => $semanaSelInicio, 'ff' => $semanaSelFinExcl]
+            );
+            if (!is_array($row) || empty($row['id_ticket'])) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'El ticket no aparece en el reporte de esa semana (dictamen al gestor fuera del rango o ticket eliminado).',
+                ];
+            }
+            $idCredito = (int)($row['id_credito'] ?? 0);
+            if ($idCredito < 1) {
+                return ['success' => false, 'mensaje' => 'El ticket no tiene crédito asociado.'];
+            }
+
+            $optsUnCredito = [
+                'timeout_segundos' => 15,
+                'max_api_calls' => 50,
+                'cache_ttl_segundos' => 0,
+            ];
+            $resPs = self::getPagosEstadoCuentaEnVentana($idCredito, $semanaSelInicio, $semanaSelFinIncl, $optsUnCredito);
+            $pagoSemana = [
+                'si' => !empty($resPs['pagos'] ?? []),
+                'count' => is_array($resPs['pagos'] ?? null) ? count($resPs['pagos']) : 0,
+                'consultado' => !empty($resPs['__SPARTA_SECRET_REDACTED___consultado']),
+            ];
+
+            $fueDirecciones = null;
+            $dsRow = $db->queryOne(
+                "SELECT ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
+                "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema WHERE id_ticket = :tid GROUP BY id_ticket) dsmx " .
+                "ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid",
+                ['tid' => $idTicket]
+            );
+            if (is_array($dsRow) && $dsRow !== []) {
+                $detJson = !empty($dsRow['detalle']) ? json_decode((string)$dsRow['detalle'], true) : null;
+                if (is_array($detJson)) {
+                    $totDir = (int)($detJson['direcciones_dictamen_total'] ?? 0);
+                    $visDir = (int)($detJson['direcciones_visitadas'] ?? 0);
+                    if (array_key_exists('visito_todas_direcciones', $detJson)) {
+                        $fueDirecciones = !empty($detJson['visito_todas_direcciones']);
+                    } elseif ($totDir > 0) {
+                        $fueDirecciones = ($visDir === $totDir);
+                    }
+                }
+            }
+
+            $esIlocalizable = ($fueDirecciones === true) && !empty($pagoSemana['consultado']) && empty($pagoSemana['si']);
+
+            $cacheKeyReporte = 'reporte_semanal_global:v2:' . $semanaSelDt->format('Y-m-d');
+            self::statsCacheDelete($cacheKeyReporte);
+
+            return [
+                'success' => true,
+                'mensaje' => 'OK',
+                'id_ticket' => $idTicket,
+                'id_credito' => $idCredito,
+                'semana_inicio' => $semanaSelDt->format('Y-m-d'),
+                'pago_semana_si' => !empty($pagoSemana['si']),
+                'pago_semana_count' => (int)$pagoSemana['count'],
+                'pago_semana_consultado' => !empty($pagoSemana['consultado']),
+                'ilocalizable' => $esIlocalizable,
+            ];
+        } catch (\Throwable $e) {
+            error_log('reconsultarPagoSemanaReporteSemanal error: ' . $e->getMessage());
+            return ['success' => false, 'mensaje' => $e->getMessage()];
         }
     }
 

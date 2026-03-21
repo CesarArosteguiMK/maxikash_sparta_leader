@@ -5,12 +5,14 @@ namespace Controllers;
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
 
+require_once dirname(__DIR__) . '/cronjobs/PrimerosPagosAutoSwitch.php';
+
 class Reporteria extends Controller
 {
     public function reporteCapitalHumano()
     {
         $script = "";
-        self::set("titulo", "Reporte CH");
+        self::set("titulo", "Capital Humano");
         self::set("script", $script);
         self::render("reporte_capital_humano");
     }
@@ -801,14 +803,30 @@ HTML;
     }
 
     /**
-     * Vista: Reportes del módulo Sabuesos (Tickets, Panel Admin, Cerrado/Eliminado)
+     * Vista: Reportes de tickets (descargas Excel).
      */
     public function sabuesos()
     {
         $script = "";
-        self::set("titulo", "Reportes - Sabuesos");
+        self::set("titulo", "Reportes");
         self::set("script", $script);
         self::render("reporteria_sabuesos");
+    }
+
+    /**
+     * Consulta por ID crédito bajo Reportería (URL limpia; misma vista que el panel Sabueso en modo solo lectura).
+     */
+    public function consultaIdCredito()
+    {
+        (new Sabueso())->paneladmin(true);
+    }
+
+    /**
+     * Alias histórico: misma acción que consultaIdCredito.
+     */
+    public function consultaCreditoRastreo()
+    {
+        $this->consultaIdCredito();
     }
 
     /**
@@ -1091,6 +1109,1707 @@ HTML;
         }
     }
 
+    /**
+     * Landing de Primeros pagos: elige semana actual (Visualizar → VencimientosLunes) o siguiente (Próximamente).
+     */
+    public function PrimerosPagos()
+    {
+        self::set("titulo", "Primeros pagos");
+        self::set("script", "");
+        self::render("reporte_primeros_pagos_inicio");
+    }
+
+    public function VencimientosLunes()
+    {
+        $script = <<<'HTML'
+        <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            const BUCKET_META = {
+                'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current' },
+                'b) 1 a 7 dias':   { cls: 'bg-label-info',      icon: 'fa-clock',                short: '1-7d'    },
+                'c) 8 a 30 dias':  { cls: 'bg-label-warning',   icon: 'fa-triangle-exclamation', short: '8-30d'   },
+                'd) 31 a 60 dias': { cls: 'bg-label-danger',    icon: 'fa-fire',                 short: '31-60d'  },
+                'e) 61+ dias':     { cls: 'bg-label-secondary', icon: 'fa-skull-crossbones',     short: '61+d'    },
+            };
+            const BUCKET_ORDER  = Object.keys(BUCKET_META);
+            const BUCKET_MATRIZ = BUCKET_ORDER.slice(0, 2);
+
+            function badgeBucket(val, small = false) {
+                const v = val || '—';
+                const m = BUCKET_META[v] ?? { cls:'bg-label-secondary', icon:'fa-question', short: v };
+                const sz = small ? 'font-size:.68rem;' : '';
+                return `<span class="badge ${m.cls}" style="${sz}">
+                            <i class="fa ${m.icon} me-1"></i>${small ? m.short : v}
+                        </span>`;
+            }
+
+            function movimientoHtml(nacio, actual) {
+                if (!nacio || !actual) return '<span class="text-muted">—</span>';
+                const iN = BUCKET_ORDER.indexOf(nacio);
+                const iA = BUCKET_ORDER.indexOf(actual);
+                if (iN === iA) return `<span class="text-muted" title="Sin cambio"><i class="fa fa-equals"></i></span>`;
+                if (iA < iN)   return `<span class="text-success" title="Mejoró"><i class="fa fa-arrow-up"></i></span>`;
+                return `<span class="text-danger" title="Empeoró"><i class="fa fa-arrow-down"></i></span>`;
+            }
+
+            const dtLang = {
+                decimal:',', thousands:'.', emptyTable:'Sin registros',
+                info:'Mostrando _START_ a _END_ de _TOTAL_',
+                infoEmpty:'0 registros', infoFiltered:'(de _MAX_)',
+                lengthMenu:'Mostrar _MENU_', loadingRecords:'Cargando...',
+                processing:'Procesando...', search:'',
+                searchPlaceholder:'Buscar...', zeroRecords:'Sin coincidencias',
+                paginate:{ first:'«', last:'»', next:'›', previous:'‹' },
+            };
+
+            let _data        = [];
+            let dtVenc       = null;
+            let _corteActual = '';
+
+            /* ── DataTable ── */
+            function initDT() {
+                if ($.fn.DataTable.isDataTable('#tablaVencimientos'))
+                    $('#tablaVencimientos').DataTable().destroy();
+
+                dtVenc = $('#tablaVencimientos').DataTable({
+                    processing: true, responsive: true, pageLength: 5,
+                    lengthMenu: [[5, 10, 25, -1], [5, 10, 25, 'Todos']],
+                    order: [[0,'asc']], language: dtLang,
+                    columns: [
+                        { data:'general',   width:'200px' },
+                        { data:'jerarquia', width:'220px', orderable: false },
+                        { data:'nacio',     className:'text-center', width:'130px' },
+                        { data:'corte',     className:'text-center', width:'160px' },
+                    ]
+                });
+            }
+
+            /* ── Stats ── */
+            function calcStats(data) {
+                const nacDist = {};
+                BUCKET_ORDER.forEach(b => nacDist[b] = 0);
+                data.forEach(r => { if (nacDist[r.bucket_nacio] !== undefined) nacDist[r.bucket_nacio]++; });
+
+                const matriz = {};
+                BUCKET_ORDER.forEach(b => {
+                    matriz[b] = {};
+                    BUCKET_ORDER.forEach(c => matriz[b][c] = 0);
+                });
+                data.forEach(r => {
+                    const n = r.bucket_nacio;
+                    const c = r.bucket_corte_actual;
+                    if (n && c && matriz[n] !== undefined) {
+                        matriz[n][c] = (matriz[n][c] || 0) + 1;
+                    }
+                });
+
+                return { nacDist, matriz };
+            }
+
+            /** Misma fecha / corte que el encabezado (#lunesFecha, #corteLabel); colores alineados con el título. */
+            function actualizarTituloDistribCorte() {
+                const elFe = document.getElementById('distribCorteFecha');
+                const elCo = document.getElementById('distribCorteCorteLbl');
+                if (!elFe && !elCo) return;
+                const fe = (document.getElementById('lunesFecha')?.textContent || '').trim() || '—';
+                const co = (document.getElementById('corteLabel')?.textContent || '').trim() || '—';
+                if (elFe) elFe.textContent = fe;
+                if (elCo) elCo.textContent = co;
+            }
+
+            function renderStats(data) {
+                const { nacDist, matriz } = calcStats(data);
+                const totalRegs = data.length || 0;
+                const pctOf = (n) => (totalRegs ? Math.round((Number(n) / totalRegs) * 100) : 0);
+
+                /* Cards nacimiento */
+                let htmlNac = '';
+                BUCKET_ORDER.forEach(b => {
+                    const m   = BUCKET_META[b] ?? {};
+                    const cnt = nacDist[b] || 0;
+                    if (!cnt) return;
+                    htmlNac += `
+                    <div class="col">
+                        <div class="card text-center h-100 border-0 shadow-sm">
+                            <div class="card-body py-2 px-2">
+                                <div class="badge ${m.cls} mb-1" style="font-size:.65rem;">
+                                    <i class="fa ${m.icon} me-1"></i>${m.short}
+                                </div>
+                                <div class="fw-bold" style="font-size:1.5rem;">${cnt}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="text-muted" style="font-size:.65rem;">nacieron</div>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                document.getElementById('statsNacimiento').innerHTML = htmlNac;
+
+                /* Distribución de corte: Current | Pendientes primeros pagos */
+                const totalCurrentNac = nacDist['a) Current'] || 0;
+                const recuperados1a7  = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
+                const currentMasRecuperados = totalCurrentNac + recuperados1a7;
+                const total1a7Nac    = nacDist['b) 1 a 7 dias'] || 0;
+                const pendientes     = total1a7Nac - recuperados1a7;
+                let htmlCorte = '';
+                htmlCorte += `
+                <div class="col">
+                    <div style="background:#f0f3f7;border-radius:.375rem;padding:.6rem .5rem;text-align:center;height:100%;">
+                            <div class="badge bg-label-success mb-1" style="font-size:.65rem;">
+                                <i class="fa fa-circle-check me-1"></i>Current
+                            </div>
+                            <div class="fw-bold" style="font-size:1.5rem;">${currentMasRecuperados}<span class="fw-semibold" style="font-size:1.05rem;margin-left:6px;color:#6c757d;">(${pctOf(currentMasRecuperados)}%)</span></div>
+                            <div style="font-size:.65rem;color:#6c757d;">al corte</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div style="background:#f0f3f7;border-radius:.375rem;padding:.6rem .5rem;text-align:center;height:100%;">
+                            <div class="badge bg-label-warning mb-1" style="font-size:.58rem;white-space:normal;line-height:1.25;max-width:100%;">
+                                <i class="fa fa-clock me-1"></i>Pendientes primeros pagos
+                            </div>
+                            <div class="fw-bold" style="font-size:1.5rem;">${pendientes}<span class="fw-semibold" style="font-size:1.05rem;margin-left:6px;color:#6c757d;">(${pctOf(pendientes)}%)</span></div>
+                            <div style="font-size:.65rem;color:#6c757d;">por recuperar</div>
+                    </div>
+                </div>`;
+                document.getElementById('statsCorte').innerHTML = htmlCorte;
+                actualizarTituloDistribCorte();
+
+                /* Matriz de efectividad */
+                let htmlMat = `
+                <style>
+                    .mef-header {
+                        display: grid;
+                        grid-template-columns: 150px 70px 1fr 1fr 140px;
+                        gap: 12px;
+                        padding: 4px 14px 8px;
+                        font-size: .68rem;
+                        color: #888;
+                        text-transform: uppercase;
+                        letter-spacing: .5px;
+                    }
+                    .mef-row {
+                        display: grid;
+                        grid-template-columns: 150px 70px 1fr 1fr 140px;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 10px 14px;
+                        border-radius: .375rem;
+                        margin-bottom: 6px;
+                        background: var(--bs-light, #f8f9fa);
+                        border: 1px solid rgba(0,0,0,.06);
+                    }
+                    .mef-num { font-size: 1.25rem; font-weight: 600; }
+                    .mef-cell { display: flex; flex-direction: column; gap: 2px; }
+                    .mef-lbl  { font-size: .68rem; color: #888; }
+                    .mef-val-green { font-size: .92rem; font-weight: 600; color: #28a745; }
+                    .mef-val-gray  { font-size: .92rem; font-weight: 500; color: #6c757d; }
+                    .mef-bar-track { height: 5px; background: rgba(0,0,0,.08); border-radius: 3px; width: 100%; margin-top: 3px; }
+                    .mef-bar-fill  { height: 5px; border-radius: 3px; }
+                    .mef-pct  { font-size: .82rem; font-weight: 600; }
+                    .mef-note { font-size: .67rem; color: #888; margin-top: 1px; }
+                </style>
+
+                <div class="mef-header">
+                    <span>Cómo nació</span>
+                    <span>Total</span>
+                    <span>Recuperaron ↑</span>
+                    <span>Sin cambio</span>
+                    <span>Efectividad</span>
+                </div>`;
+
+                /* Fila Global (cartera completa, naranja) */
+                const totalCurrent = nacDist['a) Current'] || 0;
+                const total17     = nacDist['b) 1 a 7 dias'] || 0;
+                const totalGlobal = totalCurrent + total17;
+                if (totalGlobal > 0) {
+                    const pctCurrent = Math.round(totalCurrent / totalGlobal * 100);
+                    const pct17      = 100 - pctCurrent;
+                    const badgeGlobal = '<span class="badge bg-label-warning"><i class="fa fa-globe me-1"></i>Global</span>';
+                    const colRecuperoGlobal = `
+                        <div class="mef-cell">
+                            <span class="mef-lbl">Toda la cartera</span>
+                            <span class="mef-val-gray">${totalGlobal} créditos</span>
+                        </div>`;
+                    const colIgualGlobal = `
+                        <div class="mef-cell">
+                            <span class="mef-lbl">Resumen cartera</span>
+                            <span class="mef-val-gray">${totalCurrent} current · ${total17} 1-7d</span>
+                        </div>`;
+                    const colEfectGlobal = `
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <span class="mef-pct text-success">${pctCurrent}%</span>
+                                <span class="mef-note">current</span>
+                                <span class="mef-note">·</span>
+                                <span class="mef-pct text-info">${pct17}%</span>
+                                <span class="mef-note">1-7d</span>
+                            </div>
+                            <div class="mef-bar-track" style="display:flex;">
+                                <div class="mef-bar-fill" style="flex:0 0 ${pctCurrent}%;background:var(--bs-success,#28a745);"></div>
+                                <div class="mef-bar-fill" style="flex:0 0 ${pct17}%;background:var(--bs-info,#03c3ec);"></div>
+                            </div>
+                        </div>`;
+                    htmlMat += `
+                    <div class="mef-row">
+                        <div>${badgeGlobal}</div>
+                        <div class="mef-num">${totalGlobal}</div>
+                        ${colRecuperoGlobal}
+                        ${colIgualGlobal}
+                        ${colEfectGlobal}
+                    </div>`;
+                }
+
+                BUCKET_MATRIZ.forEach(b => {
+                    const total = BUCKET_ORDER.reduce((a, c) => a + (matriz[b][c] || 0), 0);
+                    if (!total) return;
+
+                    const iB = BUCKET_ORDER.indexOf(b);
+
+                    let mejoraron = 0;
+                    BUCKET_ORDER.forEach((c, iC) => { if (iC < iB) mejoraron += (matriz[b][c] || 0); });
+                    const igual = matriz[b][b] || 0;
+                    let empeoraron = 0;
+                    BUCKET_ORDER.forEach((c, iC) => { if (iC > iB) empeoraron += (matriz[b][c] || 0); });
+
+                    const pct      = total ? Math.round(mejoraron / total * 100) : 0;
+                    const barColor = pct >= 70 ? '#28a745' : pct >= 40 ? '#fd7e14' : '#dc3545';
+                    const pctCls   = pct >= 70 ? 'text-success' : pct >= 40 ? 'text-warning' : 'text-danger';
+
+                    let colRecupero = '';
+                    if (iB === 0) {
+                        colRecupero = `
+                        <div class="mef-cell">
+                            <span class="mef-lbl">Ya eran current</span>
+                            <span class="mef-val-gray">— no aplica</span>
+                        </div>`;
+                    } else {
+                        colRecupero = `
+                        <div class="mef-cell">
+                            <span class="mef-lbl">Bajaron a mejor bucket</span>
+                            <span class="mef-val-green">
+                                <i class="fa fa-arrow-up fa-xs me-1"></i>${mejoraron} créditos
+                            </span>
+                        </div>`;
+                    }
+
+                    const colIgual = `
+                    <div class="mef-cell">
+                        <span class="mef-lbl">${iB === 0 ? 'Siguen current' : 'Siguen en ' + BUCKET_META[b].short}</span>
+                        <span class="mef-val-gray">${igual} créditos</span>
+                        ${empeoraron > 0
+                            ? `<span class="mef-lbl text-danger mt-1">
+                                   <i class="fa fa-arrow-down fa-xs me-1"></i>${empeoraron} empeoraron
+                               </span>`
+                            : ''}
+                    </div>`;
+
+                    let colEfect = '';
+                    if (iB === 0) {
+                        colEfect = `
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="mef-pct text-success">100%</span>
+                                <span class="mef-note">sin mora al corte</span>
+                            </div>
+                            <div class="mef-bar-track">
+                                <div class="mef-bar-fill" style="width:100%;background:#28a745;"></div>
+                            </div>
+                        </div>`;
+                    } else {
+                        const pendientes = total - mejoraron;
+                        colEfect = `
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="mef-pct ${pctCls}">${pct}%</span>
+                                <span class="mef-note">recuperados</span>
+                            </div>
+                            <div class="mef-bar-track">
+                                <div class="mef-bar-fill" style="width:${pct}%;background:${barColor};"></div>
+                            </div>
+                            <div class="mef-note mt-1">${pendientes} pendiente${pendientes !== 1 ? 's' : ''} de gestión</div>
+                        </div>`;
+                    }
+
+                    htmlMat += `
+                    <div class="mef-row">
+                        <div>${badgeBucket(b)}</div>
+                        <div class="mef-num">${total}</div>
+                        ${colRecupero}
+                        ${colIgual}
+                        ${colEfect}
+                    </div>`;
+                });
+
+                document.getElementById('statsMatriz').innerHTML = htmlMat;
+
+                renderStatsJerarquia(data);
+            }
+
+            /* ── Ranking jerarquía — rediseñado ── */
+            function renderStatsJerarquia(data) {
+                const territoriales = {};
+
+                data.forEach(r => {
+                    const ter  = r.Territorial     || '(Sin territorial)';
+                    const zon  = r.Zonal           || '(Sin zonal)';
+                    const jefe = r.Jefe_de_Plaza   || '(Sin jefe)';
+                    const gest = r.Gestor_Asignado || '(Sin gestor)';
+
+                    if (!territoriales[ter]) territoriales[ter] = { total:0, cobrados:0, pendientes:0, zonales:{} };
+                    const T = territoriales[ter]; T.total++;
+
+                    /* clave combinada zonal+jefe para evitar filas dobles */
+                    const zonKey = zon === jefe ? zon : `${zon}|||${jefe}`;
+                    if (!T.zonales[zonKey]) T.zonales[zonKey] = {
+                        zonNombre: zon, jefNombre: jefe, mismoNombre: zon === jefe,
+                        total:0, cobrados:0, pendientes:0, gestores:{}
+                    };
+                    const Z = T.zonales[zonKey]; Z.total++;
+
+                    if (!Z.gestores[gest]) Z.gestores[gest] = { total:0, cobrados:0, pendientes:0 };
+                    const G = Z.gestores[gest]; G.total++;
+
+                    const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
+                    const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
+                    const cobro = (iA >= 0 && iN >= 0 && iA < iN);
+
+                    if (cobro) {
+                        G.cobrados++;  Z.cobrados++;  T.cobrados++;
+                    } else {
+                        G.pendientes++; Z.pendientes++; T.pendientes++;
+                    }
+                });
+
+                /* detectar si el territorial es "current" (sin gestión de cobranza) */
+                const esCurrent = (nombre) =>
+                    /^current$/i.test(nombre.trim()) ||
+                    nombre.trim() === '(Sin territorial)';
+
+                const terOrdenados = Object.entries(territoriales)
+                    .map(([k,v]) => ({ nombre:k, ...v }))
+                    .sort((a, b) => {
+                        if (esCurrent(a.nombre)) return -1;
+                        if (esCurrent(b.nombre)) return  1;
+                        return (a.cobrados / Math.max(a.total,1)) - (b.cobrados / Math.max(b.total,1));
+                    });
+
+                const barColor = (pct) => pct >= 70 ? '#28a745' : pct >= 40 ? '#fd7e14' : '#dc3545';
+                const pctClass = (pct) => pct >= 70 ? 'text-success' : pct >= 40 ? 'text-warning' : 'text-danger';
+                const borderClass = (pct) => pct >= 70 ? 'border-success' : pct >= 40 ? 'border-warning' : 'border-danger';
+
+                let html = '';
+                terOrdenados.forEach((ter, idx) => {
+
+                    /* ── Territorial CURRENT: solo informativo ── */
+                    if (esCurrent(ter.nombre)) {
+                        html += `
+                        <div class="card mb-3 border-start border-3 border-secondary">
+                            <div class="card-header d-flex align-items-center justify-content-between py-2"
+                                 style="cursor:pointer;"
+                                 data-bs-toggle="collapse"
+                                 data-bs-target="#ter_${idx}">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-label-secondary" style="font-size:.65rem;">Sin territorial asignado</span>
+                                    <strong style="font-size:.85rem;">Créditos nacidos en current</strong>
+                                    <span class="badge bg-label-secondary ms-1">${ter.total} créditos</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="text-muted" style="font-size:.75rem;font-style:italic;">Solo informativo — nacieron sin mora</span>
+                                    <i class="fa fa-chevron-down text-muted"></i>
+                                </div>
+                            </div>
+                            <div class="collapse" id="ter_${idx}">
+                                <div class="card-body py-2" style="background:#f8f9fa;">
+                                    <p class="mb-0 text-muted" style="font-size:.78rem;">
+                                        <i class="fa fa-circle-info text-secondary me-1"></i>
+                                        Estos créditos nacieron en bucket <strong>Current</strong> (sin mora).
+                                        No requieren gestión de cobranza y no generan indicador de efectividad.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>`;
+                        return;
+                    }
+
+                    /* ── Territorial normal ── */
+                    const pctTer = ter.total ? Math.round(ter.cobrados / ter.total * 100) : 0;
+
+                    const zonOrdenados = Object.values(ter.zonales)
+                        .sort((a,b) => (a.cobrados/Math.max(a.total,1)) - (b.cobrados/Math.max(b.total,1)));
+
+                    let htmlZon = '';
+                    zonOrdenados.forEach(zon => {
+                        const pZ = zon.total ? Math.round(zon.cobrados / zon.total * 100) : 0;
+
+                        /* Etiqueta de nivel según si zonal y jefe son la misma persona */
+                        const nivelBadge = zon.mismoNombre
+                            ? `<span class="badge bg-label-info me-2" style="font-size:.62rem;">Zonal · Jefe de plaza</span>`
+                            : `<span class="badge bg-label-info me-1" style="font-size:.62rem;">Zonal</span>
+                               <span class="text-muted me-1" style="font-size:.68rem;">${zon.zonNombre}</span>
+                               <span class="badge bg-label-primary me-2" style="font-size:.62rem;">Jefe de plaza</span>`;
+
+                        const nombreMostrar = zon.mismoNombre ? zon.zonNombre : zon.jefNombre;
+
+                        const gestOrdenados = Object.entries(zon.gestores)
+                            .map(([k,v]) => ({ nombre:k, ...v }))
+                            .sort((a,b) => (a.cobrados/Math.max(a.total,1)) - (b.cobrados/Math.max(b.total,1)));
+
+                        let htmlGest = '';
+                        gestOrdenados.forEach(gest => {
+                            const pG = gest.total ? Math.round(gest.cobrados / gest.total * 100) : 0;
+                            htmlGest += `
+                            <tr>
+                                <td style="padding-left:2.2rem;font-size:.72rem;">
+                                    <i class="fa fa-user text-muted me-1"></i>${gest.nombre}
+                                </td>
+                                <td class="text-center" style="font-size:.72rem;">${gest.total}</td>
+                                <td class="text-center ${gest.cobrados > 0 ? 'text-success' : 'text-muted'}" style="font-size:.72rem;">
+                                    ${gest.cobrados}
+                                </td>
+                                <td class="text-center ${gest.pendientes > 0 ? 'text-warning' : 'text-muted'}" style="font-size:.72rem;">
+                                    ${gest.pendientes}
+                                </td>
+                                <td class="text-center" style="font-size:.72rem;">
+                                    <div class="progress d-inline-flex" style="height:4px;width:50px;vertical-align:middle;">
+                                        <div class="progress-bar" style="width:${pG}%;background:${barColor(pG)};"></div>
+                                    </div>
+                                    <span class="ms-1 ${pctClass(pG)}">${pG}%</span>
+                                </td>
+                            </tr>`;
+                        });
+
+                        htmlZon += `
+                        <tr class="table-light">
+                            <td style="padding-left:.8rem;font-size:.75rem;">
+                                ${nivelBadge}
+                                <span class="fw-semibold">${nombreMostrar}</span>
+                            </td>
+                            <td class="text-center fw-semibold" style="font-size:.75rem;">${zon.total}</td>
+                            <td class="text-center text-success fw-semibold" style="font-size:.75rem;">${zon.cobrados}</td>
+                            <td class="text-center text-warning fw-semibold" style="font-size:.75rem;">${zon.pendientes}</td>
+                            <td class="text-center" style="font-size:.75rem;">
+                                <div class="progress d-inline-flex" style="height:5px;width:55px;vertical-align:middle;">
+                                    <div class="progress-bar" style="width:${pZ}%;background:${barColor(pZ)};"></div>
+                                </div>
+                                <span class="ms-1 ${pctClass(pZ)}">${pZ}%</span>
+                            </td>
+                        </tr>${htmlGest}`;
+                    });
+
+                    html += `
+                    <div class="card mb-3 border-start border-3 ${borderClass(pctTer)}">
+                        <div class="card-header d-flex align-items-center justify-content-between py-2"
+                             style="cursor:pointer;"
+                             data-bs-toggle="collapse"
+                             data-bs-target="#ter_${idx}">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge bg-label-secondary" style="font-size:.63rem;">Territorial</span>
+                                <strong style="font-size:.85rem;">${ter.nombre}</strong>
+                                <span class="badge bg-label-secondary">${ter.total} créditos</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="d-flex flex-column align-items-end" style="font-size:.75rem;">
+                                    <span class="text-success"><i class="fa fa-circle-check me-1"></i>${ter.cobrados} cobrados</span>
+                                    <span class="text-warning"><i class="fa fa-clock me-1"></i>${ter.pendientes} pendientes</span>
+                                </div>
+                                <div class="d-flex flex-column align-items-end gap-1">
+                                    <span class="${pctClass(pctTer)} fw-bold" style="font-size:.85rem;">${pctTer}%</span>
+                                    <div class="progress" style="height:4px;width:60px;">
+                                        <div class="progress-bar" style="width:${pctTer}%;background:${barColor(pctTer)};"></div>
+                                    </div>
+                                </div>
+                                <i class="fa fa-chevron-down text-muted"></i>
+                            </div>
+                        </div>
+                        <div class="collapse" id="ter_${idx}">
+                            <div class="card-body p-0">
+                                <table class="table table-sm mb-0 align-middle" style="font-size:.74rem;">
+                                    <thead class="table-dark" style="font-size:.67rem;">
+                                        <tr>
+                                            <th>Nivel y nombre</th>
+                                            <th class="text-center">Total</th>
+                                            <th class="text-center">Cobrados</th>
+                                            <th class="text-center">Pendientes</th>
+                                            <th class="text-center">Efectividad</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${htmlZon}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+
+                document.getElementById('statsJerarquia').innerHTML =
+                    html || '<p class="text-muted">Sin datos.</p>';
+            }
+
+            /* ── Acordeón jerarquía en tabla ── */
+            function jerarquiaHtml(r, idx) {
+                const niveles = [];
+                if (r.Territorial)   niveles.push({ icono:'fa-globe',            cls:'text-secondary', label: r.Territorial   });
+                if (r.Zonal)         niveles.push({ icono:'fa-map-location-dot', cls:'text-info',      label: r.Zonal         });
+                if (r.Jefe_de_Plaza) niveles.push({ icono:'fa-user-tie',         cls:'text-primary',   label: r.Jefe_de_Plaza });
+                niveles.push(                     { icono:'fa-user',             cls:'text-muted',     label: r.Gestor_Asignado || '—' });
+
+                const id  = `jq_${idx}`;
+                const top = niveles[0];
+
+                if (niveles.length === 1) {
+                    return `<div style="font-size:.75rem;">
+                                <i class="fa ${top.icono} ${top.cls} me-1"></i>${top.label}
+                            </div>`;
+                }
+
+                return `
+                <div>
+                    <div class="d-flex align-items-center gap-1"
+                         style="cursor:pointer;font-size:.75rem;"
+                         onclick="toggleJQ('${id}')">
+                        <i class="fa ${top.icono} ${top.cls}"></i>
+                        <span class="fw-semibold">${top.label}</span>
+                        <i class="fa fa-chevron-right fa-xs text-muted ms-1 jq-ico" id="ico_${id}"></i>
+                    </div>
+                    <div id="${id}" style="display:none;padding-left:.8rem;margin-top:.25rem;border-left:2px solid #e0e0e0;">
+                        ${niveles.slice(1).map(n => `
+                            <div style="font-size:.71rem;margin-bottom:.12rem;">
+                                <i class="fa ${n.icono} ${n.cls} me-1"></i>${n.label}
+                            </div>`).join('')}
+                    </div>
+                </div>`;
+            }
+
+            window.toggleJQ = function(id) {
+                const el  = document.getElementById(id);
+                const ico = document.getElementById(`ico_${id}`);
+                if (!el) return;
+                const open = el.style.display !== 'none';
+                el.style.display = open ? 'none' : 'block';
+                if (ico) ico.className = `fa fa-xs text-muted ms-1 jq-ico ${open ? 'fa-chevron-right' : 'fa-chevron-down'}`;
+            };
+
+            /* ── Filtros ── */
+            function actualizarOpcionesBucketCorte(data, nacioValue) {
+                const sel = document.getElementById('fBucketCorte');
+                if (!sel) return;
+                const cur = sel.value;
+                if (nacioValue === 'a) Current') {
+                    sel.innerHTML = '<option value="a) Current">a) Current</option>';
+                    sel.value = 'a) Current';
+                } else if (nacioValue === 'b) 1 a 7 dias') {
+                    sel.innerHTML = '<option value="">Todos</option><option value="a) Current">a) Current</option><option value="b) 1 a 7 dias">b) 1 a 7 dias</option>';
+                    if (cur === 'a) Current' || cur === 'b) 1 a 7 dias') sel.value = cur;
+                    else sel.value = '';
+                } else {
+                    const vals = [...new Set(data.map(r => r.bucket_corte_actual).filter(Boolean))].sort();
+                    sel.innerHTML = '<option value="">Todos</option>';
+                    vals.forEach(v => {
+                        const o = document.createElement('option');
+                        o.value = v; o.textContent = v;
+                        if (v === cur) o.selected = true;
+                        sel.appendChild(o);
+                    });
+                }
+            }
+
+            function poblarFiltros(data) {
+                const campos = {
+                    fBucketNacio: r => r.bucket_nacio,
+                    fTerritorial: r => r.Territorial,
+                    fZonal:       r => r.Zonal,
+                    fJefe:        r => r.Jefe_de_Plaza,
+                    fGestor:      r => r.Gestor_Asignado,
+                };
+                Object.entries(campos).forEach(([id, fn]) => {
+                    const sel = document.getElementById(id);
+                    if (!sel) return;
+                    const cur  = sel.value;
+                    const vals = [...new Set(data.map(fn).filter(Boolean))].sort();
+                    sel.innerHTML = `<option value="">Todos</option>`;
+                    vals.forEach(v => {
+                        const o = document.createElement('option');
+                        o.value = v; o.textContent = v;
+                        if (v === cur) o.selected = true;
+                        sel.appendChild(o);
+                    });
+                });
+                actualizarOpcionesBucketCorte(data, document.getElementById('fBucketNacio')?.value || '');
+            }
+
+            function aplicarFiltros(data) {
+                const f = {
+                    bucketNacio: document.getElementById('fBucketNacio')?.value || '',
+                    bucketCorte: document.getElementById('fBucketCorte')?.value || '',
+                    territorial: document.getElementById('fTerritorial')?.value || '',
+                    zonal:       document.getElementById('fZonal')?.value       || '',
+                    jefe:        document.getElementById('fJefe')?.value        || '',
+                    gestor:      document.getElementById('fGestor')?.value      || '',
+                    busq:       (document.getElementById('fBusq')?.value        || '').toLowerCase(),
+                    movimiento:  document.getElementById('fMovimiento')?.value  || '',
+                };
+                return data.filter(r => {
+                    if (f.bucketNacio && r.bucket_nacio        !== f.bucketNacio) return false;
+                    if (f.bucketCorte && r.bucket_corte_actual !== f.bucketCorte) return false;
+                    if (f.territorial && r.Territorial         !== f.territorial) return false;
+                    if (f.zonal       && r.Zonal               !== f.zonal)       return false;
+                    if (f.jefe        && r.Jefe_de_Plaza       !== f.jefe)        return false;
+                    if (f.gestor      && r.Gestor_Asignado     !== f.gestor)      return false;
+                    if (f.busq) {
+                        const h = `${r.Nombre_cliente} ${r.Id_credito}`.toLowerCase();
+                        if (!h.includes(f.busq)) return false;
+                    }
+                    if (f.movimiento) {
+                        const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
+                        const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
+                        if (f.movimiento === 'mejoro'   && !(iA < iN))   return false;
+                        if (f.movimiento === 'empeoró'  && !(iA > iN))   return false;
+                        if (f.movimiento === 'igual'    && !(iA === iN)) return false;
+                    }
+                    return true;
+                });
+            }
+
+            /* ── Cargar ── */
+            async function cargar() {
+                document.getElementById('statTotal').textContent = '…';
+                if (typeof showWait === 'function') {
+                    showWait();
+                } else {
+                    Swal.fire({
+                        title: 'Procesando su petición',
+                        text: 'Espere un momento...',
+                        imageUrl: '/assets/img/wait.svg',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false
+                    });
+                }
+                try {
+                    const r = await fetch('/Reporteria/getVencimientosLunes', { method:'POST' });
+                    const d = await r.json();
+                    _data        = d.datos        || [];
+                    _corteActual = d.corte_actual || '';
+
+                    if (d.lunes_pasado)
+                        document.getElementById('lunesFecha').textContent = d.lunes_pasado;
+                    if (_corteActual)
+                        document.getElementById('corteLabel').textContent =
+                            _corteActual.replace(/_/g,' ');
+
+                    poblarFiltros(_data);
+                    renderTabla();
+                    renderStats(_data);
+                    await cargarEstadoEnvioAutomatico();
+                } catch(e) {
+                    console.error(e);
+                } finally {
+                    Swal.close();
+                }
+            }
+
+            async function cargarEstadoEnvioAutomatico() {
+                const badge = document.getElementById('estadoEnvioAuto');
+                const badgeAgente = document.getElementById('estadoAgenteCorreos');
+                const swAuto = document.getElementById('switchAutoEnvioPrimerosPagos');
+                if (!badge) return;
+                try {
+                    const r = await fetch('/Reporteria/getEstadoEnvioVencimientosLunesProgramado', { method:'POST' });
+                    const d = await r.json();
+                    if (!d?.success) {
+                        badge.className = 'badge bg-label-danger';
+                        badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: sin estado';
+                        badge.title = d?.mensaje || 'No se pudo consultar estado de cron.';
+                        if (badgeAgente) {
+                            badgeAgente.className = 'badge bg-label-secondary';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: —';
+                            badgeAgente.title = '';
+                        }
+                        return;
+                    }
+                    const en = d.datos?.auto_envio_enabled === true;
+                    if (swAuto) swAuto.checked = en;
+                    const st = d.datos?.estado || 'pendiente';
+                    const detalle = d.datos?.detalle || '';
+                    if (st === 'apagado') {
+                        badge.className = 'badge bg-label-secondary';
+                        badge.innerHTML = '<i class="fa fa-power-off me-1"></i> Auto correo: desactivado';
+                    } else if (st === 'ok') {
+                        badge.className = 'badge bg-label-success';
+                        badge.innerHTML = '<i class="fa fa-circle-check me-1"></i> Auto correo: OK';
+                    } else if (st === 'error') {
+                        badge.className = 'badge bg-label-danger';
+                        badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: error de envío';
+                    } else if (st === 'incompleto') {
+                        badge.className = 'badge bg-label-warning';
+                        badge.innerHTML = '<i class="fa fa-calendar-day me-1"></i> Auto correo: faltan ventanas';
+                    } else {
+                        badge.className = 'badge bg-label-warning';
+                        badge.innerHTML = '<i class="fa fa-clock me-1"></i> Auto correo: pendiente';
+                    }
+                    let title = detalle || 'Estado de envío automático.';
+                    if (d.datos?.auto_envio_updated_at) {
+                        title += ' · Interruptor: ' + d.datos.auto_envio_updated_at;
+                    }
+                    badge.title = title;
+
+                    if (badgeAgente) {
+                        const agOn = d.datos?.agente_correos_online;
+                        const agDet = d.datos?.agente_correos_detalle || '';
+                        if (agOn === null || agOn === undefined) {
+                            badgeAgente.className = 'badge bg-label-secondary';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: no consultado';
+                            badgeAgente.title = agDet || 'Sonda desactivada en config o sin datos.';
+                        } else if (agOn === true) {
+                            badgeAgente.className = 'badge bg-label-success';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: en línea';
+                            badgeAgente.title = agDet;
+                        } else {
+                            badgeAgente.className = 'badge bg-label-danger';
+                            badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: fuera de línea';
+                            badgeAgente.title = agDet;
+                        }
+                    }
+                } catch (e) {
+                    badge.className = 'badge bg-label-danger';
+                    badge.innerHTML = '<i class="fa fa-circle-xmark me-1"></i> Auto correo: sin estado';
+                    badge.title = 'Error al consultar estado.';
+                    const badgeAgente = document.getElementById('estadoAgenteCorreos');
+                    if (badgeAgente) {
+                        badgeAgente.className = 'badge bg-label-secondary';
+                        badgeAgente.innerHTML = '<i class="fa fa-robot me-1"></i> Agente: —';
+                    }
+                }
+            }
+
+            /* ── Render tabla ── */
+            function renderTabla() {
+                const datos = aplicarFiltros(_data);
+                document.getElementById('statTotal').textContent = datos.length;
+                initDT();
+
+                const fmt = v => '$' + parseFloat(v||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+
+                const rows = datos.map((r, i) => {
+                    const saldo = parseFloat(r.Saldo_vencido_actualizado || 0);
+                    return {
+                        general: `
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="fa fa-id-card text-primary mt-1" style="font-size:.9rem;"></i>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:.82rem;">${r.Nombre_cliente || '—'}</div>
+                                    <div class="text-muted" style="font-size:.7rem;">
+                                        <i class="fa fa-hashtag fa-xs me-1"></i>${r.Id_credito || ''}
+                                    </div>
+                                </div>
+                            </div>`,
+
+                        jerarquia: jerarquiaHtml(r, i),
+
+                        nacio: badgeBucket(r.bucket_nacio),
+
+                        corte: `<div>${badgeBucket(r.bucket_corte_actual)}</div>`,
+                    };
+                });
+
+                dtVenc.clear().rows.add(rows).draw();
+            }
+
+            function buildCorreoPayload() {
+                const datos = aplicarFiltros(_data);
+                const { nacDist, matriz } = calcStats(datos);
+                const totalCurrentNac = nacDist['a) Current'] || 0;
+                const total1a7Nac = nacDist['b) 1 a 7 dias'] || 0;
+                const recuperados1a7 = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
+                const pendientes1a7 = Math.max(0, total1a7Nac - recuperados1a7);
+                const totalGlobal = totalCurrentNac + total1a7Nac;
+                const pctCurrent = totalGlobal ? Math.round(totalCurrentNac / totalGlobal * 100) : 0;
+                const pct17 = 100 - pctCurrent;
+                const pctRecuperados = total1a7Nac ? Math.round(recuperados1a7 / total1a7Nac * 100) : 0;
+
+                return {
+                    total_registros: datos.length,
+                    primer_vencimiento: document.getElementById('lunesFecha')?.textContent?.trim() || '',
+                    corte_actual: document.getElementById('corteLabel')?.textContent?.trim() || '',
+                    generado_en: new Date().toISOString(),
+                    global: {
+                        total: totalGlobal,
+                        current: totalCurrentNac,
+                        uno_a_siete: total1a7Nac,
+                        pct_current: pctCurrent,
+                        pct_uno_a_siete: pct17,
+                    },
+                    nacimiento: {
+                        current: totalCurrentNac,
+                        uno_a_siete: total1a7Nac,
+                    },
+                    corte: {
+                        current_mas_recuperados: totalCurrentNac + recuperados1a7,
+                        pendientes: pendientes1a7,
+                    },
+                    matriz: {
+                        current: {
+                            total: totalCurrentNac,
+                            siguen_current: totalCurrentNac,
+                            efectividad: totalCurrentNac > 0 ? 100 : 0,
+                        },
+                        uno_a_siete: {
+                            total: total1a7Nac,
+                            recuperados: recuperados1a7,
+                            siguen_uno_a_siete: pendientes1a7,
+                            efectividad: pctRecuperados,
+                        },
+                    },
+                    nota: 'Datos calculados con los filtros actualmente aplicados en pantalla.',
+                };
+            }
+
+            /* ── Exportar CSV ── */
+            document.getElementById('btnExportarCSV')?.addEventListener('click', () => {
+                const datos = aplicarFiltros(_data);
+                const headers = [
+                    'Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
+                    'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
+                    'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte'
+                ];
+                const rows = datos.map(r => [
+                    r.Id_credito, r.Nombre_cliente,
+                    r.bucket_nacio, r.bucket_corte_actual,
+                    r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
+                    r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte
+                ]);
+                const csv = [headers,...rows].map(r=>r.map(v=>`"${v??''}"`).join(',')).join('\n');
+                const a   = document.createElement('a');
+                a.href    = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+                a.download = `vencimientos_lunes_${new Date().toISOString().substring(0,10)}.csv`;
+                a.click();
+            });
+
+            /* ── Interruptor envío automático (servidor; no depende de sesión al releer) ── */
+            document.getElementById('switchAutoEnvioPrimerosPagos')?.addEventListener('change', async function () {
+                const el = this;
+                const previous = !el.checked;
+                const fd = new FormData();
+                fd.append('enabled', el.checked ? '1' : '0');
+                try {
+                    const r = await fetch('/Reporteria/setSwitchPrimerosPagosAutoEnvio', { method: 'POST', body: fd });
+                    const d = await r.json();
+                    if (!d?.success) {
+                        el.checked = previous;
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'error', title: 'No se guardó', text: d?.mensaje || '' });
+                        }
+                        return;
+                    }
+                    await cargarEstadoEnvioAutomatico();
+                } catch (e) {
+                    el.checked = previous;
+                    console.error(e);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo guardar el interruptor.' });
+                    }
+                }
+            });
+
+            /* ── Enviar correo ── */
+            document.getElementById('btnEnviarCorreo')?.addEventListener('click', async () => {
+                const btn = document.getElementById('btnEnviarCorreo');
+                const defaultAsunto = 'Primeros pagos — Lunes de Cierre';
+                let destinatariosRaw = '';
+                let asunto = defaultAsunto;
+                const parseEmails = (raw) => (raw || '')
+                    .split(/[,\s;]+/)
+                    .map(v => v.trim().toLowerCase())
+                    .filter(Boolean);
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                if (typeof Swal !== 'undefined') {
+                    const res = await Swal.fire({
+                        title: 'Enviar reporte por correo',
+                        html: `
+                            <div class="text-start">
+                                <label class="form-label mb-1">Destinatarios</label>
+                                <input id="swal-emails" class="swal2-input" placeholder="correo1@dominio.com, correo2@dominio.com" style="width:100%;margin:.2rem 0 .8rem 0;">
+                                <div id="swal-emails-preview" class="small text-muted" style="min-height:20px;margin:-.2rem 0 .8rem 0;"></div>
+                                <label class="form-label mb-1">Asunto</label>
+                                <input id="swal-asunto" class="swal2-input" value="${defaultAsunto}" style="width:100%;margin:.2rem 0 0 0;">
+                            </div>`,
+                        confirmButtonText: 'Enviar',
+                        showCancelButton: true,
+                        cancelButtonText: 'Cancelar',
+                        focusConfirm: false,
+                        didOpen: () => {
+                            const input = document.getElementById('swal-emails');
+                            const preview = document.getElementById('swal-emails-preview');
+                            const refreshPreview = () => {
+                                const emails = [...new Set(parseEmails(input?.value || ''))];
+                                if (!preview) return;
+                                if (!emails.length) {
+                                    preview.textContent = 'Sin correos detectados.';
+                                    return;
+                                }
+                                const invalidos = emails.filter(e => !emailRegex.test(e));
+                                if (invalidos.length) {
+                                    preview.innerHTML = `<span class="text-danger">Correos inválidos: ${invalidos.join(', ')}</span>`;
+                                    return;
+                                }
+                                preview.innerHTML = `<span class="text-success">${emails.length} correo(s):</span> ${emails.join(', ')}`;
+                            };
+                            refreshPreview();
+                            input?.addEventListener('input', refreshPreview);
+                        },
+                        preConfirm: () => {
+                            const emails = document.getElementById('swal-emails')?.value?.trim() || '';
+                            const asuntoVal = document.getElementById('swal-asunto')?.value?.trim() || defaultAsunto;
+                            if (!emails) {
+                                Swal.showValidationMessage('Escribe al menos un destinatario.');
+                                return false;
+                            }
+                            const lista = [...new Set(parseEmails(emails))];
+                            const invalidos = lista.filter(e => !emailRegex.test(e));
+                            if (!lista.length) {
+                                Swal.showValidationMessage('Escribe al menos un destinatario válido.');
+                                return false;
+                            }
+                            if (invalidos.length) {
+                                Swal.showValidationMessage(`Corrige correos inválidos: ${invalidos.join(', ')}`);
+                                return false;
+                            }
+                            return { emails: lista.join(','), asunto: asuntoVal };
+                        }
+                    });
+                    if (!res.isConfirmed || !res.value) return;
+                    destinatariosRaw = res.value.emails;
+                    asunto = res.value.asunto;
+                } else {
+                    destinatariosRaw = window.prompt('Destinatarios (separados por coma):', '') || '';
+                    if (!destinatariosRaw.trim()) return;
+                    asunto = window.prompt('Asunto:', defaultAsunto) || defaultAsunto;
+                }
+
+                const destinatarios = [...new Set(parseEmails(destinatariosRaw))];
+
+                if (!destinatarios.length) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'warning', title: 'Sin destinatarios', text: 'Agrega al menos un correo válido.' });
+                    }
+                    return;
+                }
+
+                const payload = {
+                    destinatarios,
+                    asunto,
+                    reporte: buildCorreoPayload(),
+                };
+
+                try {
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Enviando...';
+                    }
+
+                    const resp = await fetch('/Reporteria/enviarCorreoVencimientosLunes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const out = await resp.json();
+
+                    if (out?.success) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'success', title: 'Correo enviado', text: out.mensaje || 'Reporte enviado correctamente.' });
+                        }
+                    } else {
+                        throw new Error(out?.mensaje || 'No se pudo enviar el correo.');
+                    }
+                } catch (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error', text: err?.message || 'Error al enviar correo.' });
+                    }
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa fa-envelope me-1"></i> Enviar correo';
+                    }
+                }
+            });
+
+            /* ── Eventos ── */
+            const elBucketNacio = document.getElementById('fBucketNacio');
+            if (elBucketNacio) {
+                elBucketNacio.addEventListener('change', function() {
+                    actualizarOpcionesBucketCorte(_data, this.value || '');
+                    renderTabla();
+                    renderStats(aplicarFiltros(_data));
+                });
+            }
+            ['fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
+                .forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener('change', () => {
+                        renderTabla();
+                        renderStats(aplicarFiltros(_data));
+                    });
+                });
+
+            document.getElementById('fBusq')
+                ?.addEventListener('input', renderTabla);
+
+            document.getElementById('btnReset').addEventListener('click', () => {
+                ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
+                    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                document.getElementById('fBusq').value = '';
+                actualizarOpcionesBucketCorte(_data, '');
+                renderTabla();
+                renderStats(_data);
+            });
+
+            cargar();
+        });
+        </script>
+    HTML;
+
+        self::set("titulo", "Primeros pagos — Lunes de Cierre");
+        self::set("script", $script);
+        self::render("reporte_vencimientos_lunes");
+    }
+    public function getVencimientosLunes()
+    {
+        try {
+            self::respuestaJSON(EmpresasDAO::getVencimientosLunes());
+        } catch (\Exception $e) {
+            self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Config [correos_primeros_pagos_agent] para sondar el proceso Node (HTTP).
+     */
+    private function correosPrimerosPagosAgenteConfig(): array
+    {
+        static $cfg = null;
+        if ($cfg !== null) {
+            return $cfg;
+        }
+        $cfg = ['enabled' => '1', 'url' => 'http://127.0.0.1:3110'];
+        $configFile = __DIR__ . '/../config/config.ini';
+        if (is_file($configFile)) {
+            $parsed = @parse_ini_file($configFile, true);
+            if (is_array($parsed) && isset($parsed['correos_primeros_pagos_agent']) && is_array($parsed['correos_primeros_pagos_agent'])) {
+                $cfg = array_merge($cfg, $parsed['correos_primeros_pagos_agent']);
+            }
+        }
+        return $cfg;
+    }
+
+    /**
+     * @return array{online: ?bool, detail: string, json: ?array}
+     */
+    private function probeCorreosPrimerosPagosAgent(): array
+    {
+        $c = $this->correosPrimerosPagosAgenteConfig();
+        $enabled = in_array((string)($c['enabled'] ?? '1'), ['1', 'true', 'TRUE', 'yes', 'on'], true);
+        if (!$enabled) {
+            return ['online' => null, 'detail' => 'Sonda del agente desactivada en config.ini.', 'json' => null];
+        }
+        $url = rtrim(trim((string)($c['url'] ?? 'http://127.0.0.1:3110')), '/');
+        $target = $url . '/';
+        if (function_exists('curl_init')) {
+            $ch = curl_init($target);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
+            $raw = curl_exec($ch);
+            $err = curl_error($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($raw === false) {
+                return ['online' => false, 'detail' => 'Sin conexión al agente en ' . $url . ' (' . ($err ?: 'timeout') . ').', 'json' => null];
+            }
+            if ($code < 200 || $code >= 300) {
+                return ['online' => false, 'detail' => 'Agente respondió HTTP ' . $code . '.', 'json' => null];
+            }
+            $j = json_decode($raw, true);
+            if (!is_array($j)) {
+                return ['online' => false, 'detail' => 'Respuesta no JSON del agente.', 'json' => null];
+            }
+            $ok = !empty($j['ok']);
+            $interval = isset($j['intervalMs']) ? (int)$j['intervalMs'] : 0;
+            $sec = $interval > 0 ? (int)round($interval / 1000) : 600;
+            $partFreq = ($sec >= 60 && $sec % 60 === 0)
+                ? ('cada ~' . (int)($sec / 60) . ' min')
+                : ('cada ~' . $sec . ' s');
+            $detail = $ok
+                ? 'Agente Node activo (' . $partFreq . ' ejecuta el cron PHP). Horarios de envío: CDMX (no la hora del servidor).'
+                : 'Agente respondió sin ok.';
+            return ['online' => $ok, 'detail' => $detail, 'json' => $j];
+        }
+        $ctx = stream_context_create(['http' => ['timeout' => 3, 'ignore_errors' => true]]);
+        $raw = @file_get_contents($target, false, $ctx);
+        if ($raw === false) {
+            return ['online' => false, 'detail' => 'No se pudo conectar al agente.', 'json' => null];
+        }
+        $j = json_decode($raw, true);
+        if (is_array($j) && !empty($j['ok'])) {
+            return ['online' => true, 'detail' => 'Agente Node activo.', 'json' => $j];
+        }
+        return ['online' => false, 'detail' => 'Respuesta inválida.', 'json' => null];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildCorreosAgenteMetaForEstado(): array
+    {
+        $p = $this->probeCorreosPrimerosPagosAgent();
+        $out = [
+            'agente_correos_online' => $p['online'],
+            'agente_correos_detalle' => $p['detail'],
+        ];
+        if (is_array($p['json'])) {
+            $out['agente_correos_interval_ms'] = $p['json']['intervalMs'] ?? null;
+            $out['agente_correos_pid'] = $p['json']['pid'] ?? null;
+        }
+        return $out;
+    }
+
+    public function getEstadoEnvioVencimientosLunesProgramado()
+    {
+        try {
+            if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+            }
+
+            date_default_timezone_set('America/Mexico_City');
+            $stSwitch = \PrimerosPagosAutoSwitch::getState();
+            $baseMeta = array_merge([
+                'auto_envio_enabled' => $stSwitch['enabled'],
+                'auto_envio_updated_at' => $stSwitch['updated_at'],
+            ], $this->buildCorreosAgenteMetaForEstado());
+
+            if (!$stSwitch['enabled']) {
+                self::respuestaJSON(self::respuesta(true, 'Envío automático desactivado', array_merge($baseMeta, [
+                    'estado' => 'apagado',
+                    'detalle' => 'El interruptor está apagado. El cron no enviará correos hasta activarlo (estado guardado en el servidor).',
+                ])));
+            }
+
+            // CDMX, 24 h (tarde/noche: 16:40, 18:40, 20:40, 23:50 — no formato 12 h en UI)
+            $horarios = ['07:40','09:40','11:40','13:40','14:40','16:40','18:40','20:40','23:50'];
+            $hoy = date('Y-m-d');
+            $ahora = date('H:i');
+            $transcurridos = array_values(array_filter($horarios, function ($h) use ($ahora) {
+                return strcmp($h, $ahora) <= 0;
+            }));
+
+            $estadoFile = RAIZ . '/cronjobs/logs/primeros_pagos_estado.json';
+            if (!is_file($estadoFile)) {
+                self::respuestaJSON(self::respuesta(true, 'Sin estado aún', array_merge($baseMeta, [
+                    'estado' => 'pendiente',
+                    'detalle' => 'Aún no hay estado registrado del cron para hoy.'
+                ])));
+            }
+
+            $raw = @file_get_contents($estadoFile);
+            $json = is_string($raw) ? json_decode($raw, true) : null;
+            if (!is_array($json) || ($json['date'] ?? '') !== $hoy) {
+                self::respuestaJSON(self::respuesta(true, 'Estado del día no disponible', array_merge($baseMeta, [
+                    'estado' => 'pendiente',
+                    'detalle' => 'No hay estado registrado para hoy.'
+                ])));
+            }
+
+            $slots = is_array($json['slots'] ?? null) ? $json['slots'] : [];
+            if (empty($transcurridos)) {
+                self::respuestaJSON(self::respuesta(true, 'Aún sin horarios vencidos', array_merge($baseMeta, [
+                    'estado' => 'pendiente',
+                    'detalle' => 'Aún no hay horarios programados transcurridos hoy.'
+                ])));
+            }
+
+            $faltantes = [];
+            $errores = [];
+            foreach ($transcurridos as $slot) {
+                if (!isset($slots[$slot])) {
+                    $faltantes[] = $slot;
+                    continue;
+                }
+                if (($slots[$slot]['status'] ?? '') !== 'success') {
+                    $errores[] = $slot;
+                }
+            }
+
+            if (empty($faltantes) && empty($errores)) {
+                $ultimo = end($transcurridos);
+                self::respuestaJSON(self::respuesta(true, 'OK', array_merge($baseMeta, [
+                    'estado' => 'ok',
+                    'detalle' => "Todos los envíos automáticos transcurridos van OK. Último horario validado: {$ultimo}."
+                ])));
+            }
+
+            $detalle = '';
+            if (!empty($faltantes)) {
+                $detalle .= 'Sin registro automático en ventanas: ' . implode(', ', $faltantes) . '. ';
+            }
+            if (!empty($errores)) {
+                $detalle .= 'Cron marcó fallo en: ' . implode(', ', $errores) . '.';
+            }
+            $detalle = trim($detalle);
+            // Rojo solo si hubo intentos automáticos no exitosos; faltantes = cron no corrió o solo manual/--force.
+            $estado = !empty($errores) ? 'error' : 'incompleto';
+            if ($estado === 'incompleto') {
+                $detalle .= ' No indica fallo de correo si solo usaste envío manual o --force: esas ejecuciones no llenan el slot fijo (07:40, 09:40…).';
+            }
+            self::respuestaJSON(self::respuesta(true, 'Con incidencias', array_merge($baseMeta, [
+                'estado' => $estado,
+                'detalle' => trim($detalle)
+            ])));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al consultar estado: ' . $e->getMessage()));
+        }
+    }
+
+    /**
+     * Activa/desactiva el envío automático por cron (solo usuario_id 1).
+     * El estado se guarda en disco en el servidor, no en sesión.
+     */
+    public function setSwitchPrimerosPagosAutoEnvio()
+    {
+        try {
+            if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+            }
+
+            $raw = $_POST['enabled'] ?? null;
+            if ($raw === null || $raw === '') {
+                self::respuestaJSON(self::respuesta(false, 'Falta el parámetro enabled (0 o 1).'));
+            }
+            $sv = strtolower(trim((string)$raw));
+            if ($sv !== '0' && $sv !== '1') {
+                self::respuestaJSON(self::respuesta(false, 'enabled debe ser 0 o 1.'));
+            }
+            $enabled = ($sv === '1');
+
+            $saved = \PrimerosPagosAutoSwitch::setEnabled($enabled);
+            self::respuestaJSON(self::respuesta(true, $enabled ? 'Envío automático activado.' : 'Envío automático desactivado.', [
+                'auto_envio_enabled' => $saved['enabled'],
+                'auto_envio_updated_at' => $saved['updated_at'],
+            ]));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar interruptor: ' . $e->getMessage()));
+        }
+    }
+
+    /**
+     * Uso por cron: genera datos frescos y envía correo a una lista.
+     */
+    public function enviarCorreoVencimientosLunesProgramado(array $destinatarios, string $asunto = 'Primeros pagos — Lunes de Cierre'): array
+    {
+        try {
+            $destinatariosLimpios = [];
+            foreach ($destinatarios as $email) {
+                $email = strtolower(trim((string)$email));
+                if ($email === '') {
+                    continue;
+                }
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    return self::respuesta(false, "Correo inválido en cron: {$email}");
+                }
+                $destinatariosLimpios[] = $email;
+            }
+            $destinatariosLimpios = array_values(array_unique($destinatariosLimpios));
+            if (empty($destinatariosLimpios)) {
+                return self::respuesta(false, 'Cron sin destinatarios válidos.');
+            }
+
+            $raw = EmpresasDAO::getVencimientosLunes();
+            if (empty($raw['success'])) {
+                return self::respuesta(false, $raw['mensaje'] ?? 'No se pudieron obtener datos del reporte.');
+            }
+
+            $rows = is_array($raw['datos'] ?? null) ? $raw['datos'] : [];
+            $payload = $this->buildPayloadVencimientosLunes($rows, (string)($raw['lunes_pasado'] ?? ''), (string)($raw['corte_actual'] ?? ''));
+            $html = $this->buildCorreoVencimientosLunesHtml($payload);
+            $envio = $this->enviarCorreoHtmlVencimientos($destinatariosLimpios, $asunto, $html);
+            if (empty($envio['success'])) {
+                return self::respuesta(false, $envio['mensaje'] ?? 'No se pudo enviar el correo programado.');
+            }
+
+            return self::respuesta(true, 'Correo programado enviado.', [
+                'destinatarios' => $destinatariosLimpios,
+                'total_registros' => $payload['total_registros'] ?? 0,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::enviarCorreoVencimientosLunesProgramado -> ' . $e->getMessage());
+            return self::respuesta(false, 'Error en envío programado: ' . $e->getMessage());
+        }
+    }
+
+    private function buildPayloadVencimientosLunes(array $rows, string $lunesPasado, string $corteActual): array
+    {
+        $bucketNacio = [
+            'a) Current' => 0,
+            'b) 1 a 7 dias' => 0,
+        ];
+
+        $matriz = [
+            'b) 1 a 7 dias' => ['a) Current' => 0],
+        ];
+
+        foreach ($rows as $r) {
+            $n = (string)($r['bucket_nacio'] ?? '');
+            $c = (string)($r['bucket_corte_actual'] ?? '');
+            if (array_key_exists($n, $bucketNacio)) {
+                $bucketNacio[$n]++;
+            }
+            if ($n === 'b) 1 a 7 dias' && $c === 'a) Current') {
+                $matriz['b) 1 a 7 dias']['a) Current']++;
+            }
+        }
+
+        $totalCurrentNac = (int)$bucketNacio['a) Current'];
+        $total1a7Nac = (int)$bucketNacio['b) 1 a 7 dias'];
+        $recuperados1a7 = (int)$matriz['b) 1 a 7 dias']['a) Current'];
+        $pendientes1a7 = max(0, $total1a7Nac - $recuperados1a7);
+        $totalGlobal = $totalCurrentNac + $total1a7Nac;
+        $pctCurrent = $totalGlobal > 0 ? (int)round($totalCurrentNac / $totalGlobal * 100) : 0;
+        $pct17 = $totalGlobal > 0 ? 100 - $pctCurrent : 0;
+        $pctRecuperados = $total1a7Nac > 0 ? (int)round($recuperados1a7 / $total1a7Nac * 100) : 0;
+
+        return [
+            'total_registros' => count($rows),
+            'primer_vencimiento' => $lunesPasado !== '' ? $lunesPasado : date('Y-m-d'),
+            'corte_actual' => str_replace('_', ' ', $corteActual),
+            'generado_en' => date('c'),
+            'global' => [
+                'total' => $totalGlobal,
+                'current' => $totalCurrentNac,
+                'uno_a_siete' => $total1a7Nac,
+                'pct_current' => $pctCurrent,
+                'pct_uno_a_siete' => $pct17,
+            ],
+            'nacimiento' => [
+                'current' => $totalCurrentNac,
+                'uno_a_siete' => $total1a7Nac,
+            ],
+            'corte' => [
+                'current_mas_recuperados' => $totalCurrentNac + $recuperados1a7,
+                'pendientes' => $pendientes1a7,
+            ],
+            'matriz' => [
+                'current' => [
+                    'total' => $totalCurrentNac,
+                    'siguen_current' => $totalCurrentNac,
+                    'efectividad' => $totalCurrentNac > 0 ? 100 : 0,
+                ],
+                'uno_a_siete' => [
+                    'total' => $total1a7Nac,
+                    'recuperados' => $recuperados1a7,
+                    'siguen_uno_a_siete' => $pendientes1a7,
+                    'efectividad' => $pctRecuperados,
+                ],
+            ],
+            'nota' => 'Datos generados automáticamente para envío programado.',
+        ];
+    }
+
+    public function enviarCorreoVencimientosLunes()
+    {
+        try {
+            if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado para enviar este correo.'));
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true) ?: [];
+            $destinatarios = $input['destinatarios'] ?? [];
+            $asunto = trim((string)($input['asunto'] ?? 'Primeros pagos — Lunes de Cierre'));
+            $reporte = is_array($input['reporte'] ?? null) ? $input['reporte'] : [];
+
+            if (!is_array($destinatarios) || empty($destinatarios)) {
+                self::respuestaJSON(self::respuesta(false, 'Debes indicar al menos un destinatario.'));
+            }
+
+            $destinatariosLimpios = [];
+            foreach ($destinatarios as $email) {
+                $email = strtolower(trim((string)$email));
+                if ($email === '') {
+                    continue;
+                }
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    self::respuestaJSON(self::respuesta(false, "Correo inválido: {$email}"));
+                }
+                $destinatariosLimpios[] = $email;
+            }
+            $destinatariosLimpios = array_values(array_unique($destinatariosLimpios));
+
+            if (empty($destinatariosLimpios)) {
+                self::respuestaJSON(self::respuesta(false, 'No hay destinatarios válidos para enviar.'));
+            }
+
+            $html = $this->buildCorreoVencimientosLunesHtml($reporte);
+            $resultadoEnvio = $this->enviarCorreoHtmlVencimientos($destinatariosLimpios, $asunto, $html);
+
+            if (!$resultadoEnvio['success']) {
+                self::respuestaJSON(self::respuesta(false, $resultadoEnvio['mensaje'] ?? 'No se pudo enviar el correo.'));
+            }
+
+            self::respuestaJSON(self::respuesta(true, 'Correo enviado correctamente.', [
+                'destinatarios' => $destinatariosLimpios
+            ]));
+        } catch (\Throwable $e) {
+            error_log('Reporteria::enviarCorreoVencimientosLunes -> ' . $e->getMessage());
+            self::respuestaJSON(self::respuesta(false, 'Error al enviar correo: ' . $e->getMessage()));
+        }
+    }
+
+    private function enviarCorreoHtmlVencimientos(array $destinatarios, string $asunto, string $html): array
+    {
+        try {
+            $autoload = RAIZ . '/libs/PHPMailer/vendor/autoload.php';
+            if (!is_file($autoload)) {
+                return self::respuesta(false, 'No se encontró PHPMailer en el proyecto.');
+            }
+            require_once $autoload;
+
+            $configPath = RAIZ . '/config/config.ini';
+            $ini = is_file($configPath) ? parse_ini_file($configPath, true) : [];
+            $mail = $ini['mail'] ?? [];
+
+            $smtpHost = trim((string)($mail['smtp_host'] ?? ''));
+            $smtpPort = (int)($mail['smtp_port'] ?? 587);
+            $smtpSecure = strtolower(trim((string)($mail['smtp_secure'] ?? 'tls')));
+            $smtpUser = trim((string)($mail['smtp_user'] ?? ''));
+            $smtpPass = trim((string)($mail['smtp_pass'] ?? ''));
+            $from = trim((string)($mail['mail_from'] ?? $smtpUser));
+            $fromName = trim((string)($mail['mail_from_name'] ?? 'Sparta Ledger'));
+
+            if ($smtpHost === '' || $smtpUser === '' || $smtpPass === '') {
+                return self::respuesta(false, 'Falta configuración SMTP en backend/config/config.ini sección [mail].');
+            }
+
+            $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mailer->isSMTP();
+            $mailer->Host = $smtpHost;
+            $mailer->Port = $smtpPort;
+            $mailer->SMTPAuth = true;
+            $mailer->Username = $smtpUser;
+            $mailer->Password = $smtpPass;
+            if ($smtpSecure === 'ssl') {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+            } else {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            }
+            $mailer->CharSet = 'UTF-8';
+            $mailer->isHTML(true);
+            $mailer->setFrom($from !== '' ? $from : $smtpUser, $fromName !== '' ? $fromName : 'Sparta Ledger');
+            $mailer->Sender = ($from !== '' ? $from : $smtpUser);
+            $mailer->addReplyTo(($from !== '' ? $from : $smtpUser), $fromName !== '' ? $fromName : 'Sparta Ledger');
+            $mailer->Subject = $asunto;
+            $mailer->Body = $html;
+            $mailer->AltBody = strip_tags($html);
+
+            foreach ($destinatarios as $email) {
+                $mailer->addAddress($email);
+            }
+            $mailer->send();
+
+            return self::respuesta(true, 'OK');
+        } catch (\Throwable $e) {
+            error_log('Reporteria::enviarCorreoHtmlVencimientos -> ' . $e->getMessage());
+            return self::respuesta(false, 'No se pudo enviar el correo: ' . $e->getMessage());
+        }
+    }
+
+    private function buildCorreoVencimientosLunesHtml(array $r): string
+    {
+        $num = function ($v): string {
+            return number_format((float)$v, 0, '.', ',');
+        };
+        $esc = function ($v): string {
+            return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+        };
+
+        $primerVencimiento = $esc($r['primer_vencimiento'] ?? '—');
+        $corteActual = $esc($r['corte_actual'] ?? '—');
+        $generadoEn = isset($r['generado_en']) ? date('Y-m-d', strtotime((string)$r['generado_en'])) : date('Y-m-d');
+
+        $total = (float)($r['total_registros'] ?? 0);
+        $nacCurrent = (float)($r['nacimiento']['current'] ?? 0);
+        $nac17 = (float)($r['nacimiento']['uno_a_siete'] ?? 0);
+
+        $corteRecuperados = (float)($r['corte']['current_mas_recuperados'] ?? 0);
+        $cortePendientes = (float)($r['corte']['pendientes'] ?? 0);
+
+        $globTotal = (float)($r['global']['total'] ?? 0);
+        $globCurrent = (float)($r['global']['current'] ?? 0);
+        $glob17 = (float)($r['global']['uno_a_siete'] ?? 0);
+        $pctCurrent = (float)($r['global']['pct_current'] ?? 0);
+        $pct17 = (float)($r['global']['pct_uno_a_siete'] ?? 0);
+
+        $mCurrentTotal = (float)($r['matriz']['current']['total'] ?? 0);
+        $mCurrentSiguen = (float)($r['matriz']['current']['siguen_current'] ?? 0);
+
+        $m17Total = (float)($r['matriz']['uno_a_siete']['total'] ?? 0);
+        $m17Recuperados = (float)($r['matriz']['uno_a_siete']['recuperados'] ?? 0);
+        $m17Siguen = (float)($r['matriz']['uno_a_siete']['siguen_uno_a_siete'] ?? 0);
+        $m17Efectividad = (float)($r['matriz']['uno_a_siete']['efectividad'] ?? 0);
+
+        $nota = $esc($r['nota'] ?? 'Generado automáticamente');
+
+        $den = $total > 0 ? (float)$total : 1;
+        $pctNacCurrent   = (int) round($nacCurrent       / $den * 100);
+        $pctNac17        = (int) round($nac17            / $den * 100);
+        $pctCorteCurrent = (int) round($corteRecuperados / $den * 100);
+        $pctCortePend    = (int) round($cortePendientes  / $den * 100);
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Primeros Pagos — Lunes de Cierre</title>
+  <style type="text/css">
+    body { margin: 0 !important; padding: 0 !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    .email-outer { width: 100%; background: #f0f4f8; }
+    .email-shell { max-width: 640px; width: 100%; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .mono { font-family: Consolas, 'Courier New', monospace; }
+    .header { background: #1d4ed8; padding: 28px 24px 20px; border-bottom: 1px solid #bfdbfe; }
+    .header-eyebrow { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #bfdbfe; margin-bottom: 8px; }
+    .header h1 { font-size: 20px; font-weight: 700; color: #fff; line-height: 1.35; margin: 0 0 12px 0; }
+    .body { padding: 24px 20px 28px; background: #ffffff; }
+    .stat-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; margin-bottom: 20px; }
+    .big-num { font-size: 36px; font-weight: 600; color: #1d4ed8; line-height: 1; }
+    .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+    .block-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .block-card-title { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 12px; }
+    .mini-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; text-align: center; }
+    .badge { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 10px; font-weight: 600; margin-bottom: 8px; }
+    .badge-green { background: #dcfce7; color: #16a34a; }
+    .badge-info { background: #e0f2fe; color: #0284c7; }
+    .badge-yellow { background: #fef9c3; color: #b45309; }
+    .num { font-size: 24px; font-weight: 600; color: #0f172a; line-height: 1.2; margin-bottom: 4px; }
+    .num-pct { font-size: 16px; font-weight: 600; color: #64748b; margin-left: 4px; }
+    .sub { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+    .footer { background: #f1f5f9; border-top: 1px solid #e2e8f0; padding: 14px 16px; text-align: center; font-size: 10px; color: #94a3b8; }
+    @media only screen and (max-width: 600px) {
+      .email-shell { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; }
+      .header { padding: 20px 14px 16px !important; }
+      .header h1 { font-size: 17px !important; }
+      .body { padding: 16px 12px 20px !important; }
+      .big-num { font-size: 30px !important; }
+      .num { font-size: 20px !important; }
+      .num-pct { font-size: 14px !important; }
+      .email-stack td.stack-col { display: block !important; width: 100% !important; max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; padding-bottom: 12px !important; }
+      .email-stack td.stack-col:last-child { padding-bottom: 0 !important; }
+      .stat-inner td { display: block !important; width: 100% !important; text-align: center !important; padding: 10px 12px !important; }
+      .footer { padding: 12px 10px !important; font-size: 9px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e293b;">
+  <table role="presentation" class="email-outer" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;">
+    <tr>
+      <td align="center" style="padding:12px 8px;">
+        <table role="presentation" class="email-shell" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;">
+          <tr>
+            <td class="header">
+              <div class="header-eyebrow">Reporte de cartera</div>
+              <h1>📅 Primeros Pagos — Lunes de Cierre</h1>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;color:#bfdbfe;line-height:1.5;">
+                <tr>
+                  <td style="padding:0 0 6px 0;">Primer vencimiento: <strong style="color:#ffffff;">{$primerVencimiento}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding:0;">Corte actual: <code class="mono" style="background:rgba(255,255,255,.2);color:#e0f2fe;border-radius:4px;padding:3px 8px;font-size:11px;">{$corteActual}</code></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="body">
+              <table role="presentation" class="stat-banner" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:20px;">
+                <tr class="stat-inner">
+                  <td class="mono" style="padding:14px 16px;vertical-align:middle;text-align:center;width:38%;" width="38%">
+                    <div class="big-num">{$num($total)}</div>
+                  </td>
+                  <td style="padding:14px 16px;vertical-align:middle;text-align:left;">
+                    <div style="font-size:15px;font-weight:600;color:#0f172a;margin-bottom:2px;">Registros totales</div>
+                    <div class="label">Cartera activa en el corte</div>
+                  </td>
+                </tr>
+              </table>
+
+              <div class="block-card">
+                <div class="block-card-title">🥚 Distribución de nacimiento</div>
+                <table role="presentation" class="email-stack" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;">
+                  <tr>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 6px 0 0;">
+                      <div class="mini-card">
+                        <div class="badge badge-green">✔ Current</div>
+                        <div class="num mono">{$num($nacCurrent)}<span class="num-pct">({$pctNacCurrent}%)</span></div>
+                        <div class="sub">nacieron</div>
+                      </div>
+                    </td>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 0 0 6px;">
+                      <div class="mini-card">
+                        <div class="badge badge-info">🕐 1-7d</div>
+                        <div class="num mono">{$num($nac17)}<span class="num-pct">({$pctNac17}%)</span></div>
+                        <div class="sub">nacieron</div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div class="block-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+                  <tr>
+                    <td style="font-size:12px;font-weight:600;color:#000000;padding:0 0 6px 0;">📊 Distribución de corte</td>
+                  </tr>
+                  <tr>
+                    <td style="font-size:11px;line-height:1.55;color:#64748b;padding:0;">
+                      <span style="color:#6b7785;font-weight:600;">{$primerVencimiento}</span><br />
+                      <span style="color:#475569;">Corte actual:</span>
+                      <code class="mono" style="display:inline-block;max-width:100%;word-break:break-word;background:rgba(3,195,236,.12);color:#0b7285;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-top:4px;">{$corteActual}</code>
+                    </td>
+                  </tr>
+                </table>
+                <table role="presentation" class="email-stack" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;">
+                  <tr>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 6px 0 0;">
+                      <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+                        <div class="badge badge-green">✔ Current</div>
+                        <div class="num mono">{$num($corteRecuperados)}<span class="num-pct">({$pctCorteCurrent}%)</span></div>
+                        <div class="sub">al corte</div>
+                      </div>
+                    </td>
+                    <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 0 0 6px;">
+                      <div class="mini-card" style="background:#f0f3f7;border:1px solid #d8dfe7;">
+                        <div class="badge badge-yellow" style="line-height:1.3;font-size:9px;">⏳ Pendientes primeros pagos</div>
+                        <div class="num mono">{$num($cortePendientes)}<span class="num-pct">({$pctCortePend}%)</span></div>
+                        <div class="sub">por recuperar</div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td class="footer mono">
+              {$nota} · Sistema de Cobranza · {$esc($generadoEn)}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+HTML;
+    }
     /**
      * Excel: detalle reciente (dictamen enviado) — misma base que estadísticas Sabueso.
      * Hasta 2000 filas para export; la vista en pantalla sigue usando el límite habitual vía API.

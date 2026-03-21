@@ -16,6 +16,105 @@ function getMenu()
         return '';
     }
 
+    $personaIdSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+    $mostrarMenuValidacionesAuto = false;
+    $urlMenuValidacionesAuto = '/validaciones/gestor';
+    $panelesMenuUsuario = ($personaIdSesion > 0) ? \Models\ConfigPanelUsuario::getPanelesPorPersona($personaIdSesion) : [];
+    $tienePanelAdminValidaciones = in_array('sabueso_panel_validaciones', $panelesMenuUsuario, true);
+
+    if ($personaIdSesion > 0 && array_intersect([18, 19], $_SESSION['modulos'])) {
+        try {
+            $dbMenu = new \Core\Database();
+            // Mismo criterio que Validaciones::getCapoInfoForTerritorial: jefe con depto y segmento en nombre (1_7 / 8_21).
+            $rowCapo = $dbMenu->queryOne(
+                "SELECT pp.nombre AS puesto_nombre, pp.departamento_id AS departamento_id
+                 FROM asigna_puesto ap
+                 INNER JOIN puesto pp ON pp.id = ap.id_puesto
+                 WHERE ap.id_persona = :id_persona
+                   AND pp.es_jefe = 1
+                   AND (ap.activo = 1 OR ap.activo IS NULL)
+                 ORDER BY pp.departamento_id ASC, pp.nivel ASC
+                 LIMIT 1",
+                ['id_persona' => $personaIdSesion]
+            );
+            $puestoNombreMenu = $rowCapo && isset($rowCapo['puesto_nombre'])
+                ? strtolower(trim((string)$rowCapo['puesto_nombre']))
+                : '';
+            $campoTerritorialMenu = '';
+            if ($puestoNombreMenu !== '') {
+                if (strpos($puestoNombreMenu, '1_7') !== false) {
+                    $campoTerritorialMenu = '1_7';
+                } elseif (strpos($puestoNombreMenu, '8_21') !== false) {
+                    $campoTerritorialMenu = '8_21';
+                }
+                if ($campoTerritorialMenu === '') {
+                    if (preg_match('/1\s*[-_ ]?\s*7/', $puestoNombreMenu)) {
+                        $campoTerritorialMenu = '1_7';
+                    } elseif (preg_match('/8\s*[-_ ]?\s*21/', $puestoNombreMenu)) {
+                        $campoTerritorialMenu = '8_21';
+                    }
+                }
+            }
+            $capoDepartamentoId = $rowCapo && isset($rowCapo['departamento_id']) ? (int)$rowCapo['departamento_id'] : 0;
+            $esCapoValidacionesTerritorial = $capoDepartamentoId > 0 && $campoTerritorialMenu !== '';
+
+            // Gestor: ticket(s) de validaciones asignados a la persona.
+            $asigRow = $dbMenu->queryOne(
+                "SELECT COUNT(1) AS total
+                 FROM asignacion_ticket at
+                 INNER JOIN ticket t ON t.id_ticket = at.id_ticket
+                 WHERE at.id_persona_asignada = :id_persona
+                   AND (at.activo = 1 OR at.fecha_liberacion IS NULL)
+                   AND (t.activo = 1 OR t.activo IS NULL)
+                   AND LOWER(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso')) = 'validaciones'",
+                ['id_persona' => $personaIdSesion]
+            );
+            $tieneAsignacionValidaciones = (int)($asigRow['total'] ?? 0) > 0;
+
+            // Quien tiene panel admin de validaciones usa /validaciones/paneladmin: no mostrar ítem "Validaciones" (gestor/territorial).
+            if (!$tienePanelAdminValidaciones && $esCapoValidacionesTerritorial) {
+                $mostrarMenuValidacionesAuto = true;
+                $urlMenuValidacionesAuto = '/validaciones/territorial';
+            } elseif (!$tienePanelAdminValidaciones && $tieneAsignacionValidaciones) {
+                $mostrarMenuValidacionesAuto = true;
+                $urlMenuValidacionesAuto = '/validaciones/gestor';
+            }
+        } catch (\Throwable $e) {
+            // Si falla la consulta, no bloquear render del menú.
+            $mostrarMenuValidacionesAuto = false;
+        }
+    }
+
+    $ticketSubItems = [
+        [
+            'label' => 'Ticket',
+            'url' => '/sabueso/ticket',
+            'modulos' => [18]
+        ],
+    ];
+    if ($mostrarMenuValidacionesAuto) {
+        $ticketSubItems[] = [
+            'label' => 'Validaciones',
+            'url' => $urlMenuValidacionesAuto,
+            'modulos' => [18, 19]
+        ];
+    }
+    $ticketSubItems[] = [
+        'label' => 'Panel Admin',
+        'url' => '/sabueso/panelAdminInicio',
+        'modulos' => [19, 25, 27]
+    ];
+    $ticketSubItems[] = [
+        'label' => 'Cerrado/Eliminado Sabueso',
+        'url' => '/sabueso/cerradoEliminado',
+        'modulos' => [48]
+    ];
+    $ticketSubItems[] = [
+        'label' => 'Estadísticas',
+        'url' => '/sabueso/estadisticas',
+        'modulos' => [47]
+    ];
+
     $menuItems = [
             'Créditos' => [
                     'icono' => 'fa-solid fa-sack-dollar',
@@ -32,7 +131,7 @@ function getMenu()
                             ]
                     ]
             ],
-            'Gestiones Campo' => [
+            'Gestiones' => [
                     'icono' => 'fa-solid fa-screwdriver-wrench',
                     'subItems' => [
                             [
@@ -77,8 +176,18 @@ function getMenu()
                                     'modulos' => [6]
                             ],
                             [
-                                    'label' => 'Sabuesos',
+                                'label' => 'Primeros pagos',
+                                'url' => '/reporteria/PrimerosPagos',
+                                    'modulos' => [49]
+                            ],
+                            [
+                                    'label' => 'Reportes de tickets',
                                     'url' => '/reporteria/sabuesos',
+                                    'modulos' => [18, 19]
+                            ],
+                            [
+                                    'label' => 'Consulta por ID crédito',
+                                    'url' => '/reporteria/consultaIdCredito',
                                     'modulos' => [18, 19]
                             ],
                             [
@@ -97,7 +206,7 @@ function getMenu()
                             ],
 
                                    [
-                                        'label' => 'Reporte CH',
+                                        'label' => 'Capital Humano',
                                         'url' => '/reporteria/reporteCapitalHumano',
                                         'modulos' => [21]
                            ]
@@ -117,33 +226,7 @@ function getMenu()
             ],
             'Ticket' => [
                     'icono' => 'fa-solid fa-ticket',
-                    'subItems' => [
-                            [
-                                    'label' => 'Ticket',
-                                    'url' => '/sabueso/ticket',
-                                    'modulos' => [18]
-                            ],
-                            [
-                                    'label' => 'Panel Admin Sabueso',
-                                    'url' => '/sabueso/paneladmin',
-                                    'modulos' => [19]
-                            ],
-                            [
-                                    'label' => 'Panel Solicitud de baja',
-                                    'url' => '/sabueso/panelSolicitudBaja',
-                                    'modulos' => [25]
-                            ],
-                            [
-                                    'label' => 'Cerrado/Eliminado Sabueso',
-                                    'url' => '/sabueso/cerradoEliminado',
-                                    'modulos' => [48]
-                            ],
-                            [
-                                    'label' => 'Estadísticas',
-                                    'url' => '/sabueso/estadisticas',
-                                    'modulos' => [47]
-                            ]
-                    ]
+                    'subItems' => $ticketSubItems
             ],
             'Despachos' => [
                     'icono' => 'fa-solid fa-building-columns',
@@ -192,6 +275,11 @@ function getMenu()
                                     'label' => 'Equivalencia puestos',
                                     'url' => '/equivalencias/consulta',
                                     'modulos' => [17]
+                            ],
+                            [
+                                    'label' => 'Asignación por puestos',
+                                    'url' => '/configticketpuesto/consulta',
+                                    'modulos' => [26]
                             ],
                             [
                                     'label' => 'Shell Segundómetro',

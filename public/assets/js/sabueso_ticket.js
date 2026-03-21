@@ -65,16 +65,28 @@
         }, 1000);
         $('#modalLevantarTicket').on('shown.bs.modal', function() { cargarCatalogosTicket(); });
         // Paso 1: abrir modal de categorías con selección visual
-        var categoriaSeleccionada = 'sabueso';
+        var categoriaSeleccionada = null;
         function actualizarEstadoSeleccionCategoria(categoria) {
-            categoriaSeleccionada = categoria || 'sabueso';
+            categoriaSeleccionada = categoria || null;
             $('.ticket-categoria-card').removeClass('is-selected');
-            $('.ticket-categoria-card[data-categoria="' + categoriaSeleccionada + '"]').addClass('is-selected');
-            var btnTxt = categoriaSeleccionada === 'sabueso' ? 'Continuar con Sabueso' : (categoriaSeleccionada === 'solicitud_baja' ? 'Continuar con Solicitud de baja' : 'Continuar');
+            var card = $('.ticket-categoria-card[data-categoria="' + (categoriaSeleccionada || '') + '"]');
+            if (card.length && card.attr('data-disponible') === '1') {
+                card.addClass('is-selected');
+            }
+            var btnTxt = 'Continuar';
+            if (categoriaSeleccionada === 'sabueso') btnTxt = 'Continuar con Sabueso';
+            else if (categoriaSeleccionada === 'solicitud_baja') btnTxt = 'Continuar con Solicitud de baja';
+            else if (categoriaSeleccionada === 'plantilla') btnTxt = 'Continuar con Plantilla';
+            else if (categoriaSeleccionada === 'atencion_cliente') btnTxt = 'Continuar con Atención al cliente';
+            else if (categoriaSeleccionada === 'validaciones') btnTxt = 'Continuar con Validaciones';
+            else if (categoriaSeleccionada === 'viaticos') btnTxt = 'Continuar con Viáticos';
+            else if (categoriaSeleccionada === 'aplicaciones_de_pago') btnTxt = 'Continuar con Aplicaciones de pago';
+            else if (categoriaSeleccionada === 'credito_problematico') btnTxt = 'Continuar con Crédito problemático';
+            else if (categoriaSeleccionada === 'aclaracion_credito') btnTxt = 'Continuar con Aclaración de crédito';
             $('#btnContinuarCategoriaTicket').html(btnTxt + ' <i class="fa-solid fa-arrow-right ms-1"></i>');
         }
         function abrirModalPickerCategorias() {
-            actualizarEstadoSeleccionCategoria('sabueso');
+            actualizarEstadoSeleccionCategoria(null);
             var elPicker = document.getElementById('modalElegirCategoriaTicket');
             if (elPicker) {
                 if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -87,7 +99,18 @@
             }
         }
         $(document).on('click', '#btnAbrirModalLevantarTicket', function() {
-            // Abrir picker sin validar ventana Sabueso (solo aplica al elegir Sabueso)
+            if (typeof window.categoriasDisponiblesPorPuesto === 'object' && Array.isArray(window.categoriasDisponiblesPorPuesto) && window.categoriasDisponiblesPorPuesto.length === 0) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sin tipos de ticket asignados',
+                        text: 'Tu puesto no tiene tipos de ticket configurados. Contacta al administrador.'
+                    });
+                } else {
+                    alert('Tu puesto no tiene tipos de ticket asignados. Contacta al administrador.');
+                }
+                return;
+            }
             intentarAbrirModalLevantarTicket(function() {
                 abrirModalPickerCategorias();
             }, false);
@@ -98,11 +121,32 @@
             actualizarEstadoSeleccionCategoria(cat);
         });
         $(document).on('click', '#btnContinuarCategoriaTicket', function() {
-            if (!categoriaSeleccionada) {
+            var disp = (typeof window.categoriasDisponiblesPorPuesto === 'object' && Array.isArray(window.categoriasDisponiblesPorPuesto)) ? window.categoriasDisponiblesPorPuesto : [];
+            var permitido = categoriaSeleccionada && disp.indexOf(categoriaSeleccionada) !== -1;
+            var card = $('.ticket-categoria-card[data-categoria="' + (categoriaSeleccionada || '') + '"]');
+            if (!categoriaSeleccionada || !permitido || !card.length || card.attr('data-disponible') !== '1') {
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'info', title: 'Selecciona una opción', text: 'Elige el área para continuar.' });
+                    Swal.fire({ icon: 'warning', title: 'Opción no disponible', text: 'Elige un área asignada a tu puesto para continuar.' });
+                } else {
+                    alert('Elige un área asignada a tu puesto.');
                 }
                 return;
+            }
+            function cerrarPickerYAbrirModal(modalId) {
+                var elPicker = document.getElementById('modalElegirCategoriaTicket');
+                if (elPicker && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(elPicker).hide();
+                } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                    $('#modalElegirCategoriaTicket').modal('hide');
+                }
+                var el = document.getElementById(modalId);
+                if (el) {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        bootstrap.Modal.getOrCreateInstance(el).show();
+                    } else if (typeof $ !== 'undefined' && $.fn.modal) {
+                        $('#' + modalId).modal('show');
+                    }
+                }
             }
             if (categoriaSeleccionada === 'solicitud_baja') {
                 var elPicker = document.getElementById('modalElegirCategoriaTicket');
@@ -112,6 +156,34 @@
                     $('#modalElegirCategoriaTicket').modal('hide');
                 }
                 abrirModalSolicitudBaja();
+                return;
+            }
+            if (categoriaSeleccionada === 'plantilla') {
+                cerrarPickerYAbrirModal('modalTicketPlantilla');
+                return;
+            }
+            if (categoriaSeleccionada === 'atencion_cliente') {
+                cerrarPickerYAbrirModal('modalTicketAtencionCliente');
+                return;
+            }
+            if (categoriaSeleccionada === 'validaciones') {
+                cerrarPickerYAbrirModal('modalTicketValidacion');
+                return;
+            }
+            if (categoriaSeleccionada === 'viaticos') {
+                cerrarPickerYAbrirModal('modalTicketViaticos');
+                return;
+            }
+            if (categoriaSeleccionada === 'aplicaciones_de_pago') {
+                cerrarPickerYAbrirModal('modalTicketAplicacionesPago');
+                return;
+            }
+            if (categoriaSeleccionada === 'credito_problematico') {
+                cerrarPickerYAbrirModal('modalTicketCreditoProblematico');
+                return;
+            }
+            if (categoriaSeleccionada === 'aclaracion_credito') {
+                cerrarPickerYAbrirModal('modalTicketAclaracionCredito');
                 return;
             }
             if (categoriaSeleccionada !== 'sabueso') {
@@ -139,10 +211,67 @@
             }
             intentarAbrirModalLevantarTicket(function() { abrirModalLevantarTicketSabuesoDirecto(); }, true);
         });
+        var archivosSeleccionadosSolicitudBaja = [];
+        function renderSolicitudBajaArchivos() {
+            var lista = document.getElementById('solicitud_baja_lista_archivos');
+            var span = document.getElementById('solicitud_baja_count_archivos');
+            if (!lista) return;
+            lista.innerHTML = '';
+            if (archivosSeleccionadosSolicitudBaja.length === 0) {
+                lista.style.display = 'none';
+                if (span) span.textContent = 'No se ha seleccionado ningún archivo';
+                return;
+            }
+            lista.style.display = 'block';
+            if (span) span.textContent = archivosSeleccionadosSolicitudBaja.length + ' archivo(s) seleccionado(s)';
+            archivosSeleccionadosSolicitudBaja.forEach(function(file, index) {
+                var esPdf = (file.type || '').toLowerCase().indexOf('pdf') !== -1;
+                var iconClass = esPdf ? 'fa fa-file-pdf text-danger' : 'fa fa-image text-primary';
+                var div = document.createElement('div');
+                div.className = 'd-flex align-items-center justify-content-between p-2 mb-2 border rounded';
+                div.style.backgroundColor = '#f8f9fa';
+                div.innerHTML = '<div class="d-flex align-items-center gap-2">' +
+                    '<i class="fa ' + iconClass + '"></i>' +
+                    '<span class="text-break">' + (file.name || 'archivo') + '</span>' +
+                    '<span class="badge bg-success rounded-pill"><i class="fa fa-check"></i></span>' +
+                    '</div>' +
+                    '<div class="d-flex gap-1">' +
+                    '<button type="button" class="btn btn-sm btn-info p-1 ver-adjunto-sb" data-idx="' + index + '" title="Ver archivo" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;"><i class="fa fa-eye" style="font-size: 12px;"></i></button>' +
+                    '<button type="button" class="btn btn-sm btn-danger p-1 quitar-adjunto-sb" data-idx="' + index + '" title="Quitar" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;"><i class="fa fa-times" style="font-size: 12px;"></i></button>' +
+                    '</div>';
+                lista.appendChild(div);
+            });
+            $(lista).off('click', '.ver-adjunto-sb').on('click', '.ver-adjunto-sb', function() {
+                var idx = parseInt($(this).data('idx'), 10);
+                var f = archivosSeleccionadosSolicitudBaja[idx];
+                if (f && window.URL && window.URL.createObjectURL) window.open(URL.createObjectURL(f), '_blank');
+            });
+            $(lista).off('click', '.quitar-adjunto-sb').on('click', '.quitar-adjunto-sb', function() {
+                var idx = parseInt($(this).data('idx'), 10);
+                archivosSeleccionadosSolicitudBaja.splice(idx, 1);
+                renderSolicitudBajaArchivos();
+            });
+        }
+        $(document).on('click', '#btnSolicitudBajaElegirArchivos', function() {
+            document.getElementById('solicitud_baja_adjunto').click();
+        });
+        $(document).on('change', '#solicitud_baja_adjunto', function() {
+            var input = this;
+            var files = input.files ? Array.from(input.files) : [];
+            var permitidos = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            files.forEach(function(file) {
+                var t = (file.type || '').toLowerCase();
+                if (t.indexOf('pdf') !== -1 || permitidos.indexOf(t) !== -1) archivosSeleccionadosSolicitudBaja.push(file);
+            });
+            input.value = '';
+            renderSolicitudBajaArchivos();
+        });
         function abrirModalSolicitudBaja() {
             $('#solicitud_baja_motivo').val('');
             $('#solicitud_baja_detalle_motivo, #solicitud_baja_descripcion, #solicitud_baja_nombre_colaborador').val('');
             $('#solicitud_baja_adjunto').val('');
+            archivosSeleccionadosSolicitudBaja = [];
+            renderSolicitudBajaArchivos();
             var el = document.getElementById('modalSolicitudBaja');
             if (el) {
                 if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -169,15 +298,14 @@
                 return;
             }
             var descripcion = ($('#solicitud_baja_descripcion').val() || '').toString().trim();
-            var inputFile = document.getElementById('solicitud_baja_adjunto');
             var fd = new FormData();
             fd.append('motivo_baja', motivo);
             fd.append('detalle_motivo', detalle);
             fd.append('descripcion', descripcion);
             fd.append('nombre_colaborador', nombreColab);
-            if (inputFile && inputFile.files && inputFile.files.length > 0) {
-                fd.append('adjunto', inputFile.files[0]);
-            }
+            archivosSeleccionadosSolicitudBaja.forEach(function(file) {
+                fd.append('adjunto[]', file);
+            });
             var $btn = $('#btnEnviarSolicitudBaja');
             var loadingHtml = $btn.html();
             $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status"></span>Enviando...');
@@ -211,6 +339,208 @@
                 }
             });
         });
+        function enviarTicketSimple(modalId, endpoint, payload, inputFileId, btnId) {
+            var $btn = $(btnId);
+            var loadingHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status"></span>Enviando...');
+            var fd = new FormData();
+            Object.keys(payload).forEach(function(k) { fd.append(k, payload[k]); });
+            if (inputFileId) {
+                var input = document.getElementById(inputFileId);
+                if (input && input.files && input.files.length > 0) fd.append('adjunto', input.files[0]);
+            }
+            $.ajax({
+                url: (apiBase || '') + endpoint,
+                type: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function(r) {
+                    $btn.prop('disabled', false).html(loadingHtml);
+                    if (r && r.success) {
+                        if (typeof bootstrap !== 'undefined') {
+                            var m = bootstrap.Modal.getInstance(document.getElementById(modalId));
+                            if (m) m.hide();
+                        } else $('#' + modalId).modal('hide');
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Enviado', text: r.mensaje || 'Registrado correctamente.' });
+                    } else {
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (r && r.mensaje) ? r.mensaje : 'No se pudo enviar.' });
+                    }
+                },
+                error: function(xhr) {
+                    $btn.prop('disabled', false).html(loadingHtml);
+                    var msg = 'No se pudo enviar.';
+                    try {
+                        var j = xhr.responseJSON || (xhr.responseText ? JSON.parse(xhr.responseText) : null);
+                        if (j && j.mensaje) msg = j.mensaje;
+                    } catch (e) {}
+                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                }
+            });
+        }
+        $(document).on('click', '#btnEnviarTicketPlantilla', function() {
+            var tipo = ($('#ticket_plantilla_tipo').val() || '').toString().trim();
+            var desc = ($('#ticket_plantilla_descripcion').val() || '').toString().trim();
+            if (!tipo) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Seleccione el tipo de plantilla.' }); return; }
+            if (!desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba la descripción.' }); return; }
+            enviarTicketSimple('modalTicketPlantilla', '/sabueso/guardarTicketPlantilla', { tipo_plantilla: tipo, descripcion: desc }, 'ticket_plantilla_adjunto', '#btnEnviarTicketPlantilla');
+        });
+        $(document).on('click', '#btnEnviarTicketAtencionCliente', function() {
+            var asunto = ($('#ticket_atencion_asunto').val() || '').toString().trim();
+            var desc = ($('#ticket_atencion_descripcion').val() || '').toString().trim();
+            if (!asunto) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba el asunto.' }); return; }
+            if (!desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba la descripción.' }); return; }
+            enviarTicketSimple('modalTicketAtencionCliente', '/sabueso/guardarTicketAtencionCliente', {
+                asunto: asunto,
+                descripcion: desc,
+                prioridad: ($('#ticket_atencion_prioridad').val() || 'media').toString().trim(),
+                contacto_telefono: ($('#ticket_atencion_telefono').val() || '').toString().trim(),
+                contacto_email: ($('#ticket_atencion_email').val() || '').toString().trim()
+            }, null, '#btnEnviarTicketAtencionCliente');
+        });
+        var archivosSeleccionadosValidacion = [];
+        function renderListaArchivosValidacion() {
+            var lista = document.getElementById('ticket_validacion_lista_archivos');
+            var span = document.getElementById('ticket_validacion_count_archivos');
+            var inp = document.getElementById('ticket_validacion_adjunto');
+            if (!lista) return;
+            lista.innerHTML = '';
+            if (archivosSeleccionadosValidacion.length === 0) {
+                lista.classList.add('d-none');
+                if (span) span.textContent = 'Ningún archivo seleccionado';
+                if (inp) inp.value = '';
+                return;
+            }
+            lista.classList.remove('d-none');
+            if (span) span.textContent = archivosSeleccionadosValidacion.length + ' archivo(s) seleccionado(s)';
+            archivosSeleccionadosValidacion.forEach(function(file, index) {
+                var esPdf = (file.type || '').toLowerCase().indexOf('pdf') !== -1 || (file.name || '').toLowerCase().endsWith('.pdf');
+                var iconClass = esPdf ? 'fa-file-pdf text-danger' : 'fa-image text-primary';
+                var div = document.createElement('div');
+                div.className = 'd-flex align-items-center justify-content-between p-3 mb-2 rounded-3';
+                div.style.cssText = 'background:#f1f5f9;border:1px solid #e2e8f0;';
+                div.innerHTML =
+                    '<div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">' +
+                    '<i class="fa-solid ' + iconClass + ' fa-lg flex-shrink-0"></i>' +
+                    '<span class="text-break small fw-medium">' +
+                    (file.name || 'archivo') +
+                    '</span>' +
+                    '<span class="badge bg-success rounded-2 flex-shrink-0 ms-1"><i class="fa-solid fa-check"></i></span>' +
+                    '</div>' +
+                    '<div class="d-flex gap-2 flex-shrink-0 ms-2">' +
+                    '<button type="button" class="btn btn-info rounded-circle p-0 ver-adjunto-val" data-idx="' +
+                    index +
+                    '" title="Ver" style="width:36px;height:36px;box-shadow:0 2px 6px rgba(0,0,0,0.12);"><i class="fa-solid fa-eye text-white"></i></button>' +
+                    '<button type="button" class="btn rounded-circle p-0 quitar-adjunto-val" data-idx="' +
+                    index +
+                    '" title="Quitar" style="width:36px;height:36px;background:#f97316;border-color:#f97316;box-shadow:0 2px 6px rgba(0,0,0,0.12);"><i class="fa-solid fa-times text-white"></i></button>' +
+                    '</div>';
+                lista.appendChild(div);
+            });
+            $(lista)
+                .off('click', '.ver-adjunto-val')
+                .on('click', '.ver-adjunto-val', function () {
+                    var idx = parseInt($(this).data('idx'), 10);
+                    var f = archivosSeleccionadosValidacion[idx];
+                    if (f && window.URL && window.URL.createObjectURL) window.open(URL.createObjectURL(f), '_blank');
+                });
+            $(lista)
+                .off('click', '.quitar-adjunto-val')
+                .on('click', '.quitar-adjunto-val', function () {
+                    var idx = parseInt($(this).data('idx'), 10);
+                    archivosSeleccionadosValidacion.splice(idx, 1);
+                    renderListaArchivosValidacion();
+                });
+        }
+        $(document).on('click', '#ticket_validacion_btn_archivos', function () {
+            document.getElementById('ticket_validacion_adjunto').click();
+        });
+        $(document).on('change', '#ticket_validacion_adjunto', function () {
+            var files = this.files;
+            if (!files || !files.length) return;
+            for (var i = 0; i < files.length; i++) archivosSeleccionadosValidacion.push(files[i]);
+            this.value = '';
+            renderListaArchivosValidacion();
+        });
+        $('#modalTicketValidacion').on('shown.bs.modal', function () {
+            archivosSeleccionadosValidacion = [];
+            renderListaArchivosValidacion();
+        });
+        $(document).on('click', '#btnEnviarTicketValidacion', function () {
+            var desc = ($('#ticket_validacion_descripcion').val() || '').toString().trim();
+            if (!desc) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba la descripción.' });
+                return;
+            }
+            var nota = ($('#ticket_validacion_nota').val() || '').toString().trim();
+            var urlDir = ($('#ticket_validacion_url').val() || '').toString().trim();
+            var $btn = $('#btnEnviarTicketValidacion');
+            var loadingHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status"></span>Enviando...');
+            var fd = new FormData();
+            fd.append('descripcion', desc);
+            fd.append('nota', nota);
+            fd.append('url_direccion', urlDir);
+            archivosSeleccionadosValidacion.forEach(function (f) {
+                fd.append('adjunto[]', f);
+            });
+            $.ajax({
+                url: (apiBase || '') + '/sabueso/guardarTicketValidacion',
+                type: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                success: function (r) {
+                    $btn.prop('disabled', false).html(loadingHtml);
+                    if (r && r.success) {
+                        archivosSeleccionadosValidacion = [];
+                        renderListaArchivosValidacion();
+                        if (typeof bootstrap !== 'undefined') {
+                            var m = bootstrap.Modal.getInstance(document.getElementById('modalTicketValidacion'));
+                            if (m) m.hide();
+                        } else $('#modalTicketValidacion').modal('hide');
+                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Enviado', text: r.mensaje || 'Registrado correctamente.' });
+                    } else if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: (r && r.mensaje) ? r.mensaje : 'No se pudo enviar.' });
+                },
+                error: function (xhr) {
+                    $btn.prop('disabled', false).html(loadingHtml);
+                    var msg = 'No se pudo enviar.';
+                    try {
+                        var j = xhr.responseJSON || (xhr.responseText ? JSON.parse(xhr.responseText) : null);
+                        if (j && j.mensaje) msg = j.mensaje;
+                    } catch (e) {}
+                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                }
+            });
+        });
+        $(document).on('click', '#btnEnviarTicketViaticos', function() {
+            var tipo = ($('#ticket_viaticos_tipo').val() || '').toString().trim();
+            var desc = ($('#ticket_viaticos_descripcion').val() || '').toString().trim();
+            if (!tipo) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Seleccione el tipo de viático.' }); return; }
+            if (!desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba la descripción.' }); return; }
+            enviarTicketSimple('modalTicketViaticos', '/sabueso/guardarTicketViaticos', { tipo_viatico: tipo, descripcion: desc }, 'ticket_viaticos_adjunto', '#btnEnviarTicketViaticos');
+        });
+        $(document).on('click', '#btnEnviarTicketAplicacionesPago', function() {
+            var tipo = ($('#ticket_aplicaciones_tipo').val() || '').toString().trim();
+            var desc = ($('#ticket_aplicaciones_descripcion').val() || '').toString().trim();
+            if (!tipo) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Seleccione el tipo de solicitud.' }); return; }
+            if (!desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba la descripción.' }); return; }
+            enviarTicketSimple('modalTicketAplicacionesPago', '/sabueso/guardarTicketAplicacionesPago', { tipo_solicitud: tipo, descripcion: desc }, 'ticket_aplicaciones_adjunto', '#btnEnviarTicketAplicacionesPago');
+        });
+        $(document).on('click', '#btnEnviarTicketCreditoProblematico', function() {
+            var tipo = ($('#ticket_credito_problematico_tipo').val() || '').toString().trim();
+            var desc = ($('#ticket_credito_problematico_descripcion').val() || '').toString().trim();
+            if (!tipo) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Seleccione el tipo de solicitud.' }); return; }
+            if (!desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba la descripción.' }); return; }
+            enviarTicketSimple('modalTicketCreditoProblematico', '/sabueso/guardarTicketCreditoProblematico', { tipo_solicitud: tipo, descripcion: desc }, 'ticket_credito_problematico_adjunto', '#btnEnviarTicketCreditoProblematico');
+        });
+        $(document).on('click', '#btnEnviarTicketAclaracionCredito', function() {
+            var tipo = ($('#ticket_aclaracion_tipo').val() || '').toString().trim();
+            var desc = ($('#ticket_aclaracion_descripcion').val() || '').toString().trim();
+            if (!tipo) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Seleccione el tipo de aclaración.' }); return; }
+            if (!desc) { if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Falta dato', text: 'Escriba la descripción.' }); return; }
+            enviarTicketSimple('modalTicketAclaracionCredito', '/sabueso/guardarTicketAclaracionCredito', { tipo_aclaracion: tipo, descripcion: desc }, 'ticket_aclaracion_adjunto', '#btnEnviarTicketAclaracionCredito');
+        });
         function abrirModalLevantarTicketSabuesoDirecto() {
             $('#modal_id_tipo_ticket, #modal_id_prioridad, #modal_id_origen_ticket').val('');
             $('#modal_id_credito, #modal_descripcion_inicial').val('');
@@ -234,7 +564,25 @@
             endpoint: "/sabueso/getTickets",
             metodo: "POST",
             onSuccess: function(resp) {
-                var datos = (resp.datos || []).map(function(t) {
+                var TEXTO_NO_APLICA = '<span class="text-muted">No aplica</span>';
+                function escHtmlMenu(s) {
+                    if (s == null || s === undefined) return '';
+                    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                }
+                var raw = resp.datos || [];
+                var catSet = {};
+                raw.forEach(function(x) {
+                    var ck = (x.categoria_gestion || 'sabueso').toString().toLowerCase();
+                    catSet[ck] = true;
+                });
+                var catsUnicas = Object.keys(catSet);
+                var listadoMixto = catsUnicas.length > 1;
+                /** Columnas DataTables menú Ticket (getColumnsConfig false): 8 tiempo, 9 DS, 10 dictamen/visto */
+                var mostrarColsSabueso = raw.length === 0 || listadoMixto || (catsUnicas.length === 1 && catsUnicas[0] === 'sabueso');
+                var datos = raw.map(function(t) {
+                    var cat = (t.categoria_gestion || 'sabueso').toString().toLowerCase();
+                    var esSabueso = cat === 'sabueso';
+                    var mostrarNoAplicaSabuesoCols = !esSabueso && listadoMixto;
                     var fechaCreacion = t.fecha_creacion
                         ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
                         : '\u2014';
@@ -249,13 +597,18 @@
                     else if (prioridadNombre.indexOf('sin prioridad') !== -1) prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '\u2014') + '</span>';
                     var estadoBadge = (t.asignado_nombre && (t.asignado_nombre + '').trim()) ? '<span class="badge bg-success text-white">Asignado</span>' : '<span class="badge bg-label-secondary">Abierto</span>';
                     var vistoHtml = '';
-                    if ((t.dictamen_estado || '') === 'enviado_al_gestor') {
+                    if (esSabueso && (t.dictamen_estado || '') === 'enviado_al_gestor') {
                         var vistoTexto = t.dictamen_fecha_visto ? (new Date(t.dictamen_fecha_visto).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + new Date(t.dictamen_fecha_visto).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })) : 'No visto';
                         var iconoOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? 'fa-eye' : 'fa-eye-slash';
                         var tituloOjo = (t.dictamen_fecha_visto && (t.dictamen_fecha_visto + '').trim()) ? ('Dictamen enviado. Visto: ' + vistoTexto) : 'Dictamen enviado. No visto. Clic para ver';
                         vistoHtml = '<span class="d-inline-flex align-items-center gap-1 justify-content-end btn-dictamen-ojito" role="button" tabindex="0" data-bs-toggle="tooltip" data-bs-title="' + (tituloOjo + '').replace(/"/g, '&quot;') + '" data-id-ticket="' + (t.id_ticket || '') + '"><i class="fa ' + iconoOjo + ' text-info small"></i></span>';
+                    } else if (!esSabueso && mostrarNoAplicaSabuesoCols) {
+                        vistoHtml = TEXTO_NO_APLICA;
                     }
                     var tiempoVisitarHtml = '\u2014';
+                    if (!esSabueso) {
+                        tiempoVisitarHtml = mostrarNoAplicaSabuesoCols ? TEXTO_NO_APLICA : '';
+                    } else {
                     var fEnv = (t.dictamen_fecha_envio || '').trim();
                     var esNuevo = fEnv && new Date(fEnv) >= new Date('2026-03-09T00:00:00');
                     if ((t.dictamen_estado || '') === 'enviado_al_gestor' && esNuevo && fEnv) {
@@ -278,41 +631,71 @@
                     } else if (prHtml) {
                         tiempoVisitarHtml = prHtml;
                     }
-                    var cat = (t.categoria_gestion || 'sabueso').toString().toLowerCase();
-                    var gestionLabels = { sabueso: 'Sabueso', beaticos: 'Viáticos', viaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago' };
-                    var gestionTxt = gestionLabels[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
-                    var gestionBadge = '<span class="badge bg-label-primary">' + gestionTxt + '</span>';
-                    if (cat === 'sabueso') gestionBadge = '<span class="badge bg-primary text-white"><i class="fa-solid fa-dog me-1"></i>Sabueso</span>';
+                    }
+                    var creditoHtml;
+                    if (esSabueso) {
+                        creditoHtml = '<small>#' + (t.id_credito != null ? t.id_credito : '\u2014') + '</small>';
+                    } else {
+                        var idCredNum = t.id_credito != null ? parseInt(t.id_credito, 10) : 0;
+                        if (idCredNum > 0) {
+                            creditoHtml = '<small>#' + idCredNum + '</small>';
+                        } else {
+                            var refTxt = ((t.asunto || '') + '').trim() || ((t.tipo_categoria || '') + '').trim() || ((t.nota || '') + '').trim();
+                            if (refTxt) {
+                                var refCorta = refTxt.length > 80 ? refTxt.substring(0, 77) + '\u2026' : refTxt;
+                                creditoHtml = '<small class="text-break" title="' + escHtmlMenu(refTxt) + '">' + escHtmlMenu(refCorta) + '</small>';
+                            } else {
+                                creditoHtml = TEXTO_NO_APLICA;
+                            }
+                        }
+                    }
+                    var dsHtml;
+                    if (esSabueso) {
+                        dsHtml = (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '<span class="text-muted">\u2014</span>';
+                    } else {
+                        dsHtml = mostrarNoAplicaSabuesoCols ? TEXTO_NO_APLICA : '';
+                    }
+                    var gestionLabels = { sabueso: 'Sabueso', plantilla: 'Plantilla', atencion_cliente: 'Atención al cliente', validaciones: 'Validaciones', viaticos: 'Viáticos', beaticos: 'Viáticos', aplicaciones_de_pago: 'Aplicaciones de pago', credito_problematico: 'Crédito problemático', aclaracion_credito: 'Aclaración de crédito' };
+                    var gestionTxt = gestionLabels[cat] || cat.replace(/_/g, ' ').replace(/\b\w/g, function(ch) { return ch.toUpperCase(); });
+                    var icoG = { sabueso: 'fa-dog', plantilla: 'fa-file-lines', atencion_cliente: 'fa-headset', validaciones: 'fa-clipboard-check', viaticos: 'fa-receipt', aplicaciones_de_pago: 'fa-credit-card', credito_problematico: 'fa-triangle-exclamation', aclaracion_credito: 'fa-circle-question' };
+                    var ic = icoG[cat] || 'fa-list';
+                    var gestionBadge = '<span class="badge bg-label-primary small d-inline-flex align-items-center gap-1"><i class="fa-solid ' + ic + '" style="font-size:0.7rem;line-height:1" aria-hidden="true"></i>' + gestionTxt + '</span>';
                     var row = {
                         _fecha_creacion: (t.fecha_creacion || ''),
                         folio_tipo: '<div class="fw-semibold">' + (t.folio || '\u2014') + '</div><div class="small text-muted mt-1">' + (t.tipo_ticket_nombre || '\u2014') + '</div>',
                         gestion: gestionBadge,
                         estado: estadoBadge,
                         prioridad: prioridadBadge,
-                        credito: '<small>#' + (t.id_credito != null ? t.id_credito : '\u2014') + '</small>',
+                        credito: creditoHtml,
                         fechas: '<div class="small d-flex align-items-center gap-1"><i class="fa fa-calendar-plus-o text-muted" style="width: 1rem;"></i><span>Creación: ' + fechaCreacion + '</span></div><div class="small text-muted d-flex align-items-center gap-1 mt-1"><i class="fa fa-calendar-times-o" style="width: 1rem;"></i><span>Vencimiento: ' + fechaVenc + '</span></div>',
                         tiempo_visitar: tiempoVisitarHtml,
-                        ds_resultado: (t.ds_resultado_html != null && t.ds_resultado_html !== '') ? t.ds_resultado_html : '<span class="text-muted">\u2014</span>',
+                        ds_resultado: dsHtml,
                         dictamen_visto: vistoHtml,
                         acciones: '',
                         _id_ticket: t.id_ticket,
-                        _dictamen_estado: t.dictamen_estado || '',
-                        _dictamen_fecha_visto: t.dictamen_fecha_visto || ''
+                        _categoria_gestion: cat,
+                        _dictamen_estado: esSabueso ? (t.dictamen_estado || '') : '',
+                        _dictamen_fecha_visto: esSabueso ? (t.dictamen_fecha_visto || '') : ''
                     };
                     return row;
                 });
                 var tabla = $('#tablaTickets').DataTable();
                 tabla.clear().rows.add(datos).draw();
+                try {
+                    tabla.columns([8, 9, 10]).visible(mostrarColsSabueso);
+                    tabla.columns.adjust();
+                } catch (eCol) {}
                 tabla.rows().every(function() {
                     var d = this.data();
                     var node = this.node();
                     if (!d || !node) return;
-                    if (d._dictamen_estado === 'enviado_al_gestor') {
+                    var catRow = (d._categoria_gestion || 'sabueso').toString().toLowerCase();
+                    if (catRow === 'sabueso' && d._dictamen_estado === 'enviado_al_gestor') {
                         $(node).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');
                         if (!d._dictamen_fecha_visto || (d._dictamen_fecha_visto + '').trim() === '') $(node).addClass('fila-dictamen-no-visto');
                         else $(node).removeClass('fila-dictamen-no-visto');
                     } else {
-                        $(node).removeClass('fila-dictamen-no-visto');
+                        $(node).removeClass('fila-dictamen-enviado fila-dictamen-no-visto').removeAttr('data-id-ticket');
                     }
                 });
                 if (typeof actualizarCountdownsDictamen === 'function') actualizarCountdownsDictamen('#tablaTickets');
@@ -321,6 +704,10 @@
             onError: function() {
                 var tabla = $('#tablaTickets').DataTable();
                 tabla.clear().draw();
+                try {
+                    tabla.columns([8, 9, 10]).visible(true);
+                    tabla.columns.adjust();
+                } catch (eCol) {}
             }
         });
     }
@@ -331,12 +718,13 @@
             var d = this.data();
             var node = this.node();
             if (!d || !node) return;
-            if (d._dictamen_estado === 'enviado_al_gestor') {
+            var catRow = (d._categoria_gestion || 'sabueso').toString().toLowerCase();
+            if (catRow === 'sabueso' && d._dictamen_estado === 'enviado_al_gestor') {
                 $(node).addClass('fila-dictamen-enviado').attr('data-id-ticket', d._id_ticket || '');
                 if (!d._dictamen_fecha_visto || (d._dictamen_fecha_visto + '').trim() === '') $(node).addClass('fila-dictamen-no-visto');
                 else $(node).removeClass('fila-dictamen-no-visto');
             } else {
-                $(node).removeClass('fila-dictamen-no-visto');
+                $(node).removeClass('fila-dictamen-enviado fila-dictamen-no-visto').removeAttr('data-id-ticket');
             }
         });
         $('#tablaTickets [data-bs-toggle="tooltip"]').tooltip();
