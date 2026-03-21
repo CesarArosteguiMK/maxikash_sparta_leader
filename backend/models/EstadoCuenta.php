@@ -557,7 +557,7 @@ class EstadoCuenta extends Model
                 $params['usuario_id'] = $usuarioId;
             }
             $query = "
-            SELECT 
+            SELECT
                 dl.id AS id,
                 DATE(dl.fecha_gestion) AS fecha_registro,
                 TIME(dl.hora_gestion) AS hora_registro,
@@ -594,7 +594,7 @@ class EstadoCuenta extends Model
 {
     try {
         $query = "
-            SELECT 
+            SELECT
                 dl.id AS id_dictamen,
                 DATE(dl.fecha_gestion) AS fecha_registro,
                 TIME(dl.hora_gestion) AS hora_registro,
@@ -623,21 +623,21 @@ class EstadoCuenta extends Model
             LEFT JOIN cat_motivo_no_pago cmnp ON dl.motivo_no_pago_id = cmnp.id
             LEFT JOIN cat_motivo_no_pago_tipo cmnpt ON cmnp.tipo_id = cmnpt.id
             LEFT JOIN cat_plataforma cp ON dl.plataforma_id = cp.id
-            
+
             WHERE DATE(dl.fecha_gestion) BETWEEN :fecha_inicio AND :fecha_fin
             ORDER BY dl.fecha_gestion DESC, dl.hora_gestion DESC
         ";
-        
+
         $db = new Database();
         $params = [
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin
         ];
-        
+
         $resultados = $db->queryAll($query, $params);
-        
+
         return self::resultado(true, 'Reportes obtenidos', $resultados);
-        
+
     } catch (\Exception $e) {
         error_log("Error al obtener reportes de dictamen: " . $e->getMessage());
         return self::resultado(false, 'Error al obtener reportes', [], $e->getMessage());
@@ -651,7 +651,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
 {
     try {
         $query = "
-            SELECT 
+            SELECT
                 dl.id AS id_dictamen,
                 DATE(dl.fecha_gestion) AS fecha_registro,
                 TIME(dl.hora_gestion) AS hora_registro,
@@ -680,36 +680,58 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             LEFT JOIN cat_motivo_no_pago cmnp ON dl.motivo_no_pago_id = cmnp.id
             LEFT JOIN cat_motivo_no_pago_tipo cmnpt ON cmnp.tipo_id = cmnpt.id
             LEFT JOIN cat_plataforma cp ON dl.plataforma_id = cp.id
-            
+
             WHERE DATE(dl.fecha_gestion) BETWEEN :fecha_inicio AND :fecha_fin
             ORDER BY dl.fecha_gestion DESC, dl.hora_gestion DESC
         ";
-        
+
         $db = new Database();
         $params = [
             'fecha_inicio' => $fechaInicio,
             'fecha_fin' => $fechaFin
         ];
-        
+
         return $db->queryAll($query, $params);
-        
+
     } catch (\Exception $e) {
         error_log("Error al obtener reportes para descarga: " . $e->getMessage());
         return [];
     }
 }
 
-      public static function getGastosCobranza($idCredito)
-    {
-        $query = "
+     public static function getGastosCobranza($idCredito)
+{
+    $query = "
+    SELECT
+        id_gastos_cobranza,
+        SEMANA,
+        periodo_inicio,
+        periodo_fin,
+        monto_valor,
+        COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
+        condonacion_parcial_motivo,
+        cuota,
+        parcialidad,
+        Fecha_primer_vencimiento,
+        COALESCE(estatus_pago, 0) AS estatus_pago
+    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+    WHERE Id_credito = :id_credito
+      AND (condonado IS NULL OR condonado = 0)
+      AND (estatus_pago IS NULL OR estatus_pago != 2)
+    ORDER BY periodo_inicio ASC
+    ";
+
+    try {
+        $db = new DatabaseSegundometro();
+        $r = $db->queryAll($query, ['id_credito' => $idCredito]);
+    } catch (\Exception $e) {
+        $queryFallback = "
         SELECT
             id_gastos_cobranza,
             SEMANA,
             periodo_inicio,
             periodo_fin,
             monto_valor,
-            COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
-            condonacion_parcial_motivo,
             cuota,
             parcialidad,
             Fecha_primer_vencimiento
@@ -717,98 +739,97 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         WHERE Id_credito = :id_credito
           AND (condonado IS NULL OR condonado = 0)
         ORDER BY periodo_inicio ASC
-    ";
-
+        ";
         try {
             $db = new DatabaseSegundometro();
-            $r = $db->queryAll($query, ['id_credito' => $idCredito]);
-        } catch (\Exception $e) {
-            // Si falla por columnas nuevas no existentes, intentar sin ellas
-            $queryFallback = "
-            SELECT
-                id_gastos_cobranza,
-                SEMANA,
-                periodo_inicio,
-                periodo_fin,
-                monto_valor,
-                cuota,
-                parcialidad,
-                Fecha_primer_vencimiento
-            FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-            WHERE Id_credito = :id_credito
-              AND (condonado IS NULL OR condonado = 0)
-            ORDER BY periodo_inicio ASC
-            ";
-            try {
-                $db = new DatabaseSegundometro();
-                $r = $db->queryAll($queryFallback, ['id_credito' => $idCredito]);
-                foreach ($r as $i => $row) {
-                    $r[$i]['condonacion_parcial_monto'] = 0;
-                    $r[$i]['condonacion_parcial_motivo'] = '';
-                }
-            } catch (\Exception $e2) {
-                return self::resultado(
-                    false,
-                    'Error al consultar gastos de cobranza',
-                    [],
-                    $e2->getMessage()
-                );
+            $r = $db->queryAll($queryFallback, ['id_credito' => $idCredito]);
+            foreach ($r as $i => $row) {
+                $r[$i]['condonacion_parcial_monto']  = 0;
+                $r[$i]['condonacion_parcial_motivo'] = '';
+                $r[$i]['estatus_pago']               = 0; // ← nuevo
             }
-        }
-
-        try {
-            $datos = array_map(function ($row) {
-                
-                // 🔴 NUEVA PRIORIDAD 1️⃣: Calcular por fechas (correcto)
-                $parcialidadCalculada = null;
-                
-                if (!empty($row['Fecha_primer_vencimiento']) && !empty($row['periodo_inicio'])) {
-                    $fechaInicio = strtotime($row['Fecha_primer_vencimiento']);
-                    $periodoInicio = strtotime($row['periodo_inicio']);
-                    
-                    if ($fechaInicio && $periodoInicio && $periodoInicio >= $fechaInicio) {
-                        $diasTranscurridos = ($periodoInicio - $fechaInicio) / 86400; // 86400 = 24*60*60
-                        $parcialidadCalculada = floor($diasTranscurridos / 7) + 1; // +1 porque la primera semana es 1
-                    }
-                }
-                
-                // 🔴 PRIORIDAD 2️⃣: Si falla el cálculo por fechas, intentar con SEMANA (fallback)
-                if ($parcialidadCalculada === null && preg_match('/Semana (\d+)-/', $row['SEMANA'], $matches)) {
-                    $numeroSemana = (int)$matches[1];
-                    $parcialidadCalculada = $numeroSemana - 3; // Offset mágico (no confiable, solo fallback)
-                }
-
-                $montoValor = (float)$row['monto_valor'];
-                $parcialMonto = (float)($row['condonacion_parcial_monto'] ?? 0);
-                $montoEfectivo = round($montoValor - $parcialMonto, 2);
-
-                return [
-                    'id_gasto' => (int)$row['id_gastos_cobranza'],
-                    'semana'   => $row['SEMANA'],
-                    'periodo' => date('d/m/Y', strtotime($row['periodo_inicio'])) .
-                        ' - ' .
-                        date('d/m/Y', strtotime($row['periodo_fin'])),
-                    'monto'    => $montoEfectivo,
-                    'monto_original' => $montoValor,
-                    'condonacion_parcial_monto' => $parcialMonto,
-                    'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
-                    'cuota'   => (float)$row['cuota'],
-                    // Si ambos cálculos fallan, usar el campo de BD como último recurso
-                    'parcialidad' => $parcialidadCalculada ?? ($row['parcialidad'] ?? null)
-                ];
-            }, $r);
-
-            return self::resultado(true, 'Gastos de cobranza', $datos);
-
-        } catch (\Exception $e) {
+        } catch (\Exception $e2) {
             return self::resultado(
                 false,
                 'Error al consultar gastos de cobranza',
                 [],
-                $e->getMessage()
+                $e2->getMessage()
             );
         }
     }
+
+    try {
+        $datos = array_map(function ($row) {
+
+            // PRIORIDAD 1: Calcular por fechas (correcto)
+            $parcialidadCalculada = null;
+
+            if (!empty($row['Fecha_primer_vencimiento']) && !empty($row['periodo_inicio'])) {
+                $fechaInicio   = strtotime($row['Fecha_primer_vencimiento']);
+                $periodoInicio = strtotime($row['periodo_inicio']);
+
+                if ($fechaInicio && $periodoInicio && $periodoInicio >= $fechaInicio) {
+                    $diasTranscurridos    = ($periodoInicio - $fechaInicio) / 86400;
+                    $parcialidadCalculada = floor($diasTranscurridos / 7) + 1;
+                }
+            }
+
+            // PRIORIDAD 2: Fallback con SEMANA
+            if ($parcialidadCalculada === null && preg_match('/Semana (\d+)-/', $row['SEMANA'], $matches)) {
+                $numeroSemana         = (int)$matches[1];
+                $parcialidadCalculada = $numeroSemana - 3;
+            }
+
+            $montoValor    = (float)$row['monto_valor'];
+            $parcialMonto  = (float)($row['condonacion_parcial_monto'] ?? 0);
+            $montoEfectivo = round($montoValor - $parcialMonto, 2);
+
+            return [
+                'id_gasto'                   => (int)$row['id_gastos_cobranza'],
+                'semana'                     => $row['SEMANA'],
+                'periodo'                    => date('d/m/Y', strtotime($row['periodo_inicio'])) .
+                                               ' - ' .
+                                               date('d/m/Y', strtotime($row['periodo_fin'])),
+                'monto'                      => $montoEfectivo,
+                'monto_original'             => $montoValor,
+                'condonacion_parcial_monto'  => $parcialMonto,
+                'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
+                'cuota'                      => (float)$row['cuota'],
+                'parcialidad'                => $parcialidadCalculada ?? ($row['parcialidad'] ?? null),
+                'estatus_pago'               => (int)($row['estatus_pago'] ?? 0) // ← nuevo
+            ];
+        }, $r);
+
+        return self::resultado(true, 'Gastos de cobranza', $datos);
+
+    } catch (\Exception $e) {
+        return self::resultado(
+            false,
+            'Error al consultar gastos de cobranza',
+            [],
+            $e->getMessage()
+        );
+    }
+}
+
+public static function getGastosTodosConEstatus($idCredito)
+{
+    $query = "
+    SELECT id_gastos_cobranza, monto_valor, estatus_pago
+    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+    WHERE Id_credito = :id_credito
+      AND (condonado IS NULL OR condonado = 0)
+    ORDER BY periodo_inicio ASC
+    ";
+
+    try {
+        $db = new DatabaseSegundometro();
+        $r = $db->queryAll($query, ['id_credito' => $idCredito]);
+        return self::resultado(true, 'OK', $r ?: []);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error', [], $e->getMessage());
+    }
+}
 
     public static function insertCondonacionCobranza($data)
     {
@@ -894,28 +915,34 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
     }
 
     public static function marcarGastoCondonado($idGasto)
-    {
-        try {
-            $db = new DatabaseSegundometro();
+{
+    try {
+        $db = new DatabaseSegundometro();
 
-            $idGasto = (int) $idGasto;
+        $idGasto = (int) $idGasto;
 
-            $db->CRUD(
-                "UPDATE gastos_cobranza SET condonado = 1, fecha_condonacion = CONVERT_TZ(NOW(), '+00:00', 'America/Mexico_City') WHERE id_gastos_cobranza = :id_gasto",
-                ['id_gasto' => $idGasto]
-            );
+        $db->CRUD(
+            "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+             SET
+                condonado        = 1,
+                estatus_pago     = 2,
+                fecha_condonacion = CONVERT_TZ(NOW(), '+00:00', 'America/Mexico_City')
+             WHERE id_gastos_cobranza = :id_gasto",
+            ['id_gasto' => $idGasto]
+        );
 
-            return self::resultado(true, 'Gasto marcado como condonado');
+        return self::resultado(true, 'Gasto marcado como condonado');
 
-        } catch (\Exception $e) {
-            return self::resultado(
-                false,
-                'Error al marcar gasto como condonado',
-                null,
-                $e->getMessage()
-            );
-        }
+    } catch (\Exception $e) {
+        return self::resultado(
+            false,
+            'Error al marcar gasto como condonado',
+            null,
+            $e->getMessage()
+        );
     }
+}
+
 
     /**
      * Valida que el motivo de condonación parcial tenga al menos 100 caracteres y no sea texto sin sentido
@@ -985,45 +1012,65 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
      * @return array resultado()
      */
     public static function updateCondonacionParcialGasto($id_gastos_cobranza, $monto_parcial, $motivo)
-    {
-        $validacion = self::validarMotivoCondonacionParcial($motivo);
-        if (!$validacion[0]) {
-            return self::resultado(false, $validacion[1]);
-        }
-        $monto_parcial = round((float) $monto_parcial, 2);
-        if ($monto_parcial <= 0) {
-            return self::resultado(false, 'El monto a condonar parcialmente debe ser mayor a cero.');
-        }
-        $id_gastos_cobranza = (int) $id_gastos_cobranza;
-        if ($id_gastos_cobranza <= 0) {
-            return self::resultado(false, 'ID de gasto inválido.');
-        }
-        try {
-            $db = new DatabaseSegundometro();
-            $row = $db->queryOne(
-                "SELECT monto_valor FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza WHERE id_gastos_cobranza = :id",
-                ['id' => $id_gastos_cobranza]
-            );
-            if (!$row) {
-                return self::resultado(false, 'No se encontró el gasto de cobranza.');
-            }
-            $montoMax = (float) $row['monto_valor'];
-            if ($monto_parcial >= $montoMax) {
-                return self::resultado(false, 'El monto parcial no puede ser mayor o igual al monto total del gasto. Para condonación total usa el botón Condonar.');
-            }
-            $db->CRUD(
-                "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza SET condonacion_parcial_monto = :monto, condonacion_parcial_motivo = :motivo WHERE id_gastos_cobranza = :id",
-                [
-                    'monto'  => $monto_parcial,
-                    'motivo' => $motivo,
-                    'id'     => $id_gastos_cobranza
-                ]
-            );
-            return self::resultado(true, 'Condonación parcial guardada correctamente.');
-        } catch (\Exception $e) {
-            return self::resultado(false, 'Error al guardar la condonación parcial', null, $e->getMessage());
-        }
+{
+    $validacion = self::validarMotivoCondonacionParcial($motivo);
+    if (!$validacion[0]) {
+        return self::resultado(false, $validacion[1]);
     }
+
+    $monto_parcial = round((float) $monto_parcial, 2);
+    if ($monto_parcial <= 0) {
+        return self::resultado(false, 'El monto a condonar parcialmente debe ser mayor a cero.');
+    }
+
+    $id_gastos_cobranza = (int) $id_gastos_cobranza;
+    if ($id_gastos_cobranza <= 0) {
+        return self::resultado(false, 'ID de gasto inválido.');
+    }
+
+    try {
+        $db = new DatabaseSegundometro();
+
+        $row = $db->queryOne(
+            "SELECT monto_valor FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+             WHERE id_gastos_cobranza = :id",
+            ['id' => $id_gastos_cobranza]
+        );
+
+        if (!$row) {
+            return self::resultado(false, 'No se encontró el gasto de cobranza.');
+        }
+
+        $montoMax = (float) $row['monto_valor'];
+        if ($monto_parcial >= $montoMax) {
+            return self::resultado(false, 'El monto parcial no puede ser mayor o igual al monto total del gasto. Para condonación total usa el botón Condonar.');
+        }
+
+        $db->CRUD(
+            "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+             SET
+                condonacion_parcial_monto  = :monto,
+                condonacion_parcial_motivo = :motivo,
+                estatus_pago               = 1
+             WHERE id_gastos_cobranza = :id",
+            [
+                'monto'  => $monto_parcial,
+                'motivo' => $motivo,
+                'id'     => $id_gastos_cobranza
+            ]
+        );
+
+        return self::resultado(true, 'Condonación parcial guardada correctamente.');
+
+    } catch (\Exception $e) {
+        return self::resultado(
+            false,
+            'Error al guardar la condonación parcial',
+            null,
+            $e->getMessage()
+        );
+    }
+}
 
     /**
      * Obtiene el país asociado a un crédito mediante id_persona.
@@ -1036,7 +1083,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
     {
         error_log("[getPaisCredito] Buscando país para crédito ID: " . $idCredito);
         $qry = "
-            SELECT 
+            SELECT
                 p.id_pais,
                 COALESCE(pais.nombre, 'México') AS nombre_pais,
                 COALESCE(pais.codigo_iso, 'mx') AS codigo_iso,
@@ -1047,12 +1094,12 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             LIMIT 1
         ";
         $val = ['id_credito' => (int) $idCredito];
-        
+
         try {
             $db = new Database();
             $r = $db->queryOne($qry, $val);
             error_log("[getPaisCredito] Resultado query: " . ($r ? json_encode($r) : 'NULL'));
-            
+
             // Si no se encuentra el crédito o no tiene país asignado, default a México
             if (!$r || empty($r['nombre_pais'])) {
                 error_log("[getPaisCredito] No encontrado o NULL, retornando México por defecto");
@@ -1063,7 +1110,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                     'pais_activo' => 1
                 ];
             }
-            
+
             error_log("[getPaisCredito] País encontrado: " . $r['nombre_pais'] . " (" . $r['codigo_iso'] . ")");
             return $r;
         } catch (\Exception $e) {
@@ -1081,7 +1128,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
     /**
      * Consultar datos de crédito/cliente desde Guatemala (registro_croop)
      * Busca por pkey_credito o pkey_cliente
-     * 
+     *
      * @param int $idCredito ID del crédito (pkey_credito)
      * @param int|null $idCliente ID del cliente (pkey_cliente) - opcional
      * @return array Resultado con datos parseados
@@ -1093,11 +1140,11 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             error_log("[getDatosGuatemala] Intentando crear conexión DatabaseMaxiGuat...");
             $db = new DatabaseMaxiGuat();
             error_log("[getDatosGuatemala] Conexión creada exitosamente");
-            
+
             // Construir query dinámicamente según parámetros
             if ($idCredito) {
                 $qry = "
-                    SELECT 
+                    SELECT
                         id_croop,
                         fk_oferta,
                         fk_persona,
@@ -1121,7 +1168,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 error_log("[getDatosGuatemala] Query por CREDITO: " . json_encode($val));
             } elseif ($idCliente) {
                 $qry = "
-                    SELECT 
+                    SELECT
                         id_croop,
                         fk_oferta,
                         fk_persona,
@@ -1156,7 +1203,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 error_log("[getDatosGuatemala] No se encontró registro para ID: " . json_encode($val));
                 return self::resultado(false, 'No se encontró registro en Guatemala');
             }
-            
+
             error_log("[getDatosGuatemala] Registro encontrado, pkey_credito=" . ($registro['pkey_credito'] ?? 'null'));
 
             // Parsear JSONs
@@ -1172,8 +1219,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 'apellidoPaterno' => $requestCliente['APP'] ?? '',
                 'apellidoMaterno' => $requestCliente['APM'] ?? '',
                 'nombreCliente' => trim(
-                    ($requestCliente['Nombre'] ?? '') . ' ' . 
-                    ($requestCliente['APP'] ?? '') . ' ' . 
+                    ($requestCliente['Nombre'] ?? '') . ' ' .
+                    ($requestCliente['APP'] ?? '') . ' ' .
                     ($requestCliente['APM'] ?? '')
                 ),
                 'email' => $requestCliente['Email'] ?? '',
@@ -1215,4 +1262,96 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             return self::resultado(false, 'Error al consultar datos de Guatemala', null, $e->getMessage());
         }
     }
+
+
+public static function actualizarEstatusPagoGasto($idGasto, $estatusPago)
+{
+    try {
+        $db = new DatabaseSegundometro();
+
+        $db->CRUD(
+            "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+             SET estatus_pago = :estatus_pago
+             WHERE id_gastos_cobranza = :id_gasto
+               AND estatus_pago = 0",
+            [
+                'estatus_pago' => (int) $estatusPago,
+                'id_gasto'     => (int) $idGasto
+            ]
+        );
+
+        return self::resultado(true, 'Estatus actualizado');
+
+    } catch (\Exception $e) {
+        return self::resultado(
+            false,
+            'Error al actualizar estatus',
+            null,
+            $e->getMessage()
+        );
+    }
+}
+
+public static function getHistorialGastosCobranza($idCredito)
+{
+    $query = "
+    SELECT
+        id_gastos_cobranza,
+        SEMANA,
+        periodo_inicio,
+        periodo_fin,
+        monto_valor,
+        COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
+        fecha_condonacion,
+        condonado,
+        created_at,
+        estatus_pago
+    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+    WHERE Id_credito = :id_credito
+
+      AND estatus_pago = 2
+    ORDER BY created_at DESC
+    ";
+
+    try {
+        $db = new DatabaseSegundometro();
+        $r = $db->queryAll($query, ['id_credito' => $idCredito]);
+
+        $datos = array_map(function($row) {
+            $montoValor   = (float)$row['monto_valor'];
+            $parcialMonto = (float)($row['condonacion_parcial_monto'] ?? 0);
+
+            return [
+                'id_gasto'          => (int)$row['id_gastos_cobranza'],
+                'semana'            => $row['SEMANA'],
+                'periodo'           => date('d/m/Y', strtotime($row['periodo_inicio'])) .
+                                       ' - ' .
+                                       date('d/m/Y', strtotime($row['periodo_fin'])),
+                'monto_original'    => $montoValor,
+                'monto_condonado'   => $parcialMonto > 0 ? $parcialMonto : $montoValor,
+                'fecha_condonacion' => !empty($row['fecha_condonacion'])
+                       ? date('d/m/Y', strtotime($row['fecha_condonacion']))
+                       : (!empty($row['created_at'])
+                          ? date('d/m/Y', strtotime($row['created_at']))
+                          : '—'),
+                'estatus'           => (int)$row['estatus_pago'],
+                'estatus_txt'       => 'PAGADO',
+                'condonado' => (int)$row['condonado']
+            ];
+        }, $r ?: []);
+
+        return self::resultado(true, 'Historial encontrado', $datos);
+
+    } catch (\Exception $e) {
+        return self::resultado(
+            false,
+            'Error al consultar historial',
+            [],
+            $e->getMessage()
+        );
+    }
+}
+
+
+
 }

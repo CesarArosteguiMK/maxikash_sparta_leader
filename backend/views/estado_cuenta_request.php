@@ -1613,6 +1613,8 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                     </div>
                 </div>
 
+
+
                 <!-- INFORMACIÓN DEL CRÉDITO -->
               <hr class="my-2 w-100">
 <small class="card-text text-uppercase text-body-secondary small">Información del Crédito</small>
@@ -1992,6 +1994,22 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                 </div>
             </div>
 
+             <?php if (!empty($resultadoCruce['saldo_favor']) && $resultadoCruce['saldo_favor'] > 0): ?>
+        <div class="d-flex align-items-center gap-4">
+            <div class="avatar">
+                <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
+                    <i class="fa fa-piggy-bank"></i>
+                </div>
+            </div>
+            <div>
+                <h5 class="mb-0"><?= format_currency($resultadoCruce['saldo_favor']) ?></h5>
+                <span>Saldo a favor gastos</span>
+            </div>
+        </div>
+        <?php endif; ?>
+
+    </div>
+
             <!-- TABLA DINÁMICA -->
             <div class="table-responsive tabla-scrollable">
                 <table class="table table-hover table-striped cuotas-table">
@@ -2259,7 +2277,8 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 
 </div>
 
-<div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
+<div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true"
+     data-bs-backdrop="false" data-bs-keyboard="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
 
@@ -2267,91 +2286,123 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
             <div class="modal-header bg-success bg-opacity-10">
                 <h5 class="modal-title">
                     <i class="fa fa-hand-holding-usd text-success me-2"></i>
-                    Condonar gastos de cobranza
+                    Resumen gastos de cobranza
                 </h5>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
             <!-- Body -->
             <div class="modal-body">
-                <!-- Resumen -->
-                <div class="row mb-3">
 
-                    <?php
-                    $hideStyle = (
-                            isset($_SESSION['departamento']) &&
-                            (
-                                    (int)$_SESSION['departamento'] === 9
-                            )
-                    ) ? 'style="display:none;"' : '';
-                    ?>
 
-                        <div class="col-md-4" id="boxSeleccionados" <?= $hideStyle ?>>
-                            <div class="alert alert-success py-2 mb-2">
-                                <strong>Seleccionados:</strong>
-                                <span id="countCondonados">0</span>
+                <!-- PESTAÑAS -->
+                <ul class="nav nav-tabs mb-3" id="tabsCondonar" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active"
+                                id="tab-gastos-btn"
+                                data-bs-toggle="tab"
+                                data-bs-target="#tab-gastos"
+                                type="button" role="tab">
+                            <i class="fa fa-hand-holding-usd me-1"></i>
+                            Gastos Pendientes
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link"
+        id="tab-historial-btn"
+        data-bs-toggle="tab"
+        data-bs-target="#tab-historial"
+        type="button" role="tab">
+    <i class="fa fa-history me-1"></i>
+    Historial
+</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="tabsCondonarContent">
+
+                    <!-- TAB 1: GASTOS PENDIENTES -->
+                    <div class="tab-pane fade show active" id="tab-gastos" role="tabpanel">
+
+                        <!-- Resumen -->
+                        <div class="row mb-3">
+                            <?php
+                            $hideStyle = (
+                                isset($_SESSION['departamento']) &&
+                                (int)$_SESSION['departamento'] === 9
+                            ) ? 'style="display:none;"' : '';
+                            ?>
+                            <div class="col-md-4" id="boxSeleccionados" <?= $hideStyle ?>>
+                                <div class="alert alert-success py-2 mb-2">
+                                    <strong>Seleccionados:</strong>
+                                    <span id="countCondonados">0</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4" id="boxMonto" <?= $hideStyle ?>>
+                                <div class="alert alert-warning py-2 mb-2">
+                                    <strong>Monto a condonar:</strong>
+                                    $<span id="montoCondonar">0.00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold text-dark">
+                                        Total gastos cobranza sin condonar:
+                                    </span>
+                                    <span class="fw-bold text-danger">
+                                        $<span id="montoTotalSinCondonar">0.00</span>
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="col-md-4" id="boxMonto" <?= $hideStyle ?>>
-                            <div class="alert alert-warning py-2 mb-2">
-                                <strong>Monto a condonar:</strong>
-                                $<span id="montoCondonar">0.00</span>
-                            </div>
+                        <!-- Tabla -->
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th style="width:40px;"></th>
+                                    <th>Semana</th>
+                                    <th>Periodo</th>
+                                    <th>Parcialidad</th>
+                                    <th># Cuota</th>
+                                    <th>Monto</th>
+                                    <th></th>
+                                </tr>
+                                </thead>
+                                <tbody id="tablaGastos">
+                                <!-- Se llena dinámicamente -->
+                                </tbody>
+                            </table>
                         </div>
 
+                        <!-- Motivo -->
+                        <div class="mt-3" <?= $hideStyle ?>>
+                            <label class="form-label fw-semibold">
+                                Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
+                            </label>
+                            <textarea id="descripcionCondonacion" class="form-control" rows="3"
+                                placeholder="Describe el motivo de la condonación..."></textarea>
+                        </div>
 
-                    <div class="col-md-4">
-                        <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
-                            <span class="fw-semibold text-dark">
-                                Total gastos cobranza sin condonar:
-                            </span>
-                                                <span class="fw-bold text-danger">
-                                $<span id="montoTotalSinCondonar">0.00</span>
-                            </span>
+                    </div>
+
+                    <!-- TAB 2: HISTORIAL -->
+                    <div class="tab-pane fade" id="tab-historial" role="tabpanel">
+                        <div id="contenedorHistorial">
+                            <div class="text-center text-muted py-4">
+                                <i class="fa fa-history fa-2x mb-2 d-block"></i>
+                                <p>Haz clic en la pestaña para cargar el historial.</p>
+                            </div>
                         </div>
                     </div>
 
                 </div>
-
-                <!-- Tabla -->
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                        <tr>
-                            <th style="width:40px;"></th>
-                            <th>Semana</th>
-                            <th>Periodo</th>
-                            <th>Parcialidad</th>
-                            <th># Cuota</th>
-                            <th class="">Monto</th>
-                            <th class=""></th>
-                        </tr>
-                        </thead>
-                        <tbody id="tablaGastos">
-                        <!-- Se llena dinámicamente -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Motivo -->
-                <div class="mt-3" <?= $hideStyle ?>>
-                    <label class="form-label fw-semibold">
-                        Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
-                    </label>
-                    <textarea
-                            id="descripcionCondonacion"
-                            class="form-control"
-                            rows="3"
-                            placeholder="Describe el motivo de la condonación..."
-                    ></textarea>
-                </div>
-
             </div>
 
             <!-- Footer -->
             <div class="modal-footer" <?= $hideStyle ?>>
-                <button class="btn btn-secondary" data-bs-dismiss="modal" >
+                <button class="btn btn-secondary" data-bs-dismiss="modal">
                     Cancelar
                 </button>
                 <button class="btn btn-success" id="btnCondonarTotal" disabled
@@ -2363,6 +2414,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
         </div>
     </div>
 </div>
+
 
 <!-- Modal Condonación parcial (Editar) -->
 <div class="modal fade" id="modalCondonarParcial" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
@@ -3181,12 +3233,17 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
 
 
 
+
+
     function consultaGastosCondonables(idCredito) {
 
         if (!idCredito) {
             Swal.fire("Error", "Id de crédito inválido", "error");
             return;
         }
+
+        idCreditoCondonar = idCredito;
+        historialCargado = false;
 
         const tabla = document.getElementById('tablaGastos');
         const countSpan = document.getElementById('countCondonados');
@@ -3203,7 +3260,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                 Cargando gastos...
             </td>
         </tr>
-    `;
+      `;
 
         fetch('/EstadoCuenta/getGastosCobranza', {
             method: 'POST',
@@ -3241,6 +3298,7 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                 }
 
                 document.getElementById('modalCondonar').dataset.idCredito = idCredito;
+                idCreditoCondonar = idCredito;
 
                 gastos.forEach((g, index) => {
                     const idGasto = g.id_gasto;
@@ -3510,6 +3568,8 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
         const MODAL_CONDO_Z = 9999;
         const MODAL_PARCIAL_Z = 10000;
 
+          // 👇 AGREGAR AQUÍ ADENTRO, ANTES DEL CIERRE
+
         function getOrCreateScrim() {
             var el = document.getElementById(SCRIM_ID);
             if (el && el.parentNode) return el;
@@ -3602,6 +3662,18 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                 }
             });
         }
+
+      document.addEventListener('click', function(e) {
+    if (e.target.closest('#tab-historial-btn')) {
+        const idCredito = idCreditoCondonar;        if (idCredito) cargarHistorialGastos();
+        const footer = document.querySelector('#modalCondonar .modal-footer');
+        if (footer) footer.style.display = 'none';
+    }
+    if (e.target.closest('#tab-gastos-btn')) {
+        const footer = document.querySelector('#modalCondonar .modal-footer');
+        if (footer) footer.style.display = '';
+    }
+});
     });
 
 
@@ -3725,6 +3797,10 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+
+
+
+
 </script>
 
 <!-- Modal Direcciones - Movido al final para evitar problemas de z-index -->
@@ -3837,6 +3913,9 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
+    let idCreditoCondonar = null;
+let historialCargado = false;
+
 (function(){
     var style=document.createElement('style');
     style.textContent='.estado-cuenta-easter-wrap{position:fixed;inset:0;z-index:1058;pointer-events:none;overflow:hidden}.estado-cuenta-easter-money{position:absolute;left:0;top:0;font-size:20px;pointer-events:none;opacity:0;animation:ecMoneyBurst 1.3s ease-out forwards}.estado-cuenta-easter-toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1060;background:linear-gradient(135deg,#166534 0%,#22c55e 50%,#4ade80 100%);color:#fff;padding:20px 40px;border-radius:16px;font-size:1.15rem;font-weight:700;box-shadow:0 16px 48px rgba(34,197,94,0.4);border:2px solid rgba(255,255,255,0.3);opacity:0;animation:estadoCuentaEasterIn .4s ease forwards;pointer-events:none;text-align:center}.estado-cuenta-easter-toast .estado-cuenta-easter-emoji{font-size:2rem;display:block;margin-bottom:6px}@keyframes ecMoneyBurst{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--ec-tx)), calc(-50% + var(--ec-ty))) scale(0.5)}}@keyframes estadoCuentaEasterIn{0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes estadoCuentaEasterOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)}}';
@@ -3876,4 +3955,107 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(function(){t.style.animation="estadoCuentaEasterOut .35s ease forwards";setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);if(wrap.parentNode)wrap.parentNode.removeChild(wrap);},350);},2800);
     });
 })();
+
+
+// ===== HISTORIAL GASTOS COBRANZA =====
+
+
+function cargarHistorialGastos() {
+     console.log('cargarHistorialGastos llamado, idCreditoCondonar:', idCreditoCondonar);
+    console.log('historialCargado:', historialCargado);
+    if (historialCargado) return;
+
+    const idCredito = idCreditoCondonar;
+    console.log('idCredito a usar:', idCredito);
+
+    const contenedor = document.getElementById('contenedorHistorial');
+
+    if (!idCredito) {
+        contenedor.innerHTML = '<p class="text-muted text-center py-3">No se encontró el ID de crédito.</p>';
+        return;
+    }
+
+    contenedor.innerHTML = `
+        <div class="text-center text-muted py-4">
+            <i class="fa fa-spinner fa-spin fa-2x mb-2 d-block"></i>
+            <p>Cargando historial...</p>
+        </div>`;
+
+    fetch('/EstadoCuenta/getHistorialGastosCobranza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ idCredito: idCredito })
+    })
+    .then(res => res.json())
+    .then(resp => {
+        if (!resp.success) {
+            contenedor.innerHTML = '<p class="text-danger text-center py-3">Error al cargar el historial.</p>';
+            return;
+        }
+
+        const datos = resp.datos ?? [];
+
+        if (datos.length === 0) {
+            contenedor.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+                    <p>No hay gastos condonados registrados.</p>
+                </div>`;
+            historialCargado = true;
+            return;
+        }
+
+        let html = `
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Semana</th>
+                        <th>Periodo</th>
+                        <th class="text-end">Monto Original</th>
+                        <th class="text-center">Tipo</th>
+                        <th class="text-end">Monto</th>
+                        <th class="text-center">Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+        datos.forEach(g => {
+           html += `
+                <tr>
+                    <td>${g.semana}</td>
+                    <td><small>${g.periodo}</small></td>
+                    <td class="text-end">$${parseFloat(g.monto_original).toFixed(2)}</td>
+                    <td class="text-center">
+                        <span class="badge ${g.condonado ? 'bg-warning' : 'bg-success'} px-3 py-2">
+                            ${g.condonado ? 'Condonado' : 'Pagado'}
+                        </span>
+                    </td>
+                    <td class="text-end text-success fw-semibold">$${parseFloat(g.monto_condonado).toFixed(2)}</td>
+                    <td class="text-center"><small>${g.fecha_condonacion}</small></td>
+                </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+        contenedor.innerHTML = html;
+        historialCargado = true;
+    })
+    .catch(() => {
+        contenedor.innerHTML = '<p class="text-danger text-center py-3">Error de conexión.</p>';
+    });
+}
+
+// Reset historial al cerrar modal
+document.getElementById('modalCondonar').addEventListener('hidden.bs.modal', function () {
+    historialCargado = false;
+    document.getElementById('contenedorHistorial').innerHTML = `
+        <div class="text-center text-muted py-4">
+            <i class="fa fa-history fa-2x mb-2 d-block"></i>
+            <p>Haz clic en la pestaña para cargar el historial.</p>
+        </div>`;
+    const tabGastosBtn = document.getElementById('tab-gastos-btn');
+    if (tabGastosBtn) tabGastosBtn.click();
+    document.getElementById('descripcionCondonacion').value = ''; // Limpiar motivo condonación al cerrar modal
+});
+//abonos_efectivo_total
 </script>

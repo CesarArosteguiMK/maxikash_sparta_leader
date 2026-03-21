@@ -394,7 +394,6 @@ class Convenios extends Model
      * Devuelve el convenio activo de un crédito (si existe) con su amortización.
      */
     // Modificar getConvenioActivo para incluir pdf_adjunto
-
 public static function getConvenioActivo($id_credito)
 {
     try {
@@ -414,53 +413,50 @@ public static function getConvenioActivo($id_credito)
             return self::resultado(true, 'Sin convenio activo.', null);
         }
 
-
         // ── Auto-cancelación por incumplimiento (3 días corridos) ──
-$hoy          = new \DateTime();
-$primerVencida = $db->queryOne(
-    "SELECT id, numero_semana, fecha_pago
-     FROM convenio_cliente_amortizacion
-     WHERE id_convenio_cliente = :id
-       AND estatus_pago = 'pendiente'
-     ORDER BY numero_semana ASC
-     LIMIT 1",
-    ['id' => (int) $convenio['id']]
-);
-
-if ($primerVencida) {
-    $fechaPago   = new \DateTime($primerVencida['fecha_pago']);
-    $diasVencido = (int) $hoy->diff($fechaPago)->days;
-    $yaVencio    = $hoy > $fechaPago;
-
-    if ($yaVencio && $diasVencido > 3) {
-        // Cancelar automáticamente
-        $db->CRUD(
-            "UPDATE convenio_cliente SET
-                estatus                   = 'cancelado',
-                fecha_cancelacion         = :fecha,
-                numero_semana_cancelacion = :semana,
-                usuario_cancela           = 'sistema_auto',
-                fecha_modifica            = NOW()
-             WHERE id = :id",
-            [
-                'fecha'  => $hoy->format('Y-m-d'),
-                'semana' => $primerVencida['numero_semana'],
-                'id'     => (int) $convenio['id'],
-            ]
-        );
-
-        $db->CRUD(
-            "UPDATE convenio_cliente_amortizacion SET
-                estatus_pago = 'cancelado'
+        $hoy          = new \DateTime();
+        $primerVencida = $db->queryOne(
+            "SELECT id, numero_semana, fecha_pago
+             FROM convenio_cliente_amortizacion
              WHERE id_convenio_cliente = :id
-               AND estatus_pago = 'pendiente'",
+               AND estatus_pago = 'pendiente'
+             ORDER BY numero_semana ASC
+             LIMIT 1",
             ['id' => (int) $convenio['id']]
         );
 
-        // Retornar null — ya no hay convenio activo
-        return self::resultado(true, 'Convenio cancelado por incumplimiento.', null);
-    }
-}
+        if ($primerVencida) {
+            $fechaPago   = new \DateTime($primerVencida['fecha_pago']);
+            $diasVencido = (int) $hoy->diff($fechaPago)->days;
+            $yaVencio    = $hoy > $fechaPago;
+
+            if ($yaVencio && $diasVencido > 3) {
+                $db->CRUD(
+                    "UPDATE convenio_cliente SET
+                        estatus                   = 'cancelado',
+                        fecha_cancelacion         = :fecha,
+                        numero_semana_cancelacion = :semana,
+                        usuario_cancela           = 'sistema_auto',
+                        fecha_modifica            = NOW()
+                     WHERE id = :id",
+                    [
+                        'fecha'  => $hoy->format('Y-m-d'),
+                        'semana' => $primerVencida['numero_semana'],
+                        'id'     => (int) $convenio['id'],
+                    ]
+                );
+
+                $db->CRUD(
+                    "UPDATE convenio_cliente_amortizacion SET
+                        estatus_pago = 'cancelado'
+                     WHERE id_convenio_cliente = :id
+                       AND estatus_pago = 'pendiente'",
+                    ['id' => (int) $convenio['id']]
+                );
+
+                return self::resultado(true, 'Convenio cancelado por incumplimiento.', null);
+            }
+        }
 
         $amortizacion = $db->queryAll(
             "SELECT * FROM convenio_cliente_amortizacion
@@ -476,10 +472,57 @@ if ($primerVencida) {
         }
 
         // ── Enriquecer con pagos reales de S2Movil ──────────────
-        $pagosS2 = self::_getPagosS2Movil((int) $id_credito);
-        $convenio['pagos_s2movil'] = $pagosS2;
+        $resultadoS2     = self::_getPagosS2Movil((int) $id_credito);
+        $pagosS2Indexado = $resultadoS2['indexado'];
+        $pagosS2Raw      = $resultadoS2['raw'];
+
+        // Mapear cuota S2 → semana del convenio
+        $mapaCuotas = self::_mapearCuotasS2AConvenio($pagosS2Raw, $amortizacion);
+
+        // Enriquecer cada fila de amortización con su cuota S2 y sus pagos
+        foreach ($amortizacion as &$fila) {
+            $numSemana = (int) $fila['numero_semana'];
+            $cuotaS2   = $mapaCuotas[$numSemana] ?? null;
+
+            $fila['cuota_s2'] = $cuotaS2;
+
+            if ($cuotaS2 && isset($pagosS2Indexado[$cuotaS2])) {
+                $pagosDeduplicados = [];
+                $idPagosVistos     = [];
+
+                foreach ($pagosS2Indexado[$cuotaS2] as $p) {
+                    $idPago = $p['idPago'];
+                    if (!in_array($idPago, $idPagosVistos)) {
+                        $idPagosVistos[]     = $idPago;
+                        $pagosDeduplicados[] = $p;
+                    }
+                }
+
+                $fila['pagos_s2'] = $pagosDeduplicados;
+            } else {
+                $fila['pagos_s2'] = [];
+            }
+        }
+        unset($fila);
+
+        // ── DEBUG TEMPORAL — borrar después ──────────────────────
+        foreach ($amortizacion as $filaDebug) {
+            if ((int) $filaDebug['numero_semana'] === 1) {
+                error_log('=== DEBUG SEMANA 1 ===');
+                error_log('cuota_s2: '      . json_encode($filaDebug['cuota_s2']));
+                error_log('pagos_s2: '      . json_encode($filaDebug['pagos_s2']));
+                error_log('mapa_cuotas: '   . json_encode($mapaCuotas));
+                error_log('indexado keys: ' . json_encode(array_keys($pagosS2Indexado)));
+            }
+        }
+        // ── FIN DEBUG ─────────────────────────────────────────────
+
+        $convenio['amortizacion']  = $amortizacion;
+        $convenio['pagos_s2movil'] = $pagosS2Indexado;
+        $convenio['mapa_cuotas']   = $mapaCuotas;
 
         return self::resultado(true, 'Convenio encontrado.', $convenio);
+
     } catch (\Exception $e) {
         return self::resultado(false, 'Error al consultar convenio.', null, $e->getMessage());
     }
@@ -488,6 +531,10 @@ if ($primerVencida) {
 /**
  * Trae datosPagos de S2Movil indexados por numeroCuotaSemanal.
  * Cada entrada puede tener múltiples pagos (sobrantes + pagos normales).
+ */
+/**
+ * Trae datosPagos de S2Movil e indexa por número de cuota S2.
+ * Retorna también un mapa fecha→cuota para cruce en amortización.
  */
 private static function _getPagosS2Movil($id_credito)
 {
@@ -513,40 +560,101 @@ private static function _getPagosS2Movil($id_credito)
         $response = curl_exec($ch);
         curl_close($ch);
 
-        $data      = json_decode($response, true);
+        $data       = json_decode($response, true);
         $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
 
-        if (empty($datosPagos)) return [];
+        if (empty($datosPagos)) return ['indexado' => [], 'raw' => []];
 
-        // Agrupar por numeroCuotaSemanal — puede haber varios pagos por cuota
+        // Indexar por cada número de cuota S2 que aparece en numeroCuotaSemanal
         $indexado = [];
         foreach ($datosPagos as $pago) {
-            $cuota = (int) $pago['numeroCuotaSemanal'];
-            if ($cuota < 1) continue;
+            $cuotasRaw = $pago['numeroCuotaSemanal'] ?? null;
+            if ($cuotasRaw === null) continue;
 
-            if (!isset($indexado[$cuota])) {
-                $indexado[$cuota] = [];
-            }
+            // numeroCuotaSemanal puede ser int, float o string "149,150"
+            $cuotas = is_string($cuotasRaw)
+                ? array_map('intval', array_map('trim', explode(',', $cuotasRaw)))
+                : [(int) $cuotasRaw];
 
             $montoPago = (float) ($pago['montoPago'] ?? 0);
             $capital   = (float) ($pago['capital']   ?? 0);
             $sobrante  = round($montoPago - $capital, 2);
 
-            $indexado[$cuota][] = [
+            $entrada = [
                 'idPago'        => $pago['idPago']        ?? null,
                 'fechaValor'    => $pago['fechaValor']    ?? null,
                 'fechaDeposito' => $pago['fechaDeposito'] ?? null,
                 'montoPago'     => $montoPago,
                 'capital'       => $capital,
                 'sobrante'      => $sobrante > 0 ? $sobrante : 0,
+                'cuotas'        => $cuotas,  // array con todos los números de cuota
             ];
+
+            // Indexar SOLO por la primera cuota — evita que un pago
+            // "92,93" aparezca en dos semanas distintas del convenio
+            $cuotaPrincipal = $cuotas[0];
+            if ($cuotaPrincipal < 1) continue;
+            if (!isset($indexado[$cuotaPrincipal])) {
+                $indexado[$cuotaPrincipal] = [];
+            }
+            $indexado[$cuotaPrincipal][] = $entrada;
         }
 
-        return $indexado;
+        return [
+            'indexado' => $indexado,
+            'raw'      => $datosPagos,
+        ];
 
     } catch (\Exception $e) {
-        return [];
+        return ['indexado' => [], 'raw' => []];
     }
+}
+
+
+/**
+ * Dado el array raw de datosPagos y la amortización del convenio,
+ * determina qué número de cuota S2 corresponde a cada semana del convenio.
+ *
+ * Estrategia: para cada semana del convenio, busca en datosPagos
+ * cuál entrada tiene fechaValor dentro del rango [fecha_pago, fecha_pago+13 días].
+ * De esa entrada extrae el primer numeroCuotaSemanal como cuota representativa.
+ *
+ * Retorna: array [ numero_semana => numero_cuota_s2 ]
+ */
+private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortizacion)
+{
+    $mapa = []; // numero_semana => numero_cuota_s2
+
+    foreach ($amortizacion as $fila) {
+        $numSemana  = (int) $fila['numero_semana'];
+        $fechaBase  = $fila['fecha_pago_real'] ?: $fila['fecha_pago'];
+
+        if (!$fechaBase) continue;
+
+        $inicio = new \DateTime($fechaBase . ' 00:00:00');
+        $fin    = (clone $inicio)->modify('+13 days'); // ventana generosa para pagos tardíos
+
+        foreach ($rawPagos as $pago) {
+            if (empty($pago['fechaValor'])) continue;
+
+            $fechaValor = new \DateTime($pago['fechaValor'] . ' 00:00:00');
+            if ($fechaValor < $inicio || $fechaValor > $fin) continue;
+
+            // Encontrado — tomar el primer número de cuota de este pago
+            $cuotasRaw = $pago['numeroCuotaSemanal'] ?? null;
+            if ($cuotasRaw === null) continue;
+
+            $cuotas = is_string($cuotasRaw)
+                ? array_map('intval', array_map('trim', explode(',', $cuotasRaw)))
+                : [(int) $cuotasRaw];
+
+            // La cuota representativa es la primera del array
+            $mapa[$numSemana] = $cuotas[0];
+            break; // con el primer match alcanza
+        }
+    }
+
+    return $mapa;
 }
 
     // ─────────────────────────────────────────────
@@ -1119,16 +1227,23 @@ public static function migrarConvenio($datos)
         $saldoActual = $totalAPagar;
 
         // 4. Generar amortización
+        $hoy = new \DateTime();
+
         for ($s = 1; $s <= $semanas; $s++) {
             $fechaPago   = date('Y-m-d', strtotime($fechaInicio . ' +' . (($s - 1) * 7) . ' days'));
             $capital     = ($s < $semanas) ? $pagoSemanal : $saldoActual;
             $saldoActual = round($saldoActual - $capital, 2);
             if ($saldoActual < 0) $saldoActual = 0;
 
+            // Semanas cuya fecha ya pasó nacen como 'vencido' — son históricas
+            // Semanas futuras nacen como 'pendiente' — son las que el sistema vigilará
+            $fechaPagoObj  = new \DateTime($fechaPago);
+            $estatuInicial = $fechaPagoObj < $hoy ? 'vencido' : 'pendiente';
+
             $db->CRUD(
                 "INSERT INTO convenio_cliente_amortizacion
-                     (id_convenio_cliente, numero_semana, fecha_pago, pago_semanal, capital, saldo_restante)
-                 VALUES (:id, :num, :fecha, :pago, :capital, :saldo)",
+                     (id_convenio_cliente, numero_semana, fecha_pago, pago_semanal, capital, saldo_restante, estatus_pago)
+                 VALUES (:id, :num, :fecha, :pago, :capital, :saldo, :estatus)",
                 [
                     'id'      => $idConvenio,
                     'num'     => $s,
@@ -1136,6 +1251,7 @@ public static function migrarConvenio($datos)
                     'pago'    => $pagoSemanal,
                     'capital' => $capital,
                     'saldo'   => $saldoActual,
+                    'estatus' => $estatuInicial,
                 ]
             );
         }
@@ -1170,7 +1286,6 @@ public static function migrarConvenio($datos)
 private static function _marcarSemanasDesdeS2Movil($idConvenio, $idCredito, $fechaInicio, $semanas, $db)
 {
     try {
-        // Traer estado de cuenta completo
         $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
         $payload = json_encode([
             'idCredito'  => $idCredito,
@@ -1191,52 +1306,110 @@ private static function _marcarSemanasDesdeS2Movil($idConvenio, $idCredito, $fec
         $response = curl_exec($ch);
         curl_close($ch);
 
-        $data      = json_decode($response, true);
+        $data       = json_decode($response, true);
         $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
 
         if (empty($datosPagos)) return 0;
 
-        $marcadas = 0;
+        // ── Paso 1: Sumar todos los pagos reales de S2 que caen
+        //           ANTES o EN la fecha de inicio del convenio
+        //           (pagos históricos que el cliente ya hizo)
+        // ──────────────────────────────────────────────────────
+        $fechaInicioObj  = new \DateTime($fechaInicio);
+        $montoDisponible = 0.0;
+        $fechaPrimerPago = null;
 
-        for ($s = 1; $s <= $semanas; $s++) {
-            // Rango de la semana del convenio
-            $fechaInicioSemana = new \DateTime(
-                date('Y-m-d', strtotime($fechaInicio . ' +' . (($s - 1) * 7) . ' days'))
-            );
-            $fechaFinSemana = (clone $fechaInicioSemana)->modify('+6 days');
+        foreach ($datosPagos as $pago) {
+            if (empty($pago['fechaValor'])) continue;
+            $fechaValor = new \DateTime($pago['fechaValor']);
 
-            // Buscar en datosPagos si hay un pago con fechaValor dentro de ese rango
-            $pagoEncontrado = null;
-            foreach ($datosPagos as $pago) {
-                if (empty($pago['fechaValor'])) continue;
+            // Solo pagos hasta 13 días después del inicio del convenio
+            $limiteVentana = (clone $fechaInicioObj)->modify('+13 days');
+            if ($fechaValor > $limiteVentana) continue;
 
-                $fechaValor = new \DateTime($pago['fechaValor']);
-                if ($fechaValor >= $fechaInicioSemana && $fechaValor <= $fechaFinSemana) {
-                    $pagoEncontrado = $pago;
-                    break;
-                }
+            // Solo pagos que caen cerca de la fecha de inicio
+            $inicioVentana = (clone $fechaInicioObj)->modify('-3 days');
+            if ($fechaValor < $inicioVentana) continue;
+
+            $montoDisponible += (float) ($pago['montoPago'] ?? 0);
+
+            if ($fechaPrimerPago === null) {
+                $fechaPrimerPago = $pago['fechaValor'];
             }
-
-            if (!$pagoEncontrado) continue;
-
-            // Marcar semana como pagada
-            $db->CRUD(
-                "UPDATE convenio_cliente_amortizacion
-                 SET estatus_pago    = 'pagado',
-                     fecha_pago_real = :fecha,
-                     monto_pagado    = :monto
-                 WHERE id_convenio_cliente = :id AND numero_semana = :num",
-                [
-                    'fecha' => $pagoEncontrado['fechaValor'],
-                    'monto' => $pagoEncontrado['montoPago'] ?? null,
-                    'id'    => $idConvenio,
-                    'num'   => $s,
-                ]
-            );
-            $marcadas++;
         }
 
-        // Si todas las semanas quedaron pagadas → completar convenio
+        if ($montoDisponible <= 0) return 0;
+
+        // ── Paso 2: Aplicar en cascada semana por semana ──────
+        $marcadas        = 0;
+        $sobrante        = $montoDisponible;
+        $fechaAplicacion = $fechaPrimerPago ?? $fechaInicio;
+
+        for ($s = 1; $s <= $semanas; $s++) {
+            if ($sobrante <= 0) break;
+
+            // Traer la fila de esta semana
+            $fila = $db->queryOne(
+                "SELECT id, pago_semanal, estatus_pago
+                 FROM convenio_cliente_amortizacion
+                 WHERE id_convenio_cliente = :id AND numero_semana = :num",
+                ['id' => $idConvenio, 'num' => $s]
+            );
+
+            if (!$fila) continue;
+
+            // Ya pagada — saltamos pero no consumimos sobrante
+            if ($fila['estatus_pago'] === 'pagado') {
+                $marcadas++;
+                continue;
+            }
+
+            // Solo procesamos pendiente, vencido y pendiente_conciliar
+            if (!in_array($fila['estatus_pago'], ['pendiente', 'vencido', 'parcial', 'pendiente_conciliar'])) {
+                continue;
+            }
+
+            $pagoSemanal = (float) $fila['pago_semanal'];
+
+            if ($sobrante >= $pagoSemanal) {
+                // ── Pago completo ──────────────────────────────
+                $db->CRUD(
+                    "UPDATE convenio_cliente_amortizacion SET
+                        estatus_pago    = 'pagado',
+                        fecha_pago_real = :fecha,
+                        monto_pagado    = :monto
+                     WHERE id_convenio_cliente = :id AND numero_semana = :num",
+                    [
+                        'fecha' => $fechaAplicacion,
+                        'monto' => round($pagoSemanal, 2),
+                        'id'    => $idConvenio,
+                        'num'   => $s,
+                    ]
+                );
+                $sobrante = round($sobrante - $pagoSemanal, 2);
+                $marcadas++;
+
+            } else {
+                // ── Pago parcial — sobrante no alcanza para cubrir la semana ──
+                $db->CRUD(
+                    "UPDATE convenio_cliente_amortizacion SET
+                        estatus_pago    = 'parcial',
+                        fecha_pago_real = :fecha,
+                        monto_pagado    = :monto
+                     WHERE id_convenio_cliente = :id AND numero_semana = :num",
+                    [
+                        'fecha' => $fechaAplicacion,
+                        'monto' => round($sobrante, 2),
+                        'id'    => $idConvenio,
+                        'num'   => $s,
+                    ]
+                );
+                $sobrante = 0;
+                // parcial no cuenta como marcada completa
+            }
+        }
+
+        // ── Paso 3: Verificar si todas quedaron pagadas → completar convenio ──
         if ($marcadas === $semanas) {
             $db->CRUD(
                 "UPDATE convenio_cliente
@@ -1272,5 +1445,347 @@ public static function getAmortizacionConvenio($id_convenio)
     }
 }
 
+// ════════════════════════════════════════════════
+// CONCILIACIÓN — obtener datos de S2 para una semana
+// ════════════════════════════════════════════════
+
+public static function getConciliacionSemana($id_convenio, $numero_semana, $id_credito, $semanas_grupo = null)
+{
+    try {
+        $db = new Database();
+
+        // Parsear semanas del grupo — si no viene, solo la semana actual
+        $grupoArr = $semanas_grupo
+            ? array_map('intval', array_map('trim', explode(',', $semanas_grupo)))
+            : [$numero_semana];
+
+        // Asegurar que la semana principal esté incluida
+        if (!in_array((int)$numero_semana, $grupoArr)) {
+            array_unshift($grupoArr, (int)$numero_semana);
+        }
+
+        // Obtener datos de TODAS las semanas del grupo — named params
+        $params       = ['id_convenio' => (int) $id_convenio];
+        $placeholders = [];
+        foreach ($grupoArr as $idx => $numSem) {
+            $key                = 'sem_' . $idx;
+            $placeholders[]     = ':' . $key;
+            $params[$key]       = $numSem;
+        }
+
+        $filasGrupo = $db->queryAll(
+            "SELECT numero_semana, fecha_pago, fecha_pago_real, pago_semanal,
+                    monto_pagado, estatus_pago
+             FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id_convenio
+               AND numero_semana IN (" . implode(',', $placeholders) . ")
+             ORDER BY numero_semana",
+            $params
+        );
+
+        if (!$filasGrupo) {
+            return self::resultado(false, 'Semanas no encontradas.');
+        }
+
+        // Fila principal (primera semana del grupo)
+        $filaPrincipal = $filasGrupo[0];
+
+        // Verificar si ya existe conciliación para la semana principal
+        $conciliacion = $db->queryOne(
+            "SELECT * FROM convenio_conciliacion
+             WHERE id_convenio_cliente = :id AND numero_semana = :num",
+            ['id' => $id_convenio, 'num' => $numero_semana]
+        );
+
+        // ── Traer pagos S2Movil ───────────────────────────────
+        $url     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $payload = json_encode([
+            'idCredito'  => (int) $id_credito,
+            'fechaCorte' => date('Y-m-d'),
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Token: __SPARTA_TOKEN_REDACTED__',
+            ],
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+
+        $data       = json_decode($response, true);
+        $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
+
+        // Buscar pagos S2 en rango de la semana principal
+        // Usamos fecha_pago_real si existe, sino fecha_pago preferencial
+        $fechaBase   = $filaPrincipal['fecha_pago_real'] ?: $filaPrincipal['fecha_pago'];
+        $fechaInicio = new \DateTime($fechaBase);
+        $fechaFin    = (clone $fechaInicio)->modify('+6 days');
+        $inicioVentana = (clone $fechaInicio)->modify('-3 days');
+
+        $pagosEncontrados = [];
+        $idPagosVistos    = [];
+
+        foreach ($datosPagos as $pago) {
+            if (empty($pago['fechaValor'])) continue;
+            $fechaValor = new \DateTime($pago['fechaValor']);
+            if ($fechaValor < $inicioVentana || $fechaValor > $fechaFin) continue;
+
+            $idPago = $pago['idPago'] ?? null;
+            if (in_array($idPago, $idPagosVistos)) continue;
+            $idPagosVistos[] = $idPago;
+
+            $montoPago = (float) ($pago['montoPago'] ?? 0);
+            $capital   = (float) ($pago['capital']   ?? 0);
+            $sobrante  = round($montoPago - $capital, 2);
+
+            $pagosEncontrados[] = [
+                'idPago'     => $idPago,
+                'fechaValor' => $pago['fechaValor'] ?? null,
+                'montoPago'  => $montoPago,
+                'capital'    => $capital,
+                'interes'    => (float) ($pago['interes'] ?? 0),
+                'aplicado'   => $capital,
+                'sobrante'   => $sobrante > 0 ? $sobrante : 0,
+                'cuotas'     => $pago['numeroCuotaSemanal'] ?? null,
+            ];
+        }
+
+        // ── Construir resumen de aplicación al convenio ───────
+        // Cada semana del grupo con lo que se le aplicó en cascada
+        $resumenConvenio = array_map(function($fila) {
+            return [
+                'numero_semana' => (int) $fila['numero_semana'],
+                'fecha_pago'    => $fila['fecha_pago'],
+                'pago_semanal'  => (float) $fila['pago_semanal'],
+                'monto_pagado'  => (float) ($fila['monto_pagado'] ?? 0),
+                'estatus_pago'  => $fila['estatus_pago'],
+                'faltante'      => round(
+                    (float)$fila['pago_semanal'] - (float)($fila['monto_pagado'] ?? 0),
+                    2
+                ),
+            ];
+        }, $filasGrupo);
+
+        // Total pagado al convenio en este grupo
+        $totalAplicadoConvenio = array_sum(array_column($resumenConvenio, 'monto_pagado'));
+
+        return self::resultado(true, 'Datos de conciliación obtenidos.', [
+            'semana'                 => $numero_semana,
+            'semanas_grupo'          => $grupoArr,
+            'fecha_pago'             => $filaPrincipal['fecha_pago'],
+            'pago_semanal'           => $filaPrincipal['pago_semanal'],
+            'pagos_s2'               => $pagosEncontrados,
+            'resumen_convenio'       => $resumenConvenio,
+            'total_aplicado_convenio'=> $totalAplicadoConvenio,
+            'conciliacion'           => $conciliacion ?: null,
+        ]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener conciliación.', null, $e->getMessage());
+    }
+}
+
+// ════════════════════════════════════════════════
+// CONCILIACIÓN — guardar conciliación
+// ════════════════════════════════════════════════
+
+public static function guardarConciliacion($datos, $archivo = null)
+{
+    try {
+        $db = new Database();
+
+        // Verificar si ya existe
+        $existe = $db->queryOne(
+            "SELECT id FROM convenio_conciliacion
+             WHERE id_convenio_cliente = :id AND numero_semana = :num",
+            ['id' => $datos['id_convenio'], 'num' => $datos['numero_semana']]
+        );
+
+        $archivoPath = null;
+        if ($archivo && !empty($archivo['tmp_name'])) {
+            $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/conciliaciones/';
+            if (!file_exists($directorio)) {
+                mkdir($directorio, 0777, true);
+            }
+            $extension   = pathinfo($archivo['name'], PATHINFO_EXTENSION);
+            $nombreArch  = 'conciliacion_' . $datos['id_convenio'] . '_sem' . $datos['numero_semana'] . '_' . date('Ymd_His') . '.' . $extension;
+            $rutaCompleta = $directorio . $nombreArch;
+            if (move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
+                $archivoPath = '/uploads/conciliaciones/' . $nombreArch;
+            }
+        }
+
+        if ($existe) {
+            // Actualizar
+            $db->CRUD(
+                "UPDATE convenio_conciliacion SET
+                    monto_pago          = :monto_pago,
+                    monto_aplicado      = :monto_aplicado,
+                    monto_sobrante      = :monto_sobrante,
+                    fecha_pago          = :fecha_pago,
+                    comentario          = :comentario,
+                    fecha_conciliacion  = NOW(),
+                    usuario_concilia    = :usuario,
+                    estatus             = 'conciliado'
+                    " . ($archivoPath ? ", archivo_comprobante = :archivo" : "") . "
+                 WHERE id_convenio_cliente = :id AND numero_semana = :num",
+                array_merge([
+                    'monto_pago'     => (float) $datos['monto_pago'],
+                    'monto_aplicado' => (float) $datos['monto_aplicado'],
+                    'monto_sobrante' => (float) $datos['monto_sobrante'],
+                    'fecha_pago'     => $datos['fecha_pago'],
+                    'comentario'     => $datos['comentario'] ?? null,
+                    'usuario'        => $datos['usuario'],
+                    'id'             => $datos['id_convenio'],
+                    'num'            => $datos['numero_semana'],
+                ], $archivoPath ? ['archivo' => $archivoPath] : [])
+            );
+        } else {
+            // Insertar
+            $db->CRUD(
+                "INSERT INTO convenio_conciliacion (
+                    id_convenio_cliente, numero_semana,
+                    monto_pago, monto_aplicado, monto_sobrante,
+                    fecha_pago, archivo_comprobante, comentario,
+                    fecha_conciliacion, usuario_concilia, estatus
+                ) VALUES (
+                    :id, :num,
+                    :monto_pago, :monto_aplicado, :monto_sobrante,
+                    :fecha_pago, :archivo, :comentario,
+                    NOW(), :usuario, 'conciliado'
+                )",
+                [
+                    'id'             => $datos['id_convenio'],
+                    'num'            => $datos['numero_semana'],
+                    'monto_pago'     => (float) $datos['monto_pago'],
+                    'monto_aplicado' => (float) $datos['monto_aplicado'],
+                    'monto_sobrante' => (float) $datos['monto_sobrante'],
+                    'fecha_pago'     => $datos['fecha_pago'],
+                    'archivo'        => $archivoPath,
+                    'comentario'     => $datos['comentario'] ?? null,
+                    'usuario'        => $datos['usuario'],
+                ]
+            );
+        }
+
+        return self::resultado(true, 'Conciliación guardada correctamente.');
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al guardar conciliación.', null, $e->getMessage());
+    }
+}
+
+// ════════════════════════════════════════════════
+// SUBIR COMPROBANTE — semana vencida
+// ════════════════════════════════════════════════
+
+public static function subirComprobante($datos, $archivo)
+{
+    try {
+        $db = new Database();
+
+        // Verificar que la semana existe y está vencida
+        $fila = $db->queryOne(
+            "SELECT id, estatus_pago, pago_semanal
+             FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id AND numero_semana = :num",
+            ['id' => (int) $datos['id_convenio'], 'num' => (int) $datos['numero_semana']]
+        );
+
+        if (!$fila) {
+            return self::resultado(false, 'Semana no encontrada.');
+        }
+
+        if (!in_array($fila['estatus_pago'], ['vencido', 'parcial', 'pendiente'])) {
+            return self::resultado(false, 'Solo se pueden subir comprobantes de semanas vencidas, parciales o pendientes.');
+       }
+
+        // Guardar archivo
+        if (!$archivo || empty($archivo['tmp_name'])) {
+            return self::resultado(false, 'El comprobante es obligatorio.');
+        }
+
+        $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/comprobantes/';
+        if (!file_exists($directorio)) {
+            mkdir($directorio, 0777, true);
+        }
+
+        $extension    = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+        $permitidos   = ['pdf', 'jpg', 'jpeg', 'png'];
+        if (!in_array($extension, $permitidos)) {
+            return self::resultado(false, 'Formato no permitido. Solo PDF, JPG o PNG.');
+        }
+
+        if ($archivo['size'] > 5 * 1024 * 1024) {
+            return self::resultado(false, 'El archivo no debe exceder 5MB.');
+        }
+
+        $nombreArchivo = 'comprobante_conv' . $datos['id_convenio'] .
+                         '_sem' . $datos['numero_semana'] .
+                         '_' . date('Ymd_His') . '.' . $extension;
+        $rutaCompleta  = $directorio . $nombreArchivo;
+        $rutaRelativa  = '/uploads/comprobantes/' . $nombreArchivo;
+
+        if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
+            return self::resultado(false, 'Error al guardar el archivo.');
+        }
+
+
+        // Semanas a las que aplica este pago
+$semanasAplica = isset($datos['semanas_aplica'])
+    ? array_map('intval', array_map('trim', explode(',', $datos['semanas_aplica'])))
+    : [(int) $datos['numero_semana']];
+
+// Actualizar cada semana → pendiente_conciliar
+foreach ($semanasAplica as $numSem) {
+    $db->CRUD(
+        "UPDATE convenio_cliente_amortizacion SET
+            estatus_pago      = 'pendiente_conciliar',
+            fecha_pago_real   = :fecha,
+            comentario_gestor = :comentario,
+            comprobante_path  = :comprobante
+         WHERE id_convenio_cliente = :id AND numero_semana = :num",
+        [
+            'fecha'       => $datos['fecha_pago_real'],
+            'comentario'  => $datos['comentario'] ?? '',
+            'comprobante' => $rutaRelativa,
+            'id'          => (int) $datos['id_convenio'],
+            'num'         => $numSem,
+        ]
+    );
+}
+
+        // Verificar si todas las semanas quedaron pagadas → completar convenio
+        $conteo = $db->queryOne(
+            "SELECT COUNT(*) as total,
+                    SUM(CASE WHEN estatus_pago = 'pagado' THEN 1 ELSE 0 END) as pagadas
+             FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id",
+            ['id' => (int) $datos['id_convenio']]
+        );
+
+        if ($conteo && $conteo['total'] > 0 && $conteo['total'] == $conteo['pagadas']) {
+            $db->CRUD(
+                "UPDATE convenio_cliente SET estatus = 'completado', fecha_modifica = NOW()
+                 WHERE id = :id",
+                ['id' => (int) $datos['id_convenio']]
+            );
+        }
+
+        return self::resultado(true, 'Comprobante subido correctamente.', [
+            'semanas_pagadas' => $semanasAplica,
+            'comprobante'     => $rutaRelativa,
+        ]);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al subir comprobante.', null, $e->getMessage());
+    }
+}
 
 }

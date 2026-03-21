@@ -392,4 +392,78 @@ public function getAmortizacionConvenio()
     self::respuestaJSON($r);
 }
 
+// ════════════════════════════════════════════════
+// API: OBTENER DETALLES DE CONCILIACIÓN DE SEMANA
+// ════════════════════════════════════════════════
+
+public function getConciliacionSemana()
+{
+    $idConvenio   = isset($_POST['id_convenio'])   ? (int) $_POST['id_convenio']   : 0;
+    $numeroSemana = isset($_POST['numero_semana'])  ? (int) $_POST['numero_semana']  : 0;
+    $idCredito    = isset($_POST['id_credito'])     ? (int) $_POST['id_credito']     : 0;
+
+    if (!$idConvenio || !$numeroSemana || !$idCredito) {
+        self::respuestaJSON(self::respuesta(false, 'Parámetros inválidos.'));
+        return;
+    }
+
+    $semanasGrupo = isset($_POST['semanas_grupo']) ? trim($_POST['semanas_grupo']) : null;
+    $r = ConveniosDAO::getConciliacionSemana($idConvenio, $numeroSemana, $idCredito, $semanasGrupo);    self::respuestaJSON($r);
+}
+
+public function guardarConciliacion()
+{
+    $campos = ['id_convenio', 'numero_semana', 'monto_pago', 'monto_aplicado', 'monto_sobrante', 'fecha_pago'];
+    foreach ($campos as $campo) {
+        if (!isset($_POST[$campo]) || $_POST[$campo] === '') {
+            self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+            return;
+        }
+    }
+
+    $datos = array_merge($_POST, [
+        'usuario' => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+    ]);
+
+    $archivo = isset($_FILES['comprobante']) && !empty($_FILES['comprobante']['tmp_name'])
+        ? $_FILES['comprobante']
+        : null;
+
+    $r = ConveniosDAO::guardarConciliacion($datos, $archivo);
+    self::respuestaJSON($r);
+}
+
+
+public function subirComprobante()
+{
+    $campos = ['id_convenio', 'numero_semana', 'fecha_pago_real'];
+    foreach ($campos as $campo) {
+        if (empty($_POST[$campo])) {
+            self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+            return;
+        }
+    }
+
+    $archivo = isset($_FILES['comprobante']) && !empty($_FILES['comprobante']['tmp_name'])
+        ? $_FILES['comprobante']
+        : null;
+
+    if (!$archivo) {
+        self::respuestaJSON(self::respuesta(false, 'El comprobante es obligatorio.'));
+        return;
+    }
+
+    $datos = array_merge($_POST, [
+        'usuario' => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+    ]);
+
+    // semanas_aplica viene como string "4,5,6" o solo "4"
+    if (!empty($_POST['semanas_aplica'])) {
+        $datos['semanas_aplica'] = $_POST['semanas_aplica'];
+    }
+
+    $r = ConveniosDAO::subirComprobante($datos, $archivo);
+    self::respuestaJSON($r);
+}
+
 }
