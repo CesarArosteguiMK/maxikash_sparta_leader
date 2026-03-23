@@ -4105,7 +4105,7 @@ function _pintarHistorial(datos) {
         contenedor.innerHTML = `
             <div class="text-center text-muted py-4">
                 <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
-                <p>No hay gastos condonados registrados.</p>
+                <p>No hay gastos registrados en el historial.</p>
             </div>`;
         return;
     }
@@ -4119,25 +4119,59 @@ function _pintarHistorial(datos) {
                     <th>Periodo</th>
                     <th class="text-end">Monto Original</th>
                     <th class="text-center">Tipo</th>
-                    <th class="text-end">Monto</th>
+                    <th class="text-end">Monto Final</th>
                     <th class="text-center">Fecha</th>
                 </tr>
             </thead>
             <tbody>`;
 
     datos.forEach(g => {
+        const esCondonado = parseInt(g.condonado) === 1; // Perdón total (antónimo de pago)
+        const montoOriginal = parseFloat(g.monto_original || 0);
+        const condonacionParcial = parseFloat(g.condonacion_parcial_monto || 0);
+
+        let htmlMontoOriginal = "";
+        let htmlMontoFinal = "";
+        let badgeColor = "";
+        let badgeText = "";
+
+        if (esCondonado) {
+            // --- CASO: CONDONACIÓN TOTAL (PERDÓN) ---
+            badgeColor = 'bg-warning text-dark';
+            badgeText = 'Condonado';
+
+            htmlMontoOriginal = `$${montoOriginal.toFixed(2)}`;
+            // En condonación total, el cliente pagó $0.00
+            htmlMontoFinal = `<span class="text-muted">$0.00</span>`;
+        } else {
+            // --- CASO: PAGO (CON O SIN AJUSTE) ---
+            const montoPagado = montoOriginal - condonacionParcial;
+
+            badgeColor = 'bg-success';
+            badgeText = condonacionParcial > 0 ? 'Pago c/Desc' : 'Pagado';
+
+            htmlMontoOriginal = condonacionParcial > 0
+                ? `<span class="text-muted text-decoration-line-through" style="font-size: 0.9em;">$${montoOriginal.toFixed(2)}</span>
+                   <div class="text-dark small fw-bold">$${montoPagado.toFixed(2)}</div>`
+                : `$${montoOriginal.toFixed(2)}`;
+
+            htmlMontoFinal = `<span class="text-success fw-bold">$${montoPagado.toFixed(2)}</span>`;
+        }
+
         html += `
             <tr>
                 <td>${g.semana}</td>
-                <td><small>${g.periodo}</small></td>
-                <td class="text-end">$${parseFloat(g.monto_original).toFixed(2)}</td>
+                <td><small class="text-muted">${g.periodo}</small></td>
+                <td class="text-end">${htmlMontoOriginal}</td>
                 <td class="text-center">
-                    <span class="badge ${g.condonado ? 'bg-warning' : 'bg-success'} px-3 py-2">
-                        ${g.condonado ? 'Condonado' : 'Pagado'}
+                    <span class="badge ${badgeColor} px-2 py-1" style="min-width: 80px;">
+                        ${badgeText}
                     </span>
                 </td>
-                <td class="text-end text-success fw-semibold">$${parseFloat(g.monto_condonado).toFixed(2)}</td>
-                <td class="text-center"><small>${g.fecha_condonacion}</small></td>
+                <td class="text-end">
+                    ${htmlMontoFinal}
+                </td>
+                <td class="text-center"><small>${g.fecha_condonacion || '—'}</small></td>
             </tr>`;
     });
 

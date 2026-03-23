@@ -4838,22 +4838,27 @@ private function procesarGastosCobranza(array $notasCargos, $idCredito): array
         ];
     }
 
-    // 2️⃣ Total de notas disponibles
+    // 2️⃣ Total de notas disponibles (lo que el cliente ha pagado por GDC)
     $totalNotas = array_sum(array_column($notasFiltradas, 'monto'));
     $montoDisponible = round($totalNotas, 2);
 
-    // 2b️⃣ Descontar lo que ya fue cubierto en ejecuciones anteriores
+    // 2b️⃣ Descontar lo que ya fue cubierto o abonado parcialmente
     $resultadoTodos = EstadoCuentaDAO::getGastosTodosConEstatus($idCredito);
     if ($resultadoTodos['success'] && !empty($resultadoTodos['datos'])) {
         foreach ($resultadoTodos['datos'] as $g) {
-            if ((int)($g['estatus_pago'] ?? 0) === 2) {
+            $estatus = (int)($g['estatus_pago'] ?? 0);
+
+            if ($estatus === 2) {
+                // Si ya está pagado totalmente, restamos el valor total del gasto
                 $montoDisponible = round($montoDisponible - (float)$g['monto_valor'], 2);
+            } elseif ($estatus === 1) {
+                // 🔹 CAMBIO: Si es pago parcial, restamos solo lo que ya se abonó (monto_parcial_pagado)
+                $montoDisponible = round($montoDisponible - (float)($g['monto_parcial_pagado'] ?? 0), 2);
             }
         }
         $montoDisponible = max(0, $montoDisponible);
     }
 
-    // Si ya no queda monto disponible, no hay nada que procesar
     if ($montoDisponible <= 0) {
         return [
             'gastos_procesados' => [],
@@ -4861,7 +4866,7 @@ private function procesarGastosCobranza(array $notasCargos, $idCredito): array
         ];
     }
 
-    // 3️⃣ Obtener gastos PENDIENTES de BD
+    // 3️⃣ Obtener gastos de BD
     $resultadoGastos = EstadoCuentaDAO::getGastosCobranza($idCredito);
 
     if (!$resultadoGastos['success'] || empty($resultadoGastos['datos'])) {
@@ -4871,10 +4876,15 @@ private function procesarGastosCobranza(array $notasCargos, $idCredito): array
         ];
     }
 
-    // 4️⃣ Solo los que están PENDIENTES (estatus_pago = 0)
-    $gastosPendientes = array_filter($resultadoGastos['datos'], function($g) {
-        return (int)($g['estatus_pago'] ?? 0) === 0;
-    });
+        // 4️⃣ Solo los que están PENDIENTES (0) o PARCIALES (1)
+        // Y QUE NO ESTÉN CONDONADOS
+        $gastosPendientes = array_filter($resultadoGastos['datos'], function($g) {
+            $estatus = (int)($g['estatus_pago'] ?? 0);
+            $condonado = (int)($g['condonado'] ?? 0);
+
+            // Si ya está condonado, NO es un gasto pendiente de pago
+            return ($estatus === 0 || $estatus === 1) && $condonado === 0;
+        });
 
     if (empty($gastosPendientes)) {
         return [
@@ -4892,33 +4902,47 @@ private function procesarGastosCobranza(array $notasCargos, $idCredito): array
             break;
         }
 
-        $montoGasto = round((float)$gasto['monto'], 2);
+        $montoGastoOriginal = round((float)$gasto['monto'], 2);
+        // Si ya tenía un pago parcial previo, el monto "pendiente" real es el original menos lo ya pagado
+        $yaPagado = (int)$gasto['estatus_pago'] === 1 ? round((float)$gasto['monto_parcial_pagado'], 2) : 0;
+        $montoRestantePorCubrir = round($montoGastoOriginal - $yaPagado, 2);
 
-        if ($montoDisponible >= $montoGasto) {
-            // ✅ Cubre completo → PAGADO
-            $montoDisponible = round($montoDisponible - $montoGasto, 2);
+        if ($montoDisponible >= $montoRestantePorCubrir) {
+            // ✅ Cubre lo que faltaba → PAGADO (Cierre total)
+            $montoDisponible = round($montoDisponible - $montoRestantePorCubrir, 2);
 
             $gastosProcessados[] = [
                 'id_gasto'    => $gasto['id_gasto'],
-                'monto'       => $montoGasto,
-                'aplicado'    => $montoGasto,
+                'monto'       => $montoGastoOriginal,
+                'aplicado'    => $montoGastoOriginal,
                 'estatus'     => 2,
                 'estatus_txt' => 'PAGADO'
             ];
 
-            EstadoCuentaDAO::actualizarEstatusPagoGasto($gasto['id_gasto'], 2);
+            // Usamos el nuevo método para asegurar que monto_parcial_pagado sea igual al total
+            EstadoCuentaDAO::actualizarEstatusPagoGastoConMonto($gasto['id_gasto'], 2, $montoGastoOriginal, 0);
 
         } else {
-            // 🔶 Cubre parcialmente → PAGO PARCIAL
+            // 🔶 🔹 CAMBIO: Aplicar pago parcial y condonar automáticamente la diferencia
+            $montoAAbonarAhora = $montoDisponible;
+            $totalPagadoFinal = round($yaPagado + $montoAAbonarAhora, 2);
+            $diferenciaCondonacion = max(0, round($montoGastoOriginal - $totalPagadoFinal, 2));
+
             $gastosProcessados[] = [
                 'id_gasto'    => $gasto['id_gasto'],
-                'monto'       => $montoGasto,
-                'aplicado'    => $montoDisponible,
-                'estatus'     => 1,
-                'estatus_txt' => 'PAGO PARCIAL'
+                'monto'       => $montoGastoOriginal,
+                'aplicado'    => $totalPagadoFinal,
+                'estatus'     => 2, // Se marca como 2 (Cerrado) porque el resto se condona
+                'estatus_txt' => 'PAGADO (CON DESC.)'
             ];
 
-            EstadoCuentaDAO::actualizarEstatusPagoGasto($gasto['id_gasto'], 1);
+            // 🚀 Invocación al nuevo método del modelo
+            EstadoCuentaDAO::actualizarEstatusPagoGastoConMonto(
+                $gasto['id_gasto'],
+                2, // Estatus cerrado
+                $totalPagadoFinal,
+                $diferenciaCondonacion
+            );
 
             $montoDisponible = 0;
         }
