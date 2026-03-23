@@ -604,29 +604,97 @@ class Empresa extends Model
 
     // ══════════════════════════════════════════════════════════════
     //  Créditos con Fecha_primer_vencimiento = Lunes de cierre
-    //  + comparativo bucket nacimiento vs corte actual dinámico
+    //  + comparativo bucket nacimiento vs corte (dinámico o solo Lunes)
     // ══════════════════════════════════════════════════════════════
-    public static function getVencimientosLunes(): array
+    /**
+     * Slots del lunes (de más tardío a más temprano): primer no nulo = mora del lunes ya cargada en tabla.
+     */
+    private static function sqlExprMoraSoloLunes(): string
     {
-        $corteCol = self::getCorteActual();
+        $cols = [
+            'Dias_mora_Lunes_23_50',
+            'Dias_mora_Lunes_20_30',
+            'Dias_mora_Lunes_18_30',
+            'Dias_mora_Lunes_16_30',
+            'Dias_mora_Lunes_14_30',
+            'Dias_mora_Lunes_13_30',
+            'Dias_mora_Lunes_11_30',
+            'Dias_mora_Lunes_09_30',
+            'Dias_mora_Lunes_07_30',
+        ];
+        $parts = [];
+        foreach ($cols as $c) {
+            $parts[] = '`' . $c . '`';
+        }
 
-        if (!$corteCol) {
-            return [
-                'success'      => false,
-                'mensaje'      => 'No hay corte disponible.',
-                'datos'        => [],
-                'lunes_pasado' => null,
-                'corte_actual' => null,
-            ];
+        return 'COALESCE(' . implode(', ', $parts) . ')';
+    }
+
+    /** Bucket de corte a partir de una expresión SQL de días mora (misma escala que el reporte dinámico). */
+    private static function sqlBucketDesdeMoraExpr(string $moraExpr): string
+    {
+        return sprintf(
+            'CASE '
+            . 'WHEN (%1$s) IS NULL THEN NULL '
+            . 'WHEN (%1$s) < 1 THEN \'a) Current\' '
+            . 'WHEN (%1$s) BETWEEN 1 AND 7 THEN \'b) 1 a 7 dias\' '
+            . 'WHEN (%1$s) BETWEEN 8 AND 30 THEN \'c) 8 a 30 dias\' '
+            . 'WHEN (%1$s) BETWEEN 31 AND 60 THEN \'d) 31 a 60 dias\' '
+            . 'ELSE \'e) 61+ dias\' END',
+            $moraExpr
+        );
+    }
+
+    /**
+     * @param int  $offsetSemanas  0 = lunes de la semana en curso; 1 = siguiente lunes de cierre
+     * @param bool $corteSoloLunes true = mora solo con columnas del día lunes (sin martes+); false = corte actual
+     *                                (cartera desde martes ~8:00, avanza según día/hora)
+     */
+    public static function getVencimientosLunes(int $offsetSemanas = 0, bool $corteSoloLunes = false): array
+    {
+        if (!$corteSoloLunes) {
+            $corteCol = self::getCorteActual();
+            if (!$corteCol) {
+                return [
+                    'success'      => false,
+                    'mensaje'      => 'No hay corte disponible.',
+                    'datos'        => [],
+                    'lunes_pasado' => null,
+                    'corte_actual' => null,
+                ];
+            }
         }
 
         // Lunes de cierre (misma lógica que en SQL: días desde el último lunes)
         $dow   = (int)date('w');
         $dias  = ($dow + 6) % 7;
         $lunes = date('Y-m-d', strtotime("-$dias days"));
+        if ($offsetSemanas !== 0) {
+            $lunes = date('Y-m-d', strtotime($lunes . ' +' . (int)$offsetSemanas . ' weeks'));
+        }
 
-        // Bucket calculado desde días mora del corte actual
-        $bucketCorteSQL = "
+        if ($corteSoloLunes) {
+            $moraExpr       = self::sqlExprMoraSoloLunes();
+            $bucketCorteSQL = self::sqlBucketDesdeMoraExpr($moraExpr);
+            $corteLabel     = 'Dias_mora_Lunes';
+            $sql            = 'SELECT '
+                . 't.Id_credito, '
+                . 't.Nombre_cliente, '
+                . 't.Bucket_Morosidad_Real AS bucket_nacio, '
+                . 't.Gestor_Asignado, '
+                . 't.Jefe_de_Plaza, '
+                . 't.Zonal, '
+                . 't.Territorial, '
+                . 't.Cuotas_vencidas, '
+                . 't.Saldo_vencido_actualizado, '
+                . 't.Fecha_primer_vencimiento, '
+                . '(' . $moraExpr . ') AS dias_mora_corte, '
+                . $bucketCorteSQL . ' AS bucket_corte_actual '
+                . 'FROM tbl_segundometro_semana t '
+                . 'WHERE DATE(t.Fecha_primer_vencimiento) = :lunes '
+                . 'ORDER BY t.Territorial, t.Zonal, t.Jefe_de_Plaza, t.Gestor_Asignado, t.Nombre_cliente';
+        } else {
+            $bucketCorteSQL = "
             CASE
                 WHEN `$corteCol` IS NULL              THEN NULL
                 WHEN `$corteCol` < 1                  THEN 'a) Current'
@@ -637,8 +705,8 @@ class Empresa extends Model
             END
         ";
 
-        // WHERE con igualdad directa a :lunes para permitir uso de índice en Fecha_primer_vencimiento
-        $sql = "
+            $corteLabel = $corteCol;
+            $sql        = "
             SELECT
                 t.Id_credito,
                 t.Nombre_cliente,
@@ -653,7 +721,7 @@ class Empresa extends Model
                 `$corteCol`                      AS dias_mora_corte,
                 ($bucketCorteSQL)                AS bucket_corte_actual
             FROM tbl_segundometro_semana t
-            WHERE t.Fecha_primer_vencimiento = :lunes
+            WHERE DATE(t.Fecha_primer_vencimiento) = :lunes
             ORDER BY
                 t.Territorial,
                 t.Zonal,
@@ -661,19 +729,39 @@ class Empresa extends Model
                 t.Gestor_Asignado,
                 t.Nombre_cliente
         ";
+        }
 
         try {
-            $db   = new DatabaseSegundometro();
-            $rows = $db->queryAll($sql, ['lunes' => $lunes]);
+            $db                = new DatabaseSegundometro();
+            $lunesCalendario   = $lunes;
+            $rows              = $db->queryAll($sql, ['lunes' => $lunes]);
+            $usadoFallbackLunes = false;
 
-            $lunesPasado = $lunes;
+            // Semana actual (solo lunes): si el lunes de calendario aún no tiene filas en segundómetro, usar el último lunes con datos.
+            if ($corteSoloLunes && count($rows) === 0) {
+                $fb = $db->queryOne(
+                    'SELECT MAX(DATE(t.Fecha_primer_vencimiento)) AS lm
+                     FROM tbl_segundometro_semana t
+                     WHERE DATE(t.Fecha_primer_vencimiento) <= :lunes
+                       AND WEEKDAY(t.Fecha_primer_vencimiento) = 0',
+                    ['lunes' => $lunesCalendario]
+                );
+                if (!empty($fb['lm'])) {
+                    $lunesEfectivo = $fb['lm'];
+                    $rows          = $db->queryAll($sql, ['lunes' => $lunesEfectivo]);
+                    $usadoFallbackLunes = ($lunesEfectivo !== $lunesCalendario);
+                    $lunes              = $lunesEfectivo;
+                }
+            }
 
             return [
-                'success'      => true,
-                'mensaje'      => 'Registros obtenidos.',
-                'lunes_pasado' => $lunesPasado,
-                'corte_actual' => $corteCol,
-                'datos'        => $rows,
+                'success'              => true,
+                'mensaje'              => 'Registros obtenidos.',
+                'lunes_pasado'         => $lunes,
+                'lunes_calendario'     => $lunesCalendario,
+                'usado_fallback_lunes' => $usadoFallbackLunes,
+                'corte_actual'         => $corteLabel,
+                'datos'                => $rows,
             ];
 
         } catch (\Exception $e) {

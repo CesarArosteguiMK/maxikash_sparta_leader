@@ -1,0 +1,128 @@
+2026-03-03 12:02:33.796 | INFO     | app.services.verificacion:verificar_calidad:248 - Verificación calidad - ok=False - 193ms
+2026-03-03 12:02:33.835 | INFO     | app.services.verificacion:verificar_calidad:248 - Verificación calidad - ok=False - 27ms
+2026-03-03 12:02:33.868 | INFO     | app.services.verificacion:verificar_calidad:248 - Verificación calidad - ok=False - 25ms
+2026-03-03 12:09:35.470 | INFO     | app.main:startup:85 - 🚀 Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:09:35.473 | INFO     | app.main:startup:86 - 📋 Docs: http://localhost:8000/docs
+2026-03-03 12:10:52.338 | INFO     | app.services.verificacion:verificar_calidad:248 - Verificación calidad - ok=True - 462ms
+2026-03-03 12:10:52.406 | INFO     | app.main:shutdown:91 - 👋 Servidor detenido
+2026-03-03 12:10:53.695 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:10:53.696 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:11:03.464 | INFO     | app.services.verificacion:verificar_calidad:248 - Verificación calidad - ok=True - 411ms
+2026-03-03 12:11:16.629 | INFO     | app.services.verificacion:verificar_calidad:248 - Verificación calidad - ok=True - 384ms
+2026-03-03 12:11:36.736 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-03 12:14:33.750 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:14:35.250 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:14:35.250 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:14:42.197 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-03 12:15:09.641 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-03 12:15:47.962 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-03 12:17:30.669 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-03 12:18:20.484 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:18:21.596 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:18:21.597 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:19:01.713 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:19:08.207 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:19:08.208 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:19:32.431 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio.pdf - tamaño: 295.8KB
+2026-03-03 12:25:44.006 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-1.pdf - tamaño: 268.7KB
+2026-03-03 12:25:57.631 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-1.pdf - tamaño: 268.7KB
+2026-03-03 12:26:21.712 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-1.pdf - tamaño: 268.7KB
+2026-03-03 12:29:06.543 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:29:08.168 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:29:08.169 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:34:06.547 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:34:08.093 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:34:08.094 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:35:44.745 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:35:47.130 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:35:47.131 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:36:31.450 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-1.pdf - tamaño: 268.7KB
+2026-03-03 12:38:00.257 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-2.pdf - tamaño: 272.4KB
+2026-03-03 12:40:50.862 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-2 (1).pdf - tamaño: 122.0KB
+2026-03-03 12:41:10.432 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-2 (1).pdf - tamaño: 122.0KB
+2026-03-03 12:44:37.186 | INFO     | app.api.routes:verificar_comprobante:181 - Verificando comprobante - archivo: comprobante_domicilio-2 (1)-1.pdf - tamaño: 124.7KB
+2026-03-03 12:45:41.446 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:45:42.771 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:45:42.772 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:48:25.771 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:48:27.435 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:48:27.436 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:50:47.994 | INFO     | app.services.verificacion:verificar_calidad:249 - Verificación calidad - ok=True - 444ms
+2026-03-03 12:50:48.039 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:50:49.509 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:50:49.510 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:51:26.151 | INFO     | app.services.verificacion:verificar_calidad:266 - Verificación calidad - ok=False - lado=frente - 18420ms
+2026-03-03 12:53:16.183 | INFO     | app.services.verificacion:verificar_calidad:266 - Verificación calidad - ok=True - lado=indeterminado - 62310ms
+2026-03-03 12:55:48.536 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:55:49.844 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:55:49.845 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:56:14.905 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 12:56:16.086 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:56:16.087 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:56:39.398 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 12:56:39.399 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 12:58:17.738 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=False - lado=reverso - 18020ms
+2026-03-03 13:01:57.955 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 13:01:57.956 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 13:01:57.958 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 13:02:07.304 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 13:02:07.306 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 13:04:39.399 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=True - lado=reverso - 1212ms
+2026-03-03 13:06:39.695 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 13:06:39.696 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 13:08:23.151 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=True - lado=frente - 1176ms
+2026-03-03 13:08:27.485 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=True - lado=reverso - 1272ms
+2026-03-03 13:08:35.543 | INFO     | app.api.routes:verificar_comprobante:186 - Verificando comprobante - archivo: comprobante_domicilio-2 (1)-1.pdf - tamaño: 124.7KB
+2026-03-03 14:00:56.278 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:01:22.374 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 26095ms
+2026-03-03 14:01:22.376 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:01:50.326 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 27950ms
+2026-03-03 14:03:51.105 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:04:05.034 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:04:31.038 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 26004ms
+2026-03-03 14:04:31.038 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:04:57.584 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 26546ms
+2026-03-03 14:07:00.347 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:07:00.377 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:07:27.975 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 27598ms
+2026-03-03 14:07:27.975 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:07:55.709 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 27733ms
+2026-03-03 14:10:00.984 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:17:24.483 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:17:50.247 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 25764ms
+2026-03-03 14:17:50.247 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:18:16.305 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 26058ms
+2026-03-03 14:20:20.086 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:23:05.330 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:23:31.345 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 26014ms
+2026-03-03 14:23:31.345 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:23:58.049 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 26704ms
+2026-03-03 14:26:00.551 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:35:49.595 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:36:19.821 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 30226ms
+2026-03-03 14:36:19.822 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:36:49.911 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 30089ms
+2026-03-03 14:39:32.340 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:43:43.158 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:44:17.028 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 33870ms
+2026-03-03 14:44:17.029 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:44:49.413 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 32383ms
+2026-03-03 14:47:21.514 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:53:48.661 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:54:20.524 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 31862ms
+2026-03-03 14:54:20.524 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:54:51.837 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 31312ms
+2026-03-03 14:57:51.827 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 14:58:39.064 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-03 14:58:39.065 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-03 14:58:39.066 | INFO     | app.main:shutdown:91 - Servidor detenido
+2026-03-03 14:59:15.575 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 14:59:46.737 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 93 - Resultado: ResultadoVerificacion.ORIGINAL - 31161ms
+2026-03-03 14:59:46.737 | INFO     | app.services.verificacion:verificar:56 - Iniciando verificación - tipo: TipoDocumento.RESIDENCIA_TEMPORAL
+2026-03-03 15:00:19.756 | INFO     | app.services.verificacion:verificar:189 - Verificación completada - Score: 81 - Resultado: ResultadoVerificacion.ORIGINAL - 33018ms
+2026-03-03 15:03:01.651 | INFO     | app.services.document_crosscheck:extraer_datos_acta_nacimiento:595 - Acta nacimiento multi-pasada: 18 pasadas, 1 fechas, 2 nombres
+2026-03-03 15:51:00.955 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=True - lado=frente - 807ms
+2026-03-03 15:51:10.462 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=True - lado=reverso - 819ms
+2026-03-03 15:51:16.734 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=True - lado=None - 285ms
+2026-03-03 16:20:30.254 | INFO     | app.api.routes:verificar_comprobante:186 - Verificando comprobante - archivo: comprobante_domicilio-2 (1)-1.pdf - tamaño: 124.7KB
+2026-03-03 16:20:36.715 | INFO     | app.services.verificacion:verificar_calidad:305 - Verificación calidad - ok=True - lado=reverso - 873ms

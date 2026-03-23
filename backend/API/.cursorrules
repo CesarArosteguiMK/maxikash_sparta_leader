@@ -1,0 +1,92 @@
+# 🤖 REGLAS PARA CURSOR AI - Sistema de Verificación de Documentos Mexicanos
+
+## CONTEXTO DEL PROYECTO
+Sistema de verificación de autenticidad de documentos mexicanos (INE, Residencia Temporal, 
+Residencia Permanente) usando análisis de imagen multicapa.
+
+## STACK TECNOLÓGICO
+- **Backend**: Python 3.11+ con FastAPI
+- **Visión por computadora**: OpenCV, Pillow, scikit-image
+- **OCR**: Tesseract + pytesseract / Google Vision API (opcional)
+- **ML**: PyTorch + torchvision (EfficientNet-B3)
+- **Validación**: Algoritmos CURP/INE propios
+- **Base de datos**: PostgreSQL + SQLAlchemy (logs de verificaciones)
+- **Cache**: Redis
+- **Deploy**: Docker + Docker Compose
+- **Testing**: pytest
+
+## ESTRUCTURA DEL PROYECTO
+```
+doc-verificacion/
+├── app/
+│   ├── main.py                 # FastAPI app principal
+│   ├── api/
+│   │   ├── routes.py           # Endpoints de la API
+│   │   └── dependencies.py     # Dependencias FastAPI
+│   ├── core/
+│   │   ├── config.py           # Configuración / variables de entorno
+│   │   └── security.py         # API Keys, autenticación
+│   ├── models/
+│   │   ├── schemas.py          # Pydantic models (request/response)
+│   │   └── database.py         # SQLAlchemy models
+│   ├── services/
+│   │   ├── verificacion.py     # Orquestador principal
+│   │   ├── metadata_analyzer.py
+│   │   ├── forense_analyzer.py
+│   │   ├── geometry_analyzer.py
+│   │   ├── ocr_analyzer.py
+│   │   ├── barcode_analyzer.py
+│   │   └── ml_classifier.py
+│   └── utils/
+│       ├── curp_validator.py
+│       ├── ine_validator.py
+│       └── image_helpers.py
+├── tests/
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── requirements.txt
+├── .env.example
+└── docs/
+    └── API.md
+```
+
+## CONVENCIONES DE CÓDIGO
+- Type hints en todas las funciones
+- Docstrings en español
+- Manejo de excepciones con HTTPException
+- Logs estructurados con loguru
+- Nunca hardcodear credenciales - usar .env
+- Todos los scores entre 0.0 y 1.0 internamente, 0-100 en respuestas API
+
+## SEGURIDAD IMPORTANTE
+- Los documentos subidos se procesan en memoria (no guardar en disco permanente)
+- Guardar solo el score y metadata, NUNCA la imagen original en BD
+- Cumplir LFPDPPP (Ley Federal de Protección de Datos México)
+- Implementar rate limiting en endpoints de upload
+
+## TIPOS DE DOCUMENTOS SOPORTADOS
+- INE_NUEVA (2014+)
+- INE_ANTERIOR  
+- RESIDENCIA_TEMPORAL
+- RESIDENCIA_TEMPORAL_ACUMULATIVA
+- RESIDENCIA_PERMANENTE
+
+## PESOS DEL SCORE (no modificar sin pruebas A/B)
+```python
+PESOS = {
+    "metadatos": 0.15,
+    "forense": 0.20,
+    "geometria": 0.15,
+    "ocr_campos": 0.30,
+    "codigo_barras": 0.10,
+    "ml_classifier": 0.10
+}
+```
+
+## UMBRALES DE DECISIÓN
+```python
+UMBRAL_REAL = 75      # Score >= 75 → ORIGINAL
+UMBRAL_REVISION = 50  # Score 50-74 → REVISION_MANUAL
+                      # Score < 50  → RECHAZADO
+```

@@ -556,6 +556,7 @@ class Segundometro extends Controller
                 var chk = document.getElementById('sgAutoCopyEnabled');
                 if (!chk || guardandoAutoCopy) return;
                 guardandoAutoCopy = true;
+                var estadoPrevio = !chk.checked; // estado antes del cambio (opuesto al actual)
                 try {
                     const response = await fetch('/segundometro/autoCopyConfig', {
                         method: 'POST',
@@ -566,6 +567,7 @@ class Segundometro extends Controller
                     if (!data.success) throw new Error(data.mensaje || 'No se pudo guardar auto-copy');
                     actualizarEstadoAgente();
                 } catch (e) {
+                    chk.checked = estadoPrevio; // revertir al estado anterior si falló
                     Swal.fire('Error', e.message || 'No se pudo guardar auto-copy', 'error');
                 } finally {
                     guardandoAutoCopy = false;
@@ -867,6 +869,124 @@ class Segundometro extends Controller
                 }
             }
 
+            // ── Ejecutar ahora: mismo flujo que el automático ──────────────────────
+            async function ejecutarAhora() {
+                var confirmResult = await Swal.fire({
+                    title: '¿Ejecutar auto-copy ahora?',
+                    html: '<div class="text-start">'
+                        + '<p class="mb-2">Se ejecutará el mismo flujo que el automático:</p>'
+                        + '<ol class="mb-2">'
+                        + '<li>Inicia <strong>monitorear.sh</strong> en background (inotifywait)</li>'
+                        + '<li>Espera warmup (~10 s) para que se abran los watches</li>'
+                        + '<li>Copia el <strong>último reporte +1s</strong></li>'
+                        + '<li>inotifywait detecta el archivo → Python procesa → datos en BD</li>'
+                        + '</ol>'
+                        + '<p class="text-muted small mb-0"><i class="fa fa-info-circle me-1"></i>El proceso corre en background en el agente. El resultado puede tardar hasta 15 min en reflejarse en BD.</p>'
+                        + '</div>',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, ejecutar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
+                });
+                if (!confirmResult.isConfirmed) return;
+
+                Swal.fire({ title: 'Lanzando...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                try {
+                    var r = await fetch('/segundometro/ejecutarAhora', { method: 'POST', headers: { 'Front-Request': 'true' } });
+                    var data = await r.json();
+                    if (!data.success && data.mensaje && data.mensaje.includes('ya hay una ejecución')) {
+                        Swal.fire({ icon: 'info', title: 'Ya hay una ejecución en curso', text: 'Espera a que termine antes de lanzar otra.', confirmButtonText: 'Entendido' });
+                        return;
+                    }
+                    if (!data.success) throw new Error(data.mensaje || 'No se pudo lanzar');
+                    // Lanzado → polling de estado
+                    await _pollEjecucion();
+                } catch (e) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'No se pudo ejecutar', confirmButtonText: 'Cerrar' });
+                }
+            }
+
+            async function _pollEjecucion() {
+                const esc = s => (s + '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                var intentos = 0;
+                var maxIntentos = 60; // hasta 2 min polling cada 2 s
+                Swal.fire({
+                    title: 'Ejecutando...',
+                    html: '<div id="swal-exec-status" class="text-start"><p class="text-muted"><i class="fa fa-spinner fa-spin me-1"></i>Iniciando monitoreo previo y copiando archivo...</p></div>',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: function() { Swal.showLoading(); }
+                });
+                while (intentos < maxIntentos) {
+                    await new Promise(function(res){ setTimeout(res, 2000); });
+                    intentos++;
+                    try {
+                        var r = await fetch('/segundometro/estadoEjecucion', { method: 'GET', headers: { 'Front-Request': 'true' } });
+                        var data = await r.json();
+                        var est = data.estado || {};
+                        if (!est.running) {
+                            // Terminó
+                            var result = est.lastResult || {};
+                            var ok = !!result.success;
+                            var html = '<div class="text-start">'
+                                + '<div class="alert ' + (ok ? 'alert-success' : 'alert-danger') + ' mb-2">'
+                                + '<strong>' + (ok ? '✅ Éxito' : '❌ Error') + ':</strong> ' + esc(result.mensaje || (ok ? 'Completado' : 'Falló'))
+                                + '</div>';
+                            if (result.origen) html += '<p class="mb-1 small"><strong>Origen:</strong> <code>' + esc(result.origen) + '</code></p>';
+                            if (result.destino) html += '<p class="mb-1 small"><strong>Destino:</strong> <code>' + esc(result.destino) + '</code></p>';
+                            if (est.finishedAt) html += '<p class="mb-0 text-muted small">Terminó: ' + esc(est.finishedAt) + '</p>';
+                            html += '<p class="mb-0 text-muted small mt-2"><i class="fa fa-info-circle me-1"></i>El reporte puede tardar hasta 10 min en aparecer en BD.</p>';
+                            html += '</div>';
+                            Swal.fire({ icon: ok ? 'success' : 'warning', title: 'Resultado', html: html, confirmButtonText: 'Cerrar' })
+                                .then(function() { listarArchivos(true); actualizarEstadoAgente(); });
+                            return;
+                        }
+                        // Sigue corriendo: actualizar texto
+                        var elapsed = est.startedAt ? Math.round((Date.now() - new Date(est.startedAt).getTime()) / 1000) : null;
+                        var el = document.getElementById('swal-exec-status');
+                        if (el) el.innerHTML = '<p class="text-muted mb-0"><i class="fa fa-spinner fa-spin me-1"></i>Ejecutando' + (elapsed ? ' (' + elapsed + 's)' : '') + '...<br><small>Monitoreo + copia en curso en el servidor remoto.</small></p>';
+                    } catch(_) {}
+                }
+                Swal.fire({ icon: 'info', title: 'Sigue en background', text: 'El proceso sigue corriendo en el agente. Revisa el estado en unos minutos con el botón de estado del agente.', confirmButtonText: 'Entendido' });
+            }
+
+            // ── Estado del catch-up ────────────────────────────────────────────────
+            async function verEstadoCatchUp() {
+                Swal.fire({ title: 'Consultando catch-up...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+                try {
+                    var r = await fetch('/segundometro/catchUpEstado', { method: 'GET', headers: { 'Front-Request': 'true' } });
+                    var data = await r.json();
+                    if (!data.success || !data.estado) throw new Error(data.mensaje || 'Sin datos');
+                    var est = data.estado;
+                    var esc = s => (s + '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    var html = '<div class="text-start" style="max-height:60vh;overflow-y:auto;">';
+                    var estadoBadge = est.running
+                        ? '<span class="badge bg-warning text-dark">En curso</span>'
+                        : (est.completado ? '<span class="badge bg-success">Completado</span>' : '<span class="badge bg-secondary">No iniciado / sin datos</span>');
+                    html += '<p class="mb-2"><strong>Estado:</strong> ' + estadoBadge + '</p>';
+                    html += '<p class="mb-1"><strong>Procesados:</strong> ' + (est.procesados || 0) + ' &nbsp; <strong>Errores:</strong> ' + (est.errores || 0) + '</p>';
+                    if (est.pendientes && est.pendientes.length) {
+                        html += '<p class="mb-1"><strong>Pendientes (' + est.pendientes.length + '):</strong></p><ul class="mb-2 small">';
+                        est.pendientes.forEach(function(n){ html += '<li><code>' + esc(n) + '</code></li>'; });
+                        html += '</ul>';
+                    } else {
+                        html += '<p class="mb-1 text-success small">Sin pendientes detectados.</p>';
+                    }
+                    if (est.log && est.log.length) {
+                        html += '<details class="mt-2"><summary class="fw-bold small text-secondary" style="cursor:pointer;">Log (' + est.log.length + ' líneas)</summary>';
+                        html += '<pre class="mt-2 p-2 bg-dark text-light rounded small" style="max-height:200px;overflow-y:auto;font-size:0.75rem;">';
+                        est.log.forEach(function(l){ html += esc(l) + '\n'; });
+                        html += '</pre></details>';
+                    }
+                    html += '</div>';
+                    Swal.fire({ title: 'Estado Catch-up al arrancar', html: html, icon: est.completado ? 'success' : (est.running ? 'info' : 'question'), confirmButtonText: 'Cerrar', width: '700px' });
+                } catch(e) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'No se pudo consultar', confirmButtonText: 'Cerrar' });
+                }
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
                 // Delegado único: aviso de descarga + fetch (funciona en localhost y servidor aunque haya caché)
                 document.addEventListener('click', function descargarReporteClick(e) {
@@ -941,6 +1061,10 @@ class Segundometro extends Controller
                 if (btnDiag) btnDiag.addEventListener('click', ejecutarDiagnosticoSSH);
                 var btnProbarBd = document.getElementById('sgAgenteProbarBd');
                 if (btnProbarBd) btnProbarBd.addEventListener('click', probarVerificacionBdAgente);
+                var btnEjecutarAhora = document.getElementById('sgEjecutarAhora');
+                if (btnEjecutarAhora) btnEjecutarAhora.addEventListener('click', ejecutarAhora);
+                var btnCatchUp = document.getElementById('sgCatchUpEstado');
+                if (btnCatchUp) btnCatchUp.addEventListener('click', verEstadoCatchUp);
                 var chkAutoCopy = document.getElementById('sgAutoCopyEnabled');
                 if (chkAutoCopy) chkAutoCopy.addEventListener('change', guardarEstadoAutoCopy);
                 var linkPrueba = document.getElementById('linkTruncarModoPrueba');
@@ -1577,6 +1701,73 @@ class Segundometro extends Controller
                 'preRunMonitoreo' => !empty($agent['json']['preRunMonitoreo']),
                 'horarios' => $agent['json']['horarios'] ?? [],
                 'proximaEjecucion' => $agent['json']['proximaEjecucion'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Dispara el job auto-copy inmediatamente (para probar o recuperar un horario perdido).
+     * Inicia en background en el agente; devuelve de inmediato con estado inicial.
+     */
+    public function ejecutarAhora()
+    {
+        try {
+            if (!$this->validarModoSoloAgente('ejecutar ahora')) return;
+            $agent = $this->agenteRequest('POST', '/auto-copy/ejecutar-ahora');
+            if (!$agent['success'] || !is_array($agent['json'])) {
+                $msg = 'No se pudo lanzar ejecución en agente.';
+                if (!empty($agent['error'])) $msg .= ' ' . $agent['error'];
+                self::respuestaJSON(['success' => false, 'mensaje' => $msg]);
+                return;
+            }
+            self::respuestaJSON([
+                'success'  => !empty($agent['json']['success']),
+                'mensaje'  => $agent['json']['mensaje'] ?? '',
+                'estado'   => $agent['json']['estado'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Estado de la última ejecución lanzada con ejecutarAhora() (running / done / error).
+     */
+    public function estadoEjecucion()
+    {
+        try {
+            if (!$this->validarModoSoloAgente('estado ejecución')) return;
+            $agent = $this->agenteRequest('GET', '/auto-copy/ejecutar-ahora/estado');
+            if (!$agent['success'] || !is_array($agent['json'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo consultar estado de ejecución.']);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => !empty($agent['json']['success']),
+                'estado'  => $agent['json']['estado'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Estado del catch-up automático al arrancar el agente.
+     */
+    public function catchUpEstado()
+    {
+        try {
+            if (!$this->validarModoSoloAgente('estado catch-up')) return;
+            $agent = $this->agenteRequest('GET', '/catch-up/estado');
+            if (!$agent['success'] || !is_array($agent['json'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo consultar catch-up.']);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => !empty($agent['json']['success']),
+                'estado'  => $agent['json']['estado'] ?? null,
             ]);
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);

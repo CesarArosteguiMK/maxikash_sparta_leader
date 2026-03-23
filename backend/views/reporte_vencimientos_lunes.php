@@ -6,7 +6,7 @@
         <div>
             <h4 class="mb-0">
                 <i class="fa fa-calendar-week text-primary me-2"></i>
-                Primeros pagos — Lunes de Cierre
+                <?= htmlspecialchars($vencimientos_titulo_card ?? 'Primeros pagos — Lunes de Cierre', ENT_QUOTES, 'UTF-8'); ?>
             </h4>
             <p class="text-muted mb-0" style="font-size:.8rem;">
                 Primer vencimiento:

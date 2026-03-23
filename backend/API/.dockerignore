@@ -1,0 +1,43 @@
+# Entorno Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv
+.venv
+env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea
+.vscode
+*.swp
+.DS_Store
+Thumbs.db
+
+# Tests y desarrollo (no necesarios en imagen)
+.pytest_cache
+.coverage
+htmlcov
+*.egg-info
+.eggs
+
+# Logs y temp (se crean en runtime)
+logs
+*.log
+/tmp/doc_verificacion
+
+# Git
+.git
+.gitignore
+
+# Documentación local (opcional)
+*.md
+!README.md
+
+# Docker (evitar recursión)
+Dockerfile*
+docker-compose*
+.dockerignore

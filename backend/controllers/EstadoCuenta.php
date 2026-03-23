@@ -36,9 +36,10 @@ class EstadoCuenta extends Controller
 
     // ---------------- PARSEAR CUOTAS ----------------
     private function parse_cuotas_field($value) {
-        if (!$value) return [];
+        if ($value === null || $value === '') return [];
 
-        $value = trim($value);
+        $value = is_string($value) ? trim($value) : trim((string) $value);
+        if ($value === '') return [];
 
         if (strpos($value, ",") !== false) {
             return array_map('intval', explode(",", $value));
@@ -50,6 +51,71 @@ class EstadoCuenta extends Controller
         }
 
         return [intval($value)];
+    }
+
+    private function esCargoAnticipoCapital(array $cargo): bool {
+        return mb_strtoupper(trim((string) ($cargo["concepto"] ?? ""))) === 'ANTICIPO A CAPITAL';
+    }
+
+    /**
+     * Tras un idCargo de ANTICIPO en numeroCuotaSemanal, el sobrante del depósito debe poder
+     * liquidar la siguiente CUOTA SEMANAL en datosCargos aunque el API no la liste.
+     */
+    private function siguienteIdCargoCuotaSemanalDespuesDe(int $afterIdCargo, array $ordenIds, array $porId): ?int {
+        $found = false;
+        foreach ($ordenIds as $idc) {
+            if (!$found) {
+                if ($idc === $afterIdCargo) {
+                    $found = true;
+                }
+                continue;
+            }
+            $c = $porId[$idc] ?? null;
+            if ($c === null) {
+                continue;
+            }
+            if ($this->esCargoAnticipoCapital($c)) {
+                continue;
+            }
+            if (strpos(mb_strtoupper((string) ($c["concepto"] ?? "")), 'CUOTA SEMANAL') !== false) {
+                return $idc;
+            }
+        }
+        return null;
+    }
+
+    private function expandIdCargosTrasAnticipos(array $idCargos, array $cargosSorted): array {
+        if (empty($idCargos) || empty($cargosSorted)) {
+            return $idCargos;
+        }
+        $porId = [];
+        $ordenIds = [];
+        foreach ($cargosSorted as $c) {
+            $idc = $this->safe_int($c["idCargo"] ?? 0);
+            if ($idc <= 0) {
+                continue;
+            }
+            $porId[$idc] = $c;
+            $ordenIds[] = $idc;
+        }
+        $out = [];
+        $outSet = [];
+        foreach ($idCargos as $idc) {
+            $idc = (int) $idc;
+            if (!isset($outSet[$idc])) {
+                $out[] = $idc;
+                $outSet[$idc] = true;
+            }
+            $cargo = $porId[$idc] ?? null;
+            if ($cargo !== null && $this->esCargoAnticipoCapital($cargo)) {
+                $sig = $this->siguienteIdCargoCuotaSemanalDespuesDe($idc, $ordenIds, $porId);
+                if ($sig !== null && !isset($outSet[$sig])) {
+                    $out[] = $sig;
+                    $outSet[$sig] = true;
+                }
+            }
+        }
+        return $out;
     }
 
     // ---------------- EXTRAER NUMERO DE CUOTA ----------------
@@ -382,13 +448,18 @@ JS;
             $pagos = $estadoCuenta["datosPagos"] ?? [];
             if (!is_array($pagos)) $pagos = [];
 
-            // Máxima cuota que existe en los cargos (por concepto o idCargo). Si un pago trae numeroCuotaSemanal > este máximo (ej. 63 cuando solo hay 45 filas), se hace que también aplique a la última cuota.
-            $maxCuotaEnCargos = 0;
+            // Orden estable por idCargo (necesario para expandir lista tras ANTICIPO)
+            usort($cargos, function ($a, $b) {
+                return $this->safe_int($a["idCargo"] ?? 0) <=> $this->safe_int($b["idCargo"] ?? 0);
+            });
+
+            // numeroCuotaSemanal en la API = idCargo(s) que el depósito liquida (no el número de cuota del concepto).
+            $maxIdCargoEnCargos = 0;
             foreach ($cargos as $c) {
-                $concepto = $c["concepto"] ?? "";
-                $n = $this->extraer_numero_cuota($concepto);
-                if ($n === null) $n = $this->safe_int($c["idCargo"] ?? 0, 0);
-                if ($n > $maxCuotaEnCargos) $maxCuotaEnCargos = $n;
+                $idc = $this->safe_int($c["idCargo"] ?? 0, 0);
+                if ($idc > $maxIdCargoEnCargos) {
+                    $maxIdCargoEnCargos = $idc;
+                }
             }
 
             $pagos_list = [];
@@ -402,11 +473,14 @@ JS;
                 $extemporaneos  = $this->safe_float($p["extemporaneos"] ?? 0);
                 $monto_real     = max($montoPago - $extemporaneos, 0);
 
+                // Lista de idCargo que este pago toca (orden: primero id en numeroCuotaSemanal).
                 $cuotas = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
-                if ($maxCuotaEnCargos > 0 && !empty($cuotas)) {
+                // Si el API dice 27,28 y 28 es ANTICIPO, el sobrante debe poder ir a la siguiente CUOTA SEMANAL (p. ej. id 29).
+                $cuotas = $this->expandIdCargosTrasAnticipos($cuotas, $cargos);
+                if ($maxIdCargoEnCargos > 0 && !empty($cuotas)) {
                     $maxEnPago = max($cuotas);
-                    if ($maxEnPago > $maxCuotaEnCargos && !in_array($maxCuotaEnCargos, $cuotas)) {
-                        $cuotas[] = $maxCuotaEnCargos;
+                    if ($maxEnPago > $maxIdCargoEnCargos && !in_array($maxIdCargoEnCargos, $cuotas)) {
+                        $cuotas[] = $maxIdCargoEnCargos;
                     }
                 }
 
@@ -424,25 +498,30 @@ JS;
                 ];
             }
 
-            // -------------------------
-            // ORDENAR CARGOS POR idCargo
-            // -------------------------
-            usort($cargos, function($a, $b){
-                return $this->safe_int($a["idCargo"] ?? 0) <=> $this->safe_int($b["idCargo"] ?? 0);
-            });
-
             $tabla = [];
 
+            // Plazo total "DE N" en CUOTA SEMANAL (badge Recalculada cuando baja tras anticipo).
+            $prevPlazoTotalSemanal = null;
+
             // -------------------------
-            // PROCESAR CARGOS
+            // PROCESAR CARGOS (una fila por idCargo; pagos ↔ idCargo vía numeroCuotaSemanal)
             // -------------------------
             foreach ($cargos as $cargo_idx => $cargo) {
 
                 $concepto = $cargo["concepto"] ?? "";
-                $cuota_num = $this->extraer_numero_cuota($concepto);
+                $idCargoCargo = $this->safe_int($cargo["idCargo"] ?? 0);
+                $esAnticipo = (mb_strtoupper(trim($concepto)) === 'ANTICIPO A CAPITAL');
+                $cuota_num_display = $this->extraer_numero_cuota($concepto);
 
-                if ($cuota_num === null) {
-                    $cuota_num = $this->safe_int($cargo["idCargo"] ?? 0);
+                $recalculada = false;
+                if (strpos(mb_strtoupper($concepto), 'CUOTA SEMANAL') !== false) {
+                    if (preg_match('/\bDE\s+(\d+)\s*$/i', $concepto, $mPlazo)) {
+                        $plazoTotal = (int) $mPlazo[1];
+                        if ($prevPlazoTotalSemanal !== null && $plazoTotal < $prevPlazoTotalSemanal) {
+                            $recalculada = true;
+                        }
+                        $prevPlazoTotalSemanal = $plazoTotal;
+                    }
                 }
 
                 $monto_cargo   = $this->safe_float($cargo["monto"] ?? 0);
@@ -461,19 +540,22 @@ JS;
                 $aplicados = [];
 
                 // -------------------------
-                // Índices de pagos que aplican a esta cuota, ordenados para dejar más sobrante a la siguiente: primero los que NO incluyen cuota N+1, después los que sí (24,25).
-                // Así no "gastamos" todo el pago (24,25) en la 24 y dejamos más para la 25.
+                // Pagos cuyo numeroCuotaSemanal incluye este idCargo.
+                // Orden: primero los que NO incluyen el idCargo siguiente (más sobrante para el siguiente cargo).
                 // -------------------------
-                $siguiente_cuota = $cuota_num + 1;
+                $siguiente_idCargo = $siguiente_cargo ? $this->safe_int($siguiente_cargo["idCargo"] ?? 0) : 0;
                 $indices_aplicables = [];
                 foreach ($pagos_list as $idx => $p) {
-                    if (in_array($cuota_num, $p["cuotas"] ?? [])) {
+                    if (in_array($idCargoCargo, $p["cuotas"] ?? [])) {
                         $indices_aplicables[] = $idx;
                     }
                 }
-                usort($indices_aplicables, function ($a, $b) use ($pagos_list, $siguiente_cuota) {
-                    $tiene_siguiente_a = in_array($siguiente_cuota, $pagos_list[$a]["cuotas"] ?? []);
-                    $tiene_siguiente_b = in_array($siguiente_cuota, $pagos_list[$b]["cuotas"] ?? []);
+                usort($indices_aplicables, function ($a, $b) use ($pagos_list, $siguiente_idCargo) {
+                    if ($siguiente_idCargo <= 0) {
+                        return 0;
+                    }
+                    $tiene_siguiente_a = in_array($siguiente_idCargo, $pagos_list[$a]["cuotas"] ?? []);
+                    $tiene_siguiente_b = in_array($siguiente_idCargo, $pagos_list[$b]["cuotas"] ?? []);
                     return ($tiene_siguiente_a ? 1 : 0) <=> ($tiene_siguiente_b ? 1 : 0);
                 });
 
@@ -488,11 +570,16 @@ JS;
                     if ($monto_restante_cargo > 0 && $pago["remaining"] > 0) {
 
                         $remaining_al_inicio = round($pago["remaining"], 2);
-                        $aplicar = min($pago["remaining"], $monto_restante_cargo);
                         $ext_api = round($pago["extemporaneos"] ?? 0, 2);
                         $monto_real_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
                         // Es sobrante solo cuando aplicamos el "resto" de un pago que ya se usó en parte en OTRA cuota (remaining < monto real). No cuando la diferencia con el original es solo extemporáneos/gasto cobranza.
                         $es_sobrante_remaining = ($remaining_al_inicio < $monto_real_pago);
+                        // El sobrante pertenece a la lógica de cuotas semanales; no debe liquidar ANTICIPO A CAPITAL (sigue disponible para el siguiente cargo, p. ej. cuota semanal siguiente).
+                        if ($esAnticipo && $es_sobrante_remaining) {
+                            continue;
+                        }
+
+                        $aplicar = min($pago["remaining"], $monto_restante_cargo);
                         // Mostrar monto real del depósito solo cuando es la primera aplicación; si ya se usó en cuota anterior, mostrar el resto que llegó.
                         $monto_mostrar = $es_sobrante_remaining ? $remaining_al_inicio : round($pago["montoPagoOriginal"] ?? $pago["remaining"], 2);
                         $aplicado_total_pago = round(($pago["montoPagoOriginal"] ?? 0) - $ext_api, 2);
@@ -529,7 +616,10 @@ JS;
                 $excedente      = round(max($total_aplicado - $monto_cargo, 0), 2);
 
                 $tabla[] = [
-                    "cuota"         => $cuota_num,
+                    "cuota"         => $cuota_num_display,
+                    "idCargo"       => $idCargoCargo,
+                    "tipo"          => $esAnticipo ? "anticipo" : "cuota",
+                    "recalculada"   => $recalculada,
                     "fecha"         => $fecha_venc,
                     "monto_cargo"   => round($monto_cargo, 2),
                     "capital"       => round($capital, 2),
@@ -558,9 +648,6 @@ $resultadoCruce = $this->procesarGastosCobranza(
     $listaNotasCargos,
     $idConsultado
 );
-
-error_log('NOTAS CARGOS RAW: ' . json_encode($listaNotasCargos));
-error_log('CRUCE RESULTADO: ' . json_encode($resultadoCruce));
 
 // Pasar a la vista:
 self::set("resultadoCruce", $resultadoCruce);
@@ -621,10 +708,13 @@ self::set("resultadoCruce", $resultadoCruce);
             // para emparejar cada fecha con el pago revertido, y se redistribuye el dinero
             // legítimo desde la cuota más antigua con déficit.
             if ($hayNotasCargos && !empty($tabla)) {
-                // Mapeo cuota_num → índice en $tabla
+                // Mapeo idCargo → índice en $tabla (numeroCuotaSemanal = idCargo)
                 $cuotaNumToIdx = [];
                 for ($ci = 0; $ci < count($tabla); $ci++) {
-                    $cuotaNumToIdx[$tabla[$ci]['cuota']] = $ci;
+                    $idCg = $tabla[$ci]['idCargo'] ?? null;
+                    if ($idCg !== null && $idCg > 0) {
+                        $cuotaNumToIdx[$idCg] = $ci;
+                    }
                 }
 
                 // Lookup rápido de pagos_list por idPago

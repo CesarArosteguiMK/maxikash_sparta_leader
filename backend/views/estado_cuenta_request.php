@@ -1512,6 +1512,23 @@ html.dark-mode .cuotas-table .contracargo-label,
 body.dark-mode .cuotas-table .contracargo-label { color: #fb923c !important; font-weight: 700; }
 html.dark-mode .cuotas-table .contracargo-valor,
 body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; font-weight: 600; }
+
+/* ── Anticipo a Capital ── */
+.cuotas-table .fila-anticipo-capital td { background-color: #e0f7f4 !important; }
+.cuotas-table .badge-anticipo { background-color: #0d9488 !important; color: #fff !important; font-size: .72rem; }
+.cuotas-table .etiqueta-anticipo-pago { color: #0d9488 !important; font-weight: 600; }
+.cuotas-table .etiqueta-anticipo-aplicado { color: #065f46 !important; font-weight: 600; }
+/* Modo oscuro */
+html.dark-mode .cuotas-table .fila-anticipo-capital td,
+body.dark-mode  .cuotas-table .fila-anticipo-capital td { background-color: #134e4a !important; }
+html.dark-mode .cuotas-table .etiqueta-anticipo-pago,
+body.dark-mode  .cuotas-table .etiqueta-anticipo-pago { color: #2dd4bf !important; }
+html.dark-mode .cuotas-table .etiqueta-anticipo-aplicado,
+body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !important; }
+
+/* Badge Recalculada: debajo del # cuota, sin invadir la columna del monto */
+.cuotas-table .cuota-num-wrap { display: inline-block; max-width: 5.5rem; vertical-align: top; }
+.cuotas-table .cuota-num-wrap .badge-recalculada { display: inline-block; margin-top: 0.25rem; margin-left: 0; max-width: 100%; white-space: normal; line-height: 1.15; font-size: 0.65rem; font-weight: 600; padding: 0.2rem 0.35rem; }
 </style>
 
 <div class="row estado-cuenta-page">
@@ -2036,10 +2053,44 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                     $dataEstadoCuenta = $dataEstadoCuenta ?? [];
                     $statusCreditoRaw = trim((string)($dataEstadoCuenta['statusCredito'] ?? ''));
                     $creditoSaldado = (mb_strtoupper($statusCreditoRaw) === 'SALDADO');
-                    $totalCuotas = count($tabla);
+                    // Solo contar cuotas regulares (no anticipo) para detectar la última
+                    $totalCuotas = 0;
+                    foreach ($tabla as $_tf) { if (($_tf['tipo'] ?? '') !== 'anticipo') $totalCuotas++; }
                     $idxCuota = 0;
                     ?>
                     <?php foreach ($tabla as $fila): ?>
+                        <?php if (($fila['tipo'] ?? '') === 'anticipo'): ?>
+                        <tr class="fila-anticipo-capital">
+                            <td>
+                                <span class="badge badge-anticipo px-2 py-1">
+                                    <i class="fa fa-arrow-circle-down me-1"></i>Anticipo
+                                </span>
+                            </td>
+                            <td class="fecha-cuota">
+                                <span class="fa fa-calendar"></span>
+                                <?= htmlspecialchars(format_date($fila['fecha'])) ?>
+                                <br><u><?= format_currency($fila['monto_cargo']) ?></u>
+                            </td>
+                            <td>
+                                <ul class="ps-3 mb-0">
+                                <?php if (!empty($fila['aplicados'])): ?>
+                                    <?php foreach ($fila['aplicados'] as $_ap): ?>
+                                    <li class="anticipo-linea">
+                                        <span class="etiqueta-anticipo-pago">Anticipo Capital: <?= format_currency($_ap['montoPago'] ?? 0) ?></span> -
+                                        <span class="etiqueta-anticipo-aplicado">Aplicado a anticipo capital: <?= format_currency($_ap['aplicado'] ?? 0) ?></span> -
+                                        <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($_ap['fechaRegistro'] ?? '')) ?></span>
+                                    </li>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <li class="text-muted"><em>Sin pago registrado</em></li>
+                                <?php endif; ?>
+                                </ul>
+                            </td>
+                            <td><?= format_currency($fila['total_pagado']) ?></td>
+                            <td><span class="badge badge-anticipo px-2 py-1">Anticipo capital</span></td>
+                        </tr>
+                        <?php continue; ?>
+                        <?php endif; ?>
                         <?php
                         $idxCuota++;
                         $esUltimaCuota = ($idxCuota === $totalCuotas);
@@ -2114,7 +2165,14 @@ body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; fon
                         }
                         ?>
                         <tr>
-                            <td><?= htmlspecialchars($cuota) ?></td>
+                            <td class="align-top">
+                                <div class="cuota-num-wrap">
+                                    <span class="fw-medium"><?= htmlspecialchars((string)$cuota) ?></span>
+                                    <?php if (!empty($fila['recalculada'])): ?>
+                                    <div><span class="badge bg-info text-dark badge-recalculada" title="Plazo o interés recalculado tras anticipo a capital">Recalculada</span></div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td class="fecha-cuota"><span class="fa fa-calendar"></span> <?= htmlspecialchars(format_date($fecha)) ?> <br> <u><?= format_currency($monto_cargo) ?></u></td>
 
                             <td>

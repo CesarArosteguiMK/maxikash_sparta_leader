@@ -1,0 +1,4 @@
+2026-03-06 12:18:19.490 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-06 12:18:19.491 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs
+2026-03-06 15:02:24.712 | INFO     | app.main:startup:85 - Doc Verificacion API v1.0.0 iniciado
+2026-03-06 15:02:24.713 | INFO     | app.main:startup:86 - Docs: http://localhost:8000/docs

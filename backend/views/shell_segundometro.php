@@ -81,6 +81,12 @@
                     <input class="form-check-input" type="checkbox" role="switch" id="sgAutoCopyEnabled">
                     <label class="form-check-label small" for="sgAutoCopyEnabled">Auto-copy</label>
                 </div>
+                <button type="button" class="btn btn-sm btn-outline-success ms-1" id="sgEjecutarAhora" title="Ejecuta ahora el mismo flujo del automático: inicia monitoreo, copia el último reporte +1s. Útil para probar o recuperar un horario perdido.">
+                    <i class="fa fa-play me-1"></i>Ejecutar ahora
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info ms-1" id="sgCatchUpEstado" title="Ver estado del catch-up automático al arrancar el agente (reportes pendientes al inicio)">
+                    <i class="fa fa-history me-1"></i>Catch-up
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-primary ms-1" id="sgAgenteProbarBd">
                     <i class="fa fa-database me-1"></i>Probar verificación BD
                 </button>
