@@ -2748,6 +2748,9 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
 
 <script>
 
+    const GASTOS_COBRANZA_PRELOAD  = <?= json_encode($gastosCobranzaPreload  ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    const HISTORIAL_GASTOS_PRELOAD = <?= json_encode($historialGastosPreload ?? [], JSON_UNESCAPED_UNICODE) ?>;
+
     function actualizarContadorNotas() {
 
         const badge = document.getElementById('badgeNotas');
@@ -3316,159 +3319,164 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
 
 
 
+function consultaGastosCondonables(idCredito) {
 
+    if (!idCredito) {
+        Swal.fire("Error", "Id de crédito inválido", "error");
+        return;
+    }
 
-    function consultaGastosCondonables(idCredito) {
+    idCreditoCondonar = idCredito;
+    historialCargado  = false;
 
-        if (!idCredito) {
-            Swal.fire("Error", "Id de crédito inválido", "error");
-            return;
-        }
+    const tabla     = document.getElementById('tablaGastos');
+    const countSpan = document.getElementById('countCondonados');
+    const montoSpan = document.getElementById('montoCondonar');
 
-        idCreditoCondonar = idCredito;
-        historialCargado = false;
+    // Reset visual
+    countSpan.textContent = 0;
+    montoSpan.textContent = '0.00';
+    document.getElementById('montoTotalSinCondonar').textContent = '0.00';
 
-        const tabla = document.getElementById('tablaGastos');
-        const countSpan = document.getElementById('countCondonados');
-        const montoSpan = document.getElementById('montoCondonar');
+    // 👉 Abrir modal SIEMPRE (igual que antes)
+    const modal = new bootstrap.Modal(document.getElementById('modalCondonar'));
+    document.getElementById('modalCondonarParcial').addEventListener('hidden.bs.modal', function () {
+        document.body.classList.remove('modal-condonar-parcial-open');
+    });
+    modal.show();
 
-        // Reset visual
-        countSpan.textContent = 0;
-        montoSpan.textContent = '0.00';
-        document.getElementById('montoTotalSinCondonar').textContent = '0.00';
+    // ── Intentar con datos preloaded desde PHP ──
+    if (typeof GASTOS_COBRANZA_PRELOAD !== 'undefined' && Array.isArray(GASTOS_COBRANZA_PRELOAD)) {
+        _pintarTablaGastos(GASTOS_COBRANZA_PRELOAD, idCredito);
+        return;
+    }
 
+    // ── Fallback: fetch normal ──
+    _fetchGastosCobranza(idCredito);
+}
+
+function _pintarTablaGastos(gastos, idCredito) {
+    const tabla = document.getElementById('tablaGastos');
+
+    document.getElementById('modalCondonar').dataset.idCredito = idCredito;
+    idCreditoCondonar = idCredito;
+
+    tabla.innerHTML = '';
+
+    if (!Array.isArray(gastos) || gastos.length === 0) {
         tabla.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    No hay gastos de cobranza
+                </td>
+            </tr>`;
+        document.getElementById('montoTotalSinCondonar').textContent = '0.00';
+        recalcularCondonacion();
+        return;
+    }
+
+    gastos.forEach((g, index) => {
+        const idGasto          = g.id_gasto;
+        const montoOrig        = parseFloat(g.monto_original ?? g.monto ?? 0);
+        const montoEfectivo    = parseFloat(g.monto ?? 0);
+        const parcialMonto     = parseFloat(g.condonacion_parcial_monto ?? 0);
+        const parcialMotivo    = (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const tieneParcial     = parcialMonto > 0;
+        const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoEfectivo;
+        const anteriorTieneParcial = index === 0 || (parseFloat(gastos[index - 1].condonacion_parcial_monto ?? 0) > 0);
+        const puedeParcial     = anteriorTieneParcial;
+        const montoCelda       = tieneParcial
+            ? `<span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span><br><strong>$${montoEfectivo.toFixed(2)}</strong>`
+            : `$${montoEfectivo.toFixed(2)}`;
+        const tooltipParcialTxt = tieneParcial
+            ? (() => {
+                const motivo     = (g.condonacion_parcial_motivo || '').trim();
+                const motivoCorto = motivo.length > 350 ? motivo.substring(0, 350) + '...' : motivo;
+                return 'Monto condonado: $' + parcialMonto.toFixed(2) + '\n\nMotivo:\n' + motivoCorto;
+            })()
+            : '';
+        const tooltipParcialEsc = tooltipParcialTxt
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '&#10;');
+        const iconoParcialHtml = tieneParcial
+            ? '<span class="info-condonacion-parcial text-info" style="cursor:pointer;" title="' + tooltipParcialEsc + '" data-monto="' + parcialMonto.toFixed(2) + '" data-motivo="' + (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 500) + '"><i class="fa fa-info-circle" aria-hidden="true"></i></span>'
+            : '';
+
+        tabla.innerHTML += `
+            <tr data-id-gasto="${idGasto}" data-tiene-parcial="${tieneParcial ? '1' : '0'}" data-puede-parcial="${puedeParcial ? '1' : '0'}">
+                <td>
+                    <input type="checkbox"
+                       class="form-check-input chk-condona"
+                       data-id="${idGasto}"
+                       data-monto="${montoFaltaCondonar.toFixed(2)}"
+                       onchange="recalcularCondonacion()">
+                </td>
+                <td>${g.semana}</td>
+                <td>${g.periodo}</td>
+                <td>${g.parcialidad != null && g.parcialidad !== '' ? g.parcialidad : '-'}</td>
+                <td>$${parseFloat(g.cuota).toFixed(2)}</td>
+                <td>${montoCelda}</td>
+                <td>
+                    ${tieneParcial ? iconoParcialHtml : !puedeParcial ? `<span class="text-muted small" title="Primero debe aplicar condonación parcial o total a la semana anterior.">Primero semana anterior</span>` : `
+                    <button class="btn btn-sm btn-outline-primary btn-editar-condonar-parcial d-none"
+                        data-id-gasto="${idGasto}"
+                        data-monto-original="${montoOrig.toFixed(2)}"
+                        data-condonacion-parcial-monto="${parcialMonto.toFixed(2)}"
+                        data-condonacion-parcial-motivo="${parcialMotivo}"
+                        title="Editar"
+                        onclick="editarGastoCobranza(this)">
+                        <i class="fa fa-edit"></i>
+                    </button>
+                    `}
+                </td>
+            </tr>`;
+    });
+
+    const totalSinCondonar = gastos.reduce((acc, g) => acc + parseFloat(g.monto || 0), 0);
+    document.getElementById('montoTotalSinCondonar').textContent = totalSinCondonar.toFixed(2);
+
+    const btnCondonarTotal = document.getElementById('btnCondonarTotal');
+    if (btnCondonarTotal) btnCondonarTotal.disabled = true;
+
+    recalcularCondonacion();
+}
+
+function _fetchGastosCobranza(idCredito) {
+    const tabla = document.getElementById('tablaGastos');
+
+    tabla.innerHTML = `
         <tr>
             <td colspan="7" class="text-center text-muted">
                 Cargando gastos...
             </td>
-        </tr>
-      `;
+        </tr>`;
 
-        fetch('/EstadoCuenta/getGastosCobranza', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                idCredito: idCredito
-            })
-        })
-            .then(res => res.json())
-            .then(resp => {
+    fetch('/EstadoCuenta/getGastosCobranza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ idCredito })
+    })
+    .then(res => res.json())
+    .then(resp => {
+        if (!resp.success) {
+            Swal.fire("Error", resp.mensaje, "error");
+            tabla.innerHTML = '';
+            return;
+        }
+        _pintarTablaGastos(resp.datos ?? resp.data ?? [], idCredito);
+    })
+    .catch(err => {
+        console.error("ERROR consultaGastosCondonables:", err);
+        Swal.fire("Error", "Error de conexión con el servidor", "error");
+        tabla.innerHTML = '';
+    });
+}
 
-                if (!resp.success) {
-                    Swal.fire("Error", resp.mensaje, "error");
-                    tabla.innerHTML = '';
-                    return;
-                }
 
-                const gastos = resp.datos ?? resp.data ?? [];
-
-                tabla.innerHTML = '';
-
-                if (!Array.isArray(gastos) || gastos.length === 0) {
-                    tabla.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">
-                            No hay gastos de cobranza
-                        </td>
-                    </tr>
-                `;
-                    document.getElementById('montoTotalSinCondonar').textContent = '0.00';
-                    return;
-                }
-
-                document.getElementById('modalCondonar').dataset.idCredito = idCredito;
-                idCreditoCondonar = idCredito;
-
-                gastos.forEach((g, index) => {
-                    const idGasto = g.id_gasto;
-                    const montoOrig = parseFloat(g.monto_original ?? g.monto ?? 0);
-                    const montoEfectivo = parseFloat(g.monto ?? 0);
-                    const parcialMonto = parseFloat(g.condonacion_parcial_monto ?? 0);
-                    const parcialMotivo = (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    const tieneParcial = parcialMonto > 0;
-                    const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoEfectivo;
-                    const anteriorTieneParcial = index === 0 || (parseFloat(gastos[index - 1].condonacion_parcial_monto ?? 0) > 0);
-                    const puedeParcial = anteriorTieneParcial;
-                    const montoCelda = tieneParcial
-                        ? `<span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span><br><strong>$${montoEfectivo.toFixed(2)}</strong>`
-                        : `$${montoEfectivo.toFixed(2)}`;
-                    const tooltipParcialTxt = tieneParcial
-                        ? (() => {
-                            const motivo = (g.condonacion_parcial_motivo || '').trim();
-                            const motivoCorto = motivo.length > 350 ? motivo.substring(0, 350) + '...' : motivo;
-                            return 'Monto condonado: $' + parcialMonto.toFixed(2) + '\n\nMotivo:\n' + motivoCorto;
-                        })()
-                        : '';
-                    const tooltipParcialEsc = tooltipParcialTxt
-                        .replace(/&/g, '&amp;')
-                        .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#39;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/\n/g, '&#10;');
-
-                    const iconoParcialHtml = tieneParcial
-                        ? '<span class="info-condonacion-parcial text-info" style="cursor:pointer;" title="' + tooltipParcialEsc + '" data-monto="' + parcialMonto.toFixed(2) + '" data-motivo="' + (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 500) + '"><i class="fa fa-info-circle" aria-hidden="true"></i></span>'
-                        : '';
-
-                    tabla.innerHTML += `
-                    <tr data-id-gasto="${idGasto}" data-tiene-parcial="${tieneParcial ? '1' : '0'}" data-puede-parcial="${puedeParcial ? '1' : '0'}">
-                        <td>
-                            <input type="checkbox"
-                               class="form-check-input chk-condona"
-                               data-id="${idGasto}"
-                               data-monto="${montoFaltaCondonar.toFixed(2)}"
-                               onchange="recalcularCondonacion()">
-                        </td>
-                        <td>${g.semana}</td>
-                        <td>${g.periodo}</td>
-                        <td>${g.parcialidad != null && g.parcialidad !== '' ? g.parcialidad : '-'}</td>
-                        <td>$${parseFloat(g.cuota).toFixed(2)}</td>
-                        <td>${montoCelda}</td>
-                        <td>
-                            ${tieneParcial ? iconoParcialHtml : !puedeParcial ? `<span class="text-muted small" title="Primero debe aplicar condonación parcial o total a la semana anterior.">Primero semana anterior</span>` : `
-                            <button class="btn btn-sm btn-outline-primary btn-editar-condonar-parcial d-none"
-                                data-id-gasto="${idGasto}"
-                                data-monto-original="${montoOrig.toFixed(2)}"
-                                data-condonacion-parcial-monto="${parcialMonto.toFixed(2)}"
-                                data-condonacion-parcial-motivo="${parcialMotivo}"
-                                title="Editar"
-                                onclick="editarGastoCobranza(this)">
-                                <i class="fa fa-edit"></i>
-                            </button>
-                            `}
-                        </td>
-                    </tr>
-                `;
-                });
-
-                const totalSinCondonar = gastos.reduce((acc, g) => acc + parseFloat(g.monto || 0), 0);
-                document.getElementById('montoTotalSinCondonar').textContent = totalSinCondonar.toFixed(2);
-
-                const btnCondonarTotal = document.getElementById('btnCondonarTotal');
-                if (btnCondonarTotal) btnCondonarTotal.disabled = true;
-
-                recalcularCondonacion();
-            })
-            .catch(err => {
-                console.error("ERROR consultaGastosCondonables:", err);
-                Swal.fire("Error", "Error de conexión con el servidor", "error");
-                tabla.innerHTML = '';
-            });
-
-        // 👉 Abrir modal SIEMPRE
-        const modal = new bootstrap.Modal(
-            document.getElementById('modalCondonar')
-        );
-        document.getElementById('modalCondonarParcial').addEventListener('hidden.bs.modal', function () {
-            document.body.classList.remove('modal-condonar-parcial-open');
-        });
-        modal.show();
-    }
 
     function recalcularCondonacion() {
 
@@ -4042,8 +4050,12 @@ let historialCargado = false;
 
 // ===== HISTORIAL GASTOS COBRANZA =====
 
+/*
 
-function cargarHistorialGastos() {
+
+function cargarHistorialGastos()
+{
+
      console.log('cargarHistorialGastos llamado, idCreditoCondonar:', idCreditoCondonar);
     console.log('historialCargado:', historialCargado);
     if (historialCargado) return;
@@ -4121,6 +4133,137 @@ function cargarHistorialGastos() {
 
         html += `</tbody></table></div>`;
         contenedor.innerHTML = html;
+        historialCargado = true;
+    })
+    .catch(() => {
+        contenedor.innerHTML = '<p class="text-danger text-center py-3">Error de conexión.</p>';
+    });
+}
+
+*/
+
+function cargarHistorialGastos() {
+    if (historialCargado) return;
+
+    // ── Intentar con datos preloaded desde PHP ──
+    if (typeof HISTORIAL_GASTOS_PRELOAD !== 'undefined' && Array.isArray(HISTORIAL_GASTOS_PRELOAD)) {
+        _pintarHistorial(HISTORIAL_GASTOS_PRELOAD);
+        historialCargado = true;
+        return;
+    }
+
+    // ── Fallback: fetch normal ──
+    _fetchHistorialGastos();
+}
+
+function _pintarHistorial(datos) {
+    const contenedor = document.getElementById('contenedorHistorial');
+
+    if (!datos || datos.length === 0) {
+        contenedor.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
+                <p>No hay gastos registrados en el historial.</p>
+            </div>`;
+        return;
+    }
+
+    let html = `
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Semana</th>
+                    <th>Periodo</th>
+                    <th class="text-end">Monto Original</th>
+                    <th class="text-center">Tipo</th>
+                    <th class="text-end">Monto Final</th>
+                    <th class="text-center">Fecha</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    datos.forEach(g => {
+        const esCondonado = parseInt(g.condonado) === 1; // Perdón total (antónimo de pago)
+        const montoOriginal = parseFloat(g.monto_original || 0);
+        const condonacionParcial = parseFloat(g.condonacion_parcial_monto || 0);
+
+        let htmlMontoOriginal = "";
+        let htmlMontoFinal = "";
+        let badgeColor = "";
+        let badgeText = "";
+
+        if (esCondonado) {
+            // --- CASO: CONDONACIÓN TOTAL (PERDÓN) ---
+            badgeColor = 'bg-warning text-dark';
+            badgeText = 'Condonado';
+
+            htmlMontoOriginal = `$${montoOriginal.toFixed(2)}`;
+            // En condonación total, el cliente pagó $0.00
+            htmlMontoFinal = `<span class="text-muted">$0.00</span>`;
+        } else {
+            // --- CASO: PAGO (CON O SIN AJUSTE) ---
+            const montoPagado = montoOriginal - condonacionParcial;
+
+            badgeColor = 'bg-success';
+            badgeText = condonacionParcial > 0 ? 'Pago c/Desc' : 'Pagado';
+
+            htmlMontoOriginal = condonacionParcial > 0
+                ? `<span class="text-muted text-decoration-line-through" style="font-size: 0.9em;">$${montoOriginal.toFixed(2)}</span>
+                   <div class="text-dark small fw-bold">$${montoPagado.toFixed(2)}</div>`
+                : `$${montoOriginal.toFixed(2)}`;
+
+            htmlMontoFinal = `<span class="text-success fw-bold">$${montoPagado.toFixed(2)}</span>`;
+        }
+
+        html += `
+            <tr>
+                <td>${g.semana}</td>
+                <td><small class="text-muted">${g.periodo}</small></td>
+                <td class="text-end">${htmlMontoOriginal}</td>
+                <td class="text-center">
+                    <span class="badge ${badgeColor} px-2 py-1" style="min-width: 80px;">
+                        ${badgeText}
+                    </span>
+                </td>
+                <td class="text-end">
+                    ${htmlMontoFinal}
+                </td>
+                <td class="text-center"><small>${g.fecha_condonacion || '—'}</small></td>
+            </tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+    contenedor.innerHTML = html;
+}
+
+function _fetchHistorialGastos() {
+    const idCredito  = idCreditoCondonar;
+    const contenedor = document.getElementById('contenedorHistorial');
+
+    if (!idCredito) {
+        contenedor.innerHTML = '<p class="text-muted text-center py-3">No se encontró el ID de crédito.</p>';
+        return;
+    }
+
+    contenedor.innerHTML = `
+        <div class="text-center text-muted py-4">
+            <i class="fa fa-spinner fa-spin fa-2x mb-2 d-block"></i>
+            <p>Cargando historial...</p>
+        </div>`;
+
+    fetch('/EstadoCuenta/getHistorialGastosCobranza', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ idCredito })
+    })
+    .then(res => res.json())
+    .then(resp => {
+        if (!resp.success) {
+            contenedor.innerHTML = '<p class="text-danger text-center py-3">Error al cargar el historial.</p>';
+            return;
+        }
+        _pintarHistorial(resp.datos ?? []);
         historialCargado = true;
     })
     .catch(() => {
