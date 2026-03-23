@@ -565,6 +565,13 @@ error_log('CRUCE RESULTADO: ' . json_encode($resultadoCruce));
 // Pasar a la vista:
 self::set("resultadoCruce", $resultadoCruce);
 
+// ── Precargar gastos de cobranza para la vista (evita fetch al abrir modal) ──
+$gastosCobranzaPreload  = EstadoCuentaDAO::getGastosCobranza($idConsultado);
+$historialGastosPreload = EstadoCuentaDAO::getHistorialGastosCobranza($idConsultado);
+
+self::set('gastosCobranzaPreload',  $gastosCobranzaPreload['datos']  ?? []);
+self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
+
             if (is_array($listaNotasCargos) && count($listaNotasCargos) > 0) {
                 foreach ($listaNotasCargos as $nota) {
                     $concepto = (string) ($nota['concepto'] ?? '');
