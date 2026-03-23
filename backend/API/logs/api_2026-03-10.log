@@ -1,0 +1,6 @@
+2026-03-10 18:49:01.781 | INFO     | app.main:startup:97 - Doc Verificacion API v1.0.0 iniciado
+2026-03-10 18:49:01.783 | INFO     | app.main:startup:98 - Docs: http://localhost:8000/docs
+2026-03-10 18:49:01.781 | INFO     | app.main:startup:97 - Doc Verificacion API v1.0.0 iniciado
+2026-03-10 18:49:01.788 | INFO     | app.main:startup:98 - Docs: http://localhost:8000/docs
+2026-03-10 23:26:17.665 | INFO     | app.main:shutdown:103 - Servidor detenido
+2026-03-10 23:26:17.671 | INFO     | app.main:shutdown:103 - Servidor detenido

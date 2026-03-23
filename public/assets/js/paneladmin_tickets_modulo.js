@@ -144,7 +144,7 @@
             return;
         }
         window._tmAdjuntoLightboxBound = true;
-        $(document).on('click', '#resumenTicketEvidenciasGrid .rt-ev-thumb-btn', function () {
+        $(document).on('click', '#resumenTicketEvidenciasGrid [data-tm-lb]', function () {
             var i = parseInt($(this).attr('data-tm-lb'), 10);
             if (!isNaN(i)) {
                 tmAdjuntoLightboxShow(i);
@@ -217,14 +217,14 @@
                         tmAdjuntoLightboxItems.push({ url: url, nom: nomPlain });
                         $grid.append(
                             '<div class="col-6 col-md-4">' +
-                                '<button type="button" class="rt-ev-thumb rt-ev-thumb-btn w-100 p-0 border-0 bg-transparent" data-tm-lb="' +
+                                '<button type="button" class="d-block w-100 p-0 border-0 bg-transparent rounded overflow-hidden" style="cursor:pointer;" data-tm-lb="' +
                                 idx +
                                 '" title="Ver en grande">' +
                                 '<img src="' +
                                 href +
                                 '" alt="' +
                                 attrEsc(nomPlain) +
-                                '" loading="lazy">' +
+                                '" loading="lazy" class="tm-ev-img">' +
                                 '</button>' +
                                 '<div class="small text-muted text-truncate mt-1" title="' +
                                 nom +
@@ -308,7 +308,7 @@
         this.select.parentNode.insertBefore(this.wrapper, this.select);
         this.wrapper.appendChild(this.select);
         this.display = document.createElement('div');
-        this.display.className = 'select-search-display';
+        this.display.className = 'select-search-display form-select form-select-sm';
         this.display.setAttribute('role', 'button');
         this.display.setAttribute('tabindex', '0');
         var opt0 = this.select.options[this.select.selectedIndex];
@@ -316,11 +316,11 @@
         this.selectedValue = this.select.value;
         this.wrapper.appendChild(this.display);
         this.dropdown = document.createElement('div');
-        this.dropdown.className = 'select-search-dropdown';
+        this.dropdown.className = 'select-search-dropdown border rounded-2 shadow-sm bg-white';
         this.wrapper.appendChild(this.dropdown);
         this.searchInput = document.createElement('input');
         this.searchInput.type = 'text';
-        this.searchInput.className = 'select-search-input';
+        this.searchInput.className = 'select-search-input form-control form-control-sm border-0 border-bottom rounded-0';
         this.searchInput.placeholder = 'Buscar...';
         this.searchInput.setAttribute('autocomplete', 'off');
         this.dropdown.appendChild(this.searchInput);
@@ -341,7 +341,7 @@
         this.optionsContainer.innerHTML = '';
         if (filteredOptions.length === 0) {
             var noResults = document.createElement('div');
-            noResults.className = 'select-search-option no-results';
+            noResults.className = 'select-search-option no-results dropdown-item disabled text-center text-muted small';
             noResults.textContent = 'No se encontraron resultados';
             this.optionsContainer.appendChild(noResults);
             return;
@@ -349,10 +349,10 @@
         var self = this;
         filteredOptions.forEach(function (option) {
             var optionDiv = document.createElement('div');
-            optionDiv.className = 'select-search-option';
+            optionDiv.className = 'select-search-option dropdown-item small';
             optionDiv.textContent = option.text;
             optionDiv.dataset.value = option.value;
-            if (String(option.value) === String(self.selectedValue)) optionDiv.classList.add('selected');
+            if (String(option.value) === String(self.selectedValue)) optionDiv.classList.add('active');
             optionDiv.addEventListener('click', function () { self.selectOption(option); });
             self.optionsContainer.appendChild(optionDiv);
         });
@@ -870,7 +870,7 @@
                     var esMaps = /google\.com\/maps|maps\.google/i.test(urlDir);
                     var labelLink = esMaps ? 'Ver en mapa' : 'Abrir enlace';
                     var iconLink = esMaps ? 'fa-map-location-dot' : 'fa-external-link';
-                    var linkHtml = '<a href="' + attrEsc(urlDir) + '" target="_blank" rel="noopener" class="rt-btn-mapa"><i class="fa-solid ' + iconLink + '"></i> ' + labelLink + '</a>';
+                    var linkHtml = '<a href="' + attrEsc(urlDir) + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info mt-2"><i class="fa-solid ' + iconLink + ' me-1"></i>' + labelLink + '</a>';
                     $('#resumenTicketLinkWrap').html(linkHtml);
                 }
             } else {

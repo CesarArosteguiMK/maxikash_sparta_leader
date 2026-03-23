@@ -39,8 +39,7 @@ backend/storage/logs/*
 !backend/storage/logs/.gitkeep
 backend/cronjobs/logs/
 
-# ========== API Python (backend/API) – no subir nada de la API ==========
-backend/API/
+# ========== Zip empaquetado de API (no subir el .zip; la carpeta backend/API/ sí va al repo) ==========
 backend/API.zip
 
 # ========== Zips de agente / APIs (no subir) ==========

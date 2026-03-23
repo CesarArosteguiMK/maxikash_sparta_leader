@@ -1,5 +1,7 @@
 # Microservicio Documentación Candidato (Node.js)
 
+**Ubicación en el repo:** `backend/API/documentacion-candidato/` (junto a la API Python de verificación en `backend/API/`, pero es **otro proceso**: Node en el puerto **3001**, no FastAPI).
+
 Endpoint rápido para el botón **Documentación** del menú Candidatos. Evita el arranque de PHP y devuelve el mismo JSON que `CapHum::getDocumentosCandidatoList()`.
 
 ## Por qué existe
@@ -9,7 +11,7 @@ La demora al abrir Documentación no viene de las 2 consultas a MySQL, sino del 
 ## Instalación
 
 ```bash
-cd backend/services/documentacion-candidato
+cd backend/API/documentacion-candidato
 npm install
 cp .env.example .env
 # Editar .env con DB_HOST, DB_NAME, DB_USER, DB_PASSWORD (mismos que el proyecto PHP)
@@ -20,6 +22,20 @@ cp .env.example .env
 ```bash
 npm start
 ```
+
+### Windows (sin ventana negra, mismo patrón que otros agentes)
+
+En la carpeta `documentacion-candidato`:
+
+| Archivo | Uso |
+|---------|-----|
+| `instalar-agente.bat` | Primera vez o tras cambiar dependencias (`npm install`). |
+| `iniciar-agente.bat` | Arranca `server.js` en segundo plano (Node sin ventana). Si el puerto **3001** ya está en uso, no duplica el proceso. |
+| `iniciar-agente-oculto.vbs` | Doble clic: ejecuta el `.bat` **sin mostrar consola** (acceso directo al escritorio). |
+| `cerrar-agente.bat` | Detiene el proceso que escucha en **3001**. |
+| `cerrar-agente-oculto.vbs` | Igual que cerrar, sin ventana. |
+
+Si cambia `DOC_PORT` en `.env`, actualice también `iniciar-agente.bat` (comprobación de puerto) y `cerrar-agente.ps1` (puerto a cerrar).
 
 Escucha por defecto en `http://localhost:3001`. Endpoint:
 

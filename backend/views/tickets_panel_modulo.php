@@ -132,88 +132,17 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
     </div>
 </div>
 
-<!-- Modal: Resumen del ticket (estilo detalle) -->
+<!-- Modal: Resumen del ticket -->
 <style>
-#modalResumenTicket .rt-header { background: #26344e; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-#modalResumenTicket .rt-folio-pill { display: inline-flex; flex-direction: column; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.08); }
-#modalResumenTicket .rt-folio-pill .rt-folio-lbl { font-size: 0.65rem; font-weight: 700; letter-spacing: .08em; color: #94b4d4; }
-#modalResumenTicket .rt-folio-pill .rt-folio-num { font-size: 0.95rem; font-weight: 800; color: #fff; }
-#modalResumenTicket .rt-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-#modalResumenTicket .rt-badge { font-size: 0.75rem; font-weight: 700; padding: 5px 10px; border-radius: 8px; color: #fff; }
-#modalResumenTicket .rt-badge-estado { background: #166534; }
-#modalResumenTicket .rt-badge-prioridad { background: #fd7e14; }
-#modalResumenTicket .rt-meta-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; background: #f1f5f9; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; }
-#modalResumenTicket .rt-meta-cell { padding: 0 12px; border-right: 1px solid #e2e8f0; }
-#modalResumenTicket .rt-meta-cell:last-child { border-right: none; }
-@media (max-width: 768px) {
-#modalResumenTicket .rt-meta-bar { grid-template-columns: 1fr 1fr; }
-#modalResumenTicket .rt-meta-cell { border-right: none; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 6px; }
-#modalResumenTicket .rt-body { flex-direction: column; }
-#modalResumenTicket .rt-sidebar { max-width: none; }
-}
-#modalResumenTicket .rt-meta-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 2px; }
-#modalResumenTicket .rt-meta-val { font-weight: 600; color: #1e293b; }
-#modalResumenTicket .rt-meta-val.rt-vence { color: #dc2626; }
-#modalResumenTicket .rt-body { display: flex; gap: 20px; padding: 20px; }
-#modalResumenTicket .rt-main { flex: 1; min-width: 0; }
-#modalResumenTicket .rt-block { margin-bottom: 16px; }
-#modalResumenTicket .rt-block-lbl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
-#modalResumenTicket .rt-block-lbl i { color: #26344e; font-size: 0.85rem; }
-#modalResumenTicket .rt-block-box { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #26344e; border-radius: 8px; padding: 10px 14px; font-size: 0.875rem; color: #334155; }
-#modalResumenTicket .rt-block-box.rt-pre { white-space: pre-wrap; }
-#modalResumenTicket .rt-btn-mapa { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; background: #e0f2fe; border: 1px solid #7dd3fc; color: #26344e; font-size: 0.8rem; font-weight: 700; text-decoration: none; margin-top: 8px; }
-#modalResumenTicket .rt-btn-mapa:hover { background: #bae6fd; color: #26344e; }
-#modalResumenTicket .rt-sidebar { width: 100%; max-width: 260px; flex-shrink: 0; }
-#modalResumenTicket .rt-sidebar .rt-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
-#modalResumenTicket .rt-sidebar .rt-card-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 6px; }
-#modalResumenTicket .rt-sidebar .form-select { font-size: 0.8rem; border-color: #cbd5e1; }
-/* Select con búsqueda (mismo patrón que organigrama) — Asignar a */
-#modalResumenTicket .select-search-wrapper { position: relative; width: 100%; max-width: 100%; }
+/* Thumbnail de imágenes adjuntas: cover crop */
+#resumenTicketEvidenciasGrid .tm-ev-img { width: 100%; height: 7rem; object-fit: cover; display: block; }
+/* Searchable select: dropdown posicionado debajo del trigger */
+#modalResumenTicket .select-search-wrapper { position: relative; width: 100%; }
 #modalResumenTicket .select-search-wrapper .form-select { display: none !important; }
-#modalResumenTicket .select-search-display {
-    position: relative; width: 100%;
-    padding: 0.25rem 2rem 0.25rem 0.5rem;
-    font-size: 0.875rem; font-weight: 400; line-height: 1.5;
-    color: #697a8d; background-color: #fff;
-    border: 1px solid #d9dee3; border-radius: 0.375rem;
-    cursor: pointer; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-#modalResumenTicket .select-search-display:hover { border-color: #b0b7c3; }
-#modalResumenTicket .select-search-display::after {
-    content: '▼'; position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
-    font-size: 0.65rem; color: #697a8d; pointer-events: none;
-}
-#modalResumenTicket .select-search-dropdown {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 2000; display: none;
-    margin-top: 0.25rem; background: #fff; border: 1px solid #d9dee3; border-radius: 0.375rem;
-    box-shadow: 0 0.25rem 0.5rem rgba(0,0,0,0.1); max-height: 300px; overflow: hidden;
-}
+#modalResumenTicket .select-search-display { cursor: pointer; }
+#modalResumenTicket .select-search-dropdown { position: absolute; top: 100%; left: 0; right: 0; z-index: 1070; display: none; margin-top: 0.125rem; max-height: 300px; overflow: hidden; }
 #modalResumenTicket .select-search-dropdown.show { display: block; }
-#modalResumenTicket .select-search-input {
-    width: 100%; padding: 0.5rem 0.75rem; border: none; border-bottom: 1px solid #d9dee3;
-    font-size: 0.875rem; outline: none;
-}
-#modalResumenTicket .select-search-input:focus { border-bottom-color: #696cff; }
 #modalResumenTicket .select-search-options { max-height: 220px; overflow-y: auto; }
-#modalResumenTicket .select-search-option {
-    padding: 0.45rem 0.65rem; cursor: pointer; transition: background-color 0.15s ease;
-    font-size: 0.8125rem;
-}
-#modalResumenTicket .select-search-option:hover { background-color: #f5f5f9; }
-#modalResumenTicket .select-search-option.selected { background-color: #696cff; color: #fff; }
-#modalResumenTicket .select-search-option.no-results { padding: 1rem; text-align: center; color: #999; cursor: default; font-size: 0.8rem; }
-#modalResumenTicket .select-search-option.no-results:hover { background-color: transparent; }
-#modalResumenTicket .rt-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc; font-size: 0.8rem; }
-#modalResumenTicket .rt-footer .rt-created { color: #64748b; display: flex; align-items: center; gap: 6px; }
-#modalResumenTicket .rt-footer .btn { background: #26344e; border-color: #26344e; color: #fff; font-weight: 600; }
-#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb {
-    display: block; border-radius: 0.5rem; overflow: hidden; border: 1px solid #e2e8f0;
-    background: #f8fafc; transition: box-shadow 0.15s ease;
-}
-#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb img { width: 100%; height: 128px; object-fit: cover; display: block; }
-#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb-btn { cursor: pointer; text-align: left; }
-#modalResumenTicket #resumenTicketEvidenciasGrid .rt-ev-thumb-btn:focus { outline: 2px solid #696cff; outline-offset: 2px; }
 /* Lightbox adjuntos (encima del modal resumen ticket) */
 #tmAdjuntoLightbox {
     position: fixed; inset: 0; z-index: 1090; display: none; align-items: center; justify-content: center;
@@ -265,104 +194,171 @@ $mostrarModalFormBuilderLectura = !empty($tickets_panel_modal_form_builder_lectu
 </style>
 <div class="modal fade" id="modalResumenTicket" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg rounded-3 overflow-hidden">
-            <div class="rt-header">
-                <div class="rt-folio-pill">
-                    <span class="rt-folio-lbl">Folio</span>
-                    <span class="rt-folio-num" id="resumenTicketFolio">—</span>
-                </div>
-                <div class="rt-badges">
-                    <span class="rt-badge rt-badge-estado" id="resumenTicketEstadoPill">—</span>
-                    <span class="rt-badge rt-badge-prioridad" id="resumenTicketPrioridadPill">—</span>
-                    <button type="button" class="btn btn-sm btn-light text-dark ms-1" style="width: 32px; height: 32px; padding: 0; border-radius: 8px;" data-bs-dismiss="modal" aria-label="Cerrar"><i class="fa-solid fa-times"></i></button>
-                </div>
-            </div>
-            <div class="rt-meta-bar">
-                <div class="rt-meta-cell"><div class="rt-meta-lbl">De</div><div class="rt-meta-val" id="resumenTicketDe">—</div></div>
-                <div class="rt-meta-cell"><div class="rt-meta-lbl">Asignado por</div><div class="rt-meta-val" id="resumenTicketAsignadoPor">—</div></div>
-                <div class="rt-meta-cell"><div class="rt-meta-lbl">Fecha</div><div class="rt-meta-val" id="resumenTicketFecha">—</div></div>
-                <div class="rt-meta-cell"><div class="rt-meta-lbl">Vence</div><div class="rt-meta-val rt-vence" id="resumenTicketVence">—</div></div>
-                <div class="rt-meta-cell"><div class="rt-meta-lbl">Estado</div><div class="rt-meta-val" id="resumenTicketEstado">—</div></div>
-                <div class="rt-meta-cell"><div class="rt-meta-lbl">Referencia</div><div class="rt-meta-val" id="resumenTicketRef">—</div></div>
-            </div>
-            <div class="rt-body">
-                <div class="rt-main">
-                    <div class="rt-block">
-                        <div class="rt-block-lbl"><i class="fa-solid fa-clipboard"></i> Asunto</div>
-                        <div class="rt-block-box" id="resumenTicketAsunto">—</div>
-                    </div>
-                    <div class="rt-block">
-                        <div class="rt-block-lbl"><i class="fa-solid fa-file-lines"></i> Descripción inicial</div>
-                        <div class="rt-block-box rt-pre" id="resumenTicketDescripcion">—</div>
-                    </div>
-                    <div id="resumenTicketExtraWrap" class="rt-block d-none">
-                        <div class="rt-block-lbl"><i class="fa-solid fa-link"></i> Nota / Enlace</div>
-                        <div class="rt-block-box" id="resumenTicketNota"></div>
-                        <div id="resumenTicketLinkWrap"></div>
-                    </div>
-                    <div id="resumenTicketEvidenciasWrap" class="rt-block d-none">
-                        <div class="rt-block-lbl"><i class="fa-solid fa-camera"></i> Fotos y adjuntos al ticket</div>
-                        <p class="small text-muted mb-2 mb-md-0">Archivos cargados al levantar la solicitud.</p>
-                        <div id="resumenTicketEvidenciasGrid" class="row g-2"></div>
-                    </div>
-                    <div id="resumenTicketDsWrap" class="rt-block d-none">
-                        <div class="rt-block-lbl"><i class="fa-solid fa-circle-check"></i> Resultado DS</div>
-                        <div class="rt-block-box" id="resumenTicketDs"></div>
-                    </div>
-                </div>
-                <div class="rt-sidebar">
-                    <div class="rt-block mb-3" id="resumenTicketAsignarBlock">
-                        <div class="rt-card-lbl mb-2" id="resumenTicketAsignarTitulo">Asignar a</div>
-                        <div class="small text-muted mb-1 d-none" id="resumenTicketAsignadoACapoLabel">Asignado a: —</div>
-                        <div class="small text-muted mb-1" id="resumenTicketCampoLabel">Segmento (máximo rango)</div>
-                        <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Segmento morosidad">
-                            <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo17" value="1_7" autocomplete="off" checked>
-                            <label class="btn btn-outline-secondary" for="tmAsignarCampo17">Campo 1–7</label>
-                            <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo821" value="8_21" autocomplete="off">
-                            <label class="btn btn-outline-secondary" for="tmAsignarCampo821">Campo 8–21</label>
+        <div class="modal-content">
+
+            <!-- Header: avatar Sneat requiere .avatar-initial para centrar icono; X en esquina (position-absolute) -->
+            <div class="modal-header align-items-center border-bottom position-relative py-3 ps-3 ps-md-4 pe-5">
+                <div class="d-flex flex-grow-1 flex-column flex-sm-row align-items-sm-center gap-3 min-w-0">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <div class="avatar avatar-sm flex-shrink-0">
+                            <span class="avatar-initial rounded bg-label-primary"><i class="fa-solid fa-ticket"></i></span>
                         </div>
-                        <select id="resumenTicketAsignarSelect" class="form-select form-select-sm" aria-label="Asignar ticket">
-                            <option value="">Selecciona una persona</option>
-                        </select>
-                        <p id="resumenTicketAsignarHint" class="small text-warning mb-0 mt-1 d-none"></p>
-                        <div id="resumenTicketMotivoWrap" class="mt-2 d-none">
-                            <div id="resumenTicketMotivoLabel" class="small text-muted mb-1" style="font-weight:600;">Motivo del cambio</div>
-                            <textarea id="resumenTicketAsignarMotivo" class="form-control form-control-sm" rows="3" placeholder="Obligatorio al cambiar de gestor"></textarea>
-                            <button type="button" id="resumenTicketTerritorialBtnReasignar" class="btn btn-sm btn-primary w-100 mt-2 d-none">Asignar gestor</button>
+                        <div class="min-w-0">
+                            <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.05em;">Folio</div>
+                            <div class="h5 mb-0 fw-bold text-heading" id="resumenTicketFolio">—</div>
                         </div>
                     </div>
-                    <div class="rt-card">
-                        <div class="rt-card-lbl">Tiempo restante (24h)</div>
-                        <span id="resumenTicketCountdown" class="fw-semibold">—</span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap flex-shrink-0">
+                        <span id="resumenTicketEstadoPill" class="badge bg-label-success">—</span>
+                        <span id="resumenTicketPrioridadPill" class="badge bg-label-warning">—</span>
                     </div>
-                    <div class="rt-card">
-                        <div class="rt-card-lbl">Prioridad</div>
-                        <span class="rt-badge rt-badge-prioridad" id="resumenTicketPrioridadSide">—</span>
+                </div>
+                <button type="button" class="btn-close position-absolute top-0 end-0 mt-2 me-2 mt-md-2 me-md-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <!-- Metadatos -->
+            <div class="border-bottom bg-light px-3 py-2 px-md-4 small">
+                <div class="row g-2 g-md-3 row-cols-2 row-cols-md-3 row-cols-xl-6">
+                    <div class="col">
+                        <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.04em;">De</div>
+                        <div class="fw-semibold text-truncate" id="resumenTicketDe">—</div>
                     </div>
-                    <div class="rt-card">
-                        <div class="rt-card-lbl">Referencia</div>
-                        <div class="rt-meta-val" id="resumenTicketRefSide">—</div>
+                    <div class="col">
+                        <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.04em;">Asignado por</div>
+                        <div class="fw-semibold text-truncate" id="resumenTicketAsignadoPor">—</div>
                     </div>
-                    <div id="resumenTicketFormularioWrap" class="rt-card d-none">
-                        <div class="rt-card-lbl">Formulario precargado</div>
-                        <select id="resumenTicketFormularioSelect" class="form-select form-select-sm mt-1">
-                            <option value="">— Ninguno —</option>
-                        </select>
-                        <p id="resumenTicketFormularioPrecargado" class="small text-muted mb-0 mt-2"><span class="fw-semibold">Precargado:</span> <span id="resumenTicketFormularioPrecargadoNombre">—</span></p>
+                    <div class="col">
+                        <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.04em;">Fecha</div>
+                        <div class="fw-semibold" id="resumenTicketFecha">—</div>
                     </div>
-                    <div id="resumenTicketVerFormularioTerritorialWrap" class="rt-card d-none">
-                        <div class="rt-card-lbl">Formulario de validación</div>
-                        <button type="button" id="resumenTicketBtnVerFormularioTerritorial" class="btn btn-sm btn-outline-secondary w-100">
-                            <i class="fa-solid fa-clipboard-list me-1"></i>Ver formulario y preguntas
-                        </button>
-                        <p class="small text-muted mb-0 mt-2">Solo consulta.</p>
+                    <div class="col">
+                        <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.04em;">Vence</div>
+                        <div class="fw-semibold text-danger" id="resumenTicketVence">—</div>
+                    </div>
+                    <div class="col">
+                        <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.04em;">Estado</div>
+                        <div class="fw-semibold" id="resumenTicketEstado">—</div>
+                    </div>
+                    <div class="col">
+                        <div class="text-uppercase text-muted small fw-semibold mb-0" style="letter-spacing: 0.04em;">Referencia</div>
+                        <div class="fw-semibold text-truncate" id="resumenTicketRef">—</div>
                     </div>
                 </div>
             </div>
-            <div class="rt-footer">
-                <span class="rt-created"><i class="fa-regular fa-clock"></i> Creado: <span id="resumenTicketCreado">—</span></span>
-                <button type="button" class="btn btn-sm" data-bs-dismiss="modal"><i class="fa-solid fa-times me-1"></i>Cerrar</button>
+
+            <!-- Cuerpo -->
+            <div class="modal-body">
+                <div class="row g-3">
+
+                    <!-- Columna principal -->
+                    <div class="col-12 col-md-8">
+                        <div class="mb-3">
+                            <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                                <i class="fa-solid fa-clipboard me-1"></i>Asunto
+                            </p>
+                            <div class="border rounded-2 bg-body-tertiary p-2 small" id="resumenTicketAsunto">—</div>
+                        </div>
+                        <div class="mb-3">
+                            <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                                <i class="fa-solid fa-file-lines me-1"></i>Descripción inicial
+                            </p>
+                            <div class="border rounded-2 bg-body-tertiary p-2 small" style="white-space:pre-wrap;" id="resumenTicketDescripcion">—</div>
+                        </div>
+                        <div id="resumenTicketExtraWrap" class="mb-3 d-none">
+                            <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                                <i class="fa-solid fa-link me-1"></i>Nota / Enlace
+                            </p>
+                            <div class="border rounded-2 bg-body-tertiary p-2 small" id="resumenTicketNota"></div>
+                            <div id="resumenTicketLinkWrap" class="mt-2"></div>
+                        </div>
+                        <div id="resumenTicketEvidenciasWrap" class="mb-3 d-none">
+                            <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                                <i class="fa-solid fa-camera me-1"></i>Fotos y adjuntos al ticket
+                            </p>
+                            <p class="small text-muted mb-2">Archivos cargados al levantar la solicitud.</p>
+                            <div id="resumenTicketEvidenciasGrid" class="row g-2"></div>
+                        </div>
+                        <div id="resumenTicketDsWrap" class="mb-3 d-none">
+                            <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                                <i class="fa-solid fa-circle-check me-1"></i>Resultado DS
+                            </p>
+                            <div class="border rounded-2 bg-body-tertiary p-2 small" id="resumenTicketDs"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <div class="col-12 col-md-4">
+                        <div class="card mb-2" id="resumenTicketAsignarBlock">
+                            <div class="card-body py-2 px-3">
+                                <p class="text-muted fw-semibold mb-2" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;" id="resumenTicketAsignarTitulo">Asignar a</p>
+                                <p class="small text-muted mb-1 d-none" id="resumenTicketAsignadoACapoLabel">Asignado a: —</p>
+                                <p class="small text-muted mb-1" id="resumenTicketCampoLabel">Segmento (máximo rango)</p>
+                                <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Segmento morosidad">
+                                    <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo17" value="1_7" autocomplete="off" checked>
+                                    <label class="btn btn-outline-secondary" for="tmAsignarCampo17">Campo 1–7</label>
+                                    <input type="radio" class="btn-check" name="tmAsignarCampo" id="tmAsignarCampo821" value="8_21" autocomplete="off">
+                                    <label class="btn btn-outline-secondary" for="tmAsignarCampo821">Campo 8–21</label>
+                                </div>
+                                <select id="resumenTicketAsignarSelect" class="form-select form-select-sm" aria-label="Asignar ticket">
+                                    <option value="">Selecciona una persona</option>
+                                </select>
+                                <p id="resumenTicketAsignarHint" class="small text-warning mb-0 mt-1 d-none"></p>
+                                <div id="resumenTicketMotivoWrap" class="mt-2 d-none">
+                                    <p id="resumenTicketMotivoLabel" class="small text-muted fw-semibold mb-1">Motivo del cambio</p>
+                                    <textarea id="resumenTicketAsignarMotivo" class="form-control form-control-sm" rows="3" placeholder="Obligatorio al cambiar de gestor"></textarea>
+                                    <button type="button" id="resumenTicketTerritorialBtnReasignar" class="btn btn-sm btn-primary w-100 mt-2 d-none">Asignar gestor</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card mb-2">
+                            <div class="card-body py-2 px-3">
+                                <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Tiempo restante (24h)</p>
+                                <span id="resumenTicketCountdown" class="fw-semibold">—</span>
+                            </div>
+                        </div>
+                        <div class="card mb-2">
+                            <div class="card-body py-2 px-3">
+                                <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Prioridad</p>
+                                <span class="badge bg-label-warning" id="resumenTicketPrioridadSide">—</span>
+                            </div>
+                        </div>
+                        <div class="card mb-2">
+                            <div class="card-body py-2 px-3">
+                                <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Referencia</p>
+                                <div class="small fw-semibold" id="resumenTicketRefSide">—</div>
+                            </div>
+                        </div>
+                        <div id="resumenTicketFormularioWrap" class="card mb-2 d-none">
+                            <div class="card-body py-2 px-3">
+                                <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Formulario precargado</p>
+                                <select id="resumenTicketFormularioSelect" class="form-select form-select-sm mt-1">
+                                    <option value="">— Ninguno —</option>
+                                </select>
+                                <p id="resumenTicketFormularioPrecargado" class="small text-muted mb-0 mt-2"><span class="fw-semibold">Precargado:</span> <span id="resumenTicketFormularioPrecargadoNombre">—</span></p>
+                            </div>
+                        </div>
+                        <div id="resumenTicketVerFormularioTerritorialWrap" class="card mb-2 d-none">
+                            <div class="card-body py-2 px-3">
+                                <p class="text-muted fw-semibold mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Formulario de validación</p>
+                                <button type="button" id="resumenTicketBtnVerFormularioTerritorial" class="btn btn-sm btn-outline-secondary w-100">
+                                    <i class="fa-solid fa-clipboard-list me-1"></i>Ver formulario y preguntas
+                                </button>
+                                <p class="small text-muted mb-0 mt-2">Solo consulta.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
             </div>
+
+            <!-- Footer -->
+            <div class="modal-footer py-2">
+                <span class="text-muted small me-auto"><i class="fa-regular fa-clock me-1"></i>Creado: <span id="resumenTicketCreado">—</span></span>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-times me-1"></i>Cerrar
+                </button>
+            </div>
+
         </div>
     </div>
 </div>

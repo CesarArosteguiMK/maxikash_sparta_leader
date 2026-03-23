@@ -1294,61 +1294,76 @@ public static function actualizarEstatusPagoGasto($idGasto, $estatusPago)
 
 public static function getHistorialGastosCobranza($idCredito)
 {
-    $query = "
-    SELECT
-        id_gastos_cobranza,
-        SEMANA,
-        periodo_inicio,
-        periodo_fin,
-        monto_valor,
-        COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
-        fecha_condonacion,
-        condonado,
-        created_at,
-        estatus_pago
-    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-    WHERE Id_credito = :id_credito
-
-      AND estatus_pago = 2
-    ORDER BY created_at DESC
-    ";
-
     try {
         $db = new DatabaseSegundometro();
+        // 1. La consulta ahora incluye OR condonado = 1 para traer los perdonados
+        $query = "
+            SELECT
+                id_gastos_cobranza,
+                SEMANA,
+                periodo_inicio,
+                periodo_fin,
+                monto_valor,
+                condonacion_parcial_monto,
+                condonado,
+                estatus_pago,
+                fecha_condonacion,
+                created_at
+            FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+            WHERE Id_credito = :id_credito
+              AND (estatus_pago = 2 OR condonado = 1)
+            ORDER BY periodo_inicio DESC
+        ";
+
         $r = $db->queryAll($query, ['id_credito' => $idCredito]);
 
         $datos = array_map(function($row) {
-            $montoValor   = (float)$row['monto_valor'];
-            $parcialMonto = (float)($row['condonacion_parcial_monto'] ?? 0);
+            $montoOriginal = (float)$row['monto_valor'];
+            $condParcial   = (float)($row['condonacion_parcial_monto'] ?? 0);
 
             return [
-                'id_gasto'          => (int)$row['id_gastos_cobranza'],
-                'semana'            => $row['SEMANA'],
-                'periodo'           => date('d/m/Y', strtotime($row['periodo_inicio'])) .
-                                       ' - ' .
-                                       date('d/m/Y', strtotime($row['periodo_fin'])),
-                'monto_original'    => $montoValor,
-                'monto_condonado'   => $parcialMonto > 0 ? $parcialMonto : $montoValor,
-                'fecha_condonacion' => !empty($row['fecha_condonacion'])
-                       ? date('d/m/Y', strtotime($row['fecha_condonacion']))
-                       : (!empty($row['created_at'])
-                          ? date('d/m/Y', strtotime($row['created_at']))
-                          : '—'),
-                'estatus'           => (int)$row['estatus_pago'],
-                'estatus_txt'       => 'PAGADO',
-                'condonado' => (int)$row['condonado']
+                'id_gasto'                  => (int)$row['id_gastos_cobranza'],
+                'semana'                    => $row['SEMANA'],
+                'periodo'                   => date('d/m/Y', strtotime($row['periodo_inicio'])) . ' - ' . date('d/m/Y', strtotime($row['periodo_fin'])),
+                'monto_original'            => $montoOriginal,
+                'condonacion_parcial_monto' => $condParcial,
+                // Si es condonación total, el monto condonado es el original, si no, lo que se restó
+                'monto_condonado'           => $row['condonado'] == 1 ? $montoOriginal : $condParcial,
+                'fecha_condonacion'         => !empty($row['fecha_condonacion'])
+                                                ? date('d/m/Y', strtotime($row['fecha_condonacion']))
+                                                : (!empty($row['created_at']) ? date('d/m/Y', strtotime($row['created_at'])) : '—'),
+                'estatus'                   => (int)$row['estatus_pago'],
+                'condonado'                 => (int)$row['condonado']
             ];
         }, $r ?: []);
 
-        return self::resultado(true, 'Historial encontrado', $datos);
-
+        return self::resultado(true, 'Historial recuperado', $datos);
     } catch (\Exception $e) {
-        return self::resultado(
-            false,
-            'Error al consultar historial',
-            [],
-            $e->getMessage()
+        return self::resultado(false, 'Error al obtener historial', null, $e->getMessage());
+    }
+}
+
+public static function actualizarEstatusPagoGastoConMonto($idGasto, $estatusPago, $montoPagado, $condonacionParcial = 0)
+{
+    try {
+        $db = new DatabaseSegundometro();
+        $db->CRUD(
+            "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+             SET estatus_pago              = :estatus_pago,
+                 monto_parcial_pagado       = :monto_pagado,
+                 condonacion_parcial_monto  = :condonacion_parcial,
+                 fecha_condonacion          = NOW() -- <--- AGREGAMOS ESTO
+             WHERE id_gastos_cobranza = :id_gasto",
+            [
+                'estatus_pago'         => (int) $estatusPago,
+                'monto_pagado'         => round((float) $montoPagado, 2),
+                'condonacion_parcial'  => round((float) $condonacionParcial, 2),
+                'id_gasto'             => (int) $idGasto
+            ]
         );
+        return self::resultado(true, 'Estatus y montos actualizados');
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error', null, $e->getMessage());
     }
 }
 

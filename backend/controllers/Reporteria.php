@@ -1052,7 +1052,7 @@ public function getFiltrosCapitalHumano()
     }
 
     /**
-     * Landing de Primeros pagos: elige semana actual (Visualizar → VencimientosLunes) o siguiente (Próximamente).
+     * Landing de Primeros pagos: cobranza esperada (VencimientosLunes) o semana actual / próximo lunes (VencimientosLunesSiguienteSemana).
      */
     public function PrimerosPagos()
     {
@@ -1061,7 +1061,7 @@ public function getFiltrosCapitalHumano()
         self::render("reporte_primeros_pagos_inicio");
     }
 
-    public function VencimientosLunes()
+    private function scriptVencimientosLunes(string $fetchUrl): string
     {
         $script = <<<'HTML'
         <script>
@@ -1726,13 +1726,20 @@ public function getFiltrosCapitalHumano()
                     });
                 }
                 try {
-                    const r = await fetch('/Reporteria/getVencimientosLunes', { method:'POST' });
+                    const r = await fetch('__FETCH_VENCIMIENTOS__', { method:'POST' });
                     const d = await r.json();
                     _data        = d.datos        || [];
                     _corteActual = d.corte_actual || '';
 
-                    if (d.lunes_pasado)
-                        document.getElementById('lunesFecha').textContent = d.lunes_pasado;
+                    const elLunes = document.getElementById('lunesFecha');
+                    if (d.lunes_pasado && elLunes) {
+                        elLunes.textContent = d.lunes_pasado;
+                        if (d.usado_fallback_lunes && d.lunes_calendario) {
+                            elLunes.title = 'El lunes ' + d.lunes_calendario + ' aún no tiene filas en segundómetro; se muestra el último lunes con datos: ' + d.lunes_pasado + '.';
+                        } else {
+                            elLunes.title = '';
+                        }
+                    }
                     if (_corteActual)
                         document.getElementById('corteLabel').textContent =
                             _corteActual.replace(/_/g,' ');
@@ -2109,14 +2116,38 @@ public function getFiltrosCapitalHumano()
         </script>
     HTML;
 
-        self::set("titulo", "Primeros pagos — Lunes de Cierre");
-        self::set("script", $script);
-        self::render("reporte_vencimientos_lunes");
+        return str_replace('__FETCH_VENCIMIENTOS__', $fetchUrl, $script);
     }
+
+    public function VencimientosLunes()
+    {
+        self::set('titulo', 'Primeros pagos — Lunes de Cierre');
+        self::set('vencimientos_titulo_card', 'Primeros pagos — Lunes de Cierre');
+        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunes'));
+        self::render('reporte_vencimientos_lunes');
+    }
+
+    public function VencimientosLunesSiguienteSemana()
+    {
+        self::set('titulo', 'Primeros pagos — Semana actual');
+        self::set('vencimientos_titulo_card', 'Primeros pagos — Semana actual');
+        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunesSiguienteSemana'));
+        self::render('reporte_vencimientos_lunes');
+    }
+
     public function getVencimientosLunes()
     {
         try {
-            self::respuestaJSON(EmpresasDAO::getVencimientosLunes());
+            self::respuestaJSON(EmpresasDAO::getVencimientosLunes(0, false));
+        } catch (\Exception $e) {
+            self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
+        }
+    }
+
+    public function getVencimientosLunesSiguienteSemana()
+    {
+        try {
+            self::respuestaJSON(EmpresasDAO::getVencimientosLunes(0, true));
         } catch (\Exception $e) {
             self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
         }

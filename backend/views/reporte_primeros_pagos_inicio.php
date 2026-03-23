@@ -41,8 +41,8 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Primeros pagos semana actual</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">Créditos cuyo primer vencimiento cayó el lunes pasado. Visualiza la matriz de efectividad, distribución de nacimiento y corte, y el seguimiento por jerarquía.</p>
+                                        <h5 class="text-primary mb-2">Primeros pagos cobranza esperada</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Créditos con primer vencimiento en el lunes de cierre de la semana en curso. El corte de mora sigue el calendario de cartera (desde que abre el martes ~8:00). Matriz, distribución y jerarquía.</p>
                                     </div>
                                     <div class="mb-0">
                                         <a href="/reporteria/VencimientosLunes" class="btn btn-primary">
@@ -65,13 +65,13 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Primeros pagos siguiente semana</h5>
-                                        <p class="text-body app-academy-sm-60 app-academy-xl-100">Vista prevista para créditos con primer vencimiento en el próximo lunes de cierre. En desarrollo.</p>
+                                        <h5 class="text-primary mb-2">Primeros pagos semana actual</h5>
+                                        <p class="text-body app-academy-sm-60 app-academy-xl-100">Mismos créditos que cobranza esperada (mismo lunes de cierre). La mora del “corte actual” usa solo los cortes del lunes (primero disponible entre los slots del día), sin martes en adelante.</p>
                                     </div>
                                     <div class="mb-0">
-                                        <button type="button" class="btn btn-sm btn-secondary" disabled title="En construcción">
-                                            <i class="fa fa-hourglass-half me-1"></i>Próximamente
-                                        </button>
+                                        <a href="/reporteria/VencimientosLunesSiguienteSemana" class="btn btn-primary">
+                                            <i class="fa fa-eye me-1"></i>Visualizar
+                                        </a>
                                     </div>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
