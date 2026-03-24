@@ -3426,6 +3426,8 @@ function consultaGastosCondonables(idCredito) {
 }
 
 function _pintarTablaGastos(gastos, idCredito) {
+
+    const round2 = v => Math.round((v + Number.EPSILON) * 100) / 100;
     const tabla = document.getElementById('tablaGastos');
 
     document.getElementById('modalCondonar').dataset.idCredito = idCredito;
@@ -3455,9 +3457,38 @@ function _pintarTablaGastos(gastos, idCredito) {
         const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoEfectivo;
         const anteriorTieneParcial = index === 0 || (parseFloat(gastos[index - 1].condonacion_parcial_monto ?? 0) > 0);
         const puedeParcial     = anteriorTieneParcial;
-        const montoCelda       = tieneParcial
-            ? `<span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span><br><strong>$${montoEfectivo.toFixed(2)}</strong>`
-            : `$${montoEfectivo.toFixed(2)}`;
+
+        const montoParcialPagado = parseFloat(g.monto_parcial_pagado || 0);
+        const estatusPago        = parseInt(g.estatus_pago || 0);
+        const pendiente          = round2(montoOrig - montoParcialPagado);
+        const pct                = montoOrig > 0 ? Math.min(100, Math.round((montoParcialPagado / montoOrig) * 100)) : 0;
+
+        let montoCelda;
+
+        if (estatusPago === 1 && montoParcialPagado > 0) {
+            // Pago parcial en progreso — acumulado por el sistema
+            montoCelda = `
+                <div class="d-flex flex-column gap-1" style="min-width:160px;">
+                    <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                        <span class="text-muted">Total:</span>
+                        <strong>$${montoOrig.toFixed(2)}</strong>
+                    </div>
+                    <div class="progress" style="height:6px;">
+                        <div class="progress-bar bg-success" style="width:${pct}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                        <span class="text-success fw-semibold">✔ Pagado: $${montoParcialPagado.toFixed(2)}</span>
+                        <span class="text-danger fw-semibold">Resta: $${pendiente.toFixed(2)}</span>
+                    </div>
+                </div>`;
+        } else if (tieneParcial) {
+            // Condonación parcial manual (ya existía)
+            montoCelda = `
+                <span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span>
+                <br><strong>$${montoEfectivo.toFixed(2)}</strong>`;
+        } else {
+            montoCelda = `$${montoEfectivo.toFixed(2)}`;
+        }
         const tooltipParcialTxt = tieneParcial
             ? (() => {
                 const motivo     = (g.condonacion_parcial_motivo || '').trim();

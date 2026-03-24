@@ -367,15 +367,17 @@ class CronMorosidad
             $this->mostrarResumen($resultado);
 
             // Enviar resumen a Google Chat
+            $omitidosDesp = (int) ($resultado['omitidos_despacho'] ?? 0);
             $this->logger->enviarResumen(
                 "Proceso Completado Exitosamente",
                 [
                     'Total créditos morosos' => $resultado['total'],
                     'Insertados' => $resultado['insertados'],
                     'Duplicados omitidos' => $resultado['duplicados'],
+                    'Omitidos despacho/convenio' => $omitidosDesp,
                     'Errores' => $resultado['errores'],
                     'Tasa de procesamiento' => ($resultado['total'] > 0
-                        ? round((($resultado['insertados'] + $resultado['duplicados']) / $resultado['total']) * 100, 2)
+                        ? round((($resultado['insertados'] + $resultado['duplicados'] + $omitidosDesp) / $resultado['total']) * 100, 2)
                         : 0) . '%',
                     'Tiempo de ejecución' => $this->logger->getElapsedTime() . 's'
                 ],
@@ -468,6 +470,50 @@ class CronMorosidad
         }
     }
 
+    /**
+     * Créditos con asignación activa a despacho (convenio): no deben generar gasto de cobranza semanal.
+     * Usa cross-schema en el mismo servidor MySQL (misma conexión que __SPARTA_SECRET_REDACTED__).
+     *
+     * @param array<int|string> $idsCredito
+     * @return array<int, true> mapa id_credito (int) => true
+     */
+    private function obtenerCreditosAsignadosDespachoActivo(array $idsCredito): array
+    {
+        $ids = [];
+        foreach ($idsCredito as $id) {
+            $idInt = (int) $id;
+            if ($idInt > 0) {
+                $ids[$idInt] = true;
+            }
+        }
+        $idsLista = array_keys($ids);
+        if ($idsLista === []) {
+            return [];
+        }
+
+        $marcadores = [];
+        $params = [];
+        foreach ($idsLista as $idx => $idInt) {
+            $key = "acd_$idx";
+            $marcadores[] = ":$key";
+            $params[$key] = $idInt;
+        }
+        $inList = implode(',', $marcadores);
+
+        $sql = "SELECT DISTINCT id_credito
+                FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_despacho
+                WHERE estatus = '1'
+                  AND id_credito IN ($inList)";
+
+        $rows = $this->db->queryAll($sql, $params);
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) ($row['id_credito'] ?? 0)] = true;
+        }
+
+        return $map;
+    }
+
     private function insertarGastosCobranza($creditos)
     {
         $this->logger->info("PASO 2: Insertando registros en gastos_cobranza (MODO LOTES)");
@@ -475,18 +521,43 @@ class CronMorosidad
         $total = count($creditos);
         if ($total == 0) {
             $this->logger->warning("No hay créditos morosos para insertar");
-            return ['total' => 0, 'insertados' => 0, 'errores' => 0, 'duplicados' => 0];
+            return ['total' => 0, 'insertados' => 0, 'errores' => 0, 'duplicados' => 0, 'omitidos_despacho' => 0];
         }
+
+        $tamañoLoteDry = 500;
 
         if ($this->dryRun) {
             $this->logger->warning("DRY-RUN: No se insertarán registros");
-            $this->logger->info("Se procesarían $total registros");
-            return ['total' => $total, 'insertados' => 0, 'errores' => 0, 'duplicados' => 0];
+            $omitidosDespacho = 0;
+            $lotesDry = array_chunk($creditos, $tamañoLoteDry);
+            foreach ($lotesDry as $loteDry) {
+                $idsLoteDry = array_filter(array_column($loteDry, 'Id_credito'));
+                if ($idsLoteDry === []) {
+                    continue;
+                }
+                $despachoSetDry = $this->obtenerCreditosAsignadosDespachoActivo($idsLoteDry);
+                foreach ($loteDry as $creditoDry) {
+                    $idC = (int) ($creditoDry['Id_credito'] ?? 0);
+                    if ($idC > 0 && isset($despachoSetDry[$idC])) {
+                        $omitidosDespacho++;
+                    }
+                }
+            }
+            $this->logger->info("Se procesarían $total registros morosos");
+            $this->logger->info("DRY-RUN: se omitirían por asignación a despacho (convenio, estatus activo): $omitidosDespacho");
+            return [
+                'total'                => $total,
+                'insertados'           => 0,
+                'errores'              => 0,
+                'duplicados'           => 0,
+                'omitidos_despacho'    => $omitidosDespacho,
+            ];
         }
 
         $insertados = 0;
         $errores = 0;
         $duplicados = 0;
+        $omitidosDespacho = 0;
         $erroresDetalle = [];
 
         // Generar valor de SEMANA (una sola vez)
@@ -536,22 +607,33 @@ class CronMorosidad
 
                 $resultados = $this->db->queryAll($sqlVerificar, $paramsVerificar);
                 $duplicadosEncontrados = array_column($resultados, 'Id_credito');
-                $duplicadosSet = array_flip($duplicadosEncontrados);
+                $duplicadosSet = [];
+                foreach ($duplicadosEncontrados as $idDup) {
+                    $duplicadosSet[(int) $idDup] = true;
+                }
+
+                $despachoSet = $this->obtenerCreditosAsignadosDespachoActivo($idsLote);
 
                 // PASO 3: Construir multi-INSERT (solo registros no duplicados)
                 $valoresInsert = [];
                 $parametrosInsert = [];
 
                 foreach ($lote as $credito) {
-                    $idCredito = $credito['Id_credito'] ?? null;
+                    $idCredito = isset($credito['Id_credito']) ? (int) $credito['Id_credito'] : 0;
 
-                    if (!$idCredito) {
+                    if ($idCredito <= 0) {
                         $errores++;
                         continue;
                     }
 
+                    // Crédito con convenio / asignado a despacho (activo): no insertar gasto de cobranza
+                    if (isset($despachoSet[$idCredito])) {
+                        $omitidosDespacho++;
+                        continue;
+                    }
+
                     // Si ya existe, contar como duplicado y saltar
-                    if (isset($duplicadosSet[$idCredito])) {
+                    if (!empty($duplicadosSet[$idCredito])) {
                         $duplicados++;
                         continue;
                     }
@@ -606,7 +688,7 @@ class CronMorosidad
 
                 // Progreso cada lote
                 $progreso = round((($numeroLote + 1) / $totalLotes) * 100, 1);
-                $this->logger->info("Lote " . ($numeroLote + 1) . "/{$totalLotes} completado - Progreso: {$progreso}% ({$insertados} insertados, {$duplicados} duplicados)");
+                $this->logger->info("Lote " . ($numeroLote + 1) . "/{$totalLotes} completado - Progreso: {$progreso}% ({$insertados} insertados, {$duplicados} duplicados, {$omitidosDespacho} omitidos despacho)");
 
                 // Enviar al webhook cada lote
                 $this->logger->enviarProgreso($insertados, $duplicados, $errores, $total);
@@ -642,6 +724,7 @@ class CronMorosidad
             'insertados' => $insertados,
             'errores' => $errores,
             'duplicados' => $duplicados,
+            'omitidos_despacho' => $omitidosDespacho,
             'errores_detalle' => $erroresDetalle
         ];
     }
@@ -654,6 +737,7 @@ class CronMorosidad
         $this->logger->info("Total de créditos morosos: " . $resultado['total']);
         $this->logger->info("Insertados exitosamente:   " . $resultado['insertados']);
         $this->logger->info("Duplicados omitidos:       " . $resultado['duplicados']);
+        $this->logger->info("Omitidos despacho/convenio:" . ($resultado['omitidos_despacho'] ?? 0));
         $this->logger->info("Errores de inserción:      " . $resultado['errores']);
 
         if ($resultado['errores'] > 0 && isset($resultado['errores_detalle'])) {
@@ -663,7 +747,7 @@ class CronMorosidad
             }
         }
 
-        $procesados = $resultado['insertados'] + $resultado['duplicados'];
+        $procesados = $resultado['insertados'] + $resultado['duplicados'] + ($resultado['omitidos_despacho'] ?? 0);
         $porcentajeExito = $resultado['total'] > 0
             ? round(($procesados / $resultado['total']) * 100, 2)
             : 0;
