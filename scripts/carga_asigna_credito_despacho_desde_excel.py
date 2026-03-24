@@ -3,6 +3,10 @@
 """
 Carga masiva a asigna_creditos_despacho (BD __SPARTA_SECRET_REDACTED__) desde Excel (Id_credito + id_despacho).
 
+En PHP, Database.php usa getenv('DB_HOST') etc. primero; los literales solo aplican si no hay env.
+En Windows suele haber DB_* de otros proyectos: pisan esos literales. Para ignorar el sistema y usar
+exactamente los mismos literales que al final de las líneas 14-18 de Database.php, usa --database-php-solo.
+
 Dependencias:
   pip install pandas openpyxl mysql-connector-python
 
@@ -48,9 +52,18 @@ import mysql.connector
 import pandas as pd
 from mysql.connector import errorcode
 
+# Debe coincidir con backend/core/Database.php (getenv con ?:)
+_PHP_DB_DEFAULTS: dict = {
+    "host": "__SPARTA_HOST_REDACTED__",
+    "port": 3306,
+    "database": "__SPARTA_SECRET_REDACTED__",
+    "user": "__SPARTA_SECRET_REDACTED__",
+    "password": "__SPARTA_PASSWORD_REDACTED__",
+}
 
-def _load_env_file(path: str, *, required: bool) -> None:
-    """Carga KEY=valor al entorno; no sobrescribe claves ya definidas."""
+
+def _load_env_file(path: str, *, required: bool, override: bool = False) -> None:
+    """Carga KEY=valor al entorno. Si override=False, no pisa claves ya definidas."""
     if not os.path.isfile(path):
         if required:
             print(f"No existe el archivo: {path}", file=sys.stderr)
@@ -69,7 +82,7 @@ def _load_env_file(path: str, *, required: bool) -> None:
                 val = val.strip()
                 if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
                     val = val[1:-1]
-                if key and key not in os.environ:
+                if key and (override or key not in os.environ):
                     os.environ[key] = val
     except OSError as e:
         print(f"No se pudo leer {path}: {e}", file=sys.stderr)
@@ -84,7 +97,39 @@ def _env_first(*names: str) -> str | None:
     return None
 
 
-def _db_config_from_env() -> dict:
+def _print_config_summary(cfg: dict) -> None:
+    pw = cfg.get("password") or ""
+    print(
+        "Config efectiva (contraseña oculta):\n"
+        f"  host={cfg.get('host')!r}  port={cfg.get('port')!r}\n"
+        f"  database={cfg.get('database')!r}  user={cfg.get('user')!r}\n"
+        f"  longitud contraseña={len(pw)}"
+        + ("  (VACÍA — suele provocar error 1045)" if len(pw) == 0 else "")
+        + "\n"
+        f"  DB_HOST definida={'DB_HOST' in os.environ}  "
+        f"DB_PASSWORD definida={'DB_PASSWORD' in os.environ}  "
+        f"DB_PASS definida={'DB_PASS' in os.environ}"
+    )
+    if str(cfg.get("database", "")).strip().lower() != "__SPARTA_SECRET_REDACTED__":
+        print(
+            "  AVISO: esta BD no es __SPARTA_SECRET_REDACTED__. Suele venir de variables DB_* de Windows "
+            "(otro proyecto). Para esta carga redefine $env:... en PowerShell o usa "
+            "--env-file RUTA --env-file-overrides."
+        )
+
+
+def _db_config_from_env(
+    *, use_php_fallback: bool = False, database_php_solo: bool = False
+) -> dict:
+    if database_php_solo:
+        return {
+            "host": str(_PHP_DB_DEFAULTS["host"]).strip(),
+            "user": str(_PHP_DB_DEFAULTS["user"]).strip(),
+            "password": str(_PHP_DB_DEFAULTS["password"]),
+            "database": str(_PHP_DB_DEFAULTS["database"]).strip(),
+            "port": int(_PHP_DB_DEFAULTS["port"]),
+        }
+
     host = _env_first("MYSQL_HOST", "DB_HOST", "DB_SERVIDOR")
     user = _env_first("MYSQL_USER", "DB_USER", "DB_USUARIO")
     password = _env_first("MYSQL_PASSWORD", "DB_PASSWORD", "DB_PASS")
@@ -93,6 +138,18 @@ def _db_config_from_env() -> dict:
 
     if password is None:
         password = ""
+
+    if use_php_fallback:
+        if not (host or "").strip():
+            host = _PHP_DB_DEFAULTS["host"]
+        if not (user or "").strip():
+            user = _PHP_DB_DEFAULTS["user"]
+        if not (database or "").strip():
+            database = _PHP_DB_DEFAULTS["database"]
+        if not str(port_s).strip():
+            port_s = str(_PHP_DB_DEFAULTS["port"])
+        if password == "":
+            password = _PHP_DB_DEFAULTS["password"]
 
     missing_labels: list[str] = []
     if not (host or "").strip():
@@ -214,6 +271,21 @@ def main() -> None:
         help="Solo conecta y ejecuta SELECT 1 (útil para validar credenciales)",
     )
     parser.add_argument(
+        "--show-config",
+        action="store_true",
+        help="Muestra host, usuario, BD y longitud de contraseña (no la imprime)",
+    )
+    parser.add_argument(
+        "--use-php-fallback",
+        action="store_true",
+        help="Si falta host/usuario/clave/BD, usa los mismos valores por defecto que Database.php",
+    )
+    parser.add_argument(
+        "--database-php-solo",
+        action="store_true",
+        help="Ignora DB_* y MYSQL_* del sistema; conecta solo con los literales de Database.php (líneas 14-18)",
+    )
+    parser.add_argument(
         "--ignore-duplicates",
         action="store_true",
         help="Usa INSERT IGNORE (requiere índice UNIQUE en los duplicados)",
@@ -222,20 +294,31 @@ def main() -> None:
         "--env-file",
         default=None,
         metavar="RUTA",
-        help="Archivo tipo .env (DB_HOST=...); no pisa variables ya definidas en la sesión",
+        help="Archivo tipo .env (DB_HOST=...); por defecto no pisa variables ya definidas",
+    )
+    parser.add_argument(
+        "--env-file-overrides",
+        action="store_true",
+        help="Al cargar --env-file o .env del proyecto, sobrescribe DB_* aunque existan en Windows",
     )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent
+    env_ov = args.env_file_overrides
     if args.env_file:
-        _load_env_file(os.path.abspath(args.env_file), required=True)
+        _load_env_file(os.path.abspath(args.env_file), required=True, override=env_ov)
     else:
         auto_env = repo_root / ".env"
         if auto_env.is_file():
-            _load_env_file(str(auto_env), required=False)
+            _load_env_file(str(auto_env), required=False, override=env_ov)
 
     if args.test_db:
-        cfg = _db_config_from_env()
+        cfg = _db_config_from_env(
+            use_php_fallback=args.use_php_fallback,
+            database_php_solo=args.database_php_solo,
+        )
+        if args.show_config:
+            _print_config_summary(cfg)
         try:
             conn = mysql.connector.connect(**cfg)
             cur = conn.cursor()
@@ -247,8 +330,12 @@ def main() -> None:
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
                 print(
-                    "Acceso denegado a MySQL. Revisa usuario/clave/host y, en PowerShell, "
-                    "usa comillas simples para la contraseña si contiene ` o [.",
+                    "Acceso denegado (1045): usuario/clave incorrectos, o tu IP no está "
+                    "autorizada en el servidor MySQL.\n"
+                    "  - Ejecuta con --show-config y revisa longitud contraseña (0 = vacía).\n"
+                    "  - Sin variables en esta ventana: prueba --use-php-fallback junto a --test-db.\n"
+                    "  - Contraseña con caracteres raros: en PowerShell usa $env:DB_PASSWORD = '...' "
+                    "(comillas simples).",
                     file=sys.stderr,
                 )
             else:
@@ -265,7 +352,12 @@ def main() -> None:
         sys.exit(1)
 
     if not args.dry_run:
-        cfg = _db_config_from_env()
+        cfg = _db_config_from_env(
+            use_php_fallback=args.use_php_fallback,
+            database_php_solo=args.database_php_solo,
+        )
+        if args.show_config:
+            _print_config_summary(cfg)
     else:
         cfg = None
 

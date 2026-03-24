@@ -485,13 +485,24 @@ async function consultarEstadoBDLote(nombres) {
   }
 }
 
-async function postEstadoBdPingVacio() {
+/**
+ * Una sola POST a estadoReportesAgente: ping (nombres vacíos o con último ZIP).
+ * @param {string|null} ultimoNombre mega_rpt_....csv.zip o null
+ */
+async function postEstadoBdDiagnostico(ultimoNombre) {
+  const nombres = ultimoNombre ? [ultimoNombre] : [];
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
-    const result = await postEstadoBdJson({ nombres: [] }, controller.signal);
+    const result = await postEstadoBdJson({ nombres }, controller.signal);
     if (result.error || !result.data) {
-      return { ok: false, error: result.error || 'Sin respuesta', url: result.url || null };
+      return {
+        ok: false,
+        error: result.error || 'Sin respuesta',
+        url: result.url || null,
+        horaPhp: '',
+        estadoUltimo: null,
+      };
     }
     const { r, data } = result;
     if (!r || !r.ok || !data || !data.success) {
@@ -499,14 +510,112 @@ async function postEstadoBdPingVacio() {
         ok: false,
         error: (data && data.mensaje) ? data.mensaje : 'HTTP ' + (r ? r.status : '?'),
         url: result.url,
+        horaPhp: String((data && data.hora_servidor_cdmx) || ''),
+        estadoUltimo: null,
       };
     }
-    return { ok: true, url: result.url, horaPhp: String(data.hora_servidor_cdmx || '') };
+    const est = ultimoNombre && data.estados && typeof data.estados === 'object' ? data.estados[ultimoNombre] : null;
+    return {
+      ok: true,
+      url: result.url,
+      horaPhp: String(data.hora_servidor_cdmx || ''),
+      estadoUltimo: est !== undefined ? est : null,
+    };
   } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: false, error: e.message, url: null, horaPhp: '', estadoUltimo: null };
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function shQuoteForEnv(s) {
+  return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+/** Script remoto: una sola sesión SSH; salida con marcadores. */
+function buildDiagnosticoRemoteScript() {
+  return [
+    'set +e',
+    'echo "__SSH_MARK_ECHO__"',
+    'echo "DIAG_OK"',
+    'echo "__SSH_MARK_SUDO__"',
+    'sudo -n true 2>/dev/null && echo "SUDO_NOPASS" || echo "SUDO_FAIL"',
+    'echo "__SSH_MARK_SCRIPT__"',
+    'if test -f "$MON_SCRIPT" && test -r "$MON_SCRIPT"; then',
+    '  if test -x "$MON_SCRIPT"; then echo "SCRIPT_OK_EXEC"; else echo "SCRIPT_OK_SH"; fi',
+    'else',
+    '  echo "SCRIPT_BAD"',
+    'fi',
+    'echo "__SSH_MARK_DF__"',
+    'df -hP "$REMOTE_DIR" 2>/dev/null | tail -1',
+    'echo "__SSH_MARK_LSLD__"',
+    'ls -ld "$REMOTE_DIR" 2>&1 | head -1',
+    'echo "__SSH_MARK_LSZIP__"',
+    'ls -l "$REMOTE_DIR"/mega_rpt_*.csv.zip 2>/dev/null || true',
+    'echo "__SSH_MARK_PGREP__"',
+    'ps -eo pid=,args= --no-headers 2>/dev/null | grep -F "$MON_SCRIPT" | grep -vF "printf %s" | head -8 || true',
+    'echo "__SSH_MARK_DEST__"',
+    'ULT=""',
+    'for f in $(ls -1 "$REMOTE_DIR"/mega_rpt_*.csv.zip 2>/dev/null | sort -r); do',
+    '  BN=$(basename "$f")',
+    '  [[ "$BN" =~ ^mega_rpt_([0-9]{8})_ ]] || continue',
+    '  FD="${BASH_REMATCH[1]}"',
+    '  [[ "$FD" < "$FECHA_MIN" ]] && continue',
+    '  ULT="$f"',
+    '  break',
+    'done',
+    'if [ -z "$ULT" ]; then',
+    '  echo "LATEST_NONE"',
+    'else',
+    '  echo "LATEST_PATH:$ULT"',
+    '  BN=$(basename "$ULT")',
+    '  if [[ "$BN" =~ ^mega_rpt_([0-9]{8})_([0-9]{2})_([0-9]{2})_([0-9]{2})\\.csv\\.zip$ ]]; then',
+    '    D="${BASH_REMATCH[1]}"; H="${BASH_REMATCH[2]}"; M="${BASH_REMATCH[3]}"; S="${BASH_REMATCH[4]}"',
+    '    DFMT="${D:0:4}-${D:4:2}-${D:6:2} ${H}:${M}:${S}"',
+    '    NEXT=$(date -d "$DFMT + 1 second" +%Y%m%d_%H_%M_%S 2>/dev/null)',
+    '    if [ -n "$NEXT" ]; then',
+    '      DEST="mega_rpt_${NEXT}.csv.zip"',
+    '      if [ -f "$REMOTE_DIR/$DEST" ]; then echo "DEST_EXISTS"; else echo "DEST_NEW"; fi',
+    '      echo "DEST_NAME:$DEST"',
+    '    else',
+    '      echo "DEST_DATE_ERR"',
+    '    fi',
+    '  else',
+    '    echo "DEST_PARSE_ERR"',
+    '  fi',
+    'fi',
+    'echo "__SSH_MARK_END__"',
+  ].join('\n');
+}
+
+function parseDiagnosticoSshBundle(output) {
+  const text = String(output || '');
+  const order = [
+    '__SSH_MARK_ECHO__',
+    '__SSH_MARK_SUDO__',
+    '__SSH_MARK_SCRIPT__',
+    '__SSH_MARK_DF__',
+    '__SSH_MARK_LSLD__',
+    '__SSH_MARK_LSZIP__',
+    '__SSH_MARK_PGREP__',
+    '__SSH_MARK_DEST__',
+    '__SSH_MARK_END__',
+  ];
+  const sections = {};
+  for (let i = 0; i < order.length - 1; i++) {
+    const a = order[i];
+    const b = order[i + 1];
+    const p = text.indexOf(a);
+    const q = text.indexOf(b);
+    if (p === -1) {
+      sections[a] = '';
+      continue;
+    }
+    const start = p + a.length;
+    const chunk = q === -1 ? text.slice(start) : text.slice(start, q);
+    sections[a] = chunk.replace(/^\n/, '').replace(/\n$/, '');
+  }
+  return sections;
 }
 
 function armarResumenDiagnostico(pruebas) {
@@ -523,7 +632,6 @@ function armarResumenDiagnostico(pruebas) {
  * Diagnóstico amplio: local, PHP/BD, remoto (SSH). Sin copiar archivos.
  */
 async function ejecutarDiagnosticoCompleto() {
-  const sshOpts = { timeoutMs: 45000 };
   const pruebas = [];
   const host = process.env.SSH_HOST || '34.173.106.81';
   const monScript = process.env.MONITOREAR_SCRIPT || '/home/jesus/scripts/monitorear.sh';
@@ -573,141 +681,177 @@ async function ejecutarDiagnosticoCompleto() {
     cubre: 'scheduler',
   });
 
-  const ping = await postEstadoBdPingVacio();
-  pruebas.push({
-    nombre: 'PHP estadoReportesAgente (alcance BD)',
-    ok: ping.ok,
-    detalle: ping.ok
-      ? 'JSON OK. URL: ' + (ping.url || '') + (ping.horaPhp ? '. Hora servidor CDMX (PHP): ' + ping.horaPhp : '')
-      : (ping.error || 'Fallo') + (ping.url ? ' — URL: ' + ping.url : ''),
-    grupo: 'bd',
-    ayuda: 'Misma ruta POST que usa el agente para consultar MySQL.',
-    cubre: 'BD',
-  });
+  const fechaMinCompact = ymdCompact(sumarDiasYmd(nowCdmx.fecha, -1));
+  const remoteScriptBody = buildDiagnosticoRemoteScript();
+  const b64 = Buffer.from(remoteScriptBody, 'utf8').toString('base64');
+  const sshBundleCmd =
+    'printf %s ' +
+    shQuoteForEnv(b64) +
+    ' | base64 -d | env REMOTE_DIR=' +
+    shQuoteForEnv(REMOTE_DIR) +
+    ' MON_SCRIPT=' +
+    shQuoteForEnv(monScript) +
+    ' FECHA_MIN=' +
+    shQuoteForEnv(fechaMinCompact) +
+    ' bash';
+  const sshOptsBundle = { timeoutMs: 120000 };
 
-  if (ping.ok && ping.horaPhp && nowCdmx && nowCdmx.horaSeg) {
-    const parsePhp = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/.exec(ping.horaPhp);
-    if (parsePhp) {
-      const tAgent = new Date(nowCdmx.fecha + 'T' + nowCdmx.horaSeg).getTime();
-      const tPhp = new Date(parsePhp[1] + 'T' + parsePhp[2]).getTime();
-      if (Number.isFinite(tAgent) && Number.isFinite(tPhp)) {
-        const dsec = Math.round((tAgent - tPhp) / 1000);
-        pruebas[pruebas.length - 1].detalle += ' Diferencia agente−PHP ~' + dsec + ' s.';
-      }
-    }
-  }
-
-  let rSsh = { success: false, output: '', error: '' };
+  let rBundle = { success: false, output: '', error: '' };
   let rttMs = 0;
   try {
     const t0 = Date.now();
-    rSsh = await runCommand('echo DIAG_OK', sshOpts);
+    rBundle = await runCommand(sshBundleCmd, sshOptsBundle);
     rttMs = Date.now() - t0;
   } catch (e) {
-    rSsh = { success: false, output: '', error: e.message };
+    rBundle = { success: false, output: '', error: e.message };
   }
+
+  const bundleOut = String(rBundle.output || '');
+  const sshEchoOk = bundleOut.includes('DIAG_OK');
   pruebas.push({
     nombre: 'Conexión SSH al servidor',
-    ok: rSsh.success && String(rSsh.output || '').includes('DIAG_OK'),
-    detalle: rSsh.success ? host + ' — OK (eco ~' + rttMs + ' ms)' : (rSsh.error || 'Fallo'),
+    ok: rBundle.success && sshEchoOk,
+    detalle:
+      rBundle.success && sshEchoOk
+        ? host +
+          ' — OK · ~' +
+          rttMs +
+          ' ms · 1 sesión SSH (sudo, script, df, listado, pgrep, simulación +1s)'
+        : (rBundle.error || bundleOut.slice(0, 220) || 'Fallo'),
     grupo: 'remoto',
     cubre: 'Listar / Copiar / Monitorear',
+    ayuda: 'Todas las pruebas remotas van en un único script para no abrir muchas conexiones.',
   });
 
-  if (!rSsh.success || !String(rSsh.output || '').includes('DIAG_OK')) {
+  function appendDiffRelojPhp(detalleBase, bdOk, horaPhp) {
+    if (!bdOk || !horaPhp || !nowCdmx || !nowCdmx.horaSeg) return detalleBase;
+    const parsePhp = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/.exec(horaPhp);
+    if (!parsePhp) return detalleBase;
+    const tAgent = new Date(nowCdmx.fecha + 'T' + nowCdmx.horaSeg).getTime();
+    const tPhp = new Date(parsePhp[1] + 'T' + parsePhp[2]).getTime();
+    if (!Number.isFinite(tAgent) || !Number.isFinite(tPhp)) return detalleBase;
+    const dsec = Math.round((tAgent - tPhp) / 1000);
+    return detalleBase + ' Diferencia agente−PHP ~' + dsec + ' s.';
+  }
+
+  if (!rBundle.success || !sshEchoOk) {
     pruebas.push({
-      nombre: 'Pruebas remotas adicionales',
+      nombre: 'Pruebas remotas (detalle)',
       ok: false,
-      detalle: 'Omitidas: sin sesión SSH válida.',
+      detalle: 'Omitidas: el bundle remoto no completó (revisar SSH y salida arriba).',
       grupo: 'remoto',
+    });
+    const bdOnly = await postEstadoBdDiagnostico(null);
+    let detPhp =
+      bdOnly.ok
+        ? 'JSON OK. URL: ' + (bdOnly.url || '') + (bdOnly.horaPhp ? '. Hora servidor CDMX (PHP): ' + bdOnly.horaPhp : '')
+        : (bdOnly.error || 'Fallo') + (bdOnly.url ? ' — URL: ' + bdOnly.url : '');
+    detPhp = appendDiffRelojPhp(detPhp, bdOnly.ok, bdOnly.horaPhp);
+    pruebas.push({
+      nombre: 'PHP estadoReportesAgente (alcance BD)',
+      ok: bdOnly.ok,
+      detalle: detPhp,
+      grupo: 'bd',
+      ayuda: 'Una sola POST (sin último ZIP si no hubo listado remoto).',
+      cubre: 'BD',
+    });
+    pruebas.push({
+      nombre: 'Estado en BD del último ZIP',
+      ok: false,
+      detalle: 'Sin listado remoto; omitido.',
+      grupo: 'bd',
     });
     return { pruebas, resumen: armarResumenDiagnostico(pruebas) };
   }
 
-  const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
-  const scriptEsc = monScript.replace(/'/g, "'\\''");
+  const sec = parseDiagnosticoSshBundle(bundleOut);
 
-  const rSudo = await runCommand("sudo -n true 2>/dev/null && echo SUDO_NOPASS || echo SUDO_FAIL", sshOpts);
-  const sudoOk = rSudo.success && String(rSudo.output || '').includes('SUDO_NOPASS');
+  const sudoOk = (sec['__SSH_MARK_SUDO__'] || '').includes('SUDO_NOPASS');
   pruebas.push({
     nombre: 'sudo sin contraseña (NOPASSWD)',
     ok: sudoOk,
     detalle: sudoOk
       ? 'sudo -n aceptado (necesario para cp y monitoreo previo).'
-      : 'sudo -n falló — puede colgar Copiar +1s. Salida: ' + String(rSudo.output || rSudo.error || '').trim().slice(0, 160),
+      : 'sudo -n falló — puede colgar Copiar +1s. Fragmento: ' + String(sec['__SSH_MARK_SUDO__'] || '').trim().slice(0, 160),
     grupo: 'remoto',
-    ayuda: 'Si falla, el servidor puede pedir contraseña sin TTY.',
+    ayuda: 'Incluido en el bundle SSH.',
     cubre: 'Copiar +1s / monitoreo previo',
   });
 
-  const rScript = await runCommand(
-    "if test -f '" + scriptEsc + "' && test -x '" + scriptEsc + "'; then echo SCRIPT_OK; else echo SCRIPT_BAD; fi",
-    sshOpts
-  );
-  const scriptOk = rScript.success && String(rScript.output || '').includes('SCRIPT_OK');
+  const scriptChunk = String(sec['__SSH_MARK_SCRIPT__'] || '').trim();
+  const scriptOk = scriptChunk.includes('SCRIPT_OK_EXEC') || scriptChunk.includes('SCRIPT_OK_SH');
+  let scriptDetalle = monScript + ' — ';
+  if (scriptChunk.includes('SCRIPT_OK_EXEC')) {
+    scriptDetalle += 'existe, legible y con bit ejecutable (+x).';
+  } else if (scriptChunk.includes('SCRIPT_OK_SH')) {
+    scriptDetalle +=
+      'existe y es legible (sin +x). Es válido: el agente lo lanza con `bash ruta/script.sh` (como monitoreo previo).';
+  } else {
+    scriptDetalle += (scriptChunk || 'SCRIPT_BAD').slice(0, 200);
+  }
   pruebas.push({
     nombre: 'Script monitoreo (remoto)',
     ok: scriptOk,
-    detalle: scriptOk ? monScript + ' — existe y es ejecutable.' : monScript + ' — ' + String(rScript.output || rScript.error || '').trim().slice(0, 200),
+    detalle: scriptDetalle,
     grupo: 'remoto',
+    ayuda: 'Antes se exigía +x; muchos servidores lo ejecutan solo con bash.',
     cubre: 'Monitorear / preRunMonitoreo',
   });
 
-  const rDf = await runCommand("df -hP '" + dirEsc + "' 2>/dev/null | tail -1", sshOpts);
+  const dfChunk = (sec['__SSH_MARK_DF__'] || '').trim();
+  const dfLine = dfChunk.split('\n').filter(Boolean).pop() || '';
   pruebas.push({
     nombre: 'Espacio en disco (df)',
-    ok: rDf.success && String(rDf.output || '').trim().length > 0,
-    detalle: rDf.success && rDf.output.trim() ? rDf.output.trim() : (rDf.error || 'No se pudo leer df'),
+    ok: dfLine.length > 0,
+    detalle: dfLine || 'No se pudo leer df',
     grupo: 'remoto',
   });
 
-  const rLd = await runCommand("ls -ld '" + dirEsc + "' 2>&1", sshOpts);
+  const lsldLine = (sec['__SSH_MARK_LSLD__'] || '').trim().split('\n')[0] || '';
   pruebas.push({
     nombre: 'Permisos directorio mega (ls -ld)',
-    ok: rLd.success && !String(rLd.output || '').includes('No such file'),
-    detalle: rLd.output ? rLd.output.trim().slice(0, 240) : (rLd.error || 'Fallo'),
+    ok: lsldLine.length > 0 && !lsldLine.includes('No such file'),
+    detalle: lsldLine.slice(0, 240) || 'Fallo',
     grupo: 'remoto',
   });
 
-  const lsFull = await runCommand(`cd '${dirEsc}' && ls -l mega_rpt_*.csv.zip 2>/dev/null`, sshOpts);
-  const archivos = lsFull.success ? parseListOutput(lsFull.output, { fecha: nowCdmx.fecha }) : [];
+  const lszip = sec['__SSH_MARK_LSZIP__'] || '';
+  const archivos = parseListOutput(lszip, { fecha: nowCdmx.fecha });
   const ultimo = archivos[0];
   const ultimoNombre = ultimo ? ultimo.nombre : null;
 
-  let detList = 'REMOTE_DIR accesible.';
+  let detList = 'Listado dentro del bundle SSH.';
   if (ultimo) {
     const edadMin = Math.max(0, Math.round((Date.now() - ultimo.timestamp) / 60000));
     detList =
-      'Último: ' +
+      'Último (desde ayer CDMX, misma regla que listar): ' +
       ultimo.nombre +
       ' · ' +
       ultimo.tamano +
       ' · ~' +
       edadMin +
-      ' min desde timestamp del nombre. «Ejecutar ahora» usaría este.';
-  } else if (lsFull.success && !lsFull.output.trim()) {
+      ' min. «Ejecutar ahora» usaría este.';
+  } else if (!lszip.trim()) {
     detList = 'No hay mega_rpt_*.csv.zip en ventana (ayer/hoy). Ejecutar ahora: sin archivo.';
   } else {
-    detList = 'Listado: ' + (lsFull.error || lsFull.output || 'error').slice(0, 160);
+    detList = 'Sin ZIP en ventana tras filtrar fechas; raw: ' + lszip.slice(0, 120).replace(/\s+/g, ' ');
   }
   pruebas.push({
     nombre: 'Último informe mega en carpeta',
-    ok: lsFull.success && !!ultimo,
+    ok: !!ultimo,
     detalle: detList,
     grupo: 'remoto',
-    ayuda: 'No sube archivos: solo lista lo ya en el servidor.',
+    ayuda: 'Datos del mismo listado -l que el bundle.',
     cubre: 'Listar / Ejecutar ahora',
   });
 
-  if (ultimoNombre) {
-    const dest = nombreDestinoPlusOneSeg(ultimoNombre);
-    const fileEsc = (s) => s.replace(/'/g, "'\\''");
-    const rDest = await runCommand(
-      `cd '${dirEsc}' && if [ -f '${fileEsc(dest)}' ]; then echo EXISTS; else echo NEW_OK; fi`,
-      sshOpts
-    );
-    const exists = rDest.success && String(rDest.output || '').includes('EXISTS');
-    const simOk = rDest.success && (String(rDest.output || '').includes('NEW_OK') || exists);
+  const destBlock = sec['__SSH_MARK_DEST__'] || '';
+  const destExists = destBlock.includes('DEST_EXISTS');
+  const destNew = destBlock.includes('DEST_NEW');
+  const destErr = destBlock.includes('DEST_PARSE_ERR') || destBlock.includes('DEST_DATE_ERR');
+  const dest = ultimoNombre ? nombreDestinoPlusOneSeg(ultimoNombre) : null;
+  const simOk = !!dest && !destErr && (destExists || destNew);
+  if (ultimoNombre && dest) {
     pruebas.push({
       nombre: 'Simulación Copiar +1s (sin escribir)',
       ok: simOk,
@@ -717,7 +861,11 @@ async function ejecutarDiagnosticoCompleto() {
         ' → destino ' +
         dest +
         ' — ' +
-        (exists ? 'el destino ya existe en disco.' : 'destino aún no existe (cp sería nuevo).'),
+        (destErr
+          ? 'error al calcular/verificar en remoto (date o nombre).'
+          : destExists
+            ? 'el destino ya existe en disco.'
+            : 'destino aún no existe (cp sería nuevo).'),
       grupo: 'remoto',
       cubre: 'Copiar +1s',
     });
@@ -725,30 +873,46 @@ async function ejecutarDiagnosticoCompleto() {
     pruebas.push({
       nombre: 'Simulación Copiar +1s (sin escribir)',
       ok: false,
-      detalle: 'Sin último ZIP válido; omitido.',
+      detalle: 'Sin último ZIP válido en ventana; omitido.',
       grupo: 'remoto',
     });
   }
 
-  const rPg = await runCommand("pgrep -af '[m]onitorear' 2>/dev/null || true", sshOpts);
-  const pgOut = (rPg.output || '').trim();
+  const pgOut = (sec['__SSH_MARK_PGREP__'] || '').trim();
   pruebas.push({
     nombre: 'Procesos relacionados con monitorear',
-    ok: rPg.success,
+    ok: true,
     detalle: pgOut ? pgOut.slice(0, 300) : 'Ninguno coincidente (normal si no corre el script).',
     grupo: 'remoto',
-    ayuda: 'pgrep en el servidor remoto.',
+    ayuda: 'Incluido en el bundle SSH.',
+  });
+
+  const bd = await postEstadoBdDiagnostico(ultimoNombre);
+  let detPhp2 =
+    bd.ok
+      ? 'JSON OK. URL: ' + (bd.url || '') + (bd.horaPhp ? '. Hora servidor CDMX (PHP): ' + bd.horaPhp : '')
+      : (bd.error || 'Fallo') + (bd.url ? ' — URL: ' + bd.url : '');
+  detPhp2 = appendDiffRelojPhp(detPhp2, bd.ok, bd.horaPhp);
+  if (ultimoNombre) {
+    detPhp2 += ' Consulta incluye estado del último ZIP.';
+  }
+  pruebas.push({
+    nombre: 'PHP estadoReportesAgente (alcance BD)',
+    ok: bd.ok,
+    detalle: detPhp2,
+    grupo: 'bd',
+    ayuda: 'Una sola POST: ping + estado del último archivo (si hay nombre).',
+    cubre: 'BD',
   });
 
   if (ultimoNombre) {
-    const bdFile = await consultarEstadoBD(ultimoNombre);
-    const st = bdFile.estado != null ? bdFile.estado : 'sin registro';
+    const st = bd.estadoUltimo != null ? bd.estadoUltimo : 'sin registro';
     pruebas.push({
       nombre: 'Estado en BD del último ZIP',
-      ok: bdFile.success,
-      detalle: bdFile.success
-        ? ultimoNombre + ' → estado: ' + st + (bdFile.urlUsada ? ' · ' + bdFile.urlUsada : '')
-        : (bdFile.error || 'Error consultando BD'),
+      ok: bd.ok,
+      detalle: bd.ok
+        ? ultimoNombre + ' → estado: ' + st + (bd.url ? ' · ' + bd.url : '')
+        : (bd.error || 'Error consultando BD'),
       grupo: 'bd',
       cubre: 'pipeline MySQL',
     });
@@ -756,7 +920,7 @@ async function ejecutarDiagnosticoCompleto() {
     pruebas.push({
       nombre: 'Estado en BD del último ZIP',
       ok: false,
-      detalle: 'Sin archivo remoto en ventana; omitido.',
+      detalle: 'Sin archivo en ventana; no se consultó fila de estado.',
       grupo: 'bd',
     });
   }
