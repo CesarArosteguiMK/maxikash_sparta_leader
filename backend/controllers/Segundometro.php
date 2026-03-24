@@ -51,19 +51,20 @@ class Segundometro extends Controller
         return $default;
     }
 
-    private function agenteRequest($method, $path, $payload = null)
+    private function agenteRequest($method, $path, $payload = null, $timeoutSec = 120)
     {
         $url = $this->agenteBaseUrl() . $path;
         $headers = ['Accept: application/json'];
         $key = $this->agenteApiKey();
         if ($key !== '') $headers[] = 'X-Api-Key: ' . $key;
+        $timeoutSec = max(5, (int)$timeoutSec);
 
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, min(8, $timeoutSec));
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeoutSec);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             if ($payload !== null) {
                 if (is_array($payload)) {
@@ -84,7 +85,7 @@ class Segundometro extends Controller
             return ['success' => ($status >= 200 && $status < 300), 'status' => $status, 'error' => $err, 'json' => $json, 'raw' => $raw];
         }
 
-        $opts = ['http' => ['method' => strtoupper($method), 'timeout' => 120, 'ignore_errors' => true, 'header' => implode("\r\n", $headers)]];
+        $opts = ['http' => ['method' => strtoupper($method), 'timeout' => $timeoutSec, 'ignore_errors' => true, 'header' => implode("\r\n", $headers)]];
         if ($payload !== null) {
             $opts['http']['header'] .= "\r\nContent-Type: application/json";
             $opts['http']['content'] = is_array($payload) ? json_encode($payload) : (string)$payload;
@@ -768,7 +769,7 @@ class Segundometro extends Controller
             async function ejecutarDiagnosticoSSH() {
                 Swal.fire({
                     title: 'Ejecutando diagnóstico SSH...',
-                    html: '<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x text-primary mb-3"></i><p class="text-muted">Probando configuración, llaves, conectividad, permisos y funciones.</p><p class="text-muted small">Esto puede tardar unos segundos...</p></div>',
+                    html: '<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x text-primary mb-3"></i><p class="text-muted">Varias pruebas locales, PHP/BD y SSH remoto (puede tardar 1–3 min).</p><p class="text-muted small">No cierre esta ventana.</p></div>',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     didOpen: () => { Swal.showLoading(); }
@@ -778,7 +779,14 @@ class Segundometro extends Controller
                         method: 'GET',
                         headers: { 'Front-Request': 'true' }
                     });
-                    const data = await response.json();
+                    const rawText = await response.text();
+                    let data;
+                    try {
+                        data = JSON.parse(rawText);
+                    } catch (parseErr) {
+                        var hint = (rawText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 400);
+                        throw new Error('La respuesta no es JSON (suele ser error PHP o tiempo agotado). Revise max_execution_time y que el agente responda. Fragmento: ' + hint);
+                    }
                     if (!data.success) throw new Error(data.mensaje || 'Error desconocido');
                     const pruebas = data.pruebas || [];
                     const totalOk = pruebas.filter(p => p.ok).length;
@@ -812,16 +820,17 @@ class Segundometro extends Controller
                     });
                     if (grupoActual !== '') html += '</tbody></table>';
 
-                    html += '<details class="mt-3"><summary class="fw-bold text-secondary" style="font-size:0.8rem;cursor:pointer;"><i class="fa fa-book me-1"></i>Referencia: cobertura por botón</summary>';
+                    html += '<details class="mt-3"><summary class="fw-bold text-secondary" style="font-size:0.8rem;cursor:pointer;"><i class="fa fa-book me-1"></i>Referencia: qué valida cada bloque</summary>';
                     html += '<div class="mt-2 small text-muted" style="font-size:0.78rem;">';
+                    html += '<p class="mb-2">Las filas numeradas son el orden del informe. Si SSH falla, las pruebas remotas extra se omiten y verá una fila que lo indica.</p>';
                     html += '<table class="table table-sm table-bordered mb-0">';
-                    html += '<thead class="table-light"><tr><th>Botón</th><th>Pruebas que lo cubren</th></tr></thead><tbody>';
-                    html += '<tr><td><i class="fa fa-list me-1"></i>Listar archivos</td><td>9, 11, 12</td></tr>';
-                    html += '<tr><td><i class="fa fa-copy me-1"></i>Copiar +1s</td><td>9, 10, 15, 17</td></tr>';
-                    html += '<tr><td><i class="fa fa-trash me-1"></i>Eliminar</td><td>9, 10, 16, 17</td></tr>';
-                    html += '<tr><td><i class="fa fa-download me-1"></i>Descargar</td><td>9, 18</td></tr>';
-                    html += '<tr><td><i class="fa fa-terminal me-1"></i>Monitorear</td><td>9, 10, 13, 14</td></tr>';
-                    html += '<tr><td><i class="fa fa-cut me-1"></i>Truncar</td><td>19, 20</td></tr>';
+                    html += '<thead class="table-light"><tr><th>Acción en Shell</th><th>Qué mirar en el diagnóstico</th></tr></thead><tbody>';
+                    html += '<tr><td><i class="fa fa-list me-1"></i>Listar archivos</td><td>Conexión SSH, permisos <code>ls -ld</code>, «Último informe mega en carpeta»</td></tr>';
+                    html += '<tr><td><i class="fa fa-copy me-1"></i>Copiar +1s / Ejecutar ahora</td><td>SSH, sudo NOPASSWD, último ZIP, «Simulación Copiar +1s», PHP/BD y estado del último ZIP</td></tr>';
+                    html += '<tr><td><i class="fa fa-trash me-1"></i>Eliminar</td><td>SSH, permisos directorio, sudo si aplica en su servidor</td></tr>';
+                    html += '<tr><td><i class="fa fa-download me-1"></i>Descargar</td><td>SSH y que exista al menos un ZIP listable</td></tr>';
+                    html += '<tr><td><i class="fa fa-terminal me-1"></i>Monitorear</td><td>SSH, script monitoreo ejecutable, «Procesos monitorear»</td></tr>';
+                    html += '<tr><td><i class="fa fa-database me-1"></i>Solo BD</td><td>«PHP estadoReportesAgente», «Estado en BD del último ZIP»</td></tr>';
                     html += '</tbody></table>';
                     html += '</div></details>';
                     html += '</div>';
@@ -911,10 +920,11 @@ class Segundometro extends Controller
             async function _pollEjecucion() {
                 const esc = s => (s + '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 var intentos = 0;
-                var maxIntentos = 60; // hasta 2 min polling cada 2 s
+                // Polling cada 2 s; el job en el agente puede tardar varios minutos (SSH + monitoreo + copia).
+                var maxIntentos = 400;
                 Swal.fire({
                     title: 'Ejecutando...',
-                    html: '<div id="swal-exec-status" class="text-start"><p class="text-muted"><i class="fa fa-spinner fa-spin me-1"></i>Iniciando monitoreo previo y copiando archivo...</p></div>',
+                    html: '<div id="swal-exec-status" class="text-start"><p class="text-muted"><i class="fa fa-spinner fa-spin me-1"></i>Iniciando monitoreo previo y copiando archivo...</p><p class="small text-warning mb-0">Si tarda más de ~12 min, se cancelará solo en el agente y verá el mensaje de error.</p></div>',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     didOpen: function() { Swal.showLoading(); }
@@ -923,7 +933,10 @@ class Segundometro extends Controller
                     await new Promise(function(res){ setTimeout(res, 2000); });
                     intentos++;
                     try {
-                        var r = await fetch('/segundometro/estadoEjecucion', { method: 'GET', headers: { 'Front-Request': 'true' } });
+                        var ctrl = new AbortController();
+                        var toPoll = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, 24000);
+                        var r = await fetch('/segundometro/estadoEjecucion', { method: 'GET', headers: { 'Front-Request': 'true' }, signal: ctrl.signal });
+                        clearTimeout(toPoll);
                         var data = await r.json();
                         var est = data.estado || {};
                         if (!est.running) {
@@ -946,10 +959,14 @@ class Segundometro extends Controller
                         // Sigue corriendo: actualizar texto
                         var elapsed = est.startedAt ? Math.round((Date.now() - new Date(est.startedAt).getTime()) / 1000) : null;
                         var el = document.getElementById('swal-exec-status');
-                        if (el) el.innerHTML = '<p class="text-muted mb-0"><i class="fa fa-spinner fa-spin me-1"></i>Ejecutando' + (elapsed ? ' (' + elapsed + 's)' : '') + '...<br><small>Monitoreo + copia en curso en el servidor remoto.</small></p>';
-                    } catch(_) {}
+                        if (el) el.innerHTML = '<p class="text-muted mb-0"><i class="fa fa-spinner fa-spin me-1"></i>Ejecutando' + (elapsed ? ' (' + elapsed + 's)' : '') + '...<br><small>Monitoreo + copia en el servidor remoto (vía agente Node).</small></p>';
+                    } catch (pollErr) {
+                        var el2 = document.getElementById('swal-exec-status');
+                        if (el2) el2.innerHTML = '<p class="text-warning small mb-0">Sin respuesta al consultar estado (intento ' + intentos + '). Reintentando…</p>';
+                    }
                 }
-                Swal.fire({ icon: 'info', title: 'Sigue en background', text: 'El proceso sigue corriendo en el agente. Revisa el estado en unos minutos con el botón de estado del agente.', confirmButtonText: 'Entendido' });
+                Swal.fire({ icon: 'info', title: 'Tiempo de espera en pantalla agotado', html: '<p class="mb-2">El agente puede seguir trabajando hasta ~12 min. Refresque la lista de archivos más tarde o revise la consola del agente (puerto 3100).</p><p class="mb-0 small text-muted">Si suele colgarse: Diagnóstico SSH, o desactive <strong>monitoreo previo</strong> en la config del agente (preRunMonitoreo).</p>', confirmButtonText: 'Entendido' })
+                    .then(function() { listarArchivos(true); actualizarEstadoAgente(); });
             }
 
             // ── Estado del catch-up ────────────────────────────────────────────────
@@ -1457,14 +1474,18 @@ class Segundometro extends Controller
     }
 
     /**
-     * Diagnóstico completo SSH: prueba config, llaves, conectividad, permisos, listado, descarga, monitoreo.
+     * Diagnóstico del agente: local, PHP/BD, SSH remoto (sudo, script, df, último ZIP, simulación +1s).
      * Devuelve JSON con lista de pruebas y resultado de cada una.
      */
     public function diagnosticoSSH()
     {
         try {
             if (!$this->validarModoSoloAgente('diagnóstico')) return;
-            $agent = $this->agenteRequest('GET', '/diagnostico');
+            // El agente encadena muchas órdenes SSH; supera con facilidad max_execution_time por defecto (30s).
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(300);
+            }
+            $agent = $this->agenteRequest('GET', '/diagnostico', null, 280);
             if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
                 $msg = 'No se pudo ejecutar diagnóstico vía agente.';
                 if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
@@ -1472,10 +1493,28 @@ class Segundometro extends Controller
                 self::respuestaJSON(['success' => false, 'mensaje' => $msg]);
                 return;
             }
-            self::respuestaJSON([
+            $out = [
                 'success' => true,
-                'pruebas' => $agent['json']['pruebas'] ?? []
-            ]);
+                'pruebas' => $agent['json']['pruebas'] ?? [],
+                'resumen' => $agent['json']['resumen'] ?? '',
+            ];
+            header('Content-Type: application/json; charset=utf-8');
+            $jsonFlags = JSON_UNESCAPED_UNICODE;
+            if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+                $jsonFlags |= JSON_INVALID_UTF8_SUBSTITUTE;
+            }
+            $encoded = json_encode($out, $jsonFlags);
+            if ($encoded === false) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'No se pudo serializar el diagnóstico (UTF-8). Revise salida SSH en el agente.',
+                    'pruebas' => [],
+                    'resumen' => '',
+                ]);
+                return;
+            }
+            echo $encoded;
+            exit;
         } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
@@ -1739,7 +1778,7 @@ class Segundometro extends Controller
     {
         try {
             if (!$this->validarModoSoloAgente('estado ejecución')) return;
-            $agent = $this->agenteRequest('GET', '/auto-copy/ejecutar-ahora/estado');
+            $agent = $this->agenteRequest('GET', '/auto-copy/ejecutar-ahora/estado', null, 25);
             if (!$agent['success'] || !is_array($agent['json'])) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo consultar estado de ejecución.']);
                 return;

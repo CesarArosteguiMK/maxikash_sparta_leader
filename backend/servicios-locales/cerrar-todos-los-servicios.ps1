@@ -67,12 +67,11 @@ if (Test-Path -LiteralPath $compose) {
     try {
         & docker info 2>$null | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Push-Location $apiDir
-            try {
-                & docker compose down 2>&1 | Out-Null
+            $dd = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'docker compose down' -WorkingDirectory $apiDir -Wait -NoNewWindow -PassThru
+            if ($dd.ExitCode -eq 0) {
                 Write-Host '[OK] Docker compose down (API 8000)' -ForegroundColor Gray
-            } finally {
-                Pop-Location
+            } else {
+                Write-Host '[AVISO] docker compose down codigo' $dd.ExitCode -ForegroundColor DarkYellow
             }
         } else {
             Write-Host '[AVISO] Docker no responde; API 8000 no detenida por compose.' -ForegroundColor DarkYellow

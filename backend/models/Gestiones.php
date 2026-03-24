@@ -367,4 +367,85 @@ SQL;
         }
         return $eventos;
     }
+
+    /**
+     * Indica si el registro corresponde a visita en campo (p. ej. domicilio del cliente), no solo contacto CCC.
+     */
+    public static function gestionEsVisitaCampo(array $g): bool
+    {
+        $contacto = strtolower(trim((string)($g['contacto'] ?? '')));
+        $ccc = trim((string)($g['medio_contactacion_ccc'] ?? ''));
+        $campoMedio = trim((string)($g['medio_contactacion_campo'] ?? ''));
+
+        $esCampo = ($contacto === 'campo');
+        if (($esCampo && $ccc === '')
+            || ($campoMedio !== '' && $campoMedio !== '0')) {
+            $esCampo = true;
+        }
+        $esTelefonico = ($contacto === 'telefono' || $contacto === 'telefonico' ||
+            (!empty($ccc) && $campoMedio === ''));
+        if (($esCampo && $ccc === '')
+            || ($campoMedio !== '' && $campoMedio !== '0')) {
+            $esTelefonico = false;
+        }
+        if ($esTelefonico) {
+            return false;
+        }
+        return $esCampo;
+    }
+
+    /**
+     * Última gestión de visita en campo en o después del envío del dictamen (histórico tipo Sabueso).
+     * Dictamen / comentarios alineados con columnas del histórico (dictamen_campo / comentarios_generales).
+     *
+     * @param string      $idCredito
+     * @param string|null $fechaEnvioDictamen ISO o vacío
+     * @return array|null { fecha, medio_contactacion_campo, dictamen, comentarios }
+     */
+    public static function obtenerUltimaGestionCampoTrasEnvio(string $idCredito, ?string $fechaEnvioDictamen): ?array
+    {
+        if ($idCredito === '') {
+            return null;
+        }
+        $gestiones = self::getAllGestiones($idCredito, '');
+        if (empty($gestiones) || !is_array($gestiones)) {
+            return null;
+        }
+        $tsEnvio = null;
+        if ($fechaEnvioDictamen !== null && trim($fechaEnvioDictamen) !== '') {
+            $tsEnvio = strtotime($fechaEnvioDictamen);
+            if ($tsEnvio === false) {
+                $tsEnvio = null;
+            }
+        }
+        foreach ($gestiones as $g) {
+            if (!is_array($g) || !self::gestionEsVisitaCampo($g)) {
+                continue;
+            }
+            $fechaG = $g['fecha_dispositivo'] ?? $g['fecha_hora'] ?? $g['fecha_sistema'] ?? null;
+            $tsG = false;
+            if ($fechaG !== null && $fechaG !== '') {
+                $tsG = is_numeric($fechaG) ? (int)$fechaG : strtotime((string)$fechaG);
+            }
+            if ($tsEnvio !== null && $tsG !== false && $tsG < $tsEnvio) {
+                continue;
+            }
+            $dictamen = trim((string)($g['dictamen_campo'] ?? ''));
+            if ($dictamen === '') {
+                $dictamen = trim((string)($g['dictamen_ccc'] ?? ''));
+            }
+            $comentarios = trim((string)($g['comentarios_generales'] ?? ''));
+            $medio = trim((string)($g['medio_contactacion_campo'] ?? ''));
+            if ($medio === '' || $medio === '0') {
+                $medio = 'domicilio del cliente';
+            }
+            return [
+                'fecha' => $fechaG,
+                'medio_contactacion_campo' => $medio,
+                'dictamen' => $dictamen,
+                'comentarios' => $comentarios,
+            ];
+        }
+        return null;
+    }
 }

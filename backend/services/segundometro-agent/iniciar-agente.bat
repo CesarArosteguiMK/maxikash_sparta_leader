@@ -29,22 +29,23 @@ if not exist "%AGENT_DIR%\node_modules\" (
     exit /b 1
 )
 
-:: Puerto por defecto DOC_PORT=3001 en server.js (si cambia .env, ajuste tambien cerrar-agente.ps1)
-netstat -ano 2>nul | findstr ":3001" 2>nul | findstr "LISTENING" >nul
+:: Si ya hay algo escuchando en 3100, no lanzar otro Node
+netstat -ano 2>nul | findstr ":3100" 2>nul | findstr "LISTENING" >nul
 if %errorlevel%==0 (
-    echo La API de documentacion ya esta en marcha en el puerto 3001.
+    echo El agente ya esta en marcha en el puerto 3100.
     ping 127.0.0.1 -n 3 >nul
     exit /b 0
 )
 
+:: Node en proceso aparte, sin ventana (logica en iniciar-agente.ps1 para evitar errores de CMD)
 powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%AGENT_DIR%\iniciar-agente.ps1"
 
 if errorlevel 1 (
-    echo [ERROR] No se pudo arrancar la API. Revise Node y permisos.
+    echo [ERROR] No se pudo arrancar el agente. Revise Node y permisos.
     pause
     exit /b 1
 )
 
-echo API documentacion-candidato iniciada en segundo plano (puerto 3001 por defecto).
-echo Para detener: cerrar-agente.bat
+echo Agente iniciado en segundo plano en el puerto 3100.
+echo Para detenerlo: Administrador de tareas, proceso node.exe, o reinicie el equipo.
 ping 127.0.0.1 -n 3 >nul
