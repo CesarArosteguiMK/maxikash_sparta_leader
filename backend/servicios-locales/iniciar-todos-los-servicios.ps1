@@ -2,11 +2,14 @@
 # Lo invoca iniciar-todos-los-servicios.bat con -BackendRoot (carpeta backend).
 param(
     [Parameter(Mandatory = $true)]
-    [string] $BackendRoot
+    [string] $BackendRoot,
+    # Lo pone iniciar-todos-los-servicios-oculto.vbs: agentes y docker sin ventanas visibles.
+    [switch] $SinVentanas
 )
 
 $ErrorActionPreference = 'Continue'
 $BackendRoot = $BackendRoot.TrimEnd('/', '\')
+$winAgent = if ($SinVentanas) { 'Hidden' } else { 'Minimized' }
 
 function Write-Step {
     param([string] $Msg)
@@ -18,6 +21,9 @@ Write-Host '============================================' -ForegroundColor Yello
 Write-Host '  Sparta Ledger - arranque de servicios' -ForegroundColor Yellow
 Write-Host '============================================' -ForegroundColor Yellow
 Write-Host "  Carpeta backend: $BackendRoot"
+if ($SinVentanas) {
+    Write-Host '  Modo: sin ventanas (agentes y Docker ocultos)' -ForegroundColor DarkGray
+}
 Write-Host ''
 
 $nodeExe = $null
@@ -41,7 +47,7 @@ if (-not $nodeExe) {
 $docBat = Join-Path $BackendRoot 'API\documentacion-candidato\iniciar-agente.bat'
 if (Test-Path -LiteralPath $docBat) {
     Write-Step '[1/4] API documentacion candidato (puerto 3001)...'
-    Start-Process -FilePath $docBat -WorkingDirectory (Split-Path -Parent $docBat) -WindowStyle Minimized
+    Start-Process -FilePath $docBat -WorkingDirectory (Split-Path -Parent $docBat) -WindowStyle $winAgent
 } else {
     Write-Host '[SKIP] No existe documentacion-candidato\iniciar-agente.bat' -ForegroundColor DarkYellow
 }
@@ -52,7 +58,7 @@ Start-Sleep -Milliseconds 400
 $segBat = Join-Path $BackendRoot 'services\segundometro-agent\iniciar-agente.bat'
 if (($nodeExe) -and (Test-Path -LiteralPath $segBat)) {
     Write-Step '[2/4] Agente Segundometro (puerto 3100)...'
-    Start-Process -FilePath $segBat -WorkingDirectory (Split-Path -Parent $segBat) -WindowStyle Minimized
+    Start-Process -FilePath $segBat -WorkingDirectory (Split-Path -Parent $segBat) -WindowStyle $winAgent
 } elseif (-not $nodeExe) {
     Write-Host '[SKIP] Segundometro (sin Node).' -ForegroundColor DarkYellow
 } else {
@@ -61,11 +67,11 @@ if (($nodeExe) -and (Test-Path -LiteralPath $segBat)) {
 
 Start-Sleep -Milliseconds 400
 
-# --- 3) Agente correos primeros pagos (3110) - ventana visible para ver logs del cron ---
+# --- 3) Agente correos primeros pagos (3110) ---
 $corBat = Join-Path $BackendRoot 'services\correos-primeros-pagos-agent\iniciar-agente.bat'
 if (($nodeExe) -and (Test-Path -LiteralPath $corBat)) {
     Write-Step '[3/4] Agente correos primeros pagos (puerto 3110)...'
-    Start-Process -FilePath $corBat -WorkingDirectory (Split-Path -Parent $corBat) -WindowStyle Normal
+    Start-Process -FilePath $corBat -WorkingDirectory (Split-Path -Parent $corBat) -WindowStyle $winAgent
 } elseif (-not $nodeExe) {
     Write-Host '[SKIP] Correos (sin Node).' -ForegroundColor DarkYellow
 } else {
@@ -85,14 +91,24 @@ if (Test-Path -LiteralPath $compose) {
         if ($LASTEXITCODE -eq 0) { $dockerOk = $true }
     } catch { }
     if ($dockerOk) {
-        Push-Location $apiDir
-        try {
-            & docker compose up -d 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host '[AVISO] docker compose up -d devolvio error. Revise Docker Desktop.' -ForegroundColor DarkYellow
-            }
-        } finally {
-            Pop-Location
+        # cmd.exe evita el lio de stderr de docker en PowerShell. SinVentanas = cmd oculto.
+        $dcArgs = @{
+            FilePath               = 'cmd.exe'
+            ArgumentList           = '/c', 'docker compose up -d'
+            WorkingDirectory       = $apiDir
+            Wait                   = $true
+            PassThru               = $true
+        }
+        if ($SinVentanas) {
+            $dcArgs['WindowStyle'] = 'Hidden'
+        } else {
+            $dcArgs['NoNewWindow'] = $true
+        }
+        $dc = Start-Process @dcArgs
+        if ($dc.ExitCode -ne 0) {
+            Write-Host '[AVISO] docker compose up -d termino con codigo' $dc.ExitCode '- Revise Docker Desktop.' -ForegroundColor DarkYellow
+        } else {
+            Write-Host '[OK] Docker compose up -d listo (API ~8000).' -ForegroundColor DarkGray
         }
     } else {
         Write-Host '[AVISO] Docker no responde. Omitido API Python (8000).' -ForegroundColor DarkYellow

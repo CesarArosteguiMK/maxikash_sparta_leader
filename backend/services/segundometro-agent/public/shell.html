@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shell Segundómetro — Modo Agente</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f5f9; }
+    .font-monospace { font-family: 'Courier New', monospace; font-size: 0.9rem; }
+    .table-hover tbody tr:hover { background-color: rgba(67, 89, 113, 0.05); }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important; }
+    .card { transition: transform 0.2s, box-shadow 0.2s; }
+    code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+    .card-header.bg-primary h5, .card-header.bg-primary h5 i, .card-header.bg-primary * { color: #fff !important; }
+    .card-header.bg-primary .badge { color: #2c3e50 !important; background: #fff !important; font-weight: 600; }
+    .btn-truncar-segundometro { font-weight: 600; }
+    .btn-truncar-segundometro:disabled {
+      background: rgba(0, 230, 230, 0.12); border: 1px solid rgba(0, 200, 220, 0.4);
+      color: rgba(0, 120, 140, 0.85); box-shadow: 0 0 12px rgba(0, 230, 230, 0.15);
+    }
+    .btn-monitorear-segundometro {
+      font-weight: 600; padding: 0.5rem 1rem;
+      background: linear-gradient(135deg, #c4b5a0 0%, #a89888 100%);
+      border: 1px solid rgba(168, 152, 136, 0.6); color: #3d3630;
+    }
+    .btn-monitorear-segundometro:hover {
+      background: linear-gradient(135deg, #d4c8b8 0%, #b8a898 100%); color: #2d2824;
+    }
+    .btn-diagnostico-ssh {
+      font-weight: 600; padding: 0.5rem 1rem;
+      background: linear-gradient(135deg, #5c6bc0 0%, #3f51b5 100%);
+      border: 1px solid rgba(63, 81, 181, 0.6); color: #fff;
+    }
+    .btn-diagnostico-ssh:hover { background: linear-gradient(135deg, #7986cb 0%, #5c6bc0 100%); color: #fff; }
+    #panelMonitorear {
+      display: none; position: fixed; top: 80px; right: 20px; width: 520px; max-width: 95vw;
+      height: 420px; max-height: 75vh; z-index: 9000; background: #1e1e1e; border: 1px solid #444;
+      border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); flex-direction: column; overflow: hidden;
+    }
+    #panelMonitorearHeader {
+      display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
+      background: #2d2d2d; cursor: move; user-select: none; border-bottom: 1px solid #444;
+    }
+    #panelMonitorearBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #panelMonitorearIframe { flex: 1; width: 100%; height: 100%; min-height: 0; border: none; background: #1e1e1e; }
+  </style>
+</head>
+<body>
+  <div class="container-xxl flex-grow-1 container-p-y">
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <h4 class="mb-1"><i class="fa fa-terminal text-primary me-2"></i>Shell Segundómetro — Modo Agente</h4>
+                <p class="text-muted mb-0">Gestión de reportes <code>mega_rpt_*.csv.zip</code> vía API del agente (sin depender de Sparta Ledger).</p>
+              </div>
+              <div class="col-md-4 text-end">
+                <small class="text-muted">Actualización al abrir y al pulsar «Listar»</small>
+                <div class="mt-2 small">
+                  <span class="text-muted"><i class="fa fa-clock me-1"></i>Hora (CDMX):</span>
+                  <strong id="segundometroHoraServidor" class="ms-1">—</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <h5 class="card-title mb-3"><i class="fa fa-info-circle text-primary me-2"></i>¿Qué hace este módulo?</h5>
+            <p class="text-muted mb-3">Gestiona archivos de reportes en el servidor remoto usando solo esta API (agente). La clave SSH está dentro del agente; no depende de carpetas ni permisos de Sparta Ledger.</p>
+            <ul class="mb-0 ps-4 ms-2">
+              <li class="mb-2"><strong>Historial:</strong> hoy y ayer; <span class="text-danger">proveedor</span> / <span class="text-success">nosotros</span> (root).</li>
+              <li class="mb-2"><strong>Copiar +1s:</strong> copia en el servidor con nombre +1 segundo.</li>
+              <li class="mb-2"><strong>Descargar / Eliminar:</strong> solo nosotros (root) puede eliminar.</li>
+              <li class="mb-0"><strong>Truncar:</strong> no disponible en modo agente (requiere BD en Sparta Ledger).</li>
+            </ul>
+            <div class="alert alert-light border mt-3 mb-0" role="region" aria-label="Resumen de botones">
+              <h6 class="alert-heading mb-2"><i class="fa fa-list-alt me-2"></i>Resumen de botones y alertas</h6>
+              <p class="small mb-2"><strong>¿«Listar archivos» es para actualizar?</strong> Sí. Vuelve a pedir al agente la lista (GET /files) y refresca la tabla. Úsalo cuando quieras ver archivos nuevos o cambios.</p>
+              <p class="small mb-2 text-muted"><strong>Estado en BD:</strong> En el Shell de Sparta Ledger hay una columna con un icono (✓/✗/procesando) que indica si el reporte ya está cargado en la base de datos. <strong>En esta vista del agente esa columna no aparece</strong> porque el agente no tiene MySQL; solo muestra lo que hay en el servidor de archivos. Cuando integres el agente con Sparta Ledger, esa información se puede volver a mostrar si el backend consulta la BD.</p>
+              <table class="table table-sm table-bordered small mb-0">
+                <thead class="table-light">
+                  <tr><th>Botón</th><th>¿Qué hace?</th><th>¿Pide confirmación antes?</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td><strong>Listar archivos</strong></td><td>Actualiza la lista (hoy y ayer) desde el servidor.</td><td>No. Ejecuta al instante.</td></tr>
+                  <tr><td><strong>Truncar</strong></td><td>Deshabilitado en modo agente (requiere BD).</td><td>—</td></tr>
+                  <tr><td><strong>Monitorear</strong></td><td>Abre el panel con el stream en vivo del script en el servidor.</td><td>No. Abre el panel al instante.</td></tr>
+                  <tr><td><strong>Diagnóstico SSH</strong></td><td>Prueba: clave en <code>keys/</code>, conexión SSH y listado. Muestra resultado en un modal.</td><td>No. Ejecuta al instante.</td></tr>
+                  <tr><td><strong>Descargar</strong> (por archivo)</td><td>Descarga el .zip al equipo. Muestra un aviso de espera hasta que la descarga esté lista.</td><td>No. Al pulsar se muestra «Preparando su descarga…» y al terminar «Descarga lista».</td></tr>
+                  <tr><td><strong>Copiar +1s</strong> (por archivo)</td><td>Copia el archivo en el servidor con nombre +1 segundo.</td><td><strong>Sí.</strong> Sale un modal (SweetAlert) con origen y destino; solo se ejecuta si pulsas «Sí, copiar».</td></tr>
+                  <tr><td><strong>Eliminar</strong> (por archivo, solo «nosotros»)</td><td>Borra el archivo del servidor (solo si owner es root).</td><td><strong>Sí.</strong> Sale un modal «¿Eliminar archivo?»; solo se ejecuta si pulsas «Sí, eliminar».</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mb-3">
+      <div class="col-12">
+        <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="No disponible en modo agente (requiere BD)">
+          <i class="fa fa-cut me-2"></i>Truncar
+        </button>
+        <button type="button" class="btn btn-monitorear-segundometro ms-2" id="btnMonitorearSegundometro" title="Abrir monitoreo en vivo">
+          <i class="fa fa-terminal me-2"></i>Monitorear
+        </button>
+        <button type="button" class="btn btn-diagnostico-ssh ms-2" id="btnDiagnosticoSSH" title="Diagnóstico del agente (clave, SSH, listar)">
+          <i class="fa fa-stethoscope me-2"></i>Diagnóstico SSH
+        </button>
+        <button type="button" class="btn btn-primary ms-2" id="btnListar" title="Actualizar lista de archivos">
+          <i class="fa fa-sync-alt me-2"></i>Listar archivos
+        </button>
+      </div>
+    </div>
+
+    <!-- Copiar +1s automático (horarios CDMX) -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card shadow-sm border-0 border-start border-4 border-success">
+          <div class="card-header bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h5 class="mb-0"><i class="fa fa-clock me-2 text-success"></i>Copiar +1s automático</h5>
+            <div class="d-flex align-items-center gap-3">
+              <span class="text-muted small" id="autoCopyEstadoLabel">Desactivado</span>
+              <span class="badge bg-secondary" id="autoCopyEstadoProceso">En espera</span>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="autoCopyToggle" title="Activar o desactivar: cuando está activado, el agente hará Copiar +1s solo a las horas indicadas">
+                <label class="form-check-label fw-semibold" for="autoCopyToggle">Activar / Desactivar</label>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="small text-success mb-3"><i class="fa fa-info-circle me-1"></i> Al abrir el .bat solo se inicia el agente. La copia automática ocurre <strong>a las horas indicadas</strong> cuando el interruptor está en «Activar». Refuerzo BD: a las <strong>xx:40</strong> (y <strong>00:05</strong> para el slot de 23:52) valida en BD y, si no está en <code>ok</code>, dispara la ejecución de respaldo.</p>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-check-label small">
+                  <input type="checkbox" class="form-check-input me-2" id="autoCopyPreMonitoreo" checked>
+                  Ejecutar monitoreo previo antes de copiar (obligatorio en su flujo para que llegue el reporte)
+                </label>
+              </div>
+              <div class="col-md-6 mb-3">
+                <p class="small text-muted mb-1"><strong>Próxima ejecución:</strong> <span id="autoCopyProxima">—</span></p>
+                <p class="small text-muted mb-0"><strong>Última ejecución:</strong> <span id="autoCopyUltima">—</span></p>
+              </div>
+            </div>
+            <p class="small text-muted mb-2"><strong>Horarios (CDMX):</strong> <span id="autoCopyHorarios">07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 00:05</span></p>
+            <p class="small text-muted mb-2"><strong>Último cambio de estado:</strong> <span id="autoCopyUltimoCambioEstado">—</span></p>
+            <button type="button" class="btn btn-outline-success btn-sm" id="btnAutoCopyEjecutarAhora" title="Ejecutar Copiar +1s ahora (prueba)">
+              <i class="fa fa-play me-1"></i>Ejecutar ahora
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm ms-2" id="btnAutoCopyProgramarPrueba" title="Cuenta atrás 60 s en esta pestaña; al terminar ejecuta igual que «Ejecutar ahora» (fiable para demostración)">
+              <i class="fa fa-hourglass-half me-1"></i>Prueba en 1 min (cuenta atrás aquí)
+            </button>
+            <button type="button" class="btn btn-outline-danger btn-sm ms-2 d-none" id="btnAutoCopyCancelarPrueba" title="Cancelar la prueba programada">
+              <i class="fa fa-times me-1"></i>Cancelar prueba
+            </button>
+            <p class="small text-warning mt-2 mb-0 d-none" id="autoCopyPruebaPendiente"><i class="fa fa-clock me-1"></i><span id="autoCopyPruebaPendienteTexto"></span> <strong id="autoCopyCuentaAtras"></strong></p>
+            <p class="small text-muted mt-2 mb-0">Flujo obligatorio: primero inicia monitoreo, luego copia. Al terminar la copia, el agente espera 10-15 segundos y cierra el monitoreo automáticamente.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12">
+        <div id="archivos-container">
+          <div class="alert alert-secondary text-center"><i class="fa fa-spinner fa-spin me-2"></i>Cargando archivos…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panelMonitorear">
+    <div id="panelMonitorearHeader">
+      <span style="color:#fff; font-weight:600;"><i class="fa fa-terminal me-2"></i>Monitorear</span>
+      <span>
+        <button type="button" id="panelMonitorearMinimizar" style="background:transparent; border:none; color:#aaa; cursor:pointer; padding:4px 8px;" title="Minimizar"><i class="fa fa-window-minimize"></i></button>
+        <button type="button" id="panelMonitorearCerrar" style="background:transparent; border:none; color:#aaa; cursor:pointer; padding:4px 8px;" title="Cerrar"><i class="fa fa-times"></i></button>
+      </span>
+    </div>
+    <div id="panelMonitorearBody">
+      <iframe id="panelMonitorearIframe"></iframe>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+(function() {
+  const API_BASE = window.location.origin;
+  let archivosActuales = [];
+  let ejecucionEnCursoUI = false;
+  let ultimoEstadoProceso = null;
+
+  function horaCDMX() {
+    try {
+      return new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City', dateStyle: 'short', timeStyle: 'medium' });
+    } catch (_) { return new Date().toLocaleString(); }
+  }
+  function actualizarHora() {
+    const el = document.getElementById('segundometroHoraServidor');
+    if (el) el.textContent = horaCDMX();
+  }
+  setInterval(actualizarHora, 1000);
+  actualizarHora();
+
+  function escHtml(s) { return (s + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function horaBonitaLocal() {
+    return new Date().toLocaleString('es-MX', { hour12: false });
+  }
+
+  function renderArchivos(archivos) {
+    const container = document.getElementById('archivos-container');
+    if (!archivos || archivos.length === 0) {
+      container.innerHTML = '<div class="alert alert-info text-center"><i class="fa fa-info-circle fa-2x mb-2"></i><p class="mb-0">No se encontraron archivos de reportes</p></div>';
+      return;
+    }
+    const porFecha = {};
+    archivos.forEach(function(a) {
+      if (!porFecha[a.fecha]) porFecha[a.fecha] = { archivos: [], display: a.fecha_display || a.fecha };
+      porFecha[a.fecha].archivos.push(a);
+    });
+    let html = '';
+    Object.keys(porFecha).sort().reverse().forEach(function(fecha) {
+      const data = porFecha[fecha];
+      const archivosDelDia = data.archivos;
+      html += '<div class="card mb-4 shadow-sm">';
+      html += '<div class="card-header bg-primary text-white"><h5 class="mb-0"><i class="fa fa-calendar-day me-2"></i>' + escHtml(data.display) + ' <span class="badge bg-light text-dark ms-2">' + archivosDelDia.length + ' archivos</span></h5></div>';
+      html += '<div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0">';
+      html += '<thead class="table-light"><tr><th width="50"><i class="fa fa-hashtag"></i></th><th><i class="fa fa-file-archive me-1"></i>Nombre del Archivo</th><th width="120"><i class="fa fa-clock me-1"></i>Hora</th><th width="120"><i class="fa fa-hdd me-1"></i>Tamaño</th><th width="260" class="text-center"><i class="fa fa-cog me-1"></i>Acciones</th></tr></thead><tbody>';
+      archivosDelDia.forEach(function(archivo, index) {
+        const owner = (archivo.owner || '').toString();
+        const esProveedor = owner === 's2';
+        const esNosotros = owner === 'root';
+        let etiqueta = esProveedor ? '<span class="text-danger ms-1">(proveedor)</span>' : (esNosotros ? '<span class="text-success ms-1">(nosotros)</span>' : '');
+        const nombreEsc = archivo.nombre.replace(/'/g, "\\'");
+        html += '<tr><td class="text-muted">' + (index + 1) + '</td>';
+        html += '<td class="font-monospace text-primary fw-semibold">' + escHtml(archivo.nombre) + ' ' + etiqueta + '</td>';
+        html += '<td class="text-center"><span class="badge bg-info">' + escHtml(archivo.hora) + '</span></td>';
+        html += '<td class="text-end"><span class="text-muted">' + escHtml(archivo.tamano) + '</span></td>';
+        html += '<td class="text-center"><div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">';
+        html += '<button type="button" class="btn btn-sm btn-primary" onclick="window.descargarArchivo(\'' + nombreEsc + '\')" title="Descargar"><i class="fa fa-download me-1"></i>Descargar</button>';
+        html += '<button class="btn btn-sm btn-success" onclick="window.copiarArchivo(\'' + nombreEsc + '\')" title="Copiar +1s"><i class="fa fa-copy me-1"></i>Copiar +1s</button>';
+        if (esNosotros) html += '<button class="btn btn-sm btn-danger" onclick="window.eliminarArchivo(\'' + nombreEsc + '\')" title="Eliminar"><i class="fa fa-trash me-1"></i>Eliminar</button>';
+        html += '</div></td></tr>';
+      });
+      html += '</tbody></table></div></div></div>';
+    });
+    container.innerHTML = html;
+  }
+
+  async function listarArchivos() {
+    const container = document.getElementById('archivos-container');
+    container.innerHTML = '<div class="alert alert-secondary text-center"><i class="fa fa-spinner fa-spin me-2"></i>Cargando…</div>';
+    const controller = new AbortController();
+    // Si hay ejecución/monitoreo en curso, el listado puede tardar más por SSH.
+    const timeoutMs = ejecucionEnCursoUI ? 180000 : 25000;
+    const timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
+    try {
+      const r = await fetch(API_BASE + '/files', { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const j = await r.json();
+      if (!j.success) throw new Error(j.mensaje || 'Error al listar');
+      archivosActuales = j.datos || [];
+      renderArchivos(archivosActuales);
+    } catch (e) {
+      clearTimeout(timeoutId);
+      var msg = e.message || 'Error de red';
+      if (e.name === 'AbortError') {
+        msg = ejecucionEnCursoUI
+          ? 'Ejecución en curso: el listado está esperando a que termine monitoreo/copia.'
+          : 'Tiempo de espera agotado.';
+      }
+      var ayuda = 'Compruebe que el agente está en marcha (ej. ejecutando <strong>iniciar-agente.bat</strong>) y que está viendo esta página en <code>http://localhost:3100/shell.html</code>.';
+      container.innerHTML = '<div class="alert alert-danger text-center"><i class="fa fa-exclamation-triangle me-2"></i><strong>' + escHtml(msg) + '</strong><p class="mt-2 mb-0 small">' + ayuda + '</p><p class="mt-2 mb-0"><button type="button" class="btn btn-sm btn-outline-danger" onclick="window.listarArchivos()"><i class="fa fa-sync-alt me-1"></i>Reintentar</button></p></div>';
+    }
+  }
+  window.listarArchivos = listarArchivos;
+
+  window.copiarArchivo = async function(nombreArchivo) {
+    const match = nombreArchivo.match(/mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/);
+    if (!match) { Swal.fire('Error', 'Formato de archivo inválido', 'error'); return; }
+    const [, fecha, h, m, s] = match;
+    let seg = parseInt(s, 10) + 1, min = parseInt(m, 10), hor = parseInt(h, 10);
+    let f = fecha;
+    if (seg >= 60) { seg = 0; min++; }
+    if (min >= 60) { min = 0; hor++; }
+    if (hor >= 24) { hor = 0; const d = new Date(parseInt(f.slice(0,4),10), parseInt(f.slice(4,6),10)-1, parseInt(f.slice(6,8),10)); d.setDate(d.getDate()+1); f = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0'); }
+    const nombreDestinoDefault = 'mega_rpt_' + f + '_' + String(hor).padStart(2,'0') + '_' + String(min).padStart(2,'0') + '_' + String(seg).padStart(2,'0') + '.csv.zip';
+    const result = await Swal.fire({
+      title: 'Copiar archivo',
+      html: '<div class="text-start"><p class="mb-2">Origen: <code>' + escHtml(nombreArchivo) + '</code></p><p class="mb-0">Destino (+1s): <code>' + escHtml(nombreDestinoDefault) + '</code></p></div>',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, copiar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#28a745'
+    });
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Procesando…', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+    try {
+      const form = new FormData();
+      form.append('nombre_archivo', nombreArchivo);
+      form.append('nombre_destino', nombreDestinoDefault);
+      const r = await fetch(API_BASE + '/files/copy', { method: 'POST', body: form });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.mensaje || 'Error');
+      Swal.fire({ icon: 'success', title: 'Archivo copiado', html: 'Origen: <code>' + escHtml(j.datos.origen) + '</code><br>Destino: <code>' + escHtml(j.datos.destino) + '</code>' }).then(function() { listarArchivos(); });
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error', text: e.message });
+    }
+  };
+
+  window.descargarArchivo = async function(nombreArchivo) {
+    Swal.fire({
+      title: 'Preparando su descarga',
+      html: 'Espere por favor. Se está procesando su descarga; puede tardar un momento. No cierre esta ventana.',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: function() { Swal.showLoading(); }
+    });
+    try {
+      const url = API_BASE + '/files/' + encodeURIComponent(nombreArchivo) + '/download';
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(r.status === 400 ? 'Formato de archivo inválido' : (await r.text()) || 'Error al descargar');
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = nombreArchivo;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      Swal.fire({
+        icon: 'success',
+        title: 'Descarga lista',
+        text: 'El archivo se ha descargado correctamente.',
+        timer: 2500,
+        timerProgressBar: true,
+        showConfirmButton: false
+      });
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error al descargar', text: e.message });
+    }
+  };
+
+  window.eliminarArchivo = async function(nombreArchivo) {
+    const result = await Swal.fire({
+      title: '¿Eliminar archivo?',
+      html: '<p class="mb-2">Se eliminará del servidor:</p><code>' + escHtml(nombreArchivo) + '</code><p class="text-danger mt-2 mb-0 small">Esta acción no se puede deshacer.</p>',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc3545'
+    });
+    if (!result.isConfirmed) return;
+    Swal.fire({ title: 'Eliminando…', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+    try {
+      const r = await fetch(API_BASE + '/files/' + encodeURIComponent(nombreArchivo), { method: 'DELETE' });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.mensaje || 'Error');
+      Swal.fire({ icon: 'success', title: 'Archivo eliminado' }).then(function() { listarArchivos(); });
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error', text: e.message });
+    }
+  };
+
+  document.getElementById('btnListar').addEventListener('click', listarArchivos);
+  document.getElementById('btnDiagnosticoSSH').addEventListener('click', async function() {
+    Swal.fire({ title: 'Ejecutando diagnóstico…', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+    try {
+      const r = await fetch(API_BASE + '/diagnostico');
+      const j = await r.json();
+      if (!j.success) throw new Error(j.mensaje || 'Error');
+      const pruebas = j.pruebas || [];
+      const ok = pruebas.filter(function(p) { return p.ok; }).length;
+      const fail = pruebas.filter(function(p) { return !p.ok; }).length;
+      let html = '<div class="text-start"><div class="alert ' + (fail === 0 ? 'alert-success' : 'alert-warning') + ' py-2 mb-3"><strong>' + (fail === 0 ? 'Todas las pruebas pasaron' : fail + ' prueba(s) con problemas') + '</strong> — ' + ok + '/' + pruebas.length + ' OK</div>';
+      html += '<table class="table table-sm table-bordered"><thead class="table-light"><tr><th></th><th>Prueba</th><th>Detalle</th></tr></thead><tbody>';
+      pruebas.forEach(function(p) {
+        html += '<tr><td class="text-center">' + (p.ok ? '<i class="fa fa-check-circle text-success"></i>' : '<i class="fa fa-times-circle text-danger"></i>') + '</td><td>' + escHtml(p.nombre) + '</td><td class="small">' + escHtml(p.detalle) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      Swal.fire({ title: 'Diagnóstico Agente', html: html, width: '600px', icon: fail === 0 ? 'success' : 'warning' });
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'Error', text: e.message });
+    }
+  });
+
+  function abrirPanelMonitorear() {
+    var panel = document.getElementById('panelMonitorear');
+    var iframe = document.getElementById('panelMonitorearIframe');
+    if (!panel || !iframe) return;
+    iframe.src = API_BASE + '/ventana-monitorear';
+    panel.style.display = 'flex';
+    panel.dataset.minimizado = '0';
+    panel.style.height = '420px';
+    document.getElementById('panelMonitorearBody').style.display = 'flex';
+    var btnMin = document.getElementById('panelMonitorearMinimizar');
+    if (btnMin) { btnMin.title = 'Minimizar'; btnMin.innerHTML = '<i class="fa fa-window-minimize"></i>'; }
+  }
+  function minimizarPanel() {
+    var panel = document.getElementById('panelMonitorear');
+    var body = document.getElementById('panelMonitorearBody');
+    var btnMin = document.getElementById('panelMonitorearMinimizar');
+    if (!panel || !body) return;
+    panel.dataset.minimizado = '1';
+    body.style.display = 'none';
+    panel.style.height = 'auto';
+    if (btnMin) { btnMin.title = 'Restaurar'; btnMin.innerHTML = '<i class="fa fa-window-restore"></i>'; }
+  }
+  function toggleMinimizar() {
+    var panel = document.getElementById('panelMonitorear');
+    if (panel.dataset.minimizado === '1') { panel.dataset.minimizado = '0'; panel.style.height = '420px'; document.getElementById('panelMonitorearBody').style.display = 'flex'; document.getElementById('panelMonitorearMinimizar').innerHTML = '<i class="fa fa-window-minimize"></i>'; }
+    else minimizarPanel();
+  }
+  function cerrarPanel() {
+    var panel = document.getElementById('panelMonitorear');
+    var iframe = document.getElementById('panelMonitorearIframe');
+    if (iframe) iframe.src = 'about:blank';
+    if (panel) { panel.style.display = 'none'; panel.dataset.minimizado = '0'; document.getElementById('panelMonitorearBody').style.display = 'flex'; }
+  }
+  document.getElementById('btnMonitorearSegundometro').addEventListener('click', abrirPanelMonitorear);
+  document.getElementById('panelMonitorearCerrar').addEventListener('click', cerrarPanel);
+  document.getElementById('panelMonitorearMinimizar').addEventListener('click', toggleMinimizar);
+
+  // --- Auto Copiar +1s ---
+  async function fetchAutoCopyState() {
+    try {
+      const r = await fetch(API_BASE + '/auto-copy');
+      const j = await r.json();
+      if (!j.success) return null;
+      return j;
+    } catch (e) { return null; }
+  }
+  function renderAutoCopyState(data) {
+    if (!data) return;
+    const toggle = document.getElementById('autoCopyToggle');
+    const label = document.getElementById('autoCopyEstadoLabel');
+    const proc = document.getElementById('autoCopyEstadoProceso');
+    const ultimoCambio = document.getElementById('autoCopyUltimoCambioEstado');
+    const proximaEl = document.getElementById('autoCopyProxima');
+    const ultimaEl = document.getElementById('autoCopyUltima');
+    const horariosEl = document.getElementById('autoCopyHorarios');
+    const preMon = document.getElementById('autoCopyPreMonitoreo');
+    if (toggle) toggle.checked = !!data.enabled;
+    ejecucionEnCursoUI = !!data.ejecucionEnCurso;
+    if (proc) {
+      if (ejecucionEnCursoUI) {
+        proc.className = 'badge bg-warning text-dark';
+        proc.textContent = 'Estado: ejecutando monitoreo/copia';
+      } else {
+        proc.className = 'badge bg-secondary';
+        proc.textContent = 'Estado: en espera';
+      }
+    }
+    if (ultimoCambio) {
+      if (ultimoEstadoProceso === null) {
+        ultimoEstadoProceso = ejecucionEnCursoUI;
+        ultimoCambio.textContent = horaBonitaLocal() + ' — ' + (ejecucionEnCursoUI ? 'pasó a ejecutando' : 'pasó a en espera');
+      } else if (ultimoEstadoProceso !== ejecucionEnCursoUI) {
+        ultimoEstadoProceso = ejecucionEnCursoUI;
+        ultimoCambio.textContent = horaBonitaLocal() + ' — ' + (ejecucionEnCursoUI ? 'pasó a ejecutando' : 'pasó a en espera');
+      }
+    }
+    if (label) label.textContent = data.enabled ? 'Activado' : 'Desactivado';
+    if (proximaEl) proximaEl.textContent = data.enabled && data.proximaEjecucion ? data.proximaEjecucion.label : '—';
+    if (ultimaEl) {
+      const u = data.ultimaEjecucion;
+      if (u && (u.fecha || u.hora)) {
+        var prefijo = u.esPrueba ? '[Prueba] ' : '';
+        ultimaEl.textContent = prefijo + (u.success ? 'OK ' : 'Error ') + (u.fecha || '') + ' ' + (u.hora || '') + (u.mensaje ? ': ' + u.mensaje : '');
+      } else ultimaEl.textContent = '—';
+    }
+    var pruebaPend = document.getElementById('autoCopyPruebaPendiente');
+    var pruebaPendTxt = document.getElementById('autoCopyPruebaPendienteTexto');
+    var btnCancelPrueba = document.getElementById('btnAutoCopyCancelarPrueba');
+    if (data.pruebaProgramadaPara && pruebaPend && pruebaPendTxt) {
+      pruebaPend.classList.remove('d-none');
+      pruebaPendTxt.textContent = 'Prueba programada para: ' + data.pruebaProgramadaPara + ' (mismo flujo que automático con el último informe).';
+      if (btnCancelPrueba) btnCancelPrueba.classList.remove('d-none');
+    } else {
+      if (pruebaPend) pruebaPend.classList.add('d-none');
+      if (btnCancelPrueba) btnCancelPrueba.classList.add('d-none');
+    }
+    if (horariosEl && data.horarios && data.horarios.length) horariosEl.textContent = data.horarios.join(', ');
+    if (preMon) preMon.checked = data.preRunMonitoreo !== false;
+  }
+  document.getElementById('autoCopyToggle').addEventListener('change', async function() {
+    const enabled = this.checked;
+    try {
+      const r = await fetch(API_BASE + '/auto-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enabled })
+      });
+      const j = await r.json();
+      if (j.success) renderAutoCopyState(j);
+    } catch (e) { this.checked = !enabled; }
+  });
+  document.getElementById('autoCopyPreMonitoreo').addEventListener('change', async function() {
+    const preRunMonitoreo = this.checked;
+    try {
+      const r = await fetch(API_BASE + '/auto-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preRunMonitoreo: preRunMonitoreo })
+      });
+      const j = await r.json();
+      if (j.success) renderAutoCopyState(j);
+    } catch (e) { this.checked = !preRunMonitoreo; }
+  });
+  var pruebaCuentaAtrasId = null;
+  var PRUEBA_SEGUNDOS = 60;
+  var MAX_POLL_MS = 15 * 60 * 1000;
+  var POLL_EVERY_MS = 3000;
+
+  async function iniciarEjecucionBackground() {
+    const r = await fetch(API_BASE + '/auto-copy/ejecutar-ahora', { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok || !j.success) throw new Error(j.mensaje || 'No se pudo iniciar la ejecución');
+    return j;
+  }
+
+  async function leerEstadoEjecucion() {
+    const r = await fetch(API_BASE + '/auto-copy/ejecutar-ahora/estado');
+    const j = await r.json();
+    if (!j.success) throw new Error(j.mensaje || 'No se pudo leer el estado');
+    return j.estado || {};
+  }
+
+  async function esperarFinEjecucion() {
+    const start = Date.now();
+    while (Date.now() - start < MAX_POLL_MS) {
+      const estado = await leerEstadoEjecucion();
+      if (!estado.running) return estado;
+      await new Promise(function(resolve) { setTimeout(resolve, POLL_EVERY_MS); });
+    }
+    throw new Error('La ejecución tardó demasiado en finalizar. Revise consola del agente y conexión SSH.');
+  }
+
+  async function ejecutarPruebaMismoQueAhora() {
+    try {
+      await iniciarEjecucionBackground();
+      const estadoFinal = await esperarFinEjecucion();
+      const result = estadoFinal.lastResult || {};
+      if (result.success) {
+        Swal.fire({ icon: 'success', title: 'Listo', text: result.mensaje || 'Copiado correctamente.' });
+      } else {
+        Swal.fire({ icon: 'warning', title: 'Resultado', text: result.mensaje || estadoFinal.lastError || 'No se pudo copiar.' });
+      }
+      const state = await fetchAutoCopyState();
+      if (state) renderAutoCopyState(state);
+      listarArchivos();
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'No se completó', text: e.message, width: '32rem' });
+    }
+  }
+  function cancelarCuentaAtrasPrueba() {
+    if (pruebaCuentaAtrasId) {
+      clearInterval(pruebaCuentaAtrasId);
+      pruebaCuentaAtrasId = null;
+    }
+    var btn = document.getElementById('btnAutoCopyProgramarPrueba');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-hourglass-half me-1"></i>Prueba en 1 min (cuenta atrás aquí)';
+    }
+    var pruebaPend = document.getElementById('autoCopyPruebaPendiente');
+    var btnCancel = document.getElementById('btnAutoCopyCancelarPrueba');
+    if (pruebaPend) pruebaPend.classList.add('d-none');
+    if (btnCancel) btnCancel.classList.add('d-none');
+  }
+  document.getElementById('btnAutoCopyProgramarPrueba').addEventListener('click', function() {
+    if (pruebaCuentaAtrasId) return;
+    fetch(API_BASE + '/auto-copy/cancelar-prueba', { method: 'POST' }).catch(function() {});
+    var btn = this;
+    var seg = PRUEBA_SEGUNDOS;
+    var pruebaPend = document.getElementById('autoCopyPruebaPendiente');
+    var pruebaPendTxt = document.getElementById('autoCopyPruebaPendienteTexto');
+    var cuentaEl = document.getElementById('autoCopyCuentaAtras');
+    var btnCancel = document.getElementById('btnAutoCopyCancelarPrueba');
+    if (pruebaPend) pruebaPend.classList.remove('d-none');
+    if (pruebaPendTxt) pruebaPendTxt.textContent = 'Cuenta atrás en esta pestaña; al llegar a 0 se llama al agente igual que «Ejecutar ahora». No cierre esta pestaña ni el .bat.';
+    if (btnCancel) btnCancel.classList.remove('d-none');
+    btn.disabled = true;
+    if (cuentaEl) cuentaEl.textContent = '';
+    pruebaCuentaAtrasId = setInterval(function() {
+      seg--;
+      btn.innerHTML = '<i class="fa fa-hourglass-half me-1"></i>' + seg + ' s…';
+      if (cuentaEl) cuentaEl.textContent = 'Quedan ' + seg + ' s';
+      if (seg <= 0) {
+        clearInterval(pruebaCuentaAtrasId);
+        pruebaCuentaAtrasId = null;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Ejecutando…';
+        ejecutarPruebaMismoQueAhora().finally(function() {
+          cancelarCuentaAtrasPrueba();
+        }).catch(function() { cancelarCuentaAtrasPrueba(); });
+      }
+    }, 1000);
+  });
+  document.getElementById('btnAutoCopyCancelarPrueba').addEventListener('click', function() {
+    cancelarCuentaAtrasPrueba();
+    fetch(API_BASE + '/auto-copy/cancelar-prueba', { method: 'POST' }).catch(function() {});
+  });
+  document.getElementById('btnAutoCopyEjecutarAhora').addEventListener('click', async function() {
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i>Ejecutando…';
+    try {
+      await iniciarEjecucionBackground();
+      const estadoFinal = await esperarFinEjecucion();
+      const result = estadoFinal.lastResult || {};
+      if (result.success) Swal.fire({ icon: 'success', title: 'Copiado', text: result.mensaje || 'Archivo copiado automáticamente.' });
+      else Swal.fire({ icon: 'warning', title: 'Resultado', text: result.mensaje || estadoFinal.lastError || 'No se pudo copiar.' });
+      const state = await fetchAutoCopyState();
+      if (state) renderAutoCopyState(state);
+      listarArchivos();
+    } catch (e) {
+      Swal.fire({ icon: 'error', title: 'No se completó', text: e.message, width: '32rem' });
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-play me-1"></i>Ejecutar ahora';
+    }
+  });
+  (async function initAutoCopy() {
+    const state = await fetchAutoCopyState();
+    if (state) renderAutoCopyState(state);
+    setInterval(async function() {
+      const state = await fetchAutoCopyState();
+      if (state) renderAutoCopyState(state);
+    }, 60000);
+  })();
+
+  listarArchivos();
+})();
+  </script>
+</body>
+</html>

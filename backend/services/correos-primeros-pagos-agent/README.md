@@ -49,7 +49,7 @@ Copiá la carpeta (`npm install` allí), `.env` con rutas correctas y la misma s
 
 ## Repositorio Git y servidor (producción)
 
-Esta carpeta **`backend/services/correos-primeros-pagos-agent/`** está **incluida en el repositorio** del proyecto (no está ignorada en el `.gitignore` raíz, a diferencia de `segundometro-agent`).
+Esta carpeta **`backend/services/correos-primeros-pagos-agent/`** está **incluida en el repositorio** del proyecto. El agente **segundometro-agent** también está versionado; solo la subcarpeta **`keys/`** (llave SSH) no se sube.
 
 Tras un **`git pull`** en el servidor:
 

@@ -111,6 +111,7 @@ $destinatarios = [
     '__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx',
     'josealberto.hernandez@__SPARTA_SECRET_REDACTED__.mx',
     'josue.aldrete@__SPARTA_SECRET_REDACTED__.mx',
+    'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
     'lrgonzalez033@gmail.com', // verificación / monitoreo
 ];
 

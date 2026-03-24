@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pruebas Agente Segundómetro</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 1rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; }
+    .endpoint { margin: 1rem 0; padding: 0.75rem; background: #f0f0f0; border-radius: 6px; }
+    .endpoint h2 { margin: 0 0 0.5rem 0; font-size: 1rem; }
+    button { padding: 0.4rem 0.8rem; cursor: pointer; margin-right: 0.5rem; margin-bottom: 0.5rem; }
+    pre { background: #1e1e1e; color: #eee; padding: 0.75rem; border-radius: 4px; overflow: auto; font-size: 0.85rem; max-height: 300px; }
+    .ok { color: #0a0; }
+    .err { color: #c00; }
+    #streamOut { white-space: pre-wrap; font-family: monospace; font-size: 0.8rem; }
+    input[type="text"] { padding: 0.35rem; width: 320px; }
+    label { display: inline-block; width: 120px; }
+  </style>
+</head>
+<body>
+  <h1>Pruebas Agente Segundómetro</h1>
+  <p>Base URL: <strong id="baseUrl">http://localhost:3100</strong> (mismo origen que esta página)</p>
+
+  <div class="endpoint">
+    <h2>GET /health</h2>
+    <button type="button" id="btnHealth">Probar</button>
+    <pre id="outHealth"></pre>
+  </div>
+
+  <div class="endpoint">
+    <h2>GET /files — Listar archivos</h2>
+    <button type="button" id="btnFiles">Listar archivos</button>
+    <pre id="outFiles"></pre>
+  </div>
+
+  <div class="endpoint">
+    <h2>POST /files/copy — Copiar (+1s o destino)</h2>
+    <label>nombre_archivo</label> <input type="text" id="copyNombre" placeholder="mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip"><br><br>
+    <label>nombre_destino (opcional)</label> <input type="text" id="copyDestino" placeholder="dejar vacío para +1s"><br><br>
+    <button type="button" id="btnCopy">Copiar</button>
+    <pre id="outCopy"></pre>
+  </div>
+
+  <div class="endpoint">
+    <h2>DELETE /files/:nombre — Eliminar (solo root)</h2>
+    <label>nombre</label> <input type="text" id="delNombre" placeholder="mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip"><br><br>
+    <button type="button" id="btnDel">Eliminar</button>
+    <pre id="outDel"></pre>
+  </div>
+
+  <div class="endpoint">
+    <h2>GET /files/:nombre/download — Descargar</h2>
+    <label>nombre</label> <input type="text" id="dlNombre" placeholder="mega_rpt_YYYYMMDD_HH_MM_SS.csv.zip"><br><br>
+    <button type="button" id="btnDl">Descargar archivo</button>
+    <span id="outDl"></span>
+  </div>
+
+  <div class="endpoint">
+    <h2>GET /stream/monitorear — Stream monitorear.sh</h2>
+    <button type="button" id="btnStream">Abrir stream</button>
+    <button type="button" id="btnStreamStop" disabled>Parar</button>
+    <pre id="streamOut"></pre>
+  </div>
+
+  <script>
+    const base = window.location.origin;
+    document.getElementById('baseUrl').textContent = base;
+
+    function out(id, text, isError) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = isError ? 'err' : 'ok';
+    }
+
+    document.getElementById('btnHealth').onclick = async () => {
+      try {
+        const r = await fetch(base + '/health');
+        const j = await r.json();
+        out('outHealth', JSON.stringify(j, null, 2), !j.success);
+      } catch (e) {
+        out('outHealth', 'Error: ' + e.message, true);
+      }
+    };
+
+    document.getElementById('btnFiles').onclick = async () => {
+      try {
+        const r = await fetch(base + '/files');
+        const j = await r.json();
+        out('outFiles', JSON.stringify(j, null, 2), !j.success);
+      } catch (e) {
+        out('outFiles', 'Error: ' + e.message, true);
+      }
+    };
+
+    document.getElementById('btnCopy').onclick = async () => {
+      const nombre = document.getElementById('copyNombre').value.trim();
+      const destino = document.getElementById('copyDestino').value.trim();
+      if (!nombre) { out('outCopy', 'Escribe nombre_archivo', true); return; }
+      try {
+        const body = new FormData();
+        body.append('nombre_archivo', nombre);
+        if (destino) body.append('nombre_destino', destino);
+        const r = await fetch(base + '/files/copy', { method: 'POST', body });
+        const j = await r.json();
+        out('outCopy', JSON.stringify(j, null, 2), !j.success);
+      } catch (e) {
+        out('outCopy', 'Error: ' + e.message, true);
+      }
+    };
+
+    document.getElementById('btnDel').onclick = async () => {
+      const nombre = document.getElementById('delNombre').value.trim();
+      if (!nombre) { out('outDel', 'Escribe nombre', true); return; }
+      try {
+        const r = await fetch(base + '/files/' + encodeURIComponent(nombre), { method: 'DELETE' });
+        const j = await r.json();
+        out('outDel', JSON.stringify(j, null, 2), !j.success);
+      } catch (e) {
+        out('outDel', 'Error: ' + e.message, true);
+      }
+    };
+
+    document.getElementById('btnDl').onclick = () => {
+      const nombre = document.getElementById('dlNombre').value.trim();
+      if (!nombre) { document.getElementById('outDl').textContent = 'Escribe nombre'; return; }
+      window.location.href = base + '/files/' + encodeURIComponent(nombre) + '/download';
+      document.getElementById('outDl').textContent = 'Si el archivo existe, se descargará.';
+    };
+
+    let eventSource = null;
+    document.getElementById('btnStream').onclick = () => {
+      document.getElementById('streamOut').textContent = '';
+      document.getElementById('btnStream').disabled = true;
+      document.getElementById('btnStreamStop').disabled = false;
+      eventSource = new EventSource(base + '/stream/monitorear');
+      eventSource.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          const pre = document.getElementById('streamOut');
+          if (d.out) pre.textContent += d.out;
+          if (d.err) pre.textContent += d.err;
+          if (d.error) pre.textContent += '[ERROR] ' + d.error + '\n';
+          if (d.done) { eventSource.close(); document.getElementById('btnStream').disabled = false; document.getElementById('btnStreamStop').disabled = true; }
+        } catch (_) {}
+      };
+      eventSource.onerror = () => {
+        eventSource.close();
+        document.getElementById('btnStream').disabled = false;
+        document.getElementById('btnStreamStop').disabled = true;
+      };
+    };
+    document.getElementById('btnStreamStop').onclick = () => {
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      document.getElementById('btnStream').disabled = false;
+      document.getElementById('btnStreamStop').disabled = true;
+    };
+  </script>
+</body>
+</html>

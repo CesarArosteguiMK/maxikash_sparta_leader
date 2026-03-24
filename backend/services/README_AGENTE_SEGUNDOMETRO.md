@@ -1,12 +1,13 @@
-# Agente Segundómetro (despliegue manual)
+# Agente Segundómetro
 
-**Importante:** La carpeta **`segundometro-agent/`** y su contenido (API Node, `.env`, `keys`, etc.) **no deben subirse al repositorio** desde ninguna máquina: ni tu PC, ni el servidor, ni otras. Está en **`.gitignore`**; no hagas `git add` de esa ruta. El Shell Segundómetro (vistas PHP en el repo) sí se versiona; el agente se despliega a mano.
+**Repositorio:** El código del agente (`backend/services/segundometro-agent/`, salvo secretos) **sí va en Git** (`git pull` / `git push`).
 
-Para instalarla en el servidor hay que **copiarla a mano** (USB, ZIP, SCP). Dentro de esa carpeta está el checklist completo:
+**Qué no sube nunca:**
 
-**`segundometro-agent/README_DESPLIEGUE_SERVIDOR.md`**
+- **`keys/`** — la llave SSH (p. ej. `jesusssh4.unknown`) está ignorada en `.gitignore` del raíz. En cada PC/servidor hay que **copiar la llave a mano** a `segundometro-agent/keys/`. Ver `keys/README.md`.
+- **`.env`** — ignorado en el raíz del proyecto (credenciales locales).
 
-Copia esa carpeta desde la máquina de desarrollo donde ya funciona el agente; el README viaja con la carpeta.
+Para despliegue en servidor sigue siendo útil el checklist **`segundometro-agent/README_DESPLIEGUE_SERVIDOR.md`** si existe en tu copia.
 
 ### Guía rápida de uso (día a día)
 
@@ -97,7 +98,4 @@ En **Windows** (servidor), asegúrate de que el usuario que ejecuta Git tenga pe
 
 ## Cómo llevar cambios a la API (agente Node)
 
-La carpeta **`segundometro-agent/`** **no está en el repo**. Los cambios del Shell (aviso de descarga, etc.) ya llegan con **git pull** porque están en el controlador PHP. Los cambios **dentro del agente** (p. ej. `server.js`, `.env`) hay que llevarlos a mano:
-
-- **Desde tu PC al servidor:** copia la carpeta `backend/services/segundometro-agent/` por USB, ZIP, SCP o rsync y reemplaza (o solo los archivos que cambiaron: `server.js`, `lib/`, etc.).
-- No uses `git push` para el agente; está en `.gitignore` a propósito.
+Los cambios de código (`server.js`, `lib/`, `.bat`, etc.) llegan con **`git pull`** en el servidor. Tras el pull, si hace falta: **`npm install`** o `instalar-agente.bat`, y comprobar **`.env`** y **`keys/jesusssh4.unknown`** (no vienen del repo; cópielos en cada máquina).

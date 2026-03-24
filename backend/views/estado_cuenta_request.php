@@ -32,6 +32,9 @@ foreach ($tabla as $fila) {
         $lastPagoDate = null;
 
         foreach ($aplicados as $a) {
+            if (!empty($a['no_cuenta_para_total_cuota'])) {
+                continue;
+            }
             if (!empty($a['fechaRegistro'])) {
                 $ts = strtotime($a['fechaRegistro']);
                 if ($ts && (!$lastPagoDate || $ts > strtotime($lastPagoDate))) {
@@ -2106,6 +2109,9 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
                         // Calcular fecha de último pago aplicado (si existe)
                         $lastPagoDate = null;
                         foreach ($aplicados as $a) {
+                            if (!empty($a['no_cuenta_para_total_cuota'])) {
+                                continue;
+                            }
                             if (!empty($a['fechaRegistro'])) {
                                 $ts = strtotime($a['fechaRegistro']);
                                 if ($ts && (!$lastPagoDate || $ts > strtotime($lastPagoDate))) {
@@ -2123,6 +2129,7 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
                                 continue;
                             }
                             if (!empty($a['cc_invalido'])) continue;
+                            if (!empty($a['no_cuenta_para_total_cuota'])) continue;
                             if (!empty($a['fechaRegistro'])) {
                                 $ts = strtotime($a['fechaRegistro']);
                                 if ($ts && (!$lastPagoDateReal || $ts > strtotime($lastPagoDateReal))) {
@@ -2219,7 +2226,7 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
                                             $fechaNorm = $pago_fecha ? date('Y-m-d', strtotime($pago_fecha)) : '';
                                             $totalNotaCargo = ($hayNotasCargos && $fechaNorm !== '' && isset($notasCargoPorFecha[$fechaNorm])) ? (float)$notasCargoPorFecha[$fechaNorm] : 0;
                                             $etiquetaCargoResidual = (!empty($esReembolsoPorFecha[$fechaNorm])) ? 'Reembolso' : 'Contracargo';
-                                            if ($totalNotaCargo > 0): ?>
+                                            if ($totalNotaCargo > 0 && empty($pago['no_cuenta_para_total_cuota'])): ?>
                                             <li><span class="contracargo-label"><?= htmlspecialchars($etiquetaCargoResidual) ?>:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
                                             <?php endif; ?>
                                             <?php if (!$es_gasto_cobranza && $extemporaneos > 0):
