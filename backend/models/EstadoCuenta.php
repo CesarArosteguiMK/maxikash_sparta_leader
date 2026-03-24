@@ -644,8 +644,6 @@ class EstadoCuenta extends Model
     }
 }
 
-
-
 // Método adicional para descarga (sin formato JSON)
 public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaFin)
 {
@@ -713,7 +711,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         cuota,
         parcialidad,
         Fecha_primer_vencimiento,
-        COALESCE(estatus_pago, 0) AS estatus_pago
+        COALESCE(estatus_pago, 0)          AS estatus_pago,
+        COALESCE(monto_parcial_pagado, 0)  AS monto_parcial_pagado
     FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
     WHERE Id_credito = :id_credito
       AND (condonado IS NULL OR condonado = 0)
@@ -746,7 +745,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             foreach ($r as $i => $row) {
                 $r[$i]['condonacion_parcial_monto']  = 0;
                 $r[$i]['condonacion_parcial_motivo'] = '';
-                $r[$i]['estatus_pago']               = 0; // ← nuevo
+                $r[$i]['estatus_pago'] = 0; // ← nuevo
+                $r[$i]['monto_parcial_pagado'] = 0;
             }
         } catch (\Exception $e2) {
             return self::resultado(
@@ -1264,7 +1264,9 @@ public static function actualizarEstatusPagoGasto($idGasto, $estatusPago)
              WHERE id_gastos_cobranza = :id_gasto
                AND estatus_pago = 0",
             [
-                'estatus_pago' => (int) $estatusPago,
+                'estatus_pago'          => (int)($row['estatus_pago'] ?? 0),
+                'monto_parcial_pagado'  => round((float)($row['monto_parcial_pagado'] ?? 0), 2),
+
                 'id_gasto'     => (int) $idGasto
             ]
         );
