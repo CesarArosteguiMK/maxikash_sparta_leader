@@ -1,3 +1,4 @@
+<?php $layoutVendorLite = true; ?>
 <style>
     /* Card con esquinas más redondeadas */
     .estado-cuenta-card.card {
@@ -109,9 +110,6 @@
         box-shadow: 0 2px 8px rgba(206, 17, 38, 0.3);
     }
 </style>
-
-<!-- SweetAlert2 CDN -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- Bandera lateral izquierda - Identificador México -->
 <div class="bandera-lateral-mexico">
@@ -229,7 +227,8 @@
         // ═══════════════════════════════════════════════════════════
         // BOTÓN CAMBIAR PAÍS
         // ═══════════════════════════════════════════════════════════
-        document.getElementById('btnCambioPais').addEventListener('click', () => {
+        const btnCambioPais = document.getElementById('btnCambioPais');
+        if (btnCambioPais) btnCambioPais.addEventListener('click', () => {
             Swal.fire({
                 title: '<i class="fa-solid fa-globe"></i> Selecciona un País',
                 html: `
@@ -337,91 +336,94 @@
         const input = document.getElementById('nombre');
         const lista = document.getElementById('listaResultados');
 
-        let debounce = null;
-        let controller = null;
+        if (input && lista) {
+            let debounce = null;
+            let controller = null;
 
-        input.addEventListener('keyup', () => {
-            const termino = input.value.trim();
-            clearTimeout(debounce);
+            input.addEventListener('keyup', () => {
+                const termino = input.value.trim();
+                clearTimeout(debounce);
 
-            if (termino.length < 3) {
-                lista.innerHTML = '';
-                lista.style.display = 'none';
-                return;
-            }
-
-            debounce = setTimeout(() => {
-                // AbortController seguro
-                let signal = undefined;
-                if (window.AbortController) {
-                    if (controller) controller.abort();
-                    controller = new AbortController();
-                    signal = controller.signal;
+                if (termino.length < 3) {
+                    lista.innerHTML = '';
+                    lista.style.display = 'none';
+                    return;
                 }
 
+                debounce = setTimeout(() => {
+                    // AbortController seguro
+                    let signal = undefined;
+                    if (window.AbortController) {
+                        if (controller) controller.abort();
+                        controller = new AbortController();
+                        signal = controller.signal;
+                    }
 
 
-                // ✅ Enviar POST con objeto compatible con $_POST
-                fetch('/EstadoCuenta/getclientesEstadoCuentaNombre', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: termino }),
-                    signal
-                })
-                    .then(res => {
-                        if (!res.ok) throw new Error('HTTP error ' + res.status);
-                        return res.json();
+
+                    // ✅ Enviar POST con objeto compatible con $_POST
+                    fetch('/EstadoCuenta/getclientesEstadoCuentaNombre', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ nombre: termino }),
+                        signal
                     })
-                    .then(resp => {
-                        lista.innerHTML = '';
+                        .then(res => {
+                            if (!res.ok) throw new Error('HTTP error ' + res.status);
+                            return res.json();
+                        })
+                        .then(resp => {
+                            lista.innerHTML = '';
 
-                        if (!resp.resultado || !resp.datos || resp.datos.length === 0) {
-                            lista.style.display = 'none';
-                            return;
-                        }
-
-                        resp.datos.forEach(item => {
-                            const btn = document.createElement('button');
-                            btn.type = 'button';
-                            btn.className = 'list-group-item list-group-item-action';
-
-                            // Resaltar coincidencia
-                            const regex = new RegExp(`(${termino})`, 'gi');
-                            btn.innerHTML = item.nombre_completo.replace(regex, '<strong>$1</strong>');
-
-                            btn.onclick = () => {
-                                input.value = item.nombre_completo;
-
-                                // 🔴 AQUÍ SE GUARDA EL ID REAL
-                                document.getElementById('idCreditoLista').value = item.id;
-
-                                lista.innerHTML = '';
+                            if (!resp.resultado || !resp.datos || resp.datos.length === 0) {
                                 lista.style.display = 'none';
-                            };
+                                return;
+                            }
 
-                            lista.appendChild(btn);
+                            resp.datos.forEach(item => {
+                                const btn = document.createElement('button');
+                                btn.type = 'button';
+                                btn.className = 'list-group-item list-group-item-action';
+
+                                // Resaltar coincidencia
+                                const regex = new RegExp(`(${termino})`, 'gi');
+                                btn.innerHTML = item.nombre_completo.replace(regex, '<strong>$1</strong>');
+
+                                btn.onclick = () => {
+                                    input.value = item.nombre_completo;
+
+                                    // 🔴 AQUÍ SE GUARDA EL ID REAL
+                                    const hiddenLista = document.getElementById('idCreditoLista');
+                                    if (hiddenLista) hiddenLista.value = item.id;
+
+                                    lista.innerHTML = '';
+                                    lista.style.display = 'none';
+                                };
+
+                                lista.appendChild(btn);
+                            });
+
+                            lista.style.display = 'block';
+                            lista.style.maxHeight = '200px';
+                            lista.style.overflowY = 'auto';
+                        })
+                        .catch(err => {
+                            if (err && err.name !== 'AbortError') {
+                                console.error('Autocomplete error:', err);
+                            }
                         });
 
-                        lista.style.display = 'block';
-                        lista.style.maxHeight = '200px';
-                        lista.style.overflowY = 'auto';
-                    })
-                    .catch(err => {
-                        if (err && err.name !== 'AbortError') {
-                            console.error('Autocomplete error:', err);
-                        }
-                    });
+                }, 250);
+            });
 
-            }, 250);
-        });
-
-        // Cerrar dropdown al hacer click fuera
-        document.addEventListener('click', e => {
-            if (!input.contains(e.target) && !lista.contains(e.target)) {
-                lista.innerHTML = '';
-                lista.style.display = 'none';
-            }
-        });
+            // Cerrar dropdown al hacer click fuera
+            document.addEventListener('click', e => {
+                if (!input.contains(e.target) && !lista.contains(e.target)) {
+                    lista.innerHTML = '';
+                    lista.style.display = 'none';
+                }
+            });
+        }
     });
 
 </script>

@@ -2,6 +2,7 @@
 session_start();
 // vista___SPARTA_SECRET_REDACTED__.php
 date_default_timezone_set('America/Mexico_City');
+$layoutVendorLite = true;
 
 /* ----------------------
    Helpers locales
@@ -17,6 +18,26 @@ function format_date($d, $fallback = '—') {
 }
 function safe($v, $default = null) {
     return isset($v) ? $v : $default;
+}
+
+/** Vencimiento de la cuota en la misma semana ISO que hoy (America/Mexico_City). */
+function fechaCuotaEnSemanaActual($fechaStr) {
+    if ($fechaStr === null || $fechaStr === '') {
+        return false;
+    }
+    $ts = strtotime((string) $fechaStr);
+    if ($ts === false) {
+        return false;
+    }
+    try {
+        $tz = new DateTimeZone('America/Mexico_City');
+        $tCuota = new DateTime('@' . $ts);
+        $tCuota->setTimezone($tz);
+        $tHoy = new DateTime('now', $tz);
+        return $tCuota->format('o-W') === $tHoy->format('o-W');
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 /* Asegurar que $tabla exista */
@@ -1529,6 +1550,19 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-pago { color: #2dd4bf !importan
 html.dark-mode .cuotas-table .etiqueta-anticipo-aplicado,
 body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !important; }
 
+.cuotas-table tr.fila-semana-actual td {
+    background-color: rgba(13, 110, 253, 0.14) !important;
+    box-shadow: inset 3px 0 0 rgba(13, 110, 253, 0.72);
+}
+html.dark-mode .cuotas-table tr.fila-semana-actual td,
+body.dark-mode .cuotas-table tr.fila-semana-actual td {
+    background-color: rgba(125, 184, 255, 0.2) !important;
+    box-shadow: inset 3px 0 0 rgba(125, 184, 255, 0.75);
+}
+.cuotas-table .icono-semana-cuota { color: #0d9488 !important; font-size: 0.95em; }
+html.dark-mode .cuotas-table .icono-semana-cuota,
+body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
+
 /* Badge Recalculada: debajo del # cuota, sin invadir la columna del monto */
 .cuotas-table .cuota-num-wrap { display: inline-block; max-width: 5.5rem; vertical-align: top; }
 .cuotas-table .cuota-num-wrap .badge-recalculada { display: inline-block; margin-top: 0.25rem; margin-left: 0; max-width: 100%; white-space: normal; line-height: 1.15; font-size: 0.65rem; font-weight: 600; padding: 0.2rem 0.35rem; }
@@ -2170,11 +2204,12 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
                         } else {
                             $badge = '<span class="badge bg-secondary px-3 py-2">Sin pago<br>' . htmlspecialchars($diasMora) . ' día' . ($diasMora>1?'s':'') . ' de mora</span>';
                         }
+                        $esSemanaActual = fechaCuotaEnSemanaActual($fecha ?? null);
                         ?>
-                        <tr>
+                        <tr<?= $esSemanaActual ? ' class="fila-semana-actual"' : '' ?>>
                             <td class="align-top">
                                 <div class="cuota-num-wrap">
-                                    <span class="fw-medium"><?= htmlspecialchars((string)$cuota) ?></span>
+                                    <span class="fw-medium"><?= htmlspecialchars((string)$cuota) ?></span><?php if ($esSemanaActual): ?><i class="fa fa-calendar-check icono-semana-cuota ms-1 align-middle" title="Semana actual" aria-label="Semana actual"></i><?php endif; ?>
                                     <?php if (!empty($fila['recalculada'])): ?>
                                     <div><span class="badge bg-info text-dark badge-recalculada" title="Plazo o interés recalculado tras anticipo a capital">Recalculada</span></div>
                                     <?php endif; ?>
@@ -2190,6 +2225,33 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
                                             <li>
                                                 <?php $etiquetaCargo = (!empty($pago['concepto_display']) && $pago['concepto_display'] === 'reembolso') ? 'Reembolso' : 'Contracargo'; ?>
                                                 <span class="contracargo-label"><?= htmlspecialchars($etiquetaCargo) ?>:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
+                                            </li>
+                                            <?php elseif (isset($pago['tipo']) && $pago['tipo'] === 'extemporaneos_resumen'): ?>
+                                            <?php
+                                            $nExt = max(1, (int) ($pago['cantidad'] ?? 1));
+                                            $montoExtSum = safe($pago['montoPago'], 0.0);
+                                            $fdExt = safe($pago['fechaDesde'] ?? null, null);
+                                            $fhExt = safe($pago['fechaHasta'] ?? $pago['fechaRegistro'] ?? null, null);
+                                            ?>
+                                            <li class="small text-secondary mb-0 extemporaneos-resumen-linea" style="line-height: 1.35;">
+                                                <i class="fa fa-info-circle opacity-40 me-1" style="font-size: 0.7rem;" title="Movimientos solo extemporáneos según API; no aplican a capital de la cuota."></i>
+                                                <?= (int) $nExt ?> depósito<?= $nExt !== 1 ? 's' : '' ?> extemporáneo<?= $nExt !== 1 ? 's' : '' ?> · <?= format_currency($montoExtSum) ?>
+                                                <?php if ($fdExt && $fhExt): ?>
+                                                    · <?= htmlspecialchars(format_date($fdExt)) ?><?php if ($fdExt !== $fhExt): ?> – <?= htmlspecialchars(format_date($fhExt)) ?><?php endif; ?>
+                                                <?php endif; ?>
+                                            </li>
+                                            <?php elseif (isset($pago['tipo']) && $pago['tipo'] === 'extemporaneo_deposito'): ?>
+                                            <?php
+                                            $pago_monto = safe($pago['montoPago'], 0.0);
+                                            $pago_fecha = safe($pago['fechaRegistro'], $pago['fechaPago'] ?? null);
+                                            $pago_aplicado = safe($pago['aplicado'], 0.0);
+                                            ?>
+                                            <li class="text-muted small mb-0 linea-extemporaneo-api">
+                                                <i class="fa fa-info-circle opacity-40 me-1 align-text-bottom" style="font-size: 0.72rem;" title="Solo extemporáneo según API; no cuenta a capital de la cuota."></i>
+                                                <span class="text-secondary">Dep. ext.</span>:
+                                                <?= format_currency($pago_monto) ?> -
+                                                <span class="etiqueta-aplicado">Aplicado</span>: <?= format_currency($pago_aplicado) ?> -
+                                                <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                             </li>
                                             <?php else: ?>
                                             <?php
@@ -2558,13 +2620,10 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
             <!-- BODY -->
             <div class="modal-body">
 
-
-                <input
-                        type="hidden"
-                        id="idCredito_dictamen"
-                        name="idCredito_dictamen"
-                        value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>"
-            </div>
+                <input type="hidden"
+                       id="idCredito_dictamen"
+                       name="idCredito_dictamen"
+                       value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>">
 
                 <!-- FILA 1 -->
                 <div class="row g-3">
@@ -2977,20 +3036,6 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
 
     const modalDictamen = document.getElementById('modalDictamen');
 
-    modalDictamen.addEventListener('shown.bs.modal', function (event) {
-
-        const button = event.relatedTarget;
-        const idCredito = button.getAttribute('data-idcredito');
-
-        // Guardar el id crédito
-        document.getElementById('id_credito').value = idCredito;
-
-        // Inicializar combos
-        initDictamenModal();
-    });
-
-
-
     const tipoContactoSelect      = document.getElementById('tipo_contacto');
     const resultadoContactoSelect = document.getElementById('resultado_contacto');
     const dictamenSelect          = document.getElementById('dictamen');
@@ -2998,6 +3043,23 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
 
     const tipoMotivoSelect   = document.getElementById('tipo_motivo_no_pago');
     const motivoNoPagoSelect = document.getElementById('motivo_no_pago');
+
+    const dictamenFormOk = tipoContactoSelect && resultadoContactoSelect && dictamenSelect
+        && plataformaSelect && tipoMotivoSelect && motivoNoPagoSelect;
+
+    if (modalDictamen) {
+        modalDictamen.addEventListener('shown.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const idCredito = button ? button.getAttribute('data-idcredito') : null;
+            const hidCred = document.getElementById('idCredito_dictamen');
+            if (hidCred && idCredito) {
+                hidCred.value = idCredito;
+            }
+            if (dictamenFormOk) {
+                initDictamenModal();
+            }
+        });
+    }
 
     function cargarTiposContacto() {
         fetch('/EstadoCuenta/getTiposContacto')
@@ -3055,12 +3117,6 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
     }
 
 
-    tipoContactoSelect.addEventListener('change', function () {
-        if (this.value) {
-            cargarResultadosContacto(this.value);
-        }
-    });
-
     function cargarDictamenes(resultadoContactoId) {
 
         dictamenSelect.innerHTML =
@@ -3092,12 +3148,19 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
             .catch(err => console.error(err));
     }
 
+    if (dictamenFormOk) {
+    tipoContactoSelect.addEventListener('change', function () {
+        if (this.value) {
+            cargarResultadosContacto(this.value);
+        }
+    });
 
     resultadoContactoSelect.addEventListener('change', function () {
         if (this.value) {
             cargarDictamenes(this.value);
         }
     });
+    }
 
     function cargarMotivosNoPago() {
         fetch('/EstadoCuenta/getMotivosNoPago')
@@ -3142,13 +3205,11 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
 
 
     function initDictamenModal() {
+        if (!dictamenFormOk) return;
         cargarTiposContacto();
         cargarPlataformas();
         cargarTiposMotivoNoPago(); // 👈 NUEVO
     }
-
-    document.getElementById('modalDictamen')
-        .addEventListener('shown.bs.modal', initDictamenModal);
 
     function cargarTiposMotivoNoPago() {
         fetch('/EstadoCuenta/getTiposMotivoNoPago')
@@ -3199,9 +3260,11 @@ body.dark-mode  .cuotas-table .etiqueta-anticipo-aplicado { color: #5eead4 !impo
             });
     }
 
+    if (dictamenFormOk) {
     tipoMotivoSelect.addEventListener('change', function () {
         cargarMotivosNoPagoPorTipo(this.value);
     });
+    }
 
     function guardarDictamen() {
 
@@ -3545,11 +3608,17 @@ function _fetchGastosCobranza(idCredito) {
         modalParcial.show();
     }
 
-    document.getElementById('condonarParcial_motivo').addEventListener('input', function() {
-        document.getElementById('condonarParcial_motivoCount').textContent = this.value.length;
-    });
+    const elCondParcialMotivo = document.getElementById('condonarParcial_motivo');
+    if (elCondParcialMotivo) {
+        elCondParcialMotivo.addEventListener('input', function() {
+            const cnt = document.getElementById('condonarParcial_motivoCount');
+            if (cnt) cnt.textContent = this.value.length;
+        });
+    }
 
-    document.getElementById('btnCondonarParcialAceptar').addEventListener('click', function() {
+    const btnCondParcialAceptar = document.getElementById('btnCondonarParcialAceptar');
+    if (btnCondParcialAceptar) {
+        btnCondParcialAceptar.addEventListener('click', function() {
         const idGasto = document.getElementById('condonarParcial_idGasto').value;
         const idCredito = document.getElementById('condonarParcial_idCredito').value;
         const montoParcial = parseFloat(document.getElementById('condonarParcial_monto').value || 0);
@@ -3624,6 +3693,7 @@ function _fetchGastosCobranza(idCredito) {
                 .catch(() => Swal.fire('Error', 'Error de conexión', 'error'));
         });
     });
+    }
 
     // Función para abrir el modal de direcciones
     function abrirModalDirecciones() {
@@ -3859,6 +3929,9 @@ function _fetchGastosCobranza(idCredito) {
 document.addEventListener('DOMContentLoaded', function() {
     const accordion = document.getElementById('collapseInfoCredito');
     const accordionButton = document.querySelector('[data-bs-target="#collapseInfoCredito"]');
+    if (!accordion || !accordionButton) {
+        return;
+    }
 
     // Recuperar estado del localStorage
     const accordionState = localStorage.getItem('accordionInfoCredito');

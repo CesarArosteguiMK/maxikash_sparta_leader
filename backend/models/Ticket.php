@@ -4557,7 +4557,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $visitoVentanaTxt = 'No';
                     }
                 }
-                // Extensión +12 h: columna muestra «Prórroga» o «Intensidad» (— si no aplica)
+                // Extensión (estadísticas): columna muestra «Prórroga» o «Intensidad» (— si no aplica)
                 $prorrogaTxt = null;
                 $pagoEnProrrogaTxt = null; // Sí/No / No se pudo verificar en 2.ª ventana; — si no aplica
                 if ($tid > 0 && isset($dsPorTicket[$tid])) {

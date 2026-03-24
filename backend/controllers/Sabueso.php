@@ -3226,7 +3226,7 @@ JS;
                             '<th>Dictamen enviado' + tipG('Referencia temporal del envío al gestor.') + '</th>' +
                             '<th>Pagaron' + tipG('Sí = pago en estado de cuenta en la ventana 12h.') + '</th>' +
                             '<th>Visitaron' + tipG('Sí = visita de campo registrada.') + '</th>' +
-                            '<th>Extensi\u00f3n +12 h' + tipG('Pr\u00f3rroga o Intensidad: segunda ventana de +12 h seg\u00fan el dictamen del sistema.') + '</th>' +
+                            '<th>Extensi\u00f3n' + tipG('Pr\u00f3rroga o Intensidad: segunda ventana de +12 h seg\u00fan el dictamen del sistema.') + '</th>' +
                             '<th>Pago en 2.\u00aa ventana (+12 h)' + tipG('Pago en estado de cuenta en la segunda ventana (Pr\u00f3rroga o Intensidad), seg\u00fan fechas del DS.') + '</th>' +
                             '<th>Pago esta semana' + tipG('Desde lunes 00:00 CDMX de la semana actual hasta ahora; cantidad entre paréntesis.') + '</th>' +
                             '<th>Cumplimiento' + tipG('Etiqueta del dictamen sistema.') + '</th>' +
@@ -3458,7 +3458,7 @@ JS;
                             { k: 'localizable', label: 'Localizable', cls: 'bg-success', tip: 'No califica como ilocalizable y estado de cuenta consultado.', idVal: 'rsKpiValLocalizable' },
                             { k: 'pago_12h', label: 'Pago en 12h', cls: 'bg-primary', tip: 'Cumplieron pago en ventana inicial (dictamen sistema).', idVal: 'rsKpiValPago12h' },
                             { k: 'todas_direcciones', label: 'Todas las direcciones', cls: 'bg-info', tip: 'Visitaron todas las direcciones del dictamen.', idVal: 'rsKpiValTodasDir' },
-                            { k: 'prorroga', label: 'Extensión +12 h', cls: 'bg-warning', tip: 'Tickets con segunda ventana: Prórroga o Intensidad (+12 h).', idVal: 'rsKpiValProrroga' },
+                            { k: 'prorroga', label: 'Extensión', cls: 'bg-warning', tip: 'Tickets con segunda ventana: Prórroga o Intensidad (+12 h).', idVal: 'rsKpiValProrroga' },
                             { k: 'pago_semana', label: 'Pago en la semana', cls: 'bg-success', tip: 'Hubo pago en estado de cuenta dentro de la semana analizada.', idVal: 'rsKpiValPagoSemana' }
                         ];
                         var parts = '';
@@ -3533,13 +3533,13 @@ JS;
                         '<th>Fue a todas direcciones</th>' +
                         '<th>Direcciones visitadas</th>' +
                         '<th>Pago 12h</th>' +
-                        '<th>Extensi\u00f3n +12 h</th>' +
+                        '<th>Extensi\u00f3n</th>' +
                         '<th>Pago 2.\u00aa ventana (+12 h)</th>' +
                         '<th>Pago semana</th>' +
                         '<th>Ilocalizable</th>' +
                         '</tr></thead><tbody id="tbodyReporteSemanalGlobal">' + tableRowsHtml() + '</tbody></table></div>' +
                         '<div class="estad-reporte-semanal-footer text-muted" style="font-size:0.72rem;">' +
-                        'Ilocalizable = <strong>Sí</strong> si el dictamen al gestor es tipo ILOCALIZABLE, o el dictamen del sistema es <code>dictamen_ilocalizable</code>, o bien: visitó todas las direcciones y no pagó en la semana (EC consultado). La extensi\u00f3n +12 h (Pr\u00f3rroga o Intensidad) no condiciona la regla operativa de direcciones+pago.' +
+                        'Ilocalizable = <strong>Sí</strong> si el dictamen al gestor es tipo ILOCALIZABLE, o el dictamen del sistema es <code>dictamen_ilocalizable</code>, o bien: visitó todas las direcciones y no pagó en la semana (EC consultado). La <strong>extensi\u00f3n</strong> (Pr\u00f3rroga o Intensidad, segunda ventana +12 h) no condiciona la regla operativa de direcciones+pago.' +
                         '</div></div>' +
                         '<div id="reporteSemanalBlockGraficas" class="d-none">' +
                         '<p class="text-muted small mb-2"><i class="fa-solid fa-chart-column me-1"></i>Mismos datos del resumen y del detalle, en distintos tipos de gráfico.</p>' +
@@ -3649,7 +3649,7 @@ JS;
                                     var wrap = document.getElementById('reporteSemanalGraficasWrap');
                                     if (!wrap || typeof Chart === 'undefined') return;
                                     var total = parseInt(res.total_tickets, 10) || 0;
-                                    var labelsKpi = ['Ilocalizable', 'Localizable', 'Pago 12h', 'Todas direcc.', 'Ext. +12 h', 'Pago semana'];
+                                    var labelsKpi = ['Ilocalizable', 'Localizable', 'Pago 12h', 'Todas direcc.', 'Extensión', 'Pago semana'];
                                     var dataKpi = [
                                         parseInt(res.ilocalizable, 10) || 0,
                                         parseInt(res.localizable, 10) || 0,
@@ -4135,7 +4135,7 @@ JS;
                         var html = '<div class="text-muted small mb-2">' + (filas.length ? filas.length + ' ticket(s) levantado(s) el ' + fechaLabel + '.' : 'Ning\u00fan ticket levantado ese d\u00eda.') + '</div>';
                         if (filas.length > 0) {
                             html += '<style>.estad-dia-detalle-tabla thead th{position:sticky;top:0;background:#fff;z-index:1;box-shadow:0 1px 0 0 #dee2e6}</style>';
-                            html += '<div class="table-responsive estad-dia-detalle-table-wrap" style="max-height:60vh;overflow-y:auto"><table class="table table-sm table-bordered mb-0 small estad-dia-detalle-tabla"><thead><tr><th>Folio</th><th>ID cr.</th><th>Gestor</th><th>Hora</th><th>T. env\u00edo dict.</th><th>Abrieron</th><th>T. apertura</th><th>Resultado DS</th><th>Extensi\u00f3n +12 h</th><th>Pagaron</th><th>Cumplimiento</th></tr></thead><tbody>';
+                            html += '<div class="table-responsive estad-dia-detalle-table-wrap" style="max-height:60vh;overflow-y:auto"><table class="table table-sm table-bordered mb-0 small estad-dia-detalle-tabla"><thead><tr><th>Folio</th><th>ID cr.</th><th>Gestor</th><th>Hora</th><th>T. env\u00edo dict.</th><th>Abrieron</th><th>T. apertura</th><th>Resultado DS</th><th>Extensi\u00f3n</th><th>Pagaron</th><th>Cumplimiento</th></tr></thead><tbody>';
                             filas.forEach(function(f) {
                                 html += '<tr><td>' + attrEsc(f.folio) + '</td><td>' + (f.id_credito != null ? f.id_credito : '—') + '</td><td>' + attrEsc(f.gestor_nombre) + '</td><td>' + attrEsc(f.hora_levantado) + '</td><td>' + attrEsc(f.tiempo_dictamen_enviado) + '</td><td>' + attrEsc(f.cuando_abrieron) + '</td><td>' + attrEsc(f.tiempo_apertura) + '</td><td>' + attrEsc(f.resultado_ds) + '</td><td>' + attrEsc(f.prorroga) + '</td><td>' + attrEsc(f.pagaron) + '</td><td>' + attrEsc(f.cumplimiento) + '</td></tr>';
                             });

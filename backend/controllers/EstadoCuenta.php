@@ -167,15 +167,25 @@ class EstadoCuenta extends Controller
     }
 
     /**
-     * Inserta línea de depósito solo GC debajo de la cuota anterior al idCargo ancla del API.
-     * No suma al total_pagado del cargo (solo informativo).
+     * Inserta depósitos 100% extemporáneos (sin monto a cuota).
+     * Con nota GC: una línea por movimiento en la fila del idCargo del API.
+     * Sin nota: reparte N depósitos en N filas de cuota consecutivas terminando en ese idCargo (como pagos/sobrantes); si no hay filas suficientes, un resumen.
+     * No suma al total_pagado del cargo.
      */
     private function inyectarDepositosSoloGastoCobranza(array &$tabla, array $pagos_list): void {
         if (empty($tabla) || empty($pagos_list)) {
             return;
         }
+        $indicesCuotas = [];
+        for ($ti = 0; $ti < count($tabla); $ti++) {
+            if (($tabla[$ti]["tipo"] ?? "") === "anticipo") {
+                continue;
+            }
+            $indicesCuotas[] = $ti;
+        }
+        $porAncla = [];
         foreach ($pagos_list as $pl) {
-            if (empty($pl["es_pago_solo_gasto_cobranza"])) {
+            if (empty($pl["es_pago_solo_extemporaneo_inyectar"])) {
                 continue;
             }
             $idRef = (int) ($pl["primer_id_cargo_api"] ?? 0);
@@ -192,29 +202,234 @@ class EstadoCuenta extends Controller
             if ($tablaIdx === null) {
                 continue;
             }
-            $prevIdx = $tablaIdx - 1;
-            while ($prevIdx >= 0 && (($tabla[$prevIdx]["tipo"] ?? "") === "anticipo")) {
-                $prevIdx--;
+            // Misma fila que el cargo del API (p. ej. id 56 → cuota 56); si esa fila es anticipo, usar la siguiente fila de cuota.
+            $injectIdx = $tablaIdx;
+            while ($injectIdx < count($tabla) && (($tabla[$injectIdx]["tipo"] ?? "") === "anticipo")) {
+                $injectIdx++;
             }
-            if ($prevIdx < 0) {
-                $prevIdx = $tablaIdx;
+            if ($injectIdx >= count($tabla)) {
+                $injectIdx = $tablaIdx;
             }
-            $mp = round((float) ($pl["montoPagoOriginal"] ?? 0), 2);
-            $ext = round((float) ($pl["_extOrig"] ?? $pl["extemporaneos"] ?? 0), 2);
-            $tabla[$prevIdx]["aplicados"][] = [
-                "tipo"                    => "gasto_cobranza_deposito",
-                "idPago"                  => $pl["idPago"] ?? null,
-                "montoPago"               => $mp,
-                "aplicado"                => $ext,
-                "aplicadoTotalPago"       => $mp,
-                "fechaRegistro"           => $pl["fechaRegistro"] ?? null,
-                "fechaPago"               => null,
-                "diasMora"                => null,
-                "extemporaneos"           => 0,
-                "es_sobrante"             => false,
-                "gasto_cobranza"          => true,
-                "no_cuenta_para_total_cuota" => true,
-            ];
+            if (!isset($porAncla[$injectIdx])) {
+                $porAncla[$injectIdx] = ["gc" => [], "ext" => []];
+            }
+            if (!empty($pl["es_pago_solo_gasto_cobranza"])) {
+                $porAncla[$injectIdx]["gc"][] = $pl;
+            } else {
+                $porAncla[$injectIdx]["ext"][] = $pl;
+            }
+        }
+        foreach ($porAncla as $injectIdx => $grupos) {
+            foreach ($grupos["gc"] as $pl) {
+                $mp = round((float) ($pl["montoPagoOriginal"] ?? 0), 2);
+                $ext = round((float) ($pl["_extOrig"] ?? $pl["extemporaneos"] ?? 0), 2);
+                $tabla[$injectIdx]["aplicados"][] = [
+                    "tipo"                    => "gasto_cobranza_deposito",
+                    "idPago"                  => $pl["idPago"] ?? null,
+                    "montoPago"               => $mp,
+                    "aplicado"                => $ext,
+                    "aplicadoTotalPago"       => $mp,
+                    "fechaRegistro"           => $pl["fechaRegistro"] ?? null,
+                    "fechaPago"               => null,
+                    "diasMora"                => null,
+                    "extemporaneos"           => 0,
+                    "es_sobrante"             => false,
+                    "gasto_cobranza"          => true,
+                    "no_cuenta_para_total_cuota" => true,
+                ];
+            }
+            $exts = $grupos["ext"];
+            if (empty($exts)) {
+                continue;
+            }
+            usort($exts, function ($a, $b) {
+                $fa = strtotime((string) ($a["fechaRegistro"] ?? ""));
+                $fb = strtotime((string) ($b["fechaRegistro"] ?? ""));
+                if ($fa === false) {
+                    $fa = 0;
+                }
+                if ($fb === false) {
+                    $fb = 0;
+                }
+                return $fa <=> $fb;
+            });
+            $idRefExt = (int) ($exts[0]["primer_id_cargo_api"] ?? 0);
+            $posAnchor = null;
+            for ($ip = 0; $ip < count($indicesCuotas); $ip++) {
+                $ri = $indicesCuotas[$ip];
+                if ((int) ($tabla[$ri]["idCargo"] ?? 0) === $idRefExt) {
+                    $posAnchor = $ip;
+                    break;
+                }
+            }
+            $n = count($exts);
+            if ($posAnchor === null || $posAnchor < $n - 1) {
+                $sum = 0.0;
+                foreach ($exts as $e) {
+                    $sum += (float) ($e["montoPagoOriginal"] ?? 0);
+                }
+                $sum = round($sum, 2);
+                $fechaDesde = $exts[0]["fechaRegistro"] ?? null;
+                $fechaHasta = $exts[$n - 1]["fechaRegistro"] ?? null;
+                $ids = [];
+                foreach ($exts as $e) {
+                    if (!empty($e["idPago"])) {
+                        $ids[] = $e["idPago"];
+                    }
+                }
+                $tabla[$injectIdx]["aplicados"][] = [
+                    "tipo"                       => "extemporaneos_resumen",
+                    "cantidad"                   => $n,
+                    "montoPago"                  => $sum,
+                    "aplicado"                   => $sum,
+                    "fechaRegistro"              => $fechaHasta,
+                    "fechaDesde"                 => $fechaDesde,
+                    "fechaHasta"                 => $fechaHasta,
+                    "idPagos"                    => $ids,
+                    "no_cuenta_para_total_cuota" => true,
+                    "gasto_cobranza"             => false,
+                    "_sortDate"                  => $fechaHasta,
+                ];
+                continue;
+            }
+            $startPos = $posAnchor - ($n - 1);
+            for ($i = 0; $i < $n; $i++) {
+                $pl = $exts[$i];
+                $rowIdx = $indicesCuotas[$startPos + $i];
+                $mp = round((float) ($pl["montoPagoOriginal"] ?? 0), 2);
+                $ext = round((float) ($pl["_extOrig"] ?? $pl["extemporaneos"] ?? 0), 2);
+                $fr = $pl["fechaRegistro"] ?? null;
+                $tabla[$rowIdx]["aplicados"][] = [
+                    "tipo"                       => "extemporaneo_deposito",
+                    "idPago"                     => $pl["idPago"] ?? null,
+                    "montoPago"                  => $mp,
+                    "aplicado"                   => $ext,
+                    "aplicadoTotalPago"          => $mp,
+                    "fechaRegistro"              => $fr,
+                    "fechaPago"                  => null,
+                    "diasMora"                   => null,
+                    "extemporaneos"              => 0,
+                    "es_sobrante"                => false,
+                    "gasto_cobranza"             => false,
+                    "no_cuenta_para_total_cuota" => true,
+                    "solo_ext_api"               => true,
+                    "_sortDate"                  => $fr,
+                ];
+            }
+        }
+    }
+
+    /**
+     * Indica si la fila tiene línea informativa de depósito extemporáneo / GC (no suma a capital en la cuota).
+     */
+    private function filaTieneLineaExtInformativa(array $fila): bool {
+        foreach ($fila["aplicados"] ?? [] as $ap) {
+            $t = $ap["tipo"] ?? "";
+            if ($t === "extemporaneo_deposito" || $t === "extemporaneos_resumen" || $t === "gasto_cobranza_deposito") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Pago/sobrante que sí cuenta para capital y puede moverse a otra cuota (no contracargo, no fantasma API).
+     */
+    private function aplicadoEsPagoLegitimoReubicable(array $ap): bool {
+        if (!empty($ap["cc_invalido"])) {
+            return false;
+        }
+        if (isset($ap["tipo"]) && $ap["tipo"] === "contracargo") {
+            return false;
+        }
+        if (!empty($ap["no_cuenta_para_total_cuota"])) {
+            return false;
+        }
+        if (empty($ap["idPago"])) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Suma aplicada a capital en la fila (misma regla que recalcularTotalesTablaEstadoCuenta).
+     */
+    private function sumaAplicadosQueCuentanCapital(array $fila): float {
+        $total = 0.0;
+        foreach ($fila["aplicados"] ?? [] as $ap) {
+            if (!empty($ap["cc_invalido"])) {
+                continue;
+            }
+            if (isset($ap["tipo"]) && $ap["tipo"] === "contracargo") {
+                continue;
+            }
+            if (!empty($ap["no_cuenta_para_total_cuota"])) {
+                continue;
+            }
+            $total += (float) ($ap["aplicado"] ?? 0);
+        }
+        return round($total, 2);
+    }
+
+    /**
+     * Las líneas Dep. ext. quedan en las cuotas donde se inyectan; los pagos reales que compartían fila
+     * se reubican en las primeras cuotas vacías (sin capital aplicado) posteriores a la última fila con Dep. ext.
+     * Ej.: ext hasta cuota 56 → pagos reales desde 57.
+     */
+    private function reubicarPagosRealesFueraDeFilasConExtemporaneo(array &$tabla): void {
+        if (empty($tabla)) {
+            return;
+        }
+        $lastExt = -1;
+        foreach ($tabla as $i => $fila) {
+            if ($this->filaTieneLineaExtInformativa($fila)) {
+                $lastExt = $i;
+            }
+        }
+        if ($lastExt < 0) {
+            return;
+        }
+        $payloads = [];
+        for ($i = 0; $i <= $lastExt; $i++) {
+            if (!$this->filaTieneLineaExtInformativa($tabla[$i])) {
+                continue;
+            }
+            $nuevos = [];
+            foreach ($tabla[$i]["aplicados"] ?? [] as $ap) {
+                if ($this->aplicadoEsPagoLegitimoReubicable($ap)) {
+                    $payloads[] = $ap;
+                } else {
+                    $nuevos[] = $ap;
+                }
+            }
+            $tabla[$i]["aplicados"] = $nuevos;
+        }
+        if (empty($payloads)) {
+            return;
+        }
+        $j = $lastExt + 1;
+        foreach ($payloads as $ap) {
+            while ($j < count($tabla)) {
+                if (($tabla[$j]["tipo"] ?? "") === "anticipo") {
+                    $j++;
+                    continue;
+                }
+                if ($this->sumaAplicadosQueCuentanCapital($tabla[$j]) <= 0.009) {
+                    break;
+                }
+                $j++;
+            }
+            if ($j >= count($tabla)) {
+                $li = count($tabla) - 1;
+                if ($li >= 0) {
+                    $ap["fechaPago"] = $tabla[$li]["fecha"] ?? ($ap["fechaPago"] ?? null);
+                    $tabla[$li]["aplicados"][] = $ap;
+                }
+                continue;
+            }
+            $ap["fechaPago"] = $tabla[$j]["fecha"] ?? ($ap["fechaPago"] ?? null);
+            $tabla[$j]["aplicados"][] = $ap;
+            $j++;
         }
     }
 
@@ -237,6 +452,70 @@ class EstadoCuenta extends Controller
             $fila["total_pagado"] = round($total, 2);
             $fila["pendiente"] = round(max($montoCargo - $total, 0), 2);
             $fila["excedente"] = round(max($total - $montoCargo, 0), 2);
+        }
+        unset($fila);
+    }
+
+    /**
+     * Orden dentro de aplicados legítimos: primero líneas de pago (no sobrante), luego sobrantes reales, luego contracargo; cc_invalido primero como en PASO 10.
+     */
+    private function tierOrdenAplicadoLegitimo(array $ap): int {
+        if (!empty($ap["cc_invalido"])) {
+            return 0;
+        }
+        if (isset($ap["tipo"]) && $ap["tipo"] === "contracargo") {
+            return 3;
+        }
+        if (!empty($ap["es_sobrante"])) {
+            return 2;
+        }
+        return 1;
+    }
+
+    /**
+     * En la misma cuota: primero depósitos extemporáneos / informativos (API), luego debajo pagos y sobrantes legítimos.
+     * Así el pago aplicado correctamente no queda encima del Dep. ext. de la misma fila.
+     */
+    private function ordenarAplicadosExtemporaneosAntesDeLegitimos(array &$tabla): void {
+        foreach ($tabla as &$fila) {
+            $aps = $fila["aplicados"] ?? [];
+            if (count($aps) < 1) {
+                continue;
+            }
+            $informativos = [];
+            $legitimos = [];
+            foreach ($aps as $ap) {
+                $t = $ap["tipo"] ?? "";
+                if ($t === "extemporaneo_deposito" || $t === "extemporaneos_resumen" || $t === "gasto_cobranza_deposito") {
+                    $informativos[] = $ap;
+                } else {
+                    $legitimos[] = $ap;
+                }
+            }
+            $sortFnLeg = function ($a, $b) {
+                $ta = $this->tierOrdenAplicadoLegitimo($a);
+                $tb = $this->tierOrdenAplicadoLegitimo($b);
+                if ($ta !== $tb) {
+                    return $ta <=> $tb;
+                }
+                $fa = isset($a["_sortDate"]) ? $a["_sortDate"] : ($a["fechaRegistro"] ?? "9999-99-99");
+                $fb = isset($b["_sortDate"]) ? $b["_sortDate"] : ($b["fechaRegistro"] ?? "9999-99-99");
+                $cmp = strtotime((string) $fa) <=> strtotime((string) $fb);
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+                $ordA = !empty($a["cc_invalido"]) ? 0 : ((isset($a["tipo"]) && $a["tipo"] === "contracargo") ? 2 : 1);
+                $ordB = !empty($b["cc_invalido"]) ? 0 : ((isset($b["tipo"]) && $b["tipo"] === "contracargo") ? 2 : 1);
+                return $ordA <=> $ordB;
+            };
+            $sortFnInf = function ($a, $b) {
+                $fa = isset($a["_sortDate"]) ? $a["_sortDate"] : ($a["fechaRegistro"] ?? "9999-99-99");
+                $fb = isset($b["_sortDate"]) ? $b["_sortDate"] : ($b["fechaRegistro"] ?? "9999-99-99");
+                return strtotime((string) $fa) <=> strtotime((string) $fb);
+            };
+            usort($legitimos, $sortFnLeg);
+            usort($informativos, $sortFnInf);
+            $fila["aplicados"] = array_merge($informativos, $legitimos);
         }
         unset($fila);
     }
@@ -298,23 +577,30 @@ class EstadoCuenta extends Controller
 
 
             // Botón limpiar filtros
-            document.getElementById("btnResetFiltros").addEventListener("click", () => {
-                document.getElementById("idCredito").value = "";
-                document.getElementById("nombre").value = "";
-                const fechaCorteInput = document.getElementById("fechaCorte");
-                if (fechaCorteInput) fechaCorteInput.value = "";
-                document.getElementById("modoID").checked = true;
-                actualizarInputs();
-            });
+            const btnResetFiltrosEc = document.getElementById("btnResetFiltros");
+            if (btnResetFiltrosEc) {
+                btnResetFiltrosEc.addEventListener("click", () => {
+                    const elId = document.getElementById("idCredito");
+                    const elNombre = document.getElementById("nombre");
+                    const fechaCorteInput = document.getElementById("fechaCorte");
+                    const modoID = document.getElementById("modoID");
+                    if (elId) elId.value = "";
+                    if (elNombre) elNombre.value = "";
+                    if (fechaCorteInput) fechaCorteInput.value = "";
+                    if (modoID) modoID.checked = true;
+                    actualizarInputs();
+                });
+            }
 
             // Validación antes de enviar
-            document.getElementById("formBusqueda").addEventListener("submit", async e => {
+            const formBusquedaEc = document.getElementById("formBusqueda");
+            if (formBusquedaEc) formBusquedaEc.addEventListener("submit", async e => {
                 e.preventDefault();
 
                 const modo = document.querySelector('input[name="modoBusqueda"]:checked')?.value;
-                const idCredito       = document.getElementById("idCredito").value.trim();
-                const nombre          = document.getElementById("nombre").value.trim();
-                const idCreditoLista  = document.getElementById("idCreditoLista").value.trim();
+                const idCredito       = (document.getElementById("idCredito")?.value ?? "").trim();
+                const nombre          = (document.getElementById("nombre")?.value ?? "").trim();
+                const idCreditoLista  = (document.getElementById("idCreditoLista")?.value ?? "").trim();
 
                 // =========================
                 // MODO ID
@@ -330,8 +616,10 @@ class EstadoCuenta extends Controller
                     }
 
                     // Limpieza defensiva
-                    document.getElementById("idCreditoLista").value = "";
-                    document.getElementById("nombre").value = "";
+                    const listaLimp = document.getElementById("idCreditoLista");
+                    const nomLimp = document.getElementById("nombre");
+                    if (listaLimp) listaLimp.value = "";
+                    if (nomLimp) nomLimp.value = "";
                 }
 
                 // =========================
@@ -356,7 +644,8 @@ class EstadoCuenta extends Controller
                     }
 
                     // Limpieza defensiva
-                    document.getElementById("idCredito").value = "";
+                    const idLimp = document.getElementById("idCredito");
+                    if (idLimp) idLimp.value = "";
                 }
 
                 // =========================
@@ -615,6 +904,8 @@ JS;
 
                 $primerIdCargoApi = !empty($idsCuotaApi) ? $this->safe_int($idsCuotaApi[0], 0) : 0;
                 $soloGcDeposito = $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
+                // Todo extemporáneo (sin monto a capital/interés en la cuota): la API lo lista pero no genera aplicados; se inyecta para la UI.
+                $soloExtInyectar = ($monto_real <= 0.02 && $extemporaneos > 0.009 && $primerIdCargoApi > 0);
 
                 $pagos_list[] = [
                     "idPago"              => $p["idPago"] ?? null,
@@ -628,6 +919,7 @@ JS;
                     "_extOrig"            => $extemporaneos,
                     "_extemporaneo_aplicado" => false,
                     "es_pago_solo_gasto_cobranza" => $soloGcDeposito,
+                    "es_pago_solo_extemporaneo_inyectar" => $soloExtInyectar,
                     "primer_id_cargo_api" => $primerIdCargoApi,
                 ];
             }
@@ -698,7 +990,7 @@ JS;
                 // -------------------------
                 foreach ($indices_aplicables as $idx) {
                     $pago = &$pagos_list[$idx];
-                    if (!empty($pago["es_pago_solo_gasto_cobranza"])) {
+                    if (!empty($pago["es_pago_solo_extemporaneo_inyectar"])) {
                         continue;
                     }
 
@@ -991,6 +1283,47 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                     }
                     if ($matched) continue;
 
+                    // Prioridad 2b: REEMBOLSO (datosNotasCargos) con fecha distinta al depósito o monto distinto al pago.
+                    // La API es un solo resultado: el reembolso debe restarse del depósito que lo absorbió (p. ej. 6680 − 5344),
+                    // no puede quedar la cadena de sobrantes como si el monto íntegro siguiera en el pool.
+                    if (!$matched && !empty($esReembolsoPorFecha[$ccFn])) {
+                        $candidatosReemb = [];
+                        foreach ($pagosParaMatch as $pg) {
+                            if (isset($idPagosCC[$pg['idPago']])) {
+                                continue;
+                            }
+                            if ($pg['fecha'] >= $ccFn) {
+                                continue;
+                            }
+                            $candidatosReemb[] = $pg;
+                        }
+                        usort($candidatosReemb, function ($a, $b) {
+                            $cmp = $b['montoTotal'] <=> $a['montoTotal'];
+                            if ($cmp !== 0) {
+                                return $cmp;
+                            }
+                            return strtotime($b['fecha']) <=> strtotime($a['fecha']);
+                        });
+                        foreach ($candidatosReemb as $pg) {
+                            if (round((float) $pg['montoTotal'], 2) + 0.01 < round($ccMonto, 2)) {
+                                continue;
+                            }
+                            $idPagosCC[$pg['idPago']] = true;
+                            $ccMarkers[] = [
+                                'cuotaIdx'   => $pg['cuotaIdx'],
+                                'monto'      => $ccMonto,
+                                'fecha'      => $ccFn,
+                                'idPago'     => $pg['idPago'],
+                                'esReembolso'=> true,
+                            ];
+                            $matched = true;
+                            break;
+                        }
+                    }
+                    if ($matched) {
+                        continue;
+                    }
+
                     // CASO ESPECIAL — Contracargo sin pago posterior: la nota de cargo tiene fecha posterior al último pago.
                     // Se aplica el contracargo en la última fecha en que el cliente pagó (mismo flujo que contracargo, solo condición distinta).
                     if (!$matched) {
@@ -1175,12 +1508,44 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
 
                         $targetCuota = null;
                         $targetCuotaPorAplicado = false;
-                        for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                            foreach ($tabla[$ci]['aplicados'] as $ap) {
-                                if (($ap['idPago'] ?? null) == $idPCC) {
-                                    $targetCuota = $ci;
+
+                        // Reembolso: ubicar en la última cuota cuyo vencimiento sea <= fecha del reembolso (ej. reembolso 31/12 → cuota con venc. 29/12, no la primera donde cayó el depósito).
+                        if (!empty($mk['esReembolso'])) {
+                            $ccTs = strtotime((string) $ccDate);
+                            if ($ccTs !== false) {
+                                $bestIdx = null;
+                                $bestTs = null;
+                                for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                                    $fv = $tabla[$ci]['fecha'] ?? null;
+                                    if ($fv === null || $fv === '') {
+                                        continue;
+                                    }
+                                    $ts = strtotime((string) $fv);
+                                    if ($ts === false) {
+                                        continue;
+                                    }
+                                    if ($ts <= $ccTs) {
+                                        if ($bestTs === null || $ts > $bestTs) {
+                                            $bestTs = $ts;
+                                            $bestIdx = $ci;
+                                        }
+                                    }
+                                }
+                                if ($bestIdx !== null) {
+                                    $targetCuota = $bestIdx;
                                     $targetCuotaPorAplicado = true;
-                                    break 2;
+                                }
+                            }
+                        }
+
+                        if ($targetCuota === null) {
+                            for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
+                                foreach ($tabla[$ci]['aplicados'] as $ap) {
+                                    if (($ap['idPago'] ?? null) == $idPCC) {
+                                        $targetCuota = $ci;
+                                        $targetCuotaPorAplicado = true;
+                                        break 2;
+                                    }
                                 }
                             }
                         }
@@ -1215,6 +1580,9 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                             ];
                         } elseif ($ccPl) {
                             $ccFechaReg = $ccPl['fechaRegistro'];
+                        }
+                        if (!empty($mk['esReembolso'])) {
+                            $ccFechaReg = $mk['fecha'];
                         }
 
                         $tabla[$targetCuota]['aplicados'][] = [
@@ -1268,6 +1636,8 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
             self::set("hayNotasCargos", $hayNotasCargos);
 
             $this->inyectarDepositosSoloGastoCobranza($tabla, $pagos_list);
+            $this->reubicarPagosRealesFueraDeFilasConExtemporaneo($tabla);
+            $this->ordenarAplicadosExtemporaneosAntesDeLegitimos($tabla);
             $this->recalcularTotalesTablaEstadoCuenta($tabla);
 
             if (

@@ -2,6 +2,8 @@
 
 $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
 $usuario = $_SESSION['nombre'] ?? 'Usuario';
+/** Si la vista lo define (p. ej. estado de cuenta), se omiten CSS/JS vendor masivos para acelerar carga */
+$layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
 
 // Cache-busting para CSS: mismo estilo en todos los navegadores (evita caché vieja en otros equipos)
 $__demoCss = realpath(__DIR__ . '/../../public/assets/css/demo.css');
@@ -337,6 +339,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <link rel="stylesheet" href="/assets/css/dark-mode.css?v=<?= $__assetsVer ?>" />
 
     <!-- Vendors CSS -->
+    <?php if (!$layoutVendorLite): ?>
     <link rel="stylesheet" href="/assets/vendor/libs/@form-validation/form-validation.css">
     <link rel="stylesheet" href="/assets/vendor/libs/animate-css/animate.css">
     <link rel="stylesheet" href="/assets/vendor/libs/animate-on-scroll/animate-on-scroll.css">
@@ -375,6 +378,12 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <link rel="stylesheet" href="/assets/vendor/libs/swiper/swiper.css">
     <link rel="stylesheet" href="/assets/vendor/libs/tagify/tagify.css">
     <link rel="stylesheet" href="/assets/vendor/libs/typeahead-js/typeahead.css">
+    <?php else: ?>
+    <link rel="stylesheet" href="/assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css">
+    <link rel="stylesheet" href="/assets/vendor/libs/flatpickr/flatpickr.css">
+    <link rel="stylesheet" href="/assets/vendor/libs/sweetalert2/sweetalert2.css">
+    <link rel="stylesheet" href="/assets/css/swal-liquid-glass.css?v=<?= $__assetsVer ?>">
+    <?php endif; ?>
 
     <!-- Page CSS -->
     <?= $css ?? ''; ?>
@@ -647,6 +656,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
     <script src="/assets/vendor/js/menu.js"></script>
 
     <!-- Vendors JS -->
+    <?php if (!$layoutVendorLite): ?>
     <script src="/assets/vendor/js/dropdown-hover.js"></script>
     <script src="/assets/vendor/js/helpers.js"></script>
     <script src="/assets/vendor/js/mega-dropdown.js"></script>
@@ -693,6 +703,18 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
         import * as pdfjsLib from '/assets/vendor/libs/pdf-viewer/pdf.mjs';
         window.pdfjsLib = pdfjsLib;
     </script>
+    <?php else: ?>
+    <script src="/assets/vendor/js/dropdown-hover.js"></script>
+    <script src="/assets/vendor/js/helpers.js"></script>
+    <script src="/assets/vendor/js/mega-dropdown.js"></script>
+    <script src="/assets/vendor/libs/flatpickr/flatpickr.js"></script>
+    <script>
+    (function(){if(typeof flatpickr==='undefined')return;if(!flatpickr.l10ns)flatpickr.l10ns={};if(!flatpickr.l10ns.es){flatpickr.l10ns.es={weekdays:{shorthand:['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],longhand:['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']},months:{shorthand:['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],longhand:['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']},firstDayOfWeek:1,ordinal:function(){return'.';}};}try{flatpickr.localize(flatpickr.l10ns.es);}catch(e){}})();
+    </script>
+    <script src="/assets/vendor/libs/sweetalert2/sweetalert2.js"></script>
+    <script src="/assets/vendor/libs/moment/moment.js"></script>
+    <script src="/assets/vendor/libs/numeral/numeral.js"></script>
+    <?php endif; ?>
 
     <!-- Main JS -->
     <script src="/assets/js/main.js"></script>

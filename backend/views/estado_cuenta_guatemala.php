@@ -1,6 +1,7 @@
 <?php
 session_start();
 date_default_timezone_set('America/Mexico_City');
+$layoutVendorLite = true;
 
 /* ----------------------
    Helpers locales
@@ -16,6 +17,26 @@ function format_date($d, $fallback = '—') {
 }
 function safe($v, $default = null) {
     return isset($v) ? $v : $default;
+}
+
+/** Vencimiento de la cuota en la misma semana ISO que hoy (America/Mexico_City). */
+function fechaCuotaEnSemanaActual($fechaStr) {
+    if ($fechaStr === null || $fechaStr === '') {
+        return false;
+    }
+    $ts = strtotime((string) $fechaStr);
+    if ($ts === false) {
+        return false;
+    }
+    try {
+        $tz = new DateTimeZone('America/Mexico_City');
+        $tCuota = new DateTime('@' . $ts);
+        $tCuota->setTimezone($tz);
+        $tHoy = new DateTime('now', $tz);
+        return $tCuota->format('o-W') === $tHoy->format('o-W');
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 /* Asegurar que $tabla exista */
@@ -815,6 +836,19 @@ body.dark-mode .cuotas-table .contracargo-label { color: #fb923c !important; fon
 html.dark-mode .cuotas-table .contracargo-valor,
 body.dark-mode .cuotas-table .contracargo-valor { color: #fb923c !important; font-weight: 600; }
 
+.cuotas-table tr.fila-semana-actual td {
+    background-color: rgba(13, 110, 253, 0.14) !important;
+    box-shadow: inset 3px 0 0 rgba(13, 110, 253, 0.72);
+}
+html.dark-mode .cuotas-table tr.fila-semana-actual td,
+body.dark-mode .cuotas-table tr.fila-semana-actual td {
+    background-color: rgba(125, 184, 255, 0.2) !important;
+    box-shadow: inset 3px 0 0 rgba(125, 184, 255, 0.75);
+}
+.cuotas-table .icono-semana-cuota { color: #0d9488 !important; font-size: 0.95em; }
+html.dark-mode .cuotas-table .icono-semana-cuota,
+body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
+
 body.identificador-activo { padding-top: 5px; }
 .banner-pais-guatemala { background: linear-gradient(135deg, #e3f2fd 0%, #fff 100%) !important; border-left: 5px solid #4997d0 !important; border-bottom: 2px solid rgba(73, 151, 208, 0.2) !important; }
 .badge-pais-guatemala { background: linear-gradient(135deg, #4997d0 0%, #357abd 100%) !important; color: white !important; font-weight: 600; padding: 0.5em 1em; border-radius: 8px; box-shadow: 0 4px 12px rgba(73, 151, 208, 0.4); font-size: 0.85rem; letter-spacing: 0.5px; }
@@ -1373,9 +1407,10 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         } else {
                             $badge = '<span class="badge bg-secondary px-3 py-2">Sin pago<br>' . htmlspecialchars($diasMora) . ' día' . ($diasMora>1?'s':'') . ' de mora</span>';
                         }
+                        $esSemanaActual = fechaCuotaEnSemanaActual($fecha ?? null);
                         ?>
-                        <tr>
-                            <td><?= htmlspecialchars($cuota) ?></td>
+                        <tr<?= $esSemanaActual ? ' class="fila-semana-actual"' : '' ?>>
+                            <td><?= htmlspecialchars($cuota) ?><?php if ($esSemanaActual): ?><i class="fa fa-calendar-check icono-semana-cuota ms-1 align-middle" title="Semana actual" aria-label="Semana actual"></i><?php endif; ?></td>
                             <td class="fecha-cuota"><span class="fa fa-calendar"></span> <?= htmlspecialchars(format_date($fecha)) ?> <br> <u><?= format_currency($monto_cargo) ?></u></td>
                             <td>
                                 <ul class="ps-3 mb-0">
@@ -1385,6 +1420,33 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                             <li>
                                                 <?php $etiquetaCargo = (!empty($pago['concepto_display']) && $pago['concepto_display'] === 'reembolso') ? 'Reembolso' : 'Contracargo'; ?>
                                                 <span class="contracargo-label"><?= htmlspecialchars($etiquetaCargo) ?>:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
+                                            </li>
+                                            <?php elseif (isset($pago['tipo']) && $pago['tipo'] === 'extemporaneos_resumen'): ?>
+                                            <?php
+                                            $nExt = max(1, (int) ($pago['cantidad'] ?? 1));
+                                            $montoExtSum = safe($pago['montoPago'], 0.0);
+                                            $fdExt = safe($pago['fechaDesde'] ?? null, null);
+                                            $fhExt = safe($pago['fechaHasta'] ?? $pago['fechaRegistro'] ?? null, null);
+                                            ?>
+                                            <li class="small text-secondary mb-0 extemporaneos-resumen-linea" style="line-height: 1.35;">
+                                                <i class="fa fa-info-circle opacity-40 me-1" style="font-size: 0.7rem;" title="Movimientos solo extemporáneos según API; no aplican a capital de la cuota."></i>
+                                                <?= (int) $nExt ?> depósito<?= $nExt !== 1 ? 's' : '' ?> extemporáneo<?= $nExt !== 1 ? 's' : '' ?> · <?= format_currency($montoExtSum) ?>
+                                                <?php if ($fdExt && $fhExt): ?>
+                                                    · <?= htmlspecialchars(format_date($fdExt)) ?><?php if ($fdExt !== $fhExt): ?> – <?= htmlspecialchars(format_date($fhExt)) ?><?php endif; ?>
+                                                <?php endif; ?>
+                                            </li>
+                                            <?php elseif (isset($pago['tipo']) && $pago['tipo'] === 'extemporaneo_deposito'): ?>
+                                            <?php
+                                            $pago_monto = safe($pago['montoPago'], 0.0);
+                                            $pago_fecha = safe($pago['fechaRegistro'], $pago['fechaPago'] ?? null);
+                                            $pago_aplicado = safe($pago['aplicado'], 0.0);
+                                            ?>
+                                            <li class="text-muted small mb-0 linea-extemporaneo-api">
+                                                <i class="fa fa-info-circle opacity-40 me-1 align-text-bottom" style="font-size: 0.72rem;" title="Solo extemporáneo según API; no cuenta a capital de la cuota."></i>
+                                                <span class="text-secondary">Dep. ext.</span>:
+                                                <?= format_currency($pago_monto) ?> -
+                                                <span class="etiqueta-aplicado">Aplicado</span>: <?= format_currency($pago_aplicado) ?> -
+                                                <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                             </li>
                                             <?php else: ?>
                                             <?php

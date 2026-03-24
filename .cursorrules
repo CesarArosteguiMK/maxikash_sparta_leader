@@ -1,0 +1,44 @@
+# ARQUITECTURA DEL PROYECTO
+
+## Stack
+- Backend: PHP MVC (sin frameworks externos)
+- Frontend: Bootstrap 5 + Sneat Theme
+- JS: jQuery, DataTables, SweetAlert2, Flatpickr
+- BD: MySQL (via PDO)
+- NO usar: Tailwind, CSS custom innecesario, frameworks JS externos
+
+## Estructura de carpetas
+- /controllers → lógica PHP, métodos del controlador
+- /views → archivos .php de vista, solo HTML + JS en heredoc
+- /models → consultas SQL, lógica de datos
+- /assets → solo archivos del tema Sneat, no crear carpetas nuevas
+
+## Patrón MVC obligatorio
+- El controlador carga la vista con echo $this->view(...)
+- Todo el JavaScript va DENTRO del heredoc al final del método del controlador
+- NO crear archivos .js separados salvo que ya existan en el proyecto
+- NO mover lógica de JS fuera del heredoc sin pedirlo explícitamente
+
+## Reglas de código
+1. Antes de crear una función nueva, busca si ya existe en el proyecto
+2. Antes de agregar una librería, verifica si ya está incluida en el layout
+3. Usar clases de Sneat/Bootstrap 5: card, card-body, btn, table, badge, etc.
+4. NO escribir CSS inline salvo excepciones mínimas
+5. NO crear archivos <style> dentro de las vistas
+6. Reutilizar helpers y funciones de /helpers si existen
+7. Los modales deben seguir el patrón Bootstrap 5 ya usado en el proyecto
+8. DataTables: usar la configuración base ya definida en el proyecto
+9. SweetAlert2: usar los estilos y llamadas ya existentes como referencia
+
+## Comportamiento del agente
+- NUNCA cambiar la estructura de carpetas
+- NUNCA reescribir una función que ya funciona
+- NUNCA cambiar nombres de variables o métodos existentes sin pedirlo
+- NUNCA agregar dependencias npm o composer sin confirmación
+- Si no estás seguro de algo, pregunta antes de modificar
+- Cuando edites un archivo, toca SOLO lo que se pidió
+
+## Referencia de estilo
+- Cuando crees un nuevo menú o módulo, sigue el patrón exacto de /controllers/CapHum.php
+- Para tablas: copia la estructura DataTables de un módulo existente
+- Para modales: copia el patrón del modal de "Levantar ticket" de Sabueso

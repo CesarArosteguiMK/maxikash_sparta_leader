@@ -1,3 +1,4 @@
+<?php $layoutVendorLite = true; ?>
 <style>
     /* Card con esquinas más redondeadas */
     .estado-cuenta-card.card {
@@ -109,9 +110,6 @@
         box-shadow: 0 2px 8px rgba(73, 151, 208, 0.3);
     }
 </style>
-
-<!-- SweetAlert2 CDN -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <!-- Bandera lateral izquierda - Identificador Guatemala -->
 <div class="bandera-lateral-guatemala">
@@ -229,7 +227,8 @@
         // ═══════════════════════════════════════════════════════════
         // BOTÓN CAMBIAR PAÍS
         // ═══════════════════════════════════════════════════════════
-        document.getElementById('btnCambioPais').addEventListener('click', () => {
+        const btnCambioPais = document.getElementById('btnCambioPais');
+        if (btnCambioPais) btnCambioPais.addEventListener('click', () => {
             Swal.fire({
                 title: '<i class="fa-solid fa-globe"></i> Selecciona un País',
                 html: `
@@ -429,8 +428,7 @@
         const input = document.getElementById('nombre');
         const lista = document.getElementById('listaResultados');
 
-        if (!input || !lista) return;
-
+        if (input && lista) {
         let debounce = null;
         let controller = null;
 
@@ -490,7 +488,8 @@
                                 input.value = item.nombre_completo;
 
                                 // 🔴 AQUÍ SE GUARDA EL ID REAL
-                                document.getElementById('idCreditoLista').value = item.id;
+                                const hiddenLista = document.getElementById('idCreditoLista');
+                                if (hiddenLista) hiddenLista.value = item.id;
 
                                 lista.innerHTML = '';
                                 lista.style.display = 'none';
@@ -519,6 +518,7 @@
                 lista.style.display = 'none';
             }
         });
+        }
     });
 
 </script>
