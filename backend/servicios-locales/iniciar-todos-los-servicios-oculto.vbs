@@ -5,4 +5,4 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 dirScripts = fso.GetParentFolderName(WScript.ScriptFullName)
 backend = fso.GetParentFolderName(dirScripts)
 ps1 = dirScripts & "\iniciar-todos-los-servicios.ps1"
-sh.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & ps1 & """ -BackendRoot """ & backend & """", 0, False
+sh.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & ps1 & """ -BackendRoot """ & backend & """ -SinVentanas", 0, False

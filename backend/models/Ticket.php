@@ -180,6 +180,8 @@ class Ticket extends Model
                 $extraWhere[] = 'dsm.ds_resultado IS NULL';
             } elseif ($dsEstado === 'prorroga_activa') {
                 $extraWhere[] = "dsm.ds_resultado = 'prorroga_activa'";
+            } elseif ($dsEstado === 'intensidad_activa') {
+                $extraWhere[] = "dsm.ds_resultado = 'intensidad_activa'";
             }
             $vistoGestor = isset($filtros['dictamen_visto']) ? trim((string)$filtros['dictamen_visto']) : '';
             if ($vistoGestor === 'si') {
@@ -221,12 +223,23 @@ class Ticket extends Model
                     $row['prorroga_otorgada'] = false;
                     $row['prorroga_activa'] = false;
                     $row['prorroga_fecha_limite'] = null;
+                    $row['extension_countdown_tipo'] = '';
                     $det = !empty($row['ds_detalle']) ? json_decode($row['ds_detalle'], true) : null;
-                    if (is_array($det) && isset($det['prorroga']) && is_array($det['prorroga'])) {
-                        $pr = $det['prorroga'];
-                        $row['prorroga_otorgada'] = !empty($pr['otorgada']);
-                        $row['prorroga_activa'] = !empty($pr['otorgada']) && empty($pr['evaluada']);
-                        $row['prorroga_fecha_limite'] = $pr['fecha_limite'] ?? null;
+                    if (is_array($det)) {
+                        $pr = (isset($det['prorroga']) && is_array($det['prorroga'])) ? $det['prorroga'] : [];
+                        $in = (isset($det['intensidad']) && is_array($det['intensidad'])) ? $det['intensidad'] : [];
+                        $row['prorroga_otorgada'] = !empty($pr['otorgada']) || !empty($in['otorgada']);
+                        $prAct = !empty($pr['otorgada']) && empty($pr['evaluada']);
+                        $inAct = !empty($in['otorgada']) && empty($in['evaluada']);
+                        if ($inAct) {
+                            $row['prorroga_activa'] = true;
+                            $row['prorroga_fecha_limite'] = $in['fecha_limite'] ?? null;
+                            $row['extension_countdown_tipo'] = 'intensidad';
+                        } elseif ($prAct) {
+                            $row['prorroga_activa'] = true;
+                            $row['prorroga_fecha_limite'] = $pr['fecha_limite'] ?? null;
+                            $row['extension_countdown_tipo'] = 'prorroga';
+                        }
                     }
                     // HTML seguro para columnas DataTable: mostrar etiqueta legible (evita no_cumplio_prorr…)
                     $dsRes = trim((string)($row['ds_resultado'] ?? ''));
@@ -262,7 +275,7 @@ class Ticket extends Model
                             } else {
                                 $pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
                             }
-                        } elseif ($dsRes !== 'pendiente' && $dsRes !== 'prorroga_activa' && $dsRes !== '') {
+                        } elseif ($dsRes !== 'pendiente' && $dsRes !== 'prorroga_activa' && $dsRes !== 'intensidad_activa' && $dsRes !== '') {
                             $pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
                         }
                         $row['ds_resultado_html'] = $pagoLine !== ''
@@ -277,7 +290,9 @@ class Ticket extends Model
                         $activa = !empty($row['prorroga_activa']);
                         $cls = $activa ? 'bg-warning text-dark' : 'bg-secondary';
                         $txt = $activa ? 'Activa' : 'Usada';
-                        $tip = !empty($row['prorroga_fecha_limite']) ? 'Límite: ' . $row['prorroga_fecha_limite'] : 'Prórroga';
+                        $esIntBadge = is_array($det) && isset($det['intensidad']) && is_array($det['intensidad']) && !empty($det['intensidad']['otorgada']);
+                        $tipBase = $esIntBadge ? 'Intensidad' : 'Prórroga';
+                        $tip = !empty($row['prorroga_fecha_limite']) ? ($tipBase . ' · Límite: ' . $row['prorroga_fecha_limite']) : $tipBase;
                         // Misma celda que tiempo para visitar: badge compacto debajo del countdown (se concatena en JS)
                         $row['prorroga_html'] = '<div class="mt-1"><span class="badge ' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8')
                             . '" data-bs-toggle="tooltip" data-bs-title="' . htmlspecialchars($tip, ENT_QUOTES, 'UTF-8')
@@ -2226,16 +2241,24 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $detallePrev = [];
             }
             $prorrogaPrev = (isset($detallePrev['prorroga']) && is_array($detallePrev['prorroga'])) ? $detallePrev['prorroga'] : [];
+            $intensidadPrev = (isset($detallePrev['intensidad']) && is_array($detallePrev['intensidad'])) ? $detallePrev['intensidad'] : [];
 
             $esRevisionProrroga = !empty($prorrogaPrev['otorgada']) && empty($prorrogaPrev['evaluada']);
+            $esRevisionIntensidad = !empty($intensidadPrev['otorgada']) && empty($intensidadPrev['evaluada']);
+            if ($esRevisionProrroga && $esRevisionIntensidad) {
+                $esRevisionIntensidad = false;
+            }
+            $esRevisionExtension = $esRevisionProrroga || $esRevisionIntensidad;
+            $extensionPrev = $esRevisionProrroga ? $prorrogaPrev : ($esRevisionIntensidad ? $intensidadPrev : []);
+
             $fechaInicioVentana = (string)($ds['fecha_envio_dictamen'] ?? '');
             $totalAntes = (int)($ds['gestiones_al_enviar'] ?? 0);
-            if ($esRevisionProrroga) {
-                if (!empty($prorrogaPrev['fecha_otorgada'])) {
-                    $fechaInicioVentana = (string)$prorrogaPrev['fecha_otorgada'];
+            if ($esRevisionExtension) {
+                if (!empty($extensionPrev['fecha_otorgada'])) {
+                    $fechaInicioVentana = (string)$extensionPrev['fecha_otorgada'];
                 }
-                if (isset($prorrogaPrev['gestiones_al_otorgar'])) {
-                    $totalAntes = (int)$prorrogaPrev['gestiones_al_otorgar'];
+                if (isset($extensionPrev['gestiones_al_otorgar'])) {
+                    $totalAntes = (int)$extensionPrev['gestiones_al_otorgar'];
                 }
             }
 
@@ -2250,7 +2273,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $rest = max(0, $finWinDt->getTimestamp() - $nowTs);
                 $h = floor($rest / 3600);
                 $m = floor(($rest % 3600) / 60);
-                $tipo = $esRevisionProrroga ? 'la prórroga' : 'la ventana inicial';
+                $tipo = $esRevisionExtension
+                    ? ($esRevisionProrroga ? 'la prórroga' : 'la intensidad')
+                    : 'la ventana inicial';
                 return self::resultado(false, 'Aún no vence ' . $tipo . ' de 12 horas. Restante aproximado: ' . $h . 'h ' . $m . 'm.');
             }
 
@@ -2279,17 +2304,26 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'ventana_revision' => [
                         'inicio' => $fechaInicioWin,
                         'fin' => $fechaFinWin,
-                        'tipo' => $esRevisionProrroga ? 'prorroga_12h' : 'inicial_12h',
+                        'tipo' => $esRevisionExtension
+                            ? ($esRevisionProrroga ? 'prorroga_12h' : 'intensidad_12h')
+                            : 'inicial_12h',
                     ],
                     '__SPARTA_SECRET_REDACTED___consultado' => true,
                     'pago_en_ventana' => false,
                     'pago_evaluacion_no_aplica' => true,
                 ];
-                if ($esRevisionProrroga && !empty($prorrogaPrev)) {
-                    $prorrogaPrev['evaluada'] = true;
-                    $prorrogaPrev['fecha_revision'] = $now;
-                    $prorrogaPrev['resultado_final'] = 'dictamen_ilocalizable';
-                    $detalleIl['prorroga'] = $prorrogaPrev;
+                if ($esRevisionExtension && $extensionPrev !== []) {
+                    $extensionPrevEval = $extensionPrev;
+                    $extensionPrevEval['evaluada'] = true;
+                    $extensionPrevEval['fecha_revision'] = $now;
+                    $extensionPrevEval['resultado_final'] = 'dictamen_ilocalizable';
+                    if ($esRevisionProrroga) {
+                        $prorrogaPrev = $extensionPrevEval;
+                        $detalleIl['prorroga'] = $prorrogaPrev;
+                    } else {
+                        $intensidadPrev = $extensionPrevEval;
+                        $detalleIl['intensidad'] = $intensidadPrev;
+                    }
                 }
                 $detalleIl = array_merge($detalleIl, $cmp);
                 $detalleJson = json_encode($detalleIl, JSON_UNESCAPED_UNICODE);
@@ -2447,14 +2481,19 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $resultadoFinal = 'cumplido_sin_pago_todas_direcciones';
             }
 
-            if ($esRevisionProrroga) {
-                $prorrogaPrev['evaluada'] = true;
-                $prorrogaPrev['fecha_revision'] = $now;
-                $prorrogaPrev['resultado_base'] = $resultadoBase;
-                $prorrogaPrev['resultado_final'] = $resultadoFinal;
+            if ($esRevisionExtension) {
+                $extensionPrev['evaluada'] = true;
+                $extensionPrev['fecha_revision'] = $now;
+                $extensionPrev['resultado_base'] = $resultadoBase;
+                $extensionPrev['resultado_final'] = $resultadoFinal;
                 $resultadoFinal = ($resultadoFinal === 'cumplido_pago' || $resultadoFinal === 'cumplido_sin_pago_todas_direcciones')
                     ? 'cumplio_prorroga'
                     : 'no_cumplio_prorroga';
+                if ($esRevisionProrroga) {
+                    $prorrogaPrev = $extensionPrev;
+                } else {
+                    $intensidadPrev = $extensionPrev;
+                }
             }
 
             $cmp = self::cumplimientoMetadatos($resultadoFinal);
@@ -2469,7 +2508,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'ventana_revision' => [
                     'inicio' => $fechaInicioWin,
                     'fin' => $fechaFinWin,
-                    'tipo' => $esRevisionProrroga ? 'prorroga_12h' : 'inicial_12h',
+                    'tipo' => $esRevisionExtension
+                        ? ($esRevisionProrroga ? 'prorroga_12h' : 'intensidad_12h')
+                        : 'inicial_12h',
                 ],
                 '__SPARTA_SECRET_REDACTED___consultado' => $estadoCuentaConsultado,
                 'pago_en_ventana' => $hayPagoEnVentana,
@@ -2483,6 +2524,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             ];
             if (!empty($prorrogaPrev)) {
                 $detalleBase['prorroga'] = $prorrogaPrev;
+            }
+            if (!empty($intensidadPrev)) {
+                $detalleBase['intensidad'] = $intensidadPrev;
             }
             $detalle = json_encode(array_merge($detalleBase, $cmp), JSON_UNESCAPED_UNICODE);
 
@@ -2546,6 +2590,10 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             if (!empty($pr['otorgada'])) {
                 return self::resultado(false, 'Este ticket ya tiene prórroga otorgada (solo una vez).');
             }
+            $int0 = (isset($detalle['intensidad']) && is_array($detalle['intensidad'])) ? $detalle['intensidad'] : [];
+            if (!empty($int0['otorgada'])) {
+                return self::resultado(false, 'Este ticket ya tiene Intensidad otorgada (solo una extensión de 12 h).');
+            }
             if (!empty($detalle['pago_en_ventana']) || !empty($detalle['visito_todas_direcciones'])) {
                 return self::resultado(false, 'No aplica prórroga: el ticket ya cumple.');
             }
@@ -2578,6 +2626,112 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al otorgar prórroga.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Indica si el detalle ya generado permite otorgar Intensidad (+12 h): hubo visita en campo y no hubo pago en la ventana.
+     */
+    private static function dictamenSistemaPermiteOtorgarIntensidad(array $detalle, string $resultado): bool
+    {
+        if (!empty($detalle['pago_en_ventana'])) {
+            return false;
+        }
+        $rb = (string)($detalle['resultado_base'] ?? '');
+        if (in_array($rb, ['visito_campo', 'visita_parcial', 'visito_todas_direcciones'], true)) {
+            return true;
+        }
+        if ($resultado === 'cumplido_sin_pago_todas_direcciones') {
+            return true;
+        }
+        if ((int)($detalle['direcciones_visitadas'] ?? 0) > 0) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Extensión única de 12 horas cuando ya hubo visita en campo pero no pago en la ventana inicial (equivalente operativo a prórroga, nombre Intensidad).
+     */
+    public static function otorgarIntensidadDictamenSistema(int $idTicket, int $idPersonaOtorga = 0, string $nombreOtorga = ''): array
+    {
+        if ($idTicket < 1) {
+            return self::resultado(false, 'ID de ticket inválido.');
+        }
+        try {
+            $db = new Database();
+            $nowDt = self::cdmxNowImmutable();
+            $now = $nowDt->format('Y-m-d H:i:s');
+            $limite = (clone $nowDt)->modify('+12 hours')->format('Y-m-d H:i:s');
+
+            $ds = $db->queryOne(
+                "SELECT * FROM dictamen_sistema WHERE id_ticket = :tid ORDER BY id DESC LIMIT 1",
+                ['tid' => $idTicket]
+            );
+            if (!$ds) {
+                return self::resultado(false, 'No existe dictamen del sistema para este ticket.');
+            }
+            if ((string)($ds['resultado'] ?? '') === 'pendiente') {
+                return self::resultado(false, 'Debe generar primero el dictamen del sistema inicial.');
+            }
+
+            $idDictamenPr = (int)($ds['id_dictamen'] ?? 0);
+            if ($idDictamenPr > 0) {
+                $rowTipo = $db->queryOne(
+                    "SELECT tipo FROM dictamen WHERE id = :id LIMIT 1",
+                    ['id' => $idDictamenPr]
+                );
+                $tipoPr = strtolower(trim((string)($rowTipo['tipo'] ?? '')));
+                if (self::esTipoDictamenIlocalizable($tipoPr)) {
+                    return self::resultado(false, 'No aplica Intensidad: el dictamen del Sabueso es ILOCALIZABLE.');
+                }
+            }
+
+            $detalle = !empty($ds['detalle']) ? json_decode($ds['detalle'], true) : [];
+            if (!is_array($detalle)) {
+                $detalle = [];
+            }
+            $pr = (isset($detalle['prorroga']) && is_array($detalle['prorroga'])) ? $detalle['prorroga'] : [];
+            if (!empty($pr['otorgada'])) {
+                return self::resultado(false, 'Este ticket ya tiene prórroga otorgada.');
+            }
+            $int = (isset($detalle['intensidad']) && is_array($detalle['intensidad'])) ? $detalle['intensidad'] : [];
+            if (!empty($int['otorgada'])) {
+                return self::resultado(false, 'Este ticket ya tiene Intensidad otorgada (solo una vez).');
+            }
+            $resDs = (string)($ds['resultado'] ?? '');
+            if (!self::dictamenSistemaPermiteOtorgarIntensidad($detalle, $resDs)) {
+                return self::resultado(false, 'No aplica Intensidad: se requiere visita en campo registrada en el dictamen del sistema y sin pago en la ventana de 12 h.');
+            }
+
+            $idCredito = (int)($ds['id_credito'] ?? 0);
+            $gestionesAhora = $idCredito > 0 ? Gestiones::getAllGestiones((string)$idCredito, '') : [];
+            $gNow = is_array($gestionesAhora) ? count($gestionesAhora) : 0;
+
+            $detalle['intensidad'] = [
+                'otorgada' => true,
+                'fecha_otorgada' => $now,
+                'fecha_limite' => $limite,
+                'id_persona_otorga' => $idPersonaOtorga > 0 ? $idPersonaOtorga : null,
+                'nombre_otorga' => $nombreOtorga !== '' ? $nombreOtorga : null,
+                'gestiones_al_otorgar' => $gNow,
+                'evaluada' => false,
+                'nota' => 'Intensidad: extensión única de 12 horas tras visita en campo sin pago en la ventana inicial.',
+            ];
+            $detalle = array_merge($detalle, self::cumplimientoMetadatos('intensidad_activa'));
+            $detalleJson = json_encode($detalle, JSON_UNESCAPED_UNICODE);
+
+            $db->CRUD(
+                "UPDATE dictamen_sistema SET resultado = 'intensidad_activa', detalle = :d, gestiones_al_enviar = :g, fecha_revision = NULL WHERE id = :id",
+                ['d' => $detalleJson, 'g' => $gNow, 'id' => (int)$ds['id']]
+            );
+
+            return self::resultado(true, 'Intensidad otorgada: 12 horas adicionales.', [
+                'resultado' => 'intensidad_activa',
+                'detalle' => $detalle,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al otorgar Intensidad.', null, $e->getMessage());
         }
     }
 
@@ -2991,6 +3145,11 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'cumplimiento_etiqueta' => 'Prórroga activa',
                 'medidas_preventivas' => 'Prórroga otorgada (12 h). Al vencer, generar de nuevo el dictamen del sistema para obtener el resultado final de prórroga.',
             ],
+            'intensidad_activa' => [
+                'pct_efectividad' => null,
+                'cumplimiento_etiqueta' => 'Intensidad activa',
+                'medidas_preventivas' => 'Intensidad otorgada (12 h adicionales tras visita en campo sin pago). Al vencer, el sistema reevalúa al abrir el panel o la tabla.',
+            ],
             'cumplido_pago' => [
                 'pct_efectividad' => 100,
                 'cumplimiento_etiqueta' => 'Cumplido por pago',
@@ -3106,10 +3265,18 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     }
                 }
             }
-            // Prórroga vencida: generar automáticamente una vez (sin botón; generarDictamenSistema ya valida ventana)
-            if (($ds['resultado'] ?? '') === 'prorroga_activa' && is_array($ds['detalle_parsed'])) {
+            // Prórroga o Intensidad vencida: generar automáticamente (generarDictamenSistema valida ventana)
+            $resDsRow = (string)($ds['resultado'] ?? '');
+            if (($resDsRow === 'prorroga_activa' || $resDsRow === 'intensidad_activa') && is_array($ds['detalle_parsed'])) {
                 $pr = $ds['detalle_parsed']['prorroga'] ?? null;
-                $limite = is_array($pr) ? ($pr['fecha_limite'] ?? '') : '';
+                $in = $ds['detalle_parsed']['intensidad'] ?? null;
+                $limite = '';
+                if (is_array($pr) && !empty($pr['fecha_limite'])) {
+                    $limite = (string)$pr['fecha_limite'];
+                }
+                if ($limite === '' && is_array($in) && !empty($in['fecha_limite'])) {
+                    $limite = (string)$in['fecha_limite'];
+                }
                 if ($limite !== '') {
                     try {
                         $tz = new \DateTimeZone('America/Mexico_City');
@@ -3130,6 +3297,21 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         }
                     } catch (\Throwable $e) {
                         // si falla parseo o generar, devolver ds actual
+                    }
+                }
+            }
+            $ds['historico_visita_gestion'] = null;
+            $idCredHist = (int)($ds['id_credito'] ?? 0);
+            $fEnvHist = trim((string)($ds['fecha_envio_dictamen'] ?? ''));
+            if ($idCredHist > 0 && is_array($ds['detalle_parsed'])) {
+                $dp = $ds['detalle_parsed'];
+                $tieneVisita = ((int)($dp['direcciones_visitadas'] ?? 0) > 0)
+                    || in_array((string)($dp['resultado_base'] ?? ''), ['visito_campo', 'visita_parcial', 'visito_todas_direcciones'], true)
+                    || (string)($ds['resultado'] ?? '') === 'cumplido_sin_pago_todas_direcciones';
+                if ($tieneVisita) {
+                    $hist = Gestiones::obtenerUltimaGestionCampoTrasEnvio((string)$idCredHist, $fEnvHist !== '' ? $fEnvHist : null);
+                    if ($hist !== null) {
+                        $ds['historico_visita_gestion'] = $hist;
                     }
                 }
             }
@@ -3790,7 +3972,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                             } elseif (is_array($detJson) && array_key_exists('pago_en_ventana', $detJson)) {
                                 $r['pago_en_ventana_si'] = !empty($detJson['pago_en_ventana']);
                                 $r['pago_en_ventana_txt'] = $r['pago_en_ventana_si'] ? 'Sí' : ($r['__SPARTA_SECRET_REDACTED___consultado'] ? 'No' : 'No se pudo verificar');
-                            } elseif ($res !== null && $res !== '' && $res !== 'pendiente' && $res !== 'prorroga_activa') {
+                            } elseif ($res !== null && $res !== '' && $res !== 'pendiente' && $res !== 'prorroga_activa' && $res !== 'intensidad_activa') {
                                 $r['pago_en_ventana_si'] = false;
                                 $r['pago_en_ventana_txt'] = 'No';
                             } else {
@@ -4351,7 +4533,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         } else {
                             $pagoVentanaTxt = !empty($detJson['pago_en_ventana']) ? 'Sí' : 'No';
                         }
-                    } elseif ($resDs !== null && $resDs !== '' && $resDs !== 'pendiente' && $resDs !== 'prorroga_activa') {
+                    } elseif ($resDs !== null && $resDs !== '' && $resDs !== 'pendiente' && $resDs !== 'prorroga_activa' && $resDs !== 'intensidad_activa') {
                         $pagoVentanaTxt = 'No';
                     }
                 }
@@ -4371,19 +4553,32 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                         $visitoVentanaTxt = 'Sí';
                     } elseif ($resV === 'no_visito' || $resV === 'visito_telefonico') {
                         $visitoVentanaTxt = 'No';
-                    } elseif ($resV !== null && $resV !== '' && $resV !== 'pendiente' && $resV !== 'prorroga_activa') {
+                    } elseif ($resV !== null && $resV !== '' && $resV !== 'pendiente' && $resV !== 'prorroga_activa' && $resV !== 'intensidad_activa') {
                         $visitoVentanaTxt = 'No';
                     }
                 }
-                // Prórroga otorgada a este ticket (detalle JSON)
+                // Extensión +12 h: columna muestra «Prórroga» o «Intensidad» (— si no aplica)
                 $prorrogaTxt = null;
-                $pagoEnProrrogaTxt = null; // Sí/No si tuvo prórroga; — si no aplica
+                $pagoEnProrrogaTxt = null; // Sí/No / No se pudo verificar en 2.ª ventana; — si no aplica
                 if ($tid > 0 && isset($dsPorTicket[$tid])) {
                     $dsPr = $dsPorTicket[$tid];
                     $detPr = !empty($dsPr['detalle']) ? json_decode($dsPr['detalle'], true) : null;
                     $resPr = $dsPr['resultado'] ?? null;
-                    // Si el DS ya evaluó prórroga, este valor ya representa exactamente esa 2a ventana de 12h.
-                    if (is_array($detPr) && isset($detPr['ventana']['tipo']) && $detPr['ventana']['tipo'] === 'prorroga_12h' && array_key_exists('pago_en_ventana', $detPr)) {
+                    $tipoVentanaRev = '';
+                    $tipoVentanaLeg = '';
+                    if (is_array($detPr)) {
+                        $vr = $detPr['ventana_revision'] ?? null;
+                        if (is_array($vr)) {
+                            $tipoVentanaRev = trim((string)($vr['tipo'] ?? ''));
+                        }
+                        $vl = $detPr['ventana'] ?? null;
+                        if (is_array($vl)) {
+                            $tipoVentanaLeg = trim((string)($vl['tipo'] ?? ''));
+                        }
+                    }
+                    $segundaVentanaEnDetalle = is_array($detPr) && array_key_exists('pago_en_ventana', $detPr)
+                        && ($tipoVentanaRev === 'prorroga_12h' || $tipoVentanaRev === 'intensidad_12h' || $tipoVentanaLeg === 'prorroga_12h');
+                    if ($segundaVentanaEnDetalle) {
                         $consultadoPr = !array_key_exists('__SPARTA_SECRET_REDACTED___consultado', $detPr) || !empty($detPr['__SPARTA_SECRET_REDACTED___consultado']);
                         if (!$consultadoPr && empty($detPr['pago_en_ventana'])) {
                             $pagoEnProrrogaTxt = 'No se pudo verificar';
@@ -4391,40 +4586,48 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                             $pagoEnProrrogaTxt = !empty($detPr['pago_en_ventana']) ? 'Sí' : 'No';
                         }
                     }
-                    if (is_array($detPr) && isset($detPr['prorroga']) && is_array($detPr['prorroga']) && !empty($detPr['prorroga']['otorgada'])) {
-                        $prorrogaTxt = 'Sí';
-                        // ¿Pagó en la ventana de la prórroga? (12 h desde fecha_otorgada hasta fecha_limite)
-                        $pr = $detPr['prorroga'];
-                        $fechaOtorgada = trim((string)($pr['fecha_otorgada'] ?? ''));
-                        $fechaLimite = trim((string)($pr['fecha_limite'] ?? ''));
-                        $idCreditoPr = (int)($r['id_credito'] ?? 0);
-                        if ($esVistaPagosVisitas && $pagoEnProrrogaTxt === null && $fechaOtorgada !== '' && $fechaLimite !== '' && $idCreditoPr > 0) {
-                            $resProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
+                    $inD = is_array($detPr) ? ($detPr['intensidad'] ?? []) : [];
+                    $prD = is_array($detPr) ? ($detPr['prorroga'] ?? []) : [];
+                    $intensidadOtorgada = is_array($inD) && !empty($inD['otorgada']);
+                    $prorrogaOtorgada = is_array($prD) && !empty($prD['otorgada']);
+                    if ($intensidadOtorgada) {
+                        $prorrogaTxt = 'Intensidad';
+                    } elseif ($prorrogaOtorgada) {
+                        $prorrogaTxt = 'Prórroga';
+                    } elseif ($resPr === 'cumplio_prorroga' || $resPr === 'no_cumplio_prorroga') {
+                        $prorrogaTxt = ($tipoVentanaRev === 'intensidad_12h' || !empty($inD['evaluada'])) ? 'Intensidad' : 'Prórroga';
+                    }
+                    if ($prorrogaTxt === null && !empty($segundaVentanaEnDetalle)) {
+                        $prorrogaTxt = ($tipoVentanaRev === 'intensidad_12h') ? 'Intensidad' : 'Prórroga';
+                    }
+                    $idCreditoPr = (int)($r['id_credito'] ?? 0);
+                    if ($esVistaPagosVisitas && $pagoEnProrrogaTxt === null && $idCreditoPr > 0 && is_array($detPr)) {
+                        $fOt = '';
+                        $fLi = '';
+                        if ($intensidadOtorgada) {
+                            $fOt = trim((string)($inD['fecha_otorgada'] ?? ''));
+                            $fLi = trim((string)($inD['fecha_limite'] ?? ''));
+                        } elseif ($prorrogaOtorgada) {
+                            $fOt = trim((string)($prD['fecha_otorgada'] ?? ''));
+                            $fLi = trim((string)($prD['fecha_limite'] ?? ''));
+                        } elseif ($resPr === 'cumplio_prorroga' || $resPr === 'no_cumplio_prorroga') {
+                            if ($prorrogaTxt === 'Intensidad' && is_array($inD)) {
+                                $fOt = trim((string)($inD['fecha_otorgada'] ?? ''));
+                                $fLi = trim((string)($inD['fecha_limite'] ?? ''));
+                            }
+                            if (($fOt === '' || $fLi === '') && is_array($prD)) {
+                                $fOt = trim((string)($prD['fecha_otorgada'] ?? ''));
+                                $fLi = trim((string)($prD['fecha_limite'] ?? ''));
+                            }
+                        }
+                        if ($fOt !== '' && $fLi !== '') {
+                            $resProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fOt, $fLi);
                             $pagosProrroga = $resProrroga['pagos'] ?? [];
                             $pagoEnProrrogaTxt = !empty($resProrroga['__SPARTA_SECRET_REDACTED___consultado']) ? (!empty($pagosProrroga) ? 'Sí' : 'No') : 'No se pudo verificar';
-                        } elseif ($pagoEnProrrogaTxt === null) {
-                            $pagoEnProrrogaTxt = '—';
                         }
-                    } elseif ($resPr === 'cumplio_prorroga' || $resPr === 'no_cumplio_prorroga') {
-                        // Resultado final tras prórroga implica que se otorgó en algún momento; puede venir en detalle ya evaluado
-                        $prorrogaTxt = 'Sí';
-                        if (is_array($detPr) && isset($detPr['prorroga']) && is_array($detPr['prorroga'])) {
-                            $pr = $detPr['prorroga'];
-                            $fechaOtorgada = trim((string)($pr['fecha_otorgada'] ?? ''));
-                            $fechaLimite = trim((string)($pr['fecha_limite'] ?? ''));
-                            $idCreditoPr = (int)($r['id_credito'] ?? 0);
-                            if ($esVistaPagosVisitas && $pagoEnProrrogaTxt === null && $fechaOtorgada !== '' && $fechaLimite !== '' && $idCreditoPr > 0) {
-                                $resProrroga = self::getPagosEstadoCuentaEnVentana($idCreditoPr, $fechaOtorgada, $fechaLimite);
-                                $pagosProrroga = $resProrroga['pagos'] ?? [];
-                                $pagoEnProrrogaTxt = !empty($resProrroga['__SPARTA_SECRET_REDACTED___consultado']) ? (!empty($pagosProrroga) ? 'Sí' : 'No') : 'No se pudo verificar';
-                            } elseif ($pagoEnProrrogaTxt === null) {
-                                $pagoEnProrrogaTxt = '—';
-                            }
-                        } elseif ($pagoEnProrrogaTxt === null) {
-                            $pagoEnProrrogaTxt = '—';
-                        }
-                    } elseif ($resPr !== null && $resPr !== '' && $resPr !== 'pendiente') {
-                        $prorrogaTxt = 'No';
+                    }
+                    if ($pagoEnProrrogaTxt === null && ($prorrogaTxt === 'Prórroga' || $prorrogaTxt === 'Intensidad')) {
+                        $pagoEnProrrogaTxt = '—';
                     }
                 }
                 $resultadoMostrar = null;
@@ -4652,6 +4855,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $direccionesFue = '—';
                 $pago12h = null;
                 $prorroga = null;
+                $extension12hTipo = null; // 'Prórroga' | 'Intensidad' | null (— en UI)
                 $pagoProrroga = null;
                 $tipoContacto = '—'; // Campo | Telefónica | —
                 $detJson = null;
@@ -4692,13 +4896,41 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                             $direccionesFue = ($visDir > 0 && $totDir > 0) ? ($visDir . ' de ' . $totDir) : '—';
                         }
 
-                        if (isset($detJson['prorroga']) && is_array($detJson['prorroga']) && !empty($detJson['prorroga']['otorgada'])) {
+                        $tipoRev = '';
+                        if (!empty($detJson['ventana_revision']) && is_array($detJson['ventana_revision'])) {
+                            $tipoRev = trim((string)($detJson['ventana_revision']['tipo'] ?? ''));
+                        }
+                        $tipoLeg = '';
+                        if (!empty($detJson['ventana']) && is_array($detJson['ventana'])) {
+                            $tipoLeg = trim((string)($detJson['ventana']['tipo'] ?? ''));
+                        }
+                        $segundaEnJson = array_key_exists('pago_en_ventana', $detJson)
+                            && ($tipoRev === 'prorroga_12h' || $tipoRev === 'intensidad_12h' || $tipoLeg === 'prorroga_12h');
+                        $inJ = isset($detJson['intensidad']) && is_array($detJson['intensidad']) ? $detJson['intensidad'] : [];
+                        $prJ = isset($detJson['prorroga']) && is_array($detJson['prorroga']) ? $detJson['prorroga'] : [];
+                        $intOt = !empty($inJ['otorgada']);
+                        $prOt = !empty($prJ['otorgada']);
+                        if ($intOt) {
                             $prorroga = true;
-                            if (isset($detJson['ventana']['tipo']) && $detJson['ventana']['tipo'] === 'prorroga_12h' && array_key_exists('pago_en_ventana', $detJson)) {
+                            $extension12hTipo = 'Intensidad';
+                            if ($segundaEnJson) {
                                 $pagoProrroga = !empty($detJson['pago_en_ventana']);
                             } else {
-                                $fOt = trim((string)($detJson['prorroga']['fecha_otorgada'] ?? ''));
-                                $fLi = trim((string)($detJson['prorroga']['fecha_limite'] ?? ''));
+                                $fOt = trim((string)($inJ['fecha_otorgada'] ?? ''));
+                                $fLi = trim((string)($inJ['fecha_limite'] ?? ''));
+                                if ($idCredito > 0 && $fOt !== '' && $fLi !== '') {
+                                    $resPpr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi, $optsReporteSemanal ?? []);
+                                    $pagoProrroga = !empty($resPpr['pagos'] ?? []);
+                                }
+                            }
+                        } elseif ($prOt) {
+                            $prorroga = true;
+                            $extension12hTipo = 'Prórroga';
+                            if ($segundaEnJson) {
+                                $pagoProrroga = !empty($detJson['pago_en_ventana']);
+                            } else {
+                                $fOt = trim((string)($prJ['fecha_otorgada'] ?? ''));
+                                $fLi = trim((string)($prJ['fecha_limite'] ?? ''));
                                 if ($idCredito > 0 && $fOt !== '' && $fLi !== '') {
                                     $resPpr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi, $optsReporteSemanal ?? []);
                                     $pagoProrroga = !empty($resPpr['pagos'] ?? []);
@@ -4706,6 +4938,28 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                             }
                         } elseif ($res === 'cumplio_prorroga' || $res === 'no_cumplio_prorroga') {
                             $prorroga = true;
+                            $extension12hTipo = ($tipoRev === 'intensidad_12h' || !empty($inJ['evaluada'])) ? 'Intensidad' : 'Prórroga';
+                            if ($segundaEnJson) {
+                                $pagoProrroga = !empty($detJson['pago_en_ventana']);
+                            } elseif ($idCredito > 0) {
+                                $fOt = '';
+                                $fLi = '';
+                                if ($extension12hTipo === 'Intensidad') {
+                                    $fOt = trim((string)($inJ['fecha_otorgada'] ?? ''));
+                                    $fLi = trim((string)($inJ['fecha_limite'] ?? ''));
+                                }
+                                if ($fOt === '' || $fLi === '') {
+                                    $fOt = trim((string)($prJ['fecha_otorgada'] ?? ''));
+                                    $fLi = trim((string)($prJ['fecha_limite'] ?? ''));
+                                }
+                                if ($fOt !== '' && $fLi !== '') {
+                                    $resPpr = self::getPagosEstadoCuentaEnVentana($idCredito, $fOt, $fLi, $optsReporteSemanal ?? []);
+                                    $pagoProrroga = !empty($resPpr['pagos'] ?? []);
+                                }
+                            }
+                        }
+                        if ($prorroga === true && $extension12hTipo === null && $segundaEnJson) {
+                            $extension12hTipo = ($tipoRev === 'intensidad_12h') ? 'Intensidad' : 'Prórroga';
                         }
                     }
                 }
@@ -4731,6 +4985,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'direcciones_fue' => $direccionesFue,
                     'pago_12h' => $pago12h,
                     'prorroga_si' => $prorroga,
+                    'extension_12h_tipo' => $extension12hTipo,
                     'pago_prorroga_12h' => $pagoProrroga,
                     'pago_semana_si' => !empty($pagoSemana['si']),
                     'pago_semana_count' => (int)($pagoSemana['count'] ?? 0),
@@ -5098,12 +5353,28 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     $tiempoApertura = $segAp >= 0 ? self::segundosAHumano((int)$segAp) : '—';
                 }
                 $det = !empty($r['ds_detalle']) ? json_decode($r['ds_detalle'], true) : null;
-                $prorroga = 'No';
+                $prorroga = '—';
                 $pagaron = '—';
                 $cumplimiento = '—';
                 if (is_array($det)) {
-                    if (isset($det['prorroga']) && is_array($det['prorroga']) && !empty($det['prorroga']['otorgada'])) {
-                        $prorroga = 'Sí';
+                    $tipoRevD = '';
+                    if (!empty($det['ventana_revision']) && is_array($det['ventana_revision'])) {
+                        $tipoRevD = trim((string)($det['ventana_revision']['tipo'] ?? ''));
+                    }
+                    $tipoLegD = '';
+                    if (!empty($det['ventana']) && is_array($det['ventana'])) {
+                        $tipoLegD = trim((string)($det['ventana']['tipo'] ?? ''));
+                    }
+                    $segundaDet = array_key_exists('pago_en_ventana', $det)
+                        && ($tipoRevD === 'prorroga_12h' || $tipoRevD === 'intensidad_12h' || $tipoLegD === 'prorroga_12h');
+                    $inDet = isset($det['intensidad']) && is_array($det['intensidad']) ? $det['intensidad'] : [];
+                    $prDet = isset($det['prorroga']) && is_array($det['prorroga']) ? $det['prorroga'] : [];
+                    if (!empty($inDet['otorgada'])) {
+                        $prorroga = 'Intensidad';
+                    } elseif (!empty($prDet['otorgada'])) {
+                        $prorroga = 'Prórroga';
+                    } elseif ($segundaDet) {
+                        $prorroga = ($tipoRevD === 'intensidad_12h') ? 'Intensidad' : 'Prórroga';
                     }
                     if (!empty($det['evaluacion_visitas_pago_no_aplica']) || !empty($det['pago_evaluacion_no_aplica'])) {
                         $pagaron = '—';
@@ -5119,6 +5390,14 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 if ($resDs !== '' && $cumplimiento === '—') {
                     $cmp = self::cumplimientoMetadatos($resDs);
                     $cumplimiento = $cmp['cumplimiento_etiqueta'] ?? $resDs;
+                }
+                if ($prorroga === '—' && ($resDs === 'cumplio_prorroga' || $resDs === 'no_cumplio_prorroga') && is_array($det)) {
+                    $tipoRevPost = '';
+                    if (!empty($det['ventana_revision']) && is_array($det['ventana_revision'])) {
+                        $tipoRevPost = trim((string)($det['ventana_revision']['tipo'] ?? ''));
+                    }
+                    $inPost = isset($det['intensidad']) && is_array($det['intensidad']) ? $det['intensidad'] : [];
+                    $prorroga = ($tipoRevPost === 'intensidad_12h' || !empty($inPost['evaluada'])) ? 'Intensidad' : 'Prórroga';
                 }
                 $filas[] = [
                     'id_ticket' => (int)($r['id_ticket'] ?? 0),

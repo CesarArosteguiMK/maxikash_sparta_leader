@@ -60,11 +60,11 @@ backend/storage/cache/*
 backend/storage/reporte_semanal_global/*.json
 !backend/storage/reporte_semanal_global/.gitkeep
 
-# ========== API Agente Segundómetro — NO SUBIR DESDE NINGUNA MÁQUINA ==========
-# La carpeta segundometro-agent (Node) no debe ir al repo: ni en tu PC, ni en el servidor, ni en otras.
-# Se despliega a mano (copiar carpeta, .env, keys). No hacer git add de esta ruta.
-backend/services/segundometro-agent/
-backend/services/segundometro-agent/**
+# ========== Agente Segundómetro (Node) — carpeta versionada; llaves NO ==========
+# Copie aqui la clave local (p. ej. jesusssh4.unknown). Nunca subir al repo.
+backend/services/segundometro-agent/keys/**
+!backend/services/segundometro-agent/keys/.gitkeep
+!backend/services/segundometro-agent/keys/README.md
 
 # ========== Agente correos primeros pagos — SÍ VA AL REPOSITORIO ==========
 # backend/services/correos-primeros-pagos-agent/ está versionado (package.json, index.js, .bat, etc.).

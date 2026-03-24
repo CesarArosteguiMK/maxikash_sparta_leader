@@ -24,16 +24,12 @@ if not exist "%AGENT_DIR%\package.json" (
 )
 
 if not exist "%AGENT_DIR%\node_modules\" (
-    echo [1/2] npm install ...
-    call "%NODE_EXE:\node.exe=\npm.cmd%" install --no-audit --no-fund
-    if errorlevel 1 (
-        echo [ERROR] npm install fallo.
-        pause
-        exit /b 1
-    )
+    echo [ERROR] No hay node_modules. Ejecute primero instalar-agente.bat en esta carpeta ^(solo una vez o al cambiar package.json^).
+    pause
+    exit /b 1
 )
 
-echo [2/2] Arrancando agente de correos (HTTP estado en http://127.0.0.1:3110 por defecto^)
+echo Arrancando agente de correos (HTTP estado en http://127.0.0.1:3110 por defecto^)
 echo       Cierre esta ventana o ejecute cerrar-agente.bat para detener.
 echo.
 

@@ -118,6 +118,129 @@ class EstadoCuenta extends Controller
         return $out;
     }
 
+    /**
+     * Depósito cuyo monto va íntegramente a extemporáneos y empareja nota de GASTOS DE COBRANZA (misma fecha y monto).
+     * No es pago de cuota; no debe mezclarse con aplicación a cargo salvo para mostrarlo en UI.
+     */
+    private function esPagoSoloGastoCobranza(array $pagoApi, array $listaNotasCargos): bool {
+        if (empty($listaNotasCargos) || !is_array($listaNotasCargos)) {
+            return false;
+        }
+        $montoPago = $this->safe_float($pagoApi["montoPago"] ?? 0);
+        $ext = $this->safe_float($pagoApi["extemporaneos"] ?? 0);
+        if ($montoPago <= 0.009 || $ext <= 0.009) {
+            return false;
+        }
+        $montoReal = max($montoPago - $ext, 0);
+        if ($montoReal > 0.02) {
+            return false;
+        }
+        $fechaP = $pagoApi["fechaDeposito"] ?? $pagoApi["fechaValor"] ?? $pagoApi["fechaRegistro"] ?? "";
+        if ($fechaP === "" || strtotime((string) $fechaP) === false) {
+            return false;
+        }
+        $fn = date("Y-m-d", strtotime((string) $fechaP));
+
+        foreach ($listaNotasCargos as $nota) {
+            $conceptoUpper = mb_strtoupper((string) ($nota["concepto"] ?? ""));
+            if (strpos($conceptoUpper, "GASTO") === false || strpos($conceptoUpper, "COBRANZA") === false) {
+                continue;
+            }
+            if (strpos($conceptoUpper, "EXTEMPORANEO") !== false || strpos($conceptoUpper, "EXTEMPORÁNEO") !== false) {
+                continue;
+            }
+            $fechaNota = $nota["fechaMovimiento"] ?? $nota["fechaVencimiento"] ?? "";
+            if ($fechaNota === "" || strtotime((string) $fechaNota) === false) {
+                continue;
+            }
+            $fnNota = date("Y-m-d", strtotime((string) $fechaNota));
+            if ($fnNota !== $fn) {
+                continue;
+            }
+            $mNota = $this->safe_float($nota["monto"] ?? 0);
+            if (abs($mNota - $ext) > 1.0 && abs($mNota - $montoPago) > 1.0) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Inserta línea de depósito solo GC debajo de la cuota anterior al idCargo ancla del API.
+     * No suma al total_pagado del cargo (solo informativo).
+     */
+    private function inyectarDepositosSoloGastoCobranza(array &$tabla, array $pagos_list): void {
+        if (empty($tabla) || empty($pagos_list)) {
+            return;
+        }
+        foreach ($pagos_list as $pl) {
+            if (empty($pl["es_pago_solo_gasto_cobranza"])) {
+                continue;
+            }
+            $idRef = (int) ($pl["primer_id_cargo_api"] ?? 0);
+            if ($idRef <= 0) {
+                continue;
+            }
+            $tablaIdx = null;
+            for ($ti = 0; $ti < count($tabla); $ti++) {
+                if ((int) ($tabla[$ti]["idCargo"] ?? 0) === $idRef) {
+                    $tablaIdx = $ti;
+                    break;
+                }
+            }
+            if ($tablaIdx === null) {
+                continue;
+            }
+            $prevIdx = $tablaIdx - 1;
+            while ($prevIdx >= 0 && (($tabla[$prevIdx]["tipo"] ?? "") === "anticipo")) {
+                $prevIdx--;
+            }
+            if ($prevIdx < 0) {
+                $prevIdx = $tablaIdx;
+            }
+            $mp = round((float) ($pl["montoPagoOriginal"] ?? 0), 2);
+            $ext = round((float) ($pl["_extOrig"] ?? $pl["extemporaneos"] ?? 0), 2);
+            $tabla[$prevIdx]["aplicados"][] = [
+                "tipo"                    => "gasto_cobranza_deposito",
+                "idPago"                  => $pl["idPago"] ?? null,
+                "montoPago"               => $mp,
+                "aplicado"                => $ext,
+                "aplicadoTotalPago"       => $mp,
+                "fechaRegistro"           => $pl["fechaRegistro"] ?? null,
+                "fechaPago"               => null,
+                "diasMora"                => null,
+                "extemporaneos"           => 0,
+                "es_sobrante"             => false,
+                "gasto_cobranza"          => true,
+                "no_cuenta_para_total_cuota" => true,
+            ];
+        }
+    }
+
+    private function recalcularTotalesTablaEstadoCuenta(array &$tabla): void {
+        foreach ($tabla as &$fila) {
+            $total = 0.0;
+            foreach ($fila["aplicados"] ?? [] as $ap) {
+                if (!empty($ap["cc_invalido"])) {
+                    continue;
+                }
+                if (isset($ap["tipo"]) && $ap["tipo"] === "contracargo") {
+                    continue;
+                }
+                if (!empty($ap["no_cuenta_para_total_cuota"])) {
+                    continue;
+                }
+                $total += (float) ($ap["aplicado"] ?? 0);
+            }
+            $montoCargo = (float) ($fila["monto_cargo"] ?? 0);
+            $fila["total_pagado"] = round($total, 2);
+            $fila["pendiente"] = round(max($montoCargo - $total, 0), 2);
+            $fila["excedente"] = round(max($total - $montoCargo, 0), 2);
+        }
+        unset($fila);
+    }
+
     // ---------------- EXTRAER NUMERO DE CUOTA ----------------
     private function extraer_numero_cuota($concepto) {
         if (!$concepto) return null;
@@ -448,6 +571,11 @@ JS;
             $pagos = $estadoCuenta["datosPagos"] ?? [];
             if (!is_array($pagos)) $pagos = [];
 
+            $listaNotasCargosParaSoloGc = $estadoCuenta["datosNotasCargos"] ?? [];
+            if (!is_array($listaNotasCargosParaSoloGc)) {
+                $listaNotasCargosParaSoloGc = [];
+            }
+
             // Orden estable por idCargo (necesario para expandir lista tras ANTICIPO)
             usort($cargos, function ($a, $b) {
                 return $this->safe_int($a["idCargo"] ?? 0) <=> $this->safe_int($b["idCargo"] ?? 0);
@@ -474,7 +602,8 @@ JS;
                 $monto_real     = max($montoPago - $extemporaneos, 0);
 
                 // Lista de idCargo que este pago toca (orden: primero id en numeroCuotaSemanal).
-                $cuotas = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
+                $idsCuotaApi = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
+                $cuotas = $idsCuotaApi;
                 // Si el API dice 27,28 y 28 es ANTICIPO, el sobrante debe poder ir a la siguiente CUOTA SEMANAL (p. ej. id 29).
                 $cuotas = $this->expandIdCargosTrasAnticipos($cuotas, $cargos);
                 if ($maxIdCargoEnCargos > 0 && !empty($cuotas)) {
@@ -483,6 +612,9 @@ JS;
                         $cuotas[] = $maxIdCargoEnCargos;
                     }
                 }
+
+                $primerIdCargoApi = !empty($idsCuotaApi) ? $this->safe_int($idsCuotaApi[0], 0) : 0;
+                $soloGcDeposito = $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
 
                 $pagos_list[] = [
                     "idPago"              => $p["idPago"] ?? null,
@@ -494,7 +626,9 @@ JS;
                     "montoPagoOriginal"   => $montoPago,
                     "extemporaneos"       => $extemporaneos,
                     "_extOrig"            => $extemporaneos,
-                    "_extemporaneo_aplicado" => false
+                    "_extemporaneo_aplicado" => false,
+                    "es_pago_solo_gasto_cobranza" => $soloGcDeposito,
+                    "primer_id_cargo_api" => $primerIdCargoApi,
                 ];
             }
 
@@ -564,6 +698,9 @@ JS;
                 // -------------------------
                 foreach ($indices_aplicables as $idx) {
                     $pago = &$pagos_list[$idx];
+                    if (!empty($pago["es_pago_solo_gasto_cobranza"])) {
+                        continue;
+                    }
 
                     // --- Aplicar monto real (remaining) a la cuota primero ---
                     $aplico_remaining_esta_cuota = false;
@@ -1096,6 +1233,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                         foreach ($tabla[$ci]['aplicados'] as $ap) {
                             if (!empty($ap['cc_invalido'])) continue;
                             if (isset($ap['tipo']) && $ap['tipo'] === 'contracargo') continue;
+                            if (!empty($ap['no_cuenta_para_total_cuota'])) continue;
                             $total += (float)($ap['aplicado'] ?? 0);
                         }
                         $tabla[$ci]['total_pagado'] = round($total, 2);
@@ -1128,6 +1266,9 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
             self::set("gastoCobranzaPorFecha", $gastoCobranzaPorFecha ?? []);
             self::set("esReembolsoPorFecha", $esReembolsoPorFecha ?? []);
             self::set("hayNotasCargos", $hayNotasCargos);
+
+            $this->inyectarDepositosSoloGastoCobranza($tabla, $pagos_list);
+            $this->recalcularTotalesTablaEstadoCuenta($tabla);
 
             if (
                 !isset($resultado['data']['idCredito']) ||

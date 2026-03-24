@@ -872,6 +872,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     <option value="pendiente">Pendiente de generar</option>
                     <option value="listo">Ya evaluado (resultado listo)</option>
                     <option value="prorroga_activa">Prórroga activa</option>
+                    <option value="intensidad_activa">Intensidad activa</option>
                 </select>
             </div>
             <div class="col-12 col-lg-auto d-flex align-items-end">
@@ -2407,6 +2408,9 @@ window.actualizarDictamenCamposPorTipo = function() {
         <button type="button" class="btn btn-outline-warning btn-sm" id="btnOtorgarProrrogaDictamenSistema" style="display:none;" onclick="ejecutarOtorgarProrrogaDictamenSistema()">
             <i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)
         </button>
+        <button type="button" class="btn btn-outline-info btn-sm" id="btnOtorgarIntensidadDictamenSistema" style="display:none;" onclick="ejecutarOtorgarIntensidadDictamenSistema()" title="Extensión de 12 h cuando ya hubo visita en campo y no hubo pago en la ventana inicial">
+            <i class="fa-solid fa-bolt me-1"></i>Intensidad (+12 h)
+        </button>
         <?php /* Simulaciones ocultas: quitar class d-none del wrap #dictamenSistemaSimWrap para reactivar en el futuro */ ?>
         <div id="dictamenSistemaSimWrap" class="d-none w-100">
             <div class="d-flex justify-content-end mb-1">
@@ -2434,13 +2438,30 @@ window.actualizarDictamenCamposPorTipo = function() {
 <script>
 var dictamenSistemaTicketId = 0;
 
+function dictamenSistemaPuedeIntensidad(ds) {
+    if (!ds) return false;
+    var res = (ds.resultado || '').trim();
+    if (res === 'pendiente' || res === 'prorroga_activa' || res === 'intensidad_activa' || res === 'dictamen_ilocalizable') return false;
+    var d = ds.detalle_parsed || {};
+    if (d.pago_en_ventana) return false;
+    if (d.prorroga && d.prorroga.otorgada) return false;
+    if (d.intensidad && d.intensidad.otorgada) return false;
+    var rb = (d.resultado_base || '').trim();
+    if (['visito_campo', 'visita_parcial', 'visito_todas_direcciones'].indexOf(rb) !== -1) return true;
+    if (res === 'cumplido_sin_pago_todas_direcciones') return true;
+    if ((parseInt(d.direcciones_visitadas, 10) || 0) > 0) return true;
+    return false;
+}
+
 function setBotonesDictamenSistema(ds) {
     var btnGen = document.getElementById('btnGenerarDictamenSistema');
     var btnPro = document.getElementById('btnOtorgarProrrogaDictamenSistema');
+    var btnInt = document.getElementById('btnOtorgarIntensidadDictamenSistema');
     var btnReval = document.getElementById('btnRevalidarPagoDictamenSistema');
     if (!btnGen || !btnPro) return;
     btnGen.style.display = 'none';
     btnPro.style.display = 'none';
+    if (btnInt) btnInt.style.display = 'none';
     if (btnReval) btnReval.style.display = 'none';
     if (!ds) {
         btnGen.style.display = '';
@@ -2451,9 +2472,10 @@ function setBotonesDictamenSistema(ds) {
         btnGen.style.display = '';
         return;
     }
-    if (res === 'prorroga_activa') {
+    if (res === 'prorroga_activa' || res === 'intensidad_activa') {
         btnGen.style.display = 'none';
         btnPro.style.display = 'none';
+        if (btnInt) btnInt.style.display = 'none';
         return;
     }
     if (res === 'dictamen_ilocalizable') {
@@ -2466,8 +2488,14 @@ function setBotonesDictamenSistema(ds) {
     var noCumplidos = ['no_visito', 'visito_telefonico', 'distancia_lejana', 'visita_parcial', 'sin_coordenadas'];
     var puedeProrroga = noCumplidos.indexOf(res) !== -1
         && !d.pago_en_ventana
-        && !(d.prorroga && d.prorroga.otorgada);
-    if (puedeProrroga) btnPro.style.display = '';
+        && !(d.prorroga && d.prorroga.otorgada)
+        && !(d.intensidad && d.intensidad.otorgada);
+    var puedeInt = btnInt && dictamenSistemaPuedeIntensidad(ds);
+    if (puedeInt) {
+        btnInt.style.display = '';
+    } else if (puedeProrroga) {
+        btnPro.style.display = '';
+    }
     // Mostrar "Volver a verificar pago" cuando el pago quedó en "No se pudo verificar" (API falló al evaluar)
     var estadoCuentaConsultado = (d.__SPARTA_SECRET_REDACTED___consultado !== false);
     if (!estadoCuentaConsultado && !d.pago_en_ventana && btnReval) btnReval.style.display = '';
@@ -2480,6 +2508,8 @@ function abrirDictamenSistema(idTicket) {
     body.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin fa-2x text-muted"></i><p class="mt-2 text-muted">Consultando...</p></div>';
     document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
     document.getElementById('btnOtorgarProrrogaDictamenSistema').style.display = 'none';
+    var btnInt0 = document.getElementById('btnOtorgarIntensidadDictamenSistema');
+    if (btnInt0) btnInt0.style.display = 'none';
     var btnReval = document.getElementById('btnRevalidarPagoDictamenSistema');
     if (btnReval) btnReval.style.display = 'none';
     // Una sola instancia: evita backdrops duplicados al refrescar tras prórroga/generar
@@ -2540,6 +2570,7 @@ function buildDsResultadoHtml(resultado) {
         'no_cumplio_prorroga': 'No cumplió prórroga',
         'cumplio_prorroga': 'Cumplió en prórroga',
         'prorroga_activa': 'Prórroga activa',
+        'intensidad_activa': 'Intensidad activa',
         'no_visito': 'No visito',
         'cumplido_pago': 'Cumplido por pago',
         'pendiente': 'pendiente',
@@ -2554,7 +2585,7 @@ function buildDsResultadoHtml(resultado) {
         pagoLine = '<span class="small text-success fw-semibold d-block mt-1">Pago: Sí</span>';
     } else if (s === 'dictamen_ilocalizable') {
         pagoLine = '<span class="small text-muted fw-semibold d-block mt-1" title="No aplica evaluación automática de pago">Pago: —</span>';
-    } else if (s !== 'pendiente' && s !== 'prorroga_activa' && s !== '') {
+    } else if (s !== 'pendiente' && s !== 'prorroga_activa' && s !== 'intensidad_activa' && s !== '') {
         pagoLine = '<span class="small text-danger fw-semibold d-block mt-1">Pago: No</span>';
     }
     return pagoLine ? '<div class="text-center">' + main + pagoLine + '</div>' : main;
@@ -2602,6 +2633,37 @@ function ejecutarOtorgarProrrogaDictamenSistema() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-hourglass-half me-1"></i>Otorgar prórroga (+12 h)';
             body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al otorgar la prórroga.</div>';
+        }
+    });
+}
+
+function ejecutarOtorgarIntensidadDictamenSistema() {
+    var body = document.getElementById('modalDictamenSistemaBody');
+    var btn = document.getElementById('btnOtorgarIntensidadDictamenSistema');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Procesando...';
+    http.request({
+        endpoint: '/sabueso/otorgarIntensidadDictamenSistema',
+        metodo: 'POST',
+        data: JSON.stringify({ id_ticket: dictamenSistemaTicketId }),
+        contentType: 'application/json',
+        processData: false,
+        showLoader: false,
+        onSuccess: function(res) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bolt me-1"></i>Intensidad (+12 h)';
+            if (!res.success) {
+                body.innerHTML = '<div class="alert alert-danger mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>' + (res.mensaje || 'No se pudo otorgar Intensidad') + '</div>';
+                return;
+            }
+            abrirDictamenSistema(dictamenSistemaTicketId);
+            if (typeof getTicketsPanelAdmin === 'function') getTicketsPanelAdmin();
+        },
+        onError: function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bolt me-1"></i>Intensidad (+12 h)';
+            body.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión al otorgar Intensidad.</div>';
         }
     });
 }
@@ -2729,6 +2791,11 @@ var DICTAMEN_SISTEMA_COPY = {
         subtitulo: 'Se otorgaron 12 horas adicionales',
         mensajeDefault: 'Mientras esté activa no se puede generar de nuevo a mano. Al vencer el plazo, la evaluación se ejecuta sola al abrir este panel o al cargar la tabla (automático).'
     },
+    intensidad_activa: {
+        titulo: 'Intensidad activa',
+        subtitulo: '12 horas adicionales tras visita en campo sin pago en la ventana inicial',
+        mensajeDefault: 'Al vencer el plazo, el dictamen del sistema se reevalúa automáticamente al abrir el panel o la tabla.'
+    },
     cumplio_prorroga: {
         titulo: 'Cumplió en prórroga',
         subtitulo: 'Resultado final tras la prórroga',
@@ -2768,6 +2835,7 @@ function renderDictamenSistemaResultado(ds, body) {
         'cumplido_pago': 'success',
         'cumplido_sin_pago_todas_direcciones': 'success',
         'prorroga_activa': 'warning',
+        'intensidad_activa': 'info',
         'cumplio_prorroga': 'success',
         'no_cumplio_prorroga': 'danger'
     };
@@ -2902,6 +2970,31 @@ function renderDictamenSistemaResultado(ds, body) {
         if (d.prorroga.nombre_otorga) html += '<div>Autorizó: ' + escHtml(d.prorroga.nombre_otorga) + '</div>';
         html += '</div>';
     }
+    if (!ilocalizableDs && d.intensidad && d.intensidad.otorgada) {
+        html += '<div class="alert alert-info small">';
+        html += '<div><strong><i class="fa-solid fa-bolt me-1"></i>Intensidad:</strong> ' + (d.intensidad.evaluada ? 'Evaluada' : 'Activa') + '</div>';
+        html += '<div>Otorgada: ' + escHtml(d.intensidad.fecha_otorgada || '—') + ' · Límite: ' + escHtml(d.intensidad.fecha_limite || '—') + '</div>';
+        if (d.intensidad.nombre_otorga) html += '<div>Autorizó: ' + escHtml(d.intensidad.nombre_otorga) + '</div>';
+        html += '</div>';
+    }
+
+    var hist = ds.historico_visita_gestion;
+    if (!ilocalizableDs && hist && (hist.dictamen || hist.comentarios || hist.medio_contactacion_campo)) {
+        html += '<div class="card border-info border-opacity-50 mb-3"><div class="card-header py-2 small fw-semibold text-info"><i class="fa-solid fa-clipboard-list me-1"></i>Histórico de gestiones (última visita en campo)</div><div class="card-body py-2 px-3 small">';
+        if (hist.medio_contactacion_campo) {
+            html += '<div class="mb-1"><span class="text-muted">Medio de contactación:</span> ' + escHtml(hist.medio_contactacion_campo) + '</div>';
+        }
+        if (hist.fecha) {
+            html += '<div class="mb-2 text-muted"><i class="fa-regular fa-clock me-1"></i>' + escHtml(String(hist.fecha)) + '</div>';
+        }
+        if (hist.dictamen) {
+            html += '<div class="mb-2"><span class="text-muted fw-semibold d-block mb-1">Dictamen</span><div class="border rounded bg-light px-2 py-2" style="white-space:pre-line">' + escHtml(hist.dictamen) + '</div></div>';
+        }
+        if (hist.comentarios) {
+            html += '<div class="mb-0"><span class="text-muted fw-semibold d-block mb-1">Comentarios</span><div class="border rounded bg-light px-2 py-2" style="white-space:pre-line">' + escHtml(hist.comentarios) + '</div></div>';
+        }
+        html += '</div></div>';
+    }
 
     // Análisis detallado
     if (!ilocalizableDs && d.analisis && d.analisis.length > 0) {
@@ -2957,6 +3050,8 @@ function dictamenSistemaSimular(caso) {
     document.getElementById('btnGenerarDictamenSistema').style.display = 'none';
     var br = document.getElementById('btnRevalidarPagoDictamenSistema');
     if (br) br.style.display = 'none';
+    var bi = document.getElementById('btnOtorgarIntensidadDictamenSistema');
+    if (bi) bi.style.display = 'none';
     var base = {
         id_ticket: dictamenSistemaTicketId || 0,
         nombre_gestor: 'GESTOR DE PRUEBA',

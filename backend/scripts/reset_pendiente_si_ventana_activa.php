@@ -38,7 +38,7 @@ require_once $raiz . '/core/Database.php';
 $db = new \Core\Database();
 $rows = $db->queryAll(
     "SELECT id, id_ticket, resultado, fecha_envio_dictamen, detalle FROM dictamen_sistema " .
-    "WHERE resultado IS NOT NULL AND resultado <> '' AND resultado NOT IN ('pendiente', 'prorroga_activa')"
+    "WHERE resultado IS NOT NULL AND resultado <> '' AND resultado NOT IN ('pendiente', 'prorroga_activa', 'intensidad_activa')"
 );
 $tz = new \DateTimeZone('America/Mexico_City');
 $now = new \DateTime('now', $tz);

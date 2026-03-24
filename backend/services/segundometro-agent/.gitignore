@@ -1,0 +1,6 @@
+# Dependencias locales (usar instalar-agente.bat / npm install)
+node_modules/
+
+# Credenciales (el .env global del raiz tambien lo ignora)
+.env
+.env.local

@@ -918,28 +918,17 @@ public static function getGastosTodosConEstatus($idCredito)
 {
     try {
         $db = new DatabaseSegundometro();
-
-        $idGasto = (int) $idGasto;
-
         $db->CRUD(
             "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-             SET
-                condonado        = 1,
-                estatus_pago     = 2,
-                fecha_condonacion = CONVERT_TZ(NOW(), '+00:00', 'America/Mexico_City')
-             WHERE id_gastos_cobranza = :id_gasto",
-            ['id_gasto' => $idGasto]
+             SET condonado = 1,
+                 estatus_pago = 0, -- ✅ Cambiado de 2 a 0 (Condonar no es pagar)
+                 fecha_condonacion = NOW()
+             WHERE id_gastos_cobranza = :id",
+            ['id' => $idGasto]
         );
-
-        return self::resultado(true, 'Gasto marcado como condonado');
-
+        return self::resultado(true, 'Gasto marcado como condonado correctamente');
     } catch (\Exception $e) {
-        return self::resultado(
-            false,
-            'Error al marcar gasto como condonado',
-            null,
-            $e->getMessage()
-        );
+        return self::resultado(false, 'Error al condonar', null, $e->getMessage());
     }
 }
 
