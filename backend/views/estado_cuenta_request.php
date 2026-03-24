@@ -4213,7 +4213,7 @@ function _pintarHistorial(datos) {
             const montoPagado = montoOriginal - condonacionParcial;
 
             badgeColor = 'bg-success';
-            badgeText = condonacionParcial > 0 ? 'Pago c/Desc' : 'Pagado';
+            badgeText = condonacionParcial > 0 ? 'Pagado' : 'Pagado';
 
             htmlMontoOriginal = condonacionParcial > 0
                 ? `<span class="text-muted text-decoration-line-through" style="font-size: 0.9em;">$${montoOriginal.toFixed(2)}</span>
