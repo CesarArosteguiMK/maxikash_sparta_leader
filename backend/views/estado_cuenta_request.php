@@ -553,7 +553,8 @@ if ($cuotasContratadas > 0) {
 
    .btn-dictaminar,
    .btn-condonar,
-   .btn-notas {
+   .btn-notas,
+   .btn-rastreo-neverpaid {
        display: flex !important;
        visibility: visible !important;
    }
@@ -865,6 +866,32 @@ if ($cuotasContratadas > 0) {
         box-shadow: 0 8px 18px rgba(40,167,69,.55);
     }
 
+    /* Rastreo (misma forma que dictaminar, condonar, notas) */
+    .btn-rastreo-neverpaid {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #fff4e6;
+        border: 1px solid #ffd8a8;
+        color: #e8590c;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(232, 89, 12, 0.3);
+        transition: all .25s ease;
+        text-decoration: none !important;
+        padding: 0;
+    }
+    .btn-rastreo-neverpaid i {
+        font-size: 1.1rem;
+    }
+    .btn-rastreo-neverpaid:hover {
+        background: #ffe8cc;
+        color: #c2410c;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px rgba(232, 89, 12, 0.45);
+    }
+
     /* Billete volando */
     .billete {
         position: fixed;
@@ -1008,12 +1035,12 @@ if ($cuotasContratadas > 0) {
            width: 100%;
        }
 
-       .btn-notas, .btn-condonar, .btn-dictaminar {
+       .btn-notas, .btn-condonar, .btn-dictaminar, .btn-rastreo-neverpaid {
            width: 36px !important;
            height: 36px !important;
        }
 
-       .btn-notas i, .btn-condonar i, .btn-dictaminar i {
+       .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-rastreo-neverpaid i {
            font-size: 0.9rem !important;
        }
 
@@ -1516,6 +1543,26 @@ body:not(.dark-mode) .btn-notas:hover {
     background: #ffe69c !important;
     color: #d39e00 !important;
 }
+body:not(.dark-mode) .btn-rastreo-neverpaid {
+    background: #fff4e6 !important;
+    border: 1px solid #ffd8a8 !important;
+    color: #e8590c !important;
+}
+body:not(.dark-mode) .btn-rastreo-neverpaid:hover {
+    background: #ffe8cc !important;
+    color: #c2410c !important;
+}
+html.dark-mode .btn-rastreo-neverpaid,
+body.dark-mode .btn-rastreo-neverpaid {
+    background: rgba(251, 146, 60, 0.18) !important;
+    border: 1px solid rgba(251, 146, 60, 0.4) !important;
+    color: #fdba74 !important;
+}
+html.dark-mode .btn-rastreo-neverpaid:hover,
+body.dark-mode .btn-rastreo-neverpaid:hover {
+    background: rgba(251, 146, 60, 0.28) !important;
+    color: #fed7aa !important;
+}
 </style>
 <style>
 /* Pagos del Cliente: Pago, Sobrante, Aplicado, Contracargo (modo claro y oscuro) */
@@ -1948,52 +1995,41 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
             <h5 class="mb-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex gap-2">
-                <!-- BOTÓN DICTAMINAR -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
-                ): ?>
+                <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
                     <button type="button"
-                            class="btn btn-dictaminar position-relative"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalDictamen"
-                            title="Dictaminar llamada">
-                        <i class="fa fa-headset"></i>
+                            class="btn btn-rastreo-neverpaid position-relative"
+                            title="Rastreo"
+                            onclick='abrirRastreoNeverPaidModalEc(<?= json_encode((string)($dataEstadoCuenta['idCredito'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE) ?>)'>
+                        <i class="fa fa-id-card" aria-hidden="true"></i>
                     </button>
                 <?php endif; ?>
 
-                <!-- BOTÓN CONDONAR -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        (in_array((int)$_SESSION['departamento'], [2, 9], true)|| $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-condonar position-relative"
-                            title="Condonar gastos de cobranza"
-                            onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
-                        <i class="fa fa-hand-holding-usd"></i>
-                    </button>
-                <?php endif; ?>
+                <!-- Dictaminar, condonar y notas: visibles para todos; el backend valida permisos en cada acción. -->
+                <button type="button"
+                        class="btn btn-dictaminar position-relative"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalDictamen"
+                        title="Dictaminar llamada">
+                    <i class="fa fa-headset"></i>
+                </button>
 
-                <!-- BOTÓN NOTAS (ICONO) -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-notas position-relative"
-                            title="Notas del cliente"
-                            onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                <button type="button"
+                        class="btn btn-condonar position-relative"
+                        title="Condonar gastos de cobranza"
+                        onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                    <i class="fa fa-hand-holding-usd"></i>
+                </button>
 
-                        <i class="fa fa-sticky-note"></i>
-
-                        <span id="badgeNotas"
-                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-            <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
-        </span>
-                    </button>
-                <?php endif; ?>
-
+                <button type="button"
+                        class="btn btn-notas position-relative"
+                        title="Notas del cliente"
+                        onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                    <i class="fa fa-sticky-note"></i>
+                    <span id="badgeNotas"
+                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+                    </span>
+                </button>
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>
@@ -2223,7 +2259,16 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                                         <?php foreach ($aplicados as $pago): ?>
                                             <?php if (isset($pago['tipo']) && $pago['tipo'] === 'contracargo'): ?>
                                             <li>
-                                                <?php $etiquetaCargo = (!empty($pago['concepto_display']) && $pago['concepto_display'] === 'reembolso') ? 'Reembolso' : 'Contracargo'; ?>
+                                                <?php
+                                                $cdP = $pago['concepto_display'] ?? 'contracargo';
+                                                if ($cdP === 'reembolso') {
+                                                    $etiquetaCargo = 'Reembolso';
+                                                } elseif ($cdP === 'nccc') {
+                                                    $etiquetaCargo = 'Nota de cargo crédito';
+                                                } else {
+                                                    $etiquetaCargo = 'Contracargo';
+                                                }
+                                                ?>
                                                 <span class="contracargo-label"><?= htmlspecialchars($etiquetaCargo) ?>:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
                                             </li>
                                             <?php elseif (isset($pago['tipo']) && $pago['tipo'] === 'extemporaneos_resumen'): ?>
@@ -2287,7 +2332,15 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                                             $esReembolsoPorFecha = $esReembolsoPorFecha ?? [];
                                             $fechaNorm = $pago_fecha ? date('Y-m-d', strtotime($pago_fecha)) : '';
                                             $totalNotaCargo = ($hayNotasCargos && $fechaNorm !== '' && isset($notasCargoPorFecha[$fechaNorm])) ? (float)$notasCargoPorFecha[$fechaNorm] : 0;
-                                            $etiquetaCargoResidual = (!empty($esReembolsoPorFecha[$fechaNorm])) ? 'Reembolso' : 'Contracargo';
+                                            $tipoDisplayCargoPorFecha = $tipoDisplayCargoPorFecha ?? [];
+                                            $tdRes = $tipoDisplayCargoPorFecha[$fechaNorm] ?? 'contracargo';
+                                            if (!empty($esReembolsoPorFecha[$fechaNorm])) {
+                                                $etiquetaCargoResidual = 'Reembolso';
+                                            } elseif ($tdRes === 'nccc') {
+                                                $etiquetaCargoResidual = 'Nota de cargo crédito';
+                                            } else {
+                                                $etiquetaCargoResidual = 'Contracargo';
+                                            }
                                             if ($totalNotaCargo > 0 && empty($pago['no_cuenta_para_total_cuota'])): ?>
                                             <li><span class="contracargo-label"><?= htmlspecialchars($etiquetaCargoResidual) ?>:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
                                             <?php endif; ?>
@@ -2428,6 +2481,47 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
 
 
 </div>
+
+<?php if (!empty($tienePermisoRastreoNeverPaid)): ?>
+<?php require __DIR__ . '/partials/sabueso_rastreo___SPARTA_SECRET_REDACTED___bundle.php'; ?>
+<script>
+window.abrirRastreoNeverPaidModalEc = function (idCredito) {
+    var id = (idCredito != null && String(idCredito).trim() !== '') ? String(idCredito).trim() : '';
+    if (!id) return;
+    function intentar() {
+        var input = document.getElementById('inputConsultaIdCredito');
+        if (input) input.value = id;
+        if (typeof window.ejecutarConsultaCreditoIr === 'function') {
+            window.ejecutarConsultaCreditoIr();
+            return true;
+        }
+        return false;
+    }
+    if (intentar()) return;
+    var n = 0;
+    var t = setInterval(function () {
+        n++;
+        if (intentar() || n >= 80) clearInterval(t);
+    }, 50);
+};
+</script>
+<?php endif; ?>
+<?php
+$__ecJsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE;
+if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+    $__ecJsonFlags |= JSON_INVALID_UTF8_SUBSTITUTE;
+}
+$__gastosJson = json_encode($gastosCobranzaPreload ?? [], $__ecJsonFlags);
+$__histJson = json_encode($historialGastosPreload ?? [], $__ecJsonFlags);
+if ($__gastosJson === false) {
+    $__gastosJson = '[]';
+}
+if ($__histJson === false) {
+    $__histJson = '[]';
+}
+?>
+<script type="application/json" id="ec-gastos-cobranza-preload"><?= $__gastosJson ?></script>
+<script type="application/json" id="ec-historial-gastos-preload"><?= $__histJson ?></script>
 
 <div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true"
      data-bs-backdrop="false" data-bs-keyboard="true">
@@ -2813,9 +2907,17 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
 </div>
 
 <script>
-
-    const GASTOS_COBRANZA_PRELOAD  = <?= json_encode($gastosCobranzaPreload  ?? [], JSON_UNESCAPED_UNICODE) ?>;
-    const HISTORIAL_GASTOS_PRELOAD = <?= json_encode($historialGastosPreload ?? [], JSON_UNESCAPED_UNICODE) ?>;
+    function ecParsePreloadJsonScript(id) {
+        var el = document.getElementById(id);
+        if (!el) return [];
+        try {
+            return JSON.parse(el.textContent);
+        } catch (e) {
+            return [];
+        }
+    }
+    const GASTOS_COBRANZA_PRELOAD = ecParsePreloadJsonScript('ec-gastos-cobranza-preload');
+    const HISTORIAL_GASTOS_PRELOAD = ecParsePreloadJsonScript('ec-historial-gastos-preload');
 
     function actualizarContadorNotas() {
 

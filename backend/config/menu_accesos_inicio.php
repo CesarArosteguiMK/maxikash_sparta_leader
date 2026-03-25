@@ -17,7 +17,6 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/caphum/organigrama', 'label' => 'Organigrama', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [5]],
             ['url' => '/reporteria/callcenter', 'label' => 'Call Center', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [6, 14, 15]],
             ['url' => '/reporteria/primerospagos', 'label' => 'Primeros pagos', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [49]],
-            ['url' => '/reporteria/consultaIdCredito', 'label' => 'Never paid', 'icon' => 'fa-solid fa-id-card', 'bg' => 'bg-orange', 'modulos' => [29]],
             ['url' => '/reporteria/layoutlegacy', 'label' => 'Layout Legacy', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [7]],
             ['url' => '/reporteria/reporteCapitalHumano', 'label' => 'Capital Humano', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [21]],
             ['url' => '/sabueso/ticket', 'label' => 'Sabueso - Ticket', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [18]],
@@ -69,6 +68,10 @@ if (!function_exists('getRutasModulos')) {
                 $rutas[$path] = $row['modulos'];
             }
         }
+        // Rastreo (antes Never paid): sin ítem de menú; acceso desde Estado de cuenta (iframe) o URL directa.
+        $modsRastreoSinTicket = [18, 19, 29];
+        $rutas['reporteria/consultaidcredito'] = $modsRastreoSinTicket;
+        $rutas['reporteria/consultacreditorastreo'] = $modsRastreoSinTicket;
         return $rutas;
     }
 }

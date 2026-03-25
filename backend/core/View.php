@@ -4,6 +4,8 @@ $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
 $usuario = $_SESSION['nombre'] ?? 'Usuario';
 /** Si la vista lo define (p. ej. estado de cuenta), se omiten CSS/JS vendor masivos para acelerar carga */
 $layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
+/** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta reportería) */
+$layoutChromelessReporteriaEmbed = isset($layoutChromelessReporteriaEmbed) && $layoutChromelessReporteriaEmbed;
 
 // Cache-busting para CSS: mismo estilo en todos los navegadores (evita caché vieja en otros equipos)
 $__demoCss = realpath(__DIR__ . '/../../public/assets/css/demo.css');
@@ -124,11 +126,6 @@ function getMenu()
                                     'label' => 'Sabuesos',
                                     'url' => '/reporteria/sabuesos',
                                     'modulos' => [18, 19]
-                            ],
-                            [
-                                    'label' => 'Never paid',
-                                    'url' => '/reporteria/consultaIdCredito',
-                                    'modulos' => [29]
                             ],
                             [
                                     'label' => 'Layout Legacy',
@@ -458,9 +455,26 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
 
     <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="/assets/js/config.js"></script>
+    <?php if ($layoutChromelessReporteriaEmbed): ?>
+    <style id="layout-chromeless-reporteria-embed-css">
+        body.layout-chromeless-reporteria-embed .layout-menu,
+        body.layout-chromeless-reporteria-embed #layout-menu,
+        body.layout-chromeless-reporteria-embed .layout-navbar,
+        body.layout-chromeless-reporteria-embed .layout-overlay,
+        body.layout-chromeless-reporteria-embed .drag-target { display: none !important; }
+        body.layout-chromeless-reporteria-embed .layout-page { padding-top: 0 !important; }
+        body.layout-chromeless-reporteria-embed .layout-wrapper .layout-container { padding-left: 0 !important; }
+        body.layout-chromeless-reporteria-embed .content-wrapper .container-xxl {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            max-width: 100% !important;
+        }
+        body.layout-chromeless-reporteria-embed .content-wrapper { padding-bottom: 0 !important; }
+    </style>
+    <?php endif; ?>
 </head>
 
-<body>
+<body<?= $layoutChromelessReporteriaEmbed ? ' class="layout-chromeless-reporteria-embed"' : '' ?>>
     <script>(function(){var d=document,e=d.documentElement,b=d.body,v=localStorage.getItem('darkMode')==='enabled';if(v){e.classList.add('dark-mode');if(b)b.classList.add('dark-mode');}})();</script>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">

@@ -26,6 +26,26 @@ class EstadoCuenta extends Controller
     }
 
     /**
+     * Anexa el JS del panel Sabueso (solo consulta ID) al footer para abrir el modal de rastreo en la misma página.
+     */
+    private function appendRastreoSabuesoScriptSiAplica(string $scriptHtml, bool $tienePermiso): string
+    {
+        if (!$tienePermiso) {
+            return $scriptHtml;
+        }
+        try {
+            $extra = (new Sabueso())->getPaneladminScriptSoloConsultaParaEstadoCuenta();
+            if ($extra !== '') {
+                return $scriptHtml . $extra;
+            }
+        } catch (\Throwable $e) {
+            error_log('EstadoCuenta appendRastreoSabuesoScript: ' . $e->getMessage());
+        }
+
+        return $scriptHtml;
+    }
+
+    /**
      * Consultar documento genérico por tipo (FACTURA, VALIDACIONES, etc.) en oferta_documentos.
      * Usado por la 3ª forma de búsqueda de documentos en el script de estado de cuenta.
      */
@@ -55,6 +75,29 @@ class EstadoCuenta extends Controller
 
     private function esCargoAnticipoCapital(array $cargo): bool {
         return mb_strtoupper(trim((string) ($cargo["concepto"] ?? ""))) === 'ANTICIPO A CAPITAL';
+    }
+
+    /**
+     * Nota de cargo compuesta de crédito (NCCC): la API desglosa una misma operación en varias filas
+     * (capital, interés normal, comisión, resguardo) con la misma fecha. No confundir con gastos de
+     * cobranza, sobrecargo textual ni líneas CONTRACARGO/REEMBOLSO: va al mismo bucket por fecha
+     * que esas últimas para emparejar pago y recalcular cuotas.
+     */
+    private function esNotaCargoCompuestaCredito(string $conceptoUpper): bool
+    {
+        static $conceptosNccc = null;
+        if ($conceptosNccc === null) {
+            $conceptosNccc = [
+                'NOTA DE CARGO CONTRA CAPITAL',
+                'NOTA DE CARGO CONTRA INTERES NORMAL',
+                'NOTA DE CARGO CONTRA INTERÉS NORMAL',
+                'NOTA DE CARGO A COMISIÓN',
+                'NOTA DE CARGO A COMISION',
+                'NOTA DE CARGO POR RESGUARDO',
+            ];
+        }
+
+        return in_array(trim($conceptoUpper), $conceptosNccc, true);
     }
 
     /**
@@ -113,6 +156,79 @@ class EstadoCuenta extends Controller
                     $out[] = $sig;
                     $outSet[$sig] = true;
                 }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Añade a cuotas todos los idCargo de CUOTA SEMANAL posteriores al mayor id ya listado.
+     * Así el remanente (sobrante interno en pagos_list[].remaining) puede aplicarse en cargos
+     * siguientes aunque la distribución secuencial por API solo haya enlazado los primeros id.
+     */
+    private function expandCuotasSemanalesPosterioresParaSobrante(array $idCargos, array $cargosSorted): array {
+        if (empty($idCargos) || empty($cargosSorted)) {
+            return $idCargos;
+        }
+        $porId    = [];
+        $ordenIds = [];
+        foreach ($cargosSorted as $c) {
+            $idc = $this->safe_int($c["idCargo"] ?? 0);
+            if ($idc <= 0) {
+                continue;
+            }
+            $porId[$idc] = $c;
+            $ordenIds[]  = $idc;
+        }
+        $maxListed = 0;
+        foreach ($idCargos as $idc) {
+            $maxListed = max($maxListed, (int) $idc);
+        }
+        if ($maxListed <= 0) {
+            return $idCargos;
+        }
+        $anchorIdx = null;
+        for ($i = 0; $i < count($ordenIds); $i++) {
+            if ($ordenIds[$i] === $maxListed) {
+                $anchorIdx = $i;
+                break;
+            }
+        }
+        if ($anchorIdx === null) {
+            for ($i = count($ordenIds) - 1; $i >= 0; $i--) {
+                if ($ordenIds[$i] <= $maxListed) {
+                    $anchorIdx = $i;
+                    break;
+                }
+            }
+        }
+        if ($anchorIdx === null) {
+            return $idCargos;
+        }
+        $set = [];
+        $out = [];
+        foreach ($idCargos as $idc) {
+            $idc = (int) $idc;
+            if (!isset($set[$idc])) {
+                $out[]     = $idc;
+                $set[$idc] = true;
+            }
+        }
+        for ($i = $anchorIdx + 1; $i < count($ordenIds); $i++) {
+            $idc   = $ordenIds[$i];
+            $cargo = $porId[$idc] ?? null;
+            if ($cargo === null) {
+                continue;
+            }
+            if ($this->esCargoAnticipoCapital($cargo)) {
+                continue;
+            }
+            if (strpos(mb_strtoupper((string) ($cargo["concepto"] ?? "")), 'CUOTA SEMANAL') === false) {
+                continue;
+            }
+            if (!isset($set[$idc])) {
+                $out[]     = $idc;
+                $set[$idc] = true;
             }
         }
         return $out;
@@ -457,7 +573,7 @@ class EstadoCuenta extends Controller
     }
 
     /**
-     * Orden dentro de aplicados legítimos: primero líneas de pago (no sobrante), luego sobrantes reales, luego contracargo; cc_invalido primero como en PASO 10.
+     * Orden dentro de aplicados legítimos: primero sobrantes (remanente interno), luego pago principal, al final contracargo; cc_invalido primero.
      */
     private function tierOrdenAplicadoLegitimo(array $ap): int {
         if (!empty($ap["cc_invalido"])) {
@@ -467,9 +583,168 @@ class EstadoCuenta extends Controller
             return 3;
         }
         if (!empty($ap["es_sobrante"])) {
-            return 2;
+            return 1;
         }
-        return 1;
+        return 2;
+    }
+
+    /**
+     * Timestamp para ordenar fechas de registro/depósito (la API a veces manda d/m/Y y strtotime() falla o la interpreta mal).
+     */
+    private function timestampOrdenFecha($fr): int {
+        if ($fr === null || $fr === "") {
+            return 0;
+        }
+        $s = trim((string) $fr);
+        $t = strtotime($s);
+        if ($t !== false) {
+            return $t;
+        }
+        $dt = \DateTimeImmutable::createFromFormat("d/m/Y", $s);
+        if ($dt instanceof \DateTimeImmutable) {
+            return $dt->getTimestamp();
+        }
+        $dt2 = \DateTimeImmutable::createFromFormat("Y-m-d", $s);
+        if ($dt2 instanceof \DateTimeImmutable) {
+            return $dt2->getTimestamp();
+        }
+        $dt3 = \DateTimeImmutable::createFromFormat("d-m-Y", $s);
+        if ($dt3 instanceof \DateTimeImmutable) {
+            return $dt3->getTimestamp();
+        }
+        return 0;
+    }
+
+    private function fechaOrdenAplicado(array $ap): string {
+        return isset($ap["_sortDate"]) ? (string) $ap["_sortDate"] : (string) ($ap["fechaRegistro"] ?? "9999-99-99");
+    }
+
+    /** Día calendario (Y-m-d) para intercalar cargos con pagos en la misma cuota. */
+    private function diaCalendarioOrdenAplicado(array $ap): string {
+        $ts = $this->timestampOrdenFecha($this->fechaOrdenAplicado($ap));
+        if ($ts <= 0) {
+            return "";
+        }
+        return date("Y-m-d", $ts);
+    }
+
+    /**
+     * Fecha de la NOTA de cargo (movimiento) para intercalar en la línea de tiempo. No usar _sortDate del pago asociado:
+     * si se usa la fecha del depósito, varias notas quedan “ancladas” al último pago de la cuota y salen todos los pagos primero.
+     */
+    private function timestampNotaCargoParaIntercalacion(array $c): int {
+        return $this->timestampOrdenFecha((string) ($c["fechaRegistro"] ?? ""));
+    }
+
+    /**
+     * Orden dentro de la misma cuota (aplicados legítimos):
+     *
+     * PREFIJO — sobrantes de cuotas anteriores (es_sobrante=true), ordenados por fecha.
+     *           Los cc_invalido NO van al prefijo: quedan en el cuerpo para que la nota
+     *           quede pegada a ellos usando la búsqueda por idPago.
+     *
+     * CUERPO — cc_invalido + pagos regulares, ordenados solo por fecha.
+     *
+     * NOTAS  — filas tipo=contracargo, ordenadas por fecha del movimiento de la nota.
+     *          Para cada nota con id_pago_asociado=X, se sacan del cuerpo todos los pagos
+     *          anteriores hasta encontrar el primero con idPago=X; la nota se coloca justo
+     *          después de él. Si no hay match por idPago, la nota va al final del cuerpo.
+     *
+     * Resultado: prefijo + merge(cuerpo, notas)
+     */
+    private function intercalarLineasCargoCreditoEnAplicadosLegitimos(array $legitimos): array {
+        $cargos = [];
+        $otros  = [];
+        foreach ($legitimos as $ap) {
+            if (($ap["tipo"] ?? "") === "contracargo") {
+                $cargos[] = $ap;
+            } else {
+                $otros[] = $ap;
+            }
+        }
+
+        $cmpFecha = function ($a, $b) {
+            $fa = $this->timestampOrdenFecha($this->fechaOrdenAplicado($a));
+            $fb = $this->timestampOrdenFecha($this->fechaOrdenAplicado($b));
+            if ($fa !== $fb) {
+                return $fa <=> $fb;
+            }
+            $ida = (string) ($a["idPago"] ?? "");
+            $idb = (string) ($b["idPago"] ?? "");
+            if ($ida !== $idb) {
+                return strcmp($ida, $idb);
+            }
+            $aa = (float) ($a["aplicado"] ?? 0);
+            $ab = (float) ($b["aplicado"] ?? 0);
+            return $ab <=> $aa;
+        };
+
+        if (count($cargos) === 0) {
+            usort($otros, $cmpFecha);
+            $prefijo = [];
+            $cuerpo  = [];
+            foreach ($otros as $ap) {
+                if (!empty($ap["es_sobrante"])) {
+                    $prefijo[] = $ap;
+                } else {
+                    $cuerpo[] = $ap;
+                }
+            }
+            return array_merge($prefijo, $cuerpo);
+        }
+
+        $prefijo = [];
+        $cuerpo  = [];
+        foreach ($otros as $ap) {
+            if (!empty($ap["es_sobrante"])) {
+                $prefijo[] = $ap;
+            } else {
+                $cuerpo[] = $ap;
+            }
+        }
+        usort($prefijo, $cmpFecha);
+        usort($cuerpo,  $cmpFecha);
+        usort($cargos, function ($a, $b) {
+            return $this->timestampNotaCargoParaIntercalacion($a)
+                <=> $this->timestampNotaCargoParaIntercalacion($b);
+        });
+
+        $cola   = array_values($cuerpo);
+        $merged = [];
+        foreach ($cargos as $c) {
+            $idPC = (string) ($c["id_pago_asociado"] ?? "");
+            if ($idPC === "") {
+                $tN = $this->timestampNotaCargoParaIntercalacion($c);
+                while (count($cola) > 0) {
+                    $tP = $this->timestampOrdenFecha($this->fechaOrdenAplicado($cola[0]));
+                    if ($tN > 0 && $tP > 0 && $tP < $tN) {
+                        $merged[] = array_shift($cola);
+                        continue;
+                    }
+                    break;
+                }
+                $merged[] = $c;
+                continue;
+            }
+            $colocado = false;
+            while (count($cola) > 0) {
+                $idPP = (string) ($cola[0]["idPago"] ?? "");
+                if ($idPP === $idPC) {
+                    $merged[] = array_shift($cola);
+                    $merged[] = $c;
+                    $colocado = true;
+                    break;
+                }
+                $merged[] = array_shift($cola);
+            }
+            if (!$colocado) {
+                $merged[] = $c;
+            }
+        }
+        while (count($cola) > 0) {
+            $merged[] = array_shift($cola);
+        }
+        return array_merge($prefijo, $merged);
     }
 
     /**
@@ -492,28 +767,12 @@ class EstadoCuenta extends Controller
                     $legitimos[] = $ap;
                 }
             }
-            $sortFnLeg = function ($a, $b) {
-                $ta = $this->tierOrdenAplicadoLegitimo($a);
-                $tb = $this->tierOrdenAplicadoLegitimo($b);
-                if ($ta !== $tb) {
-                    return $ta <=> $tb;
-                }
-                $fa = isset($a["_sortDate"]) ? $a["_sortDate"] : ($a["fechaRegistro"] ?? "9999-99-99");
-                $fb = isset($b["_sortDate"]) ? $b["_sortDate"] : ($b["fechaRegistro"] ?? "9999-99-99");
-                $cmp = strtotime((string) $fa) <=> strtotime((string) $fb);
-                if ($cmp !== 0) {
-                    return $cmp;
-                }
-                $ordA = !empty($a["cc_invalido"]) ? 0 : ((isset($a["tipo"]) && $a["tipo"] === "contracargo") ? 2 : 1);
-                $ordB = !empty($b["cc_invalido"]) ? 0 : ((isset($b["tipo"]) && $b["tipo"] === "contracargo") ? 2 : 1);
-                return $ordA <=> $ordB;
-            };
+            $legitimos = $this->intercalarLineasCargoCreditoEnAplicadosLegitimos($legitimos);
             $sortFnInf = function ($a, $b) {
                 $fa = isset($a["_sortDate"]) ? $a["_sortDate"] : ($a["fechaRegistro"] ?? "9999-99-99");
                 $fb = isset($b["_sortDate"]) ? $b["_sortDate"] : ($b["fechaRegistro"] ?? "9999-99-99");
                 return strtotime((string) $fa) <=> strtotime((string) $fb);
             };
-            usort($legitimos, $sortFnLeg);
             usort($informativos, $sortFnInf);
             $fila["aplicados"] = array_merge($informativos, $legitimos);
         }
@@ -532,6 +791,10 @@ class EstadoCuenta extends Controller
     {
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
         $modulosActuales = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
+        $modsSesionConsulta = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        // Mismo permiso especial que el antiguo acceso «Never paid» (módulo 29).
+        $tienePermisoRastreoNeverPaid = ($idUsuario === 1) || in_array(29, $modsSesionConsulta, true);
+        self::set('tienePermisoRastreoNeverPaid', $tienePermisoRastreoNeverPaid);
         $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
         $tienePermisoFechaCorte = in_array(23, $modulosActuales);
         // --- JS COMPLETO EN EL CONTROLADOR ---
@@ -892,7 +1155,42 @@ JS;
 
                 // Lista de idCargo que este pago toca (orden: primero id en numeroCuotaSemanal).
                 $idsCuotaApi = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
-                $cuotas = $idsCuotaApi;
+                $idsCuotaApi = (count($idsCuotaApi) > 1) ? [$idsCuotaApi[0]] : $idsCuotaApi;
+                $primerIdCargoApi = !empty($idsCuotaApi) ? $this->safe_int($idsCuotaApi[0], 0) : 0;
+                $soloGcDeposito = $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
+                // Todo extemporáneo (sin monto a capital/interés en la cuota): la API lo lista pero no genera aplicados; se inyecta para la UI.
+                $soloExtInyectar = ($monto_real <= 0.02 && $extemporaneos > 0.009 && $primerIdCargoApi > 0);
+
+                // Distribución secuencial solo al “entrar” el pago del API (varios id en numeroCuotaSemanal).
+                // El remanente interno (remaining en el bucle de cargos) no pasa por esto: luego se amplían cuotas hacia delante.
+                if (count($idsCuotaApi) > 1 && $monto_real > 0.02) {
+                    $montoPorIdCargo = [];
+                    foreach ($cargos as $cRep) {
+                        $idcM = $this->safe_int($cRep["idCargo"] ?? 0);
+                        if ($idcM > 0) {
+                            $montoPorIdCargo[$idcM] = round($this->safe_float($cRep["monto"] ?? 0), 2);
+                        }
+                    }
+                    $disponible = round($monto_real, 2);
+                    $cuotas = [];
+                    foreach ($idsCuotaApi as $idcRaw) {
+                        $idcCur = (int) $idcRaw;
+                        if ($disponible <= 0.009) {
+                            break;
+                        }
+                        $necesita = round((float) ($montoPorIdCargo[$idcCur] ?? 0), 2);
+                        if ($necesita <= 0.009) {
+                            continue;
+                        }
+                        $aplicarSeq = min($disponible, $necesita);
+                        if ($aplicarSeq > 0.009) {
+                            $cuotas[] = $idcCur;
+                            $disponible = round($disponible - $aplicarSeq, 2);
+                        }
+                    }
+                } else {
+                    $cuotas = $idsCuotaApi;
+                }
                 // Si el API dice 27,28 y 28 es ANTICIPO, el sobrante debe poder ir a la siguiente CUOTA SEMANAL (p. ej. id 29).
                 $cuotas = $this->expandIdCargosTrasAnticipos($cuotas, $cargos);
                 if ($maxIdCargoEnCargos > 0 && !empty($cuotas)) {
@@ -901,11 +1199,9 @@ JS;
                         $cuotas[] = $maxIdCargoEnCargos;
                     }
                 }
-
-                $primerIdCargoApi = !empty($idsCuotaApi) ? $this->safe_int($idsCuotaApi[0], 0) : 0;
-                $soloGcDeposito = $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
-                // Todo extemporáneo (sin monto a capital/interés en la cuota): la API lo lista pero no genera aplicados; se inyecta para la UI.
-                $soloExtInyectar = ($monto_real <= 0.02 && $extemporaneos > 0.009 && $primerIdCargoApi > 0);
+                if ($monto_real > 0.02 && !$soloGcDeposito && !$soloExtInyectar) {
+                    $cuotas = $this->expandCuotasSemanalesPosterioresParaSobrante($cuotas, $cargos);
+                }
 
                 $pagos_list[] = [
                     "idPago"              => $p["idPago"] ?? null,
@@ -1066,9 +1362,11 @@ JS;
             // extemporáneos en datosPagos puede incluir gasto cobranza + contracargo; aquí se separa por concepto:
             // - GASTO(S) DE COBRANZA → solo acumulamos por fecha (para no descontar dos veces el CC del pool).
             // - CONTRACARGO / REEMBOLSO → flujo de emparejamiento con pagos por fechaMovimiento/fechaVencimiento.
+            // - NCCC (nota de cargo compuesta de crédito: capital+interés+comisión+resguardo) → misma suma por fecha que contracargo.
             $notasCargoPorFecha = [];
             $gastoCobranzaPorFecha = [];
             $esReembolsoPorFecha = [];
+            $tuvoContracargoTextoPorFecha = [];
             $hayNotasCargos = false;
             $listaNotasCargos = $estadoCuenta['datosNotasCargos'] ?? [];
 
@@ -1113,7 +1411,8 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
 
                     $esContracargo = strpos($conceptoUpper, 'CONTRACARGO') !== false;
                     $esReembolso = strpos($conceptoUpper, 'REEMBOLSO') !== false;
-                    if (!$esContracargo && !$esReembolso) {
+                    $esNccc = $this->esNotaCargoCompuestaCredito($conceptoUpper);
+                    if (!$esContracargo && !$esReembolso && !$esNccc) {
                         continue;
                     }
 
@@ -1124,6 +1423,9 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                     if ($esReembolso) {
                         $esReembolsoPorFecha[$fechaNorm] = true;
                     }
+                    if ($esContracargo) {
+                        $tuvoContracargoTextoPorFecha[$fechaNorm] = true;
+                    }
                 }
                 foreach (array_keys($notasCargoPorFecha) as $k) {
                     $notasCargoPorFecha[$k] = round($notasCargoPorFecha[$k], 2);
@@ -1133,14 +1435,24 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 }
                 $hayNotasCargos = array_sum($notasCargoPorFecha) > 0;
             }
+            $tipoDisplayCargoPorFecha = [];
+            foreach (array_keys($notasCargoPorFecha) as $fn) {
+                if (!empty($esReembolsoPorFecha[$fn])) {
+                    $tipoDisplayCargoPorFecha[$fn] = 'reembolso';
+                } elseif (!empty($tuvoContracargoTextoPorFecha[$fn])) {
+                    $tipoDisplayCargoPorFecha[$fn] = 'contracargo';
+                } else {
+                    $tipoDisplayCargoPorFecha[$fn] = 'nccc';
+                }
+            }
             // ═══════════════════════════════════════════════════════════════════════════════
             // BLOQUE DE CONTRACARGOS — NO MODIFICAR SIN REVISIÓN EXHAUSTIVA
             // Lachy dedicó mucho esfuerzo a que este flujo funcione correctamente en todos los casos.
             // Cualquier cambio puede romper emparejamiento, sobrantes y fechas de cierre.
             // ═══════════════════════════════════════════════════════════════════════════════
             // Post-process contracargos: reconstruir flujo de pagos.
-            // Las notas de cargo vienen desglosadas (capital, interés, comisión, resguardo)
-            // pero representan UN contracargo por fecha. Se usa notasCargoPorFecha (sumado)
+            // Las notas de cargo vienen desglosadas (capital, interés, comisión, resguardo = NCCC)
+            // o como CONTRACARGO/REEMBOLSO; por fecha suman UN monto. Se usa notasCargoPorFecha (sumado)
             // para emparejar cada fecha con el pago revertido, y se redistribuye el dinero
             // legítimo desde la cuota más antigua con déficit.
             if ($hayNotasCargos && !empty($tabla)) {
@@ -1352,6 +1664,12 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                     }
                 }
 
+                foreach ($ccMarkers as &$mkCc) {
+                    $fkCc = $mkCc['fecha'] ?? '';
+                    $mkCc['tipoDisplay'] = $tipoDisplayCargoPorFecha[$fkCc] ?? 'contracargo';
+                }
+                unset($mkCc);
+
                 if (!empty($idPagosCC)) {
                     // Monto total de contracargo por idPago (varios markers pueden apuntar al mismo pago)
                     $montoContracargoPorPago = [];
@@ -1435,7 +1753,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                         ];
                     }
                     usort($pool, function ($a, $b) {
-                        return strtotime($a['fechaRegistro']) <=> strtotime($b['fechaRegistro']);
+                        return $this->timestampOrdenFecha($a["fechaRegistro"] ?? null) <=> $this->timestampOrdenFecha($b["fechaRegistro"] ?? null);
                     });
 
                     // ── PASO 6: Re-aplicar pagos legítimos desde la cuota más antigua ──
@@ -1585,13 +1903,23 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                             $ccFechaReg = $mk['fecha'];
                         }
 
+                        $tdMk = $mk['tipoDisplay'] ?? 'contracargo';
+                        if (!empty($mk['esReembolso'])) {
+                            $conceptoDispCc = 'reembolso';
+                        } elseif ($tdMk === 'nccc') {
+                            $conceptoDispCc = 'nccc';
+                        } else {
+                            $conceptoDispCc = 'contracargo';
+                        }
+
                         $tabla[$targetCuota]['aplicados'][] = [
-                            'tipo'            => 'contracargo',
-                            'montoPago'       => $mk['monto'],
-                            'aplicado'        => $mk['monto'],
-                            'fechaRegistro'   => $mk['fecha'],
-                            '_sortDate'       => $ccFechaReg,
-                            'concepto_display'=> !empty($mk['esReembolso']) ? 'reembolso' : 'contracargo',
+                            'tipo'              => 'contracargo',
+                            'montoPago'         => $mk['monto'],
+                            'aplicado'          => $mk['monto'],
+                            'fechaRegistro'     => $mk['fecha'],
+                            '_sortDate'         => $ccFechaReg,
+                            'id_pago_asociado'  => (string) $idPCC,
+                            'concepto_display'  => $conceptoDispCc,
                         ];
                     }
 
@@ -1608,18 +1936,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                         $tabla[$ci]['pendiente'] = round(max($tabla[$ci]['monto_cargo'] - $total, 0), 2);
                     }
 
-                    // ── PASO 10: Ordenar aplicados (pago primero, luego contracargo/reembolso, por fecha) ──
-                    for ($ci = $primeraCuota; $ci < count($tabla); $ci++) {
-                        usort($tabla[$ci]['aplicados'], function ($a, $b) {
-                            $fa = isset($a['_sortDate']) ? $a['_sortDate'] : ($a['fechaRegistro'] ?? '9999-99-99');
-                            $fb = isset($b['_sortDate']) ? $b['_sortDate'] : ($b['fechaRegistro'] ?? '9999-99-99');
-                            $cmp = strtotime($fa) <=> strtotime($fb);
-                            if ($cmp !== 0) return $cmp;
-                            $ordA = !empty($a['cc_invalido']) ? 0 : ((isset($a['tipo']) && $a['tipo'] === 'contracargo') ? 2 : 1);
-                            $ordB = !empty($b['cc_invalido']) ? 0 : ((isset($b['tipo']) && $b['tipo'] === 'contracargo') ? 2 : 1);
-                            return $ordA <=> $ordB;
-                        });
-                    }
+                    // Orden final de aplicados: ordenarAplicadosExtemporaneosAntesDeLegitimos (intercala cargo/reembolso)
 
                     // Descontar montos consumidos de notasCargoPorFecha
                     foreach ($ccMarkers as $mk) {
@@ -1633,6 +1950,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
             self::set("notasCargoPorFecha", $notasCargoPorFecha);
             self::set("gastoCobranzaPorFecha", $gastoCobranzaPorFecha ?? []);
             self::set("esReembolsoPorFecha", $esReembolsoPorFecha ?? []);
+            self::set("tipoDisplayCargoPorFecha", $tipoDisplayCargoPorFecha ?? []);
             self::set("hayNotasCargos", $hayNotasCargos);
 
             $this->inyectarDepositosSoloGastoCobranza($tabla, $pagos_list);
@@ -1651,6 +1969,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("notasCargoPorFecha", []);
                 self::set("gastoCobranzaPorFecha", []);
                 self::set("esReembolsoPorFecha", []);
+                self::set("tipoDisplayCargoPorFecha", []);
                 self::set("hayNotasCargos", false);
                 return self::render("__SPARTA_SECRET_REDACTED___request");
             }
@@ -1662,6 +1981,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("notasCargoPorFecha", []);
                 self::set("gastoCobranzaPorFecha", []);
                 self::set("esReembolsoPorFecha", []);
+                self::set("tipoDisplayCargoPorFecha", []);
                 self::set("hayNotasCargos", false);
 
                 return self::render("__SPARTA_SECRET_REDACTED___request");
@@ -1677,7 +1997,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("titulo", "Resultado de la solicitud");
                 $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
                 $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
-                self::set("script", $scriptConPermiso);
+                self::set("script", $this->appendRastreoSabuesoScriptSiAplica($scriptConPermiso, $tienePermisoRastreoNeverPaid));
                 self::set("tabla", $tabla);
 
                 return self::render("__SPARTA_SECRET_REDACTED___request");
@@ -5314,6 +5634,11 @@ public function Guatemala()
                     $debugCroop['error'] = 'pkeyCredito es null — no se llamó a CROOP';
                 }
 
+                $idUsuarioGt = (int) ($_SESSION['usuario_id'] ?? 0);
+                $modsSesionGt = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+                $tienePermisoRastreoNeverPaidGt = ($idUsuarioGt === 1) || in_array(29, $modsSesionGt, true);
+                self::set('tienePermisoRastreoNeverPaid', $tienePermisoRastreoNeverPaidGt);
+
                 self::set("titulo", "Estado de Cuenta - Guatemala");
                 self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
                 self::set("referencias", []);
@@ -5322,6 +5647,8 @@ public function Guatemala()
                 self::set("apiAmortizacion", $apiAmortizacion);
                 self::set("apiPagos", $apiPagos);
                 self::set("debugCroop", $debugCroop);
+                $scriptGt = $this->appendRastreoSabuesoScriptSiAplica('', $tienePermisoRastreoNeverPaidGt);
+                self::set('script', $scriptGt);
                 return self::render("__SPARTA_SECRET_REDACTED___guatemala");
             }
 
