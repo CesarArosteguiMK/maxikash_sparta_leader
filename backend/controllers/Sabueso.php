@@ -1754,6 +1754,68 @@ class Sabueso extends Controller
                         });
                         return out;
                     }
+                    function reporteRsNormalizeBusqueda(s) {
+                        try {
+                            var t = String(s || '').toLowerCase();
+                            if (typeof t.normalize === 'function') {
+                                t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                            }
+                            return t.replace(/\s+/g, ' ').trim();
+                        } catch (eRepNorm) {
+                            return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                        }
+                    }
+                    function reporteSemanalFiltrosHtml() {
+                        if (!filas.length) {
+                            return '';
+                        }
+                        var glist = [];
+                        var seenG = {};
+                        filas.forEach(function(f) {
+                            var gid = f.id_gestor != null ? parseInt(f.id_gestor, 10) : 0;
+                            if (gid > 0 && !seenG[gid]) {
+                                seenG[gid] = true;
+                                glist.push({ id: gid, name: (f.nombre_gestor || '').trim() });
+                            }
+                        });
+                        glist.sort(function(a, b) {
+                            return (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' });
+                        });
+                        var gestOpts = '<option value="">Todos los gestores</option>';
+                        glist.forEach(function(x) {
+                            gestOpts += '<option value="' + x.id + '">' + attrEsc(x.name || ('ID ' + x.id)) + '</option>';
+                        });
+                        return '<div class="estad-rs-filtros-wrap border rounded-2 px-2 py-2 mb-2" style="background:rgba(var(--bs-primary-rgb),0.05);" id="reporteSemanalFiltrosWrap">' +
+                            '<div class="d-flex flex-wrap align-items-center gap-2 mb-2">' +
+                            '<span class="text-muted small fw-semibold"><i class="fa-solid fa-filter me-1"></i>Filtros</span>' +
+                            '<span class="text-muted small d-none d-lg-inline">Los KPI siguen siendo de la semana completa; aqu\u00ed se acota la tabla.</span>' +
+                            '</div>' +
+                            '<div class="row g-2 align-items-end">' +
+                            '<div class="col-6 col-md-4 col-lg-2">' +
+                            '<label class="form-label small text-muted mb-0" for="filtroRsIlocalizable">Ilocalizable</label>' +
+                            '<select id="filtroRsIlocalizable" class="form-select form-select-sm">' +
+                            '<option value="">Todos</option><option value="1">S\u00ed</option><option value="0">No</option></select></div>' +
+                            '<div class="col-6 col-md-4 col-lg-2">' +
+                            '<label class="form-label small text-muted mb-0" for="filtroRsPagoSemana">Pago en semana</label>' +
+                            '<select id="filtroRsPagoSemana" class="form-select form-select-sm">' +
+                            '<option value="">Todos</option><option value="si">S\u00ed</option>' +
+                            '<option value="no">No (EC verificado)</option><option value="no_verif">No verificado (EC)</option></select></div>' +
+                            '<div class="col-6 col-md-4 col-lg-2">' +
+                            '<label class="form-label small text-muted mb-0" for="filtroRsTipoContacto">Contacto</label>' +
+                            '<select id="filtroRsTipoContacto" class="form-select form-select-sm">' +
+                            '<option value="">Todos</option><option value="campo">Campo</option><option value="telefonica">Telef\u00f3nica</option><option value="otro">Sin dato</option></select></div>' +
+                            '<div class="col-6 col-md-4 col-lg-2">' +
+                            '<label class="form-label small text-muted mb-0" for="filtroRsGestor">Gestor</label>' +
+                            '<select id="filtroRsGestor" class="form-select form-select-sm">' + gestOpts + '</select></div>' +
+                            '<div class="col-12 col-md-8 col-lg-3">' +
+                            '<label class="form-label small text-muted mb-0" for="filtroRsBuscar">Buscar</label>' +
+                            '<input type="search" id="filtroRsBuscar" class="form-control form-control-sm" placeholder="Folio, ticket, cr\u00e9dito, cliente, gestor\u2026" autocomplete="off"></div>' +
+                            '<div class="col-12 col-lg-1 d-flex align-items-end">' +
+                            '<button type="button" class="btn btn-outline-secondary btn-sm w-100" id="btnRsLimpiarFiltros" title="Quitar filtros">Limpiar</button></div>' +
+                            '</div>' +
+                            '<div class="small text-muted mt-2 mb-0" id="filtroRsContador"></div>' +
+                            '</div>';
+                    }
                     function tableRowsHtml() {
                         if (!filas.length) {
                             return '<tr><td colspan="11" class="text-center text-muted py-3">Sin tickets en la semana seleccionada.</td></tr>';
@@ -1764,10 +1826,25 @@ class Sabueso extends Controller
                             var consultadoPs = f.pago_semana_consultado === true || f.pago_semana_consultado === 1 || f.pago_semana_consultado === '1';
                             var siPs = f.pago_semana_si === true || f.pago_semana_si === 1 || f.pago_semana_si === '1';
                             var il = f.ilocalizable === true || f.ilocalizable === 1 || f.ilocalizable === '1';
+                            var tipoAttr = 'otro';
+                            if (f.tipo_contacto === 'Campo') {
+                                tipoAttr = 'campo';
+                            } else if (f.tipo_contacto === 'Telefónica') {
+                                tipoAttr = 'telefonica';
+                            }
+                            var idGstr = (f.id_gestor != null && parseInt(f.id_gestor, 10) > 0) ? String(parseInt(f.id_gestor, 10)) : '';
+                            var searchBlob = reporteRsNormalizeBusqueda([
+                                f.folio || '',
+                                String(idT),
+                                f.id_credito != null ? String(f.id_credito) : '',
+                                idGstr,
+                                f.nombre_cliente || '',
+                                f.nombre_gestor || ''
+                            ].join(' '));
                             var cliente = '<div>' + attrEsc(f.nombre_cliente || '—') + '</div><div class="text-muted small">ID ' + (f.id_credito != null ? f.id_credito : '—') + '</div>';
                             var gestor = '<div>' + attrEsc(f.nombre_gestor || '—') + '</div><div class="text-muted small">ID ' + (f.id_gestor != null ? f.id_gestor : '—') + '</div>';
                             var tipoContactoTxt = (f.tipo_contacto === 'Campo') ? '<span class="text-primary fw-semibold">Campo</span>' : ((f.tipo_contacto === 'Telefónica') ? '<span class="text-info fw-semibold">Telefónica</span>' : '<span class="text-muted">—</span>');
-                            out += '<tr data-id-ticket="' + idT + '" data-pago-consultado="' + (consultadoPs ? '1' : '0') + '" data-pago-si="' + (siPs ? '1' : '0') + '" data-ilocalizable="' + (il ? '1' : '0') + '">' +
+                            out += '<tr data-id-ticket="' + idT + '" data-id-gestor="' + attrEsc(idGstr) + '" data-tipo-contacto="' + tipoAttr + '" data-search="' + attrEsc(searchBlob) + '" data-pago-consultado="' + (consultadoPs ? '1' : '0') + '" data-pago-si="' + (siPs ? '1' : '0') + '" data-ilocalizable="' + (il ? '1' : '0') + '">' +
                                 '<td class="fw-medium">' + attrEsc(f.folio || '—') + '</td>' +
                                 '<td>' + cliente + '</td>' +
                                 '<td>' + gestor + '</td>' +
@@ -1798,6 +1875,7 @@ class Sabueso extends Controller
                         '</div></div>' +
                         '<div id="reporteSemanalBlockTabla">' +
                         resumenKpisHtml() +
+                        reporteSemanalFiltrosHtml() +
                         '<div class="estad-modal-detalle-table-wrap table-responsive">' +
                         '<table class="table table-sm table-bordered text-start mb-0 table-reporte-semanal-global">' +
                         '<thead><tr>' +
@@ -1817,12 +1895,128 @@ class Sabueso extends Controller
                         'Ilocalizable: por defecto el sistema aplica la regla (dictamen ILOCALIZABLE / <code>dictamen_ilocalizable</code> / todas las direcciones + sin pago en semana con EC consultado). La columna es <strong>editable</strong> (Automático / Sí / No); el valor se guarda en el reporte de esa semana. La <strong>extensi\u00f3n</strong> (Pr\u00f3rroga o Intensidad) no condiciona la regla de direcciones+pago.' +
                         '</div></div>' +
                         '<div id="reporteSemanalBlockGraficas" class="d-none">' +
-                        '<p class="text-muted small mb-2"><i class="fa-solid fa-chart-column me-1"></i>Mismos datos del resumen y del detalle, en distintos tipos de gráfico.</p>' +
+                        '<p class="text-muted small mb-2"><i class="fa-solid fa-chart-column me-1"></i>Mismos datos del resumen y del detalle (semana completa; los filtros de la tabla no aplican aqu\u00ed), en distintos tipos de gráfico.</p>' +
                         '<div id="reporteSemanalGraficasWrap"></div>' +
                         '</div></div>';
                     bodyEl2.className = 'p-0';
                     bodyEl2.innerHTML = html;
                     initTooltipsReporteSemanalModal();
+                    (function bindReporteSemanalFiltrosUi() {
+                        function aplicarFiltrosReporteSemanal() {
+                            var tbody = document.getElementById('tbodyReporteSemanalGlobal');
+                            var cnt = document.getElementById('filtroRsContador');
+                            if (!tbody || !filas.length) {
+                                if (cnt) {
+                                    cnt.textContent = '';
+                                }
+                                return;
+                            }
+                            var filIl = document.getElementById('filtroRsIlocalizable');
+                            var filPs = document.getElementById('filtroRsPagoSemana');
+                            var filTc = document.getElementById('filtroRsTipoContacto');
+                            var filG = document.getElementById('filtroRsGestor');
+                            var filBus = document.getElementById('filtroRsBuscar');
+                            var vIl = filIl ? filIl.value : '';
+                            var vPs = filPs ? filPs.value : '';
+                            var vTc = filTc ? filTc.value : '';
+                            var vG = filG ? filG.value : '';
+                            var q = reporteRsNormalizeBusqueda(filBus ? (filBus.value || '').trim() : '');
+                            var rows = tbody.querySelectorAll('tr[data-id-ticket]');
+                            var totalD = filas.length;
+                            var vis = 0;
+                            rows.forEach(function(tr) {
+                                var ok = true;
+                                if (vIl === '1' && tr.getAttribute('data-ilocalizable') !== '1') {
+                                    ok = false;
+                                }
+                                if (vIl === '0' && tr.getAttribute('data-ilocalizable') === '1') {
+                                    ok = false;
+                                }
+                                var cPs = tr.getAttribute('data-pago-consultado') === '1';
+                                var siPs = tr.getAttribute('data-pago-si') === '1';
+                                if (vPs === 'si' && !siPs) {
+                                    ok = false;
+                                }
+                                if (vPs === 'no' && (!cPs || siPs)) {
+                                    ok = false;
+                                }
+                                if (vPs === 'no_verif' && cPs) {
+                                    ok = false;
+                                }
+                                if (vTc && (tr.getAttribute('data-tipo-contacto') || 'otro') !== vTc) {
+                                    ok = false;
+                                }
+                                if (vG && String(tr.getAttribute('data-id-gestor') || '') !== vG) {
+                                    ok = false;
+                                }
+                                if (q) {
+                                    var hay = tr.getAttribute('data-search') || '';
+                                    if (hay.indexOf(q) === -1) {
+                                        ok = false;
+                                    }
+                                }
+                                tr.style.display = ok ? '' : 'none';
+                                if (ok) {
+                                    vis++;
+                                }
+                            });
+                            if (cnt) {
+                                cnt.textContent = 'Mostrando ' + vis + ' de ' + totalD + ' filas.';
+                            }
+                        }
+                        window._reporteSemanalAplicarFiltros = aplicarFiltrosReporteSemanal;
+                        var filIl = document.getElementById('filtroRsIlocalizable');
+                        var filPs = document.getElementById('filtroRsPagoSemana');
+                        var filTc = document.getElementById('filtroRsTipoContacto');
+                        var filG = document.getElementById('filtroRsGestor');
+                        var filBus = document.getElementById('filtroRsBuscar');
+                        var btnLim = document.getElementById('btnRsLimpiarFiltros');
+                        if (!filIl && !filBus) {
+                            return;
+                        }
+                        if (filIl) {
+                            filIl.onchange = aplicarFiltrosReporteSemanal;
+                        }
+                        if (filPs) {
+                            filPs.onchange = aplicarFiltrosReporteSemanal;
+                        }
+                        if (filTc) {
+                            filTc.onchange = aplicarFiltrosReporteSemanal;
+                        }
+                        if (filG) {
+                            filG.onchange = aplicarFiltrosReporteSemanal;
+                        }
+                        var tBus = null;
+                        if (filBus) {
+                            filBus.oninput = function() {
+                                if (tBus) {
+                                    clearTimeout(tBus);
+                                }
+                                tBus = setTimeout(aplicarFiltrosReporteSemanal, 200);
+                            };
+                        }
+                        if (btnLim) {
+                            btnLim.onclick = function() {
+                                if (filIl) {
+                                    filIl.value = '';
+                                }
+                                if (filPs) {
+                                    filPs.value = '';
+                                }
+                                if (filTc) {
+                                    filTc.value = '';
+                                }
+                                if (filG) {
+                                    filG.value = '';
+                                }
+                                if (filBus) {
+                                    filBus.value = '';
+                                }
+                                aplicarFiltrosReporteSemanal();
+                            };
+                        }
+                        aplicarFiltrosReporteSemanal();
+                    })();
                     function reporteRsRowKpiContrib(tr) {
                         var c = tr.getAttribute('data-pago-consultado') === '1';
                         var i = tr.getAttribute('data-ilocalizable') === '1';
@@ -1894,6 +2088,9 @@ class Sabueso extends Controller
                                     reporteRsBumpKpi('localizable', newContrib.localizable - oldContrib.localizable);
                                     reporteRsBumpKpi('ilocalizable', newContrib.ilocalizable - oldContrib.ilocalizable);
                                     reporteRsBumpKpi('pago_semana', newContrib.pago_semana - oldContrib.pago_semana);
+                                    if (typeof window._reporteSemanalAplicarFiltros === 'function') {
+                                        window._reporteSemanalAplicarFiltros();
+                                    }
                                 },
                                 onError: function() {
                                     btn.innerHTML = prevHtml;
@@ -1940,6 +2137,9 @@ class Sabueso extends Controller
                                     var newC = reporteRsRowKpiContrib(tr);
                                     reporteRsBumpKpi('ilocalizable', newC.ilocalizable - oldC.ilocalizable);
                                     reporteRsBumpKpi('localizable', newC.localizable - oldC.localizable);
+                                    if (typeof window._reporteSemanalAplicarFiltros === 'function') {
+                                        window._reporteSemanalAplicarFiltros();
+                                    }
                                 },
                                 onError: function() {
                                     sel.disabled = false;
