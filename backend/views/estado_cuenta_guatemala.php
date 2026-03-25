@@ -578,7 +578,7 @@ console.groupEnd();
         opacity: 1 !important;
     }
 
-    .btn-dictaminar, .btn-condonar, .btn-notas {
+    .btn-dictaminar, .btn-condonar, .btn-notas, .btn-rastreo-neverpaid {
         display: flex !important;
         visibility: visible !important;
     }
@@ -697,6 +697,10 @@ console.groupEnd();
     .btn-dictaminar i { font-size: 1.1rem; }
     .btn-dictaminar:hover { background: #cfe2ff; color: #084298; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(13,110,253,.55); }
 
+    .btn-rastreo-neverpaid { width: 42px; height: 42px; border-radius: 50%; background: #fff4e6; border: 1px solid #ffd8a8; color: #e8590c; display: flex !important; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(232, 89, 12, 0.3); transition: all .25s ease; text-decoration: none !important; padding: 0; }
+    .btn-rastreo-neverpaid i { font-size: 1.1rem; }
+    .btn-rastreo-neverpaid:hover { background: #ffe8cc; color: #c2410c; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(232, 89, 12, 0.45); }
+
     #modalDirecciones { z-index: 1090 !important; }
     #modalDirecciones .modal-dialog { z-index: 1091 !important; margin: 1.75rem auto !important; }
     .modal-backdrop.show { opacity: 0.5 !important; background: rgba(0, 0, 0, 0.5) !important; }
@@ -717,8 +721,8 @@ console.groupEnd();
         .badge-container-ids .badge { font-size: 0.65rem !important; padding: 0.35em 0.5em !important; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 { flex-direction: column; align-items: flex-start; margin-bottom: 0.75rem !important; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 { font-size: 0.85rem; margin-bottom: 0.5rem; width: 100%; }
-        .btn-notas, .btn-condonar, .btn-dictaminar { width: 36px !important; height: 36px !important; }
-        .btn-notas i, .btn-condonar i, .btn-dictaminar i { font-size: 0.9rem !important; }
+        .btn-notas, .btn-condonar, .btn-dictaminar, .btn-rastreo-neverpaid { width: 36px !important; height: 36px !important; }
+        .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-rastreo-neverpaid i { font-size: 0.9rem !important; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { flex: 1 1 calc(50% - 0.5rem); margin-bottom: 0.5rem; gap: 0.5rem; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 { font-size: 0.8rem; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span { font-size: 0.7rem; }
@@ -817,6 +821,12 @@ body:not(.dark-mode) .btn-condonar { background: #e6f4ea !important; border: 1px
 body:not(.dark-mode) .btn-condonar:hover { background: #c8ead3 !important; color: #1e7e34 !important; }
 body:not(.dark-mode) .btn-notas { background: #fff3cd !important; border: 1px solid #ffecb5 !important; color: #f0ad4e !important; }
 body:not(.dark-mode) .btn-notas:hover { background: #ffe69c !important; color: #d39e00 !important; }
+body:not(.dark-mode) .btn-rastreo-neverpaid { background: #fff4e6 !important; border: 1px solid #ffd8a8 !important; color: #e8590c !important; }
+body:not(.dark-mode) .btn-rastreo-neverpaid:hover { background: #ffe8cc !important; color: #c2410c !important; }
+html.dark-mode .btn-rastreo-neverpaid,
+body.dark-mode .btn-rastreo-neverpaid { background: rgba(251, 146, 60, 0.18) !important; border: 1px solid rgba(251, 146, 60, 0.4) !important; color: #fdba74 !important; }
+html.dark-mode .btn-rastreo-neverpaid:hover,
+body.dark-mode .btn-rastreo-neverpaid:hover { background: rgba(251, 146, 60, 0.28) !important; color: #fed7aa !important; }
 </style>
 <style>
 .cuotas-table .etiqueta-pago { color: #0d6efd !important; }
@@ -1245,6 +1255,15 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
             </div>
 
             <div class="d-flex gap-2">
+                <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
+                    <button type="button"
+                            class="btn btn-rastreo-neverpaid position-relative"
+                            title="Rastreo sin ticket"
+                            onclick='abrirRastreoNeverPaidModalEc(<?= json_encode((string)($dataEstadoCuenta['idCredito'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE) ?>)'>
+                        <i class="fa fa-id-card" aria-hidden="true"></i>
+                    </button>
+                <?php endif; ?>
+
                 <?php if (isset($_SESSION['departamento'], $_SESSION['usuario_id']) && ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)): ?>
                     <button type="button" class="btn btn-dictaminar position-relative"
                             data-bs-toggle="modal" data-bs-target="#modalDictamen" title="Dictaminar llamada">
@@ -1418,7 +1437,16 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                         <?php foreach ($aplicados as $pago): ?>
                                             <?php if (isset($pago['tipo']) && $pago['tipo'] === 'contracargo'): ?>
                                             <li>
-                                                <?php $etiquetaCargo = (!empty($pago['concepto_display']) && $pago['concepto_display'] === 'reembolso') ? 'Reembolso' : 'Contracargo'; ?>
+                                                <?php
+                                                $cdP = $pago['concepto_display'] ?? 'contracargo';
+                                                if ($cdP === 'reembolso') {
+                                                    $etiquetaCargo = 'Reembolso';
+                                                } elseif ($cdP === 'nccc') {
+                                                    $etiquetaCargo = 'Nota de cargo crédito';
+                                                } else {
+                                                    $etiquetaCargo = 'Contracargo';
+                                                }
+                                                ?>
                                                 <span class="contracargo-label"><?= htmlspecialchars($etiquetaCargo) ?>:</span> <span class="contracargo-valor">-<?= format_currency($pago['montoPago'] ?? 0) ?></span><?php if (!empty($pago['fechaRegistro'])): ?> - <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago['fechaRegistro'])) ?></span><?php endif; ?>
                                             </li>
                                             <?php elseif (isset($pago['tipo']) && $pago['tipo'] === 'extemporaneos_resumen'): ?>
@@ -1486,7 +1514,15 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                             $esReembolsoPorFecha = $esReembolsoPorFecha ?? [];
                                             $fechaNorm = $pago_fecha ? date('Y-m-d', strtotime($pago_fecha)) : '';
                                             $totalNotaCargo = ($hayNotasCargos && $fechaNorm !== '' && isset($notasCargoPorFecha[$fechaNorm])) ? (float)$notasCargoPorFecha[$fechaNorm] : 0;
-                                            $etiquetaCargoResidual = (!empty($esReembolsoPorFecha[$fechaNorm])) ? 'Reembolso' : 'Contracargo';
+                                            $tipoDisplayCargoPorFecha = $tipoDisplayCargoPorFecha ?? [];
+                                            $tdRes = $tipoDisplayCargoPorFecha[$fechaNorm] ?? 'contracargo';
+                                            if (!empty($esReembolsoPorFecha[$fechaNorm])) {
+                                                $etiquetaCargoResidual = 'Reembolso';
+                                            } elseif ($tdRes === 'nccc') {
+                                                $etiquetaCargoResidual = 'Nota de cargo crédito';
+                                            } else {
+                                                $etiquetaCargoResidual = 'Contracargo';
+                                            }
                                             if ($totalNotaCargo > 0): ?>
                                             <li><span class="contracargo-label"><?= htmlspecialchars($etiquetaCargoResidual) ?>:</span> <span class="contracargo-valor">-<?= format_currency($totalNotaCargo) ?></span></li>
                                             <?php endif; ?>
@@ -1636,6 +1672,31 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
     </div>
 
 </div>
+
+<?php if (!empty($tienePermisoRastreoNeverPaid)): ?>
+<?php require __DIR__ . '/partials/sabueso_rastreo___SPARTA_SECRET_REDACTED___bundle.php'; ?>
+<script>
+window.abrirRastreoNeverPaidModalEc = function (idCredito) {
+    var id = (idCredito != null && String(idCredito).trim() !== '') ? String(idCredito).trim() : '';
+    if (!id) return;
+    function intentar() {
+        var input = document.getElementById('inputConsultaIdCredito');
+        if (input) input.value = id;
+        if (typeof window.ejecutarConsultaCreditoIr === 'function') {
+            window.ejecutarConsultaCreditoIr();
+            return true;
+        }
+        return false;
+    }
+    if (intentar()) return;
+    var n = 0;
+    var t = setInterval(function () {
+        n++;
+        if (intentar() || n >= 80) clearInterval(t);
+    }, 50);
+};
+</script>
+<?php endif; ?>
 
 <!-- Modal Condonar -->
 <div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">

@@ -2986,7 +2986,10 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $data['filas'][$i]['pago_semana_si'] = $pagoSemanaSi;
                 $data['filas'][$i]['pago_semana_count'] = $pagoSemanaCount;
                 $data['filas'][$i]['pago_semana_consultado'] = $pagoSemanaConsultado;
-                $data['filas'][$i]['ilocalizable'] = $ilocalizable;
+                $data['filas'][$i]['ilocalizable_auto'] = $ilocalizable;
+                if (empty($data['filas'][$i]['ilocalizable_override'])) {
+                    $data['filas'][$i]['ilocalizable'] = $ilocalizable;
+                }
                 $updated = true;
                 break;
             }
@@ -2997,6 +3000,87 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $data['resumen'] = self::reporteSemanalGlobalRecalcularResumen($data['filas']);
         unset($data['_archivo_meta']);
         self::reporteSemanalGlobalArchivoEscribir($semanaInicioYmd, $data);
+    }
+
+    /**
+     * Ajuste manual de «ilocalizable» en el JSON del reporte semanal (persistente por semana y ticket).
+     * modo: auto | si | no
+     */
+    public static function guardarIlocalizableReporteSemanal(string $semanaInicio, int $idTicket, string $modo): array
+    {
+        if ($idTicket < 1 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $semanaInicio)) {
+            return ['success' => false, 'mensaje' => 'Parámetros inválidos'];
+        }
+        $modo = strtolower(trim($modo));
+        if (in_array($modo, ['true', '1', 'sí', 'si'], true)) {
+            $modo = 'si';
+        } elseif (in_array($modo, ['false', '0', 'no'], true)) {
+            $modo = 'no';
+        }
+        if (!in_array($modo, ['auto', 'si', 'no'], true)) {
+            return ['success' => false, 'mensaje' => 'modo inválido (use auto, si o no)'];
+        }
+        $path = self::reporteSemanalGlobalArchivoPath($semanaInicio);
+        if (!is_file($path)) {
+            return ['success' => false, 'mensaje' => 'No hay reporte guardado para esa semana. Abra el reporte primero.'];
+        }
+        $raw = @file_get_contents($path);
+        if (!is_string($raw) || $raw === '') {
+            return ['success' => false, 'mensaje' => 'No se pudo leer el reporte.'];
+        }
+        $data = json_decode($raw, true);
+        if (!is_array($data) || empty($data['filas']) || !is_array($data['filas'])) {
+            return ['success' => false, 'mensaje' => 'Reporte corrupto o vacío.'];
+        }
+        $updated = false;
+        foreach ($data['filas'] as $i => $f) {
+            if ((int)($f['id_ticket'] ?? 0) !== $idTicket) {
+                continue;
+            }
+            $prevIl = !empty($f['ilocalizable']);
+            $auto = array_key_exists('ilocalizable_auto', $f) ? !empty($f['ilocalizable_auto']) : $prevIl;
+            if ($modo === 'auto') {
+                $data['filas'][$i]['ilocalizable_override'] = false;
+                $data['filas'][$i]['ilocalizable'] = $auto;
+            } elseif ($modo === 'si') {
+                if (!array_key_exists('ilocalizable_auto', $f)) {
+                    $data['filas'][$i]['ilocalizable_auto'] = $auto;
+                }
+                $data['filas'][$i]['ilocalizable_override'] = true;
+                $data['filas'][$i]['ilocalizable'] = true;
+            } else {
+                if (!array_key_exists('ilocalizable_auto', $f)) {
+                    $data['filas'][$i]['ilocalizable_auto'] = $auto;
+                }
+                $data['filas'][$i]['ilocalizable_override'] = true;
+                $data['filas'][$i]['ilocalizable'] = false;
+            }
+            $updated = true;
+            break;
+        }
+        if (!$updated) {
+            return ['success' => false, 'mensaje' => 'Ticket no encontrado en el reporte de esa semana.'];
+        }
+        $data['resumen'] = self::reporteSemanalGlobalRecalcularResumen($data['filas']);
+        unset($data['_archivo_meta']);
+        self::reporteSemanalGlobalArchivoEscribir($semanaInicio, $data);
+        self::statsCacheDelete('reporte_semanal_global:v3:' . $semanaInicio);
+        $row = null;
+        foreach ($data['filas'] as $f) {
+            if ((int)($f['id_ticket'] ?? 0) === $idTicket) {
+                $row = $f;
+                break;
+            }
+        }
+        return [
+            'success' => true,
+            'mensaje' => 'OK',
+            'id_ticket' => $idTicket,
+            'semana_inicio' => $semanaInicio,
+            'ilocalizable' => !empty($row['ilocalizable']),
+            'ilocalizable_auto' => !empty($row['ilocalizable_auto'] ?? $row['ilocalizable'] ?? false),
+            'ilocalizable_override' => !empty($row['ilocalizable_override']),
+        ];
     }
 
     /**
@@ -3660,6 +3744,10 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
         $andSabueso = self::andTicketSoloSabuesoSql($db);
         $whereActivo .= $andSabueso;
+        // Levantados (día/semana/mes/año): incluye cerrados; excluye solo eliminados (último historial).
+        // Cerrar ticket pone fecha_eliminacion en ticket, por eso whereActivo ocultaba todo el histórico.
+        $whereLevantadosHist = self::whereTicketLevantadosHistoricoSql() . $andSabueso;
+        $fechaCreacionValida = 't.fecha_creacion IS NOT NULL AND DATE(t.fecha_creacion) >= \'2001-01-01\'';
         $out = [
             'success' => true,
             'mensaje' => 'OK',
@@ -3675,6 +3763,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             'por_anio' => [],
             'tiempos_sabueso_segundos' => null,
             'tiempos_gestor_segundos' => null,
+            'tiempos_por_semana' => ['semanas' => []],
             'detalle_timings' => [],
             'por_sabueso' => [],
             'por_gestor_lectura' => [],
@@ -3709,7 +3798,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $domingoDate = $monday->modify('+6 days')->format('Y-m-d');
             $rows = $db->queryAll(
                 "SELECT DATE(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo AND DATE(t.fecha_creacion) >= '" . $lunesDate . "' " .
+                "WHERE $whereLevantadosHist AND $fechaCreacionValida AND DATE(t.fecha_creacion) >= '" . $lunesDate . "' " .
                 "AND DATE(t.fecha_creacion) <= '" . $domingoDate . "' " .
                 "GROUP BY DATE(t.fecha_creacion) ORDER BY periodo DESC"
             );
@@ -3718,46 +3807,38 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             $out['por_dia'] = [];
         }
 
-        // Por semana: solo semanas con al menos un ticket en el mes actual (CDMX). Cada fila incluye lunes (YYYY-MM-DD) para drill → 7 días.
+        // Por semana (Tickets levantados): agrupar por lunes calendario Lun–MySQL WEEKDAY (0=lun).
+        // YEARWEEK(...) a veces agrupaba mal (p. ej. fechas inválidas/NULL → un solo grupo) o no coincidía con el drill.
         try {
-            $y = (int)self::cdmxNowImmutable()->format('Y');
-            $m = (int)self::cdmxNowImmutable()->format('n');
-            $rows = $db->queryAll(
-                "SELECT YEARWEEK(t.fecha_creacion, 1) AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $y . " AND MONTH(t.fecha_creacion) = " . $m . " " .
-                "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC"
-            );
+            $sqlSem = "SELECT DATE_SUB(DATE(t.fecha_creacion), INTERVAL WEEKDAY(DATE(t.fecha_creacion)) DAY) AS lunes, COUNT(*) AS n " .
+                "FROM ticket t WHERE $whereLevantadosHist AND $fechaCreacionValida " .
+                "GROUP BY DATE_SUB(DATE(t.fecha_creacion), INTERVAL WEEKDAY(DATE(t.fecha_creacion)) DAY) " .
+                "ORDER BY lunes DESC LIMIT 104";
+            $rows = $db->queryAll($sqlSem);
             $filasSem = [];
             foreach (is_array($rows) ? $rows : [] as $r) {
-                $yw = (int)($r['periodo'] ?? 0);
-                $n = (int)($r['n'] ?? 0);
-                $lunes = '';
-                if ($yw >= 200001) {
-                    $yy = (int)floor($yw / 100);
-                    $ww = (int)($yw % 100);
-                    if ($ww >= 1 && $ww <= 53) {
-                        try {
-                            $lunes = (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))
-                                ->setISODate($yy, $ww)->format('Y-m-d');
-                        } catch (\Exception $e) {
-                            $lunes = '';
-                        }
-                    }
+                $lunes = trim((string)($r['lunes'] ?? ''));
+                if ($lunes === '' || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $lunes)) {
+                    continue;
                 }
-                $filasSem[] = ['periodo' => $yw, 'n' => $n, 'lunes' => $lunes];
+                $filasSem[] = [
+                    'periodo' => $lunes,
+                    'n' => (int)($r['n'] ?? 0),
+                    'lunes' => $lunes,
+                ];
             }
             $out['por_semana'] = $filasSem;
         } catch (\Exception $e) {
             $out['por_semana'] = [];
         }
 
-        // Por mes: solo meses del año actual (CDMX); histórico por año vía drill Año → mes
+        // Por mes: todos los meses con tickets (histórico reciente), más reciente primero.
+        // Antes solo el año calendario en curso ocultaba meses de años anteriores.
         try {
-            $y = (int)self::cdmxNowImmutable()->format('Y');
             $rows = $db->queryAll(
                 "SELECT DATE_FORMAT(t.fecha_creacion, '%Y-%m') AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $y . " " .
-                "GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC"
+                "WHERE $whereLevantadosHist AND $fechaCreacionValida " .
+                "GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC LIMIT 72"
             );
             $out['por_mes'] = is_array($rows) ? $rows : [];
         } catch (\Exception $e) {
@@ -3768,7 +3849,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         try {
             $rows = $db->queryAll(
                 "SELECT YEAR(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
-                "WHERE $whereActivo GROUP BY YEAR(t.fecha_creacion) ORDER BY periodo DESC"
+                "WHERE $whereLevantadosHist AND $fechaCreacionValida GROUP BY YEAR(t.fecha_creacion) ORDER BY periodo DESC"
             );
             $out['por_anio'] = is_array($rows) ? $rows : [];
         } catch (\Exception $e) {
@@ -3881,6 +3962,14 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             }
         } catch (\Exception $e) {
             $out['tiempos_gestor_segundos'] = null;
+        }
+
+        try {
+            $out['tiempos_por_semana'] = [
+                'semanas' => self::buildTiemposDictamenPorSemanaSeries($db, 24),
+            ];
+        } catch (\Exception $e) {
+            $out['tiempos_por_semana'] = ['semanas' => []];
         }
 
         // Detalle reciente: folio, creador, asignado, fechas clave (últimos 80 con dictamen enviado)
@@ -5217,8 +5306,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     public static function getEstadisticasLevantadosDrill(string $tipo, array $params = []): array
     {
         $db = new Database();
-        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
-        $whereActivo .= self::andTicketSoloSabuesoSql($db);
+        $whereLevantadosHist = self::whereTicketLevantadosHistoricoSql() . self::andTicketSoloSabuesoSql($db);
+        $fechaCreacionValida = 't.fecha_creacion IS NOT NULL AND DATE(t.fecha_creacion) >= \'2001-01-01\'';
         $out = ['success' => true, 'mensaje' => 'OK', 'tipo' => $tipo, 'filas' => []];
 
         try {
@@ -5231,7 +5320,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 }
                 $rows = $db->queryAll(
                     "SELECT DATE_FORMAT(t.fecha_creacion, '%Y-%m') AS periodo, COUNT(*) AS n FROM ticket t " .
-                    "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $anio . " " .
+                    "WHERE $whereLevantadosHist AND $fechaCreacionValida AND YEAR(t.fecha_creacion) = " . $anio . " " .
                     "GROUP BY DATE_FORMAT(t.fecha_creacion, '%Y-%m') ORDER BY periodo DESC"
                 );
                 $out['filas'] = is_array($rows) ? $rows : [];
@@ -5248,7 +5337,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 }
                 $rows = $db->queryAll(
                     "SELECT YEARWEEK(t.fecha_creacion, 1) AS periodo, COUNT(*) AS n FROM ticket t " .
-                    "WHERE $whereActivo AND YEAR(t.fecha_creacion) = " . $anio . " AND MONTH(t.fecha_creacion) = " . $mes . " " .
+                    "WHERE $whereLevantadosHist AND $fechaCreacionValida AND YEAR(t.fecha_creacion) = " . $anio . " AND MONTH(t.fecha_creacion) = " . $mes . " " .
                     "GROUP BY YEARWEEK(t.fecha_creacion, 1) ORDER BY periodo DESC"
                 );
                 $filas = [];
@@ -5290,7 +5379,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $domingo = $dt->modify('+6 days')->format('Y-m-d');
                 $rows = $db->queryAll(
                     "SELECT DATE(t.fecha_creacion) AS periodo, COUNT(*) AS n FROM ticket t " .
-                    "WHERE $whereActivo AND DATE(t.fecha_creacion) >= '" . $lunes . "' " .
+                    "WHERE $whereLevantadosHist AND $fechaCreacionValida AND DATE(t.fecha_creacion) >= '" . $lunes . "' " .
                     "AND DATE(t.fecha_creacion) <= '" . $domingo . "' " .
                     "GROUP BY DATE(t.fecha_creacion) ORDER BY periodo DESC"
                 );
@@ -5320,8 +5409,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             return ['success' => false, 'mensaje' => 'Fecha inválida (YYYY-MM-DD)', 'filas' => []];
         }
         $db = new Database();
-        $whereActivo = '(t.activo = 1 OR t.activo IS NULL) AND (t.fecha_eliminacion IS NULL)';
-        $andSabueso = self::andTicketSoloSabuesoSql($db);
+        $whereLevantadosHist = self::whereTicketLevantadosHistoricoSql() . self::andTicketSoloSabuesoSql($db);
+        $fechaCreacionValida = 't.fecha_creacion IS NOT NULL AND DATE(t.fecha_creacion) >= \'2001-01-01\'';
         try {
             $sql = "SELECT t.id_ticket, t.folio, t.id_credito, t.fecha_creacion, " .
                 "CONCAT(TRIM(IFNULL(p.nombres,'')), ' ', TRIM(IFNULL(p.apellidop,''))) AS creador_nombre, " .
@@ -5333,7 +5422,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket) mx ON d.id_ticket = mx.id_ticket AND d.id = mx.mid) dm ON dm.id_ticket = t.id_ticket " .
                 "LEFT JOIN (SELECT ds1.id_ticket, ds1.resultado, ds1.detalle FROM dictamen_sistema ds1 " .
                 "INNER JOIN (SELECT id_ticket, MAX(id) AS mid FROM dictamen_sistema GROUP BY id_ticket) dsmx ON ds1.id_ticket = dsmx.id_ticket AND ds1.id = dsmx.mid) dsm ON dsm.id_ticket = t.id_ticket " .
-                "WHERE $whereActivo AND DATE(t.fecha_creacion) = :fecha $andSabueso ORDER BY t.fecha_creacion ASC";
+                "WHERE $whereLevantadosHist AND $fechaCreacionValida AND DATE(t.fecha_creacion) = :fecha ORDER BY t.fecha_creacion ASC";
             $rows = $db->queryAll($sql, ['fecha' => $fecha]);
             $filas = [];
             foreach (is_array($rows) ? $rows : [] as $r) {
@@ -5578,6 +5667,151 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             'periodo_sabueso' => $periodoSabueso,
             'cdmx_referencia' => self::ahoraCdmx(),
         ];
+    }
+
+    /**
+     * Promedios de tiempos dictamen (Sabueso / gestor) agrupados por semana natural (lun CDMX según DATE del envío).
+     * Incluye tickets ya cerrados si el dictamen se envió/vio en esa semana (misma base que «levantados» histórico:
+     * excluye solo tickets cuyo último ticket_historico sea eliminado). Así el histórico semanal no queda vacío al cerrar tickets.
+     * (Los KPI «semana actual» de tiempos_sabueso / tiempos_gestor siguen usando solo tickets en flujo.)
+     *
+     * @return list<array{lunes: string, sabueso: array|null, gestor: array|null}>
+     */
+    private static function buildTiemposDictamenPorSemanaSeries(Database $db, int $limite = 24): array
+    {
+        $limite = max(4, min(52, $limite));
+        $joinTicketHistorico = '(' . self::whereTicketLevantadosHistoricoSql() . ')' . self::andTicketSoloSabuesoSql($db);
+        $porSab = [];
+        try {
+            $sqlSab = "
+                SELECT DATE_SUB(DATE(x.fa), INTERVAL WEEKDAY(DATE(x.fa)) DAY) AS lunes,
+                       AVG(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS avg_sec,
+                       MIN(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS min_sec,
+                       MAX(TIMESTAMPDIFF(SECOND, x.fa_before, x.fa)) AS max_sec,
+                       COUNT(*) AS n
+                FROM (
+                    SELECT d.id_ticket, d.fecha_actualizacion AS fa,
+                           (SELECT MAX(at2.fecha_asignacion) FROM asignacion_ticket at2
+                            WHERE at2.id_ticket = d.id_ticket
+                              AND at2.fecha_asignacion <= d.fecha_actualizacion
+                              AND (at2.activo = 1 OR at2.activo IS NULL)
+                           ) AS fa_before
+                    FROM dictamen d
+                    INNER JOIN (
+                        SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                        FROM dictamen WHERE estado = 'enviado_al_gestor' GROUP BY id_ticket
+                    ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                    INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $joinTicketHistorico
+                    WHERE d.fecha_actualizacion IS NOT NULL
+                ) x
+                WHERE x.fa_before IS NOT NULL
+                  AND x.fa_before <= x.fa
+                  AND TIMESTAMPDIFF(SECOND, x.fa_before, x.fa) >= 0
+                  AND TIMESTAMPDIFF(SECOND, x.fa_before, x.fa) <= 604800
+                GROUP BY DATE_SUB(DATE(x.fa), INTERVAL WEEKDAY(DATE(x.fa)) DAY)
+                ORDER BY lunes DESC
+                LIMIT " . $limite;
+            $rows = $db->queryAll($sqlSab);
+            foreach (is_array($rows) ? $rows : [] as $r) {
+                $lunes = trim((string)($r['lunes'] ?? ''));
+                if ($lunes === '' || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $lunes)) {
+                    continue;
+                }
+                $n = (int)($r['n'] ?? 0);
+                if ($n < 1) {
+                    continue;
+                }
+                $avg = (float)($r['avg_sec'] ?? 0);
+                $porSab[$lunes] = [
+                    'muestras' => $n,
+                    'promedio_seg' => (int)round($avg),
+                    'min_seg' => (int)($r['min_sec'] ?? 0),
+                    'max_seg' => (int)($r['max_sec'] ?? 0),
+                    'promedio_humano' => self::segundosAHumano((int)round($avg)),
+                ];
+            }
+        } catch (\Exception $e) {
+            $porSab = [];
+        }
+        $porGest = [];
+        try {
+            $sqlGest = "
+                SELECT DATE_SUB(DATE(d.fecha_actualizacion), INTERVAL WEEKDAY(DATE(d.fecha_actualizacion)) DAY) AS lunes,
+                       AVG(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS avg_sec,
+                       MIN(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS min_sec,
+                       MAX(TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor)) AS max_sec,
+                       COUNT(*) AS n
+                FROM dictamen d
+                INNER JOIN (
+                    SELECT id_ticket, MAX(fecha_actualizacion) AS mx
+                    FROM dictamen
+                    WHERE estado = 'enviado_al_gestor' AND fecha_visto_gestor IS NOT NULL
+                    GROUP BY id_ticket
+                ) dm ON d.id_ticket = dm.id_ticket AND d.fecha_actualizacion = dm.mx AND d.estado = 'enviado_al_gestor'
+                INNER JOIN ticket t ON t.id_ticket = d.id_ticket AND $joinTicketHistorico
+                WHERE d.estado = 'enviado_al_gestor'
+                  AND d.fecha_actualizacion IS NOT NULL
+                  AND d.fecha_visto_gestor IS NOT NULL
+                  AND d.fecha_visto_gestor >= d.fecha_actualizacion
+                  AND TIMESTAMPDIFF(SECOND, d.fecha_actualizacion, d.fecha_visto_gestor) <= 604800
+                GROUP BY DATE_SUB(DATE(d.fecha_actualizacion), INTERVAL WEEKDAY(DATE(d.fecha_actualizacion)) DAY)
+                ORDER BY lunes DESC
+                LIMIT " . $limite;
+            $rowsG = $db->queryAll($sqlGest);
+            foreach (is_array($rowsG) ? $rowsG : [] as $r) {
+                $lunes = trim((string)($r['lunes'] ?? ''));
+                if ($lunes === '' || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $lunes)) {
+                    continue;
+                }
+                $n = (int)($r['n'] ?? 0);
+                if ($n < 1) {
+                    continue;
+                }
+                $avg = (float)($r['avg_sec'] ?? 0);
+                $porGest[$lunes] = [
+                    'muestras' => $n,
+                    'promedio_seg' => (int)round($avg),
+                    'min_seg' => (int)($r['min_sec'] ?? 0),
+                    'max_seg' => (int)($r['max_sec'] ?? 0),
+                    'promedio_humano' => self::segundosAHumano((int)round($avg)),
+                ];
+            }
+        } catch (\Exception $e) {
+            $porGest = [];
+        }
+        $todas = array_unique(array_merge(array_keys($porSab), array_keys($porGest)));
+        rsort($todas, SORT_STRING);
+        $todas = array_slice($todas, 0, $limite);
+        $salida = [];
+        foreach ($todas as $lunes) {
+            $salida[] = [
+                'lunes' => $lunes,
+                'sabueso' => $porSab[$lunes] ?? null,
+                'gestor' => $porGest[$lunes] ?? null,
+            ];
+        }
+
+        return $salida;
+    }
+
+    /**
+     * Predicado SQL (sin AND inicial) para estadísticas de tickets levantados en el tiempo:
+     * cuenta cerrados y activos; excluye solo tickets cuyo último registro en ticket_historico sea eliminado.
+     * (Cerrar pone activo=0 y fecha_eliminacion en ticket, igual que eliminar; el historial distingue cerrado vs eliminado.)
+     */
+    private static function whereTicketLevantadosHistoricoSql(): string
+    {
+        return 'NOT EXISTS (
+            SELECT 1
+            FROM ticket_historico he
+            WHERE he.id_ticket = t.id_ticket
+              AND he.tipo_accion = \'eliminado\'
+              AND he.fecha_eliminacion = (
+                  SELECT MAX(hx.fecha_eliminacion)
+                  FROM ticket_historico hx
+                  WHERE hx.id_ticket = t.id_ticket
+              )
+        )';
     }
 
     /**

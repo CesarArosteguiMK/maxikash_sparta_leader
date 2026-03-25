@@ -115,6 +115,19 @@
         font-weight: 800; font-size: 1.1rem; min-width: 2.5rem; text-align: right;
         color: var(--bs-primary);
     }
+    .estad-sabueso-wrap .estad-time-card .estad-time-icon-btn {
+        border: none; padding: 0; background: transparent; cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .estad-sabueso-wrap .estad-time-card .estad-time-icon-btn:hover { transform: scale(1.04); }
+    .estad-sabueso-wrap .estad-time-card .estad-time-icon-btn:focus-visible {
+        outline: 2px solid rgba(13, 110, 253, 0.45); outline-offset: 2px;
+    }
+    #modalEstadTiemposHistorico .estad-tiempos-modal-chart-wrap {
+        height: 230px;
+        position: relative;
+    }
+    #modalEstadTiemposHistorico .table td { vertical-align: middle; font-size: 0.875rem; }
     /* Gestores: avatar + tabla */
     .estad-sabueso-wrap .estad-avatar {
         width: 1.75rem; height: 1.75rem; border-radius: 50%;
@@ -660,30 +673,35 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
 
     <div class="row g-3 mb-3">
         <div class="col-md-6">
-            <div class="card border-0 estad-glass h-100">
+            <div class="card border-0 estad-glass h-100 estad-time-card">
                 <div class="card-body d-flex align-items-center gap-3 py-4">
-                    <!-- Reloj de arena: FA5/6 + fallback FA4 -->
-                    <div class="estad-time-icon" style="background: rgba(245, 158, 11, 0.18); color: #f59e0b;">
-                        <i class="fa fa-hourglass-half" aria-hidden="true"></i>
-                    </div>
+                    <button type="button" class="estad-time-icon estad-time-icon-btn" style="background: rgba(245, 158, 11, 0.18); color: #f59e0b;" id="btnHistSabuesoIcon" title="Ver histórico por semana (promedios y variación)">
+                        <i class="fa fa-hourglass-half" aria-hidden="true"></i><span class="visually-hidden">Histórico semanal Sabueso</span>
+                    </button>
                     <div class="flex-grow-1 min-w-0">
                         <div class="text-muted small">Tiempo hasta enviar dictamen (equipo Sabueso) — <span class="fw-semibold text-warning">semana actual</span></div>
                         <div class="estad-time-value text-warning" id="statTiempoSabuesoValor">—</div>
                         <div class="text-muted small mt-1" id="statTiempoSabuesoSub">Desde primera asignación hasta envío al gestor</div>
+                        <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 mt-2 text-warning" id="btnHistSabuesoLink">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i>Ver semanas anteriores y % vs semana previa
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card border-0 estad-glass h-100">
+            <div class="card border-0 estad-glass h-100 estad-time-card">
                 <div class="card-body d-flex align-items-center gap-3 py-4">
-                    <div class="estad-time-icon" style="background: rgba(25, 135, 84, 0.18); color: #198754;">
-                        <i class="fa fa-bolt"></i>
-                    </div>
+                    <button type="button" class="estad-time-icon estad-time-icon-btn" style="background: rgba(25, 135, 84, 0.18); color: #198754;" id="btnHistGestorIcon" title="Ver histórico por semana (promedios y variación)">
+                        <i class="fa fa-bolt" aria-hidden="true"></i><span class="visually-hidden">Histórico semanal gestor</span>
+                    </button>
                     <div class="flex-grow-1 min-w-0">
                         <div class="text-muted small">Tiempo del gestor en abrir el dictamen — <span class="fw-semibold text-success">semana actual</span></div>
                         <div class="estad-time-value text-success" id="statTiempoGestorValor">—</div>
                         <div class="text-muted small mt-1" id="statTiempoGestorSub">Desde envío hasta visto por gestor</div>
+                        <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 mt-2 text-success" id="btnHistGestorLink">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i>Ver semanas anteriores y % vs semana previa
+                        </button>
                     </div>
                 </div>
             </div>
@@ -697,9 +715,9 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                 <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 bg-transparent">
                     <div>
                         <div class="fw-semibold"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>Tickets levantados</div>
-                        <div class="text-muted small">Días = semana actual (lun–dom) · Semanas = mes actual · Meses = año actual · Año = elegir mes → semana → 7 días. El total por día cuenta <strong>tickets creados</strong> en esa fecha (no envíos de dictamen).</div>
+                        <div class="text-muted small">Días = semana actual (lun–dom). Semanas / meses / año = histórico por fecha de creación (incluye <strong>tickets cerrados</strong>; no cuenta eliminados). El total por día es creación del ticket, no envío de dictamen.</div>
                     </div>
-                    <div class="estad-pill-group" id="grpFiltroPeriodo" role="group">
+                    <div class="estad-pill-group" id="grpFiltroPeriodo" role="group" aria-label="Agrupar conteos">
                         <button type="button" class="btn active" data-key="por_dia">Días</button>
                         <button type="button" class="btn" data-key="por_semana">Semanas</button>
                         <button type="button" class="btn" data-key="por_mes">Meses</button>
@@ -966,6 +984,57 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
         </div>
     </div>
 
+</div>
+
+<!-- Histórico semanal: tiempos dictamen (Sabueso / gestor), tabla + gráfica -->
+<div class="modal fade" id="modalEstadTiemposHistorico" tabindex="-1" aria-labelledby="modalEstadTiemposHistoricoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2 py-md-3">
+                <div>
+                    <h5 class="modal-title mb-0" id="modalEstadTiemposHistoricoLabel">
+                        <i class="fa-solid fa-chart-line me-2 text-primary"></i>Tiempos dictamen · histórico semanal
+                    </h5>
+                    <p class="text-muted small mb-0 mt-1" id="modalEstadTiemposHistoricoSub"></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <div id="modalEstadTiemposHistoricoSinDatos" class="alert alert-light border small d-none mb-0" role="status"></div>
+                <div id="modalEstadTiemposHistoricoContenido">
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered align-middle mb-0" id="modalEstadTiemposHistoricoTable">
+                            <thead class="table-light" id="modalEstadTiemposHistoricoThead"></thead>
+                            <tbody id="modalEstadTiemposHistoricoTbody"></tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-3" id="modalEstadTiemposIntroGraficas"></p>
+                    <div class="estad-tiempos-modal-graf sabueso mb-4" id="estadTiemposModalBloqueGrafSab">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <span class="badge rounded-pill" style="background:#d97706;color:#fff;">Sabueso</span>
+                            <span class="small fw-semibold">Tiempo hasta enviar dictamen (equipo Sabueso)</span>
+                            <span class="text-muted small">Semana más reciente e histórico por semana de envío</span>
+                        </div>
+                        <div id="estadTiemposHistoricoChartEmptySab" class="alert alert-light border small py-2 mb-0 d-none" role="status"></div>
+                        <div class="estad-tiempos-modal-chart-wrap border rounded bg-body-secondary bg-opacity-10" id="estadTiemposHistoricoWrapSab">
+                            <canvas id="estadTiemposHistoricoChartSabueso" aria-label="Histórico Sabueso minutos por semana"></canvas>
+                        </div>
+                    </div>
+                    <div class="estad-tiempos-modal-graf gestor" id="estadTiemposModalBloqueGrafGest">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <span class="badge rounded-pill bg-success">Gestor</span>
+                            <span class="small fw-semibold">Tiempo del gestor en abrir el dictamen</span>
+                            <span class="text-muted small">Semana más reciente e histórico por semana de envío</span>
+                        </div>
+                        <div id="estadTiemposHistoricoChartEmptyGest" class="alert alert-light border small py-2 mb-0 d-none" role="status"></div>
+                        <div class="estad-tiempos-modal-chart-wrap border rounded bg-body-secondary bg-opacity-10" id="estadTiemposHistoricoWrapGest">
+                            <canvas id="estadTiemposHistoricoChartGestor" aria-label="Histórico gestor minutos por semana"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Reporte semanal: modal Bootstrap (contenido lo inyecta abrirReporteSemanalGlobal en Sabueso.php) -->

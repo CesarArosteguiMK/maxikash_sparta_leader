@@ -756,7 +756,8 @@ public function getFiltrosCapitalHumano()
     }
 
     /**
-     * Never paid (antes «Consulta por ID crédito»): permiso especial módulo 29; misma vista que panel Sabueso solo consulta crédito.
+     * Rastreo sin ticket: vista panel Sabueso solo consulta crédito. Acceso principal desde Estado de cuenta (botón + iframe).
+     * Autorización: módulos 18, 19 o 29 (ver getRutasModulos).
      */
     public function consultaIdCredito()
     {
