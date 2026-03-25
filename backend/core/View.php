@@ -4,7 +4,7 @@ $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
 $usuario = $_SESSION['nombre'] ?? 'Usuario';
 /** Si la vista lo define (p. ej. estado de cuenta), se omiten CSS/JS vendor masivos para acelerar carga */
 $layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
-/** Rastreo sin ticket embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta reportería) */
+/** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta reportería) */
 $layoutChromelessReporteriaEmbed = isset($layoutChromelessReporteriaEmbed) && $layoutChromelessReporteriaEmbed;
 
 // Cache-busting para CSS: mismo estilo en todos los navegadores (evita caché vieja en otros equipos)

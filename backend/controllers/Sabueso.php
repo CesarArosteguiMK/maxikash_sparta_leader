@@ -90,7 +90,7 @@ class Sabueso extends Controller
         $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
         $personaId = (int)($_SESSION['persona_id'] ?? $usuarioId);
         $panelesUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
-        /** Rastreo sin ticket: módulo 29 (permiso especial) o legado 18/19; sin requerir panel sabueso_paneladmin. */
+        /** Rastreo: módulo 29 (permiso especial) o legado 18/19; sin requerir panel sabueso_paneladmin. */
         $soloConsultaCredito = ($forzarSoloConsultaCredito === true)
             || (isset($_GET['solo_consulta_credito']) && (string)$_GET['solo_consulta_credito'] === '1');
         // URL canónica bajo Reportería (evita /sabueso/paneladmin?solo_consulta_credito=1 en la barra de direcciones).
@@ -167,7 +167,7 @@ class Sabueso extends Controller
             && (string) $_GET['chromeless'] === '1';
         self::set('panel_admin_chromeless_embed', $layoutChromelessReporteriaEmbed);
         self::set('layoutChromelessReporteriaEmbed', $layoutChromelessReporteriaEmbed);
-        self::set('titulo', $soloConsultaCredito ? 'Rastreo sin ticket' : 'Panel Admin | Sabueso');
+        self::set('titulo', $soloConsultaCredito ? 'Rastreo' : 'Panel Admin | Sabueso');
         self::set('script', $script);
         self::render('sabueso_paneladmin');
     }
@@ -1689,6 +1689,39 @@ class Sabueso extends Controller
                         }
                         return '<div class="d-inline-flex align-items-center flex-wrap justify-content-center gap-0">' + txt + btn + '</div>';
                     }
+                    function ilocalizableSelectHtml(f) {
+                        var idT = parseInt(f.id_ticket, 10) || 0;
+                        var il = f.ilocalizable === true || f.ilocalizable === 1 || f.ilocalizable === '1';
+                        var ilAuto = (f.ilocalizable_auto !== undefined && f.ilocalizable_auto !== null)
+                            ? (f.ilocalizable_auto === true || f.ilocalizable_auto === 1 || f.ilocalizable_auto === '1')
+                            : il;
+                        var ov = f.ilocalizable_override === true || f.ilocalizable_override === 1 || f.ilocalizable_override === '1';
+                        var val = ov ? (il ? '1' : '0') : 'auto';
+                        var bigLabel = il ? 'Sí' : 'No';
+                        var bigCls = il ? 'text-success' : 'text-danger';
+                        var tip = 'Valor en el reporte: ' + bigLabel + '. ';
+                        if (!ov) {
+                            tip += 'Automático: el sistema dictamina ' + (ilAuto ? 'Sí' : 'No') + ' (ilocalizable).';
+                        } else {
+                            tip += 'Ajuste manual. La regla del sistema daría ' + (ilAuto ? 'Sí' : 'No') + '.';
+                        }
+                        var badge = '';
+                        if (!ov) {
+                            badge = '<span class="reporte-rs-ilocal-src badge rounded-pill border bg-light text-secondary align-middle" style="font-size:0.68rem;font-weight:700;line-height:1.35;" title="' + attrEsc('Automático (regla del sistema)') + '"><i class="fa-solid fa-robot opacity-80 reporte-rs-ilocal-src-ico"></i> autc</span>';
+                        } else {
+                            badge = '<span class="reporte-rs-ilocal-src badge rounded-pill border bg-warning bg-opacity-15 text-dark align-middle" style="font-size:0.68rem;font-weight:700;line-height:1.35;" title="' + attrEsc('Manual · sistema: ' + (ilAuto ? 'Sí' : 'No')) + '"><i class="fa-solid fa-pen opacity-80 reporte-rs-ilocal-src-ico"></i></span>';
+                        }
+                        return '<div class="reporte-rs-ilocal-cell d-inline-flex align-items-center justify-content-center flex-nowrap">' +
+                            '<span class="reporte-rs-ilocal-left d-inline-flex align-items-center flex-nowrap">' +
+                            '<span class="reporte-rs-ilocal-display fw-bold ' + bigCls + '" style="font-size:0.9rem;line-height:1.15;">' + bigLabel + '</span>' +
+                            badge +
+                            '</span>' +
+                            '<select class="form-select form-select-sm reporte-rs-ilocalizable-select py-0 align-middle" style="font-size:0.7rem;height:1.55rem;line-height:1.1;" title="' + attrEsc(tip) + '" aria-label="Cambiar ilocalizable" data-id-ticket="' + idT + '">' +
+                            '<option value="auto"' + (val === 'auto' ? ' selected' : '') + '>Auto</option>' +
+                            '<option value="1"' + (val === '1' ? ' selected' : '') + '>Sí</option>' +
+                            '<option value="0"' + (val === '0' ? ' selected' : '') + '>No</option></select>' +
+                            '</div>';
+                    }
                     function resumenKpisHtml() {
                         function n(k) {
                             var v = parseInt(res[k], 10);
@@ -1696,7 +1729,7 @@ class Sabueso extends Controller
                         }
                         var items = [
                             { k: 'total_tickets', label: 'Tickets en la semana', cls: 'bg-secondary', idVal: 'rsKpiValTotal' },
-                            { k: 'ilocalizable', label: 'Ilocalizable', cls: 'bg-danger', tip: 'Incluye: (1) dictamen Sabueso tipo ILOCALIZABLE o DS dictamen_ilocalizable; (2) visitó todas las direcciones y no pagó en la semana (EC consultado).', idVal: 'rsKpiValIlocalizable' },
+                            { k: 'ilocalizable', label: 'Ilocalizable', cls: 'bg-danger', tip: 'Regla automática: (1) dictamen Sabueso ILOCALIZABLE o DS dictamen_ilocalizable; (2) todas las direcciones y no pagó en la semana (EC consultado). En la tabla puede corregirse manualmente; se guarda por semana.', idVal: 'rsKpiValIlocalizable' },
                             { k: 'localizable', label: 'Localizable', cls: 'bg-success', tip: 'No califica como ilocalizable y estado de cuenta consultado.', idVal: 'rsKpiValLocalizable' },
                             { k: 'pago_12h', label: 'Pago en 12h', cls: 'bg-primary', tip: 'Cumplieron pago en ventana inicial (dictamen sistema).', idVal: 'rsKpiValPago12h' },
                             { k: 'todas_direcciones', label: 'Todas las direcciones', cls: 'bg-info', tip: 'Visitaron todas las direcciones del dictamen.', idVal: 'rsKpiValTodasDir' },
@@ -1745,7 +1778,7 @@ class Sabueso extends Controller
                                 '<td class="text-center">' + extension12hReporteCell(f) + '</td>' +
                                 '<td class="text-center">' + boolTxt(f.pago_prorroga_12h) + '</td>' +
                                 '<td class="text-center td-reporte-pago-semana">' + pagoSemanaCellHtml(f) + '</td>' +
-                                '<td class="text-center td-reporte-ilocalizable">' + boolTxt(f.ilocalizable) + '</td>' +
+                                '<td class="text-center td-reporte-ilocalizable">' + ilocalizableSelectHtml(f) + '</td>' +
                                 '</tr>';
                         });
                         return out;
@@ -1766,7 +1799,7 @@ class Sabueso extends Controller
                         '<div id="reporteSemanalBlockTabla">' +
                         resumenKpisHtml() +
                         '<div class="estad-modal-detalle-table-wrap table-responsive">' +
-                        '<table class="table table-sm table-bordered text-start mb-0">' +
+                        '<table class="table table-sm table-bordered text-start mb-0 table-reporte-semanal-global">' +
                         '<thead><tr>' +
                         '<th>Folio</th>' +
                         '<th>Cliente / ID cr.</th>' +
@@ -1778,10 +1811,10 @@ class Sabueso extends Controller
                         '<th>Extensi\u00f3n</th>' +
                         '<th>Pago 2.\u00aa ventana (+12 h)</th>' +
                         '<th>Pago semana</th>' +
-                        '<th>Ilocalizable</th>' +
+                        '<th title="Automático = regla del sistema; Sí/No = ajuste guardado por semana">Ilocalizable</th>' +
                         '</tr></thead><tbody id="tbodyReporteSemanalGlobal">' + tableRowsHtml() + '</tbody></table></div>' +
                         '<div class="estad-reporte-semanal-footer text-muted" style="font-size:0.72rem;">' +
-                        'Ilocalizable = <strong>Sí</strong> si el dictamen al gestor es tipo ILOCALIZABLE, o el dictamen del sistema es <code>dictamen_ilocalizable</code>, o bien: visitó todas las direcciones y no pagó en la semana (EC consultado). La <strong>extensi\u00f3n</strong> (Pr\u00f3rroga o Intensidad, segunda ventana +12 h) no condiciona la regla operativa de direcciones+pago.' +
+                        'Ilocalizable: por defecto el sistema aplica la regla (dictamen ILOCALIZABLE / <code>dictamen_ilocalizable</code> / todas las direcciones + sin pago en semana con EC consultado). La columna es <strong>editable</strong> (Automático / Sí / No); el valor se guarda en el reporte de esa semana. La <strong>extensi\u00f3n</strong> (Pr\u00f3rroga o Intensidad) no condiciona la regla de direcciones+pago.' +
                         '</div></div>' +
                         '<div id="reporteSemanalBlockGraficas" class="d-none">' +
                         '<p class="text-muted small mb-2"><i class="fa-solid fa-chart-column me-1"></i>Mismos datos del resumen y del detalle, en distintos tipos de gráfico.</p>' +
@@ -1866,6 +1899,52 @@ class Sabueso extends Controller
                                     btn.innerHTML = prevHtml;
                                     btn.disabled = false;
                                     if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo contactar el servicio de estado de cuenta.', 'error');
+                                }
+                            });
+                        });
+                        tbodyRs.addEventListener('change', function(ev) {
+                            var sel = ev.target.closest('.reporte-rs-ilocalizable-select');
+                            if (!sel || sel.disabled) return;
+                            var idTicket = parseInt(sel.getAttribute('data-id-ticket'), 10) || 0;
+                            if (!idTicket || !(r.semana_inicio || '')) return;
+                            var tr = sel.closest('tr');
+                            if (!tr) return;
+                            var modo = sel.value === 'auto' ? 'auto' : (sel.value === '1' ? 'si' : 'no');
+                            var prevValSel = sel.value;
+                            var oldC = reporteRsRowKpiContrib(tr);
+                            sel.disabled = true;
+                            http.request({
+                                endpoint: '/sabueso/guardarIlocalizableReporteSemanal',
+                                metodo: 'POST',
+                                data: JSON.stringify({ semana_inicio: r.semana_inicio, id_ticket: idTicket, modo: modo }),
+                                contentType: 'application/json',
+                                processData: false,
+                                showLoader: false,
+                                timeout: 60000,
+                                onSuccess: function(rr) {
+                                    sel.disabled = false;
+                                    if (!rr || !rr.success) {
+                                        if (typeof Swal !== 'undefined') Swal.fire('Guardar', (rr && rr.mensaje) ? rr.mensaje : 'No se pudo guardar.', 'warning');
+                                        sel.value = prevValSel;
+                                        return;
+                                    }
+                                    tr.setAttribute('data-ilocalizable', rr.ilocalizable ? '1' : '0');
+                                    var fUp = {
+                                        id_ticket: rr.id_ticket,
+                                        ilocalizable: rr.ilocalizable,
+                                        ilocalizable_auto: rr.ilocalizable_auto,
+                                        ilocalizable_override: rr.ilocalizable_override
+                                    };
+                                    var tdI2 = tr.querySelector('.td-reporte-ilocalizable');
+                                    if (tdI2) tdI2.innerHTML = ilocalizableSelectHtml(fUp);
+                                    var newC = reporteRsRowKpiContrib(tr);
+                                    reporteRsBumpKpi('ilocalizable', newC.ilocalizable - oldC.ilocalizable);
+                                    reporteRsBumpKpi('localizable', newC.localizable - oldC.localizable);
+                                },
+                                onError: function() {
+                                    sel.disabled = false;
+                                    sel.value = prevValSel;
+                                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'No se pudo guardar el ajuste.', 'error');
                                 }
                             });
                         });
@@ -2664,6 +2743,24 @@ class Sabueso extends Controller
         $idTicket = (int)($body['id_ticket'] ?? $_POST['id_ticket'] ?? 0);
         $semanaInicio = trim((string)($body['semana_inicio'] ?? $_POST['semana_inicio'] ?? ''));
         $res = TicketDAO::reconsultarPagoSemanaReporteSemanal($idTicket, $semanaInicio);
+        self::respuestaJSON($res);
+    }
+
+    /**
+     * API: guardar ajuste manual de «ilocalizable» en el reporte semanal (JSON por semana).
+     * Body: semana_inicio (Y-m-d), id_ticket, modo: auto | si | no
+     */
+    public function guardarIlocalizableReporteSemanal()
+    {
+        $raw = file_get_contents('php://input');
+        $body = $raw ? json_decode($raw, true) : [];
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $idTicket = (int)($body['id_ticket'] ?? $_POST['id_ticket'] ?? 0);
+        $semanaInicio = trim((string)($body['semana_inicio'] ?? $_POST['semana_inicio'] ?? ''));
+        $modo = (string)($body['modo'] ?? $_POST['modo'] ?? 'auto');
+        $res = TicketDAO::guardarIlocalizableReporteSemanal($semanaInicio, $idTicket, $modo);
         self::respuestaJSON($res);
     }
 

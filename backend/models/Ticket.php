@@ -5080,6 +5080,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                     'pago_semana_count' => (int)($pagoSemana['count'] ?? 0),
                     'pago_semana_consultado' => !empty($pagoSemana['consultado']),
                     'ilocalizable' => $esIlocalizable,
+                    'ilocalizable_auto' => $esIlocalizable,
+                    'ilocalizable_override' => false,
                 ];
             }
 
@@ -5254,6 +5256,26 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 $esIlocalizable
             );
 
+            $filaFinal = null;
+            $pathRep = self::reporteSemanalGlobalArchivoPath($semanaSelDt->format('Y-m-d'));
+            $rawRep = @file_get_contents($pathRep);
+            if (is_string($rawRep) && $rawRep !== '') {
+                $dataRep = json_decode($rawRep, true);
+                if (is_array($dataRep) && !empty($dataRep['filas']) && is_array($dataRep['filas'])) {
+                    foreach ($dataRep['filas'] as $fr) {
+                        if ((int)($fr['id_ticket'] ?? 0) === $idTicket) {
+                            $filaFinal = $fr;
+                            break;
+                        }
+                    }
+                }
+            }
+            $ilEff = $filaFinal !== null ? !empty($filaFinal['ilocalizable']) : $esIlocalizable;
+            $ilAut = $filaFinal !== null && array_key_exists('ilocalizable_auto', $filaFinal)
+                ? !empty($filaFinal['ilocalizable_auto'])
+                : $esIlocalizable;
+            $ilOv = $filaFinal !== null && !empty($filaFinal['ilocalizable_override']);
+
             return [
                 'success' => true,
                 'mensaje' => 'OK',
@@ -5263,7 +5285,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'pago_semana_si' => !empty($pagoSemana['si']),
                 'pago_semana_count' => (int)$pagoSemana['count'],
                 'pago_semana_consultado' => !empty($pagoSemana['consultado']),
-                'ilocalizable' => $esIlocalizable,
+                'ilocalizable' => $ilEff,
+                'ilocalizable_auto' => $ilAut,
+                'ilocalizable_override' => $ilOv,
             ];
         } catch (\Throwable $e) {
             error_log('reconsultarPagoSemanaReporteSemanal error: ' . $e->getMessage());

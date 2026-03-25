@@ -338,6 +338,21 @@
     .estad-reporte-semanal-toolbar .form-select {
         min-width: 260px;
     }
+    @media (max-width: 575.98px) {
+        .estad-reporte-semanal-toolbar .form-select {
+            min-width: 0 !important;
+            width: 100%;
+            max-width: none;
+        }
+        .estad-reporte-semanal-toolbar .d-flex.align-items-center.gap-2:has(#selSemanaReporteGlobal) {
+            width: 100%;
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+        .estad-reporte-semanal-toolbar .d-flex.align-items-center.gap-2:has(#selSemanaReporteGlobal) label {
+            margin-bottom: 0.15rem;
+        }
+    }
     .estad-reporte-semanal-footer {
         border-top: 1px solid var(--bs-border-color, #dee2e6);
         background: rgba(248,249,250,0.92);
@@ -359,6 +374,41 @@
         /* Altura estable: evita que el scroll “salte” al pasar de carga → datos */
         max-height: calc(100dvh - 1.25rem);
         overflow: visible;
+    }
+    @media (max-width: 575.98px) {
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down {
+            margin: 0;
+            max-width: 100%;
+            max-height: none;
+            height: 100%;
+        }
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down .modal-content {
+            max-height: 100dvh;
+            border-radius: 0;
+        }
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down .estad-reporte-semanal-modal-content .modal-header {
+            border-radius: 0;
+        }
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down #modalReporteSemanalGlobalBody {
+            min-height: 0;
+            flex: 1 1 auto;
+            max-height: none;
+        }
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down .estad-modal-detalle-table-wrap {
+            max-height: calc(100dvh - 200px);
+        }
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down .table-reporte-semanal-global {
+            font-size: 0.74rem;
+        }
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down .table-reporte-semanal-global th,
+        #modalReporteSemanalGlobal .modal-dialog.modal-fullscreen-sm-down .table-reporte-semanal-global td {
+            padding: 0.35rem 0.25rem;
+            vertical-align: middle;
+        }
+        #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
     }
     #modalReporteSemanalGlobal .modal-content.estad-reporte-semanal-modal-content {
         border-radius: 1rem;
@@ -417,6 +467,48 @@
     }
     #modalReporteSemanalGlobal .estad-modal-detalle-table-wrap {
         max-height: min(58vh, calc(100dvh - 18rem));
+    }
+    /* Ilocalizable: Sí/No + autc + select en una sola línea (evita badge “encima” del Auto) */
+    #modalReporteSemanalGlobal .td-reporte-ilocalizable {
+        vertical-align: middle;
+        white-space: nowrap;
+        min-width: 10.85rem;
+    }
+    #modalReporteSemanalGlobal .reporte-rs-ilocal-cell {
+        gap: 0.2rem;
+    }
+    #modalReporteSemanalGlobal .reporte-rs-ilocal-left {
+        gap: 0.2rem;
+    }
+    #modalReporteSemanalGlobal .reporte-rs-ilocal-src {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.22rem;
+        flex-shrink: 0;
+        line-height: 1 !important;
+        padding: 0.08rem 0.4rem 0.08rem 0.35rem;
+    }
+    #modalReporteSemanalGlobal .reporte-rs-ilocal-src-ico {
+        font-size: 0.78rem;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+    #modalReporteSemanalGlobal .reporte-rs-ilocalizable-select {
+        /* Pastilla al ras: sin tramo vacío entre texto y flecha (ancho ≈ texto + flecha) */
+        box-sizing: border-box;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        appearance: none !important;
+        width: 3.48rem;
+        min-width: 3.48rem;
+        max-width: 3.48rem;
+        padding-left: 0.18rem !important;
+        padding-right: 0.62rem !important;
+        text-align: left;
+        background-origin: border-box;
+        /* Flecha grande pero cerca del texto */
+        background-position: right 0.48rem center;
+        background-size: 1.06rem 0.82rem;
     }
     /* Tarjetas de gráfica: alto fijo para Chart.js (evita escalas raras / canvas aplastado) */
     #modalReporteSemanalGlobal .estad-rs-chart-card {
@@ -1039,7 +1131,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
 
 <!-- Reporte semanal: modal Bootstrap (contenido lo inyecta abrirReporteSemanalGlobal en Sabueso.php) -->
 <div class="modal fade" id="modalReporteSemanalGlobal" tabindex="-1" aria-labelledby="modalReporteSemanalGlobalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-fullscreen-sm-down modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content estad-reporte-semanal-modal-content">
             <div class="modal-header">
                 <h5 class="modal-title mb-0" id="modalReporteSemanalGlobalLabel">

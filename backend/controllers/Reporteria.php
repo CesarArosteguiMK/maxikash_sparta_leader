@@ -756,7 +756,7 @@ public function getFiltrosCapitalHumano()
     }
 
     /**
-     * Rastreo sin ticket: vista panel Sabueso solo consulta crédito. Acceso principal desde Estado de cuenta (botón + iframe).
+     * Rastreo: vista panel Sabueso solo consulta crédito. Acceso principal desde Estado de cuenta (botón + iframe).
      * Autorización: módulos 18, 19 o 29 (ver getRutasModulos).
      */
     public function consultaIdCredito()

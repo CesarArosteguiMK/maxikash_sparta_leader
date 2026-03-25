@@ -636,21 +636,25 @@ class EstadoCuenta extends Controller
         return $this->timestampOrdenFecha((string) ($c["fechaRegistro"] ?? ""));
     }
 
-    private function diaCalendarioNotaCargo(array $c): string {
-        $ts = $this->timestampNotaCargoParaIntercalacion($c);
-        if ($ts <= 0) {
-            return "";
-        }
-        return date("Y-m-d", $ts);
-    }
-
     /**
-     * Entre filas legítimas: sobrantes y pagos ordenados por fecha/idPago/aplicado; cada línea tipo contracargo
-     * va después del primer pago del mismo día e idPago asociado y antes del resto de pagos de ese par.
+     * Orden dentro de la misma cuota (aplicados legítimos):
+     *
+     * PREFIJO — sobrantes de cuotas anteriores (es_sobrante=true), ordenados por fecha.
+     *           Los cc_invalido NO van al prefijo: quedan en el cuerpo para que la nota
+     *           quede pegada a ellos usando la búsqueda por idPago.
+     *
+     * CUERPO — cc_invalido + pagos regulares, ordenados solo por fecha.
+     *
+     * NOTAS  — filas tipo=contracargo, ordenadas por fecha del movimiento de la nota.
+     *          Para cada nota con id_pago_asociado=X, se sacan del cuerpo todos los pagos
+     *          anteriores hasta encontrar el primero con idPago=X; la nota se coloca justo
+     *          después de él. Si no hay match por idPago, la nota va al final del cuerpo.
+     *
+     * Resultado: prefijo + merge(cuerpo, notas)
      */
     private function intercalarLineasCargoCreditoEnAplicadosLegitimos(array $legitimos): array {
         $cargos = [];
-        $otros = [];
+        $otros  = [];
         foreach ($legitimos as $ap) {
             if (($ap["tipo"] ?? "") === "contracargo") {
                 $cargos[] = $ap;
@@ -658,36 +662,12 @@ class EstadoCuenta extends Controller
                 $otros[] = $ap;
             }
         }
-        if (count($cargos) === 0) {
-            usort($legitimos, function ($a, $b) {
-                $ta = $this->tierOrdenAplicadoLegitimo($a);
-                $tb = $this->tierOrdenAplicadoLegitimo($b);
-                if ($ta !== $tb) {
-                    return $ta <=> $tb;
-                }
-                $fa = $this->fechaOrdenAplicado($a);
-                $fb = $this->fechaOrdenAplicado($b);
-                $cmp = $this->timestampOrdenFecha($fa) <=> $this->timestampOrdenFecha($fb);
-                if ($cmp !== 0) {
-                    return $cmp;
-                }
-                $ordA = !empty($a["cc_invalido"]) ? 0 : ((isset($a["tipo"]) && $a["tipo"] === "contracargo") ? 3 : (!empty($a["es_sobrante"]) ? 1 : 2));
-                $ordB = !empty($b["cc_invalido"]) ? 0 : ((isset($b["tipo"]) && $b["tipo"] === "contracargo") ? 3 : (!empty($b["es_sobrante"]) ? 1 : 2));
-                return $ordA <=> $ordB;
-            });
-            return $legitimos;
-        }
-        $cmpOtrosSinCargo = function ($a, $b) {
-            $ta = $this->tierOrdenAplicadoLegitimo($a);
-            $tb = $this->tierOrdenAplicadoLegitimo($b);
-            if ($ta !== $tb) {
-                return $ta <=> $tb;
-            }
-            $fa = $this->fechaOrdenAplicado($a);
-            $fb = $this->fechaOrdenAplicado($b);
-            $cmp = $this->timestampOrdenFecha($fa) <=> $this->timestampOrdenFecha($fb);
-            if ($cmp !== 0) {
-                return $cmp;
+
+        $cmpFecha = function ($a, $b) {
+            $fa = $this->timestampOrdenFecha($this->fechaOrdenAplicado($a));
+            $fb = $this->timestampOrdenFecha($this->fechaOrdenAplicado($b));
+            if ($fa !== $fb) {
+                return $fa <=> $fb;
             }
             $ida = (string) ($a["idPago"] ?? "");
             $idb = (string) ($b["idPago"] ?? "");
@@ -698,40 +678,47 @@ class EstadoCuenta extends Controller
             $ab = (float) ($b["aplicado"] ?? 0);
             return $ab <=> $aa;
         };
+
+        if (count($cargos) === 0) {
+            usort($otros, $cmpFecha);
+            $prefijo = [];
+            $cuerpo  = [];
+            foreach ($otros as $ap) {
+                if (!empty($ap["es_sobrante"])) {
+                    $prefijo[] = $ap;
+                } else {
+                    $cuerpo[] = $ap;
+                }
+            }
+            return array_merge($prefijo, $cuerpo);
+        }
+
         $prefijo = [];
-        $cuerpo = [];
-        foreach ($otros as $apO) {
-            if ($this->tierOrdenAplicadoLegitimo($apO) < 2) {
-                $prefijo[] = $apO;
+        $cuerpo  = [];
+        foreach ($otros as $ap) {
+            if (!empty($ap["es_sobrante"])) {
+                $prefijo[] = $ap;
             } else {
-                $cuerpo[] = $apO;
+                $cuerpo[] = $ap;
             }
         }
-        usort($prefijo, $cmpOtrosSinCargo);
-        $otros = $cuerpo;
-        usort($otros, $cmpOtrosSinCargo);
+        usort($prefijo, $cmpFecha);
+        usort($cuerpo,  $cmpFecha);
         usort($cargos, function ($a, $b) {
-            $cmp = $this->timestampNotaCargoParaIntercalacion($a) <=> $this->timestampNotaCargoParaIntercalacion($b);
-            if ($cmp !== 0) {
-                return $cmp;
-            }
-            $ida = (string) ($a["id_pago_asociado"] ?? "");
-            $idb = (string) ($b["id_pago_asociado"] ?? "");
-            return strcmp($ida, $idb);
+            return $this->timestampNotaCargoParaIntercalacion($a)
+                <=> $this->timestampNotaCargoParaIntercalacion($b);
         });
+
+        $cola   = array_values($cuerpo);
         $merged = [];
-        $idxO = 0;
-        $nO = count($otros);
         foreach ($cargos as $c) {
             $idPC = (string) ($c["id_pago_asociado"] ?? "");
             if ($idPC === "") {
-                $tC = $this->timestampNotaCargoParaIntercalacion($c);
-                while ($idxO < $nO) {
-                    $p = $otros[$idxO];
-                    $tP = $this->timestampOrdenFecha($this->fechaOrdenAplicado($p));
-                    if ($tP < $tC) {
-                        $merged[] = $p;
-                        $idxO++;
+                $tN = $this->timestampNotaCargoParaIntercalacion($c);
+                while (count($cola) > 0) {
+                    $tP = $this->timestampOrdenFecha($this->fechaOrdenAplicado($cola[0]));
+                    if ($tN > 0 && $tP > 0 && $tP < $tN) {
+                        $merged[] = array_shift($cola);
                         continue;
                     }
                     break;
@@ -739,43 +726,23 @@ class EstadoCuenta extends Controller
                 $merged[] = $c;
                 continue;
             }
-            $diaC = $this->diaCalendarioNotaCargo($c);
-            $emitidosMismoPar = 0;
-            while ($idxO < $nO) {
-                $p = $otros[$idxO];
-                $diaP = $this->diaCalendarioOrdenAplicado($p);
-                $idPP = (string) ($p["idPago"] ?? "");
-                if ($diaP !== "" && $diaC !== "" && $diaP < $diaC) {
-                    $merged[] = $p;
-                    $idxO++;
-                    continue;
-                }
-                if ($diaP !== "" && $diaC !== "" && $diaP > $diaC) {
+            $colocado = false;
+            while (count($cola) > 0) {
+                $idPP = (string) ($cola[0]["idPago"] ?? "");
+                if ($idPP === $idPC) {
+                    $merged[] = array_shift($cola);
+                    $merged[] = $c;
+                    $colocado = true;
                     break;
                 }
-                if ($idPC !== "" && $idPP !== $idPC) {
-                    $cmpIds = strcmp($idPP, $idPC);
-                    if ($cmpIds < 0) {
-                        $merged[] = $p;
-                        $idxO++;
-                        continue;
-                    }
-                    if ($cmpIds > 0) {
-                        break;
-                    }
-                }
-                if ($emitidosMismoPar === 0) {
-                    $merged[] = $p;
-                    $idxO++;
-                    $emitidosMismoPar++;
-                    continue;
-                }
-                break;
+                $merged[] = array_shift($cola);
             }
-            $merged[] = $c;
+            if (!$colocado) {
+                $merged[] = $c;
+            }
         }
-        while ($idxO < $nO) {
-            $merged[] = $otros[$idxO++];
+        while (count($cola) > 0) {
+            $merged[] = array_shift($cola);
         }
         return array_merge($prefijo, $merged);
     }
@@ -801,29 +768,6 @@ class EstadoCuenta extends Controller
                 }
             }
             $legitimos = $this->intercalarLineasCargoCreditoEnAplicadosLegitimos($legitimos);
-            // Sobrantes y cc_invalido siempre al inicio del bloque legítimo; el resto conserva pago ↔ nota ↔ pago.
-            $prioInvSob = [];
-            $colaLeg = [];
-            foreach ($legitimos as $apLeg) {
-                if ($this->tierOrdenAplicadoLegitimo($apLeg) < 2) {
-                    $prioInvSob[] = $apLeg;
-                } else {
-                    $colaLeg[] = $apLeg;
-                }
-            }
-            if (count($prioInvSob) > 1) {
-                usort($prioInvSob, function ($a, $b) {
-                    $ta = $this->tierOrdenAplicadoLegitimo($a);
-                    $tb = $this->tierOrdenAplicadoLegitimo($b);
-                    if ($ta !== $tb) {
-                        return $ta <=> $tb;
-                    }
-                    $fa = isset($a["_sortDate"]) ? (string) $a["_sortDate"] : (string) ($a["fechaRegistro"] ?? "");
-                    $fb = isset($b["_sortDate"]) ? (string) $b["_sortDate"] : (string) ($b["fechaRegistro"] ?? "");
-                    return $this->timestampOrdenFecha($fa) <=> $this->timestampOrdenFecha($fb);
-                });
-            }
-            $legitimos = array_merge($prioInvSob, $colaLeg);
             $sortFnInf = function ($a, $b) {
                 $fa = isset($a["_sortDate"]) ? $a["_sortDate"] : ($a["fechaRegistro"] ?? "9999-99-99");
                 $fb = isset($b["_sortDate"]) ? $b["_sortDate"] : ($b["fechaRegistro"] ?? "9999-99-99");

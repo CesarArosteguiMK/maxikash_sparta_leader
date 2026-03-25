@@ -813,7 +813,7 @@ $panel_admin_chromeless_embed = false;
     body.panel-admin-primer-cargando #tablaTicketsPanel_info,
     body.panel-admin-primer-cargando #tablaTicketsPanel_paginate { visibility: hidden !important; }
 </style>
-<!-- Modal consulta solo por ID crédito (sin ticket): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
+<!-- Modal consulta solo por ID crédito (Rastreo): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
 <div class="modal fade" id="modalConsultaCreditoPaso1" tabindex="-1" aria-labelledby="modalConsultaCreditoPaso1Label" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
@@ -822,7 +822,7 @@ $panel_admin_chromeless_embed = false;
                     <div class="rounded-circle bg-white bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px;">
                         <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>
                     </div>
-                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Rastreo sin ticket</h5>
+                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Rastreo</h5>
                     <?php if (!$panel_admin_solo_consulta_credito): ?>
                     <p class="small text-white-50 mb-0 px-3">Vista de direcciones, mapas y analítica sin levantar ticket. Solo lectura.</p>
                     <?php endif; ?>
@@ -1578,7 +1578,7 @@ window.actualizarDictamenCamposPorTipo = function() {
             $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
         }
 
-        // —— Rastreo sin ticket / consulta por ID crédito: modal rastreo con secciones ocultas ——
+        // —— Rastreo / consulta por ID crédito: modal rastreo con secciones ocultas ——
         function abrirModalConsultaCreditoPaso1() {
             $('#consultaCreditoPaso1Error').addClass('d-none').text('');
             $('#inputConsultaIdCredito').val('');

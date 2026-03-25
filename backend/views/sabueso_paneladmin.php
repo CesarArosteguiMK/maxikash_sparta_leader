@@ -809,7 +809,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
 <div class="card">
     <div class="card-header border-bottom">
         <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
-            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Rastreo sin ticket</span>
+            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Rastreo</span>
             <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
                 <button type="button" class="btn btn-sm btn-primary" id="btnAbrirConsultaCredito" title="Consultar por número de crédito">
                     <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
@@ -830,12 +830,12 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                 </a>
                 <?php endif; ?>
                 <?php if ($panel_admin_es_simple): ?>
-                <button type="button" class="btn btn-sm btn-outline-primary d-none" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                <button type="button" class="btn btn-sm btn-outline-primary d-none" id="btnAbrirConsultaCredito" title="Consultar datos del crédito (Rastreo)">
                     <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
                 </button>
                 <i class="fa-solid fa-dog sabueso-easter-icon d-none" id="sabuesoPanelEaster" aria-hidden="true"></i>
                 <?php else: ?>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAbrirConsultaCredito" title="Consultar datos del crédito sin ticket">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAbrirConsultaCredito" title="Consultar datos del crédito (Rastreo)">
                     <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
                 </button>
                 <i class="fa-solid fa-dog sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
@@ -912,7 +912,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
 </div>
 <?php endif; ?>
 
-<!-- Modal consulta solo por ID crédito (sin ticket): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
+<!-- Modal consulta solo por ID crédito (Rastreo): paso 1 pide ID; luego reusa vista rastreo sin bitácora/dictamen/asignar -->
 <div class="modal fade" id="modalConsultaCreditoPaso1" tabindex="-1" aria-labelledby="modalConsultaCreditoPaso1Label" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
@@ -921,7 +921,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     <div class="rounded-circle bg-white bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-2" style="width: 56px; height: 56px;">
                         <i class="fa-solid fa-magnifying-glass-chart fa-xl text-white"></i>
                     </div>
-                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Rastreo sin ticket</h5>
+                    <h5 class="modal-title text-white mb-1" id="modalConsultaCreditoPaso1Label">Rastreo</h5>
                     <?php if (!$panel_admin_solo_consulta_credito): ?>
                     <p class="small text-white-50 mb-0 px-3">Vista de direcciones, mapas y analítica sin levantar ticket. Solo lectura.</p>
                     <?php endif; ?>
@@ -1677,7 +1677,7 @@ window.actualizarDictamenCamposPorTipo = function() {
             $('#btnLimpiarFiltrosPanel').on('click', limpiarFiltrosPanelAdmin);
         }
 
-        // —— Rastreo sin ticket / consulta por ID crédito: modal rastreo con secciones ocultas ——
+        // —— Rastreo / consulta por ID crédito: modal rastreo con secciones ocultas ——
         function abrirModalConsultaCreditoPaso1() {
             $('#consultaCreditoPaso1Error').addClass('d-none').text('');
             $('#inputConsultaIdCredito').val('');

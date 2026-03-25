@@ -866,7 +866,7 @@ if ($cuotasContratadas > 0) {
         box-shadow: 0 8px 18px rgba(40,167,69,.55);
     }
 
-    /* Rastreo sin ticket (misma forma que dictaminar, condonar, notas) */
+    /* Rastreo (misma forma que dictaminar, condonar, notas) */
     .btn-rastreo-neverpaid {
         width: 42px;
         height: 42px;
@@ -1998,58 +1998,38 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                 <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
                     <button type="button"
                             class="btn btn-rastreo-neverpaid position-relative"
-                            title="Rastreo sin ticket"
+                            title="Rastreo"
                             onclick='abrirRastreoNeverPaidModalEc(<?= json_encode((string)($dataEstadoCuenta['idCredito'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE) ?>)'>
                         <i class="fa fa-id-card" aria-hidden="true"></i>
                     </button>
                 <?php endif; ?>
 
-                <!-- BOTÓN DICTAMINAR -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-dictaminar position-relative"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalDictamen"
-                            title="Dictaminar llamada">
-                        <i class="fa fa-headset"></i>
-                    </button>
-                <?php endif; ?>
+                <!-- Dictaminar, condonar y notas: visibles para todos; el backend valida permisos en cada acción. -->
+                <button type="button"
+                        class="btn btn-dictaminar position-relative"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalDictamen"
+                        title="Dictaminar llamada">
+                    <i class="fa fa-headset"></i>
+                </button>
 
-                <!-- BOTÓN CONDONAR -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        (in_array((int)$_SESSION['departamento'], [2, 9], true)|| $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-condonar position-relative"
-                            title="Condonar gastos de cobranza"
-                            onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
-                        <i class="fa fa-hand-holding-usd"></i>
-                    </button>
-                <?php endif; ?>
+                <button type="button"
+                        class="btn btn-condonar position-relative"
+                        title="Condonar gastos de cobranza"
+                        onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                    <i class="fa fa-hand-holding-usd"></i>
+                </button>
 
-                <!-- BOTÓN NOTAS (ICONO) -->
-                <?php if (
-                        isset($_SESSION['departamento'], $_SESSION['usuario_id']) &&
-                        ($_SESSION['departamento'] == 2 || $_SESSION['usuario_id'] == 1)
-                ): ?>
-                    <button type="button"
-                            class="btn btn-notas position-relative"
-                            title="Notas del cliente"
-                            onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
-
-                        <i class="fa fa-sticky-note"></i>
-
-                        <span id="badgeNotas"
-                              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-            <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
-        </span>
-                    </button>
-                <?php endif; ?>
-
+                <button type="button"
+                        class="btn btn-notas position-relative"
+                        title="Notas del cliente"
+                        onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
+                    <i class="fa fa-sticky-note"></i>
+                    <span id="badgeNotas"
+                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+                    </span>
+                </button>
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>

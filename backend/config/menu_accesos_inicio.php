@@ -68,7 +68,7 @@ if (!function_exists('getRutasModulos')) {
                 $rutas[$path] = $row['modulos'];
             }
         }
-        // Rastreo sin ticket (antes Never paid): sin ítem de menú; acceso desde Estado de cuenta (iframe) o URL directa.
+        // Rastreo (antes Never paid): sin ítem de menú; acceso desde Estado de cuenta (iframe) o URL directa.
         $modsRastreoSinTicket = [18, 19, 29];
         $rutas['reporteria/consultaidcredito'] = $modsRastreoSinTicket;
         $rutas['reporteria/consultacreditorastreo'] = $modsRastreoSinTicket;
