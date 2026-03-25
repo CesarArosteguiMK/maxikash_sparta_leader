@@ -719,6 +719,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
       AND (estatus_pago IS NULL OR estatus_pago != 2)
     ORDER BY periodo_inicio ASC
     ";
+// NOTA: dsb-mega-reporte`.gastos_cobranza_backup_despacho_20260324 es una tabla temporal
+// SOLO copiar y pegar esto para reemplazar en la query: dsb-mega-reporte`.gastos_cobranza
 
     try {
         $db = new DatabaseSegundometro();
@@ -1410,34 +1412,17 @@ public static function getGastosTodosConEstatus($idCredito)
     }
 
 
+/**
+ * @deprecated Método huérfano — no se llama en producción.
+ *             Contiene bug de scope ($row no existe en este contexto).
+ *             Pendiente eliminar en la próxima refactorización.
+ *             Usar actualizarEstatusPagoGastoConMonto() en su lugar.
+ */
 public static function actualizarEstatusPagoGasto($idGasto, $estatusPago)
 {
-    try {
-        $db = new DatabaseSegundometro();
-
-        $db->CRUD(
-            "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-             SET estatus_pago = :estatus_pago
-             WHERE id_gastos_cobranza = :id_gasto
-               AND estatus_pago = 0",
-            [
-                'estatus_pago'          => (int)($row['estatus_pago'] ?? 0),
-                'monto_parcial_pagado'  => round((float)($row['monto_parcial_pagado'] ?? 0), 2),
-
-                'id_gasto'     => (int) $idGasto
-            ]
-        );
-
-        return self::resultado(true, 'Estatus actualizado');
-
-    } catch (\Exception $e) {
-        return self::resultado(
-            false,
-            'Error al actualizar estatus',
-            null,
-            $e->getMessage()
-        );
-    }
+    // ⚠️ BUG CONOCIDO: $row no existe en este scope — método sin uso activo.
+    // No se corrige aquí para no alterar comportamiento; se elimina en refactorización.
+    return self::resultado(false, 'Método deprecado — usar actualizarEstatusPagoGastoConMonto()');
 }
 
 public static function getHistorialGastosCobranza($idCredito)
@@ -1456,6 +1441,7 @@ public static function getHistorialGastosCobranza($idCredito)
                 condonado,
                 estatus_pago,
                 fecha_condonacion,
+                fecha_pago,
                 created_at
             FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
             WHERE Id_credito = :id_credito
@@ -1480,6 +1466,9 @@ public static function getHistorialGastosCobranza($idCredito)
                 'fecha_condonacion'         => !empty($row['fecha_condonacion'])
                                                 ? date('d/m/Y', strtotime($row['fecha_condonacion']))
                                                 : (!empty($row['created_at']) ? date('d/m/Y', strtotime($row['created_at'])) : '—'),
+                'fecha_pago'                => !empty($row['fecha_pago'])
+                                                ? date('d/m/Y', strtotime($row['fecha_pago']))
+                                                : '—',
                 'estatus'                   => (int)$row['estatus_pago'],
                 'condonado'                 => (int)$row['condonado']
             ];
@@ -1491,27 +1480,70 @@ public static function getHistorialGastosCobranza($idCredito)
     }
 }
 
-public static function actualizarEstatusPagoGastoConMonto($idGasto, $estatusPago, $montoPagado, $condonacionParcial = 0)
+/**
+ * Actualiza estatus_pago y monto_parcial_pagado de un gasto de cobranza.
+ *
+ * REGLAS DE NEGOCIO:
+ *   - estatus_pago = 1 → pago parcial, cliente sigue debiendo
+ *   - estatus_pago = 2 → pagado total
+ *   - condonacion_parcial_monto NO se toca aquí — es territorio exclusivo del gestor
+ *   - $condonacionParcial se acepta por firma pero SOLO lo usa el gestor desde el front
+ *
+ * @param int   $idGasto
+ * @param int   $estatusPago       1 = parcial, 2 = total
+ * @param float $montoPagado       Monto que el cliente pagó
+ * @param float $condonacionParcial Reservado para gestor — el cron siempre pasa 0
+ */
+public static function actualizarEstatusPagoGastoConMonto($idGasto, $estatusPago, $montoPagado, $condonacionParcial = 0, $fechaPago = null)
 {
     try {
         $db = new DatabaseSegundometro();
-        $db->CRUD(
-            "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-             SET estatus_pago              = :estatus_pago,
-                 monto_parcial_pagado       = :monto_pagado,
-                 condonacion_parcial_monto  = :condonacion_parcial,
-                 fecha_condonacion          = NOW() -- <--- AGREGAMOS ESTO
-             WHERE id_gastos_cobranza = :id_gasto",
-            [
-                'estatus_pago'         => (int) $estatusPago,
-                'monto_pagado'         => round((float) $montoPagado, 2),
-                'condonacion_parcial'  => round((float) $condonacionParcial, 2),
-                'id_gasto'             => (int) $idGasto
-            ]
-        );
+
+        // $fechaPago: fecha real del pago (fechaMovimiento de la API S2).
+        // Si no se recibe, se usa la fecha actual como fallback.
+        $fechaPago = $fechaPago ?? date('Y-m-d');
+
+        // Si el gestor envía una condonación (desde el front), se registra junto con fecha_condonacion.
+        // El cron y el controller de cruce automático siempre pasan condonacionParcial = 0.
+        if ((float) $condonacionParcial > 0) {
+            // Gestor desde el front — registra condonación, fecha_condonacion y fecha_pago
+            $db->CRUD(
+                "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+                 SET estatus_pago             = :estatus_pago,
+                     monto_parcial_pagado      = :monto_pagado,
+                     condonacion_parcial_monto = :condonacion_parcial,
+                     fecha_condonacion         = NOW(),
+                     fecha_pago               = :fecha_pago
+                 WHERE id_gastos_cobranza      = :id_gasto",
+                [
+                    'estatus_pago'        => (int) $estatusPago,
+                    'monto_pagado'        => round((float) $montoPagado, 2),
+                    'condonacion_parcial' => round((float) $condonacionParcial, 2),
+                    'fecha_pago'          => $fechaPago ?? date('Y-m-d'),
+                    'id_gasto'            => (int) $idGasto
+                ]
+            );
+        } else {
+            // Cruce automático (cron / controller) — toca estatus, monto y fecha_pago
+            // condonacion_parcial_monto NO se toca
+            $db->CRUD(
+                "UPDATE `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+                 SET estatus_pago         = :estatus_pago,
+                     monto_parcial_pagado  = :monto_pagado,
+                     fecha_pago           = :fecha_pago
+                 WHERE id_gastos_cobranza  = :id_gasto",
+                [
+                    'estatus_pago' => (int) $estatusPago,
+                    'monto_pagado' => round((float) $montoPagado, 2),
+                    'fecha_pago'   => $fechaPago ?? date('Y-m-d'),
+                    'id_gasto'     => (int) $idGasto
+                ]
+            );
+        }
+
         return self::resultado(true, 'Estatus y montos actualizados');
     } catch (\Exception $e) {
-        return self::resultado(false, 'Error', null, $e->getMessage());
+        return self::resultado(false, 'Error al actualizar gasto', null, $e->getMessage());
     }
 }
 

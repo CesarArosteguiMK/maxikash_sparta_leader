@@ -97,40 +97,71 @@ class Convenios extends Controller
     }
 
     // ─────────────────────────────────────────────
-// API: CANCELAR CONVENIO
-// ─────────────────────────────────────────────
+    // API: CANCELAR CONVENIO
+    // ─────────────────────────────────────────────
 
-public function cancelarConvenio()
-{
-    $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+    public function cancelarConvenio()
+    {
+        $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
 
-    if ($idConvenio <= 0) {
-        self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
+        if ($idConvenio <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+
+        $r = ConveniosDAO::cancelarConvenio($idConvenio, $usuario);
+        self::respuestaJSON($r);
     }
 
-    $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+    // ════════════════════════════════════════════════
+    // API: VALIDAR CRÉDITO EN DESPACHO
+    // Verifica que el crédito exista en asigna_creditos_despacho
+    // y que su estatus sea 1 (activo en despacho, mora 8+).
+    // Usada por el modal de Registrar Convenio Existente.
+    // ════════════════════════════════════════════════
 
-    $r = ConveniosDAO::cancelarConvenio($idConvenio, $usuario);
-    self::respuestaJSON($r);
-}
-// ════════════════════════════════════════════════
-// API: MIGRAR CONVENIO EXISTENTE
-// ════════════════════════════════════════════════
+    public function validarDespacho()
+    {
+        $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
 
-// ════════════════════════════════════════════════
-// API: MIGRAR CONVENIO CON PDF
-// ════════════════════════════════════════════════
+        if ($idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+            return;
+        }
 
-public function migrarConvenio()
-{
-    // Verificar si es multipart/form-data (con PDF)
-    $esMultipart = !empty($_FILES['pdf_adjunto']['name']);
+        $r = ConveniosDAO::validarCreditoEnDespacho($idCredito);
+        self::respuestaJSON($r);
+    }
 
-    if ($esMultipart) {
-        // Procesar con archivo
-        $campos = ['id_credito','nombre_cliente','id_producto_convenio',
-                   'id_producto_convenio_detalle','adeudo_base',
-                   'porcentaje_descuento','pago_semanal','fecha_inicio'];
+    // ════════════════════════════════════════════════
+    // API: MIGRAR CONVENIO CON PDF (opcional)
+    // ════════════════════════════════════════════════
+
+    public function migrarConvenio()
+    {
+        $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+
+        if ($idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+            return;
+        }
+
+        // ── Validación de despacho antes de cualquier otra operación ──
+        // El crédito debe existir en asigna_creditos_despacho con estatus = 1.
+        // Si está current (estatus = 0) o no existe, se rechaza.
+        $validacion = ConveniosDAO::validarCreditoEnDespacho($idCredito);
+        if (!$validacion['success']) {
+            self::respuestaJSON($validacion);
+            return;
+        }
+
+        // Campos requeridos (comunes a ambos flujos)
+        $campos = [
+            'id_credito', 'nombre_cliente', 'id_producto_convenio',
+            'id_producto_convenio_detalle', 'adeudo_base',
+            'porcentaje_descuento', 'pago_semanal', 'fecha_inicio',
+        ];
 
         foreach ($campos as $campo) {
             if (empty($_POST[$campo])) {
@@ -139,10 +170,10 @@ public function migrarConvenio()
             }
         }
 
-        // Procesar PDF
+        // ── Procesar PDF adjunto si viene en la petición ──
         $pdfPath = null;
-        if (!empty($_FILES['pdf_adjunto']['tmp_name'])) {
-            $pdfPath = $this->_guardarPdfAdjunto($_FILES['pdf_adjunto'], $_POST['id_credito']);
+        if (!empty($_FILES['pdf_adjunto']['name'])) {
+            $pdfPath = $this->_guardarPdfAdjunto($_FILES['pdf_adjunto'], $idCredito);
             if (!$pdfPath) {
                 self::respuestaJSON(self::respuesta(false, 'Error al guardar el PDF adjunto.'));
                 return;
@@ -150,64 +181,44 @@ public function migrarConvenio()
         }
 
         $datos = array_merge($_POST, [
-            'usuario_alta'        => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+            'usuario_alta'          => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
             'bucket_morosidad_real' => $_POST['bucket_morosidad_real'] ?? '',
-            'dias_mora'           => $_POST['dias_mora'] ?? 0,
-            'avance_pago_plazo'   => $_POST['avance_pago_plazo'] ?? '',
-            'pdf_adjunto'         => $pdfPath,
+            'dias_mora'             => $_POST['dias_mora']             ?? 0,
+            'avance_pago_plazo'     => $_POST['avance_pago_plazo']     ?? '',
+            'pdf_adjunto'           => $pdfPath,
         ]);
-    } else {
-        // Sin PDF (JSON normal)
-        $campos = ['id_credito','nombre_cliente','id_producto_convenio',
-                   'id_producto_convenio_detalle','adeudo_base',
-                   'porcentaje_descuento','pago_semanal','fecha_inicio'];
 
-        foreach ($campos as $campo) {
-            if (empty($_POST[$campo])) {
-                self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
-                return;
+        $r = ConveniosDAO::migrarConvenio($datos);
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // PRIVADO: Guarda PDF adjunto en el servidor
+    // ─────────────────────────────────────────────
+
+    private function _guardarPdfAdjunto($archivo, $idCredito)
+    {
+        try {
+            $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/convenios/';
+
+            if (!file_exists($directorio)) {
+                mkdir($directorio, 0777, true);
             }
-        }
 
-        $datos = array_merge($_POST, [
-            'usuario_alta'        => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
-            'bucket_morosidad_real' => $_POST['bucket_morosidad_real'] ?? '',
-            'dias_mora'           => $_POST['dias_mora'] ?? 0,
-            'avance_pago_plazo'   => $_POST['avance_pago_plazo'] ?? '',
-        ]);
+            $extension     = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+            $nombreArchivo = 'convenio_' . $idCredito . '_' . date('Ymd_His') . '.' . $extension;
+            $rutaCompleta  = $directorio . $nombreArchivo;
+
+            if (move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
+                return '/uploads/convenios/' . $nombreArchivo;
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            error_log('Error guardando PDF convenio: ' . $e->getMessage());
+            return null;
+        }
     }
-
-    $r = ConveniosDAO::migrarConvenio($datos);
-    self::respuestaJSON($r);
-}
-
-/**
- * Guarda PDF adjunto en el servidor
- */
-private function _guardarPdfAdjunto($archivo, $idCredito)
-{
-    try {
-        $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/convenios/';
-
-        // Crear directorio si no existe
-        if (!file_exists($directorio)) {
-            mkdir($directorio, 0777, true);
-        }
-
-        $extension = pathinfo($archivo['name'], PATHINFO_EXTENSION);
-        $nombreArchivo = 'convenio_' . $idCredito . '_' . date('Ymd_His') . '.' . $extension;
-        $rutaCompleta = $directorio . $nombreArchivo;
-
-        if (move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
-            return '/uploads/convenios/' . $nombreArchivo; // Ruta relativa para guardar en BD
-        }
-
-        return null;
-    } catch (\Exception $e) {
-        error_log("Error guardando PDF: " . $e->getMessage());
-        return null;
-    }
-}
 
     // ─────────────────────────────────────────────
     // PDF: DESCARGAR TABLA DE AMORTIZACIÓN
@@ -249,8 +260,6 @@ private function _guardarPdfAdjunto($archivo, $idCredito)
         $pagoSemanal    = number_format((float) $convenio['pago_semanal'], 2);
         $numSemanas     = (int) $convenio['numero_semanas'];
         $pagoInicial    = $convenio['pago_inicial_monto'] ? '$' . number_format((float) $convenio['pago_inicial_monto'], 2) : 'No aplica';
-
-        // Filas de amortización
 
         $filasHtml = '';
         foreach ($amortizacion as $row) {
@@ -337,133 +346,130 @@ private function _guardarPdfAdjunto($archivo, $idCredito)
     }
 
     // ─────────────────────────────────────────────
-// API: HISTORIAL DE CONVENIOS
-// ─────────────────────────────────────────────
+    // API: HISTORIAL DE CONVENIOS
+    // ─────────────────────────────────────────────
 
-public function getHistorialConvenios()
-{
-    $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+    public function getHistorialConvenios()
+    {
+        $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
 
-    if ($idCredito <= 0) {
-        self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+        if ($idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+        }
+
+        $r = ConveniosDAO::getHistorialConvenios($idCredito);
+        self::respuestaJSON($r);
     }
 
-    $r = ConveniosDAO::getHistorialConvenios($idCredito);
-    self::respuestaJSON($r);
-}
+    // ════════════════════════════════════════════════
+    // API: REGISTRAR PAGO DE SEMANA
+    // ════════════════════════════════════════════════
 
-// ════════════════════════════════════════════════
-// API: REGISTRAR PAGO DE SEMANA
-// ════════════════════════════════════════════════
+    public function registrarPago()
+    {
+        $idConvenio   = isset($_POST['id_convenio'])   ? (int) $_POST['id_convenio']   : 0;
+        $numeroSemana = isset($_POST['numero_semana'])  ? (int) $_POST['numero_semana']  : 0;
+        $idCredito    = isset($_POST['id_credito'])     ? (int) $_POST['id_credito']     : 0;
 
-public function registrarPago()
-{
-    $idConvenio   = isset($_POST['id_convenio'])   ? (int) $_POST['id_convenio']   : 0;
-    $numeroSemana = isset($_POST['numero_semana'])  ? (int) $_POST['numero_semana']  : 0;
-    $idCredito    = isset($_POST['id_credito'])     ? (int) $_POST['id_credito']     : 0;
+        if ($idConvenio <= 0 || $numeroSemana <= 0 || $idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'Parámetros inválidos.'));
+        }
 
-    if ($idConvenio <= 0 || $numeroSemana <= 0 || $idCredito <= 0) {
-        self::respuestaJSON(self::respuesta(false, 'Parámetros inválidos.'));
+        $r = ConveniosDAO::registrarPago($idConvenio, $numeroSemana, $idCredito);
+        self::respuestaJSON($r);
     }
 
-    $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+    // ════════════════════════════════════════════════
+    // API: OBTENER PRODUCTOS DEL CATÁLOGO
+    // ════════════════════════════════════════════════
 
-    $r = ConveniosDAO::registrarPago($idConvenio, $numeroSemana, $idCredito);
-    self::respuestaJSON($r);
-}
-
-// ════════════════════════════════════════════════
-// API: OBTENER PRODUCTOS DEL CATÁLOGO
-// ════════════════════════════════════════════════
-
-public function getProductosConvenio()
-{
-    $r = ConveniosDAO::getProductosConvenio();
-    self::respuestaJSON($r);
-}
-
-public function getAmortizacionConvenio()
-{
-    if (empty($_POST['id_convenio'])) {
-        self::respuestaJSON(self::respuesta(false, 'id_convenio requerido.'));
-        return;
-    }
-    $r = ConveniosDAO::getAmortizacionConvenio((int) $_POST['id_convenio']);
-    self::respuestaJSON($r);
-}
-
-// ════════════════════════════════════════════════
-// API: OBTENER DETALLES DE CONCILIACIÓN DE SEMANA
-// ════════════════════════════════════════════════
-
-public function getConciliacionSemana()
-{
-    $idConvenio   = isset($_POST['id_convenio'])   ? (int) $_POST['id_convenio']   : 0;
-    $numeroSemana = isset($_POST['numero_semana'])  ? (int) $_POST['numero_semana']  : 0;
-    $idCredito    = isset($_POST['id_credito'])     ? (int) $_POST['id_credito']     : 0;
-
-    if (!$idConvenio || !$numeroSemana || !$idCredito) {
-        self::respuestaJSON(self::respuesta(false, 'Parámetros inválidos.'));
-        return;
+    public function getProductosConvenio()
+    {
+        $r = ConveniosDAO::getProductosConvenio();
+        self::respuestaJSON($r);
     }
 
-    $semanasGrupo = isset($_POST['semanas_grupo']) ? trim($_POST['semanas_grupo']) : null;
-    $r = ConveniosDAO::getConciliacionSemana($idConvenio, $numeroSemana, $idCredito, $semanasGrupo);    self::respuestaJSON($r);
-}
-
-public function guardarConciliacion()
-{
-    $campos = ['id_convenio', 'numero_semana', 'monto_pago', 'monto_aplicado', 'monto_sobrante', 'fecha_pago'];
-    foreach ($campos as $campo) {
-        if (!isset($_POST[$campo]) || $_POST[$campo] === '') {
-            self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+    public function getAmortizacionConvenio()
+    {
+        if (empty($_POST['id_convenio'])) {
+            self::respuestaJSON(self::respuesta(false, 'id_convenio requerido.'));
             return;
         }
+        $r = ConveniosDAO::getAmortizacionConvenio((int) $_POST['id_convenio']);
+        self::respuestaJSON($r);
     }
 
-    $datos = array_merge($_POST, [
-        'usuario' => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
-    ]);
+    // ════════════════════════════════════════════════
+    // API: OBTENER DETALLES DE CONCILIACIÓN DE SEMANA
+    // ════════════════════════════════════════════════
 
-    $archivo = isset($_FILES['comprobante']) && !empty($_FILES['comprobante']['tmp_name'])
-        ? $_FILES['comprobante']
-        : null;
+    public function getConciliacionSemana()
+    {
+        $idConvenio   = isset($_POST['id_convenio'])   ? (int) $_POST['id_convenio']   : 0;
+        $numeroSemana = isset($_POST['numero_semana'])  ? (int) $_POST['numero_semana']  : 0;
+        $idCredito    = isset($_POST['id_credito'])     ? (int) $_POST['id_credito']     : 0;
 
-    $r = ConveniosDAO::guardarConciliacion($datos, $archivo);
-    self::respuestaJSON($r);
-}
-
-
-public function subirComprobante()
-{
-    $campos = ['id_convenio', 'numero_semana', 'fecha_pago_real'];
-    foreach ($campos as $campo) {
-        if (empty($_POST[$campo])) {
-            self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+        if (!$idConvenio || !$numeroSemana || !$idCredito) {
+            self::respuestaJSON(self::respuesta(false, 'Parámetros inválidos.'));
             return;
         }
+
+        $semanasGrupo = isset($_POST['semanas_grupo']) ? trim($_POST['semanas_grupo']) : null;
+        $r = ConveniosDAO::getConciliacionSemana($idConvenio, $numeroSemana, $idCredito, $semanasGrupo);
+        self::respuestaJSON($r);
     }
 
-    $archivo = isset($_FILES['comprobante']) && !empty($_FILES['comprobante']['tmp_name'])
-        ? $_FILES['comprobante']
-        : null;
+    public function guardarConciliacion()
+    {
+        $campos = ['id_convenio', 'numero_semana', 'monto_pago', 'monto_aplicado', 'monto_sobrante', 'fecha_pago'];
+        foreach ($campos as $campo) {
+            if (!isset($_POST[$campo]) || $_POST[$campo] === '') {
+                self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+                return;
+            }
+        }
 
-    if (!$archivo) {
-        self::respuestaJSON(self::respuesta(false, 'El comprobante es obligatorio.'));
-        return;
+        $datos = array_merge($_POST, [
+            'usuario' => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+        ]);
+
+        $archivo = isset($_FILES['comprobante']) && !empty($_FILES['comprobante']['tmp_name'])
+            ? $_FILES['comprobante']
+            : null;
+
+        $r = ConveniosDAO::guardarConciliacion($datos, $archivo);
+        self::respuestaJSON($r);
     }
 
-    $datos = array_merge($_POST, [
-        'usuario' => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
-    ]);
+    public function subirComprobante()
+    {
+        $campos = ['id_convenio', 'numero_semana', 'fecha_pago_real'];
+        foreach ($campos as $campo) {
+            if (empty($_POST[$campo])) {
+                self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+                return;
+            }
+        }
 
-    // semanas_aplica viene como string "4,5,6" o solo "4"
-    if (!empty($_POST['semanas_aplica'])) {
-        $datos['semanas_aplica'] = $_POST['semanas_aplica'];
+        $archivo = isset($_FILES['comprobante']) && !empty($_FILES['comprobante']['tmp_name'])
+            ? $_FILES['comprobante']
+            : null;
+
+        if (!$archivo) {
+            self::respuestaJSON(self::respuesta(false, 'El comprobante es obligatorio.'));
+            return;
+        }
+
+        $datos = array_merge($_POST, [
+            'usuario' => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+        ]);
+
+        if (!empty($_POST['semanas_aplica'])) {
+            $datos['semanas_aplica'] = $_POST['semanas_aplica'];
+        }
+
+        $r = ConveniosDAO::subirComprobante($datos, $archivo);
+        self::respuestaJSON($r);
     }
-
-    $r = ConveniosDAO::subirComprobante($datos, $archivo);
-    self::respuestaJSON($r);
-}
 
 }

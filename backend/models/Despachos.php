@@ -50,20 +50,25 @@ SQL;
     {
         $query = <<<SQL
         SELECT
-            ap.id_persona,
+            d.id,
+            d.id_persona,
             CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
             pu.id AS id_puesto,
             pu.nombre AS nombre_puesto,
-            ap.activo,
-            per.estatus,
-            per.correo,
-            per.telefono_uno
-        FROM asigna_puesto ap
-        INNER JOIN persona per ON per.id = ap.id_persona
-        INNER JOIN puesto pu ON pu.id = ap.id_puesto
-        WHERE ap.id_puesto IN (24, 36)
-        ORDER BY pu.id, per.nombres
-SQL;
+            d.tipo_persona,
+            d.numero_tel1,
+            d.numero_tel2,
+            d.correo_1,
+            d.correo_2,
+            d.direccion,
+            d.fecha_alta,
+            d.estatus
+        FROM despachos d
+        INNER JOIN persona per ON per.id = d.id_persona
+        LEFT JOIN asigna_puesto ap ON ap.id_persona = d.id_persona AND ap.activo = 1
+        LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+        ORDER BY d.id
+        SQL;
 
         return $this->db->queryAll($query);
     }

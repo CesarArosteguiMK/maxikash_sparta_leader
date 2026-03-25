@@ -5858,6 +5858,16 @@ private function procesarGastosCobranza(array $notasCargos, $idCredito): array
 
     $gastosProcessados = [];
 
+    // Capturar la fecha más reciente de las notas filtradas (fechaMovimiento)
+    // para usarla como fecha_pago al registrar el cruce
+    $ultimaNotaFecha = null;
+    foreach ($notasFiltradas as $nota) {
+        $fn = $nota['fechaMovimiento'] ?? null;
+        if ($fn && ($ultimaNotaFecha === null || $fn > $ultimaNotaFecha)) {
+            $ultimaNotaFecha = $fn;
+        }
+    }
+
     // 5️⃣ Cruce: aplicar monto disponible cuota por cuota
     foreach ($gastosPendientes as $gasto) {
 
@@ -5879,32 +5889,37 @@ private function procesarGastosCobranza(array $notasCargos, $idCredito): array
                 'monto'       => $montoGastoOriginal,
                 'aplicado'    => $montoGastoOriginal,
                 'estatus'     => 2,
-                'estatus_txt' => 'PAGADO'
+                'estatus_txt' => 'PAGADO',
+                'celula'      => $gasto['celula'] ?? 0
             ];
 
             // Usamos el nuevo método para asegurar que monto_parcial_pagado sea igual al total
-            EstadoCuentaDAO::actualizarEstatusPagoGastoConMonto($gasto['id_gasto'], 2, $montoGastoOriginal, 0);
+            // Tomamos la fecha de la última nota filtrada como fecha_pago
+            // (fechaMovimiento = fecha real en que el cliente depositó)
+            $fechaPagoGasto = !empty($ultimaNotaFecha) ? $ultimaNotaFecha : date('Y-m-d');
+            EstadoCuentaDAO::actualizarEstatusPagoGastoConMonto($gasto['id_gasto'], 2, $montoGastoOriginal, 0, $fechaPagoGasto);
 
         } else {
-            // 🔶 🔹 CAMBIO: Aplicar pago parcial y condonar automáticamente la diferencia
+            // 🔶 Escenario B — No alcanza → PAGO PARCIAL, el cliente sigue debiendo
+            // condonacion_parcial_monto NO se toca aquí — es territorio exclusivo del gestor
             $montoAAbonarAhora = $montoDisponible;
-            $totalPagadoFinal = round($yaPagado + $montoAAbonarAhora, 2);
-            $diferenciaCondonacion = max(0, round($montoGastoOriginal - $totalPagadoFinal, 2));
+            $totalPagadoFinal  = round($yaPagado + $montoAAbonarAhora, 2);
+            $pendiente         = round($montoGastoOriginal - $totalPagadoFinal, 2);
 
             $gastosProcessados[] = [
                 'id_gasto'    => $gasto['id_gasto'],
                 'monto'       => $montoGastoOriginal,
                 'aplicado'    => $totalPagadoFinal,
-                'estatus'     => 2, // Se marca como 2 (Cerrado) porque el resto se condona
-                'estatus_txt' => 'PAGADO (CON DESC.)'
+                'estatus'     => 1, // Pago parcial — sigue debiendo $pendiente
+                'estatus_txt' => 'PAGO PARCIAL'
             ];
 
-            // 🚀 Invocación al nuevo método del modelo
             EstadoCuentaDAO::actualizarEstatusPagoGastoConMonto(
                 $gasto['id_gasto'],
-                2, // Estatus cerrado
+                1,                 // estatus_pago = 1 (parcial)
                 $totalPagadoFinal,
-                $diferenciaCondonacion
+                0,                 // condonacion = 0, el gestor decide si condona
+                $fechaPagoGasto ?? date('Y-m-d')
             );
 
             $montoDisponible = 0;

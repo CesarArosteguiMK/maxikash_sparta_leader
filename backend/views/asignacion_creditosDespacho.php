@@ -1320,14 +1320,23 @@ function cargarDespachos() {
             select.innerHTML = '<option value="">Seleccione un despacho...</option>';
 
             if (data.success && data.despachos && data.despachos.length > 0) {
+                // Filtro de unicidad: evitar duplicados visuales por multipuestos
+                const idsAgregados = new Set();
+
                 data.despachos.forEach((despacho) => {
+                    if (idsAgregados.has(despacho.id_persona)) {
+                        return;
+                    }
+                    idsAgregados.add(despacho.id_persona);
+
                     const option = document.createElement('option');
-                    option.value = despacho.id_persona; // Usamos id_persona como valor
-                    option.textContent = `${despacho.nombre_completo} - ${despacho.nombre_puesto}`;
+                    option.value = despacho.id_persona;
+                    // Solo mostramos el nombre puro para evitar confusión visual
+                    option.textContent = despacho.nombre_completo;
                     select.appendChild(option);
                 });
 
-                // Inicializar SearchableSelect después de cargar opciones
+                // Inicializar SearchableSelect después de cargar opciones únicas
                 if (!searchableSelectDespacho) {
                     searchableSelectDespacho = new SearchableSelect(select);
                 } else {
