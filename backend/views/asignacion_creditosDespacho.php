@@ -1139,16 +1139,31 @@ function cargarDespachos() {
             select.innerHTML = '<option value="">Seleccione un despacho...</option>';
 
             if (data.success && data.despachos && data.despachos.length > 0) {
-                console.log(`✅ ${data.despachos.length} despachos encontrados`);
+                console.log(`✅ ${data.despachos.length} registros recibidos (incluyendo multipuestos)`);
+
+                // --- MEJORA: Filtro de unicidad ---
+                const idsAgregados = new Set();
+
                 data.despachos.forEach((despacho, index) => {
-                    console.log(`   ${index + 1}. ID Persona: ${despacho.id_persona}, Nombre: ${despacho.nombre_completo}, Puesto: ${despacho.nombre_puesto} (ID: ${despacho.id_puesto})`);
+                    // Si el ID de la persona ya lo procesamos, lo saltamos
+                    if (idsAgregados.has(despacho.id_persona)) {
+                        console.log(` ⏩ Saltando duplicado visual: ${despacho.nombre_completo} (ID: ${despacho.id_persona})`);
+                        return;
+                    }
+
+                    // Marcamos el ID como agregado
+                    idsAgregados.add(despacho.id_persona);
+
+                    console.log(` ➕ Agregando: ${despacho.nombre_completo} (ID: ${despacho.id_persona})`);
+
                     const option = document.createElement('option');
-                    option.value = despacho.id_persona; // Usamos id_persona como valor
-                    option.textContent = `${despacho.nombre_completo} - ${despacho.nombre_puesto}`;
+                    option.value = despacho.id_persona;
+                    // Solo mostramos el nombre puro para evitar confusión visual
+                    option.textContent = despacho.nombre_completo;
                     select.appendChild(option);
                 });
 
-                // Inicializar SearchableSelect después de cargar opciones
+                // Inicializar SearchableSelect después de cargar opciones únicas
                 if (!searchableSelectDespacho) {
                     searchableSelectDespacho = new SearchableSelect(select);
                 } else {
