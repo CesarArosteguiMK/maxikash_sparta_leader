@@ -385,14 +385,15 @@ def main() -> None:
     insert_kw = "INSERT IGNORE" if args.ignore_duplicates else "INSERT"
     sql = f"""
 {insert_kw} INTO {args.table}
-(id_despacho, id_credito, fecha_alta, fecha_baja, alta, estatus)
-VALUES (%s, %s, NOW(), NULL, %s, %s)
+(id_despacho, id_credito, fecha_alta, fecha_baja, alta, estatus, celula)
+VALUES (%s, %s, NOW(), NULL, %s, %s, %s)
 """
     # alta numérico 1; estatus como texto por si la columna es VARCHAR (captura DBeaver A-Z)
     alta_val = 1
     estatus_val = "1"
+    celula_val = 1
     data: List[Tuple] = [
-        (int(r.id_despacho), int(r.id_credito), alta_val, estatus_val)
+        (int(r.id_despacho), int(r.id_credito), alta_val, estatus_val, celula_val)
         for r in df.itertuples(index=False)
     ]
 

@@ -907,9 +907,14 @@
         <h5 class="mb-0">
             <i class="fa-solid fa-list me-2"></i>Créditos asignados al despacho
         </h5>
-        <button class="btn btn-success btn-sm" id="btn-exportar-excel">
-            <i class="fa-solid fa-file-excel me-1"></i>Exportar Excel
-        </button>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success btn-sm" id="btn-exportar-excel">
+                <i class="fa-solid fa-file-excel me-1"></i>Exportar Excel
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-importar-excel" type="button" data-bs-toggle="modal" data-bs-target="#modal-importar-excel">
+                <i class="fa-solid fa-file-import me-1"></i>Importar Excel
+            </button>
+        </div>
     </div>
 
     <div class="card-datatable table-responsive">
@@ -929,9 +934,163 @@
     </div>
 </div>
 
+<style>
+/* Popover con tabla: anclado al botón junto a “Descargar plantilla” */
+#import-despacho-import-popover-wrap {
+    position: relative;
+    z-index: 2;
+}
+#import-despacho-import-popover-wrap.is-popover-open {
+    z-index: 1060;
+}
+#import-despacho-import-popover {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 10px;
+    z-index: 1061;
+    width: 100%;
+    max-width: 100%;
+    display: none;
+}
+#import-despacho-import-popover .import-despacho-popover-inner {
+    position: relative;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+    padding: 0.65rem 0.75rem;
+}
+#import-despacho-import-popover .import-despacho-popover-arrow {
+    position: absolute;
+    width: 0;
+    height: 0;
+    left: var(--arrow-left, 120px);
+    transform: translateX(-50%);
+    top: -8px;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid #fff;
+    filter: drop-shadow(0 -1px 0 #e5e7eb);
+}
+#import-despacho-import-popover .import-despacho-popover-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: #334155;
+}
+#import-despacho-import-popover .table-despacho-import {
+    font-size: 12px;
+    margin-bottom: 0;
+}
+#import-despacho-import-popover .table-despacho-import th {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 600;
+    white-space: nowrap;
+}
+#import-despacho-import-popover .table-despacho-import td {
+    vertical-align: middle;
+    word-break: break-word;
+}
+#import-despacho-import-popover .import-despacho-popover-msg {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+    margin: 0;
+}
+#import-despacho-import-popover .import-despacho-popover-scroll {
+    max-height: min(55vh, 380px);
+    overflow-y: auto;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+</style>
+
+<!-- MODAL: IMPORTAR EXCEL -->
+<div class="modal fade" id="modal-importar-excel" tabindex="-1" aria-labelledby="modal-importar-excel-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;">
+            <div class="modal-header" style="background:#f8f7ff;">
+                <h5 class="modal-title" id="modal-importar-excel-label">
+                    <i class="fa-solid fa-file-import me-2"></i>Importar Excel
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="p-3" style="background:#f8fafc; border:1px solid #e5e7eb; border-radius:12px;">
+                    <div class="fw-semibold mb-2">Subir el excel usando la plantilla</div>
+                    <div id="import-despacho-import-popover-wrap">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btn-descargar-plantilla-excel">
+                                <i class="fa-solid fa-download me-1"></i>Descargar plantilla.xlsx
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-ver-datos-despacho-import" title="Catálogo completo: nombre del despacho e id_despacho (sin elegir arriba)">
+                                <i class="fa-solid fa-table me-1"></i>Nombre e id_despacho
+                            </button>
+                            <span class="text-muted small">Usa la plantilla para que no falle la validación de columnas.</span>
+                        </div>
+                        <div id="import-despacho-import-popover" role="tooltip" aria-hidden="true">
+                            <div class="import-despacho-popover-inner">
+                                <div class="import-despacho-popover-arrow" aria-hidden="true"></div>
+                                <div class="import-despacho-popover-title">Catálogo nombre → id_despacho</div>
+                                <div id="import-despacho-import-popover-content"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <div class="fw-semibold mb-1" style="font-size:13px;">Notas</div>
+                        <ul class="mb-0 small text-muted">
+                            <li>No debe cambiar el nombre de las columnas.</li>
+                            <li>La plantilla define la estructura esperada: columnas <code>id_credito</code> e <code>id_despacho</code> (esta última es clave para asignar al despacho correcto).</li>
+                            <li>El encabezado debe estar en la fila 1 (como en la plantilla).</li>
+                            <li>Los datos se leen desde la primera hoja del Excel.</li>
+                            <li>Se verifica que los datos sean correctos (IDs numéricos y válidos).</li>
+                            <li>Si un crédito ya está asignado al mismo despacho en la base, se reporta como duplicado (no se vuelve a insertar).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <label class="form-label fw-semibold">Adjuntar excel</label>
+                    <input class="form-control" type="file" id="input-excel-import" accept=".xlsx,.xls" multiple>
+                    <div class="form-text text-muted">Puedes subir varios archivos. El sistema cargará uno por uno.</div>
+                </div>
+
+                <div id="import-progreso" class="mt-4" style="display:none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="fw-semibold">Progreso</div>
+                        <div id="import-progress-text" class="text-muted small">0%</div>
+                    </div>
+                    <div class="progress mt-2" style="height:10px;">
+                        <div id="import-progress-bar" class="progress-bar" role="progressbar" style="width:0%;"></div>
+                    </div>
+                </div>
+
+                <div id="import-resultado" class="mt-3" style="display:none;">
+                    <div class="fw-semibold mb-2">Resultado</div>
+                    <div id="import-result" class="small"></div>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="background:#f8f7ff;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-subir-excel-importar">
+                    <i class="fa-solid fa-upload me-1"></i>Subir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Variables globales
 let despachoSeleccionado = null;
+/** Datos del despacho actual (para el popover de la palabra "plantilla") */
+let despachoInfoPlantilla = null;
+let importPlantillaPopoverVisible = false;
 let creditosEncontrados = []; // Array de créditos en el stack
 let searchableSelectDespacho;
 
@@ -1123,25 +1282,45 @@ document.addEventListener('DOMContentLoaded', function() {
     // El botón de asignar ahora está en cada crédito del stack
     document.getElementById('btn-guardar-comentarios').addEventListener('click', guardarComentarios);
     document.getElementById('btn-exportar-excel').addEventListener('click', exportarExcel);
+
+    // Importación de Excel (modal)
+    document.getElementById('btn-importar-excel').addEventListener('click', prepararModalImportacionExcel);
+    document.getElementById('btn-descargar-plantilla-excel').addEventListener('click', descargarPlantillaExcelImportacion);
+    document.getElementById('btn-subir-excel-importar').addEventListener('click', iniciarImportacionExcel);
+
+    const modalImport = document.getElementById('modal-importar-excel');
+    if (modalImport) {
+        modalImport.addEventListener('click', function (ev) {
+            const trigger = ev.target.closest('#btn-ver-datos-despacho-import');
+            if (trigger) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                toggleImportPlantillaPopover(trigger);
+                return;
+            }
+            if (!importPlantillaPopoverVisible) return;
+            const pop = document.getElementById('import-despacho-import-popover');
+            const btn = document.getElementById('btn-ver-datos-despacho-import');
+            if (pop && pop.contains(ev.target)) return;
+            if (btn && btn.contains(ev.target)) return;
+            closeImportPlantillaPopover();
+        });
+        modalImport.addEventListener('hidden.bs.modal', function () {
+            closeImportPlantillaPopover();
+        });
+    }
 });
 
 // Función para cargar lista de despachos
 function cargarDespachos() {
-    console.log('🔄 Cargando despachos...');
     fetch('/despachos/obtenerListaDespachos')
-        .then(response => {
-            console.log('📡 Respuesta recibida:', response);
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            console.log('📊 Datos recibidos:', data);
             const select = document.getElementById('select-despacho');
             select.innerHTML = '<option value="">Seleccione un despacho...</option>';
 
             if (data.success && data.despachos && data.despachos.length > 0) {
-                console.log(`✅ ${data.despachos.length} despachos encontrados`);
-                data.despachos.forEach((despacho, index) => {
-                    console.log(`   ${index + 1}. ID Persona: ${despacho.id_persona}, Nombre: ${despacho.nombre_completo}, Puesto: ${despacho.nombre_puesto} (ID: ${despacho.id_puesto})`);
+                data.despachos.forEach((despacho) => {
                     const option = document.createElement('option');
                     option.value = despacho.id_persona; // Usamos id_persona como valor
                     option.textContent = `${despacho.nombre_completo} - ${despacho.nombre_puesto}`;
@@ -1154,8 +1333,6 @@ function cargarDespachos() {
                 } else {
                     searchableSelectDespacho.refresh();
                 }
-            } else {
-                console.warn('⚠️ No se encontraron despachos:', data);
             }
         })
         .catch(error => {
@@ -1214,6 +1391,15 @@ function cargarDatosDespacho(idPersona) {
 
                 // Cargar documentos del despacho
                 cargarDocumentosDespacho(idPersona);
+
+                despachoInfoPlantilla = {
+                    id_persona: idPersona,
+                    id_despacho: data.datos.id_despacho != null && data.datos.id_despacho !== '' ? data.datos.id_despacho : null,
+                    nombre_completo: data.datos.nombre_completo || '',
+                    puesto: data.datos.puesto || '',
+                    telefono: data.datos.telefono || '',
+                    correo: data.datos.correo || ''
+                };
             }
         })
         .catch(error => {
@@ -1726,6 +1912,331 @@ function exportarExcel() {
             showConfirmButton: false
         });
     }, 3000);
+}
+
+// ============================================================================
+// IMPORTAR EXCEL (asignación masiva)
+// ============================================================================
+function prepararModalImportacionExcel() {
+    closeImportPlantillaPopover();
+    const selSync = document.getElementById('select-despacho');
+    if (selSync && selSync.value) {
+        despachoSeleccionado = selSync.value;
+    }
+    const input = document.getElementById('input-excel-import');
+    if (input) input.value = '';
+
+    const progreso = document.getElementById('import-progreso');
+    const resultado = document.getElementById('import-resultado');
+    const barra = document.getElementById('import-progress-bar');
+    const texto = document.getElementById('import-progress-text');
+    const contenedorResultado = document.getElementById('import-result');
+
+    if (progreso) progreso.style.display = 'none';
+    if (resultado) resultado.style.display = 'none';
+    if (barra) barra.style.width = '0%';
+    if (barra) barra.textContent = '0%';
+    if (texto) texto.textContent = '0%';
+    if (contenedorResultado) contenedorResultado.innerHTML = '';
+}
+
+function descargarPlantillaExcelImportacion() {
+    window.location.href = '/despachos/descargarPlantillaExcelAsignacionCreditosDespacho';
+}
+
+function escapeHtmlImportPopover(str) {
+    if (str == null || str === '') return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function tablaDespachoImportPopoverHtml(cuerpoFilasHtml) {
+    return `
+        <div class="import-despacho-popover-scroll">
+        <table class="table table-sm table-bordered table-despacho-import mb-0">
+            <thead>
+                <tr>
+                    <th scope="col">Nombre del despacho</th>
+                    <th scope="col">id_despacho</th>
+                </tr>
+            </thead>
+            <tbody>${cuerpoFilasHtml}</tbody>
+        </table>
+        </div>`;
+}
+
+function closeImportPlantillaPopover() {
+    const el = document.getElementById('import-despacho-import-popover');
+    const wrap = document.getElementById('import-despacho-import-popover-wrap');
+    if (el) {
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+    }
+    if (wrap) {
+        wrap.classList.remove('is-popover-open');
+    }
+    importPlantillaPopoverVisible = false;
+}
+
+async function toggleImportPlantillaPopover(anchorEl) {
+    const pop = document.getElementById('import-despacho-import-popover');
+    const content = document.getElementById('import-despacho-import-popover-content');
+    if (!pop || !content || !anchorEl) return;
+
+    if (importPlantillaPopoverVisible) {
+        closeImportPlantillaPopover();
+        return;
+    }
+
+    const wrap = document.getElementById('import-despacho-import-popover-wrap');
+    if (wrap) {
+        wrap.classList.add('is-popover-open');
+    }
+
+    pop.style.display = 'block';
+    pop.setAttribute('aria-hidden', 'false');
+    importPlantillaPopoverVisible = true;
+
+    if (wrap && anchorEl) {
+        const wrapRect = wrap.getBoundingClientRect();
+        const anchorRect = anchorEl.getBoundingClientRect();
+        const anchorCenterX = anchorRect.left + anchorRect.width / 2 - wrapRect.left;
+        const pw = wrap.offsetWidth || 320;
+        const arrowLeft = Math.max(18, Math.min(pw - 18, anchorCenterX));
+        pop.style.setProperty('--arrow-left', `${Math.round(arrowLeft)}px`);
+    }
+
+    content.innerHTML = tablaDespachoImportPopoverHtml(
+        '<tr><td colspan="2" class="text-center text-muted py-2">Cargando catálogo desde la base de datos…</td></tr>'
+    );
+
+    try {
+        const res = await fetch('/despachos/obtenerCatalogoDespachosImportacionExcel');
+        const data = await res.json();
+
+        if (!data.success || !Array.isArray(data.filas)) {
+            content.innerHTML = tablaDespachoImportPopoverHtml(
+                `<tr><td colspan="2" class="text-danger small">${escapeHtmlImportPopover(data.message || 'No fue posible obtener el catálogo.')}</td></tr>`
+            );
+            return;
+        }
+
+        if (data.filas.length === 0) {
+            content.innerHTML = tablaDespachoImportPopoverHtml(
+                '<tr><td colspan="2" class="text-muted small">No hay registros de gestor/supervisor de despacho.</td></tr>'
+            );
+            return;
+        }
+
+        const rowsHtml = data.filas.map((f) => {
+            const nom = f.nombre_completo || '—';
+            const idDespHtml = f.id_despacho != null && f.id_despacho !== ''
+                ? escapeHtmlImportPopover(String(f.id_despacho))
+                : '<span class="text-warning">—</span>';
+            return `<tr><td>${escapeHtmlImportPopover(nom)}</td><td>${idDespHtml}</td></tr>`;
+        }).join('');
+
+        content.innerHTML = tablaDespachoImportPopoverHtml(rowsHtml);
+    } catch (err) {
+        console.error(err);
+        content.innerHTML = tablaDespachoImportPopoverHtml(
+            '<tr><td colspan="2" class="text-danger small">Error de red al consultar la base de datos.</td></tr>'
+        );
+    }
+}
+
+function setImportProgress(percent, text) {
+    const progreso = document.getElementById('import-progreso');
+    const resultado = document.getElementById('import-resultado');
+    const barra = document.getElementById('import-progress-bar');
+    const texto = document.getElementById('import-progress-text');
+    if (progreso) progreso.style.display = 'block';
+    if (resultado) resultado.style.display = 'block';
+
+    const p = Math.max(0, Math.min(100, Number(percent) || 0));
+    if (barra) {
+        barra.style.width = `${p}%`;
+        barra.textContent = `${Math.round(p)}%`;
+    }
+    if (texto) texto.textContent = text || `${Math.round(p)}%`;
+}
+
+async function iniciarImportacionExcel() {
+    if (!despachoSeleccionado) {
+        Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
+        return;
+    }
+
+    const input = document.getElementById('input-excel-import');
+    const files = input ? Array.from(input.files || []) : [];
+    if (files.length === 0) {
+        Swal.fire('Advertencia', 'Adjunta al menos un archivo Excel', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('btn-subir-excel-importar');
+    if (btn) btn.disabled = true;
+
+    const contenedorResultado = document.getElementById('import-result');
+    const resultadoWrap = document.getElementById('import-resultado');
+    if (contenedorResultado) contenedorResultado.innerHTML = '';
+    if (resultadoWrap) resultadoWrap.style.display = 'block';
+
+    const totalFiles = files.length;
+    let resumen = {
+        totalArchivos: totalFiles,
+        totalCreditosLeidos: 0,
+        totalInsertados: 0,
+        totalDuplicados: 0,
+        totalErrores: 0,
+        duplicadosEjemplo: [],
+        duplicadosDetalleEjemplos: [],
+        errores: []
+    };
+
+    try {
+        for (let i = 0; i < totalFiles; i++) {
+            const file = files[i];
+            const fileIndex = i + 1;
+
+            // Subir y esperar respuesta del servidor
+            const data = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                const formData = new FormData();
+                formData.append('id_persona', despachoSeleccionado);
+                formData.append('excel', file, file.name);
+
+                xhr.open('POST', '/despachos/importarExcelAsignacionCreditosDespacho', true);
+                xhr.responseType = 'json';
+
+                xhr.upload.onprogress = (e) => {
+                    if (!e.lengthComputable) return;
+                    const fractionLoaded = e.total > 0 ? e.loaded / e.total : 0;
+                    const overall = ((i + fractionLoaded) / totalFiles) * 100;
+                    setImportProgress(overall, `Subiendo... Archivo ${fileIndex} de ${totalFiles} (${Math.round(overall)}%)`);
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve(xhr.response);
+                    } else {
+                        reject(new Error(`HTTP ${xhr.status}`));
+                    }
+                };
+
+                xhr.onerror = () => reject(new Error('Error de red al subir el archivo'));
+
+                xhr.send(formData);
+            });
+
+            if (!data) {
+                resumen.totalErrores += 1;
+                resumen.errores.push({ archivo: file.name, razon: 'Respuesta vacía del servidor' });
+                continue;
+            }
+
+            if (data.success) {
+                resumen.totalCreditosLeidos += data.total_creditos_validos || 0;
+                resumen.totalInsertados += data.insertados || 0;
+                resumen.totalDuplicados += data.duplicados || 0;
+
+                if (Array.isArray(data.duplicados_creditos)) {
+                    for (const id of data.duplicados_creditos) {
+                        if (!resumen.duplicadosEjemplo.includes(id)) {
+                            resumen.duplicadosEjemplo.push(id);
+                        }
+                    }
+                }
+
+                if (Array.isArray(data.duplicados_detalle)) {
+                    for (const d of data.duplicados_detalle) {
+                        if (resumen.duplicadosDetalleEjemplos.length >= 36) break;
+                        resumen.duplicadosDetalleEjemplos.push({
+                            archivo: file.name,
+                            id_despacho: d.id_despacho,
+                            id_credito: d.id_credito
+                        });
+                    }
+                }
+
+                if (Array.isArray(data.errores) && data.errores.length > 0) {
+                    resumen.totalErrores += data.errores.length;
+                    for (const er of data.errores) {
+                        resumen.errores.push({ archivo: file.name, ...er });
+                    }
+                }
+            } else {
+                resumen.totalErrores += 1;
+                resumen.errores.push({ archivo: file.name, razon: data.message || 'Error al importar el archivo' });
+            }
+
+            // Marcar el archivo como completado
+            const completedOverall = ((i + 1) / totalFiles) * 100;
+            setImportProgress(completedOverall, `Procesado archivo ${fileIndex} de ${totalFiles}`);
+        }
+
+        // Final
+        setImportProgress(100, 'Finalizado');
+
+        if (contenedorResultado) {
+            const hayErrores = resumen.totalErrores > 0;
+            const hayDuplicados = resumen.totalDuplicados > 0;
+
+            let html = '';
+            html += `<div class="mb-2"><strong>Archivos:</strong> ${resumen.totalArchivos}</div>`;
+            html += `<div class="mb-2"><strong>Créditos válidos leídos:</strong> ${resumen.totalCreditosLeidos}</div>`;
+            html += `<div class="mb-2"><strong>Insertados:</strong> ${resumen.totalInsertados}</div>`;
+            html += `<div class="mb-2"><strong>Duplicados:</strong> ${resumen.totalDuplicados}</div>`;
+            html += `<div class="mb-3"><strong>Errores:</strong> ${resumen.totalErrores}</div>`;
+
+            if (!hayErrores && !hayDuplicados) {
+                html += `<div class="alert alert-success mb-0">Se subieron todos los créditos correctamente.</div>`;
+            } else {
+                html += `<div class="alert ${hayErrores ? 'alert-danger' : 'alert-warning'} mb-0">`;
+                html += hayErrores ? 'Se subieron algunos créditos, pero hubo errores.' : 'Se subieron algunos créditos, pero hubo duplicados.';
+                html += `</div>`;
+            }
+
+            if (hayDuplicados && resumen.duplicadosDetalleEjemplos.length > 0) {
+                html += `<div class="mt-3"><div class="fw-semibold mb-1">Ejemplos de duplicados:</div>`;
+                html += `<div class="text-muted small">` + resumen.duplicadosDetalleEjemplos.slice(0, 12).map(d =>
+                    `Archivo <strong>${d.archivo}</strong>: despacho <strong>${d.id_despacho}</strong> · crédito <strong>${d.id_credito}</strong> ya estaba asignado`
+                ).join('<br>') + `</div></div>`;
+            } else if (hayDuplicados && resumen.duplicadosEjemplo.length > 0) {
+                html += `<div class="mt-3"><div class="fw-semibold mb-1">Ejemplos de duplicados:</div>`;
+                html += `<div class="text-muted small">` + resumen.duplicadosEjemplo.slice(0, 12).map(id => `crédito <strong>${id}</strong> ya existe en la base`).join('<br>') + `</div></div>`;
+            }
+
+            if (hayErrores && resumen.errores.length > 0) {
+                html += `<div class="mt-3"><div class="fw-semibold mb-1">Detalles de errores (parcial):</div>`;
+                const preview = resumen.errores.slice(0, 20);
+                html += `<div class="text-muted small">`;
+                preview.forEach((e) => {
+                    if (e.razon) {
+                        html += `Archivo: <strong>${e.archivo}</strong> - ${e.razon}<br>`;
+                    } else if (e.fila && e.reason) {
+                        html += `Archivo: <strong>${e.archivo}</strong> - fila <strong>${e.fila}</strong>: ${e.reason}<br>`;
+                    } else {
+                        html += `Archivo: <strong>${e.archivo}</strong> - Error: ${JSON.stringify(e)}<br>`;
+                    }
+                });
+                html += `</div></div>`;
+            }
+
+            if (contenedorResultado) contenedorResultado.innerHTML = html;
+        }
+
+        if (btn) btn.disabled = false;
+        if (input) input.value = '';
+    } catch (err) {
+        console.error(err);
+        if (btn) btn.disabled = false;
+        setImportProgress(0, 'Error');
+        Swal.fire('Error', 'No se pudo completar la importación', 'error');
+    }
 }
 
 // Función para refrescar la tabla de créditos asignados

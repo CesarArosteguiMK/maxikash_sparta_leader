@@ -84,6 +84,9 @@ $porcentajeAvance = 0;
 if ($cuotasContratadas > 0) {
     $porcentajeAvance = min(100, round(($cuotasPagadas / $cuotasContratadas) * 100));
 }
+
+$esGestionExternaMx          = !empty($esGestionExternaMx);
+$gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) $gestionExternaEtiquetaCelula : '';
 ?>
 
 <style>
@@ -260,6 +263,25 @@ if ($cuotasContratadas > 0) {
         font-size: 0.75rem;
         padding: 0.4em 0.8em;
         transition: all 0.2s ease;
+    }
+
+    .gestion-externa-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .gestion-externa-badges .badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.35em 0.65em;
+        max-width: 100%;
+    }
+
+    .gestion-externa-badges .badge-celula {
+        font-weight: 500;
     }
 
     /* Escalado de fuentes con zoom */
@@ -1622,6 +1644,15 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
     <div class="card mb-6">
         <div class="card-body">
 
+            <?php if ($esGestionExternaMx): ?>
+            <div class="gestion-externa-badges mb-3">
+                <span class="badge bg-label-warning text-dark">Gestión Externa</span>
+                <?php if ($gestionExternaEtiquetaCelula !== ''): ?>
+                <span class="badge bg-label-secondary badge-celula"><?= htmlspecialchars($gestionExternaEtiquetaCelula) ?></span>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
             <!-- SECCIÓN AVATAR/DATOS BÁSICOS (SIEMPRE VISIBLE) -->
             <div class="user-avatar-section">
                 <div class="card mb-3 border border-2 border-primary rounded primary-shadow">
@@ -2015,7 +2046,7 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
 
                 <button type="button"
                         class="btn btn-condonar position-relative"
-                        title="Condonar gastos de cobranza"
+                        title="<?= $esGestionExternaMx ? 'No disponible: gestión externa' : 'Condonar gastos de cobranza' ?>"
                         onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-hand-holding-usd"></i>
                 </button>
@@ -2918,6 +2949,8 @@ if ($__histJson === false) {
     }
     const GASTOS_COBRANZA_PRELOAD = ecParsePreloadJsonScript('ec-gastos-cobranza-preload');
     const HISTORIAL_GASTOS_PRELOAD = ecParsePreloadJsonScript('ec-historial-gastos-preload');
+    const EC_GESTION_EXTERNA_BLOQUEA_GASTOS = <?= json_encode($esGestionExternaMx) ?>;
+    const EC_MSJ_GESTION_EXTERNA_GASTOS = <?= json_encode('Esta opción no está disponible. El crédito está siendo gestionado de forma externa.') ?>;
 
     function actualizarContadorNotas() {
 
@@ -3495,6 +3528,15 @@ function consultaGastosCondonables(idCredito) {
 
     if (!idCredito) {
         Swal.fire("Error", "Id de crédito inválido", "error");
+        return;
+    }
+
+    if (typeof EC_GESTION_EXTERNA_BLOQUEA_GASTOS !== 'undefined' && EC_GESTION_EXTERNA_BLOQUEA_GASTOS) {
+        Swal.fire({
+            icon: 'info',
+            title: 'No disponible',
+            text: typeof EC_MSJ_GESTION_EXTERNA_GASTOS !== 'undefined' ? EC_MSJ_GESTION_EXTERNA_GASTOS : 'Esta opción no está disponible. El crédito está siendo gestionado de forma externa.'
+        });
         return;
     }
 

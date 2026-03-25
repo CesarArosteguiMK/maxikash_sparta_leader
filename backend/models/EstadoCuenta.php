@@ -831,6 +831,158 @@ public static function getGastosTodosConEstatus($idCredito)
     }
 }
 
+    /**
+     * Valor de columna en fila PDO (FETCH_ASSOC) ignorando mayúsculas en el nombre de la clave.
+     */
+    private static function valorColumnaFila(array $row, string $nombreColumna)
+    {
+        if (array_key_exists($nombreColumna, $row)) {
+            return $row[$nombreColumna];
+        }
+        foreach ($row as $clave => $valor) {
+            if (strcasecmp((string) $clave, $nombreColumna) === 0) {
+                return $valor;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Crédito asignado a despacho externo (tabla __SPARTA_SECRET_REDACTED__.asigna_creditos_despacho, estatus activo).
+     */
+    public static function creditoTieneAsignacionDespachoActiva($idCredito): bool
+    {
+        $id = (int) $idCredito;
+        if ($id <= 0) {
+            return false;
+        }
+        try {
+            $db = new Database();
+            // Activo: no explícitamente dado de baja (0). Incluye '1', 1, NULL u otros valores operativos.
+            $sql = "SELECT 1 AS ok FROM asigna_creditos_despacho
+                 WHERE id_credito = :id
+                   AND (estatus IS NULL OR estatus NOT IN ('0', 0))
+                 LIMIT 1";
+            try {
+                $row = $db->queryOne($sql, ['id' => $id]);
+            } catch (\Exception $e1) {
+                $row = $db->queryOne(
+                    str_replace(
+                        'FROM asigna_creditos_despacho',
+                        'FROM __SPARTA_SECRET_REDACTED__.asigna_creditos_despacho',
+                        $sql
+                    ),
+                    ['id' => $id]
+                );
+            }
+
+            return $row !== null && $row !== false;
+        } catch (\Exception $e) {
+            error_log('creditoTieneAsignacionDespachoActiva: ' . $e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Último valor de celula en gastos_cobranza (__SPARTA_SECRET_REDACTED__) para el crédito.
+     */
+    public static function obtenerCelulaUltimaGastoCobranza($idCredito): ?int
+    {
+        $id = (int) $idCredito;
+        if ($id <= 0) {
+            return null;
+        }
+        try {
+            $db = new DatabaseSegundometro();
+            $sqlCelula = "SELECT `celula` AS celula FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+                 WHERE `Id_credito` = :id
+                 ORDER BY id_gastos_cobranza DESC
+                 LIMIT 1";
+            try {
+                $row = $db->queryOne($sqlCelula, ['id' => $id]);
+            } catch (\Exception $eCol) {
+                $row = $db->queryOne(
+                    str_replace('WHERE `Id_credito` = :id', 'WHERE id_credito = :id', $sqlCelula),
+                    ['id' => $id]
+                );
+            }
+            if ($row === null) {
+                return null;
+            }
+            $raw = self::valorColumnaFila($row, 'celula');
+            if ($raw === null || $raw === '') {
+                return null;
+            }
+
+            return (int) $raw;
+        } catch (\Exception $e) {
+            error_log('obtenerCelulaUltimaGastoCobranza: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    public static function etiquetaCelulaGestionExterna(?int $celula): string
+    {
+        switch ($celula) {
+            case 1:
+                return 'Despachos de cobranza';
+            case 2:
+                return 'Gestión Call Center';
+            case 3:
+                return 'Cobranza Campo';
+            case 4:
+                return 'Gestión Call Center Sin Convenio';
+            default:
+                return $celula !== null ? ('Célula ' . $celula) : '';
+        }
+    }
+
+    /**
+     * Gestión externa para UI y bloqueo: asignación en despacho O célula indicada en gastos_cobranza.
+     */
+    public static function creditoEnGestionExternaRestringida($idCredito): bool
+    {
+        if (self::creditoTieneAsignacionDespachoActiva($idCredito)) {
+            return true;
+        }
+        $c = self::obtenerCelulaUltimaGastoCobranza($idCredito);
+
+        return $c !== null && (int) $c > 0;
+    }
+
+    /**
+     * @return array{activa: bool, celula: ?int, etiqueta_celula: string}
+     */
+    public static function getDatosGestionExternaCredito($idCredito): array
+    {
+        $celula = self::obtenerCelulaUltimaGastoCobranza($idCredito);
+        $enDespacho = self::creditoTieneAsignacionDespachoActiva($idCredito);
+        $activa = $enDespacho || ($celula !== null && (int) $celula > 0);
+        $etiqueta = '';
+        if ($activa) {
+            $etiqueta = self::etiquetaCelulaGestionExterna($celula);
+        }
+
+        return [
+            'activa' => $activa,
+            'celula' => $celula,
+            'etiqueta_celula' => $etiqueta,
+        ];
+    }
+
+    public static function mensajeBloqueoGestionExternaGastos(): string
+    {
+        return 'Esta opción no está disponible. El crédito está siendo gestionado de forma externa.';
+    }
+
+    public static function gastosCobranzaBloqueadosPorGestionExterna($idCredito): bool
+    {
+        return self::creditoEnGestionExternaRestringida($idCredito);
+    }
+
     public static function insertCondonacionCobranza($data)
     {
         // 🔹 Escapamos valores
@@ -1021,7 +1173,7 @@ public static function getGastosTodosConEstatus($idCredito)
         $db = new DatabaseSegundometro();
 
         $row = $db->queryOne(
-            "SELECT monto_valor FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+            "SELECT monto_valor, Id_credito FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
              WHERE id_gastos_cobranza = :id",
             ['id' => $id_gastos_cobranza]
         );
@@ -1030,7 +1182,12 @@ public static function getGastosTodosConEstatus($idCredito)
             return self::resultado(false, 'No se encontró el gasto de cobranza.');
         }
 
-        $montoMax = (float) $row['monto_valor'];
+        $idCreditoGasto = (int) (self::valorColumnaFila($row, 'Id_credito') ?? self::valorColumnaFila($row, 'id_credito') ?? 0);
+        if (self::creditoEnGestionExternaRestringida($idCreditoGasto)) {
+            return self::resultado(false, self::mensajeBloqueoGestionExternaGastos());
+        }
+
+        $montoMax = (float) (self::valorColumnaFila($row, 'monto_valor') ?? 0);
         if ($monto_parcial >= $montoMax) {
             return self::resultado(false, 'El monto parcial no puede ser mayor o igual al monto total del gasto. Para condonación total usa el botón Condonar.');
         }
