@@ -1,0 +1,629 @@
+<?php
+/**
+ * ============================================================
+ * CRONJOB: sync_gastos_cobranza.php
+ * ============================================================
+ * Ubicación esperada:
+ *   /sparta___SPARTA_SECRET_REDACTED__/backend/cronjobs/sync_gastos_cobranza.php
+ *
+ * ── MODO NORMAL (aplica cambios en BD) ──────────────────────
+ *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php
+ *
+ * ── MODO DRY RUN (solo lectura, CERO escrituras en BD) ──────
+ *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php -- --dry-run
+ *
+ * ── MODO DRY RUN limitado (ideal para primer test) ──────────
+ *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php -- --dry-run --limit=5
+ *
+ * ── MODO TEST (usa tabla backup en lugar de gastos_cobranza) ─
+ *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php -- --test-table
+ *
+ * ── MODO TEST + DRY RUN ──────────────────────────────────────
+ *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php -- --test-table --dry-run --limit=5
+ *
+ * ── Crontab recomendado (martes 02:00 AM) ───────────────────
+ *   0 2 * * 2 /usr/bin/php .../sync_gastos_cobranza.php >> .../logs/cron.log 2>&1
+ *
+ * ── Para validar sintaxis sin ejecutar ──────────────────────
+ *   c:\xampp\php\php.exe -l C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php
+ *
+ * ============================================================
+ * QUÉ HACE:
+ *   Replica procesarGastosCobranza() del controller EstadoCuenta
+ *   de forma masiva — para TODOS los créditos con gastos de
+ *   cobranza pendientes (estatus_pago 0 ó 1, condonado = 0),
+ *   sin necesidad de que alguien consulte el estado de cuenta.
+ *
+ * MEJORAS v2:
+ *   [+] Flag anti-duplicado — no procesa si ya corrió hoy
+ *   [+] Validación contra asigna_creditos_despacho — skip si
+ *       el crédito está asignado a despacho (evita cruce)
+ *   [+] START TRANSACTION por crédito — ROLLBACK automático
+ *       si cualquier UPDATE falla a mitad del cruce
+ *   [+] Modo --test-table — opera sobre tabla backup en lugar
+ *       de gastos_cobranza productiva
+ *   [+] Logs enriquecidos con razones de skip
+ *
+ * CÉLULAS QUE PROCESA (campo `celula` en gastos_cobranza):
+ *   1 = Despacho
+ *   2 = Gestión callcenter CON convenio  ← prioridad 1
+ *   3 = Cobranza campo
+ *   4 = Gestión callcenter SIN convenio
+ *   NULL = Sin célula asignada
+ *
+ * REGLAS RESPETADAS (idénticas al controller):
+ *   - Solo notas concepto = 'NOTA DE DE CARGO GASTOS DE COBRANZA'
+ *   - Solo notas >= 2026-01-28 (fecha inicio del módulo)
+ *   - Descuenta lo ya pagado/abonado antes de aplicar nuevo cruce
+ *   - Si el monto no alcanza para cubrir todo → cierra con
+ *     condonación automática de la diferencia
+ * ============================================================
+ */
+
+declare(strict_types=1);
+
+// ============================================================
+// BOOTSTRAP MÍNIMO
+// ============================================================
+
+define('CRONJOB_MODE', true);
+define('CRONJOB_START', microtime(true));
+
+date_default_timezone_set('America/Mexico_City');
+
+define('RAIZ', dirname(__DIR__));
+
+$configIni = RAIZ . '/config/config.ini';
+if (!file_exists($configIni)) {
+    fwrite(STDERR, "[FATAL] No se encontró: {$configIni}\n");
+    exit(1);
+}
+define('CONFIGURACION', parse_ini_file($configIni));
+
+spl_autoload_register(function (string $clase): void {
+    if (str_starts_with($clase, 'PhpOffice\\') ||
+        str_starts_with($clase, 'ZipStream\\') ||
+        str_starts_with($clase, 'Psr\\')) {
+        return;
+    }
+    $ruta = RAIZ . '/' . str_replace('\\', '/', $clase) . '.php';
+    if (file_exists($ruta)) {
+        require_once $ruta;
+    }
+});
+
+$spreadsheet = RAIZ . '/Libs/PhpSpreadsheet/vendor/autoload.php';
+if (file_exists($spreadsheet)) {
+    require_once $spreadsheet;
+}
+
+use Core\DatabaseSegundometro;
+
+// ============================================================
+// ARGUMENTOS CLI
+// ─────────────────────────────────────────────────────────────
+//   --dry-run        Solo lectura. CERO escrituras en BD.
+//   --limit=N        Procesar máximo N créditos.
+//   --test-table     Opera sobre tabla backup (no productiva).
+//   --force          Omite el flag anti-duplicado (forzar re-ejecución).
+// ============================================================
+$opts = getopt('', ['dry-run', 'limit:', 'test-table', 'force']);
+
+define('DRY_RUN',    isset($opts['dry-run']));
+define('TEST_TABLE', isset($opts['test-table']));
+define('FORCE_RUN',  isset($opts['force']));
+define('CLI_LIMIT',  isset($opts['limit']) ? max(1, (int) $opts['limit']) : 0);
+
+// ============================================================
+// TABLAS
+// ─────────────────────────────────────────────────────────────
+// En modo --test-table se usa la tabla backup para pruebas
+// seguras sin tocar gastos_cobranza productiva.
+// ============================================================
+define('TABLA_GASTOS',
+    TEST_TABLE
+        ? '`__SPARTA_SECRET_REDACTED__`.gastos_cobranza_backup_despacho_20260324'
+        : '`__SPARTA_SECRET_REDACTED__`.gastos_cobranza'
+);
+
+define('TABLA_DESPACHO', '`__SPARTA_SECRET_REDACTED__`.asigna_creditos_despacho');
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+const API_URL     = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+const API_TOKEN   = '__SPARTA_TOKEN_REDACTED__';
+const API_TIMEOUT = 25;
+
+const FECHA_INICIO  = '2026-01-28';
+const CONCEPTO_GDC  = 'NOTA DE DE CARGO GASTOS DE COBRANZA';
+const PAUSA_US      = 300000;   // 0.3 s entre créditos
+const MAX_CREDITOS  = 0;        // 0 = sin límite
+
+// ============================================================
+// LOGGER
+// ============================================================
+$logDir  = __DIR__ . '/logs';
+$logFile = $logDir . '/sync_gastos_cobranza_' . date('Y-m-d')
+         . (DRY_RUN    ? '_DRYRUN'    : '')
+         . (TEST_TABLE ? '_TESTTABLE' : '')
+         . '.log';
+
+function log_cron(string $nivel, string $msg, array $ctx = []): void
+{
+    global $logFile, $logDir;
+
+    if (!is_dir($logDir)) {
+        mkdir($logDir, 0755, true);
+    }
+
+    $ts      = date('Y-m-d H:i:s');
+    $dryTag  = DRY_RUN    ? ' [DRY-RUN]'    : '';
+    $tstTag  = TEST_TABLE ? ' [TEST-TABLE]'  : '';
+    $extra   = $ctx ? ' | ' . json_encode($ctx, JSON_UNESCAPED_UNICODE) : '';
+    $line    = "[{$ts}]{$dryTag}{$tstTag} [{$nivel}] {$msg}{$extra}" . PHP_EOL;
+
+    file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+    echo $line;
+}
+
+// ============================================================
+// FLAG ANTI-DUPLICADO
+// ─────────────────────────────────────────────────────────────
+// Se guarda un archivo de marca por fecha.
+// Si existe y no se pasa --force, el cron aborta.
+// En DRY_RUN nunca se escribe ni se bloquea.
+// ============================================================
+function verificar_flag_ejecucion(): void
+{
+    if (DRY_RUN) {
+        log_cron('INFO', 'Anti-duplicado: omitido en DRY_RUN');
+        return;
+    }
+
+    $flagDir  = __DIR__ . '/flags';
+    $flagFile = $flagDir . '/sync_gastos_' . date('Y-m-d') . '.lock';
+
+    if (!is_dir($flagDir)) {
+        mkdir($flagDir, 0755, true);
+    }
+
+    if (file_exists($flagFile) && !FORCE_RUN) {
+        log_cron('WARN', '⛔ El cron ya se ejecutó hoy. Usa --force para re-ejecutar.');
+        exit(0);
+    }
+
+    // Crear el flag ANTES de procesar para evitar race condition
+    file_put_contents($flagFile, date('Y-m-d H:i:s') . PHP_EOL);
+    log_cron('INFO', "Anti-duplicado: flag creado → {$flagFile}");
+}
+
+function limpiar_flag_ejecucion(): void
+{
+    if (DRY_RUN) return;
+
+    $flagFile = __DIR__ . '/flags/sync_gastos_' . date('Y-m-d') . '.lock';
+    // El flag permanece — es intencional. Solo --force lo omite.
+    // Si se quiere borrar en caso de error para permitir reintento,
+    // llamar a esta función desde el bloque de error.
+}
+
+// ============================================================
+// VALIDACIÓN CONTRA DESPACHO
+// ─────────────────────────────────────────────────────────────
+// Si el crédito aparece en asigna_creditos_despacho,
+// se descarta completamente para evitar cruce de información.
+// Se cachea el SET completo al inicio para no hacer N queries.
+// ============================================================
+function cargar_creditos_despacho(DatabaseSegundometro $db): array
+{
+    try {
+        $rows = $db->queryAll(
+            "SELECT DISTINCT Id_credito FROM " . TABLA_DESPACHO,
+            []
+        );
+        $ids = array_column($rows, 'Id_credito');
+        return array_flip(array_map('intval', $ids)); // hashmap para O(1) lookup
+    } catch (\Exception $e) {
+        log_cron('ERROR', 'No se pudo cargar asigna_creditos_despacho', ['error' => $e->getMessage()]);
+        return [];
+    }
+}
+
+// ============================================================
+// OBTENER NOTAS DE CARGO DESDE LA API S2
+// ============================================================
+function obtener_notas_api(int $idCredito): array
+{
+    $payload = json_encode([
+        'idCredito'  => $idCredito,
+        'fechaCorte' => date('Y-m-d'),
+    ]);
+
+    $ch = curl_init(API_URL);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => [
+            'Token: ' . API_TOKEN,
+            'Content-Type: application/json',
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => API_TIMEOUT,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => false,
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr  = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false || $curlErr) {
+        log_cron('ERROR', "CURL falló — crédito #{$idCredito}", ['error' => $curlErr]);
+        return [];
+    }
+    if ($httpCode !== 200) {
+        log_cron('WARN', "API HTTP {$httpCode} — crédito #{$idCredito}");
+        return [];
+    }
+
+    $json = json_decode($response, true);
+    if (!is_array($json) || !isset($json['estadoCuenta'])) {
+        log_cron('WARN', "API sin estadoCuenta — crédito #{$idCredito}");
+        return [];
+    }
+
+    $notas = $json['estadoCuenta']['datosNotasCargos'] ?? [];
+    return is_array($notas) ? $notas : [];
+}
+
+// ============================================================
+// PROCESAR UN CRÉDITO
+// ─────────────────────────────────────────────────────────────
+// START TRANSACTION → procesa todos los UPDATEs del crédito
+//   → si todo ok: COMMIT
+//   → si cualquier excepción: ROLLBACK (crédito queda intacto)
+//
+// En DRY_RUN: calcula todo pero NO ejecuta CRUD ni transacción.
+// ============================================================
+function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notasCargos): array
+{
+    // ── 1. Filtrar notas válidas ─────────────────────────────────
+    $filtradas = array_filter($notasCargos, fn($n) =>
+        ($n['concepto']        ?? '') === CONCEPTO_GDC &&
+        ($n['fechaMovimiento'] ?? '') >= FECHA_INICIO
+    );
+
+    if (empty($filtradas)) {
+        return ['procesados' => 0, 'saldo_favor' => 0.0, 'skip' => true, 'razon' => 'sin_notas_validas'];
+    }
+
+    // ── 2. Calcular monto disponible neto ────────────────────────
+    $totalNotas      = array_sum(array_column($filtradas, 'monto'));
+    $montoDisponible = round((float) $totalNotas, 2);
+
+    $todos = $db->queryAll(
+        "SELECT
+             id_gastos_cobranza,
+             monto_valor,
+             COALESCE(estatus_pago, 0)         AS estatus_pago,
+             COALESCE(monto_parcial_pagado, 0) AS monto_parcial_pagado
+         FROM " . TABLA_GASTOS . "
+         WHERE Id_credito = :id
+           AND (condonado IS NULL OR condonado = 0)
+         ORDER BY periodo_inicio ASC",
+        ['id' => $idCredito]
+    );
+
+    foreach ($todos as $g) {
+        $estatus = (int) ($g['estatus_pago'] ?? 0);
+        if ($estatus === 2) {
+            $montoDisponible = round($montoDisponible - (float) $g['monto_valor'], 2);
+        } elseif ($estatus === 1) {
+            $montoDisponible = round($montoDisponible - (float) $g['monto_parcial_pagado'], 2);
+        }
+    }
+
+    $montoDisponible = max(0.0, $montoDisponible);
+
+    if ($montoDisponible <= 0) {
+        return ['procesados' => 0, 'saldo_favor' => 0.0, 'skip' => true, 'razon' => 'monto_disponible_cero'];
+    }
+
+    // ── 3. Filtrar pendientes (0) o parciales (1) ────────────────
+    $pendientes = array_filter($todos, fn($g) =>
+        (int) ($g['estatus_pago'] ?? 0) === 0 ||
+        (int) ($g['estatus_pago'] ?? 0) === 1
+    );
+
+    if (empty($pendientes)) {
+        return ['procesados' => 0, 'saldo_favor' => 0.0, 'skip' => true, 'razon' => 'sin_pendientes'];
+    }
+
+    // ── 4. DRY RUN — solo simular, sin tocar BD ──────────────────
+    if (DRY_RUN) {
+        $montoSim  = $montoDisponible;
+        $procesados = 0;
+
+        foreach ($pendientes as $gasto) {
+            if ($montoSim <= 0) break;
+
+            $idGasto       = (int)   $gasto['id_gastos_cobranza'];
+            $montoOriginal = round((float) $gasto['monto_valor'], 2);
+            $yaPagado      = (int) $gasto['estatus_pago'] === 1
+                               ? round((float) $gasto['monto_parcial_pagado'], 2)
+                               : 0.0;
+            $montoRestante = round($montoOriginal - $yaPagado, 2);
+
+            // fecha_pago: fechaMovimiento de la nota que disparó el cruce
+            // Se registra tanto en pago total como parcial (es la fecha en que el cliente metió el dinero)
+            $fechaPago = !empty($gasto['fechaMovimiento']) ? $gasto['fechaMovimiento'] : date('Y-m-d');
+
+            if ($montoSim >= $montoRestante) {
+                // ✅ Cubre todo → PAGADO TOTAL
+                $montoSim = round($montoSim - $montoRestante, 2);
+                log_cron('DRY', "    [SIMULADO] Gasto #{$idGasto} → PAGADO TOTAL \${$montoOriginal} fecha_pago={$fechaPago} (ya_pagado=\${$yaPagado})");
+            } else {
+                // 🔶 No alcanza → PAGO PARCIAL, el cliente sigue debiendo
+                // condonacion_parcial_monto NO se toca — es territorio del gestor
+                $totalPagadoFinal = round($yaPagado + $montoSim, 2);
+                $pendiente        = round($montoOriginal - $totalPagadoFinal, 2);
+                log_cron('DRY', "    [SIMULADO] Gasto #{$idGasto} → PAGO PARCIAL estatus=1 pagado=\${$totalPagadoFinal} aun_debe=\${$pendiente} fecha_pago={$fechaPago} (ya_pagado=\${$yaPagado})");
+                $montoSim = 0;
+            }
+
+            $procesados++;
+        }
+
+        return [
+            'procesados'  => $procesados,
+            'saldo_favor' => round($montoSim, 2),
+            'skip'        => false,
+            'razon'       => null,
+        ];
+    }
+
+    // ── 5. MODO REAL — START TRANSACTION por crédito ─────────────
+    try {
+        $db->getPDO()->beginTransaction();
+
+        $montoSimulado = $montoDisponible;
+        $procesados    = 0;
+
+        foreach ($pendientes as $gasto) {
+            if ($montoSimulado <= 0) break;
+
+            $idGasto       = (int)   $gasto['id_gastos_cobranza'];
+            $montoOriginal = round((float) $gasto['monto_valor'], 2);
+            $yaPagado      = (int) $gasto['estatus_pago'] === 1
+                               ? round((float) $gasto['monto_parcial_pagado'], 2)
+                               : 0.0;
+            $montoRestante = round($montoOriginal - $yaPagado, 2);
+
+            // fecha_pago: fechaMovimiento de la API — fecha real en que el cliente pagó
+            // Se guarda tanto en pago total como parcial
+            $fechaPago = !empty($gasto['fechaMovimiento']) ? $gasto['fechaMovimiento'] : date('Y-m-d');
+
+            if ($montoSimulado >= $montoRestante) {
+                // ✅ Escenario A — Cubre todo → PAGADO TOTAL
+                // condonacion_parcial_monto NO se toca — es territorio del gestor
+                $montoSimulado = round($montoSimulado - $montoRestante, 2);
+
+                $db->CRUD(
+                    "UPDATE " . TABLA_GASTOS . "
+                     SET estatus_pago         = 2,
+                         monto_parcial_pagado  = :monto_pagado,
+                         fecha_pago            = :fecha_pago
+                     WHERE id_gastos_cobranza  = :id",
+                    [
+                        'monto_pagado' => $montoOriginal,
+                        'fecha_pago'   => $fechaPago,
+                        'id'           => $idGasto,
+                    ]
+                );
+                log_cron('INFO', "    ✔ Gasto #{$idGasto} → PAGADO TOTAL \${$montoOriginal} fecha_pago={$fechaPago}");
+
+            } else {
+                // 🔶 Escenario B — No alcanza → PAGO PARCIAL, sigue debiendo
+                // condonacion_parcial_monto NO se toca — es territorio del gestor
+                $totalPagadoFinal = round($yaPagado + $montoSimulado, 2);
+                $pendiente        = round($montoOriginal - $totalPagadoFinal, 2);
+
+                $db->CRUD(
+                    "UPDATE " . TABLA_GASTOS . "
+                     SET estatus_pago         = 1,
+                         monto_parcial_pagado  = :monto_pagado,
+                         fecha_pago            = :fecha_pago
+                     WHERE id_gastos_cobranza  = :id",
+                    [
+                        'monto_pagado' => $totalPagadoFinal,
+                        'fecha_pago'   => $fechaPago,
+                        'id'           => $idGasto,
+                    ]
+                );
+                log_cron('INFO', "    🔶 Gasto #{$idGasto} → PAGO PARCIAL estatus=1 pagado=\${$totalPagadoFinal} aun_debe=\${$pendiente} fecha_pago={$fechaPago}");
+
+                $montoSimulado = 0;
+            }
+
+            $procesados++;
+        }
+
+        $db->getPDO()->commit();
+        log_cron('INFO', "    ✅ COMMIT — crédito #{$idCredito} ({$procesados} gastos)");
+
+        return [
+            'procesados'  => $procesados,
+            'saldo_favor' => round($montoSimulado, 2),
+            'skip'        => false,
+            'razon'       => null,
+        ];
+
+    } catch (\Exception $e) {
+        // Revertir TODO lo del crédito si algo falló
+        if ($db->getPDO()->inTransaction()) {
+            $db->getPDO()->rollBack();
+            log_cron('ERROR', "    🔴 ROLLBACK — crédito #{$idCredito}", ['error' => $e->getMessage()]);
+        }
+        throw $e; // re-lanzar para que el loop principal lo cuente como error
+    }
+}
+
+// ============================================================
+// PUNTO DE ENTRADA
+// ============================================================
+
+log_cron('INFO', str_repeat('═', 60));
+log_cron('INFO', 'INICIO — sync_gastos_cobranza v2');
+if (DRY_RUN)    log_cron('INFO', '⚠️  MODO DRY RUN    — CERO escrituras en BD');
+if (TEST_TABLE) log_cron('INFO', '🧪 MODO TEST TABLE  — tabla: ' . TABLA_GASTOS);
+if (FORCE_RUN)  log_cron('INFO', '⚡ MODO FORCE       — flag anti-duplicado ignorado');
+log_cron('INFO', str_repeat('═', 60));
+
+// ── Flag anti-duplicado ───────────────────────────────────────
+verificar_flag_ejecucion();
+
+// ── Conectar a BD ─────────────────────────────────────────────
+try {
+    $db = new DatabaseSegundometro();
+} catch (\Exception $e) {
+    log_cron('FATAL', 'No se pudo conectar a DatabaseSegundometro', ['error' => $e->getMessage()]);
+    exit(1);
+}
+
+// ── Cargar créditos en despacho (hashmap para lookup O(1)) ───
+log_cron('INFO', 'Cargando créditos asignados a despacho...');
+$creditosDespacho = cargar_creditos_despacho($db);
+log_cron('INFO', 'Créditos en despacho cargados: ' . count($creditosDespacho));
+
+// ── Obtener créditos con gastos pendientes ────────────────────
+$sql = "
+    SELECT DISTINCT
+        Id_credito,
+        celula
+    FROM " . TABLA_GASTOS . "
+    WHERE (condonado IS NULL OR condonado = 0)
+      AND (estatus_pago IS NULL OR estatus_pago IN (0, 1))
+    ORDER BY
+        CASE
+            WHEN celula = 2 THEN 1   -- Callcenter CON convenio
+            WHEN celula = 1 THEN 2   -- Despacho
+            WHEN celula = 3 THEN 3   -- Cobranza campo
+            WHEN celula = 4 THEN 4   -- Callcenter SIN convenio
+            ELSE 5                   -- Sin célula
+        END,
+        Id_credito ASC
+";
+
+try {
+    $creditos = $db->queryAll($sql);
+} catch (\Exception $e) {
+    log_cron('FATAL', 'Error al obtener créditos pendientes', ['error' => $e->getMessage()]);
+    exit(1);
+}
+
+$total = count($creditos);
+log_cron('INFO', "Créditos con gastos pendientes encontrados: {$total}");
+
+if ($total === 0) {
+    log_cron('INFO', 'Nada que procesar. Finalizando.');
+    exit(0);
+}
+
+// Límite
+$limite = CLI_LIMIT > 0 ? CLI_LIMIT : (MAX_CREDITOS > 0 ? MAX_CREDITOS : 0);
+if ($limite > 0 && $total > $limite) {
+    $creditos = array_slice($creditos, 0, $limite);
+    log_cron('INFO', "Límite activo: procesando {$limite} de {$total}");
+    $total = $limite;
+}
+
+$labelCelula = [
+    1 => 'Despacho',
+    2 => 'Callcenter c/convenio',
+    3 => 'Cobranza campo',
+    4 => 'Callcenter s/convenio',
+];
+
+$stats = [
+    'procesados'        => 0,
+    'skipped'           => 0,
+    'skipped_despacho'  => 0,   // ← nuevo: skips por estar en despacho
+    'errores'           => 0,
+    'gastos_cerrados'   => 0,
+    'saldo_favor'       => 0.0,
+    'rollbacks'         => 0,   // ← nuevo: cuántos créditos hicieron rollback
+];
+
+// ── Iterar ────────────────────────────────────────────────────
+foreach ($creditos as $i => $row) {
+    $idCredito = (int)   $row['Id_credito'];
+    $celula    = isset($row['celula']) ? (int) $row['celula'] : null;
+    $label     = $celula !== null ? ($labelCelula[$celula] ?? "Célula {$celula}") : 'Sin célula';
+    $pos       = $i + 1;
+
+    log_cron('INFO', "── [{$pos}/{$total}] Crédito {$idCredito} [{$label}]");
+
+    // ── Validación despacho ───────────────────────────────────
+    if (isset($creditosDespacho[$idCredito])) {
+        log_cron('INFO', "  ⏭ SKIP — crédito en asigna_creditos_despacho (evita cruce)");
+        $stats['skipped']++;
+        $stats['skipped_despacho']++;
+        usleep(PAUSA_US);
+        continue;
+    }
+
+    try {
+        $notas = obtener_notas_api($idCredito);
+
+        if (empty($notas)) {
+            log_cron('WARN', "  Sin notas en API — crédito {$idCredito}");
+            $stats['skipped']++;
+            usleep(PAUSA_US);
+            continue;
+        }
+
+        $res = procesar_credito($db, $idCredito, $notas);
+
+        if ($res['skip']) {
+            log_cron('INFO', "  Sin cambios ({$res['razon']})");
+            $stats['skipped']++;
+        } else {
+            $accion = DRY_RUN ? 'Simularía cerrar' : 'Gastos cerrados';
+            log_cron('INFO', "  ✓ {$accion}: {$res['procesados']} | Saldo favor: \${$res['saldo_favor']}");
+            $stats['procesados']++;
+            $stats['gastos_cerrados'] += $res['procesados'];
+            $stats['saldo_favor']     += $res['saldo_favor'];
+        }
+
+    } catch (\Exception $e) {
+        log_cron('ERROR', "  Excepción — crédito #{$idCredito}", ['msg' => $e->getMessage()]);
+        $stats['errores']++;
+        $stats['rollbacks']++;
+    }
+
+    usleep(PAUSA_US);
+}
+
+// ── Resumen ───────────────────────────────────────────────────
+$dur = round(microtime(true) - CRONJOB_START, 2);
+
+log_cron('INFO', str_repeat('═', 60));
+log_cron('INFO', DRY_RUN ? 'RESUMEN FINAL — DRY RUN (ningún cambio en BD)' : 'RESUMEN FINAL');
+if (TEST_TABLE) log_cron('INFO', '🧪 Tabla usada: ' . TABLA_GASTOS);
+log_cron('INFO', str_repeat('═', 60));
+log_cron('INFO', "Total evaluados              : {$total}");
+log_cron('INFO', "Con cambios " . (DRY_RUN ? '(simulados)    ' : '               ') . ": {$stats['procesados']}");
+log_cron('INFO', "Sin cambios (skip total)     : {$stats['skipped']}");
+log_cron('INFO', "  └ Por despacho (skip)      : {$stats['skipped_despacho']}");
+log_cron('INFO', "Con error                    : {$stats['errores']}");
+log_cron('INFO', "Rollbacks ejecutados         : {$stats['rollbacks']}");
+log_cron('INFO', "Gastos " . (DRY_RUN ? 'a cerrar (sim.)      ' : 'cerrados (filas)     ') . ": {$stats['gastos_cerrados']}");
+log_cron('INFO', "Saldo a favor acumulado      : \${$stats['saldo_favor']}");
+log_cron('INFO', "Duración total               : {$dur}s");
+log_cron('INFO', 'FIN — sync_gastos_cobranza v2');
+log_cron('INFO', str_repeat('═', 60));
+
+exit(0);
