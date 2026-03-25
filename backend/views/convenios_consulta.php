@@ -2555,110 +2555,142 @@ function migCargarProductos() {
 }
 
 window.migBuscarCredito = function() {
-    var id = document.getElementById('migIdCredito').value.trim();
-    if (!id) return;
+    var idCredito = parseInt(document.getElementById('migIdCredito').value);
+    var info      = document.getElementById('migInfoCliente');
 
-    // Reset estado visual
-    var info = document.getElementById('migInfoCliente');
-    info.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-danger');
-    info.classList.add('d-none');
+    if (!idCredito || idCredito < 1) {
+        Swal.fire('Campo requerido', 'Ingresa un ID de crédito válido.', 'warning');
+        return;
+    }
+
+    // Ocultar paso 2 mientras buscamos
     document.getElementById('migStep2').classList.add('d-none');
-    document.getElementById('migPreview').classList.add('d-none');
     document.getElementById('migBtnGuardar').classList.add('d-none');
-
-    // Mostrar cargando
+    info.className = 'alert alert-info';
     info.classList.remove('d-none');
-    info.className = 'alert alert-secondary';
-    info.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Consultando crédito...';
+    info.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Buscando crédito...';
 
+    // ── Paso 1: Obtener datos del crédito ──────────────────────────
     http.request({
         endpoint: '/convenios/getOfertasCredito',
         method:   'POST',
-        data:     { id_credito: id },
-        onSuccess: function(resp) {
-            if (!resp.success || !resp.datos || !resp.datos.credito) {
+        data:     { id_credito: idCredito },
+        onSuccess: function(respOfertas) {
+
+            if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
                 info.className = 'alert alert-danger';
                 info.innerHTML =
                     '<i class="fas fa-times-circle me-2"></i>' +
-                    '<strong>Crédito no encontrado.</strong> ' +
-                    (resp.mensaje || 'Verifica el ID e intenta de nuevo.');
+                    (respOfertas.mensaje || 'Crédito no encontrado.');
                 return;
             }
 
-            var credito = resp.datos.credito;
-            _migCredito = credito;
+            var credito = respOfertas.datos.credito;
 
-            // Ahora verificar si ya tiene convenio activo
+            // ── Paso 2: Validar que el crédito esté en despacho (mora 8+)
+            //    y que NO esté current (estatus = 0) ──────────────────────
             http.request({
-                endpoint: '/convenios/getConvenioActivo',
+                endpoint: '/convenios/validarDespacho',
                 method:   'POST',
-                data:     { id_credito: id },
-                onSuccess: function(respConv) {
-                    var tieneActivo = respConv.success && respConv.datos && respConv.datos.estatus === 'activo';
+                data:     { id_credito: idCredito },
+                onSuccess: function(respDespacho) {
 
-                    if (tieneActivo) {
-                        var conv = respConv.datos;
-                        var fmt  = function(v) {
-                            return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
-                        };
-
+                    if (!respDespacho.success) {
+                        // Crédito no está en despacho o ya está current → bloquear
                         info.className = 'alert alert-danger';
                         info.innerHTML =
                             '<div class="d-flex align-items-start gap-2">' +
                                 '<i class="fas fa-ban fa-lg mt-1 text-danger"></i>' +
                                 '<div>' +
-                                    '<strong>Este crédito ya tiene un convenio activo.</strong><br>' +
-                                    '<small>' +
-                                        '<span class="me-3"><i class="fas fa-user me-1"></i>' + credito.Nombre_cliente + '</span>' +
-                                        '<span class="me-3"><i class="fas fa-calendar me-1"></i>Acuerdo: ' + conv.fecha_acuerdo + '</span>' +
-                                        '<span><i class="fas fa-dollar-sign me-1"></i>Total: ' + fmt(conv.total_a_pagar) + '</span>' +
-                                    '</small><br>' +
-                                    '<small class="text-muted">Dale su seguimiento correspondiente ingresando el id credito en el buscador principal.</small>' +
+                                    '<strong>Crédito no elegible</strong><br>' +
+                                    '<span>' + respDespacho.mensaje + '</span>' +
                                 '</div>' +
                             '</div>';
 
-                        // No mostrar paso 2
+                        // Aseguramos que el paso 2 permanezca oculto
                         document.getElementById('migStep2').classList.add('d-none');
                         document.getElementById('migBtnGuardar').classList.add('d-none');
                         return;
                     }
 
-                    // ✅ Sin convenio activo — mostrar info verde y habilitar paso 2
-                    var adeudo = parseFloat(credito.Adeudo_total || 0)
-                        .toLocaleString('es-MX', { minimumFractionDigits: 2 });
+                    // ── Paso 3: Verificar que no tenga convenio activo ──────
+                    http.request({
+                        endpoint: '/convenios/getConvenioActivo',
+                        method:   'POST',
+                        data:     { id_credito: idCredito },
+                        onSuccess: function(respConvenio) {
 
-                    info.className = 'alert alert-success';
-                    info.innerHTML =
-                        '<div class="d-flex align-items-start gap-2">' +
-                            '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
-                            '<div>' +
-                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                                '<small>' +
-                                    '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + '</span>' +
-                                    '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2Movil: $' + adeudo + '</span>' +
-                                '</small><br>' +
-                                '<small class="text-success fw-semibold">✓ Cumple condiciones para registrar un convenio.</small>' +
-                            '</div>' +
-                        '</div>';
+                            if (respConvenio.success && respConvenio.datos &&
+                                respConvenio.datos.estatus === 'activo') {
+                                // Ya tiene convenio activo → no permitir migración
+                                info.className = 'alert alert-warning';
+                                info.innerHTML =
+                                    '<div class="d-flex align-items-start gap-2">' +
+                                        '<i class="fas fa-lock fa-lg mt-1 text-warning"></i>' +
+                                        '<div>' +
+                                            '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
+                                            '<span class="text-warning fw-semibold">' +
+                                                '⚠️ Este crédito ya tiene un convenio activo registrado. ' +
+                                                'No es posible registrar un convenio adicional.' +
+                                            '</span>' +
+                                        '</div>' +
+                                    '</div>';
 
-                    document.getElementById('migAdeudo').value =
-                        parseFloat(credito.Adeudo_total || 0).toFixed(2);
-                    document.getElementById('migBucket').value =
-                        credito.Bucket_Morosidad_Real || '';
-                    document.getElementById('migStep2').classList.remove('d-none');
+                                document.getElementById('migStep2').classList.add('d-none');
+                                document.getElementById('migBtnGuardar').classList.add('d-none');
+                                return;
+                            }
+
+                            // ✅ Todo válido — mostrar info verde y habilitar paso 2
+                            _migCredito = credito;
+
+                            var adeudo = parseFloat(credito.Adeudo_total || 0)
+                                .toLocaleString('es-MX', { minimumFractionDigits: 2 });
+
+                            info.className = 'alert alert-success';
+                            info.innerHTML =
+                                '<div class="d-flex align-items-start gap-2">' +
+                                    '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
+                                    '<div>' +
+                                        '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
+                                        '<small>' +
+                                            '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + '</span>' +
+                                            '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2Movil: $' + adeudo + '</span>' +
+                                        '</small><br>' +
+                                        '<small class="text-success fw-semibold">✓ Crédito en despacho activo. Cumple condiciones para registrar un convenio.</small>' +
+                                    '</div>' +
+                                '</div>';
+
+                            document.getElementById('migAdeudo').value =
+                                parseFloat(credito.Adeudo_total || 0).toFixed(2);
+                            document.getElementById('migBucket').value =
+                                credito.Bucket_Morosidad_Real || '';
+                            document.getElementById('migStep2').classList.remove('d-none');
+                        },
+                        onError: function() {
+                            // Si falla getConvenioActivo, habilitamos igualmente
+                            // (el backend lo validará al guardar)
+                            _migCredito = credito;
+
+                            info.className = 'alert alert-success';
+                            info.innerHTML =
+                                '<i class="fas fa-check-circle me-2"></i>' +
+                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito;
+
+                            document.getElementById('migAdeudo').value =
+                                parseFloat(credito.Adeudo_total || 0).toFixed(2);
+                            document.getElementById('migBucket').value =
+                                credito.Bucket_Morosidad_Real || '';
+                            document.getElementById('migStep2').classList.remove('d-none');
+                        }
+                    });
                 },
                 onError: function() {
-                    // Si falla getConvenioActivo, continuamos igual (no bloqueamos)
-                    info.className = 'alert alert-success';
+                    info.className = 'alert alert-danger';
                     info.innerHTML =
-                        '<i class="fas fa-check-circle me-2"></i>' +
-                        '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito;
-
-                    document.getElementById('migAdeudo').value =
-                        parseFloat(credito.Adeudo_total || 0).toFixed(2);
-                    document.getElementById('migBucket').value =
-                        credito.Bucket_Morosidad_Real || '';
-                    document.getElementById('migStep2').classList.remove('d-none');
+                        '<i class="fas fa-times-circle me-2"></i>' +
+                        'El credito no se encuentra disponible para convenio. ' +
+                        'Verifica que el crédito esté asignado a convenios, si tienes más dudas, consulta con el administrador.';
                 }
             });
         },
@@ -2670,6 +2702,7 @@ window.migBuscarCredito = function() {
         }
     });
 };
+
 
 window.migProductoChange = function() {
     var sel     = document.getElementById('migProducto');

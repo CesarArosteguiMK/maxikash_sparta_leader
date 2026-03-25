@@ -806,7 +806,7 @@ public static function getHistorialConvenios($id_credito)
      WHERE cc.id_credito = :id
      ORDER BY cc.fecha_alta DESC",
     ['id' => (int) $id_credito]
-);
+    );
 
         return self::resultado(true, 'Historial obtenido.', $rows ?: []);
     } catch (\Exception $e) {
@@ -1142,6 +1142,57 @@ public static function getProductosConvenio()
         return self::resultado(false, 'Error al obtener productos.', null, $e->getMessage());
     }
 }
+
+// ════════════════════════════════════════════════
+    // VALIDAR CRÉDITO EN DESPACHO
+    // Consulta __SPARTA_SECRET_REDACTED__.asigna_creditos_despacho.
+    //
+    // Retorna success=true solo si:
+    //   - El crédito existe en la tabla (estuvo en mora 8+)
+    //   - Su estatus actual es 1 (activo en despacho)
+    //
+    // Retorna success=false con mensaje descriptivo si:
+    //   - El crédito no existe en la tabla (nunca estuvo en despacho)
+    //   - El crédito tiene estatus=0 (ya se regularizó / está current)
+    // ════════════════════════════════════════════════
+
+    public static function validarCreditoEnDespacho($id_credito)
+    {
+        try {
+            $db = new Database(); // __SPARTA_SECRET_REDACTED__
+
+            $row = $db->queryOne(
+                "SELECT id, estatus
+                 FROM asigna_creditos_despacho
+                 WHERE id_credito = :id
+                 ORDER BY fecha_alta DESC
+                 LIMIT 1",
+                ['id' => (int) $id_credito]
+            );
+
+            // El crédito nunca estuvo asignado a un despacho
+            if (!$row) {
+                return self::resultado(
+                    false,
+                    'Este crédito no está registrado en despacho. No es posible registrar un convenio existente.'
+                );
+            }
+
+            // El crédito ya se regularizó (estatus = 0 → current)
+            if ((int) $row['estatus'] === 0) {
+                return self::resultado(
+                    false,
+                    'Este crédito ya está al corriente (estatus current). No se puede registrar un convenio existente para un crédito regularizado.'
+                );
+            }
+
+            // estatus = 1 → activo en despacho, mora 8+, elegible
+            return self::resultado(true, 'Crédito elegible para registrar convenio existente.');
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al validar el crédito en despacho.', null, $e->getMessage());
+        }
+    }
 
 
 // ════════════════════════════════════════════════
