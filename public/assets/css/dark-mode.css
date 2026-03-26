@@ -484,6 +484,106 @@ body.dark-mode .btn-close {
     filter: invert(1) grayscale(100%) brightness(200%);
 }
 
+/* Panel Admin (Validaciones, etc.): modal “Ver detalle” — bg-light / bg-body-tertiary quedaban claros sin data-bs-theme=dark */
+html.dark-mode #modalResumenTicket .border-bottom.bg-light,
+body.dark-mode #modalResumenTicket .border-bottom.bg-light {
+    background-color: rgba(30, 41, 59, 0.92) !important;
+    border-bottom-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+html.dark-mode #modalResumenTicket .bg-body-tertiary,
+body.dark-mode #modalResumenTicket .bg-body-tertiary,
+html.dark-mode #modalResumenTicket #resumenTicketAsunto,
+html.dark-mode #modalResumenTicket #resumenTicketDescripcion,
+html.dark-mode #modalResumenTicket #resumenTicketNota,
+html.dark-mode #modalResumenTicket #resumenTicketDs,
+body.dark-mode #modalResumenTicket #resumenTicketAsunto,
+body.dark-mode #modalResumenTicket #resumenTicketDescripcion,
+body.dark-mode #modalResumenTicket #resumenTicketNota,
+body.dark-mode #modalResumenTicket #resumenTicketDs {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+    border-color: #475569 !important;
+}
+html.dark-mode #modalResumenTicket .text-heading,
+body.dark-mode #modalResumenTicket .text-heading {
+    color: #f8fafc !important;
+}
+html.dark-mode #modalResumenTicket .card,
+body.dark-mode #modalResumenTicket .card {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+html.dark-mode #modalResumenTicket .card-body,
+body.dark-mode #modalResumenTicket .card-body {
+    background-color: transparent !important;
+    color: #e2e8f0 !important;
+}
+/* Prioridad / estado: bg-label-* en tema Sneat/Vuexy suelen ser pastillas muy claras */
+html.dark-mode #modalResumenTicket .badge.bg-label-warning,
+body.dark-mode #modalResumenTicket .badge.bg-label-warning {
+    background-color: rgba(245, 158, 11, 0.22) !important;
+    color: #fde68a !important;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+html.dark-mode #modalResumenTicket .badge.bg-label-success,
+body.dark-mode #modalResumenTicket .badge.bg-label-success {
+    background-color: rgba(34, 197, 94, 0.2) !important;
+    color: #bbf7d0 !important;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+}
+html.dark-mode #modalResumenTicket .badge.bg-label-secondary,
+body.dark-mode #modalResumenTicket .badge.bg-label-secondary {
+    background-color: rgba(148, 163, 184, 0.18) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+html.dark-mode #modalResumenTicket .badge.bg-label-primary,
+body.dark-mode #modalResumenTicket .badge.bg-label-primary {
+    background-color: rgba(59, 130, 246, 0.2) !important;
+    color: #bfdbfe !important;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+html.dark-mode #modalResumenTicket #resumenTicketNota a,
+html.dark-mode #modalResumenTicket #resumenTicketDescripcion a,
+body.dark-mode #modalResumenTicket #resumenTicketNota a,
+body.dark-mode #modalResumenTicket #resumenTicketDescripcion a {
+    color: #93c5fd !important;
+}
+
+/* Reporte semanal (Estadísticas Sabueso): vista Gráficas — alert-light quedaba blanco */
+html.dark-mode #modalReporteSemanalGlobal .alert.alert-light,
+body.dark-mode #modalReporteSemanalGlobal .alert.alert-light {
+    background-color: rgba(30, 41, 59, 0.88) !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+html.dark-mode #modalReporteSemanalGlobal .alert.alert-light strong,
+body.dark-mode #modalReporteSemanalGlobal .alert.alert-light strong {
+    color: #f8fafc !important;
+}
+
+/* Shell Segundómetro: barra «Integración agente» (alert-light) en modo oscuro */
+html.dark-mode #shellSegundometroAgenteBar.alert,
+body.dark-mode #shellSegundometroAgenteBar.alert {
+    background-color: rgba(30, 41, 59, 0.92) !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+html.dark-mode #shellSegundometroAgenteBar strong,
+body.dark-mode #shellSegundometroAgenteBar strong {
+    color: #f8fafc !important;
+}
+html.dark-mode #shellSegundometroAgenteBar .text-muted,
+body.dark-mode #shellSegundometroAgenteBar .text-muted {
+    color: #94a3b8 !important;
+}
+html.dark-mode #shellSegundometroAgenteBar .form-check-label,
+body.dark-mode #shellSegundometroAgenteBar .form-check-label {
+    color: #cbd5e1 !important;
+}
+
 /* Modal visor de documentos en dark mode: fondo gris; canvas del PDF con fondo blanco y sin filtros para que el documento se lea bien */
 body.dark-mode #modalDocumento {
     color-scheme: light;
@@ -2893,6 +2993,34 @@ body.dark-mode .badge.bg-label-primary {
 body.dark-mode .badge.bg-label-secondary {
     background-color: rgba(108, 117, 125, 0.15) !important;
     color: #95a5a6 !important;
+}
+
+html.dark-mode .badge.bg-label-success,
+body.dark-mode .badge.bg-label-success {
+    background-color: rgba(25, 135, 84, 0.22) !important;
+    color: #86efac !important;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+html.dark-mode .badge.bg-label-warning,
+body.dark-mode .badge.bg-label-warning {
+    background-color: rgba(255, 193, 7, 0.18) !important;
+    color: #ffe08a !important;
+    border: 1px solid rgba(255, 193, 7, 0.35);
+}
+
+html.dark-mode .badge.bg-label-info,
+body.dark-mode .badge.bg-label-info {
+    background-color: rgba(13, 202, 240, 0.15) !important;
+    color: #7dd3fc !important;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+html.dark-mode .badge.bg-label-danger,
+body.dark-mode .badge.bg-label-danger {
+    background-color: rgba(220, 53, 69, 0.2) !important;
+    color: #fca5a5 !important;
+    border: 1px solid rgba(248, 113, 113, 0.35);
 }
 
 /* Avatar icons con colores */

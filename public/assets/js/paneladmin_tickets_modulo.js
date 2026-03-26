@@ -520,10 +520,21 @@
             prioridadBadge = '<span class="badge" style="background-color:#ffc107;color:#212529;">' + (t.prioridad_nombre || '—') + '</span>';
         else if (prioridadNombre.indexOf('sin prioridad') !== -1)
             prioridadBadge = '<span class="badge bg-secondary" style="background-color:#6c757d!important;color:#fff;">' + (t.prioridad_nombre || '—') + '</span>';
-        var estadoBadge =
-            t.asignado_nombre && (t.asignado_nombre + '').trim()
-                ? '<span class="badge bg-label-success">Asignado</span>'
-                : '<span class="badge bg-label-secondary">Abierto</span>';
+        var estadoNombreRaw = ((t.estado_ticket_nombre || '') + '').trim() || '—';
+        var estadoNombre = estadoNombreRaw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        var en = estadoNombreRaw.toLowerCase();
+        var estadoBadge = '<span class="badge bg-label-secondary">' + estadoNombre + '</span>';
+        if (en.indexOf('cerrad') !== -1) {
+            estadoBadge = '<span class="badge bg-secondary text-white">' + estadoNombre + '</span>';
+        } else if (en.indexOf('abiert') !== -1) {
+            estadoBadge = '<span class="badge bg-success text-white">' + estadoNombre + '</span>';
+        } else if (en.indexOf('proceso') !== -1 || en.indexOf('curso') !== -1 || en.indexOf('pendiente') !== -1) {
+            estadoBadge = '<span class="badge bg-info text-white">' + estadoNombre + '</span>';
+        } else if (en.indexOf('espera') !== -1 || en.indexOf('pausad') !== -1) {
+            estadoBadge = '<span class="badge bg-warning text-dark">' + estadoNombre + '</span>';
+        } else if (estadoNombreRaw !== '—') {
+            estadoBadge = '<span class="badge bg-primary text-white">' + estadoNombre + '</span>';
+        }
         var catK = ((t.categoria_gestion || CAT || 'sabueso') + '').toLowerCase().trim();
         var icoM = {
             sabueso: 'fa-dog',
