@@ -193,51 +193,67 @@ class Despachos extends Controller
      * Asignar crédito a un despacho
      * POST: id_persona, id_credito
      */
-    public function AsignarCredito()
-    {
-        try {
-            $input = json_decode(file_get_contents('php://input'), true);
-            $idPersona = $input['id_persona'] ?? null;
-            $idCredito = $input['id_credito'] ?? null;
+    /**
+ * Asignar crédito a un despacho
+ * POST: id_persona, id_credito, id_celula
+ */
+public function AsignarCredito()
+{
+    try {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $idPersona = $input['id_persona'] ?? null;
+        $idCredito = $input['id_credito'] ?? null;
+        $idCelula = $input['id_celula'] ?? null;
 
-            if (!$idPersona || !$idCredito) {
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Faltan parámetros'
-                ]);
-                return;
-            }
-
-            // Verificar si ya está asignado
-            $yaAsignado = $this->model->verificarAsignacion($idCredito);
-            if ($yaAsignado) {
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Este crédito ya está asignado a un despacho'
-                ]);
-                return;
-            }
-
-            $resultado = $this->model->asignarCredito($idPersona, $idCredito);
-
-            if ($resultado) {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Crédito asignado correctamente'
-                ]);
-            } else {
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'No se pudo asignar el crédito'
-                ]);
-            }
-        } catch (\Exception $e) {
+        // Validar campos requeridos
+        if (!$idPersona || !$idCredito) {
             echo json_encode([
                 'success' => false,
-                'message' => 'Error al asignar crédito: ' . $e->getMessage()
+                'message' => 'Faltan parámetros: id_persona y id_credito son requeridos'
+            ]);
+            return;
+        }
+
+        // Validar que id_celula sea válido (1=Despacho, 2=Gestión Call Center)
+        if ($idCelula === null || !in_array($idCelula, [1, 2])) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Tipo de célula no válido. Debe ser 1 (Despacho) o 2 (Gestión Call Center)'
+            ]);
+            return;
+        }
+
+        // Verificar si ya está asignado activamente
+        $yaAsignado = $this->model->verificarAsignacion($idCredito);
+        if ($yaAsignado) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Este crédito ya está asignado a un despacho'
+            ]);
+            return;
+        }
+
+        // Llamar al modelo con los tres parámetros
+        $resultado = $this->model->asignarCredito($idPersona, $idCredito, $idCelula);
+
+        if ($resultado) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Crédito asignado correctamente'
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se pudo asignar el crédito'
             ]);
         }
+    } catch (\Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error al asignar crédito: ' . $e->getMessage()
+        ]);
     }
+}
 
     /**
      * Desasignar crédito de un despacho
