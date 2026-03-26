@@ -223,6 +223,7 @@ class EstadoCuenta extends Controller
                         $cuotas[] = $idcCur;
                         $seen[$idcCur] = true;
                     }
+                    $cuotas = $this->clasificarCuotasMultiIdDeslizanteV2($cuotas, $monto_real, $montoPorIdCargo);
                 } else {
                     $disponible = round($monto_real, 2);
                     $cuotas = [];
@@ -567,7 +568,8 @@ class EstadoCuenta extends Controller
     }
 
     /**
-     * Depósito cuyo monto va íntegramente a extemporáneos y empareja nota de GASTOS DE COBRANZA (misma fecha y monto).
+     * Depósito cuyo monto va a extemporáneos y corresponde a nota de GASTOS DE COBRANZA (misma fecha).
+     * Puede ser el monto total de la nota o un abono parcial (p. ej. 763 de 1500 el mismo día).
      * No es pago de cuota; no debe mezclarse con aplicación a cargo salvo para mostrarlo en UI.
      */
     private function esPagoSoloGastoCobranza(array $pagoApi, array $listaNotasCargos): bool {
@@ -606,12 +608,66 @@ class EstadoCuenta extends Controller
                 continue;
             }
             $mNota = $this->safe_float($nota["monto"] ?? 0);
-            if (abs($mNota - $ext) > 1.0 && abs($mNota - $montoPago) > 1.0) {
-                continue;
+            if (abs($mNota - $ext) <= 1.0 || abs($mNota - $montoPago) <= 1.0) {
+                return true;
             }
-            return true;
+            // Nota mayor que el depósito (misma fecha, 100% ext): abono parcial a GC — sin tope de delta
+            // (p. ej. 200+remanente vs 208; 763 vs nota 1500).
+            if ($mNota + 0.01 >= $montoPago && $mNota - $montoPago > 0.02) {
+                return true;
+            }
         }
         return false;
+    }
+
+    /**
+     * v2: la API a veces devuelve dos idCargo consecutivos como "ventana deslizante" aunque el monto
+     * real corresponde a una sola cuota. Si el monto encaja con UNA cuota y no con la suma de ambas,
+     * se usa solo ese idCargo para enlazar el pago.
+     *
+     * @param array<int,int> $idsCuotaOrdenApi
+     * @param array<int,float> $montoPorIdCargo
+     * @return array<int,int>
+     */
+    private function clasificarCuotasMultiIdDeslizanteV2(array $idsCuotaOrdenApi, float $montoReal, array $montoPorIdCargo): array {
+        $seen = [];
+        $ids = [];
+        foreach ($idsCuotaOrdenApi as $idcRaw) {
+            $idc = (int) $idcRaw;
+            if ($idc <= 0 || isset($seen[$idc])) {
+                continue;
+            }
+            $seen[$idc] = true;
+            $ids[] = $idc;
+        }
+        if (count($ids) !== 2) {
+            return $ids;
+        }
+        $a = min($ids[0], $ids[1]);
+        $b = max($ids[0], $ids[1]);
+        if ($b !== $a + 1) {
+            return $ids;
+        }
+        $ma = round((float) ($montoPorIdCargo[$a] ?? 0), 2);
+        $mb = round((float) ($montoPorIdCargo[$b] ?? 0), 2);
+        if ($ma <= 0.009 || $mb <= 0.009) {
+            return $ids;
+        }
+        $mr = round($montoReal, 2);
+        $sum = round($ma + $mb, 2);
+        $tol = 1.0;
+        if (abs($mr - $sum) <= $tol) {
+            return $ids;
+        }
+        $closeA = abs($mr - $ma) <= $tol;
+        $closeB = abs($mr - $mb) <= $tol;
+        if ($closeA && !$closeB) {
+            return [$a];
+        }
+        if ($closeB && !$closeA) {
+            return [$b];
+        }
+        return $ids;
     }
 
     /**
@@ -765,6 +821,206 @@ class EstadoCuenta extends Controller
                 ];
             }
         }
+    }
+
+    /**
+     * Une en una sola línea informativa los gastos de cobranza del mismo día en la misma cuota:
+     * depósitos 100% ext (inyectados como gasto_cobranza_deposito) + la parte ext de pagos legítimos
+     * que la vista mostraba aparte ("Gasto cobranza: $…"). Reduce extemporaneos en esos pagos para
+     * no duplicar. El tope es la nota GC del día (datosNotasCargos) cuando existe.
+     */
+    private function consolidarGastosCobranzaVisualizacionEnTabla(array &$tabla, array $gastoCobranzaPorFecha): void {
+        foreach ($tabla as &$fila) {
+            $aps = $fila["aplicados"] ?? [];
+            if (count($aps) < 2) {
+                continue;
+            }
+            $porFecha = [];
+            foreach ($aps as $i => $ap) {
+                if (($ap["tipo"] ?? "") !== "gasto_cobranza_deposito") {
+                    continue;
+                }
+                $fn = $this->fechaNormalizadaAplicadoParaCuota($ap);
+                if ($fn === null) {
+                    continue;
+                }
+                if (!isset($porFecha[$fn])) {
+                    $porFecha[$fn] = ["gc" => [], "legIdx" => []];
+                }
+                $porFecha[$fn]["gc"][] = [
+                    "idx"     => $i,
+                    "aplicado" => round((float) ($ap["aplicado"] ?? 0), 2),
+                    "ap"      => $ap,
+                ];
+            }
+            foreach ($aps as $i => $ap) {
+                if (!$this->esAplicadoLegitimoConExtParaConsolidacionGc($ap)) {
+                    continue;
+                }
+                $ext = round((float) ($ap["extemporaneos"] ?? 0), 2);
+                if ($ext <= 0.009) {
+                    continue;
+                }
+                $fn = $this->fechaNormalizadaAplicadoParaCuota($ap);
+                if ($fn === null) {
+                    continue;
+                }
+                if (empty($porFecha[$fn]["gc"])) {
+                    continue;
+                }
+                if (!isset($porFecha[$fn]["legIdx"])) {
+                    $porFecha[$fn]["legIdx"] = [];
+                }
+                $porFecha[$fn]["legIdx"][$i] = true;
+            }
+            $fusionar = [];
+            foreach ($porFecha as $fn => $info) {
+                if (empty($info["gc"])) {
+                    continue;
+                }
+                $ngc = count($info["gc"]);
+                $notaG = round((float) ($gastoCobranzaPorFecha[$fn] ?? 0), 2);
+                $legIdx = array_keys($info["legIdx"] ?? []);
+                sort($legIdx);
+                $depositSumPrev = 0.0;
+                foreach ($info["gc"] as $g) {
+                    $depositSumPrev += $g["aplicado"];
+                }
+                $depositSumPrev = round($depositSumPrev, 2);
+                // Lo que falta de la nota GC tras los depósitos 100% ext (p. ej. 208 − 200 = 8 para remanentes).
+                $restanteNotaTrasDepositos = $notaG > 0.009
+                    ? max(0.0, round($notaG - $depositSumPrev, 2))
+                    : 0.0;
+                $legExt = [];
+                if ($notaG > 0.009 && !empty($legIdx) && $restanteNotaTrasDepositos > 0.009) {
+                    $restanteLeg = $restanteNotaTrasDepositos;
+                    foreach ($legIdx as $idx) {
+                        if (!isset($aps[$idx])) {
+                            continue;
+                        }
+                        $ext = round((float) ($aps[$idx]["extemporaneos"] ?? 0), 2);
+                        if ($ext <= 0.009) {
+                            continue;
+                        }
+                        $parte = min($ext, max(0.0, $restanteLeg));
+                        if ($parte <= 0.009) {
+                            continue;
+                        }
+                        $legExt[] = ["idx" => $idx, "parte" => round($parte, 2)];
+                        $restanteLeg = round($restanteLeg - $parte, 2);
+                    }
+                }
+                if ($ngc >= 2) {
+                    $fusionar[$fn] = ["gc" => $info["gc"], "legExt" => ($notaG > 0.009 ? $legExt : [])];
+                    continue;
+                }
+                if ($ngc >= 1 && count($legExt) >= 1 && $notaG > 0.009) {
+                    $fusionar[$fn] = ["gc" => $info["gc"], "legExt" => $legExt];
+                }
+            }
+            if (empty($fusionar)) {
+                continue;
+            }
+            $nuevos = [];
+            foreach ($aps as $i => $ap) {
+                $t = $ap["tipo"] ?? "";
+                if ($t === "gasto_cobranza_deposito") {
+                    $fn = $this->fechaNormalizadaAplicadoParaCuota($ap);
+                    if ($fn !== null && isset($fusionar[$fn])) {
+                        continue;
+                    }
+                }
+                if ($this->esAplicadoLegitimoConExtParaConsolidacionGc($ap)) {
+                    $fn = $this->fechaNormalizadaAplicadoParaCuota($ap);
+                    if ($fn !== null && isset($fusionar[$fn])) {
+                        foreach ($fusionar[$fn]["legExt"] as $le) {
+                            if ($le["idx"] === $i) {
+                                $ext = round((float) ($ap["extemporaneos"] ?? 0), 2);
+                                $ap["extemporaneos"] = round(max(0.0, $ext - $le["parte"]), 2);
+                                break;
+                            }
+                        }
+                    }
+                }
+                $nuevos[] = $ap;
+            }
+            foreach ($fusionar as $fn => $bloque) {
+                $depositSum = 0.0;
+                $fechaRef = null;
+                $idPagoRef = null;
+                foreach ($bloque["gc"] as $g) {
+                    $depositSum += $g["aplicado"];
+                    if ($fechaRef === null) {
+                        $fechaRef = $g["ap"]["fechaRegistro"] ?? null;
+                    }
+                    if ($idPagoRef === null && !empty($g["ap"]["idPago"])) {
+                        $idPagoRef = $g["ap"]["idPago"];
+                    }
+                }
+                $extSum = 0.0;
+                foreach ($bloque["legExt"] as $le) {
+                    $extSum += $le["parte"];
+                }
+                $notaG = round((float) ($gastoCobranzaPorFecha[$fn] ?? 0), 2);
+                $total = round($depositSum + $extSum, 2);
+                if ($notaG > 0.009) {
+                    $total = min($total, $notaG);
+                }
+                if ($total <= 0.009) {
+                    continue;
+                }
+                if ($fechaRef === null) {
+                    $fechaRef = $fn . " 12:00:00";
+                }
+                $nuevos[] = [
+                    "tipo"                       => "gasto_cobranza_deposito",
+                    "idPago"                     => $idPagoRef,
+                    "montoPago"                  => $total,
+                    "aplicado"                   => $total,
+                    "aplicadoTotalPago"          => $total,
+                    "fechaRegistro"              => $fechaRef,
+                    "fechaPago"                  => null,
+                    "diasMora"                   => null,
+                    "extemporaneos"              => 0,
+                    "es_sobrante"                => false,
+                    "gasto_cobranza"             => true,
+                    "no_cuenta_para_total_cuota" => true,
+                    "gc_consolidado"             => true,
+                    "_sortDate"                  => $fechaRef,
+                ];
+            }
+            $fila["aplicados"] = $nuevos;
+        }
+        unset($fila);
+    }
+
+    private function fechaNormalizadaAplicadoParaCuota(array $ap): ?string {
+        $fr = $ap["fechaRegistro"] ?? $ap["fechaPago"] ?? null;
+        if ($fr === null || $fr === "") {
+            return null;
+        }
+        $ts = strtotime((string) $fr);
+        if ($ts === false) {
+            return null;
+        }
+        return date("Y-m-d", $ts);
+    }
+
+    private function esAplicadoLegitimoConExtParaConsolidacionGc(array $ap): bool {
+        $t = $ap["tipo"] ?? "";
+        if (
+            $t === "gasto_cobranza_deposito"
+            || $t === "contracargo"
+            || $t === "extemporaneo_deposito"
+            || $t === "extemporaneos_resumen"
+            || $t === "nota_credito"
+        ) {
+            return false;
+        }
+        if (!empty($ap["gasto_cobranza"])) {
+            return false;
+        }
+        return round((float) ($ap["extemporaneos"] ?? 0), 2) > 0.009;
     }
 
     /**
@@ -2274,6 +2530,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
             }
 
             $this->inyectarDepositosSoloGastoCobranza($tabla, $pagos_list);
+            $this->consolidarGastosCobranzaVisualizacionEnTabla($tabla, is_array($gastoCobranzaPorFecha ?? null) ? $gastoCobranzaPorFecha : []);
             $this->reubicarPagosRealesFueraDeFilasConExtemporaneo($tabla);
             $this->ordenarAplicadosExtemporaneosAntesDeLegitimos($tabla);
             $this->recalcularTotalesTablaEstadoCuenta($tabla);
