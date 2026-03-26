@@ -1350,9 +1350,14 @@ JS;
                     }
 
                     // --- Actualizar remaining del pago. Los extemporáneos (gasto cobranza) NO se suman al sobrante: no van al crédito, solo se cobran. Solo arrastramos lo que sobra del monto real. ---
+                    // Solo consumir extemporaneos cuando realmente se aplicó remaining en esta cuota;
+                    // si la cuota ya estaba pagada y no aplicamos nada, los extemporaneos deben
+                    // conservarse para la primera cuota donde sí aplique el pago.
                     $pago["remaining"] = round($pago["remaining"], 2);
-                    $pago["extemporaneos"] = 0;
-                    $pago["_extemporaneo_aplicado"] = true;
+                    if ($aplico_remaining_esta_cuota) {
+                        $pago["extemporaneos"] = 0;
+                        $pago["_extemporaneo_aplicado"] = true;
+                    }
                 }
                 unset($pago);
 

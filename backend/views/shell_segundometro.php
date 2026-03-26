@@ -73,7 +73,7 @@
     <!-- Estado de integración con agente -->
     <div class="row mb-3">
         <div class="col-12">
-            <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-0 py-2">
+            <div id="shellSegundometroAgenteBar" class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-0 py-2">
                 <strong class="me-2"><i class="fa fa-robot text-primary me-1"></i>Integración agente</strong>
                 <span class="badge bg-secondary" id="sgAgenteModo">Agente: verificando...</span>
                 <span class="badge bg-secondary" id="sgAgenteEstado">Estado: verificando...</span>

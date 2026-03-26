@@ -358,6 +358,121 @@
         background: rgba(248,249,250,0.92);
         padding: 0.55rem 0.85rem;
     }
+    /* Reporte semanal (modal): modo oscuro — el proyecto usa html.dark-mode / body.dark-mode (no solo data-bs-theme) */
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-modal-detalle-leyenda,
+    .dark-style #modalReporteSemanalGlobal .estad-modal-detalle-leyenda,
+    html.dark-mode #modalReporteSemanalGlobal .estad-modal-detalle-leyenda,
+    body.dark-mode #modalReporteSemanalGlobal .estad-modal-detalle-leyenda {
+        background: rgba(13, 110, 253, 0.14);
+        border-bottom-color: rgba(255, 255, 255, 0.08);
+        color: #e2e8f0;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-modal-detalle-leyenda strong,
+    .dark-style #modalReporteSemanalGlobal .estad-modal-detalle-leyenda strong,
+    html.dark-mode #modalReporteSemanalGlobal .estad-modal-detalle-leyenda strong,
+    body.dark-mode #modalReporteSemanalGlobal .estad-modal-detalle-leyenda strong {
+        color: #f8f9fa;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar {
+        background: linear-gradient(180deg, #2d3344 0%, #232836 100%) !important;
+        border-top-color: rgba(255, 255, 255, 0.12) !important;
+        border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+        color: #e9ecef !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .text-muted,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .text-muted,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .text-muted,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .text-muted {
+        color: #94a3b8 !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar strong,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar strong,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar strong,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar strong {
+        color: #f8f9fa !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar label.text-muted,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar label.text-muted,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar label.text-muted,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar label.text-muted {
+        color: #94a3b8 !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .form-select,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .form-select,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .form-select,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .form-select {
+        background-color: #1e293b !important;
+        border-color: #475569 !important;
+        color: #f1f5f9 !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary {
+        border-color: #475569 !important;
+        color: #94a3b8 !important;
+        background-color: rgba(15, 23, 42, 0.5) !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary:hover,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary:hover,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary:hover,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary:hover {
+        background-color: #334155 !important;
+        border-color: #64748b !important;
+        color: #f1f5f9 !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary.active,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary.active,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary.active,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-toolbar .btn-outline-secondary.active {
+        background-color: #0d6efd !important;
+        border-color: #0d6efd !important;
+        color: #fff !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-resumen,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-resumen,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-resumen,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-resumen {
+        background: rgba(255, 255, 255, 0.06) !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .badge.text-dark,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .badge.text-dark,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .badge.text-dark,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .badge.text-dark {
+        color: rgba(255, 255, 255, 0.92) !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .text-body,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .text-body,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .text-body,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-resumen .text-body {
+        color: #e9ecef !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-rs-filtros-wrap,
+    .dark-style #modalReporteSemanalGlobal .estad-rs-filtros-wrap,
+    html.dark-mode #modalReporteSemanalGlobal .estad-rs-filtros-wrap,
+    body.dark-mode #modalReporteSemanalGlobal .estad-rs-filtros-wrap {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-footer,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-footer,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-footer,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-footer {
+        background: #1e2430 !important;
+        border-top-color: rgba(255, 255, 255, 0.1) !important;
+        color: #94a3b8 !important;
+    }
+    [data-bs-theme="dark"] #modalReporteSemanalGlobal .estad-reporte-semanal-footer code,
+    .dark-style #modalReporteSemanalGlobal .estad-reporte-semanal-footer code,
+    html.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-footer code,
+    body.dark-mode #modalReporteSemanalGlobal .estad-reporte-semanal-footer code {
+        color: #7dd3fc !important;
+        background: rgba(0, 0, 0, 0.35) !important;
+    }
     .estad-modal-th-tip {
         cursor: help;
         opacity: 0.7;
