@@ -696,8 +696,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         return [];
     }
 }
-
-     public static function getGastosCobranza($idCredito)
+public static function getGastosCobranza($idCredito)
 {
     $query = "
     SELECT
@@ -719,8 +718,6 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
       AND (estatus_pago IS NULL OR estatus_pago != 2)
     ORDER BY periodo_inicio ASC
     ";
-// NOTA: dsb-mega-reporte`.gastos_cobranza_backup_despacho_20260324 es una tabla temporal
-// SOLO copiar y pegar esto para reemplazar en la query: dsb-mega-reporte`.gastos_cobranza
 
     try {
         $db = new DatabaseSegundometro();
@@ -747,7 +744,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
             foreach ($r as $i => $row) {
                 $r[$i]['condonacion_parcial_monto']  = 0;
                 $r[$i]['condonacion_parcial_motivo'] = '';
-                $r[$i]['estatus_pago'] = 0; // ← nuevo
+                $r[$i]['estatus_pago'] = 0;
                 $r[$i]['monto_parcial_pagado'] = 0;
             }
         } catch (\Exception $e2) {
@@ -762,25 +759,6 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
 
     try {
         $datos = array_map(function ($row) {
-
-            // PRIORIDAD 1: Calcular por fechas (correcto)
-            $parcialidadCalculada = null;
-
-            if (!empty($row['Fecha_primer_vencimiento']) && !empty($row['periodo_inicio'])) {
-                $fechaInicio   = strtotime($row['Fecha_primer_vencimiento']);
-                $periodoInicio = strtotime($row['periodo_inicio']);
-
-                if ($fechaInicio && $periodoInicio && $periodoInicio >= $fechaInicio) {
-                    $diasTranscurridos    = ($periodoInicio - $fechaInicio) / 86400;
-                    $parcialidadCalculada = floor($diasTranscurridos / 7) + 1;
-                }
-            }
-
-            // PRIORIDAD 2: Fallback con SEMANA
-            if ($parcialidadCalculada === null && preg_match('/Semana (\d+)-/', $row['SEMANA'], $matches)) {
-                $numeroSemana         = (int)$matches[1];
-                $parcialidadCalculada = $numeroSemana - 3;
-            }
 
             $montoValor    = (float)$row['monto_valor'];
             $parcialMonto  = (float)($row['condonacion_parcial_monto'] ?? 0);
@@ -797,8 +775,8 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
                 'condonacion_parcial_monto'  => $parcialMonto,
                 'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
                 'cuota'                      => (float)$row['cuota'],
-                'parcialidad'                => $parcialidadCalculada ?? ($row['parcialidad'] ?? null),
-                'estatus_pago'               => (int)($row['estatus_pago'] ?? 0) // ← nuevo
+                'parcialidad'                => (int)$row['parcialidad'],
+                'estatus_pago'               => (int)($row['estatus_pago'] ?? 0)
             ];
         }, $r);
 

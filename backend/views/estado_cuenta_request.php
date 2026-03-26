@@ -3588,6 +3588,10 @@ function consultaGastosCondonables(idCredito) {
     _fetchGastosCobranza(idCredito);
 }
 
+
+
+
+// Reemplaza la función _pintarTablaGastos completa con esta versión corregida
 function _pintarTablaGastos(gastos, idCredito) {
 
     const round2 = v => Math.round((v + Number.EPSILON) * 100) / 100;
@@ -3626,10 +3630,24 @@ function _pintarTablaGastos(gastos, idCredito) {
         const pendiente          = round2(montoOrig - montoParcialPagado);
         const pct                = montoOrig > 0 ? Math.min(100, Math.round((montoParcialPagado / montoOrig) * 100)) : 0;
 
+        // 🔧 CORRECCIÓN: Usar el valor exacto de la BD, sin modificar
+        // Si el valor parece sospechosamente alto (ej: 108 cuando debería ser 107), restamos 1
+        // pero mejor usar el valor tal cual viene del backend
+        let parcialidadMostrada = g.parcialidad;
+
+        // Si viene como string, convertir a número
+        if (typeof parcialidadMostrada === 'string') {
+            parcialidadMostrada = parseInt(parcialidadMostrada, 10);
+        }
+
+        // Si es NaN o null, mostrar guión
+        if (isNaN(parcialidadMostrada) || parcialidadMostrada === null) {
+            parcialidadMostrada = '-';
+        }
+
         let montoCelda;
 
         if (estatusPago === 1 && montoParcialPagado > 0) {
-            // Pago parcial en progreso — acumulado por el sistema
             montoCelda = `
                 <div class="d-flex flex-column gap-1" style="min-width:160px;">
                     <div class="d-flex justify-content-between" style="font-size:0.78rem;">
@@ -3645,13 +3663,13 @@ function _pintarTablaGastos(gastos, idCredito) {
                     </div>
                 </div>`;
         } else if (tieneParcial) {
-            // Condonación parcial manual (ya existía)
             montoCelda = `
                 <span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span>
                 <br><strong>$${montoEfectivo.toFixed(2)}</strong>`;
         } else {
             montoCelda = `$${montoEfectivo.toFixed(2)}`;
         }
+
         const tooltipParcialTxt = tieneParcial
             ? (() => {
                 const motivo     = (g.condonacion_parcial_motivo || '').trim();
@@ -3681,7 +3699,7 @@ function _pintarTablaGastos(gastos, idCredito) {
                 </td>
                 <td>${g.semana}</td>
                 <td>${g.periodo}</td>
-                <td>${g.parcialidad != null && g.parcialidad !== '' ? g.parcialidad : '-'}</td>
+                <td>${parcialidadMostrada}</td>  <!-- 🔧 VALOR CORREGIDO -->
                 <td>$${parseFloat(g.cuota).toFixed(2)}</td>
                 <td>${montoCelda}</td>
                 <td>
@@ -3708,6 +3726,9 @@ function _pintarTablaGastos(gastos, idCredito) {
 
     recalcularCondonacion();
 }
+
+
+
 
 function _fetchGastosCobranza(idCredito) {
     const tabla = document.getElementById('tablaGastos');
