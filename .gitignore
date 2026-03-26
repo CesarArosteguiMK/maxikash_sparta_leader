@@ -72,3 +72,4 @@ backend/services/segundometro-agent/keys/**
 
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/
+backend/logs/__SPARTA_SECRET_REDACTED___engine.log
