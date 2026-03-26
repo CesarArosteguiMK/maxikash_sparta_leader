@@ -3617,62 +3617,47 @@ function _pintarTablaGastos(gastos, idCredito) {
     gastos.forEach((g, index) => {
         const idGasto          = g.id_gasto;
         const montoOrig        = parseFloat(g.monto_original ?? g.monto ?? 0);
-        const montoEfectivo    = parseFloat(g.monto ?? 0);
+        const montoPendiente   = parseFloat(g.monto ?? 0);
+        const montoPagado      = parseFloat(g.monto_parcial_pagado ?? 0);
         const parcialMonto     = parseFloat(g.condonacion_parcial_monto ?? 0);
         const parcialMotivo    = (g.condonacion_parcial_motivo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const tieneParcial     = parcialMonto > 0;
-        const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoEfectivo;
+        const tienePagoParcial = g.tiene_pago_parcial === true || (parseInt(g.estatus_pago || 0) === 1 && montoPagado > 0);
+        const montoFaltaCondonar = tieneParcial ? (montoOrig - parcialMonto) : montoPendiente;
         const anteriorTieneParcial = index === 0 || (parseFloat(gastos[index - 1].condonacion_parcial_monto ?? 0) > 0);
         const puedeParcial     = anteriorTieneParcial;
 
-        const montoParcialPagado = parseFloat(g.monto_parcial_pagado || 0);
-        const estatusPago        = parseInt(g.estatus_pago || 0);
-        const pendiente          = round2(montoOrig - montoParcialPagado);
-        const pct                = montoOrig > 0 ? Math.min(100, Math.round((montoParcialPagado / montoOrig) * 100)) : 0;
-
-        // 🔧 CORRECCIÓN: Usar el valor exacto de la BD, sin modificar
-        // Si el valor parece sospechosamente alto (ej: 108 cuando debería ser 107), restamos 1
-        // pero mejor usar el valor tal cual viene del backend
-        let parcialidadMostrada = g.parcialidad;
-
-        // Si viene como string, convertir a número
-        if (typeof parcialidadMostrada === 'string') {
-            parcialidadMostrada = parseInt(parcialidadMostrada, 10);
-        }
-
-        // Si es NaN o null, mostrar guión
-        if (isNaN(parcialidadMostrada) || parcialidadMostrada === null) {
-            parcialidadMostrada = '-';
-        }
+        const pct = montoOrig > 0 ? Math.min(100, Math.round((montoPagado / montoOrig) * 100)) : 0;
 
         let montoCelda;
 
-        if (estatusPago === 1 && montoParcialPagado > 0) {
+        if (tienePagoParcial) {
+            // Parcialidad con pago parcial: mostrar original tachado, pagado y lo que resta
             montoCelda = `
-                <div class="d-flex flex-column gap-1" style="min-width:160px;">
+                <div class="d-flex flex-column gap-1" style="min-width:180px;">
                     <div class="d-flex justify-content-between" style="font-size:0.78rem;">
                         <span class="text-muted">Total:</span>
-                        <strong>$${montoOrig.toFixed(2)}</strong>
+                        <strong><s>$${montoOrig.toFixed(2)}</s></strong>
                     </div>
                     <div class="progress" style="height:6px;">
                         <div class="progress-bar bg-success" style="width:${pct}%"></div>
                     </div>
                     <div class="d-flex justify-content-between" style="font-size:0.78rem;">
-                        <span class="text-success fw-semibold">✔ Pagado: $${montoParcialPagado.toFixed(2)}</span>
-                        <span class="text-danger fw-semibold">Resta: $${pendiente.toFixed(2)}</span>
+                        <span class="text-success fw-semibold">✔ Pagado: $${montoPagado.toFixed(2)}</span>
+                        <span class="text-danger fw-semibold">Resta: $${montoPendiente.toFixed(2)}</span>
                     </div>
                 </div>`;
         } else if (tieneParcial) {
             montoCelda = `
                 <span class="text-decoration-line-through text-muted">$${montoOrig.toFixed(2)}</span>
-                <br><strong>$${montoEfectivo.toFixed(2)}</strong>`;
+                <br><strong>$${montoPendiente.toFixed(2)}</strong>`;
         } else {
-            montoCelda = `$${montoEfectivo.toFixed(2)}`;
+            montoCelda = `$${montoPendiente.toFixed(2)}`;
         }
 
         const tooltipParcialTxt = tieneParcial
             ? (() => {
-                const motivo     = (g.condonacion_parcial_motivo || '').trim();
+                const motivo      = (g.condonacion_parcial_motivo || '').trim();
                 const motivoCorto = motivo.length > 350 ? motivo.substring(0, 350) + '...' : motivo;
                 return 'Monto condonado: $' + parcialMonto.toFixed(2) + '\n\nMotivo:\n' + motivoCorto;
             })()
@@ -3699,7 +3684,7 @@ function _pintarTablaGastos(gastos, idCredito) {
                 </td>
                 <td>${g.semana}</td>
                 <td>${g.periodo}</td>
-                <td>${parcialidadMostrada}</td>  <!-- 🔧 VALOR CORREGIDO -->
+                <td>${g.parcialidad}</td>
                 <td>$${parseFloat(g.cuota).toFixed(2)}</td>
                 <td>${montoCelda}</td>
                 <td>
@@ -3707,6 +3692,7 @@ function _pintarTablaGastos(gastos, idCredito) {
                     <button class="btn btn-sm btn-outline-primary btn-editar-condonar-parcial d-none"
                         data-id-gasto="${idGasto}"
                         data-monto-original="${montoOrig.toFixed(2)}"
+                        data-monto-pendiente="${montoPendiente.toFixed(2)}"
                         data-condonacion-parcial-monto="${parcialMonto.toFixed(2)}"
                         data-condonacion-parcial-motivo="${parcialMotivo}"
                         title="Editar"
@@ -3718,6 +3704,7 @@ function _pintarTablaGastos(gastos, idCredito) {
             </tr>`;
     });
 
+    // Total = suma de montos pendientes (ya calculados correctamente en el backend)
     const totalSinCondonar = gastos.reduce((acc, g) => acc + parseFloat(g.monto || 0), 0);
     document.getElementById('montoTotalSinCondonar').textContent = totalSinCondonar.toFixed(2);
 
@@ -4470,6 +4457,7 @@ function _pintarHistorial(datos) {
                 <tr>
                     <th>Semana</th>
                     <th>Periodo</th>
+                    <th class="text-center">Parcialidad</th>
                     <th class="text-end">Monto Original</th>
                     <th class="text-center">Tipo</th>
                     <th class="text-end">Monto Final</th>
@@ -4479,53 +4467,77 @@ function _pintarHistorial(datos) {
             <tbody>`;
 
     datos.forEach(g => {
-        const esCondonado = parseInt(g.condonado) === 1; // Perdón total (antónimo de pago)
-        const montoOriginal = parseFloat(g.monto_original || 0);
+        const esCondonado        = parseInt(g.condonado) === 1;
+        const montoOriginal      = parseFloat(g.monto_original || 0);
         const condonacionParcial = parseFloat(g.condonacion_parcial_monto || 0);
+        const montoParcialPagado = parseFloat(g.monto_parcial_pagado || 0);
+        const parcialidad        = g.parcialidad || '—';
+        const fechaPago          = g.fecha_pago || '—';
 
-        let htmlMontoOriginal = "";
-        let htmlMontoFinal = "";
-        let badgeColor = "";
-        let badgeText = "";
+        const esPagoParcialCompletado = !esCondonado
+            && montoParcialPagado > 0
+            && montoParcialPagado < montoOriginal;
 
         if (esCondonado) {
-            // --- CASO: CONDONACIÓN TOTAL (PERDÓN) ---
-            badgeColor = 'bg-warning text-dark';
-            badgeText = 'Condonado';
+            html += `
+                <tr>
+                    <td>${g.semana}</td>
+                    <td><small class="text-muted">${g.periodo}</small></td>
+                    <td class="text-center">${parcialidad}</td>
+                    <td class="text-end">$${montoOriginal.toFixed(2)}</td>
+                    <td class="text-center">
+                        <span class="badge bg-warning text-dark px-2 py-1" style="min-width:80px;">Condonado</span>
+                    </td>
+                    <td class="text-end"><span class="text-muted">$0.00</span></td>
+                    <td class="text-center"><small>${g.fecha_condonacion || '—'}</small></td>
+                </tr>`;
 
-            htmlMontoOriginal = `$${montoOriginal.toFixed(2)}`;
-            // En condonación total, el cliente pagó $0.00
-            htmlMontoFinal = `<span class="text-muted">$0.00</span>`;
+        } else if (esPagoParcialCompletado) {
+            const restoCompletado = parseFloat((montoOriginal - montoParcialPagado).toFixed(2));
+            html += `
+                <tr>
+                    <td>${g.semana}</td>
+                    <td><small class="text-muted">${g.periodo}</small></td>
+                    <td class="text-center">${parcialidad}</td>
+                    <td class="text-end">$${montoOriginal.toFixed(2)}</td>
+                    <td class="text-center">
+                        <span class="badge bg-info px-2 py-1" style="min-width:80px;">Pago parcial</span>
+                    </td>
+                    <td class="text-end"><span class="text-info fw-bold">$${montoParcialPagado.toFixed(2)}</span></td>
+                    <td class="text-center"><small>${fechaPago}</small></td>
+                </tr>
+                <tr>
+                    <td>${g.semana}</td>
+                    <td><small class="text-muted">${g.periodo}</small></td>
+                    <td class="text-center">${parcialidad}</td>
+                    <td class="text-end">$${montoOriginal.toFixed(2)}</td>
+                    <td class="text-center">
+                        <span class="badge bg-success px-2 py-1" style="min-width:80px;">Completado</span>
+                    </td>
+                    <td class="text-end"><span class="text-success fw-bold">$${restoCompletado.toFixed(2)}</span></td>
+                    <td class="text-center"><small>${fechaPago}</small></td>
+                </tr>`;
+
         } else {
-            // --- CASO: PAGO (CON O SIN AJUSTE) ---
-            const montoPagado = montoOriginal - condonacionParcial;
-
-            badgeColor = 'bg-success';
-            badgeText = condonacionParcial > 0 ? 'Pagado' : 'Pagado';
-
-            htmlMontoOriginal = condonacionParcial > 0
-                ? `<span class="text-muted text-decoration-line-through" style="font-size: 0.9em;">$${montoOriginal.toFixed(2)}</span>
+            const montoPagado = parseFloat((montoOriginal - condonacionParcial).toFixed(2));
+            const htmlMontoOriginal = condonacionParcial > 0
+                ? `<span class="text-muted text-decoration-line-through" style="font-size:0.9em;">$${montoOriginal.toFixed(2)}</span>
                    <div class="text-dark small fw-bold">$${montoPagado.toFixed(2)}</div>`
                 : `$${montoOriginal.toFixed(2)}`;
 
-            htmlMontoFinal = `<span class="text-success fw-bold">$${montoPagado.toFixed(2)}</span>`;
+            html += `
+                <tr>
+                    <td>${g.semana}</td>
+                    <td><small class="text-muted">${g.periodo}</small></td>
+                    <td class="text-center">${parcialidad}</td>
+                    <td class="text-end">${htmlMontoOriginal}</td>
+                    <td class="text-center">
+                        <span class="badge bg-success px-2 py-1" style="min-width:80px;">Pagado</span>
+                    </td>
+                    <td class="text-end"><span class="text-success fw-bold">$${montoPagado.toFixed(2)}</span></td>
+                    <td class="text-center"><small>${fechaPago}</small></td>
+                </tr>`;
         }
-
-        html += `
-            <tr>
-                <td>${g.semana}</td>
-                <td><small class="text-muted">${g.periodo}</small></td>
-                <td class="text-end">${htmlMontoOriginal}</td>
-                <td class="text-center">
-                    <span class="badge ${badgeColor} px-2 py-1" style="min-width: 80px;">
-                        ${badgeText}
-                    </span>
-                </td>
-                <td class="text-end">
-                    ${htmlMontoFinal}
-                </td>
-                <td class="text-center"><small>${g.fecha_condonacion || '—'}</small></td>
-            </tr>`;
     });
 
     html += `</tbody></table></div>`;

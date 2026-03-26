@@ -696,6 +696,7 @@ public static function obtenerReportesDictamenParaDescarga($fechaInicio, $fechaF
         return [];
     }
 }
+
 public static function getGastosCobranza($idCredito)
 {
     $query = "
@@ -744,8 +745,8 @@ public static function getGastosCobranza($idCredito)
             foreach ($r as $i => $row) {
                 $r[$i]['condonacion_parcial_monto']  = 0;
                 $r[$i]['condonacion_parcial_motivo'] = '';
-                $r[$i]['estatus_pago'] = 0;
-                $r[$i]['monto_parcial_pagado'] = 0;
+                $r[$i]['estatus_pago']               = 0;
+                $r[$i]['monto_parcial_pagado']        = 0;
             }
         } catch (\Exception $e2) {
             return self::resultado(
@@ -760,9 +761,13 @@ public static function getGastosCobranza($idCredito)
     try {
         $datos = array_map(function ($row) {
 
-            $montoValor    = (float)$row['monto_valor'];
-            $parcialMonto  = (float)($row['condonacion_parcial_monto'] ?? 0);
-            $montoEfectivo = round($montoValor - $parcialMonto, 2);
+            $montoValor         = (float)$row['monto_valor'];
+            $parcialMonto       = (float)($row['condonacion_parcial_monto'] ?? 0);
+            $montoParcialPagado = (float)($row['monto_parcial_pagado'] ?? 0);
+            $estatusPago        = (int)($row['estatus_pago'] ?? 0);
+
+            // Pendiente real = original - condonado - pagado
+            $montoEfectivo = round(max(0, $montoValor - $parcialMonto - $montoParcialPagado), 2);
 
             return [
                 'id_gasto'                   => (int)$row['id_gastos_cobranza'],
@@ -772,11 +777,13 @@ public static function getGastosCobranza($idCredito)
                                                date('d/m/Y', strtotime($row['periodo_fin'])),
                 'monto'                      => $montoEfectivo,
                 'monto_original'             => $montoValor,
+                'monto_parcial_pagado'       => $montoParcialPagado,
                 'condonacion_parcial_monto'  => $parcialMonto,
                 'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
                 'cuota'                      => (float)$row['cuota'],
                 'parcialidad'                => (int)$row['parcialidad'],
-                'estatus_pago'               => (int)($row['estatus_pago'] ?? 0)
+                'estatus_pago'               => $estatusPago,
+                'tiene_pago_parcial'         => ($estatusPago === 1 && $montoParcialPagado > 0),
             ];
         }, $r);
 
@@ -1410,21 +1417,23 @@ public static function getHistorialGastosCobranza($idCredito)
         // 1. La consulta ahora incluye OR condonado = 1 para traer los perdonados
         $query = "
             SELECT
-                id_gastos_cobranza,
-                SEMANA,
-                periodo_inicio,
-                periodo_fin,
-                monto_valor,
-                condonacion_parcial_monto,
-                condonado,
-                estatus_pago,
-                fecha_condonacion,
-                fecha_pago,
-                created_at
-            FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-            WHERE Id_credito = :id_credito
-              AND (estatus_pago = 2 OR condonado = 1)
-            ORDER BY periodo_inicio DESC
+        id_gastos_cobranza,
+        SEMANA,
+        periodo_inicio,
+        periodo_fin,
+        monto_valor,
+        condonacion_parcial_monto,
+        condonado,
+        estatus_pago,
+        fecha_condonacion,
+        fecha_pago,
+        created_at,
+        parcialidad,
+        COALESCE(monto_parcial_pagado, 0) AS monto_parcial_pagado
+    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+    WHERE Id_credito = :id_credito
+      AND (estatus_pago = 2 OR condonado = 1)
+    ORDER BY periodo_inicio DESC
         ";
 
         $r = $db->queryAll($query, ['id_credito' => $idCredito]);
@@ -1433,14 +1442,15 @@ public static function getHistorialGastosCobranza($idCredito)
             $montoOriginal = (float)$row['monto_valor'];
             $condParcial   = (float)($row['condonacion_parcial_monto'] ?? 0);
 
-            return [
+           return [
                 'id_gasto'                  => (int)$row['id_gastos_cobranza'],
                 'semana'                    => $row['SEMANA'],
                 'periodo'                   => date('d/m/Y', strtotime($row['periodo_inicio'])) . ' - ' . date('d/m/Y', strtotime($row['periodo_fin'])),
                 'monto_original'            => $montoOriginal,
                 'condonacion_parcial_monto' => $condParcial,
-                // Si es condonación total, el monto condonado es el original, si no, lo que se restó
                 'monto_condonado'           => $row['condonado'] == 1 ? $montoOriginal : $condParcial,
+                'monto_parcial_pagado'      => (float)($row['monto_parcial_pagado'] ?? 0), // 👈
+                'parcialidad'               => (int)$row['parcialidad'],                   // 👈
                 'fecha_condonacion'         => !empty($row['fecha_condonacion'])
                                                 ? date('d/m/Y', strtotime($row['fecha_condonacion']))
                                                 : (!empty($row['created_at']) ? date('d/m/Y', strtotime($row['created_at'])) : '—'),
