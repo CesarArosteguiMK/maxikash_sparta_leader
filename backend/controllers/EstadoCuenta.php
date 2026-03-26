@@ -58,6 +58,17 @@ class EstadoCuenta extends Controller
     private function parse_cuotas_field($value) {
         if ($value === null || $value === '') return [];
 
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $v) {
+                $n = (int) $v;
+                if ($n > 0) {
+                    $out[] = $n;
+                }
+            }
+            return array_values(array_unique($out));
+        }
+
         $value = is_string($value) ? trim($value) : trim((string) $value);
         if ($value === '') return [];
 
@@ -71,6 +82,327 @@ class EstadoCuenta extends Controller
         }
 
         return [intval($value)];
+    }
+
+    /**
+     * Feature flag del motor nuevo de conciliacion.
+     * Rollback inmediato: EC_ESTADO_CUENTA_ENGINE_V2=0
+     */
+    private function estadoCuentaEngineOverrideFromRequest(): ?bool {
+        $raw = $_GET['ecv2'] ?? $_POST['ecv2'] ?? null;
+        if ($raw === null) {
+            return null;
+        }
+        $v = strtolower(trim((string) $raw));
+        if ($v === '1' || $v === 'true' || $v === 'on' || $v === 'v2') {
+            return true;
+        }
+        if ($v === '0' || $v === 'false' || $v === 'off' || $v === 'legacy') {
+            return false;
+        }
+        return null;
+    }
+
+    private function shouldUseEstadoCuentaEngineV2(): bool {
+        $override = $this->estadoCuentaEngineOverrideFromRequest();
+        if ($override !== null) {
+            return $override;
+        }
+        $v = getenv('EC_ESTADO_CUENTA_ENGINE_V2');
+        return is_string($v) && trim($v) === '1';
+    }
+
+    /**
+     * Modo sombra para comparar motor legacy vs motor v2 sin cambiar UI.
+     */
+    private function shouldShadowCompareEstadoCuentaEngineV2(): bool {
+        $raw = $_GET['ecv2shadow'] ?? $_POST['ecv2shadow'] ?? null;
+        if ($raw !== null) {
+            $vReq = strtolower(trim((string) $raw));
+            if ($vReq === '1' || $vReq === 'true' || $vReq === 'on') {
+                return true;
+            }
+            if ($vReq === '0' || $vReq === 'false' || $vReq === 'off') {
+                return false;
+            }
+        }
+        $v = getenv('EC_ESTADO_CUENTA_ENGINE_V2_SHADOW');
+        return is_string($v) && trim($v) === '1';
+    }
+
+    private function logEstadoCuentaEngineModo(int $idCredito, bool $usarV2, bool $shadow): void {
+        $baseDir = dirname(__DIR__);
+        $logDir = $baseDir . DIRECTORY_SEPARATOR . 'logs';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0777, true);
+        }
+        $logFile = $logDir . DIRECTORY_SEPARATOR . '__SPARTA_SECRET_REDACTED___engine.log';
+        $line = sprintf(
+            "[%s] credito=%d engine=%s shadow=%s ecv2_param=%s ecv2shadow_param=%s env_v2=%s env_shadow=%s%s",
+            date('Y-m-d H:i:s'),
+            $idCredito,
+            $usarV2 ? 'v2' : 'legacy',
+            $shadow ? '1' : '0',
+            isset($_GET['ecv2']) || isset($_POST['ecv2']) ? (string) ($_GET['ecv2'] ?? $_POST['ecv2']) : '-',
+            isset($_GET['ecv2shadow']) || isset($_POST['ecv2shadow']) ? (string) ($_GET['ecv2shadow'] ?? $_POST['ecv2shadow']) : '-',
+            (string) (getenv('EC_ESTADO_CUENTA_ENGINE_V2') ?: '-'),
+            (string) (getenv('EC_ESTADO_CUENTA_ENGINE_V2_SHADOW') ?: '-'),
+            PHP_EOL
+        );
+        @file_put_contents($logFile, $line, FILE_APPEND);
+    }
+
+    private function ordenarPagosDeterministicamente(array $pagos): array {
+        usort($pagos, function ($a, $b) {
+            $fa = (string) ($a["fechaDeposito"] ?? ($a["fechaRegistro"] ?? ($a["fechaValor"] ?? "")));
+            $fb = (string) ($b["fechaDeposito"] ?? ($b["fechaRegistro"] ?? ($b["fechaValor"] ?? "")));
+            $ta = $this->timestampOrdenFecha($fa);
+            $tb = $this->timestampOrdenFecha($fb);
+            if ($ta !== $tb) {
+                return $ta <=> $tb;
+            }
+            $ida = (int) ($a["idPago"] ?? 0);
+            $idb = (int) ($b["idPago"] ?? 0);
+            return $ida <=> $idb;
+        });
+        return $pagos;
+    }
+
+    /**
+     * Preparacion de pagos en dos modos:
+     * - legacy: conserva comportamiento historico (incluye recorte al primer id y expansiones amplias)
+     * - v2: evita perder ids desde origen y limita expansiones a casos realmente necesarios.
+     */
+    private function prepararPagosListEstadoCuenta(
+        array $pagos,
+        array $cargos,
+        array $listaNotasCargosParaSoloGc,
+        int $maxIdCargoEnCargos,
+        string $modo
+    ): array {
+        $isV2 = ($modo === 'v2');
+        $pagosBase = $isV2 ? $this->ordenarPagosDeterministicamente($pagos) : $pagos;
+
+        $montoPorIdCargo = [];
+        $esAnticipoPorIdCargo = [];
+        foreach ($cargos as $cRep) {
+            $idcM = $this->safe_int($cRep["idCargo"] ?? 0);
+            if ($idcM <= 0) {
+                continue;
+            }
+            $montoPorIdCargo[$idcM] = round($this->safe_float($cRep["monto"] ?? 0), 2);
+            $esAnticipoPorIdCargo[$idcM] = $this->esCargoAnticipoCapital($cRep);
+        }
+
+        $pagos_list = [];
+        foreach ($pagosBase as $p) {
+            $montoPago = $this->safe_float($p["montoPago"] ?? 0);
+            $extemporaneos = $this->safe_float($p["extemporaneos"] ?? 0);
+            $monto_real = max($montoPago - $extemporaneos, 0);
+
+            $idsCuotaApi = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
+            if (!$isV2) {
+                $idsCuotaApi = (count($idsCuotaApi) > 1) ? [$idsCuotaApi[0]] : $idsCuotaApi;
+            }
+
+            $primerIdCargoApi = !empty($idsCuotaApi) ? $this->safe_int($idsCuotaApi[0], 0) : 0;
+            $soloGcDeposito = $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
+            $soloExtInyectar = ($monto_real <= 0.02 && $extemporaneos > 0.009 && $primerIdCargoApi > 0);
+
+            if (count($idsCuotaApi) > 1 && $monto_real > 0.02) {
+                if ($isV2) {
+                    // v2: no adelgazar destinos por capacidad; conservar todos los ids
+                    // declarados por API y dejar la distribución real al bucle de aplicación.
+                    $cuotas = [];
+                    $seen = [];
+                    foreach ($idsCuotaApi as $idcRaw) {
+                        $idcCur = (int) $idcRaw;
+                        if ($idcCur <= 0 || isset($seen[$idcCur])) {
+                            continue;
+                        }
+                        $cuotas[] = $idcCur;
+                        $seen[$idcCur] = true;
+                    }
+                } else {
+                    $disponible = round($monto_real, 2);
+                    $cuotas = [];
+                    foreach ($idsCuotaApi as $idcRaw) {
+                        $idcCur = (int) $idcRaw;
+                        if ($disponible <= 0.009) {
+                            break;
+                        }
+                        $necesita = round((float) ($montoPorIdCargo[$idcCur] ?? 0), 2);
+                        if ($necesita <= 0.009) {
+                            continue;
+                        }
+                        $aplicarSeq = min($disponible, $necesita);
+                        if ($aplicarSeq > 0.009) {
+                            $cuotas[] = $idcCur;
+                            $disponible = round($disponible - $aplicarSeq, 2);
+                        }
+                    }
+                }
+            } else {
+                $cuotas = $idsCuotaApi;
+            }
+
+            $debeExpandirTrasAnticipo = !$isV2;
+            if ($isV2) {
+                foreach ($cuotas as $idTmp) {
+                    if (!empty($esAnticipoPorIdCargo[(int) $idTmp])) {
+                        $debeExpandirTrasAnticipo = true;
+                        break;
+                    }
+                }
+            }
+            if ($debeExpandirTrasAnticipo) {
+                $cuotas = $this->expandIdCargosTrasAnticipos($cuotas, $cargos);
+            }
+
+            if ($maxIdCargoEnCargos > 0 && !empty($cuotas)) {
+                $maxEnPago = max($cuotas);
+                if ($maxEnPago > $maxIdCargoEnCargos && !in_array($maxIdCargoEnCargos, $cuotas, true)) {
+                    $cuotas[] = $maxIdCargoEnCargos;
+                }
+            }
+
+            $debeExpandirPosteriores = ($monto_real > 0.02 && !$soloGcDeposito && !$soloExtInyectar);
+            if ($isV2 && $debeExpandirPosteriores) {
+                $sumaCuotasOriginales = 0.0;
+                foreach ($cuotas as $idTmp) {
+                    $sumaCuotasOriginales += (float) ($montoPorIdCargo[(int) $idTmp] ?? 0);
+                }
+                // En v2 solo expandir si el monto real rebasa claramente lo que cubren
+                // las cuotas objetivo originales.
+                $debeExpandirPosteriores = ($monto_real - round($sumaCuotasOriginales, 2)) > 0.02;
+            }
+            if ($debeExpandirPosteriores) {
+                $cuotas = $this->expandCuotasSemanalesPosterioresParaSobrante($cuotas, $cargos);
+            }
+
+            $pagos_list[] = [
+                "idPago"              => $p["idPago"] ?? null,
+                "remaining"           => round($monto_real, 2),
+                "cuotas"              => $cuotas,
+                "fechaValor"          => $p["fechaValor"] ?? null,
+                "fechaRegistro"       => $p["fechaDeposito"] ?? ($p["fechaRegistro"] ?? null),
+                "montoPagoOriginal"   => $montoPago,
+                "extemporaneos"       => $extemporaneos,
+                "_extOrig"            => $extemporaneos,
+                "_extemporaneo_aplicado" => false,
+                "es_pago_solo_gasto_cobranza" => $soloGcDeposito,
+                "es_pago_solo_extemporaneo_inyectar" => $soloExtInyectar,
+                "primer_id_cargo_api" => $primerIdCargoApi,
+            ];
+        }
+
+        return $pagos_list;
+    }
+
+    private function registrarDiferenciasPagosListMotores(int $idCredito, array $legacy, array $v2): void {
+        $mapLegacy = [];
+        foreach ($legacy as $pl) {
+            $id = (string) ($pl["idPago"] ?? '');
+            if ($id !== '') {
+                $mapLegacy[$id] = $pl;
+            }
+        }
+        $mapV2 = [];
+        foreach ($v2 as $pl) {
+            $id = (string) ($pl["idPago"] ?? '');
+            if ($id !== '') {
+                $mapV2[$id] = $pl;
+            }
+        }
+
+        $ids = array_unique(array_merge(array_keys($mapLegacy), array_keys($mapV2)));
+        $diffs = [];
+        foreach ($ids as $idPago) {
+            $a = $mapLegacy[$idPago] ?? null;
+            $b = $mapV2[$idPago] ?? null;
+            if ($a === null || $b === null) {
+                $diffs[] = "idPago={$idPago}: presente solo en " . ($a === null ? 'v2' : 'legacy');
+                continue;
+            }
+            $cuotasA = implode(',', array_map('strval', (array) ($a["cuotas"] ?? [])));
+            $cuotasB = implode(',', array_map('strval', (array) ($b["cuotas"] ?? [])));
+            if ($cuotasA !== $cuotasB) {
+                $diffs[] = "idPago={$idPago}: cuotas legacy=[{$cuotasA}] vs v2=[{$cuotasB}]";
+            }
+            $remA = round((float) ($a["remaining"] ?? 0), 2);
+            $remB = round((float) ($b["remaining"] ?? 0), 2);
+            if (abs($remA - $remB) > 0.009) {
+                $diffs[] = "idPago={$idPago}: remaining legacy={$remA} vs v2={$remB}";
+            }
+        }
+        if (!empty($diffs)) {
+            $max = min(count($diffs), 20);
+            for ($i = 0; $i < $max; $i++) {
+                error_log("[EstadoCuenta v2-shadow][credito={$idCredito}] " . $diffs[$i]);
+            }
+            if (count($diffs) > $max) {
+                error_log("[EstadoCuenta v2-shadow][credito={$idCredito}] ...diffs truncados: " . (count($diffs) - $max));
+            }
+        }
+    }
+
+    private function etiquetaNotaCreditoDesdeConcepto(string $concepto): string {
+        $u = mb_strtoupper(trim($concepto));
+        if (strpos($u, 'CAPITAL') !== false) {
+            return 'nota_credito_capital';
+        }
+        if (strpos($u, 'INTER') !== false) {
+            return 'nota_credito_interes';
+        }
+        return 'nota_credito_otro';
+    }
+
+    /**
+     * Integra notas de credito (QUITA/condonacion) al flujo v2.
+     * Se agregan como aplicados validos que si cuentan para cierre de cuota.
+     */
+    private function aplicarNotasCreditoEnTablaV2(array &$tabla, array $notasCreditos): void {
+        if (empty($tabla) || empty($notasCreditos)) {
+            return;
+        }
+        $idxPorCargo = [];
+        foreach ($tabla as $i => $fila) {
+            $idC = (int) ($fila['idCargo'] ?? 0);
+            if ($idC > 0) {
+                $idxPorCargo[$idC] = $i;
+            }
+        }
+        foreach ($notasCreditos as $nota) {
+            $idCargo = (int) ($nota['idCargo'] ?? 0);
+            if ($idCargo <= 0 || !isset($idxPorCargo[$idCargo])) {
+                continue;
+            }
+            $monto = round($this->safe_float($nota['monto'] ?? 0), 2);
+            if ($monto <= 0.009) {
+                continue;
+            }
+            $concepto = (string) ($nota['concepto'] ?? 'NOTA DE CRÉDITO');
+            $fecha = $nota['fechaValor'] ?? null;
+            $tabla[$idxPorCargo[$idCargo]]['aplicados'][] = [
+                'tipo' => 'nota_credito',
+                'subtipo' => $this->etiquetaNotaCreditoDesdeConcepto($concepto),
+                'idNota' => $nota['idNota'] ?? null,
+                'idPago' => null,
+                'montoPago' => $monto,
+                'aplicado' => $monto,
+                'aplicadoTotalPago' => $monto,
+                'fechaRegistro' => $fecha,
+                'fechaPago' => null,
+                'diasMora' => null,
+                'extemporaneos' => 0,
+                'es_sobrante' => false,
+                'gasto_cobranza' => false,
+                'concepto' => $concepto,
+                '_sortDate' => $fecha,
+                // Nota de credito SI cuenta para cerrar pendiente en cuota.
+                'no_cuenta_para_total_cuota' => false,
+            ];
+        }
     }
 
     private function esCargoAnticipoCapital(array $cargo): bool {
@@ -1165,82 +1497,34 @@ JS;
                 }
             }
 
-            $pagos_list = [];
+            $usarMotorV2 = $this->shouldUseEstadoCuentaEngineV2();
+            $shadowV2 = $this->shouldShadowCompareEstadoCuentaEngineV2();
+            $this->logEstadoCuentaEngineModo((int) $idConsultado, $usarMotorV2, $shadowV2);
+            $pagos_list = $this->prepararPagosListEstadoCuenta(
+                $pagos,
+                $cargos,
+                $listaNotasCargosParaSoloGc,
+                $maxIdCargoEnCargos,
+                $usarMotorV2 ? 'v2' : 'legacy'
+            );
 
-            // -------------------------
-            // PREPARAR PAGOS
-            // -------------------------
-            foreach ($pagos as $p) {
-
-                $montoPago      = $this->safe_float($p["montoPago"] ?? 0);
-                $extemporaneos  = $this->safe_float($p["extemporaneos"] ?? 0);
-                $monto_real     = max($montoPago - $extemporaneos, 0);
-
-                // Lista de idCargo que este pago toca (orden: primero id en numeroCuotaSemanal).
-                $idsCuotaApi = $this->parse_cuotas_field($p["numeroCuotaSemanal"] ?? null);
-                $idsCuotaApi = (count($idsCuotaApi) > 1) ? [$idsCuotaApi[0]] : $idsCuotaApi;
-                $primerIdCargoApi = !empty($idsCuotaApi) ? $this->safe_int($idsCuotaApi[0], 0) : 0;
-                $soloGcDeposito = $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
-                // Todo extemporáneo (sin monto a capital/interés en la cuota): la API lo lista pero no genera aplicados; se inyecta para la UI.
-                $soloExtInyectar = ($monto_real <= 0.02 && $extemporaneos > 0.009 && $primerIdCargoApi > 0);
-
-                // Distribución secuencial solo al “entrar” el pago del API (varios id en numeroCuotaSemanal).
-                // El remanente interno (remaining en el bucle de cargos) no pasa por esto: luego se amplían cuotas hacia delante.
-                if (count($idsCuotaApi) > 1 && $monto_real > 0.02) {
-                    $montoPorIdCargo = [];
-                    foreach ($cargos as $cRep) {
-                        $idcM = $this->safe_int($cRep["idCargo"] ?? 0);
-                        if ($idcM > 0) {
-                            $montoPorIdCargo[$idcM] = round($this->safe_float($cRep["monto"] ?? 0), 2);
-                        }
-                    }
-                    $disponible = round($monto_real, 2);
-                    $cuotas = [];
-                    foreach ($idsCuotaApi as $idcRaw) {
-                        $idcCur = (int) $idcRaw;
-                        if ($disponible <= 0.009) {
-                            break;
-                        }
-                        $necesita = round((float) ($montoPorIdCargo[$idcCur] ?? 0), 2);
-                        if ($necesita <= 0.009) {
-                            continue;
-                        }
-                        $aplicarSeq = min($disponible, $necesita);
-                        if ($aplicarSeq > 0.009) {
-                            $cuotas[] = $idcCur;
-                            $disponible = round($disponible - $aplicarSeq, 2);
-                        }
-                    }
-                } else {
-                    $cuotas = $idsCuotaApi;
-                }
-                // Si el API dice 27,28 y 28 es ANTICIPO, el sobrante debe poder ir a la siguiente CUOTA SEMANAL (p. ej. id 29).
-                $cuotas = $this->expandIdCargosTrasAnticipos($cuotas, $cargos);
-                if ($maxIdCargoEnCargos > 0 && !empty($cuotas)) {
-                    $maxEnPago = max($cuotas);
-                    if ($maxEnPago > $maxIdCargoEnCargos && !in_array($maxIdCargoEnCargos, $cuotas)) {
-                        $cuotas[] = $maxIdCargoEnCargos;
-                    }
-                }
-                if ($monto_real > 0.02 && !$soloGcDeposito && !$soloExtInyectar) {
-                    $cuotas = $this->expandCuotasSemanalesPosterioresParaSobrante($cuotas, $cargos);
-                }
-
-                $pagos_list[] = [
-                    "idPago"              => $p["idPago"] ?? null,
-                    "remaining"           => round($monto_real, 2),
-                    "cuotas"              => $cuotas,
-                    "fechaValor"          => $p["fechaValor"] ?? null,
-                    // *** fechaRegistro usa fechaDeposito si viene ***
-                    "fechaRegistro"       => $p["fechaDeposito"] ?? ($p["fechaRegistro"] ?? null),
-                    "montoPagoOriginal"   => $montoPago,
-                    "extemporaneos"       => $extemporaneos,
-                    "_extOrig"            => $extemporaneos,
-                    "_extemporaneo_aplicado" => false,
-                    "es_pago_solo_gasto_cobranza" => $soloGcDeposito,
-                    "es_pago_solo_extemporaneo_inyectar" => $soloExtInyectar,
-                    "primer_id_cargo_api" => $primerIdCargoApi,
-                ];
+            if ($shadowV2) {
+                $pagosLegacy = $this->prepararPagosListEstadoCuenta(
+                    $pagos,
+                    $cargos,
+                    $listaNotasCargosParaSoloGc,
+                    $maxIdCargoEnCargos,
+                    'legacy'
+                );
+                $pagosV2 = $this->prepararPagosListEstadoCuenta(
+                    $pagos,
+                    $cargos,
+                    $listaNotasCargosParaSoloGc,
+                    $maxIdCargoEnCargos,
+                    'v2'
+                );
+                $idCreditoDebug = (int) $idConsultado;
+                $this->registrarDiferenciasPagosListMotores($idCreditoDebug, $pagosLegacy, $pagosV2);
             }
 
             $tabla = [];
@@ -1980,6 +2264,14 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
             self::set("esReembolsoPorFecha", $esReembolsoPorFecha ?? []);
             self::set("tipoDisplayCargoPorFecha", $tipoDisplayCargoPorFecha ?? []);
             self::set("hayNotasCargos", $hayNotasCargos);
+
+            if ($usarMotorV2) {
+                $notasCreditos = $estadoCuenta['datosNotasCreditos'] ?? [];
+                if (!is_array($notasCreditos)) {
+                    $notasCreditos = [];
+                }
+                $this->aplicarNotasCreditoEnTablaV2($tabla, $notasCreditos);
+            }
 
             $this->inyectarDepositosSoloGastoCobranza($tabla, $pagos_list);
             $this->reubicarPagosRealesFueraDeFilasConExtemporaneo($tabla);

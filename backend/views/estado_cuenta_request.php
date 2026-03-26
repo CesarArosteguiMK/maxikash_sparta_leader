@@ -2329,6 +2329,25 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                                                 <span class="etiqueta-aplicado">Aplicado</span>: <?= format_currency($pago_aplicado) ?> -
                                                 <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                             </li>
+                                            <?php elseif (isset($pago['tipo']) && $pago['tipo'] === 'nota_credito'): ?>
+                                            <?php
+                                            $montoNc = safe($pago['montoPago'], 0.0);
+                                            $aplicadoNc = safe($pago['aplicado'], 0.0);
+                                            $fechaNc = safe($pago['fechaRegistro'], null);
+                                            $subtipoNc = (string) ($pago['subtipo'] ?? '');
+                                            if ($subtipoNc === 'nota_credito_capital') {
+                                                $etiquetaNc = 'Nota crédito (Capital)';
+                                            } elseif ($subtipoNc === 'nota_credito_interes') {
+                                                $etiquetaNc = 'Nota crédito (Interés)';
+                                            } else {
+                                                $etiquetaNc = 'Nota crédito';
+                                            }
+                                            ?>
+                                            <li class="text-primary">
+                                                <span class="fw-semibold"><?= htmlspecialchars($etiquetaNc) ?>:</span> <?= format_currency($montoNc) ?> -
+                                                <span class="etiqueta-aplicado">Aplicado</span>: <?= format_currency($aplicadoNc) ?> -
+                                                <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($fechaNc)) ?></span>
+                                            </li>
                                             <?php else: ?>
                                             <?php
                                             $pago_monto = safe($pago['montoPago'], 0.0);
