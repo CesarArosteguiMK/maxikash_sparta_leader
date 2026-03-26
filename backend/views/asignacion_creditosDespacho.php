@@ -1675,9 +1675,27 @@ function toggleAsignacionInfo(creditoId) {
 }
 
 // Función para asignar crédito desde el stack
+// Función para asignar crédito desde el stack
 function asignarCreditoDelStack(idCredito) {
     if (!despachoSeleccionado) {
         Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
+        return;
+    }
+
+    // ✅ Obtener el tipo de célula seleccionada (Despacho=1, Gestión Call Center=2)
+    const radioSeleccionado = document.querySelector('input[name="id_celula"]:checked');
+
+    // ✅ Validación más robusta
+    if (!radioSeleccionado) {
+        Swal.fire('Advertencia', 'Seleccione el tipo de gestión (Despacho o Call Center)', 'warning');
+        return;
+    }
+
+    const idCelula = parseInt(radioSeleccionado.value);
+
+    // ✅ Validar que el valor sea válido (1 o 2)
+    if (idCelula !== 1 && idCelula !== 2) {
+        Swal.fire('Error', 'Tipo de gestión no válido', 'error');
         return;
     }
 
@@ -1691,7 +1709,6 @@ function asignarCreditoDelStack(idCredito) {
     }
 
     // VALIDACIÓN: Verificar si el crédito ya está asignado activamente
-    // Para deshabilitar esta validación, comente las siguientes 7 líneas
     if (creditoItem.asignacion) {
         const esActivo = creditoItem.asignacion.estatus === '1' || creditoItem.asignacion.estatus === 1;
         if (esActivo) {
@@ -1699,19 +1716,30 @@ function asignarCreditoDelStack(idCredito) {
             return;
         }
     }
-    // FIN VALIDACIÓN
 
     const creditoEncontrado = creditoItem.credito;
 
+    // ✅ Determinar el texto del tipo de gestión para mostrar en el mensaje
+    const tipoGestion = idCelula === 1 ? 'Despacho' : 'Gestión Call Center';
+
     Swal.fire({
         title: '¿Confirmar asignación?',
-        text: `¿Desea asignar el crédito ${creditoEncontrado.id_credito} al despacho seleccionado?`,
+        text: `¿Desea asignar el crédito ${creditoEncontrado.id_credito} al ${tipoGestion} seleccionado?`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, asignar',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
+            // ✅ Mostrar loading mientras se asigna
+            Swal.fire({
+                title: 'Asignando crédito...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
             fetch('/despachos/asignarCredito', {
                 method: 'POST',
                 headers: {
@@ -1719,11 +1747,13 @@ function asignarCreditoDelStack(idCredito) {
                 },
                 body: JSON.stringify({
                     id_persona: despachoSeleccionado,
-                    id_credito: creditoEncontrado.id_credito
+                    id_credito: creditoEncontrado.id_credito,
+                    id_celula: idCelula  // ✅ Envío correcto del valor
                 })
             })
             .then(response => response.json())
             .then(data => {
+                Swal.close(); // Cerrar loading
                 if (data.success) {
                     Swal.fire('Éxito', 'Crédito asignado correctamente', 'success');
                     descartarCredito(idCredito);
@@ -1733,6 +1763,7 @@ function asignarCreditoDelStack(idCredito) {
                 }
             })
             .catch(error => {
+                Swal.close();
                 console.error('Error al asignar crédito:', error);
                 Swal.fire('Error', 'Error al asignar el crédito', 'error');
             });
