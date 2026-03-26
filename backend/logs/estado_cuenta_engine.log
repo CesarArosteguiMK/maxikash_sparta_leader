@@ -460,10 +460,18 @@
 [2026-03-26 13:18:17] credito=680456 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
 [2026-03-26 13:18:52] credito=1052163 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
 [2026-03-26 13:21:16] credito=735641 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
+<<<<<<< HEAD
+[2026-03-26 13:42:44] credito=1052163 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
+[2026-03-26 13:46:20] credito=1052163 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
+[2026-03-26 13:54:27] credito=1135876 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
+[2026-03-26 14:04:53] credito=1422728 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
+[2026-03-26 14:07:31] credito=734102 engine=v2 shadow=1 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=1
+=======
 >>>>>>> 9ded66a86510eea362f61d9fd507579ddd4f85c0
 [2026-03-26 13:25:21] credito=1562048 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-26 13:25:22] credito=305993 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-26 13:25:22] credito=1723407 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
+<<<<<<< HEAD
 [2026-03-26 13:25:25] credito=1569648 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-26 13:25:35] credito=1558969 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-26 13:25:44] credito=1714804 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
@@ -1334,3 +1342,6 @@
 [2026-03-26 14:53:13] credito=1742094 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-26 14:53:24] credito=1699180 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-26 14:53:28] credito=703645 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
+=======
+>>>>>>> f6d4cfbdc2af0e2929c90c4bbe99c7f805e42b7e
+>>>>>>> 06b3f803c4c181f2b80fd7071650e2e546f27845

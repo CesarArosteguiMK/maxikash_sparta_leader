@@ -568,7 +568,8 @@ class EstadoCuenta extends Controller
     }
 
     /**
-     * Depósito cuyo monto va íntegramente a extemporáneos y empareja nota de GASTOS DE COBRANZA (misma fecha y monto).
+     * Depósito cuyo monto va a extemporáneos y corresponde a nota de GASTOS DE COBRANZA (misma fecha).
+     * Puede ser el monto total de la nota o un abono parcial (p. ej. 763 de 1500 el mismo día).
      * No es pago de cuota; no debe mezclarse con aplicación a cargo salvo para mostrarlo en UI.
      */
     private function esPagoSoloGastoCobranza(array $pagoApi, array $listaNotasCargos): bool {
@@ -610,14 +611,10 @@ class EstadoCuenta extends Controller
             if (abs($mNota - $ext) <= 1.0 || abs($mNota - $montoPago) <= 1.0) {
                 return true;
             }
-            // Misma fecha: la nota puede ser mayor que el depósito (p. ej. 208 = 200 de este movimiento
-            // + remanente de otros pagos en la misma cuota). Solo si el excedente es moderado.
+            // Nota mayor que el depósito (misma fecha, 100% ext): abono parcial a GC — sin tope de delta
+            // (p. ej. 200+remanente vs 208; 763 vs nota 1500).
             if ($mNota + 0.01 >= $montoPago && $mNota - $montoPago > 0.02) {
-                $delta = $mNota - $montoPago;
-                $maxDelta = min(150.0, max(25.0, 0.5 * $montoPago));
-                if ($delta <= $maxDelta + 0.009) {
-                    return true;
-                }
+                return true;
             }
         }
         return false;
