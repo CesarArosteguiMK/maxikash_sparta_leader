@@ -2655,7 +2655,7 @@ window.migBuscarCredito = function() {
                                         '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
                                         '<small>' +
                                             '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + '</span>' +
-                                            '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2Movil: $' + adeudo + '</span>' +
+                                            '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2: $' + adeudo + '</span>' +
                                         '</small><br>' +
                                         '<small class="text-success fw-semibold">✓ Crédito en despacho activo. Cumple condiciones para registrar un convenio.</small>' +
                                     '</div>' +

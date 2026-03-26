@@ -411,7 +411,7 @@
 <!-- Título de la página -->
 <h4 class="mb-4">
     <i class="fa-solid fa-briefcase me-2"></i>
-    Asignación de Créditos a Despachos de Cobranza
+    Asignación de Créditos
 </h4>
 
 <div class="row g-4 mb-4">
@@ -420,13 +420,37 @@
         <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title mb-4">
-                    <i class="fa-solid fa-user-tie me-2"></i>Datos del Despacho
+                    <i class="fa-solid fa-user-tie me-2"></i>Datos
                 </h5>
 
+                <div class="mt-2 mb-3">
+
+    <div class="d-flex gap-4">
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="id_celula" id="radioDespacho" value="1" checked>
+            <label class="form-check-label" for="radioDespacho" style="cursor: pointer;">
+                Despacho
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="id_celula" id="radioCallCenter" value="2">
+            <label class="form-check-label" for="radioCallCenter" style="cursor: pointer;">
+                Gestión Call Center
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label for="select-despacho" class="form-label fw-bold text-muted small">Seleccionar</label>
+    <select id="select-despacho" class="form-select">
+        </select>
+</div>
+
                 <div class="mb-3">
-                    <label class="form-label" for="select-despacho">Seleccionar despacho</label>
+                    <label class="form-label" for="select-despacho">Seleccionar</label>
                     <select id="select-despacho" class="form-select">
-                        <option value="">Seleccione un despacho...</option>
+                        <option value="">Seleccione...</option>
                     </select>
                 </div>
 
