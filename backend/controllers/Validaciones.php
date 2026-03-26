@@ -250,7 +250,7 @@ class Validaciones extends Controller
             return;
         }
 
-        // Motivo: tabla asignacion_ticket_motivo (script create_tabla_asignacion_ticket_motivo.php). Solo si hay texto.
+        // Motivo: tabla asignacion_ticket_motivo. Solo si hay texto.
         if ($motivo !== '') {
             try {
                 $db = new Database();

@@ -72,7 +72,29 @@ SQL;
 
         return $this->db->queryAll($query);
     }
-     /* Obtener datos de un despacho específico usando la tabla persona directamente
+
+    /**
+     * Catálogo para importación Excel: una fila por registro en tabla despachos (activos), con nombre de la persona titular.
+     * No usa asigna_puesto: evita listar cientos de gestores/supervisores que no tienen fila en despachos.
+     */
+    public function obtenerCatalogoDespachosParaImportacionExcel()
+    {
+        $query = <<<SQL
+        SELECT
+            d.id AS id_despacho,
+            d.id_persona,
+            TRIM(CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom)) AS nombre_completo
+        FROM despachos d
+        LEFT JOIN persona per ON per.id = d.id_persona
+        WHERE d.estatus = 'Activo'
+        ORDER BY d.id
+SQL;
+
+        return $this->db->queryAll($query);
+    }
+
+    /**
+     * Obtener datos de un despacho específico usando la tabla persona directamente
      * Si existe en despachos, traemos esos datos adicionales, sino solo de persona
      */
     public function obtenerDatosDespacho($idPersona)
@@ -133,6 +155,34 @@ SQL;
             'comentarios' => $comentario,
             'id_despacho' => $result['id_despacho'] ?? null
         ];
+    }
+
+    /**
+     * Importación Excel / popover: nombre desde persona y id_despacho desde despachos (JOIN por id_persona).
+     * Mismos criterios de despacho que el listado (puestos 24 y 36, asigna_puesto activo).
+     */
+    public function obtenerDespachoImportacionPorIdPersona($idPersona)
+    {
+        $id = (int) $idPersona;
+        if ($id <= 0) {
+            return null;
+        }
+
+        $query = <<<SQL
+        SELECT
+            per.id AS id_persona,
+            CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
+            d.id AS id_despacho
+        FROM persona per
+        INNER JOIN asigna_puesto ap ON ap.id_persona = per.id
+            AND ap.activo = 1
+            AND ap.id_puesto IN (24, 36)
+        LEFT JOIN despachos d ON d.id_persona = per.id AND d.estatus = 'Activo'
+        WHERE per.id = :idPersona
+        LIMIT 1
+SQL;
+
+        return $this->db->queryOne($query, ['idPersona' => $id]);
     }
 
     /**
@@ -349,7 +399,8 @@ SQL;
             SET estatus = '1',
                 fecha_baja = NULL,
                 fecha_alta = NOW(),
-                alta = :usuarioAsignacion
+                alta = :usuarioAsignacion,
+                celula = 1
             WHERE id = :id
 SQL;
             return $this->db->CRUD($query, [
@@ -360,8 +411,8 @@ SQL;
             // Si no existe, crear nuevo (INSERT)
             $query = <<<SQL
             INSERT INTO asigna_creditos_despacho
-            (id_despacho, id_credito, fecha_alta, alta, estatus)
-            VALUES (:idDespacho, :idCredito, NOW(), :usuarioAsignacion, '1')
+            (id_despacho, id_credito, fecha_alta, alta, estatus, celula)
+            VALUES (:idDespacho, :idCredito, NOW(), :usuarioAsignacion, '1', 1)
 SQL;
             return $this->db->CRUD($query, [
                 'idDespacho' => $despacho['id'],
@@ -369,6 +420,350 @@ SQL;
                 'usuarioAsignacion' => $usuarioAsignacion
             ]) > 0;
         }
+    }
+
+    /**
+     * Importar Excel para asignar créditos masivamente.
+     *
+     * Modo A — columnas en fila 1: id_credito + id_despacho (por fila puede ir a distintos despachos).
+     * Modo B — solo id_credito: usa el despacho activo del id_persona seleccionado en pantalla.
+     *
+     * Valida números enteros > 0 y que id_despacho exista en despachos (estatus Activo).
+     */
+    public function importarAsignaCreditosDesdeExcel($idPersona, $excelPath)
+    {
+        require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
+
+        $errores = [];
+        $usuarioAsignacion = $_SESSION['usuario_id'] ?? 1;
+
+        $sheet = null;
+        try {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($excelPath);
+            $sheet = $spreadsheet->getActiveSheet();
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Error al leer el Excel: ' . $e->getMessage(),
+                'errores' => []
+            ];
+        }
+
+        $highestRow = (int) $sheet->getHighestRow();
+        $highestColumn = $sheet->getHighestColumn();
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+
+        $normalizeHeader = function ($v) {
+            $s = trim((string) $v);
+            if ($s === '') {
+                return '';
+            }
+            $s = mb_strtolower($s, 'UTF-8');
+            $s = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
+            $s = preg_replace('/[^a-z0-9]+/i', '_', $s);
+            $s = trim((string) $s, '_');
+            return $s;
+        };
+
+        $colIndexIdCredito = null;
+        $colIndexIdDespacho = null;
+        for ($col = 1; $col <= $highestColumnIndex; $col++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
+            $headerVal = $sheet->getCell($colLetter . '1')->getValue();
+            $norm = $normalizeHeader($headerVal);
+            if ($norm === 'id_credito') {
+                $colIndexIdCredito = $col;
+            }
+            if ($norm === 'id_despacho') {
+                $colIndexIdDespacho = $col;
+            }
+        }
+
+        if ($colIndexIdCredito === null) {
+            return [
+                'success' => false,
+                'message' => "Encabezado incorrecto: debe existir la columna 'id_credito' (no cambies el nombre).",
+                'errores' => []
+            ];
+        }
+
+        $modoPorFila = $colIndexIdDespacho !== null;
+
+        if (!$modoPorFila) {
+            $idPersonaInt = (int) $idPersona;
+            if ($idPersonaInt <= 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Seleccione un despacho en pantalla o agregue la columna id_despacho en el Excel.'
+                ];
+            }
+
+            $queryDespacho = "SELECT id FROM despachos WHERE id_persona = :idPersona AND estatus = 'Activo' LIMIT 1";
+            $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersonaInt]);
+
+            if (!$despacho) {
+                $queryInsert = "INSERT INTO despachos (id_persona, estatus, fecha_alta) VALUES (:idPersona, 'Activo', NOW())";
+                $insertado = $this->db->CRUD($queryInsert, ['idPersona' => $idPersonaInt]);
+                if (!$insertado) {
+                    return [
+                        'success' => false,
+                        'message' => 'No se pudo crear/obtener el despacho activo para el id_persona seleccionado.'
+                    ];
+                }
+                $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersonaInt]);
+            }
+
+            if (!$despacho || empty($despacho['id'])) {
+                return [
+                    'success' => false,
+                    'message' => 'No se encontró el despacho activo y no se pudo crear.'
+                ];
+            }
+
+            $idDespachoFijo = (int) $despacho['id'];
+        }
+
+        $colLetterIdCredito = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndexIdCredito);
+        $colLetterIdDespacho = $modoPorFila
+            ? \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndexIdDespacho)
+            : null;
+
+        $pares = []; // [ 'd' => int, 'c' => int, 'fila' => int ]
+        $vistoPar = [];
+
+        for ($row = 2; $row <= $highestRow; $row++) {
+            $rawCred = $sheet->getCell($colLetterIdCredito . $row)->getValue();
+            if ($rawCred === null) {
+                continue;
+            }
+            $rawCredStr = trim((string) $rawCred);
+            if ($rawCredStr === '') {
+                continue;
+            }
+
+            if (!is_numeric($rawCredStr)) {
+                $errores[] = [
+                    'fila' => $row,
+                    'reason' => 'id_credito no es numérico',
+                    'valor' => $rawCredStr
+                ];
+                continue;
+            }
+
+            $idCredito = (int) round((float) $rawCredStr);
+            if ($idCredito <= 0) {
+                $errores[] = [
+                    'fila' => $row,
+                    'reason' => 'id_credito debe ser un entero > 0',
+                    'valor' => $rawCredStr
+                ];
+                continue;
+            }
+
+            if ($modoPorFila) {
+                $rawDesp = $sheet->getCell($colLetterIdDespacho . $row)->getValue();
+                $rawDespStr = trim((string) ($rawDesp ?? ''));
+                if ($rawDespStr === '') {
+                    $errores[] = [
+                        'fila' => $row,
+                        'reason' => 'id_despacho vacío',
+                        'valor' => ''
+                    ];
+                    continue;
+                }
+                if (!is_numeric($rawDespStr)) {
+                    $errores[] = [
+                        'fila' => $row,
+                        'reason' => 'id_despacho no es numérico',
+                        'valor' => $rawDespStr
+                    ];
+                    continue;
+                }
+                $idDespacho = (int) round((float) $rawDespStr);
+                if ($idDespacho <= 0) {
+                    $errores[] = [
+                        'fila' => $row,
+                        'reason' => 'id_despacho debe ser un entero > 0',
+                        'valor' => $rawDespStr
+                    ];
+                    continue;
+                }
+            } else {
+                $idDespacho = $idDespachoFijo;
+            }
+
+            $clave = $idDespacho . ':' . $idCredito;
+            if (isset($vistoPar[$clave])) {
+                continue;
+            }
+            $vistoPar[$clave] = true;
+            $pares[] = ['d' => $idDespacho, 'c' => $idCredito, 'fila' => $row];
+        }
+
+        $totalCreditosValidos = count($pares);
+
+        if (empty($pares)) {
+            return [
+                'success' => false,
+                'message' => 'No se encontraron filas válidas (id_credito' . ($modoPorFila ? ' + id_despacho' : '') . ') en el Excel.',
+                'total_creditos_validos' => 0,
+                'insertados' => 0,
+                'duplicados' => 0,
+                'duplicados_creditos' => [],
+                'duplicados_detalle' => [],
+                'modo' => $modoPorFila ? 'por_fila' : 'despacho_seleccionado',
+                'errores' => $errores
+            ];
+        }
+
+        if ($modoPorFila) {
+            $idsDespachoUnicos = [];
+            foreach ($pares as $p) {
+                $idsDespachoUnicos[$p['d']] = true;
+            }
+            $listaDesp = array_map('intval', array_keys($idsDespachoUnicos));
+            $validosDespacho = [];
+            $chunkSize = 300;
+            foreach (array_chunk($listaDesp, $chunkSize) as $chunk) {
+                if (empty($chunk)) {
+                    continue;
+                }
+                $ph = [];
+                $par = [];
+                foreach ($chunk as $i => $did) {
+                    $k = 'dd' . $i;
+                    $ph[] = ':' . $k;
+                    $par[$k] = $did;
+                }
+                $sql = 'SELECT id FROM despachos WHERE estatus = \'Activo\' AND id IN (' . implode(',', $ph) . ')';
+                $found = $this->db->queryAll($sql, $par);
+                foreach ($found as $f) {
+                    if (!empty($f['id'])) {
+                        $validosDespacho[(int) $f['id']] = true;
+                    }
+                }
+            }
+
+            $paresOk = [];
+            foreach ($pares as $p) {
+                if (!isset($validosDespacho[$p['d']])) {
+                    $errores[] = [
+                        'fila' => $p['fila'],
+                        'reason' => 'id_despacho no existe o no está activo en la tabla despachos',
+                        'valor' => (string) $p['d']
+                    ];
+                    continue;
+                }
+                $paresOk[] = $p;
+            }
+            $pares = $paresOk;
+        }
+
+        if (empty($pares)) {
+            return [
+                'success' => false,
+                'message' => 'No quedaron filas válidas tras validar despachos.',
+                'total_creditos_validos' => $totalCreditosValidos,
+                'insertados' => 0,
+                'duplicados' => 0,
+                'duplicados_creditos' => [],
+                'duplicados_detalle' => [],
+                'modo' => $modoPorFila ? 'por_fila' : 'despacho_seleccionado',
+                'errores' => $errores
+            ];
+        }
+
+        $duplicadosDetalle = [];
+        $duplicadosSet = [];
+        $chunkPairs = 200;
+        foreach (array_chunk($pares, $chunkPairs) as $chunk) {
+            if (empty($chunk)) {
+                continue;
+            }
+            $parts = [];
+            $params = [];
+            $i = 0;
+            foreach ($chunk as $p) {
+                $parts[] = '(:d' . $i . ',:c' . $i . ')';
+                $params['d' . $i] = $p['d'];
+                $params['c' . $i] = $p['c'];
+                $i++;
+            }
+            $sql = 'SELECT id_despacho, id_credito FROM asigna_creditos_despacho WHERE (id_despacho, id_credito) IN (' . implode(',', $parts) . ')';
+            $rows = $this->db->queryAll($sql, $params);
+            foreach ($rows as $r) {
+                $d = (int) $r['id_despacho'];
+                $c = (int) $r['id_credito'];
+                $duplicadosSet["$d:$c"] = true;
+                $duplicadosDetalle[] = ['id_despacho' => $d, 'id_credito' => $c];
+            }
+        }
+
+        $toInsert = [];
+        foreach ($pares as $p) {
+            $k = $p['d'] . ':' . $p['c'];
+            if (!isset($duplicadosSet[$k])) {
+                $toInsert[] = $p;
+            }
+        }
+
+        $duplicadosCreditosIds = [];
+        foreach ($duplicadosDetalle as $d) {
+            $duplicadosCreditosIds[] = (int) $d['id_credito'];
+        }
+        $duplicadosCreditosIds = array_slice(array_values(array_unique($duplicadosCreditosIds)), 0, 50);
+
+        $insertados = 0;
+        $this->db->beginTransaction();
+        try {
+            foreach ($toInsert as $p) {
+                $query = <<<SQL
+                INSERT INTO asigna_creditos_despacho
+                (id_despacho, id_credito, fecha_alta, alta, estatus, celula)
+                VALUES (:idDespacho, :idCredito, NOW(), :usuarioAsignacion, '1', 1)
+SQL;
+                $ok = $this->db->CRUD($query, [
+                    'idDespacho' => $p['d'],
+                    'idCredito' => $p['c'],
+                    'usuarioAsignacion' => $usuarioAsignacion
+                ]) > 0;
+                if ($ok) {
+                    $insertados++;
+                }
+            }
+            $this->db->commit();
+        } catch (\Exception $e) {
+            $this->db->rollback();
+            return [
+                'success' => false,
+                'message' => 'Error insertando en la base: ' . $e->getMessage(),
+                'total_creditos_validos' => count($pares),
+                'insertados' => 0,
+                'duplicados' => count($duplicadosDetalle),
+                'duplicados_creditos' => $duplicadosCreditosIds,
+                'duplicados_detalle' => array_slice($duplicadosDetalle, 0, 30),
+                'modo' => $modoPorFila ? 'por_fila' : 'despacho_seleccionado',
+                'errores' => $errores
+            ];
+        }
+
+        $resp = [
+            'success' => true,
+            'total_creditos_validos' => count($pares),
+            'insertados' => $insertados,
+            'duplicados' => count($duplicadosDetalle),
+            'duplicados_creditos' => $duplicadosCreditosIds,
+            'duplicados_detalle' => array_slice($duplicadosDetalle, 0, 30),
+            'modo' => $modoPorFila ? 'por_fila' : 'despacho_seleccionado',
+            'errores' => $errores,
+            'total_errores' => count($errores)
+        ];
+
+        if (!$modoPorFila) {
+            $resp['id_despacho'] = $idDespachoFijo;
+        }
+
+        return $resp;
     }
 
     /**

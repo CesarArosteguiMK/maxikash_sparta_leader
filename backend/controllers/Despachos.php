@@ -84,6 +84,68 @@ class Despachos extends Controller
     }
 
     /**
+     * JSON para importación Excel: nombre (persona) + id_despacho (tabla despachos) por id_persona del select.
+     */
+    public function ObtenerDespachoParaImportacionExcel($idPersona)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $row = $this->model->obtenerDespachoImportacionPorIdPersona($idPersona);
+            if (!$row) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'No se encontró la persona o no es un gestor/supervisor de despacho.'
+                ]);
+                return;
+            }
+
+            $idDesp = $row['id_despacho'] ?? null;
+            echo json_encode([
+                'success' => true,
+                'id_persona' => (int) $row['id_persona'],
+                'nombre_completo' => trim((string) ($row['nombre_completo'] ?? '')),
+                'id_despacho' => $idDesp !== null && $idDesp !== '' ? (int) $idDesp : null
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error al consultar despacho: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Catálogo: filas de la tabla despachos (activos) + nombre de persona; mismo cardinal que despachos.
+     */
+    public function ObtenerCatalogoDespachosImportacionExcel()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $filas = $this->model->obtenerCatalogoDespachosParaImportacionExcel();
+            $out = [];
+            foreach ($filas as $f) {
+                $idDesp = $f['id_despacho'] ?? null;
+                $out[] = [
+                    'id_persona' => (int) ($f['id_persona'] ?? 0),
+                    'nombre_completo' => trim((string) ($f['nombre_completo'] ?? '')) ?: '—',
+                    'id_despacho' => $idDesp !== null && $idDesp !== '' ? (int) $idDesp : null
+                ];
+            }
+            echo json_encode([
+                'success' => true,
+                'total' => count($out),
+                'filas' => $out
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error al obtener el catálogo: ' . $e->getMessage(),
+                'filas' => []
+            ]);
+        }
+    }
+
+    /**
      * Buscar crédito por diferentes criterios
      * POST: tipo (id_credito, nombre_cliente, curp), valor
      */
@@ -719,6 +781,131 @@ class Despachos extends Controller
             exit;
         } catch (\Exception $e) {
             echo 'Error al exportar: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * Descargar plantilla para importar créditos asignados
+     */
+    public function DescargarPlantillaExcelAsignacionCreditosDespacho()
+    {
+        $raizProyecto = dirname(__DIR__, 2);
+        $path = $raizProyecto . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR . 'plantilla.xlsx';
+
+        if (!is_readable($path)) {
+            http_response_code(404);
+            echo 'No se encontró la plantilla en el servidor (public/templates/plantilla.xlsx).';
+            return;
+        }
+
+        $filename = 'plantilla.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        header('Content-Length: ' . filesize($path));
+
+        readfile($path);
+        exit;
+    }
+
+    /**
+     * Importar Excel (asigna créditos al despacho seleccionado)
+     * Campos esperados:
+     * - $_POST['id_persona']
+     * - $_FILES['excel']
+     */
+    public function ImportarExcelAsignacionCreditosDespacho()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $idPersona = $_POST['id_persona'] ?? null;
+            if (!$idPersona) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Falta el id_persona del despacho seleccionado.'
+                ]);
+                return;
+            }
+
+            if (!isset($_FILES['excel']) || !is_array($_FILES['excel'])) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'No se recibió el archivo Excel.'
+                ]);
+                return;
+            }
+
+            if ($_FILES['excel']['error'] !== UPLOAD_ERR_OK) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error al subir el archivo Excel.'
+                ]);
+                return;
+            }
+
+            $fileSize = (int) ($_FILES['excel']['size'] ?? 0);
+            if ($fileSize <= 0) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'El archivo no tiene tamaño válido.'
+                ]);
+                return;
+            }
+
+            // Límite razonable para evitar tiempos/memoria excesivos
+            $maxSize = 20 * 1024 * 1024; // 20MB
+            if ($fileSize > $maxSize) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'El archivo excede el tamaño máximo permitido (20MB).'
+                ]);
+                return;
+            }
+
+            $ext = strtolower(pathinfo($_FILES['excel']['name'] ?? '', PATHINFO_EXTENSION));
+            $allowed = ['xlsx', 'xls'];
+            if (!in_array($ext, $allowed, true)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Formato no permitido. Usa .xlsx o .xls (descarga la plantilla para evitar errores).'
+                ]);
+                return;
+            }
+
+            $tmpPath = $_FILES['excel']['tmp_name'] ?? null;
+            if (!$tmpPath || !file_exists($tmpPath)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Archivo temporal no disponible.'
+                ]);
+                return;
+            }
+
+            $originalName = $_FILES['excel']['name'] ?? 'excel';
+
+            $resultado = $this->model->importarAsignaCreditosDesdeExcel($idPersona, $tmpPath);
+
+            // Enriquecer con nombre de archivo para la vista
+            if (is_array($resultado)) {
+                $resultado['archivo'] = $originalName;
+            }
+
+            echo json_encode($resultado);
+            return;
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Error en la importación: ' . $e->getMessage()
+            ]);
         }
     }
 }

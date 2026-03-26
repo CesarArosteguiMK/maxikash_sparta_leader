@@ -488,9 +488,26 @@ class EstadoCuenta extends Controller
     }
 
     /**
+     * Indica si la fila tiene depósito extemporáneo real (no gasto de cobranza) que justifica reubicar
+     * el pago legítimo que coincide en la misma fila.
+     * gasto_cobranza_deposito es una línea informativa de un cargo externo: el pago real de esa cuota
+     * SÍ pertenece ahí y no debe moverse.
+     */
+    private function filaTieneExtRealParaReubicacion(array $fila): bool {
+        foreach ($fila["aplicados"] ?? [] as $ap) {
+            $t = $ap["tipo"] ?? "";
+            if ($t === "extemporaneo_deposito" || $t === "extemporaneos_resumen") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Las líneas Dep. ext. quedan en las cuotas donde se inyectan; los pagos reales que compartían fila
      * se reubican en las primeras cuotas vacías (sin capital aplicado) posteriores a la última fila con Dep. ext.
      * Ej.: ext hasta cuota 56 → pagos reales desde 57.
+     * NOTA: gasto_cobranza_deposito NO activa la reubicación; el pago legítimo de esa cuota pertenece ahí.
      */
     private function reubicarPagosRealesFueraDeFilasConExtemporaneo(array &$tabla): void {
         if (empty($tabla)) {
@@ -498,7 +515,7 @@ class EstadoCuenta extends Controller
         }
         $lastExt = -1;
         foreach ($tabla as $i => $fila) {
-            if ($this->filaTieneLineaExtInformativa($fila)) {
+            if ($this->filaTieneExtRealParaReubicacion($fila)) {
                 $lastExt = $i;
             }
         }
@@ -507,7 +524,7 @@ class EstadoCuenta extends Controller
         }
         $payloads = [];
         for ($i = 0; $i <= $lastExt; $i++) {
-            if (!$this->filaTieneLineaExtInformativa($tabla[$i])) {
+            if (!$this->filaTieneExtRealParaReubicacion($tabla[$i])) {
                 continue;
             }
             $nuevos = [];
@@ -748,8 +765,10 @@ class EstadoCuenta extends Controller
     }
 
     /**
-     * En la misma cuota: primero depósitos extemporáneos / informativos (API), luego debajo pagos y sobrantes legítimos.
-     * Así el pago aplicado correctamente no queda encima del Dep. ext. de la misma fila.
+     * Orden dentro de la misma cuota:
+     *   1. extemporaneo_deposito / extemporaneos_resumen  (depósitos extemporáneos reales — van primero)
+     *   2. Pagos y sobrantes legítimos (con contracargos intercalados)
+     *   3. gasto_cobranza_deposito  (línea informativa de cargo externo — va al final, como los GC normales)
      */
     private function ordenarAplicadosExtemporaneosAntesDeLegitimos(array &$tabla): void {
         foreach ($tabla as &$fila) {
@@ -757,12 +776,15 @@ class EstadoCuenta extends Controller
             if (count($aps) < 1) {
                 continue;
             }
-            $informativos = [];
+            $extDepositos = [];
+            $gastosCobranza = [];
             $legitimos = [];
             foreach ($aps as $ap) {
                 $t = $ap["tipo"] ?? "";
-                if ($t === "extemporaneo_deposito" || $t === "extemporaneos_resumen" || $t === "gasto_cobranza_deposito") {
-                    $informativos[] = $ap;
+                if ($t === "extemporaneo_deposito" || $t === "extemporaneos_resumen") {
+                    $extDepositos[] = $ap;
+                } elseif ($t === "gasto_cobranza_deposito") {
+                    $gastosCobranza[] = $ap;
                 } else {
                     $legitimos[] = $ap;
                 }
@@ -773,8 +795,9 @@ class EstadoCuenta extends Controller
                 $fb = isset($b["_sortDate"]) ? $b["_sortDate"] : ($b["fechaRegistro"] ?? "9999-99-99");
                 return strtotime((string) $fa) <=> strtotime((string) $fb);
             };
-            usort($informativos, $sortFnInf);
-            $fila["aplicados"] = array_merge($informativos, $legitimos);
+            usort($extDepositos, $sortFnInf);
+            usort($gastosCobranza, $sortFnInf);
+            $fila["aplicados"] = array_merge($extDepositos, $legitimos, $gastosCobranza);
         }
         unset($fila);
     }
@@ -1987,6 +2010,10 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 return self::render("__SPARTA_SECRET_REDACTED___request");
 
             } else {
+
+                $gestionExternaMx = EstadoCuentaDAO::getDatosGestionExternaCredito((int) $idConsultado);
+                self::set('esGestionExternaMx', $gestionExternaMx['activa']);
+                self::set('gestionExternaEtiquetaCelula', $gestionExternaMx['etiqueta_celula']);
 
                 self::set("dataCliente", $cliente);
                 self::set("dataEstadoCuenta", $estadoCuenta);
@@ -5481,6 +5508,14 @@ public function descargarReporteDictamen()
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'Datos incompletos'
+            ]);
+            return;
+        }
+
+        if (EstadoCuentaDAO::gastosCobranzaBloqueadosPorGestionExterna($idCredito)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => EstadoCuentaDAO::mensajeBloqueoGestionExternaGastos(),
             ]);
             return;
         }
