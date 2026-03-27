@@ -46,33 +46,36 @@ SQL;
      * IDs de puesto: 24 = Gestor, 36 = Supervisor
      * Un despacho = Una persona con cualquiera de estos 2 puestos
      */
-    public function obtenerDespachos()
-    {
-        $query = <<<SQL
-        SELECT
-            d.id,
-            d.id_persona,
-            CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
-            pu.id AS id_puesto,
-            pu.nombre AS nombre_puesto,
-            d.tipo_persona,
-            d.numero_tel1,
-            d.numero_tel2,
-            d.correo_1,
-            d.correo_2,
-            d.direccion,
-            d.fecha_alta,
-            d.estatus
-        FROM despachos d
-        INNER JOIN persona per ON per.id = d.id_persona
-        LEFT JOIN asigna_puesto ap ON ap.id_persona = d.id_persona AND ap.activo = 1
-        LEFT JOIN puesto pu ON pu.id = ap.id_puesto
-        ORDER BY d.id
-        SQL;
+    public function obtenerDespachos($id_celula = 1)
+{
+    // Quitamos los comentarios dentro del String SQL para evitar confusiones al parser
+    $query = <<<SQL
+    SELECT
+        d.id,
+        d.id_persona,
+        CONCAT_WS(' ', per.nombres, per.segundo_nombre, per.apellidop, per.apellidom) AS nombre_completo,
+        pu.id AS id_puesto,
+        pu.nombre AS nombre_puesto,
+        d.tipo_persona,
+        d.numero_tel1,
+        d.numero_tel2,
+        d.correo_1,
+        d.correo_2,
+        d.direccion,
+        d.fecha_alta,
+        d.estatus,
+        d.id_celula
+    FROM despachos d
+    INNER JOIN persona per ON per.id = d.id_persona
+    LEFT JOIN asigna_puesto ap ON ap.id_persona = d.id_persona AND ap.activo = 1
+    LEFT JOIN puesto pu ON pu.id = ap.id_puesto
+    WHERE d.id_celula = :id_celula
+    ORDER BY d.id
+    SQL;
 
-        return $this->db->queryAll($query);
-    }
-
+    // Usamos el nombre del parámetro :id_celula explícitamente
+    return $this->db->queryAll($query, ['id_celula' => $id_celula]);
+}
     /**
      * Catálogo para importación Excel: una fila por registro en tabla despachos (activos), con nombre de la persona titular.
      * No usa asigna_puesto: evita listar cientos de gestores/supervisores que no tienen fila en despachos.
