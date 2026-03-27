@@ -15,6 +15,20 @@
  * ── MODO DRY RUN limitado (ideal para primer test) ──────────
  *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php -- --dry-run --limit=5
  *
+ * ── SOLO una lista de Id_credito (un entero por línea; # comentario) ─
+ *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php -- --ids-file=C:\ruta\creditos.txt
+ *   Con --ids-file no aplica el flag “ya corrió hoy”; dry-run y --force siguen disponibles.
+ *
+ * ── Desde Excel (.xlsx): columna con encabezado “ID CREDITO” ─
+ *   Si la ruta tiene espacios, entre comillas:
+ *   ... --ids-xlsx="C:\Users\...\GASTOS COBRANZA APLICAR 25 MAR 2026.xlsx"
+ *   Opcional: --ids-xlsx-column="ID CREDITO" (default: ID CREDITO)
+ *   No combinar --ids-file y --ids-xlsx en la misma corrida.
+ *
+ * ── Fecha de corte S2 (misma que en Estado de cuenta si eliges fecha en pantalla) ─
+ *   ... --fecha-corte=2026-03-23
+ *   Si se omite, usa la fecha de hoy (America/Mexico_City).
+ *
  * ── MODO TEST (usa tabla backup en lugar de gastos_cobranza) ─
  *   c:\xampp\php\php.exe -f C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\cronjobs\sync_gastos_cobranza.php -- --test-table
  *
@@ -29,7 +43,9 @@
  *
  * ============================================================
  * QUÉ HACE:
- *   Replica procesarGastosCobranza() del controller EstadoCuenta
+ *   Cruce de estatus_pago: solo vía Models\EstadoCuenta::procesarGastosCobranzaDesdeNotas
+ *   (mismo código que al abrir el menú Estado de cuenta). No hay segunda lógica de UPDATE salvo
+ *   modo --test-table (tabla backup alternativa).
  *   de forma masiva — para TODOS los créditos con gastos de
  *   cobranza pendientes (estatus_pago 0 ó 1, condonado = 0),
  *   sin necesidad de que alguien consulte el estado de cuenta.
@@ -92,12 +108,17 @@ spl_autoload_register(function (string $clase): void {
     }
 });
 
-$spreadsheet = RAIZ . '/Libs/PhpSpreadsheet/vendor/autoload.php';
-if (file_exists($spreadsheet)) {
-    require_once $spreadsheet;
+$autoloadPhpspread = RAIZ . '/Libs/PhpSpreadsheet/vendor/autoload.php';
+if (!file_exists($autoloadPhpspread)) {
+    $autoloadPhpspread = RAIZ . '/libs/PhpSpreadsheet/vendor/autoload.php';
 }
+if (file_exists($autoloadPhpspread)) {
+    require_once $autoloadPhpspread;
+}
+define('PHP_SPREADSHEET_AUTOLOAD', $autoloadPhpspread);
 
 use Core\DatabaseSegundometro;
+use Models\EstadoCuenta;
 
 // ============================================================
 // ARGUMENTOS CLI
@@ -106,13 +127,54 @@ use Core\DatabaseSegundometro;
 //   --limit=N        Procesar máximo N créditos.
 //   --test-table     Opera sobre tabla backup (no productiva).
 //   --force          Omite el flag anti-duplicado (forzar re-ejecución).
+//   --ids-file=FILE  Procesar únicamente los Id_credito listados (no el SELECT masivo).
+//   --ids-xlsx=FILE  Excel .xlsx; lee columna cuyo encabezado coincide con --ids-xlsx-column.
+//   --ids-xlsx-column=NOMBRE  Default: ID CREDITO
+//   --fecha-corte=YYYY-MM-DD  fechaCorte del POST a API S2 (≤ hoy). Default: hoy.
 // ============================================================
-$opts = getopt('', ['dry-run', 'limit:', 'test-table', 'force']);
+$opts = getopt('', [
+    'dry-run',
+    'limit:',
+    'test-table',
+    'force',
+    'ids-file:',
+    'ids-xlsx:',
+    'ids-xlsx-column:',
+    'fecha-corte:',
+]);
 
 define('DRY_RUN',    isset($opts['dry-run']));
 define('TEST_TABLE', isset($opts['test-table']));
 define('FORCE_RUN',  isset($opts['force']));
 define('CLI_LIMIT',  isset($opts['limit']) ? max(1, (int) $opts['limit']) : 0);
+$idsFileOpt = isset($opts['ids-file']) ? trim((string) $opts['ids-file']) : '';
+// CMD a veces deja comillas en el valor; OneDrive/desktop no debe llevar espacios raros
+$idsFileOpt = trim($idsFileOpt, " \t\"'");
+define('IDS_FILE', $idsFileOpt);
+
+$idsXlsxOpt = isset($opts['ids-xlsx']) ? trim((string) $opts['ids-xlsx'], " \t\"'") : '';
+define('IDS_XLSX', $idsXlsxOpt);
+$idsXlsxCol = isset($opts['ids-xlsx-column'])
+    ? trim((string) $opts['ids-xlsx-column'], " \t\"'")
+    : 'ID CREDITO';
+define('IDS_XLSX_COLUMN', $idsXlsxCol);
+
+if (IDS_FILE !== '' && IDS_XLSX !== '') {
+    fwrite(STDERR, "[FATAL] Use solo uno: --ids-file o --ids-xlsx (no ambos).\n");
+    exit(1);
+}
+
+$hoyMx         = date('Y-m-d');
+$fechaCorteApi = $hoyMx;
+if (isset($opts['fecha-corte'])) {
+    $fc = trim((string) $opts['fecha-corte']);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fc) || $fc > $hoyMx) {
+        fwrite(STDERR, "[FATAL] --fecha-corte inválida o futura. Use YYYY-MM-DD (no mayor a {$hoyMx}).\n");
+        exit(1);
+    }
+    $fechaCorteApi = $fc;
+}
+define('FECHA_CORTE_API', $fechaCorteApi);
 
 // ============================================================
 // TABLAS
@@ -182,6 +244,11 @@ function verificar_flag_ejecucion(): void
         return;
     }
 
+    if (IDS_FILE !== '' || IDS_XLSX !== '') {
+        log_cron('INFO', 'Anti-duplicado: omitido (--ids-file / --ids-xlsx es ejecución puntual)');
+        return;
+    }
+
     $flagDir  = __DIR__ . '/flags';
     $flagFile = $flagDir . '/sync_gastos_' . date('Y-m-d') . '.lock';
 
@@ -207,6 +274,162 @@ function limpiar_flag_ejecucion(): void
     // El flag permanece — es intencional. Solo --force lo omite.
     // Si se quiere borrar en caso de error para permitir reintento,
     // llamar a esta función desde el bloque de error.
+}
+
+/**
+ * @return list<int>
+ */
+function cargar_ids_desde_archivo(string $ruta): array
+{
+    if ($ruta === '') {
+        log_cron('FATAL', 'Ruta vacía en --ids-file');
+        exit(1);
+    }
+    if (!file_exists($ruta)) {
+        log_cron(
+            'FATAL',
+            'No existe el archivo. Revisa la ruta, o si está en OneDrive: clic derecho en el archivo → “Mantener siempre en este dispositivo”, o copia el .txt a C:\\temp\\',
+            ['ruta' => $ruta]
+        );
+        exit(1);
+    }
+    if (!is_readable($ruta)) {
+        log_cron('FATAL', 'Archivo sin permiso de lectura', ['ruta' => $ruta]);
+        exit(1);
+    }
+    $raw = file_get_contents($ruta);
+    if ($raw === false) {
+        log_cron('FATAL', 'Error al leer archivo de IDs', ['ruta' => $ruta]);
+        exit(1);
+    }
+    $lineas = preg_split("/\R/", $raw);
+    $ids    = [];
+    foreach ($lineas as $linea) {
+        $linea = trim($linea);
+        if ($linea === '' || str_starts_with($linea, '#')) {
+            continue;
+        }
+        if (preg_match('/^\d+$/', $linea)) {
+            $ids[] = (int) $linea;
+        } else {
+            log_cron('WARN', 'Línea ignorada (no es Id_entero)', ['linea' => $linea]);
+        }
+    }
+    return array_values(array_unique($ids));
+}
+
+function normalizar_encabezado_excel(string $s): string
+{
+    $s = trim(preg_replace('/\s+/u', ' ', $s));
+
+    return $s;
+}
+
+/**
+ * Id_credito desde la primera hoja del .xlsx: busca la fila de encabezados (hasta 50)
+ * donde exista una celda igual a $nombreColumna (sin distinguir mayúsculas; espacios normalizados).
+ *
+ * @return list<int>
+ */
+function cargar_ids_desde_excel(string $ruta, string $nombreColumna): array
+{
+    if ($ruta === '') {
+        log_cron('FATAL', 'Ruta vacía en --ids-xlsx');
+        exit(1);
+    }
+    if (!file_exists($ruta)) {
+        log_cron('FATAL', 'No existe el Excel. Revisa ruta y OneDrive (mantener en dispositivo).', ['ruta' => $ruta]);
+        exit(1);
+    }
+    if (!is_readable($ruta)) {
+        log_cron('FATAL', 'Excel sin permiso de lectura', ['ruta' => $ruta]);
+        exit(1);
+    }
+    $ext = strtolower(pathinfo($ruta, PATHINFO_EXTENSION));
+    if ($ext !== 'xlsx') {
+        log_cron('FATAL', 'Solo se admite .xlsx', ['ruta' => $ruta]);
+        exit(1);
+    }
+
+    if (!file_exists(PHP_SPREADSHEET_AUTOLOAD)) {
+        log_cron('FATAL', 'PhpSpreadsheet no encontrado. Instale vendor en backend/libs/PhpSpreadsheet', ['ruta' => PHP_SPREADSHEET_AUTOLOAD]);
+        exit(1);
+    }
+    require_once PHP_SPREADSHEET_AUTOLOAD;
+
+    $objetivo = normalizar_encabezado_excel($nombreColumna);
+    if ($objetivo === '') {
+        log_cron('FATAL', 'Nombre de columna vacío (--ids-xlsx-column)');
+        exit(1);
+    }
+
+    try {
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta);
+        $sheet       = $spreadsheet->getActiveSheet();
+        $maxRow      = (int) $sheet->getHighestDataRow();
+        $maxColStr   = $sheet->getHighestDataColumn();
+        $maxColIdx   = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($maxColStr);
+    } catch (\Throwable $e) {
+        log_cron('FATAL', 'No se pudo leer el Excel', ['error' => $e->getMessage()]);
+        exit(1);
+    }
+
+    if ($maxRow < 1 || $maxColIdx < 1) {
+        log_cron('FATAL', 'Hoja vacía o sin datos');
+        exit(1);
+    }
+
+    $headerRow = null;
+    $colIdx    = null;
+    $limBusq   = min(50, $maxRow);
+
+    for ($r = 1; $r <= $limBusq; $r++) {
+        for ($c = 1; $c <= $maxColIdx; $c++) {
+            $coord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c) . $r;
+            $raw   = $sheet->getCell($coord)->getValue();
+            $txt   = normalizar_encabezado_excel((string) $raw);
+            if ($txt !== '' && strcasecmp($txt, $objetivo) === 0) {
+                $headerRow = $r;
+                $colIdx    = $c;
+                break 2;
+            }
+        }
+    }
+
+    if ($headerRow === null || $colIdx === null) {
+        log_cron(
+            'FATAL',
+            'No se encontró la columna de encabezado en las primeras filas',
+            ['buscado' => $nombreColumna, 'normalizado' => $objetivo]
+        );
+        exit(1);
+    }
+
+    log_cron('INFO', "Excel: encabezado «{$nombreColumna}» en fila {$headerRow}, columna " . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx));
+
+    $ids = [];
+    for ($r = $headerRow + 1; $r <= $maxRow; $r++) {
+        $coord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx) . $r;
+        $val   = $sheet->getCell($coord)->getCalculatedValue();
+
+        if ($val === null || $val === '') {
+            continue;
+        }
+        if (is_numeric($val)) {
+            $id = (int) round((float) $val);
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+            continue;
+        }
+        $s = normalizar_encabezado_excel((string) $val);
+        $s = preg_replace('/[^\d]/', '', $s);
+        if ($s !== '' && strlen($s) <= 20) {
+            $ids[] = (int) $s;
+        }
+    }
+
+    return array_values(array_unique($ids));
 }
 
 // ============================================================
@@ -238,7 +461,7 @@ function obtener_notas_api(int $idCredito): array
 {
     $payload = json_encode([
         'idCredito'  => $idCredito,
-        'fechaCorte' => date('Y-m-d'),
+        'fechaCorte' => FECHA_CORTE_API,
     ]);
 
     $ch = curl_init(API_URL);
@@ -282,15 +505,58 @@ function obtener_notas_api(int $idCredito): array
 // ============================================================
 // PROCESAR UN CRÉDITO
 // ─────────────────────────────────────────────────────────────
-// START TRANSACTION → procesa todos los UPDATEs del crédito
-//   → si todo ok: COMMIT
-//   → si cualquier excepción: ROLLBACK (crédito queda intacto)
-//
-// En DRY_RUN: calcula todo pero NO ejecuta CRUD ni transacción.
+// Por defecto: Models\EstadoCuenta::procesarGastosCobranzaDesdeNotas (idéntico a abrir Estado de cuenta).
+// --test-table: ruta alternativa con UPDATE directo a TABLA_GASTOS (solo laboratorio).
 // ============================================================
 function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notasCargos): array
 {
-    // ── 1. Filtrar notas válidas ─────────────────────────────────
+    if (TEST_TABLE) {
+        return procesar_credito_tabla_alternativa($db, $idCredito, $notasCargos);
+    }
+
+    $persistir = !DRY_RUN;
+    $res       = EstadoCuenta::procesarGastosCobranzaDesdeNotas($notasCargos, $idCredito, $persistir);
+
+    if (!empty($res['_sin_actualizacion'])) {
+        return [
+            'procesados'  => 0,
+            'saldo_favor' => 0.0,
+            'skip'        => true,
+            'razon'       => (string) ($res['_causa'] ?? 'sin_cambios'),
+        ];
+    }
+
+    foreach ($res['gastos_procesados'] as $g) {
+        $idGasto   = (int) $g['id_gasto'];
+        $fechaPago = (string) ($g['fecha_pago'] ?? '—');
+        if ((int) $g['estatus'] === 2) {
+            $msg = "    " . (DRY_RUN ? '[SIMULADO] ' : '✔ ') . "Gasto #{$idGasto} → PAGADO TOTAL \${$g['monto']} fecha_pago={$fechaPago}";
+            log_cron(DRY_RUN ? 'DRY' : 'INFO', $msg);
+        } else {
+            $pend = $g['pendiente'] ?? 0;
+            $msg  = "    " . (DRY_RUN ? '[SIMULADO] ' : '🔶 ') . "Gasto #{$idGasto} → PAGO PARCIAL pagado=\${$g['aplicado']} aun_debe=\${$pend} fecha_pago={$fechaPago}";
+            log_cron(DRY_RUN ? 'DRY' : 'INFO', $msg);
+        }
+    }
+
+    $n = count($res['gastos_procesados']);
+    if ($n > 0 && !DRY_RUN) {
+        log_cron('INFO', "    ✅ Misma lógica que Estado de cuenta — crédito #{$idCredito} ({$n} gasto(s))");
+    }
+
+    return [
+        'procesados'  => $n,
+        'saldo_favor' => (float) ($res['saldo_favor'] ?? 0.0),
+        'skip'        => false,
+        'razon'       => null,
+    ];
+}
+
+/**
+ * Solo para --test-table: UPDATE directo sobre TABLA_GASTOS (no usa el modelo / tabla productiva).
+ */
+function procesar_credito_tabla_alternativa(DatabaseSegundometro $db, int $idCredito, array $notasCargos): array
+{
     $filtradas = array_filter($notasCargos, fn($n) =>
         ($n['concepto']        ?? '') === CONCEPTO_GDC &&
         ($n['fechaMovimiento'] ?? '') >= FECHA_INICIO
@@ -300,7 +566,15 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
         return ['procesados' => 0, 'saldo_favor' => 0.0, 'skip' => true, 'razon' => 'sin_notas_validas'];
     }
 
-    // ── 2. Calcular monto disponible neto ────────────────────────
+    $ultimaNotaFecha = null;
+    foreach ($filtradas as $notaF) {
+        $fn = $notaF['fechaMovimiento'] ?? null;
+        if ($fn && ($ultimaNotaFecha === null || $fn > $ultimaNotaFecha)) {
+            $ultimaNotaFecha = $fn;
+        }
+    }
+    $fechaPagoRef = !empty($ultimaNotaFecha) ? $ultimaNotaFecha : date('Y-m-d');
+
     $totalNotas      = array_sum(array_column($filtradas, 'monto'));
     $montoDisponible = round((float) $totalNotas, 2);
 
@@ -308,8 +582,9 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
         "SELECT
              id_gastos_cobranza,
              monto_valor,
-             COALESCE(estatus_pago, 0)         AS estatus_pago,
-             COALESCE(monto_parcial_pagado, 0) AS monto_parcial_pagado
+             COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
+             COALESCE(estatus_pago, 0)              AS estatus_pago,
+             COALESCE(monto_parcial_pagado, 0)      AS monto_parcial_pagado
          FROM " . TABLA_GASTOS . "
          WHERE Id_credito = :id
            AND (condonado IS NULL OR condonado = 0)
@@ -320,7 +595,11 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
     foreach ($todos as $g) {
         $estatus = (int) ($g['estatus_pago'] ?? 0);
         if ($estatus === 2) {
-            $montoDisponible = round($montoDisponible - (float) $g['monto_valor'], 2);
+            $consumido = round((float) ($g['monto_parcial_pagado'] ?? 0), 2);
+            if ($consumido <= 0) {
+                $consumido = round((float) ($g['monto_valor'] ?? 0), 2);
+            }
+            $montoDisponible = round($montoDisponible - $consumido, 2);
         } elseif ($estatus === 1) {
             $montoDisponible = round($montoDisponible - (float) $g['monto_parcial_pagado'], 2);
         }
@@ -332,7 +611,6 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
         return ['procesados' => 0, 'saldo_favor' => 0.0, 'skip' => true, 'razon' => 'monto_disponible_cero'];
     }
 
-    // ── 3. Filtrar pendientes (0) o parciales (1) ────────────────
     $pendientes = array_filter($todos, fn($g) =>
         (int) ($g['estatus_pago'] ?? 0) === 0 ||
         (int) ($g['estatus_pago'] ?? 0) === 1
@@ -342,35 +620,33 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
         return ['procesados' => 0, 'saldo_favor' => 0.0, 'skip' => true, 'razon' => 'sin_pendientes'];
     }
 
-    // ── 4. DRY RUN — solo simular, sin tocar BD ──────────────────
     if (DRY_RUN) {
-        $montoSim  = $montoDisponible;
-        $procesados = 0;
+        $montoSim     = $montoDisponible;
+        $procesados   = 0;
 
         foreach ($pendientes as $gasto) {
-            if ($montoSim <= 0) break;
+            if ($montoSim <= 0) {
+                break;
+            }
 
-            $idGasto       = (int)   $gasto['id_gastos_cobranza'];
-            $montoOriginal = round((float) $gasto['monto_valor'], 2);
+            $idGasto       = (int) $gasto['id_gastos_cobranza'];
+            $montoNom      = round((float) ($gasto['monto_valor'] ?? 0), 2);
+            $condona       = round((float) ($gasto['condonacion_parcial_monto'] ?? 0), 2);
+            $montoOriginal = round(max(0.0, $montoNom - $condona), 2);
             $yaPagado      = (int) $gasto['estatus_pago'] === 1
                                ? round((float) $gasto['monto_parcial_pagado'], 2)
                                : 0.0;
             $montoRestante = round($montoOriginal - $yaPagado, 2);
 
-            // fecha_pago: fechaMovimiento de la nota que disparó el cruce
-            // Se registra tanto en pago total como parcial (es la fecha en que el cliente metió el dinero)
-            $fechaPago = !empty($gasto['fechaMovimiento']) ? $gasto['fechaMovimiento'] : date('Y-m-d');
+            $fechaPago = $fechaPagoRef;
 
             if ($montoSim >= $montoRestante) {
-                // ✅ Cubre todo → PAGADO TOTAL
                 $montoSim = round($montoSim - $montoRestante, 2);
-                log_cron('DRY', "    [SIMULADO] Gasto #{$idGasto} → PAGADO TOTAL \${$montoOriginal} fecha_pago={$fechaPago} (ya_pagado=\${$yaPagado})");
+                log_cron('DRY', "    [SIMULADO][TEST-TABLE] Gasto #{$idGasto} → PAGADO TOTAL \${$montoOriginal} fecha_pago={$fechaPago} (ya_pagado=\${$yaPagado})");
             } else {
-                // 🔶 No alcanza → PAGO PARCIAL, el cliente sigue debiendo
-                // condonacion_parcial_monto NO se toca — es territorio del gestor
                 $totalPagadoFinal = round($yaPagado + $montoSim, 2);
                 $pendiente        = round($montoOriginal - $totalPagadoFinal, 2);
-                log_cron('DRY', "    [SIMULADO] Gasto #{$idGasto} → PAGO PARCIAL estatus=1 pagado=\${$totalPagadoFinal} aun_debe=\${$pendiente} fecha_pago={$fechaPago} (ya_pagado=\${$yaPagado})");
+                log_cron('DRY', "    [SIMULADO][TEST-TABLE] Gasto #{$idGasto} → PAGO PARCIAL pagado=\${$totalPagadoFinal} aun_debe=\${$pendiente} fecha_pago={$fechaPago}");
                 $montoSim = 0;
             }
 
@@ -385,30 +661,29 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
         ];
     }
 
-    // ── 5. MODO REAL — START TRANSACTION por crédito ─────────────
     try {
-        $db->getPDO()->beginTransaction();
+        $db->beginTransaction();
 
         $montoSimulado = $montoDisponible;
         $procesados    = 0;
 
         foreach ($pendientes as $gasto) {
-            if ($montoSimulado <= 0) break;
+            if ($montoSimulado <= 0) {
+                break;
+            }
 
-            $idGasto       = (int)   $gasto['id_gastos_cobranza'];
-            $montoOriginal = round((float) $gasto['monto_valor'], 2);
+            $idGasto       = (int) $gasto['id_gastos_cobranza'];
+            $montoNom      = round((float) ($gasto['monto_valor'] ?? 0), 2);
+            $condona       = round((float) ($gasto['condonacion_parcial_monto'] ?? 0), 2);
+            $montoOriginal = round(max(0.0, $montoNom - $condona), 2);
             $yaPagado      = (int) $gasto['estatus_pago'] === 1
                                ? round((float) $gasto['monto_parcial_pagado'], 2)
                                : 0.0;
             $montoRestante = round($montoOriginal - $yaPagado, 2);
 
-            // fecha_pago: fechaMovimiento de la API — fecha real en que el cliente pagó
-            // Se guarda tanto en pago total como parcial
-            $fechaPago = !empty($gasto['fechaMovimiento']) ? $gasto['fechaMovimiento'] : date('Y-m-d');
+            $fechaPago = $fechaPagoRef;
 
             if ($montoSimulado >= $montoRestante) {
-                // ✅ Escenario A — Cubre todo → PAGADO TOTAL
-                // condonacion_parcial_monto NO se toca — es territorio del gestor
                 $montoSimulado = round($montoSimulado - $montoRestante, 2);
 
                 $db->CRUD(
@@ -423,11 +698,9 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
                         'id'           => $idGasto,
                     ]
                 );
-                log_cron('INFO', "    ✔ Gasto #{$idGasto} → PAGADO TOTAL \${$montoOriginal} fecha_pago={$fechaPago}");
+                log_cron('INFO', "    ✔ [TEST-TABLE] Gasto #{$idGasto} → PAGADO TOTAL \${$montoOriginal} fecha_pago={$fechaPago}");
 
             } else {
-                // 🔶 Escenario B — No alcanza → PAGO PARCIAL, sigue debiendo
-                // condonacion_parcial_monto NO se toca — es territorio del gestor
                 $totalPagadoFinal = round($yaPagado + $montoSimulado, 2);
                 $pendiente        = round($montoOriginal - $totalPagadoFinal, 2);
 
@@ -443,7 +716,7 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
                         'id'           => $idGasto,
                     ]
                 );
-                log_cron('INFO', "    🔶 Gasto #{$idGasto} → PAGO PARCIAL estatus=1 pagado=\${$totalPagadoFinal} aun_debe=\${$pendiente} fecha_pago={$fechaPago}");
+                log_cron('INFO', "    🔶 [TEST-TABLE] Gasto #{$idGasto} → PAGO PARCIAL pagado=\${$totalPagadoFinal} aun_debe=\${$pendiente} fecha_pago={$fechaPago}");
 
                 $montoSimulado = 0;
             }
@@ -451,8 +724,8 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
             $procesados++;
         }
 
-        $db->getPDO()->commit();
-        log_cron('INFO', "    ✅ COMMIT — crédito #{$idCredito} ({$procesados} gastos)");
+        $db->commit();
+        log_cron('INFO', "    ✅ COMMIT [TEST-TABLE] — crédito #{$idCredito} ({$procesados} gastos)");
 
         return [
             'procesados'  => $procesados,
@@ -462,12 +735,11 @@ function procesar_credito(DatabaseSegundometro $db, int $idCredito, array $notas
         ];
 
     } catch (\Exception $e) {
-        // Revertir TODO lo del crédito si algo falló
-        if ($db->getPDO()->inTransaction()) {
-            $db->getPDO()->rollBack();
-            log_cron('ERROR', "    🔴 ROLLBACK — crédito #{$idCredito}", ['error' => $e->getMessage()]);
+        if ($db->inTransaction()) {
+            $db->rollback();
+            log_cron('ERROR', "    🔴 ROLLBACK [TEST-TABLE] — crédito #{$idCredito}", ['error' => $e->getMessage()]);
         }
-        throw $e; // re-lanzar para que el loop principal lo cuente como error
+        throw $e;
     }
 }
 
@@ -480,6 +752,14 @@ log_cron('INFO', 'INICIO — sync_gastos_cobranza v2');
 if (DRY_RUN)    log_cron('INFO', '⚠️  MODO DRY RUN    — CERO escrituras en BD');
 if (TEST_TABLE) log_cron('INFO', '🧪 MODO TEST TABLE  — tabla: ' . TABLA_GASTOS);
 if (FORCE_RUN)  log_cron('INFO', '⚡ MODO FORCE       — flag anti-duplicado ignorado');
+if (IDS_FILE !== '') {
+    log_cron('INFO', '📋 IDS-FILE          — ' . IDS_FILE);
+}
+if (IDS_XLSX !== '') {
+    log_cron('INFO', '📊 IDS-XLSX          — ' . IDS_XLSX);
+    log_cron('INFO', '    columna           — ' . IDS_XLSX_COLUMN);
+}
+log_cron('INFO', '📅 Fecha corte API S2  — ' . FECHA_CORTE_API);
 log_cron('INFO', str_repeat('═', 60));
 
 // ── Flag anti-duplicado ───────────────────────────────────────
@@ -498,8 +778,21 @@ log_cron('INFO', 'Cargando créditos asignados a despacho...');
 $creditosDespacho = cargar_creditos_despacho($db);
 log_cron('INFO', 'Créditos en despacho cargados: ' . count($creditosDespacho));
 
-// ── Obtener créditos con gastos pendientes ────────────────────
-$sql = "
+// ── Lista de créditos: Excel, txt o SELECT de pendientes ───────
+if (IDS_XLSX !== '') {
+    $idsArchivo = cargar_ids_desde_excel(IDS_XLSX, IDS_XLSX_COLUMN);
+    $creditos   = [];
+    foreach ($idsArchivo as $idc) {
+        $creditos[] = ['Id_credito' => $idc, 'celula' => null];
+    }
+} elseif (IDS_FILE !== '') {
+    $idsArchivo = cargar_ids_desde_archivo(IDS_FILE);
+    $creditos   = [];
+    foreach ($idsArchivo as $idc) {
+        $creditos[] = ['Id_credito' => $idc, 'celula' => null];
+    }
+} else {
+    $sql = "
     SELECT DISTINCT
         Id_credito,
         celula
@@ -517,15 +810,22 @@ $sql = "
         Id_credito ASC
 ";
 
-try {
-    $creditos = $db->queryAll($sql);
-} catch (\Exception $e) {
-    log_cron('FATAL', 'Error al obtener créditos pendientes', ['error' => $e->getMessage()]);
-    exit(1);
+    try {
+        $creditos = $db->queryAll($sql);
+    } catch (\Exception $e) {
+        log_cron('FATAL', 'Error al obtener créditos pendientes', ['error' => $e->getMessage()]);
+        exit(1);
+    }
 }
 
 $total = count($creditos);
-log_cron('INFO', "Créditos con gastos pendientes encontrados: {$total}");
+if (IDS_XLSX !== '') {
+    log_cron('INFO', "Id_credito en Excel (únicos): {$total}");
+} elseif (IDS_FILE !== '') {
+    log_cron('INFO', "Id_credito en archivo (únicos): {$total}");
+} else {
+    log_cron('INFO', "Créditos con gastos pendientes encontrados: {$total}");
+}
 
 if ($total === 0) {
     log_cron('INFO', 'Nada que procesar. Finalizando.');
@@ -561,7 +861,9 @@ $stats = [
 foreach ($creditos as $i => $row) {
     $idCredito = (int)   $row['Id_credito'];
     $celula    = isset($row['celula']) ? (int) $row['celula'] : null;
-    $label     = $celula !== null ? ($labelCelula[$celula] ?? "Célula {$celula}") : 'Sin célula';
+    $label     = $celula !== null
+        ? ($labelCelula[$celula] ?? "Célula {$celula}")
+        : (IDS_XLSX !== '' ? 'lista excel' : (IDS_FILE !== '' ? 'lista ids-file' : 'Sin célula'));
     $pos       = $i + 1;
 
     log_cron('INFO', "── [{$pos}/{$total}] Crédito {$idCredito} [{$label}]");

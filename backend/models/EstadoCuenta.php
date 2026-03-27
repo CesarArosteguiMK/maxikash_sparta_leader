@@ -7,6 +7,7 @@ use Core\Model;
 use Core\Database;
 use Core\DatabaseAWS;
 use Core\DatabaseMaxiGuat;
+use Models\Empresa as EmpresasDAO;
 
 class EstadoCuenta extends Model
 {
@@ -471,6 +472,200 @@ class EstadoCuenta extends Model
         }
     }
 
+    /**
+     * Opciones "Llamada a" sin consultar maxi: usa la fila de referencias ya cargada en la vista + celular del API + historial local.
+     *
+     * @param array<string, mixed> $row Fila de getConsultaReferenciasEstadoCuenta (datos[0]).
+     * @return array<int, array{value:string, label:string, telefono:string, nombre:string, parentesco:string}>
+     */
+    public static function construirOpcionesContactoDictamenParaPreload($idCredito, array $row, $celularTitular)
+    {
+        $id = (int)$idCredito;
+        if ($id <= 0) {
+            return [];
+        }
+        $telTitular = trim((string)$celularTitular);
+        $nombreCliente = trim((string)($row['nombre_completo'] ?? ''));
+
+        $opciones = [];
+        $opciones[] = [
+            'value' => 'cliente',
+            'label' => 'Cliente (titular)',
+            'telefono' => $telTitular,
+            'nombre' => $nombreCliente,
+            'parentesco' => '',
+        ];
+        for ($i = 1; $i <= 3; $i++) {
+            $nk = 'nombre_completo_referencia' . $i;
+            $tk = 'telefono_referencia' . $i;
+            $nom = trim((string)($row[$nk] ?? ''));
+            if ($nom === '') {
+                continue;
+            }
+            $opciones[] = [
+                'value' => 'referencia_' . $i,
+                'label' => 'Referencia ' . $i,
+                'telefono' => trim((string)($row[$tk] ?? '')),
+                'nombre' => $nom,
+                'parentesco' => 'Referencia',
+            ];
+        }
+        foreach (self::listarContactosOtrosHistorialDictamenLlamada($id) as $ex) {
+            $eid = (int)($ex['id'] ?? 0);
+            if ($eid <= 0) {
+                continue;
+            }
+            $opciones[] = [
+                'value' => 'prev:' . $eid,
+                'label' => 'Otro guardado: ' . trim((string)($ex['nombre'] ?? '')),
+                'telefono' => trim((string)($ex['telefono'] ?? '')),
+                'nombre' => trim((string)($ex['nombre'] ?? '')),
+                'parentesco' => trim((string)($ex['parentesco'] ?? '')),
+            ];
+        }
+        $opciones[] = [
+            'value' => 'otros',
+            'label' => 'Otros (nuevo contacto)',
+            'telefono' => '',
+            'nombre' => '',
+            'parentesco' => '',
+        ];
+        return $opciones;
+    }
+
+    /**
+     * Contactos "Otros" ya usados en dictámenes previos del mismo crédito (una fila representativa por combinación).
+     *
+     * @return array<int, array{id:int, telefono:string, nombre:string, parentesco:string}>
+     */
+    public static function listarContactosOtrosHistorialDictamenLlamada($idCredito)
+    {
+        try {
+            $db = new Database();
+            $id = (int)$idCredito;
+            $sql = "
+                SELECT dl.id,
+                       dl.llamada_telefono AS telefono,
+                       dl.llamada_nombre_persona AS nombre,
+                       dl.llamada_parentesco AS parentesco
+                FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+                INNER JOIN (
+                    SELECT MAX(id) AS max_id
+                    FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada
+                    WHERE id_credito = :id_credito
+                      AND llamada_origen IN ('otros', 'extra')
+                      AND COALESCE(TRIM(llamada_telefono), '') <> ''
+                      AND COALESCE(TRIM(llamada_nombre_persona), '') <> ''
+                    GROUP BY
+                        TRIM(llamada_telefono),
+                        TRIM(llamada_nombre_persona),
+                        COALESCE(TRIM(llamada_parentesco), '')
+                ) t ON dl.id = t.max_id
+                ORDER BY dl.id DESC
+            ";
+            $rows = $db->queryAll($sql, ['id_credito' => $id]);
+            return is_array($rows) ? $rows : [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Datos de contacto de una fila dictamen_llamada (mismo crédito).
+     */
+    public static function obtenerSnapshotContactoDictamenLlamada($idDictamen, $idCredito)
+    {
+        try {
+            $db = new Database();
+            return $db->queryOne(
+                'SELECT id_credito, llamada_telefono, llamada_nombre_persona, llamada_parentesco
+                 FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada
+                 WHERE id = :id AND id_credito = :idc
+                 LIMIT 1',
+                ['id' => (int)$idDictamen, 'idc' => (int)$idCredito]
+            );
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Opciones para el modal Dictaminar llamada: titular, referencias (__SPARTA_SECRET_REDACTED__), historial otros y "Otros".
+     */
+    public static function getOpcionesContactoDictamenLlamada($idCredito)
+    {
+        try {
+            $id = (int)$idCredito;
+            if ($id <= 0) {
+                return self::resultado(false, 'id_credito requerido', []);
+            }
+            $refRes = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
+            $row = [];
+            if (!empty($refRes['success']) && !empty($refRes['datos'][0]) && is_array($refRes['datos'][0])) {
+                $row = $refRes['datos'][0];
+            }
+            $telTitular = '';
+            $telRes = EmpresasDAO::getTelefonoTitularCredito($idCredito);
+            if (!empty($telRes['success']) && array_key_exists('datos', $telRes)) {
+                $telTitular = trim((string)$telRes['datos']);
+            }
+            if ($telTitular === '') {
+                $telSm = EmpresasDAO::getCelularCreditoSegundometro($idCredito);
+                if (!empty($telSm['success']) && array_key_exists('datos', $telSm)) {
+                    $telTitular = trim((string)$telSm['datos']);
+                }
+            }
+            $nombreCliente = trim((string)($row['nombre_completo'] ?? ''));
+
+            $opciones = [];
+            $opciones[] = [
+                'value' => 'cliente',
+                'label' => 'Cliente (titular)',
+                'telefono' => $telTitular,
+                'nombre' => $nombreCliente,
+                'parentesco' => '',
+            ];
+            for ($i = 1; $i <= 3; $i++) {
+                $nk = 'nombre_completo_referencia' . $i;
+                $tk = 'telefono_referencia' . $i;
+                $nom = trim((string)($row[$nk] ?? ''));
+                if ($nom === '') {
+                    continue;
+                }
+                $opciones[] = [
+                    'value' => 'referencia_' . $i,
+                    'label' => 'Referencia ' . $i,
+                    'telefono' => trim((string)($row[$tk] ?? '')),
+                    'nombre' => $nom,
+                    'parentesco' => 'Referencia',
+                ];
+            }
+            foreach (self::listarContactosOtrosHistorialDictamenLlamada($id) as $ex) {
+                $eid = (int)($ex['id'] ?? 0);
+                if ($eid <= 0) {
+                    continue;
+                }
+                $opciones[] = [
+                    'value' => 'prev:' . $eid,
+                    'label' => 'Otro guardado: ' . trim((string)($ex['nombre'] ?? '')),
+                    'telefono' => trim((string)($ex['telefono'] ?? '')),
+                    'nombre' => trim((string)($ex['nombre'] ?? '')),
+                    'parentesco' => trim((string)($ex['parentesco'] ?? '')),
+                ];
+            }
+            $opciones[] = [
+                'value' => 'otros',
+                'label' => 'Otros (nuevo contacto)',
+                'telefono' => '',
+                'nombre' => '',
+                'parentesco' => '',
+            ];
+            return self::resultado(true, 'Opciones de contacto', $opciones);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al armar contactos', [], $e->getMessage());
+        }
+    }
+
     public static function insertDictamenLlamada($data)
     {
         try {
@@ -491,6 +686,14 @@ class EstadoCuenta extends Model
             $fuente_ingresos = addslashes($data['fuente_ingresos']);
             $comentarios     = addslashes($data['comentarios']);
 
+            $llamada_origen = addslashes(trim((string)($data['llamada_origen'] ?? '')));
+            $llamada_telefono = addslashes(trim((string)($data['llamada_telefono'] ?? '')));
+            $llamada_nombre = addslashes(trim((string)($data['llamada_nombre_persona'] ?? '')));
+            $llamada_parentesco = trim((string)($data['llamada_parentesco'] ?? ''));
+            $llamada_parentesco_sql = $llamada_parentesco !== ''
+                ? ("'" . addslashes($llamada_parentesco) . "'")
+                : 'NULL';
+
             // 👇 CAMPOS AUTOMÁTICOS
             $fecha_gestion = date('Y-m-d');
             $hora_gestion  = date('H:i:s');
@@ -508,7 +711,11 @@ class EstadoCuenta extends Model
                 fecha_gestion,
                 hora_gestion,
                 agente,
-                comentarios
+                comentarios,
+                llamada_origen,
+                llamada_telefono,
+                llamada_nombre_persona,
+                llamada_parentesco
             ) VALUES (
                 $id_credito,
                 $tipo_contacto_id,
@@ -520,7 +727,11 @@ class EstadoCuenta extends Model
                 '$fecha_gestion',
                 '$hora_gestion',
                 '$agente',
-                '$comentarios'
+                '$comentarios',
+                '$llamada_origen',
+                '$llamada_telefono',
+                '$llamada_nombre',
+                $llamada_parentesco_sql
             )
         ");
 
@@ -782,8 +993,13 @@ public static function getGastosCobranza($idCredito)
                 'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
                 'cuota'                      => (float)$row['cuota'],
                 'parcialidad'                => (int)$row['parcialidad'],
+<<<<<<< HEAD
+                'estatus_pago'               => (int)($row['estatus_pago'] ?? 0),
+                'monto_parcial_pagado'       => round((float)($row['monto_parcial_pagado'] ?? 0), 2),
+=======
                 'estatus_pago'               => $estatusPago,
                 'tiene_pago_parcial'         => ($estatusPago === 1 && $montoParcialPagado > 0),
+>>>>>>> 258caabc61eed0253d6565ea1f22e3e6e96b106e
             ];
         }, $r);
 
@@ -802,7 +1018,10 @@ public static function getGastosCobranza($idCredito)
 public static function getGastosTodosConEstatus($idCredito)
 {
     $query = "
-    SELECT id_gastos_cobranza, monto_valor, estatus_pago
+    SELECT id_gastos_cobranza,
+           monto_valor,
+           estatus_pago,
+           COALESCE(monto_parcial_pagado, 0) AS monto_parcial_pagado
     FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
     WHERE Id_credito = :id_credito
       AND (condonado IS NULL OR condonado = 0)
@@ -817,6 +1036,167 @@ public static function getGastosTodosConEstatus($idCredito)
         return self::resultado(false, 'Error', [], $e->getMessage());
     }
 }
+
+    /**
+     * Cruce automático de gastos de cobranza a partir de datosNotasCargos (API S2).
+     *
+     * Única vía aplicada al abrir el menú Estado de cuenta y al cron masivo: aquí (y en
+     * actualizarEstatusPagoGastoConMonto) es donde puede cambiarse estatus_pago por el cruce automático.
+     * Si $persistirEnBd es false, solo se calcula (misma lógica, sin UPDATE).
+     *
+     * @param array  $notasCargos listaNotasCargos de estadoCuenta
+     * @param mixed  $idCredito   Id_credito
+     * @param bool   $persistirEnBd true = escribir en BD como la pantalla; false = simular
+     * @return array{gastos_procesados: list<array>, saldo_favor: float, _sin_actualizacion?: bool, _causa?: string}
+     */
+    public static function procesarGastosCobranzaDesdeNotas(array $notasCargos, $idCredito, bool $persistirEnBd = true): array
+    {
+        $fechaInicio = '2026-01-28';
+
+        $notasFiltradas = array_filter($notasCargos, function ($nota) use ($fechaInicio) {
+            return
+                ($nota['concepto'] ?? '') === 'NOTA DE DE CARGO GASTOS DE COBRANZA' &&
+                ($nota['fechaMovimiento'] ?? '') >= $fechaInicio;
+        });
+
+        if (empty($notasFiltradas)) {
+            return [
+                'gastos_procesados' => [],
+                'saldo_favor'       => 0.0,
+                '_sin_actualizacion' => true,
+                '_causa'             => 'sin_notas_validas',
+            ];
+        }
+
+        $totalNotas      = array_sum(array_column($notasFiltradas, 'monto'));
+        $montoDisponible = round($totalNotas, 2);
+
+        $resultadoTodos = self::getGastosTodosConEstatus($idCredito);
+        if ($resultadoTodos['success'] && !empty($resultadoTodos['datos'])) {
+            foreach ($resultadoTodos['datos'] as $g) {
+                $estatus = (int) ($g['estatus_pago'] ?? 0);
+
+                if ($estatus === 2) {
+                    $consumido = round((float) ($g['monto_parcial_pagado'] ?? 0), 2);
+                    if ($consumido <= 0) {
+                        $consumido = round((float) ($g['monto_valor'] ?? 0), 2);
+                    }
+                    $montoDisponible = round($montoDisponible - $consumido, 2);
+                } elseif ($estatus === 1) {
+                    $montoDisponible = round($montoDisponible - (float) ($g['monto_parcial_pagado'] ?? 0), 2);
+                }
+            }
+            $montoDisponible = max(0, $montoDisponible);
+        }
+
+        if ($montoDisponible <= 0) {
+            return [
+                'gastos_procesados' => [],
+                'saldo_favor'       => 0.0,
+                '_sin_actualizacion' => true,
+                '_causa'             => 'monto_disponible_cero',
+            ];
+        }
+
+        $resultadoGastos = self::getGastosCobranza($idCredito);
+
+        if (!$resultadoGastos['success'] || empty($resultadoGastos['datos'])) {
+            return [
+                'gastos_procesados' => [],
+                'saldo_favor'       => 0.0,
+                '_sin_actualizacion' => true,
+                '_causa'             => 'sin_filas_gastos',
+            ];
+        }
+
+        $gastosPendientes = array_filter($resultadoGastos['datos'], function ($g) {
+            $estatus   = (int) ($g['estatus_pago'] ?? 0);
+            $condonado = (int) ($g['condonado'] ?? 0);
+
+            return ($estatus === 0 || $estatus === 1) && $condonado === 0;
+        });
+
+        if (empty($gastosPendientes)) {
+            return [
+                'gastos_procesados' => [],
+                'saldo_favor'       => 0.0,
+                '_sin_actualizacion' => true,
+                '_causa'             => 'sin_pendientes',
+            ];
+        }
+
+        $gastosProcessados = [];
+
+        $ultimaNotaFecha = null;
+        foreach ($notasFiltradas as $nota) {
+            $fn = $nota['fechaMovimiento'] ?? null;
+            if ($fn && ($ultimaNotaFecha === null || $fn > $ultimaNotaFecha)) {
+                $ultimaNotaFecha = $fn;
+            }
+        }
+
+        $fechaPagoGasto = !empty($ultimaNotaFecha) ? $ultimaNotaFecha : date('Y-m-d');
+
+        foreach ($gastosPendientes as $gasto) {
+
+            if ($montoDisponible <= 0) {
+                break;
+            }
+
+            $montoGastoOriginal      = round((float) $gasto['monto'], 2);
+            $yaPagado                = (int) $gasto['estatus_pago'] === 1 ? round((float) $gasto['monto_parcial_pagado'], 2) : 0;
+            $montoRestantePorCubrir  = round($montoGastoOriginal - $yaPagado, 2);
+
+            if ($montoDisponible >= $montoRestantePorCubrir) {
+                $montoDisponible = round($montoDisponible - $montoRestantePorCubrir, 2);
+
+                $gastosProcessados[] = [
+                    'id_gasto'    => $gasto['id_gasto'],
+                    'monto'       => $montoGastoOriginal,
+                    'aplicado'    => $montoGastoOriginal,
+                    'estatus'     => 2,
+                    'estatus_txt' => 'PAGADO',
+                    'celula'      => $gasto['celula'] ?? 0,
+                    'fecha_pago'  => $fechaPagoGasto,
+                ];
+
+                if ($persistirEnBd) {
+                    self::actualizarEstatusPagoGastoConMonto($gasto['id_gasto'], 2, $montoGastoOriginal, 0, $fechaPagoGasto);
+                }
+            } else {
+                $montoAAbonarAhora = $montoDisponible;
+                $totalPagadoFinal  = round($yaPagado + $montoAAbonarAhora, 2);
+                $pendiente         = round($montoGastoOriginal - $totalPagadoFinal, 2);
+
+                $gastosProcessados[] = [
+                    'id_gasto'    => $gasto['id_gasto'],
+                    'monto'       => $montoGastoOriginal,
+                    'aplicado'    => $totalPagadoFinal,
+                    'estatus'     => 1,
+                    'estatus_txt' => 'PAGO PARCIAL',
+                    'pendiente'   => $pendiente,
+                    'fecha_pago'  => $fechaPagoGasto,
+                ];
+
+                if ($persistirEnBd) {
+                    self::actualizarEstatusPagoGastoConMonto(
+                        $gasto['id_gasto'],
+                        1,
+                        $totalPagadoFinal,
+                        0,
+                        $fechaPagoGasto
+                    );
+                }
+
+                $montoDisponible = 0;
+            }
+        }
+
+        return [
+            'gastos_procesados' => $gastosProcessados,
+            'saldo_favor'       => round($montoDisponible, 2),
+        ];
+    }
 
     /**
      * Valor de columna en fila PDO (FETCH_ASSOC) ignorando mayúsculas en el nombre de la clave.

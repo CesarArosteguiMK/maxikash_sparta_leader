@@ -1795,6 +1795,37 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
             <div class="modal-body">
                 <input type="hidden" id="idCredito_dictamen" name="idCredito_dictamen"
                        value="<?= htmlspecialchars($dataEstadoCuenta['idCredito'] ?? '') ?>">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4" id="dictamen_llamada_wrap_selector">
+                        <label class="form-label fw-semibold" for="dictamen_llamada_a">Llamada a</label>
+                        <select id="dictamen_llamada_a" class="form-select">
+                            <option value="">Seleccione número o contacto</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4" id="dictamen_llamada_wrap_numero">
+                        <label class="form-label fw-semibold" for="dictamen_llamada_numero">Número</label>
+                        <input type="text" id="dictamen_llamada_numero" class="form-control bg-light" readonly autocomplete="off">
+                    </div>
+                    <div class="col-md-4" id="dictamen_llamada_wrap_persona">
+                        <label class="form-label fw-semibold" for="dictamen_llamada_persona">Persona contactada</label>
+                        <input type="text" id="dictamen_llamada_persona" class="form-control bg-light" readonly autocomplete="off">
+                    </div>
+                </div>
+                <div id="dictamen_llamada_otros_captura" class="row g-3 mt-1 d-none">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="dictamen_otro_telefono">Nuevo teléfono</label>
+                        <input type="text" id="dictamen_otro_telefono" class="form-control" placeholder="Teléfono" autocomplete="off">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="dictamen_otro_parentesco">Parentesco o relación</label>
+                        <input type="text" id="dictamen_otro_parentesco" class="form-control" placeholder="Ej. Tío, referencia">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" for="dictamen_otro_nombre">Nombre completo del contacto</label>
+                        <input type="text" id="dictamen_otro_nombre" class="form-control" placeholder="Nombre completo del contacto">
+                    </div>
+                </div>
+                <hr class="my-4 text-secondary">
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Tipo contacto</label>
@@ -2244,13 +2275,104 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
 
     tipoMotivoSelect.addEventListener('change', function () { cargarMotivosNoPagoPorTipo(this.value); });
 
+    window._dictamenLlamadaOpcionesMap = window._dictamenLlamadaOpcionesMap || {};
+
+    function actualizarVistaDictamenLlamadaContacto() {
+        const sel = document.getElementById('dictamen_llamada_a');
+        const cap = document.getElementById('dictamen_llamada_otros_captura');
+        const num = document.getElementById('dictamen_llamada_numero');
+        const nom = document.getElementById('dictamen_llamada_persona');
+        const wrapSel = document.getElementById('dictamen_llamada_wrap_selector');
+        const wrapNum = document.getElementById('dictamen_llamada_wrap_numero');
+        const wrapPer = document.getElementById('dictamen_llamada_wrap_persona');
+        if (!sel || !cap || !num || !nom) return;
+        const v = sel.value;
+        const esOtros = v === 'otros';
+        if (wrapNum) wrapNum.classList.toggle('d-none', esOtros);
+        if (wrapPer) wrapPer.classList.toggle('d-none', esOtros);
+        if (wrapSel) {
+            wrapSel.classList.toggle('col-md-4', !esOtros);
+            wrapSel.classList.toggle('col-12', esOtros);
+        }
+        if (esOtros) {
+            cap.classList.remove('d-none');
+            num.value = '';
+            nom.value = '';
+            return;
+        }
+        cap.classList.add('d-none');
+        const o = window._dictamenLlamadaOpcionesMap[v];
+        if (o) {
+            num.value = o.telefono || '';
+            nom.value = o.nombre || '';
+        } else {
+            num.value = '';
+            nom.value = '';
+        }
+    }
+
+    function cargarOpcionesContactoDictamenLlamada() {
+        const sel = document.getElementById('dictamen_llamada_a');
+        if (!sel) return;
+        const idCredito = document.getElementById('idCredito_dictamen')?.value;
+        if (!idCredito) {
+            sel.innerHTML = '<option value="">Seleccione número o contacto</option>';
+            window._dictamenLlamadaOpcionesMap = {};
+            actualizarVistaDictamenLlamadaContacto();
+            return;
+        }
+        sel.innerHTML = '<option value="">Cargando contactos...</option>';
+        sel.disabled = true;
+        fetch('/EstadoCuenta/getOpcionesContactoDictamenLlamada', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_credito: idCredito })
+        })
+            .then(res => res.json())
+            .then(resp => {
+                sel.disabled = false;
+                window._dictamenLlamadaOpcionesMap = {};
+                sel.innerHTML = '<option value="">Seleccione número o contacto</option>';
+                if (!resp.success || !Array.isArray(resp.datos)) {
+                    actualizarVistaDictamenLlamadaContacto();
+                    return;
+                }
+                resp.datos.forEach(item => {
+                    const v = item.value;
+                    window._dictamenLlamadaOpcionesMap[v] = {
+                        telefono: item.telefono || '',
+                        nombre: item.nombre || '',
+                        parentesco: item.parentesco || ''
+                    };
+                    const opt = document.createElement('option');
+                    opt.value = v;
+                    opt.textContent = item.label || v;
+                    sel.appendChild(opt);
+                });
+                actualizarVistaDictamenLlamadaContacto();
+            })
+            .catch(() => {
+                sel.disabled = false;
+                sel.innerHTML = '<option value="">Seleccione número o contacto</option>';
+                window._dictamenLlamadaOpcionesMap = {};
+            });
+    }
+
+    const dictamenLlamadaASelGt = document.getElementById('dictamen_llamada_a');
+    if (dictamenLlamadaASelGt) {
+        dictamenLlamadaASelGt.addEventListener('change', actualizarVistaDictamenLlamadaContacto);
+    }
+
     function initDictamenModal() {
         cargarTiposContacto();
         cargarPlataformas();
         cargarTiposMotivoNoPago();
     }
 
-    document.getElementById('modalDictamen').addEventListener('shown.bs.modal', initDictamenModal);
+    document.getElementById('modalDictamen').addEventListener('shown.bs.modal', function () {
+        cargarOpcionesContactoDictamenLlamada();
+        initDictamenModal();
+    });
 
     function guardarDictamen() {
         const id_credito = document.getElementById('idCredito_dictamen')?.value;
@@ -2271,9 +2393,49 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
         if (!fuenteIngresos) { Swal.fire("Atención", "La fuente de ingresos son obligatorios", "warning"); return; }
         if (!comentarios) { Swal.fire("Atención", "Los comentarios son obligatorios", "warning"); return; }
 
+        const selLlamada = document.getElementById('dictamen_llamada_a');
+        if (!selLlamada || !selLlamada.value) {
+            Swal.fire("Atención", "Seleccione a qué número o persona correspondió la llamada", "warning");
+            return;
+        }
+        const origenLlamada = selLlamada.value;
+        const mapLlamada = window._dictamenLlamadaOpcionesMap[origenLlamada] || {};
+        let payloadLlamada = {
+            llamada_origen: origenLlamada,
+            llamada_telefono: (document.getElementById('dictamen_llamada_numero')?.value || '').trim(),
+            llamada_nombre_persona: (document.getElementById('dictamen_llamada_persona')?.value || '').trim(),
+            llamada_parentesco: (mapLlamada.parentesco || '').trim()
+        };
+        if (origenLlamada === 'otros') {
+            const xt = (document.getElementById('dictamen_otro_telefono')?.value || '').trim();
+            const xp = (document.getElementById('dictamen_otro_parentesco')?.value || '').trim();
+            const xn = (document.getElementById('dictamen_otro_nombre')?.value || '').trim();
+            if (!xt || !xp || !xn) {
+                Swal.fire("Atención", "Complete teléfono, parentesco y nombre completo del contacto", "warning");
+                return;
+            }
+            payloadLlamada.contacto_extra_telefono = xt;
+            payloadLlamada.contacto_extra_parentesco = xp;
+            payloadLlamada.contacto_extra_nombre = xn;
+            payloadLlamada.llamada_telefono = '';
+            payloadLlamada.llamada_nombre_persona = '';
+            payloadLlamada.llamada_parentesco = '';
+        }
+
         fetch('/EstadoCuenta/guardarDictamen', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id_credito, tipo_contacto_id: tipoContacto, resultado_contacto_id: resultadoContacto, dictamen_id: dictamen, tipo_motivo_no_pago_id: tipoMotivo || null, motivo_no_pago_id: motivoNoPago || null, plataforma_id: plataforma || null, fuente_ingresos: fuenteIngresos, comentarios })
+            body: JSON.stringify({
+                id_credito,
+                tipo_contacto_id: tipoContacto,
+                resultado_contacto_id: resultadoContacto,
+                dictamen_id: dictamen,
+                tipo_motivo_no_pago_id: tipoMotivo || null,
+                motivo_no_pago_id: motivoNoPago || null,
+                plataforma_id: plataforma || null,
+                fuente_ingresos: fuenteIngresos,
+                comentarios,
+                ...payloadLlamada
+            })
         })
         .then(res => { if (!res.ok) throw new Error('Error HTTP ' + res.status); return res.json(); })
         .then(resp => {
@@ -2297,6 +2459,23 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
         document.getElementById('plataforma').value = '';
         document.getElementById('fuente_ingresos').value = '';
         document.getElementById('comentarios').value = '';
+        const sL = document.getElementById('dictamen_llamada_a');
+        if (sL) sL.value = '';
+        const nL = document.getElementById('dictamen_llamada_numero');
+        const pL = document.getElementById('dictamen_llamada_persona');
+        if (nL) nL.value = '';
+        if (pL) pL.value = '';
+        const capO = document.getElementById('dictamen_llamada_otros_captura');
+        if (capO) capO.classList.add('d-none');
+        const oT = document.getElementById('dictamen_otro_telefono');
+        const oP = document.getElementById('dictamen_otro_parentesco');
+        const oN = document.getElementById('dictamen_otro_nombre');
+        if (oT) oT.value = '';
+        if (oP) oP.value = '';
+        if (oN) oN.value = '';
+        if (typeof actualizarVistaDictamenLlamadaContacto === 'function') {
+            actualizarVistaDictamenLlamadaContacto();
+        }
     }
 
     function consultaGastosCondonables(idCredito) {

@@ -31,6 +31,8 @@ backend/BD/geo_ssl_*.pem
 public/test_geo_ssl.php
 
 # ========== Medios temporales y logs ==========
+# Logs de runtime (EstadoCuenta engine, etc.) — no versionar; evita conflictos en merge
+backend/logs/*.log
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
 backend/storage/logs/
