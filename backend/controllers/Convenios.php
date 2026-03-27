@@ -181,11 +181,13 @@ class Convenios extends Controller
         }
 
         $datos = array_merge($_POST, [
-            'usuario_alta'          => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
-            'bucket_morosidad_real' => $_POST['bucket_morosidad_real'] ?? '',
-            'dias_mora'             => $_POST['dias_mora']             ?? 0,
-            'avance_pago_plazo'     => $_POST['avance_pago_plazo']     ?? '',
-            'pdf_adjunto'           => $pdfPath,
+            'usuario_alta'               => $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema',
+            'bucket_morosidad_real'      => $_POST['bucket_morosidad_real'] ?? '',
+            'dias_mora'                  => $_POST['dias_mora']             ?? 0,
+            'avance_pago_plazo'          => $_POST['avance_pago_plazo']     ?? '',
+            'pdf_adjunto'                => $pdfPath,
+            'monto_adicional'            => isset($_POST['monto_adicional']) ? (float) $_POST['monto_adicional'] : 0.0,
+            'total_final_con_adicional'  => isset($_POST['total_final_con_adicional']) ? (float) $_POST['total_final_con_adicional'] : null,
         ]);
 
         $r = ConveniosDAO::migrarConvenio($datos);
