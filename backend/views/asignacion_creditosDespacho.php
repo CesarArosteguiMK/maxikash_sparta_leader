@@ -447,12 +447,6 @@
         </select>
 </div>
 
-                <div class="mb-3">
-                    <label class="form-label" for="select-despacho">Seleccionar</label>
-                    <select id="select-despacho" class="form-select">
-                        <option value="">Seleccione...</option>
-                    </select>
-                </div>
 
                 <!-- Información del Despacho con diseño tipo labels -->
                 <div id="info-despacho-container" style="display: none;">
@@ -1142,7 +1136,7 @@ class SearchableSelect {
         this.display = document.createElement('div');
         this.display.className = 'select-search-display';
         this.display.innerHTML = `
-            <span>Seleccione un despacho...</span>
+            <span>Seleccione...</span>
             <i class="fas fa-chevron-down select-search-arrow"></i>
         `;
 
@@ -1286,9 +1280,33 @@ class SearchableSelect {
 
 // Cargar despachos al iniciar
 document.addEventListener('DOMContentLoaded', function() {
-    cargarDespachos();
+    // 1. Carga inicial (por defecto cargará Célula 1 si no le pasas nada)
+    cargarDespachos(1);
 
-    // Event Listeners
+    // 2. NUEVO: Listener para el cambio de Célula (Puntitos)
+    // Listener para el cambio de Célula
+document.querySelectorAll('input[name="id_celula"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const idCelulaSeleccionado = this.value;
+        console.log('🔄 Cambiando a célula:', idCelulaSeleccionado);
+
+        // Recargamos el select con el id_celula correcto
+        cargarDespachos(idCelulaSeleccionado);
+
+        // Limpiar los datos del despacho seleccionado actualmente
+        document.getElementById('select-despacho').value = "";
+        despachoSeleccionado = null;
+
+        // Ocultar información del despacho
+        document.getElementById('info-despacho-container').style.display = 'none';
+
+        // Limpiar tabla de créditos asignados
+        const tbody = document.getElementById('tbody-creditos');
+        if (tbody) tbody.innerHTML = '';
+    });
+});
+
+    // --- El resto de tus Listeners se quedan igual ---
     document.getElementById('select-despacho').addEventListener('change', function() {
         despachoSeleccionado = this.value;
         if (despachoSeleccionado) {
@@ -1297,17 +1315,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Buscar crédito al enviar formulario
     document.getElementById('formBusquedaCredito').addEventListener('submit', function(e) {
         e.preventDefault();
         buscarCredito();
     });
 
-    // El botón de asignar ahora está en cada crédito del stack
     document.getElementById('btn-guardar-comentarios').addEventListener('click', guardarComentarios);
     document.getElementById('btn-exportar-excel').addEventListener('click', exportarExcel);
 
-    // Importación de Excel (modal)
     document.getElementById('btn-importar-excel').addEventListener('click', prepararModalImportacionExcel);
     document.getElementById('btn-descargar-plantilla-excel').addEventListener('click', descargarPlantillaExcelImportacion);
     document.getElementById('btn-subir-excel-importar').addEventListener('click', iniciarImportacionExcel);
@@ -1336,15 +1351,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Función para cargar lista de despachos
-function cargarDespachos() {
-    fetch('/despachos/obtenerListaDespachos')
+// Función para cargar lista de despachos
+function cargarDespachos(idCelula = 1) {
+    // Enviar id_celula como parámetro GET
+    fetch(`/despachos/obtenerListaDespachos?id_celula=${idCelula}`)
         .then(response => response.json())
         .then(data => {
             const select = document.getElementById('select-despacho');
             select.innerHTML = '<option value="">Seleccione un despacho...</option>';
 
             if (data.success && data.despachos && data.despachos.length > 0) {
-                // Filtro de unicidad: evitar duplicados visuales por multipuestos
                 const idsAgregados = new Set();
 
                 data.despachos.forEach((despacho) => {
@@ -1355,12 +1371,10 @@ function cargarDespachos() {
 
                     const option = document.createElement('option');
                     option.value = despacho.id_persona;
-                    // Solo mostramos el nombre puro para evitar confusión visual
                     option.textContent = despacho.nombre_completo;
                     select.appendChild(option);
                 });
 
-                // Inicializar SearchableSelect después de cargar opciones únicas
                 if (!searchableSelectDespacho) {
                     searchableSelectDespacho = new SearchableSelect(select);
                 } else {

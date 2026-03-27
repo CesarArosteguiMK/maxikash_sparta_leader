@@ -35,29 +35,34 @@ class Despachos extends Controller
      * Obtener lista de despachos (Gestores y Supervisores)
      * Devuelve: JSON con array de despachos
      */
-    public function ObtenerListaDespachos()
-    {
-        try {
-            $despachos = $this->model->obtenerDespachos();
+   public function ObtenerListaDespachos()
+{
+    try {
+        // Usamos filter_input o $_GET directamente para evitar el error de "member function get() on null"
+        $id_celula = isset($_GET['id_celula']) ? intval($_GET['id_celula']) : 1;
 
-            if ($despachos) {
-                echo json_encode([
-                    'success' => true,
-                    'despachos' => $despachos
-                ]);
-            } else {
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'No se encontraron despachos'
-                ]);
-            }
-        } catch (\Exception $e) {
+        $despachos = $this->model->obtenerDespachos($id_celula);
+
+        if ($despachos) {
+            echo json_encode([
+                'success' => true,
+                'despachos' => $despachos
+            ]);
+        } else {
             echo json_encode([
                 'success' => false,
-                'message' => 'Error al obtener despachos: ' . $e->getMessage()
+                'message' => 'No se encontraron registros para esta célula'
             ]);
         }
+    } catch (\Exception $e) {
+        // IMPORTANTE: Asegúrate de que el header sea JSON para que el navegador no se confunda
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error al obtener despachos: ' . $e->getMessage()
+        ]);
     }
+}
 
     /**
      * Obtener datos completos de un despacho específico
