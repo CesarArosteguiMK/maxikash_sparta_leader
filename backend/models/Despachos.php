@@ -359,10 +359,18 @@ SQL;
      * Verificar si un crédito ya está asignado a un despacho (activo)
      */
     public function verificarAsignacion($idCredito)
-    {
-        $asignacion = $this->obtenerAsignacionCredito($idCredito);
-        return $asignacion && $asignacion['estatus'] === '1';
-    }
+{
+    $query = <<<SQL
+    SELECT COUNT(*) AS total
+    FROM asigna_creditos_despacho
+    WHERE id_credito = :idCredito
+      AND estatus    = '1'
+      AND baja       IS NULL
+    SQL;
+
+    $result = $this->db->queryOne($query, ['idCredito' => $idCredito]);
+    return ($result['total'] ?? 0) > 0;
+}
 
     /**
      * Asignar crédito a un despacho
@@ -823,20 +831,44 @@ SQL;
 {
     $fechaBaja = $nuevoEstatus === '0' ? 'NOW()' : 'NULL';
 
-    // Actualizar todos los registros de este crédito
-    // NOTA: No modificamos celula ni id_celula aquí
     $query = <<<SQL
     UPDATE asigna_creditos_despacho
-    SET estatus = :nuevoEstatus,
-        fecha_baja = $fechaBaja
+    SET estatus    = :nuevoEstatus,
+        fecha_baja = $fechaBaja,
+        baja       = NULL
     WHERE id_credito = :idCredito
-SQL;
+    SQL;
 
     return $this->db->CRUD($query, [
-        'idCredito' => $idCredito,
+        'idCredito'    => $idCredito,
         'nuevoEstatus' => $nuevoEstatus
     ]) > 0;
 }
+
+/**
+ * Desasignar crédito de su despacho actual (soft-delete)
+ * Solo actúa sobre el registro con estatus='1'
+ * Después de esto, verificarAsignacion() devuelve false y el crédito queda libre
+ */
+public function desasignarCredito($idCredito)
+{
+    $usuarioBaja = $_SESSION['usuario_id'] ?? 1;
+
+    $query = <<<SQL
+    UPDATE asigna_creditos_despacho
+    SET estatus    = '0',
+        fecha_baja = NOW(),
+        baja       = :usuarioBaja
+    WHERE id_credito = :idCredito
+      AND estatus    = '1'
+    SQL;
+
+    return $this->db->CRUD($query, [
+        'idCredito'   => $idCredito,
+        'usuarioBaja' => $usuarioBaja
+    ]) > 0;
+}
+
 
     /**
      * Obtener créditos asignados a un despacho
@@ -847,15 +879,17 @@ SQL;
         // Obtener créditos asignados desde __SPARTA_SECRET_REDACTED__
         $query = <<<SQL
         SELECT
-            acd.id_credito,
-            acd.estatus as estado,
-            DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d %H:%i') as fecha_asignacion,
-            CONCAT_WS(' ', per.nombres, per.apellidop) as asignado_por
-        FROM asigna_creditos_despacho acd
-        INNER JOIN despachos d ON acd.id_despacho = d.id
-        LEFT JOIN persona per ON acd.alta = per.id
-        WHERE d.id_persona = :idPersona
-        ORDER BY acd.fecha_alta DESC
+    acd.id_credito,
+    acd.estatus                                          AS estado,
+    acd.baja,
+    DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d %H:%i')        AS fecha_asignacion,
+    DATE_FORMAT(acd.fecha_baja, '%Y-%m-%d %H:%i')        AS fecha_desasignacion,
+    CONCAT_WS(' ', per.nombres, per.apellidop)           AS asignado_por
+FROM asigna_creditos_despacho acd
+INNER JOIN despachos d  ON acd.id_despacho = d.id
+LEFT JOIN  persona per  ON acd.alta        = per.id
+WHERE d.id_persona = :idPersona
+ORDER BY acd.fecha_alta DESC
 SQL;
 
         $creditos = $this->db->queryAll($query, ['idPersona' => $idPersona]);

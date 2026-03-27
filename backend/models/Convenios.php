@@ -318,8 +318,7 @@ class Convenios extends Model
                     id_credito, id_producto_convenio, id_producto_convenio_detalle,
                     nombre_cliente, bucket_morosidad_real, dias_mora, avance_pago_plazo,
                     adeudo_total_original, porcentaje_descuento, descuento_monto,
-                    total_a_pagar, pago_inicial_monto, numero_semanas, pago_semanal,
-                    fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta
+    total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,                    fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta
                 ) VALUES (
                     :id_credito, :id_producto, :id_detalle,
                     :nombre_cliente, :bucket, :dias_mora, :avance_pago,
@@ -1224,8 +1223,9 @@ public static function migrarConvenio($datos)
         $idDetalle    = (int)   $datos['id_producto_convenio_detalle'];
         $pdfAdjunto   = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
 
+        $montoAdicional = (float) ($datos['monto_adicional'] ?? 0);
         $descuentoMonto = round($adeudoBase * ($pctDescuento / 100), 2);
-        $totalAPagar    = round($adeudoBase - $descuentoMonto, 2);
+        $totalAPagar    = round($adeudoBase - $descuentoMonto + $montoAdicional, 2);
         $semanasEnteras = (int) floor($totalAPagar / $pagoSemanal);
         $residuo        = round($totalAPagar - ($semanasEnteras * $pagoSemanal), 2);
         $semanas        = $residuo > 0 ? $semanasEnteras + 1 : $semanasEnteras;
@@ -1237,15 +1237,15 @@ public static function migrarConvenio($datos)
                 id_credito, id_producto_convenio, id_producto_convenio_detalle,
                 nombre_cliente, bucket_morosidad_real, dias_mora, avance_pago_plazo,
                 adeudo_total_original, porcentaje_descuento, descuento_monto,
-                total_a_pagar, pago_inicial_monto, numero_semanas, pago_semanal,
-                fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus,
+                 total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
+                 fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus,
                 usuario_alta, pdf_adjunto
             ) VALUES (
                 :id_credito, :id_producto, :id_detalle,
                 :nombre_cliente, :bucket, :dias_mora, :avance_pago,
                 :adeudo_original, :pct_descuento, :descuento_monto,
-                :total_pagar, NULL, :num_semanas, :pago_semanal,
-                :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo',
+                 :total_pagar, :monto_adicional, NULL, :num_semanas, :pago_semanal,
+                 :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo',
                 :usuario, :pdf_adjunto
             )",
             [
@@ -1260,6 +1260,7 @@ public static function migrarConvenio($datos)
                 'pct_descuento'    => $pctDescuento,
                 'descuento_monto'  => $descuentoMonto,
                 'total_pagar'      => $totalAPagar,
+                'monto_adicional'  => $montoAdicional,
                 'num_semanas'      => $semanas,
                 'pago_semanal'     => $pagoSemanal,
                 'fecha_acuerdo'    => $fechaInicio,

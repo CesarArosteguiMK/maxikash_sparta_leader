@@ -891,6 +891,40 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
             <hr>
             <div class="row text-center g-2" id="migResumenCards"></div>
 
+            <!-- MONTO ADICIONAL -->
+            <div class="mt-3 p-3 border rounded" style="background: #f0fdf4; border-color: #86efac !important;">
+                <div class="fw-bold mb-2" style="color: #15803d; font-size: 0.9rem;">
+                    <i class="fas fa-plus-circle me-1"></i>Monto adicional
+                </div>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted mb-1">Total a pagar</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="text" id="migTotalBase" class="form-control fw-bold"
+                                   readonly style="background:#f8f9fa; color:#15803d; font-size:1rem;">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted mb-1">Monto adicional</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="migMontoAdicional" class="form-control"
+                                   min="0" step="0.01" placeholder="0.00"
+                                   oninput="window.migRecalcularTotal()">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted mb-1">Total final</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="text" id="migTotalFinal" class="form-control fw-bold"
+                                   readonly style="background:#f8f9fa; color:#764ba2; font-size:1rem;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- NUEVO: Sección para adjuntar PDF -->
             <div class="mt-3 p-3 border rounded" style="background: #f8f5ff;">
                 <div class="d-flex align-items-center gap-3">
@@ -2508,8 +2542,9 @@ function descargarPdfConvenio(idConvenio) {
 // MODAL MIGRACIÓN
 // ════════════════════════════════════════════════
 
-var _migCredito = null;
-var _migDetalle = null;
+var _migCredito  = null;
+var _migDetalle  = null;
+var _migSemanas  = 0;
 
 window.abrirModalMigracion = function() {
     // Reset
@@ -2788,6 +2823,7 @@ window.migCalcular = function() {
     var semanasEnt = Math.floor(total / semanal);
     var residuo    = Math.round((total - semanasEnt * semanal) * 100) / 100;
     var semanas    = residuo > 0 ? semanasEnt + 1 : semanasEnt;
+    _migSemanas    = semanas; // guardar para migRecalcularTotal
 
     if (semanas < 1 || semanas > 52) {
         mostrarError('migPagoSemanal',
@@ -2827,10 +2863,42 @@ window.migCalcular = function() {
         + '<div class="fw-bold text-success">' + fmt(total) + '</div></div></div>' +
         '<div class="col-6 col-md-3"><div class="border rounded p-2">'
         + '<div class="small text-muted">Semanas</div>'
-        + '<div class="fw-bold text-warning">' + semanas + ' sem</div></div></div>';
+        + '<div class="fw-bold text-warning" id="migResumenSemanal">' + semanas + ' sem</div></div></div>';
 
     document.getElementById('migPreview').classList.remove('d-none');
     document.getElementById('migBtnGuardar').classList.remove('d-none');
+
+    // Inicializar campos de monto adicional
+    document.getElementById('migTotalBase').value      = total.toFixed(2);
+    document.getElementById('migMontoAdicional').value = '';
+    document.getElementById('migTotalFinal').value     = total.toFixed(2);
+};
+
+window.migRecalcularTotal = function() {
+    var base      = parseFloat(document.getElementById('migTotalBase').value)      || 0;
+    var adicional = parseFloat(document.getElementById('migMontoAdicional').value) || 0;
+
+    if (adicional < 0) {
+        document.getElementById('migMontoAdicional').value = 0;
+        adicional = 0;
+    }
+
+    var totalFinal = Math.round((base + adicional) * 100) / 100;
+    document.getElementById('migTotalFinal').value = totalFinal.toFixed(2);
+
+    // Recalcular pago semanal manteniendo las mismas semanas
+    var semanas = _migSemanas || 0;
+    if (semanas > 0 && totalFinal > 0) {
+        var nuevoSemanal = Math.round((totalFinal / semanas) * 100) / 100;
+        document.getElementById('migPagoSemanal').value = nuevoSemanal.toFixed(2);
+
+        // Actualizar el display de semanas/semanal en las cards
+        var fmt = function(v) {
+            return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+        };
+        var elSemanal = document.getElementById('migResumenSemanal');
+        if (elSemanal) elSemanal.textContent = fmt(nuevoSemanal);
+    }
 };
 
 window.validarPdfAdjunto = function(input) {
@@ -2886,12 +2954,14 @@ if (_semanal <= 0 || _semanas < 1 || _semanas > 52) {
     return;
 }
 
-    var adeudo   = document.getElementById('migAdeudo').value;
-    var pct      = document.getElementById('migPorcentaje').value;
-    var semanal  = document.getElementById('migPagoSemanal').value;
-    var fecha    = document.getElementById('migFechaInicio').value;
-    var bucket   = document.getElementById('migBucket').value;
-    var pdfFile  = document.getElementById('migPdfAdjunto').files[0];
+   var adeudo    = document.getElementById('migAdeudo').value;
+    var pct       = document.getElementById('migPorcentaje').value;
+    var semanal   = document.getElementById('migPagoSemanal').value;
+    var fecha     = document.getElementById('migFechaInicio').value;
+    var bucket    = document.getElementById('migBucket').value;
+    var pdfFile   = document.getElementById('migPdfAdjunto').files[0];
+    var adicional = parseFloat(document.getElementById('migMontoAdicional').value) || 0;
+    var totalFinal = parseFloat(document.getElementById('migTotalFinal').value)    || 0;
 
     if (!adeudo || !pct || !semanal || !fecha) {
         Swal.fire('Campos incompletos', 'Llena todos los campos requeridos.', 'warning');
@@ -2923,6 +2993,8 @@ if (_semanal <= 0 || _semanas < 1 || _semanas > 52) {
             formData.append('id_producto_convenio', _migDetalle.id_producto);
             formData.append('id_producto_convenio_detalle', _migDetalle.id_detalle);
             formData.append('adeudo_base', adeudo);
+            formData.append('monto_adicional', adicional.toFixed(2));
+            formData.append('total_final_con_adicional', totalFinal.toFixed(2));
             formData.append('porcentaje_descuento', pct);
             formData.append('pago_semanal', semanal);
             formData.append('fecha_inicio', fecha);
@@ -2988,6 +3060,8 @@ if (_semanal <= 0 || _semanas < 1 || _semanas > 52) {
                     bucket_morosidad_real:        bucket,
                     dias_mora:                     _migCredito.Dias_mora        || 0,
                     avance_pago_plazo:             _migCredito.Avance_Pago_Plazo || '',
+                    monto_adicional:              adicional.toFixed(2),
+                    total_final_con_adicional:    totalFinal.toFixed(2),
                 },
                 onSuccess: function(resp) {
                     document.getElementById('migBtnGuardar').disabled = false;
