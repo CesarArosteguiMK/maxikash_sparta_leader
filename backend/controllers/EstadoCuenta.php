@@ -85,8 +85,8 @@ class EstadoCuenta extends Controller
     }
 
     /**
-     * Feature flag del motor nuevo de conciliacion.
-     * Rollback inmediato: EC_ESTADO_CUENTA_ENGINE_V2=0
+     * Motor de conciliacion: por defecto v2 en todos los contextos (web, cron, CLI).
+     * Rollback explicito: EC_ESTADO_CUENTA_ENGINE_V2=0 (o false/off/legacy) o ?ecv2=0
      */
     private function estadoCuentaEngineOverrideFromRequest(): ?bool {
         $raw = $_GET['ecv2'] ?? $_POST['ecv2'] ?? null;
@@ -109,7 +109,17 @@ class EstadoCuenta extends Controller
             return $override;
         }
         $v = getenv('EC_ESTADO_CUENTA_ENGINE_V2');
-        return is_string($v) && trim($v) === '1';
+        if ($v === false || $v === null) {
+            return true;
+        }
+        $v = strtolower(trim((string) $v));
+        if ($v === '' || $v === '1' || $v === 'true' || $v === 'on' || $v === 'v2') {
+            return true;
+        }
+        if ($v === '0' || $v === 'false' || $v === 'off' || $v === 'legacy') {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -2548,6 +2558,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("esReembolsoPorFecha", []);
                 self::set("tipoDisplayCargoPorFecha", []);
                 self::set("hayNotasCargos", false);
+                self::set('dictamenContactoPreload', ['id_credito' => 0, 'opciones' => []]);
                 return self::render("__SPARTA_SECRET_REDACTED___request");
             }
             if (empty($resultado["data"]["idCredito"])) {
@@ -2560,6 +2571,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("esReembolsoPorFecha", []);
                 self::set("tipoDisplayCargoPorFecha", []);
                 self::set("hayNotasCargos", false);
+                self::set('dictamenContactoPreload', ['id_credito' => 0, 'opciones' => []]);
 
                 return self::render("__SPARTA_SECRET_REDACTED___request");
 
@@ -2575,6 +2587,20 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("direcciones", $respDAO);
                 self::set("referencias", $referencias);
                 self::set("notas", $notas);
+                $idCredDictamenPreload = (int)($estadoCuenta['idCredito'] ?? 0);
+                $refRowDictamenPreload = [];
+                if (!empty($referencias['success']) && !empty($referencias['datos'][0]) && is_array($referencias['datos'][0])) {
+                    $refRowDictamenPreload = $referencias['datos'][0];
+                }
+                $celDictamenPreload = trim((string)($cliente['celular'] ?? ''));
+                self::set('dictamenContactoPreload', [
+                    'id_credito' => $idCredDictamenPreload,
+                    'opciones' => EstadoCuentaDAO::construirOpcionesContactoDictamenParaPreload(
+                        $idCredDictamenPreload,
+                        $refRowDictamenPreload,
+                        $celDictamenPreload
+                    ),
+                ]);
                 self::set("titulo", "Resultado de la solicitud");
                 $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
                 $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
@@ -5376,9 +5402,118 @@ public function descargar()
         self::respuestaJSON($resultado);
     }
 
+    /**
+     * Catálogos del modal Dictaminar llamada en un solo JSON (tipos contacto, plataformas, tipos motivo no pago).
+     * GET — precarga al cargar estado de cuenta.
+     */
+    public function getCatalogosDictamenModal()
+    {
+        $tipos = EstadoCuentaDAO::getTiposContacto();
+        $plat = EstadoCuentaDAO::getPlataformas();
+        $tiposMot = EstadoCuentaDAO::getTiposMotivoNoPago();
+        if (empty($tipos['success']) || empty($plat['success']) || empty($tiposMot['success'])) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error al cargar catálogos del dictamen',
+            ]);
+            return;
+        }
+        self::respuestaJSON([
+            'success' => true,
+            'datos' => [
+                'tipos_contacto' => $tipos['datos'] ?? [],
+                'plataformas' => $plat['datos'] ?? [],
+                'tipos_motivo_no_pago' => $tiposMot['datos'] ?? [],
+            ],
+        ]);
+    }
+
+    /**
+     * Opciones del select "Llamada a" en el modal Dictaminar llamada (titular, referencias, extras, Otros).
+     * POST JSON: id_credito
+     */
+    public function getOpcionesContactoDictamenLlamada()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $idCredito = $input['id_credito'] ?? null;
+        if (empty($idCredito)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'id_credito requerido',
+            ]);
+            return;
+        }
+        $resultado = EstadoCuentaDAO::getOpcionesContactoDictamenLlamada((int)$idCredito);
+        self::respuestaJSON($resultado);
+    }
+
     public function guardarDictamen()
     {
         $input = json_decode(file_get_contents("php://input"), true);
+
+        $llamadaOrigenIn = trim((string)($input['llamada_origen'] ?? ''));
+        $llamadaTelefono = trim((string)($input['llamada_telefono'] ?? ''));
+        $llamadaNombre = trim((string)($input['llamada_nombre_persona'] ?? ''));
+        $llamadaParentesco = trim((string)($input['llamada_parentesco'] ?? ''));
+        $llamadaOrigenDb = $llamadaOrigenIn;
+        $idCreditoPost = (int)($input['id_credito'] ?? 0);
+
+        if ($llamadaOrigenIn === 'otros') {
+            $ct = trim((string)($input['contacto_extra_telefono'] ?? ''));
+            $cp = trim((string)($input['contacto_extra_parentesco'] ?? ''));
+            $cn = trim((string)($input['contacto_extra_nombre'] ?? ''));
+            if ($ct === '' || $cp === '' || $cn === '') {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Complete teléfono, parentesco y nombre completo del contacto',
+                ]);
+                exit;
+            }
+            $llamadaOrigenDb = 'otros';
+            $llamadaTelefono = $ct;
+            $llamadaNombre = $cn;
+            $llamadaParentesco = $cp;
+        } elseif (strpos($llamadaOrigenIn, 'prev:') === 0) {
+            $prevId = (int)substr($llamadaOrigenIn, 5);
+            if ($prevId <= 0) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Contacto guardado inválido',
+                ]);
+                exit;
+            }
+            $snap = EstadoCuentaDAO::obtenerSnapshotContactoDictamenLlamada($prevId, $idCreditoPost);
+            if (
+                empty($snap)
+                || (int)($snap['id_credito'] ?? 0) !== $idCreditoPost
+            ) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'No se encontró el contacto para este crédito',
+                ]);
+                exit;
+            }
+            $llamadaOrigenDb = 'otros';
+            $llamadaTelefono = trim((string)($snap['llamada_telefono'] ?? ''));
+            $llamadaNombre = trim((string)($snap['llamada_nombre_persona'] ?? ''));
+            $llamadaParentesco = trim((string)($snap['llamada_parentesco'] ?? ''));
+            if ($llamadaTelefono === '' || $llamadaNombre === '') {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'El dictamen de referencia no tiene teléfono o nombre',
+                ]);
+                exit;
+            }
+        } elseif (
+            $llamadaOrigenIn !== 'cliente'
+            && !preg_match('/^referencia_[123]$/', $llamadaOrigenIn)
+        ) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Seleccione a qué número o persona correspondió la llamada',
+            ]);
+            exit;
+        }
 
         $data = [
             'id_credito'                => (int)($input['id_credito'] ?? 0),
@@ -5397,7 +5532,11 @@ public function descargar()
             'fuente_ingresos'            => trim($input['fuente_ingresos'] ?? ''),
             'comentarios'                => trim($input['comentarios'] ?? ''),
             'usuario'                    => $_SESSION['usuario'] ?? 'Sistema',
-            'usuario_id'                 => $_SESSION['usuario_id'] ?? 1
+            'usuario_id'                 => $_SESSION['usuario_id'] ?? 1,
+            'llamada_origen'             => $llamadaOrigenDb,
+            'llamada_telefono'           => $llamadaTelefono,
+            'llamada_nombre_persona'     => $llamadaNombre,
+            'llamada_parentesco'         => $llamadaParentesco !== '' ? $llamadaParentesco : null,
         ];
 
         // 🔴 Validación mínima backend
@@ -5406,7 +5545,8 @@ public function descargar()
             !$data['tipo_contacto_id'] ||
             !$data['resultado_contacto_id'] ||
             !$data['dictamen_id'] ||
-            !$data['comentarios']
+            !$data['comentarios'] ||
+            $data['llamada_origen'] === ''
         ) {
             echo json_encode([
                 'success' => false,
@@ -6338,152 +6478,11 @@ private function croop_get(string $path, string $token): array
 
 private function procesarGastosCobranza(array $notasCargos, $idCredito): array
 {
-    // Fecha de inicio del módulo
-    $fechaInicio = '2026-01-28';
+    // Una sola implementación: Models\EstadoCuenta::procesarGastosCobranzaDesdeNotas (no duplicar cruce aquí).
+    $r = EstadoCuentaDAO::procesarGastosCobranzaDesdeNotas($notasCargos, $idCredito, true);
+    unset($r['_sin_actualizacion'], $r['_causa']);
 
-    // 1️⃣ Filtrar solo NOTA DE CARGO GASTOS DE COBRANZA >= 28 enero
-    $notasFiltradas = array_filter($notasCargos, function($nota) use ($fechaInicio) {
-        return
-            ($nota['concepto'] ?? '') === 'NOTA DE DE CARGO GASTOS DE COBRANZA' &&
-            ($nota['fechaMovimiento'] ?? '') >= $fechaInicio;
-    });
-
-    if (empty($notasFiltradas)) {
-        return [
-            'gastos_procesados' => [],
-            'saldo_favor'       => 0.0
-        ];
-    }
-
-    // 2️⃣ Total de notas disponibles (lo que el cliente ha pagado por GDC)
-    $totalNotas = array_sum(array_column($notasFiltradas, 'monto'));
-    $montoDisponible = round($totalNotas, 2);
-
-    // 2b️⃣ Descontar lo que ya fue cubierto o abonado parcialmente
-    $resultadoTodos = EstadoCuentaDAO::getGastosTodosConEstatus($idCredito);
-    if ($resultadoTodos['success'] && !empty($resultadoTodos['datos'])) {
-        foreach ($resultadoTodos['datos'] as $g) {
-            $estatus = (int)($g['estatus_pago'] ?? 0);
-
-            if ($estatus === 2) {
-                // Si ya está pagado totalmente, restamos el valor total del gasto
-                $montoDisponible = round($montoDisponible - (float)$g['monto_valor'], 2);
-            } elseif ($estatus === 1) {
-                // 🔹 CAMBIO: Si es pago parcial, restamos solo lo que ya se abonó (monto_parcial_pagado)
-                $montoDisponible = round($montoDisponible - (float)($g['monto_parcial_pagado'] ?? 0), 2);
-            }
-        }
-        $montoDisponible = max(0, $montoDisponible);
-    }
-
-    if ($montoDisponible <= 0) {
-        return [
-            'gastos_procesados' => [],
-            'saldo_favor'       => 0.0
-        ];
-    }
-
-    // 3️⃣ Obtener gastos de BD
-    $resultadoGastos = EstadoCuentaDAO::getGastosCobranza($idCredito);
-
-    if (!$resultadoGastos['success'] || empty($resultadoGastos['datos'])) {
-        return [
-            'gastos_procesados' => [],
-            'saldo_favor'       => 0.0
-        ];
-    }
-
-        // 4️⃣ Solo los que están PENDIENTES (0) o PARCIALES (1)
-        // Y QUE NO ESTÉN CONDONADOS
-        $gastosPendientes = array_filter($resultadoGastos['datos'], function($g) {
-            $estatus = (int)($g['estatus_pago'] ?? 0);
-            $condonado = (int)($g['condonado'] ?? 0);
-
-            // Si ya está condonado, NO es un gasto pendiente de pago
-            return ($estatus === 0 || $estatus === 1) && $condonado === 0;
-        });
-
-    if (empty($gastosPendientes)) {
-        return [
-            'gastos_procesados' => [],
-            'saldo_favor'       => 0.0
-        ];
-    }
-
-    $gastosProcessados = [];
-
-    // Capturar la fecha más reciente de las notas filtradas (fechaMovimiento)
-    // para usarla como fecha_pago al registrar el cruce
-    $ultimaNotaFecha = null;
-    foreach ($notasFiltradas as $nota) {
-        $fn = $nota['fechaMovimiento'] ?? null;
-        if ($fn && ($ultimaNotaFecha === null || $fn > $ultimaNotaFecha)) {
-            $ultimaNotaFecha = $fn;
-        }
-    }
-
-    // 5️⃣ Cruce: aplicar monto disponible cuota por cuota
-    foreach ($gastosPendientes as $gasto) {
-
-        if ($montoDisponible <= 0) {
-            break;
-        }
-
-        $montoGastoOriginal = round((float)$gasto['monto'], 2);
-        // Si ya tenía un pago parcial previo, el monto "pendiente" real es el original menos lo ya pagado
-        $yaPagado = (int)$gasto['estatus_pago'] === 1 ? round((float)$gasto['monto_parcial_pagado'], 2) : 0;
-        $montoRestantePorCubrir = round($montoGastoOriginal - $yaPagado, 2);
-
-        if ($montoDisponible >= $montoRestantePorCubrir) {
-            // ✅ Cubre lo que faltaba → PAGADO (Cierre total)
-            $montoDisponible = round($montoDisponible - $montoRestantePorCubrir, 2);
-
-            $gastosProcessados[] = [
-                'id_gasto'    => $gasto['id_gasto'],
-                'monto'       => $montoGastoOriginal,
-                'aplicado'    => $montoGastoOriginal,
-                'estatus'     => 2,
-                'estatus_txt' => 'PAGADO',
-                'celula'      => $gasto['celula'] ?? 0
-            ];
-
-            // Usamos el nuevo método para asegurar que monto_parcial_pagado sea igual al total
-            // Tomamos la fecha de la última nota filtrada como fecha_pago
-            // (fechaMovimiento = fecha real en que el cliente depositó)
-            $fechaPagoGasto = !empty($ultimaNotaFecha) ? $ultimaNotaFecha : date('Y-m-d');
-            EstadoCuentaDAO::actualizarEstatusPagoGastoConMonto($gasto['id_gasto'], 2, $montoGastoOriginal, 0, $fechaPagoGasto);
-
-        } else {
-            // 🔶 Escenario B — No alcanza → PAGO PARCIAL, el cliente sigue debiendo
-            // condonacion_parcial_monto NO se toca aquí — es territorio exclusivo del gestor
-            $montoAAbonarAhora = $montoDisponible;
-            $totalPagadoFinal  = round($yaPagado + $montoAAbonarAhora, 2);
-            $pendiente         = round($montoGastoOriginal - $totalPagadoFinal, 2);
-
-            $gastosProcessados[] = [
-                'id_gasto'    => $gasto['id_gasto'],
-                'monto'       => $montoGastoOriginal,
-                'aplicado'    => $totalPagadoFinal,
-                'estatus'     => 1, // Pago parcial — sigue debiendo $pendiente
-                'estatus_txt' => 'PAGO PARCIAL'
-            ];
-
-            EstadoCuentaDAO::actualizarEstatusPagoGastoConMonto(
-                $gasto['id_gasto'],
-                1,                 // estatus_pago = 1 (parcial)
-                $totalPagadoFinal,
-                0,                 // condonacion = 0, el gestor decide si condona
-                $fechaPagoGasto ?? date('Y-m-d')
-            );
-
-            $montoDisponible = 0;
-        }
-    }
-
-    return [
-        'gastos_procesados' => $gastosProcessados,
-        'saldo_favor'       => round($montoDisponible, 2)
-    ];
+    return $r;
 }
 
 public function getHistorialGastosCobranza()

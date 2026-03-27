@@ -116,6 +116,79 @@ class Empresa extends Model
         }
     }
 
+    /**
+     * Teléfono del titular (oferta → persona) en __SPARTA_SECRET_REDACTED__.
+     * Prueba varias columnas habituales; en muchos créditos el dato está en celular/telefono_movil, no en telefono.
+     */
+    public static function getTelefonoTitularCredito($id_credito)
+    {
+        if ($id_credito === null || $id_credito === '') {
+            return self::resultado(true, 'ok', '');
+        }
+        $columnas = [
+            'telefono',
+            'celular',
+            'telefono_celular',
+            'telefono_movil',
+            'numero_celular',
+            'tel_celular',
+        ];
+        try {
+            $db = new \core\DatabaseMaxiProd();
+            if (!$db) {
+                return self::resultado(true, 'ok', '');
+            }
+            foreach ($columnas as $col) {
+                if (!preg_match('/^[a-z0-9_]+$/i', $col)) {
+                    continue;
+                }
+                try {
+                    $row = $db->queryOne(
+                        "SELECT TRIM(COALESCE(p.`{$col}`, '')) AS t
+                         FROM oferta o
+                         INNER JOIN persona p ON o.fk_persona = p.id_persona
+                         WHERE o.id_oferta = :id_credito
+                         LIMIT 1",
+                        ['id_credito' => $id_credito]
+                    );
+                    $t = trim((string)($row['t'] ?? ''));
+                    if ($t !== '') {
+                        return self::resultado(true, 'ok', $t);
+                    }
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+        } catch (\Exception $e) {
+            return self::resultado(true, 'sin telefono', '');
+        }
+        return self::resultado(true, 'ok', '');
+    }
+
+    /**
+     * Celular del titular en segundómetro (misma fuente que usa la vista de estado de cuenta en varios flujos).
+     */
+    public static function getCelularCreditoSegundometro($id_credito)
+    {
+        if ($id_credito === null || $id_credito === '') {
+            return self::resultado(true, 'ok', '');
+        }
+        try {
+            $db = new DatabaseSegundometro();
+            $row = $db->queryOne(
+                'SELECT TRIM(COALESCE(Celular, \'\')) AS t
+                 FROM tbl_segundometro_semana
+                 WHERE Id_credito = :id_credito
+                 LIMIT 1',
+                ['id_credito' => $id_credito]
+            );
+            $t = trim((string)($row['t'] ?? ''));
+            return self::resultado(true, 'ok', $t);
+        } catch (\Exception $e) {
+            return self::resultado(true, 'ok', '');
+        }
+    }
+
     public static function getGuatemalaEstadoCuenta($id_credito)
     {
         $query = <<<SQL
