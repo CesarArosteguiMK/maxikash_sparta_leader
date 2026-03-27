@@ -993,13 +993,8 @@ public static function getGastosCobranza($idCredito)
                 'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
                 'cuota'                      => (float)$row['cuota'],
                 'parcialidad'                => (int)$row['parcialidad'],
-<<<<<<< HEAD
-                'estatus_pago'               => (int)($row['estatus_pago'] ?? 0),
-                'monto_parcial_pagado'       => round((float)($row['monto_parcial_pagado'] ?? 0), 2),
-=======
                 'estatus_pago'               => $estatusPago,
                 'tiene_pago_parcial'         => ($estatusPago === 1 && $montoParcialPagado > 0),
->>>>>>> 258caabc61eed0253d6565ea1f22e3e6e96b106e
             ];
         }, $r);
 

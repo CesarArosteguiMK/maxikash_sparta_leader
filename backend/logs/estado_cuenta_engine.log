@@ -1406,3 +1406,4 @@
 >>>>>>> 311722cb5286491d631eb47c088bb88435b5e13c
 [2026-03-26 16:41:19] credito=1493608 engine=legacy shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 >>>>>>> 258caabc61eed0253d6565ea1f22e3e6e96b106e
+[2026-03-27 13:09:44] credito=1600 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=-
