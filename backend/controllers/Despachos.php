@@ -259,6 +259,50 @@ public function AsignarCredito()
         ]);
     }
 }
+/**
+ * Desasignar crédito de su despacho actual (soft-delete)
+ * POST: { "id_credito": int }
+ */
+public function DesasignarCredito()
+{
+    try {
+        $input     = json_decode(file_get_contents('php://input'), true);
+        $idCredito = $input['id_credito'] ?? null;
+
+        if (!$idCredito) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Falta el parámetro id_credito'
+            ]);
+            return;
+        }
+
+        // Verificar que hay una asignación activa antes de intentar
+        if (!$this->model->verificarAsignacion($idCredito)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Este crédito no tiene una asignación activa'
+            ]);
+            return;
+        }
+
+        $resultado = $this->model->desasignarCredito($idCredito);
+
+        echo json_encode([
+            'success' => $resultado,
+            'message' => $resultado
+                ? 'Crédito desasignado correctamente'
+                : 'No se pudo desasignar el crédito'
+        ]);
+
+    } catch (\Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error al desasignar crédito: ' . $e->getMessage()
+        ]);
+    }
+}
+
 
     /**
      * Desasignar crédito de un despacho
