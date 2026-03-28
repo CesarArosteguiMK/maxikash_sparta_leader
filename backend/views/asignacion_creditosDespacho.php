@@ -1599,10 +1599,13 @@ function agregarCreditoAlStack(credito, asignacion) {
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start">
                 <div class="flex-grow-1" style="font-size: 0.875rem;">
-                    <div class="d-flex align-items-center mb-1">
-                        <strong class="me-2">ID CREDITO ${credito.id_credito}</strong>
-                        <span class="badge bg-warning">${credito.dias_mora || 0} días</span>
-                    </div>
+                    <div class="d-flex align-items-center mb-1 flex-wrap gap-2">
+    <strong class="me-2">ID CREDITO ${credito.id_credito}</strong>
+    <span class="badge bg-warning">${credito.dias_mora || 0} días</span>
+    ${esActivo ? `<span class="badge" style="background:#1a7abf; color:#ffffff; font-weight:500;">
+    <i class="fa-solid fa-user-tie me-1" style="font-size:0.7rem;"></i>Asignado a ${asignacion.nombre_despacho}
+</span>` : ''}
+</div>
                     <div class="mb-1"><strong>Nombre:</strong> ${credito.nombre_cliente}</div>
                     <div class="mb-1"><strong>Dirección:</strong> <span class="text-muted">${credito.direccion || 'Sin dirección'}</span></div>
                     <div><strong>Saldo:</strong> <span class="text-danger fw-bold">${formatearMoneda(credito.saldo_actual || 0)}</span></div>
@@ -1610,18 +1613,22 @@ function agregarCreditoAlStack(credito, asignacion) {
 
 
 <div class="d-flex flex-column gap-2 ms-3">
-    <button class="btn btn-gradient-success btn-sm" onclick="asignarCreditoDelStack('${credito.id_credito}')" title="Asignar crédito">
-        <i class="fa-solid fa-check"></i>
-    </button>
-    ${esActivo ? `
-    <button class="btn btn-sm btn-warning" onclick="desasignarCreditoDelStack('${credito.id_credito}')"
-            title="Desasignar crédito (liberar para otro despacho)"
-            style="background:linear-gradient(135deg,#fd7e14 0%,#ffc107 100%); border:none; color:white;">
-        <i class="fa-solid fa-link-slash"></i>
-    </button>` : ''}
-    <button class="btn btn-gradient-danger btn-sm" onclick="descartarCredito('${credito.id_credito}')" title="Descartar">
-        <i class="fa-solid fa-times"></i>
-    </button>
+   ${!esActivo ? `
+<button class="btn btn-gradient-success btn-sm" onclick="asignarCreditoDelStack('${credito.id_credito}')" title="Asignar crédito">
+    <i class="fa-solid fa-check me-1"></i>Asignar
+</button>` : ''}
+${esActivo ? `
+<button class="btn btn-sm" onclick="desasignarCreditoDelStack('${credito.id_credito}')"
+        title="Desasignar (liberar para otro despacho)"
+        style="background:linear-gradient(135deg,#fd7e14 0%,#ffc107 100%); border:none; color:white;">
+    <i class="fa-solid fa-link-slash me-1"></i>Desasignar
+</button>` : ''}
+<button class="btn btn-gradient-danger btn-sm" onclick="descartarCredito('${credito.id_credito}')" title="Descartar">
+    <i class="fa-solid fa-times me-1"></i>Descartar
+</button>
+
+
+
 </div>
             </div>
             ${asignacionHTML}
