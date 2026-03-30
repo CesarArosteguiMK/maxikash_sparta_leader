@@ -5328,6 +5328,7 @@ public function descargar()
     /**
      * Guarda aclaración GC en __SPARTA_SECRET_REDACTED__.cobranza_gc_verificacion_semana (permiso módulo 30 o usuario 1).
      * POST JSON: id_credito, nombre, tipo_reporte (error|falta_aplicar), monto, mensaje (observaciones).
+     * estatus en BD = 3 (reportado por call center / flujo estado de cuenta).
      */
     public function GuardarAclaracionGc()
     {
@@ -5360,7 +5361,7 @@ public function descargar()
             'tipo_reporte'  => $tipo,
             'monto'         => $monto,
             'mensaje'       => $mensaje,
-            'estatus'       => 'pendiente',
+            'estatus'       => 3,
             'celula'        => $celula,
         ]);
 
