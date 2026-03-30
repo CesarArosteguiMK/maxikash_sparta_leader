@@ -61,12 +61,7 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
                         </div>
                     </div>
                     <div class="col-12 d-none" id="ecAclaracionesErrorWrap">
-                        <label class="form-label fw-semibold" for="ecAclaracionesGastoCorregir">Gasto de cobranza a corregir</label>
-                        <select id="ecAclaracionesGastoCorregir" class="form-select">
-                            <option value="">Cargando gastos…</option>
-                        </select>
-                        <small class="text-muted d-block mt-1">Seleccione el cargo aplicado al cliente que desea reportar como error.</small>
-                        <label class="form-label fw-semibold mt-3" for="ecAclaracionesMontoCorregir">Monto a corregir</label>
+                        <label class="form-label fw-semibold" for="ecAclaracionesMontoCorregir">Monto a corregir</label>
                         <input type="number" id="ecAclaracionesMontoCorregir" class="form-control" min="0" step="0.01" placeholder="0.00" autocomplete="off">
                     </div>
                     <div class="col-12 d-none" id="ecAclaracionesMontoWrap">
@@ -107,81 +102,6 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
         }
     }
 
-    function ecFormatearMonedaAcl(n) {
-        try {
-            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
-        } catch (e) {
-            return '$' + Number(n).toFixed(2);
-        }
-    }
-
-    /** Incluye gastos ya aplicados (preload dedicado); fallback al listado solo pendientes. */
-    function ecObtenerGastosCobranzaAclaraciones() {
-        var elAcl = document.getElementById('ec-gastos-cobranza-aclaraciones-preload');
-        if (elAcl && elAcl.textContent) {
-            try {
-                var arrAcl = JSON.parse(elAcl.textContent);
-                if (Array.isArray(arrAcl) && arrAcl.length > 0) return arrAcl;
-            } catch (e) { /* continuar */ }
-        }
-        if (typeof GASTOS_COBRANZA_PRELOAD !== 'undefined' && Array.isArray(GASTOS_COBRANZA_PRELOAD)) {
-            return GASTOS_COBRANZA_PRELOAD;
-        }
-        var el = document.getElementById('ec-gastos-cobranza-preload');
-        if (el && el.textContent) {
-            try {
-                var arr = JSON.parse(el.textContent);
-                return Array.isArray(arr) ? arr : [];
-            } catch (e) {
-                return [];
-            }
-        }
-        return [];
-    }
-
-    function ecRellenarSelectGastoCorregir() {
-        var sel = document.getElementById('ecAclaracionesGastoCorregir');
-        if (!sel) return;
-        sel.innerHTML = '';
-        var gastos = ecObtenerGastosCobranzaAclaraciones().filter(function (g) {
-            if (!g) return false;
-            var orig = parseFloat(g.monto_original);
-            var pend = parseFloat(g.monto);
-            return (orig > 0) || (pend > 0);
-        });
-        if (gastos.length === 0) {
-            var opt0 = document.createElement('option');
-            opt0.value = '';
-            opt0.textContent = 'No hay gastos de cobranza registrados para este crédito';
-            sel.appendChild(opt0);
-            return;
-        }
-        var ph = document.createElement('option');
-        ph.value = '';
-        ph.textContent = 'Seleccione un gasto…';
-        sel.appendChild(ph);
-        gastos.forEach(function (g) {
-            var id = g.id_gasto != null ? g.id_gasto : g.id_gastos_cobranza;
-            if (id == null) return;
-            var sem = (g.semana != null && g.semana !== '') ? ('Sem. ' + g.semana + ' · ') : '';
-            var per = g.periodo || '—';
-            var pend = parseFloat(g.monto) || 0;
-            var orig = parseFloat(g.monto_original) || 0;
-            var o = document.createElement('option');
-            o.value = String(id);
-            o.setAttribute('data-monto-pendiente', String(pend));
-            o.setAttribute('data-monto-original', String(orig));
-            var sufijo;
-            if (pend > 0) {
-                sufijo = 'Pendiente ' + ecFormatearMonedaAcl(pend);
-            } else {
-                sufijo = 'Aplicado · Original ' + ecFormatearMonedaAcl(orig);
-            }
-            o.textContent = sem + per + ' · ' + sufijo;
-            sel.appendChild(o);
-        });
-    }
-
     function ecAclaracionesTipoSeleccionado() {
         var r = document.querySelector('input[name="ecAclaracionesTipoReporte"]:checked');
         return r ? r.value : '';
@@ -192,7 +112,6 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
         var wrapErr = document.getElementById('ecAclaracionesErrorWrap');
         var montoAplicar = document.getElementById('ecAclaracionesMonto');
         var montoCorr = document.getElementById('ecAclaracionesMontoCorregir');
-        var selGasto = document.getElementById('ecAclaracionesGastoCorregir');
         var tipo = ecAclaracionesTipoSeleccionado();
         var esFalta = tipo === 'falta_aplicar';
         var esError = tipo === 'error';
@@ -202,11 +121,7 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
         }
         if (wrapErr) {
             wrapErr.classList.toggle('d-none', !esError);
-            if (esError) ecRellenarSelectGastoCorregir();
-            if (!esError) {
-                if (montoCorr) montoCorr.value = '';
-                if (selGasto) selGasto.selectedIndex = 0;
-            }
+            if (!esError && montoCorr) montoCorr.value = '';
         }
     }
 
@@ -222,7 +137,6 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
         if (m) m.value = '';
         var mc = document.getElementById('ecAclaracionesMontoCorregir');
         if (mc) mc.value = '';
-        ecRellenarSelectGastoCorregir();
         ecActualizarVistaTipoAclaraciones();
     }
 
@@ -262,12 +176,6 @@ function guardarAclaracionesGc() {
         }
     }
     if (tipo === 'error') {
-        var idG = (document.getElementById('ecAclaracionesGastoCorregir') || {}).value || '';
-        if (!idG) {
-            if (typeof Swal !== 'undefined') Swal.fire('Atención', 'Seleccione el gasto de cobranza a corregir.', 'warning');
-            else alert('Seleccione el gasto de cobranza a corregir.');
-            return;
-        }
         var mc = parseFloat((document.getElementById('ecAclaracionesMontoCorregir') || {}).value);
         if (!(mc > 0)) {
             if (typeof Swal !== 'undefined') Swal.fire('Atención', 'Indique un monto a corregir mayor a cero.', 'warning');

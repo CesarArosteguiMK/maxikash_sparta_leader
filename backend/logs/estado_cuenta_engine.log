@@ -22619,6 +22619,7 @@
 [2026-03-30 13:24:05] credito=1202936 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-30 13:24:08] credito=676214 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-30 13:24:21] credito=1694410 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
+<<<<<<< HEAD
 [2026-03-30 13:25:52] credito=987737 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-30 13:27:20] credito=239576 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-30 13:27:40] credito=1855183 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
@@ -22648,3 +22649,6 @@
 [2026-03-30 13:41:53] credito=419482 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-30 13:42:17] credito=1502975 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
 [2026-03-30 13:42:20] credito=1811712 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=- env_shadow=-
+=======
+[2026-03-30 13:39:05] credito=646215 engine=v2 shadow=0 ecv2_param=- ecv2shadow_param=- env_v2=1 env_shadow=-
+>>>>>>> 7c02fd8571ef1798a3cf4d872fa493e3d990ddf4
