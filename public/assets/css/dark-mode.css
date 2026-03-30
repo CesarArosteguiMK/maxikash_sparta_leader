@@ -3089,6 +3089,19 @@ body.dark-mode .btn-dictaminar:hover {
     box-shadow: 0 8px 18px rgba(13, 110, 253, 0.35) !important;
 }
 
+body.dark-mode .btn-aclaraciones {
+    background-color: rgba(13, 202, 240, 0.15) !important;
+    border-color: rgba(13, 202, 240, 0.35) !important;
+    color: #6edff8 !important;
+    box-shadow: 0 4px 10px rgba(13, 202, 240, 0.2) !important;
+}
+
+body.dark-mode .btn-aclaraciones:hover {
+    background-color: rgba(13, 202, 240, 0.28) !important;
+    color: #a6e9fa !important;
+    box-shadow: 0 8px 18px rgba(13, 202, 240, 0.35) !important;
+}
+
 /* Título "Resumen general de pagos del cliente" y elementos */
 body.dark-mode .col-xl-8 h5,
 body.dark-mode .col-lg-7 h5 {
@@ -3713,7 +3726,8 @@ body:not(.dark-mode) .avatar-initial.bg-label-danger {
 /* Botones circulares */
 body:not(.dark-mode) .btn-notas,
 body:not(.dark-mode) .btn-condonar,
-body:not(.dark-mode) .btn-dictaminar {
+body:not(.dark-mode) .btn-dictaminar,
+body:not(.dark-mode) .btn-aclaraciones {
     background-color: initial !important;
     border-color: initial !important;
     color: initial !important;

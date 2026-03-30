@@ -30,6 +30,13 @@ class DatabaseMaxiProd
                 ]
             );
         } catch (\PDOException $e) {
+            if (\Core\DatabaseCliSupport::isCli()) {
+                throw new \RuntimeException(
+                    'No se pudo conectar a MySQL (__SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
+                    0,
+                    $e
+                );
+            }
             $this->baseNoDisponible("{$e->getMessage()}\nDatos de conexión: $cadena");
             $this->db = null;
         }

@@ -31,6 +31,7 @@ echo.
 echo === Reanudar ===
 echo Si se corto la corrida, mire el ultimo [n/total] en la consola: use "Omitir primeros N"
 echo con ese n (ej. vio [1216/2779] y termino ahi, ponga N=1216).
+echo Si aparecio "MySQL server has gone away" u "ERROR BD", reanude con N = ultimo OK.
 echo.
 echo === Si pega comandos a CMD usted mismo ===
 echo No pegue cd, set y php en una sola linea sin separador: use varias lineas ^(Enter^) o una linea con
@@ -71,8 +72,10 @@ exit /b 0
 :fecha
 for /f "usebackq delims=" %%a in (`powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"`) do set "DEF_FECHA=%%a"
 set "FECHA=!DEF_FECHA!"
-set /p "FECHA=Fecha de corte YYYY-MM-DD [!DEF_FECHA!]: "
+set /p "FECHA=Fecha YYYY-MM-DD, Enter o hoy [!DEF_FECHA!]: "
 if "!FECHA!"=="" set "FECHA=!DEF_FECHA!"
+if /i "!FECHA!"=="hoy" set "FECHA=!DEF_FECHA!"
+if /i "!FECHA!"=="today" set "FECHA=!DEF_FECHA!"
 goto :eof
 
 :omitir

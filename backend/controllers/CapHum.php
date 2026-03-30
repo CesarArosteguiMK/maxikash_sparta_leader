@@ -855,6 +855,10 @@ class CapHum extends Controller
                 23: 'fa fa-calendar-alt',
                 24: 'fa fa-file-pdf',
                 '24': 'fa fa-file-pdf',
+                29: 'fa fa-id-card',
+                '29': 'fa fa-id-card',
+                30: 'fa fa-balance-scale',
+                '30': 'fa fa-balance-scale',
                 43: 'fa fa-key',
                 '43': 'fa fa-key'
             };

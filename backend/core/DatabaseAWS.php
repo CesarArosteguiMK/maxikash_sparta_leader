@@ -33,6 +33,13 @@ class DatabaseAWS
                 ]
             );
         } catch (\PDOException $e) {
+            if (DatabaseCliSupport::isCli()) {
+                throw new \RuntimeException(
+                    'No se pudo conectar a MySQL (AWS ' . $esquema . '): ' . $e->getMessage(),
+                    0,
+                    $e
+                );
+            }
             $this->baseNoDisponible("{$e->getMessage()}\nDatos de conexión: $cadena");
             $this->db = null;
         }

@@ -576,6 +576,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
    .btn-dictaminar,
    .btn-condonar,
    .btn-notas,
+   .btn-aclaraciones,
    .btn-rastreo-neverpaid {
        display: flex !important;
        visibility: visible !important;
@@ -964,6 +965,33 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
     }
 
     /* ==========================
+   BOTÓN ICONO ACLARACIONES
+   ========================== */
+    .btn-aclaraciones {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #e8f4fc;
+        border: 1px solid #b8dce8;
+        color: #0aa2c0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(10, 162, 192, 0.3);
+        transition: all .25s ease;
+        padding: 0;
+    }
+    .btn-aclaraciones i {
+        font-size: 1.1rem;
+    }
+    .btn-aclaraciones:hover {
+        background: #d0ebf5;
+        color: #088395;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 18px rgba(10, 162, 192, 0.45);
+    }
+
+    /* ==========================
        MODAL DIRECCIONES - Asegurar que se muestre
        ========================== */
     #modalDirecciones {
@@ -1057,12 +1085,12 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
            width: 100%;
        }
 
-       .btn-notas, .btn-condonar, .btn-dictaminar, .btn-rastreo-neverpaid {
+       .btn-notas, .btn-condonar, .btn-dictaminar, .btn-aclaraciones, .btn-rastreo-neverpaid {
            width: 36px !important;
            height: 36px !important;
        }
 
-       .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-rastreo-neverpaid i {
+       .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-aclaraciones i, .btn-rastreo-neverpaid i {
            font-size: 0.9rem !important;
        }
 
@@ -1574,6 +1602,15 @@ body:not(.dark-mode) .btn-rastreo-neverpaid:hover {
     background: #ffe8cc !important;
     color: #c2410c !important;
 }
+body:not(.dark-mode) .btn-aclaraciones {
+    background: #e8f4fc !important;
+    border: 1px solid #b8dce8 !important;
+    color: #0aa2c0 !important;
+}
+body:not(.dark-mode) .btn-aclaraciones:hover {
+    background: #d0ebf5 !important;
+    color: #088395 !important;
+}
 html.dark-mode .btn-rastreo-neverpaid,
 body.dark-mode .btn-rastreo-neverpaid {
     background: rgba(251, 146, 60, 0.18) !important;
@@ -2033,6 +2070,16 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                             onclick='abrirRastreoNeverPaidModalEc(<?= json_encode((string)($dataEstadoCuenta['idCredito'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE) ?>)'>
                         <i class="fa fa-id-card" aria-hidden="true"></i>
                     </button>
+                <?php endif; ?>
+
+                <?php if (!empty($tienePermisoAclaracionesGc) && !empty($dataEstadoCuenta['idCredito'])): ?>
+                <button type="button"
+                        class="btn btn-aclaraciones position-relative"
+                        title="Aclaraciones"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalAclaracionesGc">
+                    <i class="fa fa-balance-scale" aria-hidden="true"></i>
+                </button>
                 <?php endif; ?>
 
                 <!-- Dictaminar, condonar y notas: visibles para todos; el backend valida permisos en cada acción. -->
@@ -2562,9 +2609,13 @@ if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
     $__ecJsonFlags |= JSON_INVALID_UTF8_SUBSTITUTE;
 }
 $__gastosJson = json_encode($gastosCobranzaPreload ?? [], $__ecJsonFlags);
+$__gastosAclaracionesJson = json_encode($gastosCobranzaAclaracionesPreload ?? [], $__ecJsonFlags);
 $__histJson = json_encode($historialGastosPreload ?? [], $__ecJsonFlags);
 if ($__gastosJson === false) {
     $__gastosJson = '[]';
+}
+if ($__gastosAclaracionesJson === false) {
+    $__gastosAclaracionesJson = '[]';
 }
 if ($__histJson === false) {
     $__histJson = '[]';
@@ -2576,6 +2627,7 @@ if ($__dictamenContactoJson === false) {
 }
 ?>
 <script type="application/json" id="ec-gastos-cobranza-preload"><?= $__gastosJson ?></script>
+<script type="application/json" id="ec-gastos-cobranza-aclaraciones-preload"><?= $__gastosAclaracionesJson ?></script>
 <script type="application/json" id="ec-historial-gastos-preload"><?= $__histJson ?></script>
 <script type="application/json" id="ec-dictamen-contacto-preload"><?= $__dictamenContactoJson ?></script>
 
@@ -2881,7 +2933,9 @@ if ($__dictamenContactoJson === false) {
     </div>
 </div>
 
-
+<?php if (!empty($tienePermisoAclaracionesGc)): ?>
+<?php require __DIR__ . '/partials/__SPARTA_SECRET_REDACTED___modal_aclaraciones_gc.php'; ?>
+<?php endif; ?>
 
 <div class="modal fade" id="modalNotas" tabindex="-1" aria-labelledby="modalNotasLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">

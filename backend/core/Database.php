@@ -31,6 +31,13 @@ class Database
                 ]
             );
         } catch (\PDOException $e) {
+            if (DatabaseCliSupport::isCli()) {
+                throw new \RuntimeException(
+                    'No se pudo conectar a MySQL (__SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
+                    0,
+                    $e
+                );
+            }
             $this->baseNoDisponible();
             $this->db = null;
         }

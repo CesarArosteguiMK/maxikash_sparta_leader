@@ -1010,6 +1010,109 @@ public static function getGastosCobranza($idCredito)
     }
 }
 
+/**
+ * Gastos de cobranza para selector de aclaraciones (error): incluye ya pagados/aplicados (estatus_pago = 2).
+ * getGastosCobranza() los excluye porque el modal de condonar solo muestra pendientes.
+ */
+public static function getGastosCobranzaParaAclaraciones($idCredito)
+{
+    $query = "
+    SELECT
+        id_gastos_cobranza,
+        SEMANA,
+        periodo_inicio,
+        periodo_fin,
+        monto_valor,
+        COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
+        condonacion_parcial_motivo,
+        cuota,
+        parcialidad,
+        Fecha_primer_vencimiento,
+        COALESCE(estatus_pago, 0)          AS estatus_pago,
+        COALESCE(monto_parcial_pagado, 0)  AS monto_parcial_pagado
+    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+    WHERE Id_credito = :id_credito
+      AND (condonado IS NULL OR condonado = 0)
+    ORDER BY periodo_inicio ASC
+    ";
+
+    try {
+        $db = new DatabaseSegundometro();
+        $r = $db->queryAll($query, ['id_credito' => $idCredito]);
+    } catch (\Exception $e) {
+        $queryFallback = "
+        SELECT
+            id_gastos_cobranza,
+            SEMANA,
+            periodo_inicio,
+            periodo_fin,
+            monto_valor,
+            cuota,
+            parcialidad,
+            Fecha_primer_vencimiento
+        FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+        WHERE Id_credito = :id_credito
+          AND (condonado IS NULL OR condonado = 0)
+        ORDER BY periodo_inicio ASC
+        ";
+        try {
+            $db = new DatabaseSegundometro();
+            $r = $db->queryAll($queryFallback, ['id_credito' => $idCredito]);
+            foreach ($r as $i => $row) {
+                $r[$i]['condonacion_parcial_monto']  = 0;
+                $r[$i]['condonacion_parcial_motivo'] = '';
+                $r[$i]['estatus_pago']               = 0;
+                $r[$i]['monto_parcial_pagado']        = 0;
+            }
+        } catch (\Exception $e2) {
+            return self::resultado(
+                false,
+                'Error al consultar gastos de cobranza (aclaraciones)',
+                [],
+                $e2->getMessage()
+            );
+        }
+    }
+
+    try {
+        $datos = array_map(function ($row) {
+
+            $montoValor         = (float) $row['monto_valor'];
+            $parcialMonto       = (float) ($row['condonacion_parcial_monto'] ?? 0);
+            $montoParcialPagado = (float) ($row['monto_parcial_pagado'] ?? 0);
+            $estatusPago        = (int) ($row['estatus_pago'] ?? 0);
+
+            $montoEfectivo = round(max(0, $montoValor - $parcialMonto - $montoParcialPagado), 2);
+
+            return [
+                'id_gasto'                   => (int) $row['id_gastos_cobranza'],
+                'semana'                     => $row['SEMANA'],
+                'periodo'                    => date('d/m/Y', strtotime($row['periodo_inicio'])) .
+                                               ' - ' .
+                                               date('d/m/Y', strtotime($row['periodo_fin'])),
+                'monto'                      => $montoEfectivo,
+                'monto_original'             => $montoValor,
+                'monto_parcial_pagado'       => $montoParcialPagado,
+                'condonacion_parcial_monto'  => $parcialMonto,
+                'condonacion_parcial_motivo' => $row['condonacion_parcial_motivo'] ?? '',
+                'cuota'                      => (float) $row['cuota'],
+                'parcialidad'                => (int) $row['parcialidad'],
+                'estatus_pago'               => $estatusPago,
+                'tiene_pago_parcial'         => ($estatusPago === 1 && $montoParcialPagado > 0),
+            ];
+        }, $r);
+
+        return self::resultado(true, 'Gastos de cobranza (aclaraciones)', $datos);
+    } catch (\Exception $e) {
+        return self::resultado(
+            false,
+            'Error al consultar gastos de cobranza (aclaraciones)',
+            [],
+            $e->getMessage()
+        );
+    }
+}
+
 public static function getGastosTodosConEstatus($idCredito)
 {
     $query = "

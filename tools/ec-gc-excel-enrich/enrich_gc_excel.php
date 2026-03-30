@@ -2,8 +2,9 @@
 /**
  * Añade al Excel dos columnas calculadas desde la API S2 (estado de cuenta):
  *
- * 1) SOBRE COBRO GC: por cada nota "NOTA DE DE CARGO GASTOS DE COBRANZA" en datosNotasCargos,
- *    se asume tope $250 por nota; el exceso es max(0, suma(montos) − 250 × número de notas GC).
+ * 1) SOBRE COBRO GC: si el libro tiene columna «SALDO APLICABLE A GC» y en esa fila el valor es ≤ tope ($250),
+ *    el exceso es 0 (aunque en S2 haya notas GC que sumen más). Si ese saldo es > tope, el exceso sigue siendo
+ *    max(0, suma(montos notas GC en S2) − tope × número de notas GC). Sin columna de saldo aplicable, solo la fórmula S2.
  *
  * 2) SOBRANTE (EXT.): solo si saldoVencidoExtemporaneos > 0 (hay “deuda” vencida en extemporáneos).
  *    Entonces: suma de extemporáneos de datosPagos en la última fecha (fechaValor) en que hubo pago
@@ -319,7 +320,12 @@ for ($r = $headerRow + 1; $r <= $maxRow; $r++) {
                     fwrite(STDERR, "[{$idCredito}] ERROR BD (Excel sí se calcula): " . $e->getMessage() . "\n");
                 }
             }
-            [$exceso, $sobrante] = calcularMetricasGc($ec, $topeGc);
+            $saldoApFila = null;
+            if ($colSaldoAplicable !== null) {
+                $coordSaldo = Coordinate::stringFromColumnIndex($colSaldoAplicable) . $r;
+                $saldoApFila = parseMontoSaldoAplicableCelda($sheet->getCell($coordSaldo)->getCalculatedValue());
+            }
+            [$exceso, $sobrante] = calcularMetricasGc($ec, $topeGc, $saldoApFila);
             $sheet->setCellValue($letra1 . $r, $exceso);
             $sheet->setCellValue($letra2 . $r, $sobrante);
             echo "OK\n";
@@ -460,9 +466,37 @@ function contarCreditosValidosEnHoja(
 }
 
 /**
+ * Monto de la celda «SALDO APLICABLE A GC» (número o texto con $ / comas).
+ */
+function parseMontoSaldoAplicableCelda(mixed $raw): ?float
+{
+    if ($raw === null || $raw === '') {
+        return null;
+    }
+    if (is_numeric($raw)) {
+        $v = round((float) $raw, 2);
+
+        return $v >= 0 ? $v : null;
+    }
+    $s = trim((string) $raw);
+    $s = str_replace(['$', ' ', "\xc2\xa0"], '', $s);
+    if ($s === '') {
+        return null;
+    }
+    $s = str_replace(',', '', $s);
+    if ($s === '' || !is_numeric($s)) {
+        return null;
+    }
+    $v = round((float) $s, 2);
+
+    return $v >= 0 ? $v : null;
+}
+
+/**
+ * @param ?float $saldoAplicableGc valor de la columna Excel «SALDO APLICABLE A GC» en la misma fila; null si no hay columna o celda vacía
  * @return array{0: float, 1: float} exceso sobre tope, sobrante extemporáneo
  */
-function calcularMetricasGc(array $estadoCuenta, float $topePorNota): array
+function calcularMetricasGc(array $estadoCuenta, float $topePorNota, ?float $saldoAplicableGc = null): array
 {
     $notas = $estadoCuenta['datosNotasCargos'] ?? [];
     if (!is_array($notas)) {
@@ -488,6 +522,10 @@ function calcularMetricasGc(array $estadoCuenta, float $topePorNota): array
         $exceso = 0.0;
     }
     $exceso = round($exceso, 2);
+
+    if ($saldoAplicableGc !== null && $saldoAplicableGc <= $topePorNota) {
+        $exceso = 0.0;
+    }
 
     $sobrante = calcularSobrantePagoExtMenosVencExt($estadoCuenta);
 

@@ -578,7 +578,7 @@ console.groupEnd();
         opacity: 1 !important;
     }
 
-    .btn-dictaminar, .btn-condonar, .btn-notas, .btn-rastreo-neverpaid {
+    .btn-dictaminar, .btn-condonar, .btn-notas, .btn-aclaraciones, .btn-rastreo-neverpaid {
         display: flex !important;
         visibility: visible !important;
     }
@@ -701,6 +701,10 @@ console.groupEnd();
     .btn-rastreo-neverpaid i { font-size: 1.1rem; }
     .btn-rastreo-neverpaid:hover { background: #ffe8cc; color: #c2410c; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(232, 89, 12, 0.45); }
 
+    .btn-aclaraciones { width: 42px; height: 42px; border-radius: 50%; background: #e8f4fc; border: 1px solid #b8dce8; color: #0aa2c0; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(10, 162, 192, 0.3); transition: all .25s ease; padding: 0; }
+    .btn-aclaraciones i { font-size: 1.1rem; }
+    .btn-aclaraciones:hover { background: #d0ebf5; color: #088395; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(10, 162, 192, 0.45); }
+
     #modalDirecciones { z-index: 1090 !important; }
     #modalDirecciones .modal-dialog { z-index: 1091 !important; margin: 1.75rem auto !important; }
     .modal-backdrop.show { opacity: 0.5 !important; background: rgba(0, 0, 0, 0.5) !important; }
@@ -721,8 +725,8 @@ console.groupEnd();
         .badge-container-ids .badge { font-size: 0.65rem !important; padding: 0.35em 0.5em !important; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 { flex-direction: column; align-items: flex-start; margin-bottom: 0.75rem !important; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 { font-size: 0.85rem; margin-bottom: 0.5rem; width: 100%; }
-        .btn-notas, .btn-condonar, .btn-dictaminar, .btn-rastreo-neverpaid { width: 36px !important; height: 36px !important; }
-        .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-rastreo-neverpaid i { font-size: 0.9rem !important; }
+        .btn-notas, .btn-condonar, .btn-dictaminar, .btn-aclaraciones, .btn-rastreo-neverpaid { width: 36px !important; height: 36px !important; }
+        .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-aclaraciones i, .btn-rastreo-neverpaid i { font-size: 0.9rem !important; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { flex: 1 1 calc(50% - 0.5rem); margin-bottom: 0.5rem; gap: 0.5rem; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 { font-size: 0.8rem; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span { font-size: 0.7rem; }
@@ -823,6 +827,8 @@ body:not(.dark-mode) .btn-notas { background: #fff3cd !important; border: 1px so
 body:not(.dark-mode) .btn-notas:hover { background: #ffe69c !important; color: #d39e00 !important; }
 body:not(.dark-mode) .btn-rastreo-neverpaid { background: #fff4e6 !important; border: 1px solid #ffd8a8 !important; color: #e8590c !important; }
 body:not(.dark-mode) .btn-rastreo-neverpaid:hover { background: #ffe8cc !important; color: #c2410c !important; }
+body:not(.dark-mode) .btn-aclaraciones { background: #e8f4fc !important; border: 1px solid #b8dce8 !important; color: #0aa2c0 !important; }
+body:not(.dark-mode) .btn-aclaraciones:hover { background: #d0ebf5 !important; color: #088395 !important; }
 html.dark-mode .btn-rastreo-neverpaid,
 body.dark-mode .btn-rastreo-neverpaid { background: rgba(251, 146, 60, 0.18) !important; border: 1px solid rgba(251, 146, 60, 0.4) !important; color: #fdba74 !important; }
 html.dark-mode .btn-rastreo-neverpaid:hover,
@@ -1262,6 +1268,15 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             onclick='abrirRastreoNeverPaidModalEc(<?= json_encode((string)($dataEstadoCuenta['idCredito'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE) ?>)'>
                         <i class="fa fa-id-card" aria-hidden="true"></i>
                     </button>
+                <?php endif; ?>
+
+                <?php if (!empty($tienePermisoAclaracionesGc) && !empty($dataEstadoCuenta['idCredito'])): ?>
+                <button type="button" class="btn btn-aclaraciones position-relative"
+                        title="Aclaraciones"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalAclaracionesGc">
+                    <i class="fa fa-balance-scale" aria-hidden="true"></i>
+                </button>
                 <?php endif; ?>
 
                 <!-- Dictaminar, condonar y notas: visibles para todos; el backend valida permisos en cada acción. -->
@@ -1872,6 +1887,10 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
         </div>
     </div>
 </div>
+
+<?php if (!empty($tienePermisoAclaracionesGc)): ?>
+<?php require __DIR__ . '/partials/__SPARTA_SECRET_REDACTED___modal_aclaraciones_gc.php'; ?>
+<?php endif; ?>
 
 <!-- Modal Notas -->
 <div class="modal fade" id="modalNotas" tabindex="-1" aria-labelledby="modalNotasLabel" aria-hidden="true">

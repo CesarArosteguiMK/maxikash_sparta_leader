@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Core\EstadoCuentaTimingLog;
 use Models\Empresa as EmpresasDAO;
 use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Login as LoginDAO;
@@ -1416,6 +1417,9 @@ class EstadoCuenta extends Controller
         // Mismo permiso especial que el antiguo acceso «Never paid» (módulo 29).
         $tienePermisoRastreoNeverPaid = ($idUsuario === 1) || in_array(29, $modsSesionConsulta, true);
         self::set('tienePermisoRastreoNeverPaid', $tienePermisoRastreoNeverPaid);
+        // Permiso especial Aclaraciones GC (modulos_web id 30, categoría Permisos especiales).
+        $tienePermisoAclaracionesGc = ($idUsuario === 1) || in_array(30, $modsSesionConsulta, true);
+        self::set('tienePermisoAclaracionesGc', $tienePermisoAclaracionesGc);
         $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
         $tienePermisoFechaCorte = in_array(23, $modulosActuales);
         // --- JS COMPLETO EN EL CONTROLADOR ---
@@ -1678,6 +1682,7 @@ JS;
 
             // Validación cruzada MX -> GT: si no existe en México, verificar Guatemala para mostrar alerta amigable.
             $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
+            EstadoCuentaTimingLog::start((string) ($idConsultado ?? ''));
             if (!empty($idConsultado)) {
                 $referenciasMxPrevias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idConsultado);
                 if (empty($referenciasMxPrevias['datos'])) {
@@ -1692,28 +1697,37 @@ JS;
                             'html' => "<div style='text-align:center;'><div style='margin-bottom:12px;'><span class='fi fi-gt fis' style='font-size:2.8rem;'></span></div><p style='margin:0; font-size:14px; color:#666;'>El crédito ingresado pertenece a Guatemala. Consulta este ID en Estado de Cuenta Guatemala.</p></div>",
                             'confirmButtonText' => 'Entendido'
                         ]);
+                        EstadoCuentaTimingLog::finish('out_guatemala');
                         return self::render("__SPARTA_SECRET_REDACTED___consulta");
                     }
                 }
             }
+            EstadoCuentaTimingLog::mark('precheck_mx_gt');
 
             if($nombre != null && $idCreditoLista != null)
             {
                 $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoLista, $fechaHoy);
+                EstadoCuentaTimingLog::mark('api___SPARTA_SECRET_REDACTED__');
                 $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoLista);
+                EstadoCuentaTimingLog::mark('dao_direccion');
                 $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
+                EstadoCuentaTimingLog::mark('dao_referencias');
                 $notas = EmpresasDAO::getNotasNum($idCreditoLista);
+                EstadoCuentaTimingLog::mark('dao_notas');
             }
             else
             {
                 $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
+                EstadoCuentaTimingLog::mark('api___SPARTA_SECRET_REDACTED__');
                 $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
+                EstadoCuentaTimingLog::mark('dao_direccion');
                 $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
+                EstadoCuentaTimingLog::mark('dao_referencias');
                 $notas = EmpresasDAO::getNotasNum($idCredito);
+                EstadoCuentaTimingLog::mark('dao_notas');
             }
 
             // Registrar en auditoría: usuario (email), crédito, fecha de corte, éxito/error
-            $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
             $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
             EstadoCuentaDAO::registrarAuditoria(
                 $usuarioEmail,
@@ -1722,6 +1736,7 @@ JS;
                 !empty($resultado['ok']) ? 1 : 0,
                 isset($resultado['error']) ? $resultado['error'] : null
             );
+            EstadoCuentaTimingLog::mark('auditoria');
 
             //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
             //$resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, "2025-12-04");
@@ -1792,6 +1807,7 @@ JS;
                 $idCreditoDebug = (int) $idConsultado;
                 $this->registrarDiferenciasPagosListMotores($idCreditoDebug, $pagosLegacy, $pagosV2);
             }
+            EstadoCuentaTimingLog::mark('preparar_pagos_list');
 
             $tabla = [];
 
@@ -1959,9 +1975,11 @@ self::set("resultadoCruce", $resultadoCruce);
 
 // ── Precargar gastos de cobranza para la vista (evita fetch al abrir modal) ──
 $gastosCobranzaPreload  = EstadoCuentaDAO::getGastosCobranza($idConsultado);
+$gastosAclaracionesPreload = EstadoCuentaDAO::getGastosCobranzaParaAclaraciones($idConsultado);
 $historialGastosPreload = EstadoCuentaDAO::getHistorialGastosCobranza($idConsultado);
 
 self::set('gastosCobranzaPreload',  $gastosCobranzaPreload['datos']  ?? []);
+self::set('gastosCobranzaAclaracionesPreload', $gastosAclaracionesPreload['datos'] ?? []);
 self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
 
             if (is_array($listaNotasCargos) && count($listaNotasCargos) > 0) {
@@ -2544,6 +2562,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
             $this->reubicarPagosRealesFueraDeFilasConExtemporaneo($tabla);
             $this->ordenarAplicadosExtemporaneosAntesDeLegitimos($tabla);
             $this->recalcularTotalesTablaEstadoCuenta($tabla);
+            EstadoCuentaTimingLog::mark('tabla_post_procesos');
 
             if (
                 !isset($resultado['data']['idCredito']) ||
@@ -2559,6 +2578,7 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("tipoDisplayCargoPorFecha", []);
                 self::set("hayNotasCargos", false);
                 self::set('dictamenContactoPreload', ['id_credito' => 0, 'opciones' => []]);
+                EstadoCuentaTimingLog::finish('sin_id_credito_resultado');
                 return self::render("__SPARTA_SECRET_REDACTED___request");
             }
             if (empty($resultado["data"]["idCredito"])) {
@@ -2572,12 +2592,13 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 self::set("tipoDisplayCargoPorFecha", []);
                 self::set("hayNotasCargos", false);
                 self::set('dictamenContactoPreload', ['id_credito' => 0, 'opciones' => []]);
-
+                EstadoCuentaTimingLog::finish('sin_id_credito_vacio');
                 return self::render("__SPARTA_SECRET_REDACTED___request");
 
             } else {
 
                 $gestionExternaMx = EstadoCuentaDAO::getDatosGestionExternaCredito((int) $idConsultado);
+                EstadoCuentaTimingLog::mark('dao_gestion_externa_mx');
                 self::set('esGestionExternaMx', $gestionExternaMx['activa']);
                 self::set('gestionExternaEtiquetaCelula', $gestionExternaMx['etiqueta_celula']);
 
@@ -2601,12 +2622,13 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                         $celDictamenPreload
                     ),
                 ]);
+                EstadoCuentaTimingLog::mark('dictamen_preload');
                 self::set("titulo", "Resultado de la solicitud");
                 $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
                 $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
                 self::set("script", $this->appendRastreoSabuesoScriptSiAplica($scriptConPermiso, $tienePermisoRastreoNeverPaid));
                 self::set("tabla", $tabla);
-
+                EstadoCuentaTimingLog::finish('render_ok');
                 return self::render("__SPARTA_SECRET_REDACTED___request");
             }
 
@@ -6367,6 +6389,8 @@ public function Guatemala()
                 $modsSesionGt = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
                 $tienePermisoRastreoNeverPaidGt = ($idUsuarioGt === 1) || in_array(29, $modsSesionGt, true);
                 self::set('tienePermisoRastreoNeverPaid', $tienePermisoRastreoNeverPaidGt);
+                $tienePermisoAclaracionesGcGt = ($idUsuarioGt === 1) || in_array(30, $modsSesionGt, true);
+                self::set('tienePermisoAclaracionesGc', $tienePermisoAclaracionesGcGt);
 
                 self::set("titulo", "Estado de Cuenta - Guatemala");
                 self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);

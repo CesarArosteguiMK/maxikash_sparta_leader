@@ -31,8 +31,9 @@ backend/BD/geo_ssl_*.pem
 public/test_geo_ssl.php
 
 # ========== Medios temporales y logs ==========
-# Logs de runtime (EstadoCuenta engine, etc.) — no versionar; evita conflictos en merge
-backend/logs/*.log
+# Toda la carpeta de logs del backend + cualquier .log en el repo (runtime / timing)
+backend/logs/
+*.log
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
 backend/storage/logs/
@@ -74,4 +75,3 @@ backend/services/segundometro-agent/keys/**
 
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/
-backend/logs/__SPARTA_SECRET_REDACTED___engine.log
