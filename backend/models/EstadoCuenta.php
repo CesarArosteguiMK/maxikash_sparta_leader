@@ -1012,8 +1012,9 @@ public static function getGastosCobranza($idCredito)
 
 /**
  * Inserta registro de aclaración GC en cobranza_gc_verificacion_semana (__SPARTA_SECRET_REDACTED__).
- * Requiere columnas: nombre, tipo_reporte, monto_aplicar, estatus, celula (además de las base).
+ * Requiere columnas: nombre, tipo_reporte, monto_aplicar, estatus (TINYINT), celula (además de las base).
  * tipo_reporte: error | falta_aplicar.
+ * estatus: códigos numéricos; 3 = reportado por call center (estado de cuenta).
  * monto_aplicar: positivo si falta_aplicar; negativo si error (monto a corregir).
  * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
  * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
@@ -1041,12 +1042,9 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         $nombre = mb_substr($nombre, 0, 255);
     }
     $mensaje = trim((string) ($p['mensaje'] ?? ''));
-    $estatus = trim((string) ($p['estatus'] ?? 'pendiente'));
-    if ($estatus === '') {
-        $estatus = 'pendiente';
-    }
-    if (mb_strlen($estatus) > 64) {
-        $estatus = mb_substr($estatus, 0, 64);
+    $estatus = (int) ($p['estatus'] ?? 3);
+    if ($estatus < 0 || $estatus > 255) {
+        return self::resultado(false, 'Estatus inválido', [], 'estatus');
     }
     $celula = $p['celula'];
     if ($celula !== null && $celula !== '') {
