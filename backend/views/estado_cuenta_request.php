@@ -2609,13 +2609,9 @@ if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
     $__ecJsonFlags |= JSON_INVALID_UTF8_SUBSTITUTE;
 }
 $__gastosJson = json_encode($gastosCobranzaPreload ?? [], $__ecJsonFlags);
-$__gastosAclaracionesJson = json_encode($gastosCobranzaAclaracionesPreload ?? [], $__ecJsonFlags);
 $__histJson = json_encode($historialGastosPreload ?? [], $__ecJsonFlags);
 if ($__gastosJson === false) {
     $__gastosJson = '[]';
-}
-if ($__gastosAclaracionesJson === false) {
-    $__gastosAclaracionesJson = '[]';
 }
 if ($__histJson === false) {
     $__histJson = '[]';
@@ -2627,7 +2623,6 @@ if ($__dictamenContactoJson === false) {
 }
 ?>
 <script type="application/json" id="ec-gastos-cobranza-preload"><?= $__gastosJson ?></script>
-<script type="application/json" id="ec-gastos-cobranza-aclaraciones-preload"><?= $__gastosAclaracionesJson ?></script>
 <script type="application/json" id="ec-historial-gastos-preload"><?= $__histJson ?></script>
 <script type="application/json" id="ec-dictamen-contacto-preload"><?= $__dictamenContactoJson ?></script>
 
