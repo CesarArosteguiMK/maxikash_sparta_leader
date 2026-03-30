@@ -76,7 +76,21 @@ spl_autoload_register(function ($archivo) {
         return;
     }
     $archivo = str_replace('\\', '/', $archivo);
-    $ruta = RAIZ . "/$archivo.php";
+    // Linux distingue mayúsculas: carpetas reales son models/, controllers/, core/, etc.
+    // Sin esto, Models\Foo buscaba backend/Models/Foo.php y fallaba fuera de Windows.
+    $parts = explode('/', $archivo, 2);
+    $top = $parts[0];
+    $tail = $parts[1] ?? '';
+    static $dirMap = [
+        'Models' => 'models',
+        'Controllers' => 'controllers',
+        'Core' => 'core',
+        'Libs' => 'libs',
+        'Services' => 'services',
+    ];
+    $dir = $dirMap[$top] ?? strtolower($top);
+    $rel = $tail !== '' ? $dir . '/' . $tail : $dir;
+    $ruta = RAIZ . '/' . $rel . '.php';
 
     if (!file_exists($ruta)) {
         throw new Exception("Autoload no encontró: $ruta");

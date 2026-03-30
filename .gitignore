@@ -33,7 +33,9 @@ public/test_geo_ssl.php
 # ========== Medios temporales y logs ==========
 # Toda la carpeta de logs del backend + cualquier .log en el repo (runtime / timing)
 backend/logs/
+backend/API/logs/
 *.log
+**/*.log
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
 backend/storage/logs/
