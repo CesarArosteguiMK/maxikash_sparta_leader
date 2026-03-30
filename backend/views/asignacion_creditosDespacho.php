@@ -942,6 +942,7 @@
                     <th>ID Crédito</th>
                     <th>Estado</th>
                     <th>Fecha Asignación</th>
+                    <th>Fecha Desasignación</th>
                     <th>Asignado Por</th>
                     <th>Acciones</th>
                 </tr>
@@ -1598,22 +1599,37 @@ function agregarCreditoAlStack(credito, asignacion) {
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start">
                 <div class="flex-grow-1" style="font-size: 0.875rem;">
-                    <div class="d-flex align-items-center mb-1">
-                        <strong class="me-2">ID CREDITO ${credito.id_credito}</strong>
-                        <span class="badge bg-warning">${credito.dias_mora || 0} días</span>
-                    </div>
+                    <div class="d-flex align-items-center mb-1 flex-wrap gap-2">
+    <strong class="me-2">ID CREDITO ${credito.id_credito}</strong>
+    <span class="badge bg-warning">${credito.dias_mora || 0} días</span>
+    ${esActivo ? `<span class="badge" style="background:#1a7abf; color:#ffffff; font-weight:500;">
+    <i class="fa-solid fa-user-tie me-1" style="font-size:0.7rem;"></i>Asignado a ${asignacion.nombre_despacho}
+</span>` : ''}
+</div>
                     <div class="mb-1"><strong>Nombre:</strong> ${credito.nombre_cliente}</div>
                     <div class="mb-1"><strong>Dirección:</strong> <span class="text-muted">${credito.direccion || 'Sin dirección'}</span></div>
                     <div><strong>Saldo:</strong> <span class="text-danger fw-bold">${formatearMoneda(credito.saldo_actual || 0)}</span></div>
                 </div>
-                <div class="d-flex flex-column gap-2 ms-3">
-                    <button class="btn btn-gradient-success btn-sm" onclick="asignarCreditoDelStack('${credito.id_credito}')" title="Asignar crédito">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                    <button class="btn btn-gradient-danger btn-sm" onclick="descartarCredito('${credito.id_credito}')" title="Descartar">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
-                </div>
+
+
+<div class="d-flex flex-column gap-2 ms-3">
+   ${!esActivo ? `
+<button class="btn btn-gradient-success btn-sm" onclick="asignarCreditoDelStack('${credito.id_credito}')" title="Asignar crédito">
+    <i class="fa-solid fa-check me-1"></i>Asignar
+</button>` : ''}
+${esActivo ? `
+<button class="btn btn-sm" onclick="desasignarCreditoDelStack('${credito.id_credito}')"
+        title="Desasignar (liberar para otro despacho)"
+        style="background:linear-gradient(135deg,#fd7e14 0%,#ffc107 100%); border:none; color:white;">
+    <i class="fa-solid fa-link-slash me-1"></i>Desasignar
+</button>` : ''}
+<button class="btn btn-gradient-danger btn-sm" onclick="descartarCredito('${credito.id_credito}')" title="Descartar">
+    <i class="fa-solid fa-times me-1"></i>Descartar
+</button>
+
+
+
+</div>
             </div>
             ${asignacionHTML}
         </div>
@@ -1621,6 +1637,80 @@ function agregarCreditoAlStack(credito, asignacion) {
 
     // Insertar al inicio del stack
     stack.insertBefore(card, stack.firstChild);
+}
+
+
+// Función para desasignar crédito desde el stack (liberar para otro despacho)
+function desasignarCreditoDelStack(idCredito) {
+    Swal.fire({
+        title: '¿Desasignar crédito?',
+        html: `El crédito <strong>${idCredito}</strong> quedará libre para ser asignado a otro despacho.<br>
+               <small class="text-muted">El historial de asignación se conserva.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#fd7e14',
+        confirmButtonText: 'Sí, desasignar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        Swal.fire({
+            title: 'Desasignando...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        fetch('/despachos/desasignarCredito', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_credito: idCredito })
+        })
+        .then(r => r.json())
+        .then(data => {
+            Swal.close();
+            if (data.success) {
+                Swal.fire({
+                    title: 'Desasignado',
+                    text: `El crédito ${idCredito} fue liberado correctamente`,
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+
+                // Refrescar la card en el stack con datos actualizados del servidor
+                fetch('/despachos/buscarCredito', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tipo: 'id_credito', valor: String(idCredito) })
+                })
+                .then(r => r.json())
+                .then(fresh => {
+                    if (fresh.success) {
+                        // Actualizar array
+                        creditosEncontrados = creditosEncontrados.map(item =>
+                            String(item.credito.id_credito) === String(idCredito)
+                                ? { credito: fresh.credito, asignacion: fresh.asignacion }
+                                : item
+                        );
+                        // Redibujar card
+                        const cardVieja = document.getElementById(`credit-${idCredito}`);
+                        if (cardVieja) cardVieja.remove();
+                        agregarCreditoAlStack(fresh.credito, fresh.asignacion);
+                    }
+                });
+
+                // Refrescar tabla de créditos asignados
+                if (despachoSeleccionado) cargarCreditosAsignados(despachoSeleccionado);
+
+            } else {
+                Swal.fire('Error', data.message || 'No se pudo desasignar el crédito', 'error');
+            }
+        })
+        .catch(() => {
+            Swal.close();
+            Swal.fire('Error', 'Error de conexión al desasignar el crédito', 'error');
+        });
+    });
 }
 
 // Función para descartar crédito del stack
@@ -1799,39 +1889,69 @@ function cargarCreditosAsignados(idPersona) {
                             { data: 0, title: 'ID Crédito' },
                             { data: 1, title: 'Estado' },
                             { data: 2, title: 'Fecha Asignación' },
-                            { data: 3, title: 'Asignado Por' },
-                            { data: 4, title: 'Acciones', orderable: false }
+                            { data: 3, title: 'Fecha Desasignación' },
+                            { data: 4, title: 'Asignado Por' },
+                            { data: 5, title: 'Acciones', orderable: false }
                         ]
                     });
                 }
 
                 // Formatear datos para DataTable (arrays)
                 const datosFormateados = data.creditos.map(credito => {
-                    const esActivo = credito.estado === '1' || credito.estado === 1 || credito.estado === 'Activo';
-                    const estadoBadge = esActivo ? 'bg-success' : 'bg-secondary';
-                    const estadoTexto = esActivo ? 'Activo' : 'Inactivo';
 
-                    // Switch toggle visual
-                    const switchEstatus = `
-                        <div class="form-check form-switch d-flex justify-content-center align-items-center" style="gap:0.5rem;">
-                            <input class="form-check-input switch-credito" type="checkbox"
-                                   id="switch-${credito.id_credito}"
-                                   data-credito="${credito.id_credito}"
-                                   ${esActivo ? 'checked' : ''}
-                                   style="cursor: pointer; width: 2.5rem; height: 1.25rem;">
-                            <button class="btn btn-outline-primary btn-sm btn-seguimiento" title="Seguimiento" data-credito="${credito.id_credito}">
-                                <i class="fa-solid fa-arrow-right"></i>
-                            </button>
-                        </div>`;
+    const esDesasignado = credito.baja !== null && credito.baja !== undefined && credito.baja !== '';
+    const esActivo      = !esDesasignado && (credito.estado === '1' || credito.estado === 1);
 
-                    return [
-                        `<strong>${credito.id_credito}</strong>`,
-                        `<span class="badge ${estadoBadge}">${estadoTexto}</span>`,
-                        credito.fecha_asignacion,
-                        credito.asignado_por || 'Sistema',
-                        switchEstatus
-                    ];
-                });
+    // Badge de estado
+    let estadoBadge;
+    if (esDesasignado) {
+        estadoBadge = `<span class="badge bg-danger">Desasignado</span>`;
+    } else if (esActivo) {
+        estadoBadge = `<span class="badge bg-success">Activo</span>`;
+    } else {
+        estadoBadge = `<span class="badge bg-secondary">Inactivo</span>`;
+    }
+
+    // Fecha desasignación
+    const fechaDesasignacion = esDesasignado
+        ? `<span class="text-danger" style="font-size:0.8rem;">${credito.fecha_desasignacion || '—'}</span>`
+        : `<span class="text-muted">—</span>`;
+
+    // Columna acciones: sin switch si está desasignado
+    let accionesHTML;
+    if (esDesasignado) {
+        // Solo flecha, sin switch
+        accionesHTML = `
+            <div class="d-flex justify-content-center align-items-center">
+                <button class="btn btn-outline-primary btn-sm btn-seguimiento"
+                        title="Ver historial" data-credito="${credito.id_credito}">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>`;
+    } else {
+        accionesHTML = `
+            <div class="form-check form-switch d-flex justify-content-center align-items-center" style="gap:0.5rem;">
+                <input class="form-check-input switch-credito" type="checkbox"
+                       id="switch-${credito.id_credito}"
+                       data-credito="${credito.id_credito}"
+                       ${esActivo ? 'checked' : ''}
+                       style="cursor:pointer; width:2.5rem; height:1.25rem;">
+                <button class="btn btn-outline-primary btn-sm btn-seguimiento"
+                        title="Seguimiento" data-credito="${credito.id_credito}">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>`;
+    }
+
+    return [
+        `<strong>${credito.id_credito}</strong>`,
+        estadoBadge,
+        credito.fecha_asignacion,
+        fechaDesasignacion,
+        credito.asignado_por || 'Sistema',
+        accionesHTML
+    ];
+});
 
                 // Actualizar tabla manteniendo página actual
                 actualizaDatosTabla('#tabla-creditos', datosFormateados, true);
