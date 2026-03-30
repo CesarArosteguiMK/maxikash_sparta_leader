@@ -143,7 +143,8 @@ class EstadoCuenta extends Controller
 
     private function logEstadoCuentaEngineModo(int $idCredito, bool $usarV2, bool $shadow): void {
         $baseDir = dirname(__DIR__);
-        $logDir = $baseDir . DIRECTORY_SEPARATOR . 'logs';
+        // Mismo árbol que LoginRateLimit, timing, etc.; carpeta en .gitignore (no subir .log).
+        $logDir = $baseDir . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'logs';
         if (!is_dir($logDir)) {
             @mkdir($logDir, 0777, true);
         }

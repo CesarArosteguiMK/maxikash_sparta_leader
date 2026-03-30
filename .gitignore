@@ -30,19 +30,23 @@ backend/BD/geo_ssl_*.pem
 # ========== Test y diagnóstico (no subir; pueden exponer rutas) ==========
 public/test_geo_ssl.php
 
-# ========== Medios temporales y logs ==========
-# Toda la carpeta de logs del backend + cualquier .log en el repo (runtime / timing)
-backend/logs/
-backend/API/logs/
+# ========== Medios temporales y logs (RUNTIME: nunca git add de .log) ==========
+# Generan archivos .log: EstadoCuenta (engine→storage/logs), EstadoCuentaTimingLog, Api (location_audit),
+# LoginRateLimit, SegundometroDAO (ssh_debug), Ticket (dictamen_error), LocationAuditLogger,
+# cronjobs sync_gastos_cobranza / morosidad / limpiar_tmp_media, Python backend/API (uvicorn).
 *.log
 **/*.log
+/*.log
+backend/logs/**
+backend/API/logs/**
 backend/storage/tmp_media/
 backend/storage/tmp_mpdf/
-backend/storage/logs/
-backend/storage/logs/*.log
+# Contenido de storage/logs ignorado; la carpeta se versiona con .gitkeep (git no re-incluye hijos si se ignora el directorio padre entero).
 backend/storage/logs/*
 !backend/storage/logs/.gitkeep
-backend/cronjobs/logs/
+backend/cronjobs/logs/**
+tools/**/logs/**
+tools/**/*.log
 
 # ========== Zip empaquetado de API (no subir el .zip; la carpeta backend/API/ sí va al repo) ==========
 backend/API.zip
@@ -77,4 +81,3 @@ backend/services/segundometro-agent/keys/**
 
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/
-backend/logs/*.log

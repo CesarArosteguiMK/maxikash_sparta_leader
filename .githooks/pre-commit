@@ -1,0 +1,34 @@
+#!/bin/sh
+# Hooks versionados: activar con (una vez por clon):
+#   git config core.hooksPath .githooks
+# Bloquea subir *.log y quita BOM en PHP en staging.
+exec 1>&2
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT" || exit 0
+
+STAGED_LOG=$(git diff --cached --name-only --diff-filter=ACM | grep '\.log$')
+if [ -n "$STAGED_LOG" ]; then
+  echo "pre-commit: no subir archivos .log. Quita del staging:"
+  echo "$STAGED_LOG"
+  echo "(Los .log deben estar en .gitignore; ver comentario en .gitignore seccion logs.)"
+  exit 1
+fi
+
+STAGED_PHP=$(git diff --cached --name-only --diff-filter=ACM | grep '\.php$')
+[ -z "$STAGED_PHP" ] && exit 0
+if command -v php >/dev/null 2>&1; then
+  PHPCMD="php"
+elif [ -x "/c/xampp/php/php.exe" ]; then
+  PHPCMD="/c/xampp/php/php.exe"
+else
+  echo "pre-commit BOM: php no encontrado. Instale PHP o ajuste la ruta en .githooks/pre-commit"
+  exit 0
+fi
+MODIFIED=$(echo "$STAGED_PHP" | "$PHPCMD" "$ROOT/backend/scripts/remove_bom_staged.php")
+if [ -n "$MODIFIED" ]; then
+  echo "$MODIFIED" | while read -r f; do
+    [ -n "$f" ] && git add "$f"
+  done
+  echo "pre-commit: se quitó BOM de archivos PHP; ya están en staging. Vuelve a commitear."
+fi
+exit 0
