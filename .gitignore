@@ -75,3 +75,4 @@ backend/services/segundometro-agent/keys/**
 
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/
+backend/logs/*.log
