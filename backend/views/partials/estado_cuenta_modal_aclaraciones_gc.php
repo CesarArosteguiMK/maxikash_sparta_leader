@@ -167,28 +167,71 @@ function guardarAclaracionesGc() {
         else alert('Seleccione el tipo de reporte.');
         return;
     }
+    var monto = 0;
     if (tipo === 'falta_aplicar') {
-        var m = parseFloat((document.getElementById('ecAclaracionesMonto') || {}).value);
-        if (!(m > 0)) {
+        monto = parseFloat((document.getElementById('ecAclaracionesMonto') || {}).value);
+        if (!(monto > 0)) {
             if (typeof Swal !== 'undefined') Swal.fire('Atención', 'Indique un monto a aplicar mayor a cero.', 'warning');
             else alert('Indique un monto a aplicar mayor a cero.');
             return;
         }
     }
     if (tipo === 'error') {
-        var mc = parseFloat((document.getElementById('ecAclaracionesMontoCorregir') || {}).value);
-        if (!(mc > 0)) {
+        monto = parseFloat((document.getElementById('ecAclaracionesMontoCorregir') || {}).value);
+        if (!(monto > 0)) {
             if (typeof Swal !== 'undefined') Swal.fire('Atención', 'Indique un monto a corregir mayor a cero.', 'warning');
             else alert('Indique un monto a corregir mayor a cero.');
             return;
         }
     }
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
-            icon: 'info',
-            title: 'Siguiente paso',
-            text: 'La persistencia en base de datos (__SPARTA_SECRET_REDACTED__) se conectará al avanzar el desarrollo.'
-        });
+    var idCredStr = (document.getElementById('ecAclaracionesIdCredito') || {}).value || '';
+    var idCred = parseInt(idCredStr, 10);
+    if (!(idCred > 0)) {
+        if (typeof Swal !== 'undefined') Swal.fire('Atención', 'ID de crédito no válido.', 'warning');
+        else alert('ID de crédito no válido.');
+        return;
     }
+    var nombre = (document.getElementById('ecAclaracionesNombre') || {}).value || '';
+    var mensaje = (document.getElementById('ecAclaracionesObservaciones') || {}).value || '';
+    var btn = document.getElementById('ecAclaracionesBtnGuardar');
+    if (btn) btn.disabled = true;
+
+    fetch('/EstadoCuenta/GuardarAclaracionGc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+            id_credito: idCred,
+            nombre: nombre,
+            tipo_reporte: tipo,
+            monto: monto,
+            mensaje: mensaje
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (btn) btn.disabled = false;
+            if (data && data.success) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'success', title: 'Guardado', text: data.mensaje || 'Aclaración registrada.' }).then(function () {
+                        var modalEl = document.getElementById('modalAclaracionesGc');
+                        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            var inst = bootstrap.Modal.getInstance(modalEl);
+                            if (inst) inst.hide();
+                        }
+                    });
+                } else {
+                    alert(data.mensaje || 'Guardado.');
+                }
+            } else {
+                var errTxt = (data && data.mensaje) ? data.mensaje : 'No se pudo guardar.';
+                if (typeof Swal !== 'undefined') Swal.fire('Error', errTxt, 'error');
+                else alert(errTxt);
+            }
+        })
+        .catch(function () {
+            if (btn) btn.disabled = false;
+            if (typeof Swal !== 'undefined') Swal.fire('Error', 'Error de conexión.', 'error');
+            else alert('Error de conexión.');
+        });
 }
 </script>

@@ -5325,6 +5325,57 @@ public function descargar()
         self::respuestaJSON($resultado);
     }
 
+    /**
+     * Guarda aclaración GC en __SPARTA_SECRET_REDACTED__.cobranza_gc_verificacion_semana (permiso módulo 30 o usuario 1).
+     * POST JSON: id_credito, nombre, tipo_reporte (error|falta_aplicar), monto, mensaje (observaciones).
+     */
+    public function GuardarAclaracionGc()
+    {
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        if ($idUsuario !== 1 && !in_array(30, $mods, true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para registrar aclaraciones.']);
+        }
+
+        $input = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($input)) {
+            $input = $_POST;
+        }
+
+        $idCredito = $this->safe_int($input['id_credito'] ?? $input['idCredito'] ?? 0, 0);
+        if ($idCredito <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.']);
+        }
+
+        $nombre = trim((string) ($input['nombre'] ?? ''));
+        $tipo = (string) ($input['tipo_reporte'] ?? '');
+        $monto = $this->safe_float($input['monto'] ?? 0, 0);
+        $mensaje = trim((string) ($input['mensaje'] ?? $input['observaciones'] ?? ''));
+
+        $celula = EstadoCuentaDAO::obtenerCelulaUltimaGastoCobranza($idCredito);
+
+        $resultado = EstadoCuentaDAO::insertAclaracionGcVerificacionSemana([
+            'id_credito'    => $idCredito,
+            'nombre'        => $nombre,
+            'tipo_reporte'  => $tipo,
+            'monto'         => $monto,
+            'mensaje'       => $mensaje,
+            'estatus'       => 'pendiente',
+            'celula'        => $celula,
+        ]);
+
+        if (!empty($resultado['success'])) {
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => $resultado['mensaje'] ?? 'Registro guardado.',
+            ]);
+        }
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => $resultado['mensaje'] ?? 'No se pudo guardar.',
+            'error'   => $resultado['error'] ?? null,
+        ]);
+    }
 
     /**
      * Guarda la condonación parcial de un gasto de cobranza (monto + motivo).

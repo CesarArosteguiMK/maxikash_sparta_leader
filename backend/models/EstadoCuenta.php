@@ -1010,6 +1010,124 @@ public static function getGastosCobranza($idCredito)
     }
 }
 
+/**
+ * Inserta registro de aclaración GC en cobranza_gc_verificacion_semana (__SPARTA_SECRET_REDACTED__).
+ * Requiere columnas: nombre, tipo_reporte, monto_aplicar, estatus, celula (además de las base).
+ * tipo_reporte: error | falta_aplicar.
+ * monto_aplicar: positivo si falta_aplicar; negativo si error (monto a corregir).
+ * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
+ * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
+ */
+public static function insertAclaracionGcVerificacionSemana(array $p): array
+{
+    $idCredito = (int) ($p['id_credito'] ?? 0);
+    if ($idCredito <= 0) {
+        return self::resultado(false, 'ID de crédito inválido', [], 'id_credito');
+    }
+    $tipo = (string) ($p['tipo_reporte'] ?? '');
+    if ($tipo !== 'error' && $tipo !== 'falta_aplicar') {
+        return self::resultado(false, 'Tipo de reporte inválido', [], 'tipo_reporte');
+    }
+    $montoAbs = isset($p['monto']) ? round(abs((float) $p['monto']), 2) : 0.0;
+    if ($montoAbs <= 0) {
+        return self::resultado(false, 'El monto debe ser mayor a cero', [], 'monto');
+    }
+    $montoAplicar = ($tipo === 'error') ? -$montoAbs : $montoAbs;
+    $nombre = trim((string) ($p['nombre'] ?? ''));
+    if ($nombre === '') {
+        $nombre = '—';
+    }
+    if (mb_strlen($nombre) > 255) {
+        $nombre = mb_substr($nombre, 0, 255);
+    }
+    $mensaje = trim((string) ($p['mensaje'] ?? ''));
+    $estatus = trim((string) ($p['estatus'] ?? 'pendiente'));
+    if ($estatus === '') {
+        $estatus = 'pendiente';
+    }
+    if (mb_strlen($estatus) > 64) {
+        $estatus = mb_substr($estatus, 0, 64);
+    }
+    $celula = $p['celula'];
+    if ($celula !== null && $celula !== '') {
+        $celula = (int) $celula;
+    } else {
+        $celula = null;
+    }
+
+    try {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $now = new \DateTimeImmutable('now', $tz);
+        $registradoEnCdmx = $now->format('Y-m-d H:i:s');
+        // Semana operativa mar–lun: inicio_semana = martes de esa semana (lunes → martes anterior).
+        $n = (int) $now->format('N');
+        $diasAlMartesInicio = ($n === 1) ? -6 : (2 - $n);
+        $martesInicio = $now->modify((string) $diasAlMartesInicio . ' days');
+        $inicioSemana = $martesInicio->format('Y-m-d');
+        $anioIso = (int) $martesInicio->format('o');
+        $semanaIso = (int) $martesInicio->format('W');
+    } catch (\Throwable $e) {
+        return self::resultado(false, 'Error al calcular fecha', [], $e->getMessage());
+    }
+
+    $sql = "
+    INSERT INTO `cobranza_gc_verificacion_semana` (
+        `id_credito`,
+        `inicio_semana`,
+        `anio_iso`,
+        `semana_iso`,
+        `registrado_en_cdmx`,
+        `s2_exitoso`,
+        `incluido_reporte`,
+        `mensaje`,
+        `nombre`,
+        `tipo_reporte`,
+        `monto_aplicar`,
+        `estatus`,
+        `celula`
+    ) VALUES (
+        :id_credito,
+        :inicio_semana,
+        :anio_iso,
+        :semana_iso,
+        :registrado_en_cdmx,
+        :s2_exitoso,
+        :incluido_reporte,
+        :mensaje,
+        :nombre,
+        :tipo_reporte,
+        :monto_aplicar,
+        :estatus,
+        :celula
+    )
+    ";
+
+    $params = [
+        'id_credito'          => $idCredito,
+        'inicio_semana'       => $inicioSemana,
+        'anio_iso'            => $anioIso,
+        'semana_iso'          => $semanaIso,
+        'registrado_en_cdmx'  => $registradoEnCdmx,
+        's2_exitoso'          => 0,
+        'incluido_reporte'    => 0,
+        'mensaje'             => $mensaje,
+        'nombre'              => $nombre,
+        'tipo_reporte'        => $tipo,
+        'monto_aplicar'       => $montoAplicar,
+        'estatus'             => $estatus,
+        'celula'              => $celula,
+    ];
+
+    try {
+        $db = new DatabaseSegundometro();
+        $db->CRUD($sql, $params);
+        return self::resultado(true, 'Aclaración registrada', ['id_credito' => $idCredito]);
+    } catch (\Throwable $e) {
+        error_log('insertAclaracionGcVerificacionSemana: ' . $e->getMessage());
+        return self::resultado(false, 'No se pudo guardar la aclaración', [], $e->getMessage());
+    }
+}
+
 public static function getGastosTodosConEstatus($idCredito)
 {
     $query = "
