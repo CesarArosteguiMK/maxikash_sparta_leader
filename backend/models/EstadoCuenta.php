@@ -1015,6 +1015,7 @@ public static function getGastosCobranza($idCredito)
  * Requiere columnas: nombre, tipo_reporte, monto_aplicar, estatus (TINYINT), celula (además de las base).
  * tipo_reporte: error | falta_aplicar.
  * estatus: códigos numéricos; 3 = reportado por call center (estado de cuenta).
+ * s2_exitoso / incluido_reporte: siempre 1 en flujo Aclaraciones (modal estado de cuenta).
  * monto_aplicar: positivo si falta_aplicar; negativo si error (monto a corregir).
  * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
  * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
@@ -1106,8 +1107,8 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         'anio_iso'            => $anioIso,
         'semana_iso'          => $semanaIso,
         'registrado_en_cdmx'  => $registradoEnCdmx,
-        's2_exitoso'          => 0,
-        'incluido_reporte'    => 0,
+        's2_exitoso'          => 1,
+        'incluido_reporte'    => 1,
         'mensaje'             => $mensaje,
         'nombre'              => $nombre,
         'tipo_reporte'        => $tipo,
