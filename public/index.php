@@ -263,6 +263,8 @@ $rutasModulos = [
     'configticketpuesto/getusuariospanel' => [26], 'configticketpuesto/getconfigpanelusuario' => [26], 'configticketpuesto/guardarpanelusuario' => [26],
     'segundometro/shell' => [16],
     'gastoscobranza/shell' => [31],
+    'gastoscobranza/estadoagente' => [31],
+    'gastoscobranza/ejecutarreporte' => [31],
     'onboarding/index' => [44],
 ];
 $controladoresModulos = [

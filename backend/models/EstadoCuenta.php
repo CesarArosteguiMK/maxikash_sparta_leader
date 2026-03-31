@@ -1080,10 +1080,9 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
     }
 
     $sqlDup = "
-        SELECT 1 AS ok
+        SELECT `estatus`
         FROM `cobranza_gc_verificacion_semana`
         WHERE `id_credito` = :id_credito AND `inicio_semana` = :inicio_semana
-        LIMIT 1
     ";
 
     $sql = "
@@ -1144,6 +1143,22 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
             'inicio_semana' => $inicioSemana,
         ]);
         if (!empty($dup)) {
+            $hayEstatus3 = false;
+            foreach ($dup as $fila) {
+                if ((int) ($fila['estatus'] ?? 0) === 3) {
+                    $hayEstatus3 = true;
+                    break;
+                }
+            }
+            if ($hayEstatus3) {
+                return self::resultado(
+                    false,
+                    'Este crédito ya está en proceso ante cartera. '
+                    . 'La confirmación puede demorar hasta 24 horas hábiles; le pedimos un poco de paciencia. '
+                    . 'Muchas gracias por su atención.',
+                    ['alerta' => 'info']
+                );
+            }
             return self::resultado(
                 false,
                 'Este crédito ya fue incorporado al reporte de esta semana y está confirmado por cartera. '
