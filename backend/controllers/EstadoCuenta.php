@@ -5374,11 +5374,15 @@ public function descargar()
                 'mensaje' => $resultado['mensaje'] ?? 'Registro guardado.',
             ]);
         }
-        self::respuestaJSON([
+        $fail = [
             'success' => false,
             'mensaje' => $resultado['mensaje'] ?? 'No se pudo guardar.',
             'error'   => $resultado['error'] ?? null,
-        ]);
+        ];
+        if (!empty($resultado['datos']['alerta'])) {
+            $fail['alerta'] = $resultado['datos']['alerta'];
+        }
+        self::respuestaJSON($fail);
     }
 
     /**
