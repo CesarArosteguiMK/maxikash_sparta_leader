@@ -473,49 +473,42 @@ public static function getConvenioActivo($id_credito)
 
         // ── Enriquecer con pagos reales de S2Movil ──────────────
         $resultadoS2     = self::_getPagosS2Movil((int) $id_credito);
-        $pagosS2Indexado = $resultadoS2['indexado'];
+        $pagosS2Indexado = $resultadoS2['indexado'];   // cuota_s2 => pagos[] (compatibilidad)
         $pagosS2Raw      = $resultadoS2['raw'];
+        $pagosS2PorId    = $resultadoS2['porIdPago'];  // NUEVO: idPago => pago
 
-        // Mapear cuota S2 → semana del convenio
+
+                 // Filtrar solo pagos S2 posteriores o iguales a la fecha del convenio
+         $fechaAcuerdo = $convenio['fecha_acuerdo'] ?? null;
+         $pagosS2Raw   = array_filter($pagosS2Raw, function($p) use ($fechaAcuerdo) {
+             if (!$fechaAcuerdo || empty($p['fechaValor'])) return true;
+             return $p['fechaValor'] >= $fechaAcuerdo;
+         });
+         $pagosS2Raw = array_values($pagosS2Raw);
+
+         // También filtrar porIdPago
+         $pagosS2PorId = array_filter($pagosS2PorId, function($p) use ($fechaAcuerdo) {
+             if (!$fechaAcuerdo || empty($p['fechaValor'])) return true;
+             return $p['fechaValor'] >= $fechaAcuerdo;
+         });
+
+        // Mapeo por capital acumulado → devuelve numero_semana => idPago
         $mapaCuotas = self::_mapearCuotasS2AConvenio($pagosS2Raw, $amortizacion);
 
-        // Enriquecer cada fila de amortización con su cuota S2 y sus pagos
+        // Enriquecer cada fila con su pago S2 correspondiente
         foreach ($amortizacion as &$fila) {
             $numSemana = (int) $fila['numero_semana'];
-            $cuotaS2   = $mapaCuotas[$numSemana] ?? null;
+            $idPago    = $mapaCuotas[$numSemana] ?? null;
 
-            $fila['cuota_s2'] = $cuotaS2;
+            $fila['cuota_s2'] = $idPago;
 
-            if ($cuotaS2 && isset($pagosS2Indexado[$cuotaS2])) {
-                $pagosDeduplicados = [];
-                $idPagosVistos     = [];
-
-                foreach ($pagosS2Indexado[$cuotaS2] as $p) {
-                    $idPago = $p['idPago'];
-                    if (!in_array($idPago, $idPagosVistos)) {
-                        $idPagosVistos[]     = $idPago;
-                        $pagosDeduplicados[] = $p;
-                    }
-                }
-
-                $fila['pagos_s2'] = $pagosDeduplicados;
+            if ($idPago !== null && isset($pagosS2PorId[$idPago])) {
+                $fila['pagos_s2'] = [ $pagosS2PorId[$idPago] ];
             } else {
                 $fila['pagos_s2'] = [];
             }
         }
         unset($fila);
-
-        // ── DEBUG TEMPORAL — borrar después ──────────────────────
-        foreach ($amortizacion as $filaDebug) {
-            if ((int) $filaDebug['numero_semana'] === 1) {
-                error_log('=== DEBUG SEMANA 1 ===');
-                error_log('cuota_s2: '      . json_encode($filaDebug['cuota_s2']));
-                error_log('pagos_s2: '      . json_encode($filaDebug['pagos_s2']));
-                error_log('mapa_cuotas: '   . json_encode($mapaCuotas));
-                error_log('indexado keys: ' . json_encode(array_keys($pagosS2Indexado)));
-            }
-        }
-        // ── FIN DEBUG ─────────────────────────────────────────────
 
         $convenio['amortizacion']  = $amortizacion;
         $convenio['pagos_s2movil'] = $pagosS2Indexado;
@@ -563,15 +556,17 @@ private static function _getPagosS2Movil($id_credito)
         $data       = json_decode($response, true);
         $datosPagos = $data['estadoCuenta']['datosPagos'] ?? [];
 
-        if (empty($datosPagos)) return ['indexado' => [], 'raw' => []];
+        if (empty($datosPagos)) return ['indexado' => [], 'raw' => [], 'porIdPago' => []];
 
-        // Indexar por cada número de cuota S2 que aparece en numeroCuotaSemanal
-        $indexado = [];
+        // ── Índice por cuota S2 (compatibilidad con código existente) ──
+        $indexado  = [];
+        // ── NUEVO: índice por idPago (para el mapeo acumulado) ─────────
+        $porIdPago = [];
+
         foreach ($datosPagos as $pago) {
             $cuotasRaw = $pago['numeroCuotaSemanal'] ?? null;
             if ($cuotasRaw === null) continue;
 
-            // numeroCuotaSemanal puede ser int, float o string "149,150"
             $cuotas = is_string($cuotasRaw)
                 ? array_map('intval', array_map('trim', explode(',', $cuotasRaw)))
                 : [(int) $cuotasRaw];
@@ -579,34 +574,40 @@ private static function _getPagosS2Movil($id_credito)
             $montoPago = (float) ($pago['montoPago'] ?? 0);
             $capital   = (float) ($pago['capital']   ?? 0);
             $sobrante  = round($montoPago - $capital, 2);
+            $idPago    = $pago['idPago'] ?? null;
 
             $entrada = [
-                'idPago'        => $pago['idPago']        ?? null,
+                'idPago'        => $idPago,
                 'fechaValor'    => $pago['fechaValor']    ?? null,
                 'fechaDeposito' => $pago['fechaDeposito'] ?? null,
                 'montoPago'     => $montoPago,
                 'capital'       => $capital,
                 'sobrante'      => $sobrante > 0 ? $sobrante : 0,
-                'cuotas'        => $cuotas,  // array con todos los números de cuota
+                'cuotas'        => $cuotas,
             ];
 
-            // Indexar SOLO por la primera cuota — evita que un pago
-            // "92,93" aparezca en dos semanas distintas del convenio
+            // Índice por cuota (sin cambios vs versión original)
             $cuotaPrincipal = $cuotas[0];
             if ($cuotaPrincipal < 1) continue;
             if (!isset($indexado[$cuotaPrincipal])) {
                 $indexado[$cuotaPrincipal] = [];
             }
             $indexado[$cuotaPrincipal][] = $entrada;
+
+            // NUEVO: índice por idPago (deduplicado — un idPago = una entrada)
+            if ($idPago !== null && !isset($porIdPago[$idPago])) {
+                $porIdPago[$idPago] = $entrada;
+            }
         }
 
         return [
-            'indexado' => $indexado,
-            'raw'      => $datosPagos,
+            'indexado'  => $indexado,
+            'raw'       => $datosPagos,
+            'porIdPago' => $porIdPago,   // ← NUEVO
         ];
 
     } catch (\Exception $e) {
-        return ['indexado' => [], 'raw' => []];
+        return ['indexado' => [], 'raw' => [], 'porIdPago' => []];
     }
 }
 
@@ -621,40 +622,86 @@ private static function _getPagosS2Movil($id_credito)
  *
  * Retorna: array [ numero_semana => numero_cuota_s2 ]
  */
-private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortizacion)
+private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortizacion): array
 {
-    $mapa = []; // numero_semana => numero_cuota_s2
+    if (empty($rawPagos) || empty($amortizacion)) return [];
 
-    foreach ($amortizacion as $fila) {
-        $numSemana  = (int) $fila['numero_semana'];
-        $fechaBase  = $fila['fecha_pago_real'] ?: $fila['fecha_pago'];
+    // ── 1. Ordenar pagos S2 por fechaValor ASC ───────────────────
+    usort($rawPagos, function ($a, $b) {
+        return strcmp($a['fechaValor'] ?? '9999', $b['fechaValor'] ?? '9999');
+    });
 
-        if (!$fechaBase) continue;
+    // ── 2. Deduplicar por idPago — sumar montoPago del mismo idPago
+    $pagosPorId = [];
+    foreach ($rawPagos as $p) {
+        $id = $p['idPago'] ?? null;
+        if ($id === null) continue;
+        if (!isset($pagosPorId[$id])) {
+            $pagosPorId[$id] = [
+                'idPago'     => $id,
+                'fechaValor' => $p['fechaValor'] ?? null,
+                'montoPago'  => 0.0,
+            ];
+        }
+        // Usamos montoPago — es el dinero real depositado por el cliente
+        $pagosPorId[$id]['montoPago'] += (float)($p['montoPago'] ?? 0);
+    }
+    $pagosUnicos = array_values($pagosPorId);
 
-        $inicio = new \DateTime($fechaBase . ' 00:00:00');
-        $fin    = (clone $inicio)->modify('+13 days'); // ventana generosa para pagos tardíos
+    // ── 3. Ordenar semanas ASC ────────────────────────────────────
+    usort($amortizacion, fn($a, $b) => (int)$a['numero_semana'] - (int)$b['numero_semana']);
 
-        foreach ($rawPagos as $pago) {
-            if (empty($pago['fechaValor'])) continue;
+    // ── 4. Derramar montoPago sobre semanas secuencialmente ───────
+    //
+    //    Lógica: igual que S2Movil aplica internamente.
+    //    Cada pago cubre semanas completas ($pago_semanal cada una)
+    //    hasta agotar su montoPago. El sobrante pasa al siguiente pago.
+    //
+    //    Pago 1 ($5,000.00) → 10 semanas completas ($4,890.90) + $109.10 sobrante
+    //    Pago 2 ($16,519.00) → retoma sem 11 con $109.10 ya abonado, etc.
+    //    Pago 3 ($1.00)      → residuo final
 
-            $fechaValor = new \DateTime($pago['fechaValor'] . ' 00:00:00');
-            if ($fechaValor < $inicio || $fechaValor > $fin) continue;
+    $mapa      = [];   // numero_semana => idPago
+    $sobrante  = 0.0;  // montoPago no consumido del pago anterior
+    $idxSem    = 0;
+    $nSemanas  = count($amortizacion);
 
-            // Encontrado — tomar el primer número de cuota de este pago
-            $cuotasRaw = $pago['numeroCuotaSemanal'] ?? null;
-            if ($cuotasRaw === null) continue;
+    foreach ($pagosUnicos as $pago) {
+        if ($idxSem >= $nSemanas) break;
 
-            $cuotas = is_string($cuotasRaw)
-                ? array_map('intval', array_map('trim', explode(',', $cuotasRaw)))
-                : [(int) $cuotasRaw];
+        $disponible = round($pago['montoPago'] + $sobrante, 4);
+        $sobrante   = 0.0;
 
-            // La cuota representativa es la primera del array
-            $mapa[$numSemana] = $cuotas[0];
-            break; // con el primer match alcanza
+        while ($idxSem < $nSemanas && $disponible > 0.001) {
+            $semana      = $amortizacion[$idxSem];
+            $numSem      = (int)$semana['numero_semana'];
+            $pagoSemanal = round((float)$semana['pago_semanal'], 4);
+
+            if (!isset($mapa[$numSem])) {
+                // La semana aún no tiene dueño — asignar al pago actual
+                $mapa[$numSem] = $pago['idPago'];
+            }
+
+            if ($disponible >= $pagoSemanal - 0.005) {
+                // Cubre la semana completa
+                $disponible = round($disponible - $pagoSemanal, 4);
+                $idxSem++;
+            } else {
+                // No alcanza — deja sobrante para el siguiente pago
+                // La semana queda asignada al pago que puso el primer centavo
+                $sobrante = $disponible;
+                $disponible = 0;
+                // NO avanzamos $idxSem — la semana sigue sin completarse
+            }
+        }
+
+        // Si sobra dinero después de cubrir todas las semanas, lo ignoramos
+        if ($disponible > 0.001 && $idxSem < $nSemanas) {
+            $sobrante = $disponible;
         }
     }
 
-    return $mapa;
+    return $mapa;  // numero_semana => idPago
 }
 
     // ─────────────────────────────────────────────
@@ -1838,6 +1885,208 @@ foreach ($semanasAplica as $numSem) {
 
     } catch (\Exception $e) {
         return self::resultado(false, 'Error al subir comprobante.', null, $e->getMessage());
+    }
+}
+
+public static function registrarConvenioGlobo($datos)
+{
+    try {
+        // Log de entrada
+        error_log("=== registrarConvenioGlobo MODEL - INICIO ===");
+        error_log("Datos recibidos: " . json_encode($datos));
+
+        $db = new Database();
+
+        // ── 1. Verificar que no haya convenio activo ──────────────────
+        $activo = $db->queryOne(
+            "SELECT id FROM convenio_cliente
+             WHERE id_credito = :id AND estatus = 'activo'
+             LIMIT 1",
+            ['id' => (int) $datos['id_credito']]
+        );
+
+        if ($activo) {
+            error_log("ERROR: Crédito con convenio activo");
+            return self::resultado(false, 'Este crédito ya tiene un convenio activo.');
+        }
+
+        // ── 2. Validar que los montos cuadren ────────────────────────
+        $pagosIgualesCant  = (int)   $datos['pagos_iguales_cantidad'];
+        $pagosIgualesMonto = (float) $datos['pagos_iguales_monto'];
+        $pagoGloboMonto    = (float) $datos['pago_globo_monto'];
+        $totalAPagar       = (float) $datos['total_a_pagar'];
+        $frecuencia        = $datos['frecuencia'] === 'quincenal' ? 'quincenal' : 'semanal';
+        $diasIntervalo     = $frecuencia === 'quincenal' ? 14 : 7;
+
+        $sumCalculada = round(($pagosIgualesCant * $pagosIgualesMonto) + $pagoGloboMonto, 2);
+
+        error_log("SumCalculada: $sumCalculada, TotalAPagar: $totalAPagar");
+        error_log("Diferencia: " . abs($sumCalculada - $totalAPagar));
+
+        if (abs($sumCalculada - $totalAPagar) > 1.00) {
+            error_log("ERROR: Montos no cuadran");
+            return self::resultado(false,
+                "Los montos no cuadran: ({$pagosIgualesCant} × \${$pagosIgualesMonto}) + \${$pagoGloboMonto} = \${$sumCalculada}, pero total_a_pagar es \${$totalAPagar}. Diferencia máxima permitida: \$1.00."
+            );
+        }
+
+        // ── 3. Calcular fechas ────────────────────────────────────────
+        $totalPagos      = $pagosIgualesCant + 1;
+        $fechaPrimerPago = $datos['fecha_primer_pago'];
+
+        error_log("Fecha primer pago: $fechaPrimerPago");
+        error_log("Total pagos: $totalPagos, Dias intervalo: $diasIntervalo");
+
+        $fechaUltimoPago = date('Y-m-d', strtotime(
+            $fechaPrimerPago . ' +' . (($totalPagos - 1) * $diasIntervalo) . ' days'
+        ));
+
+        error_log("Fecha último pago: $fechaUltimoPago");
+
+        // ── 4. Calcular porcentaje y monto de descuento ───────────────
+        $adeudoOriginal    = (float) $datos['adeudo_total_original'];
+        $descuentoMonto    = round($adeudoOriginal - $totalAPagar, 2);
+        $porcentajeDescto  = $adeudoOriginal > 0
+            ? round(($descuentoMonto / $adeudoOriginal) * 100, 2)
+            : 0.00;
+
+        error_log("Adeudo original: $adeudoOriginal");
+        error_log("Descuento monto: $descuentoMonto");
+        error_log("Porcentaje descuento: $porcentajeDescto");
+
+        // ── 5. Insertar en convenio_cliente ───────────────────────────
+        error_log("Insertando en convenio_cliente...");
+
+        $ok = $db->CRUD(
+            "INSERT INTO convenio_cliente (
+                id_credito, id_producto_convenio, id_producto_convenio_detalle,
+                nombre_cliente, bucket_morosidad_real, dias_mora, avance_pago_plazo,
+                adeudo_total_original, porcentaje_descuento, descuento_monto,
+                total_a_pagar, monto_adicional, pago_inicial_monto,
+                numero_semanas, pago_semanal,
+                frecuencia, tipo, condonacion_aplicada,
+                fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago,
+                estatus, usuario_alta
+            ) VALUES (
+                :id_credito, 6, 7,
+                :nombre_cliente, :bucket, :dias_mora, :avance_pago,
+                :adeudo_original, :pct_descuento, :descuento_monto,
+                :total_pagar, 0.00, NULL,
+                :num_pagos, :pago_semanal,
+                :frecuencia, 'globo', :condonacion,
+                :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago,
+                'activo', :usuario
+            )",
+            [
+                'id_credito'      => (int)    $datos['id_credito'],
+                'nombre_cliente'  =>           $datos['nombre_cliente'],
+                'bucket'          =>           $datos['bucket_morosidad_real'],
+                'dias_mora'       => (int)    $datos['dias_mora'],
+                'avance_pago'     =>           $datos['avance_pago_plazo'] ?? '',
+                'adeudo_original' =>           $adeudoOriginal,
+                'pct_descuento'   =>           $porcentajeDescto,
+                'descuento_monto' =>           $descuentoMonto,
+                'total_pagar'     =>           $totalAPagar,
+                'num_pagos'       =>           $totalPagos,
+                'pago_semanal'    =>           $pagosIgualesMonto,
+                'frecuencia'      =>           $frecuencia,
+                'condonacion'     => isset($datos['condonacion_aplicada'])
+                                        ? (float) $datos['condonacion_aplicada']
+                                        : null,
+                'fecha_acuerdo'   =>           date('Y-m-d'),
+                'fecha_primer_pago' =>         $fechaPrimerPago,
+                'fecha_ultimo_pago' =>         $fechaUltimoPago,
+                'usuario'         =>           $datos['usuario_alta'],
+            ]
+        );
+
+        if (!$ok) {
+            error_log("ERROR: No se pudo insertar en convenio_cliente");
+            return self::resultado(false, 'No se pudo insertar el convenio globo.');
+        }
+
+        $idConvenio = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
+        error_log("Convenio insertado con ID: $idConvenio");
+
+        // ── 6. Insertar estructura de pagos globo ─────────────────────
+        error_log("Insertando pagos globo...");
+
+        for ($i = 1; $i <= $pagosIgualesCant; $i++) {
+            $db->CRUD(
+                "INSERT INTO convenio_cliente_pagos_globo
+                    (id_convenio_cliente, numero_pago, monto, es_pago_globo)
+                 VALUES (:id, :num, :monto, 0)",
+                [
+                    'id'    => $idConvenio,
+                    'num'   => $i,
+                    'monto' => $pagosIgualesMonto,
+                ]
+            );
+        }
+
+        $db->CRUD(
+            "INSERT INTO convenio_cliente_pagos_globo
+                (id_convenio_cliente, numero_pago, monto, es_pago_globo)
+             VALUES (:id, :num, :monto, 1)",
+            [
+                'id'    => $idConvenio,
+                'num'   => $totalPagos,
+                'monto' => $pagoGloboMonto,
+            ]
+        );
+        error_log("Pagos globo insertados correctamente");
+
+        // ── 7. Generar tabla de amortización ──────────────────────────
+        error_log("Generando amortización...");
+
+        $saldoActual = $totalAPagar;
+
+        for ($p = 1; $p <= $totalPagos; $p++) {
+            $esUltimo  = ($p === $totalPagos);
+            $monto     = $esUltimo ? $pagoGloboMonto : $pagosIgualesMonto;
+            $fechaPago = date('Y-m-d', strtotime(
+                $fechaPrimerPago . ' +' . (($p - 1) * $diasIntervalo) . ' days'
+            ));
+
+            $capital     = $esUltimo ? $saldoActual : $monto;
+            $saldoActual = round($saldoActual - $capital, 2);
+            if ($saldoActual < 0) $saldoActual = 0;
+
+            $db->CRUD(
+                "INSERT INTO convenio_cliente_amortizacion
+                    (id_convenio_cliente, numero_semana, fecha_pago,
+                     pago_semanal, capital, saldo_restante)
+                 VALUES (:id, :num, :fecha, :pago, :capital, :saldo)",
+                [
+                    'id'      => $idConvenio,
+                    'num'     => $p,
+                    'fecha'   => $fechaPago,
+                    'pago'    => $monto,
+                    'capital' => $capital,
+                    'saldo'   => $saldoActual,
+                ]
+            );
+        }
+
+        error_log("Amortización generada correctamente");
+        error_log("=== registrarConvenioGlobo MODEL - ÉXITO ===");
+
+        return self::resultado(true, 'Convenio con pago globo registrado correctamente.', [
+            'id_convenio'     => $idConvenio,
+            'total_pagos'     => $totalPagos,
+            'fecha_primer_pago' => $fechaPrimerPago,
+            'fecha_ultimo_pago' => $fechaUltimoPago,
+            'frecuencia'      => $frecuencia,
+        ]);
+
+    } catch (\Exception $e) {
+        error_log("=== EXCEPCIÓN EN registrarConvenioGlobo ===");
+        error_log("Mensaje: " . $e->getMessage());
+        error_log("Archivo: " . $e->getFile());
+        error_log("Línea: " . $e->getLine());
+        error_log("Trace: " . $e->getTraceAsString());
+
+        return self::resultado(false, 'Error al registrar convenio globo.', null, $e->getMessage());
     }
 }
 
