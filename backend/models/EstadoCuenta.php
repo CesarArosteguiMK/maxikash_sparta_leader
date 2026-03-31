@@ -1016,6 +1016,7 @@ public static function getGastosCobranza($idCredito)
  * tipo_reporte: error | falta_aplicar.
  * estatus: códigos numéricos; 3 = reportado por call center (estado de cuenta).
  * s2_exitoso / incluido_reporte: siempre 1 en flujo Aclaraciones (modal estado de cuenta).
+ * id_usuario_reporte: usuario Ledger en sesión que envía la aclaración (columna en BD).
  * monto_aplicar: positivo si falta_aplicar; negativo si error (monto a corregir).
  * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
  * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
@@ -1053,6 +1054,15 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
     } else {
         $celula = null;
     }
+    $idUsuarioReporte = $p['id_usuario_reporte'] ?? null;
+    if ($idUsuarioReporte !== null && $idUsuarioReporte !== '') {
+        $idUsuarioReporte = (int) $idUsuarioReporte;
+        if ($idUsuarioReporte <= 0) {
+            $idUsuarioReporte = null;
+        }
+    } else {
+        $idUsuarioReporte = null;
+    }
 
     try {
         $tz = new \DateTimeZone('America/Mexico_City');
@@ -1083,7 +1093,8 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         `tipo_reporte`,
         `monto_aplicar`,
         `estatus`,
-        `celula`
+        `celula`,
+        `id_usuario_reporte`
     ) VALUES (
         :id_credito,
         :inicio_semana,
@@ -1097,7 +1108,8 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         :tipo_reporte,
         :monto_aplicar,
         :estatus,
-        :celula
+        :celula,
+        :id_usuario_reporte
     )
     ";
 
@@ -1115,6 +1127,7 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         'monto_aplicar'       => $montoAplicar,
         'estatus'             => $estatus,
         'celula'              => $celula,
+        'id_usuario_reporte'  => $idUsuarioReporte,
     ];
 
     try {
