@@ -76,7 +76,21 @@ spl_autoload_register(function ($archivo) {
         return;
     }
     $archivo = str_replace('\\', '/', $archivo);
-    $ruta = RAIZ . "/$archivo.php";
+    // Linux distingue mayúsculas: carpetas reales son models/, controllers/, core/, etc.
+    // Sin esto, Models\Foo buscaba backend/Models/Foo.php y fallaba fuera de Windows.
+    $parts = explode('/', $archivo, 2);
+    $top = $parts[0];
+    $tail = $parts[1] ?? '';
+    static $dirMap = [
+        'Models' => 'models',
+        'Controllers' => 'controllers',
+        'Core' => 'core',
+        'Libs' => 'libs',
+        'Services' => 'services',
+    ];
+    $dir = $dirMap[$top] ?? strtolower($top);
+    $rel = $tail !== '' ? $dir . '/' . $tail : $dir;
+    $ruta = RAIZ . '/' . $rel . '.php';
 
     if (!file_exists($ruta)) {
         throw new Exception("Autoload no encontró: $ruta");
@@ -248,9 +262,15 @@ $rutasModulos = [
     'configticketpuesto/consulta' => [26], 'configticketpuesto/getpuestossparta' => [26], 'configticketpuesto/getconfig' => [26], 'configticketpuesto/guardar' => [26], 'configticketpuesto/getconfigestadisticas' => [26], 'configticketpuesto/guardarestadisticas' => [26],
     'configticketpuesto/getusuariospanel' => [26], 'configticketpuesto/getconfigpanelusuario' => [26], 'configticketpuesto/guardarpanelusuario' => [26],
     'segundometro/shell' => [16],
+    'gastoscobranza/shell' => [31],
+    'gastoscobranza/estadoagente' => [31],
+    'gastoscobranza/ejecutarreporte' => [31],
     'onboarding/index' => [44],
 ];
-$controladoresModulos = ['segundometro' => [16]];
+$controladoresModulos = [
+    'segundometro' => [16],
+    'gastoscobranza' => [31],
+];
 $path = strtolower(trim($controladorArchivo)) . '/' . strtolower(trim($metodo));
 $modulosRequeridos = $rutasModulos[$path] ?? $controladoresModulos[strtolower(trim($controladorArchivo))] ?? null;
 if (!$esEstadoReportesAgente && $modulosRequeridos !== null) {

@@ -1012,8 +1012,11 @@ public static function getGastosCobranza($idCredito)
 
 /**
  * Inserta registro de aclaración GC en cobranza_gc_verificacion_semana (__SPARTA_SECRET_REDACTED__).
- * Requiere columnas: nombre, tipo_reporte, monto_aplicar, estatus, celula (además de las base).
+ * Requiere columnas: nombre, tipo_reporte, monto_aplicar, estatus (TINYINT), celula (además de las base).
  * tipo_reporte: error | falta_aplicar.
+ * estatus: códigos numéricos; 3 = reportado por call center (estado de cuenta).
+ * s2_exitoso / incluido_reporte: siempre 1 en flujo Aclaraciones (modal estado de cuenta).
+ * id_usuario_reporte: usuario Ledger en sesión que envía la aclaración (columna en BD).
  * monto_aplicar: positivo si falta_aplicar; negativo si error (monto a corregir).
  * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
  * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
@@ -1041,18 +1044,24 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         $nombre = mb_substr($nombre, 0, 255);
     }
     $mensaje = trim((string) ($p['mensaje'] ?? ''));
-    $estatus = trim((string) ($p['estatus'] ?? 'pendiente'));
-    if ($estatus === '') {
-        $estatus = 'pendiente';
-    }
-    if (mb_strlen($estatus) > 64) {
-        $estatus = mb_substr($estatus, 0, 64);
+    $estatus = (int) ($p['estatus'] ?? 3);
+    if ($estatus < 0 || $estatus > 255) {
+        return self::resultado(false, 'Estatus inválido', [], 'estatus');
     }
     $celula = $p['celula'];
     if ($celula !== null && $celula !== '') {
         $celula = (int) $celula;
     } else {
         $celula = null;
+    }
+    $idUsuarioReporte = $p['id_usuario_reporte'] ?? null;
+    if ($idUsuarioReporte !== null && $idUsuarioReporte !== '') {
+        $idUsuarioReporte = (int) $idUsuarioReporte;
+        if ($idUsuarioReporte <= 0) {
+            $idUsuarioReporte = null;
+        }
+    } else {
+        $idUsuarioReporte = null;
     }
 
     try {
@@ -1070,6 +1079,12 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         return self::resultado(false, 'Error al calcular fecha', [], $e->getMessage());
     }
 
+    $sqlDup = "
+        SELECT `estatus`
+        FROM `cobranza_gc_verificacion_semana`
+        WHERE `id_credito` = :id_credito AND `inicio_semana` = :inicio_semana
+    ";
+
     $sql = "
     INSERT INTO `cobranza_gc_verificacion_semana` (
         `id_credito`,
@@ -1084,7 +1099,8 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         `tipo_reporte`,
         `monto_aplicar`,
         `estatus`,
-        `celula`
+        `celula`,
+        `id_usuario_reporte`
     ) VALUES (
         :id_credito,
         :inicio_semana,
@@ -1098,7 +1114,8 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         :tipo_reporte,
         :monto_aplicar,
         :estatus,
-        :celula
+        :celula,
+        :id_usuario_reporte
     )
     ";
 
@@ -1108,18 +1125,47 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         'anio_iso'            => $anioIso,
         'semana_iso'          => $semanaIso,
         'registrado_en_cdmx'  => $registradoEnCdmx,
-        's2_exitoso'          => 0,
-        'incluido_reporte'    => 0,
+        's2_exitoso'          => 1,
+        'incluido_reporte'    => 1,
         'mensaje'             => $mensaje,
         'nombre'              => $nombre,
         'tipo_reporte'        => $tipo,
         'monto_aplicar'       => $montoAplicar,
         'estatus'             => $estatus,
         'celula'              => $celula,
+        'id_usuario_reporte'  => $idUsuarioReporte,
     ];
 
     try {
         $db = new DatabaseSegundometro();
+        $dup = $db->queryAll($sqlDup, [
+            'id_credito'    => $idCredito,
+            'inicio_semana' => $inicioSemana,
+        ]);
+        if (!empty($dup)) {
+            $hayEstatus3 = false;
+            foreach ($dup as $fila) {
+                if ((int) ($fila['estatus'] ?? 0) === 3) {
+                    $hayEstatus3 = true;
+                    break;
+                }
+            }
+            if ($hayEstatus3) {
+                return self::resultado(
+                    false,
+                    'Este crédito ya está en proceso ante cartera. '
+                    . 'La confirmación puede demorar hasta 24 horas hábiles; le pedimos un poco de paciencia. '
+                    . 'Muchas gracias por su atención.',
+                    ['alerta' => 'info']
+                );
+            }
+            return self::resultado(
+                false,
+                'Este crédito ya fue incorporado al reporte de esta semana y está confirmado por cartera. '
+                . 'No es necesario volver a enviarlo. Gracias por su tiempo y apoyo.',
+                ['alerta' => 'info']
+            );
+        }
         $db->CRUD($sql, $params);
         return self::resultado(true, 'Aclaración registrada', ['id_credito' => $idCredito]);
     } catch (\Throwable $e) {

@@ -224,8 +224,16 @@ function guardarAclaracionesGc() {
                 }
             } else {
                 var errTxt = (data && data.mensaje) ? data.mensaje : 'No se pudo guardar.';
-                if (typeof Swal !== 'undefined') Swal.fire('Error', errTxt, 'error');
-                else alert(errTxt);
+                if (typeof Swal !== 'undefined') {
+                    var esAviso = data && data.alerta === 'info';
+                    Swal.fire({
+                        icon: esAviso ? 'info' : 'error',
+                        title: esAviso ? 'Aviso' : 'Error',
+                        text: errTxt
+                    });
+                } else {
+                    alert(errTxt);
+                }
             }
         })
         .catch(function () {
