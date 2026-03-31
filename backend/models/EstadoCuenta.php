@@ -1079,6 +1079,13 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         return self::resultado(false, 'Error al calcular fecha', [], $e->getMessage());
     }
 
+    $sqlDup = "
+        SELECT 1 AS ok
+        FROM `cobranza_gc_verificacion_semana`
+        WHERE `id_credito` = :id_credito AND `inicio_semana` = :inicio_semana
+        LIMIT 1
+    ";
+
     $sql = "
     INSERT INTO `cobranza_gc_verificacion_semana` (
         `id_credito`,
@@ -1132,6 +1139,18 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
 
     try {
         $db = new DatabaseSegundometro();
+        $dup = $db->queryAll($sqlDup, [
+            'id_credito'    => $idCredito,
+            'inicio_semana' => $inicioSemana,
+        ]);
+        if (!empty($dup)) {
+            return self::resultado(
+                false,
+                'Este crédito ya fue incorporado al reporte de esta semana y está confirmado por cartera. '
+                . 'No es necesario volver a enviarlo. Gracias por su tiempo y apoyo.',
+                ['alerta' => 'info']
+            );
+        }
         $db->CRUD($sql, $params);
         return self::resultado(true, 'Aclaración registrada', ['id_credito' => $idCredito]);
     } catch (\Throwable $e) {
