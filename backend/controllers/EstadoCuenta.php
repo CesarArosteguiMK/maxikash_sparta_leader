@@ -5329,6 +5329,7 @@ public function descargar()
     /**
      * Guarda aclaración GC en __SPARTA_SECRET_REDACTED__.cobranza_gc_verificacion_semana (permiso módulo 30 o usuario 1).
      * POST JSON: id_credito, nombre, tipo_reporte (error|falta_aplicar), monto, mensaje (observaciones).
+     * id_usuario_reporte en BD = usuario_id de la sesión (quien guarda; no se toma del cliente).
      * estatus en BD = 3 (reportado por call center / flujo estado de cuenta).
      */
     public function GuardarAclaracionGc()
@@ -5357,13 +5358,14 @@ public function descargar()
         $celula = EstadoCuentaDAO::obtenerCelulaUltimaGastoCobranza($idCredito);
 
         $resultado = EstadoCuentaDAO::insertAclaracionGcVerificacionSemana([
-            'id_credito'    => $idCredito,
-            'nombre'        => $nombre,
-            'tipo_reporte'  => $tipo,
-            'monto'         => $monto,
-            'mensaje'       => $mensaje,
-            'estatus'       => 3,
-            'celula'        => $celula,
+            'id_credito'           => $idCredito,
+            'nombre'               => $nombre,
+            'tipo_reporte'         => $tipo,
+            'monto'                => $monto,
+            'mensaje'              => $mensaje,
+            'estatus'              => 3,
+            'celula'               => $celula,
+            'id_usuario_reporte'   => $idUsuario > 0 ? $idUsuario : null,
         ]);
 
         if (!empty($resultado['success'])) {
