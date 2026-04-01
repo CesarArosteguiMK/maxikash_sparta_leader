@@ -34,9 +34,11 @@ call :NpmInstall "%BACKEND%\services\segundometro-agent" segundometro-agent
 if errorlevel 1 goto :fin
 call :NpmInstall "%BACKEND%\services\correos-primeros-pagos-agent" correos-primeros-pagos-agent
 if errorlevel 1 goto :fin
+call :NpmInstall "%BACKEND%\services\gastos-cobranza-agent" gastos-cobranza-agent
+if errorlevel 1 goto :fin
 
 echo.
-echo [OK] Dependencias listas en las tres carpetas.
+echo [OK] Dependencias listas en las cuatro carpetas Node ^(doc, segundometro, correos, gastos cobranza^).
 echo      Arranque con iniciar-todos-los-servicios.bat
 echo.
 echo AVISO: En correos, si aun no tiene .env, ejecute una vez:

@@ -874,25 +874,19 @@ public function DesasignarCredito()
     }
 
     /**
-     * Importar Excel (asigna créditos al despacho seleccionado)
-     * Campos esperados:
-     * - $_POST['id_persona']
-     * - $_FILES['excel']
+     * Importar Excel (asignación masiva)
+     * - $_FILES['excel'] (obligatorio)
+     * - $_POST['id_persona'] (opcional): si el Excel no trae columna id_despacho, se usa el despacho del gestor seleccionado en pantalla.
      */
     public function ImportarExcelAsignacionCreditosDespacho()
     {
         header('Content-Type: application/json; charset=utf-8');
 
         try {
-            $idPersona = $_POST['id_persona'] ?? null;
-            if (!$idPersona) {
-                http_response_code(400);
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Falta el id_persona del despacho seleccionado.'
-                ]);
-                return;
-            }
+            $idPersonaRaw = $_POST['id_persona'] ?? null;
+            $idPersona = ($idPersonaRaw !== null && $idPersonaRaw !== '' && (int) $idPersonaRaw > 0)
+                ? (int) $idPersonaRaw
+                : null;
 
             if (!isset($_FILES['excel']) || !is_array($_FILES['excel'])) {
                 http_response_code(400);
@@ -956,7 +950,7 @@ public function DesasignarCredito()
 
             $originalName = $_FILES['excel']['name'] ?? 'excel';
 
-            $resultado = $this->model->importarAsignaCreditosDesdeExcel($idPersona, $tmpPath);
+            $resultado = $this->model->importarAsignaCreditosDesdeExcel($idPersona ?? 0, $tmpPath);
 
             // Enriquecer con nombre de archivo para la vista
             if (is_array($resultado)) {

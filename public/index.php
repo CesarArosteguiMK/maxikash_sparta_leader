@@ -265,6 +265,17 @@ $rutasModulos = [
     'gastoscobranza/shell' => [31],
     'gastoscobranza/estadoagente' => [31],
     'gastoscobranza/ejecutarreporte' => [31],
+    'gastoscobranza/logagente' => [31],
+    'gastoscobranza/vaciarlogagente' => [31],
+    'gastoscobranza/listarreportes' => [31],
+    'gastoscobranza/descargarreporte' => [31],
+    'gastoscobranza/descargarerroresreintento' => [31],
+    'gastoscobranza/subirexcelec' => [31],
+    'gastoscobranza/ejecutareclauncher' => [31],
+    'gastoscobranza/ejecutarcargaverificacionsemana' => [31],
+    'gastoscobranza/ejecutardescargoestatus3' => [31],
+    'gastoscobranza/descargoestatus3ejecutarydescargar' => [31],
+    'gastoscobranza/descargardescargoestatus3' => [31],
     'onboarding/index' => [44],
 ];
 $controladoresModulos = [
@@ -324,12 +335,27 @@ call_user_func_array([$controlador, $metodo], $parametros);
 | FUNCIONES AUXILIARES
 |--------------------------------------------------------------------------
 */
+function solicitudEsFrontRequest()
+{
+    if (!empty($_SERVER['HTTP_FRONT_REQUEST']) && strtolower(trim((string)$_SERVER['HTTP_FRONT_REQUEST'])) === 'true') {
+        return true;
+    }
+    if (function_exists('apache_request_headers')) {
+        foreach (apache_request_headers() as $k => $v) {
+            if (strtolower((string)$k) === 'front-request' && strtolower(trim((string)$v)) === 'true') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 function recursoNoDisponible()
 {
-    $headers = apache_request_headers();
-    if (isset($headers['Front-Request']) && strtolower($headers['Front-Request']) === 'true') {
+    if (solicitudEsFrontRequest()) {
         header('HTTP/1.0 404 Not Found');
-        echo json_encode(['error' => 'Recurso no disponible']);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Recurso no disponible', 'success' => false]);
         exit;
     }
 
