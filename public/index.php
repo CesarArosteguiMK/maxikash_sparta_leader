@@ -262,9 +262,15 @@ $rutasModulos = [
     'configticketpuesto/consulta' => [26], 'configticketpuesto/getpuestossparta' => [26], 'configticketpuesto/getconfig' => [26], 'configticketpuesto/guardar' => [26], 'configticketpuesto/getconfigestadisticas' => [26], 'configticketpuesto/guardarestadisticas' => [26],
     'configticketpuesto/getusuariospanel' => [26], 'configticketpuesto/getconfigpanelusuario' => [26], 'configticketpuesto/guardarpanelusuario' => [26],
     'segundometro/shell' => [16],
+    'gastoscobranza/shell' => [31],
+    'gastoscobranza/estadoagente' => [31],
+    'gastoscobranza/ejecutarreporte' => [31],
     'onboarding/index' => [44],
 ];
-$controladoresModulos = ['segundometro' => [16]];
+$controladoresModulos = [
+    'segundometro' => [16],
+    'gastoscobranza' => [31],
+];
 $path = strtolower(trim($controladorArchivo)) . '/' . strtolower(trim($metodo));
 $modulosRequeridos = $rutasModulos[$path] ?? $controladoresModulos[strtolower(trim($controladorArchivo))] ?? null;
 if (!$esEstadoReportesAgente && $modulosRequeridos !== null) {

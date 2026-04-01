@@ -202,7 +202,12 @@ function getMenu()
                                     'label' => 'Shell Segundómetro',
                                     'url' => '/segundometro/shell',
                                     'modulos' => [16]
-                            ]
+                            ],
+                            [
+                                    'label' => 'Shell Gastos Cobranza',
+                                    'url' => '/gastoscobranza/shell',
+                                    'modulos' => [31]
+                            ],
                     ]
             ],
 
