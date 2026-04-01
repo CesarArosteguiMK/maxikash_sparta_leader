@@ -33,6 +33,26 @@ class Gastoscobranza extends Controller
         return trim((string)$this->agenteIni('key', ''));
     }
 
+    /**
+     * Libera el bloqueo de sesión para que otras peticiones del mismo usuario (p. ej. logAgente cada 2,5 s)
+     * puedan ejecutarse mientras esta petición espera al agente Node (worker, carga lista negra, etc.).
+     */
+    private function liberarSesionParaPeticionLarga()
+    {
+        if (function_exists('session_status') && session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+    }
+
+    /** Evita que PHP corte la petición a los ~30 s mientras el agente corre reporte / worker (respuesta HTML en lugar de JSON). */
+    private function extenderTiempoEjecucionParaAgente()
+    {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+        @ini_set('max_execution_time', '0');
+    }
+
     private function agenteIni($key, $default = '')
     {
         static $cfg = null;
@@ -170,6 +190,7 @@ class Gastoscobranza extends Controller
     public function ejecutarReporte()
     {
         try {
+            $this->extenderTiempoEjecucionParaAgente();
             if (!$this->agenteHabilitado()) {
                 self::respuestaJSON([
                     'success' => false,
@@ -185,6 +206,7 @@ class Gastoscobranza extends Controller
                 ]);
                 return;
             }
+            $this->liberarSesionParaPeticionLarga();
             $run = $this->agenteRequest('POST', '/run', new \stdClass(), 600);
             if (is_array($run['json'])) {
                 $out = $run['json'];
@@ -203,5 +225,621 @@ class Gastoscobranza extends Controller
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Cola de log del agente (GET /logs) para panel en vista.
+     */
+    public function logAgente()
+    {
+        try {
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Agente deshabilitado en config.ini.',
+                    'contenido' => '',
+                ]);
+                return;
+            }
+            $lines = isset($_GET['lines']) ? (int)$_GET['lines'] : 120;
+            $lines = max(20, min(400, $lines));
+            $path = '/logs?lines=' . $lines;
+            $req = $this->agenteRequest('GET', $path, null, 15);
+            if ($req['success'] && is_array($req['json']) && !empty($req['json']['success'])) {
+                self::respuestaJSON([
+                    'success' => true,
+                    'contenido' => (string)($req['json']['contenido'] ?? ''),
+                    'archivo' => $req['json']['archivo'] ?? null,
+                ]);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => $req['error'] ?: ('HTTP ' . ($req['status'] ?? 0)),
+                'contenido' => '',
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage(), 'contenido' => '']);
+        }
+    }
+
+    /**
+     * Vacía el log del agente en disco (POST /logs/clear).
+     */
+    public function vaciarLogAgente()
+    {
+        try {
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Agente deshabilitado en config.ini.',
+                ]);
+                return;
+            }
+            $req = $this->agenteRequest('POST', '/logs/clear', new \stdClass(), 15);
+            if ($req['success'] && is_array($req['json']) && !empty($req['json']['success'])) {
+                self::respuestaJSON([
+                    'success' => true,
+                    'mensaje' => (string)($req['json']['mensaje'] ?? 'Log vaciado.'),
+                ]);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => $req['error'] ?: ('HTTP ' . ($req['status'] ?? 0)),
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Lista archivos .xlsx en reporte/ del agente (GET /reportes).
+     */
+    public function listarReportes()
+    {
+        try {
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Agente deshabilitado.', 'archivos' => []]);
+                return;
+            }
+            $req = $this->agenteRequest('GET', '/reportes', null, 15);
+            if ($req['success'] && is_array($req['json']) && !empty($req['json']['success'])) {
+                self::respuestaJSON([
+                    'success' => true,
+                    'archivos' => $req['json']['archivos'] ?? [],
+                ]);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => $req['error'] ?: ('HTTP ' . ($req['status'] ?? 0)),
+                'archivos' => [],
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage(), 'archivos' => []]);
+        }
+    }
+
+    /**
+     * Descarga un Excel desde reporte/ del agente (proxy al navegador).
+     */
+    public function descargarReporte()
+    {
+        $nombre = isset($_GET['nombre']) ? (string)$_GET['nombre'] : '';
+        if (
+            $nombre === '' || $nombre !== basename($nombre)
+            || !preg_match('/^reporte_cobranza_[A-Za-z0-9._-]+\.xlsx$/', $nombre)
+        ) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Nombre de archivo inválido';
+            exit;
+        }
+        if (!$this->agenteHabilitado()) {
+            header('HTTP/1.0 503 Service Unavailable');
+            echo 'Agente deshabilitado en config.ini.';
+            exit;
+        }
+        $url = $this->agenteBaseUrl() . '/reportes/descargar?nombre=' . rawurlencode($nombre);
+        $headers = ['Accept: */*'];
+        $key = $this->agenteApiKey();
+        if ($key !== '') {
+            $headers[] = 'X-Api-Key: ' . $key;
+        }
+        if (!function_exists('curl_init')) {
+            header('HTTP/1.0 500 Internal Server Error');
+            echo 'cURL no disponible';
+            exit;
+        }
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 300);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        $bin = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $cerr = curl_error($ch);
+        curl_close($ch);
+        if ($bin === false || $status < 200 || $status >= 300) {
+            header('HTTP/1.0 502 Bad Gateway');
+            echo $cerr !== '' ? $cerr : ('No se pudo descargar (HTTP ' . $status . ')');
+            exit;
+        }
+        if (strpos($ctype, 'json') !== false) {
+            header('HTTP/1.0 502 Bad Gateway');
+            echo 'El agente devolvió error en lugar del archivo.';
+            exit;
+        }
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $nombre . '"');
+        header('Content-Length: ' . strlen($bin));
+        echo $bin;
+        exit;
+    }
+
+    /**
+     * Descarga CSV generado por worker.php tras errores persistentes en la 2.ª pasada (proxy al agente).
+     */
+    public function descargarErroresReintento()
+    {
+        $nombre = isset($_GET['nombre']) ? (string)$_GET['nombre'] : '';
+        if (
+            $nombre === '' || $nombre !== basename($nombre)
+            || !preg_match('/^ec_worker_errores_reintento_\d{8}_\d{6}\.csv$/', $nombre)
+        ) {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Nombre de archivo inválido';
+            exit;
+        }
+        if (!$this->agenteHabilitado()) {
+            header('HTTP/1.0 503 Service Unavailable');
+            echo 'Agente deshabilitado en config.ini.';
+            exit;
+        }
+        $url = $this->agenteBaseUrl() . '/ec-uploads/descargar-errores-reintento?nombre=' . rawurlencode($nombre);
+        $headers = ['Accept: text/csv, */*'];
+        $key = $this->agenteApiKey();
+        if ($key !== '') {
+            $headers[] = 'X-Api-Key: ' . $key;
+        }
+        if (!function_exists('curl_init')) {
+            header('HTTP/1.0 500 Internal Server Error');
+            echo 'cURL no disponible';
+            exit;
+        }
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        $bin = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $cerr = curl_error($ch);
+        curl_close($ch);
+        if ($bin === false || $status < 200 || $status >= 300) {
+            header('HTTP/1.0 502 Bad Gateway');
+            echo $cerr !== '' ? $cerr : ('No se pudo descargar (HTTP ' . $status . ')');
+            exit;
+        }
+        if (strpos($ctype, 'json') !== false) {
+            header('HTTP/1.0 502 Bad Gateway');
+            echo 'El agente devolvió error en lugar del archivo.';
+            exit;
+        }
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $nombre . '"');
+        header('Content-Length: ' . strlen($bin));
+        echo $bin;
+        exit;
+    }
+
+    /**
+     * Sube un .xlsx a reporte/ec-uploads del agente (para worker / enrich).
+     */
+    public function subirExcelEc()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Solo POST.']);
+            return;
+        }
+        if (!isset($_FILES['archivo']) || !is_uploaded_file($_FILES['archivo']['tmp_name'] ?? '')) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Adjunte un archivo Excel (.xlsx).']);
+            return;
+        }
+        $ext = strtolower((string)pathinfo((string)($_FILES['archivo']['name'] ?? ''), PATHINFO_EXTENSION));
+        if ($ext !== 'xlsx') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Solo se acepta extensión .xlsx']);
+            return;
+        }
+        if (!defined('RAIZ')) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Configuración RAIZ no disponible.']);
+            return;
+        }
+        $dir = RAIZ . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'gastos-cobranza-agent'
+            . DIRECTORY_SEPARATOR . 'reporte' . DIRECTORY_SEPARATOR . 'ec-uploads';
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo crear la carpeta ec-uploads.']);
+            return;
+        }
+        $base = preg_replace('/[^a-zA-Z0-9._-]+/', '_', basename((string)$_FILES['archivo']['name']));
+        if (strlen($base) > 180) {
+            $base = substr($base, -180);
+        }
+        $nombre = 'ec_upload_' . date('Ymd_His') . '_' . $base;
+        $dest = $dir . DIRECTORY_SEPARATOR . $nombre;
+        if (!@move_uploaded_file($_FILES['archivo']['tmp_name'], $dest)) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo guardar el archivo.']);
+            return;
+        }
+        self::respuestaJSON([
+            'success' => true,
+            'nombre' => $nombre,
+            'mensaje' => 'Listo. Puede ejecutar worker o enrich desde el agente.',
+        ]);
+    }
+
+    /**
+     * Proxy a POST /ec-launcher/run del agente Node (worker.php o enrich_gc_excel.php).
+     */
+    public function ejecutarEcLauncher()
+    {
+        try {
+            $this->extenderTiempoEjecucionParaAgente();
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Active [gastoscobranza_agent] en config.ini.']);
+                return;
+            }
+            $raw = (string)file_get_contents('php://input');
+            $body = json_decode($raw !== '' ? $raw : '{}', true);
+            if (!is_array($body)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Cuerpo JSON inválido.']);
+                return;
+            }
+            $nombre = isset($body['nombre']) ? basename((string)$body['nombre']) : '';
+            $tipo = isset($body['tipo']) ? strtolower(trim((string)$body['tipo'])) : '';
+            $fechaCorte = isset($body['fechaCorte']) ? trim((string)$body['fechaCorte']) : '';
+            $column = isset($body['column']) ? trim((string)$body['column']) : 'ID CREDITO';
+            $omitir = isset($body['omitir']) ? (int)$body['omitir'] : 0;
+            $soloColumnas = !empty($body['soloColumnas']);
+            if ($nombre === '' || substr(strtolower($nombre), -5) !== '.xlsx') {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Indique el nombre del .xlsx subido previamente.']);
+                return;
+            }
+            if ($tipo !== 'worker' && $tipo !== 'enrich') {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El campo tipo debe ser worker o enrich.']);
+                return;
+            }
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCorte)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'fechaCorte debe ser YYYY-MM-DD.']);
+                return;
+            }
+            $payload = [
+                'tipo' => $tipo,
+                'archivo' => $nombre,
+                'fechaCorte' => $fechaCorte,
+                'column' => $column !== '' ? $column : 'ID CREDITO',
+                'omitir' => max(0, $omitir),
+                'soloColumnas' => $soloColumnas,
+            ];
+            $origenCarpeta = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
+            if ($origenCarpeta === 'reporte') {
+                $payload['origenCarpeta'] = 'reporte';
+            }
+            $health = $this->agenteRequest('GET', '/health', null, 10);
+            if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El agente Gastos Cobranza no responde.']);
+                return;
+            }
+            if ($tipo === 'worker' && empty($health['json']['ec_worker_presente'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'En este equipo no está tools/ec-webhook-worker (worker.php).']);
+                return;
+            }
+            if ($tipo === 'enrich' && empty($health['json']['ec_enrich_presente'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'En este equipo no está tools/ec-gc-excel-enrich.']);
+                return;
+            }
+            $this->liberarSesionParaPeticionLarga();
+            $run = $this->agenteRequest('POST', '/ec-launcher/run', $payload, 7200);
+            if (is_array($run['json'])) {
+                $out = $run['json'];
+                if (!array_key_exists('success', $out)) {
+                    $code = isset($out['codigo_salida']) ? (int)$out['codigo_salida'] : -1;
+                    $out['success'] = $run['success'] && $code === 0;
+                }
+                self::respuestaJSON($out);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => substr((string)($run['raw'] ?? ''), 0, 400) ?: ('HTTP ' . ($run['status'] ?? 0)),
+                'http_status' => $run['status'] ?? 0,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Proxy a POST /carga-verificacion-semana/run (Excel → cobranza_gc_verificacion_semana).
+     */
+    public function ejecutarCargaVerificacionSemana()
+    {
+        try {
+            $this->extenderTiempoEjecucionParaAgente();
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Active [gastoscobranza_agent] en config.ini.']);
+                return;
+            }
+            $raw = (string)file_get_contents('php://input');
+            $body = json_decode($raw !== '' ? $raw : '{}', true);
+            if (!is_array($body)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Cuerpo JSON inválido.']);
+                return;
+            }
+            $nombre = isset($body['archivo']) ? basename((string)$body['archivo']) : '';
+            if ($nombre === '' || substr(strtolower($nombre), -5) !== '.xlsx') {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Indique el nombre del .xlsx subido previamente a ec-uploads.']);
+                return;
+            }
+            $inicioSemana = isset($body['inicioSemana']) ? trim((string)$body['inicioSemana']) : '';
+            if ($inicioSemana !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $inicioSemana)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'inicioSemana debe ser YYYY-MM-DD o omitirse.']);
+                return;
+            }
+            // Lista negra por Excel: siempre tipo_reporte = NULL en BD (no falta_aplicar). Requiere columna nullable.
+            $payload = [
+                'archivo' => $nombre,
+                'dryRun' => !empty($body['dryRun']),
+                'megaPhpDefaults' => !isset($body['megaPhpDefaults']) || !empty($body['megaPhpDefaults']),
+                'tipoReporteNulo' => true,
+            ];
+            $origenCarga = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
+            if ($origenCarga === 'reporte') {
+                $payload['origenCarpeta'] = 'reporte';
+            }
+            if ($inicioSemana !== '') {
+                $payload['inicioSemana'] = $inicioSemana;
+            }
+            if (isset($body['estatus']) && $body['estatus'] !== '' && $body['estatus'] !== null) {
+                $payload['estatus'] = (int)$body['estatus'];
+            }
+            if (isset($body['mensaje']) && trim((string)$body['mensaje']) !== '') {
+                $payload['mensaje'] = trim((string)$body['mensaje']);
+            }
+            $health = $this->agenteRequest('GET', '/health', null, 10);
+            if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El agente Gastos Cobranza no responde.']);
+                return;
+            }
+            if (empty($health['json']['script_carga_verificacion_semana'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'En el agente no está el script carga_cobranza_gc_verificacion_semana_desde_excel.py.',
+                ]);
+                return;
+            }
+            $this->liberarSesionParaPeticionLarga();
+            $run = $this->agenteRequest('POST', '/carga-verificacion-semana/run', $payload, 7200);
+            if (is_array($run['json'])) {
+                $out = $run['json'];
+                if (!array_key_exists('success', $out)) {
+                    $code = isset($out['codigo_salida']) ? (int)$out['codigo_salida'] : -1;
+                    $out['success'] = $run['success'] && $code === 0;
+                }
+                self::respuestaJSON($out);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => substr((string)($run['raw'] ?? ''), 0, 400) ?: ('HTTP ' . ($run['status'] ?? 0)),
+                'http_status' => $run['status'] ?? 0,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Proxy a POST /descargo-estatus3/run (Excel + guía JSON desde cobranza_gc_verificacion_semana estatus=3).
+     */
+    public function ejecutarDescargoEstatus3()
+    {
+        try {
+            $this->extenderTiempoEjecucionParaAgente();
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Active [gastoscobranza_agent] en config.ini.']);
+                return;
+            }
+            $raw = (string)file_get_contents('php://input');
+            $body = json_decode($raw !== '' ? $raw : '{}', true);
+            if (!is_array($body)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Cuerpo JSON inválido.']);
+                return;
+            }
+            $payload = [
+                'megaPhpDefaults' => !isset($body['megaPhpDefaults']) || !empty($body['megaPhpDefaults']),
+                'desdeCero' => !empty($body['desdeCero']),
+                'sinActualizarGuia' => !empty($body['sinActualizarGuia']),
+            ];
+            $health = $this->agenteRequest('GET', '/health', null, 10);
+            if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El agente Gastos Cobranza no responde.']);
+                return;
+            }
+            if (empty($health['json']['script_descargo_estatus3'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'En el agente no está el script descargo_cobranza_gc_estatus3.py.',
+                ]);
+                return;
+            }
+            $this->liberarSesionParaPeticionLarga();
+            $run = $this->agenteRequest('POST', '/descargo-estatus3/run', $payload, 7200);
+            if (is_array($run['json'])) {
+                $out = $run['json'];
+                if (!array_key_exists('success', $out)) {
+                    $code = isset($out['codigo_salida']) ? (int)$out['codigo_salida'] : -1;
+                    $out['success'] = $run['success'] && $code === 0;
+                }
+                self::respuestaJSON($out);
+                return;
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => substr((string)($run['raw'] ?? ''), 0, 400) ?: ('HTTP ' . ($run['status'] ?? 0)),
+                'http_status' => $run['status'] ?? 0,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Ejecuta el descargo en el agente y devuelve el Excel al navegador (o JSON si error / sin filas nuevas).
+     * Proxy a POST /descargo-estatus3/run-and-download.
+     */
+    public function descargoEstatus3EjecutarYDescargar()
+    {
+        try {
+            $this->extenderTiempoEjecucionParaAgente();
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Active [gastoscobranza_agent] en config.ini.']);
+                return;
+            }
+            $raw = (string)file_get_contents('php://input');
+            $body = json_decode($raw !== '' ? $raw : '{}', true);
+            if (!is_array($body)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Cuerpo JSON inválido.']);
+                return;
+            }
+            $payload = [
+                'megaPhpDefaults' => !isset($body['megaPhpDefaults']) || !empty($body['megaPhpDefaults']),
+                'desdeCero' => !empty($body['desdeCero']),
+                'sinActualizarGuia' => !empty($body['sinActualizarGuia']),
+            ];
+            $health = $this->agenteRequest('GET', '/health', null, 10);
+            if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El agente Gastos Cobranza no responde.']);
+                return;
+            }
+            if (empty($health['json']['script_descargo_estatus3'])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'En el agente no está el script descargo_cobranza_gc_estatus3.py.',
+                ]);
+                return;
+            }
+            if (!function_exists('curl_init')) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'cURL no disponible en el servidor PHP.']);
+                return;
+            }
+            $this->liberarSesionParaPeticionLarga();
+            $url = $this->agenteBaseUrl() . '/descargo-estatus3/run-and-download';
+            $headers = ['Accept: */*', 'Content-Type: application/json'];
+            $key = $this->agenteApiKey();
+            if ($key !== '') {
+                $headers[] = 'X-Api-Key: ' . $key;
+            }
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 7200);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            $bin = curl_exec($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            $cerr = curl_error($ch);
+            curl_close($ch);
+            if ($bin === false) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => $cerr !== '' ? $cerr : 'Error de red al contactar al agente.',
+                ]);
+                return;
+            }
+            if ($status < 200 || $status >= 300) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo $bin;
+                exit;
+            }
+            $ctLower = strtolower($ctype);
+            if (strpos($ctLower, 'json') !== false || (strlen($bin) > 0 && ($bin[0] === '{' || $bin[0] === '['))) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo $bin;
+                exit;
+            }
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="descargo_estatus3.xlsx"');
+            header('Content-Length: ' . strlen($bin));
+            echo $bin;
+            exit;
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Descarga descargo_estatus3.xlsx o guia_descargo.json del agente (proxy).
+     */
+    public function descargarDescargoEstatus3()
+    {
+        $tipo = isset($_GET['tipo']) ? strtolower(trim((string)$_GET['tipo'])) : 'xlsx';
+        if ($tipo !== 'xlsx' && $tipo !== 'guia') {
+            header('HTTP/1.0 400 Bad Request');
+            echo 'Parámetro tipo inválido (xlsx o guia).';
+            exit;
+        }
+        if (!$this->agenteHabilitado()) {
+            header('HTTP/1.0 503 Service Unavailable');
+            echo 'Agente deshabilitado en config.ini.';
+            exit;
+        }
+        $url = $this->agenteBaseUrl() . '/descargo-estatus3/descargar?tipo=' . rawurlencode($tipo);
+        $headers = ['Accept: */*'];
+        $key = $this->agenteApiKey();
+        if ($key !== '') {
+            $headers[] = 'X-Api-Key: ' . $key;
+        }
+        if (!function_exists('curl_init')) {
+            header('HTTP/1.0 500 Internal Server Error');
+            echo 'cURL no disponible';
+            exit;
+        }
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 300);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        $bin = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $ctype = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $cerr = curl_error($ch);
+        curl_close($ch);
+        if ($bin === false) {
+            header('HTTP/1.0 502 Bad Gateway');
+            echo $cerr !== '' ? $cerr : 'Error de red al descargar.';
+            exit;
+        }
+        if ($status < 200 || $status >= 300) {
+            header($status === 404 ? 'HTTP/1.0 404 Not Found' : 'HTTP/1.0 502 Bad Gateway');
+            $j = json_decode($bin, true);
+            echo is_array($j) && isset($j['mensaje']) ? (string)$j['mensaje'] : substr($bin, 0, 500);
+            exit;
+        }
+        if ($tipo === 'guia') {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Content-Disposition: attachment; filename="guia_descargo.json"');
+        } else {
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="descargo_estatus3.xlsx"');
+        }
+        header('Content-Length: ' . strlen($bin));
+        echo $bin;
+        exit;
     }
 }

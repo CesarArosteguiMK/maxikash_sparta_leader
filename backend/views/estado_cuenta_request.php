@@ -3936,7 +3936,7 @@ function consultaGastosCondonables(idCredito) {
     modal.show();
 
     // ── Intentar con datos preloaded desde PHP ──
-    if (typeof GASTOS_COBRANZA_PRELOAD !== 'undefined' && Array.isArray(GASTOS_COBRANZA_PRELOAD)) {
+    if (typeof GASTOS_COBRANZA_PRELOAD !== 'undefined' && Array.isArray(GASTOS_COBRANZA_PRELOAD) && GASTOS_COBRANZA_PRELOAD.length > 0) {
         _pintarTablaGastos(GASTOS_COBRANZA_PRELOAD, idCredito);
         return;
     }
@@ -4785,7 +4785,7 @@ function cargarHistorialGastos() {
     if (historialCargado) return;
 
     // ── Intentar con datos preloaded desde PHP ──
-    if (typeof HISTORIAL_GASTOS_PRELOAD !== 'undefined' && Array.isArray(HISTORIAL_GASTOS_PRELOAD)) {
+    if (typeof HISTORIAL_GASTOS_PRELOAD !== 'undefined' && Array.isArray(HISTORIAL_GASTOS_PRELOAD) && HISTORIAL_GASTOS_PRELOAD.length > 0) {
         _pintarHistorial(HISTORIAL_GASTOS_PRELOAD);
         historialCargado = true;
         return;

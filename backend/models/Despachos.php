@@ -450,13 +450,13 @@ SQL;
      * Importar Excel para asignar créditos masivamente.
      *
      * Modo A — columnas en fila 1: id_credito + id_despacho (por fila puede ir a distintos despachos).
-     * Modo B — solo id_credito: usa el despacho activo del id_persona seleccionado en pantalla.
+     * Modo B — solo id_credito: requiere id_persona del despacho seleccionado en pantalla.
      *
      * Valida números enteros > 0 y que id_despacho exista en despachos (estatus Activo).
      */
 
     public function importarAsignaCreditosDesdeExcel($idPersona, $excelPath)
-{
+    {
     require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
 
     $errores = [];

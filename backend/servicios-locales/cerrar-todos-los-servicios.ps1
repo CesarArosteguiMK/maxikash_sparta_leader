@@ -1,4 +1,4 @@
-# Detiene servicios locales: Node (3001, 3100, 3110) y Docker API (8000).
+# Detiene servicios locales: Node (3001, 3100, 3110, 3120) y Docker API (8000).
 param(
     [Parameter(Mandatory = $true)]
     [string] $BackendRoot
@@ -59,6 +59,15 @@ if (Test-Path -LiteralPath $batCorreos) {
 } else {
     Stop-Port -Port 3110
     Write-Host '[OK] Puerto 3110 (fallback)' -ForegroundColor Gray
+}
+
+$ps3120 = Join-Path $BackendRoot 'services\gastos-cobranza-agent\cerrar-agente.ps1'
+if (Test-Path -LiteralPath $ps3120) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $ps3120 -Silent
+    Write-Host '[OK] Puerto 3120 (Gastos cobranza)' -ForegroundColor Gray
+} else {
+    Stop-Port -Port 3120
+    Write-Host '[OK] Puerto 3120 (fallback)' -ForegroundColor Gray
 }
 
 $apiDir = Join-Path $BackendRoot 'API'
