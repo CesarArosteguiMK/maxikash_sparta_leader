@@ -1692,6 +1692,22 @@ JS;
                         self::set("titulo", "Estados de Cuenta");
                         $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $script);
                         $scriptConsulta = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConsulta);
+                        // Inyectar idCredito para cruce async en el script
+                        $script = str_replace(
+                            'document.addEventListener("DOMContentLoaded", () => {',
+                            'var _idCreditoParaCruce = ' . (int)$idConsultado . ';
+                            document.addEventListener("DOMContentLoaded", () => {
+                                if (_idCreditoParaCruce > 0) {
+                                    setTimeout(() => {
+                                        fetch("/EstadoCuenta/procesarCruceGastos", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ idCredito: _idCreditoParaCruce })
+                                        }).catch(() => {});
+                                    }, 1500);
+                                }',
+                                                        $script
+                                                    );
                         self::set("script", $scriptConsulta);
                         self::set("alertaBusqueda", [
                             'title' => 'Crédito de Guatemala',
@@ -1711,18 +1727,18 @@ JS;
                 EstadoCuentaTimingLog::mark('api___SPARTA_SECRET_REDACTED__');
                 $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoLista);
                 EstadoCuentaTimingLog::mark('dao_direccion');
-                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
+                $referencias = $referenciasMxPrevias; // ✅ reutilizar la que ya se hizo arriba
                 EstadoCuentaTimingLog::mark('dao_referencias');
                 $notas = EmpresasDAO::getNotasNum($idCreditoLista);
                 EstadoCuentaTimingLog::mark('dao_notas');
             }
             else
             {
-                $resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
+                $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
                 EstadoCuentaTimingLog::mark('api___SPARTA_SECRET_REDACTED__');
                 $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
                 EstadoCuentaTimingLog::mark('dao_direccion');
-                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
+                $referencias = $referenciasMxPrevias; // ✅ reutilizar la que ya se hizo arriba
                 EstadoCuentaTimingLog::mark('dao_referencias');
                 $notas = EmpresasDAO::getNotasNum($idCredito);
                 EstadoCuentaTimingLog::mark('dao_notas');
@@ -1730,13 +1746,22 @@ JS;
 
             // Registrar en auditoría: usuario (email), crédito, fecha de corte, éxito/error
             $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
-            EstadoCuentaDAO::registrarAuditoria(
-                $usuarioEmail,
-                $idConsultado,
-                $fechaHoy,
-                !empty($resultado['ok']) ? 1 : 0,
-                isset($resultado['error']) ? $resultado['error'] : null
-            );
+            $_auditData = [
+                'usuario'     => $usuarioEmail,
+                'idConsultado'=> $idConsultado,
+                'fechaHoy'    => $fechaHoy,
+                'ok'          => !empty($resultado['ok']) ? 1 : 0,
+                'error'       => $resultado['error'] ?? null,
+            ];
+            register_shutdown_function(function() use ($_auditData) {
+                EstadoCuentaDAO::registrarAuditoria(
+                    $_auditData['usuario'],
+                    $_auditData['idConsultado'],
+                    $_auditData['fechaHoy'],
+                    $_auditData['ok'],
+                    $_auditData['error']
+                );
+            });
             EstadoCuentaTimingLog::mark('auditoria');
 
             //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
@@ -1965,21 +1990,13 @@ JS;
             $hayNotasCargos = false;
             $listaNotasCargos = $estadoCuenta['datosNotasCargos'] ?? [];
 
-            // ← Agregar aquí:
-$resultadoCruce = $this->procesarGastosCobranza(
-    $listaNotasCargos,
-    $idConsultado
-);
+            // Cruce diferido — se ejecuta async desde el frontend tras renderizar
+            self::set("resultadoCruce", null);
+            self::set("idCreditoParaCruce", (int) $idConsultado);
 
-// Pasar a la vista:
-self::set("resultadoCruce", $resultadoCruce);
-
-// ── Precargar gastos de cobranza para la vista (evita fetch al abrir modal) ──
-$gastosCobranzaPreload  = EstadoCuentaDAO::getGastosCobranza($idConsultado);
-$historialGastosPreload = EstadoCuentaDAO::getHistorialGastosCobranza($idConsultado);
-
-self::set('gastosCobranzaPreload',  $gastosCobranzaPreload['datos']  ?? []);
-self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
+            // Diferido — se carga async cuando el usuario abre el modal
+            self::set('gastosCobranzaPreload',  []);
+            self::set('historialGastosPreload', []);
 
             if (is_array($listaNotasCargos) && count($listaNotasCargos) > 0) {
                 foreach ($listaNotasCargos as $nota) {
@@ -2596,10 +2613,10 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
 
             } else {
 
-                $gestionExternaMx = EstadoCuentaDAO::getDatosGestionExternaCredito((int) $idConsultado);
+                // Diferido — badge se actualiza async
+                self::set('esGestionExternaMx', false);
+                self::set('gestionExternaEtiquetaCelula', '');
                 EstadoCuentaTimingLog::mark('dao_gestion_externa_mx');
-                self::set('esGestionExternaMx', $gestionExternaMx['activa']);
-                self::set('gestionExternaEtiquetaCelula', $gestionExternaMx['etiqueta_celula']);
 
                 self::set("dataCliente", $cliente);
                 self::set("dataEstadoCuenta", $estadoCuenta);
@@ -2613,15 +2630,15 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                     $refRowDictamenPreload = $referencias['datos'][0];
                 }
                 $celDictamenPreload = trim((string)($cliente['celular'] ?? ''));
+
+                // Diferido — se carga async al abrir modal de dictamen
                 self::set('dictamenContactoPreload', [
                     'id_credito' => $idCredDictamenPreload,
-                    'opciones' => EstadoCuentaDAO::construirOpcionesContactoDictamenParaPreload(
-                        $idCredDictamenPreload,
-                        $refRowDictamenPreload,
-                        $celDictamenPreload
-                    ),
+                    'opciones'   => [],
                 ]);
                 EstadoCuentaTimingLog::mark('dictamen_preload');
+
+
                 self::set("titulo", "Resultado de la solicitud");
                 $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
                 $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
@@ -2652,21 +2669,16 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
     {
         $idCredito = $_POST['idCredito'] ?? null;
         $idCreditoLista = $_POST['idCreditoLista'] ?? null;
-        $fechaHoy = date('Y-m-d');
-
-        // Usar idCreditoLista si viene (modo nombre), sino usar idCredito (modo ID)
         $idAValidar = $idCreditoLista ?? $idCredito;
 
         if (!$idAValidar) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'ID de crédito no proporcionado'
-            ]);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito no proporcionado']);
             return;
         }
 
-        // Validación cruzada MX -> GT para dar mensaje de país correcto.
+        // ✅ Solo consultas locales — sin API externa
         $referenciasMx = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idAValidar);
+
         if (empty($referenciasMx['datos'])) {
             $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idAValidar);
             if (!empty($datosGuat['datos'])) {
@@ -2677,51 +2689,15 @@ self::set('historialGastosPreload', $historialGastosPreload['datos'] ?? []);
                 ]);
                 return;
             }
-        }
 
-        // Validar con la API
-        $resultado = $this->api___SPARTA_SECRET_REDACTED__($idAValidar, $fechaHoy);
-
-        // Registrar en auditoría (usuario = email/user_name)
-        $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
-        EstadoCuentaDAO::registrarAuditoria(
-            $usuarioEmail,
-            $idAValidar,
-            $fechaHoy,
-            !empty($resultado['ok']) ? 1 : 0,
-            isset($resultado['error']) ? $resultado['error'] : null
-        );
-
-        // Verificar si hubo error en la API
-        if (!$resultado['ok']) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => $resultado['error'] ?? 'ID de crédito incorrecto'
-            ]);
+            // No existe en ninguna BD local
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito incorrecto']);
             return;
         }
 
-        // Verificar si el ID de crédito existe en los datos
-        if (
-            !isset($resultado['data']['idCredito']) ||
-            $resultado['data']['idCredito'] === null ||
-            $resultado['data']['idCredito'] === '' ||
-            empty($resultado['data']['idCredito'])
-        ) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'ID de crédito incorrecto'
-            ]);
-            return;
-        }
-
-        // Si todo está bien
-        self::respuestaJSON([
-            'success' => true,
-            'mensaje' => 'ID de crédito válido'
-        ]);
+        // ✅ Existe en MX — listo, sin llamar a s2movil
+        self::respuestaJSON(['success' => true, 'mensaje' => 'ID de crédito válido']);
     }
-
     public static function getclientesEstadoCuentaNombre()
     {
         // Leer JSON del POST
@@ -6351,241 +6327,264 @@ public function descargarReporteDictamen()
 
     ///////////////////////////////////////////// GUATEMALA - Estado de Cuenta con soporte multipaís ///////////////////////////7
 
-public function Guatemala()
-{
-    $idCreditoLista = null;
-    $referencias = [];
-    $datosGuat = [];
-    $alertaBusqueda = null;
+    public function Guatemala()
+    {
+        $idCreditoLista = null;
+        $referencias = [];
+        $datosGuat = [];
+        $alertaBusqueda = null;
 
-    $alertaCreditoInvalido = [
-        'icon' => 'error',
-        'title' => 'ID de crédito incorrecto',
-        'html' => "<div style='text-align: center; padding: 10px;'><p style='font-size: 16px; margin-bottom: 15px; color: #333;'><strong>El ID de crédito ingresado no existe en Guatemala o no es válido.</strong></p><p style='font-size: 14px; color: #666;'>Por favor verifícalo y vuelve a intentar.</p></div>",
-        'confirmButtonText' => 'Entendido',
-        'confirmButtonColor' => '#dc3545',
-        'width' => '500px'
-    ];
+        $alertaCreditoInvalido = [
+            'icon' => 'error',
+            'title' => 'ID de crédito incorrecto',
+            'html' => "<div style='text-align: center; padding: 10px;'><p style='font-size: 16px; margin-bottom: 15px; color: #333;'><strong>El ID de crédito ingresado no existe en Guatemala o no es válido.</strong></p><p style='font-size: 14px; color: #666;'>Por favor verifícalo y vuelve a intentar.</p></div>",
+            'confirmButtonText' => 'Entendido',
+            'confirmButtonColor' => '#dc3545',
+            'width' => '500px'
+        ];
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $modo = $_POST['modoBusqueda'] ?? 'id';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $modo = $_POST['modoBusqueda'] ?? 'id';
 
-        if ($modo === 'id') {
-            $idCreditoLista = $_POST['idCredito'] ?? null;
-        } else {
-            $idCreditoLista = $_POST['idCreditoLista'] ?? null;
-        }
+            if ($modo === 'id') {
+                $idCreditoLista = $_POST['idCredito'] ?? null;
+            } else {
+                $idCreditoLista = $_POST['idCreditoLista'] ?? null;
+            }
 
-        if ($idCreditoLista) {
-            // 1) Prioridad Guatemala: si existe aquí, se procesa como GT aunque exista el mismo ID en MX.
-            $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idCreditoLista);
+            if ($idCreditoLista) {
+                // 1) Prioridad Guatemala: si existe aquí, se procesa como GT aunque exista el mismo ID en MX.
+                $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idCreditoLista);
 
-            if (!empty($datosGuat['datos'])) {
-                // Llamadas a CROOP API (Bandera=445 saldos, Bandera=401 amortización, Bandera=404 pagos)
-                $pkeyCredito     = $datosGuat['datos'][0]['pkey_credito'] ?? null;
-                $reqCliente      = json_decode($datosGuat['datos'][0]['request_cliente'] ?? '{}', true) ?? [];
-                $fkEmpresa       = $reqCliente['FK_Empresa'] ?? null;
-                // PKey interna de CROOP almacenada en response_credito (diferente al ID local para Bandera=445/404)
-                $respCredito     = json_decode($datosGuat['datos'][0]['response_credito'] ?? '{}', true) ?? [];
-                $pkeyInterno     = $respCredito['PKey'] ?? $respCredito['Pkey'] ?? $respCredito['pkey'] ?? null;
-                $apiSaldos       = [];
-                $apiAmortizacion = [];
-                $apiPagos        = [];
-                $debugCroop      = [
-                    'idCreditoLista'        => $idCreditoLista,
-                    'pkeyCredito'           => $pkeyCredito,
-                    'pkeyInterno'           => $pkeyInterno,
-                    'response_credito_keys' => array_keys($respCredito),
-                    'fkEmpresa'             => $fkEmpresa,
-                    'datosGuat_count'   => count($datosGuat['datos'] ?? []),
-                    'referencias_count' => 0,
-                    'login_ok'          => false,
-                    'token_preview'     => null,
-                    'saldos_count'      => 0,
-                    'saldos_raw'        => null,
-                    'amort_count'       => 0,
-                    'amort_raw_first'   => null,
-                    'pagos_count'       => 0,
-                    'error'             => null,
-                ];
+                if (!empty($datosGuat['datos'])) {
+                    // Llamadas a CROOP API (Bandera=445 saldos, Bandera=401 amortización, Bandera=404 pagos)
+                    $pkeyCredito     = $datosGuat['datos'][0]['pkey_credito'] ?? null;
+                    $reqCliente      = json_decode($datosGuat['datos'][0]['request_cliente'] ?? '{}', true) ?? [];
+                    $fkEmpresa       = $reqCliente['FK_Empresa'] ?? null;
+                    // PKey interna de CROOP almacenada en response_credito (diferente al ID local para Bandera=445/404)
+                    $respCredito     = json_decode($datosGuat['datos'][0]['response_credito'] ?? '{}', true) ?? [];
+                    $pkeyInterno     = $respCredito['PKey'] ?? $respCredito['Pkey'] ?? $respCredito['pkey'] ?? null;
+                    $apiSaldos       = [];
+                    $apiAmortizacion = [];
+                    $apiPagos        = [];
+                    $debugCroop      = [
+                        'idCreditoLista'        => $idCreditoLista,
+                        'pkeyCredito'           => $pkeyCredito,
+                        'pkeyInterno'           => $pkeyInterno,
+                        'response_credito_keys' => array_keys($respCredito),
+                        'fkEmpresa'             => $fkEmpresa,
+                        'datosGuat_count'   => count($datosGuat['datos'] ?? []),
+                        'referencias_count' => 0,
+                        'login_ok'          => false,
+                        'token_preview'     => null,
+                        'saldos_count'      => 0,
+                        'saldos_raw'        => null,
+                        'amort_count'       => 0,
+                        'amort_raw_first'   => null,
+                        'pagos_count'       => 0,
+                        'error'             => null,
+                    ];
 
-                if ($pkeyCredito) {
-                    $loginResult = $this->croop_login();
-                    $croopToken  = $loginResult['token'] ?? null;
+                    if ($pkeyCredito) {
+                        $loginResult = $this->croop_login();
+                        $croopToken  = $loginResult['token'] ?? null;
 
-                    $debugCroop['login_ok'] = !empty($croopToken);
-                    $debugCroop['token_preview'] = $croopToken ? substr($croopToken, 0, 20) . '...' : null;
-                    $debugCroop['login_http_code'] = $loginResult['http_code'] ?? null;
-                    $debugCroop['login_curl_error'] = $loginResult['curl_error'] ?? null;
-                    $debugCroop['login_success'] = $loginResult['success'] ?? false;
-                    $debugCroop['login_raw'] = $loginResult['raw'] ?? null;
+                        $debugCroop['login_ok'] = !empty($croopToken);
+                        $debugCroop['token_preview'] = $croopToken ? substr($croopToken, 0, 20) . '...' : null;
+                        $debugCroop['login_http_code'] = $loginResult['http_code'] ?? null;
+                        $debugCroop['login_curl_error'] = $loginResult['curl_error'] ?? null;
+                        $debugCroop['login_success'] = $loginResult['success'] ?? false;
+                        $debugCroop['login_raw'] = $loginResult['raw'] ?? null;
 
-                    if ($croopToken) {
-                        // FK_Empresa del session de login (355 para Guatemala)
-                        $fkEmpresaLogin  = $loginResult['fk_empresa'] ?? 355;
-                        // 401 usa el ID local del crédito; 445 y 404 requieren FK_Empresa del session
-                        $pkeyParaSaldos  = $pkeyInterno ?? $pkeyCredito;
+                        if ($croopToken) {
+                            // FK_Empresa del session de login (355 para Guatemala)
+                            $fkEmpresaLogin  = $loginResult['fk_empresa'] ?? 355;
+                            // 401 usa el ID local del crédito; 445 y 404 requieren FK_Empresa del session
+                            $pkeyParaSaldos  = $pkeyInterno ?? $pkeyCredito;
 
-                        $apiSaldos       = $this->croop_get("clsCredito/Listar?Bandera=445&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
-                        $apiAmortizacion = $this->croop_get("clsCredito/Listar?Bandera=401&PKey={$pkeyCredito}", $croopToken);
-                        $apiPagos        = $this->croop_get("clsCredito/Listar?Bandera=404&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
+                            $apiSaldos       = $this->croop_get("clsCredito/Listar?Bandera=445&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
+                            $apiAmortizacion = $this->croop_get("clsCredito/Listar?Bandera=401&PKey={$pkeyCredito}", $croopToken);
+                            $apiPagos        = $this->croop_get("clsCredito/Listar?Bandera=404&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
 
-                        $debugCroop['saldos_count'] = count($apiSaldos);
-                        $debugCroop['saldos_raw'] = $apiSaldos[0] ?? null;
-                        $debugCroop['amort_count'] = count($apiAmortizacion);
-                        $debugCroop['amort_raw_first'] = $apiAmortizacion[0] ?? null;
-                        $debugCroop['pagos_count'] = count($apiPagos);
+                            $debugCroop['saldos_count'] = count($apiSaldos);
+                            $debugCroop['saldos_raw'] = $apiSaldos[0] ?? null;
+                            $debugCroop['amort_count'] = count($apiAmortizacion);
+                            $debugCroop['amort_raw_first'] = $apiAmortizacion[0] ?? null;
+                            $debugCroop['pagos_count'] = count($apiPagos);
+                        } else {
+                            $debugCroop['error'] = 'Login fallido: token null';
+                        }
                     } else {
-                        $debugCroop['error'] = 'Login fallido: token null';
+                        $debugCroop['error'] = 'pkeyCredito es null — no se llamó a CROOP';
                     }
-                } else {
-                    $debugCroop['error'] = 'pkeyCredito es null — no se llamó a CROOP';
+
+                    $idUsuarioGt = (int) ($_SESSION['usuario_id'] ?? 0);
+                    $modsSesionGt = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+                    $tienePermisoRastreoNeverPaidGt = ($idUsuarioGt === 1) || in_array(29, $modsSesionGt, true);
+                    self::set('tienePermisoRastreoNeverPaid', $tienePermisoRastreoNeverPaidGt);
+                    $tienePermisoAclaracionesGcGt = ($idUsuarioGt === 1) || in_array(30, $modsSesionGt, true);
+                    self::set('tienePermisoAclaracionesGc', $tienePermisoAclaracionesGcGt);
+
+                    self::set("titulo", "Estado de Cuenta - Guatemala");
+                    self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
+                    self::set("referencias", []);
+                    self::set("datosGuat", $datosGuat);
+                    self::set("apiSaldos", $apiSaldos);
+                    self::set("apiAmortizacion", $apiAmortizacion);
+                    self::set("apiPagos", $apiPagos);
+                    self::set("debugCroop", $debugCroop);
+                    $scriptGt = $this->appendRastreoSabuesoScriptSiAplica('', $tienePermisoRastreoNeverPaidGt);
+                    self::set('script', $scriptGt);
+                    return self::render("__SPARTA_SECRET_REDACTED___guatemala");
                 }
 
-                $idUsuarioGt = (int) ($_SESSION['usuario_id'] ?? 0);
-                $modsSesionGt = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
-                $tienePermisoRastreoNeverPaidGt = ($idUsuarioGt === 1) || in_array(29, $modsSesionGt, true);
-                self::set('tienePermisoRastreoNeverPaid', $tienePermisoRastreoNeverPaidGt);
-                $tienePermisoAclaracionesGcGt = ($idUsuarioGt === 1) || in_array(30, $modsSesionGt, true);
-                self::set('tienePermisoAclaracionesGc', $tienePermisoAclaracionesGcGt);
-
-                self::set("titulo", "Estado de Cuenta - Guatemala");
-                self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
-                self::set("referencias", []);
-                self::set("datosGuat", $datosGuat);
-                self::set("apiSaldos", $apiSaldos);
-                self::set("apiAmortizacion", $apiAmortizacion);
-                self::set("apiPagos", $apiPagos);
-                self::set("debugCroop", $debugCroop);
-                $scriptGt = $this->appendRastreoSabuesoScriptSiAplica('', $tienePermisoRastreoNeverPaidGt);
-                self::set('script', $scriptGt);
-                return self::render("__SPARTA_SECRET_REDACTED___guatemala");
-            }
-
-            // 2) Si no existe en GT, validar en México para mostrar alerta de país incorrecto.
-            $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
-            if (!empty($referencias['datos'])) {
-                $alertaBusqueda = [
-                    'title' => 'Crédito de México',
-                    'html' => "<div style='text-align:center;'><div style='margin-bottom:12px;'><span class='fi fi-mx fis' style='font-size:2.8rem;'></span></div><p style='margin:0; font-size:14px; color:#666;'>El crédito ingresado pertenece a México. Consulta este ID en Estado de Cuenta México.</p></div>",
-                    'confirmButtonText' => 'Entendido'
-                ];
+                // 2) Si no existe en GT, validar en México para mostrar alerta de país incorrecto.
+                $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCreditoLista);
+                if (!empty($referencias['datos'])) {
+                    $alertaBusqueda = [
+                        'title' => 'Crédito de México',
+                        'html' => "<div style='text-align:center;'><div style='margin-bottom:12px;'><span class='fi fi-mx fis' style='font-size:2.8rem;'></span></div><p style='margin:0; font-size:14px; color:#666;'>El crédito ingresado pertenece a México. Consulta este ID en Estado de Cuenta México.</p></div>",
+                        'confirmButtonText' => 'Entendido'
+                    ];
+                } else {
+                    $alertaBusqueda = $alertaCreditoInvalido;
+                }
             } else {
-                $alertaBusqueda = $alertaCreditoInvalido;
+                $alertaBusqueda = [
+                    'icon' => 'warning',
+                    'title' => 'Falta el ID de crédito',
+                    'text' => 'Por favor ingresa el ID del crédito.'
+                ];
             }
-        } else {
-            $alertaBusqueda = [
-                'icon' => 'warning',
-                'title' => 'Falta el ID de crédito',
-                'text' => 'Por favor ingresa el ID del crédito.'
-            ];
         }
+
+        // GET o sin resultados → mostrar formulario de búsqueda
+        self::set("titulo", "Estados de Cuenta - Guatemala");
+        self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
+        if (!empty($alertaBusqueda)) {
+            self::set("alertaBusqueda", $alertaBusqueda);
+        }
+        return self::render("__SPARTA_SECRET_REDACTED___guatemala_consulta");
     }
 
-    // GET o sin resultados → mostrar formulario de búsqueda
-    self::set("titulo", "Estados de Cuenta - Guatemala");
-    self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
-    if (!empty($alertaBusqueda)) {
-        self::set("alertaBusqueda", $alertaBusqueda);
-    }
-    return self::render("__SPARTA_SECRET_REDACTED___guatemala_consulta");
-}
-
-/* ----------------------------------------------------------------
-   CROOP API — helpers internos
-   ---------------------------------------------------------------- */
-private function croop_login(): array
-{
-    $ch = curl_init("https://api.croop.mx/api/access/Signin");
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode([
-            "Email"     => "__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx",
-            "Password"  => "Ruvalcaba227$",
-            "IPAddress" => "200.188.109.202",
-            "UserAgent" => "Mozilla/5.0",
-            "ServerURL" => "https://api.croop.mx/api",
-        ]),
-        CURLOPT_HTTPHEADER     => [
-            "Content-Type: application/json",
-            "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
-            "Cache-Control: no-cache",
-        ],
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => 0,
-    ]);
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    $json  = $response ? (json_decode($response, true) ?? []) : [];
-    $token = $json['Token'] ?? null;
-
-    return [
-        'token'      => $token,
-        'fk_empresa' => $json['FK_Empresa'] ?? null,
-        'http_code'  => $httpCode,
-        'curl_error' => $curlError ?: null,
-        'raw'        => $response ? substr($response, 0, 300) : null,
-        'success'    => !empty($json['Success']),
-    ];
-}
-
-private function croop_get(string $path, string $token): array
-{
-    $url = "https://api.croop.mx/api/" . ltrim($path, '/');
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_HTTPHEADER     => [
-            "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
-            "Token: {$token}",
-        ],
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => 0,
-    ]);
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-    if (!$response) return ['__debug_error' => $curlError, '__http_code' => $httpCode];
-    $json = json_decode($response, true);
-    return is_array($json) ? $json : ['__debug_raw' => substr($response, 0, 300), '__http_code' => $httpCode];
-}
-
-private function procesarGastosCobranza(array $notasCargos, $idCredito): array
-{
-    // Una sola implementación: Models\EstadoCuenta::procesarGastosCobranzaDesdeNotas (no duplicar cruce aquí).
-    $r = EstadoCuentaDAO::procesarGastosCobranzaDesdeNotas($notasCargos, $idCredito, true);
-    unset($r['_sin_actualizacion'], $r['_causa']);
-
-    return $r;
-}
-
-public function getHistorialGastosCobranza()
-{
-    $input = json_decode(file_get_contents("php://input"), true);
-    $idCredito = $input['idCredito'] ?? null;
-
-    error_log('HISTORIAL REQUEST idCredito: ' . $idCredito);
-
-    if (empty($idCredito)) {
-        self::respuestaJSON([
-            'success' => false,
-            'mensaje' => 'Id de crédito requerido'
+    /* ----------------------------------------------------------------
+       CROOP API — helpers internos
+       ---------------------------------------------------------------- */
+    private function croop_login(): array
+    {
+        $ch = curl_init("https://api.croop.mx/api/access/Signin");
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode([
+                "Email"     => "__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx",
+                "Password"  => "Ruvalcaba227$",
+                "IPAddress" => "200.188.109.202",
+                "UserAgent" => "Mozilla/5.0",
+                "ServerURL" => "https://api.croop.mx/api",
+            ]),
+            CURLOPT_HTTPHEADER     => [
+                "Content-Type: application/json",
+                "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
+                "Cache-Control: no-cache",
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
         ]);
-        return;
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        $json  = $response ? (json_decode($response, true) ?? []) : [];
+        $token = $json['Token'] ?? null;
+
+        return [
+            'token'      => $token,
+            'fk_empresa' => $json['FK_Empresa'] ?? null,
+            'http_code'  => $httpCode,
+            'curl_error' => $curlError ?: null,
+            'raw'        => $response ? substr($response, 0, 300) : null,
+            'success'    => !empty($json['Success']),
+        ];
     }
 
-    $resultado = EstadoCuentaDAO::getHistorialGastosCobranza($idCredito);
+    private function croop_get(string $path, string $token): array
+    {
+        $url = "https://api.croop.mx/api/" . ltrim($path, '/');
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_HTTPHEADER     => [
+                "AppID: 2739CAE2-9353-E811-9457-22000A244A86",
+                "Token: {$token}",
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        if (!$response) return ['__debug_error' => $curlError, '__http_code' => $httpCode];
+        $json = json_decode($response, true);
+        return is_array($json) ? $json : ['__debug_raw' => substr($response, 0, 300), '__http_code' => $httpCode];
+    }
 
-    error_log('HISTORIAL RESULTADO: ' . json_encode($resultado));
+    private function procesarGastosCobranza(array $notasCargos, $idCredito): array
+    {
+        // Una sola implementación: Models\EstadoCuenta::procesarGastosCobranzaDesdeNotas (no duplicar cruce aquí).
+        $r = EstadoCuentaDAO::procesarGastosCobranzaDesdeNotas($notasCargos, $idCredito, true);
+        unset($r['_sin_actualizacion'], $r['_causa']);
 
-    self::respuestaJSON($resultado);
-}
+        return $r;
+    }
+
+    public function getHistorialGastosCobranza()
+    {
+        $input = json_decode(file_get_contents("php://input"), true);
+        $idCredito = $input['idCredito'] ?? null;
+
+        error_log('HISTORIAL REQUEST idCredito: ' . $idCredito);
+
+        if (empty($idCredito)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Id de crédito requerido'
+            ]);
+            return;
+        }
+
+        $resultado = EstadoCuentaDAO::getHistorialGastosCobranza($idCredito);
+
+        error_log('HISTORIAL RESULTADO: ' . json_encode($resultado));
+
+        self::respuestaJSON($resultado);
+    }
+
+    public function procesarCruceGastos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($input['idCredito'] ?? 0);
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'mensaje' => 'idCredito requerido']);
+            exit;
+        }
+
+        $listaNotasCargos = EstadoCuentaDAO::getNotasCargosParaCruce($idCredito);
+
+        $resultado = $this->procesarGastosCobranza(
+            $listaNotasCargos['datos'] ?? [],
+            $idCredito
+        );
+
+        echo json_encode(['success' => true, 'resultado' => $resultado]);
+        exit;
+    }
 
             }
