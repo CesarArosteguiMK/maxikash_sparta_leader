@@ -117,7 +117,7 @@ Si datos insuficientes: `evento_probable: 'insuficiente_datos'`, `confianza_even
 
 **Regla:** Haversine entre cada evento del gestor y cada ubicación del usuario; si mínima distancia ≤ 100 m → visita cercana.
 
-### Formato final del pipeline (Sabueso / ejemplo_uso_pipeline.php)
+### Formato final del pipeline (Sabueso)
 
 ```json
 {
@@ -293,7 +293,7 @@ $motor = new LocationScoringService([
 ]);
 ```
 
-## Ejecución de tests y ejemplo
+## Ejecución de tests
 
 ```bash
 # Instalar PHPUnit (desde la raíz del repo)
@@ -302,9 +302,6 @@ composer install
 # Ejecutar tests
 ./vendor/bin/phpunit
 # o: php vendor/bin/phpunit
-
-# Ejemplo de pipeline (JSON con claves requeridas; no requiere API)
-php backend/services/ejemplo_uso_pipeline.php
 ```
 
 Tests: `backend/tests/Unit/Services/` (LocationScoringServiceTest, IAInterpretationServiceTest, IAVerificationServiceTest, PipelineOutputTest, BehaviorPredictionServiceTest, **SpatialAnalyticsServiceTest**, **TemporalPaymentsServiceTest**, **GestorComplianceServiceTest**).

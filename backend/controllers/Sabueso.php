@@ -3318,7 +3318,7 @@ class Sabueso extends Controller
                 $tmpNames = [$tmpNames];
                 $names = [isset($_FILES['adjunto']['name']) ? $_FILES['adjunto']['name'] : ''];
             }
-            $dir = __DIR__ . '/../uploads/solicitud_baja';
+            $dir = sparta_uploads_join('solicitud_baja');
             \Core\SecureUpload::ensureDir($dir);
             foreach (array_keys($tmpNames) as $i) {
                 $tmp = $tmpNames[$i] ?? null;
@@ -3384,7 +3384,7 @@ class Sabueso extends Controller
         }
         $mime = \Core\SecureUpload::getMimeType($tmp);
         $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
-        $dir = __DIR__ . '/../uploads/sabueso_evidencias';
+        $dir = sparta_uploads_join('sabueso_evidencias');
         \Core\SecureUpload::ensureDir($dir);
         $nombreArchivo = 't' . $idTicket . '_' . \Core\SecureUpload::generateSafeFilename($ext);
         if (!move_uploaded_file($tmp, $dir . '/' . $nombreArchivo)) {
@@ -3409,7 +3409,7 @@ class Sabueso extends Controller
             $tmps = [$tmps];
             $names = [is_string($names) ? $names : ''];
         }
-        $dir = __DIR__ . '/../uploads/sabueso_evidencias';
+        $dir = sparta_uploads_join('sabueso_evidencias');
         \Core\SecureUpload::ensureDir($dir);
         foreach ($tmps as $i => $tmp) {
             if (empty($tmp) || !is_uploaded_file($tmp)) {
@@ -3713,8 +3713,8 @@ class Sabueso extends Controller
             http_response_code(404);
             return;
         }
-        $path = __DIR__ . '/../uploads/' . $rutaArchivo;
-        if (!is_file($path)) {
+        $path = sparta_uploads_resolve_relative($rutaArchivo);
+        if ($path === null || !is_file($path)) {
             http_response_code(404);
             return;
         }
@@ -6266,7 +6266,7 @@ class Sabueso extends Controller
             }
             $mime = \Core\SecureUpload::getMimeType($_FILES['evidencia']['tmp_name']);
             $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'jpg';
-            $dir = __DIR__ . '/../uploads/sabueso_evidencias';
+            $dir = sparta_uploads_join('sabueso_evidencias');
             \Core\SecureUpload::ensureDir($dir);
             $nombreArchivo = 'ev_' . $idTicket . '_' . $idPersona . '_' . \Core\SecureUpload::generateSafeFilename($ext);
             $rutaCompleta = $dir . '/' . $nombreArchivo;
@@ -6321,8 +6321,8 @@ class Sabueso extends Controller
             return;
         }
         if (!empty($row['ruta_archivo'])) {
-            $path = __DIR__ . '/../uploads/' . $row['ruta_archivo'];
-            if (is_file($path)) {
+            $path = sparta_uploads_resolve_relative($row['ruta_archivo']);
+            if ($path !== null && is_file($path)) {
                 @unlink($path);
             }
         }
@@ -6345,8 +6345,8 @@ class Sabueso extends Controller
             http_response_code(404);
             return;
         }
-        $path = __DIR__ . '/../uploads/' . $row['ruta_archivo'];
-        if (!is_file($path)) {
+        $path = sparta_uploads_resolve_relative($row['ruta_archivo']);
+        if ($path === null || !is_file($path)) {
             http_response_code(404);
             return;
         }

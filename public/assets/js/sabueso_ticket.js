@@ -632,13 +632,16 @@
                         var now = new Date();
                         var ms = fin - now;
                         var txtInicial = ms > 0 ? (Math.floor(ms / 3600000) + 'h ' + Math.floor((ms % 3600000) / 60000) + 'm') : 'Plazo vencido';
-                        var clsPr = esExt12h ? ' dictamen-countdown-prorroga' : '';
+                        var clsExt12 = esExt12h ? (esIntRow ? ' dictamen-countdown-intensidad' : ' dictamen-countdown-prorroga') : '';
                         var dataLim = esExt12h ? (' data-fecha-limite="' + fLim.replace(/"/g, '&quot;') + '"') : '';
                         var dataExtTipo = esExt12h ? (' data-extension-tipo="' + (esIntRow ? 'intensidad' : 'prorroga') + '"') : '';
                         var iconTitle = esExt12h ? (esIntRow ? 'Intensidad +12h (2ª ventana)' : 'Prórroga +12h (2ª ventana)') : '';
                         var tipCuenta = esExt12h ? (esIntRow ? 'Intensidad +12h' : 'Prórroga +12h') : 'Ventana 12h';
-                        var iconBlock = esExt12h ? ('<span class="position-relative d-inline-flex align-items-baseline"><i class="fa-solid fa-clock text-warning small"></i><sup class="dictamen-prorroga-marca" title="' + iconTitle + '">2</sup></span>') : ('<i class="fa-solid fa-clock text-info small"></i>');
-                        tiempoVisitarHtml = '<span class="d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsPr + '" role="button" tabindex="0" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '"' + dataLim + dataExtTipo + ' data-id-ticket="' + (t.id_ticket || '') + '" data-bs-toggle="tooltip" data-bs-title="' + tipCuenta + '">' + iconBlock + '<span class="dictamen-countdown-text">' + txtInicial + '</span></span>';
+                        var clockCls = esExt12h ? (esIntRow ? 'text-info' : 'text-warning') : 'text-info';
+                        var supCls = esIntRow ? 'dictamen-intensidad-marca' : 'dictamen-prorroga-marca';
+                        var iconBlock = esExt12h ? ('<span class="position-relative d-inline-flex align-items-baseline"><i class="fa-solid fa-clock ' + clockCls + ' small"></i><sup class="' + supCls + '" title="' + iconTitle + '">2</sup></span>') : ('<i class="fa-solid fa-clock text-info small"></i>');
+                        var txtCountCls = esExt12h && esIntRow ? ' dictamen-countdown-text text-info' : ' dictamen-countdown-text';
+                        tiempoVisitarHtml = '<span class="d-inline-flex align-items-center gap-1 dictamen-countdown cursor-pointer' + clsExt12 + '" role="button" tabindex="0" data-fecha-envio="' + fEnv.replace(/"/g, '&quot;') + '"' + dataLim + dataExtTipo + ' data-id-ticket="' + (t.id_ticket || '') + '" data-bs-toggle="tooltip" data-bs-title="' + tipCuenta + '">' + iconBlock + '<span class="' + txtCountCls.trim() + '">' + txtInicial + '</span></span>';
                     }
                     // Solo concatenar si hubo prórroga (backend envía '' cuando no; evita guión redundante)
                     var prHtml = (t.prorroga_otorgada && t.prorroga_html) ? t.prorroga_html : '';

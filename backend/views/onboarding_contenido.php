@@ -111,7 +111,7 @@
                         </div>
                     </div>
                     <?php
-                        // ── Pon tu archivo en: backend/uploads/onboarding.mp4
+                        // ── Video: public/uploads/YTDown…1080p.mp4 (raíz) o public/uploads/onboarding/*.mp4
                         // ── El controlador lo sirve en: /onboarding/video
                         $videoSrc = '/onboarding/video';
                     ?>
@@ -250,9 +250,9 @@
                 </p>
             </div>
         </div>
-        
+
         <!-- Instructor ───────────────────────────────────────────────────── -->
-        
+
         <?php
             $instructorNombre = htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario');
             $instructorPuesto = htmlspecialchars($_SESSION['nombre_puesto'] ?? '');

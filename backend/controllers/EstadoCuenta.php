@@ -4324,7 +4324,7 @@ public function descargar()
 };
 
         $buscarLocal = function ($idCredito, $tipoDocumento) {
-            $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+            $directorioBase = sparta_uploads_join('documentos', 'doc_cliente');
 
             if (!is_dir($directorioBase)) {
                 error_log("1RA FORMA - Directorio NO existe: {$directorioBase}");
@@ -4905,7 +4905,7 @@ public function descargar()
     {
         $id = (int) $idCredito;
         if ($id <= 0) return null;
-        $dirLocal = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        $dirLocal = sparta_uploads_join('documentos', 'doc_cliente');
         $patron = $dirLocal . '/' . $id . '_FAD_DOC_*.pdf';
         $archivos = glob($patron);
         if ($archivos && count($archivos) > 0) {
@@ -5746,7 +5746,7 @@ public function descargar()
             return;
         }
 
-        $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        $directorioBase = sparta_uploads_join('documentos', 'doc_cliente');
         \Core\SecureUpload::ensureDir($directorioBase);
 
         $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
@@ -5838,7 +5838,7 @@ public function descargar()
             return;
         }
 
-        $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        $directorioBase = sparta_uploads_join('documentos', 'doc_cliente');
         \Core\SecureUpload::ensureDir($directorioBase);
 
         $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
@@ -5902,7 +5902,7 @@ public function descargar()
         }
 
         $archivo = basename($_GET['archivo']); // Sanitizar para evitar path traversal
-        $directorioBase = realpath(__DIR__ . '/../../uploads/documentos/doc_cliente');
+        $directorioBase = realpath(sparta_uploads_join('documentos', 'doc_cliente'));
         if ($directorioBase === false || !is_dir($directorioBase)) {
             http_response_code(404);
             echo json_encode(['error' => 'Directorio no encontrado']);

@@ -90,7 +90,7 @@ class Gastoscobranza extends Controller
             curl_setopt($ch, CURLOPT_TIMEOUT, $timeoutSec);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             if ($payload !== null) {
-                if (is_array($payload)) {
+                if (is_array($payload) || is_object($payload)) {
                     $json = json_encode($payload);
                     $headers[] = 'Content-Type: application/json';
                     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -113,7 +113,11 @@ class Gastoscobranza extends Controller
         $opts = ['http' => ['method' => strtoupper($method), 'timeout' => $timeoutSec, 'ignore_errors' => true, 'header' => implode("\r\n", $headers)]];
         if ($payload !== null) {
             $opts['http']['header'] .= "\r\nContent-Type: application/json";
-            $opts['http']['content'] = is_array($payload) ? json_encode($payload) : (string)$payload;
+            if (is_array($payload) || is_object($payload)) {
+                $opts['http']['content'] = json_encode($payload);
+            } else {
+                $opts['http']['content'] = (string)$payload;
+            }
         }
         $ctx = stream_context_create($opts);
         $raw = @file_get_contents($url, false, $ctx);
@@ -133,6 +137,7 @@ class Gastoscobranza extends Controller
      */
     public function shell()
     {
+        $this->set('titulo', 'Shell Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
         $this->set('tituloShell', 'Shell Gastos Cobranza');
         $this->set('gastosCobranzaAgenteUrl', $this->agenteBaseUrl());
         $this->set('gastosCobranzaAgenteHabilitado', $this->agenteHabilitado());
@@ -534,11 +539,11 @@ class Gastoscobranza extends Controller
                 return;
             }
             if ($tipo === 'worker' && empty($health['json']['ec_worker_presente'])) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'En este equipo no está tools/ec-webhook-worker (worker.php).']);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'En este equipo no está el worker EC en gastos-cobranza-agent/tools/ec-webhook-worker (worker.php).']);
                 return;
             }
             if ($tipo === 'enrich' && empty($health['json']['ec_enrich_presente'])) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'En este equipo no está tools/ec-gc-excel-enrich.']);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'En este equipo no está enrich en gastos-cobranza-agent/tools/ec-gc-excel-enrich.']);
                 return;
             }
             $this->liberarSesionParaPeticionLarga();
@@ -581,7 +586,10 @@ class Gastoscobranza extends Controller
             }
             $nombre = isset($body['archivo']) ? basename((string)$body['archivo']) : '';
             if ($nombre === '' || substr(strtolower($nombre), -5) !== '.xlsx') {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'Indique el nombre del .xlsx subido previamente a ec-uploads.']);
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Indique el nombre del .xlsx (carpeta ec-uploads, o reporte/ si envía origenCarpeta=reporte).',
+                ]);
                 return;
             }
             $inicioSemana = isset($body['inicioSemana']) ? trim((string)$body['inicioSemana']) : '';
@@ -608,6 +616,12 @@ class Gastoscobranza extends Controller
             }
             if (isset($body['mensaje']) && trim((string)$body['mensaje']) !== '') {
                 $payload['mensaje'] = trim((string)$body['mensaje']);
+            }
+            if (isset($body['headerRow'])) {
+                $hr = (int) $body['headerRow'];
+                if ($hr >= 1 && $hr <= 200) {
+                    $payload['headerRow'] = $hr;
+                }
             }
             $health = $this->agenteRequest('GET', '/health', null, 10);
             if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {

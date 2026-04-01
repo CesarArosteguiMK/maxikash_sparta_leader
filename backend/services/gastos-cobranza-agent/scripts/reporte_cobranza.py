@@ -4,7 +4,7 @@ REPORTE GASTOS DE COBRANZA + SALDO A FAVOR
 Columnas finales:
   ID CREDITO | NOMBRE CLIENTE | STATUS CREDITO | CUOTA SEMANAL |
   DEUDA GC PENDIENTE | SALDO A FAVOR DEL CLIENTE | SALDO APLICABLE A GC |
-  fecha_ultimo_abono_efectivo (lunes de la semana vigente según día de pago en BD; no la fecha histórica) |
+  fecha_ultimo_abono_efectivo (Fecha_ultimo_pago_efectivo de MySQL, fecha + nombre del día) |
   COMENTARIOS | ERROR
 
 Flujo:
@@ -243,17 +243,17 @@ def _parse_fecha_desde_mysql(raw) -> date | None:
 
 def fecha_abono_efectivo_para_excel(row: dict, hoy: date) -> str:
     """
-    Según Fecha_ultimo_pago_efectivo (BD): filtro actual = solo lunes en fecha fija.
-    En Excel se muestra el lunes de la semana calendario que contiene hoy (no la fecha histórica del pago).
+    Valor de columna Excel: misma fecha que MAX(Fecha_ultimo_pago_efectivo) del SELECT MySQL
+    (tbl_segundometro_semana), con nombre del día en español. Antes solo se rellenaba si el pago
+    era lunes, lo que dejaba la celda vacía para el resto de días.
     """
-    d_pago = _parse_fecha_desde_mysql(row.get("fecha_ultimo_pago_efectivo"))
+    _ = hoy  # firma conservada (procesar_registro / filas de error)
+    raw = row.get("fecha_ultimo_pago_efectivo")
+    d_pago = _parse_fecha_desde_mysql(raw)
     if d_pago is None:
         return ""
-    if d_pago.weekday() != 0:
-        return ""
-    lun_semana_hoy = hoy - timedelta(days=hoy.weekday())
-    nombre = _NOMBRE_DIA_SEMANA_ES[lun_semana_hoy.weekday()]
-    return f"{lun_semana_hoy.isoformat()} — {nombre}"
+    nombre = _NOMBRE_DIA_SEMANA_ES[d_pago.weekday()]
+    return f"{d_pago.isoformat()} — {nombre}"
 
 
 def obtener_ids_mysql(fecha_filtro_pago_efectivo: date) -> list[dict]:
@@ -883,6 +883,15 @@ def main() -> None:
             if resultados_raw[i] is not None and not _fila_error_s2_reintentable(resultados_raw[i])
         )
         log.info("  Tras reintento: %s de %s corregidos en esta pasada", corregidos, len(pendientes_idx))
+        for i in pendientes_idx:
+            r = resultados_raw[i]
+            if r is not None and _fila_error_s2_reintentable(r):
+                err_txt = str(r.get("ERROR") or "").strip() or "(sin texto ERROR)"
+                log.warning(
+                    "  Sigue con error S2 tras reintento: id_credito=%s — %s",
+                    r.get("ID_CREDITO"),
+                    err_txt[:300],
+                )
         notificar_google_chat(
             f"🔁 **Reintento** pasada {num_pasada + 1} terminada: "
             f"**{corregidos:,}** recuperados de **{len(pendientes_idx):,}**."

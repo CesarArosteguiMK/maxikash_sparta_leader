@@ -201,15 +201,14 @@ class Convenios extends Controller
     private function _guardarPdfAdjunto($archivo, $idCredito)
     {
         try {
-            $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/convenios/';
-
-            if (!file_exists($directorio)) {
+            $directorio = sparta_uploads_join('convenios');
+            if (!is_dir($directorio)) {
                 mkdir($directorio, 0777, true);
             }
 
             $extension     = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
             $nombreArchivo = 'convenio_' . $idCredito . '_' . date('Ymd_His') . '.' . $extension;
-            $rutaCompleta  = $directorio . $nombreArchivo;
+            $rutaCompleta  = sparta_uploads_join('convenios', $nombreArchivo);
 
             if (move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
                 return '/uploads/convenios/' . $nombreArchivo;
