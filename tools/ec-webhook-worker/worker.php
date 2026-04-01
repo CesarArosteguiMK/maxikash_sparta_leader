@@ -15,6 +15,9 @@
  *   php worker.php --omitir-primeros=1216     (reanudar: salta los primeros N id(s) del Excel o .txt, en orden)
  *   php worker.php --no-auditoria   (no inserta en auditoria___SPARTA_SECRET_REDACTED__)
  *   php worker.php --saltar-chequeo-pais   (no valida MX vs Guatemala antes de S2)
+ *   php worker.php --no-reintento-errores   (no ejecuta segunda pasada solo sobre id(s) que fallaron por S2 o BD)
+ *   Tras la 2.ª pasada, si aún hay fallos en esos id(s), se escribe ec_worker_errores_reintento_YYYYMMDD_HHMMSS.csv
+ *   (misma carpeta que el Excel con --ids-xlsx) y una línea ERRORES_REINTENTO_CSV= en stdout para el agente UI.
  *
  * Paridad con el menú «Estado de cuenta» (Consulta + POST):
  *   - Validación MX/GT vía Empresa (mismo criterio que validarCredito); use --saltar-chequeo-pais para omitir.
@@ -27,12 +30,31 @@
  *   armado de tabla de cuotas, motor v2/legacy, contracargos/reembolsos en UI, notas crédito visuales,
  *   carga de direcciones/referencias/notas internas para la vista, gestión externa MX, etc.
  *
- * Progreso en Chat (sin --no-chat): mensaje inicial, luego 25% / 50% / 75% / 100%, y resumen final.
+ * Progreso: en Chat (sin --no-chat) mensaje inicial, hitos 25/50/75/100% y resumen; en consola/log del agente,
+ * avance por cada porcentaje entero (1%…100%) además del detalle por crédito [n/total].
  *
  * Config: copiar config.example.env a config.local.env o exportar variables de entorno.
  */
 
 declare(strict_types=1);
+
+// Con salida a tubería (agente Node), PHP suele bufferizar stdout: la UI no ve avance hasta el fin.
+@ini_set('output_buffering', '0');
+@ini_set('zlib.output_compression', '0');
+@ini_set('implicit_flush', '1');
+while (ob_get_level() > 0) {
+    ob_end_flush();
+}
+
+/**
+ * Fuerza envío inmediato de líneas al proceso padre (log del agente).
+ */
+function ec_worker_stdout_flush(): void
+{
+    if (function_exists('fflush')) {
+        @fflush(\STDOUT);
+    }
+}
 
 $baseDir = dirname(__FILE__);
 loadEnvFile($baseDir . '/config.local.env');
@@ -51,6 +73,7 @@ $opts = getopt('', [
     'no-auditoria',
     'saltar-chequeo-pais',
     'omitir-primeros:',
+    'no-reintento-errores',
 ]);
 if ($opts === false) {
     $opts = [];
@@ -108,6 +131,7 @@ if (empty($ids)) {
 }
 
 $omitirPrimeros = isset($opts['omitir-primeros']) ? max(0, (int) $opts['omitir-primeros']) : 0;
+$noReintentoErrores = array_key_exists('no-reintento-errores', $opts);
 $totalCargados = count($ids);
 if ($omitirPrimeros > 0) {
     if ($omitirPrimeros >= $totalCargados) {
@@ -152,11 +176,20 @@ if (!$dryRun && !$noChat && $total > 0) {
         . "_{$modoBd}_\n"
         . "_Fecha de corte:_ {$fechaCorte}.";
     postGoogleChat($webhookUrl, $ini);
+    echo "[ec-webhook-worker] Lote S2: {$total} id(s), fecha corte {$fechaCorte}. "
+        . "En este log: avance cada 1% (línea propia) + detalle por crédito; Chat sigue con hitos 25/50/75/100%.\n";
+    ec_worker_stdout_flush();
 }
 
 $ok = 0;
 $fail = 0;
 $milestoneSent = [];
+/** Último % entero ya impreso en consola (progreso lineal, distinto al Chat). */
+$logAvanceUltPct = -1;
+/** @var int[] */
+$reintentoPorS2Fallo = [];
+/** @var int[] */
+$reintentoPorBdFallo = [];
 
 foreach ($ids as $idx => $idCredito) {
     $n = $idx + 1;
@@ -216,6 +249,7 @@ foreach ($ids as $idx => $idCredito) {
                         }
                     } catch (\Throwable $e) {
                         $bdErrors++;
+                        $reintentoPorBdFallo[] = (int) $idCredito;
                         echo 'OK (S2); ERROR BD: ' . $e->getMessage() . "\n";
                     }
                 }
@@ -224,6 +258,7 @@ foreach ($ids as $idx => $idCredito) {
                 }
             } else {
                 $fail++;
+                $reintentoPorS2Fallo[] = (int) $idCredito;
                 $err = $result['error'] ?? 'Error desconocido';
                 $line = "EC #{$idCredito}: ERROR — {$err}";
                 echo "ERROR: {$err}\n";
@@ -235,12 +270,103 @@ foreach ($ids as $idx => $idCredito) {
     }
 
     $processed = $idx + 1;
-    if (!$dryRun && !$noChat) {
-        maybePostProgressMilestones($webhookUrl, $milestoneSent, $processed, $total);
+    if (!$dryRun) {
+        maybePostProgressMilestones($webhookUrl, $milestoneSent, $processed, $total, $noChat);
+        ec_worker_echo_avance_log_lineal($processed, $total, $logAvanceUltPct);
     }
+    ec_worker_stdout_flush();
 
     if ($delayMs > 0 && $idx < $total - 1) {
         usleep($delayMs * 1000);
+    }
+}
+
+/** @var array<int, array{tipo: string, detalle: string}> id_credito => fila para CSV (solo tras 2.ª pasada si sigue mal) */
+$erroresTrasReintento = [];
+
+if (!$dryRun && !$noReintentoErrores) {
+    $idsSegunda = array_values(array_unique(array_merge($reintentoPorS2Fallo, $reintentoPorBdFallo)));
+    if ($idsSegunda !== []) {
+        $n2 = count($idsSegunda);
+        echo "[ec-webhook-worker] Segunda pasada: reintentando {$n2} id(s) (fallo S2 o error BD tras S2 OK)...\n";
+        if (!$noChat) {
+            postGoogleChat(
+                $webhookUrl,
+                "*Reintento automático:* se vuelve a procesar *{$n2}* id(s) que fallaron en la primera pasada."
+            );
+        }
+        foreach ($idsSegunda as $j2 => $idCredito) {
+            if ($delayMs > 0 && $j2 > 0) {
+                usleep($delayMs * 1000);
+            }
+            echo '[reintento ' . ($j2 + 1) . "/{$n2}] Crédito {$idCredito} ... ";
+            $pre = ecWorkerValidarTerritorioCredito($idCredito, $saltarChequeoPais);
+            if (!$pre['ok']) {
+                $errPre = $pre['error'] ?? 'Validación territorio';
+                $erroresTrasReintento[(int) $idCredito] = [
+                    'tipo' => 'Validación territorio',
+                    'detalle' => $errPre,
+                ];
+                echo "SKIP: {$errPre}\n";
+                continue;
+            }
+            $result = consultarEstadoCuentaS2($endpoint, $token, $idCredito, $fechaCorte);
+            if (!$noAuditoria) {
+                \Models\EstadoCuenta::registrarAuditoria(
+                    $usuarioAuditoria,
+                    $idCredito,
+                    $fechaCorte,
+                    !empty($result['success']) ? 1 : 0,
+                    $result['success'] ? null : ($result['error'] ?? null)
+                );
+            }
+            if ($result['success']) {
+                $eraS2 = in_array((int) $idCredito, $reintentoPorS2Fallo, true);
+                if ($eraS2) {
+                    $fail--;
+                    $ok++;
+                }
+                if ($soloS2) {
+                    echo "OK\n";
+                } else {
+                    $notasRaw = $result['datosNotasCargos'] ?? [];
+                    $notas = is_array($notasRaw) ? $notasRaw : [];
+                    try {
+                        $cruce = \Models\EstadoCuenta::procesarGastosCobranzaDesdeNotas($notas, $idCredito, true);
+                        if (in_array((int) $idCredito, $reintentoPorBdFallo, true) && $bdErrors > 0) {
+                            $bdErrors--;
+                        }
+                        $nG = count($cruce['gastos_procesados'] ?? []);
+                        if (!empty($cruce['_sin_actualizacion'])) {
+                            $causa = (string) ($cruce['_causa'] ?? '');
+                            echo 'OK (S2); BD sin cambios' . ($causa !== '' ? " ({$causa})" : '') . "\n";
+                        } elseif ($nG > 0) {
+                            echo "OK (S2 + BD: {$nG} gasto(s))\n";
+                        } else {
+                            echo "OK (S2)\n";
+                        }
+                    } catch (\Throwable $e) {
+                        $bdErrors++;
+                        $erroresTrasReintento[(int) $idCredito] = [
+                            'tipo' => 'Error cruce BD (gastos_cobranza)',
+                            'detalle' => $e->getMessage(),
+                        ];
+                        echo 'OK (S2); ERROR BD: ' . $e->getMessage() . "\n";
+                    }
+                }
+            } else {
+                $err = $result['error'] ?? 'Error desconocido';
+                $erroresTrasReintento[(int) $idCredito] = [
+                    'tipo' => 'Error API S2',
+                    'detalle' => $err,
+                ];
+                echo "ERROR: {$err}\n";
+            }
+        }
+
+        if ($erroresTrasReintento !== []) {
+            ecWorkerWriteErroresReintentoCsv($idsXlsxOpt, $baseDir, $erroresTrasReintento);
+        }
     }
 }
 
@@ -267,8 +393,13 @@ exit($fail > 0 ? 2 : 0);
  *
  * @param array<int, bool> $milestoneSent
  */
-function maybePostProgressMilestones(string $webhookUrl, array &$milestoneSent, int $processed, int $total): void
-{
+function maybePostProgressMilestones(
+    string $webhookUrl,
+    array &$milestoneSent,
+    int $processed,
+    int $total,
+    bool $noChat
+): void {
     if ($total <= 0) {
         return;
     }
@@ -285,8 +416,32 @@ function maybePostProgressMilestones(string $webhookUrl, array &$milestoneSent, 
     }
     if ($lastNew !== null) {
         $msg = "*Progreso:* se ha alcanzado al menos el *{$lastNew}%* del lote (*{$processed}/{$total}* id(s) consultados en S2).";
-        postGoogleChat($webhookUrl, $msg);
+        if ($webhookUrl !== '' && !$noChat) {
+            postGoogleChat($webhookUrl, $msg);
+        }
     }
+}
+
+/**
+ * Consola/agente: una línea cada vez que sube el porcentaje entero (1, 2, … 100), más lineal que el Chat.
+ *
+ * @param int $ultimoPctImpreso se actualiza con el último % ya mostrado (-1 = ninguno)
+ */
+function ec_worker_echo_avance_log_lineal(int $processed, int $total, int &$ultimoPctImpreso): void
+{
+    if ($total <= 0) {
+        return;
+    }
+    $pct = (int) floor((100 * $processed) / $total);
+    if ($processed < $total && $pct < 1) {
+        return;
+    }
+    if ($pct === $ultimoPctImpreso) {
+        return;
+    }
+    $ultimoPctImpreso = $pct;
+    echo "[ec-webhook-worker] Avance: {$processed}/{$total} ({$pct}%)\n";
+    ec_worker_stdout_flush();
 }
 
 function loadEnvFile(string $path): void
@@ -485,6 +640,41 @@ function buildResumenChatText(int $ok, int $fail, int $total, string $fechaCorte
         . "_Detalle:_ revisar consola o repetir los que marcaron ERROR."
         . $alertaBd
     );
+}
+
+/**
+ * CSV con id_credito, tipo_error, detalle — solo cuando tras la 2.ª pasada siguen fallos.
+ *
+ * @param array<int, array{tipo: string, detalle: string}> $filasPorId
+ */
+function ecWorkerWriteErroresReintentoCsv(string $idsXlsxOpt, string $baseDir, array $filasPorId): void
+{
+    if ($filasPorId === []) {
+        return;
+    }
+    $outDir = $idsXlsxOpt !== '' ? dirname($idsXlsxOpt) : $baseDir;
+    if (!is_dir($outDir) || !is_writable($outDir)) {
+        fwrite(STDERR, "[ec-webhook-worker] No se pudo escribir CSV de errores (directorio no escribible): {$outDir}\n");
+
+        return;
+    }
+    $ts = date('Ymd_His');
+    $nombreCsv = "ec_worker_errores_reintento_{$ts}.csv";
+    $outPath = $outDir . DIRECTORY_SEPARATOR . $nombreCsv;
+    $fp = fopen($outPath, 'wb');
+    if ($fp === false) {
+        fwrite(STDERR, "[ec-webhook-worker] No se pudo crear {$nombreCsv}\n");
+
+        return;
+    }
+    fwrite($fp, "\xEF\xBB\xBF");
+    fputcsv($fp, ['id_credito', 'tipo_error', 'detalle'], ';');
+    ksort($filasPorId, SORT_NUMERIC);
+    foreach ($filasPorId as $idCredito => $r) {
+        fputcsv($fp, [(string) (int) $idCredito, $r['tipo'], $r['detalle']], ';');
+    }
+    fclose($fp);
+    echo "[ec-webhook-worker] ERRORES_REINTENTO_CSV={$nombreCsv}\n";
 }
 
 function postGoogleChat(string $webhookUrl, string $text): bool

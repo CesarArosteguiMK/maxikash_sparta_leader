@@ -1064,6 +1064,7 @@
                         <ul class="mb-0 small text-muted">
                             <li>No debe cambiar el nombre de las columnas.</li>
                             <li>La plantilla define la estructura esperada: columnas <code>id_credito</code> e <code>id_despacho</code> (esta última es clave para asignar al despacho correcto).</li>
+                            <li>Si el Excel incluye <code>id_despacho</code> por fila, no es obligatorio seleccionar un despacho arriba; si solo lleva <code>id_credito</code>, entonces sí debe elegir el despacho en pantalla.</li>
                             <li>El encabezado debe estar en la fila 1 (como en la plantilla).</li>
                             <li>Los datos se leen desde la primera hoja del Excel.</li>
                             <li>Se verifica que los datos sean correctos (IDs numéricos y válidos).</li>
@@ -2263,9 +2264,9 @@ function setImportProgress(percent, text) {
 }
 
 async function iniciarImportacionExcel() {
-    if (!despachoSeleccionado) {
-        Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
-        return;
+    const selSync = document.getElementById('select-despacho');
+    if (selSync && selSync.value) {
+        despachoSeleccionado = selSync.value;
     }
 
     const input = document.getElementById('input-excel-import');
@@ -2304,7 +2305,9 @@ async function iniciarImportacionExcel() {
             const data = await new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 const formData = new FormData();
-                formData.append('id_persona', despachoSeleccionado);
+                if (despachoSeleccionado) {
+                    formData.append('id_persona', despachoSeleccionado);
+                }
                 formData.append('excel', file, file.name);
 
                 xhr.open('POST', '/despachos/importarExcelAsignacionCreditosDespacho', true);
