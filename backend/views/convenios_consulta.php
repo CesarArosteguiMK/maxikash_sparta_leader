@@ -1006,7 +1006,17 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
 </div>
 
 
+
+
 <script>
+
+
+
+
+
+
+
+
 
 
 
@@ -1015,9 +1025,9 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
 // ══════════════════════════════════════════════════════
 //  Estado global
 // ══════════════════════════════════════════════════════
-var _credito       = null;
-var _ofertas       = [];
-var _ofertaActiva  = null;
+var _credito = null;
+var _ofertas = [];
+var _ofertaActiva = null;
 var _semanasActual = 1;
 var _rayoModo = null; // 'unico' | 'quincenas' | 'semanal'
 // var _pollingInterval = null;
@@ -1025,7 +1035,7 @@ var _rayoModo = null; // 'unico' | 'quincenas' | 'semanal'
 // ══════════════════════════════════════════════════════
 //  BUSCAR CRÉDITO
 // ══════════════════════════════════════════════════════
-window.buscarCredito = function() {
+window.buscarCredito = function () {
     var id = document.getElementById('inputBusqueda').value.trim();
 
     if (!id || isNaN(id) || parseInt(id) < 1) {
@@ -1041,7 +1051,7 @@ window.buscarCredito = function() {
     seleccionarCredito(parseInt(id));
 };
 
-document.getElementById('inputBusqueda').addEventListener('keydown', function(e) {
+document.getElementById('inputBusqueda').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') window.buscarCredito();
 });
 
@@ -1055,25 +1065,25 @@ function seleccionarCredito(idCredito) {
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
 
-    Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+    Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
 
     // Llamada 1: ofertas
     http.request({
         endpoint: '/convenios/getOfertasCredito',
         method: 'POST',
         data: { id_credito: idCredito },
-        onSuccess: function(respOfertas) {
+        onSuccess: function (respOfertas) {
             if (!respOfertas.success) {
                 Swal.close();
                 Swal.fire('Sin elegibilidad', respOfertas.mensaje || 'Este crédito no cumple los criterios.', 'info');
                 return;
             }
 
-            var datos   = respOfertas.datos;
+            var datos = respOfertas.datos;
             var credito = datos.credito;
             var ofertas = datos.ofertas;
             var elegible = datos.elegible;
-            var razon   = datos.razon;
+            var razon = datos.razon;
 
             _credito = credito;
             _ofertas = ofertas;
@@ -1083,7 +1093,7 @@ function seleccionarCredito(idCredito) {
                 endpoint: '/convenios/getHistorialConvenios',
                 method: 'POST',
                 data: { id_credito: idCredito },
-                onSuccess: function(respHistorial) {
+                onSuccess: function (respHistorial) {
                     if (respHistorial.success && respHistorial.datos) {
                         _credito.historial_convenios = respHistorial.datos;
                     }
@@ -1093,7 +1103,7 @@ function seleccionarCredito(idCredito) {
                         endpoint: '/convenios/getConvenioActivo',
                         method: 'POST',
                         data: { id_credito: idCredito },
-                        onSuccess: function(respConvenio) {
+                        onSuccess: function (respConvenio) {
                             Swal.close();
 
                             document.getElementById('btnGuardar').style.display = 'inline-block';
@@ -1104,7 +1114,7 @@ function seleccionarCredito(idCredito) {
                             renderOfertas(ofertas, bloqueados);
 
                             document.getElementById('sliderSection').style.display = 'none';
-                            document.getElementById('amortSection').style.display  = 'none';
+                            document.getElementById('amortSection').style.display = 'none';
                             document.getElementById('alertaIncumplimiento').style.display = 'none';
                             _ofertaActiva = null;
 
@@ -1115,7 +1125,7 @@ function seleccionarCredito(idCredito) {
                                 congelarModulo(respConvenio.datos);
                             }
                         },
-                        onError: function() {
+                        onError: function () {
                             Swal.close();
                             renderCreditoBanner(credito);
                             renderOfertas(ofertas);
@@ -1125,13 +1135,13 @@ function seleccionarCredito(idCredito) {
                         }
                     });
                 },
-                onError: function() {
+                onError: function () {
                     // Si falla el historial, continuamos sin él
                     http.request({
                         endpoint: '/convenios/getConvenioActivo',
                         method: 'POST',
                         data: { id_credito: idCredito },
-                        onSuccess: function(respConvenio) {
+                        onSuccess: function (respConvenio) {
                             Swal.close();
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
@@ -1142,7 +1152,7 @@ function seleccionarCredito(idCredito) {
                                 congelarModulo(respConvenio.datos);
                             }
                         },
-                        onError: function() {
+                        onError: function () {
                             Swal.close();
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
@@ -1153,7 +1163,7 @@ function seleccionarCredito(idCredito) {
                 }
             });
         },
-        onError: function() {
+        onError: function () {
             Swal.close();
             Swal.fire('Error', 'Error al cargar ofertas.', 'error');
         }
@@ -1164,7 +1174,7 @@ function seleccionarCredito(idCredito) {
 //  BANNER DEL CRÉDITO
 // ══════════════════════════════════════════════════════
 function renderCreditoBanner(c) {
-    var bucketColor = function(b) {
+    var bucketColor = function (b) {
         if (!b) return 'bg-secondary';
         if (b.indexOf('e)') === 0) return 'bg-warning text-dark';
         if (b.indexOf('f)') === 0) return 'bg-orange text-white';
@@ -1173,15 +1183,15 @@ function renderCreditoBanner(c) {
 
     var avance = parseFloat(c.Avance_Pago_Plazo || 0).toFixed(1);
     var adeudo = parseFloat(c.Adeudo_total || 0);
-    var fmt    = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+    var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
     document.getElementById('creditoBanner').innerHTML =
         '<div class="row g-3">' +
-            '<div class="col-6 col-md-3"><div class="label">Crédito</div><div class="valor">#' + c.Id_credito + '</div></div>' +
-            '<div class="col-6 col-md-3"><div class="label">Cliente</div><div class="valor" style="font-size:0.9rem;">' + c.Nombre_cliente + '</div></div>' +
-            '<div class="col-6 col-md-2"><div class="label">Bucket</div><span class="bucket-badge ' + bucketColor(c.Bucket_Morosidad_Real) + '">' + c.Bucket_Morosidad_Real + '</span></div>' +
-            '<div class="col-6 col-md-2"><div class="label">Avance pago</div><div class="valor">' + avance + '%</div></div>' +
-            '<div class="col-6 col-md-2"><div class="label">Adeudo total Actual</div><div class="valor" style="color:#4ade80;">' + fmt(adeudo) + '</div></div>' +
+        '<div class="col-6 col-md-3"><div class="label">Crédito</div><div class="valor">#' + c.Id_credito + '</div></div>' +
+        '<div class="col-6 col-md-3"><div class="label">Cliente</div><div class="valor" style="font-size:0.9rem;">' + c.Nombre_cliente + '</div></div>' +
+        '<div class="col-6 col-md-2"><div class="label">Bucket</div><span class="bucket-badge ' + bucketColor(c.Bucket_Morosidad_Real) + '">' + c.Bucket_Morosidad_Real + '</span></div>' +
+        '<div class="col-6 col-md-2"><div class="label">Avance pago</div><div class="valor">' + avance + '%</div></div>' +
+        '<div class="col-6 col-md-2"><div class="label">Adeudo total Actual</div><div class="valor" style="color:#4ade80;">' + fmt(adeudo) + '</div></div>' +
         '</div>';
 }
 
@@ -1192,20 +1202,20 @@ var OFERTA_ICONOS = { 1: '🎯', 2: '💰', 3: '❄️', 4: '⚡' };
 
 function renderOfertas(ofertas, productosBloqueados) {
     var cont = document.getElementById('ofertasContainer');
-    var fmt  = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+    var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
-     // ── NUEVO: excluir el producto interno de convenio globo manual ──
-    ofertas = ofertas.filter(function(o) {
+    // ── NUEVO: excluir el producto interno de convenio globo manual ──
+    ofertas = ofertas.filter(function (o) {
         return o.nombre !== 'Convenio Globo Manual';
     });
 
     // Construir mapa id_producto → nombre desde historial y ofertas actuales
     var _historialProductos = {};
-    ofertas.forEach(function(o) {
+    ofertas.forEach(function (o) {
         _historialProductos[o.id_producto] = o.nombre;
     });
     if (_credito && _credito.historial_convenios) {
-        _credito.historial_convenios.forEach(function(c) {
+        _credito.historial_convenios.forEach(function (c) {
             if (c.id_producto_convenio && c.nombre_producto) {
                 _historialProductos[c.id_producto_convenio] = c.nombre_producto;
             }
@@ -1216,10 +1226,10 @@ function renderOfertas(ofertas, productosBloqueados) {
     var productosUsados = {};
     if (_credito && _credito.historial_convenios && _credito.historial_convenios.length > 0) {
         var historialOrdenado = _credito.historial_convenios
-            .filter(function(c) { return c.estatus !== 'activo'; })
-            .sort(function(a, b) { return new Date(b.fecha_alta) - new Date(a.fecha_alta); });
+            .filter(function (c) { return c.estatus !== 'activo'; })
+            .sort(function (a, b) { return new Date(b.fecha_alta) - new Date(a.fecha_alta); });
 
-        historialOrdenado.forEach(function(c) {
+        historialOrdenado.forEach(function (c) {
             var idProd = c.id_producto_convenio;
             if (!productosUsados[idProd]) {
                 productosUsados[idProd] = c.estatus;
@@ -1228,8 +1238,8 @@ function renderOfertas(ofertas, productosBloqueados) {
     }
 
     // Cards de ofertas disponibles
-    var htmlOfertas = ofertas.map(function(o, i) {
-        var icono      = OFERTA_ICONOS[o.id_producto] || '📋';
+    var htmlOfertas = ofertas.map(function (o, i) {
+        var icono = OFERTA_ICONOS[o.id_producto] || '📋';
         var primerPago = (o.pago_inicial === 'Si' && o.pago_inicial_monto)
             ? fmt(o.pago_inicial_monto)
             : 'No requiere primer pago';
@@ -1237,7 +1247,7 @@ function renderOfertas(ofertas, productosBloqueados) {
             ? '1 semana (pago único)'
             : o.periodo_inicio + ' a ' + o.semanas_max + ' semanas';
 
-        var estatusPrevio  = productosUsados[o.id_producto] || null;
+        var estatusPrevio = productosUsados[o.id_producto] || null;
         var claseAdicional = '';
         var badgeHistorial = '';
 
@@ -1245,53 +1255,53 @@ function renderOfertas(ofertas, productosBloqueados) {
             claseAdicional = 'oferta-completada';
             badgeHistorial =
                 '<div class="badge-historial-card badge-completado-card">' +
-                    '<i class="fa-solid fa-circle-check me-1"></i>Convenio completado' +
+                '<i class="fa-solid fa-circle-check me-1"></i>Convenio completado' +
                 '</div>';
         } else if (estatusPrevio === 'cancelado') {
             claseAdicional = 'oferta-cancelada';
             badgeHistorial =
                 '<div class="badge-historial-card badge-cancelado-card">' +
-                    '<i class="fa-solid fa-ban me-1"></i>Convenio cancelado' +
+                '<i class="fa-solid fa-ban me-1"></i>Convenio cancelado' +
                 '</div>';
         }
 
         var clickeable = estatusPrevio ? '' : ' onclick="window.seleccionarOferta(' + i + ')"';
-        var cursor     = estatusPrevio ? 'cursor:not-allowed;' : '';
+        var cursor = estatusPrevio ? 'cursor:not-allowed;' : '';
 
         return '<div class="col-12 col-md-3">' +
             '<div class="oferta-card ' + claseAdicional + '" id="oferta-card-' + i + '"' + clickeable + ' style="' + cursor + '">' +
-                badgeHistorial +
-                '<div class="icono-oferta">' + icono + '</div>' +
-                '<div class="titulo-oferta">' + o.nombre + '</div>' +
-                '<div class="porcentaje">' + parseInt(o.porcentaje_descuento) + '%</div>' +
-                '<div class="desc-oferta">Ahorro de ' + fmt(o.descuento_monto) + ' sobre ' + fmt(o.monto_base) + '</div>' +
-                '<div class="detalle-item"><i class="fa-solid fa-check"></i> Total a pagar: <strong>' + fmt(o.total_a_pagar) + '</strong></div>' +
-                '<div class="detalle-item"><i class="fa-solid fa-check"></i> Primer pago: <strong>' + primerPago + '</strong></div>' +
-                '<div class="detalle-item"><i class="fa-solid fa-check"></i> Plazos: <strong>' + plazoLabel + '</strong></div>' +
+            badgeHistorial +
+            '<div class="icono-oferta">' + icono + '</div>' +
+            '<div class="titulo-oferta">' + o.nombre + '</div>' +
+            '<div class="porcentaje">' + parseInt(o.porcentaje_descuento) + '%</div>' +
+            '<div class="desc-oferta">Ahorro de ' + fmt(o.descuento_monto) + ' sobre ' + fmt(o.monto_base) + '</div>' +
+            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Total a pagar: <strong>' + fmt(o.total_a_pagar) + '</strong></div>' +
+            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Primer pago: <strong>' + primerPago + '</strong></div>' +
+            '<div class="detalle-item"><i class="fa-solid fa-check"></i> Plazos: <strong>' + plazoLabel + '</strong></div>' +
             '</div>' +
-        '</div>';
+            '</div>';
     }).join('');
 
     // Cards bloqueadas permanentemente por incumplimiento
     var htmlBloqueados = '';
     if (productosBloqueados && productosBloqueados.length > 0) {
-        productosBloqueados.forEach(function(idProd) {
+        productosBloqueados.forEach(function (idProd) {
             var nombre = _historialProductos[idProd] || 'Producto';
-            var icono  = OFERTA_ICONOS[idProd] || '🚫';
+            var icono = OFERTA_ICONOS[idProd] || '🚫';
             htmlBloqueados +=
                 '<div class="col-12 col-md-3">' +
-                    '<div class="oferta-card" style="border-color:#ef4444;background:#fff1f1;opacity:0.65;cursor:not-allowed;pointer-events:none;position:relative;">' +
-                        '<div style="position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;' +
-                             'font-size:0.65rem;padding:3px 9px;border-radius:12px;font-weight:700;">' +
-                            '<i class="fas fa-ban me-1"></i>Bloqueado permanente' +
-                        '</div>' +
-                        '<div class="icono-oferta">' + icono + '</div>' +
-                        '<div class="titulo-oferta" style="color:#991b1b;">' + nombre + '</div>' +
-                        '<div class="desc-oferta" style="color:#dc2626;font-size:0.8rem;margin-top:.5rem;">' +
-                            '<i class="fas fa-triangle-exclamation me-1"></i>' +
-                            'Convenio cancelado por incumplimiento.<br>No disponible permanentemente.' +
-                        '</div>' +
-                    '</div>' +
+                '<div class="oferta-card" style="border-color:#ef4444;background:#fff1f1;opacity:0.65;cursor:not-allowed;pointer-events:none;position:relative;">' +
+                '<div style="position:absolute;top:10px;right:10px;background:#ef4444;color:#fff;' +
+                'font-size:0.65rem;padding:3px 9px;border-radius:12px;font-weight:700;">' +
+                '<i class="fas fa-ban me-1"></i>Bloqueado permanente' +
+                '</div>' +
+                '<div class="icono-oferta">' + icono + '</div>' +
+                '<div class="titulo-oferta" style="color:#991b1b;">' + nombre + '</div>' +
+                '<div class="desc-oferta" style="color:#dc2626;font-size:0.8rem;margin-top:.5rem;">' +
+                '<i class="fas fa-triangle-exclamation me-1"></i>' +
+                'Convenio cancelado por incumplimiento.<br>No disponible permanentemente.' +
+                '</div>' +
+                '</div>' +
                 '</div>';
         });
     }
@@ -1309,10 +1319,10 @@ function renderCeldaPagoS2(pagosS2, numeroSemana) {
         return '<span style="color:#aaa;">—</span>';
     }
 
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
-    var fmtF = function(s) {
+    var fmtF = function (s) {
         if (!s) return '';
         var p = s.split('-');
         return p[2] + '/' + p[1] + '/' + p[0];
@@ -1320,35 +1330,35 @@ function renderCeldaPagoS2(pagosS2, numeroSemana) {
 
     var html = '';
 
-    pagos.forEach(function(p) {
+    pagos.forEach(function (p) {
         var esSobrante = p.sobrante > 0 && p.capital === 0;
 
         if (esSobrante) {
             // Línea de sobrante
             html +=
                 '<div style="border-left:3px solid #f59e0b;padding-left:6px;margin-bottom:4px;">' +
-                    '<span style="display:block;font-size:0.75rem;color:#92400e;font-weight:600;">' +
-                        '<i class="fas fa-arrow-right-arrow-left" style="font-size:0.65rem;"></i> Sobrante: ' + fmt(p.montoPago) +
-                    '</span>' +
-                    '<span style="display:block;font-size:0.72rem;color:#b45309;">' +
-                        'Aplicado: ' + fmt(p.montoPago) +
-                    '</span>' +
-                    '<span style="display:block;font-size:0.70rem;color:#aaa;">' + fmtF(p.fechaValor) + '</span>' +
+                '<span style="display:block;font-size:0.75rem;color:#92400e;font-weight:600;">' +
+                '<i class="fas fa-arrow-right-arrow-left" style="font-size:0.65rem;"></i> Sobrante: ' + fmt(p.montoPago) +
+                '</span>' +
+                '<span style="display:block;font-size:0.72rem;color:#b45309;">' +
+                'Aplicado: ' + fmt(p.montoPago) +
+                '</span>' +
+                '<span style="display:block;font-size:0.70rem;color:#aaa;">' + fmtF(p.fechaValor) + '</span>' +
                 '</div>';
         } else {
             // Línea de pago normal
             html +=
                 '<div style="border-left:3px solid #22c55e;padding-left:6px;margin-bottom:4px;">' +
-                    '<span style="display:block;font-size:0.75rem;font-weight:700;color:#166534;">' +
-                        '<i class="fas fa-circle-check" style="font-size:0.65rem;"></i> Pago: ' + fmt(p.montoPago) +
-                    '</span>' +
-                    '<span style="display:block;font-size:0.72rem;color:#15803d;">' +
-                        'Aplicado: ' + fmt(p.capital) +
-                    '</span>' +
-                    (p.sobrante > 0
-                        ? '<span style="display:block;font-size:0.70rem;color:#b45309;">Sobrante: ' + fmt(p.sobrante) + '</span>'
-                        : '') +
-                    '<span style="display:block;font-size:0.70rem;color:#aaa;">' + fmtF(p.fechaValor) + '</span>' +
+                '<span style="display:block;font-size:0.75rem;font-weight:700;color:#166534;">' +
+                '<i class="fas fa-circle-check" style="font-size:0.65rem;"></i> Pago: ' + fmt(p.montoPago) +
+                '</span>' +
+                '<span style="display:block;font-size:0.72rem;color:#15803d;">' +
+                'Aplicado: ' + fmt(p.capital) +
+                '</span>' +
+                (p.sobrante > 0
+                    ? '<span style="display:block;font-size:0.70rem;color:#b45309;">Sobrante: ' + fmt(p.sobrante) + '</span>'
+                    : '') +
+                '<span style="display:block;font-size:0.70rem;color:#aaa;">' + fmtF(p.fechaValor) + '</span>' +
                 '</div>';
         }
     });
@@ -1375,13 +1385,13 @@ function buscarPagosS2PorFecha(pagosS2movil, fechaPagoISO) {
     if (!pagosS2movil || !fechaPagoISO) return [];
 
     var inicio = new Date(fechaPagoISO + 'T00:00:00');
-    var fin    = new Date(fechaPagoISO + 'T00:00:00');
+    var fin = new Date(fechaPagoISO + 'T00:00:00');
     fin.setDate(fin.getDate() + 7);
 
     var resultado = [];
-    Object.keys(pagosS2movil).forEach(function(cuota) {
+    Object.keys(pagosS2movil).forEach(function (cuota) {
         var pagos = pagosS2movil[cuota];
-        pagos.forEach(function(p) {
+        pagos.forEach(function (p) {
             if (!p.fechaValor) return;
             var fv = new Date(p.fechaValor + 'T00:00:00');
             if (fv >= inicio && fv <= fin) {
@@ -1400,7 +1410,7 @@ function calcularGruposConciliacion(amortizacion, pagosS2movil) {
     // Devuelve mapa: numero_semana → { esPrimeroDelGrupo, semanasDelGrupo, pagosS2 }
     var mapa = {};
 
-    amortizacion.forEach(function(fila) {
+    amortizacion.forEach(function (fila) {
         if (fila.estatus_pago !== 'pagado') return;
         var pagos = buscarPagosS2PorFecha(pagosS2movil, fila.fecha_pago_real || fila.fecha_pago);
         if (pagos.length === 0) {
@@ -1412,7 +1422,7 @@ function calcularGruposConciliacion(amortizacion, pagosS2movil) {
 
     // Agrupar por idPago — si varias semanas comparten el mismo idPago, solo la primera muestra botón
     var idPagoVisto = {};
-    amortizacion.forEach(function(fila) {
+    amortizacion.forEach(function (fila) {
         if (fila.estatus_pago !== 'pagado') return;
         var entry = mapa[fila.numero_semana];
         if (!entry || entry.pagosS2.length === 0) {
@@ -1435,7 +1445,7 @@ function calcularGruposConciliacion(amortizacion, pagosS2movil) {
     });
 
     // Asegurar que el primero de cada grupo se incluya a sí mismo
-    amortizacion.forEach(function(fila) {
+    amortizacion.forEach(function (fila) {
         var entry = mapa[fila.numero_semana];
         if (entry && entry.esPrimeroDelGrupo && entry.semanasDelGrupo.indexOf(fila.numero_semana) === -1) {
             entry.semanasDelGrupo.unshift(fila.numero_semana);
@@ -1450,15 +1460,15 @@ function congelarModulo(convenio) {
     var progressPrevio = document.getElementById('convProgressWrap');
     if (progressPrevio) progressPrevio.remove();
 
-    var fmt = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+    var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
     // Identificar card del convenio activo
     var idxOferta = -1;
-if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
-    for (var i = 0; i < _ofertas.length; i++) {
-        if (_ofertas[i].id_producto === convenio.id_producto_convenio) { idxOferta = i; break; }
+    if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
+        for (var i = 0; i < _ofertas.length; i++) {
+            if (_ofertas[i].id_producto === convenio.id_producto_convenio) { idxOferta = i; break; }
+        }
     }
-   }
 
     // Aplicar clases a cards
     var cards = document.querySelectorAll('.oferta-card');
@@ -1479,21 +1489,21 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
     // Slider congelado
     var slider = document.getElementById('sliderSemanas');
     slider.disabled = true;
-    slider.value    = convenio.numero_semanas;
-    _semanasActual  = convenio.numero_semanas;
+    slider.value = convenio.numero_semanas;
+    _semanasActual = convenio.numero_semanas;
 
     if (idxOferta >= 0) {
-    _ofertaActiva  = _ofertas[idxOferta];
-    slider.min = _ofertaActiva.periodo_inicio;
-    slider.max = _ofertaActiva.semanas_max;
-    document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
-    document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
-    document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
-} else if (convenio.tipo === 'globo') {  // ← NUEVO bloque
-    document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
-    document.getElementById('labelMin').textContent = convenio.numero_semanas + ' sem';
-    document.getElementById('labelMax').textContent = convenio.numero_semanas + ' sem';
-}
+        _ofertaActiva = _ofertas[idxOferta];
+        slider.min = _ofertaActiva.periodo_inicio;
+        slider.max = _ofertaActiva.semanas_max;
+        document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
+        document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
+        document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
+    } else if (convenio.tipo === 'globo') {  // ← NUEVO bloque
+        document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
+        document.getElementById('labelMin').textContent = convenio.numero_semanas + ' sem';
+        document.getElementById('labelMax').textContent = convenio.numero_semanas + ' sem';
+    }
 
     document.getElementById('semanasValor').textContent = convenio.numero_semanas;
     document.getElementById('pagoSemanalCalc').textContent =
@@ -1509,11 +1519,11 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
         '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(convenio.pago_semanal) + '</div></div></div>';
 
     // ── Barra de progreso ──────────────────────────
-    var totalPagar  = parseFloat(convenio.total_a_pagar);
-    var amort       = convenio.amortizacion || [];
+    var totalPagar = parseFloat(convenio.total_a_pagar);
+    var amort = convenio.amortizacion || [];
     var montoPagado = 0;
 
-    amort.forEach(function(fila) {
+    amort.forEach(function (fila) {
         if (fila.estatus_pago === 'pagado') {
             montoPagado += parseFloat(fila.capital || 0);
         } else if (fila.estatus_pago === 'parcial') {
@@ -1521,25 +1531,25 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
         }
     });
 
-    montoPagado       = Math.min(montoPagado, totalPagar);
+    montoPagado = Math.min(montoPagado, totalPagar);
     var montoRestante = Math.max(totalPagar - montoPagado, 0);
-    var pct           = totalPagar > 0 ? Math.round((montoPagado / totalPagar) * 100) : 0;
+    var pct = totalPagar > 0 ? Math.round((montoPagado / totalPagar) * 100) : 0;
 
     document.getElementById('amortResumenCards').insertAdjacentHTML('afterend',
         '<div class="conv-progress-wrap" id="convProgressWrap">' +
-            '<div class="conv-progress-label">' +
-                '<span><i class="fas fa-chart-line me-1"></i>Progreso del convenio</span>' +
-                '<span>' + pct + '% completado</span>' +
-            '</div>' +
-            '<div class="conv-progress-bar-bg">' +
-                '<div class="conv-progress-bar-fill" style="width:' + pct + '%"></div>' +
-            '</div>' +
-            '<div class="conv-progress-info">' +
-                '<span>Inicio: <strong>' + fmt(totalPagar) + '</strong></span>' +
-                '<span class="pagado">✓ Pagado: ' + fmt(montoPagado) + '</span>' +
-                '<span class="restante">⏳ Restante: ' + fmt(montoRestante) + '</span>' +
-                '<span>Meta: <strong>$0.00</strong></span>' +
-            '</div>' +
+        '<div class="conv-progress-label">' +
+        '<span><i class="fas fa-chart-line me-1"></i>Progreso del convenio</span>' +
+        '<span>' + pct + '% completado</span>' +
+        '</div>' +
+        '<div class="conv-progress-bar-bg">' +
+        '<div class="conv-progress-bar-fill" style="width:' + pct + '%"></div>' +
+        '</div>' +
+        '<div class="conv-progress-info">' +
+        '<span>Inicio: <strong>' + fmt(totalPagar) + '</strong></span>' +
+        '<span class="pagado">✓ Pagado: ' + fmt(montoPagado) + '</span>' +
+        '<span class="restante">⏳ Restante: ' + fmt(montoRestante) + '</span>' +
+        '<span>Meta: <strong>$0.00</strong></span>' +
+        '</div>' +
         '</div>'
     );
 
@@ -1552,14 +1562,14 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
     console.log('Datos completos del convenio:', convenio);
     console.log('Amortización que llegó:', convenio.amortizacion);
 
-    var filasHtml = convenio.amortizacion.map(function(fila) {
+    var filasHtml = convenio.amortizacion.map(function (fila) {
         console.log('➡️ ENTRANDO a procesar semana:', fila.numero_semana, 'estatus:', fila.estatus_pago);
         console.log('Fila procesada:', fila.numero_semana, 'estatus:', fila.estatus_pago);
 
         // ── Estatus ───────────────────────────────────────────
-        var esPagado    = fila.estatus_pago === 'pagado';
-        var esParcial   = fila.estatus_pago === 'parcial';
-        var esVencido   = fila.estatus_pago === 'vencido';
+        var esPagado = fila.estatus_pago === 'pagado';
+        var esParcial = fila.estatus_pago === 'parcial';
+        var esVencido = fila.estatus_pago === 'vencido';
         var esPendiente = fila.estatus_pago === 'pendiente';
         var esPendienteConciliar = fila.estatus_pago === 'pendiente_conciliar';
 
@@ -1576,8 +1586,8 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
         // ── Celda fecha ───────────────────────────────────────
         var celdaFecha = (esPagado || esParcial) && fila.fecha_pago_real
             ? '<span style="display:block;font-weight:600;color:' + (esParcial ? '#f59e0b' : '#22c55e') + ';">'
-              + fmtFecha(fila.fecha_pago_real) + '</span>'
-              + '<span style="display:block;color:#888;font-size:0.82em;">' + (esParcial ? 'Parcial' : 'Pagado') + '</span>'
+            + fmtFecha(fila.fecha_pago_real) + '</span>'
+            + '<span style="display:block;color:#888;font-size:0.82em;">' + (esParcial ? 'Parcial' : 'Pagado') + '</span>'
             : fmtFechaRango(fila.fecha_pago);
 
         // ── Celda "Pago Realizado" ────────────────────────────
@@ -1585,68 +1595,68 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
 
         if (esPagado || esParcial) {
             var pagosS2 = fila.pagos_s2 || [];
-            var grupoEntry    = gruposConcil[fila.numero_semana];
-            var esGrupo       = grupoEntry && grupoEntry.semanasDelGrupo && grupoEntry.semanasDelGrupo.length > 1;
+            var grupoEntry = gruposConcil[fila.numero_semana];
+            var esGrupo = grupoEntry && grupoEntry.semanasDelGrupo && grupoEntry.semanasDelGrupo.length > 1;
             var esPrimeroGrupo = grupoEntry && grupoEntry.esPrimeroDelGrupo;
-            var esUltimoGrupo  = esGrupo && grupoEntry.semanasDelGrupo[grupoEntry.semanasDelGrupo.length - 1] === fila.numero_semana;
-            var fmt2 = function(v) {
+            var esUltimoGrupo = esGrupo && grupoEntry.semanasDelGrupo[grupoEntry.semanasDelGrupo.length - 1] === fila.numero_semana;
+            var fmt2 = function (v) {
                 return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
             };
-            var fmtF2 = function(s) {
+            var fmtF2 = function (s) {
                 if (!s) return '';
                 var p = s.split('-');
                 return p[2] + '/' + p[1] + '/' + p[0];
             };
 
-            var montoAplicado  = parseFloat(fila.monto_pagado || 0);
-            var pagoSemanal    = parseFloat(fila.pago_semanal || 0);
-            var faltante       = round2(pagoSemanal - montoAplicado);
-            var colorBorde     = esParcial ? '#f59e0b' : '#22c55e';
-            var colorTexto     = esParcial ? '#92400e' : '#166534';
-            var colorAplicado  = esParcial ? '#b45309' : '#15803d';
+            var montoAplicado = parseFloat(fila.monto_pagado || 0);
+            var pagoSemanal = parseFloat(fila.pago_semanal || 0);
+            var faltante = round2(pagoSemanal - montoAplicado);
+            var colorBorde = esParcial ? '#f59e0b' : '#22c55e';
+            var colorTexto = esParcial ? '#92400e' : '#166534';
+            var colorAplicado = esParcial ? '#b45309' : '#15803d';
 
             if (!esGrupo || pagosS2.length === 0) {
                 // Pago individual o sin datos S2 — monto simple
                 celdaMontoPagado =
                     '<div style="border-left:3px solid ' + colorBorde + ';padding-left:5px;">' +
-                        '<span style="display:block;font-size:0.78rem;font-weight:700;color:' + colorTexto + ';">' +
-                            fmt2(montoAplicado) +
-                            (esParcial ? ' <small style="color:#dc2626;">(parcial)</small>' : '') +
-                        '</span>' +
-                        (esParcial && faltante > 0
-                            ? '<span style="display:block;font-size:0.70rem;color:#dc2626;">Falta: ' + fmt2(faltante) + '</span>'
-                            : '') +
-                        (pagosS2.length > 0
-                            ? '<span style="display:block;font-size:0.68rem;color:#aaa;">' + fmtF2(pagosS2[0].fechaValor) + '</span>'
-                            : '') +
+                    '<span style="display:block;font-size:0.78rem;font-weight:700;color:' + colorTexto + ';">' +
+                    fmt2(montoAplicado) +
+                    (esParcial ? ' <small style="color:#dc2626;">(parcial)</small>' : '') +
+                    '</span>' +
+                    (esParcial && faltante > 0
+                        ? '<span style="display:block;font-size:0.70rem;color:#dc2626;">Falta: ' + fmt2(faltante) + '</span>'
+                        : '') +
+                    (pagosS2.length > 0
+                        ? '<span style="display:block;font-size:0.68rem;color:#aaa;">' + fmtF2(pagosS2[0].fechaValor) + '</span>'
+                        : '') +
                     '</div>';
             } else {
                 // Pago compartido — corchete
                 var lineaArriba = !esPrimeroGrupo;
-                var lineaAbajo  = !esUltimoGrupo;
+                var lineaAbajo = !esUltimoGrupo;
 
                 celdaMontoPagado =
                     '<div style="display:flex;align-items:stretch;gap:6px;min-height:44px;">' +
-                        '<div style="display:flex;flex-direction:column;align-items:center;width:14px;flex-shrink:0;">' +
-                            '<div style="width:2px;flex:1;background:' + (lineaArriba ? '#9ca3af' : 'transparent') + ';"></div>' +
-                            '<div style="width:8px;height:8px;border-radius:50%;background:' + colorBorde + ';flex-shrink:0;border:1.5px solid #fff;outline:1.5px solid ' + colorBorde + ';"></div>' +
-                            '<div style="width:2px;flex:1;background:' + (lineaAbajo ? '#9ca3af' : 'transparent') + ';"></div>' +
-                        '</div>' +
-                        '<div style="display:flex;align-items:center;width:8px;flex-shrink:0;">' +
-                            '<div style="width:100%;height:2px;background:#9ca3af;"></div>' +
-                        '</div>' +
-                        '<div style="display:flex;flex-direction:column;justify-content:center;">' +
-                            (esPrimeroGrupo && pagosS2.length > 0
-                                ? '<span style="font-size:0.68rem;color:#64748b;font-weight:600;">' + fmt2(pagosS2[0].montoPago) + ' total</span>'
-                                : '') +
-                            '<span style="font-size:0.78rem;font-weight:700;color:' + colorTexto + ';">' +
-                                fmt2(montoAplicado) +
-                                (esParcial ? ' <small style="color:#dc2626;">(parcial)</small>' : '') +
-                            '</span>' +
-                            (esParcial && faltante > 0
-                                ? '<span style="display:block;font-size:0.68rem;color:#dc2626;">Falta: ' + fmt2(faltante) + '</span>'
-                                : '') +
-                        '</div>' +
+                    '<div style="display:flex;flex-direction:column;align-items:center;width:14px;flex-shrink:0;">' +
+                    '<div style="width:2px;flex:1;background:' + (lineaArriba ? '#9ca3af' : 'transparent') + ';"></div>' +
+                    '<div style="width:8px;height:8px;border-radius:50%;background:' + colorBorde + ';flex-shrink:0;border:1.5px solid #fff;outline:1.5px solid ' + colorBorde + ';"></div>' +
+                    '<div style="width:2px;flex:1;background:' + (lineaAbajo ? '#9ca3af' : 'transparent') + ';"></div>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;width:8px;flex-shrink:0;">' +
+                    '<div style="width:100%;height:2px;background:#9ca3af;"></div>' +
+                    '</div>' +
+                    '<div style="display:flex;flex-direction:column;justify-content:center;">' +
+                    (esPrimeroGrupo && pagosS2.length > 0
+                        ? '<span style="font-size:0.68rem;color:#64748b;font-weight:600;">' + fmt2(pagosS2[0].montoPago) + ' total</span>'
+                        : '') +
+                    '<span style="font-size:0.78rem;font-weight:700;color:' + colorTexto + ';">' +
+                    fmt2(montoAplicado) +
+                    (esParcial ? ' <small style="color:#dc2626;">(parcial)</small>' : '') +
+                    '</span>' +
+                    (esParcial && faltante > 0
+                        ? '<span style="display:block;font-size:0.68rem;color:#dc2626;">Falta: ' + fmt2(faltante) + '</span>'
+                        : '') +
+                    '</div>' +
                     '</div>';
             }
         }
@@ -1655,47 +1665,47 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
         var btnAccion = '';
 
         if (esPagado) {  // SOLO para pagados
-            var grupoEntry  = gruposConcil[fila.numero_semana];
-            var esPrimero   = grupoEntry && grupoEntry.esPrimeroDelGrupo;
+            var grupoEntry = gruposConcil[fila.numero_semana];
+            var esPrimero = grupoEntry && grupoEntry.esPrimeroDelGrupo;
 
             if (esPrimero) {
                 btnAccion =
                     '<div class="d-flex flex-column gap-1 align-items-center">' +
-                        (fila.fecha_pago_real
-                            ? '<small class="text-success"><i class="fas fa-check-double"></i> ' + fmtFecha(fila.fecha_pago_real) + '</small>'
-                            : '<span class="badge bg-success">✓</span>') +
-                        (fila.comprobante_path
-                            ? '<button class="btn btn-xs btn-outline-info btn-ver-comprobante mt-1" ' +
-                              'style="font-size:.75rem;padding:3px 8px;" ' +
-                              'data-path="' + fila.comprobante_path + '" ' +
-                              'data-semana="' + fila.numero_semana + '" ' +
-                              'title="Ver comprobante">' +
-                                  '<i class="fas fa-eye"></i>' +
-                              '</button>'
-                            : '') +
+                    (fila.fecha_pago_real
+                        ? '<small class="text-success"><i class="fas fa-check-double"></i> ' + fmtFecha(fila.fecha_pago_real) + '</small>'
+                        : '<span class="badge bg-success">✓</span>') +
+                    (fila.comprobante_path
+                        ? '<button class="btn btn-xs btn-outline-info btn-ver-comprobante mt-1" ' +
+                        'style="font-size:.75rem;padding:3px 8px;" ' +
+                        'data-path="' + fila.comprobante_path + '" ' +
+                        'data-semana="' + fila.numero_semana + '" ' +
+                        'title="Ver comprobante">' +
+                        '<i class="fas fa-eye"></i>' +
+                        '</button>'
+                        : '') +
                     '</div>';
             } else {
                 btnAccion =
                     '<div class="text-center">' +
-                        (fila.fecha_pago_real
-                            ? '<small class="text-success" style="font-size:.7rem;"><i class="fas fa-check-double"></i> ' + fmtFecha(fila.fecha_pago_real) + '</small>'
-                            : '<span class="badge bg-success">✓</span>') +
+                    (fila.fecha_pago_real
+                        ? '<small class="text-success" style="font-size:.7rem;"><i class="fas fa-check-double"></i> ' + fmtFecha(fila.fecha_pago_real) + '</small>'
+                        : '<span class="badge bg-success">✓</span>') +
                     '</div>';
             }
 
         } else if (esPendienteConciliar) {
             btnAccion = fila.comprobante_path
                 ? '<button class="btn btn-xs btn-outline-info btn-ver-comprobante" ' +
-                  'style="font-size:.75rem;padding:3px 8px;" ' +
-                  'data-path="'           + fila.comprobante_path          + '" ' +
-                  'data-semana="'         + fila.numero_semana             + '" ' +
-                  'data-fecha-pago="'     + fila.fecha_pago                + '" ' +
-                  'data-pago-semanal="'   + fila.pago_semanal              + '" ' +
-                  'data-fecha-pago-real="'+ (fila.fecha_pago_real || '')   + '" ' +
-                  'data-comentario="'     + (fila.comentario_gestor || '') + '" ' +
-                  'title="Ver comprobante">' +
-                      '<i class="fas fa-eye"></i>' +
-                  '</button>'
+                'style="font-size:.75rem;padding:3px 8px;" ' +
+                'data-path="' + fila.comprobante_path + '" ' +
+                'data-semana="' + fila.numero_semana + '" ' +
+                'data-fecha-pago="' + fila.fecha_pago + '" ' +
+                'data-pago-semanal="' + fila.pago_semanal + '" ' +
+                'data-fecha-pago-real="' + (fila.fecha_pago_real || '') + '" ' +
+                'data-comentario="' + (fila.comentario_gestor || '') + '" ' +
+                'title="Ver comprobante">' +
+                '<i class="fas fa-eye"></i>' +
+                '</button>'
                 : '<span style="color:#7c3aed;font-size:.7rem;">⏳</span>';
 
             console.log('Evaluando botón para semana', fila.numero_semana,
@@ -1706,13 +1716,13 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
             btnAccion =
                 '<button class="btn btn-xs btn-outline-warning btn-subir-comprobante" ' +
                 'style="font-size:.75rem;padding:3px 8px;" ' +
-                'data-semana="'       + fila.numero_semana  + '" ' +
-                'data-convenio="'     + convenio.id         + '" ' +
-                'data-credito="'      + convenio.id_credito + '" ' +
-                'data-pago-semanal="' + fila.pago_semanal   + '" ' +
-                'data-fecha-pago="'   + fila.fecha_pago     + '" ' +
+                'data-semana="' + fila.numero_semana + '" ' +
+                'data-convenio="' + convenio.id + '" ' +
+                'data-credito="' + convenio.id_credito + '" ' +
+                'data-pago-semanal="' + fila.pago_semanal + '" ' +
+                'data-fecha-pago="' + fila.fecha_pago + '" ' +
                 'title="Subir comprobante">' +
-                    '<i class="fas fa-upload"></i>' +
+                '<i class="fas fa-upload"></i>' +
                 '</button>';
 
         } else if (esPendiente) {
@@ -1723,13 +1733,13 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
             '<td>Semana ' + fila.numero_semana + '</td>' +
             '<td>' + celdaFecha + '</td>' +
             '<td>' +
-                '<span style="display:block;font-weight:600;">' + fmt(fila.pago_semanal) + '</span>' +
-                '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(fila.capital) + '</span>' +
+            '<span style="display:block;font-weight:600;">' + fmt(fila.pago_semanal) + '</span>' +
+            '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(fila.capital) + '</span>' +
             '</td>' +
             '<td class="celda-monto-pagado">' + celdaMontoPagado + '</td>' +
             '<td class="celda-estatus">' + estatusBadge + '</td>' +
             '<td>' + btnAccion + '</td>' +
-        '</tr>';
+            '</tr>';
     }).join('');
 
     document.getElementById('tablaAmortBody').innerHTML = filasHtml;
@@ -1741,14 +1751,14 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
     bindBotonesVerComprobante();
 
     // Solo PDF visible
-    document.getElementById('btnGuardar').style.display  = 'none';
-    document.getElementById('btnPdf').className          = 'btn btn-primary';
-    document.getElementById('btnPdf').style.display      = 'inline-block';
+    document.getElementById('btnGuardar').style.display = 'none';
+    document.getElementById('btnPdf').className = 'btn btn-primary';
+    document.getElementById('btnPdf').style.display = 'inline-block';
     document.getElementById('btnCancelar').style.display = 'inline-block';
     window._idConvenioActivo = convenio.id;
 
     // Banner informativo
-    var fechaAcuerdo    = new Date(convenio.fecha_acuerdo     + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var fechaAcuerdo = new Date(convenio.fecha_acuerdo + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
     var fechaUltimoPago = new Date(convenio.fecha_ultimo_pago + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     var pdfBadge = '';
@@ -1766,14 +1776,14 @@ if (convenio.tipo !== 'globo') {  // ← NUEVO condicional
     var banner = document.getElementById('creditoBanner');
     banner.insertAdjacentHTML('afterend',
         '<div id="bannerConvenioActivo" class="alert d-flex align-items-center gap-2 mb-3 banner-convenio-activo-light">' +
-            '<i class="fa-solid fa-lock fa-lg"></i>' +
-            '<div>' +
-                '<strong>Convenio activo registrado.</strong> ' +
-                'Acuerdo del ' + fechaAcuerdo + '. ' +
-                'Último pago: ' + fechaUltimoPago + '. ' +
-                'Solo puedes descargar el PDF.' +
-                pdfBadge +
-            '</div>' +
+        '<i class="fa-solid fa-lock fa-lg"></i>' +
+        '<div>' +
+        '<strong>Convenio activo registrado.</strong> ' +
+        'Acuerdo del ' + fechaAcuerdo + '. ' +
+        'Último pago: ' + fechaUltimoPago + '. ' +
+        'Solo puedes descargar el PDF.' +
+        pdfBadge +
+        '</div>' +
         '</div>'
     );
 
@@ -1788,11 +1798,11 @@ function round2(v) {
 // REGISTRAR PAGO DE SEMANA
 // ════════════════════════════════════════════════
 function bindBotonesPago(idCredito) {
-    document.querySelectorAll('.btn-registrar-pago').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var semana   = btn.getAttribute('data-semana');
+    document.querySelectorAll('.btn-registrar-pago').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var semana = btn.getAttribute('data-semana');
             var convenio = btn.getAttribute('data-convenio');
-            var credito  = idCredito || btn.getAttribute('data-credito');
+            var credito = idCredito || btn.getAttribute('data-credito');
 
             Swal.fire({
                 title: '¿Registrar pago?',
@@ -1803,24 +1813,24 @@ function bindBotonesPago(idCredito) {
                 confirmButtonText: 'Sí, registrar',
                 cancelButtonText: 'Cancelar',
                 confirmButtonColor: '#22c55e',
-            }).then(function(result) {
+            }).then(function (result) {
                 if (!result.isConfirmed) return;
 
-                btn.disabled  = true;
+                btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
                 http.request({
                     endpoint: '/convenios/registrarPago',
-                    method:   'POST',
+                    method: 'POST',
                     data: {
-                        id_convenio:   convenio,
+                        id_convenio: convenio,
                         numero_semana: semana,
-                        id_credito:    credito,
+                        id_credito: credito,
                     },
-                    onSuccess: function(resp) {
+                    onSuccess: function (resp) {
                         if (!resp.success) {
                             Swal.fire('Error', resp.mensaje || 'No se pudo registrar.', 'error');
-                            btn.disabled  = false;
+                            btn.disabled = false;
                             btn.innerHTML = '<i class="fas fa-check"></i>';
                             return;
                         }
@@ -1831,13 +1841,13 @@ function bindBotonesPago(idCredito) {
                             icon: 'success',
                             timer: 1500,
                             showConfirmButton: false
-                        }).then(function() {
+                        }).then(function () {
                             location.reload(); // AUTO-REFRESH después de pago
                         });
                     },
-                    onError: function() {
+                    onError: function () {
                         Swal.fire('Error', 'Error de conexión.', 'error');
-                        btn.disabled  = false;
+                        btn.disabled = false;
                         btn.innerHTML = '<i class="fas fa-check"></i>';
                     }
                 });
@@ -1877,8 +1887,8 @@ function bindBotonesPago(idCredito) {
 // ══════════════════════════════════════════════════════
 //  SELECCIONAR OFERTA → mostrar slider
 // ══════════════════════════════════════════════════════
-window.seleccionarOferta = function(idx) {
-    document.querySelectorAll('.oferta-card').forEach(function(c) { c.classList.remove('seleccionada'); });
+window.seleccionarOferta = function (idx) {
+    document.querySelectorAll('.oferta-card').forEach(function (c) { c.classList.remove('seleccionada'); });
     document.getElementById('oferta-card-' + idx).classList.add('seleccionada');
 
     _ofertaActiva = _ofertas[idx];
@@ -1888,47 +1898,47 @@ window.seleccionarOferta = function(idx) {
     var slider = document.getElementById('sliderSemanas');
 
     if (esLiquidacionRayo) {
-    _rayoModo = 'unico'; // default
-    slider.style.display = 'none';
-    document.querySelector('.semanas-labels').style.display = 'none';
+        _rayoModo = 'unico'; // default
+        slider.style.display = 'none';
+        document.querySelector('.semanas-labels').style.display = 'none';
 
-    var btnsExistentes = document.getElementById('rayoBtns');
-    if (btnsExistentes) btnsExistentes.remove();
+        var btnsExistentes = document.getElementById('rayoBtns');
+        if (btnsExistentes) btnsExistentes.remove();
 
-    slider.insertAdjacentHTML('afterend',
-        '<div id="rayoBtns" class="d-flex gap-2 justify-content-center mt-2">' +
+        slider.insertAdjacentHTML('afterend',
+            '<div id="rayoBtns" class="d-flex gap-2 justify-content-center mt-2">' +
             '<button class="btn btn-primary rayo-btn" onclick="window.seleccionarRayo(1, event)">⚡ 1 Pago único</button>' +
             '<button class="btn btn-outline-primary rayo-btn" onclick="window.seleccionarRayo(2, event)">📅 2 Quincenas</button>' +
             '<button class="btn btn-outline-primary rayo-btn" onclick="window.seleccionarRayo(4, event)">📆 4 Semanas</button>' +
-        '</div>'
-    );
+            '</div>'
+        );
 
-    _semanasActual = 1;
-    document.getElementById('semanasValor').textContent = '1 pago único';
-    var total = parseFloat(_ofertaActiva.total_a_pagar);
-    document.getElementById('pagoSemanalCalc').textContent =
-        '$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / pago';
-} else {
-    slider.style.display = 'block';
-    document.querySelector('.semanas-labels').style.display = 'flex';
-    var btnsRayo = document.getElementById('rayoBtns');
-    if (btnsRayo) btnsRayo.remove();
-    _rayoModo = null;
+        _semanasActual = 1;
+        document.getElementById('semanasValor').textContent = '1 pago único';
+        var total = parseFloat(_ofertaActiva.total_a_pagar);
+        document.getElementById('pagoSemanalCalc').textContent =
+            '$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / pago';
+    } else {
+        slider.style.display = 'block';
+        document.querySelector('.semanas-labels').style.display = 'flex';
+        var btnsRayo = document.getElementById('rayoBtns');
+        if (btnsRayo) btnsRayo.remove();
+        _rayoModo = null;
 
-    slider.min   = _ofertaActiva.periodo_inicio;
-    slider.max   = _ofertaActiva.semanas_max;
-    slider.step  = 1;
-    slider.value = _ofertaActiva.periodo_inicio;
-    document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
-    document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
+        slider.min = _ofertaActiva.periodo_inicio;
+        slider.max = _ofertaActiva.semanas_max;
+        slider.step = 1;
+        slider.value = _ofertaActiva.periodo_inicio;
+        document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
+        document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
 
-}
+    }
     document.getElementById('sliderTitulo').textContent = 'Plazo para: ' + _ofertaActiva.nombre;
     actualizarSlider(slider.value);
 
     document.getElementById('sliderSection').style.display = 'block';
-    document.getElementById('amortSection').style.display  = 'none';
-    document.getElementById('btnVerAmort').style.display   = 'none'; // ya no se usa
+    document.getElementById('amortSection').style.display = 'none';
+    document.getElementById('btnVerAmort').style.display = 'none'; // ya no se usa
 
     document.getElementById('sliderSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
@@ -1936,7 +1946,7 @@ window.seleccionarOferta = function(idx) {
 // ══════════════════════════════════════════════════════
 //  ACTUALIZAR SLIDER
 // ══════════════════════════════════════════════════════
-window.actualizarSlider = function(semanas) {
+window.actualizarSlider = function (semanas) {
     _semanasActual = parseInt(semanas);
 
     var esLiquidacionRayo = _ofertaActiva && _ofertaActiva.id_producto === 4;
@@ -1950,7 +1960,7 @@ window.actualizarSlider = function(semanas) {
     }
 
     if (_ofertaActiva) {
-        var total   = parseFloat(_ofertaActiva.total_a_pagar);
+        var total = parseFloat(_ofertaActiva.total_a_pagar);
         var divisor = esLiquidacionRayo && _semanasActual === 4 ? 2 : _semanasActual;
         var semanal = total / divisor;
         document.getElementById('pagoSemanalCalc').textContent =
@@ -1962,8 +1972,8 @@ window.actualizarSlider = function(semanas) {
 };
 
 
-window.seleccionarRayo = function(opcion, ev) {
-    document.querySelectorAll('.rayo-btn').forEach(function(b) {
+window.seleccionarRayo = function (opcion, ev) {
+    document.querySelectorAll('.rayo-btn').forEach(function (b) {
         b.classList.remove('btn-primary');
         b.classList.add('btn-outline-primary');
     });
@@ -1977,9 +1987,9 @@ window.seleccionarRayo = function(opcion, ev) {
     var labels = { 1: '1 pago único', 2: '2 quincenas', 4: '4 semanas' };
     document.getElementById('semanasValor').textContent = labels[opcion];
 
-    var total   = parseFloat(_ofertaActiva.total_a_pagar);
+    var total = parseFloat(_ofertaActiva.total_a_pagar);
     var divisor = opcion === 2 ? 2 : opcion;
-    var monto   = total / divisor;
+    var monto = total / divisor;
     document.getElementById('pagoSemanalCalc').textContent =
         '$' + monto.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
         (opcion === 2 ? ' / quincena' : opcion === 1 ? ' / pago' : ' / semana');
@@ -1992,26 +2002,26 @@ window.seleccionarRayo = function(opcion, ev) {
 // ══════════════════════════════════════════════════════
 function fmtFechaRango(fechaISO) {
     var inicio = new Date(fechaISO + 'T00:00:00');
-    var fin    = new Date(fechaISO + 'T00:00:00');
+    var fin = new Date(fechaISO + 'T00:00:00');
     fin.setDate(fin.getDate() + 7);
 
-    var fmt = function(d) {
+    var fmt = function (d) {
         return String(d.getDate()).padStart(2, '0') + '/' +
-               String(d.getMonth() + 1).padStart(2, '0') + '/' +
-               d.getFullYear();
+            String(d.getMonth() + 1).padStart(2, '0') + '/' +
+            d.getFullYear();
     };
 
     return '<span style="display:block;font-weight:600;">' + fmt(inicio) + '</span>' +
-           '<span style="display:block;color:#888;font-size:0.82em;">' + fmt(fin) + '</span>';
+        '<span style="display:block;color:#888;font-size:0.82em;">' + fmt(fin) + '</span>';
 }
 
 function calcularFechasQuincenales(fechaAcuerdoISO) {
-    var hoy    = new Date(fechaAcuerdoISO + 'T00:00:00');
-    var dia    = hoy.getDate();
-    var mes    = hoy.getMonth();
-    var anio   = hoy.getFullYear();
+    var hoy = new Date(fechaAcuerdoISO + 'T00:00:00');
+    var dia = hoy.getDate();
+    var mes = hoy.getMonth();
+    var anio = hoy.getFullYear();
 
-    var ultimoDiaMes = function(m, a) {
+    var ultimoDiaMes = function (m, a) {
         return new Date(a, m + 1, 0).getDate();
     };
 
@@ -2025,15 +2035,15 @@ function calcularFechasQuincenales(fechaAcuerdoISO) {
         // Primer pago el último día del mes actual
         f1 = new Date(anio, mes, ultimoDiaMes(mes, anio));
         // Segundo pago el 15 del mes siguiente
-        var mesSig  = mes + 1 > 11 ? 0 : mes + 1;
+        var mesSig = mes + 1 > 11 ? 0 : mes + 1;
         var anioSig = mes + 1 > 11 ? anio + 1 : anio;
         f2 = new Date(anioSig, mesSig, 15);
     }
 
-    var fmt = function(d) {
+    var fmt = function (d) {
         return d.getFullYear() + '-' +
-               String(d.getMonth() + 1).padStart(2, '0') + '-' +
-               String(d.getDate()).padStart(2, '0');
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0');
     };
 
     return [fmt(f1), fmt(f2)];
@@ -2042,10 +2052,10 @@ function calcularFechasQuincenales(fechaAcuerdoISO) {
 function fmtPagoRealizado(pago) {
     if (!pago) return '<span style="color:#aaa;">—</span>';
 
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
-    var fmtFecha = function(s) {
+    var fmtFecha = function (s) {
         if (!s) return '';
         var p = s.split('-');
         return p[2] + '/' + p[1] + '/' + p[0];
@@ -2071,12 +2081,12 @@ function fmtPagoRealizado(pago) {
 // ══════════════════════════════════════════════════════
 //  VER TABLA DE AMORTIZACIÓN (calculada en frontend)
 // ══════════════════════════════════════════════════════
-window.verTablaAmortizacion = function() {
+window.verTablaAmortizacion = function () {
     if (!_ofertaActiva || !_credito) return;
 
-    var o   = _ofertaActiva;
+    var o = _ofertaActiva;
     var total = parseFloat(o.total_a_pagar);
-    var fmt = function(v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+    var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
     var hoy = new Date().toISOString().split('T')[0];
 
     // ← PRIMERO declarar esto
@@ -2093,10 +2103,10 @@ window.verTablaAmortizacion = function() {
 
     document.getElementById('amortTitulo').textContent = '📋 ' + o.nombre;
     document.getElementById('amortResumenCards').innerHTML =
-    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(o.monto_base) + '</div></div></div>' +
-    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(o.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(o.descuento_monto) + '</div></div></div>' +
-    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(total) + '</div></div></div>' +
-    '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">' + labelPago + '</div><div class="fw-bold text-warning fs-5">' + fmt(montoPago) + '</div></div></div>';
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(o.monto_base) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(o.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(o.descuento_monto) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(total) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">' + labelPago + '</div><div class="fw-bold text-warning fs-5">' + fmt(montoPago) + '</div></div></div>';
 
     var filasHtml = '';
 
@@ -2104,60 +2114,60 @@ window.verTablaAmortizacion = function() {
         // ── Pago único ──────────────────────────────
         filasHtml =
             '<tr>' +
-                '<td><strong>Pago único</strong></td>' +
-                '<td>' + fmtFechaRango(hoy) + '</td>' +
-                '<td><span style="font-weight:600;">' + fmt(total) + '</span></td>' +
-                '<td>' + fmt(total) + '</td>' +
-                '<td>' + fmt(0) + '</td>' +
-                '<td>' + fmtPagoRealizado(null) + '</td>' +
-                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+            '<td><strong>Pago único</strong></td>' +
+            '<td>' + fmtFechaRango(hoy) + '</td>' +
+            '<td><span style="font-weight:600;">' + fmt(total) + '</span></td>' +
+            '<td>' + fmt(total) + '</td>' +
+            '<td>' + fmt(0) + '</td>' +
+            '<td>' + fmtPagoRealizado(null) + '</td>' +
+            '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
             '</tr>';
 
     } else if (esLiquidacionRayo && _rayoModo === 'quincenas') {
         // ── 2 quincenas ─────────────────────────────
-        var fechas  = calcularFechasQuincenales(hoy);
-        var mitad1  = parseFloat((total / 2).toFixed(2));
-        var mitad2  = parseFloat((total - mitad1).toFixed(2)); // absorbe el centavo si hay
+        var fechas = calcularFechasQuincenales(hoy);
+        var mitad1 = parseFloat((total / 2).toFixed(2));
+        var mitad2 = parseFloat((total - mitad1).toFixed(2)); // absorbe el centavo si hay
 
         filasHtml +=
             '<tr>' +
-                '<td><strong>Quincena 1</strong></td>' +
-                '<td><span style="font-weight:600;">' + fmtFecha(fechas[0]) + '</span></td>' +
-                '<td><span style="font-weight:600;">' + fmt(mitad1) + '</span></td>' +
-                '<td>' + fmt(mitad1) + '</td>' +
-                '<td>' + fmt(mitad2) + '</td>' +
-                '<td>' + fmtPagoRealizado(null) + '</td>' +
-                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+            '<td><strong>Quincena 1</strong></td>' +
+            '<td><span style="font-weight:600;">' + fmtFecha(fechas[0]) + '</span></td>' +
+            '<td><span style="font-weight:600;">' + fmt(mitad1) + '</span></td>' +
+            '<td>' + fmt(mitad1) + '</td>' +
+            '<td>' + fmt(mitad2) + '</td>' +
+            '<td>' + fmtPagoRealizado(null) + '</td>' +
+            '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
             '</tr>' +
             '<tr>' +
-                '<td><strong>Quincena 2</strong></td>' +
-                '<td><span style="font-weight:600;">' + fmtFecha(fechas[1]) + '</span></td>' +
-                '<td><span style="font-weight:600;">' + fmt(mitad2) + '</span></td>' +
-                '<td>' + fmt(mitad2) + '</td>' +
-                '<td>' + fmt(0) + '</td>' +
-                '<td>' + fmtPagoRealizado(null) + '</td>' +
-                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+            '<td><strong>Quincena 2</strong></td>' +
+            '<td><span style="font-weight:600;">' + fmtFecha(fechas[1]) + '</span></td>' +
+            '<td><span style="font-weight:600;">' + fmt(mitad2) + '</span></td>' +
+            '<td>' + fmt(mitad2) + '</td>' +
+            '<td>' + fmt(0) + '</td>' +
+            '<td>' + fmtPagoRealizado(null) + '</td>' +
+            '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
             '</tr>';
 
     } else if (esLiquidacionRayo && _rayoModo === 'semanal') {
-    // ── 4 semanas semanales ──────────────────────
-    var añadirDias = function(fecha, dias) {
-        var d = new Date(fecha + 'T00:00:00');
-        d.setDate(d.getDate() + dias);
-        return d.toISOString().split('T')[0];
-    };
+        // ── 4 semanas semanales ──────────────────────
+        var añadirDias = function (fecha, dias) {
+            var d = new Date(fecha + 'T00:00:00');
+            d.setDate(d.getDate() + dias);
+            return d.toISOString().split('T')[0];
+        };
 
-    var saldo   = total;
-    var semanal = parseFloat((total / 4).toFixed(2));
+        var saldo = total;
+        var semanal = parseFloat((total / 4).toFixed(2));
 
-    for (var s = 1; s <= 4; s++) {
-        var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
-        var capital   = (s < 4) ? semanal : parseFloat(saldo.toFixed(2));
-        saldo         = parseFloat((saldo - capital).toFixed(2));
-        if (saldo < 0) saldo = 0;
+        for (var s = 1; s <= 4; s++) {
+            var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
+            var capital = (s < 4) ? semanal : parseFloat(saldo.toFixed(2));
+            saldo = parseFloat((saldo - capital).toFixed(2));
+            if (saldo < 0) saldo = 0;
 
-        filasHtml +=
-            '<tr>' +
+            filasHtml +=
+                '<tr>' +
                 '<td><strong>Semana ' + s + '</strong></td>' +
                 '<td>' + fmtFechaRango(fechaPago) + '</td>' +
                 '<td><span style="font-weight:600;">' + fmt(semanal) + '</span></td>' +
@@ -2165,12 +2175,12 @@ window.verTablaAmortizacion = function() {
                 '<td>' + fmt(saldo) + '</td>' +
                 '<td>' + fmtPagoRealizado(null) + '</td>' +
                 '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
-            '</tr>';
-    }
+                '</tr>';
+        }
 
     } else {
         // ── Resto de productos — semanas normales ────
-        var añadirDias = function(fecha, dias) {
+        var añadirDias = function (fecha, dias) {
             var d = new Date(fecha + 'T00:00:00');
             d.setDate(d.getDate() + dias);
             return d.toISOString().split('T')[0];
@@ -2181,21 +2191,21 @@ window.verTablaAmortizacion = function() {
 
         for (var s = 1; s <= _semanasActual; s++) {
             var fechaPago = añadirDias(hoy, (s - 1) * 7 + 8);
-            var capital   = (s < _semanasActual) ? semanal : parseFloat(saldo.toFixed(2));
-            saldo         = parseFloat((saldo - capital).toFixed(2));
+            var capital = (s < _semanasActual) ? semanal : parseFloat(saldo.toFixed(2));
+            saldo = parseFloat((saldo - capital).toFixed(2));
             if (saldo < 0) saldo = 0;
 
             filasHtml +=
                 '<tr>' +
-                    '<td>Semana ' + s + '</td>' +
-                    '<td>' + fmtFechaRango(fechaPago) + '</td>' +
-                    '<td>' +
-                        '<span style="display:block;font-weight:600;">' + fmt(semanal) + '</span>' +
-                        '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(capital) + '</span>' +
-                    '</td>' +
-                    '<td>' + fmt(saldo) + '</td>' +
-                    '<td>' + fmtPagoRealizado(null) + '</td>' +
-                    '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
+                '<td>Semana ' + s + '</td>' +
+                '<td>' + fmtFechaRango(fechaPago) + '</td>' +
+                '<td>' +
+                '<span style="display:block;font-weight:600;">' + fmt(semanal) + '</span>' +
+                '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(capital) + '</span>' +
+                '</td>' +
+                '<td>' + fmt(saldo) + '</td>' +
+                '<td>' + fmtPagoRealizado(null) + '</td>' +
+                '<td><span class="badge bg-warning text-dark">Pendiente</span></td>' +
                 '</tr>';
         }
     }
@@ -2209,49 +2219,49 @@ window.verTablaAmortizacion = function() {
 // ══════════════════════════════════════════════════════
 //  GUARDAR CONVENIO
 // ══════════════════════════════════════════════════════
-window.guardarConvenio = function() {
+window.guardarConvenio = function () {
     if (!_ofertaActiva || !_credito) return;
 
     // Calcular ANTES del Swal
-    var hoy     = new Date().toISOString().split('T')[0];
-    var total   = parseFloat(_ofertaActiva.total_a_pagar);
+    var hoy = new Date().toISOString().split('T')[0];
+    var total = parseFloat(_ofertaActiva.total_a_pagar);
     var semanal = parseFloat((total / _semanasActual).toFixed(2));
 
     Swal.fire({
         title: '¿Confirmar convenio?',
         html: '<strong>' + _ofertaActiva.nombre + '</strong> — ' +
-              _semanasActual + ' semanas — $' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana<br><br>' +
-              '<span class="text-muted" style="font-size:.9rem;">Cliente: <strong>' + _credito.Nombre_cliente + '</strong></span><br>' +
-              '<span class="text-muted" style="font-size:.9rem;">Total a pagar: <strong>$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong></span>',
+            _semanasActual + ' semanas — $' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana<br><br>' +
+            '<span class="text-muted" style="font-size:.9rem;">Cliente: <strong>' + _credito.Nombre_cliente + '</strong></span><br>' +
+            '<span class="text-muted" style="font-size:.9rem;">Total a pagar: <strong>$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong></span>',
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, guardar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#764ba2',
-    }).then(function(result) {
+    }).then(function (result) {
         if (!result.isConfirmed) return;
 
         http.request({
             endpoint: '/convenios/guardarConvenio',
             method: 'POST',
             data: {
-                id_credito:                   _credito.Id_credito,
-                id_producto_convenio:         _ofertaActiva.id_producto,
+                id_credito: _credito.Id_credito,
+                id_producto_convenio: _ofertaActiva.id_producto,
                 id_producto_convenio_detalle: _ofertaActiva.id_detalle,
-                nombre_cliente:               _credito.Nombre_cliente,
-                bucket_morosidad_real:        _credito.Bucket_Morosidad_Real,
-                dias_mora:                    _credito.Dias_mora,
-                avance_pago_plazo:            _credito.Avance_Pago_Plazo,
-                adeudo_total_original:        _credito.Adeudo_total,
-                porcentaje_descuento:         _ofertaActiva.porcentaje_descuento,
-                descuento_monto:              _ofertaActiva.descuento_monto,
-                total_a_pagar:                total,
-                pago_inicial_monto:           _ofertaActiva.pago_inicial_monto || '',
-                numero_semanas:               _semanasActual,
-                pago_semanal:                 semanal,
-                fecha_acuerdo:                hoy,
+                nombre_cliente: _credito.Nombre_cliente,
+                bucket_morosidad_real: _credito.Bucket_Morosidad_Real,
+                dias_mora: _credito.Dias_mora,
+                avance_pago_plazo: _credito.Avance_Pago_Plazo,
+                adeudo_total_original: _credito.Adeudo_total,
+                porcentaje_descuento: _ofertaActiva.porcentaje_descuento,
+                descuento_monto: _ofertaActiva.descuento_monto,
+                total_a_pagar: total,
+                pago_inicial_monto: _ofertaActiva.pago_inicial_monto || '',
+                numero_semanas: _semanasActual,
+                pago_semanal: semanal,
+                fecha_acuerdo: hoy,
             },
-            onSuccess: function(resp) {
+            onSuccess: function (resp) {
                 if (resp.success) {
                     Swal.fire({
                         title: '¡Guardado!',
@@ -2259,14 +2269,14 @@ window.guardarConvenio = function() {
                         icon: 'success',
                         timer: 1500,
                         showConfirmButton: false
-                    }).then(function() {
+                    }).then(function () {
                         location.reload(); // AUTO-REFRESH
                     });
                 } else {
                     Swal.fire('Error', resp.mensaje || 'No se pudo guardar.', 'error');
                 }
             },
-            onError: function() {
+            onError: function () {
                 Swal.fire('Error', 'Error de conexión.', 'error');
             }
         });
@@ -2276,32 +2286,32 @@ window.guardarConvenio = function() {
 // ══════════════════════════════════════════════════════
 //  CANCELAR CONVENIO
 // ══════════════════════════════════════════════════════
-window.cancelarConvenio = function() {
+window.cancelarConvenio = function () {
     if (!window._idConvenioActivo) return;
 
     Swal.fire({
         title: '¿Cancelar convenio?',
         html: 'Esta acción <strong>no se puede deshacer</strong>.<br>' +
-              'Las semanas pendientes quedarán marcadas como canceladas.',
+            'Las semanas pendientes quedarán marcadas como canceladas.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'Sí, cancelar',
         cancelButtonText: 'No, volver',
         confirmButtonColor: '#ef4444',
-    }).then(function(result) {
+    }).then(function (result) {
         if (!result.isConfirmed) return;
 
         Swal.fire({
             title: 'Cancelando...',
             allowOutsideClick: false,
-            didOpen: function() { Swal.showLoading(); }
+            didOpen: function () { Swal.showLoading(); }
         });
 
         http.request({
             endpoint: '/convenios/cancelarConvenio',
             method: 'POST',
             data: { id_convenio: window._idConvenioActivo },
-            onSuccess: function(resp) {
+            onSuccess: function (resp) {
                 Swal.close();
                 if (!resp.success) {
                     Swal.fire('Error', resp.mensaje || 'No se pudo cancelar.', 'error');
@@ -2314,11 +2324,11 @@ window.cancelarConvenio = function() {
                     confirmButtonColor: '#764ba2',
                     timer: 1500,
                     showConfirmButton: false
-                }).then(function() {
+                }).then(function () {
                     location.reload(); // AUTO-REFRESH
                 });
             },
-            onError: function() {
+            onError: function () {
                 Swal.close();
                 Swal.fire('Error', 'Error de conexión.', 'error');
             }
@@ -2331,8 +2341,8 @@ window.cancelarConvenio = function() {
 // ══════════════════════════════════════════════════════
 function _repintarTablaCancelada(semanaCancelacion) {
     var filas = document.querySelectorAll('#tablaAmortBody tr');
-    filas.forEach(function(fila, idx) {
-        var numSemana    = idx + 1;
+    filas.forEach(function (fila, idx) {
+        var numSemana = idx + 1;
         var celdaEstatus = fila.querySelector('td:last-child');
 
         if (numSemana === semanaCancelacion) {
@@ -2341,11 +2351,11 @@ function _repintarTablaCancelada(semanaCancelacion) {
                 '<span class="badge bg-warning text-dark">' +
                 '<i class="fa-solid fa-ban me-1"></i>Cancelado aquí</span>';
         } else if (numSemana > semanaCancelacion) {
-            fila.style.opacity         = '0.4';
-            fila.style.textDecoration  = 'line-through';
-            fila.style.color           = '#ef4444';
+            fila.style.opacity = '0.4';
+            fila.style.textDecoration = 'line-through';
+            fila.style.color = '#ef4444';
             celdaEstatus.style.textDecoration = 'none';
-            celdaEstatus.style.color          = '';
+            celdaEstatus.style.color = '';
             celdaEstatus.innerHTML =
                 '<span class="badge bg-danger">No pagado</span>';
         }
@@ -2355,7 +2365,7 @@ function _repintarTablaCancelada(semanaCancelacion) {
 // ══════════════════════════════════════════════════════
 //  DESCARGAR PDF
 // ══════════════════════════════════════════════════════
-window.descargarPdf = function() {
+window.descargarPdf = function () {
     if (!_credito) return;
 
     var form = document.createElement('form');
@@ -2364,7 +2374,7 @@ window.descargarPdf = function() {
     form.style.display = 'none';
 
     var inp = document.createElement('input');
-    inp.name  = 'id_credito';
+    inp.name = 'id_credito';
     inp.value = _credito.Id_credito;
     form.appendChild(inp);
 
@@ -2376,12 +2386,12 @@ window.descargarPdf = function() {
 // ══════════════════════════════════════════════════════
 //  HISTORIAL DE CONVENIOS
 // ══════════════════════════════════════════════════════
-window.abrirHistorial = function() {
+window.abrirHistorial = function () {
     if (!_credito) return;
 
-    document.getElementById('historialLoading').style.display    = 'block';
-    document.getElementById('historialVacio').style.display      = 'none';
-    document.getElementById('historialTablaWrap').style.display  = 'none';
+    document.getElementById('historialLoading').style.display = 'block';
+    document.getElementById('historialVacio').style.display = 'none';
+    document.getElementById('historialTablaWrap').style.display = 'none';
     document.getElementById('modalHistorialCredito').textContent = 'Crédito #' + _credito.Id_credito;
 
     var modal = new bootstrap.Modal(document.getElementById('modalHistorial'));
@@ -2391,7 +2401,7 @@ window.abrirHistorial = function() {
         endpoint: '/convenios/getHistorialConvenios',
         method: 'POST',
         data: { id_credito: _credito.Id_credito },
-        onSuccess: function(resp) {
+        onSuccess: function (resp) {
             document.getElementById('historialLoading').style.display = 'none';
 
             if (!resp.success || !resp.datos || resp.datos.length === 0) {
@@ -2399,76 +2409,76 @@ window.abrirHistorial = function() {
                 return;
             }
 
-            var fmt = function(v) {
+            var fmt = function (v) {
                 return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
             };
-            var fmtFecha = function(s) {
+            var fmtFecha = function (s) {
                 if (!s) return '—';
                 var p = s.split('-');
                 return p[2] + '/' + p[1] + '/' + p[0];
             };
-            var badgeEstatus = function(e) {
+            var badgeEstatus = function (e) {
                 var labels = {
-                    'activo':         'Activo',
-                    'cancelado':      'Cancelado',
-                    'completado':     'Completado',
+                    'activo': 'Activo',
+                    'cancelado': 'Cancelado',
+                    'completado': 'Completado',
                     'incumplimiento': 'Incumplimiento'
                 };
                 return '<span class="badge-estatus-' + e + '">' + (labels[e] || e) + '</span>';
             };
-            var badgeEstatusPago = function(e) {
+            var badgeEstatusPago = function (e) {
                 var map = {
-                    'pendiente':  ['#6c757d', 'Pendiente'],
-                    'pagado':     ['#22c55e', 'Pagado'],
-                    'vencido':    ['#ef4444', 'Vencido'],
-                    'cancelado':  ['#9ca3af', 'Cancelado'],
+                    'pendiente': ['#6c757d', 'Pendiente'],
+                    'pagado': ['#22c55e', 'Pagado'],
+                    'vencido': ['#ef4444', 'Vencido'],
+                    'cancelado': ['#9ca3af', 'Cancelado'],
                 };
                 var v = map[e] || ['#6c757d', e];
                 return '<span style="background:' + v[0] + ';color:#fff;padding:2px 8px;border-radius:12px;font-size:.72rem;">' + v[1] + '</span>';
             };
 
             var filas = '';
-            resp.datos.forEach(function(c, i) {
+            resp.datos.forEach(function (c, i) {
                 var idConvenio = c.id;
                 filas +=
                     '<tr class="fila-historial" onclick="toggleAmortizacion(' + idConvenio + ', this)">' +
-                        '<td>' + (i + 1) + '</td>' +
-                        '<td>' + fmtFecha(c.fecha_acuerdo) + '</td>' +
-                        '<td>' + c.nombre_producto + '</td>' +
-                        '<td>' + fmt(c.total_a_pagar) + '</td>' +
-                        '<td>' + c.numero_semanas + ' sem</td>' +
-                        '<td>' + badgeEstatus(c.estatus) + '</td>' +
-                        '<td>' + (c.usuario_alta || '—') + '</td>' +
-                        '<td>' + (c.usuario_cancela || '—') + '</td>' +
-                        '<td>' + fmtFecha(c.fecha_cancelacion) + '</td>' +
-                        '<td class="d-flex align-items-center gap-2">' +
-    (c.pdf_adjunto
-        ? '<a href="' + c.pdf_adjunto + '" target="_blank" ' +
-          'class="btn btn-outline-danger btn-sm py-0 px-2" ' +
-          'title="Ver PDF adjunto" onclick="event.stopPropagation()">' +
-          '<i class="fa-solid fa-file-pdf"></i>' +
-          '</a>'
-        : '') +
-    '<i class="fas fa-chevron-down" id="chevron-' + idConvenio + '"></i>' +
-'</td>' +
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + fmtFecha(c.fecha_acuerdo) + '</td>' +
+                    '<td>' + c.nombre_producto + '</td>' +
+                    '<td>' + fmt(c.total_a_pagar) + '</td>' +
+                    '<td>' + c.numero_semanas + ' sem</td>' +
+                    '<td>' + badgeEstatus(c.estatus) + '</td>' +
+                    '<td>' + (c.usuario_alta || '—') + '</td>' +
+                    '<td>' + (c.usuario_cancela || '—') + '</td>' +
+                    '<td>' + fmtFecha(c.fecha_cancelacion) + '</td>' +
+                    '<td class="d-flex align-items-center gap-2">' +
+                    (c.pdf_adjunto
+                        ? '<a href="' + c.pdf_adjunto + '" target="_blank" ' +
+                        'class="btn btn-outline-danger btn-sm py-0 px-2" ' +
+                        'title="Ver PDF adjunto" onclick="event.stopPropagation()">' +
+                        '<i class="fa-solid fa-file-pdf"></i>' +
+                        '</a>'
+                        : '') +
+                    '<i class="fas fa-chevron-down" id="chevron-' + idConvenio + '"></i>' +
+                    '</td>' +
                     '</tr>' +
                     '<tr class="fila-detalle-amort d-none" id="detalle-' + idConvenio + '">' +
-                        '<td colspan="10">' +
-                            '<div class="amort-accordion" id="amort-content-' + idConvenio + '">' +
-                                '<div class="text-center text-muted py-3">' +
-                                    '<i class="fas fa-spinner fa-spin me-2"></i>Cargando amortización...' +
-                                '</div>' +
-                            '</div>' +
-                        '</td>' +
+                    '<td colspan="10">' +
+                    '<div class="amort-accordion" id="amort-content-' + idConvenio + '">' +
+                    '<div class="text-center text-muted py-3">' +
+                    '<i class="fas fa-spinner fa-spin me-2"></i>Cargando amortización...' +
+                    '</div>' +
+                    '</div>' +
+                    '</td>' +
                     '</tr>';
             });
 
-            document.getElementById('tablaHistorialBody').innerHTML    = filas;
+            document.getElementById('tablaHistorialBody').innerHTML = filas;
             document.getElementById('historialTablaWrap').style.display = 'block';
         },
-        onError: function() {
+        onError: function () {
             document.getElementById('historialLoading').style.display = 'none';
-            document.getElementById('historialVacio').style.display   = 'block';
+            document.getElementById('historialVacio').style.display = 'block';
         }
     });
 };
@@ -2480,10 +2490,10 @@ window.abrirHistorial = function() {
 var _amortCache = {};
 
 function toggleAmortizacion(idConvenio, fila) {
-    var detalle  = document.getElementById('detalle-' + idConvenio);
-    var chevron  = document.getElementById('chevron-' + idConvenio);
-    var content  = document.getElementById('amort-content-' + idConvenio);
-    var abierto  = !detalle.classList.contains('d-none');
+    var detalle = document.getElementById('detalle-' + idConvenio);
+    var chevron = document.getElementById('chevron-' + idConvenio);
+    var content = document.getElementById('amort-content-' + idConvenio);
+    var abierto = !detalle.classList.contains('d-none');
 
     if (abierto) {
         detalle.classList.add('d-none');
@@ -2503,34 +2513,34 @@ function toggleAmortizacion(idConvenio, fila) {
     // Pedir amortización al backend
     http.request({
         endpoint: '/convenios/getAmortizacionConvenio',
-        method:   'POST',
-        data:     { id_convenio: idConvenio },
-        onSuccess: function(resp) {
+        method: 'POST',
+        data: { id_convenio: idConvenio },
+        onSuccess: function (resp) {
             if (!resp.success || !resp.datos) {
                 content.innerHTML = '<p class="text-danger p-3">Error al cargar amortización.</p>';
                 return;
             }
 
-            var fmt = function(v) {
+            var fmt = function (v) {
                 return '$' + parseFloat(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
             };
-            var fmtFecha = function(s) {
+            var fmtFecha = function (s) {
                 if (!s) return '—';
                 var p = s.split('-');
                 return p[2] + '/' + p[1] + '/' + p[0];
             };
-            var badgePago = function(e) {
+            var badgePago = function (e) {
                 var map = {
                     'pendiente': ['#6c757d', 'Pendiente'],
-                    'pagado':    ['#22c55e', 'Pagado'],
-                    'vencido':   ['#ef4444', 'Vencido'],
+                    'pagado': ['#22c55e', 'Pagado'],
+                    'vencido': ['#ef4444', 'Vencido'],
                     'cancelado': ['#9ca3af', 'Cancelado'],
                 };
                 var v = map[e] || ['#6c757d', e];
                 return '<span style="background:' + v[0] + ';color:#fff;padding:2px 8px;border-radius:12px;font-size:.72rem;">' + v[1] + '</span>';
             };
 
-            var filas = resp.datos.map(function(row) {
+            var filas = resp.datos.map(function (row) {
                 return '<tr>' +
                     '<td>Semana ' + row.numero_semana + '</td>' +
                     '<td>' + fmtFecha(row.fecha_pago) + '</td>' +
@@ -2540,31 +2550,31 @@ function toggleAmortizacion(idConvenio, fila) {
                     '<td>' + (row.fecha_pago_real ? fmtFecha(row.fecha_pago_real) : '—') + '</td>' +
                     '<td>' + (row.monto_pagado ? fmt(row.monto_pagado) : '—') + '</td>' +
                     '<td>' + badgePago(row.estatus_pago) + '</td>' +
-                '</tr>';
+                    '</tr>';
             }).join('');
 
             var html =
                 '<div class="d-flex justify-content-between align-items-center mb-2">' +
-                    '<span class="fw-bold text-muted" style="font-size:.85rem;">Tabla de Amortización</span>' +
-                    '<button class="btn btn-outline-primary btn-sm" onclick="descargarPdfConvenio(' + idConvenio + ')">' +
-                        '<i class="fas fa-file-pdf me-1"></i>Descargar tabla de amortización' +
-                    '</button>' +
+                '<span class="fw-bold text-muted" style="font-size:.85rem;">Tabla de Amortización</span>' +
+                '<button class="btn btn-outline-primary btn-sm" onclick="descargarPdfConvenio(' + idConvenio + ')">' +
+                '<i class="fas fa-file-pdf me-1"></i>Descargar tabla de amortización' +
+                '</button>' +
                 '</div>' +
                 '<div class="table-responsive">' +
-                    '<table class="tabla-amort table table-borderless mb-0" style="font-size:.82rem;">' +
-                        '<thead><tr>' +
-                            '<th>Semana</th><th>Fecha Pago</th><th>Semanal</th>' +
-                            '<th>Capital</th><th>Saldo</th>' +
-                            '<th>Pago Real</th><th>Monto Pagado</th><th>Estatus</th>' +
-                        '</tr></thead>' +
-                        '<tbody>' + filas + '</tbody>' +
-                    '</table>' +
+                '<table class="tabla-amort table table-borderless mb-0" style="font-size:.82rem;">' +
+                '<thead><tr>' +
+                '<th>Semana</th><th>Fecha Pago</th><th>Semanal</th>' +
+                '<th>Capital</th><th>Saldo</th>' +
+                '<th>Pago Real</th><th>Monto Pagado</th><th>Estatus</th>' +
+                '</tr></thead>' +
+                '<tbody>' + filas + '</tbody>' +
+                '</table>' +
                 '</div>';
 
             _amortCache[idConvenio] = html;
             content.innerHTML = html;
         },
-        onError: function() {
+        onError: function () {
             content.innerHTML = '<p class="text-danger p-3">Error de conexión.</p>';
         }
     });
@@ -2599,13 +2609,13 @@ function descargarPdfConvenio(idConvenio) {
 // MODAL MIGRACIÓN
 // ════════════════════════════════════════════════
 
-var _migCredito  = null;
-var _migDetalle  = null;
-var _migSemanas  = 0;
+var _migCredito = null;
+var _migDetalle = null;
+var _migSemanas = 0;
 
 
 
-window.abrirModalMigracion = function() {
+window.abrirModalMigracion = function () {
     // Resetear variables
     _migCredito = null;
     _migDetalle = null;
@@ -2678,7 +2688,7 @@ window.abrirModalMigracion = function() {
         'globoSumaIguales', 'globoSumaGlobo', 'globoTotalPagar',
         'globoDescuento', 'globoPorcentajeDescuentoMostrar', 'globoDetalleIguales'
     ];
-    elementosReset.forEach(function(id) {
+    elementosReset.forEach(function (id) {
         var el = document.getElementById(id);
         if (el) {
             if (id === 'globoDetalleIguales') {
@@ -2731,33 +2741,33 @@ window.abrirModalMigracion = function() {
 function migCargarProductos() {
     http.request({
         endpoint: '/convenios/getProductosConvenio',
-        method:   'POST',
-        data:     {},
-        onSuccess: function(resp) {
+        method: 'POST',
+        data: {},
+        onSuccess: function (resp) {
             console.log('productos resp:', resp);
             if (!resp.success) return;
             var sel = document.getElementById('migProducto');
             sel.innerHTML = '<option value="">Selecciona...</option>';
-            resp.datos.forEach(function(p) {
-                p.detalles.forEach(function(d) {
+            resp.datos.forEach(function (p) {
+                p.detalles.forEach(function (d) {
                     sel.innerHTML += '<option value="' + d.id + '"'
                         + ' data-id-producto="' + p.id + '"'
-                        + ' data-porcentaje="'  + d.porcentaje_descuento + '"'
-                        + ' data-variable="'    + d.porcentaje_variable  + '">'
+                        + ' data-porcentaje="' + d.porcentaje_descuento + '"'
+                        + ' data-variable="' + d.porcentaje_variable + '">'
                         + p.nombre + ' — ' + d.porcentaje_descuento + '%'
                         + (d.porcentaje_variable ? ' (variable)' : '')
                         + '</option>';
                 });
             });
         },
-        onError: function() {}
+        onError: function () { }
     });
 }
 
 // ════════════════════════════════════════════════
 // MIGRACIÓN - BUSCAR CRÉDITO (VERSIÓN ACTUALIZADA)
 // ════════════════════════════════════════════════
-window.migBuscarCredito = function() {
+window.migBuscarCredito = function () {
     var idCredito = parseInt(document.getElementById('migIdCredito').value);
     var info = document.getElementById('migInfoCliente');
 
@@ -2783,7 +2793,7 @@ window.migBuscarCredito = function() {
         endpoint: '/convenios/getOfertasCredito',
         method: 'POST',
         data: { id_credito: idCredito },
-        onSuccess: function(respOfertas) {
+        onSuccess: function (respOfertas) {
 
             if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
                 info.className = 'alert alert-danger';
@@ -2800,17 +2810,17 @@ window.migBuscarCredito = function() {
                 endpoint: '/convenios/validarDespacho',
                 method: 'POST',
                 data: { id_credito: idCredito },
-                onSuccess: function(respDespacho) {
+                onSuccess: function (respDespacho) {
 
                     if (!respDespacho.success) {
                         info.className = 'alert alert-danger';
                         info.innerHTML =
                             '<div class="d-flex align-items-start gap-2">' +
-                                '<i class="fas fa-ban fa-lg mt-1 text-danger"></i>' +
-                                '<div>' +
-                                    '<strong>Crédito no elegible</strong><br>' +
-                                    '<span>' + respDespacho.mensaje + '</span>' +
-                                '</div>' +
+                            '<i class="fas fa-ban fa-lg mt-1 text-danger"></i>' +
+                            '<div>' +
+                            '<strong>Crédito no elegible</strong><br>' +
+                            '<span>' + respDespacho.mensaje + '</span>' +
+                            '</div>' +
                             '</div>';
                         return;
                     }
@@ -2820,21 +2830,21 @@ window.migBuscarCredito = function() {
                         endpoint: '/convenios/getConvenioActivo',
                         method: 'POST',
                         data: { id_credito: idCredito },
-                        onSuccess: function(respConvenio) {
+                        onSuccess: function (respConvenio) {
 
                             if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'activo') {
                                 info.className = 'alert alert-warning';
                                 info.innerHTML =
                                     '<div class="d-flex align-items-start gap-2">' +
-                                        '<i class="fas fa-lock fa-lg mt-1 text-warning"></i>' +
-                                        '<div>' +
-                                            '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                                            '<span class="text-warning fw-semibold">' +
-                                                '⚠️ Este crédito ya tiene un convenio activo registrado. ' +
-                                                'No es posible registrar un convenio adicional.' +
-                                            '</span>' +
-                                        '</div>' +
+                                    '<i class="fas fa-lock fa-lg mt-1 text-warning"></i>' +
+                                    '<div>' +
+                                    '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
+                                    '<span class="text-warning fw-semibold">' +
+                                    '⚠️ Este crédito ya tiene un convenio activo registrado. ' +
+                                    'No es posible registrar un convenio adicional.' +
+                                    '</span>' +
+                                    '</div>' +
                                     '</div>';
                                 return;
                             }
@@ -2848,15 +2858,15 @@ window.migBuscarCredito = function() {
                             info.className = 'alert alert-success';
                             info.innerHTML =
                                 '<div class="d-flex align-items-start gap-2">' +
-                                    '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
-                                    '<div>' +
-                                        '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                                        '<small>' +
-                                            '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + '</span>' +
-                                            '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2: $' + adeudo + '</span>' +
-                                        '</small><br>' +
-                                        '<small class="text-success fw-semibold">✓ Crédito en despacho activo. Cumple condiciones para registrar un convenio.</small>' +
-                                    '</div>' +
+                                '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
+                                '<div>' +
+                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
+                                '<small>' +
+                                '<span class="me-3"><i class="fas fa-exclamation-circle me-1"></i>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + '</span>' +
+                                '<span><i class="fas fa-dollar-sign me-1"></i>Adeudo S2: $' + adeudo + '</span>' +
+                                '</small><br>' +
+                                '<small class="text-success fw-semibold">✓ Crédito en despacho activo. Cumple condiciones para registrar un convenio.</small>' +
+                                '</div>' +
                                 '</div>';
 
                             // Asignar valores a los campos
@@ -2870,7 +2880,7 @@ window.migBuscarCredito = function() {
                             var migStep2El = document.getElementById('migStep2');
                             if (migStep2El) migStep2El.classList.remove('d-none');
                         },
-                        onError: function() {
+                        onError: function () {
                             // Si falla getConvenioActivo, habilitamos igualmente
                             _migCredito = credito;
 
@@ -2890,7 +2900,7 @@ window.migBuscarCredito = function() {
                         }
                     });
                 },
-                onError: function() {
+                onError: function () {
                     info.className = 'alert alert-danger';
                     info.innerHTML =
                         '<i class="fas fa-times-circle me-2"></i>' +
@@ -2899,7 +2909,7 @@ window.migBuscarCredito = function() {
                 }
             });
         },
-        onError: function() {
+        onError: function () {
             info.className = 'alert alert-danger';
             info.innerHTML =
                 '<i class="fas fa-times-circle me-2"></i>' +
@@ -2908,7 +2918,7 @@ window.migBuscarCredito = function() {
     });
 };
 
-window.migProductoChange = function() {
+window.migProductoChange = function () {
     var sel = document.getElementById('migProducto');
     if (!sel) return;
 
@@ -2916,23 +2926,23 @@ window.migProductoChange = function() {
     if (!opt) return;
 
     var variable = opt.getAttribute('data-variable');
-    var pct      = opt.getAttribute('data-porcentaje');
-    var nombre   = opt.text || '';
-    var esGlobo  = nombre.indexOf('Convenio Globo Manual') !== -1;
+    var pct = opt.getAttribute('data-porcentaje');
+    var nombre = opt.text || '';
+    var esGlobo = nombre.indexOf('Convenio Globo Manual') !== -1;
 
     var inputPct = document.getElementById('migPorcentaje');
     if (inputPct) {
-        inputPct.value    = pct || '';
+        inputPct.value = pct || '';
         inputPct.readOnly = variable !== '1';
     }
 
     _migDetalle = {
-        id_detalle:  sel.value,
+        id_detalle: sel.value,
         id_producto: opt.getAttribute('data-id-producto'),
     };
 
-    var colBucket   = document.getElementById('colBucketMorosidad');
-    var colSemanal  = document.getElementById('colPagoSemanal');
+    var colBucket = document.getElementById('colBucketMorosidad');
+    var colSemanal = document.getElementById('colPagoSemanal');
     var colPagoFinal = document.getElementById('colPagoFinal');
 
     if (esGlobo) {
@@ -2941,10 +2951,10 @@ window.migProductoChange = function() {
             colSemanal.style.display = 'block';
             var inputSemanal = document.getElementById('migPagoSemanal');
             if (inputSemanal) {
-                inputSemanal.readOnly         = false;
+                inputSemanal.readOnly = false;
                 inputSemanal.style.background = '';
-                inputSemanal.placeholder      = 'Ej. 1900';
-                inputSemanal.value            = '';
+                inputSemanal.placeholder = 'Ej. 1900';
+                inputSemanal.value = '';
             }
         }
 
@@ -2960,13 +2970,13 @@ window.migProductoChange = function() {
             if (inputBucket) inputBucket.style.display = 'none';
 
             var select = document.createElement('select');
-            select.id        = 'migSemanasGlobo';
+            select.id = 'migSemanasGlobo';
             select.className = 'form-select';
-            select.onchange  = window.migCalcular;
+            select.onchange = window.migCalcular;
 
             for (var s = 1; s <= 52; s++) {
                 var op = document.createElement('option');
-                op.value       = s;
+                op.value = s;
                 op.textContent = s + (s === 1 ? ' semana' : ' semanas');
                 select.appendChild(op);
             }
@@ -2986,9 +2996,9 @@ window.migProductoChange = function() {
             colSemanal.style.display = 'block';
             var inputSemanal = document.getElementById('migPagoSemanal');
             if (inputSemanal) {
-                inputSemanal.readOnly         = false;
+                inputSemanal.readOnly = false;
                 inputSemanal.style.background = '';
-                inputSemanal.placeholder      = '3250';
+                inputSemanal.placeholder = '3250';
             }
         }
 
@@ -3015,78 +3025,78 @@ window.migProductoChange = function() {
 // PREAMORTIZACIÓN EN TIEMPO REAL
 // ════════════════════════════════════════════════
 function migGenerarPreamort(filas) {
-    var wrap   = document.getElementById('preamortTablaWrap');
-    var vacio  = document.getElementById('preamortVacio');
-    var tbody  = document.getElementById('preamortBody');
+    var wrap = document.getElementById('preamortTablaWrap');
+    var vacio = document.getElementById('preamortVacio');
+    var tbody = document.getElementById('preamortBody');
 
     if (!filas || filas.length === 0) {
-        wrap.style.display  = 'none';
+        wrap.style.display = 'none';
         vacio.style.display = 'block';
         return;
     }
 
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
 
-    var fmtF = function(fechaISO) {
+    var fmtF = function (fechaISO) {
         if (!fechaISO) return '—';
         var p = fechaISO.split('-');
         return p[2] + '/' + p[1] + '/' + p[0];
     };
 
-    var badgeTipo = function(tipo) {
+    var badgeTipo = function (tipo) {
         if (tipo === 'globo') {
             return '<span style="background:#764ba2;color:#fff;font-size:0.68rem;' +
-                   'padding:2px 8px;border-radius:12px;font-weight:600;">Globo</span>';
+                'padding:2px 8px;border-radius:12px;font-weight:600;">Globo</span>';
         }
         if (tipo === 'unico') {
             return '<span style="background:#2563eb;color:#fff;font-size:0.68rem;' +
-                   'padding:2px 8px;border-radius:12px;font-weight:600;">Único</span>';
+                'padding:2px 8px;border-radius:12px;font-weight:600;">Único</span>';
         }
         return '<span style="background:#e2e8f0;color:#475569;font-size:0.68rem;' +
-               'padding:2px 8px;border-radius:12px;font-weight:600;">Normal</span>';
+            'padding:2px 8px;border-radius:12px;font-weight:600;">Normal</span>';
     };
 
-    var html = filas.map(function(f) {
+    var html = filas.map(function (f) {
         var trStyle = f.tipo === 'globo'
             ? 'background:rgba(118,75,162,0.06);font-weight:600;'
             : '';
         return '<tr style="' + trStyle + '">' +
             '<td style="color:#64748b;font-size:0.8rem;">' + f.num + '</td>' +
-            '<td style="font-size:0.8rem;">'               + fmtF(f.fecha) + '</td>' +
+            '<td style="font-size:0.8rem;">' + fmtF(f.fecha) + '</td>' +
             '<td style="font-size:0.8rem;font-weight:600;">' + fmt(f.monto) + '</td>' +
-            '<td>'                                          + badgeTipo(f.tipo) + '</td>' +
+            '<td>' + badgeTipo(f.tipo) + '</td>' +
             '<td style="font-size:0.8rem;color:#16a34a;font-weight:600;">' + fmt(f.saldo) + '</td>' +
-        '</tr>';
+            '</tr>';
     }).join('');
 
-    tbody.innerHTML          = html;
-    wrap.style.display       = 'block';
-    vacio.style.display      = 'none';
+    tbody.innerHTML = html;
+    wrap.style.display = 'block';
+    vacio.style.display = 'none';
 }
 
-window.migCalcular = function() {
+window.migCalcular = function () {
 
-    var addDias = function(iso, d) {
+    var addDias = function (iso, d) {
         var dt = new Date(iso + 'T00:00:00');
         dt.setDate(dt.getDate() + d);
         return dt.toISOString().split('T')[0];
     };
 
     // ── Lógica especial para Convenio Globo Manual ──────────
-    var sel    = document.getElementById('migProducto');
-    var opt    = sel ? sel.options[sel.selectedIndex] : null;
+    var sel = document.getElementById('migProducto');
+    var opt = sel ? sel.options[sel.selectedIndex] : null;
     var esGlobo = opt && (opt.text || '').indexOf('Convenio Globo Manual') !== -1;
 
     if (esGlobo) {
-        var adeudo    = parseFloat(document.getElementById('migAdeudo').value)      || 0;
-        var semanal   = parseFloat(document.getElementById('migPagoSemanal').value) || 0;
+        var adeudo = parseFloat(document.getElementById('migAdeudo').value) || 0;
+        var semanal = parseFloat(document.getElementById('migPagoSemanal').value) || 0;
         var pagoFinal = parseFloat(document.getElementById('migPagoFinal') ? document.getElementById('migPagoFinal').value : 0) || 0;
-        var semanas   = parseInt(document.getElementById('migSemanasGlobo') ? document.getElementById('migSemanasGlobo').value : 1) || 1;
-        var fecha     = document.getElementById('migFechaInicio').value;
-        var preview   = document.getElementById('migPreview');
-        var getGuardarBtn = function() {
+        var semanas = parseInt(document.getElementById('migSemanasGlobo') ? document.getElementById('migSemanasGlobo').value : 1) || 1;
+        var fecha = document.getElementById('migFechaInicio').value;
+        var preview = document.getElementById('migPreview');
+        var getGuardarBtn = function () {
             return document.querySelector('#modalMigracion .modal-footer .btn-success');
         };
 
@@ -3099,15 +3109,15 @@ window.migCalcular = function() {
         }
 
         // ── CORRECCIÓN: total deriva de los pagos, no del % ──────────
-        var sumaIguales   = Math.round(semanal * (semanas - 1) * 100) / 100;
+        var sumaIguales = Math.round(semanal * (semanas - 1) * 100) / 100;
         var totalConGlobo = Math.round((sumaIguales + pagoFinal) * 100) / 100;
-        var descuento     = Math.round((adeudo - totalConGlobo) * 100) / 100;
-        var pctCalculado  = adeudo > 0 ? Math.round((descuento / adeudo) * 10000) / 100 : 0;
+        var descuento = Math.round((adeudo - totalConGlobo) * 100) / 100;
+        var pctCalculado = adeudo > 0 ? Math.round((descuento / adeudo) * 10000) / 100 : 0;
         // ─────────────────────────────────────────────────────────────
 
         _migSemanas = semanas;
 
-        var fmt = function(v) {
+        var fmt = function (v) {
             return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
         };
 
@@ -3115,28 +3125,28 @@ window.migCalcular = function() {
         if (resumenCards) {
             resumenCards.innerHTML =
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
-                    '<div class="small text-muted">Adeudo Base</div>' +
-                    '<div class="fw-bold text-primary">' + fmt(adeudo) + '</div>' +
+                '<div class="small text-muted">Adeudo Base</div>' +
+                '<div class="fw-bold text-primary">' + fmt(adeudo) + '</div>' +
                 '</div></div>' +
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
-                    '<div class="small text-muted">Descuento (' + pctCalculado.toFixed(2) + '%)</div>' +
-                    '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div>' +
+                '<div class="small text-muted">Descuento (' + pctCalculado.toFixed(2) + '%)</div>' +
+                '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div>' +
                 '</div></div>' +
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
-                    '<div class="small text-muted">Pago Semanal × ' + (semanas - 1) + '</div>' +
-                    '<div class="fw-bold text-success">' + fmt(semanal) + '</div>' +
+                '<div class="small text-muted">Pago Semanal × ' + (semanas - 1) + '</div>' +
+                '<div class="fw-bold text-success">' + fmt(semanal) + '</div>' +
                 '</div></div>' +
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
-                    '<div class="small text-muted">Pago Final (globo)</div>' +
-                    '<div class="fw-bold text-warning">' + fmt(pagoFinal) + '</div>' +
+                '<div class="small text-muted">Pago Final (globo)</div>' +
+                '<div class="fw-bold text-warning">' + fmt(pagoFinal) + '</div>' +
                 '</div></div>';
         }
 
-        var migTotalBase  = document.getElementById('migTotalBase');
+        var migTotalBase = document.getElementById('migTotalBase');
         var migTotalFinal = document.getElementById('migTotalFinal');
-        var migMontoAd    = document.getElementById('migMontoAdicional');
-        if (migTotalBase)  migTotalBase.value  = totalConGlobo.toFixed(2);
-        if (migMontoAd)    migMontoAd.value    = '';
+        var migMontoAd = document.getElementById('migMontoAdicional');
+        if (migTotalBase) migTotalBase.value = totalConGlobo.toFixed(2);
+        if (migMontoAd) migMontoAd.value = '';
         if (migTotalFinal) migTotalFinal.value = totalConGlobo.toFixed(2);
 
         if (preview) preview.classList.remove('d-none');
@@ -3148,16 +3158,16 @@ window.migCalcular = function() {
         var saldoG = totalConGlobo;
 
         for (var g = 1; g <= semanas; g++) {
-            var esUltG  = g === semanas;
-            var montoG  = esUltG ? pagoFinal : semanal;
-            var tipoG   = semanas === 1 ? 'unico' : (esUltG ? 'globo' : 'normal');
-            saldoG      = Math.round((saldoG - montoG) * 100) / 100;
+            var esUltG = g === semanas;
+            var montoG = esUltG ? pagoFinal : semanal;
+            var tipoG = semanas === 1 ? 'unico' : (esUltG ? 'globo' : 'normal');
+            saldoG = Math.round((saldoG - montoG) * 100) / 100;
             if (saldoG < 0) saldoG = 0;
             filasGlobo.push({
-                num:   g,
+                num: g,
                 fecha: addDias(fecha, (g - 1) * 7),
                 monto: montoG,
-                tipo:  tipoG,
+                tipo: tipoG,
                 saldo: saldoG,
             });
         }
@@ -3167,19 +3177,19 @@ window.migCalcular = function() {
     }
     // ────────────────────────────────────────────────────────
 
-    var adeudo  = parseFloat(document.getElementById('migAdeudo').value)     || 0;
-    var pct     = parseFloat(document.getElementById('migPorcentaje').value) || 0;
-    var semanal = parseFloat(document.getElementById('migPagoSemanal').value)|| 0;
-    var fecha   = document.getElementById('migFechaInicio').value;
+    var adeudo = parseFloat(document.getElementById('migAdeudo').value) || 0;
+    var pct = parseFloat(document.getElementById('migPorcentaje').value) || 0;
+    var semanal = parseFloat(document.getElementById('migPagoSemanal').value) || 0;
+    var fecha = document.getElementById('migFechaInicio').value;
 
     var errorExistente = document.getElementById('migErrorSemanal');
     if (errorExistente) errorExistente.remove();
 
-    var getGuardarBtn = function() {
+    var getGuardarBtn = function () {
         return document.querySelector('#modalMigracion .modal-footer .btn-success');
     };
 
-    var mostrarError = function(campo, mensaje) {
+    var mostrarError = function (campo, mensaje) {
         var preview = document.getElementById('migPreview');
         if (preview) preview.classList.add('d-none');
 
@@ -3202,7 +3212,7 @@ window.migCalcular = function() {
             : inputCampo.parentNode.appendChild(div);
     };
 
-    var limpiarError = function() {
+    var limpiarError = function () {
         var pagoSemanal = document.getElementById('migPagoSemanal');
         if (pagoSemanal) pagoSemanal.classList.remove('is-invalid');
 
@@ -3231,7 +3241,7 @@ window.migCalcular = function() {
     }
 
     var descuento = Math.round(adeudo * (pct / 100) * 100) / 100;
-    var total     = Math.round((adeudo - descuento) * 100) / 100;
+    var total = Math.round((adeudo - descuento) * 100) / 100;
 
     if (semanal > total) {
         mostrarError('migPagoSemanal',
@@ -3242,9 +3252,9 @@ window.migCalcular = function() {
     }
 
     var semanasEnt = Math.floor(total / semanal);
-    var residuo    = Math.round((total - semanasEnt * semanal) * 100) / 100;
-    var semanas    = residuo > 0 ? semanasEnt + 1 : semanasEnt;
-    _migSemanas    = semanas;
+    var residuo = Math.round((total - semanasEnt * semanal) * 100) / 100;
+    var semanas = residuo > 0 ? semanasEnt + 1 : semanasEnt;
+    _migSemanas = semanas;
 
     if (semanas < 1 || semanas > 52) {
         mostrarError('migPagoSemanal',
@@ -3265,7 +3275,7 @@ window.migCalcular = function() {
 
     limpiarError();
 
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
 
@@ -3303,18 +3313,18 @@ window.migCalcular = function() {
 
     // ── Preamortización (normal) ───────────────────────────
     var filasNorm = [];
-    var saldoN    = total;
+    var saldoN = total;
 
     for (var n = 1; n <= semanas; n++) {
         var esUltN = n === semanas;
         var montoN = esUltN && residuo > 0 ? residuo : semanal;
-        saldoN     = Math.round((saldoN - montoN) * 100) / 100;
+        saldoN = Math.round((saldoN - montoN) * 100) / 100;
         if (saldoN < 0) saldoN = 0;
         filasNorm.push({
-            num:   n,
+            num: n,
             fecha: addDias(fecha, (n - 1) * 7),
             monto: montoN,
-            tipo:  'normal',
+            tipo: 'normal',
             saldo: saldoN,
         });
     }
@@ -3322,8 +3332,8 @@ window.migCalcular = function() {
 };
 
 
-window.migRecalcularTotal = function() {
-    var base      = parseFloat(document.getElementById('migTotalBase').value)      || 0;
+window.migRecalcularTotal = function () {
+    var base = parseFloat(document.getElementById('migTotalBase').value) || 0;
     var adicional = parseFloat(document.getElementById('migMontoAdicional').value) || 0;
 
 
@@ -3343,7 +3353,7 @@ window.migRecalcularTotal = function() {
         var pagoSemanalInput = document.getElementById('migPagoSemanal');
         if (pagoSemanalInput) pagoSemanalInput.value = nuevoSemanal.toFixed(2);
 
-        var fmt = function(v) {
+        var fmt = function (v) {
             return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
         };
         var elSemanal = document.getElementById('migResumenSemanal');
@@ -3354,11 +3364,11 @@ window.migRecalcularTotal = function() {
     var adeudoBase = parseFloat(document.getElementById('migAdeudo').value) || 0;
     if (adeudoBase > 0 && totalFinal > 0) {
         var descuentoReal = Math.round((adeudoBase - totalFinal) * 100) / 100;
-        var pctReal       = Math.round((descuentoReal / adeudoBase) * 10000) / 100;
+        var pctReal = Math.round((descuentoReal / adeudoBase) * 10000) / 100;
 
         // Actualizar card de descuento en resumen
         var cards = document.querySelectorAll('#migResumenCards .border.rounded');
-        cards.forEach(function(card) {
+        cards.forEach(function (card) {
             var label = card.querySelector('.small.text-muted');
             var valor = card.querySelector('.fw-bold.text-danger');
             if (label && valor && label.textContent.indexOf('Descuento') !== -1) {
@@ -3370,7 +3380,7 @@ window.migRecalcularTotal = function() {
     // ─────────────────────────────────────────────────────────────
 };
 
-window.validarPdfAdjunto = function(input) {
+window.validarPdfAdjunto = function (input) {
     var preview = document.getElementById('migPdfPreview');
     if (!input.files || !input.files[0]) {
         preview.innerHTML = '';
@@ -3398,53 +3408,60 @@ window.validarPdfAdjunto = function(input) {
 
 
 // Modificar migGuardar para incluir el PDF
-window.migGuardar = function() {
+window.migGuardar = function () {
     if (!_migCredito || !_migDetalle) {
         Swal.fire('Error', 'Completa todos los campos.', 'warning');
         return;
     }
 
     // Función para obtener el botón de guardar en el footer
-    var getGuardarBtn = function() {
+    var getGuardarBtn = function () {
         return document.querySelector('#modalMigracion .modal-footer .btn-success');
     };
 
-    // Guardia numérica antes de enviar al backend
+    // Detectar flujo globo
+    var esGloboMig = (function () {
+        var sel = document.getElementById('migProducto');
+        var opt = sel ? sel.options[sel.selectedIndex] : null;
+        return opt && (opt.text || '').indexOf('Convenio Globo Manual') !== -1;
+    })();
+
+    // Guardia numérica antes de enviar al backend (solo flujo normal)
     var _semanal = parseFloat(document.getElementById('migPagoSemanal').value) || 0;
-    var _adeudo  = parseFloat(document.getElementById('migAdeudo').value) || 0;
-    var _pct     = parseFloat(document.getElementById('migPorcentaje').value) || 0;
-    var _total   = Math.round((_adeudo - Math.round(_adeudo * (_pct / 100) * 100) / 100) * 100) / 100;
+    var _adeudo = parseFloat(document.getElementById('migAdeudo').value) || 0;
+    var _pct = parseFloat(document.getElementById('migPorcentaje').value) || 0;
+    var _total = Math.round((_adeudo - Math.round(_adeudo * (_pct / 100) * 100) / 100) * 100) / 100;
     var _semanas = _semanal > 0 ? Math.ceil(_total / _semanal) : -1;
 
-    if (_semanal <= 0 || _semanas < 1 || _semanas > 52) {
+    if (!esGloboMig && (_semanal <= 0 || _semanas < 1 || _semanas > 52)) {
         Swal.fire({
             icon: 'warning',
             title: 'Pago semanal inválido',
             html: 'El valor <strong>$' + _semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong> ' +
-                  'generaría <strong>' + _semanas + ' semanas</strong>, lo cual no es válido.<br><br>' +
-                  '<small class="text-muted">Ingresa un monto semanal positivo que resulte en 1 a 52 semanas.</small>',
+                'generaría <strong>' + _semanas + ' semanas</strong>, lo cual no es válido.<br><br>' +
+                '<small class="text-muted">Ingresa un monto semanal positivo que resulte en 1 a 52 semanas.</small>',
             confirmButtonColor: '#764ba2',
         });
         return;
     }
 
-    var adeudo    = document.getElementById('migAdeudo').value;
-    var pct       = document.getElementById('migPorcentaje').value;
-    var semanal   = document.getElementById('migPagoSemanal').value;
-    var fecha     = document.getElementById('migFechaInicio').value;
-    var bucket    = document.getElementById('migBucket').value;
-    var pdfFile   = document.getElementById('migPdfAdjunto').files[0];
+    var adeudo = document.getElementById('migAdeudo').value;
+    var pct = document.getElementById('migPorcentaje').value;
+    var semanal = document.getElementById('migPagoSemanal').value;
+    var fecha = document.getElementById('migFechaInicio').value;
+    var bucket = document.getElementById('migBucket').value;
+    var pdfFile = document.getElementById('migPdfAdjunto').files[0];
     var adicional = parseFloat(document.getElementById('migMontoAdicional').value) || 0;
-    var totalFinal = parseFloat(document.getElementById('migTotalFinal').value)    || 0;
+    var totalFinal = parseFloat(document.getElementById('migTotalFinal').value) || 0;
 
     // --- NUEVO CÁLCULO (Bloque 3) ---
-    var _adeudoEnvio  = parseFloat(document.getElementById('migAdeudo').value) || 0;
-    var _totalEnvio   = parseFloat(document.getElementById('migTotalFinal').value) || 0;
-    var _pctEnvio     = _adeudoEnvio > 0
-    ? Math.round(((_adeudoEnvio - _totalEnvio) / _adeudoEnvio) * 10000) / 100
-    : 0;
+    var _adeudoEnvio = parseFloat(document.getElementById('migAdeudo').value) || 0;
+    var _totalEnvio = parseFloat(document.getElementById('migTotalFinal').value) || 0;
+    var _pctEnvio = _adeudoEnvio > 0
+        ? Math.round(((_adeudoEnvio - _totalEnvio) / _adeudoEnvio) * 10000) / 100
+        : 0;
 
-    if (!adeudo || !pct || !semanal || !fecha) {
+    if (!adeudo || (!esGloboMig && !pct) || !semanal || !fecha) {
         Swal.fire('Campos incompletos', 'Llena todos los campos requeridos.', 'warning');
         return;
     }
@@ -3457,9 +3474,9 @@ window.migGuardar = function() {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, registrar',
-        cancelButtonText:  'Cancelar',
+        cancelButtonText: 'Cancelar',
         confirmButtonColor: '#22c55e',
-    }).then(function(result) {
+    }).then(function (result) {
         if (!result.isConfirmed) return;
 
         var guardarBtn = getGuardarBtn();
@@ -3471,6 +3488,38 @@ window.migGuardar = function() {
         // Si hay PDF, necesitamos usar FormData
         if (pdfFile) {
             var formData = new FormData();
+            var endpointFinalPdf = esGloboMig ? '/convenios/registrarConvenioGlobo' : '/convenios/migrarConvenio';
+
+            if (esGloboMig) {
+                formData.append('id_credito', _migCredito.Id_credito);
+                formData.append('nombre_cliente', _migCredito.Nombre_cliente);
+                formData.append('bucket_morosidad_real', bucket);
+                formData.append('dias_mora', _migCredito.Dias_mora || 0);
+                formData.append('avance_pago_plazo', _migCredito.Avance_Pago_Plazo || '');
+                formData.append('adeudo_total_original', adeudo);
+                formData.append('total_a_pagar', totalFinal.toFixed(2));
+                formData.append('pagos_iguales_cantidad', parseInt(document.getElementById('migSemanasGlobo').value) - 1);
+                formData.append('pagos_iguales_monto', semanal);
+                formData.append('pago_globo_monto', document.getElementById('migPagoFinal').value);
+                formData.append('frecuencia', 'semanal');
+                formData.append('fecha_primer_pago', fecha);
+                formData.append('usuario_alta', window.usuarioActual || 'sistema');
+            } else {
+                formData.append('id_credito', _migCredito.Id_credito);
+                formData.append('nombre_cliente', _migCredito.Nombre_cliente);
+                formData.append('id_producto_convenio', _migDetalle.id_producto);
+                formData.append('id_producto_convenio_detalle', _migDetalle.id_detalle);
+                formData.append('adeudo_base', adeudo);
+                formData.append('monto_adicional', adicional.toFixed(2));
+                formData.append('total_final_con_adicional', totalFinal.toFixed(2));
+                formData.append('porcentaje_descuento', _pctEnvio);
+                formData.append('pago_semanal', semanal);
+                formData.append('fecha_inicio', fecha);
+                formData.append('bucket_morosidad_real', bucket);
+                formData.append('dias_mora', _migCredito.Dias_mora || 0);
+                formData.append('avance_pago_plazo', _migCredito.Avance_Pago_Plazo || '');
+            }
+            formData.append('pdf_adjunto', pdfFile); var formData = new FormData();
             formData.append('id_credito', _migCredito.Id_credito);
             formData.append('nombre_cliente', _migCredito.Nombre_cliente);
             formData.append('id_producto_convenio', _migDetalle.id_producto);
@@ -3490,12 +3539,12 @@ window.migGuardar = function() {
 
             // Llamada con FormData
             http.request({
-                endpoint: '/convenios/migrarConvenio',
+                endpoint: endpointFinalPdf,
                 method: 'POST',
                 data: formData,
                 contentType: false,
                 processData: false,
-                onSuccess: function(resp) {
+                onSuccess: function (resp) {
                     var guardarBtnRestore = getGuardarBtn();
                     if (guardarBtnRestore) {
                         guardarBtnRestore.disabled = false;
@@ -3517,11 +3566,11 @@ window.migGuardar = function() {
                         icon: 'success',
                         timer: 2000,
                         showConfirmButton: false
-                    }).then(function() {
+                    }).then(function () {
                         location.reload();
                     });
                 },
-                onError: function() {
+                onError: function () {
                     var guardarBtnRestore = getGuardarBtn();
                     if (guardarBtnRestore) {
                         guardarBtnRestore.disabled = false;
@@ -3530,27 +3579,47 @@ window.migGuardar = function() {
                     Swal.fire('Error', 'Error de conexión.', 'error');
                 }
             });
+
+            //comentario de prueba
         } else {
-            // Continuar con la llamada normal sin PDF
-            http.request({
-                endpoint: '/convenios/migrarConvenio',
-                method:   'POST',
-                data: {
-                    id_credito:                   _migCredito.Id_credito,
-                    nombre_cliente:               _migCredito.Nombre_cliente,
-                    id_producto_convenio:         _migDetalle.id_producto,
+            var endpointFinal = esGloboMig ? '/convenios/registrarConvenioGlobo' : '/convenios/migrarConvenio';
+            var dataFinal = esGloboMig
+                ? {
+                    id_credito: _migCredito.Id_credito,
+                    nombre_cliente: _migCredito.Nombre_cliente,
+                    bucket_morosidad_real: bucket,
+                    dias_mora: _migCredito.Dias_mora || 0,
+                    avance_pago_plazo: _migCredito.Avance_Pago_Plazo || '',
+                    adeudo_total_original: adeudo,
+                    total_a_pagar: totalFinal.toFixed(2),
+                    pagos_iguales_cantidad: parseInt(document.getElementById('migSemanasGlobo').value) - 1,
+                    pagos_iguales_monto: semanal,
+                    pago_globo_monto: document.getElementById('migPagoFinal').value,
+                    frecuencia: 'semanal',
+                    fecha_primer_pago: fecha,
+                    usuario_alta: window.usuarioActual || 'sistema',
+                }
+                : {
+                    id_credito: _migCredito.Id_credito,
+                    nombre_cliente: _migCredito.Nombre_cliente,
+                    id_producto_convenio: _migDetalle.id_producto,
                     id_producto_convenio_detalle: _migDetalle.id_detalle,
-                    adeudo_base:                  adeudo,
-                    porcentaje_descuento:         _pctEnvio,
-                    pago_semanal:                 semanal,
-                    fecha_inicio:                 fecha,
-                    bucket_morosidad_real:        bucket,
-                    dias_mora:                    _migCredito.Dias_mora        || 0,
-                    avance_pago_plazo:            _migCredito.Avance_Pago_Plazo || '',
-                    monto_adicional:              adicional.toFixed(2),
-                    total_final_con_adicional:    totalFinal.toFixed(2),
-                },
-                onSuccess: function(resp) {
+                    adeudo_base: adeudo,
+                    porcentaje_descuento: _pctEnvio,
+                    pago_semanal: semanal,
+                    fecha_inicio: fecha,
+                    bucket_morosidad_real: bucket,
+                    dias_mora: _migCredito.Dias_mora || 0,
+                    avance_pago_plazo: _migCredito.Avance_Pago_Plazo || '',
+                    monto_adicional: adicional.toFixed(2),
+                    total_final_con_adicional: totalFinal.toFixed(2),
+                };
+
+            http.request({
+                endpoint: endpointFinal,
+                method: 'POST',
+                data: dataFinal,
+                onSuccess: function (resp) {
                     var guardarBtnRestore = getGuardarBtn();
                     if (guardarBtnRestore) {
                         guardarBtnRestore.disabled = false;
@@ -3574,11 +3643,11 @@ window.migGuardar = function() {
                         icon: 'success',
                         timer: 2000,
                         showConfirmButton: false
-                    }).then(function() {
+                    }).then(function () {
                         location.reload();
                     });
                 },
-                onError: function() {
+                onError: function () {
                     var guardarBtnRestore = getGuardarBtn();
                     if (guardarBtnRestore) {
                         guardarBtnRestore.disabled = false;
@@ -3590,6 +3659,7 @@ window.migGuardar = function() {
         }
     });
 };
+
 // ════════════════════════════════════════════════
 // CONCILIACIÓN
 // ════════════════════════════════════════════════
@@ -3597,28 +3667,28 @@ window.migGuardar = function() {
 var _concilDatos = null;
 
 function bindBotonesConciliacionManual() {
-    document.querySelectorAll('.btn-conciliar').forEach(function(btn) {
+    document.querySelectorAll('.btn-conciliar').forEach(function (btn) {
         var nuevo = btn.cloneNode(true);
         btn.parentNode.replaceChild(nuevo, btn);
-        nuevo.addEventListener('click', function(e) {
+        nuevo.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            var semana        = nuevo.getAttribute('data-semana');
-            var semanasGrupo  = nuevo.getAttribute('data-semanas-grupo') || semana;
-            var convenio      = nuevo.getAttribute('data-convenio');
-            var credito       = nuevo.getAttribute('data-credito');
+            var semana = nuevo.getAttribute('data-semana');
+            var semanasGrupo = nuevo.getAttribute('data-semanas-grupo') || semana;
+            var convenio = nuevo.getAttribute('data-convenio');
+            var credito = nuevo.getAttribute('data-credito');
             window.abrirConciliacion(semana, convenio, credito, semanasGrupo);
         });
     });
 }
 
-window.abrirConciliacion = function(semana, idConvenio, idCredito, semanasGrupo) {
+window.abrirConciliacion = function (semana, idConvenio, idCredito, semanasGrupo) {
     var semanasArr = semanasGrupo ? semanasGrupo.split(',') : [semana];
     _concilDatos = {
-        semana:       semana,
+        semana: semana,
         semanasGrupo: semanasArr,
-        idConvenio:   idConvenio,
-        idCredito:    idCredito
+        idConvenio: idConvenio,
+        idCredito: idCredito
     };
 
     var tituloSemanas = semanasArr.length > 1
@@ -3626,36 +3696,36 @@ window.abrirConciliacion = function(semana, idConvenio, idCredito, semanasGrupo)
         : 'Semana ' + semana;
 
     document.getElementById('concilTitulo').textContent = tituloSemanas;
-    document.getElementById('concilLoading').style.display   = 'block';
+    document.getElementById('concilLoading').style.display = 'block';
     document.getElementById('concilContenido').style.display = 'none';
     document.getElementById('concilYaConciliado').style.display = 'none';
-    document.getElementById('concilBtnGuardar').style.display   = 'none';
-    document.getElementById('concilArchivo').value    = '';
+    document.getElementById('concilBtnGuardar').style.display = 'none';
+    document.getElementById('concilArchivo').value = '';
     document.getElementById('concilComentario').value = '';
     document.getElementById('concilCharCount').textContent = '0';
 
-  // Abrir modal manualmente sin Bootstrap
-var modalEl = document.getElementById('modalConciliacion');
-modalEl.style.display = 'block';
-modalEl.classList.add('show');
-modalEl.removeAttribute('aria-hidden');
-modalEl.setAttribute('aria-modal', 'true');
+    // Abrir modal manualmente sin Bootstrap
+    var modalEl = document.getElementById('modalConciliacion');
+    modalEl.style.display = 'block';
+    modalEl.classList.add('show');
+    modalEl.removeAttribute('aria-hidden');
+    modalEl.setAttribute('aria-modal', 'true');
 
-// Agregar backdrop
-var backdrop = document.createElement('div');
-backdrop.className = 'modal-backdrop fade show';
-backdrop.id = 'concilBackdrop';
-document.body.appendChild(backdrop);
-document.body.classList.add('modal-open');
+    // Agregar backdrop
+    var backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.id = 'concilBackdrop';
+    document.body.appendChild(backdrop);
+    document.body.classList.add('modal-open');
 
-// Cerrar con la X
-modalEl.querySelector('.btn-close').onclick = function() {
-    modalEl.style.display = 'none';
-    modalEl.classList.remove('show');
-    var bd = document.getElementById('concilBackdrop');
-    if (bd) bd.remove();
-    document.body.classList.remove('modal-open');
-};
+    // Cerrar con la X
+    modalEl.querySelector('.btn-close').onclick = function () {
+        modalEl.style.display = 'none';
+        modalEl.classList.remove('show');
+        var bd = document.getElementById('concilBackdrop');
+        if (bd) bd.remove();
+        document.body.classList.remove('modal-open');
+    };
 
 
 
@@ -3665,178 +3735,178 @@ modalEl.querySelector('.btn-close').onclick = function() {
     fetch('/convenios/getConciliacionSemana', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'id_convenio='    + encodeURIComponent(idConvenio) +
-               '&numero_semana='  + encodeURIComponent(semana) +
-               '&id_credito='     + encodeURIComponent(idCredito) +
-               '&semanas_grupo='  + encodeURIComponent(semanasGrupo || semana)
+        body: 'id_convenio=' + encodeURIComponent(idConvenio) +
+            '&numero_semana=' + encodeURIComponent(semana) +
+            '&id_credito=' + encodeURIComponent(idCredito) +
+            '&semanas_grupo=' + encodeURIComponent(semanasGrupo || semana)
     })
-    .then(function(r) { return r.json(); })
-    .then(function(resp) {
-        document.getElementById('concilLoading').style.display = 'none';
+        .then(function (r) { return r.json(); })
+        .then(function (resp) {
+            document.getElementById('concilLoading').style.display = 'none';
 
-        if (!resp.success) {
-            Swal.fire('Error', resp.mensaje, 'error');
-            return;
-        }
+            if (!resp.success) {
+                Swal.fire('Error', resp.mensaje, 'error');
+                return;
+            }
 
-        var d = resp.datos;
+            var d = resp.datos;
 
-        if (d.conciliacion && d.conciliacion.estatus === 'conciliado') {
-            document.getElementById('concilYaConciliado').style.display = 'block';
-            document.getElementById('concilFechaPrevia').textContent =
-                'Conciliado el ' + (d.conciliacion.fecha_conciliacion || '—') +
-                ' por ' + (d.conciliacion.usuario_concilia || '—');
-            return;
-        }
+            if (d.conciliacion && d.conciliacion.estatus === 'conciliado') {
+                document.getElementById('concilYaConciliado').style.display = 'block';
+                document.getElementById('concilFechaPrevia').textContent =
+                    'Conciliado el ' + (d.conciliacion.fecha_conciliacion || '—') +
+                    ' por ' + (d.conciliacion.usuario_concilia || '—');
+                return;
+            }
 
-        var fmt = function(v) {
-            return '$' + parseFloat(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
-        };
-        var fmtF = function(s) {
-            if (!s) return '—';
-            var p = s.split('-');
-            return p[2] + '/' + p[1] + '/' + p[0];
-        };
+            var fmt = function (v) {
+                return '$' + parseFloat(v || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+            };
+            var fmtF = function (s) {
+                if (!s) return '—';
+                var p = s.split('-');
+                return p[2] + '/' + p[1] + '/' + p[0];
+            };
 
-        var html = '';
+            var html = '';
 
-        // ── Sección 1: Distribución S2Movil (crédito original) ──
-        html += '<h6 class="fw-bold text-muted mb-2">' +
-            '<i class="fas fa-code-branch me-2 text-warning"></i>' +
-            'Distribución S2Movil — crédito original</h6>';
+            // ── Sección 1: Distribución S2Movil (crédito original) ──
+            html += '<h6 class="fw-bold text-muted mb-2">' +
+                '<i class="fas fa-code-branch me-2 text-warning"></i>' +
+                'Distribución S2Movil — crédito original</h6>';
 
-        if (!d.pagos_s2 || d.pagos_s2.length === 0) {
-            html += '<div class="alert alert-warning">No se encontraron pagos en S2Movil para esta semana.</div>';
-        } else {
-            html += '<div style="position:relative;padding-left:24px;">';
-            html += '<div style="position:absolute;left:8px;top:0;bottom:0;width:2px;background:#e2e8f0;"></div>';
+            if (!d.pagos_s2 || d.pagos_s2.length === 0) {
+                html += '<div class="alert alert-warning">No se encontraron pagos en S2Movil para esta semana.</div>';
+            } else {
+                html += '<div style="position:relative;padding-left:24px;">';
+                html += '<div style="position:absolute;left:8px;top:0;bottom:0;width:2px;background:#e2e8f0;"></div>';
 
-            d.pagos_s2.forEach(function(pago) {
-                var tieneSobrante = pago.sobrante > 0;
-                var cuotasStr     = pago.cuotas ? 'Cuota(s): ' + pago.cuotas : '';
+                d.pagos_s2.forEach(function (pago) {
+                    var tieneSobrante = pago.sobrante > 0;
+                    var cuotasStr = pago.cuotas ? 'Cuota(s): ' + pago.cuotas : '';
 
-                // Nodo raíz — pago total
-                html +=
-                    '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:4px;">' +
+                    // Nodo raíz — pago total
+                    html +=
+                        '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:4px;">' +
                         '<div style="padding-top:3px;">' +
-                            '<div style="width:14px;height:14px;border-radius:50%;background:#1e293b;border:2px solid #fff;box-shadow:0 0 0 2px #1e293b;"></div>' +
+                        '<div style="width:14px;height:14px;border-radius:50%;background:#1e293b;border:2px solid #fff;box-shadow:0 0 0 2px #1e293b;"></div>' +
                         '</div>' +
                         '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:.5rem;padding:.6rem .9rem;flex:1;">' +
-                            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                                '<span style="font-weight:700;font-size:.95rem;">' + fmt(pago.montoPago) + '</span>' +
-                                '<span style="font-size:.75rem;color:#94a3b8;">' + fmtF(pago.fechaValor) + '</span>' +
-                            '</div>' +
-                            (cuotasStr ? '<span style="font-size:.72rem;color:#94a3b8;">' + cuotasStr + '</span>' : '') +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                        '<span style="font-weight:700;font-size:.95rem;">' + fmt(pago.montoPago) + '</span>' +
+                        '<span style="font-size:.75rem;color:#94a3b8;">' + fmtF(pago.fechaValor) + '</span>' +
                         '</div>' +
-                    '</div>';
+                        (cuotasStr ? '<span style="font-size:.72rem;color:#94a3b8;">' + cuotasStr + '</span>' : '') +
+                        '</div>' +
+                        '</div>';
 
-                // Rama capital
-                html +=
-                    '<div style="display:flex;align-items:stretch;gap:10px;margin-bottom:4px;padding-left:6px;">' +
+                    // Rama capital
+                    html +=
+                        '<div style="display:flex;align-items:stretch;gap:10px;margin-bottom:4px;padding-left:6px;">' +
                         '<div style="display:flex;flex-direction:column;align-items:center;">' +
-                            '<div style="width:1.5px;flex:1;background:#cbd5e1;min-height:8px;"></div>' +
-                            '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1.5px #22c55e;"></div>' +
-                            '<div style="width:1.5px;flex:' + (tieneSobrante ? '1' : '0') + ';min-height:' + (tieneSobrante ? '8px' : '0') + ';background:' + (tieneSobrante ? '#cbd5e1' : 'transparent') + ';"></div>' +
+                        '<div style="width:1.5px;flex:1;background:#cbd5e1;min-height:8px;"></div>' +
+                        '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1.5px #22c55e;"></div>' +
+                        '<div style="width:1.5px;flex:' + (tieneSobrante ? '1' : '0') + ';min-height:' + (tieneSobrante ? '8px' : '0') + ';background:' + (tieneSobrante ? '#cbd5e1' : 'transparent') + ';"></div>' +
                         '</div>' +
                         '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:.4rem;padding:.4rem .75rem;flex:1;margin:2px 0;">' +
-                            '<span style="font-size:.82rem;font-weight:700;color:#166534;">✓ Capital: ' + fmt(pago.aplicado) + '</span>' +
-                            '<span style="display:block;font-size:.70rem;color:#15803d;">Aplicado al crédito original</span>' +
+                        '<span style="font-size:.82rem;font-weight:700;color:#166534;">✓ Capital: ' + fmt(pago.aplicado) + '</span>' +
+                        '<span style="display:block;font-size:.70rem;color:#15803d;">Aplicado al crédito original</span>' +
                         '</div>' +
-                    '</div>';
+                        '</div>';
 
-                // Rama sobrante/interés (si existe)
-                if (tieneSobrante) {
-                    html +=
-                        '<div style="display:flex;align-items:stretch;gap:10px;padding-left:6px;margin-bottom:8px;">' +
+                    // Rama sobrante/interés (si existe)
+                    if (tieneSobrante) {
+                        html +=
+                            '<div style="display:flex;align-items:stretch;gap:10px;padding-left:6px;margin-bottom:8px;">' +
                             '<div style="display:flex;flex-direction:column;align-items:center;">' +
-                                '<div style="width:1.5px;flex:0;min-height:0;"></div>' +
-                                '<div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1.5px #f59e0b;"></div>' +
-                                '<div style="width:1.5px;flex:1;background:transparent;"></div>' +
+                            '<div style="width:1.5px;flex:0;min-height:0;"></div>' +
+                            '<div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1.5px #f59e0b;"></div>' +
+                            '<div style="width:1.5px;flex:1;background:transparent;"></div>' +
                             '</div>' +
                             '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:.4rem;padding:.4rem .75rem;flex:1;margin:2px 0;">' +
-                                '<span style="font-size:.82rem;font-weight:700;color:#d97706;">↷ Interés: ' + fmt(pago.sobrante) + '</span>' +
-                                '<span style="display:block;font-size:.70rem;color:#b45309;">Aplicado a intereses y cargos</span>' +
+                            '<span style="font-size:.82rem;font-weight:700;color:#d97706;">↷ Interés: ' + fmt(pago.sobrante) + '</span>' +
+                            '<span style="display:block;font-size:.70rem;color:#b45309;">Aplicado a intereses y cargos</span>' +
                             '</div>' +
-                        '</div>';
-                }
-            });
+                            '</div>';
+                    }
+                });
 
-            _concilDatos.monto_pago     = d.pagos_s2[0].montoPago;
-            _concilDatos.monto_aplicado = d.pagos_s2[0].aplicado;
-            _concilDatos.monto_sobrante = d.pagos_s2[0].sobrante;
-            _concilDatos.fecha_pago     = d.pagos_s2[0].fechaValor;
-        }
+                _concilDatos.monto_pago = d.pagos_s2[0].montoPago;
+                _concilDatos.monto_aplicado = d.pagos_s2[0].aplicado;
+                _concilDatos.monto_sobrante = d.pagos_s2[0].sobrante;
+                _concilDatos.fecha_pago = d.pagos_s2[0].fechaValor;
+            }
 
-        // ── Sección 2: Aplicación al convenio (cascada) ──────────
-        if (d.resumen_convenio && d.resumen_convenio.length > 0) {
-            html += '<hr class="my-3">';
-            html += '<h6 class="fw-bold text-muted mb-2">' +
-                '<i class="fas fa-handshake me-2" style="color:#764ba2;"></i>' +
-                'Aplicación al convenio</h6>';
+            // ── Sección 2: Aplicación al convenio (cascada) ──────────
+            if (d.resumen_convenio && d.resumen_convenio.length > 0) {
+                html += '<hr class="my-3">';
+                html += '<h6 class="fw-bold text-muted mb-2">' +
+                    '<i class="fas fa-handshake me-2" style="color:#764ba2;"></i>' +
+                    'Aplicación al convenio</h6>';
 
-            html += '<div style="background:#f8f5ff;border-radius:.75rem;padding:1rem;border:1px solid #e9d5ff;">';
+                html += '<div style="background:#f8f5ff;border-radius:.75rem;padding:1rem;border:1px solid #e9d5ff;">';
 
-            d.resumen_convenio.forEach(function(sem) {
-                var esParcial  = sem.estatus_pago === 'parcial';
-                var esPagado   = sem.estatus_pago === 'pagado';
-                var colorBorde = esParcial ? '#f59e0b' : '#22c55e';
-                var colorTexto = esParcial ? '#92400e' : '#166534';
-                var icono      = esPagado  ? '✓' : '◑';
+                d.resumen_convenio.forEach(function (sem) {
+                    var esParcial = sem.estatus_pago === 'parcial';
+                    var esPagado = sem.estatus_pago === 'pagado';
+                    var colorBorde = esParcial ? '#f59e0b' : '#22c55e';
+                    var colorTexto = esParcial ? '#92400e' : '#166534';
+                    var icono = esPagado ? '✓' : '◑';
 
-                html +=
-                    '<div style="display:flex;align-items:center;justify-content:space-between;' +
-                                 'padding:.5rem .75rem;margin-bottom:.4rem;' +
-                                 'background:#fff;border-radius:.5rem;' +
-                                 'border-left:3px solid ' + colorBorde + ';">' +
+                    html +=
+                        '<div style="display:flex;align-items:center;justify-content:space-between;' +
+                        'padding:.5rem .75rem;margin-bottom:.4rem;' +
+                        'background:#fff;border-radius:.5rem;' +
+                        'border-left:3px solid ' + colorBorde + ';">' +
                         '<div>' +
-                            '<span style="font-size:.82rem;font-weight:700;color:' + colorTexto + ';">' +
-                                icono + ' Semana ' + sem.numero_semana +
-                            '</span>' +
-                            '<span style="display:block;font-size:.72rem;color:#94a3b8;">' +
-                                fmtF(sem.fecha_pago) +
-                            '</span>' +
+                        '<span style="font-size:.82rem;font-weight:700;color:' + colorTexto + ';">' +
+                        icono + ' Semana ' + sem.numero_semana +
+                        '</span>' +
+                        '<span style="display:block;font-size:.72rem;color:#94a3b8;">' +
+                        fmtF(sem.fecha_pago) +
+                        '</span>' +
                         '</div>' +
                         '<div style="text-align:right;">' +
-                            '<span style="font-size:.85rem;font-weight:700;color:' + colorTexto + ';">' +
-                                fmt(sem.monto_pagado) +
-                            '</span>' +
-                            (esParcial
-                                ? '<span style="display:block;font-size:.70rem;color:#dc2626;">' +
-                                  'Falta: ' + fmt(sem.faltante) + '</span>'
-                                : '<span style="display:block;font-size:.70rem;color:#22c55e;">Pagado completo</span>') +
+                        '<span style="font-size:.85rem;font-weight:700;color:' + colorTexto + ';">' +
+                        fmt(sem.monto_pagado) +
+                        '</span>' +
+                        (esParcial
+                            ? '<span style="display:block;font-size:.70rem;color:#dc2626;">' +
+                            'Falta: ' + fmt(sem.faltante) + '</span>'
+                            : '<span style="display:block;font-size:.70rem;color:#22c55e;">Pagado completo</span>') +
                         '</div>' +
-                    '</div>';
-            });
+                        '</div>';
+                });
 
-            // Total aplicado al convenio
-            html +=
-                '<div style="display:flex;justify-content:space-between;padding:.5rem .75rem;' +
-                             'border-top:1px solid #e9d5ff;margin-top:.4rem;">' +
+                // Total aplicado al convenio
+                html +=
+                    '<div style="display:flex;justify-content:space-between;padding:.5rem .75rem;' +
+                    'border-top:1px solid #e9d5ff;margin-top:.4rem;">' +
                     '<span style="font-size:.82rem;font-weight:700;color:#5b2d8e;">Total aplicado al convenio</span>' +
                     '<span style="font-size:.85rem;font-weight:700;color:#5b2d8e;">' + fmt(d.total_aplicado_convenio) + '</span>' +
-                '</div>';
+                    '</div>';
 
-            html += '</div>';
-        }
+                html += '</div>';
+            }
 
-        document.getElementById('concilPagosWrap').innerHTML = html;
-        document.getElementById('concilContenido').style.display = 'block';
-        document.getElementById('concilBtnGuardar').style.display = 'inline-block';
-    })
-    .catch(function() {
-        document.getElementById('concilLoading').style.display = 'none';
-        Swal.fire('Error', 'Error de conexión.', 'error');
-    });
+            document.getElementById('concilPagosWrap').innerHTML = html;
+            document.getElementById('concilContenido').style.display = 'block';
+            document.getElementById('concilBtnGuardar').style.display = 'inline-block';
+        })
+        .catch(function () {
+            document.getElementById('concilLoading').style.display = 'none';
+            Swal.fire('Error', 'Error de conexión.', 'error');
+        });
 };
 
-document.getElementById('concilComentario').addEventListener('input', function() {
+document.getElementById('concilComentario').addEventListener('input', function () {
     document.getElementById('concilCharCount').textContent = this.value.length;
 });
 
-window.guardarConciliacion = function() {
+window.guardarConciliacion = function () {
     if (!_concilDatos) return;
 
-    var archivo    = document.getElementById('concilArchivo').files[0];
+    var archivo = document.getElementById('concilArchivo').files[0];
     var comentario = document.getElementById('concilComentario').value.trim();
 
     Swal.fire({
@@ -3847,7 +3917,7 @@ window.guardarConciliacion = function() {
         confirmButtonText: 'Sí, conciliar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#f59e0b',
-    }).then(function(result) {
+    }).then(function (result) {
         if (!result.isConfirmed) return;
 
         document.getElementById('concilBtnGuardar').disabled = true;
@@ -3855,53 +3925,53 @@ window.guardarConciliacion = function() {
             '<i class="fas fa-spinner fa-spin"></i> Guardando...';
 
         var formData = new FormData();
-        formData.append('id_convenio',    _concilDatos.idConvenio);
-        formData.append('numero_semana',  _concilDatos.semana);
-        formData.append('monto_pago',     _concilDatos.monto_pago     || 0);
+        formData.append('id_convenio', _concilDatos.idConvenio);
+        formData.append('numero_semana', _concilDatos.semana);
+        formData.append('monto_pago', _concilDatos.monto_pago || 0);
         formData.append('monto_aplicado', _concilDatos.monto_aplicado || 0);
         formData.append('monto_sobrante', _concilDatos.monto_sobrante || 0);
-        formData.append('fecha_pago',     _concilDatos.fecha_pago     || '');
-        formData.append('comentario',     comentario);
+        formData.append('fecha_pago', _concilDatos.fecha_pago || '');
+        formData.append('comentario', comentario);
         if (archivo) formData.append('comprobante', archivo);
 
         fetch('/convenios/guardarConciliacion', {
             method: 'POST',
             body: formData
         })
-        .then(function(r) { return r.json(); })
-        .then(function(resp) {
-            document.getElementById('concilBtnGuardar').disabled = false;
-            document.getElementById('concilBtnGuardar').innerHTML =
-                '<i class="fas fa-check me-1"></i>Confirmar Conciliación';
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                document.getElementById('concilBtnGuardar').disabled = false;
+                document.getElementById('concilBtnGuardar').innerHTML =
+                    '<i class="fas fa-check me-1"></i>Confirmar Conciliación';
 
-            if (!resp.success) {
-                Swal.fire('Error', resp.mensaje, 'error');
-                return;
-            }
+                if (!resp.success) {
+                    Swal.fire('Error', resp.mensaje, 'error');
+                    return;
+                }
 
-           var modalEl = document.getElementById('modalConciliacion');
-modalEl.style.display = 'none';
-modalEl.classList.remove('show');
-var bd = document.getElementById('concilBackdrop');
-if (bd) bd.remove();
-document.body.classList.remove('modal-open');
+                var modalEl = document.getElementById('modalConciliacion');
+                modalEl.style.display = 'none';
+                modalEl.classList.remove('show');
+                var bd = document.getElementById('concilBackdrop');
+                if (bd) bd.remove();
+                document.body.classList.remove('modal-open');
 
-            Swal.fire({
-                title: '¡Conciliado!',
-                text: 'La semana ' + _concilDatos.semana + ' fue conciliada correctamente.',
-                icon: 'success',
-                timer: 1500,
-                showConfirmButton: false
-            }).then(function() {
-                location.reload();
+                Swal.fire({
+                    title: '¡Conciliado!',
+                    text: 'La semana ' + _concilDatos.semana + ' fue conciliada correctamente.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(function () {
+                    location.reload();
+                });
+            })
+            .catch(function () {
+                document.getElementById('concilBtnGuardar').disabled = false;
+                document.getElementById('concilBtnGuardar').innerHTML =
+                    '<i class="fas fa-check me-1"></i>Confirmar Conciliación';
+                Swal.fire('Error', 'Error de conexión.', 'error');
             });
-        })
-        .catch(function() {
-            document.getElementById('concilBtnGuardar').disabled = false;
-            document.getElementById('concilBtnGuardar').innerHTML =
-                '<i class="fas fa-check me-1"></i>Confirmar Conciliación';
-            Swal.fire('Error', 'Error de conexión.', 'error');
-        });
     });
 };
 
@@ -3913,10 +3983,10 @@ document.body.classList.remove('modal-open');
 var _subirCompDatos = null;
 
 function bindBotonesSubirComprobante() {
-    document.querySelectorAll('.btn-subir-comprobante').forEach(function(btn) {
+    document.querySelectorAll('.btn-subir-comprobante').forEach(function (btn) {
         var nuevo = btn.cloneNode(true);
         btn.parentNode.replaceChild(nuevo, btn);
-        nuevo.addEventListener('click', function(e) {
+        nuevo.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             window.abrirSubirComprobante(
@@ -3931,10 +4001,10 @@ function bindBotonesSubirComprobante() {
 }
 
 function bindBotonesVerComprobante() {
-    document.querySelectorAll('.btn-ver-comprobante').forEach(function(btn) {
+    document.querySelectorAll('.btn-ver-comprobante').forEach(function (btn) {
         var nuevo = btn.cloneNode(true);
         btn.parentNode.replaceChild(nuevo, btn);
-        nuevo.addEventListener('click', function(e) {
+        nuevo.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             window.abrirVerComprobante(
@@ -3949,11 +4019,11 @@ function bindBotonesVerComprobante() {
     });
 }
 
-window.abrirSubirComprobante = function(semana, idConvenio, idCredito, pagoSemanal, fechaPago) {
+window.abrirSubirComprobante = function (semana, idConvenio, idCredito, pagoSemanal, fechaPago) {
     _subirCompDatos = {
-        semana:      semana,
-        idConvenio:  idConvenio,
-        idCredito:   idCredito,
+        semana: semana,
+        idConvenio: idConvenio,
+        idCredito: idCredito,
         pagoSemanal: pagoSemanal,
     };
 
@@ -3961,38 +4031,38 @@ window.abrirSubirComprobante = function(semana, idConvenio, idCredito, pagoSeman
     document.getElementById('subirCompTitulo').textContent = 'Semana ' + semana;
 
     // Info de la semana
-    var fmtFechaLocal = function(s) {
+    var fmtFechaLocal = function (s) {
         if (!s) return '—';
         var p = s.split('-');
         return p[2] + '/' + p[1] + '/' + p[0];
     };
-    var fmtMoneda = function(v) {
+    var fmtMoneda = function (v) {
         return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
 
     document.getElementById('subirCompInfo').innerHTML =
         '<div class="col-6 col-md-4">' +
-            '<div class="border rounded p-2 text-center">' +
-                '<div class="small text-muted">Semana</div>' +
-                '<div class="fw-bold fs-5">' + semana + '</div>' +
-            '</div>' +
+        '<div class="border rounded p-2 text-center">' +
+        '<div class="small text-muted">Semana</div>' +
+        '<div class="fw-bold fs-5">' + semana + '</div>' +
+        '</div>' +
         '</div>' +
         '<div class="col-6 col-md-4">' +
-            '<div class="border rounded p-2 text-center">' +
-                '<div class="small text-muted">Fecha preferencial</div>' +
-                '<div class="fw-bold">' + fmtFechaLocal(fechaPago) + '</div>' +
-            '</div>' +
+        '<div class="border rounded p-2 text-center">' +
+        '<div class="small text-muted">Fecha preferencial</div>' +
+        '<div class="fw-bold">' + fmtFechaLocal(fechaPago) + '</div>' +
+        '</div>' +
         '</div>' +
         '<div class="col-6 col-md-4">' +
-            '<div class="border rounded p-2 text-center">' +
-                '<div class="small text-muted">Pago semanal</div>' +
-                '<div class="fw-bold text-success">' + fmtMoneda(pagoSemanal) + '</div>' +
-            '</div>' +
+        '<div class="border rounded p-2 text-center">' +
+        '<div class="small text-muted">Pago semanal</div>' +
+        '<div class="fw-bold text-success">' + fmtMoneda(pagoSemanal) + '</div>' +
+        '</div>' +
         '</div>';
 
     // Reset campos - SOLO los que existen en el HTML
-    document.getElementById('subirCompFecha').value      = new Date().toISOString().split('T')[0];
-    document.getElementById('subirCompArchivo').value    = '';
+    document.getElementById('subirCompFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('subirCompArchivo').value = '';
     document.getElementById('subirCompComentario').value = '';
 
     // Abrir modal
@@ -4006,7 +4076,7 @@ window.abrirSubirComprobante = function(semana, idConvenio, idCredito, pagoSeman
     backdrop.id = 'subirCompBackdrop';
     document.body.appendChild(backdrop);
 
-    var cerrar = function() {
+    var cerrar = function () {
         modalEl.style.display = 'none';
         modalEl.classList.remove('show');
         document.body.classList.remove('modal-open');
@@ -4014,7 +4084,7 @@ window.abrirSubirComprobante = function(semana, idConvenio, idCredito, pagoSeman
         if (bd) bd.remove();
     };
 
-    document.getElementById('subirCompBtnClose').onclick    = cerrar;
+    document.getElementById('subirCompBtnClose').onclick = cerrar;
     document.getElementById('subirCompBtnCancelar').onclick = cerrar;
 };
 
@@ -4023,44 +4093,44 @@ function _cargarSemanasVencidas(idConvenio, semanaActual) {
     var filas = document.querySelectorAll('#tablaAmortBody tr');
     var opciones = '';
 
-    filas.forEach(function(fila) {
+    filas.forEach(function (fila) {
         var celdaEstatus = fila.querySelector('.celda-estatus');
-        var celdaNombre  = fila.querySelector('td:first-child');
+        var celdaNombre = fila.querySelector('td:first-child');
         if (!celdaEstatus || !celdaNombre) return;
 
         var esVencido = celdaEstatus.innerHTML.indexOf('Vencido') !== -1;
         if (!esVencido) return;
 
         var textoSemana = celdaNombre.textContent.trim(); // "Semana 4"
-        var numSemana   = textoSemana.replace('Semana ', '').trim();
+        var numSemana = textoSemana.replace('Semana ', '').trim();
 
         // La semana actual ya está incluida siempre
-        var checked   = numSemana === String(semanaActual) ? 'checked disabled' : '';
+        var checked = numSemana === String(semanaActual) ? 'checked disabled' : '';
         var labelExtra = numSemana === String(semanaActual) ? ' (actual)' : '';
 
         opciones +=
             '<div class="form-check form-check-inline">' +
-                '<input class="form-check-input semana-aplica-check" type="checkbox" ' +
-                       'id="semAplica_' + numSemana + '" ' +
-                       'value="' + numSemana + '" ' + checked + '>' +
-                '<label class="form-check-label" for="semAplica_' + numSemana + '">' +
-                    textoSemana + labelExtra +
-                '</label>' +
+            '<input class="form-check-input semana-aplica-check" type="checkbox" ' +
+            'id="semAplica_' + numSemana + '" ' +
+            'value="' + numSemana + '" ' + checked + '>' +
+            '<label class="form-check-label" for="semAplica_' + numSemana + '">' +
+            textoSemana + labelExtra +
+            '</label>' +
             '</div>';
     });
 
     document.getElementById('semanasAplicaOpciones').innerHTML = opciones;
 }
 
-window.toggleSemanasAplica = function(mostrar) {
+window.toggleSemanasAplica = function (mostrar) {
     document.getElementById('semanasAplicaWrap').style.display = mostrar ? 'block' : 'none';
 };
 
-window.guardarSubirComprobante = function() {
-    var semana     = _subirCompDatos.semana;
+window.guardarSubirComprobante = function () {
+    var semana = _subirCompDatos.semana;
     var idConvenio = _subirCompDatos.idConvenio;
-    var fecha      = document.getElementById('subirCompFecha').value;
-    var archivo    = document.getElementById('subirCompArchivo').files[0];
+    var fecha = document.getElementById('subirCompFecha').value;
+    var archivo = document.getElementById('subirCompArchivo').files[0];
     var comentario = document.getElementById('subirCompComentario').value.trim();
 
     // Validaciones
@@ -4081,10 +4151,10 @@ window.guardarSubirComprobante = function() {
 
     // Crear FormData con SOLO los campos que necesita el backend
     var formData = new FormData();
-    formData.append('id_convenio',     idConvenio);
-    formData.append('numero_semana',   semana);
+    formData.append('id_convenio', idConvenio);
+    formData.append('numero_semana', semana);
     formData.append('fecha_pago_real', fecha);
-    formData.append('comprobante',     archivo);
+    formData.append('comprobante', archivo);
 
     // Comentario es opcional
     if (comentario) {
@@ -4099,59 +4169,59 @@ window.guardarSubirComprobante = function() {
         method: 'POST',
         body: formData
     })
-    .then(function(r) { return r.json(); })
-    .then(function(resp) {
-        // Restaurar botón
-        document.getElementById('subirCompBtnGuardar').disabled = false;
-        document.getElementById('subirCompBtnGuardar').innerHTML =
-            '<i class="fas fa-upload me-1"></i>Subir Comprobante';
+        .then(function (r) { return r.json(); })
+        .then(function (resp) {
+            // Restaurar botón
+            document.getElementById('subirCompBtnGuardar').disabled = false;
+            document.getElementById('subirCompBtnGuardar').innerHTML =
+                '<i class="fas fa-upload me-1"></i>Subir Comprobante';
 
-        if (!resp.success) {
-            Swal.fire('Error', resp.mensaje, 'error');
-            return;
-        }
+            if (!resp.success) {
+                Swal.fire('Error', resp.mensaje, 'error');
+                return;
+            }
 
-        // Cerrar modal manualmente
-        var modalEl = document.getElementById('modalSubirComprobante');
-        modalEl.style.display = 'none';
-        modalEl.classList.remove('show');
-        document.body.classList.remove('modal-open');
+            // Cerrar modal manualmente
+            var modalEl = document.getElementById('modalSubirComprobante');
+            modalEl.style.display = 'none';
+            modalEl.classList.remove('show');
+            document.body.classList.remove('modal-open');
 
-        var bd = document.getElementById('subirCompBackdrop');
-        if (bd) bd.remove();
+            var bd = document.getElementById('subirCompBackdrop');
+            if (bd) bd.remove();
 
-        // Mostrar éxito y recargar
-        Swal.fire({
-            title: '¡Comprobante subido!',
-            html: 'Semana <strong>' + semana + '</strong> marcada como pendiente de conciliar.',
-            icon: 'success',
-            timer: 1500,
-            showConfirmButton: false
-        }).then(function() {
-            location.reload();
+            // Mostrar éxito y recargar
+            Swal.fire({
+                title: '¡Comprobante subido!',
+                html: 'Semana <strong>' + semana + '</strong> marcada como pendiente de conciliar.',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(function () {
+                location.reload();
+            });
+        })
+        .catch(function (error) {
+            console.error('Error:', error);
+            document.getElementById('subirCompBtnGuardar').disabled = false;
+            document.getElementById('subirCompBtnGuardar').innerHTML =
+                '<i class="fas fa-upload me-1"></i>Subir Comprobante';
+            Swal.fire('Error', 'Error de conexión.', 'error');
         });
-    })
-    .catch(function(error) {
-        console.error('Error:', error);
-        document.getElementById('subirCompBtnGuardar').disabled = false;
-        document.getElementById('subirCompBtnGuardar').innerHTML =
-            '<i class="fas fa-upload me-1"></i>Subir Comprobante';
-        Swal.fire('Error', 'Error de conexión.', 'error');
-    });
 };
 
 // ════════════════════════════════════════════════
 // VER COMPROBANTE — semanas pendiente_conciliar / pagadas
 // ════════════════════════════════════════════════
-window.abrirVerComprobante = function(semana, path, fechaPago, pagoSemanal, fechaPagoReal, comentario) {
+window.abrirVerComprobante = function (semana, path, fechaPago, pagoSemanal, fechaPagoReal, comentario) {
     document.getElementById('verCompTitulo').textContent = 'Semana ' + semana;
 
-    var fmtFechaLocal = function(s) {
+    var fmtFechaLocal = function (s) {
         if (!s) return '—';
         var p = s.split('-');
         return p[2] + '/' + p[1] + '/' + p[0];
     };
-    var fmtMoneda = function(v) {
+    var fmtMoneda = function (v) {
         if (!v) return '—';
         return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
@@ -4159,22 +4229,22 @@ window.abrirVerComprobante = function(semana, path, fechaPago, pagoSemanal, fech
     // Info
     document.getElementById('verCompInfo').innerHTML =
         '<div class="col-6 col-md-4">' +
-            '<div class="border rounded p-2 text-center">' +
-                '<div class="small text-muted">Semana</div>' +
-                '<div class="fw-bold fs-5">' + semana + '</div>' +
-            '</div>' +
+        '<div class="border rounded p-2 text-center">' +
+        '<div class="small text-muted">Semana</div>' +
+        '<div class="fw-bold fs-5">' + semana + '</div>' +
+        '</div>' +
         '</div>' +
         '<div class="col-6 col-md-4">' +
-            '<div class="border rounded p-2 text-center">' +
-                '<div class="small text-muted">Fecha preferencial</div>' +
-                '<div class="fw-bold">' + fmtFechaLocal(fechaPago) + '</div>' +
-            '</div>' +
+        '<div class="border rounded p-2 text-center">' +
+        '<div class="small text-muted">Fecha preferencial</div>' +
+        '<div class="fw-bold">' + fmtFechaLocal(fechaPago) + '</div>' +
+        '</div>' +
         '</div>' +
         '<div class="col-6 col-md-4">' +
-            '<div class="border rounded p-2 text-center">' +
-                '<div class="small text-muted">Fecha pago registrada</div>' +
-                '<div class="fw-bold text-success">' + fmtFechaLocal(fechaPagoReal) + '</div>' +
-            '</div>' +
+        '<div class="border rounded p-2 text-center">' +
+        '<div class="small text-muted">Fecha pago registrada</div>' +
+        '<div class="fw-bold text-success">' + fmtFechaLocal(fechaPagoReal) + '</div>' +
+        '</div>' +
         '</div>';
 
     // Visualizador
@@ -4182,13 +4252,13 @@ window.abrirVerComprobante = function(semana, path, fechaPago, pagoSemanal, fech
     var vis = '';
     if (ext === 'pdf') {
         vis = '<iframe src="' + path + '" width="100%" height="420px" ' +
-              'style="border:1px solid #e2e8f0;border-radius:.5rem;"></iframe>';
-    } else if (['jpg','jpeg','png'].indexOf(ext) !== -1) {
+            'style="border:1px solid #e2e8f0;border-radius:.5rem;"></iframe>';
+    } else if (['jpg', 'jpeg', 'png'].indexOf(ext) !== -1) {
         vis = '<img src="' + path + '" style="max-width:100%;max-height:420px;' +
-              'border-radius:.5rem;border:1px solid #e2e8f0;" alt="Comprobante">';
+            'border-radius:.5rem;border:1px solid #e2e8f0;" alt="Comprobante">';
     } else {
         vis = '<div class="alert alert-warning">No se puede previsualizar este archivo. ' +
-              '<a href="' + path + '" target="_blank">Abrir en nueva pestaña</a></div>';
+            '<a href="' + path + '" target="_blank">Abrir en nueva pestaña</a></div>';
     }
     document.getElementById('verCompVisualizador').innerHTML = vis;
 
@@ -4210,7 +4280,7 @@ window.abrirVerComprobante = function(semana, path, fechaPago, pagoSemanal, fech
     backdrop.id = 'verCompBackdrop';
     document.body.appendChild(backdrop);
 
-    var cerrar = function() {
+    var cerrar = function () {
         modalEl.style.display = 'none';
         modalEl.classList.remove('show');
         document.body.classList.remove('modal-open');
@@ -4218,7 +4288,7 @@ window.abrirVerComprobante = function(semana, path, fechaPago, pagoSemanal, fech
         if (bd) bd.remove();
     };
 
-    document.getElementById('verCompBtnClose').onclick  = cerrar;
+    document.getElementById('verCompBtnClose').onclick = cerrar;
     document.getElementById('verCompBtnCerrar').onclick = cerrar;
 };
 
@@ -4228,7 +4298,7 @@ window.abrirVerComprobante = function(semana, path, fechaPago, pagoSemanal, fech
 
 var _globoCredito = null;
 
-window.globoBuscarCredito = function() {
+window.globoBuscarCredito = function () {
     var idCredito = parseInt(document.getElementById('globoIdCredito').value);
     var info = document.getElementById('globoInfoCliente');
 
@@ -4247,7 +4317,7 @@ window.globoBuscarCredito = function() {
         endpoint: '/convenios/getOfertasCredito',
         method: 'POST',
         data: { id_credito: idCredito },
-        onSuccess: function(respOfertas) {
+        onSuccess: function (respOfertas) {
             if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
                 info.className = 'alert alert-danger';
                 info.innerHTML = '<i class="fas fa-times-circle me-2"></i>' +
@@ -4261,17 +4331,17 @@ window.globoBuscarCredito = function() {
                 endpoint: '/convenios/getConvenioActivo',
                 method: 'POST',
                 data: { id_credito: idCredito },
-                onSuccess: function(respConvenio) {
+                onSuccess: function (respConvenio) {
                     if (respConvenio.success && respConvenio.datos &&
                         respConvenio.datos.estatus === 'activo') {
                         info.className = 'alert alert-warning';
                         info.innerHTML =
                             '<div class="d-flex align-items-start gap-2">' +
-                                '<i class="fas fa-lock fa-lg mt-1 text-warning"></i>' +
-                                '<div>' +
-                                    '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                                    '<span class="text-warning fw-semibold">⚠️ Este crédito ya tiene un convenio activo registrado.</span>' +
-                                '</div>' +
+                            '<i class="fas fa-lock fa-lg mt-1 text-warning"></i>' +
+                            '<div>' +
+                            '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
+                            '<span class="text-warning fw-semibold">⚠️ Este crédito ya tiene un convenio activo registrado.</span>' +
+                            '</div>' +
                             '</div>';
                         return;
                     }
@@ -4279,7 +4349,7 @@ window.globoBuscarCredito = function() {
                     _globoCredito = credito;
 
                     var adeudo = parseFloat(credito.Adeudo_total || 0);
-                    var fmt = function(v) {
+                    var fmt = function (v) {
                         return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
                     };
 
@@ -4290,11 +4360,11 @@ window.globoBuscarCredito = function() {
                     info.className = 'alert alert-success';
                     info.innerHTML =
                         '<div class="d-flex align-items-start gap-2">' +
-                            '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
-                            '<div>' +
-                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                                '<small>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + ' | Adeudo: ' + fmt(adeudo) + '</small>' +
-                            '</div>' +
+                        '<i class="fas fa-check-circle fa-lg mt-1 text-success"></i>' +
+                        '<div>' +
+                        '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
+                        '<small>Bucket: ' + (credito.Bucket_Morosidad_Real || '—') + ' | Adeudo: ' + fmt(adeudo) + '</small>' +
+                        '</div>' +
                         '</div>';
 
                     var fechaDefault = new Date();
@@ -4305,20 +4375,20 @@ window.globoBuscarCredito = function() {
                     document.getElementById('globoStep2').classList.remove('d-none');
                     window.globoCalcularPorcentaje();
                 },
-                onError: function() {
+                onError: function () {
                     info.className = 'alert alert-danger';
                     info.innerHTML = '<i class="fas fa-times-circle me-2"></i>Error al validar convenio activo.';
                 }
             });
         },
-        onError: function() {
+        onError: function () {
             info.className = 'alert alert-danger';
             info.innerHTML = '<i class="fas fa-times-circle me-2"></i>Error de conexión.';
         }
     });
 };
 
-window.globoCalcularPorcentaje = function() {
+window.globoCalcularPorcentaje = function () {
     if (!_globoCredito) return;
 
     var adeudoOriginal = parseFloat(_globoCredito.Adeudo_total || 0);
@@ -4329,7 +4399,7 @@ window.globoCalcularPorcentaje = function() {
     document.getElementById('globoPorcentajeDescuento').value = porcentaje;
 
     var totalConDescuento = adeudoOriginal * (1 - porcentaje / 100);
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
 
@@ -4345,7 +4415,7 @@ window.globoCalcularPorcentaje = function() {
     }
 };
 
-window.globoSugerirMontos = function() {
+window.globoSugerirMontos = function () {
     if (!_globoCredito) return;
 
     var adeudoOriginal = parseFloat(_globoCredito.Adeudo_total || 0);
@@ -4367,7 +4437,7 @@ window.globoSugerirMontos = function() {
     window.globoRecalcular();
 };
 
-window.globoRecalcular = function() {
+window.globoRecalcular = function () {
     if (!_globoCredito) return;
 
     var adeudoOriginal = parseFloat(_globoCredito.Adeudo_total || 0);
@@ -4381,7 +4451,7 @@ window.globoRecalcular = function() {
     var descuentoAplicado = adeudoOriginal - sumCalculada;
     var porcentajeAplicado = adeudoOriginal > 0 ? (descuentoAplicado / adeudoOriginal) * 100 : 0;
 
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
 
@@ -4449,7 +4519,7 @@ window.globoRecalcular = function() {
     window.globoActualizarPreview();
 };
 
-window.globoActualizarPreview = function() {
+window.globoActualizarPreview = function () {
     var frecuencia = document.getElementById('globoFrecuencia').value;
     var fechaPrimerPago = document.getElementById('globoFechaPrimerPago').value;
     var pagosIgualesCant = parseInt(document.getElementById('globoPagosIgualesCant').value) || 0;
@@ -4459,11 +4529,11 @@ window.globoActualizarPreview = function() {
     var totalPagos = pagosIgualesCant + 1;
     var diasIntervalo = frecuencia === 'quincenal' ? 14 : 7;
 
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
 
-    var fmtFecha = function(fechaISO) {
+    var fmtFecha = function (fechaISO) {
         if (!fechaISO) return '—';
         var p = fechaISO.split('-');
         return p[2] + '/' + p[1] + '/' + p[0];
@@ -4474,7 +4544,7 @@ window.globoActualizarPreview = function() {
         var esGlobo = (i === totalPagos);
         var monto = esGlobo ? pagoGloboMonto : pagosIgualesMonto;
         var tipo = esGlobo ? '<span class="badge" style="background:#764ba2;">Pago Globo</span>' :
-                              '<span class="badge bg-secondary">Pago igual</span>';
+            '<span class="badge bg-secondary">Pago igual</span>';
 
         var fechaPago = '—';
         if (fechaPrimerPago) {
@@ -4488,13 +4558,13 @@ window.globoActualizarPreview = function() {
             '<td>' + tipo + '</td>' +
             '<td class="fw-bold ' + (esGlobo ? 'text-primary' : '') + '">' + fmt(monto) + '</td>' +
             '<td>' + fechaPago + '</td>' +
-        '</tr>';
+            '</tr>';
     }
 
     document.getElementById('globoPagosPreviewBody').innerHTML = html;
 };
 
-window.globoVerTablaAmortizacion = function() {
+window.globoVerTablaAmortizacion = function () {
     if (!_globoCredito) return;
 
     var frecuencia = document.getElementById('globoFrecuencia').value;
@@ -4508,11 +4578,11 @@ window.globoVerTablaAmortizacion = function() {
     var diasIntervalo = frecuencia === 'quincenal' ? 14 : 7;
     var saldoActual = totalAPagar;
 
-    var fmt = function(v) {
+    var fmt = function (v) {
         return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
     };
 
-    var fmtFecha = function(fechaISO) {
+    var fmtFecha = function (fechaISO) {
         if (!fechaISO) return '—';
         var p = fechaISO.split('-');
         return p[2] + '/' + p[1] + '/' + p[0];
@@ -4539,7 +4609,7 @@ window.globoVerTablaAmortizacion = function() {
             '<td class="text-end">' + fmt(monto) + '</td>' +
             '<td class="text-end">' + fmt(capital) + '</td>' +
             '<td class="text-end">' + fmt(saldoActual) + '</td>' +
-        '</tr>';
+            '</tr>';
     }
 
     Swal.fire({
@@ -4547,18 +4617,18 @@ window.globoVerTablaAmortizacion = function() {
         html: '<div class="table-responsive" style="max-height: 400px;">' +
             '<table class="table table-sm table-bordered">' +
             '<thead class="table-dark">' +
-                '<tr><th># Pago</th><th>Fecha Estimada</th><th>Pago Programado</th>' +
-                '<th>Capital</th><th>Saldo Restante</th></tr>' +
+            '<tr><th># Pago</th><th>Fecha Estimada</th><th>Pago Programado</th>' +
+            '<th>Capital</th><th>Saldo Restante</th></tr>' +
             '</thead>' +
             '<tbody>' + filas + '</tbody>' +
             '</table>' +
             '</div>' +
             '<hr>' +
             '<div class="text-start">' +
-                '<strong>Resumen:</strong><br>' +
-                'Total a pagar: ' + fmt(totalAPagar) + '<br>' +
-                'Frecuencia: ' + (frecuencia === 'quincenal' ? 'Quincenal' : 'Semanal') + '<br>' +
-                'Total de pagos: ' + totalPagos + ' (incluye pago globo)' +
+            '<strong>Resumen:</strong><br>' +
+            'Total a pagar: ' + fmt(totalAPagar) + '<br>' +
+            'Frecuencia: ' + (frecuencia === 'quincenal' ? 'Quincenal' : 'Semanal') + '<br>' +
+            'Total de pagos: ' + totalPagos + ' (incluye pago globo)' +
             '</div>',
         width: '800px',
         confirmButtonText: 'Cerrar',
@@ -4566,7 +4636,7 @@ window.globoVerTablaAmortizacion = function() {
     });
 };
 
-window.globoValidarPdf = function(input) {
+window.globoValidarPdf = function (input) {
     var preview = document.getElementById('globoPdfPreview');
     if (!input.files || !input.files[0]) {
         preview.innerHTML = '';
@@ -4591,7 +4661,7 @@ window.globoValidarPdf = function(input) {
     preview.innerHTML = '<i class="fas fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>';
 };
 
-window.globoGuardar = function() {
+window.globoGuardar = function () {
     if (!_globoCredito) {
         Swal.fire('Error', 'Primero busca un crédito válido.', 'warning');
         return;
@@ -4647,7 +4717,7 @@ window.globoGuardar = function() {
         confirmButtonText: 'Sí, registrar',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#22c55e'
-    }).then(function(result) {
+    }).then(function (result) {
         if (!result.isConfirmed) return;
 
         var btn = document.getElementById('globoBtnGuardar');
@@ -4671,7 +4741,39 @@ window.globoGuardar = function() {
         formData.append('usuario_alta', window.usuarioActual || 'sistema');
 
         if (pdfFile) {
-            formData.append('pdf_adjunto', pdfFile);
+            var formData = new FormData();
+            var endpointFinalPdf = esGloboMig ? '/convenios/registrarConvenioGlobo' : '/convenios/migrarConvenio';
+
+            if (esGloboMig) {
+                formData.append('id_credito', _migCredito.Id_credito);
+                formData.append('nombre_cliente', _migCredito.Nombre_cliente);
+                formData.append('bucket_morosidad_real', bucket);
+                formData.append('dias_mora', _migCredito.Dias_mora || 0);
+                formData.append('avance_pago_plazo', _migCredito.Avance_Pago_Plazo || '');
+                formData.append('adeudo_total_original', adeudo);
+                formData.append('total_a_pagar', totalFinal.toFixed(2));
+                formData.append('pagos_iguales_cantidad', parseInt(document.getElementById('migSemanasGlobo').value) - 1);
+                formData.append('pagos_iguales_monto', semanal);
+                formData.append('pago_globo_monto', document.getElementById('migPagoFinal').value);
+                formData.append('frecuencia', 'semanal');
+                formData.append('fecha_primer_pago', fecha);
+                formData.append('usuario_alta', window.usuarioActual || 'sistema');
+            } else {
+                formData.append('id_credito', _migCredito.Id_credito);
+                formData.append('nombre_cliente', _migCredito.Nombre_cliente);
+                formData.append('id_producto_convenio', _migDetalle.id_producto);
+                formData.append('id_producto_convenio_detalle', _migDetalle.id_detalle);
+                formData.append('adeudo_base', adeudo);
+                formData.append('monto_adicional', adicional.toFixed(2));
+                formData.append('total_final_con_adicional', totalFinal.toFixed(2));
+                formData.append('porcentaje_descuento', _pctEnvio);
+                formData.append('pago_semanal', semanal);
+                formData.append('fecha_inicio', fecha);
+                formData.append('bucket_morosidad_real', bucket);
+                formData.append('dias_mora', _migCredito.Dias_mora || 0);
+                formData.append('avance_pago_plazo', _migCredito.Avance_Pago_Plazo || '');
+            }
+            formData.append('pdf_adjunto', pdfFile); formData.append('pdf_adjunto', pdfFile);
         }
 
         http.request({
@@ -4680,7 +4782,7 @@ window.globoGuardar = function() {
             data: formData,
             contentType: false,
             processData: false,
-            onSuccess: function(resp) {
+            onSuccess: function (resp) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-save me-1"></i> Registrar Convenio Globo';
 
@@ -4695,15 +4797,15 @@ window.globoGuardar = function() {
                 Swal.fire({
                     title: '¡Convenio registrado!',
                     html: 'Convenio con pago globo registrado correctamente.<br>' +
-                          '<small class="text-muted">Recargando...</small>',
+                        '<small class="text-muted">Recargando...</small>',
                     icon: 'success',
                     timer: 2000,
                     showConfirmButton: false
-                }).then(function() {
+                }).then(function () {
                     location.reload();
                 });
             },
-            onError: function() {
+            onError: function () {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-save me-1"></i> Registrar Convenio Globo';
                 Swal.fire('Error', 'Error de conexión al guardar.', 'error');
@@ -4723,17 +4825,18 @@ window.globoValidarPdf = globoValidarPdf;
 window.globoGuardar = globoGuardar;
 
 // Asegurar funciones globales
-window.seleccionarCredito    = seleccionarCredito;
-window.renderCreditoBanner   = renderCreditoBanner;
-window.renderOfertas         = renderOfertas;
-window.congelarModulo        = congelarModulo;
-window.fmtFecha              = fmtFecha;
-window.fmtFechaRango         = fmtFechaRango;
-window.fmtPagoRealizado      = fmtPagoRealizado;
-window.toggleAmortizacion    = toggleAmortizacion;
-window.descargarPdfConvenio  = descargarPdfConvenio;
-window.migCargarProductos    = migCargarProductos;
+window.seleccionarCredito = seleccionarCredito;
+window.renderCreditoBanner = renderCreditoBanner;
+window.renderOfertas = renderOfertas;
+window.congelarModulo = congelarModulo;
+window.fmtFecha = fmtFecha;
+window.fmtFechaRango = fmtFechaRango;
+window.fmtPagoRealizado = fmtPagoRealizado;
+window.toggleAmortizacion = toggleAmortizacion;
+window.descargarPdfConvenio = descargarPdfConvenio;
+window.migCargarProductos = migCargarProductos;
 
 console.log('✅ Módulo Convenios cargado correctamente');
+
 
 </script>
