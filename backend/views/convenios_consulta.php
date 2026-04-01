@@ -649,6 +649,8 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
           <i class="fas fa-check me-1"></i>Confirmar Conciliación
         </button>
       </div>
+
+
     </div>
   </div>
 </div>
@@ -819,25 +821,10 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
       <div class="modal-body">
 
         <!-- PESTAÑAS -->
-        <ul class="nav nav-tabs" id="migracionTabs" role="tablist">
-          <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="tab-convenio-normal" data-bs-toggle="tab"
-                    data-bs-target="#convenioNormal" type="button" role="tab">
-              <i class="fas fa-file-signature me-1"></i> Convenio Normal
-            </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-pago-globo" data-bs-toggle="tab"
-                    data-bs-target="#pagoGlobo" type="button" role="tab">
-              <i class="fas fa-globe me-1"></i> Convenio Pago Globo
-            </button>
-          </li>
-        </ul>
 
-        <div class="tab-content mt-3">
 
           <!-- ================= PESTAÑA 1: CONVENIO NORMAL ================= -->
-          <div class="tab-pane fade show active" id="convenioNormal" role="tabpanel">
+          <div id="convenioNormal">
             <div id="migStep1">
               <label class="form-label fw-bold">ID Crédito</label>
               <div class="input-group mb-3">
@@ -894,8 +881,8 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                   </div>
                 </div>
 
-                <div class="col-md-4">
-                  <label class="form-label">Bucket Morosidad</label>
+                <div class="col-md-4" id="colBucketMorosidad">
+                  <label class="form-label" id="labelBucketMorosidad">Bucket Morosidad</label>
                   <input type="text" id="migBucket" class="form-control"
                          placeholder="g) 60 a 89 dias">
                 </div>
@@ -957,203 +944,20 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
             </div>
           </div>
 
-         <!-- ================= PESTAÑA 2: CONVENIO PAGO GLOBO ================= -->
-<div class="tab-pane fade" id="pagoGlobo" role="tabpanel">
-    <div id="globoStep1">
-        <label class="form-label fw-bold">ID Crédito</label>
-        <div class="input-group mb-3">
-            <input type="number" id="globoIdCredito" class="form-control"
-                   placeholder="Ej. 193141">
-            <button class="btn btn-primary" type="button" onclick="window.globoBuscarCredito()">
-                <i class="fas fa-search"></i> Buscar
-            </button>
-        </div>
-        <div id="globoInfoCliente" class="alert alert-info d-none"></div>
+          <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-success" id="migBtnGuardar"
+                onclick="window.migGuardar()" style="display:none;">
+          <i class="fas fa-save me-1"></i> Registrar Convenio
+        </button>
+      </div>
+
     </div>
-
-    <div id="globoStep2" class="d-none">
-        <hr>
-
-        <!-- Datos del cliente resumidos -->
-        <div class="row g-3 mb-3">
-            <div class="col-md-6">
-                <div class="p-2 bg-light rounded">
-                    <small class="text-muted">Cliente</small>
-                    <div class="fw-bold" id="globoNombreCliente">-</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="p-2 bg-light rounded">
-                    <small class="text-muted">Adeudo total</small>
-                    <div class="fw-bold text-danger" id="globoAdeudoTotal">$0.00</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="p-2 bg-light rounded">
-                    <small class="text-muted">Bucket morosidad</small>
-                    <div class="fw-bold" id="globoBucket">-</div>
-                </div>
-            </div>
-        </div>
-
-        <hr>
-
-        <!-- Configuración del pago globo -->
-        <h6 class="fw-bold mb-3" style="color:#764ba2;">
-            <i class="fas fa-chart-line me-2"></i>Configuración del Convenio Globo
-        </h6>
-
-        <div class="row g-3">
-            <!-- Porcentaje de descuento -->
-            <div class="col-md-6">
-                <label class="form-label">
-                    <i class="fas fa-percent me-1 text-warning"></i>Porcentaje de descuento
-                </label>
-                <div class="input-group">
-                    <input type="number" id="globoPorcentajeDescuento" class="form-control"
-                           min="0" max="100" step="0.01" value="0"
-                           oninput="window.globoCalcularPorcentaje()">
-                    <span class="input-group-text">%</span>
-                </div>
-                <small class="text-muted">Aplica un descuento sobre el adeudo total</small>
-            </div>
-
-            <div class="col-md-6">
-                <label class="form-label">Frecuencia</label>
-                <select id="globoFrecuencia" class="form-select" onchange="window.globoRecalcular()">
-                    <option value="semanal">Semanal (cada 7 días)</option>
-                    <option value="quincenal">Quincenal (cada 14 días)</option>
-                </select>
-            </div>
-
-            <div class="col-md-6">
-                <label class="form-label">Fecha del primer pago</label>
-                <input type="date" id="globoFechaPrimerPago" class="form-control"
-                       onchange="window.globoRecalcular()">
-            </div>
-
-            <div class="col-md-6">
-                <label class="form-label">Cantidad de pagos iguales</label>
-                <input type="number" id="globoPagosIgualesCant" class="form-control"
-                       min="1" value="4" step="1" oninput="window.globoRecalcular()">
-                <small class="text-muted">Pagos pequeños + 1 pago globo final</small>
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Monto por pago igual</label>
-                <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" id="globoPagosIgualesMonto" class="form-control"
-                           step="0.01" placeholder="0.00" oninput="window.globoRecalcular()">
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Monto pago globo (final)</label>
-                <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" id="globoPagoGloboMonto" class="form-control"
-                           step="0.01" placeholder="0.00" oninput="window.globoRecalcular()">
-                </div>
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Total con descuento</label>
-                <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="text" id="globoTotalConDescuento" class="form-control"
-                           readonly style="background:#f0f0f0; font-weight:bold; color:#15803d;">
-                </div>
-                <small class="text-muted">Total después del descuento</small>
-            </div>
-        </div>
-
-        <!-- Resumen de cálculo -->
-        <div class="mt-4 p-3 rounded" style="background: #f8f5ff; border: 1px solid #e9d5ff;">
-            <div class="row text-center g-3">
-                <div class="col-md-3">
-                    <div class="small text-muted">Suma de pagos iguales</div>
-                    <div class="fw-bold fs-5" id="globoSumaIguales">$0.00</div>
-                    <small id="globoDetalleIguales" class="text-muted">0 × $0.00</small>
-                </div>
-                <div class="col-md-3">
-                    <div class="small text-muted">+ Pago globo</div>
-                    <div class="fw-bold fs-5" id="globoSumaGlobo">$0.00</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="small text-muted">= Total a pagar</div>
-                    <div class="fw-bold fs-4 text-success" id="globoTotalPagar">$0.00</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="small text-muted">Descuento aplicado</div>
-                    <div class="fw-bold fs-5 text-danger" id="globoDescuento">$0.00</div>
-                    <small id="globoPorcentajeDescuentoMostrar" class="text-muted">0%</small>
-                </div>
-            </div>
-        </div>
-
-        <!-- Mensaje informativo -->
-        <div id="globoErrorMontos" class="mt-3" style="display:none;"></div>
-
-        <!-- Preview de pagos -->
-        <div class="mt-3">
-            <div class="d-flex justify-content-between align-items-center">
-                <h6 class="fw-bold mb-2" style="color:#5b2d8e;">
-                    <i class="fas fa-calendar-alt me-2"></i>Estructura de pagos
-                </h6>
-                <div>
-                    <button class="btn btn-sm btn-outline-info me-2" type="button"
-                            onclick="window.globoSugerirMontos()">
-                        <i class="fas fa-magic me-1"></i>Sugerir montos
-                    </button>
-                    <button class="btn btn-sm btn-outline-primary" type="button"
-                            onclick="window.globoVerTablaAmortizacion()">
-                        <i class="fas fa-table me-1"></i>Ver tabla completa
-                    </button>
-                </div>
-            </div>
-            <div class="table-responsive mt-2">
-                <table class="table table-sm table-borderless">
-                    <thead>
-                        <tr class="text-muted small">
-                            <th># Pago</th>
-                            <th>Tipo</th>
-                            <th>Monto</th>
-                            <th>Fecha estimada</th>
-                        </tr>
-                    </thead>
-                    <tbody id="globoPagosPreviewBody">
-                        <tr><td colspan="4" class="text-muted text-center">Ingresa los montos para ver el preview</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Adjuntar PDF -->
-        <div class="mt-3 p-3 border rounded" style="background: #f8f5ff;">
-            <div class="d-flex align-items-center gap-3">
-                <div class="flex-grow-1">
-                    <label class="form-label fw-bold mb-1">
-                        <i class="fas fa-paperclip me-1"></i>Adjuntar comprobante (PDF)
-                    </label>
-                    <input type="file" id="globoPdfAdjunto"
-                           class="form-control form-control-sm"
-                           accept=".pdf,application/pdf"
-                           onchange="window.globoValidarPdf(this)">
-                    <small class="text-muted">Opcional: adjunta el PDF del convenio firmado (máx. 5MB)</small>
-                </div>
-                <div id="globoPdfPreview" class="text-center" style="min-width: 60px;"></div>
-            </div>
-        </div>
-
-        <div class="mt-4 text-end">
-            <button class="btn btn-success" id="globoBtnGuardar"
-                    onclick="window.globoGuardar()" style="display:none;">
-                <i class="fas fa-save me-1"></i> Registrar Convenio Globo
-            </button>
-        </div>
-    </div>
+  </div>
 </div>
+
 
 
 <script>
@@ -3066,18 +2870,71 @@ window.migProductoChange = function() {
     if (!opt) return;
 
     var variable = opt.getAttribute('data-variable');
-    var pct = opt.getAttribute('data-porcentaje');
+    var pct      = opt.getAttribute('data-porcentaje');
+    var nombre   = opt.text || '';
+    var esGlobo  = nombre === 'Convenio Globo Manual'; // ← NUEVO
 
     var inputPct = document.getElementById('migPorcentaje');
     if (inputPct) {
-        inputPct.value = pct || '';
+        inputPct.value    = pct || '';
         inputPct.readOnly = variable !== '1';
     }
 
     _migDetalle = {
-        id_detalle: sel.value,
+        id_detalle:  sel.value,
         id_producto: opt.getAttribute('data-id-producto'),
     };
+
+    // ── NUEVO: transformar form según tipo de producto ──────────────
+    var colBucket  = document.getElementById('colBucketMorosidad');
+    var colSemanal = document.getElementById('migPagoSemanal')?.closest('.col-md-4');
+
+    if (esGlobo) {
+        // Ocultar pago semanal (se calculará automático)
+        if (colSemanal) colSemanal.style.display = 'none';
+
+        // Reemplazar bucket por semanas dropdown si no existe ya
+        if (colBucket && !document.getElementById('migSemanasGlobo')) {
+            var labelBucket = document.getElementById('labelBucketMorosidad');
+            if (labelBucket) labelBucket.textContent = 'Semanas a elegir';
+
+            var inputBucket = document.getElementById('migBucket');
+            if (inputBucket) inputBucket.style.display = 'none';
+
+            var select = document.createElement('select');
+            select.id        = 'migSemanasGlobo';
+            select.className = 'form-select';
+            select.onchange  = window.migCalcular;
+
+            for (var s = 1; s <= 52; s++) {
+                var op = document.createElement('option');
+                op.value       = s;
+                op.textContent = s + (s === 1 ? ' semana' : ' semanas');
+                select.appendChild(op);
+            }
+            colBucket.appendChild(select);
+        } else if (colBucket) {
+            // Ya existe, solo mostrar
+            var labelBucket = colBucket.querySelector('.form-label');
+            if (labelBucket) labelBucket.textContent = 'Semanas a elegir';
+            var inputBucket = document.getElementById('migBucket');
+            if (inputBucket) inputBucket.style.display = 'none';
+            var existeSel = document.getElementById('migSemanasGlobo');
+            if (existeSel) existeSel.style.display = 'block';
+        }
+    } else {
+        // Restaurar form normal
+        if (colSemanal) colSemanal.style.display = 'block';
+        if (colBucket) {
+            var labelBucket = colBucket.querySelector('.form-label');
+            if (labelBucket) labelBucket.textContent = 'Bucket Morosidad';
+            var inputBucket = document.getElementById('migBucket');
+            if (inputBucket) inputBucket.style.display = 'block';
+            var existeSel = document.getElementById('migSemanasGlobo');
+            if (existeSel) existeSel.style.display = 'none';
+        }
+    }
+    // ────────────────────────────────────────────────────────────────
 
     if (typeof window.migCalcular === 'function') {
         window.migCalcular();
@@ -3085,6 +2942,80 @@ window.migProductoChange = function() {
 };
 
 window.migCalcular = function() {
+
+     // ── NUEVO: lógica especial para Convenio Globo Manual ──────────
+    var sel    = document.getElementById('migProducto');
+    var opt    = sel ? sel.options[sel.selectedIndex] : null;
+    var esGlobo = opt && (opt.text || '') === 'Convenio Globo Manual';
+
+    if (esGlobo) {
+        var adeudo   = parseFloat(document.getElementById('migAdeudo').value) || 0;
+        var pct      = parseFloat(document.getElementById('migPorcentaje').value) || 0;
+        var semanas  = parseInt(document.getElementById('migSemanasGlobo')?.value) || 1;
+        var fecha    = document.getElementById('migFechaInicio').value;
+        var preview  = document.getElementById('migPreview');
+        var getGuardarBtn = function() {
+            return document.querySelector('#modalMigracion .modal-footer .btn-success');
+        };
+
+        if (!adeudo || !fecha) {
+            if (preview) preview.classList.add('d-none');
+            var btn = getGuardarBtn();
+            if (btn) btn.style.display = 'none';
+            return;
+        }
+
+        var descuento   = Math.round(adeudo * (pct / 100) * 100) / 100;
+        var total       = Math.round((adeudo - descuento) * 100) / 100;
+        var pagoIgual   = Math.round((total / semanas) * 100) / 100; // pago semanal
+        // El pago globo es el último: ajusta residuo para que cierre exacto
+        var pagoGlobo   = Math.round((total - pagoIgual * (semanas - 1)) * 100) / 100;
+
+        var fmt = function(v) {
+            return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+        };
+
+        var resumenCards = document.getElementById('migResumenCards');
+        if (resumenCards) {
+            resumenCards.innerHTML =
+                '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+                    '<div class="small text-muted">Adeudo Base</div>' +
+                    '<div class="fw-bold text-primary">' + fmt(adeudo) + '</div>' +
+                '</div></div>' +
+                '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+                    '<div class="small text-muted">Descuento (' + pct + '%)</div>' +
+                    '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div>' +
+                '</div></div>' +
+                '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+                    '<div class="small text-muted">Pago Semanal (' + (semanas - 1) + ' pagos)</div>' +
+                    '<div class="fw-bold text-success">' + fmt(pagoIgual) + '</div>' +
+                '</div></div>' +
+                '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+                    '<div class="small text-muted">Pago Final (globo)</div>' +
+                    '<div class="fw-bold text-warning">' + fmt(pagoGlobo) + '</div>' +
+                '</div></div>';
+        }
+
+        // Actualizar campo pago semanal oculto (lo necesita el backend)
+        var inputSemanal = document.getElementById('migPagoSemanal');
+        if (inputSemanal) inputSemanal.value = pagoIgual.toFixed(2);
+
+        _migSemanas = semanas;
+
+        var migTotalBase  = document.getElementById('migTotalBase');
+        var migTotalFinal = document.getElementById('migTotalFinal');
+        var migMontoAd    = document.getElementById('migMontoAdicional');
+        if (migTotalBase)  migTotalBase.value  = total.toFixed(2);
+        if (migMontoAd)    migMontoAd.value    = '';
+        if (migTotalFinal) migTotalFinal.value = total.toFixed(2);
+
+        if (preview) preview.classList.remove('d-none');
+        var btn = getGuardarBtn();
+        if (btn) btn.style.display = 'inline-block';
+
+        return; // ← no continúa con la lógica normal
+    }
+
     var adeudo  = parseFloat(document.getElementById('migAdeudo').value)      || 0;
     var pct     = parseFloat(document.getElementById('migPorcentaje').value)   || 0;
     var semanal = parseFloat(document.getElementById('migPagoSemanal').value)  || 0;
