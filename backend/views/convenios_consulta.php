@@ -872,14 +872,14 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                   </div>
                 </div>
 
-                <div class="col-md-4">
-                  <label class="form-label">Pago Semanal</label>
-                  <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" id="migPagoSemanal" class="form-control"
-                           step="0.01" placeholder="3250" oninput="window.migCalcular()">
-                  </div>
-                </div>
+                <div class="col-md-4" id="colPagoSemanal">
+  <label class="form-label">Pago Semanal</label>
+  <div class="input-group">
+    <span class="input-group-text">$</span>
+    <input type="number" id="migPagoSemanal" class="form-control"
+           step="0.01" placeholder="3250" oninput="window.migCalcular()">
+  </div>
+</div>
 
                 <div class="col-md-4" id="colBucketMorosidad">
                   <label class="form-label" id="labelBucketMorosidad">Bucket Morosidad</label>
@@ -887,6 +887,15 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                          placeholder="g) 60 a 89 dias">
                 </div>
               </div>
+
+              <div class="col-md-4" id="colPagoFinal" style="display:none;">
+  <label class="form-label">Pago Final (globo)</label>
+  <div class="input-group">
+    <span class="input-group-text">$</span>
+    <input type="number" id="migPagoFinal" class="form-control"
+           step="0.01" placeholder="0.00" oninput="window.migCalcular()">
+  </div>
+</div>
 
               <div id="migPreview" class="d-none mt-3">
                 <hr>
@@ -2872,7 +2881,7 @@ window.migProductoChange = function() {
     var variable = opt.getAttribute('data-variable');
     var pct      = opt.getAttribute('data-porcentaje');
     var nombre   = opt.text || '';
-    var esGlobo  = nombre === 'Convenio Globo Manual'; // ← NUEVO
+    var esGlobo  = nombre.indexOf('Convenio Globo Manual') !== -1;
 
     var inputPct = document.getElementById('migPorcentaje');
     if (inputPct) {
@@ -2885,15 +2894,27 @@ window.migProductoChange = function() {
         id_producto: opt.getAttribute('data-id-producto'),
     };
 
-    // ── NUEVO: transformar form según tipo de producto ──────────────
-    var colBucket  = document.getElementById('colBucketMorosidad');
-    var colSemanal = document.getElementById('migPagoSemanal')?.closest('.col-md-4');
+    var colBucket   = document.getElementById('colBucketMorosidad');
+    var colSemanal  = document.getElementById('colPagoSemanal');
+    var colPagoFinal = document.getElementById('colPagoFinal');
 
     if (esGlobo) {
-        // Ocultar pago semanal (se calculará automático)
-        if (colSemanal) colSemanal.style.display = 'none';
+        // Pago semanal visible y editable
+        if (colSemanal) {
+            colSemanal.style.display = 'block';
+            var inputSemanal = document.getElementById('migPagoSemanal');
+            if (inputSemanal) {
+                inputSemanal.readOnly         = false;
+                inputSemanal.style.background = '';
+                inputSemanal.placeholder      = 'Ej. 1900';
+                inputSemanal.value            = '';
+            }
+        }
 
-        // Reemplazar bucket por semanas dropdown si no existe ya
+        // Mostrar campo Pago Final
+        if (colPagoFinal) colPagoFinal.style.display = 'block';
+
+        // Reemplazar bucket por semanas dropdown
         if (colBucket && !document.getElementById('migSemanasGlobo')) {
             var labelBucket = document.getElementById('labelBucketMorosidad');
             if (labelBucket) labelBucket.textContent = 'Semanas a elegir';
@@ -2914,19 +2935,31 @@ window.migProductoChange = function() {
             }
             colBucket.appendChild(select);
         } else if (colBucket) {
-            // Ya existe, solo mostrar
-            var labelBucket = colBucket.querySelector('.form-label');
+            var labelBucket = document.getElementById('labelBucketMorosidad');
             if (labelBucket) labelBucket.textContent = 'Semanas a elegir';
             var inputBucket = document.getElementById('migBucket');
             if (inputBucket) inputBucket.style.display = 'none';
             var existeSel = document.getElementById('migSemanasGlobo');
             if (existeSel) existeSel.style.display = 'block';
         }
+
     } else {
         // Restaurar form normal
-        if (colSemanal) colSemanal.style.display = 'block';
+        if (colSemanal) {
+            colSemanal.style.display = 'block';
+            var inputSemanal = document.getElementById('migPagoSemanal');
+            if (inputSemanal) {
+                inputSemanal.readOnly         = false;
+                inputSemanal.style.background = '';
+                inputSemanal.placeholder      = '3250';
+            }
+        }
+
+        // Ocultar Pago Final
+        if (colPagoFinal) colPagoFinal.style.display = 'none';
+
         if (colBucket) {
-            var labelBucket = colBucket.querySelector('.form-label');
+            var labelBucket = document.getElementById('labelBucketMorosidad');
             if (labelBucket) labelBucket.textContent = 'Bucket Morosidad';
             var inputBucket = document.getElementById('migBucket');
             if (inputBucket) inputBucket.style.display = 'block';
@@ -2934,7 +2967,6 @@ window.migProductoChange = function() {
             if (existeSel) existeSel.style.display = 'none';
         }
     }
-    // ────────────────────────────────────────────────────────────────
 
     if (typeof window.migCalcular === 'function') {
         window.migCalcular();
@@ -2943,22 +2975,24 @@ window.migProductoChange = function() {
 
 window.migCalcular = function() {
 
-     // ── NUEVO: lógica especial para Convenio Globo Manual ──────────
-    var sel    = document.getElementById('migProducto');
-    var opt    = sel ? sel.options[sel.selectedIndex] : null;
-    var esGlobo = opt && (opt.text || '') === 'Convenio Globo Manual';
+    // ── Lógica especial para Convenio Globo Manual ──────────
+    var sel     = document.getElementById('migProducto');
+    var opt     = sel ? sel.options[sel.selectedIndex] : null;
+    var esGlobo = opt && (opt.text || '').indexOf('Convenio Globo Manual') !== -1;
 
     if (esGlobo) {
-        var adeudo   = parseFloat(document.getElementById('migAdeudo').value) || 0;
-        var pct      = parseFloat(document.getElementById('migPorcentaje').value) || 0;
-        var semanas  = parseInt(document.getElementById('migSemanasGlobo')?.value) || 1;
-        var fecha    = document.getElementById('migFechaInicio').value;
-        var preview  = document.getElementById('migPreview');
+        var adeudo      = parseFloat(document.getElementById('migAdeudo').value)      || 0;
+        var pct         = parseFloat(document.getElementById('migPorcentaje').value)   || 0;
+        var semanal     = parseFloat(document.getElementById('migPagoSemanal').value)  || 0;
+        var pagoFinal   = parseFloat(document.getElementById('migPagoFinal')?.value)   || 0;
+        var semanas     = parseInt(document.getElementById('migSemanasGlobo')?.value)  || 1;
+        var fecha       = document.getElementById('migFechaInicio').value;
+        var preview     = document.getElementById('migPreview');
         var getGuardarBtn = function() {
             return document.querySelector('#modalMigracion .modal-footer .btn-success');
         };
 
-        if (!adeudo || !fecha) {
+        if (!adeudo || !fecha || !semanal) {
             if (preview) preview.classList.add('d-none');
             var btn = getGuardarBtn();
             if (btn) btn.style.display = 'none';
@@ -2967,12 +3001,13 @@ window.migCalcular = function() {
 
         var descuento   = Math.round(adeudo * (pct / 100) * 100) / 100;
         var total       = Math.round((adeudo - descuento) * 100) / 100;
-        var pagoIgual   = Math.round((total / semanas) * 100) / 100; // pago semanal
-        // El pago globo es el último: ajusta residuo para que cierre exacto
-        var pagoGlobo   = Math.round((total - pagoIgual * (semanas - 1)) * 100) / 100;
+        var sumaIguales = Math.round(semanal * (semanas - 1) * 100) / 100;
+        var totalConGlobo = Math.round((sumaIguales + pagoFinal) * 100) / 100;
+
+        _migSemanas = semanas;
 
         var fmt = function(v) {
-            return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+            return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
         };
 
         var resumenCards = document.getElementById('migResumenCards');
@@ -2987,45 +3022,38 @@ window.migCalcular = function() {
                     '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div>' +
                 '</div></div>' +
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
-                    '<div class="small text-muted">Pago Semanal (' + (semanas - 1) + ' pagos)</div>' +
-                    '<div class="fw-bold text-success">' + fmt(pagoIgual) + '</div>' +
+                    '<div class="small text-muted">Pago Semanal × ' + (semanas - 1) + '</div>' +
+                    '<div class="fw-bold text-success">' + fmt(semanal) + '</div>' +
                 '</div></div>' +
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
                     '<div class="small text-muted">Pago Final (globo)</div>' +
-                    '<div class="fw-bold text-warning">' + fmt(pagoGlobo) + '</div>' +
+                    '<div class="fw-bold text-warning">' + fmt(pagoFinal) + '</div>' +
                 '</div></div>';
         }
-
-        // Actualizar campo pago semanal oculto (lo necesita el backend)
-        var inputSemanal = document.getElementById('migPagoSemanal');
-        if (inputSemanal) inputSemanal.value = pagoIgual.toFixed(2);
-
-        _migSemanas = semanas;
 
         var migTotalBase  = document.getElementById('migTotalBase');
         var migTotalFinal = document.getElementById('migTotalFinal');
         var migMontoAd    = document.getElementById('migMontoAdicional');
-        if (migTotalBase)  migTotalBase.value  = total.toFixed(2);
+        if (migTotalBase)  migTotalBase.value  = totalConGlobo.toFixed(2);
         if (migMontoAd)    migMontoAd.value    = '';
-        if (migTotalFinal) migTotalFinal.value = total.toFixed(2);
+        if (migTotalFinal) migTotalFinal.value = totalConGlobo.toFixed(2);
 
         if (preview) preview.classList.remove('d-none');
         var btn = getGuardarBtn();
         if (btn) btn.style.display = 'inline-block';
 
-        return; // ← no continúa con la lógica normal
+        return;
     }
+    // ────────────────────────────────────────────────────────
 
     var adeudo  = parseFloat(document.getElementById('migAdeudo').value)      || 0;
     var pct     = parseFloat(document.getElementById('migPorcentaje').value)   || 0;
     var semanal = parseFloat(document.getElementById('migPagoSemanal').value)  || 0;
     var fecha   = document.getElementById('migFechaInicio').value;
 
-    // Limpiar error previo
     var errorExistente = document.getElementById('migErrorSemanal');
     if (errorExistente) errorExistente.remove();
 
-    // Función para obtener el botón de guardar (ahora en el footer)
     var getGuardarBtn = function() {
         return document.querySelector('#modalMigracion .modal-footer .btn-success');
     };
@@ -3040,10 +3068,8 @@ window.migCalcular = function() {
         var inputCampo = document.getElementById(campo);
         if (!inputCampo) return;
 
-        // Resaltar campo en rojo
         inputCampo.classList.add('is-invalid');
 
-        // Insertar mensaje debajo del campo
         var div = document.createElement('div');
         div.id = 'migErrorSemanal';
         div.style.cssText = 'color:#dc2626;font-size:0.78rem;margin-top:4px;display:flex;align-items:center;gap:5px;';
@@ -3076,13 +3102,11 @@ window.migCalcular = function() {
         return;
     }
 
-    // ── Validación 1: pago semanal debe ser positivo
     if (semanal <= 0) {
         mostrarError('migPagoSemanal', 'El pago semanal debe ser un valor positivo mayor a $0.');
         return;
     }
 
-    // ── Validación 2: pago semanal no puede ser mayor al total a pagar
     var descuento = Math.round(adeudo * (pct / 100) * 100) / 100;
     var total     = Math.round((adeudo - descuento) * 100) / 100;
 
@@ -3094,11 +3118,10 @@ window.migCalcular = function() {
         return;
     }
 
-    // ── Validación 3: semanas resultantes deben ser razonables (1-52)
     var semanasEnt = Math.floor(total / semanal);
     var residuo    = Math.round((total - semanasEnt * semanal) * 100) / 100;
     var semanas    = residuo > 0 ? semanasEnt + 1 : semanasEnt;
-    _migSemanas    = semanas; // guardar para migRecalcularTotal
+    _migSemanas    = semanas;
 
     if (semanas < 1 || semanas > 52) {
         mostrarError('migPagoSemanal',
@@ -3107,19 +3130,16 @@ window.migCalcular = function() {
         return;
     }
 
-    // ── Validación 4: adeudo base debe ser positivo
     if (adeudo <= 0) {
         mostrarError('migAdeudo', 'El adeudo base debe ser mayor a $0.');
         return;
     }
 
-    // ── Validación 5: porcentaje entre 0 y 100
     if (pct < 0 || pct > 100) {
         mostrarError('migPorcentaje', 'El porcentaje de descuento debe estar entre 0% y 100%.');
         return;
     }
 
-    // Todo válido — limpiar errores y mostrar preview
     limpiarError();
 
     var fmt = function(v) {
@@ -3149,7 +3169,6 @@ window.migCalcular = function() {
     var guardarBtn = getGuardarBtn();
     if (guardarBtn) guardarBtn.style.display = 'inline-block';
 
-    // Inicializar campos de monto adicional
     var migTotalBase = document.getElementById('migTotalBase');
     if (migTotalBase) migTotalBase.value = total.toFixed(2);
 
