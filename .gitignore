@@ -45,8 +45,8 @@ backend/storage/tmp_mpdf/
 backend/storage/logs/*
 !backend/storage/logs/.gitkeep
 backend/cronjobs/logs/**
-tools/**/logs/**
-tools/**/*.log
+backend/services/gastos-cobranza-agent/tools/**/logs/**
+backend/services/gastos-cobranza-agent/tools/**/*.log
 
 # ========== Zip empaquetado de API (no subir el .zip; la carpeta backend/API/ sí va al repo) ==========
 backend/API.zip
@@ -81,3 +81,30 @@ backend/services/segundometro-agent/keys/**
 
 # ========== Pruebas OCR (no subir; puedes copiar archivos nuevos, no se subirán) ==========
 pruebas_OCR/
+
+# ========== Python: bytecode y caché de tests (regenerable; no versionar) ==========
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# ========== Generado por scripts/extraer_script_ticket_sabueso.php ==========
+backend/storage/script_ticket_extraido.js
+
+# ========== Composer PHAR temporal (si se descarga para actualizar sin PATH) ==========
+composer-temp.phar
+
+# ========== IDE / editor (evita commits de estado local) ==========
+.idea/
+*.swp
+*~
+
+# ========== Windows ==========
+Thumbs.db
+Desktop.ini
+
+# ========== Node / npm (si se ejecuta fuera de subcarpetas con .gitignore propio) ==========
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

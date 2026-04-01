@@ -6,6 +6,9 @@ use Core\Controller;
 
 class Onboarding extends Controller
 {
+    /** Nombre histórico (copiado desde backend/uploads). */
+    private const VIDEO_PREFERRED = 'YTDown.com_YouTube_Onboarding-Video-for-Kissflow-SaaS-Onboa_Media_0N5xAiHiqFY_001_1080p.mp4';
+
     public function index()
     {
         $this->set('titulo', 'Onboarding | ' . CONFIGURACION['EMPRESA']);
@@ -13,27 +16,36 @@ class Onboarding extends Controller
     }
 
     /**
-     * Sirve el archivo de video desde backend/uploads/.
+     * Sirve el video desde public/uploads/ (raíz) o public/uploads/onboarding/ (con sesión y módulo 44).
+     * Orden: uploads/{VIDEO_PREFERRED} → uploads/onboarding/* → primer *.mp4 en onboarding/.
      * URL: /onboarding/video
-     * Coloca el archivo en:  backend/uploads/onboarding.mp4
      */
     public function video()
     {
-        $file = dirname(__DIR__) . '/uploads/YTDown.com_YouTube_Onboarding-Video-for-Kissflow-SaaS-Onboa_Media_0N5xAiHiqFY_001_1080p.mp4';
-
-        if (!file_exists($file)) {
+        $file = self::resolverRutaVideoOnboarding();
+        if ($file === null || !is_readable($file)) {
             http_response_code(404);
-            exit('Video no encontrado.');
+            header('Content-Type: text/plain; charset=utf-8');
+            exit('Video no encontrado. Coloque el .mp4 en public/uploads/ o en public/uploads/onboarding/.');
         }
 
         $size = filesize($file);
+        if ($size === false) {
+            http_response_code(500);
+            exit;
+        }
         $mime = 'video/mp4';
 
-        // Soporte para Range Requests (necesario para seek en <video>)
-        if (isset($_SERVER['HTTP_RANGE'])) {
-            preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $m);
+        // Range (seek en <video>); sin esto muchos navegadores no reproducen bien vía PHP
+        if (!empty($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d+)-(\d*)/', (string) $_SERVER['HTTP_RANGE'], $m)) {
             $start = (int) $m[1];
             $end   = isset($m[2]) && $m[2] !== '' ? (int) $m[2] : $size - 1;
+            $end = min($end, $size - 1);
+            if ($start > $end || $start < 0) {
+                header('HTTP/1.1 416 Range Not Satisfiable');
+                header("Content-Range: bytes */$size");
+                exit;
+            }
             $length = $end - $start + 1;
 
             header('HTTP/1.1 206 Partial Content');
@@ -41,23 +53,70 @@ class Onboarding extends Controller
             header("Content-Length: $length");
             header("Content-Type: $mime");
             header('Accept-Ranges: bytes');
+            header('Cache-Control: private, max-age=3600');
 
             $fp = fopen($file, 'rb');
+            if ($fp === false) {
+                http_response_code(500);
+                exit;
+            }
             fseek($fp, $start);
             $buf = 1024 * 64;
             $sent = 0;
             while ($sent < $length && !feof($fp)) {
-                echo fread($fp, min($buf, $length - $sent));
-                $sent += $buf;
-                ob_flush(); flush();
+                $chunk = fread($fp, min($buf, $length - $sent));
+                if ($chunk === false || $chunk === '') {
+                    break;
+                }
+                echo $chunk;
+                $sent += strlen($chunk);
+                if (function_exists('ob_get_level') && ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
             }
             fclose($fp);
         } else {
             header("Content-Type: $mime");
-            header("Content-Length: $size");
+            header('Content-Length: ' . (string) $size);
             header('Accept-Ranges: bytes');
+            header('Cache-Control: private, max-age=3600');
             readfile($file);
         }
         exit;
+    }
+
+    /**
+     * Ruta absoluta al .mp4 de onboarding o null.
+     * Prioridad: public/uploads/{nombre fijo} → public/uploads/onboarding/…
+     */
+    public static function resolverRutaVideoOnboarding(): ?string
+    {
+        $root = rtrim(sparta_uploads_root(), DIRECTORY_SEPARATOR . '/\\');
+        $enRaiz = $root . DIRECTORY_SEPARATOR . self::VIDEO_PREFERRED;
+        if (is_file($enRaiz) && is_readable($enRaiz)) {
+            return $enRaiz;
+        }
+
+        $dir = sparta_uploads_join('onboarding');
+        if (is_dir($dir)) {
+            $candidates = [
+                $dir . DIRECTORY_SEPARATOR . self::VIDEO_PREFERRED,
+                $dir . DIRECTORY_SEPARATOR . 'onboarding.mp4',
+            ];
+            foreach ($candidates as $p) {
+                if (is_file($p) && is_readable($p)) {
+                    return $p;
+                }
+            }
+            $glob = glob($dir . DIRECTORY_SEPARATOR . '*.mp4', GLOB_NOSORT) ?: [];
+            foreach ($glob as $p) {
+                if (is_readable($p)) {
+                    return $p;
+                }
+            }
+        }
+
+        return null;
     }
 }

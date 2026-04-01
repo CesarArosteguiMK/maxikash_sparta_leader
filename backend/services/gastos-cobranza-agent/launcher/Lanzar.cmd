@@ -4,12 +4,11 @@ setlocal EnableDelayedExpansion
 
 title EC — Worker / Excel GC (agente Gastos Cobranza)
 
-rem Esta copia vive en: sparta___SPARTA_SECRET_REDACTED__\backend\services\gastos-cobranza-agent\launcher
-rem Subir 4 niveles llega a la raíz del repo (donde está la carpeta tools).
+rem Carpeta del agente (donde están tools\ec-webhook-worker y tools\ec-gc-excel-enrich).
 set "HERE=%~dp0"
-set "ROOT=%HERE%..\..\..\..\"
-set "WORKER=%ROOT%tools\ec-webhook-worker"
-set "ENRICH=%ROOT%tools\ec-gc-excel-enrich"
+set "AGENT=%HERE%..\"
+set "WORKER=%AGENT%tools\ec-webhook-worker"
+set "ENRICH=%AGENT%tools\ec-gc-excel-enrich"
 
 set "PHP="
 if exist "C:\xampp\php\php.exe" set "PHP=C:\xampp\php\php.exe"

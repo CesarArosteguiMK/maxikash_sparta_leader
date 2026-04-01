@@ -46,7 +46,7 @@
                     </div>
                     <p class="small mb-2" id="gastosCobranzaDetalle">—</p>
                     <p class="small text-muted mb-0" id="gastosCobranzaAyudaEjecutar">
-                        <strong>Ejecutar (agente)</strong> solo genera el Excel en la carpeta <code>reporte/</code> (Python real si hay script; si no, modo prueba). El <strong>Worker</strong> del lote S2 + lista negra se lanza desde la tabla de reportes (botón junto a descargar) o subiendo otro Excel en la sección EC Worker.
+                        <strong>Ejecutar (agente)</strong> solo genera el Excel en la carpeta <code>reporte/</code> (Python real si hay script; si no, modo prueba). El worker S2 + lista negra se lanza desde la tabla de reportes (icono de engranes junto a descargar) o subiendo otro Excel en la sección EC Worker.
                     </p>
                     <div id="gastosCobranzaSalidaWrap" class="d-none mt-3">
                         <label class="form-label small fw-semibold">Salida de la última ejecución</label>
@@ -65,7 +65,7 @@
                     <ul class="list-unstyled small mb-0">
                         <li class="d-flex gap-2 mb-3">
                             <span class="text-success flex-shrink-0"><i class="fa fa-play-circle fa-lg"></i></span>
-                            <span><strong class="text-body">Ejecutar (agente)</strong> solo genera el Excel de cobranza (ayer CDMX) y lo deja en la tabla. En esa fila, el botón <strong>Worker</strong> lanza el EC Worker con ese archivo (sin subirlo otra vez) y, al terminar, la lista negra con el mismo Excel.</span>
+                            <span><strong class="text-body">Ejecutar (agente)</strong> solo genera el Excel de cobranza (ayer CDMX) y lo deja en la tabla. En esa fila, el icono de engranes lanza el EC Worker con ese archivo (sin subirlo otra vez) y, al terminar, la lista negra con el mismo Excel; el icono de lista negra carga solo la verificación semana desde ese Excel en <code>reporte/</code>.</span>
                         </li>
                         <li class="d-flex gap-2 mb-3">
                             <span class="text-primary flex-shrink-0"><i class="fa fa-rocket fa-lg"></i></span>
@@ -188,11 +188,9 @@
                         <p class="small text-muted mb-3">
                             Tabla <code>cobranza_gc_verificacion_semana</code>. <strong>SALDO APLICABLE A GC</strong> → <code>monto_aplicar</code>.
                             <strong>Inicio de semana</strong> se calcula solo en el agente: martes que abre la semana operativa según <em>hoy</em> (hora Ciudad de México), igual que en la pantalla de estado de cuenta.
-                            Si el mismo <code>id_credito</code> ya tiene fila en esa semana con <strong>estatus 3</strong>, no se duplica: pasa a <strong>estatus 2</strong> y se actualiza <code>celula</code> si viene COMENTARIOS en el Excel. Los <strong>nuevos</strong> se insertan con el estatus que elijas abajo (por defecto 2).                             En esta carga, <code>tipo_reporte</code> debe quedar <strong>NULL</strong> en MySQL.
-                            Si en la tabla la columna sigue <code>NOT NULL</code>, ejecute en <strong>__SPARTA_SECRET_REDACTED__</strong> el script
-                            <code>backend/services/gastos-cobranza-agent/scripts/sql_alter_tipo_reporte_nullable.sql</code>
-                            (si no, el motor puede terminar guardando <code>falta_aplicar</code> por defecto).
-                            Misma lógica cuando el Worker dispara la carga automática.
+                            Si el mismo <code>id_credito</code> ya tiene fila en esa semana con <strong>estatus 3</strong>, no se duplica: pasa a <strong>estatus 2</strong> y se actualiza <code>celula</code> si viene COMENTARIOS en el Excel. Los <strong>nuevos</strong> se insertan con el estatus que elijas abajo (por defecto 2). En esta carga, <code>tipo_reporte</code> debe quedar <strong>NULL</strong> en MySQL.
+                            Si el Excel tiene <strong>título o filas vacías</strong> encima de los encabezados, deje en auto el campo «Fila de encabezados» o indique la fila donde está <code>id_credito</code> (1 = primera fila del libro).
+                            Misma lógica cuando el Worker dispara la carga automática (detección automática de fila de títulos).
                         </p>
                         <div class="row g-3 align-items-end">
                             <div class="col-md-5">
@@ -207,7 +205,11 @@
                                     <option value="0">0</option>
                                 </select>
                             </div>
-                            <div class="col-md-5">
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1">Fila encabezados (Excel)</label>
+                                <input type="number" class="form-control form-control-sm" id="cargaVerifHeaderRow" min="1" max="200" placeholder="Auto" title="Número de fila donde están id_credito, etc. (1 = primera). Vacío = el script la detecta solo.">
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label small mb-1">Mensaje lote (opcional)</label>
                                 <input type="text" class="form-control form-control-sm" id="cargaVerifMensaje" placeholder="Vacío = mensaje automático en el script" maxlength="500">
                             </div>
@@ -276,13 +278,15 @@
                             <label class="form-check-label small" for="chkGastosCobranzaLogAuto">Auto cada 4 s</label>
                         </div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2 mb-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGastosCobranzaLogAhora">
+                    <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGastosCobranzaLogAhora"
+                            title="Pide al agente las últimas líneas del archivo de log en disco y las muestra aquí; baja el scroll al final para ver lo más reciente.">
                             <i class="fa fa-download me-1"></i>Traer log ahora
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-warning" id="btnGastosCobranzaLogVaciar" title="Borra el historial del archivo de log en el agente (solo la bitácora en disco)">
                             <i class="fa fa-eraser me-1"></i>Vaciar log
                         </button>
+                        <span class="small text-muted mb-0 d-none d-lg-inline">Últimas ~400 líneas del archivo de log en el agente. Al cargar o al pulsar, el panel baja al <strong>final</strong>. Con «Auto cada 4 s» solo baja el scroll si ya estabas abajo (para no interrumpir si lees más arriba).</span>
                     </div>
                     <pre id="gastosCobranzaLogPanel" class="bg-dark text-light border-0 rounded p-3 small mb-0 font-monospace" style="max-height:320px;overflow:auto;white-space:pre-wrap;">—</pre>
                 </div>
@@ -300,9 +304,9 @@
                 <ul class="mb-0 ps-3">
                     <li><strong>Estado del agente</strong> — Comprueba si ese programa está encendido y disponible, y qué herramientas tiene listas (reportes, worker, carga a lista negra, descargo, etc.).</li>
                     <li><strong>Generar reporte</strong> — Lanza el proceso que arma el reporte de cobranza y lo deja en la lista de archivos para descargar.</li>
-                    <li><strong>Log del agente</strong> — Muestra las últimas líneas de la bitácora en disco; si el archivo crece demasiado, el agente recorta y deja solo el final. Puedes usar <em>Vaciar log</em> para borrar el historial y empezar limpio.</li>
+                    <li><strong>Log del agente</strong> — Pide al agente las últimas líneas del archivo de log en su disco (hasta ~400). Al abrir o refrescar la página el panel hace scroll al <strong>final</strong> para que veas lo más reciente. <em>Traer log ahora</em> hace lo mismo a demanda. Con <em>Auto cada 4 s</em>, si subes el scroll para leer más arriba, no te lo baja solo hasta que vuelvas abajo.</li>
                     <li><strong>Lista de reportes y descargar</strong> — Te deja ver qué Excels ya están listos y bajar el que elijas.</li>
-                    <li><strong>Subir Excel y worker / enriquecido</strong> — Sube tu archivo de créditos y ejecuta la consulta a S2 y el cruce en base de datos (o el flujo enriquecido, según elijas).</li>
+                    <li><strong>Subir Excel y worker / enriquecido</strong> — Sube tu archivo de créditos y ejecuta la consulta a S2 y el cruce en base de datos (o el flujo enriquecido, según elijas). En la tabla de reportes, el icono de engranes es el worker y el de lista negra carga verificación semana desde ese Excel en <code>reporte/</code>.</li>
                     <li><strong>CSV de errores en reintento</strong> — Solo si el worker hizo una segunda pasada y aún fallaron algunos créditos; aparece un enlace para bajar la lista de esos casos.</li>
                     <li><strong>Carga a lista negra (verificación semana)</strong> — Registra en bloque los datos del Excel en la tabla de verificación; tras el worker se hace sola al terminar la corrida (aunque fallen créditos sueltos).</li>
                     <li><strong>Descargo cobranza GC (estatus 3)</strong> — Genera y descarga un Excel con los registros pendientes de ese proceso; a veces responde con un mensaje en pantalla si no hay filas nuevas.</li>
@@ -334,6 +338,50 @@
     .gc-rep-est-negra { background: #eef1f4; color: #3d4551; border-color: rgba(61, 69, 81, 0.12); }
     .gc-rep-est-vacio { background: transparent; color: #a0a8b0; border: none; font-weight: 400; }
     .gc-rep-est-otro { background: #f3f4f6; color: #4b5563; border-color: rgba(75, 85, 99, 0.12); }
+
+    /* Acciones reporte_cobranza: neo-ligero (tonos suaves, pill, sombra mínima) */
+    .gc-rep-acciones-cell .btn,
+    .gc-rep-acciones-cell a.btn {
+        border-radius: 999px;
+        padding: 0.32rem 0.62rem;
+        line-height: 1;
+        border-width: 1px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .gc-rep-acciones-cell a.btn.gc-rep-btn-descargar {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #64748b;
+    }
+    .gc-rep-acciones-cell a.btn.gc-rep-btn-descargar:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #475569;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .gc-rep-acciones-cell button.gc-rep-btn-worker {
+        background: #fffbf5;
+        border-color: #f0e6dc;
+        color: #9a8478;
+    }
+    .gc-rep-acciones-cell button.gc-rep-btn-worker:hover {
+        background: #fff5eb;
+        border-color: #e8d5c4;
+        color: #7d6c62;
+        box-shadow: 0 1px 3px rgba(120, 90, 70, 0.06);
+    }
+    .gc-rep-acciones-cell button.gc-rep-btn-lista-negra {
+        background: #faf8ff;
+        border-color: #e8e4f3;
+        color: #8b7eb8;
+    }
+    .gc-rep-acciones-cell button.gc-rep-btn-lista-negra:hover {
+        background: #f3f0fa;
+        border-color: #dcd6ec;
+        color: #6f6499;
+        box-shadow: 0 1px 3px rgba(90, 80, 130, 0.06);
+    }
 </style>
 
 <script>
@@ -380,6 +428,28 @@
     var ivLogEcWorker = null;
     /** Evita reejecutar el mismo día (CDMX) tras un reporte real exitoso. */
     var LS_REPORTE_OK_YMD = 'gastosCobranza_reporteRealOkYmd';
+
+    /** El servidor ya manda las últimas N líneas; el panel debe bajar el scroll para mostrar lo más reciente. */
+    function logPanelEstaCercaDelFinal() {
+        if (!logPanel) return true;
+        var umb = 120;
+        try {
+            return logPanel.scrollHeight - logPanel.scrollTop - logPanel.clientHeight <= umb;
+        } catch (e) {
+            return true;
+        }
+    }
+
+    function scrollLogPanelAlFinal() {
+        if (!logPanel) return;
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                try {
+                    logPanel.scrollTop = logPanel.scrollHeight;
+                } catch (e2) { /* ignorar */ }
+            });
+        });
+    }
 
     function fechaCalendarioCdmxYmd() {
         return new Intl.DateTimeFormat('en-CA', {
@@ -500,18 +570,24 @@
                     : '<span class="gc-rep-estado gc-rep-est-vacio">—</span>';
                 var esRep = esExcelReporteCobranza(nom);
                 var btnWorker = esRep
-                    ? '<button type="button" class="btn btn-sm btn-outline-primary btn-gc-worker-reporte ms-1" data-nombre-enc="' +
-                        encodeURIComponent(nom) + '" title="Worker S2 con este Excel (sin volver a subirlo). Al terminar, lista negra automática. Usa fecha, columna ID y Omitir N de la sección EC Worker.">' +
-                        '<i class="fa fa-cogs me-1"></i>Worker</button>'
+                    ? '<button type="button" class="btn btn-sm btn-gc-worker-reporte gc-rep-btn-worker ms-1" data-nombre-enc="' +
+                        encodeURIComponent(nom) + '" title="Worker S2: lanza el proceso de cobranza con este Excel sin subirlo de nuevo. Al terminar ok, la lista negra se actualiza automáticamente.">' +
+                        '<i class="fa fa-cogs" aria-hidden="true"></i><span class="visually-hidden"> Worker S2</span></button>'
+                    : '';
+                var btnListaNegra = esRep
+                    ? '<button type="button" class="btn btn-sm btn-gc-lista-negra-reporte gc-rep-btn-lista-negra ms-1" data-nombre-enc="' +
+                        encodeURIComponent(nom) + '" title="Lista negra: carga este reporte directo a verificación semana (sin pasar por Worker). Usa estatus, fila encabezados y mensaje del panel «Carga manual».">' +
+                        '<i class="fa fa-ban" aria-hidden="true"></i><span class="visually-hidden"> Lista negra</span></button>'
                     : '';
                 return '<tr>' +
                     '<td class="font-monospace small">' + safe + '</td>' +
                     '<td class="text-end small">' + formatoBytes(a.bytes) + '</td>' +
                     '<td class="small">' + (a.modificado || '') + '</td>' +
                     '<td class="small text-nowrap"' + estTdAttr + '>' + estInner + '</td>' +
-                    '<td class="text-center text-nowrap">' +
-                    '<a class="btn btn-sm btn-primary" href="' + href + '" title="Descargar"><i class="fa fa-download"></i></a>' +
+                    '<td class="text-center text-nowrap gc-rep-acciones-cell">' +
+                    '<a class="btn btn-sm gc-rep-btn-descargar" href="' + href + '" title="Descargar"><i class="fa fa-download"></i></a>' +
                     btnWorker +
+                    btnListaNegra +
                     '</td>' +
                     '</tr>';
             }).join('');
@@ -528,9 +604,15 @@
         }
     }
 
+    /**
+     * @param {number} [lineas] hasta 400 (tope del servidor)
+     * @param {{ scrollBottom?: boolean|'auto' }} [opts] true = siempre al final; false = no mover scroll;
+     *   'auto' o ausente = bajar solo si el usuario ya estaba cerca del final (útil con «Auto cada 4 s»)
+     */
     async function traerLog(lineas, opts) {
         opts = opts || {};
-        var n = typeof lineas === 'number' && lineas > 0 ? Math.min(400, lineas) : 160;
+        var estabaCercaDelFinal = logPanelEstaCercaDelFinal();
+        var n = typeof lineas === 'number' && lineas > 0 ? Math.min(400, lineas) : 400;
         try {
             var r = await fetch('/gastoscobranza/logAgente?lines=' + n, {
                 method: 'GET',
@@ -542,10 +624,16 @@
             } else {
                 logPanel.textContent = data.mensaje || 'No se pudo leer el log (¿agente caído?).';
             }
-            if (opts.scrollBottom) {
-                try {
-                    logPanel.scrollTop = logPanel.scrollHeight;
-                } catch (e2) { /* ignorar */ }
+            var bajar;
+            if (opts.scrollBottom === true) {
+                bajar = true;
+            } else if (opts.scrollBottom === false) {
+                bajar = false;
+            } else {
+                bajar = estabaCercaDelFinal;
+            }
+            if (bajar) {
+                scrollLogPanelAlFinal();
             }
         } catch (e) {
             logPanel.textContent = String(e.message || e);
@@ -575,7 +663,7 @@
             var data = await r.json();
             if (data.success) {
                 alertar('Listo', data.mensaje || 'Log vaciado.', 'success');
-                traerLog(160, { scrollBottom: true });
+                traerLog(400, { scrollBottom: true });
             } else {
                 alertar('No se pudo vaciar', data.mensaje || 'Error', 'warning');
             }
@@ -614,6 +702,13 @@
         if (cargaVerifMensaje && cargaVerifMensaje.value.trim()) {
             payload.mensaje = cargaVerifMensaje.value.trim();
         }
+        var cargaVerifHeaderRow = document.getElementById('cargaVerifHeaderRow');
+        if (cargaVerifHeaderRow && cargaVerifHeaderRow.value !== '' && cargaVerifHeaderRow.value != null) {
+            var hrn = parseInt(cargaVerifHeaderRow.value, 10);
+            if (hrn >= 1 && hrn <= 200) {
+                payload.headerRow = hrn;
+            }
+        }
         return payload;
     }
 
@@ -633,24 +728,35 @@
     async function ejecutarPayloadEcYListaNegra(payloadEc, cargaOpts) {
         comenzarLogRapidoEcWorker();
         try {
-            var r2 = await fetch('/gastoscobranza/ejecutarEcLauncher', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
-                body: JSON.stringify(payloadEc)
-            });
+            var r2;
+            try {
+                r2 = await fetch('/gastoscobranza/ejecutarEcLauncher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                    body: JSON.stringify(payloadEc)
+                });
+            } catch (eFetch) {
+                alertar('Error de red',
+                    'No se pudo conectar al servidor para ejecutar el worker. Lista negra NO se ejecutó. Detalle: ' +
+                    String(eFetch.message || eFetch), 'error');
+                return;
+            }
             var raw = await r2.text();
             var data;
             try {
                 data = JSON.parse(raw);
             } catch (eParse) {
-                alertar('Error', 'El servidor no devolvió JSON en worker/enrich. Suele ser sesión caducada o error PHP. Inicio de respuesta: ' +
+                alertar('Error',
+                    'El servidor no devolvió JSON en worker/enrich. Suele ser sesión caducada o error PHP. ' +
+                    'Lista negra NO se ejecutó. Inicio de respuesta: ' +
                     String(raw).slice(0, 200).replace(/\s+/g, ' '), 'error');
                 return;
             }
             var ok = !!data.success;
             var msg = data.mensaje || (ok ? 'Proceso EC terminado.' : 'Error en worker / enrich.');
             var codigoSalida = (typeof data.codigo_salida === 'number') ? data.codigo_salida : -1;
-            var workerLlegoAlFin = payloadEc.tipo === 'worker' && (codigoSalida === 0 || codigoSalida === 2);
+            var esWorker = payloadEc.tipo === 'worker';
+            var workerLlegoAlFin = esWorker && (codigoSalida === 0 || codigoSalida === 2);
             if (data.stdout || data.stderr) {
                 ecOutPre.textContent = (data.stdout || '') + (data.stderr ? '\n--- stderr ---\n' + data.stderr : '');
                 ecOutWrap.classList.remove('d-none');
@@ -661,7 +767,19 @@
                 ecErroresReintentoBanner.classList.remove('d-none');
             }
             if (workerLlegoAlFin) {
-                var dataCarga = await invocarCargaVerificacionAgente(payloadEc.nombre, cargaOpts);
+                /* Worker llegó al final (0 = todo ok, 2 = ok con errores parciales) → cargar lista negra automático */
+                var dataCarga;
+                try {
+                    dataCarga = await invocarCargaVerificacionAgente(payloadEc.nombre, cargaOpts);
+                } catch (eCarga) {
+                    alertar('Worker ok — lista negra falló',
+                        'El worker terminó (código ' + codigoSalida + ') pero no se pudo contactar al servidor para la lista negra. ' +
+                        'Puedes cargarla manualmente con el botón morado en la tabla. Detalle: ' +
+                        String(eCarga.message || eCarga), 'warning');
+                    await traerLog(380, { scrollBottom: true });
+                    await traerListaReportes();
+                    return;
+                }
                 var okC = !!dataCarga.success;
                 if (dataCarga.stdout || dataCarga.stderr) {
                     var bloqueCarga = '\n\n--- Lista negra (automático, mismo Excel) ---\n' +
@@ -677,17 +795,30 @@
                 }
                 if (okC) {
                     if (codigoSalida === 0) {
-                        alertar('Listo', 'Worker completado y lista negra actualizada con el mismo Excel.', 'success');
+                        alertar('¡Todo listo!',
+                            'Worker completado correctamente.\nLista negra actualizada con el mismo Excel.',
+                            'success');
                     } else {
-                        alertar('Lista negra actualizada',
-                            'El worker terminó con uno o más créditos en error (código ' + codigoSalida +
-                            '), pero la lista negra se cargó igual con el mismo Excel. Revise el log y el CSV de reintento si aplica.',
+                        alertar('Worker ok con errores parciales — Lista negra actualizada',
+                            'El worker terminó (código ' + codigoSalida + '): uno o más créditos con error. ' +
+                            'La lista negra se cargó igual con el mismo Excel.\n' +
+                            'Revisa el log y el CSV de reintento si aparece.',
                             'warning');
                     }
                 } else {
-                    alertar('Atención', 'El worker terminó, pero la carga a lista negra falló: ' +
-                        (dataCarga.mensaje || 'revisa salida y log.'), 'warning');
+                    alertar('Worker ok — Lista negra FALLÓ',
+                        'El worker terminó (código ' + codigoSalida + ') pero la carga a lista negra tuvo un error: ' +
+                        (dataCarga.mensaje || 'sin detalle') +
+                        '.\nPuedes intentarla manualmente con el botón morado en la tabla de reportes.',
+                        'warning');
                 }
+            } else if (esWorker) {
+                /* Worker falló antes de terminar → lista negra no se intentó */
+                alertar('Worker falló — Lista negra NO ejecutada',
+                    'El worker no llegó al final (código ' + codigoSalida + '). ' +
+                    'La lista negra NO se ejecutó para no insertar datos de un lote incompleto.\n\n' +
+                    (msg || ''),
+                    'error');
             } else if (ok) {
                 alertar('EC listo', msg, 'success');
             } else {
@@ -758,7 +889,7 @@
                 if (btnCargaVerif) btnCargaVerif.disabled = !a.script_carga_verificacion_semana;
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = !a.script_descargo_estatus3;
                 if (!sil) {
-                    traerLog();
+                    traerLog(400, { scrollBottom: true });
                     traerListaReportes();
                 }
             } else {
@@ -797,7 +928,7 @@
             var ct = (r.headers.get('content-type') || '').toLowerCase();
             if (ct.indexOf('application/json') !== -1) {
                 var data = await r.json();
-                await traerLog();
+                await traerLog(400, { scrollBottom: true });
                 if (data.sin_excel) {
                     alertar('Descargo', data.mensaje || 'No se generó Excel en esta corrida.', 'info');
                 } else if (data.success) {
@@ -810,7 +941,7 @@
                 return;
             }
             if (!r.ok) {
-                await traerLog();
+                await traerLog(400, { scrollBottom: true });
                 alertar('Descargo', 'Respuesta HTTP ' + r.status, 'error');
                 return;
             }
@@ -823,7 +954,7 @@
             a.click();
             a.remove();
             URL.revokeObjectURL(urlObj);
-            await traerLog();
+            await traerLog(400, { scrollBottom: true });
             alertar('Listo', 'Se descargó descargo_estatus3.xlsx', 'success');
         } catch (e) {
             alertar('Error', String(e.message || e), 'error');
@@ -905,7 +1036,7 @@
                 if (cargaVerifOutWrap) cargaVerifOutWrap.classList.remove('d-none');
             }
             alertar(ok ? 'Carga listo' : 'Carga con errores', msg, ok ? 'success' : 'error');
-            await traerLog();
+            await traerLog(400, { scrollBottom: true });
         } catch (e) {
             alertar('Error', String(e.message || e), 'error');
         }
@@ -962,12 +1093,41 @@
                         localStorage.setItem(LS_REPORTE_OK_YMD, fechaCalendarioCdmxYmd());
                     } catch (e2) { /* ignorar */ }
                 }
-                await traerLog();
+                await traerLog(400, { scrollBottom: true });
                 await traerListaReportes();
             }
         } catch (e) {
             alertar('Error', String(e.message || e), 'error');
         } finally {
+            refrescarEstado();
+        }
+    }
+
+    /**
+     * Carga verificación semana (lista negra) usando un Excel ya en reporte/ (mismo nombre de fila).
+     * Respeta dry-run, estatus, headerRow y mensaje del panel manual (checkboxs/inputs existen aunque el panel esté colapsado).
+     */
+    async function ejecutarListaNegraDesdeReporte(nombreArchivo) {
+        comenzarLogRapidoEcWorker();
+        if (cargaVerifOutWrap) cargaVerifOutWrap.classList.add('d-none');
+        try {
+            var data = await invocarCargaVerificacionAgente(nombreArchivo, { origenCarpeta: 'reporte' });
+            var ok = !!data.success;
+            var msg = data.mensaje || (ok ? 'Carga a lista negra terminada.' : 'Error en la carga.');
+            if (data.stdout || data.stderr) {
+                if (cargaVerifOutPre) {
+                    cargaVerifOutPre.textContent = (data.stdout || '') +
+                        (data.stderr ? '\n--- stderr ---\n' + data.stderr : '');
+                }
+                if (cargaVerifOutWrap) cargaVerifOutWrap.classList.remove('d-none');
+            }
+            alertar(ok ? 'Lista negra' : 'Lista negra con errores', msg, ok ? 'success' : 'error');
+            await traerLog(380, { scrollBottom: true });
+            await traerListaReportes();
+        } catch (e) {
+            alertar('Error', String(e.message || e), 'error');
+        } finally {
+            detenerLogRapidoEcWorker();
             refrescarEstado();
         }
     }
@@ -1008,7 +1168,7 @@
         ivLog = setInterval(function () {
             if (document.hidden || !chkLog.checked) return;
             if (ivLogEcWorker) return;
-            traerLog();
+            traerLog(400, { scrollBottom: 'auto' });
         }, 4000);
         if (ivRep) clearInterval(ivRep);
         ivRep = setInterval(function () {
@@ -1018,17 +1178,25 @@
     }
 
     chkLog.addEventListener('change', function () {
-        if (chkLog.checked) traerLog();
+        if (chkLog.checked) traerLog(400, { scrollBottom: true });
     });
-    btnLog.addEventListener('click', traerLog);
+    if (btnLog) btnLog.addEventListener('click', function () {
+        traerLog(400, { scrollBottom: true });
+    });
     if (btnLogVaciar) btnLogVaciar.addEventListener('click', vaciarLogAgente);
     if (tbodyRep) {
         tbodyRep.addEventListener('click', function (ev) {
             var btnW = ev.target.closest('.btn-gc-worker-reporte');
-            if (!btnW || !tbodyRep.contains(btnW)) return;
-            var enc = btnW.getAttribute('data-nombre-enc');
-            if (!enc) return;
-            ejecutarWorkerDesdeReporte(decodeURIComponent(enc));
+            if (btnW && tbodyRep.contains(btnW)) {
+                var encW = btnW.getAttribute('data-nombre-enc');
+                if (encW) ejecutarWorkerDesdeReporte(decodeURIComponent(encW));
+                return;
+            }
+            var btnN = ev.target.closest('.btn-gc-lista-negra-reporte');
+            if (btnN && tbodyRep.contains(btnN)) {
+                var encN = btnN.getAttribute('data-nombre-enc');
+                if (encN) ejecutarListaNegraDesdeReporte(decodeURIComponent(encN));
+            }
         });
     }
     btnListarRep.addEventListener('click', traerListaReportes);

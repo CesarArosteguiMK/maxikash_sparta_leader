@@ -1709,13 +1709,13 @@ public static function guardarConciliacion($datos, $archivo = null)
 
         $archivoPath = null;
         if ($archivo && !empty($archivo['tmp_name'])) {
-            $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/conciliaciones/';
-            if (!file_exists($directorio)) {
+            $directorio = sparta_uploads_join('conciliaciones');
+            if (!is_dir($directorio)) {
                 mkdir($directorio, 0777, true);
             }
             $extension   = pathinfo($archivo['name'], PATHINFO_EXTENSION);
             $nombreArch  = 'conciliacion_' . $datos['id_convenio'] . '_sem' . $datos['numero_semana'] . '_' . date('Ymd_His') . '.' . $extension;
-            $rutaCompleta = $directorio . $nombreArch;
+            $rutaCompleta = sparta_uploads_join('conciliaciones', $nombreArch);
             if (move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
                 $archivoPath = '/uploads/conciliaciones/' . $nombreArch;
             }
@@ -1811,8 +1811,8 @@ public static function subirComprobante($datos, $archivo)
             return self::resultado(false, 'El comprobante es obligatorio.');
         }
 
-        $directorio = $_SERVER['DOCUMENT_ROOT'] . '/uploads/comprobantes/';
-        if (!file_exists($directorio)) {
+        $directorio = sparta_uploads_join('comprobantes');
+        if (!is_dir($directorio)) {
             mkdir($directorio, 0777, true);
         }
 
@@ -1829,7 +1829,7 @@ public static function subirComprobante($datos, $archivo)
         $nombreArchivo = 'comprobante_conv' . $datos['id_convenio'] .
                          '_sem' . $datos['numero_semana'] .
                          '_' . date('Ymd_His') . '.' . $extension;
-        $rutaCompleta  = $directorio . $nombreArchivo;
+        $rutaCompleta  = sparta_uploads_join('comprobantes', $nombreArchivo);
         $rutaRelativa  = '/uploads/comprobantes/' . $nombreArchivo;
 
         if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {

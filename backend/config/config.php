@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../core/UploadsPaths.php';
+
 // Preferir variables de entorno en producción; no commitear valores reales.
 if (!defined('TOKEN')) {
     $t = getenv('TOKEN');

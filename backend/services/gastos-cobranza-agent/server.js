@@ -6,7 +6,7 @@
  * Si no hay script y GASTOS_COBRANZA_DEMO no es "0", /run responde en modo prueba.
  *
  * EC Launcher: POST /ec-launcher/run ejecuta tools/ec-webhook-worker/worker.php o
- * ec-gc-excel-enrich/enrich_gc_excel.php (misma lógica que launcher/Lanzar.cmd, sin menú interactivo).
+ * tools/ec-gc-excel-enrich/enrich_gc_excel.php (dentro de este agente; misma lógica que launcher/Lanzar.cmd).
  * Excel debe estar ya en reporte/ec-uploads (subida vía PHP en la vista).
  *
  * Carga verificación semana: POST /carga-verificacion-semana/run ejecuta
@@ -68,9 +68,8 @@ const LOG_FILE = path.join(LOG_DIR, 'agente-gastos-cobranza.log');
 const ENV_CON_PYTHON_UNBUFFERED = { ...process.env, PYTHONUNBUFFERED: '1' };
 const REPORTE_DIR = path.join(__dirname, 'reporte');
 const EC_UPLOAD_DIR = path.join(REPORTE_DIR, 'ec-uploads');
-const SPARTA_LEDGER_ROOT = path.resolve(path.join(__dirname, '..', '..', '..'));
-const EC_WORKER_DIR = path.join(SPARTA_LEDGER_ROOT, 'tools', 'ec-webhook-worker');
-const EC_ENRICH_DIR = path.join(SPARTA_LEDGER_ROOT, 'tools', 'ec-gc-excel-enrich');
+const EC_WORKER_DIR = path.join(__dirname, 'tools', 'ec-webhook-worker');
+const EC_ENRICH_DIR = path.join(__dirname, 'tools', 'ec-gc-excel-enrich');
 const DESCARGO_ESTATUS3_DIR = path.join(REPORTE_DIR, 'descargo_estatus3');
 
 /** Texto corto en columna Estado (UI) → tooltip = frase completa operativa */
@@ -459,7 +458,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     if (!fs.existsSync(path.join(EC_WORKER_DIR, 'worker.php'))) {
       return res.status(500).json({
         success: false,
-        mensaje: 'No existe tools/ec-webhook-worker/worker.php (¿raíz del repo correcta?).',
+        mensaje: 'No existe gastos-cobranza-agent/tools/ec-webhook-worker/worker.php.',
       });
     }
     cwd = EC_WORKER_DIR;
@@ -475,7 +474,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     if (!fs.existsSync(path.join(EC_ENRICH_DIR, 'enrich_gc_excel.php'))) {
       return res.status(500).json({
         success: false,
-        mensaje: 'No existe tools/ec-gc-excel-enrich/enrich_gc_excel.php.',
+        mensaje: 'No existe gastos-cobranza-agent/tools/ec-gc-excel-enrich/enrich_gc_excel.php.',
       });
     }
     cwd = EC_ENRICH_DIR;
@@ -603,6 +602,20 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   }
   const mensaje = req.body?.mensaje != null ? String(req.body.mensaje).trim() : '';
 
+  let headerRowPandas = 0;
+  let headerRowExplicit = false;
+  if (req.body?.headerRow !== undefined && req.body?.headerRow !== null && String(req.body.headerRow).trim() !== '') {
+    const hr = parseInt(String(req.body.headerRow).trim(), 10);
+    if (!Number.isFinite(hr) || hr < 1 || hr > 200) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'headerRow: número de fila en Excel donde están los títulos de columna (1–200). Vacío = detectar automático.',
+      });
+    }
+    headerRowPandas = hr - 1;
+    headerRowExplicit = true;
+  }
+
   if (inicioSemana && !/^\d{4}-\d{2}-\d{2}$/.test(inicioSemana)) {
     return res.status(400).json({ success: false, mensaje: 'inicioSemana debe ser YYYY-MM-DD o vacío.' });
   }
@@ -622,9 +635,14 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   if (mensaje) args.push('--mensaje', mensaje);
   if (megaPhpDefaults) args.push('--mega-php-defaults');
   else args.push('--no-mega-php-defaults');
+  if (headerRowExplicit) {
+    args.push('--header-row', String(headerRowPandas));
+  }
 
   const cwd = path.dirname(scriptPath);
-  appendLog(`--- carga-verificacion-semana archivo=${archivo} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} ---`);
+  appendLog(
+    `--- carga-verificacion-semana archivo=${archivo} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'} ---`,
+  );
 
   const child = spawn(REPORTE_PYTHON, args, {
     cwd,
@@ -863,76 +881,6 @@ app.get('/descargo-estatus3/descargar', (req, res) => {
   return res.download(p, nombre);
 });
 
-// ─── Auto /run a las 08:00 hora CDMX (reloj ciud. México, no TZ del servidor) ───
-function getCdmxYmd(d = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Mexico_City',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(d);
-  const y = parts.find((p) => p.type === 'year').value;
-  const mo = parts.find((p) => p.type === 'month').value;
-  const da = parts.find((p) => p.type === 'day').value;
-  return `${y}-${mo}-${da}`;
-}
-
-function getCdmxHourMin(d = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'America/Mexico_City',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(d);
-  const h = parseInt(parts.find((p) => p.type === 'hour').value, 10);
-  const m = parseInt(parts.find((p) => p.type === 'minute').value, 10);
-  return { h, m };
-}
-
-/** Lunes=0 … domingo=6 (igual que Python weekday del script). */
-function cdmxHoyPyWeekday(d = new Date()) {
-  const s = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short' }).format(d);
-  const map = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
-  return map[s];
-}
-
-function parseAuto8amHoyPyFilter() {
-  const raw = (process.env.AUTO_8AM_CDMX_HOY_PY || '').trim();
-  if (!raw) return null;
-  const s = new Set();
-  for (const x of raw.split(',')) {
-    const n = parseInt(x.trim(), 10);
-    if (!Number.isNaN(n) && n >= 0 && n <= 6) s.add(n);
-  }
-  return s.size ? s : null;
-}
-
-const AUTO_8AM_HOY_PY = parseAuto8amHoyPyFilter();
-let lastAuto8amCdmxYmd = null;
-
-function dispararRunInterno() {
-  const url = `http://127.0.0.1:${PORT}/run`;
-  /** @type {Record<string, string>} */
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-  if (API_KEY) headers['X-Api-Key'] = API_KEY;
-  fetch(url, { method: 'POST', headers, body: '{}' }).catch((e) => {
-    appendLog('[auto-8am] fetch /run: ' + String(e.message || e));
-  });
-}
-
-function tickAuto8amCdmx() {
-  if ((process.env.AUTO_EJECUTAR_8AM_CDMX || '0').trim() !== '1') return;
-  const d = new Date();
-  const { h, m } = getCdmxHourMin(d);
-  if (h !== 8 || m > 1) return;
-  const ymd = getCdmxYmd(d);
-  if (lastAuto8amCdmxYmd === ymd) return;
-  if (AUTO_8AM_HOY_PY && !AUTO_8AM_HOY_PY.has(cdmxHoyPyWeekday(d))) return;
-  lastAuto8amCdmxYmd = ymd;
-  appendLog(`[auto-8am] CDMX ${ymd} 08:00 → POST /run (Python: ayer CDMX como fecha de negocio)`);
-  dispararRunInterno();
-}
-
 ensureLogDir();
 ensureReporteDir();
 if (String(process.env.GASTOS_COBRANZA_LOG_CLEAR_ON_START || '0').trim() === '1') {
@@ -944,6 +892,4 @@ appendLog(
 
 app.listen(PORT, () => {
   console.log('[gastos-cobranza-agent] escuchando en', PORT);
-  setInterval(tickAuto8amCdmx, 30_000);
-  tickAuto8amCdmx();
 });

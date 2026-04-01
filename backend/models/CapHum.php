@@ -509,7 +509,7 @@ class CapHum extends Model
             ", ['id' => $id_documento_carga]);
 
             // Eliminar archivo físico
-            $rutaArchivo = __DIR__ . '/../uploads/bajas/' . $nombreArchivo;
+            $rutaArchivo = sparta_uploads_join('bajas', $nombreArchivo);
             if (file_exists($rutaArchivo)) {
                 @unlink($rutaArchivo);
             }
@@ -696,7 +696,7 @@ class CapHum extends Model
             ];
 
             $carpeta = $carpetas[$id_documento] ?? $carpetas['default'];
-            $rutaArchivo = __DIR__ . '/../uploads/' . $carpeta . '/' . $nombreArchivo;
+            $rutaArchivo = sparta_uploads_join($carpeta, $nombreArchivo);
 
             if (file_exists($rutaArchivo)) {
                 @unlink($rutaArchivo);

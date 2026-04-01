@@ -181,7 +181,7 @@ def normalize_header(s: str) -> str:
     return s
 
 
-def find_id_credito_column(df: pd.DataFrame) -> str:
+def find_id_credito_column_name(df: pd.DataFrame) -> Optional[str]:
     candidates = {}
     for c in df.columns:
         n = normalize_header(c)
@@ -195,12 +195,153 @@ def find_id_credito_column(df: pd.DataFrame) -> str:
         n = normalize_header(c)
         if "id" in n and "credito" in n.replace("crédito", "credito"):
             return c
+    return None
 
+
+def find_id_credito_column(df: pd.DataFrame) -> str:
+    col = find_id_credito_column_name(df)
+    if col is None:
+        print(
+            "No se encontró columna de id_credito. Encabezados: "
+            + ", ".join(repr(c) for c in df.columns),
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    return col
+
+
+def dataframe_headers_mostly_unnamed(df: pd.DataFrame) -> bool:
+    if df is None or len(df.columns) == 0:
+        return True
+    unnamed = sum(1 for c in df.columns if str(c).startswith("Unnamed"))
+    return unnamed >= max(1, len(df.columns) - 1)
+
+
+def _fila_parece_encabezado_id_credito(row) -> int:
+    """
+    Puntuación de una fila leída con header=None: ¿parece la fila de títulos con ID crédito?
+    100 = coincidencia fuerte; 80 = contiene id y credito en la misma celda.
+    """
+    best = 0
+    non_empty = 0
+    for j in range(row.shape[0]):
+        v = row.iloc[j]
+        if pd.isna(v):
+            continue
+        non_empty += 1
+        try:
+            s = normalize_header(str(v).strip())
+        except Exception:
+            continue
+        if s in ("id_credito", "idcredito", "id_crédito"):
+            best = max(best, 100)
+        elif "id" in s and "credito" in s.replace("crédito", "credito"):
+            best = max(best, 80)
+    if best >= 80 and non_empty >= 2:
+        return best
+    return 0
+
+
+def sniff_header_row_candidates(
+    excel_path: Path,
+    sheet,
+    *,
+    max_scan: int = 45,
+) -> List[int]:
+    """
+    Filas (índice 0-based para pandas header=) donde una celda parece el título «ID CREDITO».
+    Prioriza reporte_cobranza.xlsx (título fusionado fila 1, encabezados fila 2 → header=1).
+    """
+    try:
+        raw = pd.read_excel(
+            excel_path,
+            sheet_name=sheet,
+            header=None,
+            nrows=max_scan,
+            engine="openpyxl",
+        )
+    except Exception:
+        return []
+    if raw is None or len(raw) == 0:
+        return []
+    scored: List[Tuple[int, int]] = []
+    for r in range(len(raw)):
+        sc = _fila_parece_encabezado_id_credito(raw.iloc[r])
+        if sc > 0:
+            scored.append((sc, r))
+    scored.sort(key=lambda t: (-t[0], t[1]))
+    out: List[int] = []
+    seen = set()
+    for _, r in scored:
+        if r not in seen:
+            seen.add(r)
+            out.append(r)
+    return out
+
+
+def read_excel_for_carga(
+    excel_path: Path,
+    sheet,
+    preferred_header_row: int,
+    *,
+    max_scan: int = 40,
+) -> Tuple[pd.DataFrame, int]:
+    """
+    Lee el .xlsx probando fila de encabezados (pandas 0-based).
+    Muchos reportes traen título en fila 1 y nombres de columna en fila 2 → header=1.
+    Primero se prueban filas detectadas automáticamente (celda tipo ID CREDITO).
+    """
+    sniffed = sniff_header_row_candidates(excel_path, sheet, max_scan=max_scan)
+    order: List[int] = []
+    for x in sniffed + [preferred_header_row] + list(range(0, max_scan)):
+        if x in order or x < 0:
+            continue
+        order.append(x)
+
+    last_cols: Optional[List] = None
+    last_mostly_unnamed = False
+    for hr in order:
+        try:
+            df = pd.read_excel(
+                excel_path,
+                sheet_name=sheet,
+                header=hr,
+                engine="openpyxl",
+            )
+        except Exception as e:
+            print(f"Aviso: no se pudo leer con header={hr}: {e}", file=sys.stderr)
+            continue
+        if df is None or len(df.columns) == 0:
+            continue
+        last_cols = list(df.columns)
+        last_mostly_unnamed = dataframe_headers_mostly_unnamed(df)
+        if last_mostly_unnamed:
+            continue
+        if find_id_credito_column_name(df) is None:
+            continue
+        if hr != preferred_header_row:
+            print(
+                f"Nota: encabezados útiles en fila Excel {hr + 1} "
+                f"(pandas header={hr}); la preferida era fila {preferred_header_row + 1}.",
+                flush=True,
+            )
+        return df, hr
+
+    if last_mostly_unnamed and last_cols is not None:
+        print(
+            "Casi todos los encabezados son 'Unnamed'. Revisa --header-row "
+            "(en Excel: fila donde está el texto ID CREDITO; en el agente JSON: headerRow = número de esa fila, 1-based).",
+            file=sys.stderr,
+        )
     print(
-        "No se encontró columna de id_credito. Encabezados: "
-        + ", ".join(repr(c) for c in df.columns),
+        "No se encontraron encabezados reconocibles (p. ej. id_credito). "
+        "Si hay filas de título arriba, use --header-row N con N = fila de títulos menos 1 "
+        "(ej. títulos en fila 3 de Excel → --header-row 2). "
+        "Reporte cobranza del agente: encabezados en fila 2 → --header-row 1 o headerRow: 2 en JSON.",
         file=sys.stderr,
     )
+    if last_cols is not None:
+        print(f"Columnas leídas: {last_cols}", file=sys.stderr)
     sys.exit(2)
 
 
@@ -399,7 +540,15 @@ def main() -> None:
         metavar="archivo.xlsx",
     )
     ap.add_argument("--sheet", default=0)
-    ap.add_argument("--header-row", type=int, default=0)
+    ap.add_argument(
+        "--header-row",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Fila de encabezados en índice pandas (0=primera fila del libro). "
+        "Por defecto también se detecta la fila que contiene «ID CREDITO». "
+        "Reporte reporte_cobranza_*.xlsx: encabezados en fila 2 del Excel → N=1.",
+    )
     ap.add_argument("--inicio-semana", default=None, metavar="FECHA")
     ap.add_argument("--sin-normalizar-martes", action="store_true")
     ap.add_argument("--mensaje", "-m", default=None)
@@ -558,20 +707,11 @@ def main() -> None:
             print(f"No existe el Excel: {excel_path}", file=sys.stderr)
             sys.exit(2)
 
-        df = pd.read_excel(
+        df, _header_usado = read_excel_for_carga(
             excel_path,
-            sheet_name=args.sheet,
-            header=args.header_row,
-            engine="openpyxl",
+            args.sheet,
+            int(args.header_row),
         )
-        unnamed = sum(1 for c in df.columns if str(c).startswith("Unnamed"))
-        if unnamed >= max(1, len(df.columns) - 1):
-            print(
-                "Casi todos los encabezados son 'Unnamed'. Revisa --header-row.",
-                file=sys.stderr,
-            )
-            print(f"Columnas leídas: {list(df.columns)}", file=sys.stderr)
-            sys.exit(2)
 
         col_id = find_id_credito_column(df)
         col_nom = None if args.ignorar_nombre_excel else find_nombre_cliente_column(df)

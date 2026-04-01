@@ -59,7 +59,7 @@ ssh_key = C:\Users\admin\Downloads\jesusssh4.unknown
 - **Servidor:** Puede usar la ruta donde la clave tiene permisos correctos (ej. `C:\Users\admin\Downloads\jesusssh4.unknown`).
 - **Local/desarrollo:** Si no define `ssh_key` o el archivo no existe, se usa `backend/config/ssh/jesusssh4.unknown`.
 
-**Obtener la ruta de ssh en Windows:** `where.exe ssh`  
+**Obtener la ruta de ssh en Windows:** `where.exe ssh`
 **En Linux:** `which ssh`
 
 ---
@@ -100,5 +100,13 @@ En Linux:
 python_path = /usr/bin/python3
 ```
 
-Obtener la ruta en Windows (ejecutar en CMD o PowerShell):  
+Obtener la ruta en Windows (ejecutar en CMD o PowerShell):
 `py -3 -c "import sys; print(sys.executable)"`
+
+---
+
+## remove_bom_staged.php
+
+Lo invoca el hook **`.githooks/pre-commit`** (con `git config core.hooksPath .githooks`) para quitar BOM de los `.php` en staging.
+
+Para revisar o corregir BOM en todo el repo, use desde la **raíz del proyecto**: `php scripts/verificar_bom.php` y opcionalmente `--fix` (ver reglas del proyecto UTF-8 sin BOM).

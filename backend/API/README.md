@@ -113,7 +113,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Integración con Sparta Ledger (PHP):**
-En `backend/config/config.ini` añade la sección `[doc_verificacion]` con `api_url` (ej. `http://127.0.0.1:8000/api/v1/verificar`) y `api_key` (mismo valor que `MASTER_API_KEY` o el default `sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key`). Al subir el documento "IDENTIFICACIÓN OFICIAL" (imagen), el controlador CapHum llamará a esta API; si el resultado es RECHAZADO, el documento no se guarda. Si la API no está disponible, se usa el fallback OCR local (Tesseract). Ver `backend/docs/OCR_IDENTIFICACION.md`.
+En `backend/config/config.ini` añade la sección `[doc_verificacion]` con `api_url` (ej. `http://127.0.0.1:8000/api/v1/verificar`) y `api_key` (mismo valor que `MASTER_API_KEY` o el default `sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key`). Al subir el documento "IDENTIFICACIÓN OFICIAL" (imagen), el controlador CapHum llamará a esta API; si el resultado es RECHAZADO, el documento no se guarda. Si la API no está disponible, se usa el fallback OCR local (Tesseract). Documentación de producto / notas internas en `public/assets/docs/` (Markdown servible vía `/assets/docs/…` si el servidor lo expone).
 
 ---
 

@@ -288,9 +288,15 @@ class Ticket extends Model
                         $row['prorroga_html'] = '';
                     } else {
                         $activa = !empty($row['prorroga_activa']);
-                        $cls = $activa ? 'bg-warning text-dark' : 'bg-secondary';
+                        $extTipoRow = (string)($row['extension_countdown_tipo'] ?? '');
+                        if ($activa) {
+                            $cls = ($extTipoRow === 'intensidad') ? 'bg-info text-white' : 'bg-warning text-dark';
+                        } else {
+                            $cls = 'bg-secondary';
+                        }
                         $txt = $activa ? 'Activa' : 'Usada';
-                        $esIntBadge = is_array($det) && isset($det['intensidad']) && is_array($det['intensidad']) && !empty($det['intensidad']['otorgada']);
+                        $esIntBadge = $extTipoRow === 'intensidad'
+                            || (is_array($det) && isset($det['intensidad']) && is_array($det['intensidad']) && !empty($det['intensidad']['otorgada']));
                         $tipBase = $esIntBadge ? 'Intensidad' : 'Prórroga';
                         $tip = !empty($row['prorroga_fecha_limite']) ? ($tipBase . ' · Límite: ' . $row['prorroga_fecha_limite']) : $tipBase;
                         // Misma celda que tiempo para visitar: badge compacto debajo del countdown (se concatena en JS)

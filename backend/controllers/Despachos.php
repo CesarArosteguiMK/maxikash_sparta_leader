@@ -424,7 +424,10 @@ public function DesasignarCredito()
             // Los datos ya vienen desde la base de datos, no necesitamos llamar a la API
 
             // Generar Excel usando PhpSpreadsheet
-            require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
+            if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+                require_once dirname(__DIR__) . '/bootstrap_composer.php';
+                sparta_require_composer_autoload();
+            }
 
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
@@ -586,11 +589,11 @@ public function DesasignarCredito()
                 return;
             }
 
-            $directorioBase = __DIR__ . '/../../uploads/documentos_despacho';
+            $directorioBase = sparta_uploads_join('documentos_despacho');
             \Core\SecureUpload::ensureDir($directorioBase);
 
             $nombreArchivo = \Core\SecureUpload::generateSafeFilename($extension);
-            $rutaCompleta = $directorioBase . '/' . $nombreArchivo;
+            $rutaCompleta = sparta_uploads_join('documentos_despacho', $nombreArchivo);
             $rutaRelativa = 'uploads/documentos_despacho/' . $nombreArchivo;
 
             if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
@@ -792,7 +795,10 @@ public function DesasignarCredito()
             $creditos      = $this->model->obtenerCreditosAsignados($idPersona);
             $datosDespacho = $this->model->obtenerDatosDespacho($idPersona);
 
-            require_once __DIR__ . '/../libs/PhpSpreadsheet/vendor/autoload.php';
+            if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+                require_once dirname(__DIR__) . '/bootstrap_composer.php';
+                sparta_require_composer_autoload();
+            }
 
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet       = $spreadsheet->getActiveSheet();
@@ -874,15 +880,50 @@ public function DesasignarCredito()
     }
 
     /**
+     * Emite JSON siempre con cuerpo no vacío (evita json_encode false por UTF-8 inválido → respuesta vacía en el cliente).
+     *
+     * @param array<string,mixed> $data
+     */
+    private function emitJsonImportacion(array $data): void
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        $flags = JSON_UNESCAPED_UNICODE;
+        if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+            $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+        }
+        $json = json_encode($data, $flags);
+        if ($json === false) {
+            $json = json_encode([
+                'success' => false,
+                'message' => 'No se pudo generar la respuesta JSON: ' . json_last_error_msg(),
+            ], $flags);
+            if ($json === false) {
+                $json = '{"success":false,"message":"Error interno al codificar respuesta"}';
+            }
+        }
+        echo $json;
+    }
+
+    /**
      * Importar Excel (asignación masiva)
      * - $_FILES['excel'] (obligatorio)
      * - $_POST['id_persona'] (opcional): si el Excel no trae columna id_despacho, se usa el despacho del gestor seleccionado en pantalla.
      */
     public function ImportarExcelAsignacionCreditosDespacho()
     {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        ob_start();
+
         header('Content-Type: application/json; charset=utf-8');
 
         try {
+            @ini_set('memory_limit', '1024M');
+            @set_time_limit(0);
+
             $idPersonaRaw = $_POST['id_persona'] ?? null;
             $idPersona = ($idPersonaRaw !== null && $idPersonaRaw !== '' && (int) $idPersonaRaw > 0)
                 ? (int) $idPersonaRaw
@@ -890,18 +931,23 @@ public function DesasignarCredito()
 
             if (!isset($_FILES['excel']) || !is_array($_FILES['excel'])) {
                 http_response_code(400);
-                echo json_encode([
+                $this->emitJsonImportacion([
                     'success' => false,
-                    'message' => 'No se recibió el archivo Excel.'
+                    'message' => 'No se recibió el archivo Excel.',
                 ]);
                 return;
             }
 
             if ($_FILES['excel']['error'] !== UPLOAD_ERR_OK) {
+                $uploadErr = (int) ($_FILES['excel']['error'] ?? 0);
+                $msgExtra = '';
+                if ($uploadErr === UPLOAD_ERR_INI_SIZE || $uploadErr === UPLOAD_ERR_FORM_SIZE) {
+                    $msgExtra = ' El archivo supera el límite de subida del servidor (php.ini post_max_size / upload_max_filesize).';
+                }
                 http_response_code(400);
-                echo json_encode([
+                $this->emitJsonImportacion([
                     'success' => false,
-                    'message' => 'Error al subir el archivo Excel.'
+                    'message' => 'Error al subir el archivo Excel (código ' . $uploadErr . ').' . $msgExtra,
                 ]);
                 return;
             }
@@ -909,9 +955,9 @@ public function DesasignarCredito()
             $fileSize = (int) ($_FILES['excel']['size'] ?? 0);
             if ($fileSize <= 0) {
                 http_response_code(400);
-                echo json_encode([
+                $this->emitJsonImportacion([
                     'success' => false,
-                    'message' => 'El archivo no tiene tamaño válido.'
+                    'message' => 'El archivo no tiene tamaño válido.',
                 ]);
                 return;
             }
@@ -920,9 +966,9 @@ public function DesasignarCredito()
             $maxSize = 20 * 1024 * 1024; // 20MB
             if ($fileSize > $maxSize) {
                 http_response_code(400);
-                echo json_encode([
+                $this->emitJsonImportacion([
                     'success' => false,
-                    'message' => 'El archivo excede el tamaño máximo permitido (20MB).'
+                    'message' => 'El archivo excede el tamaño máximo permitido (20MB).',
                 ]);
                 return;
             }
@@ -931,9 +977,9 @@ public function DesasignarCredito()
             $allowed = ['xlsx', 'xls'];
             if (!in_array($ext, $allowed, true)) {
                 http_response_code(400);
-                echo json_encode([
+                $this->emitJsonImportacion([
                     'success' => false,
-                    'message' => 'Formato no permitido. Usa .xlsx o .xls (descarga la plantilla para evitar errores).'
+                    'message' => 'Formato no permitido. Usa .xlsx o .xls (descarga la plantilla para evitar errores).',
                 ]);
                 return;
             }
@@ -941,9 +987,9 @@ public function DesasignarCredito()
             $tmpPath = $_FILES['excel']['tmp_name'] ?? null;
             if (!$tmpPath || !file_exists($tmpPath)) {
                 http_response_code(400);
-                echo json_encode([
+                $this->emitJsonImportacion([
                     'success' => false,
-                    'message' => 'Archivo temporal no disponible.'
+                    'message' => 'Archivo temporal no disponible.',
                 ]);
                 return;
             }
@@ -952,18 +998,24 @@ public function DesasignarCredito()
 
             $resultado = $this->model->importarAsignaCreditosDesdeExcel($idPersona ?? 0, $tmpPath);
 
-            // Enriquecer con nombre de archivo para la vista
-            if (is_array($resultado)) {
-                $resultado['archivo'] = $originalName;
+            if (!is_array($resultado)) {
+                http_response_code(500);
+                $this->emitJsonImportacion([
+                    'success' => false,
+                    'message' => 'Respuesta inválida del servidor al procesar el Excel.',
+                    'archivo' => $originalName,
+                ]);
+                return;
             }
 
-            echo json_encode($resultado);
+            $resultado['archivo'] = $originalName;
+            $this->emitJsonImportacion($resultado);
             return;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             http_response_code(500);
-            echo json_encode([
+            $this->emitJsonImportacion([
                 'success' => false,
-                'message' => 'Error en la importación: ' . $e->getMessage()
+                'message' => 'Error en la importación: ' . $e->getMessage(),
             ]);
         }
     }
