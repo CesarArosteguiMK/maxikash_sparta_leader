@@ -803,12 +803,11 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
     </div>
   </div>
 </div>
-
 <!-- ════════════════════════════════════════════════ -->
-<!-- MODAL MIGRACIÓN DE CONVENIO (con 2 pestañas)      -->
+<!-- MODAL MIGRACIÓN DE CONVENIO                      -->
 <!-- ════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalMigracion" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
 
       <div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);">
@@ -819,141 +818,180 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
       </div>
 
       <div class="modal-body">
+        <div id="convenioNormal">
 
-        <!-- PESTAÑAS -->
-
-
-          <!-- ================= PESTAÑA 1: CONVENIO NORMAL ================= -->
-          <div id="convenioNormal">
-            <div id="migStep1">
-              <label class="form-label fw-bold">ID Crédito</label>
-              <div class="input-group mb-3">
-                <input type="number" id="migIdCredito" class="form-control"
-                       placeholder="Ej. 193141">
-                <button class="btn btn-primary" onclick="window.migBuscarCredito()">
-                  <i class="fas fa-search"></i> Buscar
-                </button>
-              </div>
-              <div id="migInfoCliente" class="alert alert-info d-none"></div>
+          <!-- STEP 1: Buscar crédito -->
+          <div id="migStep1">
+            <label class="form-label fw-bold">ID Crédito</label>
+            <div class="input-group mb-3">
+              <input type="number" id="migIdCredito" class="form-control"
+                     placeholder="Ej. 193141">
+              <button class="btn btn-primary" onclick="window.migBuscarCredito()">
+                <i class="fas fa-search"></i> Buscar
+              </button>
             </div>
+            <div id="migInfoCliente" class="alert alert-info d-none"></div>
+          </div>
 
-            <div id="migStep2" class="d-none">
-              <hr>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">Producto</label>
-                  <select id="migProducto" class="form-select" onchange="window.migProductoChange()">
-                    <option value="">Selecciona...</option>
-                  </select>
-                </div>
+          <!-- STEP 2: Formulario + Preamortización -->
+          <div id="migStep2" class="d-none">
+            <hr>
+            <div class="row g-4">
 
-                <div class="col-md-3">
-                  <label class="form-label">% Descuento</label>
-                  <div class="input-group">
-                    <input type="number" id="migPorcentaje" class="form-control"
-                           min="0" max="100" step="0.01" placeholder="20"
+              <!-- ── COLUMNA IZQUIERDA: Formulario ── -->
+              <div class="col-lg-6">
+
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label">Producto</label>
+                    <select id="migProducto" class="form-select" onchange="window.migProductoChange()">
+                      <option value="">Selecciona...</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">% Descuento</label>
+                    <div class="input-group">
+                      <input type="number" id="migPorcentaje" class="form-control"
+                             min="0" max="100" step="0.01" placeholder="20"
+                             oninput="window.migCalcular()">
+                      <span class="input-group-text">%</span>
+                    </div>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input type="date" id="migFechaInicio" class="form-control"
                            oninput="window.migCalcular()">
-                    <span class="input-group-text">%</span>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Adeudo Base</label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input type="number" id="migAdeudo" class="form-control"
+                             step="0.01" placeholder="16284.33" oninput="window.migCalcular()">
+                    </div>
+                  </div>
+
+                  <div class="col-6" id="colPagoSemanal">
+                    <label class="form-label">Pago Semanal</label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input type="number" id="migPagoSemanal" class="form-control"
+                             step="0.01" placeholder="3250" oninput="window.migCalcular()">
+                    </div>
+                  </div>
+
+                  <div class="col-6" id="colBucketMorosidad">
+                    <label class="form-label" id="labelBucketMorosidad">Bucket Morosidad</label>
+                    <input type="text" id="migBucket" class="form-control"
+                           placeholder="g) 60 a 89 dias">
+                  </div>
+
+                  <div class="col-6" id="colPagoFinal" style="display:none;">
+                    <label class="form-label">Pago Final (globo)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input type="number" id="migPagoFinal" class="form-control"
+                             step="0.01" placeholder="0.00" oninput="window.migCalcular()">
+                    </div>
                   </div>
                 </div>
 
-                <div class="col-md-3">
-                  <label class="form-label">Fecha Inicio</label>
-                  <input type="date" id="migFechaInicio" class="form-control"
-                         oninput="window.migCalcular()">
-                </div>
+                <!-- Resumen cards -->
+                <div id="migPreview" class="d-none mt-3">
+                  <hr>
+                  <div class="row text-center g-2" id="migResumenCards"></div>
 
-                <div class="col-md-4">
-                  <label class="form-label">Adeudo Base</label>
-                  <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number" id="migAdeudo" class="form-control"
-                           step="0.01" placeholder="16284.33" oninput="window.migCalcular()">
+                  <div class="mt-3 p-3 border rounded" style="background:#f0fdf4;border-color:#86efac !important;">
+                    <div class="fw-bold mb-2" style="color:#15803d;font-size:0.9rem;">
+                      <i class="fas fa-plus-circle me-1"></i>Monto adicional
+                    </div>
+                    <div class="row g-3 align-items-end">
+                      <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Total a pagar</label>
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text">$</span>
+                          <input type="text" id="migTotalBase" class="form-control fw-bold"
+                                 readonly style="background:#f8f9fa;color:#15803d;font-size:1rem;">
+                        </div>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Monto adicional</label>
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text">$</span>
+                          <input type="number" id="migMontoAdicional" class="form-control"
+                                 min="0" step="0.01" placeholder="0.00"
+                                 oninput="window.migRecalcularTotal()">
+                        </div>
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label small text-muted mb-1">Total final</label>
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text">$</span>
+                          <input type="text" id="migTotalFinal" class="form-control fw-bold"
+                                 readonly style="background:#f8f9fa;color:#764ba2;font-size:1rem;">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 p-3 border rounded" style="background:#f8f5ff;">
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="flex-grow-1">
+                        <label class="form-label fw-bold mb-1">
+                          <i class="fas fa-paperclip me-1"></i>Adjuntar comprobante (PDF)
+                        </label>
+                        <input type="file" id="migPdfAdjunto"
+                               class="form-control form-control-sm"
+                               accept=".pdf,application/pdf"
+                               onchange="window.validarPdfAdjunto(this)">
+                        <small class="text-muted">Opcional: adjunta el PDF del convenio firmado (máx. 5MB)</small>
+                      </div>
+                      <div id="migPdfPreview" class="text-center" style="min-width:60px;"></div>
+                    </div>
                   </div>
                 </div>
 
-                <div class="col-md-4" id="colPagoSemanal">
-  <label class="form-label">Pago Semanal</label>
-  <div class="input-group">
-    <span class="input-group-text">$</span>
-    <input type="number" id="migPagoSemanal" class="form-control"
-           step="0.01" placeholder="3250" oninput="window.migCalcular()">
-  </div>
-</div>
+              </div>
+              <!-- ── FIN COLUMNA IZQUIERDA ── -->
 
-                <div class="col-md-4" id="colBucketMorosidad">
-                  <label class="form-label" id="labelBucketMorosidad">Bucket Morosidad</label>
-                  <input type="text" id="migBucket" class="form-control"
-                         placeholder="g) 60 a 89 dias">
+              <!-- ── COLUMNA DERECHA: Preamortización ── -->
+              <div class="col-lg-6" id="colPreamortizacion">
+                <div class="h-100 p-3 border rounded" style="background:#fafafa;min-height:300px;">
+                  <h6 class="fw-bold mb-3" style="color:#5b2d8e;">
+                    <i class="fas fa-calendar-alt me-2"></i>Tabla de Preamortización
+                  </h6>
+                  <div id="preamortVacio" class="text-center text-muted py-5">
+                    <i class="fas fa-table fa-2x mb-2 d-block"></i>
+                    Ingresa los datos del convenio para ver la tabla
+                  </div>
+                  <div id="preamortTablaWrap" style="display:none;max-height:420px;overflow-y:auto;">
+                    <table class="table table-sm table-borderless mb-0">
+                      <thead style="position:sticky;top:0;background:#fafafa;">
+                        <tr class="text-muted small">
+                          <th>#</th>
+                          <th>Fecha</th>
+                          <th>Monto</th>
+                          <th>Tipo</th>
+                          <th>Saldo</th>
+                        </tr>
+                      </thead>
+                      <tbody id="preamortBody"></tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
+              <!-- ── FIN COLUMNA DERECHA ── -->
 
-              <div class="col-md-4" id="colPagoFinal" style="display:none;">
-  <label class="form-label">Pago Final (globo)</label>
-  <div class="input-group">
-    <span class="input-group-text">$</span>
-    <input type="number" id="migPagoFinal" class="form-control"
-           step="0.01" placeholder="0.00" oninput="window.migCalcular()">
-  </div>
-</div>
-
-              <div id="migPreview" class="d-none mt-3">
-                <hr>
-                <div class="row text-center g-2" id="migResumenCards"></div>
-
-                <div class="mt-3 p-3 border rounded" style="background: #f0fdf4; border-color: #86efac !important;">
-                  <div class="fw-bold mb-2" style="color: #15803d; font-size: 0.9rem;">
-                    <i class="fas fa-plus-circle me-1"></i>Monto adicional
-                  </div>
-                  <div class="row g-3 align-items-end">
-                    <div class="col-md-4">
-                      <label class="form-label small text-muted mb-1">Total a pagar</label>
-                      <div class="input-group input-group-sm">
-                        <span class="input-group-text">$</span>
-                        <input type="text" id="migTotalBase" class="form-control fw-bold"
-                               readonly style="background:#f8f9fa; color:#15803d; font-size:1rem;">
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label small text-muted mb-1">Monto adicional</label>
-                      <div class="input-group input-group-sm">
-                        <span class="input-group-text">$</span>
-                        <input type="number" id="migMontoAdicional" class="form-control"
-                               min="0" step="0.01" placeholder="0.00"
-                               oninput="window.migRecalcularTotal()">
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label small text-muted mb-1">Total final</label>
-                      <div class="input-group input-group-sm">
-                        <span class="input-group-text">$</span>
-                        <input type="text" id="migTotalFinal" class="form-control fw-bold"
-                               readonly style="background:#f8f9fa; color:#764ba2; font-size:1rem;">
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mt-3 p-3 border rounded" style="background: #f8f5ff;">
-                  <div class="d-flex align-items-center gap-3">
-                    <div class="flex-grow-1">
-                      <label class="form-label fw-bold mb-1">
-                        <i class="fas fa-paperclip me-1"></i>Adjuntar comprobante (PDF)
-                      </label>
-                      <input type="file" id="migPdfAdjunto"
-                             class="form-control form-control-sm"
-                             accept=".pdf,application/pdf"
-                             onchange="window.validarPdfAdjunto(this)">
-                      <small class="text-muted">Opcional: adjunta el PDF del convenio firmado (máx. 5MB)</small>
-                    </div>
-                    <div id="migPdfPreview" class="text-center" style="min-width: 60px;"></div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
-          <div class="modal-footer">
+        </div>
+      </div>
+
+      <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">
           <i class="fas fa-times me-1"></i>Cancelar
         </button>
@@ -966,7 +1004,6 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
     </div>
   </div>
 </div>
-
 
 
 <script>
@@ -2973,21 +3010,82 @@ window.migProductoChange = function() {
     }
 };
 
+
+// ════════════════════════════════════════════════
+// PREAMORTIZACIÓN EN TIEMPO REAL
+// ════════════════════════════════════════════════
+function migGenerarPreamort(filas) {
+    var wrap   = document.getElementById('preamortTablaWrap');
+    var vacio  = document.getElementById('preamortVacio');
+    var tbody  = document.getElementById('preamortBody');
+
+    if (!filas || filas.length === 0) {
+        wrap.style.display  = 'none';
+        vacio.style.display = 'block';
+        return;
+    }
+
+    var fmt = function(v) {
+        return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    };
+
+    var fmtF = function(fechaISO) {
+        if (!fechaISO) return '—';
+        var p = fechaISO.split('-');
+        return p[2] + '/' + p[1] + '/' + p[0];
+    };
+
+    var badgeTipo = function(tipo) {
+        if (tipo === 'globo') {
+            return '<span style="background:#764ba2;color:#fff;font-size:0.68rem;' +
+                   'padding:2px 8px;border-radius:12px;font-weight:600;">Globo</span>';
+        }
+        if (tipo === 'unico') {
+            return '<span style="background:#2563eb;color:#fff;font-size:0.68rem;' +
+                   'padding:2px 8px;border-radius:12px;font-weight:600;">Único</span>';
+        }
+        return '<span style="background:#e2e8f0;color:#475569;font-size:0.68rem;' +
+               'padding:2px 8px;border-radius:12px;font-weight:600;">Normal</span>';
+    };
+
+    var html = filas.map(function(f) {
+        var trStyle = f.tipo === 'globo'
+            ? 'background:rgba(118,75,162,0.06);font-weight:600;'
+            : '';
+        return '<tr style="' + trStyle + '">' +
+            '<td style="color:#64748b;font-size:0.8rem;">' + f.num + '</td>' +
+            '<td style="font-size:0.8rem;">'               + fmtF(f.fecha) + '</td>' +
+            '<td style="font-size:0.8rem;font-weight:600;">' + fmt(f.monto) + '</td>' +
+            '<td>'                                          + badgeTipo(f.tipo) + '</td>' +
+            '<td style="font-size:0.8rem;color:#16a34a;font-weight:600;">' + fmt(f.saldo) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    tbody.innerHTML          = html;
+    wrap.style.display       = 'block';
+    vacio.style.display      = 'none';
+}
+
 window.migCalcular = function() {
 
+    var addDias = function(iso, d) {
+        var dt = new Date(iso + 'T00:00:00');
+        dt.setDate(dt.getDate() + d);
+        return dt.toISOString().split('T')[0];
+    };
+
     // ── Lógica especial para Convenio Globo Manual ──────────
-    var sel     = document.getElementById('migProducto');
-    var opt     = sel ? sel.options[sel.selectedIndex] : null;
+    var sel    = document.getElementById('migProducto');
+    var opt    = sel ? sel.options[sel.selectedIndex] : null;
     var esGlobo = opt && (opt.text || '').indexOf('Convenio Globo Manual') !== -1;
 
     if (esGlobo) {
-        var adeudo      = parseFloat(document.getElementById('migAdeudo').value)      || 0;
-        var pct         = parseFloat(document.getElementById('migPorcentaje').value)   || 0;
-        var semanal     = parseFloat(document.getElementById('migPagoSemanal').value)  || 0;
-        var pagoFinal   = parseFloat(document.getElementById('migPagoFinal')?.value)   || 0;
-        var semanas     = parseInt(document.getElementById('migSemanasGlobo')?.value)  || 1;
-        var fecha       = document.getElementById('migFechaInicio').value;
-        var preview     = document.getElementById('migPreview');
+        var adeudo    = parseFloat(document.getElementById('migAdeudo').value)      || 0;
+        var semanal   = parseFloat(document.getElementById('migPagoSemanal').value) || 0;
+        var pagoFinal = parseFloat(document.getElementById('migPagoFinal') ? document.getElementById('migPagoFinal').value : 0) || 0;
+        var semanas   = parseInt(document.getElementById('migSemanasGlobo') ? document.getElementById('migSemanasGlobo').value : 1) || 1;
+        var fecha     = document.getElementById('migFechaInicio').value;
+        var preview   = document.getElementById('migPreview');
         var getGuardarBtn = function() {
             return document.querySelector('#modalMigracion .modal-footer .btn-success');
         };
@@ -2996,13 +3094,16 @@ window.migCalcular = function() {
             if (preview) preview.classList.add('d-none');
             var btn = getGuardarBtn();
             if (btn) btn.style.display = 'none';
+            migGenerarPreamort([]);
             return;
         }
 
-        var descuento   = Math.round(adeudo * (pct / 100) * 100) / 100;
-        var total       = Math.round((adeudo - descuento) * 100) / 100;
-        var sumaIguales = Math.round(semanal * (semanas - 1) * 100) / 100;
+        // ── CORRECCIÓN: total deriva de los pagos, no del % ──────────
+        var sumaIguales   = Math.round(semanal * (semanas - 1) * 100) / 100;
         var totalConGlobo = Math.round((sumaIguales + pagoFinal) * 100) / 100;
+        var descuento     = Math.round((adeudo - totalConGlobo) * 100) / 100;
+        var pctCalculado  = adeudo > 0 ? Math.round((descuento / adeudo) * 10000) / 100 : 0;
+        // ─────────────────────────────────────────────────────────────
 
         _migSemanas = semanas;
 
@@ -3018,7 +3119,7 @@ window.migCalcular = function() {
                     '<div class="fw-bold text-primary">' + fmt(adeudo) + '</div>' +
                 '</div></div>' +
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
-                    '<div class="small text-muted">Descuento (' + pct + '%)</div>' +
+                    '<div class="small text-muted">Descuento (' + pctCalculado.toFixed(2) + '%)</div>' +
                     '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div>' +
                 '</div></div>' +
                 '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
@@ -3042,13 +3143,33 @@ window.migCalcular = function() {
         var btn = getGuardarBtn();
         if (btn) btn.style.display = 'inline-block';
 
+        // ── Preamortización (globo) ────────────────────────
+        var filasGlobo = [];
+        var saldoG = totalConGlobo;
+
+        for (var g = 1; g <= semanas; g++) {
+            var esUltG  = g === semanas;
+            var montoG  = esUltG ? pagoFinal : semanal;
+            var tipoG   = semanas === 1 ? 'unico' : (esUltG ? 'globo' : 'normal');
+            saldoG      = Math.round((saldoG - montoG) * 100) / 100;
+            if (saldoG < 0) saldoG = 0;
+            filasGlobo.push({
+                num:   g,
+                fecha: addDias(fecha, (g - 1) * 7),
+                monto: montoG,
+                tipo:  tipoG,
+                saldo: saldoG,
+            });
+        }
+        migGenerarPreamort(filasGlobo);
+
         return;
     }
     // ────────────────────────────────────────────────────────
 
-    var adeudo  = parseFloat(document.getElementById('migAdeudo').value)      || 0;
-    var pct     = parseFloat(document.getElementById('migPorcentaje').value)   || 0;
-    var semanal = parseFloat(document.getElementById('migPagoSemanal').value)  || 0;
+    var adeudo  = parseFloat(document.getElementById('migAdeudo').value)     || 0;
+    var pct     = parseFloat(document.getElementById('migPorcentaje').value) || 0;
+    var semanal = parseFloat(document.getElementById('migPagoSemanal').value)|| 0;
     var fecha   = document.getElementById('migFechaInicio').value;
 
     var errorExistente = document.getElementById('migErrorSemanal');
@@ -3064,6 +3185,8 @@ window.migCalcular = function() {
 
         var guardarBtn = getGuardarBtn();
         if (guardarBtn) guardarBtn.style.display = 'none';
+
+        migGenerarPreamort([]);
 
         var inputCampo = document.getElementById(campo);
         if (!inputCampo) return;
@@ -3096,9 +3219,9 @@ window.migCalcular = function() {
     if (!adeudo || !semanal || !fecha) {
         var preview = document.getElementById('migPreview');
         if (preview) preview.classList.add('d-none');
-
         var guardarBtn = getGuardarBtn();
         if (guardarBtn) guardarBtn.style.display = 'none';
+        migGenerarPreamort([]);
         return;
     }
 
@@ -3177,11 +3300,32 @@ window.migCalcular = function() {
 
     var migTotalFinal = document.getElementById('migTotalFinal');
     if (migTotalFinal) migTotalFinal.value = total.toFixed(2);
+
+    // ── Preamortización (normal) ───────────────────────────
+    var filasNorm = [];
+    var saldoN    = total;
+
+    for (var n = 1; n <= semanas; n++) {
+        var esUltN = n === semanas;
+        var montoN = esUltN && residuo > 0 ? residuo : semanal;
+        saldoN     = Math.round((saldoN - montoN) * 100) / 100;
+        if (saldoN < 0) saldoN = 0;
+        filasNorm.push({
+            num:   n,
+            fecha: addDias(fecha, (n - 1) * 7),
+            monto: montoN,
+            tipo:  'normal',
+            saldo: saldoN,
+        });
+    }
+    migGenerarPreamort(filasNorm);
 };
+
 
 window.migRecalcularTotal = function() {
     var base      = parseFloat(document.getElementById('migTotalBase').value)      || 0;
     var adicional = parseFloat(document.getElementById('migMontoAdicional').value) || 0;
+
 
     if (adicional < 0) {
         document.getElementById('migMontoAdicional').value = 0;
@@ -3199,13 +3343,31 @@ window.migRecalcularTotal = function() {
         var pagoSemanalInput = document.getElementById('migPagoSemanal');
         if (pagoSemanalInput) pagoSemanalInput.value = nuevoSemanal.toFixed(2);
 
-        // Actualizar el display de semanas/semanal en las cards
         var fmt = function(v) {
-            return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+            return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
         };
         var elSemanal = document.getElementById('migResumenSemanal');
         if (elSemanal) elSemanal.textContent = fmt(nuevoSemanal);
     }
+
+    // ── CORRECCIÓN: recalcular % de descuento real ────────────────
+    var adeudoBase = parseFloat(document.getElementById('migAdeudo').value) || 0;
+    if (adeudoBase > 0 && totalFinal > 0) {
+        var descuentoReal = Math.round((adeudoBase - totalFinal) * 100) / 100;
+        var pctReal       = Math.round((descuentoReal / adeudoBase) * 10000) / 100;
+
+        // Actualizar card de descuento en resumen
+        var cards = document.querySelectorAll('#migResumenCards .border.rounded');
+        cards.forEach(function(card) {
+            var label = card.querySelector('.small.text-muted');
+            var valor = card.querySelector('.fw-bold.text-danger');
+            if (label && valor && label.textContent.indexOf('Descuento') !== -1) {
+                label.textContent = 'Descuento (' + pctReal.toFixed(2) + '%)';
+                valor.textContent = '-' + fmt(descuentoReal);
+            }
+        });
+    }
+    // ─────────────────────────────────────────────────────────────
 };
 
 window.validarPdfAdjunto = function(input) {
@@ -3275,6 +3437,13 @@ window.migGuardar = function() {
     var adicional = parseFloat(document.getElementById('migMontoAdicional').value) || 0;
     var totalFinal = parseFloat(document.getElementById('migTotalFinal').value)    || 0;
 
+    // --- NUEVO CÁLCULO (Bloque 3) ---
+    var _adeudoEnvio  = parseFloat(document.getElementById('migAdeudo').value) || 0;
+    var _totalEnvio   = parseFloat(document.getElementById('migTotalFinal').value) || 0;
+    var _pctEnvio     = _adeudoEnvio > 0
+    ? Math.round(((_adeudoEnvio - _totalEnvio) / _adeudoEnvio) * 10000) / 100
+    : 0;
+
     if (!adeudo || !pct || !semanal || !fecha) {
         Swal.fire('Campos incompletos', 'Llena todos los campos requeridos.', 'warning');
         return;
@@ -3309,7 +3478,7 @@ window.migGuardar = function() {
             formData.append('adeudo_base', adeudo);
             formData.append('monto_adicional', adicional.toFixed(2));
             formData.append('total_final_con_adicional', totalFinal.toFixed(2));
-            formData.append('porcentaje_descuento', pct);
+            formData.append('porcentaje_descuento', _pctEnvio);
             formData.append('pago_semanal', semanal);
             formData.append('fecha_inicio', fecha);
             formData.append('bucket_morosidad_real', bucket);
@@ -3372,7 +3541,7 @@ window.migGuardar = function() {
                     id_producto_convenio:         _migDetalle.id_producto,
                     id_producto_convenio_detalle: _migDetalle.id_detalle,
                     adeudo_base:                  adeudo,
-                    porcentaje_descuento:         pct,
+                    porcentaje_descuento:         _pctEnvio,
                     pago_semanal:                 semanal,
                     fecha_inicio:                 fecha,
                     bucket_morosidad_real:        bucket,
