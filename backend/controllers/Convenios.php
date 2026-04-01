@@ -447,11 +447,11 @@ class Convenios extends Controller
     {
         $campos = ['id_convenio', 'numero_semana', 'fecha_pago_real'];
         foreach ($campos as $campo) {
-            if (empty($_POST[$campo])) {
-                self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
-                return;
-            }
-        }
+             if (!isset($_POST[$campo]) || $_POST[$campo] === '') {
+                 self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
+                 return;
+             }
+         }
 
         $archivo = isset($_FILES['comprobante']) && !empty($_FILES['comprobante']['tmp_name'])
             ? $_FILES['comprobante']
