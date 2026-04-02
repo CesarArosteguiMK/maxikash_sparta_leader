@@ -3564,7 +3564,7 @@ window.migGuardar = function () {
         ? Math.round(((_adeudoEnvio - _totalEnvio) / _adeudoEnvio) * 10000) / 100
         : 0;
 
-    if (!adeudo || parseFloat(adeudo) <= 0 || (!esGloboMig && !pct) || !semanal || !fecha || totalFinal <= 0) {
+    if (!adeudo || parseFloat(adeudo) <= 0 || (!esGloboMig && (pct === '' || pct === null || pct === undefined || parseFloat(pct) < 0)) || !semanal || !fecha || totalFinal <= 0) {
         Swal.fire('Campos incompletos', 'Llena todos los campos requeridos o el adeudo/total es inválido.', 'warning');
         return;
     }
@@ -3666,14 +3666,20 @@ window.migGuardar = function () {
                     var modal = bootstrap.Modal.getInstance(document.getElementById('modalMigracion'));
                     if (modal) modal.hide();
 
+                    var _idParaRecargar = _migCredito ? _migCredito.Id_credito : null;
                     Swal.fire({
                         title: '¡Convenio registrado!',
-                        html: (d.semanas_pagadas || 0) + ' de ' + (d.semanas_total || 0) + ' semanas marcadas como pagadas.<br><small class="text-muted">Recargando...</small>',
+                        html: (d.semanas_pagadas || 0) + ' de ' + (d.semanas_total || 0) + ' semanas marcadas como pagadas.',
                         icon: 'success',
-                        timer: 2000,
+                        timer: 3000,
                         showConfirmButton: false
                     }).then(function () {
-                        location.reload();
+                        if (_idParaRecargar) {
+                            document.getElementById('inputBusqueda').value = _idParaRecargar;
+                            window.buscarCredito();
+                        } else {
+                            location.reload();
+                        }
                     });
                 },
                 onError: function () {
@@ -3763,14 +3769,20 @@ window.migGuardar = function () {
                     var modal = bootstrap.Modal.getInstance(document.getElementById('modalMigracion'));
                     if (modal) modal.hide();
 
+                    var _idParaRecargar2 = _migCredito ? _migCredito.Id_credito : null;
                     Swal.fire({
                         title: '¡Convenio registrado!',
-                        html: (d.semanas_pagadas || 0) + ' de ' + (d.semanas_total || 0) + ' semanas marcadas como pagadas.<br><small class="text-muted">Recargando...</small>',
+                        html: (d.semanas_pagadas || 0) + ' de ' + (d.semanas_total || 0) + ' semanas marcadas como pagadas.',
                         icon: 'success',
-                        timer: 2000,
+                        timer: 3000,
                         showConfirmButton: false
                     }).then(function () {
-                        location.reload();
+                        if (_idParaRecargar2) {
+                            document.getElementById('inputBusqueda').value = _idParaRecargar2;
+                            window.buscarCredito();
+                        } else {
+                            location.reload();
+                        }
                     });
                 },
                 onError: function () {
@@ -4927,14 +4939,20 @@ window.globoGuardar = function () {
                     if (modal) modal.hide();
                 }
 
+                var _idParaRecargar3 = _globoCredito ? _globoCredito.Id_credito : null;
                 Swal.fire({
                     title: '¡Convenio registrado!',
                     text: 'El convenio con pago globo y enganche se guardó correctamente.',
                     icon: 'success',
-                    timer: 2000,
+                    timer: 3000,
                     showConfirmButton: false
                 }).then(function () {
-                    location.reload();
+                    if (_idParaRecargar3) {
+                        document.getElementById('inputBusqueda').value = _idParaRecargar3;
+                        window.buscarCredito();
+                    } else {
+                        location.reload();
+                    }
                 });
             },
             onError: function () {

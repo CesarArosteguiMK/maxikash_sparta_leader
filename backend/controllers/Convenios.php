@@ -164,7 +164,7 @@ class Convenios extends Controller
         ];
 
         foreach ($campos as $campo) {
-            if (empty($_POST[$campo])) {
+            if (!isset($_POST[$campo]) || $_POST[$campo] === '') {
                 self::respuestaJSON(self::respuesta(false, "Campo requerido: $campo"));
                 return;
             }
@@ -233,10 +233,10 @@ class Convenios extends Controller
             self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
         }
 
-        $r = ConveniosDAO::getConvenioActivo($idCredito);
+        $r = ConveniosDAO::getConvenioCualquierEstatus($idCredito);
 
         if (!$r['success'] || !$r['datos']) {
-            self::respuestaJSON(self::respuesta(false, 'No se encontró convenio activo para este crédito.'));
+            self::respuestaJSON(self::respuesta(false, 'No se encontró convenio para este crédito.'));
         }
 
         $convenio = $r['datos'];

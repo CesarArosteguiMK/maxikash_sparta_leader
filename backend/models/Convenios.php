@@ -522,6 +522,49 @@ public static function getConvenioActivo($id_credito)
 }
 
 /**
+ * Igual que getConvenioActivo pero sin filtrar por estatus.
+ * Usado para generar el PDF de cualquier convenio (activo, cancelado, completado).
+ */
+public static function getConvenioCualquierEstatus($id_credito)
+{
+    try {
+        $db = new Database();
+
+        $convenio = $db->queryOne(
+            "SELECT cc.*, pc.nombre AS nombre_producto
+             FROM convenio_cliente cc
+             INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+             WHERE cc.id_credito = :id
+             ORDER BY cc.fecha_alta DESC
+             LIMIT 1",
+            ['id' => (int) $id_credito]
+        );
+
+        if (!$convenio) {
+            return self::resultado(true, 'Sin convenio.', null);
+        }
+
+        $amortizacion = $db->queryAll(
+            "SELECT * FROM convenio_cliente_amortizacion
+             WHERE id_convenio_cliente = :id
+             ORDER BY numero_semana",
+            ['id' => (int) $convenio['id']]
+        );
+
+        $convenio['amortizacion'] = $amortizacion ?: [];
+
+        if (!empty($convenio['pdf_adjunto'])) {
+            $convenio['pdf_url'] = $convenio['pdf_adjunto'];
+        }
+
+        return self::resultado(true, 'Convenio encontrado.', $convenio);
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al consultar convenio.', null, $e->getMessage());
+    }
+}
+
+/**
  * Trae datosPagos de S2Movil indexados por numeroCuotaSemanal.
  * Cada entrada puede tener múltiples pagos (sobrantes + pagos normales).
  */
