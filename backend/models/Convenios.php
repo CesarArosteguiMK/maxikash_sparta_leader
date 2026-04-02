@@ -770,18 +770,21 @@ public static function cancelarConvenio($id_convenio, $usuario)
         }
 
         // 2. Primera semana pendiente = semana de cancelación
+        //    Si no hay pendientes, usar la primera vencida (convenio 100% vencido)
         $primerPendiente = $db->queryOne(
             "SELECT numero_semana
              FROM convenio_cliente_amortizacion
              WHERE id_convenio_cliente = :id
-               AND estatus_pago = 'pendiente'
-             ORDER BY numero_semana ASC
+               AND estatus_pago IN ('pendiente', 'vencido')
+             ORDER BY
+               CASE estatus_pago WHEN 'pendiente' THEN 0 ELSE 1 END ASC,
+               numero_semana ASC
              LIMIT 1",
             ['id' => (int) $id_convenio]
         );
 
         if (!$primerPendiente) {
-            return self::resultado(false, 'Este convenio no tiene semanas pendientes.');
+            return self::resultado(false, 'Este convenio no tiene semanas cancelables.');
         }
 
         $semanaCancelacion = (int) $primerPendiente['numero_semana'];

@@ -520,7 +520,8 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                     <p class="text-muted small mb-2">El total a pagar se dividirá entre las semanas elegidas.</p>
                     <input type="range" class="conv-range" id="sliderSemanas"
                            min="1" max="12" value="1"
-                           oninput="window.actualizarSlider(this.value)">
+                           oninput="window.actualizarSliderDisplay(this.value)"
+                           onchange="window.actualizarSlider(this.value)">
                     <div class="semanas-labels">
                         <span id="labelMin">1 sem</span>
                         <span id="labelMax">12 sem</span>
@@ -1076,7 +1077,6 @@ function seleccionarCredito(idCredito) {
         data: { id_credito: idCredito },
         onSuccess: function (respOfertas) {
             if (!respOfertas.success) {
-                Swal.close();
                 Swal.fire('Sin elegibilidad', respOfertas.mensaje || 'Este crédito no cumple los criterios.', 'info');
                 return;
             }
@@ -1936,7 +1936,7 @@ window.seleccionarOferta = function (idx) {
 // ══════════════════════════════════════════════════════
 //  ACTUALIZAR SLIDER
 // ══════════════════════════════════════════════════════
-window.actualizarSlider = function (semanas) {
+window.actualizarSliderDisplay = function (semanas) {
     _semanasActual = parseInt(semanas);
 
     var esLiquidacionRayo = _ofertaActiva && _ofertaActiva.id_producto === 4;
@@ -1957,7 +1957,10 @@ window.actualizarSlider = function (semanas) {
             '$' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
             (esLiquidacionRayo && _semanasActual === 4 ? ' / quincena' : ' / semana');
     }
+};
 
+window.actualizarSlider = function (semanas) {
+    window.actualizarSliderDisplay(semanas);
     verTablaAmortizacion();
 };
 
@@ -2613,7 +2616,10 @@ window.abrirModalMigracion = function () {
 
     // ── LIMPIAR PESTAÑA "CONVENIO NORMAL" ──────────────────────────
     var migIdCredito = document.getElementById('migIdCredito');
-    if (migIdCredito) migIdCredito.value = '';
+    if (migIdCredito) {
+        var idPrincipal = (document.getElementById('inputBusqueda') || {}).value || '';
+        migIdCredito.value = idPrincipal;
+    }
 
     var migInfoCliente = document.getElementById('migInfoCliente');
     if (migInfoCliente) {
@@ -2792,10 +2798,8 @@ window.migBuscarCredito = function () {
         onSuccess: function (respOfertas) {
 
             if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
-                info.className = 'alert alert-danger';
-                info.innerHTML =
-                    '<i class="fas fa-times-circle me-2"></i>' +
-                    (respOfertas.mensaje || 'Crédito no encontrado.');
+                info.className = 'alert alert-danger d-none';
+                Swal.fire('Crédito no encontrado', respOfertas.mensaje || 'El crédito ingresado no existe o no es elegible.', 'error');
                 return;
             }
 
@@ -2809,15 +2813,8 @@ window.migBuscarCredito = function () {
                 onSuccess: function (respDespacho) {
 
                     if (!respDespacho.success) {
-                        info.className = 'alert alert-danger';
-                        info.innerHTML =
-                            '<div class="d-flex align-items-start gap-2">' +
-                            '<i class="fas fa-ban fa-lg mt-1 text-danger"></i>' +
-                            '<div>' +
-                            '<strong>Crédito no elegible</strong><br>' +
-                            '<span>' + respDespacho.mensaje + '</span>' +
-                            '</div>' +
-                            '</div>';
+                        info.className = 'alert alert-danger d-none';
+                        Swal.fire('Crédito no elegible', respDespacho.mensaje, 'warning');
                         return;
                     }
 
@@ -2830,18 +2827,8 @@ window.migBuscarCredito = function () {
 
                             if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'activo') {
-                                info.className = 'alert alert-warning';
-                                info.innerHTML =
-                                    '<div class="d-flex align-items-start gap-2">' +
-                                    '<i class="fas fa-lock fa-lg mt-1 text-warning"></i>' +
-                                    '<div>' +
-                                    '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                                    '<span class="text-warning fw-semibold">' +
-                                    '⚠️ Este crédito ya tiene un convenio activo registrado. ' +
-                                    'No es posible registrar un convenio adicional.' +
-                                    '</span>' +
-                                    '</div>' +
-                                    '</div>';
+                                info.className = 'alert alert-warning d-none';
+                                Swal.fire('Convenio activo', credito.Nombre_cliente + ' — Crédito #' + credito.Id_credito + ' ya tiene un convenio activo. No es posible registrar uno adicional.', 'warning');
                                 return;
                             }
 
@@ -4470,9 +4457,8 @@ window.globoBuscarCredito = function () {
         data: { id_credito: idCredito },
         onSuccess: function (respOfertas) {
             if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
-                info.className = 'alert alert-danger';
-                info.innerHTML = '<i class="fas fa-times-circle me-2"></i>' +
-                    (respOfertas.mensaje || 'Crédito no encontrado.');
+                info.className = 'alert alert-danger d-none';
+                Swal.fire('Crédito no encontrado', respOfertas.mensaje || 'El crédito ingresado no existe o no es elegible.', 'error');
                 return;
             }
 
@@ -4485,15 +4471,8 @@ window.globoBuscarCredito = function () {
                 onSuccess: function (respConvenio) {
                     if (respConvenio.success && respConvenio.datos &&
                         respConvenio.datos.estatus === 'activo') {
-                        info.className = 'alert alert-warning';
-                        info.innerHTML =
-                            '<div class="d-flex align-items-start gap-2">' +
-                            '<i class="fas fa-lock fa-lg mt-1 text-warning"></i>' +
-                            '<div>' +
-                            '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br>' +
-                            '<span class="text-warning fw-semibold">⚠️ Este crédito ya tiene un convenio activo registrado.</span>' +
-                            '</div>' +
-                            '</div>';
+                        info.className = 'alert alert-warning d-none';
+                        Swal.fire('Convenio activo', credito.Nombre_cliente + ' — Crédito #' + credito.Id_credito + ' ya tiene un convenio activo registrado.', 'warning');
                         return;
                     }
 
