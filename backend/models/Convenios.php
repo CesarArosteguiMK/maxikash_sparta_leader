@@ -1383,8 +1383,12 @@ public static function migrarConvenio($datos)
 
             // Semanas cuya fecha ya pasó nacen como 'vencido' — son históricas
             // Semanas futuras nacen como 'pendiente' — son las que el sistema vigilará
+            // NOTA: comparamos solo fecha (sin hora) para evitar que el mismo día de registro
+            //       quede marcado como vencido por la hora actual.
             $fechaPagoObj  = new \DateTime($fechaPago);
-            $estatuInicial = $fechaPagoObj < $hoy ? 'vencido' : 'pendiente';
+            $fechaPagoObj->setTime(0, 0, 0);
+            $hoyMediodia   = (clone $hoy)->setTime(0, 0, 0);
+            $estatuInicial = $fechaPagoObj < $hoyMediodia ? 'vencido' : 'pendiente';
 
             $db->CRUD(
                 "INSERT INTO convenio_cliente_amortizacion

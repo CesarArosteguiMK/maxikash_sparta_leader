@@ -1592,7 +1592,7 @@ function congelarModulo(convenio) {
         }
     }
 
-    // Aplicar clases a cards
+    // Aplicar clases a cards y actualizar la seleccionada con datos reales del convenio
     var cards = document.querySelectorAll('.oferta-card');
     for (var j = 0; j < cards.length; j++) {
         if (j === idxOferta) {
@@ -1603,6 +1603,15 @@ function congelarModulo(convenio) {
                 check.innerHTML = '<i class="fa-solid fa-check"></i>';
                 cards[j].appendChild(check);
             }
+            // Sobreescribir datos de la card con los valores reales del convenio
+            // para evitar la contradicción entre lo que muestra la card y la tabla
+            var elPct = cards[j].querySelector('.porcentaje');
+            if (elPct) elPct.textContent = parseInt(convenio.porcentaje_descuento) + '%';
+            var elDesc = cards[j].querySelector('.desc-oferta');
+            if (elDesc) elDesc.textContent = 'Ahorro de ' + fmt(convenio.descuento_monto) + ' sobre ' + fmt(convenio.adeudo_total_original);
+            var detalles = cards[j].querySelectorAll('.detalle-item');
+            if (detalles[0]) detalles[0].innerHTML = '<i class="fa-solid fa-check"></i> Total a pagar: <strong>' + fmt(convenio.total_a_pagar) + '</strong>';
+            if (detalles[2]) detalles[2].innerHTML = '<i class="fa-solid fa-check"></i> Plazos: <strong>' + convenio.numero_semanas + ' sem</strong>';
         } else {
             cards[j].classList.add('congelada');
         }
@@ -2722,6 +2731,7 @@ function descargarPdfConvenio(idConvenio) {
 var _migCredito = null;
 var _migDetalle = null;
 var _migSemanas = 0;
+var _migOfertas = [];  // ofertas del crédito activo en el modal
 
 
 
@@ -2908,6 +2918,7 @@ window.migBuscarCredito = function () {
     _migCredito = null;
     _migDetalle = null;
     _migSemanas = 0;
+    _migOfertas = [];
 
     // Preamortización
     var preamortBody = document.getElementById('preamortBody');
@@ -2938,6 +2949,8 @@ window.migBuscarCredito = function () {
     if (errGlobo) errGlobo.style.display = 'none';
     var errSem = document.getElementById('migErrorSemanal');
     if (errSem) errSem.remove();
+    var migAdeudoAviso = document.getElementById('migAdeudoAviso');
+    if (migAdeudoAviso) migAdeudoAviso.remove();
 
     // Campos de formulario
     var migPorcentaje = document.getElementById('migPorcentaje');
@@ -3004,6 +3017,11 @@ window.migBuscarCredito = function () {
             }
 
             var credito = respOfertas.datos.credito;
+
+            // ── Guardar ofertas para uso en migProductoChange ─────────────
+            _migOfertas = (respOfertas.datos.ofertas || []).filter(function (o) {
+                return o.nombre !== 'Convenio Globo Manual';
+            });
 
             // ── Paso 2: Validar que el crédito esté en despacho ──────────
             http.request({
@@ -3125,6 +3143,48 @@ window.migProductoChange = function () {
         id_detalle: sel.value,
         id_producto: opt.getAttribute('data-id-producto'),
     };
+
+    // ── Auto-ajustar adeudo base según el producto seleccionado ──────
+    // Cada producto puede tener una base diferente (Adeudo Total vs Saldo Capital).
+    // El backend ya calcula monto_base correctamente en getOfertasCredito.
+    if (!esGlobo && _migOfertas.length > 0) {
+        var idProdNum = parseInt(_migDetalle.id_producto);
+        var ofertaMatch = null;
+        for (var _oi = 0; _oi < _migOfertas.length; _oi++) {
+            if (_migOfertas[_oi].id_producto === idProdNum) { ofertaMatch = _migOfertas[_oi]; break; }
+        }
+        if (ofertaMatch) {
+            var migAdeudoEl = document.getElementById('migAdeudo');
+            if (migAdeudoEl) {
+                migAdeudoEl.value = parseFloat(ofertaMatch.monto_base).toFixed(2);
+            }
+            // Badge informativo debajo del campo adeudo
+            var avisoPrevio = document.getElementById('migAdeudoAviso');
+            if (avisoPrevio) avisoPrevio.remove();
+            var aviso = document.createElement('small');
+            aviso.id = 'migAdeudoAviso';
+            aviso.style.cssText = 'display:block;margin-top:4px;font-size:0.75rem;';
+            var esAdeudoTotal = parseFloat(ofertaMatch.monto_base).toFixed(2) ===
+                parseFloat(_migCredito ? _migCredito.Adeudo_total || 0 : 0).toFixed(2);
+            aviso.innerHTML = esAdeudoTotal
+                ? '<i class="fas fa-info-circle" style="color:#3b82f6;"></i>' +
+                  ' <span style="color:#3b82f6;">Base: Adeudo Total</span>'
+                : '<i class="fas fa-info-circle" style="color:#f59e0b;"></i>' +
+                  ' <span style="color:#f59e0b;">Base: Saldo Capital (' +
+                  '$' + parseFloat(ofertaMatch.monto_base).toLocaleString('es-MX', {minimumFractionDigits:2}) +
+                  ') — distinto al adeudo total</span>';
+            if (migAdeudoEl) migAdeudoEl.parentNode.appendChild(aviso);
+        }
+    } else if (esGlobo) {
+        // Para globo, restaurar adeudo total del crédito
+        var migAdeudoGlobo = document.getElementById('migAdeudo');
+        if (migAdeudoGlobo && _migCredito) {
+            migAdeudoGlobo.value = parseFloat(_migCredito.Adeudo_total || 0).toFixed(2);
+        }
+        var avisoPrevioG = document.getElementById('migAdeudoAviso');
+        if (avisoPrevioG) avisoPrevioG.remove();
+    }
+    // ─────────────────────────────────────────────────────────────
 
     var colBucket = document.getElementById('colBucketMorosidad');
     var colSemanal = document.getElementById('colPagoSemanal');
@@ -3641,7 +3701,7 @@ window.migRecalcularTotal = function () {
             return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
         };
         var elSemanal = document.getElementById('migResumenSemanal');
-        if (elSemanal) elSemanal.textContent = fmt(nuevoSemanal);
+        if (elSemanal) elSemanal.textContent = semanas + ' sem';
     }
 
     // ── CORRECCIÓN: recalcular % de descuento real ────────────────
