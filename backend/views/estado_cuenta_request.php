@@ -1740,7 +1740,7 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                             </button>
                             <span class="text-nowrap">
                                 <i class="fa fa-id-card text-primary"></i>
-                                RFC: <?= htmlspecialchars(trim($referencias['datos'][0]['rfc'] ?? '') ?: '—') ?>
+                                RFC: <span id="ec-rfc-inline" class="text-nowrap">…</span>
                             </span>
                         </small>
                     </div>
@@ -2104,8 +2104,8 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                         onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-sticky-note"></i>
                     <span id="badgeNotas"
-                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
+                          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-secondary">
+                        …
                     </span>
                 </button>
 
@@ -2493,30 +2493,7 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
         </div>
     </div>
 
-    <?php
-    // Preparar referencias dinámicamente
-    $datosRef = $referencias['datos'][0] ?? [];
-    $referenciasList = [];
-
-    for ($i = 1; $i <= 3; $i++) {
-        $nombreKey = "nombre_completo_referencia{$i}";
-        $telefonoKey = "telefono_referencia{$i}";
-
-        if (!empty($datosRef[$nombreKey])) {
-            $referenciasList[] = [
-                    'nombre' => $datosRef[$nombreKey],
-                    'telefono' => $datosRef[$telefonoKey] ?? '—',
-                    'tipo' => $i === 1 ? 'Principal' : "Referencia {$i}",
-                    'icono' => $i === 1 ? 'fa-user text-success' : ($i === 2 ? 'fa-user-friends text-primary' : 'fa-user-tie text-warning')
-            ];
-        }
-    }
-
-    // RFC global
-    $rfcCliente = $datosRef["rfc"] ?? '—';
-    ?>
-
-    <!-- Modal RFC -->
+    <!-- Modal RFC (contenido: getComplementosEstadoCuenta) -->
     <div class="modal fade" id="modalRFC" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -2532,36 +2509,11 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
 
                 <!-- Body -->
                 <div class="modal-body">
-                    <div class="row g-4">
-
-                        <?php foreach ($referenciasList as $index => $r): ?>
-                            <div class="col-md-<?= 12 / max(count($referenciasList), 1) ?>">
-                                <div class="reference-card">
-                                    <?php if($index === 0): ?>
-                                        <span class="badge bg-success reference-badge"><?= htmlspecialchars($r['tipo']) ?></span>
-                                    <?php endif; ?>
-
-                                    <div class="reference-header">
-                                        <i class="fa <?= $r['icono'] ?>"></i>
-                                        <?= htmlspecialchars($r['tipo']) ?>
-                                    </div>
-
-                                    <div class="reference-divider"></div>
-
-                                    <div class="info-line">
-                                        <span>Nombre: </span>
-                                        <strong><?= htmlspecialchars($r['nombre']) ?></strong>
-                                    </div>
-
-                                    <div class="info-line">
-                                        <span>Teléfono: </span>
-                                        <strong><?= htmlspecialchars($r['telefono']) ?></strong>
-                                    </div>
-
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-
+                    <div id="ec-modal-refs-body" class="row g-4">
+                        <div class="col-12 text-center text-muted py-4">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Cargando referencias…
+                        </div>
                     </div>
                 </div>
 
@@ -2625,6 +2577,176 @@ if ($__dictamenContactoJson === false) {
 <script type="application/json" id="ec-gastos-cobranza-preload"><?= $__gastosJson ?></script>
 <script type="application/json" id="ec-historial-gastos-preload"><?= $__histJson ?></script>
 <script type="application/json" id="ec-dictamen-contacto-preload"><?= $__dictamenContactoJson ?></script>
+<?php
+$__ecCrucePayload = isset($ecCrucePayload) && is_array($ecCrucePayload) ? $ecCrucePayload : null;
+$__ecCruceJson = false;
+if ($__ecCrucePayload !== null && (int) ($__ecCrucePayload['idCredito'] ?? 0) > 0) {
+    $__ecCruceJson = json_encode($__ecCrucePayload, $__ecJsonFlags);
+    if ($__ecCruceJson === false) {
+        $__ecCrucePayloadMin = [
+            'idCredito'  => (int) $__ecCrucePayload['idCredito'],
+            'fechaCorte' => (string) ($__ecCrucePayload['fechaCorte'] ?? date('Y-m-d')),
+        ];
+        $__ecCruceJson = json_encode($__ecCrucePayloadMin, $__ecJsonFlags);
+    }
+}
+?>
+<?php if ($__ecCruceJson !== false && $__ecCruceJson !== ''): ?>
+<script type="application/json" id="ec-cruce-payload"><?= $__ecCruceJson ?></script>
+<script>
+(function () {
+    var el = document.getElementById('ec-cruce-payload');
+    if (!el) return;
+    var raw = el.textContent;
+    if (!raw) return;
+    var payload;
+    try {
+        payload = JSON.parse(raw);
+    } catch (e) {
+        return;
+    }
+    if (!payload || !payload.idCredito) return;
+    function enviar() {
+        fetch('/EstadoCuenta/procesarCruceGastos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin',
+            keepalive: true
+        }).catch(function () {});
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(enviar, 0); });
+    } else {
+        setTimeout(enviar, 0);
+    }
+})();
+</script>
+<?php endif; ?>
+<?php
+$__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
+?>
+<?php if ($__ecIdComplementos > 0): ?>
+<script>
+(function () {
+    var idCredito = <?= json_encode($__ecIdComplementos) ?>;
+    function ecEsc(t) {
+        if (t == null || t === '') return '';
+        var d = document.createElement('div');
+        d.textContent = String(t);
+        return d.innerHTML;
+    }
+    function aplicarComplementos(resp) {
+        if (!resp || !resp.success) {
+            var msg = (resp && resp.mensaje) ? resp.mensaje : 'No se pudieron cargar los datos del cliente.';
+            var refs = document.getElementById('ec-modal-refs-body');
+            if (refs) refs.innerHTML = '<div class="col-12"><div class="alert alert-warning mb-0">' + ecEsc(msg) + '</div></div>';
+            var dir = document.getElementById('ec-modal-direcciones-body');
+            if (dir) dir.innerHTML = '<div class="col-12"><div class="alert alert-warning mb-0">' + ecEsc(msg) + '</div></div>';
+            var rfc = document.getElementById('ec-rfc-inline');
+            if (rfc) rfc.textContent = '—';
+            var bd = document.getElementById('badgeNotas');
+            if (bd) {
+                bd.textContent = '0';
+                bd.classList.remove('bg-secondary');
+                bd.classList.add('bg-danger');
+            }
+            return;
+        }
+        var refPayload = resp.referencias || {};
+        var datosRef = (refPayload.datos && refPayload.datos[0]) ? refPayload.datos[0] : {};
+        var rfcEl = document.getElementById('ec-rfc-inline');
+        if (rfcEl) {
+            var rfc = String(datosRef.rfc || '').trim();
+            rfcEl.textContent = rfc ? rfc : '—';
+        }
+        var numNotas = '';
+        var np = resp.notas;
+        if (np && np.datos && np.datos[0] && np.datos[0].num != null) numNotas = String(np.datos[0].num);
+        var badge = document.getElementById('badgeNotas');
+        if (badge) {
+            badge.textContent = numNotas !== '' ? numNotas : '0';
+            badge.classList.remove('bg-secondary');
+            badge.classList.add('bg-danger');
+        }
+        var list = [];
+        for (var i = 1; i <= 3; i++) {
+            var nk = 'nombre_completo_referencia' + i;
+            var tk = 'telefono_referencia' + i;
+            if (datosRef[nk] && String(datosRef[nk]).trim()) {
+                list.push({
+                    nombre: datosRef[nk],
+                    telefono: datosRef[tk] || '—',
+                    tipo: i === 1 ? 'Principal' : ('Referencia ' + i),
+                    icono: i === 1 ? 'fa-user text-success' : (i === 2 ? 'fa-user-friends text-primary' : 'fa-user-tie text-warning')
+                });
+            }
+        }
+        var refsBody = document.getElementById('ec-modal-refs-body');
+        if (refsBody) {
+            if (list.length === 0) {
+                refsBody.innerHTML = '<div class="col-12"><p class="text-muted text-center mb-0">Sin referencias registradas.</p></div>';
+            } else {
+                var colw = Math.max(1, Math.floor(12 / list.length));
+                var html = '';
+                list.forEach(function (r, index) {
+                    html += '<div class="col-md-' + colw + '"><div class="reference-card">';
+                    if (index === 0) html += '<span class="badge bg-success reference-badge">' + ecEsc(r.tipo) + '</span>';
+                    html += '<div class="reference-header"><i class="fa ' + r.icono + '"></i> ' + ecEsc(r.tipo) + '</div>';
+                    html += '<div class="reference-divider"></div>';
+                    html += '<div class="info-line"><span>Nombre: </span><strong>' + ecEsc(r.nombre) + '</strong></div>';
+                    html += '<div class="info-line"><span>Teléfono: </span><strong>' + ecEsc(r.telefono) + '</strong></div>';
+                    html += '</div></div>';
+                });
+                refsBody.innerHTML = html;
+            }
+        }
+        var datosDir = [];
+        var dresp = resp.direcciones;
+        if (dresp && Array.isArray(dresp.datos)) datosDir = dresp.datos;
+        var dirBody = document.getElementById('ec-modal-direcciones-body');
+        if (dirBody) {
+            if (!datosDir.length) {
+                dirBody.innerHTML = '<div class="col-12"><div class="alert alert-info text-center"><i class="fa fa-info-circle me-2"></i><strong>No se encontraron direcciones</strong><p class="mb-0 mt-2">No hay direcciones registradas para este cliente.</p></div></div>';
+            } else {
+                var dh = '';
+                datosDir.forEach(function (direccion) {
+                    if (!direccion || typeof direccion !== 'object') return;
+                    var domicilio = direccion.Domicilio_Completo != null ? String(direccion.Domicilio_Completo) : 'No disponible';
+                    var nom = direccion.Nombre_cliente != null ? String(direccion.Nombre_cliente) : '';
+                    var idCl = direccion.Id_cliente != null ? String(direccion.Id_cliente) : '';
+                    dh += '<div class="col-md-6"><div class="card h-100 shadow-sm border"><div class="card-body">';
+                    dh += '<div class="d-flex align-items-center mb-2"><i class="fa fa-home text-success me-2"></i><h6 class="mb-0">Domicilio Particular</h6></div>';
+                    if (nom) dh += '<div class="mb-2"><small class="text-muted d-block">Cliente:</small><strong>' + ecEsc(nom) + '</strong></div>';
+                    dh += '<div class="mb-2"><small class="text-muted d-block">Dirección:</small><p class="mb-0">' + ecEsc(domicilio) + '</p></div>';
+                    if (idCl) dh += '<div class="mb-2"><small class="text-muted">ID Cliente: ' + ecEsc(idCl) + '</small></div>';
+                    dh += '<span class="badge bg-success">Principal</span></div></div></div>';
+                });
+                dirBody.innerHTML = dh || '<div class="col-12"><div class="alert alert-info text-center">No hay direcciones.</div></div>';
+            }
+        }
+    }
+    function cargarComplementos() {
+        fetch('/EstadoCuenta/getComplementosEstadoCuenta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idCredito: idCredito }),
+            credentials: 'same-origin'
+        })
+            .then(function (r) { return r.json(); })
+            .then(aplicarComplementos)
+            .catch(function () {
+                aplicarComplementos({ success: false, mensaje: 'Error de conexión al cargar datos del cliente.' });
+            });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(cargarComplementos, 0); });
+    } else {
+        setTimeout(cargarComplementos, 0);
+    }
+})();
+</script>
+<?php endif; ?>
 
 <div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true"
      data-bs-backdrop="false" data-bs-keyboard="true">
@@ -4547,77 +4669,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
-            <!-- Body -->
+            <!-- Body (contenido: getComplementosEstadoCuenta) -->
             <div class="modal-body py-4">
-                <div class="row g-3">
-                    <?php
-                    // Validar que existan las direcciones antes de mostrarlas
-                    $datosDirecciones = [];
-
-                    if (isset($direcciones)) {
-                        if (is_array($direcciones)) {
-                            // Si tiene estructura ['datos' => [...]]
-                            if (isset($direcciones['datos']) && is_array($direcciones['datos'])) {
-                                $datosDirecciones = $direcciones['datos'];
-                            }
-                            // Si es directamente un array
-                            elseif (!empty($direcciones) && isset($direcciones[0])) {
-                                $datosDirecciones = $direcciones;
-                            }
-                        }
-                    }
-
-                    if (!empty($datosDirecciones)):
-                        foreach ($datosDirecciones as $index => $direccion):
-                            if (!is_array($direccion)) continue;
-                            $domicilioCompleto = isset($direccion['Domicilio_Completo']) ? htmlspecialchars($direccion['Domicilio_Completo']) : 'No disponible';
-                            $nombreCliente = isset($direccion['Nombre_cliente']) ? htmlspecialchars($direccion['Nombre_cliente']) : '';
-                            $idCliente = isset($direccion['Id_cliente']) ? htmlspecialchars($direccion['Id_cliente']) : '';
-                    ?>
-                    <!-- Dirección <?= $index + 1 ?> -->
-                    <div class="col-md-6">
-                        <div class="card h-100 shadow-sm border">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center mb-2">
-                                    <i class="fa fa-home text-success me-2"></i>
-                                    <h6 class="mb-0">Domicilio Particular</h6>
-                                </div>
-
-                                <?php if ($nombreCliente): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted d-block">Cliente:</small>
-                                    <strong><?= $nombreCliente ?></strong>
-                                </div>
-                                <?php endif; ?>
-
-                                <div class="mb-2">
-                                    <small class="text-muted d-block">Dirección:</small>
-                                    <p class="mb-0"><?= $domicilioCompleto ?></p>
-                                </div>
-
-                                <?php if ($idCliente): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted">ID Cliente: <?= $idCliente ?></small>
-                                </div>
-                                <?php endif; ?>
-
-                                <span class="badge bg-success">Principal</span>
-                            </div>
-                        </div>
+                <div id="ec-modal-direcciones-body" class="row g-3">
+                    <div class="col-12 text-center text-muted py-4">
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Cargando direcciones…
                     </div>
-                    <?php
-                        endforeach;
-                    else:
-                    ?>
-                    <!-- Mensaje cuando no hay direcciones -->
-                    <div class="col-12">
-                        <div class="alert alert-info text-center">
-                            <i class="fa fa-info-circle me-2"></i>
-                            <strong>No se encontraron direcciones</strong>
-                            <p class="mb-0 mt-2">No hay direcciones registradas para este cliente.</p>
-                        </div>
-                    </div>
-                    <?php endif; ?>
                 </div>
             </div>
 

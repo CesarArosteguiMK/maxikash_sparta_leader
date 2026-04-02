@@ -79,6 +79,30 @@ class Empresa extends Model
         }
     }
 
+    /**
+     * Consulta mínima (solo existe en oferta MX) para precheck sin JOIN a persona/referencias.
+     * Evita esperar al usuario en la carga inicial; el detalle va por getComplementos async.
+     */
+    public static function creditoTieneOfertaEnMx($id_credito)
+    {
+        if ($id_credito === null || $id_credito === '') {
+            return self::resultado(true, 'ok', []);
+        }
+        $params = ['id_credito' => $id_credito];
+        try {
+            $db = new \core\DatabaseMaxiProd();
+            $row = $db->queryOne(
+                'SELECT 1 AS ok FROM oferta o WHERE o.id_oferta = :id_credito LIMIT 1',
+                $params
+            );
+            $existe = is_array($row) && isset($row['ok']);
+
+            return self::resultado(true, 'ok', $existe ? [['ok' => 1]] : []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al verificar crédito MX.', [], $e->getMessage());
+        }
+    }
+
     public static function getConsultaReferenciasEstadoCuenta($id_credito)
     {
         $query = <<<SQL
