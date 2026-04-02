@@ -107,7 +107,7 @@ if ($urlAgenteIni !== '') {
                         </div>
                         <div class="col-12">
                             <button type="button" class="btn btn-primary btn-sm" id="btnEcLauncherEjecutar" disabled>
-                                <i class="fa fa-cloud-upload-alt me-1"></i>Subir Excel y ejecutar vía agente
+                                <i class="fa fa-play me-1"></i>Ejecutar corrida del agente
                             </button>
                             <span class="small text-muted ms-2">Puede tardar mucho. Con el Worker, al terminar la corrida la lista negra se actualiza sola con el mismo Excel.</span>
                         </div>
@@ -253,7 +253,7 @@ if ($urlAgenteIni !== '') {
             <div class="card shadow-sm border-0">
                 <div class="card-body">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-                        <h5 class="card-title mb-0"><i class="fa fa-scroll text-secondary me-2"></i>Log del agente (casi en tiempo real)</h5>
+                        <h5 class="card-title mb-0"><i class="fa fa-scroll text-secondary me-2"></i>Log del agente</h5>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="chkGastosCobranzaLogAuto" checked>
                             <label class="form-check-label small" for="chkGastosCobranzaLogAuto">Auto cada 4 s</label>
