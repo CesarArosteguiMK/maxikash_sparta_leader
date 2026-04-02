@@ -6,7 +6,7 @@
  * Si no hay script y GASTOS_COBRANZA_DEMO no es "0", /run responde en modo prueba.
  *
  * EC Launcher: POST /ec-launcher/run ejecuta tools/ec-webhook-worker/worker.php o
- * ec-gc-excel-enrich/enrich_gc_excel.php (misma lógica que launcher/Lanzar.cmd, sin menú interactivo).
+ * tools/ec-gc-excel-enrich/enrich_gc_excel.php (dentro de este agente; misma lógica que launcher/Lanzar.cmd).
  * Excel debe estar ya en reporte/ec-uploads (subida vía PHP en la vista).
  *
  * Carga verificación semana: POST /carga-verificacion-semana/run ejecuta
@@ -68,9 +68,8 @@ const LOG_FILE = path.join(LOG_DIR, 'agente-gastos-cobranza.log');
 const ENV_CON_PYTHON_UNBUFFERED = { ...process.env, PYTHONUNBUFFERED: '1' };
 const REPORTE_DIR = path.join(__dirname, 'reporte');
 const EC_UPLOAD_DIR = path.join(REPORTE_DIR, 'ec-uploads');
-const SPARTA_LEDGER_ROOT = path.resolve(path.join(__dirname, '..', '..', '..'));
-const EC_WORKER_DIR = path.join(SPARTA_LEDGER_ROOT, 'tools', 'ec-webhook-worker');
-const EC_ENRICH_DIR = path.join(SPARTA_LEDGER_ROOT, 'tools', 'ec-gc-excel-enrich');
+const EC_WORKER_DIR = path.join(__dirname, 'tools', 'ec-webhook-worker');
+const EC_ENRICH_DIR = path.join(__dirname, 'tools', 'ec-gc-excel-enrich');
 const DESCARGO_ESTATUS3_DIR = path.join(REPORTE_DIR, 'descargo_estatus3');
 
 /** Texto corto en columna Estado (UI) → tooltip = frase completa operativa */
@@ -78,8 +77,12 @@ const ESTADO_REPORTE = {
   generado: { corto: 'Generado', detalle: 'Reporte generado' },
   procCartera: { corto: 'Proc. cartera', detalle: 'Procesando por cartera' },
   aplicCartera: { corto: 'Aplic. cartera', detalle: 'Aplicado y confirmado por cartera' },
-  enWorker: { corto: 'En Worker', detalle: 'Ejecutando en Worker' },
-  listaNegra: { corto: 'Lista negra', detalle: 'Registrado lista negra' },
+  enWorker: { corto: 'En Worker', detalle: 'Ejecutando worker S2 con este Excel' },
+  workerListo: {
+    corto: 'Worker listo',
+    detalle: 'Worker terminó (éxito o errores parciales); pendiente o en curso la carga a lista negra',
+  },
+  listaNegra: { corto: 'Lista negra', detalle: 'Carga a verificación semana aplicada con este Excel' },
 };
 
 const ESTADO_REPORTE_KEYS = new Set(Object.keys(ESTADO_REPORTE));
@@ -94,6 +97,32 @@ function readEstadosReporteJson() {
   } catch (_) {
     return {};
   }
+}
+
+function setEstadoReporteArchivo(nombreArchivo, estadoKey) {
+  const nom = path.basename(String(nombreArchivo || ''));
+  if (!nom || !ESTADO_REPORTE_KEYS.has(estadoKey)) return;
+  ensureReporteDir();
+  const fp = path.join(REPORTE_DIR, '.estados_reporte.json');
+  const map = readEstadosReporteJson();
+  map[nom] = estadoKey;
+  try {
+    fs.writeFileSync(fp, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+    appendLog(`[estado reporte] ${nom} -> ${estadoKey}`);
+  } catch (e) {
+    appendLog(`[estado reporte] error al escribir .estados_reporte.json: ${e?.message || e}`);
+  }
+}
+
+function payloadEstadoReporte(nombreArchivo, estadoKey) {
+  if (!nombreArchivo || !ESTADO_REPORTE_KEYS.has(estadoKey)) return null;
+  const e = ESTADO_REPORTE[estadoKey];
+  return {
+    archivo: path.basename(String(nombreArchivo)),
+    clave: estadoKey,
+    corto: e.corto,
+    detalle: e.detalle,
+  };
 }
 
 /**
@@ -199,8 +228,20 @@ function clearLogFile(manual) {
   } catch (_) {}
 }
 
+/** Día de la semana (es-MX) según calendario Ciudad de México, para la fecha de modificación del .xlsx. */
+function diaSemanaLargoCdmx(date) {
+  const s = new Intl.DateTimeFormat('es-MX', {
+    timeZone: 'America/Mexico_City',
+    weekday: 'long',
+  }).format(date);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 const app = express();
 app.use(express.json());
+
+/** Un solo proceso EC (worker o enrich) a la vez; evita solapar worker.php en el mismo agente. */
+let ecLauncherBusy = false;
 
 function middlewareApiKey(req, res, next) {
   if (!API_KEY) return next();
@@ -243,6 +284,7 @@ app.get('/health', (req, res) => {
     script_descargo_estatus3_bundled:
       getDescargoEstatus3ScriptPath() !== '' && getDescargoEstatus3ScriptPath() === SCRIPT_DESCARGO_ESTATUS3,
     carpeta_descargo_estatus3: DESCARGO_ESTATUS3_DIR,
+    ec_launcher_ocupado: ecLauncherBusy,
   });
 });
 
@@ -266,6 +308,7 @@ app.get('/reportes', (req, res) => {
           nombre: name,
           bytes: st.size,
           modificado: st.mtime.toISOString(),
+          diaSemanaModificado: diaSemanaLargoCdmx(st.mtime),
           estado,
           estadoDetalle,
         };
@@ -459,7 +502,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     if (!fs.existsSync(path.join(EC_WORKER_DIR, 'worker.php'))) {
       return res.status(500).json({
         success: false,
-        mensaje: 'No existe tools/ec-webhook-worker/worker.php (¿raíz del repo correcta?).',
+        mensaje: 'No existe gastos-cobranza-agent/tools/ec-webhook-worker/worker.php.',
       });
     }
     cwd = EC_WORKER_DIR;
@@ -475,7 +518,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     if (!fs.existsSync(path.join(EC_ENRICH_DIR, 'enrich_gc_excel.php'))) {
       return res.status(500).json({
         success: false,
-        mensaje: 'No existe tools/ec-gc-excel-enrich/enrich_gc_excel.php.',
+        mensaje: 'No existe gastos-cobranza-agent/tools/ec-gc-excel-enrich/enrich_gc_excel.php.',
       });
     }
     cwd = EC_ENRICH_DIR;
@@ -492,6 +535,22 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     return res.status(400).json({ success: false, mensaje: 'tipo debe ser "worker" o "enrich".' });
   }
 
+  if (ecLauncherBusy) {
+    return res.status(409).json({
+      success: false,
+      mensaje:
+        'Ya hay un Worker o proceso EC (enrich) en ejecución en este agente. Espere a que termine antes de lanzar otro.',
+    });
+  }
+  ecLauncherBusy = true;
+
+  /** Solo reportes cobranza en reporte/: la tabla del shell muestra estado por .estados_reporte.json */
+  const marcarEstadoWorkerReporte =
+    tipo === 'worker' && origenCarpeta === 'reporte' && /^reporte_cobranza_/i.test(archivo);
+  if (marcarEstadoWorkerReporte) {
+    setEstadoReporteArchivo(archivo, 'enWorker');
+  }
+
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
   appendLog(`--- ec-launcher ${tipo} archivo=${archivo} fecha=${fechaCorte} php=${php} ---`);
 
@@ -504,6 +563,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   const enviar = (payload) => {
     if (respondio) return;
     respondio = true;
+    ecLauncherBusy = false;
     if (payload.codigo_salida !== undefined) {
       appendLog(`--- ec-launcher cierre ${payload.codigo_salida} ---`);
     } else if (payload.mensaje) {
@@ -530,7 +590,14 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   });
   child.on('error', (err) => {
     appendLog('[ec-launcher spawn] ' + (err.message || String(err)));
-    enviar({ success: false, mensaje: err.message || String(err) });
+    if (marcarEstadoWorkerReporte) {
+      setEstadoReporteArchivo(archivo, 'generado');
+    }
+    enviar({
+      success: false,
+      mensaje: err.message || String(err),
+      estado_reporte: marcarEstadoWorkerReporte ? payloadEstadoReporte(archivo, 'generado') : null,
+    });
   });
   child.on('close', (code) => {
     const outSlice = stdout.slice(-8000);
@@ -546,6 +613,12 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
         erroresReintentoCsv = last;
       }
     }
+    let estadoRep = null;
+    if (marcarEstadoWorkerReporte) {
+      const key = code === 0 || code === 2 ? 'workerListo' : 'generado';
+      setEstadoReporteArchivo(archivo, key);
+      estadoRep = payloadEstadoReporte(archivo, key);
+    }
     const payload = {
       success: code === 0,
       codigo_salida: code,
@@ -553,6 +626,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       stderr: stderr.slice(-8000),
       tipo,
       archivo,
+      estado_reporte: estadoRep,
     };
     if (erroresReintentoCsv) {
       payload.errores_reintento_csv = erroresReintentoCsv;
@@ -603,6 +677,20 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   }
   const mensaje = req.body?.mensaje != null ? String(req.body.mensaje).trim() : '';
 
+  let headerRowPandas = 0;
+  let headerRowExplicit = false;
+  if (req.body?.headerRow !== undefined && req.body?.headerRow !== null && String(req.body.headerRow).trim() !== '') {
+    const hr = parseInt(String(req.body.headerRow).trim(), 10);
+    if (!Number.isFinite(hr) || hr < 1 || hr > 200) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'headerRow: número de fila en Excel donde están los títulos de columna (1–200). Vacío = detectar automático.',
+      });
+    }
+    headerRowPandas = hr - 1;
+    headerRowExplicit = true;
+  }
+
   if (inicioSemana && !/^\d{4}-\d{2}-\d{2}$/.test(inicioSemana)) {
     return res.status(400).json({ success: false, mensaje: 'inicioSemana debe ser YYYY-MM-DD o vacío.' });
   }
@@ -622,9 +710,14 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   if (mensaje) args.push('--mensaje', mensaje);
   if (megaPhpDefaults) args.push('--mega-php-defaults');
   else args.push('--no-mega-php-defaults');
+  if (headerRowExplicit) {
+    args.push('--header-row', String(headerRowPandas));
+  }
 
   const cwd = path.dirname(scriptPath);
-  appendLog(`--- carga-verificacion-semana archivo=${archivo} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} ---`);
+  appendLog(
+    `--- carga-verificacion-semana archivo=${archivo} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'} ---`,
+  );
 
   const child = spawn(REPORTE_PYTHON, args, {
     cwd,
@@ -660,15 +753,34 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   });
   child.on('error', (err) => {
     appendLog('[carga-verificacion spawn] ' + (err.message || String(err)));
-    enviar({ success: false, mensaje: err.message || String(err) });
+    if (origenCarpeta === 'reporte' && !dryRun) {
+      setEstadoReporteArchivo(archivo, 'generado');
+    }
+    enviar({
+      success: false,
+      mensaje: err.message || String(err),
+      estado_reporte:
+        origenCarpeta === 'reporte' && !dryRun ? payloadEstadoReporte(archivo, 'generado') : null,
+    });
   });
   child.on('close', (code) => {
+    let estadoRepPayload = null;
+    if (origenCarpeta === 'reporte' && !dryRun) {
+      if (code === 0) {
+        setEstadoReporteArchivo(archivo, 'listaNegra');
+        estadoRepPayload = payloadEstadoReporte(archivo, 'listaNegra');
+      } else {
+        setEstadoReporteArchivo(archivo, 'generado');
+        estadoRepPayload = payloadEstadoReporte(archivo, 'generado');
+      }
+    }
     enviar({
       success: code === 0,
       codigo_salida: code,
       stdout: stdout.slice(-8000),
       stderr: stderr.slice(-8000),
       archivo,
+      estado_reporte: estadoRepPayload,
     });
   });
 });
@@ -863,76 +975,6 @@ app.get('/descargo-estatus3/descargar', (req, res) => {
   return res.download(p, nombre);
 });
 
-// ─── Auto /run a las 08:00 hora CDMX (reloj ciud. México, no TZ del servidor) ───
-function getCdmxYmd(d = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Mexico_City',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(d);
-  const y = parts.find((p) => p.type === 'year').value;
-  const mo = parts.find((p) => p.type === 'month').value;
-  const da = parts.find((p) => p.type === 'day').value;
-  return `${y}-${mo}-${da}`;
-}
-
-function getCdmxHourMin(d = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'America/Mexico_City',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(d);
-  const h = parseInt(parts.find((p) => p.type === 'hour').value, 10);
-  const m = parseInt(parts.find((p) => p.type === 'minute').value, 10);
-  return { h, m };
-}
-
-/** Lunes=0 … domingo=6 (igual que Python weekday del script). */
-function cdmxHoyPyWeekday(d = new Date()) {
-  const s = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short' }).format(d);
-  const map = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
-  return map[s];
-}
-
-function parseAuto8amHoyPyFilter() {
-  const raw = (process.env.AUTO_8AM_CDMX_HOY_PY || '').trim();
-  if (!raw) return null;
-  const s = new Set();
-  for (const x of raw.split(',')) {
-    const n = parseInt(x.trim(), 10);
-    if (!Number.isNaN(n) && n >= 0 && n <= 6) s.add(n);
-  }
-  return s.size ? s : null;
-}
-
-const AUTO_8AM_HOY_PY = parseAuto8amHoyPyFilter();
-let lastAuto8amCdmxYmd = null;
-
-function dispararRunInterno() {
-  const url = `http://127.0.0.1:${PORT}/run`;
-  /** @type {Record<string, string>} */
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-  if (API_KEY) headers['X-Api-Key'] = API_KEY;
-  fetch(url, { method: 'POST', headers, body: '{}' }).catch((e) => {
-    appendLog('[auto-8am] fetch /run: ' + String(e.message || e));
-  });
-}
-
-function tickAuto8amCdmx() {
-  if ((process.env.AUTO_EJECUTAR_8AM_CDMX || '0').trim() !== '1') return;
-  const d = new Date();
-  const { h, m } = getCdmxHourMin(d);
-  if (h !== 8 || m > 1) return;
-  const ymd = getCdmxYmd(d);
-  if (lastAuto8amCdmxYmd === ymd) return;
-  if (AUTO_8AM_HOY_PY && !AUTO_8AM_HOY_PY.has(cdmxHoyPyWeekday(d))) return;
-  lastAuto8amCdmxYmd = ymd;
-  appendLog(`[auto-8am] CDMX ${ymd} 08:00 → POST /run (Python: ayer CDMX como fecha de negocio)`);
-  dispararRunInterno();
-}
-
 ensureLogDir();
 ensureReporteDir();
 if (String(process.env.GASTOS_COBRANZA_LOG_CLEAR_ON_START || '0').trim() === '1') {
@@ -944,6 +986,4 @@ appendLog(
 
 app.listen(PORT, () => {
   console.log('[gastos-cobranza-agent] escuchando en', PORT);
-  setInterval(tickAuto8amCdmx, 30_000);
-  tickAuto8amCdmx();
 });

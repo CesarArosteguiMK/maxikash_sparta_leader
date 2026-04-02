@@ -646,6 +646,19 @@ $panel_admin_chromeless_embed = false;
         vertical-align: super;
     }
     #tablaTickets .dictamen-countdown-prorroga .fa-clock { color: #d97706 !important; }
+    #tablaTicketsPanel .dictamen-countdown-intensidad .fa-clock,
+    #tablaTickets .dictamen-countdown-intensidad .fa-clock {
+        color: var(--bs-info) !important;
+    }
+    #tablaTicketsPanel .dictamen-intensidad-marca,
+    #tablaTickets .dictamen-intensidad-marca {
+        font-size: 0.6rem;
+        font-weight: 800;
+        color: var(--bs-info);
+        margin-left: 2px;
+        line-height: 1;
+        vertical-align: super;
+    }
     #tablaTicketsPanel tr.fila-dictamen-enviado { border-left: 3px solid #0d6efd; }
     #tablaTicketsPanel .btn-dictamen-ojito { cursor: pointer; }
     @media (max-width: 768px) {

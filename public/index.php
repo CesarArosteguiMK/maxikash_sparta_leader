@@ -24,6 +24,13 @@ if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
 */
 define('RAIZ', dirname(__DIR__) . '/backend');
 
+if (!defined('SPARTA_PROJECT_ROOT')) {
+    define('SPARTA_PROJECT_ROOT', dirname(RAIZ));
+}
+if (!defined('SPARTA_UPLOADS_ROOT')) {
+    define('SPARTA_UPLOADS_ROOT', __DIR__ . DIRECTORY_SEPARATOR . 'uploads');
+}
+
 // Hora de negocio en CDMX: date() y strtotime sin TZ explícita usan esta zona (evita desfase vs CURDATE() del servidor)
 if (function_exists('date_default_timezone_set')) {
     @date_default_timezone_set('America/Mexico_City');
@@ -51,7 +58,8 @@ if (is_file($envFile) && is_readable($envFile)) {
 
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/controllers');
-define('LIBRERIAS', RAIZ . '/Libs');
+/* Carpeta real en disco: backend/libs (minúsculas; Linux distingue y /Libs fallaría). */
+define('LIBRERIAS', RAIZ . '/libs');
 define('MODELOS', RAIZ . '/models');
 define('VISTAS', RAIZ . '/views');
 define('COMPONENTES', RAIZ . '/components');
@@ -62,7 +70,8 @@ define('METODO_DEFECTO', 'index');
 // Solo se reportan los errores y se ignoran las advertencias
 error_reporting(E_ERROR | E_PARSE);
 
-require_once LIBRERIAS . '/PhpSpreadsheet/vendor/autoload.php';
+require_once dirname(__DIR__) . '/backend/bootstrap_composer.php';
+sparta_require_composer_autoload();
 /*
 |--------------------------------------------------------------------------
 | CONFIGURACIÓN GENERAL
@@ -147,24 +156,43 @@ if ($urlSolicitada[0] === 'plat_desc') {
     exit;
 }
 
-// Si la URL solicitada no es un archivo PHP, se verifica su existencia (evitar path traversal)
+// Archivos bajo /uploads/*: servir solo desde public/uploads (Apache suele servirlos directo; esto cubre el fallback vía index.php)
 $extension = pathinfo(end($urlSolicitada), PATHINFO_EXTENSION);
 if ($extension !== '' && strtolower($extension) !== 'php' && isset($_GET['url'])) {
-    $base = realpath(dirname(__DIR__));
     $urlSegura = str_replace(['../', '..\\'], '', trim($_GET['url'], "/\\"));
-    $candidato = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $urlSegura);
-    $resuelto = @realpath($candidato);
-    $baseNorm = str_replace('\\', '/', $base);
-    $resueltoNorm = $resuelto ? str_replace('\\', '/', $resuelto) : '';
-    if ($resuelto === false || $resueltoNorm === '' || strpos(strtolower($resueltoNorm), strtolower($baseNorm)) !== 0) {
-        header('HTTP/1.0 404 Not Found');
+    $normalized = str_replace('\\', '/', $urlSegura);
+    if (preg_match('#^uploads/(.+)$#i', $normalized, $mUp)) {
+        $rel = $mUp[1];
+        if ($rel === '' || strpos($rel, '..') !== false) {
+            header('HTTP/1.0 404 Not Found');
+            exit;
+        }
+        $target = sparta_uploads_root() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+        $resuelto = realpath($target);
+        $uploadsReal = realpath(sparta_uploads_root());
+        $uploadsNorm = $uploadsReal ? strtolower(str_replace('\\', '/', $uploadsReal)) : '';
+        $resueltoNorm = $resuelto ? strtolower(str_replace('\\', '/', $resuelto)) : '';
+        if (
+            $uploadsReal === false || $resuelto === false || $resueltoNorm === ''
+            || ($resueltoNorm !== $uploadsNorm && strpos($resueltoNorm, $uploadsNorm . '/') !== 0)
+            || !is_file($resuelto)
+        ) {
+            header('HTTP/1.0 404 Not Found');
+            exit;
+        }
+        $mime = 'application/octet-stream';
+        if (function_exists('mime_content_type')) {
+            $mt = @mime_content_type($resuelto);
+            if (is_string($mt) && $mt !== '') {
+                $mime = $mt;
+            }
+        }
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . (string) filesize($resuelto));
+        header('X-Content-Type-Options: nosniff');
+        readfile($resuelto);
         exit;
     }
-    if (!is_file($resuelto)) {
-        header('HTTP/1.0 404 Not Found');
-        exit;
-    }
-    exit;
 }
 
 /*
@@ -195,6 +223,24 @@ $esObtenerPlantillaSolicitudPdf = isset($urlSolicitada[0], $urlSolicitada[1])
 $esEstadoReportesAgente = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'segundometro'
     && strtolower($urlSolicitada[1]) === 'estadoreportesagente';
+
+// Importación Excel (XHR espera JSON; si la sesión cayó, el flujo de Login devolvía HTML y el modal mostraba "no es JSON").
+$solicitaImportExcelDespachosSinSesion = !isset($_SESSION['login'])
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
+    && isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'despachos'
+    && strtolower($urlSolicitada[1]) === 'importarexcelasignacioncreditosdespacho';
+
+if ($solicitaImportExcelDespachosSinSesion) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Sesión no válida o expirada. Vuelva a iniciar sesión y repita la importación.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
@@ -238,6 +284,7 @@ if (!method_exists($controlador, $metodo)) recursoNoDisponible();
 */
 $rutasModulos = [
     'estadocuenta/consulta' => [1], 'estadocuenta/guatemala' => [1], 'estadocuenta/documentacion' => [2], 'estadocuenta/reporteDictamen' => [14],
+    'estadocuenta/getcomplementosestadocuenta' => [1],
     'gestiones/seguimiento' => [3],
     'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42], 'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'reporteria/callcenter' => [6, 14, 15], 'reporteria/resumencallcenter' => [6, 14, 15], 'reporteria/primerospagos' => [49], 'reporteria/vencimientoslunes' => [49], 'reporteria/vencimientolunessiguientesemana' => [49],
@@ -277,6 +324,7 @@ $rutasModulos = [
     'gastoscobranza/descargoestatus3ejecutarydescargar' => [31],
     'gastoscobranza/descargardescargoestatus3' => [31],
     'onboarding/index' => [44],
+    'onboarding/video' => [44],
 ];
 $controladoresModulos = [
     'segundometro' => [16],

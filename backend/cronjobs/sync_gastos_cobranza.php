@@ -108,14 +108,11 @@ spl_autoload_register(function (string $clase): void {
     }
 });
 
-$autoloadPhpspread = RAIZ . '/Libs/PhpSpreadsheet/vendor/autoload.php';
-if (!file_exists($autoloadPhpspread)) {
-    $autoloadPhpspread = RAIZ . '/libs/PhpSpreadsheet/vendor/autoload.php';
+$composerAutoload = dirname(RAIZ) . '/vendor/autoload.php';
+if (is_readable($composerAutoload)) {
+    require_once $composerAutoload;
 }
-if (file_exists($autoloadPhpspread)) {
-    require_once $autoloadPhpspread;
-}
-define('PHP_SPREADSHEET_AUTOLOAD', $autoloadPhpspread);
+define('PHP_SPREADSHEET_AUTOLOAD', $composerAutoload);
 
 use Core\DatabaseSegundometro;
 use Models\EstadoCuenta;
@@ -352,7 +349,7 @@ function cargar_ids_desde_excel(string $ruta, string $nombreColumna): array
     }
 
     if (!file_exists(PHP_SPREADSHEET_AUTOLOAD)) {
-        log_cron('FATAL', 'PhpSpreadsheet no encontrado. Instale vendor en backend/libs/PhpSpreadsheet', ['ruta' => PHP_SPREADSHEET_AUTOLOAD]);
+        log_cron('FATAL', 'PhpSpreadsheet no encontrado. Ejecute composer install en la raíz del proyecto.', ['ruta' => PHP_SPREADSHEET_AUTOLOAD]);
         exit(1);
     }
     require_once PHP_SPREADSHEET_AUTOLOAD;

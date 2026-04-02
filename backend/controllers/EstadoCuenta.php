@@ -1685,8 +1685,12 @@ JS;
             $idConsultado = ($nombre != null && $idCreditoLista != null) ? $idCreditoLista : $idCredito;
             EstadoCuentaTimingLog::start((string) ($idConsultado ?? ''));
             if (!empty($idConsultado)) {
-                $referenciasMxPrevias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idConsultado);
-                if (empty($referenciasMxPrevias['datos'])) {
+                $probeMx = EmpresasDAO::creditoTieneOfertaEnMx($idConsultado);
+                $tieneOfertaMx = !empty($probeMx['success'])
+                    && !empty($probeMx['datos'])
+                    && is_array($probeMx['datos'])
+                    && count($probeMx['datos']) > 0;
+                if (!$tieneOfertaMx) {
                     $datosGuatPrevios = EmpresasDAO::getGuatemalaEstadoCuenta($idConsultado);
                     if (!empty($datosGuatPrevios['datos'])) {
                         self::set("titulo", "Estados de Cuenta");
@@ -1696,15 +1700,18 @@ JS;
                         $script = str_replace(
                             'document.addEventListener("DOMContentLoaded", () => {',
                             'var _idCreditoParaCruce = ' . (int)$idConsultado . ';
+                            var _ecFechaCorteCruce = ' . json_encode($fechaHoy) . ';
                             document.addEventListener("DOMContentLoaded", () => {
                                 if (_idCreditoParaCruce > 0) {
-                                    setTimeout(() => {
+                                    setTimeout(function () {
                                         fetch("/EstadoCuenta/procesarCruceGastos", {
                                             method: "POST",
                                             headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ idCredito: _idCreditoParaCruce })
-                                        }).catch(() => {});
-                                    }, 1500);
+                                            body: JSON.stringify({ idCredito: _idCreditoParaCruce, fechaCorte: _ecFechaCorteCruce }),
+                                            credentials: "same-origin",
+                                            keepalive: true
+                                        }).catch(function () {});
+                                    }, 0);
                                 }',
                                                         $script
                                                     );
@@ -1721,28 +1728,16 @@ JS;
             }
             EstadoCuentaTimingLog::mark('precheck_mx_gt');
 
-            if($nombre != null && $idCreditoLista != null)
-            {
-                $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoLista, $fechaHoy);
-                EstadoCuentaTimingLog::mark('api___SPARTA_SECRET_REDACTED__');
-                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCreditoLista);
-                EstadoCuentaTimingLog::mark('dao_direccion');
-                $referencias = $referenciasMxPrevias; // ✅ reutilizar la que ya se hizo arriba
-                EstadoCuentaTimingLog::mark('dao_referencias');
-                $notas = EmpresasDAO::getNotasNum($idCreditoLista);
-                EstadoCuentaTimingLog::mark('dao_notas');
-            }
-            else
-            {
-                $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaHoy);
-                EstadoCuentaTimingLog::mark('api___SPARTA_SECRET_REDACTED__');
-                $respDAO = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
-                EstadoCuentaTimingLog::mark('dao_direccion');
-                $referencias = $referenciasMxPrevias; // ✅ reutilizar la que ya se hizo arriba
-                EstadoCuentaTimingLog::mark('dao_referencias');
-                $notas = EmpresasDAO::getNotasNum($idCredito);
-                EstadoCuentaTimingLog::mark('dao_notas');
-            }
+            $idCreditoFlujo = ($nombre != null && $idCreditoLista != null)
+                ? (int) $idCreditoLista
+                : (int) $idCredito;
+            $resultado = $this->api___SPARTA_SECRET_REDACTED__($idCreditoFlujo, $fechaHoy);
+            EstadoCuentaTimingLog::mark('api___SPARTA_SECRET_REDACTED__');
+            // Direcciones, referencias completas y conteo de notas: se cargan async (ver getComplementosEstadoCuenta).
+            $respDAO = ['success' => true, 'datos' => []];
+            $notas = ['success' => true, 'datos' => [['num' => '…']]];
+            $referencias = ['success' => true, 'datos' => []];
+            EstadoCuentaTimingLog::mark('complementos_deferidos');
 
             // Registrar en auditoría: usuario (email), crédito, fecha de corte, éxito/error
             $usuarioEmail = (string) ($_SESSION['usuario'] ?? '');
@@ -2638,6 +2633,16 @@ JS;
                 ]);
                 EstadoCuentaTimingLog::mark('dictamen_preload');
 
+                $idCreditoCruce = (int) ($estadoCuenta['idCredito'] ?? $idConsultado ?? 0);
+                $notasCruceRaw  = $estadoCuenta['datosNotasCargos'] ?? [];
+                if (!is_array($notasCruceRaw)) {
+                    $notasCruceRaw = [];
+                }
+                self::set('ecCrucePayload', [
+                    'idCredito'   => $idCreditoCruce,
+                    'fechaCorte'  => $fechaHoy,
+                    'notasCargos' => $notasCruceRaw,
+                ]);
 
                 self::set("titulo", "Resultado de la solicitud");
                 $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
@@ -2726,96 +2731,122 @@ JS;
             'datos' => $datos
         ]);
     }
-    function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte, $timeoutSegundos = 20) {
 
-        $url = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta";
-
-        // --- Construir el JSON que la API externa espera ---
-        $fechaCorteStr = is_string($fechaCorte) ? $fechaCorte : date('Y-m-d', is_numeric($fechaCorte) ? $fechaCorte : time());
+    /**
+     * Inicializa el handle cURL para la API S2 (misma configuración que api___SPARTA_SECRET_REDACTED__).
+     *
+     * @return \CurlHandle|resource|false
+     */
+    private function api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorte, int $timeoutSegundos = 20)
+    {
+        $url = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $fechaCorteStr = is_string($fechaCorte) ? $fechaCorte : date('Y-m-d', is_numeric($fechaCorte) ? (int) $fechaCorte : time());
         $payload = json_encode([
-            "idCredito" => intval($idCredito),
-            "fechaCorte" => $fechaCorteStr
+            'idCredito'  => (int) $idCredito,
+            'fechaCorte' => $fechaCorteStr,
         ]);
-        error_log('[EstadoCuenta API] Request idCredito=' . intval($idCredito) . ', fechaCorte=' . $fechaCorteStr);
+        error_log('[EstadoCuenta API] Request idCredito=' . (int) $idCredito . ', fechaCorte=' . $fechaCorteStr);
 
-        // --- Headers obligatorios ---
-        $headers = [
-            "Token: __SPARTA_TOKEN_REDACTED__",
-            "Content-Type: application/json"
-        ];
+        $envTimeout = getenv('ESTADO_CUENTA_S2_TIMEOUT');
+        if ($envTimeout !== false && $envTimeout !== '' && ctype_digit((string) $envTimeout)) {
+            $timeoutSegundos = max(2, min(60, (int) $envTimeout));
+        } else {
+            $timeoutSegundos = (int) $timeoutSegundos;
+            if ($timeoutSegundos < 2) {
+                $timeoutSegundos = 2;
+            }
+        }
 
-        // --- Preparar CURL ---
         $ch = curl_init($url);
+        if ($ch === false) {
+            return false;
+        }
+
+        $headers = [
+            'Token: __SPARTA_TOKEN_REDACTED__',
+            'Content-Type: application/json',
+        ];
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $timeoutSegundos = (int)$timeoutSegundos;
-        if ($timeoutSegundos < 2) {
-            $timeoutSegundos = 2;
-        }
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeoutSegundos);
+        $connectTimeout = min(15, max(3, (int) ($timeoutSegundos / 2)));
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
-        // --- Ejecutar ---
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        return $ch;
+    }
 
-        // --- Manejo de errores de CURL ---
+    /**
+     * @param string|false $response
+     */
+    private function api___SPARTA_SECRET_REDACTED___parsear_respuesta($response, int $httpCode, ?string $curlError = null): array
+    {
         if ($response === false) {
-            $error = curl_error($ch);
-            curl_close($ch);
+            $msg = $curlError !== null && $curlError !== '' ? $curlError : 'Sin respuesta del servidor';
 
             return [
-                "ok" => false,
-                "status" => 0,
-                "error" => "Error al conectar con servidor: $error",
-                "data" => null
+                'ok'     => false,
+                'status' => 0,
+                'error'  => 'Error al conectar con servidor: ' . $msg,
+                'data'   => null,
             ];
         }
 
-        curl_close($ch);
-
-        // --- Convertir JSON en arreglo ---
         $json = json_decode($response, true);
-
-        // --- Si el JSON viene roto ---
         if ($json === null) {
             return [
-                "ok" => false,
-                "status" => $httpCode,
-                "error" => "Respuesta no válida del servidor (JSON inválido)",
-                "data" => null
+                'ok'     => false,
+                'status' => $httpCode,
+                'error'  => 'Respuesta no válida del servidor (JSON inválido)',
+                'data'   => null,
             ];
         }
 
-        // --- Si la API respondió error ---
         if ($httpCode !== 200) {
             return [
-                "ok" => false,
-                "status" => $httpCode,
-                "error" => $json["mensaje"][0] ?? "No hay conexión con S2",
-                "data" => $json
+                'ok'     => false,
+                'status' => $httpCode,
+                'error'  => $json['mensaje'][0] ?? 'No hay conexión con S2',
+                'data'   => $json,
             ];
         }
 
-        // --- Si no trae estadoCuenta ---
-        if (!isset($json["estadoCuenta"])) {
+        if (!isset($json['estadoCuenta'])) {
             return [
-                "ok" => false,
-                "status" => $httpCode,
-                "error" => "No se encontraron datos en la API",
-                "data" => $json
+                'ok'     => false,
+                'status' => $httpCode,
+                'error'  => 'No se encontraron datos en la API',
+                'data'   => $json,
             ];
         }
 
-        // --- Todo OK ---
         return [
-            "ok" => true,
-            "status" => 200,
-            "error" => null,
-            "data" => $json["estadoCuenta"]
+            'ok'     => true,
+            'status' => 200,
+            'error'  => null,
+            'data'   => $json['estadoCuenta'],
         ];
+    }
+
+    function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte, $timeoutSegundos = 20)
+    {
+        $ch = $this->api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorte, $timeoutSegundos);
+        if ($ch === false) {
+            return [
+                'ok'     => false,
+                'status' => 0,
+                'error'  => 'No se pudo inicializar la conexión con S2',
+                'data'   => null,
+            ];
+        }
+        $response = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        return $this->api___SPARTA_SECRET_REDACTED___parsear_respuesta($response, $httpCode, $curlErr !== '' ? $curlErr : null);
     }
 
     /**
@@ -4324,7 +4355,7 @@ public function descargar()
 };
 
         $buscarLocal = function ($idCredito, $tipoDocumento) {
-            $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+            $directorioBase = sparta_uploads_join('documentos', 'doc_cliente');
 
             if (!is_dir($directorioBase)) {
                 error_log("1RA FORMA - Directorio NO existe: {$directorioBase}");
@@ -4905,7 +4936,7 @@ public function descargar()
     {
         $id = (int) $idCredito;
         if ($id <= 0) return null;
-        $dirLocal = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        $dirLocal = sparta_uploads_join('documentos', 'doc_cliente');
         $patron = $dirLocal . '/' . $id . '_FAD_DOC_*.pdf';
         $archivos = glob($patron);
         if ($archivos && count($archivos) > 0) {
@@ -5746,7 +5777,7 @@ public function descargar()
             return;
         }
 
-        $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        $directorioBase = sparta_uploads_join('documentos', 'doc_cliente');
         \Core\SecureUpload::ensureDir($directorioBase);
 
         $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
@@ -5838,7 +5869,7 @@ public function descargar()
             return;
         }
 
-        $directorioBase = __DIR__ . '/../../uploads/documentos/doc_cliente';
+        $directorioBase = sparta_uploads_join('documentos', 'doc_cliente');
         \Core\SecureUpload::ensureDir($directorioBase);
 
         $idSeguro = preg_replace('/[^0-9]/', '', (string)$idCredito);
@@ -5902,7 +5933,7 @@ public function descargar()
         }
 
         $archivo = basename($_GET['archivo']); // Sanitizar para evitar path traversal
-        $directorioBase = realpath(__DIR__ . '/../../uploads/documentos/doc_cliente');
+        $directorioBase = realpath(sparta_uploads_join('documentos', 'doc_cliente'));
         if ($directorioBase === false || !is_dir($directorioBase)) {
             http_response_code(404);
             echo json_encode(['error' => 'Directorio no encontrado']);
@@ -6568,23 +6599,81 @@ public function descargarReporteDictamen()
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
-        $idCredito = (int) ($input['idCredito'] ?? 0);
+        try {
+            $raw = file_get_contents('php://input');
+            $input = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+            if (!is_array($input)) {
+                $input = [];
+            }
 
+            $idCredito = (int) ($input['idCredito'] ?? 0);
+            if ($idCredito <= 0) {
+                echo json_encode(['success' => false, 'mensaje' => 'idCredito requerido']);
+                exit;
+            }
+
+            $notasCargos = null;
+            if (!empty($input['notasCargos']) && is_array($input['notasCargos'])) {
+                $notasCargos = $input['notasCargos'];
+            }
+
+            if ($notasCargos === null) {
+                $fechaCorte = $input['fechaCorte'] ?? date('Y-m-d');
+                if (!is_string($fechaCorte) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaCorte)) {
+                    $fechaCorte = date('Y-m-d');
+                }
+                $api = $this->api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte);
+                if (empty($api['ok']) || !is_array($api['data'])) {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'No se pudieron obtener notas de cargo para el cruce',
+                        'detalle' => $api['error'] ?? null,
+                    ]);
+                    exit;
+                }
+                $notasCargos = $api['data']['datosNotasCargos'] ?? [];
+                if (!is_array($notasCargos)) {
+                    $notasCargos = [];
+                }
+            }
+
+            $resultado = $this->procesarGastosCobranza($notasCargos, $idCredito);
+
+            echo json_encode(['success' => true, 'resultado' => $resultado]);
+        } catch (\Throwable $e) {
+            error_log('[EstadoCuenta::procesarCruceGastos] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'mensaje' => 'Error al procesar el cruce de gastos']);
+        }
+        exit;
+    }
+
+    public function getComplementosEstadoCuenta()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $input = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+        if (!is_array($input)) {
+            $input = [];
+        }
+        $idCredito = (int) ($input['idCredito'] ?? 0);
         if ($idCredito <= 0) {
             echo json_encode(['success' => false, 'mensaje' => 'idCredito requerido']);
             exit;
         }
-
-        $listaNotasCargos = EstadoCuentaDAO::getNotasCargosParaCruce($idCredito);
-
-        $resultado = $this->procesarGastosCobranza(
-            $listaNotasCargos['datos'] ?? [],
-            $idCredito
-        );
-
-        echo json_encode(['success' => true, 'resultado' => $resultado]);
+        try {
+            $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
+            $direcciones = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
+            $notas = EmpresasDAO::getNotasNum($idCredito);
+            echo json_encode([
+                'success'     => true,
+                'referencias' => $referencias,
+                'direcciones' => $direcciones,
+                'notas'       => $notas,
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            error_log('[EstadoCuenta::getComplementosEstadoCuenta] ' . $e->getMessage());
+            echo json_encode(['success' => false, 'mensaje' => 'Error al cargar datos complementarios']);
+        }
         exit;
     }
-
-            }
+}

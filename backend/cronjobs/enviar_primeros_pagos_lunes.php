@@ -56,12 +56,13 @@ if (is_file($envFile) && is_readable($envFile)) {
 
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/controllers');
-define('LIBRERIAS', RAIZ . '/Libs');
+define('LIBRERIAS', RAIZ . '/libs');
 define('MODELOS', RAIZ . '/models');
 define('VISTAS', RAIZ . '/views');
 define('COMPONENTES', RAIZ . '/components');
 
-require_once LIBRERIAS . '/PhpSpreadsheet/vendor/autoload.php';
+require_once dirname(__DIR__) . '/bootstrap_composer.php';
+sparta_require_composer_autoload();
 
 spl_autoload_register(function ($archivo) {
     if (strpos($archivo, 'PhpOffice\\') === 0 ||

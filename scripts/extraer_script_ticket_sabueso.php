@@ -8,7 +8,7 @@ chdir(dirname(__DIR__));
 define('RAIZ', dirname(__DIR__) . '/backend');
 define('CONFIGURACION', parse_ini_file(RAIZ . '/config/config.ini'));
 define('CONTROLADORES', RAIZ . '/controllers');
-define('LIBRERIAS', RAIZ . '/Libs');
+define('LIBRERIAS', RAIZ . '/libs');
 define('MODELOS', RAIZ . '/models');
 define('VISTAS', RAIZ . '/views');
 define('COMPONENTES', RAIZ . '/components');
@@ -16,7 +16,8 @@ define('LOGIN', 'Login');
 define('VISTA_DEFECTO', 'Inicio');
 define('METODO_DEFECTO', 'index');
 error_reporting(E_ERROR | E_PARSE);
-require_once LIBRERIAS . '/PhpSpreadsheet/vendor/autoload.php';
+require_once RAIZ . '/bootstrap_composer.php';
+sparta_require_composer_autoload();
 spl_autoload_register(function ($a) {
     if (strpos($a,'PhpOffice\\')===0||strpos($a,'ZipStream\\')===0||strpos($a,'Psr\\')===0) return;
     $r = RAIZ . '/' . str_replace('\\','/', $a) . '.php';
@@ -39,7 +40,7 @@ preg_match_all('/<script[^>]*>([\s\S]*?)<\/script>/s', $html, $matches);
 $script = '';
 if (!empty($matches[1])) {
     foreach ($matches[1] as $s) {
-        $ok = ($vista === 'paneladmin') 
+        $ok = ($vista === 'paneladmin')
             ? (strpos($s, 'var esAdminTicket = true') !== false && strpos($s, 'tablaTicketsPanel') !== false)
             : (strpos($s, 'var esAdminTicket') !== false && strpos($s, 'tablaTickets') !== false);
         if ($ok) { $script = trim($s); break; }

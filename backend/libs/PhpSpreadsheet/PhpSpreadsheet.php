@@ -1,6 +1,7 @@
 <?php
 
-require __DIR__ . '/vendor/autoload.php';
+require_once dirname(__DIR__, 2) . '/bootstrap_composer.php';
+sparta_require_composer_autoload();
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -17,7 +18,7 @@ class PHPSpreadsheet
 
     /**
      * ColumnaExcel
-     * 
+     *
      * Genera una configuración de columna para Excel.
      *
      * @param string $campo El nombre del campo asociado a la columna.
@@ -47,7 +48,7 @@ class PHPSpreadsheet
 
     /**
      * GetEstilosExcel
-     * 
+     *
      * Este método devuelve un array de estilos predefinidos para hojas de Excel.
      * Los estilos incluyen:
      * - 'titulo': Fuente con tamaño 12, en negrita y color blanco con fondo negro.
@@ -60,9 +61,9 @@ class PHPSpreadsheet
      * - 'texto_centrado': Forza la interpretacion del valor como si fuera texto y pone la alineación centrada
      * - 'texto_izquierda': Forza la interpretacion del valor como si fuera texto y pone la alineación a la izquierda
      * - 'texto_derecha': Forza la interpretacion del valor como si fuera texto y pone la alineación a la derecha
-     * 
+     *
      * @param string Estilo unico deseado.
-     * 
+     *
      * @return array Un array con la configuración del estilo seleccionado.
      */
     public static function GetEstilosExcel($estilo = null)
@@ -132,7 +133,7 @@ class PHPSpreadsheet
 
     /**
      * GeneraExcel
-     * 
+     *
      * Genera un objeto de hoja de cálculo de Excel con los datos proporcionados.
      *
      * @param string $nombre_hoja Nombre de la hoja dentro del archivo Excel.
@@ -258,7 +259,7 @@ class PHPSpreadsheet
 
     /**
      * AddTotales
-     * 
+     *
      * Agrega una fila de totales a la hoja de cálculo.
      *
      * @param \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $hoja La hoja de cálculo donde se agregarán los totales.
@@ -301,15 +302,15 @@ class PHPSpreadsheet
 
     /**
      * DescargaExcel
-     * 
+     *
      * Responde con un archivo Excel descargable con los datos proporcionados.
-     * 
+     *
      * @param string $nombre_archivo Nombre del archivo Excel a generar.
      * @param string $nombre_hoja Nombre de la hoja dentro del archivo Excel.
      * @param string $titulo_reporte Título del reporte que se mostrará en la primera fila.
      * @param array $columnas Arreglo de columnas con la estructura obtenida en ColumnaExcel.
      * @param array $filas Arreglo de filas con los datos a incluir en el reporte.
-     * 
+     *
      * @return void
      */
     public static function DescargaExcel($nombre_archivo, $nombre_hoja, $titulo_reporte, $columnas, $filas)
@@ -331,7 +332,7 @@ class PHPSpreadsheet
 
     /**
      * GuardaExcel
-     * 
+     *
      * Guarda un archivo Excel en el servidor con los datos proporcionados.
      *
      * @param string $nombre_archivo Nombre del archivo Excel a generar.
@@ -354,7 +355,7 @@ class PHPSpreadsheet
 
     /**
      * getLetraColumna
-     * 
+     *
      * Obtiene la letra de la columna en Excel a partir de un índice.
      *
      * @param int $indice El índice de la columna.
@@ -373,7 +374,7 @@ class PHPSpreadsheet
 
     /**
      * convierteFecha
-     * 
+     *
      * Convierte una fecha en formato PHP a un formato compatible con Excel.
      *
      * @param string $formato El formato de la fecha en PHP.
@@ -395,11 +396,11 @@ class PHPSpreadsheet
 
     /**
      * aplanarColumnas
-     * 
+     *
      * Pone las subcolumnas al mismo nivel que las columnas principales para procesarlas.
-     * 
+     *
      * @param array $columnas Arreglo de columnas con la estructura obtenida en ColumnaExcel.
-     * 
+     *
      * @return array Un arreglo con las columnas aplanadas.
      */
     private static function aplanarColumnas($columnas)

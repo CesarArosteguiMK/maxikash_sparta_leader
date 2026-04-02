@@ -2538,9 +2538,9 @@ public function getFiltrosCapitalHumano()
     private function enviarCorreoHtmlVencimientos(array $destinatarios, string $asunto, string $html): array
     {
         try {
-            $autoload = RAIZ . '/libs/PHPMailer/vendor/autoload.php';
+            $autoload = dirname(RAIZ) . '/vendor/autoload.php';
             if (!is_file($autoload)) {
-                return self::respuesta(false, 'No se encontró PHPMailer en el proyecto.');
+                return self::respuesta(false, 'No se encontró Composer (PHPMailer). Ejecute composer install en la raíz del proyecto.');
             }
             require_once $autoload;
 

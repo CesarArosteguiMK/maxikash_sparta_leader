@@ -6993,10 +6993,11 @@ class CapHum extends Controller
      */
     private function enviarCorreo($para, $asunto, $cuerpoHtml, $nombreDestinatario = '', $rutaLogoInline = null)
     {
-        $autoload = defined('RAIZ') ? (RAIZ . '/libs/PHPMailer/vendor/autoload.php') : (__DIR__ . '/../libs/PHPMailer/vendor/autoload.php');
+        $repoRoot = defined('RAIZ') ? dirname(RAIZ) : dirname(__DIR__, 2);
+        $autoload = $repoRoot . '/vendor/autoload.php';
         if (!is_file($autoload)) {
-            $this->enviarCorreoUltimoError = 'PHPMailer no encontrado.';
-            error_log('CapHum::enviarCorreo: PHPMailer autoload no encontrado: ' . $autoload);
+            $this->enviarCorreoUltimoError = 'PHPMailer no encontrado (composer).';
+            error_log('CapHum::enviarCorreo: vendor/autoload no encontrado: ' . $autoload);
             return false;
         }
         require_once $autoload;
@@ -7143,7 +7144,7 @@ class CapHum extends Controller
             $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
             $mail->CharSet = 'UTF-8';
             $mail->Encoding = 'base64';
-            $langPath = defined('RAIZ') ? (RAIZ . '/libs/PHPMailer/vendor/phpmailer/phpmailer/language/') : (__DIR__ . '/../libs/PHPMailer/vendor/phpmailer/phpmailer/language/');
+            $langPath = $repoRoot . '/vendor/phpmailer/phpmailer/language/';
             if (is_dir($langPath)) {
                 $mail->setLanguage('es', $langPath);
             }
@@ -9689,7 +9690,7 @@ public function getMunicipios()
 
         if (!empty($_FILES['archivosPDF']['name'][0])) {
 
-            $directorio = __DIR__ . '/../uploads/bajas/';
+            $directorio = sparta_uploads_join('bajas') . DIRECTORY_SEPARATOR;
             SecureUpload::ensureDir($directorio);
 
             foreach ($_FILES['archivosPDF']['tmp_name'] as $i => $tmp) {
@@ -9768,7 +9769,7 @@ public function getMunicipios()
         // Aceptar tanto 'archivosPDF' como 'archivosPDF[]' (según cómo PHP reciba el FormData)
         $files = $_FILES['archivosPDF'] ?? $_FILES['archivosPDF[]'] ?? null;
         if ($files && !empty($files['name'])) {
-            $directorio = __DIR__ . '/../uploads/reingresos/';
+            $directorio = sparta_uploads_join('reingresos') . DIRECTORY_SEPARATOR;
             SecureUpload::ensureDir($directorio);
             $names = is_array($files['name']) ? $files['name'] : [$files['name']];
             $tmpNames = is_array($files['tmp_name']) ? $files['tmp_name'] : [$files['tmp_name']];
@@ -9948,7 +9949,7 @@ public function getMunicipios()
                 return;
             }
 
-            $directorio = __DIR__ . '/../uploads/bajas/';
+            $directorio = sparta_uploads_join('bajas') . DIRECTORY_SEPARATOR;
             SecureUpload::ensureDir($directorio);
 
             $archivosGuardados = [];
@@ -10034,7 +10035,7 @@ public function getMunicipios()
                 exit;
             }
 
-            $rutaArchivo = __DIR__ . '/../uploads/bajas/' . basename($nombreArchivo);
+            $rutaArchivo = sparta_uploads_join('bajas', basename($nombreArchivo));
 
             if (!file_exists($rutaArchivo)) {
                 http_response_code(404);
@@ -10121,7 +10122,7 @@ public function getMunicipios()
 
             $id_documento = (int) $id_documento;
             $carpeta = ($id_documento === 15) ? 'bajas' : (($id_documento === 16) ? 'reingresos' : 'documentos');
-            $directorio = __DIR__ . '/../uploads/' . $carpeta . '/';
+            $directorio = sparta_uploads_join($carpeta) . DIRECTORY_SEPARATOR;
             SecureUpload::ensureDir($directorio);
 
             $archivosGuardados = [];
@@ -10209,7 +10210,11 @@ public function getMunicipios()
             }
 
             $nombreArchivo = basename($nombreArchivo);
-            $carpetas = [__DIR__ . '/../uploads/documentos/', __DIR__ . '/../uploads/bajas/', __DIR__ . '/../uploads/reingresos/'];
+            $carpetas = [
+                sparta_uploads_join('documentos') . DIRECTORY_SEPARATOR,
+                sparta_uploads_join('bajas') . DIRECTORY_SEPARATOR,
+                sparta_uploads_join('reingresos') . DIRECTORY_SEPARATOR,
+            ];
             $rutaArchivo = null;
             foreach ($carpetas as $dir) {
                 $ruta = $dir . $nombreArchivo;

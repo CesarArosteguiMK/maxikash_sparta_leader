@@ -46,7 +46,7 @@ if ($host === 'smtp.gmail.com' && ($port === 587 || $secure === 'tls')) {
 
 echo "Conectando a $host:$port ($secure), usuario: $user, pass_len: " . strlen($pass) . "\n";
 
-require $root . '/backend/libs/PHPMailer/vendor/autoload.php';
+require $root . '/vendor/autoload.php';
 
 $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
 $mail->SMTPDebug = 2;

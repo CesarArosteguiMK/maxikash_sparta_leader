@@ -1024,6 +1024,13 @@
     border-radius: 6px;
     border: 1px solid #e2e8f0;
 }
+/* Import Excel: fase servidor sin % medible — animación honesta, no falso avance numérico */
+#import-progress-bar.import-progress-waiting-server {
+    transition: width 0.2s ease;
+}
+#import-progress-bar.import-progress-waiting-server.progress-bar-striped {
+    background-size: 1rem 1rem;
+}
 </style>
 
 <!-- MODAL: IMPORTAR EXCEL -->
@@ -1068,7 +1075,7 @@
                             <li>El encabezado debe estar en la fila 1 (como en la plantilla).</li>
                             <li>Los datos se leen desde la primera hoja del Excel.</li>
                             <li>Se verifica que los datos sean correctos (IDs numéricos y válidos).</li>
-                            <li>Si un crédito ya está asignado al mismo despacho en la base, se reporta como duplicado (no se vuelve a insertar).</li>
+                            <li>Si el crédito ya está <strong>activo</strong> en el <strong>mismo</strong> <code>id_despacho</code> que el Excel, se omite (duplicado). Si está activo en <strong>otro</strong> despacho, se <strong>actualiza</strong> al <code>id_despacho</code> del Excel.</li>
                         </ul>
                     </div>
                 </div>
@@ -1084,8 +1091,9 @@
                         <div class="fw-semibold">Progreso</div>
                         <div id="import-progress-text" class="text-muted small">0%</div>
                     </div>
-                    <div class="progress mt-2" style="height:10px;">
-                        <div id="import-progress-bar" class="progress-bar" role="progressbar" style="width:0%;"></div>
+                    <div class="progress mt-2" style="height:12px;">
+                        <div id="import-progress-bar" class="progress-bar bg-primary" role="progressbar"
+                            style="width:0%;" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
                     </div>
                 </div>
 
@@ -2133,8 +2141,12 @@ function prepararModalImportacionExcel() {
 
     if (progreso) progreso.style.display = 'none';
     if (resultado) resultado.style.display = 'none';
-    if (barra) barra.style.width = '0%';
-    if (barra) barra.textContent = '0%';
+    if (barra) {
+        barra.style.width = '0%';
+        barra.textContent = '';
+        barra.classList.remove('progress-bar-striped', 'progress-bar-animated', 'import-progress-waiting-server');
+        barra.setAttribute('aria-valuenow', '0');
+    }
     if (texto) texto.textContent = '0%';
     if (contenedorResultado) contenedorResultado.innerHTML = '';
 }
@@ -2247,7 +2259,37 @@ async function toggleImportPlantillaPopover(anchorEl) {
     }
 }
 
-function setImportProgress(percent, text) {
+/** Porción del tramo de cada archivo que refleja bytes enviados (medible). El resto = respuesta HTTP + trabajo en servidor. */
+const IMPORT_FRAC_SUBIDA_REAL = 0.48;
+const IMPORT_FRAC_RESPUESTA_HTTP = 0.12;
+
+function importExcelBytesLabel(loaded, total) {
+    if (!total || total <= 0) return '';
+    return ` · ${importExcelFormatBytes(loaded)} / ${importExcelFormatBytes(total)}`;
+}
+
+function importExcelFormatBytes(n) {
+    const x = Number(n) || 0;
+    if (x < 1024) return `${Math.round(x)} B`;
+    if (x < 1048576) return `${(x / 1024).toFixed(1)} KB`;
+    return `${(x / 1048576).toFixed(2)} MB`;
+}
+
+/** Tramo global [start,end) para el archivo índice i (0-based) de totalFiles. */
+function importExcelSliceBounds(i, totalFiles) {
+    const n = Math.max(1, totalFiles);
+    const start = (i / n) * 100;
+    const end = ((i + 1) / n) * 100;
+    const w = end - start;
+    return {
+        start,
+        end,
+        subidaHasta: start + w * IMPORT_FRAC_SUBIDA_REAL,
+        respuestaHasta: start + w * (IMPORT_FRAC_SUBIDA_REAL + IMPORT_FRAC_RESPUESTA_HTTP)
+    };
+}
+
+function setImportProgressDeterminate(percent, text) {
     const progreso = document.getElementById('import-progreso');
     const resultado = document.getElementById('import-resultado');
     const barra = document.getElementById('import-progress-bar');
@@ -2257,17 +2299,90 @@ function setImportProgress(percent, text) {
 
     const p = Math.max(0, Math.min(100, Number(percent) || 0));
     if (barra) {
+        barra.classList.remove('progress-bar-striped', 'progress-bar-animated', 'import-progress-waiting-server');
         barra.style.width = `${p}%`;
         barra.textContent = `${Math.round(p)}%`;
+        barra.setAttribute('aria-valuenow', String(Math.round(p)));
     }
     if (texto) texto.textContent = text || `${Math.round(p)}%`;
 }
 
+/**
+ * Tras subir el archivo: el servidor procesa sin eventos — no inventamos %; barra fija + rayas animadas.
+ */
+function setImportProgressServerPhase(anchorPercent, text) {
+    const progreso = document.getElementById('import-progreso');
+    const resultado = document.getElementById('import-resultado');
+    const barra = document.getElementById('import-progress-bar');
+    const texto = document.getElementById('import-progress-text');
+    if (progreso) progreso.style.display = 'block';
+    if (resultado) resultado.style.display = 'block';
+
+    const p = Math.max(0, Math.min(100, Number(anchorPercent) || 0));
+    if (barra) {
+        barra.style.width = `${p}%`;
+        barra.textContent = '';
+        barra.classList.add('progress-bar-striped', 'progress-bar-animated', 'import-progress-waiting-server');
+        barra.setAttribute('aria-valuenow', String(Math.round(p)));
+    }
+    if (texto) texto.textContent = text || 'Procesando en el servidor…';
+}
+
+/** Compatibilidad: igual que determinate. */
+function setImportProgress(percent, text) {
+    setImportProgressDeterminate(percent, text);
+}
+
+/** Muestra texto en el bloque Resultado del modal de importación */
+function setImportResultHtml(html) {
+    const wrap = document.getElementById('import-resultado');
+    const el = document.getElementById('import-result');
+    if (wrap) wrap.style.display = 'block';
+    if (el) el.innerHTML = html;
+}
+
+/** Interpreta el cuerpo del POST de importación (BOM, HTML de login/error PHP, JSON). */
+function parseRespuestaJsonImport(raw) {
+    let t = String(raw || '');
+    if (t.length > 0 && t.charCodeAt(0) === 0xFEFF) {
+        t = t.slice(1);
+    }
+    t = t.trim();
+    if (t === '') {
+        return { success: false, message: 'Respuesta vacía del servidor.' };
+    }
+    try {
+        return JSON.parse(t);
+    } catch (e) {
+        const head = t.slice(0, 800).toLowerCase();
+        const pareceHtml = head.includes('<!doctype') || head.includes('<html') || head.includes('<body')
+            || head.includes('iniciar sesión') || head.includes('login');
+        const fatalPhp = head.includes('fatal error') || head.includes('maximum execution time')
+            || head.includes('allowed memory size');
+        console.error('Import Excel: cuerpo no JSON (primeros 800 caracteres):', t.slice(0, 800));
+        let msg = 'La respuesta del servidor no es JSON válido. Abra la consola (F12 → Consola) o revise el log de PHP.';
+        if (fatalPhp) {
+            msg = 'El servidor cortó el proceso (tiempo o memoria) al leer el Excel, o hubo un error fatal de PHP. '
+                + 'Pruebe un archivo más liviano, quite formato innecesario en Excel, o suba php.ini max_execution_time / memory_limit. '
+                + 'Si el archivo es muy grande, divídalo en varios.';
+        } else if (pareceHtml) {
+            msg = 'El servidor devolvió HTML (sesión expirada, error o redirección). Cierre sesión y vuelva a entrar, o revise el log del servidor.';
+        }
+        return { success: false, message: msg };
+    }
+}
+
 async function iniciarImportacionExcel() {
+    // Sincronizar despachoSeleccionado desde todas las fuentes disponibles
     const selSync = document.getElementById('select-despacho');
     if (selSync && selSync.value) {
         despachoSeleccionado = selSync.value;
     }
+    // Fallback: leer del componente SearchableSelect si el select subyacente no tiene valor
+    if (!despachoSeleccionado && typeof searchableSelectDespacho !== 'undefined' && searchableSelectDespacho && searchableSelectDespacho.selectedValue) {
+        despachoSeleccionado = searchableSelectDespacho.selectedValue;
+    }
+    // No bloqueamos aquí: si el Excel trae columna id_despacho, el servidor lo acepta sin selección en pantalla.
 
     const input = document.getElementById('input-excel-import');
     const files = input ? Array.from(input.files || []) : [];
@@ -2284,11 +2399,19 @@ async function iniciarImportacionExcel() {
     if (contenedorResultado) contenedorResultado.innerHTML = '';
     if (resultadoWrap) resultadoWrap.style.display = 'block';
 
+    setImportResultHtml(
+        '<div class="alert alert-secondary border mb-0 small">' +
+        '<strong>Importación en curso.</strong> La barra refleja <em>bytes enviados</em> y luego la <em>descarga de la respuesta</em> cuando el navegador lo permite. ' +
+        'Mientras el servidor lee el Excel no hay forma de medir el %: verá la barra con <strong>rayas en movimiento</strong> (es normal). ' +
+        'Al final aparece el resumen aquí abajo.</div>'
+    );
+
     const totalFiles = files.length;
     let resumen = {
         totalArchivos: totalFiles,
         totalCreditosLeidos: 0,
         totalInsertados: 0,
+        totalActualizados: 0,
         totalDuplicados: 0,
         totalErrores: 0,
         duplicadosEjemplo: [],
@@ -2300,9 +2423,14 @@ async function iniciarImportacionExcel() {
         for (let i = 0; i < totalFiles; i++) {
             const file = files[i];
             const fileIndex = i + 1;
+            const nombreEsc = escapeHtmlImportPopover(file.name);
 
-            // Subir y esperar respuesta del servidor
-            const data = await new Promise((resolve, reject) => {
+            setImportResultHtml(
+                `<div class="alert alert-light border mb-0 small"><strong>Archivo ${fileIndex} de ${totalFiles}:</strong> ${nombreEsc}<br>` +
+                '<span class="text-muted">Subiendo al servidor…</span></div>'
+            );
+
+            const data = await new Promise((resolve) => {
                 const xhr = new XMLHttpRequest();
                 const formData = new FormData();
                 if (despachoSeleccionado) {
@@ -2310,25 +2438,69 @@ async function iniciarImportacionExcel() {
                 }
                 formData.append('excel', file, file.name);
 
+                const slice = importExcelSliceBounds(i, totalFiles);
+                let uploadMedido = false;
+
                 xhr.open('POST', '/despachos/importarExcelAsignacionCreditosDespacho', true);
-                xhr.responseType = 'json';
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                xhr.setRequestHeader('Accept', 'application/json, text/plain, */*');
 
                 xhr.upload.onprogress = (e) => {
-                    if (!e.lengthComputable) return;
-                    const fractionLoaded = e.total > 0 ? e.loaded / e.total : 0;
-                    const overall = ((i + fractionLoaded) / totalFiles) * 100;
-                    setImportProgress(overall, `Subiendo... Archivo ${fileIndex} de ${totalFiles} (${Math.round(overall)}%)`);
+                    if (!e.lengthComputable || !e.total) return;
+                    uploadMedido = true;
+                    const frac = e.loaded / e.total;
+                    const pct = slice.start + (slice.subidaHasta - slice.start) * frac;
+                    setImportProgressDeterminate(
+                        pct,
+                        `Enviando ${fileIndex}/${totalFiles}: ${Math.round(frac * 100)}% del archivo${importExcelBytesLabel(e.loaded, e.total)}`
+                    );
+                };
+
+                xhr.upload.addEventListener('load', () => {
+                    if (xhr.readyState === XMLHttpRequest.DONE) return;
+                    const anchor = uploadMedido ? slice.subidaHasta
+                        : slice.start + (slice.subidaHasta - slice.start) * 0.4;
+                    if (!uploadMedido) {
+                        setImportProgressDeterminate(
+                            anchor,
+                            `Archivo ${fileIndex}/${totalFiles}: envío terminado (tamaño no reportado por el navegador)`
+                        );
+                    }
+                    setImportProgressServerPhase(
+                        uploadMedido ? slice.subidaHasta : anchor,
+                        `Servidor leyendo/guardando ${fileIndex}/${totalFiles}… (sin % medible — barra animada)`
+                    );
+                    setImportResultHtml(
+                        `<div class="alert alert-info border mb-0 small"><strong>Archivo recibido en el servidor.</strong> ${nombreEsc}<br>` +
+                        '<span class="text-muted">Procesando filas en base de datos; puede tardar con archivos grandes.</span></div>'
+                    );
+                });
+
+                xhr.onprogress = (e) => {
+                    if (!e.lengthComputable || !e.total) return;
+                    const frac = e.loaded / e.total;
+                    const pct = slice.subidaHasta + (slice.respuestaHasta - slice.subidaHasta) * frac;
+                    setImportProgressDeterminate(
+                        pct,
+                        `Recibiendo respuesta ${fileIndex}/${totalFiles}: ${Math.round(frac * 100)}%${importExcelBytesLabel(e.loaded, e.total)}`
+                    );
                 };
 
                 xhr.onload = () => {
+                    setImportProgressDeterminate(slice.end, `Archivo ${fileIndex}/${totalFiles} terminado`);
+                    const raw = xhr.responseText || '';
+                    const parsed = parseRespuestaJsonImport(raw);
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        resolve(xhr.response);
+                        resolve(parsed);
                     } else {
-                        reject(new Error(`HTTP ${xhr.status}`));
+                        const msg = parsed && parsed.message
+                            ? parsed.message
+                            : `Error HTTP ${xhr.status}`;
+                        resolve({ success: false, message: msg });
                     }
                 };
 
-                xhr.onerror = () => reject(new Error('Error de red al subir el archivo'));
+                xhr.onerror = () => resolve({ success: false, message: 'Error de red al subir el archivo.' });
 
                 xhr.send(formData);
             });
@@ -2342,6 +2514,7 @@ async function iniciarImportacionExcel() {
             if (data.success) {
                 resumen.totalCreditosLeidos += data.total_creditos_validos || 0;
                 resumen.totalInsertados += data.insertados || 0;
+                resumen.totalActualizados += data.actualizados || 0;
                 resumen.totalDuplicados += data.duplicados || 0;
 
                 if (Array.isArray(data.duplicados_creditos)) {
@@ -2374,61 +2547,78 @@ async function iniciarImportacionExcel() {
                 resumen.errores.push({ archivo: file.name, razon: data.message || 'Error al importar el archivo' });
             }
 
-            // Marcar el archivo como completado
             const completedOverall = ((i + 1) / totalFiles) * 100;
-            setImportProgress(completedOverall, `Procesado archivo ${fileIndex} de ${totalFiles}`);
+            setImportProgressDeterminate(completedOverall, `Listo archivo ${fileIndex} de ${totalFiles}`);
         }
 
-        // Final
-        setImportProgress(100, 'Finalizado');
+        setImportProgressDeterminate(100, 'Importación terminada');
 
-        if (contenedorResultado) {
-            const hayErrores = resumen.totalErrores > 0;
-            const hayDuplicados = resumen.totalDuplicados > 0;
+        const hayErrores = resumen.totalErrores > 0;
+        const hayDuplicados = resumen.totalDuplicados > 0;
+        const ins = resumen.totalInsertados;
+        const act = resumen.totalActualizados;
+        const cambios = ins + act;
+        const dup = resumen.totalDuplicados;
+        const leidos = resumen.totalCreditosLeidos;
 
-            let html = '';
-            html += `<div class="mb-2"><strong>Archivos:</strong> ${resumen.totalArchivos}</div>`;
-            html += `<div class="mb-2"><strong>Créditos válidos leídos:</strong> ${resumen.totalCreditosLeidos}</div>`;
-            html += `<div class="mb-2"><strong>Insertados:</strong> ${resumen.totalInsertados}</div>`;
-            html += `<div class="mb-2"><strong>Duplicados:</strong> ${resumen.totalDuplicados}</div>`;
-            html += `<div class="mb-3"><strong>Errores:</strong> ${resumen.totalErrores}</div>`;
+        let html = '';
+        html += '<div class="border rounded p-3 bg-light mb-3">';
+        html += '<div class="fw-bold text-body mb-2">Resumen final</div>';
+        html += `<ul class="mb-0 small ps-3">`;
+        html += `<li><strong>Archivos procesados:</strong> ${resumen.totalArchivos}</li>`;
+        html += `<li><strong>Filas válidas leídas del Excel:</strong> ${leidos}</li>`;
+        html += `<li><strong>Altas nuevas (INSERT):</strong> ${ins}</li>`;
+        html += `<li><strong>Actualizaciones (cambio de despacho o reactivación):</strong> ${act}</li>`;
+        html += `<li><strong>Omitidos (ya activos en ese mismo despacho):</strong> ${dup}</li>`;
+        html += `<li><strong>Incidencias en filas / archivo:</strong> ${resumen.totalErrores}</li>`;
+        html += `</ul></div>`;
 
-            if (!hayErrores && !hayDuplicados) {
-                html += `<div class="alert alert-success mb-0">Se subieron todos los créditos correctamente.</div>`;
-            } else {
-                html += `<div class="alert ${hayErrores ? 'alert-danger' : 'alert-warning'} mb-0">`;
-                html += hayErrores ? 'Se subieron algunos créditos, pero hubo errores.' : 'Se subieron algunos créditos, pero hubo duplicados.';
-                html += `</div>`;
-            }
-
-            if (hayDuplicados && resumen.duplicadosDetalleEjemplos.length > 0) {
-                html += `<div class="mt-3"><div class="fw-semibold mb-1">Ejemplos de duplicados:</div>`;
-                html += `<div class="text-muted small">` + resumen.duplicadosDetalleEjemplos.slice(0, 12).map(d =>
-                    `Archivo <strong>${d.archivo}</strong>: despacho <strong>${d.id_despacho}</strong> · crédito <strong>${d.id_credito}</strong> ya estaba asignado`
-                ).join('<br>') + `</div></div>`;
-            } else if (hayDuplicados && resumen.duplicadosEjemplo.length > 0) {
-                html += `<div class="mt-3"><div class="fw-semibold mb-1">Ejemplos de duplicados:</div>`;
-                html += `<div class="text-muted small">` + resumen.duplicadosEjemplo.slice(0, 12).map(id => `crédito <strong>${id}</strong> ya existe en la base`).join('<br>') + `</div></div>`;
-            }
-
-            if (hayErrores && resumen.errores.length > 0) {
-                html += `<div class="mt-3"><div class="fw-semibold mb-1">Detalles de errores (parcial):</div>`;
-                const preview = resumen.errores.slice(0, 20);
-                html += `<div class="text-muted small">`;
-                preview.forEach((e) => {
-                    if (e.razon) {
-                        html += `Archivo: <strong>${e.archivo}</strong> - ${e.razon}<br>`;
-                    } else if (e.fila && e.reason) {
-                        html += `Archivo: <strong>${e.archivo}</strong> - fila <strong>${e.fila}</strong>: ${e.reason}<br>`;
-                    } else {
-                        html += `Archivo: <strong>${e.archivo}</strong> - Error: ${JSON.stringify(e)}<br>`;
-                    }
-                });
-                html += `</div></div>`;
-            }
-
-            if (contenedorResultado) contenedorResultado.innerHTML = html;
+        if (!hayErrores && cambios > 0 && !hayDuplicados) {
+            html += '<div class="alert alert-success mb-2"><strong>Listo.</strong> Se aplicaron <strong>' + cambios + '</strong> cambio(s): <strong>' + ins + '</strong> alta(s) nueva(s) y <strong>' + act + '</strong> actualización(es).</div>';
+        } else if (!hayErrores && cambios > 0 && hayDuplicados) {
+            html += '<div class="alert alert-success mb-2"><strong>Listo.</strong> <strong>' + cambios + '</strong> cambio(s) aplicados (altas + actualizaciones). ' +
+                '<strong>' + dup + '</strong> fila(s) ya estaban correctas (mismo crédito y mismo despacho activo).</div>';
+        } else if (!hayErrores && cambios === 0 && hayDuplicados && leidos > 0) {
+            html += '<div class="alert alert-warning mb-2"><strong>Procesado, sin cambios.</strong> Todas las filas ya estaban asignadas al mismo despacho que indica el Excel (<strong>' + dup + '</strong> omitido(s)).</div>';
+        } else if (!hayErrores && cambios === 0 && leidos === 0) {
+            html += '<div class="alert alert-warning mb-2"><strong>No se importó nada.</strong> No hubo filas válidas (revisa encabezados en la fila 1: <code>id_credito</code> y, si aplica, <code>id_despacho</code>).</div>';
+        } else if (hayErrores && cambios > 0) {
+            html += '<div class="alert alert-warning mb-2"><strong>Parcial.</strong> Se aplicaron <strong>' + cambios + '</strong> cambio(s), pero hubo errores en otras filas o en el archivo. Revise el detalle abajo.</div>';
+        } else if (hayErrores && cambios === 0) {
+            html += '<div class="alert alert-danger mb-2"><strong>No se completó la importación como esperabas.</strong> ' +
+                (leidos > 0 ? 'Revise duplicados, IDs de despacho y el detalle de errores.' : 'Revise el formato del Excel y el mensaje de error.') + '</div>';
+        } else if (!hayErrores && !hayDuplicados && cambios === 0 && leidos > 0) {
+            html += '<div class="alert alert-info mb-2"><strong>Importación atípica.</strong> Hubo filas leídas pero 0 cambios y 0 omitidos reportados. Revise el detalle o vuelva a intentar.</div>';
         }
+
+        if (hayDuplicados && resumen.duplicadosDetalleEjemplos.length > 0) {
+            html += `<div class="mt-2"><div class="fw-semibold mb-1 small">Ejemplos de duplicados</div>`;
+            html += `<div class="text-muted small">` + resumen.duplicadosDetalleEjemplos.slice(0, 12).map(d =>
+                `Archivo <strong>${escapeHtmlImportPopover(d.archivo)}</strong>: crédito <strong>${d.id_credito}</strong> ya activo en despacho <strong>${d.id_despacho}</strong> (sin cambios)`
+            ).join('<br>') + `</div></div>`;
+        } else if (hayDuplicados && resumen.duplicadosEjemplo.length > 0) {
+            html += `<div class="mt-2"><div class="fw-semibold mb-1 small">Ejemplos de duplicados</div>`;
+            html += `<div class="text-muted small">` + resumen.duplicadosEjemplo.slice(0, 12).map(id => `Crédito <strong>${id}</strong> ya constaba en la base`).join('<br>') + `</div></div>`;
+        }
+
+        if (hayErrores && resumen.errores.length > 0) {
+            html += `<div class="mt-2"><div class="fw-semibold mb-1 small">Detalle de incidencias (muestra)</div>`;
+            const preview = resumen.errores.slice(0, 20);
+            html += `<div class="text-muted small">`;
+            preview.forEach((e) => {
+                const arch = escapeHtmlImportPopover(e.archivo || '');
+                if (e.razon) {
+                    html += `Archivo <strong>${arch}</strong> — ${escapeHtmlImportPopover(e.razon)}<br>`;
+                } else if (e.fila && e.reason) {
+                    html += `Archivo <strong>${arch}</strong> — fila <strong>${e.fila}</strong>: ${escapeHtmlImportPopover(e.reason)}<br>`;
+                } else {
+                    html += `Archivo <strong>${arch}</strong> — ${escapeHtmlImportPopover(JSON.stringify(e))}<br>`;
+                }
+            });
+            html += `</div></div>`;
+        }
+
+        if (contenedorResultado) contenedorResultado.innerHTML = html;
 
         if (btn) btn.disabled = false;
         if (input) input.value = '';
@@ -2436,7 +2626,12 @@ async function iniciarImportacionExcel() {
         console.error(err);
         if (btn) btn.disabled = false;
         setImportProgress(0, 'Error');
-        Swal.fire('Error', 'No se pudo completar la importación', 'error');
+        const msg = err && err.message ? escapeHtmlImportPopover(err.message) : 'Error inesperado';
+        setImportResultHtml(
+            '<div class="alert alert-danger mb-0"><strong>No se pudo completar la importación.</strong><br>' +
+            '<span class="small">' + msg + '</span></div>'
+        );
+        Swal.fire('Error', 'No se pudo completar la importación. Revise el cuadro Resultado en el modal.', 'error');
     }
 }
 
