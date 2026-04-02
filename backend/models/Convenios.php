@@ -1976,8 +1976,10 @@ public static function registrarConvenioGlobo($datos)
 
         // ── 3. Calcular fechas ────────────────────────────────────────
         $fechaPrimerPago = $datos['fecha_primer_pago'];
-        // El total de registros en la tabla será: Inicial + Semanales + Globo
-        $totalRegistrosAmort = $pagosIgualesCant + 2;
+        $hayInicial      = $pagoInicial > 0;
+        // Si hay pago inicial: filas = 1_inicial + N_normales + 1_globo
+        // Si NO hay inicial:   filas = N_normales + 1_globo  (evita la fila $0.00)
+        $totalRegistrosAmort = $pagosIgualesCant + 1 + ($hayInicial ? 1 : 0);
 
         $fechaUltimoPago = date('Y-m-d', strtotime(
             $fechaPrimerPago . ' +' . (($totalRegistrosAmort - 1) * $diasIntervalo) . ' days'
@@ -2033,12 +2035,12 @@ public static function registrarConvenioGlobo($datos)
 
         $idConvenio = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
 
-        // ── 6. Generar tabla de amortización completa (CORREGIDO) ───────
+        // ── 6. Generar tabla de amortización completa ─────────────────
         $saldoActual = $totalAPagar;
 
         for ($p = 1; $p <= $totalRegistrosAmort; $p++) {
-            if ($p === 1) {
-                // Fila 1: Pago Inicial
+            if ($hayInicial && $p === 1) {
+                // Fila 1 (solo si hay pago inicial): Pago Inicial
                 $tipoPago = "Inicial";
                 $monto = $pagoInicial;
             } elseif ($p === $totalRegistrosAmort) {
