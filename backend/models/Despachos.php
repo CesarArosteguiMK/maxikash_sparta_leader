@@ -49,6 +49,267 @@ class Despachos extends Model
     }
 
     /**
+     * Aplica pares (id_despacho, id_credito, id_celula) con la misma lógica que el importador
+     * fila a fila, pero con pocas consultas SQL (precarga + tabla temporal + INSERT/UPDATE por lotes).
+     *
+     * @param array<int, array{d:int,c:int,cel:int,fila:int}> $pares
+     * @return array{insertados:int, actualizados:int, duplicadosDetalle:array<int,array{id_despacho:int,id_credito:int}>}
+     */
+    private function aplicarAsignacionesCreditosDespachoEnLote(array $pares, int $usuarioAsignacion): array
+    {
+        $fechaAlta = $this->fechaHoraCdmx();
+        $duplicadosDetalle = [];
+        $insertados = 0;
+        $actualizados = 0;
+
+        // --- 1) Asignación activa por id_credito (una consulta por chunk de créditos) ---
+        $idsCred = [];
+        foreach ($pares as $p) {
+            $idsCred[(int) $p['c']] = true;
+        }
+        $idsCred = array_keys($idsCred);
+        $activoByCredito = [];
+
+        $chunkCred = 2000;
+        for ($i = 0; $i < count($idsCred); $i += $chunkCred) {
+            $chunk = array_slice($idsCred, $i, $chunkCred);
+            if ($chunk === []) {
+                continue;
+            }
+            $ph = [];
+            $par = [];
+            foreach ($chunk as $j => $id) {
+                $k = 'ic' . $j;
+                $ph[] = ':' . $k;
+                $par[$k] = (int) $id;
+            }
+            $sqlAct = 'SELECT id, id_credito, id_despacho, fecha_alta FROM asigna_creditos_despacho'
+                . " WHERE estatus = '1' AND id_credito IN (" . implode(',', $ph) . ')'
+                . ' ORDER BY id_credito ASC, fecha_alta DESC, id DESC';
+            $rowsAct = $this->db->queryAll($sqlAct, $par);
+            foreach ($rowsAct as $r) {
+                $c = (int) $r['id_credito'];
+                if (!isset($activoByCredito[$c])) {
+                    $activoByCredito[$c] = [
+                        'id' => (int) $r['id'],
+                        'id_despacho' => (int) $r['id_despacho'],
+                    ];
+                }
+            }
+        }
+
+        // --- 2) Tabla temporal con los pares del Excel (clave id_despacho + id_credito) ---
+        $this->db->CRUD('DROP TEMPORARY TABLE IF EXISTS _tmp_acd_imp');
+        try {
+        $this->db->CRUD(
+            'CREATE TEMPORARY TABLE _tmp_acd_imp (
+                id_despacho INT NOT NULL,
+                id_credito INT NOT NULL,
+                id_celula SMALLINT NOT NULL DEFAULT 1,
+                PRIMARY KEY (id_despacho, id_credito)
+            ) ENGINE=InnoDB'
+        );
+
+        foreach (array_chunk($pares, 500) as $ci => $chunk) {
+            $vals = [];
+            $parIns = [];
+            foreach ($chunk as $j => $p) {
+                $vals[] = '(:d' . $ci . '_' . $j . ',:c' . $ci . '_' . $j . ',:cel' . $ci . '_' . $j . ')';
+                $parIns['d' . $ci . '_' . $j] = (int) $p['d'];
+                $parIns['c' . $ci . '_' . $j] = (int) $p['c'];
+                $parIns['cel' . $ci . '_' . $j] = (int) $p['cel'];
+            }
+            $this->db->CRUD(
+                'INSERT INTO _tmp_acd_imp (id_despacho, id_credito, id_celula) VALUES ' . implode(',', $vals),
+                $parIns
+            );
+        }
+
+        // --- 3) Última fila por (id_despacho, id_credito) — mismo criterio que ORDER BY fecha_alta DESC, id DESC LIMIT 1 ---
+        $sqlUlt = <<<'SQL'
+SELECT acd.id, acd.id_despacho, acd.id_credito, acd.fecha_baja, acd.estatus
+FROM asigna_creditos_despacho acd
+INNER JOIN _tmp_acd_imp t ON acd.id_despacho = t.id_despacho AND acd.id_credito = t.id_credito
+WHERE NOT EXISTS (
+    SELECT 1 FROM asigna_creditos_despacho s
+    WHERE s.id_despacho = acd.id_despacho AND s.id_credito = acd.id_credito
+      AND (s.fecha_alta > acd.fecha_alta OR (s.fecha_alta = acd.fecha_alta AND s.id > acd.id))
+)
+SQL;
+        $ultRows = $this->db->queryAll($sqlUlt);
+        $ultParByKey = [];
+        foreach ($ultRows as $ur) {
+            $k = (int) $ur['id_despacho'] . ':' . (int) $ur['id_credito'];
+            $ultParByKey[$k] = $ur;
+        }
+
+        // --- 4) Clasificar en memoria ---
+        $updates = [];
+        $inserts = [];
+        $insertsCerrada = [];
+
+        foreach ($pares as $p) {
+            $c = (int) $p['c'];
+            $d = (int) $p['d'];
+            $cel = (int) $p['cel'];
+
+            $activo = $activoByCredito[$c] ?? null;
+            if ($activo !== null) {
+                $dAct = (int) $activo['id_despacho'];
+                if ($dAct === $d) {
+                    $duplicadosDetalle[] = ['id_despacho' => $d, 'id_credito' => $c];
+                    continue;
+                }
+                $updates[] = ['id' => (int) $activo['id'], 'd' => $d, 'cel' => $cel];
+                continue;
+            }
+
+            $key = $d . ':' . $c;
+            $ultPar = $ultParByKey[$key] ?? null;
+
+            if ($ultPar === null) {
+                $inserts[] = ['d' => $d, 'c' => $c, 'cel' => $cel];
+                continue;
+            }
+
+            if ($this->asignacionParEstaCerrada($ultPar)) {
+                $insertsCerrada[] = ['d' => $d, 'c' => $c, 'cel' => $cel, 'ultId' => (int) $ultPar['id']];
+                continue;
+            }
+
+            $updates[] = ['id' => (int) $ultPar['id'], 'd' => $d, 'cel' => $cel];
+        }
+
+        // --- 5) UPDATE por lotes (CASE id WHEN … THEN …) ---
+        foreach (array_chunk($updates, 200) as $chunk) {
+            $caseD = [];
+            $caseCel = [];
+            $ids = [];
+            foreach ($chunk as $u) {
+                $id = (int) $u['id'];
+                $ids[] = $id;
+                $caseD[] = 'WHEN ' . $id . ' THEN ' . (int) $u['d'];
+                $caseCel[] = 'WHEN ' . $id . ' THEN ' . (int) $u['cel'];
+            }
+            $idsIn = implode(',', $ids);
+            $caseDStr = implode("\n    ", $caseD);
+            $caseCelStr = implode("\n    ", $caseCel);
+            $sqlUp = 'UPDATE asigna_creditos_despacho SET '
+                . 'id_despacho = CASE id ' . "\n    " . $caseDStr . "\n    END, "
+                . 'fecha_alta = :fechaAlta, alta = :alta, estatus = \'1\', fecha_baja = NULL, baja = NULL, '
+                . 'celula = CASE id ' . "\n    " . $caseCelStr . "\n    END, "
+                . 'id_celula = CASE id ' . "\n    " . $caseCelStr . "\n    END "
+                . 'WHERE id IN (' . $idsIn . ')';
+            $n = $this->db->CRUD($sqlUp, ['fechaAlta' => $fechaAlta, 'alta' => $usuarioAsignacion]);
+            $actualizados += $n > 0 ? $n : 0;
+        }
+
+        // --- 6) INSERT por lotes (parámetros únicos por fila; evita duplicar :nombre en PDO) ---
+        $insertChunk = function (array $rows) use (&$insertados, $fechaAlta, $usuarioAsignacion) {
+            foreach (array_chunk($rows, 250) as $chunk) {
+                $vals = [];
+                $par = [];
+                foreach ($chunk as $i => $row) {
+                    $vals[] = '(:d' . $i . ',:c' . $i . ',:fa' . $i . ',:alta' . $i . ", '1', :celA" . $i . ',:celB' . $i . ')';
+                    $par['d' . $i] = $row['d'];
+                    $par['c' . $i] = $row['c'];
+                    $par['fa' . $i] = $fechaAlta;
+                    $par['alta' . $i] = $usuarioAsignacion;
+                    $par['celA' . $i] = $row['cel'];
+                    $par['celB' . $i] = $row['cel'];
+                }
+                $sqlIns = 'INSERT INTO asigna_creditos_despacho '
+                    . '(id_despacho, id_credito, fecha_alta, alta, estatus, celula, id_celula) VALUES '
+                    . implode(',', $vals);
+                $insertados += $this->db->CRUD($sqlIns, $par);
+            }
+        };
+
+        $insertChunk($inserts);
+
+        $sqlUpdateFila = <<<'SQL'
+UPDATE asigna_creditos_despacho
+SET id_despacho = :idDespacho,
+    fecha_alta = :fechaAlta,
+    alta = :usuarioAsignacion,
+    estatus = '1',
+    fecha_baja = NULL,
+    baja = NULL,
+    celula = :celulaVal,
+    id_celula = :idCelulaVal
+WHERE id = :id
+SQL;
+
+        foreach (array_chunk($insertsCerrada, 200) as $chunk) {
+            try {
+                $rowsSimple = [];
+                foreach ($chunk as $ic) {
+                    $rowsSimple[] = ['d' => $ic['d'], 'c' => $ic['c'], 'cel' => $ic['cel']];
+                }
+                $insertChunk($rowsSimple);
+            } catch (\Exception $e) {
+                $msg = $e->getMessage();
+                $esDup = (strpos($msg, '1062') !== false
+                    || stripos($msg, 'Duplicate') !== false
+                    || stripos($msg, 'UNIQUE') !== false);
+                if (!$esDup) {
+                    throw $e;
+                }
+                foreach ($chunk as $ic) {
+                    try {
+                        $n = $this->db->CRUD(
+                            'INSERT INTO asigna_creditos_despacho (id_despacho, id_credito, fecha_alta, alta, estatus, celula, id_celula) VALUES (:idDespacho, :idCredito, :fechaAlta, :usuarioAsignacion, \'1\', :idCelula, :idCelula2)',
+                            [
+                                'idDespacho' => $ic['d'],
+                                'idCredito' => $ic['c'],
+                                'fechaAlta' => $fechaAlta,
+                                'usuarioAsignacion' => $usuarioAsignacion,
+                                'idCelula' => $ic['cel'],
+                                'idCelula2' => $ic['cel'],
+                            ]
+                        );
+                        if ($n > 0) {
+                            $insertados++;
+                        }
+                    } catch (\Exception $e2) {
+                        $msg2 = $e2->getMessage();
+                        $esDup2 = (strpos($msg2, '1062') !== false
+                            || stripos($msg2, 'Duplicate') !== false
+                            || stripos($msg2, 'UNIQUE') !== false);
+                        if (!$esDup2) {
+                            throw $e2;
+                        }
+                        $ok = $this->db->CRUD($sqlUpdateFila, [
+                            'idDespacho' => $ic['d'],
+                            'fechaAlta' => $fechaAlta,
+                            'usuarioAsignacion' => $usuarioAsignacion,
+                            'celulaVal' => $ic['cel'],
+                            'idCelulaVal' => $ic['cel'],
+                            'id' => $ic['ultId'],
+                        ]) > 0;
+                        if ($ok) {
+                            $actualizados++;
+                        }
+                    }
+                }
+            }
+        }
+        } finally {
+            try {
+                $this->db->CRUD('DROP TEMPORARY TABLE IF EXISTS _tmp_acd_imp');
+            } catch (\Throwable $e) {
+                // conexión o tabla ya inexistente
+            }
+        }
+
+        return [
+            'insertados' => $insertados,
+            'actualizados' => $actualizados,
+            'duplicadosDetalle' => $duplicadosDetalle,
+        ];
+    }
+
+    /**
      * Obtener dirección completa desde tbl_segundometro_semana
      * Esta función consulta la base de datos db-megae-reporte
      */
@@ -527,14 +788,41 @@ SQL;
     $errores = [];
     $usuarioAsignacion = $_SESSION['usuario_id'] ?? 1;
 
-    $sheet = null;
+    $normalizeHeader = function ($v) {
+        if ($v instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+            $s = $v->getPlainText();
+        } else {
+            $s = trim((string) $v);
+        }
+        if ($s === '') return '';
+        $s = preg_replace('/^\xEF\xBB\xBF/', '', $s);
+        $s = str_replace(["\xC2\xA0", "\xE2\x80\xAF", "\xE2\x80\x89", "\xE2\x80\x87"], ' ', $s);
+        $s = trim($s);
+        if ($s === '') return '';
+        $s = mb_strtolower($s, 'UTF-8');
+        $s = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
+        $s = preg_replace('/[^a-z0-9]+/i', '_', $s);
+        return trim((string) $s, '_');
+    };
+
+    $headerSlugAlnum = function ($norm) {
+        return $norm === '' ? '' : preg_replace('/[^a-z0-9]/', '', $norm);
+    };
+
+    // =====================================================================
+    // PASO 1: Cargar solo las primeras 60 filas de todas las hojas
+    //         para detectar encabezados sin agotar la memoria.
+    // =====================================================================
     try {
-        // Solo valores (sin estilos/formatos): evita timeouts en xlsx pesados o con mucho formato
-        // (IOFactory::load procesa Style.php y puede exceder max_execution_time).
-        $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($excelPath);
-        $reader->setReadDataOnly(true);
-        $reader->setReadEmptyCells(false);
-        $spreadsheet = $reader->load($excelPath);
+        $readerH = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($excelPath);
+        $readerH->setReadDataOnly(true);
+        $readerH->setReadEmptyCells(false);
+        $readerH->setReadFilter(new class implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter {
+            public function readCell($columnAddress, $row, $worksheetName = ''): bool {
+                return $row <= 60;
+            }
+        });
+        $spreadsheetH = $readerH->load($excelPath);
     } catch (\Throwable $e) {
         return [
             'success' => false,
@@ -543,117 +831,117 @@ SQL;
         ];
     }
 
-    $normalizeHeader = function ($v) {
-        if ($v instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
-            $s = $v->getPlainText();
-        } else {
-            $s = trim((string) $v);
-        }
-        if ($s === '') {
-            return '';
-        }
-        // BOM / espacios raros de Excel (NBSP, narrow NBSP, etc.)
-        $s = preg_replace('/^\xEF\xBB\xBF/', '', $s);
-        $s = str_replace(
-            ["\xC2\xA0", "\xE2\x80\xAF", "\xE2\x80\x89", "\xE2\x80\x87"],
-            ' ',
-            $s
-        );
-        $s = trim($s);
-        if ($s === '') {
-            return '';
-        }
-        $s = mb_strtolower($s, 'UTF-8');
-        $s = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
-        $s = preg_replace('/[^a-z0-9]+/i', '_', $s);
-        $s = trim((string) $s, '_');
-        return $s;
-    };
+    // =====================================================================
+    // PASO 2: Escanear hojas buscando la que tenga id_credito + id_despacho.
+    //         Si ninguna hoja tiene ambas, se usa la que solo tenga id_credito.
+    // =====================================================================
+    $bestCand = null; // ['title', 'row', 'cred', 'desp', 'cel', 'headers', 'hasBoth']
 
-    /** Coincide aunque falte guion bajo o cambie mayúsculas (p. ej. Id_credito, ID_CREDITO). */
-    $headerSlugAlnum = function ($norm) {
-        return $norm === '' ? '' : preg_replace('/[^a-z0-9]/', '', $norm);
-    };
-
-    $colIndexIdCredito = null;
-    $colIndexIdDespacho = null;
-    $colIndexIdCelula = null;  // ✅ Nueva columna opcional
-    $sheet = null;
-    $headerRow = null;
-
-    // Encabezados a menudo van en fila 2+ (título en fila 1) o en otra hoja que no es la activa.
-    $activeWs = $spreadsheet->getActiveSheet();
+    $activeWs = $spreadsheetH->getActiveSheet();
     $sheetsToTry = [$activeWs];
-    foreach ($spreadsheet->getAllSheets() as $ws) {
-        if ($ws !== $activeWs) {
-            $sheetsToTry[] = $ws;
-        }
+    foreach ($spreadsheetH->getAllSheets() as $ws) {
+        if ($ws !== $activeWs) $sheetsToTry[] = $ws;
     }
 
     foreach ($sheetsToTry as $trySheet) {
-        $sheetMaxRow = (int) $trySheet->getHighestRow();
-        $maxScanRows = min(max($sheetMaxRow, 1), 50);
+        $sheetMaxRow = min((int) $trySheet->getHighestRow(), 60);
+        $maxColSheet  = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString(
+            (string) $trySheet->getHighestColumn()
+        );
 
-        for ($r = 1; $r <= $maxScanRows; $r++) {
-            $lastCol = $trySheet->getHighestColumn($r);
-            $lastIdx = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString((string) $lastCol);
-            if ($lastIdx < 1) {
-                continue;
-            }
+        for ($r = 1; $r <= $sheetMaxRow; $r++) {
+            $lastIdxRow = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString(
+                (string) $trySheet->getHighestColumn($r)
+            );
+            $scanHasta = max($lastIdxRow, $maxColSheet);
+            if ($scanHasta < 1) continue;
 
             $hitCred = null;
             $hitDesp = null;
-            $hitCel = null;
+            $hitCel  = null;
+            $hdrFound = [];
 
-            for ($col = 1; $col <= $lastIdx; $col++) {
+            for ($col = 1; $col <= $scanHasta; $col++) {
                 $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
                 $cell = $trySheet->getCell($colLetter . $r);
-                $headerVal = $cell->getValue();
-                if ($headerVal === null || $headerVal === '') {
-                    $headerVal = $cell->getCalculatedValue();
-                }
-                $norm = $normalizeHeader($headerVal);
+                $v = $cell->getValue();
+                if ($v === null || $v === '') $v = $cell->getCalculatedValue();
+                $norm = $normalizeHeader($v);
+                if ($norm === '') continue;
                 $slug = $headerSlugAlnum($norm);
-                if ($norm === 'id_credito' || $slug === 'idcredito') {
-                    $hitCred = $col;
-                }
-                if ($norm === 'id_despacho' || $slug === 'iddespacho') {
-                    $hitDesp = $col;
-                }
-                if ($norm === 'id_celula' || $slug === 'idcelula') {
-                    $hitCel = $col;
-                }
+                $hdrFound[] = $norm;
+
+                if ($norm === 'id_credito' || $slug === 'idcredito') $hitCred = $col;
+                // Solo coincide con id_despacho/iddespacho estricto (no alias de nombre de despacho)
+                if ($norm === 'id_despacho' || $slug === 'iddespacho') $hitDesp = $col;
+                if ($norm === 'id_celula'   || $slug === 'idcelula')   $hitCel  = $col;
             }
 
-            if ($hitCred !== null) {
-                $sheet = $trySheet;
-                $headerRow = $r;
-                $colIndexIdCredito = $hitCred;
-                $colIndexIdDespacho = $hitDesp;
-                $colIndexIdCelula = $hitCel;
+            if ($hitCred !== null && $hitDesp !== null) {
+                // Mejor caso: hoja con ambas columnas → usar de inmediato
+                $bestCand = [
+                    'title'   => $trySheet->getTitle(),
+                    'row'     => $r,
+                    'cred'    => $hitCred,
+                    'desp'    => $hitDesp,
+                    'cel'     => $hitCel,
+                    'headers' => $hdrFound,
+                    'hasBoth' => true,
+                ];
                 break 2;
+            }
+
+            if ($hitCred !== null && $bestCand === null) {
+                // Fallback: solo id_credito; guardar y seguir buscando otra hoja mejor
+                $bestCand = [
+                    'title'   => $trySheet->getTitle(),
+                    'row'     => $r,
+                    'cred'    => $hitCred,
+                    'desp'    => null,
+                    'cel'     => $hitCel,
+                    'headers' => $hdrFound,
+                    'hasBoth' => false,
+                ];
+                break; // Saltar al siguiente sheet
             }
         }
     }
 
-    if ($colIndexIdCredito === null || $sheet === null || $headerRow === null) {
+    unset($spreadsheetH); // Liberar memoria del escaneo de cabeceras
+
+    if ($bestCand === null) {
         return [
             'success' => false,
-            'message' => "Encabezado incorrecto: debe existir la columna 'id_credito' (p. ej. Id_credito) en alguna de las primeras 50 filas. Si arriba hay un título, deje los nombres de columna en la fila siguiente. Si el libro tiene varias hojas, ponga los datos en la hoja activa o compruebe el orden de las pestañas.",
+            'message' => "Encabezado incorrecto: ninguna hoja tiene la columna 'id_credito' en las primeras 60 filas.",
             'errores' => []
         ];
     }
 
-    $highestRow = (int) $sheet->getHighestRow();
+    $chosenSheetTitle  = $bestCand['title'];
+    $headerRow         = $bestCand['row'];
+    $colIndexIdCredito = $bestCand['cred'];
+    $colIndexIdDespacho = $bestCand['desp'];
+    $colIndexIdCelula  = $bestCand['cel'];
+    $headersEncuentrados = $bestCand['headers'];
 
+    // =====================================================================
+    // PASO 3: Validar modo (por fila vs despacho seleccionado)
+    // =====================================================================
     $modoPorFila = $colIndexIdDespacho !== null;
+    $idDespachoFijo = null;
 
     if (!$modoPorFila) {
         $idPersonaInt = (int) $idPersona;
         if ($idPersonaInt <= 0) {
+            $encabezadosInfo = !empty($headersEncuentrados)
+                ? ' Encabezados encontrados en fila ' . $headerRow . ' de hoja "' . $chosenSheetTitle
+                  . '": ' . implode(', ', array_unique($headersEncuentrados)) . '.'
+                : '';
             return [
                 'success' => false,
-                'message' => 'Seleccione un despacho en pantalla o agregue la columna id_despacho en el Excel.'
+                'message' => 'No se encontró la columna id_despacho en el Excel, y tampoco hay despacho seleccionado en pantalla.'
+                    . $encabezadosInfo
+                    . ' Asegúrate de que la columna se llame exactamente "id_despacho".'
             ];
         }
 
@@ -664,31 +952,75 @@ SQL;
             $queryInsert = "INSERT INTO despachos (id_persona, estatus, fecha_alta) VALUES (:idPersona, 'Activo', NOW())";
             $insertado = $this->db->CRUD($queryInsert, ['idPersona' => $idPersonaInt]);
             if (!$insertado) {
-                return [
-                    'success' => false,
-                    'message' => 'No se pudo crear/obtener el despacho activo para el id_persona seleccionado.'
-                ];
+                return ['success' => false, 'message' => 'No se pudo crear/obtener el despacho activo para el id_persona seleccionado.'];
             }
             $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersonaInt]);
         }
 
         if (!$despacho || empty($despacho['id'])) {
-            return [
-                'success' => false,
-                'message' => 'No se encontró el despacho activo y no se pudo crear.'
-            ];
+            return ['success' => false, 'message' => 'No se encontró el despacho activo y no se pudo crear.'];
         }
 
         $idDespachoFijo = (int) $despacho['id'];
     }
 
-    $colLetterIdCredito = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndexIdCredito);
+    $colLetterIdCredito  = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndexIdCredito);
     $colLetterIdDespacho = $modoPorFila
         ? \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndexIdDespacho)
         : null;
-    $colLetterIdCelula = $colIndexIdCelula !== null
+    $colLetterIdCelula   = $colIndexIdCelula !== null
         ? \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndexIdCelula)
         : null;
+
+    // =====================================================================
+    // PASO 4: Recargar el archivo cargando SOLO las columnas necesarias
+    //         y solo la hoja elegida → drástica reducción de memoria/tiempo.
+    // =====================================================================
+    $neededCols = array_values(array_filter([$colLetterIdCredito, $colLetterIdDespacho, $colLetterIdCelula]));
+    $sheetTitleForFilter = $chosenSheetTitle;
+    $headerRowForFilter  = $headerRow;
+
+    try {
+        $readerD = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($excelPath);
+        $readerD->setReadDataOnly(true);
+        $readerD->setReadEmptyCells(false);
+        $readerD->setReadFilter(
+            new class($sheetTitleForFilter, $neededCols, $headerRowForFilter)
+                implements \PhpOffice\PhpSpreadsheet\Reader\IReadFilter
+            {
+                /** @var string */  private $title;
+                /** @var array */   private $cols;
+                /** @var int */     private $headerRow;
+
+                public function __construct(string $title, array $cols, int $headerRow)
+                {
+                    $this->title     = $title;
+                    $this->cols      = $cols;
+                    $this->headerRow = $headerRow;
+                }
+
+                public function readCell($columnAddress, $row, $worksheetName = ''): bool
+                {
+                    if ($worksheetName !== $this->title) return false;
+                    if ($row <= $this->headerRow) return true; // siempre carga filas de cabecera
+                    return in_array($columnAddress, $this->cols, true);
+                }
+            }
+        );
+        $spreadsheetD = $readerD->load($excelPath);
+        $sheet = $spreadsheetD->getSheetByName($chosenSheetTitle);
+        if (!$sheet) {
+            return ['success' => false, 'message' => 'No se pudo abrir la hoja "' . $chosenSheetTitle . '" para leer datos.', 'errores' => []];
+        }
+    } catch (\Throwable $e) {
+        return [
+            'success' => false,
+            'message' => 'Error al cargar datos del Excel: ' . $e->getMessage(),
+            'errores' => []
+        ];
+    }
+
+    $highestRow = (int) $sheet->getHighestRow();
 
     $pares = []; // [ 'd' => int, 'c' => int, 'cel' => int, 'fila' => int ]
     $vistoPar = [];
@@ -863,133 +1195,12 @@ SQL;
     $duplicadosDetalle = [];
     $duplicadosCreditosIds = [];
 
-    $insertados = 0;
-    $actualizados = 0;
-
-    $sqlActivo = <<<'SQL'
-SELECT id, id_despacho
-FROM asigna_creditos_despacho
-WHERE id_credito = :c AND estatus = '1'
-ORDER BY fecha_alta DESC
-LIMIT 1
-SQL;
-
-    $sqlParUltimo = <<<'SQL'
-SELECT id, fecha_baja, estatus
-FROM asigna_creditos_despacho
-WHERE id_despacho = :d AND id_credito = :c
-ORDER BY fecha_alta DESC
-LIMIT 1
-SQL;
-
-    $sqlUpdateFila = <<<'SQL'
-UPDATE asigna_creditos_despacho
-SET id_despacho = :idDespacho,
-    fecha_alta = :fechaAlta,
-    alta = :usuarioAsignacion,
-    estatus = '1',
-    fecha_baja = NULL,
-    baja = NULL,
-    celula = :celulaVal,
-    id_celula = :idCelulaVal
-WHERE id = :id
-SQL;
-
-    $sqlInsert = <<<'SQL'
-INSERT INTO asigna_creditos_despacho
-(id_despacho, id_credito, fecha_alta, alta, estatus, celula, id_celula)
-VALUES (:idDespacho, :idCredito, :fechaAlta, :usuarioAsignacion, '1', :idCelula, :idCelula)
-SQL;
-
     $this->db->beginTransaction();
     try {
-        foreach ($pares as $p) {
-            $c = (int) $p['c'];
-            $d = (int) $p['d'];
-            $cel = (int) $p['cel'];
-            $fechaAlta = $this->fechaHoraCdmx();
-
-            $activo = $this->db->queryOne($sqlActivo, ['c' => $c]);
-
-            if ($activo) {
-                $dAct = (int) $activo['id_despacho'];
-                if ($dAct === $d) {
-                    $duplicadosDetalle[] = ['id_despacho' => $d, 'id_credito' => $c];
-                    continue;
-                }
-                $ok = $this->db->CRUD($sqlUpdateFila, [
-                    'idDespacho' => $d,
-                    'fechaAlta' => $fechaAlta,
-                    'usuarioAsignacion' => $usuarioAsignacion,
-                    'celulaVal' => $cel,
-                    'idCelulaVal' => $cel,
-                    'id' => $activo['id'],
-                ]) > 0;
-                if ($ok) {
-                    $actualizados++;
-                }
-                continue;
-            }
-
-            $paramsIns = [
-                'idDespacho' => $d,
-                'idCredito' => $c,
-                'fechaAlta' => $fechaAlta,
-                'usuarioAsignacion' => $usuarioAsignacion,
-                'idCelula' => $cel,
-            ];
-
-            $ultPar = $this->db->queryOne($sqlParUltimo, ['d' => $d, 'c' => $c]);
-
-            if (!$ultPar) {
-                $nIns = $this->db->CRUD($sqlInsert, $paramsIns);
-                if ($nIns > 0) {
-                    $insertados++;
-                }
-                continue;
-            }
-
-            if ($this->asignacionParEstaCerrada($ultPar)) {
-                try {
-                    $nIns = $this->db->CRUD($sqlInsert, $paramsIns);
-                    if ($nIns > 0) {
-                        $insertados++;
-                    }
-                } catch (\Exception $e) {
-                    $msg = $e->getMessage();
-                    $esDup = (strpos($msg, '1062') !== false
-                        || stripos($msg, 'Duplicate') !== false
-                        || stripos($msg, 'UNIQUE') !== false);
-                    if (!$esDup) {
-                        throw $e;
-                    }
-                    $ok = $this->db->CRUD($sqlUpdateFila, [
-                        'idDespacho' => $d,
-                        'fechaAlta' => $fechaAlta,
-                        'usuarioAsignacion' => $usuarioAsignacion,
-                        'celulaVal' => $cel,
-                        'idCelulaVal' => $cel,
-                        'id' => $ultPar['id'],
-                    ]) > 0;
-                    if ($ok) {
-                        $actualizados++;
-                    }
-                }
-                continue;
-            }
-
-            $ok = $this->db->CRUD($sqlUpdateFila, [
-                'idDespacho' => $d,
-                'fechaAlta' => $fechaAlta,
-                'usuarioAsignacion' => $usuarioAsignacion,
-                'celulaVal' => $cel,
-                'idCelulaVal' => $cel,
-                'id' => $ultPar['id'],
-            ]) > 0;
-            if ($ok) {
-                $actualizados++;
-            }
-        }
+        $rLote = $this->aplicarAsignacionesCreditosDespachoEnLote($pares, $usuarioAsignacion);
+        $insertados = $rLote['insertados'];
+        $actualizados = $rLote['actualizados'];
+        $duplicadosDetalle = $rLote['duplicadosDetalle'];
 
         $this->db->commit();
     } catch (\Exception $e) {
@@ -1109,6 +1320,7 @@ public function desasignarCredito($idCredito)
         $query = <<<SQL
         SELECT
     acd.id_credito,
+    acd.id_despacho,
     acd.estatus                                          AS estado,
     acd.baja,
     DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d %H:%i')        AS fecha_asignacion,

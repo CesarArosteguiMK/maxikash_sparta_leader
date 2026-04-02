@@ -434,17 +434,17 @@ public function DesasignarCredito()
 
             // Título
             $sheet->setCellValue('A1', 'Créditos Asignados al Despacho');
-            $sheet->mergeCells('A1:G1');
+            $sheet->mergeCells('A1:H1');
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             // Información del despacho
             $nombreDespacho = $datosDespacho['datos']['nombre_completo'] ?? 'N/A';
             $sheet->setCellValue('A2', 'Despacho: ' . $nombreDespacho);
-            $sheet->mergeCells('A2:G2');
+            $sheet->mergeCells('A2:H2');
 
-            // Encabezados
-            $headers = ['ID Crédito', 'Cliente', 'Saldo', 'Días Mora', 'Estado', 'Fecha Asignación', 'Asignado Por'];
+            // Encabezados — id_credito e id_despacho primero para que la re-importación funcione sin editar el archivo
+            $headers = ['id_credito', 'id_despacho', 'Cliente', 'Saldo', 'Días Mora', 'Estado', 'Fecha Asignación', 'Asignado Por'];
             $col = 'A';
             foreach ($headers as $header) {
                 $sheet->setCellValue($col . '4', $header);
@@ -460,18 +460,21 @@ public function DesasignarCredito()
             $row = 5;
             foreach ($creditos as $credito) {
                 $sheet->setCellValue('A' . $row, $credito['id_credito']);
-                $sheet->setCellValue('B' . $row, $credito['nombre_cliente']);
-                $sheet->setCellValue('C' . $row, '$' . number_format($credito['saldo'], 2));
-                $sheet->setCellValue('D' . $row, $credito['dias_mora']);
+                // id_despacho: usar el campo si viene de BD, o el parámetro de la URL
+                $idDespachoExport = $credito['id_despacho'] ?? $idDespacho;
+                $sheet->setCellValue('B' . $row, $idDespachoExport);
+                $sheet->setCellValue('C' . $row, $credito['nombre_cliente']);
+                $sheet->setCellValue('D' . $row, '$' . number_format($credito['saldo'], 2));
+                $sheet->setCellValue('E' . $row, $credito['dias_mora']);
                 $estadoTexto = ($credito['estado'] === '1' || $credito['estado'] === 1) ? 'Activo' : 'Inactivo';
-                $sheet->setCellValue('E' . $row, $estadoTexto);
-                $sheet->setCellValue('F' . $row, $credito['fecha_asignacion']);
-                $sheet->setCellValue('G' . $row, $credito['asignado_por'] ?? 'N/A');
+                $sheet->setCellValue('F' . $row, $estadoTexto);
+                $sheet->setCellValue('G' . $row, $credito['fecha_asignacion']);
+                $sheet->setCellValue('H' . $row, $credito['asignado_por'] ?? 'N/A');
                 $row++;
             }
 
             // Ajustar anchos de columna
-            foreach (range('A', 'G') as $col) {
+            foreach (range('A', 'H') as $col) {
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
 

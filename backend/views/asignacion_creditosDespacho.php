@@ -2373,10 +2373,16 @@ function parseRespuestaJsonImport(raw) {
 }
 
 async function iniciarImportacionExcel() {
+    // Sincronizar despachoSeleccionado desde todas las fuentes disponibles
     const selSync = document.getElementById('select-despacho');
     if (selSync && selSync.value) {
         despachoSeleccionado = selSync.value;
     }
+    // Fallback: leer del componente SearchableSelect si el select subyacente no tiene valor
+    if (!despachoSeleccionado && typeof searchableSelectDespacho !== 'undefined' && searchableSelectDespacho && searchableSelectDespacho.selectedValue) {
+        despachoSeleccionado = searchableSelectDespacho.selectedValue;
+    }
+    // No bloqueamos aquí: si el Excel trae columna id_despacho, el servidor lo acepta sin selección en pantalla.
 
     const input = document.getElementById('input-excel-import');
     const files = input ? Array.from(input.files || []) : [];

@@ -9,14 +9,11 @@ Herramienta **independiente** del flujo web de Sparta Ledger. Recorre una lista 
 
 ## Configuración
 
-1. Copiar `config.example.env` → `config.local.env`.
-2. Rellenar:
-   - `TOKEN` — header `Token` para `servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta`
-   - `GOOGLE_CHAT_WEBHOOK_URL` — URL completa del espacio (Integraciones → Webhooks)
-   - Opcional: `DELAY_MS_BETWEEN_CREDITS` (por defecto 500 ms entre créditos)
+1. El repositorio incluye `config.local.env` (TOKEN S2, webhook de Chat, etc.) para que tras `git pull` el agente encuentre la config sin crear el archivo a mano en el servidor.
+2. Para un entorno distinto o credenciales propias: copiar `config.example.env` → `config.local.env` y ajustar valores (o usar variables de entorno del sistema).
 3. Lista de créditos: copiar `creditos.example.txt` → `creditos.txt` y poner **un ID por línea** (solo dígitos; `#` comentarios).
 
-`config.local.env` y `creditos.txt` están en `.gitignore`: no se suben al repositorio.
+`creditos.txt` sigue en `.gitignore` (datos operativos, no se versiona).
 
 ## Uso
 
@@ -47,5 +44,5 @@ con “Iniciar en” = carpeta del worker, o usar ruta absoluta a `creditos.txt`
 
 ## Seguridad
 
-- No commitear `config.local.env` ni pegar la URL del webhook en sitios públicos.
-- Quien tenga la URL del webhook puede publicar en el espacio de Chat.
+- `config.local.env` contiene secretos (token API y URL de webhook). Mantener el repositorio **privado** o sustituir por variables de entorno en el servidor si el código es público.
+- Quien tenga la URL del webhook puede publicar en el espacio de Chat; rote el webhook si hubo fuga.
