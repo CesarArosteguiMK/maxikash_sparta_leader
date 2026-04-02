@@ -1,24 +1,45 @@
+<?php
+$urlAgenteIni = isset($gastosCobranzaAgenteUrl) ? trim((string) $gastosCobranzaAgenteUrl) : '';
+$puertoAgenteMostrar = '3120';
+if ($urlAgenteIni !== '') {
+    $pu = parse_url($urlAgenteIni, PHP_URL_PORT);
+    if ($pu !== null && $pu !== false && (int) $pu > 0) {
+        $puertoAgenteMostrar = (string) (int) $pu;
+    }
+}
+?>
 <div class="container-xxl flex-grow-1 container-p-y">
 
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1">
+            <div class="card shadow-sm border-0 gc-shell-hero-card">
+                <div class="card-body py-4">
+                    <div class="row align-items-center g-4">
+                        <div class="col-lg-8">
+                            <h4 class="mb-2 fw-semibold text-heading gc-shell-hero-title">
                                 <i class="fa fa-file-invoice-dollar text-primary me-2"></i>
                                 <?= htmlspecialchars(isset($tituloShell) ? $tituloShell : 'Shell Gastos Cobranza', ENT_QUOTES, 'UTF-8') ?>
                             </h4>
-                            <p class="text-muted mb-0">
-                                Agente para <code>reporte_cobranza.py</code> (y modo prueba sin .py). Log en panel inferior.
-                                <span class="badge bg-label-success ms-1">INI habilitado · puerto 3120</span>
+                            <p class="gc-shell-hero-lead text-muted mb-3 mb-lg-2">
+                                Punto de trabajo para el servicio local de cobranza: generación de reportes, integración con S2 y tareas de verificación.
+                                El registro de actividad del agente aparece en el panel inferior de esta página.
                             </p>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <span class="gc-shell-chip"><i class="fa fa-code-branch me-1 opacity-75"></i><code class="small">reporte_cobranza.py</code></span>
+                                <span class="gc-shell-chip gc-shell-chip-muted"><i class="fa fa-flask me-1 opacity-75"></i>Respaldo en modo prueba si no hay script</span>
+                                <span class="gc-shell-chip gc-shell-chip-accent"><i class="fa fa-ethernet me-1 opacity-75"></i>Puerto <?= htmlspecialchars($puertoAgenteMostrar, ENT_QUOTES, 'UTF-8') ?></span>
+                            </div>
                         </div>
-                        <div class="col-md-4 text-end">
-                            <small class="text-muted d-block">
-                                <i class="fa fa-shield-alt me-1"></i>Módulo 31
-                            </small>
+                        <div class="col-lg-4 d-flex justify-content-lg-end">
+                            <div class="gc-shell-module-card">
+                                <div class="gc-shell-module-icon" aria-hidden="true">
+                                    <i class="fa fa-shield-alt"></i>
+                                </div>
+                                <div class="gc-shell-module-text">
+                                    <span class="gc-shell-module-label">Control de acceso</span>
+                                    <span class="gc-shell-module-name">Módulo 31</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -27,27 +48,25 @@
     </div>
 
     <div class="row mb-4">
-        <div class="col-lg-7">
+        <div class="col-12">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
-                    <h5 class="card-title"><i class="fa fa-plug text-primary me-2"></i>Estado del agente</h5>
-                    <p class="small text-muted mb-3">
-                        URL: <code id="gastosCobranzaUrlDisplay"><?= htmlspecialchars(isset($gastosCobranzaAgenteUrl) ? $gastosCobranzaAgenteUrl : '', ENT_QUOTES, 'UTF-8') ?></code>
-                        · <span id="gastosCobranzaHabilitadoIni"><?= !empty($gastosCobranzaAgenteHabilitado) ? '<span class="text-success">enabled=1</span>' : '<span class="text-warning">enabled=0</span>' ?></span>
-                    </p>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                        <span id="gastosCobranzaEstadoBadge" class="badge bg-label-secondary">Comprobando…</span>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnGastosCobranzaRefrescar">
-                            <i class="fa fa-sync-alt me-1"></i>Actualizar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-primary" id="btnGastosCobranzaEjecutar" disabled>
-                            <i class="fa fa-play me-1"></i>Ejecutar (agente)
-                        </button>
+                    <div class="d-flex flex-column flex-md-row flex-md-wrap align-items-md-start justify-content-md-between gap-3 mb-3">
+                        <div class="flex-grow-1 min-w-0">
+                            <h5 class="card-title mb-1"><i class="fa fa-plug text-primary me-2"></i>Estado del agente</h5>
+                            <p class="small text-muted mb-0">Comprueba si el agente local responde y, cuando esté en línea, puedes lanzar la ejecución desde aquí.</p>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
+                            <span id="gastosCobranzaEstadoBadge" class="badge bg-label-secondary">Comprobando…</span>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnGastosCobranzaRefrescar">
+                                <i class="fa fa-sync-alt me-1"></i>Actualizar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" id="btnGastosCobranzaEjecutar" disabled>
+                                <i class="fa fa-play me-1"></i>Ejecutar (agente)
+                            </button>
+                        </div>
                     </div>
-                    <p class="small mb-2" id="gastosCobranzaDetalle">—</p>
-                    <p class="small text-muted mb-0" id="gastosCobranzaAyudaEjecutar">
-                        <strong>Ejecutar (agente)</strong> solo genera el Excel en la carpeta <code>reporte/</code> (Python real si hay script; si no, modo prueba). El worker S2 + lista negra se lanza desde la tabla de reportes (icono de engranes junto a descargar) o subiendo otro Excel en la sección EC Worker.
-                    </p>
+                    <p class="small mb-0" id="gastosCobranzaDetalle">—</p>
                     <div id="gastosCobranzaSalidaWrap" class="d-none mt-3">
                         <label class="form-label small fw-semibold">Salida de la última ejecución</label>
                         <pre id="gastosCobranzaSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:220px;overflow:auto;white-space:pre-wrap;"></pre>
@@ -55,41 +74,13 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-5">
-            <div class="card shadow-sm border-0 h-100 border-start border-4 border-primary">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fa fa-map-signs text-primary me-2"></i>Guía rápida</h5>
-                    <p class="small text-muted mb-3 mb-lg-4">
-                        Primero confirma que el agente esté <strong>en línea</strong> (badge verde). Si aparece desconectado, avisa a quien administre el equipo donde corre el servicio.
-                    </p>
-                    <ul class="list-unstyled small mb-0">
-                        <li class="d-flex gap-2 mb-3">
-                            <span class="text-success flex-shrink-0"><i class="fa fa-play-circle fa-lg"></i></span>
-                            <span><strong class="text-body">Ejecutar (agente)</strong> solo genera el Excel de cobranza (ayer CDMX) y lo deja en la tabla. En esa fila, el icono de engranes lanza el EC Worker con ese archivo (sin subirlo otra vez) y, al terminar, la lista negra con el mismo Excel; el icono de lista negra carga solo la verificación semana desde ese Excel en <code>reporte/</code>.</span>
-                        </li>
-                        <li class="d-flex gap-2 mb-3">
-                            <span class="text-primary flex-shrink-0"><i class="fa fa-rocket fa-lg"></i></span>
-                            <span><strong class="text-body">EC Worker / Excel enriquecido</strong> sube un Excel con IDs y corre el flujo S2 o el enriquecido. Con <strong>Worker</strong>, al <strong>terminar la corrida</strong> se actualiza la lista negra sola (también si hubo errores en algunos créditos; usa el panel opcional si quieres cambiar parámetros de la carga).</span>
-                        </li>
-                        <li class="d-flex gap-2 mb-3">
-                            <span class="text-secondary flex-shrink-0"><i class="fa fa-database fa-lg"></i></span>
-                            <span><strong class="text-body">Lista negra</strong>: el Worker la aplica en automático al cerrar el lote. El panel <em>Carga manual</em> está oculto por defecto; ábrelo solo para cargar sin Worker o para ver parámetros.</span>
-                        </li>
-                        <li class="d-flex gap-2">
-                            <span class="text-info flex-shrink-0"><i class="fa fa-scroll fa-lg"></i></span>
-                            <span><strong class="text-body">Log</strong> muestra lo que hace el agente en segundo plano; puedes dejarlo en automático o refrescar cuando lo necesites.</span>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div class="row g-3 mb-3">
         <div class="col-xl-8">
-            <div class="card shadow-sm border-0 border-primary h-100">
+            <div class="card shadow-sm border-0 h-100 gc-card-accent-ec-worker">
                 <div class="card-body">
-                    <h5 class="card-title"><i class="fa fa-rocket text-primary me-2"></i>EC Worker / Excel enriquecido</h5>
+                    <h5 class="card-title"><i class="fa fa-rocket gc-ec-worker-title-icon me-2" aria-hidden="true"></i>EC Worker / Excel enriquecido</h5>
                     <div class="row g-3 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label small mb-1">Excel (.xlsx)</label>
@@ -119,9 +110,6 @@
                                 <i class="fa fa-cloud-upload-alt me-1"></i>Subir Excel y ejecutar vía agente
                             </button>
                             <span class="small text-muted ms-2">Puede tardar mucho. Con el Worker, al terminar la corrida la lista negra se actualiza sola con el mismo Excel.</span>
-                            <p class="small text-muted mb-0 mt-2">
-                                Mientras corre Worker o Enrich, el avance (líneas <code>[n/total]</code> y hitos 25/50/75/100%) aparece en <strong>Log del agente</strong> abajo; con auto activo se refresca más seguido durante ese proceso.
-                            </p>
                         </div>
                     </div>
                     <div id="ecErroresReintentoBanner" class="alert alert-warning d-none mt-3 mb-0 py-2 small" role="alert">
@@ -137,7 +125,7 @@
             </div>
         </div>
         <div class="col-xl-4">
-            <div class="card shadow-sm border-0 h-100" style="border-left: 4px solid #3abaf4 !important;">
+            <div class="card shadow-sm border-0 h-100 gc-card-accent-descargo">
                 <div class="card-body">
                     <h5 class="card-title"><i class="fa fa-file-export text-info me-2"></i>Descargo cobranza GC (estatus 3)</h5>
                     <div class="small text-muted mb-3">
@@ -145,14 +133,6 @@
                             Lee <code>cobranza_gc_verificacion_semana</code> con <code>estatus = 3</code>.
                             <strong>Descargar</strong> ejecuta el script y, si hay filas nuevas, baja el Excel directo.
                         </div>
-                        <div class="p-2 rounded bg-label-secondary">
-                            <strong>guia_descargo.json</strong> es el checkpoint del último avance real
-                            (<code>registrado_en_cdmx</code> + <code>id</code>); sirve para que el siguiente descargo incremental solo traiga filas posteriores.
-                        </div>
-                    </div>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="chkDescargoDesdeCero" autocomplete="off">
-                        <label class="form-check-label small" for="chkDescargoDesdeCero">Desde cero (ignora la guía, vuelca todo el filtro y al final actualiza la guía)</label>
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="chkDescargoSinActualizarGuia" autocomplete="off">
@@ -253,12 +233,13 @@
                                     <th>Archivo</th>
                                     <th class="text-end">Tamaño</th>
                                     <th>Modificado (UTC)</th>
+                                    <th title="Día de la semana según la hora de modificación del archivo (calendario Ciudad de México)">Día</th>
                                     <th title="Pasa el cursor sobre la celda para ver el texto completo">Estado</th>
                                     <th class="text-center" width="200">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="gastosCobranzaTablaReportes">
-                                <tr><td colspan="6" class="text-muted small">Cargando…</td></tr>
+                                <tr><td colspan="7" class="text-muted small">Cargando…</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -294,32 +275,112 @@
         </div>
     </div>
 
-    <div class="row mb-2">
-        <div class="col-12">
-            <div class="alert alert-light border py-3 small mb-0" role="region" aria-label="Explicación de la pantalla Gastos cobranza">
-                <p class="mb-2"><strong>¿Qué significa todo esto si no eres de sistemas?</strong>
-                    No es un aviso de error. Es una explicación breve de cómo esta pantalla trabaja con el <em>agente</em>
-                    (el programa que corre en el equipo o servidor donde está configurado y que hace los procesos pesados).</p>
-                <p class="mb-2">Tú solo usas los botones de arriba; no hace falta escribir direcciones raras ni códigos. Detrás de cada acción, la aplicación le pide al agente que haga el trabajo y luego te muestra el resultado o el archivo.</p>
-                <ul class="mb-0 ps-3">
-                    <li><strong>Estado del agente</strong> — Comprueba si ese programa está encendido y disponible, y qué herramientas tiene listas (reportes, worker, carga a lista negra, descargo, etc.).</li>
-                    <li><strong>Generar reporte</strong> — Lanza el proceso que arma el reporte de cobranza y lo deja en la lista de archivos para descargar.</li>
-                    <li><strong>Log del agente</strong> — Pide al agente las últimas líneas del archivo de log en su disco (hasta ~400). Al abrir o refrescar la página el panel hace scroll al <strong>final</strong> para que veas lo más reciente. <em>Traer log ahora</em> hace lo mismo a demanda. Con <em>Auto cada 4 s</em>, si subes el scroll para leer más arriba, no te lo baja solo hasta que vuelvas abajo.</li>
-                    <li><strong>Lista de reportes y descargar</strong> — Te deja ver qué Excels ya están listos y bajar el que elijas.</li>
-                    <li><strong>Subir Excel y worker / enriquecido</strong> — Sube tu archivo de créditos y ejecuta la consulta a S2 y el cruce en base de datos (o el flujo enriquecido, según elijas). En la tabla de reportes, el icono de engranes es el worker y el de lista negra carga verificación semana desde ese Excel en <code>reporte/</code>.</li>
-                    <li><strong>CSV de errores en reintento</strong> — Solo si el worker hizo una segunda pasada y aún fallaron algunos créditos; aparece un enlace para bajar la lista de esos casos.</li>
-                    <li><strong>Carga a lista negra (verificación semana)</strong> — Registra en bloque los datos del Excel en la tabla de verificación; tras el worker se hace sola al terminar la corrida (aunque fallen créditos sueltos).</li>
-                    <li><strong>Descargo cobranza GC (estatus 3)</strong> — Genera y descarga un Excel con los registros pendientes de ese proceso; a veces responde con un mensaje en pantalla si no hay filas nuevas.</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
 </div>
 
 <style>
     .container-p-y .row.mb-4:last-of-type {
         margin-bottom: 1rem !important;
+    }
+    /*
+     * Franja lateral: Bootstrap .border-0 pone border:0 !important en toda la tarjeta y deja invisible un solo border-left.
+     * Forzamos borde izquierdo con selector más específico y anulamos los otros lados.
+     */
+    .card.gc-card-accent-ec-worker.border-0 {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        border-left: 4px solid #7b61ff !important;
+    }
+    .gc-ec-worker-title-icon {
+        color: #7b61ff;
+    }
+
+    /* Shell hero: encabezado y módulo */
+    .gc-shell-hero-card {
+        background: linear-gradient(135deg, #fcfdff 0%, #f6f8fc 100%);
+        border: 1px solid rgba(67, 89, 113, 0.08) !important;
+    }
+    .gc-shell-hero-title {
+        letter-spacing: -0.02em;
+    }
+    .gc-shell-hero-lead {
+        font-size: 0.9375rem;
+        line-height: 1.55;
+        max-width: 42rem;
+    }
+    .gc-shell-chip {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 0.35rem 0.65rem;
+        border-radius: 999px;
+        background: rgba(105, 108, 255, 0.1);
+        color: #566a7f;
+        border: 1px solid rgba(105, 108, 255, 0.15);
+    }
+    .gc-shell-chip code {
+        background: transparent;
+        color: #4a5a6b;
+        padding: 0;
+    }
+    .gc-shell-chip-muted {
+        background: rgba(67, 89, 113, 0.06);
+        border-color: rgba(67, 89, 113, 0.1);
+    }
+    .gc-shell-chip-accent {
+        background: rgba(3, 195, 236, 0.08);
+        border-color: rgba(3, 195, 236, 0.2);
+        color: #2d6a7a;
+    }
+    .gc-shell-module-card {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        max-width: 16rem;
+        padding: 0.85rem 1rem;
+        border-radius: 0.65rem;
+        background: #fff;
+        border: 1px solid rgba(67, 89, 113, 0.1);
+        box-shadow: 0 2px 8px rgba(67, 89, 113, 0.06);
+    }
+    .gc-shell-module-icon {
+        flex-shrink: 0;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(145deg, rgba(105, 108, 255, 0.18), rgba(105, 108, 255, 0.06));
+        color: #696cff;
+        font-size: 1.1rem;
+    }
+    .gc-shell-module-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 0;
+    }
+    .gc-shell-module-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #a1acb8;
+    }
+    .gc-shell-module-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #566a7f;
+        line-height: 1.2;
+    }
+
+    .card.gc-card-accent-descargo.border-0 {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        border-left: 4px solid #3abaf4 !important;
     }
     /* Estados en tabla reporte/: tonos suaves, legibles en Sneat */
     .gc-rep-estado {
@@ -335,6 +396,7 @@
     .gc-rep-est-proc { background: #e9eef9; color: #314e7a; border-color: rgba(49, 78, 122, 0.12); }
     .gc-rep-est-aplic { background: #f0ebf7; color: #4a3a68; border-color: rgba(74, 58, 104, 0.12); }
     .gc-rep-est-worker { background: #faf3e8; color: #6b4e2e; border-color: rgba(107, 78, 46, 0.14); }
+    .gc-rep-est-worker-listo { background: #e8f2fc; color: #2d5a87; border-color: rgba(45, 90, 135, 0.14); }
     .gc-rep-est-negra { background: #eef1f4; color: #3d4551; border-color: rgba(61, 69, 81, 0.12); }
     .gc-rep-est-vacio { background: transparent; color: #a0a8b0; border: none; font-weight: 400; }
     .gc-rep-est-otro { background: #f3f4f6; color: #4b5563; border-color: rgba(75, 85, 99, 0.12); }
@@ -393,7 +455,6 @@
     var btnEcLauncher = document.getElementById('btnEcLauncherEjecutar');
     var btnCargaVerif = document.getElementById('btnCargaVerifEjecutar');
     var btnDescargoEstatus3 = document.getElementById('btnDescargoEstatus3');
-    var chkDescargoDesdeCero = document.getElementById('chkDescargoDesdeCero');
     var chkDescargoSinActualizarGuia = document.getElementById('chkDescargoSinActualizarGuia');
     var descargoSpinner = document.getElementById('descargoEstatus3Spinner');
     var cargaVerifFile = document.getElementById('cargaVerifFile');
@@ -426,8 +487,37 @@
     var ivRep = null;
     /** Log más frecuente mientras corre EC launcher (worker/enrich). */
     var ivLogEcWorker = null;
+    /** Agente alcanzable y con EC listo (misma condición que antes para habilitar subida EC). */
+    var gcAgenteOnline = false;
+    /** Worker o enrich vía ec-launcher en curso (esta pestaña): desactiva subida EC y engranajes en tabla. */
+    var gcEcJobEnCurso = false;
+    /** El agente reporta proceso EC en curso (otra pestaña u otro usuario): mismo bloqueo en UI. */
+    var gcAgenteReportaEcOcupado = false;
     /** Evita reejecutar el mismo día (CDMX) tras un reporte real exitoso. */
     var LS_REPORTE_OK_YMD = 'gastosCobranza_reporteRealOkYmd';
+
+    function aplicarEstadoBotonesEcWorker() {
+        var puedeLanzarEc = gcAgenteOnline && !gcEcJobEnCurso && !gcAgenteReportaEcOcupado;
+        if (btnEcLauncher) {
+            btnEcLauncher.disabled = !puedeLanzarEc;
+        }
+        try {
+            document.querySelectorAll('.btn-gc-worker-reporte').forEach(function (b) {
+                b.disabled = !puedeLanzarEc;
+            });
+        } catch (e) { /* ignorar */ }
+    }
+
+    async function conBloqueoWorkerEc(asyncFn) {
+        gcEcJobEnCurso = true;
+        aplicarEstadoBotonesEcWorker();
+        try {
+            return await asyncFn();
+        } finally {
+            gcEcJobEnCurso = false;
+            aplicarEstadoBotonesEcWorker();
+        }
+    }
 
     /** El servidor ya manda las últimas N líneas; el panel debe bajar el scroll para mostrar lo más reciente. */
     function logPanelEstaCercaDelFinal() {
@@ -516,9 +606,17 @@
             'Proc. cartera': 'gc-rep-est-proc',
             'Aplic. cartera': 'gc-rep-est-aplic',
             'En Worker': 'gc-rep-est-worker',
+            'Worker listo': 'gc-rep-est-worker-listo',
             'Lista negra': 'gc-rep-est-negra',
         };
         return m[estRaw] || '';
+    }
+
+    /** Texto extra en alertas cuando el agente devolvió estado_reporte (columna Estado de la tabla). */
+    function lineaEstadoReporteRespuesta(er) {
+        if (!er || !er.corto) return '';
+        var d = er.detalle ? String(er.detalle).trim() : '';
+        return '\n\nEstado en la tabla de reportes: «' + er.corto + '»' + (d ? ' — ' + d : '') + '.';
     }
 
     function formatoBytes(n) {
@@ -530,6 +628,27 @@
         return n.toFixed(i === 0 ? 0 : 2) + ' ' + u[i];
     }
 
+    /**
+     * Día de la semana en Ciudad de México según la fecha de modificación (ISO del agente).
+     * Si el agente envía diaSemanaModificado, se usa tal cual.
+     */
+    function diaSemanaModificadoCdmx(iso, precalculado) {
+        var t = (precalculado != null && String(precalculado).trim() !== '') ? String(precalculado).trim() : '';
+        if (t) return t;
+        if (!iso) return '—';
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return '—';
+        try {
+            var s = new Intl.DateTimeFormat('es-MX', {
+                timeZone: 'America/Mexico_City',
+                weekday: 'long'
+            }).format(d);
+            return s.charAt(0).toUpperCase() + s.slice(1);
+        } catch (e2) {
+            return '—';
+        }
+    }
+
     async function traerListaReportes() {
         try {
             var r = await fetch('/gastoscobranza/listarReportes', {
@@ -538,13 +657,15 @@
             });
             var data = await r.json();
             if (!data.success || !data.archivos) {
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-warning small">' +
+                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-warning small">' +
                     (data.mensaje || 'No se pudo listar reportes.') + '</td></tr>';
+                aplicarEstadoBotonesEcWorker();
                 return;
             }
             var list = data.archivos;
             if (!list.length) {
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
+                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
+                aplicarEstadoBotonesEcWorker();
                 return;
             }
             function escCelda(s) {
@@ -568,6 +689,7 @@
                 var estInner = estRaw
                     ? '<span class="gc-rep-estado ' + estSubCls + '">' + estHtml + '</span>'
                     : '<span class="gc-rep-estado gc-rep-est-vacio">—</span>';
+                var diaSem = escCelda(diaSemanaModificadoCdmx(a.modificado, a.diaSemanaModificado));
                 var esRep = esExcelReporteCobranza(nom);
                 var btnWorker = esRep
                     ? '<button type="button" class="btn btn-sm btn-gc-worker-reporte gc-rep-btn-worker ms-1" data-nombre-enc="' +
@@ -580,9 +702,10 @@
                         '<i class="fa fa-ban" aria-hidden="true"></i><span class="visually-hidden"> Lista negra</span></button>'
                     : '';
                 return '<tr>' +
-                    '<td class="font-monospace small">' + safe + '</td>' +
+                    '<td class="font-monospace small fw-bold text-body">' + safe + '</td>' +
                     '<td class="text-end small">' + formatoBytes(a.bytes) + '</td>' +
                     '<td class="small">' + (a.modificado || '') + '</td>' +
+                    '<td class="small text-nowrap">' + diaSem + '</td>' +
                     '<td class="small text-nowrap"' + estTdAttr + '>' + estInner + '</td>' +
                     '<td class="text-center text-nowrap gc-rep-acciones-cell">' +
                     '<a class="btn btn-sm gc-rep-btn-descargar" href="' + href + '" title="Descargar"><i class="fa fa-download"></i></a>' +
@@ -591,8 +714,10 @@
                     '</td>' +
                     '</tr>';
             }).join('');
+            aplicarEstadoBotonesEcWorker();
         } catch (e) {
-            tbodyRep.innerHTML = '<tr><td colspan="6" class="text-danger small">' + String(e.message || e) + '</td></tr>';
+            tbodyRep.innerHTML = '<tr><td colspan="7" class="text-danger small">' + String(e.message || e) + '</td></tr>';
+            aplicarEstadoBotonesEcWorker();
         }
     }
 
@@ -768,6 +893,7 @@
             }
             if (workerLlegoAlFin) {
                 /* Worker llegó al final (0 = todo ok, 2 = ok con errores parciales) → cargar lista negra automático */
+                await traerListaReportes();
                 var dataCarga;
                 try {
                     dataCarga = await invocarCargaVerificacionAgente(payloadEc.nombre, cargaOpts);
@@ -775,7 +901,9 @@
                     alertar('Worker ok — lista negra falló',
                         'El worker terminó (código ' + codigoSalida + ') pero no se pudo contactar al servidor para la lista negra. ' +
                         'Puedes cargarla manualmente con el botón morado en la tabla. Detalle: ' +
-                        String(eCarga.message || eCarga), 'warning');
+                        String(eCarga.message || eCarga) +
+                        lineaEstadoReporteRespuesta(data.estado_reporte),
+                        'warning');
                     await traerLog(380, { scrollBottom: true });
                     await traerListaReportes();
                     return;
@@ -796,20 +924,23 @@
                 if (okC) {
                     if (codigoSalida === 0) {
                         alertar('¡Todo listo!',
-                            'Worker completado correctamente.\nLista negra actualizada con el mismo Excel.',
+                            'Worker completado correctamente.\nLista negra actualizada con el mismo Excel.' +
+                            lineaEstadoReporteRespuesta(dataCarga.estado_reporte),
                             'success');
                     } else {
                         alertar('Worker ok con errores parciales — Lista negra actualizada',
                             'El worker terminó (código ' + codigoSalida + '): uno o más créditos con error. ' +
                             'La lista negra se cargó igual con el mismo Excel.\n' +
-                            'Revisa el log y el CSV de reintento si aparece.',
+                            'Revisa el log y el CSV de reintento si aparece.' +
+                            lineaEstadoReporteRespuesta(dataCarga.estado_reporte),
                             'warning');
                     }
                 } else {
                     alertar('Worker ok — Lista negra FALLÓ',
                         'El worker terminó (código ' + codigoSalida + ') pero la carga a lista negra tuvo un error: ' +
                         (dataCarga.mensaje || 'sin detalle') +
-                        '.\nPuedes intentarla manualmente con el botón morado en la tabla de reportes.',
+                        '.\nPuedes intentarla manualmente con el botón morado en la tabla de reportes.' +
+                        lineaEstadoReporteRespuesta(dataCarga.estado_reporte),
                         'warning');
                 }
             } else if (esWorker) {
@@ -817,12 +948,13 @@
                 alertar('Worker falló — Lista negra NO ejecutada',
                     'El worker no llegó al final (código ' + codigoSalida + '). ' +
                     'La lista negra NO se ejecutó para no insertar datos de un lote incompleto.\n\n' +
-                    (msg || ''),
+                    (msg || '') +
+                    lineaEstadoReporteRespuesta(data.estado_reporte),
                     'error');
             } else if (ok) {
-                alertar('EC listo', msg, 'success');
+                alertar('EC listo', msg + lineaEstadoReporteRespuesta(data.estado_reporte), 'success');
             } else {
-                alertar('EC con errores', msg, 'error');
+                alertar('EC con errores', msg + lineaEstadoReporteRespuesta(data.estado_reporte), 'error');
             }
             await traerLog(380, { scrollBottom: true });
             await traerListaReportes();
@@ -850,61 +982,64 @@
             });
             var data = await r.json();
             if (!data.success) {
+                gcAgenteOnline = false;
+                gcAgenteReportaEcOcupado = false;
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Error';
                 detalle.textContent = data.mensaje || 'Error';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+                aplicarEstadoBotonesEcWorker();
                 return;
             }
             if (!data.agente_configurado) {
+                gcAgenteOnline = false;
+                gcAgenteReportaEcOcupado = false;
                 badge.className = 'badge bg-label-secondary';
                 badge.textContent = 'INI desactivado';
                 detalle.innerHTML = data.detalle || '';
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
+                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+                aplicarEstadoBotonesEcWorker();
                 return;
             }
             if (data.agente_online) {
+                gcAgenteOnline = true;
                 badge.className = 'badge bg-label-success';
                 badge.textContent = 'Agente en línea';
                 var a = data.agente || {};
-                var partes = [data.detalle || ''];
-                if (a.script_configurado === false) partes.push('Python: <strong>no configurado</strong> (modo prueba disponible).');
-                else if (a.script_bundled) partes.push('Python: <strong>scripts/reporte_cobranza.py</strong> (incluido en el agente).');
-                else partes.push('Python: <strong>configurado</strong> (ruta en .env).');
-                if (a.demo_sin_script) partes.push('Demo sin script: <strong>activo</strong>.');
-                if (a.script_carga_verificacion_semana) {
-                    partes.push('Carga verificación: <strong>script listo</strong>.');
+                gcAgenteReportaEcOcupado = !!a.ec_launcher_ocupado;
+                if (gcAgenteReportaEcOcupado) {
+                    detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker/EC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
                 } else {
-                    partes.push('Carga verificación: <strong>sin script</strong>.');
+                    detalle.textContent = '';
                 }
-                if (a.script_descargo_estatus3) {
-                    partes.push('Descargo estatus 3: <strong>script listo</strong>.');
-                } else {
-                    partes.push('Descargo estatus 3: <strong>sin script</strong>.');
-                }
-                detalle.innerHTML = partes.filter(Boolean).join(' · ');
                 btnRun.disabled = false;
-                if (btnEcLauncher) btnEcLauncher.disabled = false;
                 if (btnCargaVerif) btnCargaVerif.disabled = !a.script_carga_verificacion_semana;
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = !a.script_descargo_estatus3;
+                aplicarEstadoBotonesEcWorker();
                 if (!sil) {
                     traerLog(400, { scrollBottom: true });
                     traerListaReportes();
                 }
             } else {
+                gcAgenteOnline = false;
+                gcAgenteReportaEcOcupado = false;
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Sin conexión';
                 detalle.textContent = data.detalle || '';
                 logPanel.textContent = 'Levante el agente (npm start en gastos-cobranza-agent, puerto 3120).';
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
+                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+                aplicarEstadoBotonesEcWorker();
             }
         } catch (e) {
+            gcAgenteOnline = false;
+            gcAgenteReportaEcOcupado = false;
             badge.className = 'badge bg-label-danger';
             badge.textContent = 'Error red';
             detalle.textContent = String(e.message || e);
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+            aplicarEstadoBotonesEcWorker();
         }
     }
 
@@ -921,7 +1056,7 @@
                 headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
                 body: JSON.stringify({
                     megaPhpDefaults: true,
-                    desdeCero: !!(chkDescargoDesdeCero && chkDescargoDesdeCero.checked),
+                    desdeCero: false,
                     sinActualizarGuia: !!(chkDescargoSinActualizarGuia && chkDescargoSinActualizarGuia.checked),
                 }),
             });
@@ -1121,7 +1256,9 @@
                 }
                 if (cargaVerifOutWrap) cargaVerifOutWrap.classList.remove('d-none');
             }
-            alertar(ok ? 'Lista negra' : 'Lista negra con errores', msg, ok ? 'success' : 'error');
+            alertar(ok ? 'Lista negra' : 'Lista negra con errores',
+                msg + lineaEstadoReporteRespuesta(data.estado_reporte),
+                ok ? 'success' : 'error');
             await traerLog(380, { scrollBottom: true });
             await traerListaReportes();
         } catch (e) {
@@ -1138,20 +1275,21 @@
             if (ecFecha) ecFecha.focus();
             return;
         }
-        if (btnEcLauncher) btnEcLauncher.disabled = true;
         ecOutWrap.classList.add('d-none');
         if (ecErroresReintentoBanner) ecErroresReintentoBanner.classList.add('d-none');
         try {
-            var payloadEc = {
-                nombre: nombreArchivo,
-                tipo: 'worker',
-                fechaCorte: ecFecha.value,
-                column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
-                omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
-                soloColumnas: false,
-                origenCarpeta: 'reporte'
-            };
-            await ejecutarPayloadEcYListaNegra(payloadEc, { origenCarpeta: 'reporte' });
+            await conBloqueoWorkerEc(function () {
+                var payloadEc = {
+                    nombre: nombreArchivo,
+                    tipo: 'worker',
+                    fechaCorte: ecFecha.value,
+                    column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
+                    omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
+                    soloColumnas: false,
+                    origenCarpeta: 'reporte'
+                };
+                return ejecutarPayloadEcYListaNegra(payloadEc, { origenCarpeta: 'reporte' });
+            });
         } catch (e) {
             alertar('Error', String(e.message || e), 'error');
         }

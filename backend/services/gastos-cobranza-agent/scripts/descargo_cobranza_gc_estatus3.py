@@ -307,6 +307,14 @@ def escribir_excel_descargo_formateado(df_export: pd.DataFrame, path: Path) -> N
     wb.save(path)
 
 
+def _ahora_cdmx_para_guia() -> str:
+    """Marca al escribir la guía (CDMX), para comprobar en UI si hubo corrida reciente."""
+    try:
+        return datetime.now(ZoneInfo("America/Mexico_City")).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
 def guardar_guia_descargo(
     path: Path,
     *,
@@ -321,8 +329,10 @@ def guardar_guia_descargo(
         "ultimo_id_credito": int(ultimo_id_credito),
         "tabla": table,
         "orden_descargo": "registrado_en_cdmx ASC, id ASC",
-        "nota": "Referencia de avance: ultimo_registrado_en_cdmx + ultimo_id_tabla (id de fila). "
-        "ultimo_id_credito es solo informativo.",
+        "guia_escrita_en_cdmx": _ahora_cdmx_para_guia(),
+        "nota": "Checkpoint incremental: la siguiente corrida (sin «desde cero») pide filas con "
+        "(registrado_en_cdmx > ultimo_registrado_en_cdmx) O (misma fecha y id de tabla > ultimo_id_tabla). "
+        "ultimo_id_credito es solo informativo. guia_escrita_en_cdmx = cuándo se guardó este JSON en el agente.",
     }
     try:
         path.parent.mkdir(parents=True, exist_ok=True)

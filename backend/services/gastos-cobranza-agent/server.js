@@ -77,8 +77,12 @@ const ESTADO_REPORTE = {
   generado: { corto: 'Generado', detalle: 'Reporte generado' },
   procCartera: { corto: 'Proc. cartera', detalle: 'Procesando por cartera' },
   aplicCartera: { corto: 'Aplic. cartera', detalle: 'Aplicado y confirmado por cartera' },
-  enWorker: { corto: 'En Worker', detalle: 'Ejecutando en Worker' },
-  listaNegra: { corto: 'Lista negra', detalle: 'Registrado lista negra' },
+  enWorker: { corto: 'En Worker', detalle: 'Ejecutando worker S2 con este Excel' },
+  workerListo: {
+    corto: 'Worker listo',
+    detalle: 'Worker terminó (éxito o errores parciales); pendiente o en curso la carga a lista negra',
+  },
+  listaNegra: { corto: 'Lista negra', detalle: 'Carga a verificación semana aplicada con este Excel' },
 };
 
 const ESTADO_REPORTE_KEYS = new Set(Object.keys(ESTADO_REPORTE));
@@ -93,6 +97,32 @@ function readEstadosReporteJson() {
   } catch (_) {
     return {};
   }
+}
+
+function setEstadoReporteArchivo(nombreArchivo, estadoKey) {
+  const nom = path.basename(String(nombreArchivo || ''));
+  if (!nom || !ESTADO_REPORTE_KEYS.has(estadoKey)) return;
+  ensureReporteDir();
+  const fp = path.join(REPORTE_DIR, '.estados_reporte.json');
+  const map = readEstadosReporteJson();
+  map[nom] = estadoKey;
+  try {
+    fs.writeFileSync(fp, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+    appendLog(`[estado reporte] ${nom} -> ${estadoKey}`);
+  } catch (e) {
+    appendLog(`[estado reporte] error al escribir .estados_reporte.json: ${e?.message || e}`);
+  }
+}
+
+function payloadEstadoReporte(nombreArchivo, estadoKey) {
+  if (!nombreArchivo || !ESTADO_REPORTE_KEYS.has(estadoKey)) return null;
+  const e = ESTADO_REPORTE[estadoKey];
+  return {
+    archivo: path.basename(String(nombreArchivo)),
+    clave: estadoKey,
+    corto: e.corto,
+    detalle: e.detalle,
+  };
 }
 
 /**
@@ -198,8 +228,20 @@ function clearLogFile(manual) {
   } catch (_) {}
 }
 
+/** Día de la semana (es-MX) según calendario Ciudad de México, para la fecha de modificación del .xlsx. */
+function diaSemanaLargoCdmx(date) {
+  const s = new Intl.DateTimeFormat('es-MX', {
+    timeZone: 'America/Mexico_City',
+    weekday: 'long',
+  }).format(date);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 const app = express();
 app.use(express.json());
+
+/** Un solo proceso EC (worker o enrich) a la vez; evita solapar worker.php en el mismo agente. */
+let ecLauncherBusy = false;
 
 function middlewareApiKey(req, res, next) {
   if (!API_KEY) return next();
@@ -242,6 +284,7 @@ app.get('/health', (req, res) => {
     script_descargo_estatus3_bundled:
       getDescargoEstatus3ScriptPath() !== '' && getDescargoEstatus3ScriptPath() === SCRIPT_DESCARGO_ESTATUS3,
     carpeta_descargo_estatus3: DESCARGO_ESTATUS3_DIR,
+    ec_launcher_ocupado: ecLauncherBusy,
   });
 });
 
@@ -265,6 +308,7 @@ app.get('/reportes', (req, res) => {
           nombre: name,
           bytes: st.size,
           modificado: st.mtime.toISOString(),
+          diaSemanaModificado: diaSemanaLargoCdmx(st.mtime),
           estado,
           estadoDetalle,
         };
@@ -491,6 +535,22 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     return res.status(400).json({ success: false, mensaje: 'tipo debe ser "worker" o "enrich".' });
   }
 
+  if (ecLauncherBusy) {
+    return res.status(409).json({
+      success: false,
+      mensaje:
+        'Ya hay un Worker o proceso EC (enrich) en ejecución en este agente. Espere a que termine antes de lanzar otro.',
+    });
+  }
+  ecLauncherBusy = true;
+
+  /** Solo reportes cobranza en reporte/: la tabla del shell muestra estado por .estados_reporte.json */
+  const marcarEstadoWorkerReporte =
+    tipo === 'worker' && origenCarpeta === 'reporte' && /^reporte_cobranza_/i.test(archivo);
+  if (marcarEstadoWorkerReporte) {
+    setEstadoReporteArchivo(archivo, 'enWorker');
+  }
+
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
   appendLog(`--- ec-launcher ${tipo} archivo=${archivo} fecha=${fechaCorte} php=${php} ---`);
 
@@ -503,6 +563,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   const enviar = (payload) => {
     if (respondio) return;
     respondio = true;
+    ecLauncherBusy = false;
     if (payload.codigo_salida !== undefined) {
       appendLog(`--- ec-launcher cierre ${payload.codigo_salida} ---`);
     } else if (payload.mensaje) {
@@ -529,7 +590,14 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   });
   child.on('error', (err) => {
     appendLog('[ec-launcher spawn] ' + (err.message || String(err)));
-    enviar({ success: false, mensaje: err.message || String(err) });
+    if (marcarEstadoWorkerReporte) {
+      setEstadoReporteArchivo(archivo, 'generado');
+    }
+    enviar({
+      success: false,
+      mensaje: err.message || String(err),
+      estado_reporte: marcarEstadoWorkerReporte ? payloadEstadoReporte(archivo, 'generado') : null,
+    });
   });
   child.on('close', (code) => {
     const outSlice = stdout.slice(-8000);
@@ -545,6 +613,12 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
         erroresReintentoCsv = last;
       }
     }
+    let estadoRep = null;
+    if (marcarEstadoWorkerReporte) {
+      const key = code === 0 || code === 2 ? 'workerListo' : 'generado';
+      setEstadoReporteArchivo(archivo, key);
+      estadoRep = payloadEstadoReporte(archivo, key);
+    }
     const payload = {
       success: code === 0,
       codigo_salida: code,
@@ -552,6 +626,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       stderr: stderr.slice(-8000),
       tipo,
       archivo,
+      estado_reporte: estadoRep,
     };
     if (erroresReintentoCsv) {
       payload.errores_reintento_csv = erroresReintentoCsv;
@@ -678,15 +753,34 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   });
   child.on('error', (err) => {
     appendLog('[carga-verificacion spawn] ' + (err.message || String(err)));
-    enviar({ success: false, mensaje: err.message || String(err) });
+    if (origenCarpeta === 'reporte' && !dryRun) {
+      setEstadoReporteArchivo(archivo, 'generado');
+    }
+    enviar({
+      success: false,
+      mensaje: err.message || String(err),
+      estado_reporte:
+        origenCarpeta === 'reporte' && !dryRun ? payloadEstadoReporte(archivo, 'generado') : null,
+    });
   });
   child.on('close', (code) => {
+    let estadoRepPayload = null;
+    if (origenCarpeta === 'reporte' && !dryRun) {
+      if (code === 0) {
+        setEstadoReporteArchivo(archivo, 'listaNegra');
+        estadoRepPayload = payloadEstadoReporte(archivo, 'listaNegra');
+      } else {
+        setEstadoReporteArchivo(archivo, 'generado');
+        estadoRepPayload = payloadEstadoReporte(archivo, 'generado');
+      }
+    }
     enviar({
       success: code === 0,
       codigo_salida: code,
       stdout: stdout.slice(-8000),
       stderr: stderr.slice(-8000),
       archivo,
+      estado_reporte: estadoRepPayload,
     });
   });
 });
