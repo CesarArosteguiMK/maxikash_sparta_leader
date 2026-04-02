@@ -442,6 +442,118 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
     background: #334155 !important;
 }
 
+/* ── Dark mode — Modal Migración / Preamortización ── */
+body.dark-mode #modalMigracion .modal-content {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+body.dark-mode #modalMigracion .modal-body {
+    background: #1e293b;
+}
+body.dark-mode #modalMigracion .modal-footer {
+    background: #1e293b;
+    border-color: #334155;
+}
+body.dark-mode #modalMigracion .form-control,
+body.dark-mode #modalMigracion .form-select {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+body.dark-mode #modalMigracion .form-control::placeholder { color: #64748b; }
+body.dark-mode #modalMigracion .input-group-text {
+    background: #334155;
+    border-color: #475569;
+    color: #94a3b8;
+}
+body.dark-mode #modalMigracion label { color: #cbd5e1; }
+body.dark-mode #modalMigracion hr { border-color: #334155; }
+body.dark-mode #modalMigracion .alert-info {
+    background: #0f2744;
+    border-color: #1d4ed8;
+    color: #93c5fd;
+}
+body.dark-mode #modalMigracion .alert-success {
+    background: #052e16;
+    border-color: #166534;
+    color: #bbf7d0;
+}
+body.dark-mode #modalMigracion .alert-danger {
+    background: #1f0a0a;
+    border-color: #991b1b;
+    color: #fca5a5;
+}
+body.dark-mode #modalMigracion .alert-warning {
+    background: #1c1004;
+    border-color: #92400e;
+    color: #fcd34d;
+}
+
+/* Columna preamortización */
+body.dark-mode #colPreamortizacion > div {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+body.dark-mode #colPreamortizacion h6 {
+    color: #c084fc !important;
+}
+body.dark-mode #preamortTablaWrap {
+    scrollbar-color: #334155 #0f172a;
+}
+body.dark-mode #preamortThead {
+    background: #0f172a !important;
+}
+body.dark-mode #preamortTablaWrap table thead {
+    background: #1e293b !important;
+}
+body.dark-mode #preamortTablaWrap table thead tr {
+    background: #1e293b !important;
+}
+body.dark-mode #preamortTablaWrap table {
+    color: #e2e8f0;
+}
+body.dark-mode #preamortTablaWrap tbody tr:hover td {
+    background: rgba(167,139,250,0.07);
+}
+
+/* Filas globo e inicial dentro de preamort */
+body.dark-mode #preamortBody tr[style*="background:rgba(118,75,162"] {
+    background: rgba(167,139,250,0.12) !important;
+}
+body.dark-mode #preamortBody tr[style*="background:rgba(8,145,178"] {
+    background: rgba(8,145,178,0.12) !important;
+}
+
+/* Resumen cards dentro del modal */
+body.dark-mode #migResumenCards .border {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e2e8f0;
+}
+body.dark-mode #migResumenCards .text-muted { color: #64748b !important; }
+
+/* Sección monto adicional */
+body.dark-mode #migPreview .border {
+    border-color: #334155 !important;
+}
+body.dark-mode #migPreview [style*="background:#f0fdf4"] {
+    background: #052e16 !important;
+    border-color: #166534 !important;
+}
+body.dark-mode #migPreview [style*="background:#f8f5ff"] {
+    background: #1e1533 !important;
+    border-color: #4c1d95 !important;
+}
+body.dark-mode #migPreview [style*="background:#fafafa"],
+body.dark-mode #colPreamortizacion [style*="background:#fafafa"] {
+    background: #0f172a !important;
+}
+body.dark-mode #migTotalBase,
+body.dark-mode #migTotalFinal {
+    background: #0f172a !important;
+    color: #c084fc !important;
+}
+
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -474,6 +586,8 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                 </button>
             </div>
             <button type="button" class="btn btn-outline-warning"
+                    id="btnRegistrarConvenioExistente"
+                    style="display:none;"
                     onclick="window.abrirModalMigracion()">
                 <i class="fas fa-file-import"></i> Registrar Convenio Existente
             </button>
@@ -982,7 +1096,7 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                   </div>
                   <div id="preamortTablaWrap" style="display:none;max-height:420px;overflow-y:auto;">
                     <table class="table table-sm table-borderless mb-0">
-                      <thead style="position:sticky;top:0;background:#fafafa;">
+                      <thead id="preamortThead" style="position:sticky;top:0;background:#fafafa;">
                         <tr class="text-muted small">
                           <th>#</th>
                           <th>Fecha</th>
@@ -1064,6 +1178,7 @@ document.getElementById('inputBusqueda').addEventListener('keydown', function (e
 function seleccionarCredito(idCredito) {
     document.getElementById('convContenido').style.display = 'none';
     document.getElementById('btnHistorialWrap').style.display = 'none';
+    document.getElementById('btnRegistrarConvenioExistente').style.display = 'none';
 
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
@@ -1198,6 +1313,8 @@ function renderCreditoBanner(c) {
         '<div class="col-6 col-md-2"><div class="label">Avance pago</div><div class="valor">' + avance + '%</div></div>' +
         '<div class="col-6 col-md-2"><div class="label">Adeudo total Actual</div><div class="valor" style="color:#4ade80;">' + fmt(adeudo) + '</div></div>' +
         '</div>';
+
+    document.getElementById('btnRegistrarConvenioExistente').style.display = 'inline-block';
 }
 
 // ══════════════════════════════════════════════════════
@@ -2617,7 +2734,9 @@ window.abrirModalMigracion = function () {
     // ── LIMPIAR PESTAÑA "CONVENIO NORMAL" ──────────────────────────
     var migIdCredito = document.getElementById('migIdCredito');
     if (migIdCredito) {
-        var idPrincipal = (document.getElementById('inputBusqueda') || {}).value || '';
+        var idPrincipal = (_credito && _credito.Id_credito)
+            ? String(_credito.Id_credito)
+            : ((document.getElementById('inputBusqueda') || {}).value || '');
         migIdCredito.value = idPrincipal;
     }
 
@@ -2735,6 +2854,13 @@ window.abrirModalMigracion = function () {
     if (modalElement) {
         var modal = new bootstrap.Modal(modalElement);
         modal.show();
+
+        // Auto-buscar si ya hay un crédito cargado en la vista principal
+        if (_credito && _credito.Id_credito) {
+            setTimeout(function () {
+                window.migBuscarCredito();
+            }, 350);
+        }
     } else {
         console.error('Modal element not found');
     }
@@ -2777,6 +2903,80 @@ window.migBuscarCredito = function () {
         Swal.fire('Campo requerido', 'Ingresa un ID de crédito válido.', 'warning');
         return;
     }
+
+    // ── Reset completo de estado previo ───────────────────────────
+    _migCredito = null;
+    _migDetalle = null;
+    _migSemanas = 0;
+
+    // Preamortización
+    var preamortBody = document.getElementById('preamortBody');
+    if (preamortBody) preamortBody.innerHTML = '';
+    var preamortWrap = document.getElementById('preamortTablaWrap');
+    if (preamortWrap) preamortWrap.style.display = 'none';
+    var preamortVacio = document.getElementById('preamortVacio');
+    if (preamortVacio) preamortVacio.style.display = 'block';
+
+    // Resumen y preview
+    var migResumenCards = document.getElementById('migResumenCards');
+    if (migResumenCards) migResumenCards.innerHTML = '';
+    var migTotalBase = document.getElementById('migTotalBase');
+    if (migTotalBase) migTotalBase.value = '';
+    var migTotalFinal = document.getElementById('migTotalFinal');
+    if (migTotalFinal) migTotalFinal.value = '';
+    var migMontoAdicional = document.getElementById('migMontoAdicional');
+    if (migMontoAdicional) { migMontoAdicional.value = ''; migMontoAdicional.disabled = false; }
+
+    // Botón guardar del footer
+    var migBtnGuardar = document.getElementById('migBtnGuardar');
+    if (migBtnGuardar) migBtnGuardar.style.display = 'none';
+
+    // Errores previos
+    var errBk = document.getElementById('migErrorBackend');
+    if (errBk) errBk.style.display = 'none';
+    var errGlobo = document.getElementById('migErrorGlobo');
+    if (errGlobo) errGlobo.style.display = 'none';
+    var errSem = document.getElementById('migErrorSemanal');
+    if (errSem) errSem.remove();
+
+    // Campos de formulario
+    var migPorcentaje = document.getElementById('migPorcentaje');
+    if (migPorcentaje) { migPorcentaje.value = ''; migPorcentaje.readOnly = false; }
+    var migPagoSemanal = document.getElementById('migPagoSemanal');
+    if (migPagoSemanal) { migPagoSemanal.value = ''; migPagoSemanal.readOnly = false; migPagoSemanal.style.background = ''; migPagoSemanal.classList.remove('is-invalid'); }
+    var migFechaInicio = document.getElementById('migFechaInicio');
+    if (migFechaInicio) migFechaInicio.value = '';
+    var globoPagoInicial = document.getElementById('globoPagoInicial');
+    if (globoPagoInicial) globoPagoInicial.value = '';
+    var migPagoFinalEl = document.getElementById('migPagoFinal');
+    if (migPagoFinalEl) migPagoFinalEl.value = '';
+    var migPdfAdjunto = document.getElementById('migPdfAdjunto');
+    if (migPdfAdjunto) migPdfAdjunto.value = '';
+    var migPdfPreview = document.getElementById('migPdfPreview');
+    if (migPdfPreview) migPdfPreview.innerHTML = '';
+
+    // Producto select → volver al estado vacío y restaurar morfología del form
+    var migProductoSel = document.getElementById('migProducto');
+    if (migProductoSel) {
+        migProductoSel.selectedIndex = 0;
+        // Restaurar visibilidad a estado por defecto (sin globo)
+        var _filaDesc = document.getElementById('filaDescuentoPorcentaje');
+        if (_filaDesc) _filaDesc.style.display = '';
+        var _colPagoIn = document.getElementById('colPagoInicial');
+        if (_colPagoIn) _colPagoIn.style.display = 'none';
+        var _colPagoFinal = document.getElementById('colPagoFinal');
+        if (_colPagoFinal) _colPagoFinal.style.display = 'none';
+        var _colMigMontoAd = document.getElementById('colMigMontoAdicional');
+        if (_colMigMontoAd) _colMigMontoAd.style.display = '';
+        // Si existía el select dinámico de semanas globo, ocultarlo
+        var _semanasGloboSel = document.getElementById('migSemanasGlobo');
+        if (_semanasGloboSel) _semanasGloboSel.style.display = 'none';
+        var _labelBucket = document.getElementById('labelBucketMorosidad');
+        if (_labelBucket) _labelBucket.textContent = 'Bucket Morosidad';
+        var _inputBucket = document.getElementById('migBucket');
+        if (_inputBucket) _inputBucket.style.display = 'block';
+    }
+    // ─────────────────────────────────────────────────────────────
 
     // Ocultar paso 2 mientras buscamos
     var migStep2 = document.getElementById('migStep2');
@@ -2828,6 +3028,8 @@ window.migBuscarCredito = function () {
                             if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'activo') {
                                 info.className = 'alert alert-warning d-none';
+                                var migStep2Blq = document.getElementById('migStep2');
+                                if (migStep2Blq) migStep2Blq.classList.add('d-none');
                                 Swal.fire('Convenio activo', credito.Nombre_cliente + ' — Crédito #' + credito.Id_credito + ' ya tiene un convenio activo. No es posible registrar uno adicional.', 'warning');
                                 return;
                             }
