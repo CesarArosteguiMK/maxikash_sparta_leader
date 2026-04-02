@@ -484,20 +484,24 @@ class Convenios extends Controller
     }
 
     // ── 2. Leer y sanear entrada ─────────────────────────────────
-    $idCredito            = isset($_POST['id_credito'])            ? (int)    trim($_POST['id_credito'])            : 0;
-    $nombreCliente        = isset($_POST['nombre_cliente'])        ?           trim($_POST['nombre_cliente'])        : '';
-    $bucketMorosidad      = isset($_POST['bucket_morosidad_real']) ?           trim($_POST['bucket_morosidad_real']) : '';
-    $diasMora             = isset($_POST['dias_mora'])             ? (int)    trim($_POST['dias_mora'])             : 0;
-    $avancePagoPlazo      = isset($_POST['avance_pago_plazo'])     ?           trim($_POST['avance_pago_plazo'])     : '';
-    $adeudoOriginal       = isset($_POST['adeudo_total_original']) ? (float)  trim($_POST['adeudo_total_original']) : 0.0;
-    $totalAPagar          = isset($_POST['total_a_pagar'])         ? (float)  trim($_POST['total_a_pagar'])         : 0.0;
-    $condonacion          = isset($_POST['condonacion_aplicada'])  ? (float)  trim($_POST['condonacion_aplicada'])  : null;
-    $pagosIgualesCantidad = isset($_POST['pagos_iguales_cantidad'])? (int)    trim($_POST['pagos_iguales_cantidad']): 0;
-    $pagosIgualesMonto    = isset($_POST['pagos_iguales_monto'])   ? (float)  trim($_POST['pagos_iguales_monto'])   : 0.0;
-    $pagoGloboMonto       = isset($_POST['pago_globo_monto'])      ? (float)  trim($_POST['pago_globo_monto'])      : 0.0;
-    $frecuencia           = isset($_POST['frecuencia'])            ?           trim($_POST['frecuencia'])            : 'semanal';
-    $fechaPrimerPago      = isset($_POST['fecha_primer_pago'])     ?           trim($_POST['fecha_primer_pago'])     : '';
-    $usuarioAlta          = isset($_POST['usuario_alta'])          ?           trim($_POST['usuario_alta'])          : ($_SESSION['usuario'] ?? 'sistema');
+    $idCredito            = isset($_POST['id_credito'])             ? (int)    trim($_POST['id_credito'])            : 0;
+    $nombreCliente        = isset($_POST['nombre_cliente'])         ?           trim($_POST['nombre_cliente'])        : '';
+    $bucketMorosidad      = isset($_POST['bucket_morosidad_real'])  ?           trim($_POST['bucket_morosidad_real']) : '';
+    $diasMora             = isset($_POST['dias_mora'])              ? (int)    trim($_POST['dias_mora'])             : 0;
+    $avancePagoPlazo      = isset($_POST['avance_pago_plazo'])      ?           trim($_POST['avance_pago_plazo'])     : '';
+    $adeudoOriginal       = isset($_POST['adeudo_total_original'])  ? (float)  trim($_POST['adeudo_total_original']) : 0.0;
+    $totalAPagar          = isset($_POST['total_a_pagar'])          ? (float)  trim($_POST['total_a_pagar'])         : 0.0;
+    $condonacion          = isset($_POST['condonacion_aplicada'])   ? (float)  trim($_POST['condonacion_aplicada'])  : null;
+    $pagosIgualesCantidad = isset($_POST['pagos_iguales_cantidad']) ? (int)    trim($_POST['pagos_iguales_cantidad']): 0;
+    $pagosIgualesMonto    = isset($_POST['pagos_iguales_monto'])    ? (float)  trim($_POST['pagos_iguales_monto'])    : 0.0;
+    $pagoGloboMonto       = isset($_POST['pago_globo_monto'])       ? (float)  trim($_POST['pago_globo_monto'])       : 0.0;
+
+    // Pago inicial es opcional, si no viene se asume 0.0 (no aplica)
+    $pagoInicialMonto     = isset($_POST['pago_inicial_monto'])     ? (float)  trim($_POST['pago_inicial_monto'])     : 0.0;
+
+    $frecuencia           = isset($_POST['frecuencia'])             ?           trim($_POST['frecuencia'])            : 'semanal';
+    $fechaPrimerPago      = isset($_POST['fecha_primer_pago'])      ?           trim($_POST['fecha_primer_pago'])     : '';
+    $usuarioAlta          = isset($_POST['usuario_alta'])           ?           trim($_POST['usuario_alta'])          : ($_SESSION['usuario'] ?? 'sistema');
 
     // ── 3. Validaciones básicas ──────────────────────────────────
     if ($idCredito < 1) {
@@ -548,6 +552,7 @@ class Convenios extends Controller
         'pagos_iguales_cantidad'=> $pagosIgualesCantidad,
         'pagos_iguales_monto'   => $pagosIgualesMonto,
         'pago_globo_monto'      => $pagoGloboMonto,
+        'pago_inicial_monto'    => $pagoInicialMonto,
         'frecuencia'            => $frecuencia,
         'fecha_primer_pago'     => $fechaPrimerPago,
         'usuario_alta'          => $usuarioAlta,

@@ -1891,10 +1891,7 @@ foreach ($semanasAplica as $numSem) {
 public static function registrarConvenioGlobo($datos)
 {
     try {
-        // Log de entrada
         error_log("=== registrarConvenioGlobo MODEL - INICIO ===");
-        error_log("Datos recibidos: " . json_encode($datos));
-
         $db = new Database();
 
         // ── 1. Verificar que no haya convenio activo ──────────────────
@@ -1906,11 +1903,11 @@ public static function registrarConvenioGlobo($datos)
         );
 
         if ($activo) {
-            error_log("ERROR: Crédito con convenio activo");
             return self::resultado(false, 'Este crédito ya tiene un convenio activo.');
         }
 
-        // ── 2. Validar que los montos cuadren ────────────────────────
+        // ── 2. Validar que los montos cuadren (CORREGIDO) ──────────────
+        $pagoInicial       = (float) ($datos['pago_inicial_monto'] ?? 0); // Capturamos el inicial
         $pagosIgualesCant  = (int)   $datos['pagos_iguales_cantidad'];
         $pagosIgualesMonto = (float) $datos['pagos_iguales_monto'];
         $pagoGloboMonto    = (float) $datos['pago_globo_monto'];
@@ -1918,45 +1915,30 @@ public static function registrarConvenioGlobo($datos)
         $frecuencia        = $datos['frecuencia'] === 'quincenal' ? 'quincenal' : 'semanal';
         $diasIntervalo     = $frecuencia === 'quincenal' ? 14 : 7;
 
-        $sumCalculada = round(($pagosIgualesCant * $pagosIgualesMonto) + $pagoGloboMonto, 2);
-
-        error_log("SumCalculada: $sumCalculada, TotalAPagar: $totalAPagar");
-        error_log("Diferencia: " . abs($sumCalculada - $totalAPagar));
+        // INCLUIMOS el pago inicial en la suma calculada
+        $sumCalculada = round($pagoInicial + ($pagosIgualesCant * $pagosIgualesMonto) + $pagoGloboMonto, 2);
 
         if (abs($sumCalculada - $totalAPagar) > 1.00) {
-            error_log("ERROR: Montos no cuadran");
             return self::resultado(false,
-                "Los montos no cuadran: ({$pagosIgualesCant} × \${$pagosIgualesMonto}) + \${$pagoGloboMonto} = \${$sumCalculada}, pero total_a_pagar es \${$totalAPagar}. Diferencia máxima permitida: \$1.00."
+                "Los montos no cuadran: (Inicial \${$pagoInicial} + {$pagosIgualesCant} × \${$pagosIgualesMonto} + Globo \${$pagoGloboMonto}) = \${$sumCalculada}, pero total_a_pagar es \${$totalAPagar}."
             );
         }
 
         // ── 3. Calcular fechas ────────────────────────────────────────
-        $totalPagos      = $pagosIgualesCant + 1;
         $fechaPrimerPago = $datos['fecha_primer_pago'];
-
-        error_log("Fecha primer pago: $fechaPrimerPago");
-        error_log("Total pagos: $totalPagos, Dias intervalo: $diasIntervalo");
+        // El total de registros en la tabla será: Inicial + Semanales + Globo
+        $totalRegistrosAmort = $pagosIgualesCant + 2;
 
         $fechaUltimoPago = date('Y-m-d', strtotime(
-            $fechaPrimerPago . ' +' . (($totalPagos - 1) * $diasIntervalo) . ' days'
+            $fechaPrimerPago . ' +' . (($totalRegistrosAmort - 1) * $diasIntervalo) . ' days'
         ));
 
-        error_log("Fecha último pago: $fechaUltimoPago");
+        // ── 4. Calcular porcentajes ───────────────────────────────────
+        $adeudoOriginal = (float) $datos['adeudo_total_original'];
+        $descuentoMonto = round($adeudoOriginal - $totalAPagar, 2);
+        $porcentajeDescto = $adeudoOriginal > 0 ? round(($descuentoMonto / $adeudoOriginal) * 100, 2) : 0;
 
-        // ── 4. Calcular porcentaje y monto de descuento ───────────────
-        $adeudoOriginal    = (float) $datos['adeudo_total_original'];
-        $descuentoMonto    = round($adeudoOriginal - $totalAPagar, 2);
-        $porcentajeDescto  = $adeudoOriginal > 0
-            ? round(($descuentoMonto / $adeudoOriginal) * 100, 2)
-            : 0.00;
-
-        error_log("Adeudo original: $adeudoOriginal");
-        error_log("Descuento monto: $descuentoMonto");
-        error_log("Porcentaje descuento: $porcentajeDescto");
-
-        // ── 5. Insertar en convenio_cliente ───────────────────────────
-        error_log("Insertando en convenio_cliente...");
-
+        // ── 5. Insertar en convenio_cliente (CORREGIDO EL NULL) ────────
         $ok = $db->CRUD(
             "INSERT INTO convenio_cliente (
                 id_credito, id_producto_convenio, id_producto_convenio_detalle,
@@ -1971,123 +1953,77 @@ public static function registrarConvenioGlobo($datos)
                 :id_credito, 6, 7,
                 :nombre_cliente, :bucket, :dias_mora, :avance_pago,
                 :adeudo_original, :pct_descuento, :descuento_monto,
-                :total_pagar, 0.00, NULL,
+                :total_pagar, 0.00, :pago_inicial,
                 :num_pagos, :pago_semanal,
                 :frecuencia, 'globo', :condonacion,
                 :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago,
                 'activo', :usuario
             )",
             [
-                'id_credito'      => (int)    $datos['id_credito'],
-                'nombre_cliente'  =>           $datos['nombre_cliente'],
-                'bucket'          =>           $datos['bucket_morosidad_real'],
-                'dias_mora'       => (int)    $datos['dias_mora'],
-                'avance_pago'     =>           $datos['avance_pago_plazo'] ?? '',
-                'adeudo_original' =>           $adeudoOriginal,
-                'pct_descuento'   =>           $porcentajeDescto,
-                'descuento_monto' =>           $descuentoMonto,
-                'total_pagar'     =>           $totalAPagar,
-                'num_pagos'       =>           $totalPagos,
-                'pago_semanal'    =>           $pagosIgualesMonto,
-                'frecuencia'      =>           $frecuencia,
-                'condonacion'     => isset($datos['condonacion_aplicada'])
-                                        ? (float) $datos['condonacion_aplicada']
-                                        : null,
-                'fecha_acuerdo'   =>           date('Y-m-d'),
-                'fecha_primer_pago' =>         $fechaPrimerPago,
-                'fecha_ultimo_pago' =>         $fechaUltimoPago,
-                'usuario'         =>           $datos['usuario_alta'],
+                'id_credito'      => (int)$datos['id_credito'],
+                'nombre_cliente'  => $datos['nombre_cliente'],
+                'bucket'          => $datos['bucket_morosidad_real'],
+                'dias_mora'       => (int)$datos['dias_mora'],
+                'avance_pago'     => $datos['avance_pago_plazo'] ?? '',
+                'adeudo_original' => $adeudoOriginal,
+                'pct_descuento'   => $porcentajeDescto,
+                'descuento_monto' => $descuentoMonto,
+                'total_pagar'     => $totalAPagar,
+                'pago_inicial'    => $pagoInicial, // Ahora se guarda correctamente
+                'num_pagos'       => $pagosIgualesCant,
+                'pago_semanal'    => $pagosIgualesMonto,
+                'frecuencia'      => $frecuencia,
+                'condonacion'     => $datos['condonacion_aplicada'] ?? null,
+                'fecha_acuerdo'   => date('Y-m-d'),
+                'fecha_primer_pago' => $fechaPrimerPago,
+                'fecha_ultimo_pago' => $fechaUltimoPago,
+                'usuario'         => $datos['usuario_alta'],
             ]
         );
-
-        if (!$ok) {
-            error_log("ERROR: No se pudo insertar en convenio_cliente");
-            return self::resultado(false, 'No se pudo insertar el convenio globo.');
-        }
 
         $idConvenio = (int) $db->queryOne("SELECT LAST_INSERT_ID() AS id")['id'];
-        error_log("Convenio insertado con ID: $idConvenio");
 
-        // ── 6. Insertar estructura de pagos globo ─────────────────────
-        error_log("Insertando pagos globo...");
-
-        for ($i = 1; $i <= $pagosIgualesCant; $i++) {
-            $db->CRUD(
-                "INSERT INTO convenio_cliente_pagos_globo
-                    (id_convenio_cliente, numero_pago, monto, es_pago_globo)
-                 VALUES (:id, :num, :monto, 0)",
-                [
-                    'id'    => $idConvenio,
-                    'num'   => $i,
-                    'monto' => $pagosIgualesMonto,
-                ]
-            );
-        }
-
-        $db->CRUD(
-            "INSERT INTO convenio_cliente_pagos_globo
-                (id_convenio_cliente, numero_pago, monto, es_pago_globo)
-             VALUES (:id, :num, :monto, 1)",
-            [
-                'id'    => $idConvenio,
-                'num'   => $totalPagos,
-                'monto' => $pagoGloboMonto,
-            ]
-        );
-        error_log("Pagos globo insertados correctamente");
-
-        // ── 7. Generar tabla de amortización ──────────────────────────
-        error_log("Generando amortización...");
-
+        // ── 6. Generar tabla de amortización completa (CORREGIDO) ───────
         $saldoActual = $totalAPagar;
 
-        for ($p = 1; $p <= $totalPagos; $p++) {
-            $esUltimo  = ($p === $totalPagos);
-            $monto     = $esUltimo ? $pagoGloboMonto : $pagosIgualesMonto;
-            $fechaPago = date('Y-m-d', strtotime(
-                $fechaPrimerPago . ' +' . (($p - 1) * $diasIntervalo) . ' days'
-            ));
+        for ($p = 1; $p <= $totalRegistrosAmort; $p++) {
+            if ($p === 1) {
+                // Fila 1: Pago Inicial
+                $tipoPago = "Inicial";
+                $monto = $pagoInicial;
+            } elseif ($p === $totalRegistrosAmort) {
+                // Última fila: Pago Globo
+                $tipoPago = "Globo";
+                $monto = $pagoGloboMonto;
+            } else {
+                // Filas intermedias: Pagos normales
+                $tipoPago = "Normal";
+                $monto = $pagosIgualesMonto;
+            }
 
-            $capital     = $esUltimo ? $saldoActual : $monto;
-            $saldoActual = round($saldoActual - $capital, 2);
+            $fechaPago = date('Y-m-d', strtotime($fechaPrimerPago . ' +' . (($p - 1) * $diasIntervalo) . ' days'));
+            $saldoActual = round($saldoActual - $monto, 2);
             if ($saldoActual < 0) $saldoActual = 0;
 
             $db->CRUD(
                 "INSERT INTO convenio_cliente_amortizacion
-                    (id_convenio_cliente, numero_semana, fecha_pago,
-                     pago_semanal, capital, saldo_restante)
+                    (id_convenio_cliente, numero_semana, fecha_pago, pago_semanal, capital, saldo_restante)
                  VALUES (:id, :num, :fecha, :pago, :capital, :saldo)",
                 [
                     'id'      => $idConvenio,
                     'num'     => $p,
                     'fecha'   => $fechaPago,
                     'pago'    => $monto,
-                    'capital' => $capital,
+                    'capital' => $monto,
                     'saldo'   => $saldoActual,
                 ]
             );
         }
 
-        error_log("Amortización generada correctamente");
-        error_log("=== registrarConvenioGlobo MODEL - ÉXITO ===");
-
-        return self::resultado(true, 'Convenio con pago globo registrado correctamente.', [
-            'id_convenio'     => $idConvenio,
-            'total_pagos'     => $totalPagos,
-            'fecha_primer_pago' => $fechaPrimerPago,
-            'fecha_ultimo_pago' => $fechaUltimoPago,
-            'frecuencia'      => $frecuencia,
-        ]);
+        return self::resultado(true, 'Convenio registrado correctamente.');
 
     } catch (\Exception $e) {
-        error_log("=== EXCEPCIÓN EN registrarConvenioGlobo ===");
-        error_log("Mensaje: " . $e->getMessage());
-        error_log("Archivo: " . $e->getFile());
-        error_log("Línea: " . $e->getLine());
-        error_log("Trace: " . $e->getTraceAsString());
-
-        return self::resultado(false, 'Error al registrar convenio globo.', null, $e->getMessage());
+        return self::resultado(false, 'Error: ' . $e->getMessage());
     }
 }
-
 }
