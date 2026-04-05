@@ -442,6 +442,118 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
     background: #334155 !important;
 }
 
+/* ── Dark mode — Modal Migración / Preamortización ── */
+body.dark-mode #modalMigracion .modal-content {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+body.dark-mode #modalMigracion .modal-body {
+    background: #1e293b;
+}
+body.dark-mode #modalMigracion .modal-footer {
+    background: #1e293b;
+    border-color: #334155;
+}
+body.dark-mode #modalMigracion .form-control,
+body.dark-mode #modalMigracion .form-select {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+body.dark-mode #modalMigracion .form-control::placeholder { color: #64748b; }
+body.dark-mode #modalMigracion .input-group-text {
+    background: #334155;
+    border-color: #475569;
+    color: #94a3b8;
+}
+body.dark-mode #modalMigracion label { color: #cbd5e1; }
+body.dark-mode #modalMigracion hr { border-color: #334155; }
+body.dark-mode #modalMigracion .alert-info {
+    background: #0f2744;
+    border-color: #1d4ed8;
+    color: #93c5fd;
+}
+body.dark-mode #modalMigracion .alert-success {
+    background: #052e16;
+    border-color: #166534;
+    color: #bbf7d0;
+}
+body.dark-mode #modalMigracion .alert-danger {
+    background: #1f0a0a;
+    border-color: #991b1b;
+    color: #fca5a5;
+}
+body.dark-mode #modalMigracion .alert-warning {
+    background: #1c1004;
+    border-color: #92400e;
+    color: #fcd34d;
+}
+
+/* Columna preamortización */
+body.dark-mode #colPreamortizacion > div {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+body.dark-mode #colPreamortizacion h6 {
+    color: #c084fc !important;
+}
+body.dark-mode #preamortTablaWrap {
+    scrollbar-color: #334155 #0f172a;
+}
+body.dark-mode #preamortThead {
+    background: #0f172a !important;
+}
+body.dark-mode #preamortTablaWrap table thead {
+    background: #1e293b !important;
+}
+body.dark-mode #preamortTablaWrap table thead tr {
+    background: #1e293b !important;
+}
+body.dark-mode #preamortTablaWrap table {
+    color: #e2e8f0;
+}
+body.dark-mode #preamortTablaWrap tbody tr:hover td {
+    background: rgba(167,139,250,0.07);
+}
+
+/* Filas globo e inicial dentro de preamort */
+body.dark-mode #preamortBody tr[style*="background:rgba(118,75,162"] {
+    background: rgba(167,139,250,0.12) !important;
+}
+body.dark-mode #preamortBody tr[style*="background:rgba(8,145,178"] {
+    background: rgba(8,145,178,0.12) !important;
+}
+
+/* Resumen cards dentro del modal */
+body.dark-mode #migResumenCards .border {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #e2e8f0;
+}
+body.dark-mode #migResumenCards .text-muted { color: #64748b !important; }
+
+/* Sección monto adicional */
+body.dark-mode #migPreview .border {
+    border-color: #334155 !important;
+}
+body.dark-mode #migPreview [style*="background:#f0fdf4"] {
+    background: #052e16 !important;
+    border-color: #166534 !important;
+}
+body.dark-mode #migPreview [style*="background:#f8f5ff"] {
+    background: #1e1533 !important;
+    border-color: #4c1d95 !important;
+}
+body.dark-mode #migPreview [style*="background:#fafafa"],
+body.dark-mode #colPreamortizacion [style*="background:#fafafa"] {
+    background: #0f172a !important;
+}
+body.dark-mode #migTotalBase,
+body.dark-mode #migTotalFinal {
+    background: #0f172a !important;
+    color: #c084fc !important;
+}
+
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -474,6 +586,8 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                 </button>
             </div>
             <button type="button" class="btn btn-outline-warning"
+                    id="btnRegistrarConvenioExistente"
+                    style="display:none;"
                     onclick="window.abrirModalMigracion()">
                 <i class="fas fa-file-import"></i> Registrar Convenio Existente
             </button>
@@ -823,13 +937,15 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
 
           <!-- STEP 1: Buscar crédito -->
           <div id="migStep1">
-            <label class="form-label fw-bold">ID Crédito</label>
-            <div class="input-group mb-3">
-              <input type="number" id="migIdCredito" class="form-control"
-                     placeholder="Ej. 193141">
-              <button class="btn btn-primary" onclick="window.migBuscarCredito()">
-                <i class="fas fa-search"></i> Buscar
-              </button>
+            <div id="migBuscadorWrap">
+              <label class="form-label fw-bold">ID Crédito</label>
+              <div class="input-group mb-3">
+                <input type="number" id="migIdCredito" class="form-control"
+                       placeholder="Ej. 193141">
+                <button class="btn btn-primary" onclick="window.migBuscarCredito()">
+                  <i class="fas fa-search"></i> Buscar
+                </button>
+              </div>
             </div>
             <div id="migInfoCliente" class="alert alert-info d-none"></div>
           </div>
@@ -875,16 +991,11 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                     </div>
                   </div>
 
-                  <!-- Pegar DESPUÉS del bloque col-6 de Adeudo Base -->
-                  <div class="col-6" id="colPagoInicial">
-                    <label class="form-label">Pago inicial</label>
-                    <div class="input-group">
-                      <span class="input-group-text">$</span>
-                      <input type="number" id="globoPagoInicial" class="form-control"
-                             step="0.01" min="0" placeholder="0.00"
-                             oninput="window.migCalcular()">
-                    </div>
-
+                  <!-- Semanas / Bucket — sube antes de Pago Semanal -->
+                  <div class="col-6" id="colBucketMorosidad">
+                    <label class="form-label" id="labelBucketMorosidad">Bucket Morosidad</label>
+                    <input type="text" id="migBucket" class="form-control"
+                           placeholder="g) 60 a 89 dias">
                   </div>
 
                   <div class="col-6" id="colPagoSemanal">
@@ -896,14 +1007,19 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                     </div>
                   </div>
 
-                  <div class="col-6" id="colBucketMorosidad">
-                    <label class="form-label" id="labelBucketMorosidad">Bucket Morosidad</label>
-                    <input type="text" id="migBucket" class="form-control"
-                           placeholder="g) 60 a 89 dias">
+                  <!-- Pago Inicial baja después de Pago Semanal -->
+                  <div class="col-6" id="colPagoInicial">
+                    <label class="form-label">Pago inicial</label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input type="number" id="globoPagoInicial" class="form-control"
+                             step="0.01" min="0" placeholder="0.00"
+                             oninput="window.migCalcular()">
+                    </div>
                   </div>
 
                   <div class="col-6" id="colPagoFinal" style="display:none;">
-                    <label class="form-label">Pago Final (globo)</label>
+                    <label class="form-label">Pago de Cierre</label>
                     <div class="input-group">
                       <span class="input-group-text">$</span>
                       <input type="number" id="migPagoFinal" class="form-control"
@@ -940,11 +1056,14 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                         </div>
                       </div>
                       <div class="col-4">
-                        <label class="form-label small text-muted mb-1">Total final</label>
+                        <label class="form-label small text-muted mb-1">Total final <span class="text-muted fw-normal">(editable)</span></label>
                         <div class="input-group input-group-sm">
                           <span class="input-group-text">$</span>
-                          <input type="text" id="migTotalFinal" class="form-control fw-bold"
-                                 readonly style="background:#f8f9fa;color:#764ba2;font-size:1rem;">
+                          <input type="number" id="migTotalFinal" class="form-control fw-bold"
+                                 step="0.01" min="0"
+                                 oninput="window.migTotalFinalChanged()"
+                                 style="color:#764ba2;font-size:1rem;"
+                                 title="Edita este valor para ajustar el total a pagar; el % de descuento y las semanas se recalcularán automáticamente">
                         </div>
                       </div>
                     </div>
@@ -982,7 +1101,7 @@ body.dark-mode #concilPagosWrap [style*="background:#e2e8f0"] {
                   </div>
                   <div id="preamortTablaWrap" style="display:none;max-height:420px;overflow-y:auto;">
                     <table class="table table-sm table-borderless mb-0">
-                      <thead style="position:sticky;top:0;background:#fafafa;">
+                      <thead id="preamortThead" style="position:sticky;top:0;background:#fafafa;">
                         <tr class="text-muted small">
                           <th>#</th>
                           <th>Fecha</th>
@@ -1064,11 +1183,19 @@ document.getElementById('inputBusqueda').addEventListener('keydown', function (e
 function seleccionarCredito(idCredito) {
     document.getElementById('convContenido').style.display = 'none';
     document.getElementById('btnHistorialWrap').style.display = 'none';
+    document.getElementById('btnRegistrarConvenioExistente').style.display = 'none';
 
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
 
-    Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+    Swal.fire({
+        title: 'Consultando crédito...',
+        text: 'Obteniendo información y ofertas disponibles...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: function () { Swal.showLoading(); }
+    });
 
     // Llamada 1: ofertas
     http.request({
@@ -1169,8 +1296,12 @@ function seleccionarCredito(idCredito) {
             });
         },
         onError: function () {
-            Swal.close();
-            Swal.fire('Error', 'Error al cargar ofertas.', 'error');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de conexión',
+                text: 'No se pudo cargar la información del crédito. Intenta de nuevo.',
+                confirmButtonColor: '#764ba2'
+            });
         }
     });
 }
@@ -1198,6 +1329,8 @@ function renderCreditoBanner(c) {
         '<div class="col-6 col-md-2"><div class="label">Avance pago</div><div class="valor">' + avance + '%</div></div>' +
         '<div class="col-6 col-md-2"><div class="label">Adeudo total Actual</div><div class="valor" style="color:#4ade80;">' + fmt(adeudo) + '</div></div>' +
         '</div>';
+
+    document.getElementById('btnRegistrarConvenioExistente').style.display = 'inline-block';
 }
 
 // ══════════════════════════════════════════════════════
@@ -1209,9 +1342,9 @@ function renderOfertas(ofertas, productosBloqueados) {
     var cont = document.getElementById('ofertasContainer');
     var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
 
-    // ── NUEVO: excluir el producto interno de convenio globo manual ──
+    // ── Excluir el producto interno de Convenio Pago Mixto (se registra por otra pestaña) ──
     ofertas = ofertas.filter(function (o) {
-        return o.nombre !== 'Convenio Globo Manual';
+        return o.nombre !== 'Convenio Pago Mixto';
     });
 
     // Construir mapa id_producto → nombre desde historial y ofertas actuales
@@ -1475,7 +1608,7 @@ function congelarModulo(convenio) {
         }
     }
 
-    // Aplicar clases a cards
+    // Aplicar clases a cards y actualizar la seleccionada con datos reales del convenio
     var cards = document.querySelectorAll('.oferta-card');
     for (var j = 0; j < cards.length; j++) {
         if (j === idxOferta) {
@@ -1486,6 +1619,15 @@ function congelarModulo(convenio) {
                 check.innerHTML = '<i class="fa-solid fa-check"></i>';
                 cards[j].appendChild(check);
             }
+            // Sobreescribir datos de la card con los valores reales del convenio
+            // para evitar la contradicción entre lo que muestra la card y la tabla
+            var elPct = cards[j].querySelector('.porcentaje');
+            if (elPct) elPct.textContent = parseInt(convenio.porcentaje_descuento) + '%';
+            var elDesc = cards[j].querySelector('.desc-oferta');
+            if (elDesc) elDesc.textContent = 'Ahorro de ' + fmt(convenio.descuento_monto) + ' sobre ' + fmt(convenio.adeudo_total_original);
+            var detalles = cards[j].querySelectorAll('.detalle-item');
+            if (detalles[0]) detalles[0].innerHTML = '<i class="fa-solid fa-check"></i> Total a pagar: <strong>' + fmt(convenio.total_a_pagar) + '</strong>';
+            if (detalles[2]) detalles[2].innerHTML = '<i class="fa-solid fa-check"></i> Plazos: <strong>' + convenio.numero_semanas + ' sem</strong>';
         } else {
             cards[j].classList.add('congelada');
         }
@@ -1742,7 +1884,7 @@ function congelarModulo(convenio) {
                     '<i class="fas fa-hand-holding-dollar me-1"></i>Pago inicial</span>';
             } else if (_idxFila === _totalFilasAmort - 1) {
                 _etiquetaGlobo = '<span style="display:block;font-size:0.68rem;font-weight:600;color:#764ba2;margin-top:2px;">' +
-                    '<i class="fas fa-flag-checkered me-1"></i>Pago final globo</span>';
+                    '<i class="fas fa-flag-checkered me-1"></i>Pago de Cierre</span>';
             }
         }
 
@@ -2305,9 +2447,8 @@ window.cancelarConvenio = function () {
             method: 'POST',
             data: { id_convenio: window._idConvenioActivo },
             onSuccess: function (resp) {
-                Swal.close();
                 if (!resp.success) {
-                    Swal.fire('Error', resp.mensaje || 'No se pudo cancelar.', 'error');
+                    Swal.fire({ icon: 'error', title: 'Error', text: resp.mensaje || 'No se pudo cancelar.', confirmButtonColor: '#764ba2' });
                     return;
                 }
                 Swal.fire({
@@ -2322,8 +2463,7 @@ window.cancelarConvenio = function () {
                 });
             },
             onError: function () {
-                Swal.close();
-                Swal.fire('Error', 'Error de conexión.', 'error');
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo cancelar el convenio. Intenta de nuevo.', confirmButtonColor: '#764ba2' });
             }
         });
     });
@@ -2605,6 +2745,7 @@ function descargarPdfConvenio(idConvenio) {
 var _migCredito = null;
 var _migDetalle = null;
 var _migSemanas = 0;
+var _migOfertas = [];  // ofertas del crédito activo en el modal
 
 
 
@@ -2617,8 +2758,16 @@ window.abrirModalMigracion = function () {
     // ── LIMPIAR PESTAÑA "CONVENIO NORMAL" ──────────────────────────
     var migIdCredito = document.getElementById('migIdCredito');
     if (migIdCredito) {
-        var idPrincipal = (document.getElementById('inputBusqueda') || {}).value || '';
+        var idPrincipal = (_credito && _credito.Id_credito)
+            ? String(_credito.Id_credito)
+            : ((document.getElementById('inputBusqueda') || {}).value || '');
         migIdCredito.value = idPrincipal;
+    }
+
+    // Ocultar buscador manual cuando ya hay un crédito cargado en la vista principal
+    var migBuscadorWrap = document.getElementById('migBuscadorWrap');
+    if (migBuscadorWrap) {
+        migBuscadorWrap.style.display = (_credito && _credito.Id_credito) ? 'none' : '';
     }
 
     var migInfoCliente = document.getElementById('migInfoCliente');
@@ -2735,6 +2884,13 @@ window.abrirModalMigracion = function () {
     if (modalElement) {
         var modal = new bootstrap.Modal(modalElement);
         modal.show();
+
+        // Auto-buscar si ya hay un crédito cargado en la vista principal
+        if (_credito && _credito.Id_credito) {
+            setTimeout(function () {
+                window.migBuscarCredito();
+            }, 350);
+        }
     } else {
         console.error('Modal element not found');
     }
@@ -2778,6 +2934,83 @@ window.migBuscarCredito = function () {
         return;
     }
 
+    // ── Reset completo de estado previo ───────────────────────────
+    _migCredito = null;
+    _migDetalle = null;
+    _migSemanas = 0;
+    _migOfertas = [];
+
+    // Preamortización
+    var preamortBody = document.getElementById('preamortBody');
+    if (preamortBody) preamortBody.innerHTML = '';
+    var preamortWrap = document.getElementById('preamortTablaWrap');
+    if (preamortWrap) preamortWrap.style.display = 'none';
+    var preamortVacio = document.getElementById('preamortVacio');
+    if (preamortVacio) preamortVacio.style.display = 'block';
+
+    // Resumen y preview
+    var migResumenCards = document.getElementById('migResumenCards');
+    if (migResumenCards) migResumenCards.innerHTML = '';
+    var migTotalBase = document.getElementById('migTotalBase');
+    if (migTotalBase) migTotalBase.value = '';
+    var migTotalFinal = document.getElementById('migTotalFinal');
+    if (migTotalFinal) migTotalFinal.value = '';
+    var migMontoAdicional = document.getElementById('migMontoAdicional');
+    if (migMontoAdicional) { migMontoAdicional.value = ''; migMontoAdicional.disabled = false; }
+
+    // Botón guardar del footer
+    var migBtnGuardar = document.getElementById('migBtnGuardar');
+    if (migBtnGuardar) migBtnGuardar.style.display = 'none';
+
+    // Errores previos
+    var errBk = document.getElementById('migErrorBackend');
+    if (errBk) errBk.style.display = 'none';
+    var errGlobo = document.getElementById('migErrorGlobo');
+    if (errGlobo) errGlobo.style.display = 'none';
+    var errSem = document.getElementById('migErrorSemanal');
+    if (errSem) errSem.remove();
+    var migAdeudoAviso = document.getElementById('migAdeudoAviso');
+    if (migAdeudoAviso) migAdeudoAviso.remove();
+
+    // Campos de formulario
+    var migPorcentaje = document.getElementById('migPorcentaje');
+    if (migPorcentaje) { migPorcentaje.value = ''; migPorcentaje.readOnly = false; }
+    var migPagoSemanal = document.getElementById('migPagoSemanal');
+    if (migPagoSemanal) { migPagoSemanal.value = ''; migPagoSemanal.readOnly = false; migPagoSemanal.style.background = ''; migPagoSemanal.classList.remove('is-invalid'); }
+    var migFechaInicio = document.getElementById('migFechaInicio');
+    if (migFechaInicio) migFechaInicio.value = '';
+    var globoPagoInicial = document.getElementById('globoPagoInicial');
+    if (globoPagoInicial) globoPagoInicial.value = '';
+    var migPagoFinalEl = document.getElementById('migPagoFinal');
+    if (migPagoFinalEl) migPagoFinalEl.value = '';
+    var migPdfAdjunto = document.getElementById('migPdfAdjunto');
+    if (migPdfAdjunto) migPdfAdjunto.value = '';
+    var migPdfPreview = document.getElementById('migPdfPreview');
+    if (migPdfPreview) migPdfPreview.innerHTML = '';
+
+    // Producto select → volver al estado vacío y restaurar morfología del form
+    var migProductoSel = document.getElementById('migProducto');
+    if (migProductoSel) {
+        migProductoSel.selectedIndex = 0;
+        // Restaurar visibilidad a estado por defecto (sin globo)
+        var _filaDesc = document.getElementById('filaDescuentoPorcentaje');
+        if (_filaDesc) _filaDesc.style.display = '';
+        var _colPagoIn = document.getElementById('colPagoInicial');
+        if (_colPagoIn) _colPagoIn.style.display = 'none';
+        var _colPagoFinal = document.getElementById('colPagoFinal');
+        if (_colPagoFinal) _colPagoFinal.style.display = 'none';
+        var _colMigMontoAd = document.getElementById('colMigMontoAdicional');
+        if (_colMigMontoAd) _colMigMontoAd.style.display = '';
+        // Si existía el select dinámico de semanas globo, ocultarlo
+        var _semanasGloboSel = document.getElementById('migSemanasGlobo');
+        if (_semanasGloboSel) _semanasGloboSel.style.display = 'none';
+        var _labelBucket = document.getElementById('labelBucketMorosidad');
+        if (_labelBucket) _labelBucket.textContent = 'Bucket Morosidad';
+        var _inputBucket = document.getElementById('migBucket');
+        if (_inputBucket) _inputBucket.style.display = 'block';
+    }
+    // ─────────────────────────────────────────────────────────────
+
     // Ocultar paso 2 mientras buscamos
     var migStep2 = document.getElementById('migStep2');
     if (migStep2) migStep2.classList.add('d-none');
@@ -2805,6 +3038,11 @@ window.migBuscarCredito = function () {
 
             var credito = respOfertas.datos.credito;
 
+            // ── Guardar ofertas para uso en migProductoChange ─────────────
+            _migOfertas = (respOfertas.datos.ofertas || []).filter(function (o) {
+                return o.nombre !== 'Convenio Pago Mixto';
+            });
+
             // ── Paso 2: Validar que el crédito esté en despacho ──────────
             http.request({
                 endpoint: '/convenios/validarDespacho',
@@ -2828,6 +3066,8 @@ window.migBuscarCredito = function () {
                             if (respConvenio.success && respConvenio.datos &&
                                 respConvenio.datos.estatus === 'activo') {
                                 info.className = 'alert alert-warning d-none';
+                                var migStep2Blq = document.getElementById('migStep2');
+                                if (migStep2Blq) migStep2Blq.classList.add('d-none');
                                 Swal.fire('Convenio activo', credito.Nombre_cliente + ' — Crédito #' + credito.Id_credito + ' ya tiene un convenio activo. No es posible registrar uno adicional.', 'warning');
                                 return;
                             }
@@ -2911,7 +3151,7 @@ window.migProductoChange = function () {
     var variable = opt.getAttribute('data-variable');
     var pct = opt.getAttribute('data-porcentaje');
     var nombre = opt.text || '';
-    var esGlobo = nombre.indexOf('Convenio Globo Manual') !== -1;
+    var esGlobo = nombre.indexOf('Convenio Pago Mixto') !== -1;
 
     var inputPct = document.getElementById('migPorcentaje');
     if (inputPct) {
@@ -2923,6 +3163,48 @@ window.migProductoChange = function () {
         id_detalle: sel.value,
         id_producto: opt.getAttribute('data-id-producto'),
     };
+
+    // ── Auto-ajustar adeudo base según el producto seleccionado ──────
+    // Cada producto puede tener una base diferente (Adeudo Total vs Saldo Capital).
+    // El backend ya calcula monto_base correctamente en getOfertasCredito.
+    if (!esGlobo && _migOfertas.length > 0) {
+        var idProdNum = parseInt(_migDetalle.id_producto);
+        var ofertaMatch = null;
+        for (var _oi = 0; _oi < _migOfertas.length; _oi++) {
+            if (_migOfertas[_oi].id_producto === idProdNum) { ofertaMatch = _migOfertas[_oi]; break; }
+        }
+        if (ofertaMatch) {
+            var migAdeudoEl = document.getElementById('migAdeudo');
+            if (migAdeudoEl) {
+                migAdeudoEl.value = parseFloat(ofertaMatch.monto_base).toFixed(2);
+            }
+            // Badge informativo debajo del campo adeudo
+            var avisoPrevio = document.getElementById('migAdeudoAviso');
+            if (avisoPrevio) avisoPrevio.remove();
+            var aviso = document.createElement('small');
+            aviso.id = 'migAdeudoAviso';
+            aviso.style.cssText = 'display:block;margin-top:4px;font-size:0.75rem;';
+            var esAdeudoTotal = parseFloat(ofertaMatch.monto_base).toFixed(2) ===
+                parseFloat(_migCredito ? _migCredito.Adeudo_total || 0 : 0).toFixed(2);
+            aviso.innerHTML = esAdeudoTotal
+                ? '<i class="fas fa-info-circle" style="color:#3b82f6;"></i>' +
+                  ' <span style="color:#3b82f6;">Base: Adeudo Total</span>'
+                : '<i class="fas fa-info-circle" style="color:#f59e0b;"></i>' +
+                  ' <span style="color:#f59e0b;">Base: Saldo Capital (' +
+                  '$' + parseFloat(ofertaMatch.monto_base).toLocaleString('es-MX', {minimumFractionDigits:2}) +
+                  ') — distinto al adeudo total</span>';
+            if (migAdeudoEl) migAdeudoEl.parentNode.appendChild(aviso);
+        }
+    } else if (esGlobo) {
+        // Para globo, restaurar adeudo total del crédito
+        var migAdeudoGlobo = document.getElementById('migAdeudo');
+        if (migAdeudoGlobo && _migCredito) {
+            migAdeudoGlobo.value = parseFloat(_migCredito.Adeudo_total || 0).toFixed(2);
+        }
+        var avisoPrevioG = document.getElementById('migAdeudoAviso');
+        if (avisoPrevioG) avisoPrevioG.remove();
+    }
+    // ─────────────────────────────────────────────────────────────
 
     var colBucket = document.getElementById('colBucketMorosidad');
     var colSemanal = document.getElementById('colPagoSemanal');
@@ -3090,10 +3372,10 @@ window.migCalcular = function () {
         return dt.toISOString().split('T')[0];
     };
 
-    // ── Lógica especial para Convenio Globo Manual ──────────
+    // ── Lógica especial para Convenio Pago Mixto ──────────
     var sel = document.getElementById('migProducto');
     var opt = sel ? sel.options[sel.selectedIndex] : null;
-    var esGlobo = opt && (opt.text || '').indexOf('Convenio Globo Manual') !== -1;
+    var esGlobo = opt && (opt.text || '').indexOf('Convenio Pago Mixto') !== -1;
 
     if (esGlobo) {
         var adeudo = parseFloat(document.getElementById('migAdeudo').value) || 0;
@@ -3439,7 +3721,7 @@ window.migRecalcularTotal = function () {
             return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
         };
         var elSemanal = document.getElementById('migResumenSemanal');
-        if (elSemanal) elSemanal.textContent = fmt(nuevoSemanal);
+        if (elSemanal) elSemanal.textContent = semanas + ' sem';
     }
 
     // ── CORRECCIÓN: recalcular % de descuento real ────────────────
@@ -3459,7 +3741,107 @@ window.migRecalcularTotal = function () {
             }
         });
     }
+
+    // ── Regenerar preamortización tras cambio de total ────────────────
+    var _semR = _migSemanas || 0;
+    var _semanal = parseFloat((document.getElementById('migPagoSemanal') || {}).value) || 0;
+    var _fechaR = (document.getElementById('migFechaInicio') || {}).value || '';
+    if (_semR > 0 && _semanal > 0 && _fechaR && totalFinal > 0) {
+        var _addDiasR = function (iso, d) {
+            var dt = new Date(iso + 'T00:00:00');
+            dt.setDate(dt.getDate() + d);
+            return dt.toISOString().split('T')[0];
+        };
+        var _residuoR = Math.round((totalFinal - Math.floor(totalFinal / _semanal) * _semanal) * 100) / 100;
+        var _filasR = [];
+        var _saldoR = totalFinal;
+        for (var _r = 1; _r <= _semR; _r++) {
+            var _esUltR = _r === _semR;
+            var _montoR = (_esUltR && _residuoR > 0.005) ? _residuoR : _semanal;
+            _saldoR = Math.round((_saldoR - _montoR) * 100) / 100;
+            if (_saldoR < 0) _saldoR = 0;
+            _filasR.push({ num: _r, fecha: _addDiasR(_fechaR, (_r - 1) * 7), monto: _montoR, tipo: 'normal', saldo: _saldoR });
+        }
+        migGenerarPreamort(_filasR);
+    }
     // ─────────────────────────────────────────────────────────────
+};
+
+// ══════════════════════════════════════════════════════
+//  EDICIÓN DIRECTA DEL TOTAL FINAL
+//  Al editar el campo, recalcula: % descuento, semanas y preamort
+// ══════════════════════════════════════════════════════
+window.migTotalFinalChanged = function () {
+    // Solo aplica para productos normales (no Pago Mixto)
+    var sel = document.getElementById('migProducto');
+    var opt = sel ? sel.options[sel.selectedIndex] : null;
+    if (opt && (opt.text || '').indexOf('Convenio Pago Mixto') !== -1) return;
+
+    var totalFinal = parseFloat(document.getElementById('migTotalFinal').value) || 0;
+    var adeudo    = parseFloat((document.getElementById('migAdeudo') || {}).value) || 0;
+    var semanal   = parseFloat((document.getElementById('migPagoSemanal') || {}).value) || 0;
+    var fecha     = (document.getElementById('migFechaInicio') || {}).value || '';
+
+    if (totalFinal <= 0 || adeudo <= 0 || semanal <= 0 || !fecha) return;
+
+    // ── Semanas (basadas en pago semanal fijo) ────────────────────────
+    var semanasEnt = Math.floor(totalFinal / semanal);
+    var residuo    = Math.round((totalFinal - semanasEnt * semanal) * 100) / 100;
+    var semanas    = residuo > 0.005 ? semanasEnt + 1 : semanasEnt;
+    if (semanas < 1 || semanas > 52) return;
+    _migSemanas = semanas;
+
+    // ── % Descuento ──────────────────────────────────────────
+    var pctReal  = adeudo > 0 ? Math.round(((adeudo - totalFinal) / adeudo) * 10000) / 100 : 0;
+    var descuento = Math.round((adeudo - totalFinal) * 100) / 100;
+
+    // Actualizar campo % (sin bloquear si es readOnly; es escritura programática)
+    var migPorcentajeEl = document.getElementById('migPorcentaje');
+    if (migPorcentajeEl) migPorcentajeEl.value = pctReal.toFixed(2);
+
+    // Sincronizar migTotalBase y limpiar monto adicional
+    var migTotalBase = document.getElementById('migTotalBase');
+    if (migTotalBase) migTotalBase.value = totalFinal.toFixed(2);
+    var migMontoAdicional = document.getElementById('migMontoAdicional');
+    if (migMontoAdicional) migMontoAdicional.value = '';
+
+    // ── Resumen cards ──────────────────────────────────────────
+    var fmt = function (v) {
+        return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    };
+    var resumenCards = document.getElementById('migResumenCards');
+    if (resumenCards) {
+        resumenCards.innerHTML =
+            '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+            '<div class="small text-muted">Adeudo Base</div>' +
+            '<div class="fw-bold text-primary">' + fmt(adeudo) + '</div></div></div>' +
+            '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+            '<div class="small text-muted">Descuento (' + pctReal.toFixed(2) + '%)</div>' +
+            '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div></div></div>' +
+            '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+            '<div class="small text-muted">Total a Pagar</div>' +
+            '<div class="fw-bold text-success">' + fmt(totalFinal) + '</div></div></div>' +
+            '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+            '<div class="small text-muted">Semanas</div>' +
+            '<div class="fw-bold text-warning" id="migResumenSemanal">' + semanas + ' sem</div></div></div>';
+    }
+
+    // ── Regenerar preamortización ─────────────────────────────────
+    var addDias = function (iso, d) {
+        var dt = new Date(iso + 'T00:00:00');
+        dt.setDate(dt.getDate() + d);
+        return dt.toISOString().split('T')[0];
+    };
+    var filas = [];
+    var saldo = totalFinal;
+    for (var n = 1; n <= semanas; n++) {
+        var esUlt = n === semanas;
+        var monto = (esUlt && residuo > 0.005) ? residuo : semanal;
+        saldo = Math.round((saldo - monto) * 100) / 100;
+        if (saldo < 0) saldo = 0;
+        filas.push({ num: n, fecha: addDias(fecha, (n - 1) * 7), monto: monto, tipo: 'normal', saldo: saldo });
+    }
+    migGenerarPreamort(filas);
 };
 
 window.validarPdfAdjunto = function (input) {
@@ -3505,16 +3887,16 @@ window.migGuardar = function () {
         var sel = document.getElementById('migProducto');
         if (!sel) return false;
         var opt = sel.options[sel.selectedIndex];
-        return opt && (opt.text || '').indexOf('Convenio Globo Manual') !== -1;
+        return opt && (opt.text || '').indexOf('Convenio Pago Mixto') !== -1;
     })();
 
     // --- VALIDACIÓN DE ELEMENTOS EXISTENTES ---
     var migSemanasGlobo = document.getElementById('migSemanasGlobo');
     var migPagoFinal = document.getElementById('migPagoFinal');
 
-    // Si es globo pero faltan elementos, mostrar error
+    // Si es Pago Mixto pero faltan elementos, mostrar error
     if (esGloboMig && (!migSemanasGlobo || !migPagoFinal)) {
-        Swal.fire('Error', 'La interfaz de Convenio Globo está incompleta. Contacta al administrador.', 'error');
+        Swal.fire('Error', 'La interfaz de Convenio Pago Mixto está incompleta. Contacta al administrador.', 'error');
         return;
     }
 
