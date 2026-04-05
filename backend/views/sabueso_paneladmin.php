@@ -612,11 +612,178 @@
         font-size: 0.8125rem;
         line-height: 1.35;
     }
-    #tablaTicketsPanel th:nth-child(6) { min-width: 10rem; white-space: nowrap; }
+    @media (min-width: 992px) {
+        #tablaTicketsPanel th:nth-child(6) { min-width: 9rem; white-space: nowrap; }
+    }
+    /* Contenedor tabla: ancho acotado en layouts flex y scroll horizontal cómodo */
+    #wrapTablaTicketsPanel.panel-admin-table-wrap {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .panel-admin-sabueso-card {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .panel-admin-sabueso-card > .card-header {
+        display: block;
+    }
+    .panel-admin-header-toolbar {
+        display: flex;
+        flex-flow: row wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem 1rem;
+        width: 100%;
+    }
+    .panel-admin-sabueso-card .panel-admin-heading {
+        flex: 1 1 14rem;
+        min-width: min(100%, 14rem);
+        max-width: 100%;
+        margin-bottom: 0 !important;
+        line-height: 1.35;
+    }
+    .panel-admin-titulo-inner,
+    .panel-admin-sabueso-card #panelAdminTitulo {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+        max-width: 100%;
+    }
+    .panel-admin-titulo-texto {
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: break-word;
+        word-break: normal;
+        line-height: 1.35;
+    }
+    @media (max-width: 420px) {
+        .panel-admin-titulo-inner,
+        .panel-admin-sabueso-card #panelAdminTitulo {
+            flex-wrap: wrap;
+        }
+    }
+    .panel-admin-header-actions {
+        display: flex;
+        flex-flow: row wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        flex: 0 1 auto;
+    }
+    .panel-admin-filtros-body {
+        padding-top: 0.65rem !important;
+        padding-bottom: 0.65rem !important;
+    }
+    .panel-admin-filtros-row .form-select,
+    .panel-admin-filtros-row .form-label {
+        max-width: 100%;
+    }
+    /* Barra length + buscar DataTables: sin hueco enorme */
+    #wrapTablaTicketsPanel .dataTables_wrapper > .row:first-child {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+    }
+    #wrapTablaTicketsPanel .dataTables_wrapper .dataTables_length,
+    #wrapTablaTicketsPanel .dataTables_wrapper .dataTables_filter {
+        float: none !important;
+        margin: 0 !important;
+        padding: 0.35rem 0.75rem;
+    }
+    #wrapTablaTicketsPanel .dataTables_wrapper .dataTables_filter label {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+    }
+    /* DataTables 2 (dt-container): misma idea, sin depender de .row */
+    #wrapTablaTicketsPanel .dt-container {
+        width: 100%;
+    }
+    #wrapTablaTicketsPanel .dt-container > div:first-child {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem 1rem;
+        width: 100%;
+    }
+    #wrapTablaTicketsPanel .dt-container .dt-length,
+    #wrapTablaTicketsPanel .dt-container .dt-search {
+        margin: 0 !important;
+        padding: 0.35rem 0.75rem;
+    }
+    #wrapTablaTicketsPanel .dt-container .dt-search label {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+    }
+    #tablaTicketsPanel.table tbody td:last-child .panel-admin-acciones-cell {
+        gap: 0.35rem !important;
+        justify-content: center;
+        max-width: 10rem;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    #tablaTicketsPanel.table tbody td:last-child .panel-admin-acciones-cell .btn {
+        min-width: 2.15rem;
+    }
+    /* Detalle inline Responsive: legible en móvil */
+    table.dataTable.dtr-inline.collapsed > tbody > tr > td.child,
+    table.dataTable.dtr-inline.collapsed > tbody > tr > th.child {
+        padding: 0.65rem 0.75rem;
+    }
+    #tablaTicketsPanel td.child ul.dtr-details {
+        display: block;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    #tablaTicketsPanel td.child ul.dtr-details li {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
+        align-items: baseline;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid rgba(67, 89, 113, 0.08);
+    }
+    #tablaTicketsPanel td.child ul.dtr-details li:last-child {
+        border-bottom: 0;
+    }
+    #tablaTicketsPanel td.child .dtr-title {
+        flex: 0 0 auto;
+        font-weight: 600;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #a1acb8;
+        min-width: 6.5rem;
+    }
+    #tablaTicketsPanel td.child .dtr-data {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 0.8125rem;
+    }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 { flex-wrap: wrap; gap: 0.4rem !important; }
     #tablaTicketsPanel .d-flex.flex-wrap.gap-1 .btn { flex-shrink: 0; }
     #tablaTicketsPanel.table tbody td:last-child .d-flex.flex-column {
-        gap: 0.4rem !important;
+        gap: 0.35rem !important;
         align-items: center;
     }
     /* Prórroga +12h: reloj ámbar + "2" al lado = segunda ventana */
@@ -647,8 +814,9 @@
     }
     #tablaTicketsPanel tr.fila-dictamen-enviado { border-left: 3px solid #0d6efd; }
     #tablaTicketsPanel .btn-dictamen-ojito { cursor: pointer; }
-    @media (max-width: 768px) {
-        #tablaTicketsPanel .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    @media (max-width: 991px) {
+        #tablaTicketsPanel .table-responsive,
+        #wrapTablaTicketsPanel { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
     /* Easter egg Panel Admin: icono sabueso + toast */
     .sabueso-easter-icon { color: #94a3b8; font-size: 0.95rem; cursor: pointer; transition: transform 0.2s, color 0.2s; opacity: 0.85; }
@@ -766,7 +934,6 @@
         #modalRastreoCredito .rastreo-ia-box { padding: 1rem; min-height: auto; }
         #modalRastreoCredito .rastreo-ia-box .ia-hero-icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: 1.25rem; }
         .card { margin-left: 0.25rem; margin-right: 0.25rem; }
-        #tablaTicketsPanel .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     }
     @media (max-width: 576px) {
         #modalRastreoCredito .modal-body { padding: 0.5rem; }
@@ -820,24 +987,28 @@ $panel_admin_titulo_label = isset($panel_admin_titulo_label) ? $panel_admin_titu
 $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
 ?>
 <?php if ($panel_admin_solo_consulta_credito && !$panel_admin_chromeless_embed): ?>
-<div class="card">
-    <div class="card-header border-bottom">
-        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
-            <span class="me-auto flex-grow-1 min-w-0"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary"></i>Rastreo</span>
-            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
+<div class="card panel-admin-sabueso-card">
+    <div class="card-header border-bottom py-2 py-sm-3">
+        <div class="panel-admin-header-toolbar">
+            <h5 class="card-title panel-admin-heading">
+                <span class="panel-admin-titulo-inner"><i class="fa-solid fa-magnifying-glass-chart me-2 text-primary flex-shrink-0" aria-hidden="true"></i><span class="panel-admin-titulo-texto">Rastreo</span></span>
+            </h5>
+            <div class="panel-admin-header-actions">
                 <button type="button" class="btn btn-sm btn-primary" id="btnAbrirConsultaCredito" title="Consultar por número de crédito">
-                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                    <i class="fa-solid fa-id-card me-1"></i><span class="d-none d-sm-inline">Consultar por ID crédito</span><span class="d-sm-none">ID crédito</span>
                 </button>
             </div>
-        </h5>
+        </div>
     </div>
 </div>
 <?php elseif (!$panel_admin_solo_consulta_credito): ?>
-<div class="card">
-    <div class="card-header border-bottom">
-        <h5 class="card-title mb-0 d-flex flex-wrap align-items-center gap-2 w-100">
-            <span id="panelAdminTitulo" class="me-auto flex-grow-1 min-w-0"><i class="fa-solid <?= htmlspecialchars($panel_admin_icono, ENT_QUOTES, 'UTF-8'); ?> me-2"></i>Panel Admin – <?= htmlspecialchars($panel_admin_titulo_label, ENT_QUOTES, 'UTF-8'); ?></span>
-            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-sm-auto">
+<div class="card panel-admin-sabueso-card">
+    <div class="card-header border-bottom py-2 py-sm-3">
+        <div class="panel-admin-header-toolbar">
+            <h5 class="card-title panel-admin-heading">
+                <span id="panelAdminTitulo" class="panel-admin-titulo-inner"><i class="fa-solid <?= htmlspecialchars($panel_admin_icono, ENT_QUOTES, 'UTF-8'); ?> me-2 flex-shrink-0" aria-hidden="true"></i><span class="panel-admin-titulo-texto">Panel Admin – <?= htmlspecialchars($panel_admin_titulo_label, ENT_QUOTES, 'UTF-8'); ?></span></span>
+            </h5>
+            <div class="panel-admin-header-actions">
                 <?php if (!empty($panel_admin_mostrar_volver) && !empty($panel_admin_url_inicio)): ?>
                 <a href="<?= htmlspecialchars($panel_admin_url_inicio, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary" id="btnPanelAdminVolver" title="Volver a la selección de paneles">
                     <i class="fa-solid fa-arrow-left me-1"></i>Volver
@@ -845,29 +1016,29 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                 <?php endif; ?>
                 <?php if ($panel_admin_es_simple): ?>
                 <button type="button" class="btn btn-sm btn-outline-primary d-none" id="btnAbrirConsultaCredito" title="Consultar datos del crédito (Rastreo)">
-                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                    <i class="fa-solid fa-id-card me-1"></i><span class="d-none d-sm-inline">Consultar por ID crédito</span><span class="d-sm-none">ID crédito</span>
                 </button>
                 <i class="fa-solid fa-dog sabueso-easter-icon d-none" id="sabuesoPanelEaster" aria-hidden="true"></i>
                 <?php else: ?>
                 <button type="button" class="btn btn-sm btn-outline-primary" id="btnAbrirConsultaCredito" title="Consultar datos del crédito (Rastreo)">
-                    <i class="fa-solid fa-id-card me-1"></i>Consultar por ID crédito
+                    <i class="fa-solid fa-id-card me-1"></i><span class="d-none d-sm-inline">Consultar por ID crédito</span><span class="d-sm-none">ID crédito</span>
                 </button>
                 <i class="fa-solid fa-dog sabueso-easter-icon" id="sabuesoPanelEaster" aria-hidden="true"></i>
                 <?php endif; ?>
             </div>
-        </h5>
+        </div>
     </div>
     <!-- Filtros Panel Admin: solo visibles cuando la categoría es Sabueso o Todos (no módulos simples) -->
-    <div class="card-body border-bottom py-3 bg-label-secondary bg-opacity-10 <?= $panel_admin_es_simple ? 'd-none' : ''; ?>" id="panelAdminFiltrosWrap">
-        <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-6 col-lg">
+    <div class="card-body border-bottom bg-label-secondary bg-opacity-10 panel-admin-filtros-body <?= $panel_admin_es_simple ? 'd-none' : ''; ?>" id="panelAdminFiltrosWrap">
+        <div class="row g-2 g-md-3 align-items-end panel-admin-filtros-row">
+            <div class="col-12 col-sm-6 col-lg-6 col-xl-3">
                 <label class="form-label small text-muted mb-0" for="filtroAsignado">Asignado a</label>
                 <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroAsignado" title="Filtrar por persona asignada">
                     <option value="0">Todos</option>
                     <option value="-1">Sin asignar</option>
                 </select>
             </div>
-            <div class="col-12 col-md-6 col-lg">
+            <div class="col-12 col-sm-6 col-lg-6 col-xl-3">
                 <label class="form-label small text-muted mb-0" for="filtroDictamenEnviado">Dictamen enviado al gestor</label>
                 <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDictamenEnviado">
                     <option value="">Todos</option>
@@ -875,7 +1046,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     <option value="no">No (aún no enviado)</option>
                 </select>
             </div>
-            <div class="col-12 col-md-6 col-lg">
+            <div class="col-12 col-sm-6 col-lg-6 col-xl-3">
                 <label class="form-label small text-muted mb-0" for="filtroDictamenVisto">Dictamen visto por gestor</label>
                 <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDictamenVisto" title="Solo aplica si ya fue enviado al gestor">
                     <option value="">Todos</option>
@@ -883,7 +1054,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     <option value="si">Ya visto</option>
                 </select>
             </div>
-            <div class="col-12 col-md-6 col-lg">
+            <div class="col-12 col-sm-6 col-lg-6 col-xl-3">
                 <label class="form-label small text-muted mb-0" for="filtroDsEstado">Dictamen del sistema (DS)</label>
                 <select class="form-select form-select-sm panel-admin-filtro-select" id="filtroDsEstado" title="Estado de la evaluación automática">
                     <option value="">Todos</option>
@@ -894,14 +1065,14 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
                     <option value="intensidad_activa">Intensidad activa</option>
                 </select>
             </div>
-            <div class="col-12 col-lg-auto d-flex align-items-end">
+            <div class="col-12 d-flex align-items-end justify-content-end panel-admin-filtros-clear pt-1 pt-xl-0">
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiarFiltrosPanel" title="Quitar filtros y mostrar todos">
                     <i class="fa-solid fa-rotate-left me-1"></i>Limpiar
                 </button>
             </div>
         </div>
     </div>
-    <div class="card-datatable table-responsive" id="wrapTablaTicketsPanel">
+    <div class="card-datatable table-responsive panel-admin-table-wrap" id="wrapTablaTicketsPanel">
         <table id="tablaTicketsPanel" class="dt-responsive table border-top">
             <thead>
                 <tr>
@@ -2257,6 +2428,12 @@ window.actualizarDictamenCamposPorTipo = function() {
         $('#tablaTicketsPanel').on('draw.dt', function() {
             var tabla;
             try { tabla = $(this).DataTable(); } catch(ex) { return; }
+            try {
+                tabla.columns.adjust();
+                if (tabla.responsive && typeof tabla.responsive.recalc === 'function') {
+                    tabla.responsive.recalc();
+                }
+            } catch (exAdj) {}
             tabla.rows().every(function() {
                 var d = this.data();
                 var node = this.node();

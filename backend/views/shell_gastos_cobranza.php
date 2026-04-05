@@ -1,13 +1,3 @@
-<?php
-$urlAgenteIni = isset($gastosCobranzaAgenteUrl) ? trim((string) $gastosCobranzaAgenteUrl) : '';
-$puertoAgenteMostrar = '3120';
-if ($urlAgenteIni !== '') {
-    $pu = parse_url($urlAgenteIni, PHP_URL_PORT);
-    if ($pu !== null && $pu !== false && (int) $pu > 0) {
-        $puertoAgenteMostrar = (string) (int) $pu;
-    }
-}
-?>
 <div class="container-xxl flex-grow-1 container-p-y">
 
     <div class="row mb-4">
@@ -16,19 +6,14 @@ if ($urlAgenteIni !== '') {
                 <div class="card-body py-4">
                     <div class="row align-items-center g-4">
                         <div class="col-lg-8">
-                            <h4 class="mb-2 fw-semibold text-heading gc-shell-hero-title">
-                                <i class="fa fa-file-invoice-dollar text-primary me-2"></i>
-                                <?= htmlspecialchars(isset($tituloShell) ? $tituloShell : 'Shell Gastos Cobranza', ENT_QUOTES, 'UTF-8') ?>
-                            </h4>
-                            <p class="gc-shell-hero-lead text-muted mb-3 mb-lg-2">
-                                Punto de trabajo para el servicio local de cobranza: generación de reportes, integración con S2 y tareas de verificación.
-                                El registro de actividad del agente aparece en el panel inferior de esta página.
-                            </p>
-                            <div class="d-flex flex-wrap align-items-center gap-2">
-                                <span class="gc-shell-chip"><i class="fa fa-code-branch me-1 opacity-75"></i><code class="small">reporte_cobranza.py</code></span>
-                                <span class="gc-shell-chip gc-shell-chip-muted"><i class="fa fa-flask me-1 opacity-75"></i>Respaldo en modo prueba si no hay script</span>
-                                <span class="gc-shell-chip gc-shell-chip-accent"><i class="fa fa-ethernet me-1 opacity-75"></i>Puerto <?= htmlspecialchars($puertoAgenteMostrar, ENT_QUOTES, 'UTF-8') ?></span>
+                            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-1">
+                                <h4 class="mb-0 fw-semibold text-heading gc-shell-hero-title">
+                                    <i class="fa fa-file-invoice-dollar text-primary me-2"></i>
+                                    <?= htmlspecialchars(isset($tituloShell) ? $tituloShell : 'Shell Gastos Cobranza', ENT_QUOTES, 'UTF-8') ?>
+                                </h4>
+                                <span id="gastosCobranzaEstadoBadge" class="badge bg-label-secondary">Comprobando…</span>
                             </div>
+                            <div id="gastosCobranzaDetalle" class="small text-muted mt-1" style="min-height:1.25em"></div>
                         </div>
                         <div class="col-lg-4 d-flex justify-content-lg-end">
                             <div class="gc-shell-module-card">
@@ -41,35 +26,6 @@ if ($urlAgenteIni !== '') {
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="d-flex flex-column flex-md-row flex-md-wrap align-items-md-start justify-content-md-between gap-3 mb-3">
-                        <div class="flex-grow-1 min-w-0">
-                            <h5 class="card-title mb-1"><i class="fa fa-plug text-primary me-2"></i>Estado del agente</h5>
-                            <p class="small text-muted mb-0">Comprueba si el agente local responde y, cuando esté en línea, puedes lanzar la ejecución desde aquí.</p>
-                        </div>
-                        <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
-                            <span id="gastosCobranzaEstadoBadge" class="badge bg-label-secondary">Comprobando…</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnGastosCobranzaRefrescar">
-                                <i class="fa fa-sync-alt me-1"></i>Actualizar
-                            </button>
-                            <button type="button" class="btn btn-sm btn-primary" id="btnGastosCobranzaEjecutar" disabled>
-                                <i class="fa fa-play me-1"></i>Ejecutar (agente)
-                            </button>
-                        </div>
-                    </div>
-                    <p class="small mb-0" id="gastosCobranzaDetalle">—</p>
-                    <div id="gastosCobranzaSalidaWrap" class="d-none mt-3">
-                        <label class="form-label small fw-semibold">Salida de la última ejecución</label>
-                        <pre id="gastosCobranzaSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:220px;overflow:auto;white-space:pre-wrap;"></pre>
                     </div>
                 </div>
             </div>
@@ -101,9 +57,11 @@ if ($urlAgenteIni !== '') {
                         <div class="col-12">
                             <div class="form-check mb-0">
                                 <input class="form-check-input" type="checkbox" id="ecLauncherEnrich" autocomplete="off">
-                                <label class="form-check-label small" for="ecLauncherEnrich">Excel enriquecido (+ Chat)</label>
+                                <label class="form-check-label small d-inline-flex align-items-center flex-wrap gap-1" for="ecLauncherEnrich">
+                                    Excel enriquecido (+ Chat)
+                                    <span class="text-muted" style="cursor: help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" title="Sin marcar: Worker (S2 + BD + Chat; al terminar la corrida, lista negra automática). Marcada: enriquecido completo (mismo criterio de BD y auditoría que el flujo enrich del servidor)."><i class="fa fa-info-circle" aria-hidden="true"></i><span class="visually-hidden"> Ayuda modos Worker / enriquecido</span></span>
+                                </label>
                             </div>
-                            <p class="small text-muted mb-0 mt-1">Sin marcar: <strong>Worker</strong> (S2 + BD + Chat; al terminar la corrida, lista negra automática). Marcada: <strong>enriquecido completo</strong> (mismo criterio de BD y auditoría que el flujo enrich del servidor).</p>
                         </div>
                         <div class="col-12">
                             <button type="button" class="btn btn-primary btn-sm" id="btnEcLauncherEjecutar" disabled>
@@ -128,12 +86,9 @@ if ($urlAgenteIni !== '') {
             <div class="card shadow-sm border-0 h-100 gc-card-accent-descargo">
                 <div class="card-body">
                     <h5 class="card-title"><i class="fa fa-file-export text-info me-2"></i>Descargo cobranza GC (estatus 3)</h5>
-                    <div class="small text-muted mb-3">
-                        <div class="mb-2">
-                            Lee <code>cobranza_gc_verificacion_semana</code> con <code>estatus = 3</code>.
-                            <strong>Descargar</strong> ejecuta el script y, si hay filas nuevas, baja el Excel directo.
-                        </div>
-                    </div>
+                    <p class="small text-muted mb-3">
+                        Lee <code>cobranza_gc_verificacion_semana</code> con <code>estatus = 3</code>.
+                    </p>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="chkDescargoSinActualizarGuia" autocomplete="off">
                         <label class="form-check-label small" for="chkDescargoSinActualizarGuia">Solo prueba: generar Excel pero <strong>no</strong> escribir <code>guia_descargo.json</code> (déjalo desmarcado para corrida real)</label>
@@ -222,9 +177,18 @@ if ($urlAgenteIni !== '') {
                 <div class="card-body">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                         <h5 class="card-title mb-0"><i class="fa fa-table text-success me-2"></i>Reportes en carpeta <code>reporte/</code></h5>
-                        <button type="button" class="btn btn-sm btn-outline-success" id="btnGastosCobranzaListarReportes">
-                            <i class="fa fa-sync-alt me-1"></i>Actualizar lista
-                        </button>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-primary" id="btnGastosCobranzaEjecutar" disabled>
+                                <i class="fa fa-play me-1"></i>Ejecutar agente
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="btnGastosCobranzaListarReportes">
+                                <i class="fa fa-sync-alt me-1"></i>Actualizar lista
+                            </button>
+                        </div>
+                    </div>
+                    <div id="gastosCobranzaSalidaWrap" class="d-none mb-3">
+                        <label class="form-label small fw-semibold mb-1">Salida de la última ejecución (reporte)</label>
+                        <pre id="gastosCobranzaSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:220px;overflow:auto;white-space:pre-wrap;"></pre>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0">
@@ -239,7 +203,7 @@ if ($urlAgenteIni !== '') {
                                 </tr>
                             </thead>
                             <tbody id="gastosCobranzaTablaReportes">
-                                <tr><td colspan="7" class="text-muted small">Cargando…</td></tr>
+                                <tr><td colspan="6" class="text-muted small">Cargando…</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -302,36 +266,6 @@ if ($urlAgenteIni !== '') {
     }
     .gc-shell-hero-title {
         letter-spacing: -0.02em;
-    }
-    .gc-shell-hero-lead {
-        font-size: 0.9375rem;
-        line-height: 1.55;
-        max-width: 42rem;
-    }
-    .gc-shell-chip {
-        display: inline-flex;
-        align-items: center;
-        font-size: 0.75rem;
-        font-weight: 500;
-        padding: 0.35rem 0.65rem;
-        border-radius: 999px;
-        background: rgba(105, 108, 255, 0.1);
-        color: #566a7f;
-        border: 1px solid rgba(105, 108, 255, 0.15);
-    }
-    .gc-shell-chip code {
-        background: transparent;
-        color: #4a5a6b;
-        padding: 0;
-    }
-    .gc-shell-chip-muted {
-        background: rgba(67, 89, 113, 0.06);
-        border-color: rgba(67, 89, 113, 0.1);
-    }
-    .gc-shell-chip-accent {
-        background: rgba(3, 195, 236, 0.08);
-        border-color: rgba(3, 195, 236, 0.2);
-        color: #2d6a7a;
     }
     .gc-shell-module-card {
         display: flex;
@@ -450,7 +384,6 @@ if ($urlAgenteIni !== '') {
 (function () {
     var badge = document.getElementById('gastosCobranzaEstadoBadge');
     var detalle = document.getElementById('gastosCobranzaDetalle');
-    var btnRef = document.getElementById('btnGastosCobranzaRefrescar');
     var btnRun = document.getElementById('btnGastosCobranzaEjecutar');
     var btnEcLauncher = document.getElementById('btnEcLauncherEjecutar');
     var btnCargaVerif = document.getElementById('btnCargaVerifEjecutar');
@@ -657,14 +590,14 @@ if ($urlAgenteIni !== '') {
             });
             var data = await r.json();
             if (!data.success || !data.archivos) {
-                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-warning small">' +
+                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-warning small">' +
                     (data.mensaje || 'No se pudo listar reportes.') + '</td></tr>';
                 aplicarEstadoBotonesEcWorker();
                 return;
             }
             var list = data.archivos;
             if (!list.length) {
-                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
+                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
                 aplicarEstadoBotonesEcWorker();
                 return;
             }
@@ -716,7 +649,7 @@ if ($urlAgenteIni !== '') {
             }).join('');
             aplicarEstadoBotonesEcWorker();
         } catch (e) {
-            tbodyRep.innerHTML = '<tr><td colspan="7" class="text-danger small">' + String(e.message || e) + '</td></tr>';
+            tbodyRep.innerHTML = '<tr><td colspan="6" class="text-danger small">' + String(e.message || e) + '</td></tr>';
             aplicarEstadoBotonesEcWorker();
         }
     }
@@ -969,8 +902,8 @@ if ($urlAgenteIni !== '') {
         if (!sil) {
             badge.className = 'badge bg-label-warning';
             badge.textContent = 'Comprobando…';
-            detalle.textContent = '—';
-            btnRun.disabled = true;
+            if (detalle) detalle.textContent = '';
+            if (btnRun) btnRun.disabled = true;
             if (btnEcLauncher) btnEcLauncher.disabled = true;
             if (btnCargaVerif) btnCargaVerif.disabled = true;
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
@@ -986,7 +919,7 @@ if ($urlAgenteIni !== '') {
                 gcAgenteReportaEcOcupado = false;
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Error';
-                detalle.textContent = data.mensaje || 'Error';
+                if (detalle) detalle.textContent = data.mensaje || 'Error';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarEstadoBotonesEcWorker();
                 return;
@@ -996,8 +929,8 @@ if ($urlAgenteIni !== '') {
                 gcAgenteReportaEcOcupado = false;
                 badge.className = 'badge bg-label-secondary';
                 badge.textContent = 'INI desactivado';
-                detalle.innerHTML = data.detalle || '';
-                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
+                if (detalle) detalle.innerHTML = data.detalle || '';
+                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarEstadoBotonesEcWorker();
                 return;
@@ -1008,12 +941,14 @@ if ($urlAgenteIni !== '') {
                 badge.textContent = 'Agente en línea';
                 var a = data.agente || {};
                 gcAgenteReportaEcOcupado = !!a.ec_launcher_ocupado;
-                if (gcAgenteReportaEcOcupado) {
-                    detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker/EC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
-                } else {
-                    detalle.textContent = '';
+                if (detalle) {
+                    if (gcAgenteReportaEcOcupado) {
+                        detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker/EC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
+                    } else {
+                        detalle.textContent = '';
+                    }
                 }
-                btnRun.disabled = false;
+                if (btnRun) btnRun.disabled = false;
                 if (btnCargaVerif) btnCargaVerif.disabled = !a.script_carga_verificacion_semana;
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = !a.script_descargo_estatus3;
                 aplicarEstadoBotonesEcWorker();
@@ -1026,9 +961,9 @@ if ($urlAgenteIni !== '') {
                 gcAgenteReportaEcOcupado = false;
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Sin conexión';
-                detalle.textContent = data.detalle || '';
+                if (detalle) detalle.textContent = data.detalle || '';
                 logPanel.textContent = 'Levante el agente (npm start en gastos-cobranza-agent, puerto 3120).';
-                tbodyRep.innerHTML = '<tr><td colspan="7" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
+                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarEstadoBotonesEcWorker();
             }
@@ -1037,7 +972,7 @@ if ($urlAgenteIni !== '') {
             gcAgenteReportaEcOcupado = false;
             badge.className = 'badge bg-label-danger';
             badge.textContent = 'Error red';
-            detalle.textContent = String(e.message || e);
+            if (detalle) detalle.textContent = String(e.message || e);
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
             aplicarEstadoBotonesEcWorker();
         }
@@ -1196,8 +1131,8 @@ if ($urlAgenteIni !== '') {
             }
         }
 
-        btnRun.disabled = true;
-        outWrap.classList.add('d-none');
+        if (btnRun) btnRun.disabled = true;
+        if (outWrap) outWrap.classList.add('d-none');
         try {
             var r = await fetch('/gastoscobranza/ejecutarReporte', {
                 method: 'POST',
@@ -1219,8 +1154,8 @@ if ($urlAgenteIni !== '') {
                     msg = 'Modo prueba: ' + msg;
                 }
                 if (data.stdout || data.stderr) {
-                    outPre.textContent = (data.stdout || '') + (data.stderr ? '\n--- stderr ---\n' + data.stderr : '');
-                    outWrap.classList.remove('d-none');
+                    if (outPre) outPre.textContent = (data.stdout || '') + (data.stderr ? '\n--- stderr ---\n' + data.stderr : '');
+                    if (outWrap) outWrap.classList.remove('d-none');
                 }
                 alertar(ok ? 'Listo' : 'Atención', msg, ok ? 'success' : 'warning');
                 if (ok && !data.demo) {
@@ -1337,9 +1272,8 @@ if ($urlAgenteIni !== '') {
             }
         });
     }
-    btnListarRep.addEventListener('click', traerListaReportes);
-    btnRef.addEventListener('click', refrescarEstado);
-    btnRun.addEventListener('click', ejecutar);
+    if (btnListarRep) btnListarRep.addEventListener('click', traerListaReportes);
+    if (btnRun) btnRun.addEventListener('click', ejecutar);
     if (ecFecha) ecFecha.value = fechaCalendarioCdmxYmd();
     if (btnEcLauncher) btnEcLauncher.addEventListener('click', ejecutarEcLauncherFlujo);
     if (btnCargaVerif) btnCargaVerif.addEventListener('click', ejecutarCargaVerificacionFlujo);
@@ -1349,6 +1283,15 @@ if ($urlAgenteIni !== '') {
             wrapCargaVerifManual.classList.toggle('d-none', !chkMostrarCargaVerifManual.checked);
         });
     }
+    try {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            document.querySelectorAll('.container-xxl [data-bs-toggle="tooltip"]').forEach(function (el) {
+                try {
+                    new bootstrap.Tooltip(el);
+                } catch (eTip) { /* ignorar */ }
+            });
+        }
+    } catch (eBt) { /* ignorar */ }
     refrescarEstado();
     programarPoll();
 })();

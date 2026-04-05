@@ -84,10 +84,10 @@ JS;
         # -----------------------------
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-            $idCredito = $_POST['idCredito'] ?? null;
-            $nombre = $_POST['nombre'] ?? null;
+            $idCredito = isset($_POST['idCredito']) ? trim((string) $_POST['idCredito']) : '';
+            $nombre = isset($_POST['nombre']) ? trim((string) $_POST['nombre']) : '';
 
-            $GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
+            $GestionesAll = GestionesDAO::getAllGestiones($idCredito, $nombre);
             $detalle = GestionesDAO::getDetalleGestion($idCredito, $nombre);
 
             if (empty($GestionesAll)) {

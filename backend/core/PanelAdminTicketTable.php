@@ -83,32 +83,33 @@ class PanelAdminTicketTable
     public static function getColumnsConfig(bool $esAdmin, string $categoriaPanel = ''): array
     {
         $T = $esAdmin ? self::getTitulosColumnasPanelAdminPorCategoria($categoriaPanel) : null;
+        // responsivePriority: número más alto = se oculta antes al estrechar (DataTables Responsive).
         $base = [
-            ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
-            ['data' => '_fecha_creacion', 'title' => '', 'visible' => false, 'orderable' => true],
-            ['data' => 'folio_tipo', 'title' => $esAdmin ? $T['folio'] : 'Folio / Tipo'],
+            ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false, 'responsivePriority' => 1],
+            ['data' => '_fecha_creacion', 'title' => '', 'visible' => false, 'orderable' => true, 'responsivePriority' => 10000],
+            ['data' => 'folio_tipo', 'title' => $esAdmin ? $T['folio'] : 'Folio / Tipo', 'responsivePriority' => 2],
         ];
         if (!$esAdmin) {
-            $base[] = ['data' => 'gestion', 'title' => 'Gestión', 'orderable' => false];
+            $base[] = ['data' => 'gestion', 'title' => 'Gestión', 'orderable' => false, 'responsivePriority' => 10];
         }
         $base = array_merge($base, [
-            ['data' => 'estado', 'title' => $esAdmin ? $T['estado'] : 'Estado'],
-            ['data' => 'prioridad', 'title' => $esAdmin ? $T['prioridad'] : 'Prioridad'],
-            ['data' => 'credito', 'title' => $esAdmin ? $T['ref'] : 'Crédito'],
-            ['data' => 'fechas', 'title' => $esAdmin ? $T['fechas'] : 'Fechas'],
+            ['data' => 'estado', 'title' => $esAdmin ? $T['estado'] : 'Estado', 'responsivePriority' => 4],
+            ['data' => 'prioridad', 'title' => $esAdmin ? $T['prioridad'] : 'Prioridad', 'responsivePriority' => 5],
+            ['data' => 'credito', 'title' => $esAdmin ? $T['ref'] : 'Crédito', 'responsivePriority' => 6],
+            ['data' => 'fechas', 'title' => $esAdmin ? $T['fechas'] : 'Fechas', 'responsivePriority' => 7],
         ]);
         if ($esAdmin) {
-            $base[] = ['data' => 'creador', 'title' => $T['creador']];
-            $base[] = ['data' => 'asignado', 'title' => $T['asignado']];
-            $base[] = ['data' => 'tiempo_visitar', 'title' => $T['tiempo'], 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'ds_resultado', 'title' => $T['ds'], 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
+            $base[] = ['data' => 'creador', 'title' => $T['creador'], 'responsivePriority' => 18];
+            $base[] = ['data' => 'asignado', 'title' => $T['asignado'], 'responsivePriority' => 20];
+            $base[] = ['data' => 'tiempo_visitar', 'title' => $T['tiempo'], 'orderable' => false, 'className' => 'text-center', 'responsivePriority' => 40];
+            $base[] = ['data' => 'ds_resultado', 'title' => $T['ds'], 'orderable' => false, 'className' => 'text-center', 'responsivePriority' => 45];
+            $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end', 'responsivePriority' => 50];
         } else {
-            $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar / Prórroga', 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center'];
-            $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end'];
+            $base[] = ['data' => 'tiempo_visitar', 'title' => 'Tiempo para visitar / Prórroga', 'orderable' => false, 'className' => 'text-center', 'responsivePriority' => 40];
+            $base[] = ['data' => 'ds_resultado', 'title' => 'Resultado DS', 'orderable' => false, 'className' => 'text-center', 'responsivePriority' => 45];
+            $base[] = ['data' => 'dictamen_visto', 'title' => '', 'orderable' => false, 'className' => 'text-end', 'responsivePriority' => 50];
         }
-        $base[] = ['data' => 'acciones', 'title' => 'Acciones', 'orderable' => false];
+        $base[] = ['data' => 'acciones', 'title' => 'Acciones', 'orderable' => false, 'responsivePriority' => 3];
 
         return [
             'esAdminJs' => $esAdmin ? 'true' : 'false',

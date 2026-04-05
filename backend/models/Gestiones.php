@@ -12,20 +12,21 @@ class Gestiones extends Model
 
     public static function getDetalleGestion($credito, $nombre)
     {
+        $credito = trim((string) $credito);
+        if ($credito === '' || !ctype_digit($credito)) {
+            return [];
+        }
+
         $mysqli = new DatabaseSegundometro();
 
         $query = <<<SQL
         SELECT id_credito, Nombre_cliente, Codigo_postal_1, Celular, Referencia_stp, cuota
         FROM tbl_segundometro_histo
-        WHERE id_credito = $credito
-        LIMIT 1;
+        WHERE id_credito = :credito
+        LIMIT 1
 SQL;
 
-        $res_u = $mysqli->queryAll($query);
-
-
-
-        return $res_u;
+        return $mysqli->queryAll($query, ['credito' => (int) $credito]);
     }
     public static function getAllGestionesaa($credito, $nombre)
     {
@@ -91,9 +92,9 @@ SQL;
     }
 
     /**
-     * Gestiones desde __SPARTA_SECRET_REDACTED__ (Legacy): tasks + dictums + opcionesdictamen.
-     * Coordenadas del gestor: dictums.lat, dictums.lng (al registrar el dictamen).
-     * tasks también tiene lat/lng; si dictums viene NULL se puede usar COALESCE(d.lat, t.lat).
+     * Gestiones desde __SPARTA_SECRET_REDACTED__ (Legacy): vista legacy_historico.
+     * dictamen_campo / dictamen_ccc ← dictamen_for (opción de dictamen). comentarios_generales ← texto libre.
+     * promesa_pago ← fecha + hora de promesa; porque_atraso_pago ← porque_se_atraso_en_su_pago.
      */
     public static function getGestionesLegacy($credito)
     {
@@ -147,20 +148,20 @@ SQL;
             ELSE ''
         END AS medio_contactacion_ccc,
         CASE
-            WHEN lh.contacto = 'campo' THEN 'domicilio del cliente'
+            WHEN lh.contacto = 'campo' THEN COALESCE(NULLIF(TRIM(lh.medio_de_contacto_campo), ''), 'domicilio del cliente')
             ELSE '0'
         END AS medio_contactacion_campo,
         CASE
-            WHEN lh.contacto = 'campo' THEN lh.comentarios_generales
+            WHEN lh.contacto = 'campo' THEN TRIM(COALESCE(lh.dictamen_for, ''))
             ELSE ''
         END AS dictamen_campo,
         CASE
-            WHEN lh.contacto IN ('telefono', 'whatsapp') THEN lh.comentarios_generales
+            WHEN lh.contacto IN ('telefono', 'whatsapp') THEN TRIM(COALESCE(lh.dictamen_for, ''))
             ELSE ''
         END AS dictamen_ccc,
-        lh.hora_de_promesa_de_pago AS promesa_pago,
+        TRIM(CONCAT_WS(' ', NULLIF(TRIM(lh.fecha_de_promesa_de_pago), ''), NULLIF(TRIM(lh.hora_de_promesa_de_pago), ''))) AS promesa_pago,
         lh.motivo_de_no_de_pago AS motivo_negativa,
-        '' AS porque_atraso_pago,
+        TRIM(COALESCE(lh.porque_se_atraso_en_su_pago, '')) AS porque_atraso_pago,
         '' AS con_quien_mala_experiencia,
         NOW() AS fecha_hora,
         '' AS kilometraje,
@@ -168,7 +169,7 @@ SQL;
         '' AS marca_modelo,
         '' AS actualizacion_direccion,
         '' AS actualizacion_telefono,
-        '' AS comentarios_generales,
+        lh.comentarios_generales AS comentarios_generales,
         '' AS foto1,
         '' AS foto2,
         '' AS foto3,
@@ -245,22 +246,20 @@ SQL;
     }
 
     /**
-     * Combina datos de Legacy con datos de Sky Logic
-     * Prioriza datos de Sky Logic para campos vacíos en Legacy
+     * Completa filas Legacy con un snapshot reciente de Sky (mismo crédito).
+     * No mezcla dictamen, comentarios, promesa ni medios: son por gestión en legacy_historico.
      */
     private static function mergeWithSkyLogicData($legacyRow, $skyData)
     {
-        // Campos a completar desde Sky Logic si están vacíos en Legacy
         $fieldsToMerge = [
             'telefono_celular', 'cp', 'direccion', 'cuenta_clabe',
             'pago_semanal', 'pagos_vencidos', 'deuda_total',
             'referencia_personal1', 'parentesco1', 'telefono_referencia1',
             'referencia_personal2', 'parentesco2', 'telefono_referencia2',
-            'comentarios_generales', 'geolocalizacion', 'direccion_geo',
-            'longitud', 'latitud', 'medio_contactacion_campo', 'dictamen_campo',
+            'geolocalizacion', 'direccion_geo',
+            'longitud', 'latitud',
             'estatus', 'direccion_ine', 'direccion_actual',
-            'promesa_pago', 'porque_atraso_pago', 'motivo_negativa',
-            'images', 'ubicacion_usuario'
+            'images', 'ubicacion_usuario',
         ];
 
         foreach ($fieldsToMerge as $field) {
