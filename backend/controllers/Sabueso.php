@@ -3998,9 +3998,8 @@ class Sabueso extends Controller
             return;
         }
         try {
-            $gestiones = GestionesDAO::getAllGestiones($idCredito, '');
+            $gestiones = GestionesDAO::getGestionesParaRastreoCredito((string) $idCredito, 16, 80);
             $gestiones = is_array($gestiones) ? $gestiones : [];
-            $gestiones = array_slice($gestiones, 0, 16);
             self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'datos' => $gestiones]);
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al obtener gestiones.', 'datos' => []]);

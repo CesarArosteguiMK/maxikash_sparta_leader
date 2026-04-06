@@ -2,10 +2,9 @@
 REPORTE GASTOS DE COBRANZA + SALDO A FAVOR
 ==========================================
 Columnas finales:
-  ID CREDITO | NOMBRE CLIENTE | STATUS CREDITO | CUOTA SEMANAL |
+  ID CREDITO | ID CLIENTE | NOMBRE CLIENTE | STATUS CREDITO | CUOTA SEMANAL |
   DEUDA GC PENDIENTE | SALDO A FAVOR DEL CLIENTE | SALDO APLICABLE A GC |
-  fecha_ultimo_abono_efectivo (Fecha_ultimo_pago_efectivo de MySQL, fecha + nombre del día) |
-  COMENTARIOS | ERROR
+  fecha_ultimo_abono_efectivo | MAXI APP (última conexión CDMX + ¿se conectó?) | COMENTARIOS | ERROR
 
 Flujo:
   1. MySQL trae créditos elegibles (gastos_cobranza + tbl_segundometro_semana, Dias_mora=0,
@@ -15,14 +14,36 @@ Flujo:
      (inicio_semana = martes del periodo, s2_exitoso = 1).
   4. Los que quedan van a S2 → cálculo → Excel.
   5. El Excel se genera siempre (aunque queden 0 registros después de los filtros).
+  6. Solo entran al .xlsx filas con SALDO A FAVOR DEL CLIENTE >= 200 MXN (las demás se omiten).
+  7. No entran al .xlsx filas cuya columna COMENTARIOS incluya «CUOTA SIGUIENTE CUBIERTA - NO APLICAR»
+     (sábado–lunes); sí entran las de «APLICAR» (mar–vie) y el resto sin ese texto.
+  8. Columnas Maxi app (__SPARTA_SECRET_REDACTED__.ubicacion, idCliente = ID CLIENTE): ventana en calendario CDMX —
+     vie–dom → lunes de esa semana hasta hoy CDMX; lun–jue → hoy CDMX y 4 días anteriores (5 días en total).
+     Última conexión mostrada en hora CDMX (no depender del huso del servidor del script).
+     Las columnas Maxi app van después de fecha_ultimo_abono_efectivo y antes de COMENTARIOS.
+
+En el .xlsx, el fondo de la fila refleja COMENTARIOS: verde si contiene «APLICAR» (día laboral);
+rojo suave si contiene «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (orden de comprobación: CUOTA antes que APLICAR).
 
 Salida: reporte/reporte_cobranza_DD-MM-YYYY.xlsx (fecha calendario CDMX al generar; guiones en lugar de /).
 
 Reintentos: tras la primera pasada S2 en paralelo, se pueden ejecutar pasadas extra solo sobre filas con
 columna ERROR (timeout / sin respuesta S2). Un solo Excel final. Variables de entorno opcionales:
-  REPORTE_COBRANZA_PASADAS_REINTENTO (default 1, 0 = desactivar)
+  REPORTE_COBRANZA_PASADAS_REINTENTO (default 2 = dos rondas de reintento tras la masiva; 0 = desactivar)
   REPORTE_COBRANZA_REINTENTO_MAX_WORKERS (default 16)
   REPORTE_COBRANZA_REINTENTO_PAUSA_S (default 1.5 segundos entre anuncio y reintento)
+
+Conexión __SPARTA_SECRET_REDACTED__ (columnas Maxi app / tabla ubicacion); si no se definen, se usan los mismos defaults que DatabaseAWS:
+  REPORTE_COBRANZA_AWS_HOST, REPORTE_COBRANZA_AWS_PORT (default 3306),
+  REPORTE_COBRANZA_AWS_USER, REPORTE_COBRANZA_AWS_PASSWORD, REPORTE_COBRANZA_AWS_DATABASE
+
+Pruebas / descargo:
+  REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1 — fusiona descargo igual pero NO escribe guia_descargo.json
+    (el checkpoint no avanza; otra corrida puede volver a traer las mismas filas incrementales).
+  REPORTE_COBRANZA_SIN_DESCARGO=1 — omite por completo consulta y merge de descargo (no toca la guía).
+
+Pruebas / Excel sin tocar el reporte oficial del día:
+  REPORTE_COBRANZA_MODO_PRUEBA_EXCEL=1 — guarda reporte_cobranza_DD-MM-AAAA_PRUEBA.xlsx (no comprueba ni pisa el .xlsx oficial).
 
 SALDO A FAVOR: lunes de la semana calendario (lun–dom) de la fecha de negocio.
 
@@ -82,6 +103,12 @@ DB_CONFIG = {
     "cursorclass":     pymysql.cursors.DictCursor,
 }
 
+# Defaults alineados con Core\DatabaseAWS (__SPARTA_SECRET_REDACTED__). Sobreescribir vía REPORTE_COBRANZA_AWS_* (ver docstring).
+_DEFAULT_AWS_MOVIL_HOST = "__SPARTA_HOST_REDACTED__"
+_DEFAULT_AWS_MOVIL_USER = "__SPARTA_SECRET_REDACTED__"
+_DEFAULT_AWS_MOVIL_PASSWORD = "__SPARTA_PASSWORD_REDACTED__"
+_DEFAULT_AWS_MOVIL_DATABASE = "__SPARTA_SECRET_REDACTED__"
+
 S2_URL     = "https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta"
 S2_TOKEN   = "__SPARTA_TOKEN_REDACTED__"
 S2_HEADERS = {"Content-Type": "application/json", "Token": S2_TOKEN}
@@ -101,6 +128,7 @@ MAX_WORKERS    = 40
 MAX_REINTENTOS = 3
 TIMEOUT_S2     = 45
 LOG_CADA       = 500
+MAXI_APP_IN_CHUNK = 450  # tamaño de IN (...) por consulta a ubicacion (__SPARTA_SECRET_REDACTED__)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -117,11 +145,51 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_str(name: str, default: str) -> str:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    s = str(raw).strip()
+    return s if s else default
+
+
+def _db_config_aws_movil() -> dict:
+    port = _env_int("REPORTE_COBRANZA_AWS_PORT", 3306)
+    if port < 1 or port > 65535:
+        port = 3306
+    return {
+        "host":            _env_str("REPORTE_COBRANZA_AWS_HOST", _DEFAULT_AWS_MOVIL_HOST),
+        "port":            port,
+        "user":            _env_str("REPORTE_COBRANZA_AWS_USER", _DEFAULT_AWS_MOVIL_USER),
+        "password":        _env_str("REPORTE_COBRANZA_AWS_PASSWORD", _DEFAULT_AWS_MOVIL_PASSWORD),
+        "database":        _env_str("REPORTE_COBRANZA_AWS_DATABASE", _DEFAULT_AWS_MOVIL_DATABASE),
+        "charset":         "utf8mb4",
+        "connect_timeout": 30,
+        "read_timeout":    120,
+        "write_timeout":   120,
+        "cursorclass":     pymysql.cursors.DictCursor,
+    }
+
+
+DB_CONFIG_AWS_MOVIL = _db_config_aws_movil()
+
+
 # Rondas extra solo para filas con ERROR de S2 (timeout, sin respuesta, etc.). 0 = desactivado.
+# Default 2: tercera “pasada” efectiva (1 masiva + 2 reintentos sobre quienes sigan con ERROR).
 # Una sola Excel final con todo mezclado (aciertos + errores que sigan fallando).
-PASADAS_REINTENTO_ERRORES = _env_int("REPORTE_COBRANZA_PASADAS_REINTENTO", 1)
+PASADAS_REINTENTO_ERRORES = _env_int("REPORTE_COBRANZA_PASADAS_REINTENTO", 2)
 REINTENTO_MAX_WORKERS = max(1, _env_int("REPORTE_COBRANZA_REINTENTO_MAX_WORKERS", 16))
 REINTENTO_PAUSA_S = _env_float("REPORTE_COBRANZA_REINTENTO_PAUSA_S", 1.5)
+# Pruebas: 1 = no escribir guia_descargo.json tras fusionar descargo.
+NO_GUARDAR_GUIA_DESCARGO = str(os.environ.get("REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO", "")).strip() == "1"
+# Pruebas: 1 = no consultar ni fusionar descargo (no modifica guia_descargo.json).
+SIN_DESCARGO = str(os.environ.get("REPORTE_COBRANZA_SIN_DESCARGO", "")).strip() == "1"
+# Pruebas: 1 = nombre ..._PRUEBA.xlsx; no bloquea si ya existe el Excel oficial del día.
+MODO_PRUEBA_EXCEL = str(os.environ.get("REPORTE_COBRANZA_MODO_PRUEBA_EXCEL", "")).strip() == "1"
+# Textos de negocio en COMENTARIOS (día laboral vs fin de semana / lunes).
+# Color en Excel: CUOTA_CUBIERTA → fila rojiza; APLICAR → fila verde (ver relleno_fila_por_reglas).
+# Importante: CUOTA_CUBIERTA contiene "NO APLICAR"; hay que evaluarla ANTES que "APLICAR in com"
+# o toda esa fila se pintaría mal en verde.
 COMENTARIO_CUOTA_CUBIERTA = "CUOTA SIGUIENTE CUBIERTA - NO APLICAR"
 COMENTARIO_APLICAR        = "APLICAR"
 COMENTARIO_SIN_REGLA      = "Sin Regla"
@@ -134,6 +202,9 @@ ETIQUETA_REGLA_GRIS = "Regla aplicable GC < 200 (gris)"
 ETIQUETA_REGLA_HOMERO = "Regla de Homero"
 ETIQUETA_REGLA_PORCENTAJE = "Regla porcentaje"
 ETIQUETA_HOMERO_SALDO_FAVOR = "Homero saldo a favor (= 250)"
+
+# Mínimo de «SALDO A FAVOR DEL CLIENTE» para incluir la fila en el Excel (pesos MXN).
+MIN_SALDO_FAVOR_EXCEL = 200.0
 
 # ─────────────────────────────────────────────
 # DESCARGO ESTATUS 3 — MERGE CON EL REPORTE
@@ -263,10 +334,14 @@ def obtener_descargo_incremental() -> list[dict]:
 def _relleno_descargo_obs(reg: dict) -> "PatternFill | None":
     """
     Color de fila para registros del descargo que llevan texto de Observaciones.
-    Solo se evalúan reglas numéricas (SALDO_APLICABLE_GC), ya que las reglas basadas
-    en texto (APLICAR / CUOTA SIGUIENTE CUBIERTA) requieren el contexto del día de ejecución
-    que no está disponible para estas filas históricas del descargo.
+    Si el mensaje ya trae APLICAR o CUOTA SIGUIENTE CUBIERTA, mismo verde/rojo que el reporte.
+    Si no, solo reglas numéricas (SALDO_APLICABLE_GC).
     """
+    com = str(reg.get("COMENTARIOS") or "")
+    if COMENTARIO_CUOTA_CUBIERTA in com:
+        return FILL_RED
+    if COMENTARIO_APLICAR in com:
+        return FILL_ROW_VERDE
     aplicable = _float_reg(reg, "SALDO_APLICABLE_GC")
     if aplicable < 200:
         return FILL_ROW_GRIS
@@ -284,9 +359,10 @@ def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict])
         tipo_reporte        → STATUS_CREDITO
         registrado_en_cdmx  → FECHA_ULTIMO_ABONO_EFECTIVO
         id_credito          → ID_CREDITO
+        Id_cliente (si existe en fila descargo) → ID CLIENTE
         nombre              → NOMBRE_CLIENTE
         mensaje (Observaciones):
-          · Con texto → COMENTARIOS = ese texto; color = reglas numéricas (_relleno_descargo_obs).
+          · Con texto → COMENTARIOS = ese texto; color = APLICAR/CUOTA si aplica, si no reglas numéricas.
           · Vacío     → COMENTARIOS calculado por armar_comentarios_fila; color = relleno_fila_por_reglas.
       Columnas del descargo sin equivalente en el reporte se descartan.
       Columnas del reporte sin datos del descargo quedan en 0 / cadena vacía.
@@ -305,6 +381,9 @@ def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict])
 
         reg: dict = {
             "ID_CREDITO":                   row.get("id_credito"),
+            "ID_CLIENTE":                   _id_cliente_desde_row(row),
+            "MAXI_APP_ULTIMA_CDMX":         "",
+            "MAXI_APP_CONECTO":             "No",
             "NOMBRE_CLIENTE":               str(row.get("nombre", "") or ""),
             "STATUS_CREDITO":               str(row.get("tipo_reporte", "") or ""),
             "CUOTA_SEMANAL":                0.0,
@@ -322,6 +401,8 @@ def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict])
                 reg["SALDO_APLICABLE_GC"] = float(monto_raw)
             except (TypeError, ValueError):
                 pass
+        # Misma magnitud en columna Excel / filtro MIN_SALDO_FAVOR_EXCEL (el descargo no trae SF aparte).
+        reg["SALDO_A_FAVOR"] = float(reg["SALDO_APLICABLE_GC"] or 0)
 
         if obs:
             reg["COMENTARIOS"]    = obs
@@ -349,6 +430,7 @@ def sql_query_ids_principal(fecha_filtro: date) -> str:
     return f"""
 SELECT
     g.`Id_credito`  AS id_credito,
+    MAX(s.`Id_cliente`) AS id_cliente,
     COUNT(*)         AS cuotas,
     MAX(s.`Fecha_ultimo_pago_efectivo`) AS fecha_ultimo_pago_efectivo,
     ROUND(
@@ -448,6 +530,21 @@ def _parse_fecha_desde_mysql(raw) -> date | None:
         return None
 
 
+def _id_cliente_desde_row(row: dict) -> int | str:
+    """Id_cliente desde MySQL/descargo (varias claves posibles en dict). Vacío si no hay."""
+    for k in ("id_cliente", "Id_cliente", "ID_CLIENTE"):
+        if k not in row:
+            continue
+        v = row.get(k)
+        if v is None or v == "":
+            continue
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            continue
+    return ""
+
+
 def fecha_abono_efectivo_para_excel(row: dict, hoy: date) -> str:
     """
     Valor de columna Excel: misma fecha que MAX(Fecha_ultimo_pago_efectivo) del SELECT MySQL
@@ -490,6 +587,134 @@ def obtener_lista_negra(inicio_semana: date) -> set[str]:
         return ids
     finally:
         conn.close()
+
+
+def rango_fechas_ventana_maxi_app_cdmx(fecha_ref_cdmx: date) -> tuple[date, date]:
+    """
+    Ventana inclusiva según calendario CDMX (fecha_ref = «hoy» CDMX al generar el reporte).
+
+    - Viernes, sábado o domingo (equivalente a DAYOFWEEK MySQL 6,7,1): del lunes de esa semana al día ref.
+    - Lunes a jueves: 5 días — desde fecha_ref - 4 días hasta fecha_ref (incluye hoy + 4 anteriores).
+    """
+    wd = fecha_ref_cdmx.weekday()  # lunes=0 … domingo=6 (igual que MySQL WEEKDAY)
+    if wd in (4, 5, 6):  # vie, sáb, dom
+        inicio = fecha_ref_cdmx - timedelta(days=wd)
+    else:
+        inicio = fecha_ref_cdmx - timedelta(days=4)
+    return inicio, fecha_ref_cdmx
+
+
+def _parse_mysql_fecha_creacion(raw) -> datetime | None:
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        return raw
+    if isinstance(raw, date):
+        return datetime.combine(raw, datetime.min.time())
+    s = str(raw).strip()
+    if not s:
+        return None
+    s0 = s.replace("Z", "").split(".")[0]
+    if len(s0) >= 19:
+        try:
+            return datetime.fromisoformat(s0[:19])
+        except ValueError:
+            pass
+    if len(s0) >= 10:
+        try:
+            return datetime.combine(date.fromisoformat(s0[:10]), datetime.min.time())
+        except ValueError:
+            pass
+    return None
+
+
+def formatear_ultima_conexion_maxi_cdmx(dt_raw) -> str:
+    """Interpreta fecha_creacion de MySQL como hora local CDMX si viene naive; muestra en CDMX."""
+    dt = _parse_mysql_fecha_creacion(dt_raw)
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=TZ_CDMX)
+    else:
+        dt = dt.astimezone(TZ_CDMX)
+    nombre = _NOMBRE_DIA_SEMANA_ES[dt.weekday()]
+    return f"{dt.strftime('%Y-%m-%d %H:%M:%S')} ({nombre}) — CDMX"
+
+
+def obtener_mapa_ultima_conexion_maxi_app(
+    ids_cliente: set[int],
+    fecha_ref_cdmx: date,
+) -> dict[int, datetime]:
+    """
+    Por idCliente, MAX(fecha_creacion) en ubicacion dentro de DATE(fecha_creacion) entre inicio y fin
+    (límites según rango_fechas_ventana_maxi_app_cdmx). Requiere que DATE en BD sea comparable al
+    calendario CDMX (típico si los registros son hora México).
+    """
+    out: dict[int, datetime] = {}
+    if not ids_cliente:
+        return out
+    ini, fin = rango_fechas_ventana_maxi_app_cdmx(fecha_ref_cdmx)
+    ids_limpios = sorted(i for i in ids_cliente if isinstance(i, int) and i > 0)
+    if not ids_limpios:
+        return out
+    sql_tpl = (
+        "SELECT idCliente AS id_cliente, MAX(fecha_creacion) AS fecha "
+        "FROM ubicacion WHERE idCliente IN ({ph}) "
+        "AND DATE(fecha_creacion) BETWEEN %s AND %s GROUP BY idCliente"
+    )
+    conn = pymysql.connect(**DB_CONFIG_AWS_MOVIL)
+    try:
+        with conn.cursor() as cur:
+            for i in range(0, len(ids_limpios), MAXI_APP_IN_CHUNK):
+                chunk = ids_limpios[i : i + MAXI_APP_IN_CHUNK]
+                ph = ",".join(["%s"] * len(chunk))
+                cur.execute(sql_tpl.format(ph=ph), (*chunk, ini.isoformat(), fin.isoformat()))
+                for row in cur.fetchall():
+                    ic = int(row["id_cliente"])
+                    parsed = _parse_mysql_fecha_creacion(row.get("fecha"))
+                    if parsed is not None:
+                        out[ic] = parsed
+        log.info(
+            "  Maxi app (__SPARTA_SECRET_REDACTED__): ventana CDMX %s .. %s — %s idCliente consultados, %s con conexión",
+            ini,
+            fin,
+            f"{len(ids_limpios):,}",
+            f"{len(out):,}",
+        )
+    except Exception as e:
+        log.warning("  Maxi app: no se pudo consultar __SPARTA_SECRET_REDACTED__/ubicacion: %s", e)
+    finally:
+        conn.close()
+    return out
+
+
+def enriquecer_columnas_maxi_app(resultados: list[dict], fecha_ref_cdmx: date) -> None:
+    """Rellena MAXI_APP_ULTIMA_CDMX y MAXI_APP_CONECTO en cada fila (idCliente = ID_CLIENTE)."""
+    ids: set[int] = set()
+    for r in resultados:
+        ic = r.get("ID_CLIENTE")
+        if ic == "" or ic is None:
+            continue
+        try:
+            ids.add(int(ic))
+        except (TypeError, ValueError):
+            continue
+    m = obtener_mapa_ultima_conexion_maxi_app(ids, fecha_ref_cdmx)
+    for r in resultados:
+        ic = r.get("ID_CLIENTE")
+        try:
+            ki = int(ic)
+        except (TypeError, ValueError):
+            r["MAXI_APP_ULTIMA_CDMX"] = ""
+            r["MAXI_APP_CONECTO"] = "No"
+            continue
+        fdt = m.get(ki)
+        if fdt is None:
+            r["MAXI_APP_ULTIMA_CDMX"] = ""
+            r["MAXI_APP_CONECTO"] = "No"
+        else:
+            r["MAXI_APP_ULTIMA_CDMX"] = formatear_ultima_conexion_maxi_cdmx(fdt)
+            r["MAXI_APP_CONECTO"] = "Sí"
 
 
 # ─────────────────────────────────────────────
@@ -664,6 +889,9 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date):
     id_credito = row["id_credito"]
     base = {
         "ID_CREDITO": id_credito,
+        "ID_CLIENTE": _id_cliente_desde_row(row),
+        "MAXI_APP_ULTIMA_CDMX": "",
+        "MAXI_APP_CONECTO": "No",
         "NOMBRE_CLIENTE": "",
         "STATUS_CREDITO": "",
         "CUOTA_SEMANAL": 0.0,
@@ -724,30 +952,46 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date):
 
 
 COLUMNAS = [
-    ("ID_CREDITO", "ID CREDITO"), ("NOMBRE_CLIENTE", "NOMBRE CLIENTE"),
-    ("STATUS_CREDITO", "STATUS CREDITO"), ("CUOTA_SEMANAL", "CUOTA SEMANAL"),
-    ("DEUDA_GC", "DEUDA GC PENDIENTE"), ("SALDO_A_FAVOR", "SALDO A FAVOR DEL CLIENTE"),
+    ("ID_CREDITO", "ID CREDITO"),
+    ("ID_CLIENTE", "ID CLIENTE"),
+    ("NOMBRE_CLIENTE", "NOMBRE CLIENTE"),
+    ("STATUS_CREDITO", "STATUS CREDITO"),
+    ("CUOTA_SEMANAL", "CUOTA SEMANAL"),
+    ("DEUDA_GC", "DEUDA GC PENDIENTE"),
+    ("SALDO_A_FAVOR", "SALDO A FAVOR DEL CLIENTE"),
     ("SALDO_APLICABLE_GC", "SALDO APLICABLE A GC"),
     ("FECHA_ULTIMO_ABONO_EFECTIVO", "fecha_ultimo_abono_efectivo"),
-    ("COMENTARIOS", "COMENTARIOS"), ("ERROR", "ERROR"),
+    ("MAXI_APP_ULTIMA_CDMX", "MAXI APP — ÚLTIMA CONEXIÓN (CDMX)"),
+    ("MAXI_APP_CONECTO", "MAXI APP — ¿SE CONECTÓ?"),
+    ("COMENTARIOS", "COMENTARIOS"),
+    ("ERROR", "ERROR"),
 ]
 ANCHOS = {
-    "ID_CREDITO": 14, "NOMBRE_CLIENTE": 34, "STATUS_CREDITO": 14,
-    "CUOTA_SEMANAL": 14, "DEUDA_GC": 20, "SALDO_A_FAVOR": 24,
-    "SALDO_APLICABLE_GC": 22, "FECHA_ULTIMO_ABONO_EFECTIVO": 32,
-    "COMENTARIOS": 52, "ERROR": 30,
+    "ID_CREDITO": 14,
+    "ID_CLIENTE": 14,
+    "NOMBRE_CLIENTE": 34,
+    "STATUS_CREDITO": 14,
+    "CUOTA_SEMANAL": 14,
+    "DEUDA_GC": 20,
+    "SALDO_A_FAVOR": 24,
+    "SALDO_APLICABLE_GC": 22,
+    "FECHA_ULTIMO_ABONO_EFECTIVO": 32,
+    "MAXI_APP_ULTIMA_CDMX": 36,
+    "MAXI_APP_CONECTO": 22,
+    "COMENTARIOS": 52,
+    "ERROR": 30,
 }
 MONEY_COLS = {"CUOTA_SEMANAL", "DEUDA_GC", "SALDO_A_FAVOR", "SALDO_APLICABLE_GC"}
 SF_COLS    = {"SALDO_A_FAVOR", "SALDO_APLICABLE_GC"}
 DEUDA_COLS = {"DEUDA_GC"}
 
-FILL_RED   = PatternFill("solid", start_color="FFCDD2")
+FILL_RED   = PatternFill("solid", start_color="FFCDD2")  # rojo suave: CUOTA SIGUIENTE CUBIERTA - NO APLICAR
 FILL_SF    = PatternFill("solid", start_color="DDEBF7")
 FILL_DEUDA = PatternFill("solid", start_color="FFEBEE")
 FILL_ALT   = PatternFill("solid", start_color="F2F2F2")
 
 # Reglas de fila (orden estricto; la primera que aplique pinta toda la fila)
-FILL_ROW_VERDE  = PatternFill("solid", start_color="C8E6C9")     # verde: APLICAR (mar–vie)
+FILL_ROW_VERDE  = PatternFill("solid", start_color="C8E6C9")     # verde: COMENTARIOS con APLICAR (mar–vie)
 FILL_ROW_NARANJA = PatternFill("solid", start_color="FFE0B2")    # naranja: Sin Regla
 FILL_ROW_GRIS   = PatternFill("solid", start_color="BDBDBD")     # gris: aplicable < 200
 FILL_ROW_HOMERO = PatternFill("solid", start_color="B3E5FC")     # azul cielo: deuda y SF en [200,300]
@@ -760,6 +1004,11 @@ def _float_reg(reg: dict, key: str) -> float:
         return float(reg.get(key) or 0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _fila_excel_excluida_cuota_siguiente_cubierta(reg: dict) -> bool:
+    """True = no incluir en .xlsx: comentario base «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (sáb–lun)."""
+    return COMENTARIO_CUOTA_CUBIERTA in str(reg.get("COMENTARIOS") or "")
 
 
 def etiquetas_reglas_desde_reg(reg: dict) -> list[str]:
@@ -799,8 +1048,8 @@ def armar_comentarios_fila(comentario_cuota: str, reg: dict) -> str:
 def relleno_fila_por_reglas(reg: dict) -> PatternFill | None:
     """
     Primera regla que cumpla gana (no se combinan).
-    0) APLICAR (mar–vie)                    → verde
-    1) CUOTA SIGUIENTE CUBIERTA (sáb–lun)  → rojo
+    0) CUOTA SIGUIENTE CUBIERTA (sáb–lun)  → rojo (antes que APLICAR: "NO APLICAR" contiene "APLICAR")
+    1) APLICAR (mar–vie)                    → verde
     2) SALDO_APLICABLE_GC < 200            → gris
     3) Regla de Homero: deuda y SF en [200,300] → azul
     4) Regla porcentaje: SF/cuota en [0,25]%    → morado
@@ -809,11 +1058,11 @@ def relleno_fila_por_reglas(reg: dict) -> PatternFill | None:
     """
     com = str(reg.get("COMENTARIOS") or "")
 
-    if COMENTARIO_APLICAR in com:
-        return FILL_ROW_VERDE
-
     if COMENTARIO_CUOTA_CUBIERTA in com:
         return FILL_RED
+
+    if COMENTARIO_APLICAR in com:
+        return FILL_ROW_VERDE
 
     aplicable = _float_reg(reg, "SALDO_APLICABLE_GC")
     if aplicable < 200:
@@ -894,11 +1143,11 @@ def generar_excel(registros, lunes: date, hoy: date, ruta_salida: str):
                 c.fill = FILL_DEUDA
             elif alt:
                 c.fill = FILL_ALT
-            if key == "COMENTARIOS":
+            if key in ("COMENTARIOS", "MAXI_APP_ULTIMA_CDMX"):
                 c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             if key in MONEY_COLS and isinstance(val, (int, float)):
                 c.number_format = "$#,##0.00"
-            elif key == "ID_CREDITO" and isinstance(val, (int, float)):
+            elif key in ("ID_CREDITO", "ID_CLIENTE") and isinstance(val, (int, float)):
                 c.number_format = "#,##0"
 
     for ci, (key, _) in enumerate(COLUMNAS, 1):
@@ -920,11 +1169,12 @@ def main() -> None:
     os.makedirs(REPORTE_DIR, exist_ok=True)
     # Nombre: día de generación en CDMX, formato tipo 31-03-2026 (DD-MM-AAAA; sin / por rutas Windows).
     fecha_generacion_cdmx = datetime.now(TZ_CDMX).date()
-    nombre_excel = f"reporte_cobranza_{fecha_generacion_cdmx.strftime('%d-%m-%Y')}.xlsx"
+    sufijo = "_PRUEBA" if MODO_PRUEBA_EXCEL else ""
+    nombre_excel = f"reporte_cobranza_{fecha_generacion_cdmx.strftime('%d-%m-%Y')}{sufijo}.xlsx"
     ruta_excel = os.path.join(REPORTE_DIR, nombre_excel)
 
-    # Si el reporte de hoy ya fue generado, avisar y salir sin regenerar.
-    if os.path.isfile(ruta_excel):
+    # Si el reporte oficial de hoy ya fue generado, avisar y salir (no aplica en modo prueba: otro nombre de archivo).
+    if not MODO_PRUEBA_EXCEL and os.path.isfile(ruta_excel):
         aviso = (
             f"\n{'=' * 65}\n"
             f"  AVISO: El reporte del día ya existe\n"
@@ -938,6 +1188,16 @@ def main() -> None:
         print(aviso, flush=True)
         log.warning("Reporte del día ya existe: %s — proceso terminado sin regenerar.", ruta_excel)
         return
+
+    if MODO_PRUEBA_EXCEL:
+        log.warning(
+            "MODO PRUEBA EXCEL: salida %s (el reporte oficial del día no se comprueba ni se sobrescribe).",
+            nombre_excel,
+        )
+        print(
+            f"\n*** MODO PRUEBA EXCEL ***  Archivo: {nombre_excel}  (oficial del día intacto)\n",
+            flush=True,
+        )
 
     log.info("=" * 65)
     log.info(f"  Reloj CDMX (inicio) : {ahora_cdmx.isoformat()}")
@@ -1016,6 +1276,9 @@ def main() -> None:
                     row = ids_rows[idx]
                     res = {
                         "ID_CREDITO": row["id_credito"],
+                        "ID_CLIENTE": _id_cliente_desde_row(row),
+                        "MAXI_APP_ULTIMA_CDMX": "",
+                        "MAXI_APP_CONECTO": "No",
                         "NOMBRE_CLIENTE": "",
                         "STATUS_CREDITO": "",
                         "CUOTA_SEMANAL": 0.0,
@@ -1090,6 +1353,9 @@ def main() -> None:
                     row = ids_rows[idx]
                     nuevo = {
                         "ID_CREDITO": row["id_credito"],
+                        "ID_CLIENTE": _id_cliente_desde_row(row),
+                        "MAXI_APP_ULTIMA_CDMX": "",
+                        "MAXI_APP_CONECTO": "No",
                         "NOMBRE_CLIENTE": "",
                         "STATUS_CREDITO": "",
                         "CUOTA_SEMANAL": 0.0,
@@ -1130,32 +1396,84 @@ def main() -> None:
     )
 
     # PASO 3: Descargo incremental (estatus=3) + merge con el reporte
-    log.info("Consultando descargo incremental (estatus=3)...")
-    print("--- descargo incremental ---", flush=True)
-    rows_descargo = obtener_descargo_incremental()
-    if rows_descargo:
-        resultados = merge_descargo_en_reporte(resultados, rows_descargo)
-        ult = rows_descargo[-1]
-        _guardar_guia_descargo(
-            ultimo_id_credito=int(ult.get("id_credito", 0) or 0),
-            ultimo_id_tabla=int(ult.get("id", 0) or 0),
-            ultimo_registrado_en_cdmx=_dt_descargo_a_str(ult.get("registrado_en_cdmx")),
-        )
-        print(
-            f"Descargo: {len(rows_descargo)} fila(s) nueva(s) en esta corrida. "
-            "Guía actualizada.",
-            flush=True,
-        )
-        notificar_google_chat(
-            f"🔀 **Descargo estatus-3**: **{len(rows_descargo):,}** fila(s) nueva(s) fusionadas al reporte."
-        )
+    if SIN_DESCARGO:
+        log.info("Descargo: omitido (REPORTE_COBRANZA_SIN_DESCARGO=1). guia_descargo.json no se consulta ni se escribe.")
+        print("--- descargo incremental: OMITIDO (prueba SIN_DESCARGO) ---", flush=True)
+        notificar_google_chat("ℹ️ **Descargo estatus-3**: omitido (`REPORTE_COBRANZA_SIN_DESCARGO=1`).")
     else:
-        log.info("Descargo: sin filas nuevas en esta corrida. La guía no se actualiza.")
-        print(
-            "Descargo incremental: sin filas nuevas en esta corrida. La guía no se actualiza.",
-            flush=True,
+        log.info("Consultando descargo incremental (estatus=3)...")
+        print("--- descargo incremental ---", flush=True)
+        rows_descargo = obtener_descargo_incremental()
+        if rows_descargo:
+            resultados = merge_descargo_en_reporte(resultados, rows_descargo)
+            ult = rows_descargo[-1]
+            if NO_GUARDAR_GUIA_DESCARGO:
+                log.warning(
+                    "  guia_descargo.json NO actualizada (REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1). "
+                    "La próxima corrida volverá a ver el mismo checkpoint."
+                )
+                print(
+                    f"Descargo: {len(rows_descargo)} fila(s) fusionadas. "
+                    "Guía NO guardada (modo prueba).",
+                    flush=True,
+                )
+                notificar_google_chat(
+                    f"🔀 **Descargo estatus-3**: **{len(rows_descargo):,}** fila(s) fusionadas — "
+                    "**guía no guardada** (prueba)."
+                )
+            else:
+                _guardar_guia_descargo(
+                    ultimo_id_credito=int(ult.get("id_credito", 0) or 0),
+                    ultimo_id_tabla=int(ult.get("id", 0) or 0),
+                    ultimo_registrado_en_cdmx=_dt_descargo_a_str(ult.get("registrado_en_cdmx")),
+                )
+                print(
+                    f"Descargo: {len(rows_descargo)} fila(s) nueva(s) en esta corrida. "
+                    "Guía actualizada.",
+                    flush=True,
+                )
+                notificar_google_chat(
+                    f"🔀 **Descargo estatus-3**: **{len(rows_descargo):,}** fila(s) nueva(s) fusionadas al reporte."
+                )
+        else:
+            log.info("Descargo: sin filas nuevas en esta corrida. La guía no se actualiza.")
+            print(
+                "Descargo incremental: sin filas nuevas en esta corrida. La guía no se actualiza.",
+                flush=True,
+            )
+            notificar_google_chat("ℹ️ **Descargo estatus-3**: sin filas nuevas en esta corrida.")
+
+    fecha_ref_maxi_cdmx = datetime.now(TZ_CDMX).date()
+    log.info("  Maxi app: fecha referencia CDMX (ventana) = %s", fecha_ref_maxi_cdmx)
+    enriquecer_columnas_maxi_app(resultados, fecha_ref_maxi_cdmx)
+
+    antes_filtro_sf = len(resultados)
+    resultados = [
+        r for r in resultados if _float_reg(r, "SALDO_A_FAVOR") >= MIN_SALDO_FAVOR_EXCEL
+    ]
+    excluidos_sf_excel = antes_filtro_sf - len(resultados)
+    log.info(
+        "  Excluidos del Excel (SALDO_A_FAVOR < %.0f): %s",
+        MIN_SALDO_FAVOR_EXCEL,
+        f"{excluidos_sf_excel:,}",
+    )
+    if excluidos_sf_excel:
+        notificar_google_chat(
+            f"📎 **Filtro Excel**: omitidas **{excluidos_sf_excel:,}** fila(s) con saldo a favor del cliente < **{MIN_SALDO_FAVOR_EXCEL:.0f}** MXN."
         )
-        notificar_google_chat("ℹ️ **Descargo estatus-3**: sin filas nuevas en esta corrida.")
+
+    antes_filtro_cuota = len(resultados)
+    resultados = [r for r in resultados if not _fila_excel_excluida_cuota_siguiente_cubierta(r)]
+    excl_cuota_excel = antes_filtro_cuota - len(resultados)
+    log.info(
+        "  Excluidas del Excel (CUOTA SIGUIENTE CUBIERTA - NO APLICAR): %s",
+        f"{excl_cuota_excel:,}",
+    )
+    if excl_cuota_excel:
+        notificar_google_chat(
+            f"📎 **Filtro Excel**: omitidas **{excl_cuota_excel:,}** fila(s) con regla "
+            f"«{COMENTARIO_CUOTA_CUBIERTA}» (solo APLICAR y demás van al .xlsx)."
+        )
 
     # PASO 4: generar Excel unificado (siempre, aunque queden 0 registros)
     generar_excel(resultados, lunes, hoy, ruta_excel)

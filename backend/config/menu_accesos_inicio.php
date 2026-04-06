@@ -31,7 +31,8 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/departamentos/consulta/', 'label' => 'Departamentos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],
             ['url' => '/equivalencias/consulta', 'label' => 'Equivalencia puestos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [17]],
             ['url' => '/configticketpuesto/consulta', 'label' => 'Asignación por puestos', 'icon' => 'fa-solid fa-ticket', 'bg' => 'bg-blue', 'modulos' => [26]],
-            ['url' => '/segundometro/shell', 'label' => 'Shell Segundómetro', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [16]],
+            ['url' => '/segundometro/shell', 'label' => 'Shell Segundómetro', 'icon' => 'fa-solid fa-terminal', 'bg' => 'bg-secondary', 'modulos' => [16]],
+            ['url' => '/gastoscobranza/shell', 'label' => 'Shell Gastos Cobranza', 'icon' => 'fa-solid fa-terminal', 'bg' => 'bg-secondary', 'modulos' => [31]],
         ];
     }
 }

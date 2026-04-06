@@ -198,6 +198,12 @@ function getMenu()
                                     'url' => '/configticketpuesto/consulta',
                                     'modulos' => [26]
                             ],
+                    ]
+            ],
+            'Shell' => [
+                    /* fa-rectangle-terminal no viene en Font Awesome Free del vendor (solo Pro / no está en fontawesome.css) */
+                    'icono' => 'fa-solid fa-terminal',
+                    'subItems' => [
                             [
                                     'label' => 'Shell Segundómetro',
                                     'url' => '/segundometro/shell',
