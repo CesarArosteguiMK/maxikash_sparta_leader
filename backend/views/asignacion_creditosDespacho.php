@@ -556,10 +556,6 @@
                 <div class="mb-3">
                     <textarea id="comentarios-despacho" class="form-control" rows="3" placeholder="Notas internas..."></textarea>
                 </div>
-
-                <button class="btn btn-primary w-100" id="btn-guardar-comentarios">
-                    <i class="fa-solid fa-save me-1"></i>Guardar Comentarios
-                </button>
             </div>
         </div>
     </div>
@@ -676,10 +672,10 @@
                         <i class="fa-solid fa-users" style="color:white; font-size:14px;"></i>
                     </div>
                     <div>
-                        <div style="color:white; font-weight:500; font-size:15px; line-height:1.2;">
-                            Historial de Gestores y Convenios
+                        <div style="color:black; font-weight:500; font-size:15px; line-height:1.2;">
+                            Historial de Despachos y Convenios
                         </div>
-                        <div style="color:rgba(0, 0, 0, 0.04); font-size:12px;" id="hgc-credito-label">
+                        <div style="color:rgba(0,0,0,0.8); font-size:12px;" id="hgc-credito-label">
                             Crédito #—
                         </div>
                     </div>
@@ -710,7 +706,7 @@
                                        cursor:pointer; font-size:13px; font-weight:500; color:#697a8d;
                                        border-bottom:2px solid transparent; display:flex; align-items:center; gap:6px;">
                             <i class="fa-solid fa-clock-rotate-left" style="font-size:12px;"></i>
-                            Historial de Gestores
+                            Historial de Despachos
                             <span id="hgc-badge-historial"
                                   style="background:#696cff; color:white; font-size:10px;
                                          padding:2px 7px; border-radius:10px; font-weight:500;">0</span>
@@ -862,9 +858,25 @@
                 <!-- -------------------------------------------------- -->
                 <div id="hgc-panel-historial" style="display:none;">
 
-                    <p class="text-muted mb-3" style="font-size:12px;">
-                        Todos los gestores que han tenido asignado este crédito, del más reciente al más antiguo.
-                    </p>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <p class="text-muted mb-0" style="font-size:12px;" id="hgc-historial-desc">
+                            Todos los gestores que han tenido asignado este crédito.
+                        </p>
+                        <div style="display:flex; gap:6px; flex-shrink:0;">
+                            <button id="hgc-sort-desc" onclick="hgcSetSort('desc')" title="Más reciente primero"
+                                style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:20px;
+                                       border:1.5px solid #696cff; background:#696cff; color:white;
+                                       cursor:pointer; transition:all .2s;">
+                                <i class="fa-solid fa-arrow-down-wide-short me-1"></i>Reciente
+                            </button>
+                            <button id="hgc-sort-asc" onclick="hgcSetSort('asc')" title="Más antiguo primero"
+                                style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:20px;
+                                       border:1.5px solid #d9dee3; background:white; color:#697a8d;
+                                       cursor:pointer; transition:all .2s;">
+                                <i class="fa-solid fa-arrow-up-wide-short me-1"></i>Antiguo
+                            </button>
+                        </div>
+                    </div>
 
                     <!-- Timeline -->
                     <div id="hgc-timeline" style="position:relative;">
@@ -1330,7 +1342,13 @@ document.querySelectorAll('input[name="id_celula"]').forEach(radio => {
         buscarCredito();
     });
 
-    document.getElementById('btn-guardar-comentarios').addEventListener('click', guardarComentarios);
+    // Auto-guardar comentario al dejar de escribir (debounce 800ms)
+    let _comentarioTimer = null;
+    document.getElementById('comentarios-despacho').addEventListener('input', function() {
+        clearTimeout(_comentarioTimer);
+        _comentarioTimer = setTimeout(guardarComentarios, 800);
+    });
+
     document.getElementById('btn-exportar-excel').addEventListener('click', exportarExcel);
 
     document.getElementById('btn-importar-excel').addEventListener('click', prepararModalImportacionExcel);
@@ -1539,7 +1557,7 @@ function buscarCredito() {
             // Limpiar campo de búsqueda
             document.getElementById('idCredito').value = '';
         } else {
-            Swal.fire('No encontrado', 'No se encontró el crédito', 'info');
+            Swal.fire('No encontrado', `${idCredito} CREDITO NO EXISTENTE`, 'warning');
         }
     })
     .catch(error => {
@@ -1610,7 +1628,7 @@ function agregarCreditoAlStack(credito, asignacion) {
                 <div class="flex-grow-1" style="font-size: 0.875rem;">
                     <div class="d-flex align-items-center mb-1 flex-wrap gap-2">
     <strong class="me-2">ID CREDITO ${credito.id_credito}</strong>
-    <span class="badge bg-warning">${credito.dias_mora || 0} días</span>
+    <span class="badge bg-warning">${credito.Bucket_Morosidad_Real || '-'}</span>
     ${esActivo ? `<span class="badge" style="background:#1a7abf; color:#ffffff; font-weight:500;">
     <i class="fa-solid fa-user-tie me-1" style="font-size:0.7rem;"></i>Asignado a ${asignacion.nombre_despacho}
 </span>` : ''}
@@ -1632,6 +1650,10 @@ ${esActivo ? `
         style="background:linear-gradient(135deg,#fd7e14 0%,#ffc107 100%); border:none; color:white;">
     <i class="fa-solid fa-link-slash me-1"></i>Desasignar
 </button>` : ''}
+<button class="btn btn-sm" onclick="abrirModalHistorial('${credito.id_credito}')" title="Ver historial de gestores y convenios"
+        style="background:linear-gradient(135deg,#1a7abf 0%,#4dabf7 100%); border:none; color:white;">
+    <i class="fa-solid fa-clock-rotate-left me-1"></i>Historial
+</button>
 <button class="btn btn-gradient-danger btn-sm" onclick="descartarCredito('${credito.id_credito}')" title="Descartar">
     <i class="fa-solid fa-times me-1"></i>Descartar
 </button>
@@ -1836,7 +1858,7 @@ function asignarCreditoDelStack(idCredito) {
     const tipoGestion = idCelula === 1 ? 'Despacho' : 'Gestión Call Center';
 
     Swal.fire({
-        title: '¿Confirmar asignación?',
+        title: 'Asignar crédito',
         text: `¿Desea asignar el crédito ${creditoEncontrado.id_credito} al ${tipoGestion} seleccionado?`,
         icon: 'question',
         showCancelButton: true,
@@ -2054,34 +2076,21 @@ function cambiarEstatusCredito(idCredito, nuevoEstatus, switchElement) {
 
 // Función para guardar comentarios
 function guardarComentarios() {
-    if (!despachoSeleccionado) {
-        Swal.fire('Advertencia', 'Seleccione un despacho primero', 'warning');
-        return;
-    }
+    if (!despachoSeleccionado) return;
 
     const comentarios = document.getElementById('comentarios-despacho').value;
 
     fetch('/despachos/guardarComentarios', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             id_despacho: despachoSeleccionado,
             comentarios: comentarios
         })
     })
     .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire('Éxito', 'Comentarios guardados correctamente', 'success');
-        } else {
-            Swal.fire('Error', 'No se pudieron guardar los comentarios', 'error');
-        }
-    })
     .catch(error => {
-        console.error('Error al guardar comentarios:', error);
-        Swal.fire('Error', 'Error al guardar los comentarios', 'error');
+        console.error('Error al guardar comentario:', error);
     });
 }
 
@@ -3126,7 +3135,7 @@ async function abrirModalHistorial(idCredito) {
 
     try {
         // Llamadas paralelas: datos del crédito + historial completo de asignaciones
-        const [resCreditoProm, resHistorialProm] = await Promise.allSettled([
+        const [resCreditoProm, resHistorialProm, resConveniosProm] = await Promise.allSettled([
             fetch('/despachos/buscarCredito', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -3137,11 +3146,18 @@ async function abrirModalHistorial(idCredito) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id_credito: idCredito })
+            }).then(r => r.json()),
+
+            fetch('/despachos/obtenerConveniosCredito', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_credito: idCredito })
             }).then(r => r.json())
         ]);
 
-        const dataCredito   = resCreditoProm.status   === 'fulfilled' ? resCreditoProm.value   : null;
-        const dataHistorial = resHistorialProm.status === 'fulfilled' ? resHistorialProm.value : null;
+        const dataCredito   = resCreditoProm.status    === 'fulfilled' ? resCreditoProm.value    : null;
+        const dataHistorial = resHistorialProm.status  === 'fulfilled' ? resHistorialProm.value  : null;
+        const dataConvenios = resConveniosProm.status  === 'fulfilled' ? resConveniosProm.value  : null;
 
         // Poblar datos generales
         if (dataCredito && dataCredito.success) {
@@ -3155,12 +3171,12 @@ async function abrirModalHistorial(idCredito) {
             hgcPoblarHistorial([]);
         }
 
-        // Convenios — cuando tengas el endpoint listo, descomentar:
-        // const resConvenios = await fetch('/despachos/obtenerConveniosCredito', { ... });
-        // hgcPoblarConvenios(resConvenios.convenios);
-
-        // Por ahora convenios vacíos
-        hgcPoblarConvenios([]);
+        // Poblar convenios
+        if (dataConvenios && dataConvenios.success) {
+            hgcPoblarConvenios(dataConvenios.convenios);
+        } else {
+            hgcPoblarConvenios([]);
+        }
 
     } catch (error) {
         console.error('Error al cargar datos del modal:', error);
@@ -3216,28 +3232,58 @@ function hgcPoblarDatosGenerales(credito, asignacion) {
     }
 }
 
+// Almacena el historial en memoria para reordenar sin re-fetch
+let _hgcHistorialData = [];
+let _hgcSortDir = 'desc'; // 'desc' = reciente primero, 'asc' = antiguo primero
+
 /**
- * Poblar Panel 2: Historial de Gestores (timeline)
+ * Cambia el orden y re-renderiza el timeline en tiempo real
  */
-function hgcPoblarHistorial(historial) {
+function hgcSetSort(dir) {
+    _hgcSortDir = dir;
+
+    // Estilos activo / inactivo de los botones
+    const btnDesc = document.getElementById('hgc-sort-desc');
+    const btnAsc  = document.getElementById('hgc-sort-asc');
+    if (dir === 'desc') {
+        btnDesc.style.background   = '#696cff';
+        btnDesc.style.color        = 'white';
+        btnDesc.style.borderColor  = '#696cff';
+        btnAsc.style.background    = 'white';
+        btnAsc.style.color         = '#697a8d';
+        btnAsc.style.borderColor   = '#d9dee3';
+    } else {
+        btnAsc.style.background    = '#696cff';
+        btnAsc.style.color         = 'white';
+        btnAsc.style.borderColor   = '#696cff';
+        btnDesc.style.background   = 'white';
+        btnDesc.style.color        = '#697a8d';
+        btnDesc.style.borderColor  = '#d9dee3';
+    }
+
+    hgcRenderTimeline();
+}
+
+/**
+ * Renderiza el timeline con el orden actual (_hgcSortDir)
+ */
+function hgcRenderTimeline() {
     const timeline = document.getElementById('hgc-timeline');
     const vacio    = document.getElementById('hgc-historial-vacio');
-    const badge    = document.getElementById('hgc-badge-historial');
 
-    badge.textContent = historial.length;
-
-    // Actualizar métrica de gestores en panel 1
-    document.getElementById('hgc-total-gestores').textContent = historial.length;
-
-    if (!historial.length) {
-        timeline.innerHTML    = '';
-        vacio.style.display   = 'block';
+    if (!_hgcHistorialData.length) {
+        timeline.innerHTML  = '';
+        vacio.style.display = 'block';
         return;
     }
 
     vacio.style.display = 'none';
 
-    timeline.innerHTML = historial.map((item, idx) => {
+    const ordenado = _hgcSortDir === 'asc'
+        ? [..._hgcHistorialData].reverse()
+        : [..._hgcHistorialData];
+
+    timeline.innerHTML = ordenado.map((item) => {
         const esActual   = item.estatus === '1' || item.estatus === 1;
         const iniciales  = hgcInitiales(item.nombre_despacho);
         const badgeHtml  = esActual
@@ -3278,6 +3324,21 @@ function hgcPoblarHistorial(historial) {
             </div>
         </div>`;
     }).join('');
+}
+
+/**
+ * Poblar Panel 2: Historial de Gestores (timeline)
+ */
+function hgcPoblarHistorial(historial) {
+    const badge = document.getElementById('hgc-badge-historial');
+
+    // Guardar en memoria y resetear orden a 'desc' al cargar nuevo crédito
+    _hgcHistorialData = historial;
+    _hgcSortDir = 'desc';
+    hgcSetSort('desc'); // resetea botones y renderiza
+
+    badge.textContent = historial.length;
+    document.getElementById('hgc-total-gestores').textContent = historial.length;
 }
 
 /**
@@ -3377,6 +3438,8 @@ function hgcLimpiarModal() {
     document.getElementById('hgc-sin-gestor').style.display         = 'none';
     document.getElementById('hgc-historial-vacio').style.display    = 'none';
     document.getElementById('hgc-convenios-vacio').style.display    = 'none';
+    _hgcHistorialData = [];
+    _hgcSortDir = 'desc';
 }
 
 // ── Inicializar event listeners de tabs ──────────────────────
