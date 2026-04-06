@@ -3437,7 +3437,7 @@ function hgcRenderConvenios() {
         const pagados    = conv.pagos_realizados   || 0;
         const total      = conv.total_parcialidades || 1;
         const porcentaje = Math.round((pagados / total) * 100);
-        const num        = String(idx + 1).padStart(3, '0');
+        const num        = String(conv._convNum).padStart(3, '0');
 
         return `
         <div class="card mb-3" style="border:0.5px solid #e0e0e0;">
@@ -3464,7 +3464,7 @@ function hgcRenderConvenios() {
                         <div style="font-weight:500; margin-top:2px;">${conv.total_parcialidades || 0} pagos</div>
                     </div>
                     <div class="col-4">
-                        <div style="color:#697a8d;">Pago mensual</div>
+                        <div style="color:#697a8d;">Pago semanal</div>
                         <div style="font-weight:500; margin-top:2px;">
                             ${new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(conv.monto_parcialidad||0)}
                         </div>
@@ -3535,7 +3535,7 @@ function hgcPoblarConvenios(convenios) {
     const badge = document.getElementById('hgc-badge-convenios');
     badge.textContent = convenios.length;
 
-    _hgcConveniosData = convenios;
+    _hgcConveniosData = convenios.map((c, i) => ({ ...c, _convNum: i + 1 }));
     _hgcConvSortDir   = 'desc';
     _hgcConvFiltro    = 'todos';
     hgcSetFiltroConv('todos'); // resetea filtros → resetea sort buttons → renderiza
