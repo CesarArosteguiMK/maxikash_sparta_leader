@@ -1,4 +1,4 @@
-<style>
+﻿<style>
 /* ══════════════════════════════════════════
    CONVENIOS — ESTILOS GLOBALES
 ══════════════════════════════════════════ */
@@ -552,6 +552,11 @@ body.dark-mode #migTotalBase,
 body.dark-mode #migTotalFinal {
     background: #0f172a !important;
     color: #c084fc !important;
+}
+
+/* Loader de SweetAlert2 — siempre amarillo ► eliminar azul */
+.swal2-loader {
+    border-color: #f59e0b transparent #f59e0b transparent !important;
 }
 
 </style>
@@ -1187,15 +1192,6 @@ function seleccionarCredito(idCredito) {
 
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
-
-    Swal.fire({
-        title: 'Consultando crédito...',
-        text: 'Obteniendo información y ofertas disponibles...',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: function () { Swal.showLoading(); }
-    });
 
     // Llamada 1: ofertas
     http.request({
@@ -3330,7 +3326,7 @@ function migGenerarPreamort(filas) {
     var badgeTipo = function (tipo) {
         if (tipo === 'globo') {
             return '<span style="background:#764ba2;color:#fff;font-size:0.68rem;' +
-                'padding:2px 8px;border-radius:12px;font-weight:600;">Globo</span>';
+                'padding:2px 8px;border-radius:12px;font-weight:600;">Cierre</span>';
         }
         if (tipo === 'unico') {
             return '<span style="background:#2563eb;color:#fff;font-size:0.68rem;' +
@@ -3436,7 +3432,7 @@ window.migCalcular = function () {
             return;
         }
         if (pagoFinal <= 0) {
-            mostrarErrorGlobo('El pago final (globo) debe ser mayor a $0.00.');
+            mostrarErrorGlobo('El pago final debe ser mayor a $0.00.');
             return;
         }
         var totalCalculado = Math.round((pagoInicial + semanal * (semanas - 1) + pagoFinal) * 100) / 100;
@@ -3483,7 +3479,7 @@ window.migCalcular = function () {
     '<div class=\"fw-bold text-success\">' + fmt(semanal) + '</div>' +
     '</div></div>' +
     '<div class=\"col-6 col-md-3\"><div class=\"border rounded p-2\">' +
-    '<div class=\"small text-muted\">Pago Final (globo)</div>' +
+    '<div class=\"small text-muted\">Pago Final</div>' +
     '<div class=\"fw-bold text-warning\">' + fmt(pagoFinal) + '</div>' +
     '</div></div>';
         }
