@@ -7,12 +7,30 @@ use Models\Convenios as ConveniosDAO;
 
 class Convenios extends Controller
 {
+    /** Módulo web 32 — Permisos especiales: Registrar convenio existente */
+    private const MODULO_REGISTRAR_CONVENIO_EXISTENTE = 32;
+
+    private function usuarioTienePermisoRegistrarConvenioExistente(): bool
+    {
+        $mods = $_SESSION['modulos'] ?? [];
+        if (!is_array($mods)) {
+            return false;
+        }
+        foreach ($mods as $m) {
+            if ((int) $m === self::MODULO_REGISTRAR_CONVENIO_EXISTENTE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ─────────────────────────────────────────────
     // VISTA PRINCIPAL
     // ─────────────────────────────────────────────
 
     public function consulta()
     {
+        $this->set('permisoRegistrarConvenioExistente', $this->usuarioTienePermisoRegistrarConvenioExistente());
         $this->render('convenios_consulta');
     }
 
@@ -139,6 +157,11 @@ class Convenios extends Controller
 
     public function validarDespacho()
     {
+        if (!$this->usuarioTienePermisoRegistrarConvenioExistente()) {
+            self::respuestaJSON(self::respuesta(false, 'No tienes permiso para registrar convenios existentes.'));
+            return;
+        }
+
         $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
 
         if ($idCredito <= 0) {
@@ -156,6 +179,11 @@ class Convenios extends Controller
 
     public function migrarConvenio()
     {
+        if (!$this->usuarioTienePermisoRegistrarConvenioExistente()) {
+            self::respuestaJSON(self::respuesta(false, 'No tienes permiso para registrar convenios existentes.'));
+            return;
+        }
+
         $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
 
         if ($idCredito <= 0) {
@@ -495,6 +523,11 @@ class Convenios extends Controller
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         http_response_code(405);
         echo json_encode(['success' => false, 'mensaje' => 'Método no permitido.']);
+        return;
+    }
+
+    if (!$this->usuarioTienePermisoRegistrarConvenioExistente()) {
+        self::respuestaJSON(self::respuesta(false, 'No tienes permiso para registrar convenios existentes.'));
         return;
     }
 
