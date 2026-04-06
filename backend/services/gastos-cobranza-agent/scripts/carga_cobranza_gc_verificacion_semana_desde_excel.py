@@ -12,7 +12,7 @@ usa descargo_cobranza_gc_estatus3.py
 Ubicación en el repo: backend/services/gastos-cobranza-agent/scripts/
 Invocado por el agente Node: POST /carga-verificacion-semana/run (Excel en reporte/ec-uploads).
 
-Todo en este archivo (sin módulos auxiliares). Dependencias:
+Todo en este archivo (sin módulos auxiliares). Lectura Excel con openpyxl (mismo stack que reporte_cobranza / descargo estatus 3). Dependencias:
   pip install -r scripts/requirements.txt
 
 Ejemplo:
@@ -22,16 +22,17 @@ Ejemplo:
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import re
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 
 import mysql.connector
-import pandas as pd
+from openpyxl import load_workbook
 
 _MEGA_PHP_DEFAULTS: dict = {
     "host": "__SPARTA_HOST_REDACTED__",
@@ -181,9 +182,75 @@ def normalize_header(s: str) -> str:
     return s
 
 
-def find_id_credito_column_name(df: pd.DataFrame) -> Optional[str]:
+def is_missing_val(v: Any) -> bool:
+    if v is None:
+        return True
+    if isinstance(v, float) and math.isnan(v):
+        return True
+    return False
+
+
+def resolve_worksheet(wb, sheet) -> Any:
+    if isinstance(sheet, str) and not str(sheet).isdigit():
+        return wb[str(sheet)]
+    idx = int(sheet)
+    if idx < 0 or idx >= len(wb.worksheets):
+        raise ValueError(f"Índice de hoja inválido: {sheet!r}")
+    return wb.worksheets[idx]
+
+
+def read_sheet_preview_rows(excel_path: Path, sheet, max_scan: int) -> List[Tuple[Any, ...]]:
+    wb = load_workbook(excel_path, read_only=True, data_only=True)
+    try:
+        ws = resolve_worksheet(wb, sheet)
+        out: List[Tuple[Any, ...]] = []
+        for row in ws.iter_rows(min_row=1, max_row=max_scan, values_only=True):
+            out.append(tuple(row))
+        return out
+    finally:
+        wb.close()
+
+
+def uniquify_column_names(header_vals: Sequence[Any]) -> List[str]:
+    seen: Dict[str, int] = {}
+    columns: List[str] = []
+    for i, v in enumerate(header_vals):
+        raw = "" if is_missing_val(v) else str(v).strip()
+        base = raw if raw else f"Unnamed: {i}"
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        columns.append(base if n == 0 else f"{base}.{n}")
+    return columns
+
+
+def read_rows_openpyxl(
+    excel_path: Path, sheet, header_row_0: int
+) -> Tuple[List[str], List[Dict[str, Any]]]:
+    """header_row_0: índice 0-based de la fila de encabezados (fila 2 en Excel → 1)."""
+    wb = load_workbook(excel_path, read_only=True, data_only=True)
+    try:
+        ws = resolve_worksheet(wb, sheet)
+        hr1 = header_row_0 + 1
+        it = ws.iter_rows(min_row=hr1, max_row=hr1, values_only=True)
+        header_row = next(it, None)
+        if header_row is None:
+            return [], []
+        columns = uniquify_column_names(header_row)
+        data: List[Dict[str, Any]] = []
+        for row in ws.iter_rows(min_row=hr1 + 1, values_only=True):
+            tup = tuple(row)
+            d: Dict[str, Any] = {}
+            for j, c in enumerate(columns):
+                d[c] = tup[j] if j < len(tup) else None
+            data.append(d)
+        return columns, data
+    finally:
+        wb.close()
+
+
+def find_id_credito_column_name(columns: Sequence[str]) -> Optional[str]:
     candidates = {}
-    for c in df.columns:
+    for c in columns:
         n = normalize_header(c)
         candidates[n] = c
 
@@ -191,42 +258,41 @@ def find_id_credito_column_name(df: pd.DataFrame) -> Optional[str]:
         if key in candidates:
             return candidates[key]
 
-    for c in df.columns:
+    for c in columns:
         n = normalize_header(c)
         if "id" in n and "credito" in n.replace("crédito", "credito"):
             return c
     return None
 
 
-def find_id_credito_column(df: pd.DataFrame) -> str:
-    col = find_id_credito_column_name(df)
+def find_id_credito_column(columns: Sequence[str]) -> str:
+    col = find_id_credito_column_name(columns)
     if col is None:
         print(
             "No se encontró columna de id_credito. Encabezados: "
-            + ", ".join(repr(c) for c in df.columns),
+            + ", ".join(repr(c) for c in columns),
             file=sys.stderr,
         )
         sys.exit(2)
     return col
 
 
-def dataframe_headers_mostly_unnamed(df: pd.DataFrame) -> bool:
-    if df is None or len(df.columns) == 0:
+def headers_mostly_unnamed(columns: Sequence[str]) -> bool:
+    if not columns:
         return True
-    unnamed = sum(1 for c in df.columns if str(c).startswith("Unnamed"))
-    return unnamed >= max(1, len(df.columns) - 1)
+    unnamed = sum(1 for c in columns if str(c).startswith("Unnamed"))
+    return unnamed >= max(1, len(columns) - 1)
 
 
-def _fila_parece_encabezado_id_credito(row) -> int:
+def _fila_parece_encabezado_id_credito(values: Sequence[Any]) -> int:
     """
-    Puntuación de una fila leída con header=None: ¿parece la fila de títulos con ID crédito?
+    Puntuación de una fila sin encabezado: ¿parece la fila de títulos con ID crédito?
     100 = coincidencia fuerte; 80 = contiene id y credito en la misma celda.
     """
     best = 0
     non_empty = 0
-    for j in range(row.shape[0]):
-        v = row.iloc[j]
-        if pd.isna(v):
+    for v in values:
+        if is_missing_val(v):
             continue
         non_empty += 1
         try:
@@ -249,24 +315,18 @@ def sniff_header_row_candidates(
     max_scan: int = 45,
 ) -> List[int]:
     """
-    Filas (índice 0-based para pandas header=) donde una celda parece el título «ID CREDITO».
-    Prioriza reporte_cobranza.xlsx (título fusionado fila 1, encabezados fila 2 → header=1).
+    Filas (índice 0-based, misma convención que --header-row) donde una celda parece «ID CREDITO».
+    Prioriza reporte_cobranza.xlsx (título fila 1, encabezados fila 2 → header-row=1).
     """
     try:
-        raw = pd.read_excel(
-            excel_path,
-            sheet_name=sheet,
-            header=None,
-            nrows=max_scan,
-            engine="openpyxl",
-        )
+        raw = read_sheet_preview_rows(excel_path, sheet, max_scan)
     except Exception:
         return []
-    if raw is None or len(raw) == 0:
+    if not raw:
         return []
     scored: List[Tuple[int, int]] = []
-    for r in range(len(raw)):
-        sc = _fila_parece_encabezado_id_credito(raw.iloc[r])
+    for r, rowvals in enumerate(raw):
+        sc = _fila_parece_encabezado_id_credito(rowvals)
         if sc > 0:
             scored.append((sc, r))
     scored.sort(key=lambda t: (-t[0], t[1]))
@@ -285,11 +345,12 @@ def read_excel_for_carga(
     preferred_header_row: int,
     *,
     max_scan: int = 40,
-) -> Tuple[pd.DataFrame, int]:
+) -> Tuple[List[str], List[Dict[str, Any]], int]:
     """
-    Lee el .xlsx probando fila de encabezados (pandas 0-based).
-    Muchos reportes traen título en fila 1 y nombres de columna en fila 2 → header=1.
+    Lee el .xlsx probando fila de encabezados (índice 0-based).
+    Muchos reportes traen título en fila 1 y nombres de columna en fila 2 → --header-row 1.
     Primero se prueban filas detectadas automáticamente (celda tipo ID CREDITO).
+    Devuelve (nombres_columna, filas_como_dict, fila_encabezado_0based).
     """
     sniffed = sniff_header_row_candidates(excel_path, sheet, max_scan=max_scan)
     order: List[int] = []
@@ -298,34 +359,29 @@ def read_excel_for_carga(
             continue
         order.append(x)
 
-    last_cols: Optional[List] = None
+    last_cols: Optional[List[str]] = None
     last_mostly_unnamed = False
     for hr in order:
         try:
-            df = pd.read_excel(
-                excel_path,
-                sheet_name=sheet,
-                header=hr,
-                engine="openpyxl",
-            )
+            cols, data = read_rows_openpyxl(excel_path, sheet, hr)
         except Exception as e:
-            print(f"Aviso: no se pudo leer con header={hr}: {e}", file=sys.stderr)
+            print(f"Aviso: no se pudo leer con fila de encabezado índice {hr}: {e}", file=sys.stderr)
             continue
-        if df is None or len(df.columns) == 0:
+        if not cols:
             continue
-        last_cols = list(df.columns)
-        last_mostly_unnamed = dataframe_headers_mostly_unnamed(df)
+        last_cols = list(cols)
+        last_mostly_unnamed = headers_mostly_unnamed(cols)
         if last_mostly_unnamed:
             continue
-        if find_id_credito_column_name(df) is None:
+        if find_id_credito_column_name(cols) is None:
             continue
         if hr != preferred_header_row:
             print(
                 f"Nota: encabezados útiles en fila Excel {hr + 1} "
-                f"(pandas header={hr}); la preferida era fila {preferred_header_row + 1}.",
+                f"(índice --header-row={hr}); la preferida era fila {preferred_header_row + 1}.",
                 flush=True,
             )
-        return df, hr
+        return cols, data, hr
 
     if last_mostly_unnamed and last_cols is not None:
         print(
@@ -345,9 +401,9 @@ def read_excel_for_carga(
     sys.exit(2)
 
 
-def find_monto_aplicar_column(df: pd.DataFrame) -> Optional[str]:
+def find_monto_aplicar_column(columns: Sequence[str]) -> Optional[str]:
     """Encabezado típico del reporte: SALDO APLICABLE A GC → monto_aplicar en BD."""
-    candidates = {normalize_header(c): c for c in df.columns}
+    candidates = {normalize_header(c): c for c in columns}
     for key in (
         "saldo_aplicable_a_gc",
         "saldo_aplicable_gc",
@@ -355,7 +411,7 @@ def find_monto_aplicar_column(df: pd.DataFrame) -> Optional[str]:
     ):
         if key in candidates:
             return candidates[key]
-    for c in df.columns:
+    for c in columns:
         n = normalize_header(c)
         if "saldo" in n and "aplicable" in n:
             return c
@@ -363,7 +419,7 @@ def find_monto_aplicar_column(df: pd.DataFrame) -> Optional[str]:
 
 
 def parse_monto_aplicar(val) -> Optional[float]:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
+    if is_missing_val(val):
         return None
     if isinstance(val, bool):
         return None
@@ -392,13 +448,13 @@ def parse_monto_aplicar(val) -> Optional[float]:
         return None
 
 
-def find_comentarios_column(df: pd.DataFrame) -> Optional[str]:
+def find_comentarios_column(columns: Sequence[str]) -> Optional[str]:
     """Encabezado COMENTARIOS del reporte → columna `celula` en BD (texto)."""
-    candidates = {normalize_header(c): c for c in df.columns}
+    candidates = {normalize_header(c): c for c in columns}
     for key in ("comentarios",):
         if key in candidates:
             return candidates[key]
-    for c in df.columns:
+    for c in columns:
         n = normalize_header(c)
         if "comentario" in n:
             return c
@@ -406,7 +462,7 @@ def find_comentarios_column(df: pd.DataFrame) -> Optional[str]:
 
 
 def comentarios_para_celula(val) -> Optional[str]:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
+    if is_missing_val(val):
         return None
     s = str(val).strip()
     if not s:
@@ -418,19 +474,16 @@ def comentarios_para_celula(val) -> Optional[str]:
     return s
 
 
-def celula_desde_fila_comentarios(row, col_comentarios: Optional[str]) -> Optional[str]:
+def celula_desde_fila_comentarios(row: Dict[str, Any], col_comentarios: Optional[str]) -> Optional[str]:
     """Si no hay columna COMENTARIOS o falla la lectura, devuelve None (celula NULL en BD)."""
     if col_comentarios is None:
         return None
-    try:
-        raw = row[col_comentarios]
-    except (KeyError, TypeError):
-        return None
+    raw = row.get(col_comentarios)
     return comentarios_para_celula(raw)
 
 
-def find_nombre_cliente_column(df: pd.DataFrame) -> Optional[str]:
-    candidates = {normalize_header(c): c for c in df.columns}
+def find_nombre_cliente_column(columns: Sequence[str]) -> Optional[str]:
+    candidates = {normalize_header(c): c for c in columns}
     for key in (
         "nombre_cliente",
         "nombre_del_cliente",
@@ -439,7 +492,7 @@ def find_nombre_cliente_column(df: pd.DataFrame) -> Optional[str]:
     ):
         if key in candidates:
             return candidates[key]
-    for c in df.columns:
+    for c in columns:
         n = normalize_header(c)
         if "nombre" in n and "cliente" in n:
             return c
@@ -447,7 +500,7 @@ def find_nombre_cliente_column(df: pd.DataFrame) -> Optional[str]:
 
 
 def nombre_desde_celda(val) -> str:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
+    if is_missing_val(val):
         return "—"
     s = str(val).strip()
     if not s:
@@ -459,7 +512,7 @@ def nombre_desde_celda(val) -> str:
 
 
 def parse_id_credito(val) -> Optional[int]:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
+    if is_missing_val(val):
         return None
     if isinstance(val, str):
         v = val.strip()
@@ -545,7 +598,7 @@ def main() -> None:
         type=int,
         default=0,
         metavar="N",
-        help="Fila de encabezados en índice pandas (0=primera fila del libro). "
+        help="Fila de encabezados: índice 0-based (0=primera fila del libro). "
         "Por defecto también se detecta la fila que contiene «ID CREDITO». "
         "Reporte reporte_cobranza_*.xlsx: encabezados en fila 2 del Excel → N=1.",
     )
@@ -707,16 +760,16 @@ def main() -> None:
             print(f"No existe el Excel: {excel_path}", file=sys.stderr)
             sys.exit(2)
 
-        df, _header_usado = read_excel_for_carga(
+        columnas, filas, _header_usado = read_excel_for_carga(
             excel_path,
             args.sheet,
             int(args.header_row),
         )
 
-        col_id = find_id_credito_column(df)
-        col_nom = None if args.ignorar_nombre_excel else find_nombre_cliente_column(df)
-        col_monto = find_monto_aplicar_column(df)
-        col_comentarios = find_comentarios_column(df)
+        col_id = find_id_credito_column(columnas)
+        col_nom = None if args.ignorar_nombre_excel else find_nombre_cliente_column(columnas)
+        col_monto = find_monto_aplicar_column(columnas)
+        col_comentarios = find_comentarios_column(columnas)
         nombre_fijo = (args.nombre_lote or "").strip()
         if nombre_fijo:
             if len(nombre_fijo) > 255:
@@ -741,21 +794,21 @@ def main() -> None:
                 "(insert y update 3->2)."
             )
 
-        filas_hoja = len(df)
+        filas_hoja = len(filas)
         filas_sin_id = 0
         registros: List[Tuple[int, str, Optional[float], Optional[str]]] = []
-        for _, row in df.iterrows():
-            i = parse_id_credito(row[col_id])
+        for row in filas:
+            i = parse_id_credito(row.get(col_id))
             if i is None or i <= 0:
                 filas_sin_id += 1
                 continue
             if nombre_fijo:
                 nm = nombre_fijo
             elif col_nom is not None:
-                nm = nombre_desde_celda(row[col_nom])
+                nm = nombre_desde_celda(row.get(col_nom))
             else:
                 nm = "—"
-            mo = parse_monto_aplicar(row[col_monto]) if col_monto is not None else None
+            mo = parse_monto_aplicar(row.get(col_monto)) if col_monto is not None else None
             ct = celula_desde_fila_comentarios(row, col_comentarios)
             registros.append((i, nm, mo, ct))
 

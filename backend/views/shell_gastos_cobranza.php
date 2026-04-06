@@ -33,7 +33,7 @@
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-xl-8">
+        <div class="col-12">
             <div class="card shadow-sm border-0 h-100 gc-card-accent-ec-worker">
                 <div class="card-body">
                     <h5 class="card-title"><i class="fa fa-rocket gc-ec-worker-title-icon me-2" aria-hidden="true"></i>EC Worker / Excel enriquecido</h5>
@@ -78,28 +78,6 @@
                     <div id="ecLauncherSalidaWrap" class="d-none mt-3">
                         <label class="form-label small fw-semibold">Salida EC worker / enrich</label>
                         <pre id="ecLauncherSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-4">
-            <div class="card shadow-sm border-0 h-100 gc-card-accent-descargo">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fa fa-file-export text-info me-2"></i>Descargo cobranza GC (estatus 3)</h5>
-                    <p class="small text-muted mb-3">
-                        Lee <code>cobranza_gc_verificacion_semana</code> con <code>estatus = 3</code>.
-                    </p>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="chkDescargoSinActualizarGuia" autocomplete="off">
-                        <label class="form-check-label small" for="chkDescargoSinActualizarGuia">Solo prueba: generar Excel pero <strong>no</strong> escribir <code>guia_descargo.json</code> (déjalo desmarcado para corrida real)</label>
-                    </div>
-                    <div class="d-grid d-sm-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-sm btn-primary" id="btnDescargoEstatus3" disabled>
-                            <i class="fa fa-download me-1"></i>Descargar
-                        </button>
-                        <span id="descargoEstatus3Spinner" class="text-primary d-none" role="status" aria-live="polite" aria-label="Descargando">
-                            <i class="fa fa-spinner fa-spin fa-lg" aria-hidden="true"></i>
-                        </span>
                     </div>
                 </div>
             </div>
@@ -156,14 +134,42 @@
                             </div>
                             <div class="col-12">
                                 <button type="button" class="btn btn-secondary btn-sm" id="btnCargaVerifEjecutar" disabled>
-                                    <i class="fa fa-upload me-1"></i>Subir Excel y cargar vía agente
+                                    <i class="fa fa-cogs me-1"></i>Cargar lista negra vía agente
                                 </button>
-                                <span class="small text-muted ms-2">Python: <code>pandas</code>, <code>mysql-connector-python</code> en el agente.</span>
+                                <span class="small text-muted ms-2">Python en el agente: <code>openpyxl</code>, <code>mysql-connector-python</code>.</span>
                             </div>
                         </div>
                         <div id="cargaVerifSalidaWrap" class="d-none mt-3">
                             <label class="form-label small fw-semibold">Salida carga verificación</label>
                             <pre id="cargaVerifSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body py-3 border-top bg-label-secondary bg-opacity-10">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="chkMostrarDescargoEstatus3" autocomplete="off">
+                        <label class="form-check-label small" for="chkMostrarDescargoEstatus3">
+                            <strong>Descargo cobranza GC (estatus 3)</strong> (opcional). Con <strong>Ejecutar agente</strong> el reporte unificado ya incluye el descargo; use esto solo si necesita el Excel aparte o una corrida manual.
+                        </label>
+                    </div>
+                </div>
+                <div id="wrapDescargoEstatus3" class="d-none border-top">
+                    <div class="card-body pt-3 gc-card-accent-descargo-inner">
+                        <h6 class="mb-2"><i class="fa fa-file-export text-info me-2"></i>Descargo estatus 3</h6>
+                        <p class="small text-muted mb-3">
+                            Lee <code>cobranza_gc_verificacion_semana</code> con <code>estatus = 3</code>.
+                        </p>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="chkDescargoSinActualizarGuia" autocomplete="off">
+                            <label class="form-check-label small" for="chkDescargoSinActualizarGuia">Solo prueba: generar Excel pero <strong>no</strong> escribir <code>guia_descargo.json</code> (déjalo desmarcado para corrida real)</label>
+                        </div>
+                        <div class="d-grid d-sm-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-primary" id="btnDescargoEstatus3" disabled>
+                                <i class="fa fa-download me-1"></i>Descargar
+                            </button>
+                            <span id="descargoEstatus3Spinner" class="text-primary d-none" role="status" aria-live="polite" aria-label="Descargando">
+                                <i class="fa fa-spinner fa-spin fa-lg" aria-hidden="true"></i>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -176,10 +182,16 @@
             <div class="card shadow-sm border-0">
                 <div class="card-body">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                        <h5 class="card-title mb-0"><i class="fa fa-table text-success me-2"></i>Reportes en carpeta <code>reporte/</code></h5>
+                        <div>
+                            <h5 class="card-title mb-0"><i class="fa fa-table text-success me-2"></i>Reportes en carpeta <code>reporte/</code></h5>
+                            <p id="gastosCobranzaSemanaActualHint" class="small text-muted mb-0 mt-1">Semana actual (lun–dom, Ciudad de México): —</p>
+                        </div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             <button type="button" class="btn btn-sm btn-primary" id="btnGastosCobranzaEjecutar" disabled>
                                 <i class="fa fa-play me-1"></i>Ejecutar agente
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGastosCobranzaHistoricoReportes" title="Ver reportes de semanas anteriores (los archivos no se borran)">
+                                <i class="fa fa-history me-1"></i>Histórico
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-success" id="btnGastosCobranzaListarReportes">
                                 <i class="fa fa-sync-alt me-1"></i>Actualizar lista
@@ -234,6 +246,45 @@
                         <span class="small text-muted mb-0 d-none d-lg-inline">Últimas ~400 líneas del archivo de log en el agente. Al cargar o al pulsar, el panel baja al <strong>final</strong>. Con «Auto cada 4 s» solo baja el scroll si ya estabas abajo (para no interrumpir si lees más arriba).</span>
                     </div>
                     <pre id="gastosCobranzaLogPanel" class="bg-dark text-light border-0 rounded p-3 small mb-0 font-monospace" style="max-height:320px;overflow:auto;white-space:pre-wrap;">—</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalHistoricoReportesGc" tabindex="-1" aria-labelledby="modalHistoricoReportesGcLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalHistoricoReportesGcLabel"><i class="fa fa-history me-2"></i>Histórico de reportes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">Archivos guardados en el agente; la tabla principal solo muestra la <strong>semana en curso</strong> (lunes a domingo, Ciudad de México). Los <code>reporte_cobranza_*.xlsx</code> de semanas ya cerradas se mueven solos a <code>reporte/historico/&lt;carpeta por semana&gt;/</code> al listar.</p>
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1" for="selHistoricoSemanaGc">Semana a consultar</label>
+                            <select class="form-select form-select-sm" id="selHistoricoSemanaGc">
+                                <option value="">— Elija una semana —</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Archivo</th>
+                                    <th class="text-end">Tamaño</th>
+                                    <th>Modificado (UTC)</th>
+                                    <th>Día</th>
+                                    <th>Estado</th>
+                                    <th class="text-center" width="200">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gastosCobranzaTablaReportesHistorico">
+                                <tr><td colspan="6" class="text-muted small">Seleccione una semana.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -315,6 +366,10 @@
         border-right: 0 !important;
         border-bottom: 0 !important;
         border-left: 4px solid #3abaf4 !important;
+    }
+    .gc-card-accent-descargo-inner {
+        border-left: 3px solid rgba(58, 186, 244, 0.55);
+        padding-left: 1rem !important;
     }
     /* Estados en tabla reporte/: tonos suaves, legibles en Sneat */
     .gc-rep-estado {
@@ -414,7 +469,15 @@
     var btnLog = document.getElementById('btnGastosCobranzaLogAhora');
     var btnLogVaciar = document.getElementById('btnGastosCobranzaLogVaciar');
     var btnListarRep = document.getElementById('btnGastosCobranzaListarReportes');
+    var btnHistoricoRep = document.getElementById('btnGastosCobranzaHistoricoReportes');
     var tbodyRep = document.getElementById('gastosCobranzaTablaReportes');
+    var tbodyRepHist = document.getElementById('gastosCobranzaTablaReportesHistorico');
+    var selHistoricoSemana = document.getElementById('selHistoricoSemanaGc');
+    var hintSemanaActual = document.getElementById('gastosCobranzaSemanaActualHint');
+    var chkMostrarDescargo = document.getElementById('chkMostrarDescargoEstatus3');
+    var wrapDescargo = document.getElementById('wrapDescargoEstatus3');
+    /** Última lista completa del agente (sin filtrar por semana). */
+    var gcCacheArchivosReporte = [];
     var ivEstado = null;
     var ivLog = null;
     var ivRep = null;
@@ -501,7 +564,7 @@
             }
             var esperado = nombreArchivoReporteCobranzaHoyCdmx().toLowerCase();
             return data.archivos.some(function (a) {
-                return String(a.nombre || '').toLowerCase() === esperado;
+                return gcNombreBaseArchivoListado(a.nombre).toLowerCase() === esperado;
             });
         } catch (e) {
             return false;
@@ -582,6 +645,289 @@
         }
     }
 
+    function gcPad2(n) {
+        return String(n).padStart(2, '0');
+    }
+
+    /** Nombre de archivo sin carpeta (p. ej. historico/30mar2026_a_5abr2026/archivo.xlsx). */
+    function gcNombreBaseArchivoListado(nom) {
+        var s = String(nom || '').replace(/\\/g, '/');
+        var i = s.lastIndexOf('/');
+        return i >= 0 ? s.slice(i + 1) : s;
+    }
+
+    /** { y, m, d } calendario Ciudad de México desde ISO de modificación del agente. */
+    function gcFechaModificadoCdmxYmd(iso) {
+        if (!iso) return null;
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return null;
+        try {
+            var parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Mexico_City',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).formatToParts(d);
+            var y = '';
+            var m = '';
+            var day = '';
+            parts.forEach(function (p) {
+                if (p.type === 'year') y = p.value;
+                if (p.type === 'month') m = p.value;
+                if (p.type === 'day') day = p.value;
+            });
+            if (!y || !m || !day) return null;
+            return { y: parseInt(y, 10), m: parseInt(m, 10), d: parseInt(day, 10) };
+        } catch (e3) {
+            return null;
+        }
+    }
+
+    /** Fecha en nombre reporte_cobranza_DD-MM-YYYY.xlsx → { y, m, d } (calendario CDMX del reporte). */
+    function gcParseNombreReporteCobranza(nom) {
+        var base = gcNombreBaseArchivoListado(nom);
+        var m = /^reporte_cobranza_(\d{2})-(\d{2})-(\d{4})\.xlsx$/i.exec(base);
+        if (!m) return null;
+        var dd = parseInt(m[1], 10);
+        var mm = parseInt(m[2], 10);
+        var yy = parseInt(m[3], 10);
+        if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+        return { y: yy, m: mm, d: dd };
+    }
+
+    function gcAddDaysYmd(y, m, d, delta) {
+        var t = Date.UTC(y, m - 1, d) + delta * 86400000;
+        var x = new Date(t);
+        return { y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate() };
+    }
+
+    /**
+     * 0 = lunes … 6 = domingo para fecha civil gregoriana (y, m, d).
+     * Sin depender de Intl: evita fallback erróneo a lunes=0 (p. ej. reporte 01-04-2026
+     * quedaba con clave 2026-04-01 y salía del listado de la semana 30 mar – 5 abr).
+     */
+    function gcCdmxWeekdayMon0(y, m, d) {
+        var t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+        var Y = m < 3 ? y - 1 : y;
+        var wSun0 = (Y + Math.floor(Y / 4) - Math.floor(Y / 100) + Math.floor(Y / 400) + t[m - 1] + d) % 7;
+        return (wSun0 + 6) % 7;
+    }
+
+    function gcLunesSemanaCdmx(y, m, d) {
+        var k = gcCdmxWeekdayMon0(y, m, d);
+        return gcAddDaysYmd(y, m, d, -k);
+    }
+
+    function gcClaveLunesYmd(L) {
+        return L.y + '-' + gcPad2(L.m) + '-' + gcPad2(L.d);
+    }
+
+    function gcHoyCdmxYmd() {
+        var s = fechaCalendarioCdmxYmd();
+        var p = s.split('-');
+        return { y: parseInt(p[0], 10), m: parseInt(p[1], 10), d: parseInt(p[2], 10) };
+    }
+
+    function gcClaveSemanaActualCdmx() {
+        var h = gcHoyCdmxYmd();
+        return gcClaveLunesYmd(gcLunesSemanaCdmx(h.y, h.m, h.d));
+    }
+
+    /** Lunes de la semana calendario anterior a la actual (CDMX). */
+    function gcClaveSemanaPasadaCdmx() {
+        var actual = gcClaveSemanaActualCdmx();
+        var p = actual.split('-').map(function (x) { return parseInt(x, 10); });
+        var prev = gcAddDaysYmd(p[0], p[1], p[2], -7);
+        return gcClaveLunesYmd(prev);
+    }
+
+    function gcFechaReferenciaSemanaArchivo(a) {
+        var pn = gcParseNombreReporteCobranza(a.nombre);
+        if (pn) return pn;
+        var base = gcNombreBaseArchivoListado(a.nombre);
+        if (/^reporte_cobranza_/i.test(base)) {
+            var fm = gcFechaModificadoCdmxYmd(a.modificado);
+            if (fm) return fm;
+        }
+        return gcFechaModificadoCdmxYmd(a.modificado);
+    }
+
+    function gcClaveLunesSemanaDeArchivo(a) {
+        var f = gcFechaReferenciaSemanaArchivo(a);
+        if (!f) return gcClaveSemanaActualCdmx();
+        return gcClaveLunesYmd(gcLunesSemanaCdmx(f.y, f.m, f.d));
+    }
+
+    function gcEtiquetaRangoSemana(claveLunes) {
+        var p = claveLunes.split('-').map(function (x) { return parseInt(x, 10); });
+        if (p.length !== 3 || p.some(isNaN)) return claveLunes;
+        var L = { y: p[0], m: p[1], d: p[2] };
+        var D = gcAddDaysYmd(L.y, L.m, L.d, 6);
+        try {
+            var opt = { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' };
+            var s1 = new Date(Date.UTC(L.y, L.m - 1, L.d)).toLocaleDateString('es-MX', opt);
+            var s2 = new Date(Date.UTC(D.y, D.m - 1, D.d)).toLocaleDateString('es-MX', opt);
+            return s1 + ' – ' + s2;
+        } catch (e4) {
+            return claveLunes;
+        }
+    }
+
+    function gcActualizarHintSemanaActual() {
+        if (!hintSemanaActual) return;
+        var cl = gcClaveSemanaActualCdmx();
+        hintSemanaActual.textContent = 'Semana actual (lun–dom, Ciudad de México): ' + gcEtiquetaRangoSemana(cl);
+    }
+
+    function escCeldaReporte(s) {
+        return String(s)
+            .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split('"').join('&quot;');
+    }
+
+    function esExcelReporteCobranza(nom) {
+        return /^reporte_cobranza_/i.test(gcNombreBaseArchivoListado(nom));
+    }
+
+    /**
+     * HTML de filas de la tabla de reportes.
+     * @param {{ soloDescargar?: boolean }} [opts] si soloDescargar, solo enlace de descarga (p. ej. modal Histórico).
+     */
+    function htmlFilasTablaReportes(list, opts) {
+        opts = opts || {};
+        var soloDesc = !!opts.soloDescargar;
+        return list.map(function (a) {
+            var nom = String(a.nombre || '');
+            var safe = escCeldaReporte(nom);
+            var href = '/gastoscobranza/descargarReporte?nombre=' + encodeURIComponent(nom);
+            var estRaw = (a.estado != null && String(a.estado).trim() !== '') ? String(a.estado).trim() : '';
+            var estHtml = estRaw ? escCeldaReporte(estRaw) : '';
+            var estTip = (a.estadoDetalle != null && String(a.estadoDetalle).trim() !== '')
+                ? escCeldaReporte(String(a.estadoDetalle).trim()) : '';
+            var estTdAttr = estTip ? ' title="' + estTip + '"' : '';
+            var estSubCls = claseEstadoReporteCarpeta(estRaw);
+            if (estRaw && !estSubCls) estSubCls = 'gc-rep-est-otro';
+            var estInner = estRaw
+                ? '<span class="gc-rep-estado ' + estSubCls + '">' + estHtml + '</span>'
+                : '<span class="gc-rep-estado gc-rep-est-vacio">—</span>';
+            var diaSem = escCeldaReporte(diaSemanaModificadoCdmx(a.modificado, a.diaSemanaModificado));
+            var esRep = esExcelReporteCobranza(nom);
+            var btnWorker = !soloDesc && esRep
+                ? '<button type="button" class="btn btn-sm btn-gc-worker-reporte gc-rep-btn-worker ms-1" data-nombre-enc="' +
+                    encodeURIComponent(nom) + '" title="Worker S2: lanza el proceso de cobranza con este Excel sin subirlo de nuevo. Al terminar ok, la lista negra se actualiza automáticamente.">' +
+                    '<i class="fa fa-cogs" aria-hidden="true"></i><span class="visually-hidden"> Worker S2</span></button>'
+                : '';
+            var btnListaNegra = !soloDesc && esRep
+                ? '<button type="button" class="btn btn-sm btn-gc-lista-negra-reporte gc-rep-btn-lista-negra ms-1" data-nombre-enc="' +
+                    encodeURIComponent(nom) + '" title="Lista negra: carga este reporte directo a verificación semana (sin pasar por Worker). Usa estatus, fila encabezados y mensaje del panel «Carga manual».">' +
+                    '<i class="fa fa-ban" aria-hidden="true"></i><span class="visually-hidden"> Lista negra</span></button>'
+                : '';
+            return '<tr>' +
+                '<td class="font-monospace small fw-bold text-body">' + safe + '</td>' +
+                '<td class="text-end small">' + formatoBytes(a.bytes) + '</td>' +
+                '<td class="small">' + (a.modificado || '') + '</td>' +
+                '<td class="small text-nowrap">' + diaSem + '</td>' +
+                '<td class="small text-nowrap"' + estTdAttr + '>' + estInner + '</td>' +
+                '<td class="text-center text-nowrap gc-rep-acciones-cell">' +
+                '<a class="btn btn-sm gc-rep-btn-descargar" href="' + href + '" title="Descargar"><i class="fa fa-download"></i></a>' +
+                btnWorker +
+                btnListaNegra +
+                '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    function gcFiltrarArchivosPorClaveLunes(list, claveLunes) {
+        return list.filter(function (a) {
+            return gcClaveLunesSemanaDeArchivo(a) === claveLunes;
+        });
+    }
+
+    function gcPintarTablaPrincipalDesdeCache() {
+        if (!tbodyRep) return;
+        gcActualizarHintSemanaActual();
+        var actual = gcClaveSemanaActualCdmx();
+        var filtrados = gcFiltrarArchivosPorClaveLunes(gcCacheArchivosReporte, actual);
+        if (!gcCacheArchivosReporte.length) {
+            tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
+        } else if (!filtrados.length) {
+            tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">No hay archivos en la semana en curso (lun–dom, Ciudad de México). Los reportes de semanas anteriores siguen en el servidor: use <strong>Histórico</strong>.</td></tr>';
+        } else {
+            tbodyRep.innerHTML = htmlFilasTablaReportes(filtrados);
+        }
+        aplicarEstadoBotonesEcWorker();
+    }
+
+    /** true si la ruta del listado está bajo reporte/historico/… */
+    function gcArchivoListadoEnHistorico(nom) {
+        var s = String(nom || '').replace(/\\/g, '/');
+        return s.indexOf('historico/') !== -1;
+    }
+
+    /**
+     * Rellena el desplegable de semanas del modal Histórico.
+     * Incluye la semana actual si hay .xlsx ya archivados en historico/ (p. ej. movidos por error).
+     * @returns {string[]} claves de lunes ordenadas de más reciente a más antigua
+     */
+    function gcPoblarSelectSemanasHistoricas() {
+        if (!selHistoricoSemana) return [];
+        var actual = gcClaveSemanaActualCdmx();
+        var seen = {};
+        gcCacheArchivosReporte.forEach(function (a) {
+            var c = gcClaveLunesSemanaDeArchivo(a);
+            if (!c) return;
+            var enHist = gcArchivoListadoEnHistorico(a.nombre);
+            if (enHist) {
+                seen[c] = true;
+            } else if (c !== actual) {
+                seen[c] = true;
+            }
+        });
+        var claves = Object.keys(seen).sort().reverse();
+        var prev = selHistoricoSemana.value;
+        selHistoricoSemana.innerHTML = '<option value="">— Elija una semana —</option>';
+        claves.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = gcEtiquetaRangoSemana(c) + ' (' + c + ')';
+            selHistoricoSemana.appendChild(opt);
+        });
+        if (prev && claves.indexOf(prev) >= 0) {
+            selHistoricoSemana.value = prev;
+        }
+        return claves;
+    }
+
+    function gcPintarTablaHistorico() {
+        if (!tbodyRepHist || !selHistoricoSemana) return;
+        var c = selHistoricoSemana.value;
+        if (!c) {
+            tbodyRepHist.innerHTML = '<tr><td colspan="6" class="text-muted small">Seleccione una semana.</td></tr>';
+            return;
+        }
+        var filtrados = gcFiltrarArchivosPorClaveLunes(gcCacheArchivosReporte, c);
+        if (!filtrados.length) {
+            tbodyRepHist.innerHTML = '<tr><td colspan="6" class="text-muted small">Sin archivos en esa semana.</td></tr>';
+            return;
+        }
+        tbodyRepHist.innerHTML = htmlFilasTablaReportes(filtrados, { soloDescargar: true });
+        aplicarEstadoBotonesEcWorker();
+    }
+
+    function gcAbrirModalHistoricoReportes() {
+        var el = document.getElementById('modalHistoricoReportesGc');
+        if (!el) return;
+        var claves = gcPoblarSelectSemanasHistoricas();
+        if (selHistoricoSemana && claves.length > 0) {
+            selHistoricoSemana.value = claves[0];
+        }
+        gcPintarTablaHistorico();
+        try {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(el).show();
+            }
+        } catch (eModal) { /* ignorar */ }
+    }
+
     async function traerListaReportes() {
         try {
             var r = await fetch('/gastoscobranza/listarReportes', {
@@ -590,66 +936,22 @@
             });
             var data = await r.json();
             if (!data.success || !data.archivos) {
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-warning small">' +
-                    (data.mensaje || 'No se pudo listar reportes.') + '</td></tr>';
+                gcCacheArchivosReporte = [];
+                if (tbodyRep) {
+                    tbodyRep.innerHTML = '<tr><td colspan="6" class="text-warning small">' +
+                        (data.mensaje || 'No se pudo listar reportes.') + '</td></tr>';
+                }
                 aplicarEstadoBotonesEcWorker();
                 return;
             }
-            var list = data.archivos;
-            if (!list.length) {
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
-                aplicarEstadoBotonesEcWorker();
-                return;
-            }
-            function escCelda(s) {
-                return String(s)
-                    .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;').split('"').join('&quot;');
-            }
-            function esExcelReporteCobranza(nom) {
-                return /^reporte_cobranza_/i.test(String(nom || ''));
-            }
-            tbodyRep.innerHTML = list.map(function (a) {
-                var nom = String(a.nombre || '');
-                var safe = escCelda(nom);
-                var href = '/gastoscobranza/descargarReporte?nombre=' + encodeURIComponent(nom);
-                var estRaw = (a.estado != null && String(a.estado).trim() !== '') ? String(a.estado).trim() : '';
-                var estHtml = estRaw ? escCelda(estRaw) : '';
-                var estTip = (a.estadoDetalle != null && String(a.estadoDetalle).trim() !== '')
-                    ? escCelda(String(a.estadoDetalle).trim()) : '';
-                var estTdAttr = estTip ? ' title="' + estTip + '"' : '';
-                var estSubCls = claseEstadoReporteCarpeta(estRaw);
-                if (estRaw && !estSubCls) estSubCls = 'gc-rep-est-otro';
-                var estInner = estRaw
-                    ? '<span class="gc-rep-estado ' + estSubCls + '">' + estHtml + '</span>'
-                    : '<span class="gc-rep-estado gc-rep-est-vacio">—</span>';
-                var diaSem = escCelda(diaSemanaModificadoCdmx(a.modificado, a.diaSemanaModificado));
-                var esRep = esExcelReporteCobranza(nom);
-                var btnWorker = esRep
-                    ? '<button type="button" class="btn btn-sm btn-gc-worker-reporte gc-rep-btn-worker ms-1" data-nombre-enc="' +
-                        encodeURIComponent(nom) + '" title="Worker S2: lanza el proceso de cobranza con este Excel sin subirlo de nuevo. Al terminar ok, la lista negra se actualiza automáticamente.">' +
-                        '<i class="fa fa-cogs" aria-hidden="true"></i><span class="visually-hidden"> Worker S2</span></button>'
-                    : '';
-                var btnListaNegra = esRep
-                    ? '<button type="button" class="btn btn-sm btn-gc-lista-negra-reporte gc-rep-btn-lista-negra ms-1" data-nombre-enc="' +
-                        encodeURIComponent(nom) + '" title="Lista negra: carga este reporte directo a verificación semana (sin pasar por Worker). Usa estatus, fila encabezados y mensaje del panel «Carga manual».">' +
-                        '<i class="fa fa-ban" aria-hidden="true"></i><span class="visually-hidden"> Lista negra</span></button>'
-                    : '';
-                return '<tr>' +
-                    '<td class="font-monospace small fw-bold text-body">' + safe + '</td>' +
-                    '<td class="text-end small">' + formatoBytes(a.bytes) + '</td>' +
-                    '<td class="small">' + (a.modificado || '') + '</td>' +
-                    '<td class="small text-nowrap">' + diaSem + '</td>' +
-                    '<td class="small text-nowrap"' + estTdAttr + '>' + estInner + '</td>' +
-                    '<td class="text-center text-nowrap gc-rep-acciones-cell">' +
-                    '<a class="btn btn-sm gc-rep-btn-descargar" href="' + href + '" title="Descargar"><i class="fa fa-download"></i></a>' +
-                    btnWorker +
-                    btnListaNegra +
-                    '</td>' +
-                    '</tr>';
-            }).join('');
-            aplicarEstadoBotonesEcWorker();
+            gcCacheArchivosReporte = data.archivos;
+            gcPoblarSelectSemanasHistoricas();
+            gcPintarTablaPrincipalDesdeCache();
         } catch (e) {
-            tbodyRep.innerHTML = '<tr><td colspan="6" class="text-danger small">' + String(e.message || e) + '</td></tr>';
+            gcCacheArchivosReporte = [];
+            if (tbodyRep) {
+                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-danger small">' + String(e.message || e) + '</td></tr>';
+            }
             aplicarEstadoBotonesEcWorker();
         }
     }
@@ -930,7 +1232,14 @@
                 badge.className = 'badge bg-label-secondary';
                 badge.textContent = 'INI desactivado';
                 if (detalle) detalle.innerHTML = data.detalle || '';
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
+                gcCacheArchivosReporte = [];
+                if (tbodyRep) {
+                    tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
+                }
+                if (tbodyRepHist) {
+                    tbodyRepHist.innerHTML = '<tr><td colspan="6" class="text-muted small">—</td></tr>';
+                }
+                gcActualizarHintSemanaActual();
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarEstadoBotonesEcWorker();
                 return;
@@ -963,7 +1272,14 @@
                 badge.textContent = 'Sin conexión';
                 if (detalle) detalle.textContent = data.detalle || '';
                 logPanel.textContent = 'Levante el agente (npm start en gastos-cobranza-agent, puerto 3120).';
-                tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
+                gcCacheArchivosReporte = [];
+                if (tbodyRep) {
+                    tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
+                }
+                if (tbodyRepHist) {
+                    tbodyRepHist.innerHTML = '<tr><td colspan="6" class="text-muted small">—</td></tr>';
+                }
+                gcActualizarHintSemanaActual();
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarEstadoBotonesEcWorker();
             }
@@ -1257,19 +1573,47 @@
         traerLog(400, { scrollBottom: true });
     });
     if (btnLogVaciar) btnLogVaciar.addEventListener('click', vaciarLogAgente);
+    function manejarClickAccionesTablaReporte(ev, root) {
+        if (!root) return;
+        var btnW = ev.target.closest('.btn-gc-worker-reporte');
+        if (btnW && root.contains(btnW)) {
+            var encW = btnW.getAttribute('data-nombre-enc');
+            if (encW) ejecutarWorkerDesdeReporte(decodeURIComponent(encW));
+            return;
+        }
+        var btnN = ev.target.closest('.btn-gc-lista-negra-reporte');
+        if (btnN && root.contains(btnN)) {
+            var encN = btnN.getAttribute('data-nombre-enc');
+            if (encN) ejecutarListaNegraDesdeReporte(decodeURIComponent(encN));
+        }
+    }
     if (tbodyRep) {
         tbodyRep.addEventListener('click', function (ev) {
-            var btnW = ev.target.closest('.btn-gc-worker-reporte');
-            if (btnW && tbodyRep.contains(btnW)) {
-                var encW = btnW.getAttribute('data-nombre-enc');
-                if (encW) ejecutarWorkerDesdeReporte(decodeURIComponent(encW));
-                return;
+            manejarClickAccionesTablaReporte(ev, tbodyRep);
+        });
+    }
+    if (tbodyRepHist) {
+        tbodyRepHist.addEventListener('click', function (ev) {
+            manejarClickAccionesTablaReporte(ev, tbodyRepHist);
+        });
+    }
+    if (btnHistoricoRep) {
+        btnHistoricoRep.addEventListener('click', function () {
+            if (!gcCacheArchivosReporte.length) {
+                traerListaReportes().then(function () {
+                    gcAbrirModalHistoricoReportes();
+                });
+            } else {
+                gcAbrirModalHistoricoReportes();
             }
-            var btnN = ev.target.closest('.btn-gc-lista-negra-reporte');
-            if (btnN && tbodyRep.contains(btnN)) {
-                var encN = btnN.getAttribute('data-nombre-enc');
-                if (encN) ejecutarListaNegraDesdeReporte(decodeURIComponent(encN));
-            }
+        });
+    }
+    if (selHistoricoSemana) {
+        selHistoricoSemana.addEventListener('change', gcPintarTablaHistorico);
+    }
+    if (chkMostrarDescargo && wrapDescargo) {
+        chkMostrarDescargo.addEventListener('change', function () {
+            wrapDescargo.classList.toggle('d-none', !chkMostrarDescargo.checked);
         });
     }
     if (btnListarRep) btnListarRep.addEventListener('click', traerListaReportes);

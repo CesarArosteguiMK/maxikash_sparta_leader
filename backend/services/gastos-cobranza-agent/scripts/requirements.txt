@@ -1,7 +1,6 @@
 pymysql>=1.1.0
 requests>=2.28.0
 openpyxl>=3.1.0
-pandas>=2.0.0
 mysql-connector-python>=9.0.0
 # Windows: zoneinfo necesita IANA tz; sin esto falla ZoneInfo("America/Mexico_City")
 tzdata>=2024.1
