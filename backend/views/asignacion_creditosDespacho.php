@@ -901,9 +901,53 @@
                 <!-- -------------------------------------------------- -->
                 <div id="hgc-panel-convenios" style="display:none;">
 
-                    <p class="text-muted mb-3" style="font-size:12px;">
-                        Acuerdos de pago registrados para este crédito.
-                    </p>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <p class="text-muted mb-0" style="font-size:12px;">
+                            Acuerdos de pago registrados para este crédito.
+                        </p>
+                        <div style="display:flex; gap:6px; flex-shrink:0;">
+                            <button id="hgc-conv-sort-desc" onclick="hgcSetSortConv('desc')" title="Más reciente primero"
+                                style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:20px;
+                                       border:1.5px solid #696cff; background:#696cff; color:white;
+                                       cursor:pointer; transition:all .2s;">
+                                <i class="fa-solid fa-arrow-down-wide-short me-1"></i>Reciente
+                            </button>
+                            <button id="hgc-conv-sort-asc" onclick="hgcSetSortConv('asc')" title="Más antiguo primero"
+                                style="padding:4px 10px; font-size:11px; font-weight:500; border-radius:20px;
+                                       border:1.5px solid #d9dee3; background:white; color:#697a8d;
+                                       cursor:pointer; transition:all .2s;">
+                                <i class="fa-solid fa-arrow-up-wide-short me-1"></i>Antiguo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtros de estatus -->
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">
+                        <button id="hgc-conv-f-todos" onclick="hgcSetFiltroConv('todos')"
+                            style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:20px;
+                                   border:1.5px solid #696cff; background:#696cff; color:white;
+                                   cursor:pointer; transition:all .2s;">
+                            Todos
+                        </button>
+                        <button id="hgc-conv-f-activo" onclick="hgcSetFiltroConv('activo')"
+                            style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:20px;
+                                   border:1.5px solid #d9dee3; background:white; color:#697a8d;
+                                   cursor:pointer; transition:all .2s;">
+                            Activos
+                        </button>
+                        <button id="hgc-conv-f-cancelado" onclick="hgcSetFiltroConv('cancelado')"
+                            style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:20px;
+                                   border:1.5px solid #d9dee3; background:white; color:#697a8d;
+                                   cursor:pointer; transition:all .2s;">
+                            Cancelados
+                        </button>
+                        <button id="hgc-conv-f-completado" onclick="hgcSetFiltroConv('completado')"
+                            style="padding:4px 12px; font-size:11px; font-weight:500; border-radius:20px;
+                                   border:1.5px solid #d9dee3; background:white; color:#697a8d;
+                                   cursor:pointer; transition:all .2s;">
+                            Completados
+                        </button>
+                    </div>
 
                     <div id="hgc-convenios-lista">
                         <!-- Los convenios se generan dinámicamente -->
@@ -3232,7 +3276,10 @@ function hgcPoblarDatosGenerales(credito, asignacion) {
 
 // Almacena el historial en memoria para reordenar sin re-fetch
 let _hgcHistorialData = [];
-let _hgcSortDir = 'desc'; // 'desc' = reciente primero, 'asc' = antiguo primero
+let _hgcSortDir      = 'desc'; // 'desc' = reciente primero, 'asc' = antiguo primero
+let _hgcConveniosData = [];
+let _hgcConvSortDir  = 'desc';
+let _hgcConvFiltro   = 'todos'; // 'todos' | 'activo' | 'cancelado' | 'completado'
 
 /**
  * Cambia el orden y re-renderiza el timeline en tiempo real
@@ -3340,44 +3387,69 @@ function hgcPoblarHistorial(historial) {
 }
 
 /**
- * Poblar Panel 3: Convenios
- * (placeholder hasta que lleguen las tablas de convenios)
+ * Helpers de estatus para convenios
  */
-function hgcPoblarConvenios(convenios) {
+function hgcConvBadge(estatus) {
+    const s = (estatus || '').toUpperCase();
+    let bg, color;
+    if (s === 'ACTIVO' || s === 'VIGENTE') {
+        bg = '#e8f5e9'; color = '#2e7d32';
+    } else if (s === 'COMPLETADO' || s === 'LIQUIDADO') {
+        bg = '#e3f0ff'; color = '#1a56db';
+    } else {
+        // cancelado, vencido, etc.
+        bg = '#ffebee'; color = '#c62828';
+    }
+    return `<span style="background:${bg}; color:${color}; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:600; letter-spacing:.4px;">${s}</span>`;
+}
+
+/**
+ * Renderiza la lista de convenios en el orden actual (_hgcConvSortDir)
+ */
+function hgcRenderConvenios() {
     const lista = document.getElementById('hgc-convenios-lista');
     const vacio = document.getElementById('hgc-convenios-vacio');
-    const badge = document.getElementById('hgc-badge-convenios');
 
-    badge.textContent = convenios.length;
+    // Aplicar filtro de estatus
+    const filtrados = _hgcConvFiltro === 'todos'
+        ? [..._hgcConveniosData]
+        : _hgcConveniosData.filter(conv => {
+            const s = (conv.estatus || '').toUpperCase();
+            if (_hgcConvFiltro === 'activo')     return s === 'ACTIVO'    || s === 'VIGENTE';
+            if (_hgcConvFiltro === 'cancelado')  return s === 'CANCELADO' || s === 'VENCIDO';
+            if (_hgcConvFiltro === 'completado') return s === 'COMPLETADO'|| s === 'LIQUIDADO';
+            return true;
+        });
 
-    if (!convenios.length) {
-        lista.innerHTML       = '';
-        vacio.style.display   = 'block';
+    // Aplicar orden
+    const ordenado = _hgcConvSortDir === 'asc'
+        ? [...filtrados].reverse()
+        : filtrados;
+
+    if (!ordenado.length) {
+        lista.innerHTML     = '';
+        vacio.style.display = 'block';
         return;
     }
-
     vacio.style.display = 'none';
 
-    lista.innerHTML = convenios.map((conv, idx) => {
-        const pagados    = conv.pagos_realizados  || 0;
+    lista.innerHTML = ordenado.map((conv, idx) => {
+        const pagados    = conv.pagos_realizados   || 0;
         const total      = conv.total_parcialidades || 1;
         const porcentaje = Math.round((pagados / total) * 100);
-
-        const badgeEstatus = conv.estatus === 'Vigente'
-            ? `<span style="background:#e8f5e9; color:#2e7d32; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500;">Vigente</span>`
-            : `<span style="background:#fff3e0; color:#e65100; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500;">${conv.estatus}</span>`;
+        const num        = String(conv._convNum).padStart(3, '0');
 
         return `
         <div class="card mb-3" style="border:0.5px solid #e0e0e0;">
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <div>
-                        <div style="font-weight:500; font-size:14px;">Convenio #${String(idx+1).padStart(3,'0')}</div>
+                        <div style="font-weight:500; font-size:14px;">Convenio #${num}</div>
                         <div style="font-size:12px; color:#697a8d;">
                             Registrado el ${conv.fecha_registro || '—'} por ${conv.registrado_por || 'Sistema'}
                         </div>
                     </div>
-                    ${badgeEstatus}
+                    ${hgcConvBadge(conv.estatus)}
                 </div>
 
                 <div class="row g-2 mb-3 p-2 rounded-2" style="background:#f8f9fa; font-size:12px;">
@@ -3392,7 +3464,7 @@ function hgcPoblarConvenios(convenios) {
                         <div style="font-weight:500; margin-top:2px;">${conv.total_parcialidades || 0} pagos</div>
                     </div>
                     <div class="col-4">
-                        <div style="color:#697a8d;">Pago mensual</div>
+                        <div style="color:#697a8d;">Pago semanal</div>
                         <div style="font-weight:500; margin-top:2px;">
                             ${new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(conv.monto_parcialidad||0)}
                         </div>
@@ -3412,6 +3484,62 @@ function hgcPoblarConvenios(convenios) {
             </div>
         </div>`;
     }).join('');
+}
+
+/**
+ * Cambia el filtro de estatus de convenios
+ */
+function hgcSetFiltroConv(filtro) {
+    _hgcConvFiltro = filtro;
+    const ids = {
+        todos:      'hgc-conv-f-todos',
+        activo:     'hgc-conv-f-activo',
+        cancelado:  'hgc-conv-f-cancelado',
+        completado: 'hgc-conv-f-completado'
+    };
+    const base = 'padding:4px 12px; font-size:11px; font-weight:500; border-radius:20px; cursor:pointer; transition:all .2s;';
+    Object.entries(ids).forEach(([key, id]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        if (key === filtro) {
+            btn.style.cssText = base + ' border:1.5px solid #696cff; background:#696cff; color:white;';
+        } else {
+            btn.style.cssText = base + ' border:1.5px solid #d9dee3; background:white; color:#697a8d;';
+        }
+    });
+    hgcRenderConvenios();
+}
+
+/**
+ * Cambia el orden de convenios y actualiza los botones de sort
+ */
+function hgcSetSortConv(dir) {
+    _hgcConvSortDir = dir;
+    const btnDesc = document.getElementById('hgc-conv-sort-desc');
+    const btnAsc  = document.getElementById('hgc-conv-sort-asc');
+    if (btnDesc && btnAsc) {
+        const activeStyle  = 'border:1.5px solid #696cff; background:#696cff; color:white;';
+        const inactiveStyle = 'border:1.5px solid #d9dee3; background:white; color:#697a8d;';
+        btnDesc.style.cssText = (dir === 'desc' ? activeStyle : inactiveStyle) +
+            ' padding:4px 10px; font-size:11px; font-weight:500; border-radius:20px; cursor:pointer; transition:all .2s;';
+        btnAsc.style.cssText  = (dir === 'asc'  ? activeStyle : inactiveStyle) +
+            ' padding:4px 10px; font-size:11px; font-weight:500; border-radius:20px; cursor:pointer; transition:all .2s;';
+    }
+    hgcRenderConvenios();
+}
+
+/**
+ * Poblar Panel 3: Convenios
+ */
+function hgcPoblarConvenios(convenios) {
+    const badge = document.getElementById('hgc-badge-convenios');
+    badge.textContent = convenios.length;
+
+    _hgcConveniosData = convenios.map((c, i) => ({ ...c, _convNum: i + 1 }));
+    _hgcConvSortDir   = 'desc';
+    _hgcConvFiltro    = 'todos';
+    hgcSetFiltroConv('todos'); // resetea filtros → resetea sort buttons → renderiza
+    hgcSetSortConv('desc');    // asegura que el sort quede en desc
 }
 
 // ── Limpiar modal ────────────────────────────────────────────
@@ -3437,7 +3565,10 @@ function hgcLimpiarModal() {
     document.getElementById('hgc-historial-vacio').style.display    = 'none';
     document.getElementById('hgc-convenios-vacio').style.display    = 'none';
     _hgcHistorialData = [];
-    _hgcSortDir = 'desc';
+    _hgcSortDir       = 'desc';
+    _hgcConveniosData = [];
+    _hgcConvSortDir   = 'desc';
+    _hgcConvFiltro    = 'todos';
 }
 
 // ── Inicializar event listeners de tabs ──────────────────────
