@@ -201,8 +201,7 @@ function getMenu()
                     ]
             ],
             'Shell' => [
-                    /* fa-rectangle-terminal no viene en Font Awesome Free del vendor (solo Pro / no está en fontawesome.css) */
-                    'icono' => 'fa-solid fa-terminal',
+                    'icono' => 'fa-solid fa-laptop',
                     'subItems' => [
                             [
                                     'label' => 'Shell Segundómetro',

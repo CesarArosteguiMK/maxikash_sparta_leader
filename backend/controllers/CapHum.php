@@ -849,6 +849,7 @@ class CapHum extends Controller
                 container.appendChild(table);
             }
 
+            /* Íconos por modulo_id (modulos_web): pestaña Módulos del sistema y Permisos especiales */
             const iconosPermisosEspeciales = {
                 21: 'fa fa-file-upload',
                 22: 'fa fa-cloud-download',
@@ -859,8 +860,18 @@ class CapHum extends Controller
                 '29': 'fa fa-id-card',
                 30: 'fa fa-balance-scale',
                 '30': 'fa fa-balance-scale',
+                31: 'fa fa-laptop',
+                '31': 'fa fa-laptop',
+                32: 'fa fa-file-import',
+                '32': 'fa fa-file-import',
                 43: 'fa fa-key',
-                '43': 'fa fa-key'
+                '43': 'fa fa-key',
+                45: 'fa fa-chart-gantt',
+                '45': 'fa fa-chart-gantt',
+                46: 'fa fa-handshake',
+                '46': 'fa fa-handshake',
+                49: 'fa fa-calendar-week',
+                '49': 'fa fa-calendar-week'
             };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
@@ -1454,8 +1465,16 @@ class CapHum extends Controller
                     27: 'fa fa-table-cells', /* Panel Admin (acceso real por Asignación por puestos → Panel por usuario) */
                     20: 'fa fa-building-columns',
                     21: 'fa fa-file-alt',
+                    29: 'fa fa-id-card',
+                    30: 'fa fa-balance-scale',
+                    31: 'fa fa-laptop', /* Shell Gastos Cobranza */
+                    32: 'fa fa-file-import', /* Registrar convenio existente (permiso especial, puede listarse en módulos) */
                     41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
+                    43: 'fa fa-key', /* Gestionar permisos */
+                    45: 'fa fa-chart-gantt', /* Despachos — Mi gestión / Mi cartera */
+                    46: 'fa fa-handshake', /* Despachos — Convenios */
                     47: 'fa fa-chart-pie',
+                    49: 'fa fa-calendar-week', /* Reportería — Primeros pagos */
                     /* Cerrado/Eliminado Sabueso: tickets archivados/cerrados */
                     48: 'fa fa-archive'
                 };

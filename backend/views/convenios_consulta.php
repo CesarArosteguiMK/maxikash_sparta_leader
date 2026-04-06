@@ -1,4 +1,4 @@
-﻿<style>
+<style>
 /* ══════════════════════════════════════════
    CONVENIOS — ESTILOS GLOBALES
 ══════════════════════════════════════════ */
@@ -590,12 +590,14 @@ body.dark-mode #migTotalFinal {
                     <i class="fa-solid fa-magnifying-glass me-1"></i> Buscar
                 </button>
             </div>
+            <?php if (!empty($permisoRegistrarConvenioExistente)): ?>
             <button type="button" class="btn btn-outline-warning"
                     id="btnRegistrarConvenioExistente"
                     style="display:none;"
                     onclick="window.abrirModalMigracion()">
                 <i class="fas fa-file-import"></i> Registrar Convenio Existente
             </button>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -1261,7 +1263,8 @@ function verificarSaldado() {
 
     document.getElementById('sliderSection').style.display = 'none';
     document.getElementById('btnGuardar').style.display = 'none';
-    document.getElementById('btnRegistrarConvenioExistente').style.display = 'none';
+    var _btnRegConv = document.getElementById('btnRegistrarConvenioExistente');
+    if (_btnRegConv) _btnRegConv.style.display = 'none';
 }
 
 // ══════════════════════════════════════════════════════
@@ -1293,7 +1296,8 @@ document.getElementById('inputBusqueda').addEventListener('keydown', function (e
 function seleccionarCredito(idCredito) {
     document.getElementById('convContenido').style.display = 'none';
     document.getElementById('btnHistorialWrap').style.display = 'none';
-    document.getElementById('btnRegistrarConvenioExistente').style.display = 'none';
+    var _btnRegConvSel = document.getElementById('btnRegistrarConvenioExistente');
+    if (_btnRegConvSel) _btnRegConvSel.style.display = 'none';
 
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
@@ -1458,7 +1462,8 @@ function renderCreditoBanner(c) {
         '<div class="col-6 col-md-1"><div class="label">Estatus S2</div><div class="valor" id="s2StatusVal">' + (_estatusS2 ? _renderS2Badge(_estatusS2) : '<span class="badge bg-secondary" style="font-size:.7rem;"><i class="fa fa-spinner fa-spin"></i></span>') + '</div></div>' +
         '</div>';
 
-    document.getElementById('btnRegistrarConvenioExistente').style.display = 'inline-block';
+    var _btnRegConvBanner = document.getElementById('btnRegistrarConvenioExistente');
+    if (_btnRegConvBanner) _btnRegConvBanner.style.display = 'inline-block';
 }
 
 // ══════════════════════════════════════════════════════
