@@ -28,6 +28,9 @@ class Ubicacion
     /** Umbral de repeticiones en el tiempo para marcar "Punto de Interés" */
     private const UMBRAL_PUNTO_INTERES = 3;
 
+    /** Tope de filas desde AWS por cliente para no procesar decenas de miles en PHP (las más recientes). */
+    private const MAX_UBICACIONES_BRUTAS = 10000;
+
     /**
      * Obtiene id_cliente a partir de id_credito (desde segundometro).
      */
@@ -63,9 +66,13 @@ class Ubicacion
         try {
             $db = new DatabaseAWS();
             // Ajustar nombre de tabla si en tu BD es distinto (ej. ubicaciones). Columnas: latitud, longitud, opcional fecha_creacion
-            $sql = "SELECT latitud, longitud, fecha_creacion AS fecha FROM ubicacion WHERE idCliente = :id_cliente ORDER BY fecha_creacion ASC";
+            $lim = self::MAX_UBICACIONES_BRUTAS;
+            $sql = 'SELECT latitud, longitud, fecha_creacion AS fecha FROM ubicacion WHERE idCliente = :id_cliente ORDER BY fecha_creacion DESC LIMIT ' . $lim;
             $rows = $db->queryAll($sql, ['id_cliente' => $idCliente]);
-            return is_array($rows) ? $rows : [];
+            if (!is_array($rows)) {
+                return [];
+            }
+            return array_reverse($rows);
         } catch (\Exception $e) {
             // Si la tabla no existe o está en otro esquema, devolver vacío
             return [];

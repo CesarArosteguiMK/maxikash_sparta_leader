@@ -1800,7 +1800,7 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
         <i class="fa fa-money-bill-wave fa-lg"></i>
         <div class="info-label">
             <span class="fw-medium">Saldo Total Pagado:</span>
-            <span><?= format_currency((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0)) ?></span>
+            <span><?= format_currency(isset($saldoTotalPagadoDesdeTabla) ? (float) $saldoTotalPagadoDesdeTabla : ((float)($dataEstadoCuenta["montoOtorgado"] ?? 0) - (float)($dataOtrosDatos["saldoTotalVigente"] ?? 0))) ?></span>
         </div>
     </li>
 

@@ -92,11 +92,45 @@ SQL;
     }
 
     /**
+     * Gestiones recientes para el panel de rastreo (solo N finales tras fusionar Legacy + Sky).
+     * Evita cargar todo el historial de base_clientes por crédito.
+     *
+     * @param int $limiteFinal Registros devueltos (p. ej. 16).
+     * @param int $porFuente Cuántas filas traer por fuente antes de fusionar y ordenar.
+     */
+    public static function getGestionesParaRastreoCredito($credito, int $limiteFinal = 16, int $porFuente = 80): array
+    {
+        $credito = trim((string) $credito);
+        if ($credito === '' || !ctype_digit($credito)) {
+            return [];
+        }
+        $limiteFinal = max(1, min($limiteFinal, 100));
+        $porFuente = max($limiteFinal, min($porFuente, 300));
+
+        $legacy = self::getGestionesLegacy($credito, $porFuente);
+        $sky = self::getAllGestionesSkyLogic($credito, '', $porFuente);
+        if (!is_array($legacy)) {
+            $legacy = [];
+        }
+        if (!is_array($sky)) {
+            $sky = [];
+        }
+        $resultado = array_merge($legacy, $sky);
+        usort($resultado, function ($a, $b) {
+            return strtotime($b['fecha_dispositivo'] ?? 0) <=> strtotime($a['fecha_dispositivo'] ?? 0);
+        });
+
+        return array_slice($resultado, 0, $limiteFinal);
+    }
+
+    /**
      * Gestiones desde __SPARTA_SECRET_REDACTED__ (Legacy): vista legacy_historico.
      * dictamen_campo / dictamen_ccc ← dictamen_for (opción de dictamen). comentarios_generales ← texto libre.
      * promesa_pago ← fecha + hora de promesa; porque_atraso_pago ← porque_se_atraso_en_su_pago.
+     *
+     * @param int|null $limit Si se indica, LIMIT en SQL (más recientes primero). null = sin límite.
      */
-    public static function getGestionesLegacy($credito)
+    public static function getGestionesLegacy($credito, ?int $limit = null)
     {
         $mysqli = new DatabaseLegacy(); // conexión LEGACY
 
@@ -194,8 +228,13 @@ SQL;
             ELSE u.subdirector_id
         END
     WHERE lh.id_credit = :credito
-    ORDER BY lh.fecha_dictamen DESC;
+    ORDER BY lh.fecha_dictamen DESC
 SQL;
+        if ($limit !== null) {
+            $lim = max(1, min((int) $limit, 500));
+            $query .= ' LIMIT ' . $lim;
+        }
+        $query .= ';';
 
         $legacyData = $mysqli->queryAll($query, ['credito' => $credito]);
 
@@ -272,7 +311,10 @@ SQL;
         return $legacyRow;
     }
 
-    public static function getAllGestionesSkyLogic($credito, $nombre)
+    /**
+     * @param int|null $limit Si se indica, LIMIT en SQL (más recientes primero). null = sin límite.
+     */
+    public static function getAllGestionesSkyLogic($credito, $nombre = '', ?int $limit = null)
     {
         $mysqli = new Database();
 
@@ -306,6 +348,10 @@ SQL;
             $query .= " AND id_credito = :credito";
         }
         $query .= " ORDER BY fecha_dispositivo DESC";
+        if ($limit !== null) {
+            $lim = max(1, min((int) $limit, 500));
+            $query .= " LIMIT " . $lim;
+        }
 
         return $mysqli->queryAll($query, $params);
     }

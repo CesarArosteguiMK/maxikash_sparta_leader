@@ -10,6 +10,9 @@ use Core\Controller;
  */
 class Gastoscobranza extends Controller
 {
+    /** POST /run puede tardar horas (miles de llamadas S2); antes 600s PHP cortaba y el navegador veía «Error al invocar /run». */
+    private const AGENTE_RUN_TIMEOUT_SEC = 7200;
+
     public function __construct()
     {
         parent::__construct();
@@ -231,7 +234,7 @@ class Gastoscobranza extends Controller
                 return;
             }
             $this->liberarSesionParaPeticionLarga();
-            $run = $this->agenteRequest('POST', '/run', new \stdClass(), 600);
+            $run = $this->agenteRequest('POST', '/run', new \stdClass(), self::AGENTE_RUN_TIMEOUT_SEC);
             if (is_array($run['json'])) {
                 $out = $run['json'];
                 if (!array_key_exists('success', $out)) {
@@ -240,7 +243,16 @@ class Gastoscobranza extends Controller
                 self::respuestaJSON($out);
                 return;
             }
-            $msg = substr((string)$run['raw'], 0, 200) ?: 'Error al invocar /run';
+            $msg = '';
+            if (!empty($run['error'])) {
+                $msg = trim((string)$run['error']);
+            }
+            if ($msg === '') {
+                $msg = substr((string)($run['raw'] ?? ''), 0, 240);
+            }
+            if ($msg === '') {
+                $msg = 'Error al invocar /run (sin respuesta JSON del agente; revise timeout de red o que el servicio Node siga en ejecución).';
+            }
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => $msg,

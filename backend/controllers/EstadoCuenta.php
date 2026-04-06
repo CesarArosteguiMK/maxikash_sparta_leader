@@ -87,7 +87,8 @@ class EstadoCuenta extends Controller
 
     /**
      * Motor de conciliacion: por defecto v2 en todos los contextos (web, cron, CLI).
-     * Rollback explicito: EC_ESTADO_CUENTA_ENGINE_V2=0 (o false/off/legacy) o ?ecv2=0
+     * Rollback explicito (solo emergencia): EC_ESTADO_CUENTA_ENGINE_V2=0 o ?ecv2=0
+     * El flujo normal de estado de cuenta es siempre motor v2 (preparación + FIFO GC + notas crédito).
      */
     private function estadoCuentaEngineOverrideFromRequest(): ?bool {
         $raw = $_GET['ecv2'] ?? $_POST['ecv2'] ?? null;
@@ -104,6 +105,7 @@ class EstadoCuenta extends Controller
         return null;
     }
 
+    /** Producción: true salvo rollback por env o ?ecv2=0 (motor único v2 + FIFO GC + notas crédito). */
     private function shouldUseEstadoCuentaEngineV2(): bool {
         $override = $this->estadoCuentaEngineOverrideFromRequest();
         if ($override !== null) {
@@ -181,18 +183,21 @@ class EstadoCuenta extends Controller
     }
 
     /**
-     * Preparacion de pagos en dos modos:
-     * - legacy: conserva comportamiento historico (incluye recorte al primer id y expansiones amplias)
-     * - v2: evita perder ids desde origen y limita expansiones a casos realmente necesarios.
+     * Preparación de pagos para estado de cuenta.
+     *
+     * Producción usa siempre motor v2 ($legacyMode = false): orden determinista, destinos API completos,
+     * expansiones acotadas, y mapa $gcPorIdPago (conciliarExtPagosConNotasGC).
+     * $legacyMode = true solo para rollback (EC_ESTADO_CUENTA_ENGINE_V2=0 / ?ecv2=0) y comparación shadow.
      */
     private function prepararPagosListEstadoCuenta(
         array $pagos,
         array $cargos,
         array $listaNotasCargosParaSoloGc,
         int $maxIdCargoEnCargos,
-        string $modo
+        array $gcPorIdPago = [],
+        bool $legacyMode = false
     ): array {
-        $isV2 = ($modo === 'v2');
+        $isV2 = !$legacyMode;
         $pagosBase = $isV2 ? $this->ordenarPagosDeterministicamente($pagos) : $pagos;
 
         $montoPorIdCargo = [];
@@ -218,7 +223,14 @@ class EstadoCuenta extends Controller
             }
 
             $primerIdCargoApi = !empty($idsCuotaApi) ? $this->safe_int($idsCuotaApi[0], 0) : 0;
-            $soloGcDeposito = $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
+            // En v2 el mapa FIFO de GC tiene prioridad; si el idPago ya fue conciliado contra una nota
+            // GC no hace falta la comprobación por fecha exacta de esPagoSoloGastoCobranza.
+            $idPagoKey = ($p['idPago'] ?? null) !== null
+                ? (is_numeric($p['idPago']) ? (string) (int) $p['idPago'] : (string) $p['idPago'])
+                : '';
+            $soloGcDeposito = ($idPagoKey !== '' && isset($gcPorIdPago[$idPagoKey]))
+                ? true
+                : $this->esPagoSoloGastoCobranza($p, $listaNotasCargosParaSoloGc);
             $soloExtInyectar = ($monto_real <= 0.02 && $extemporaneos > 0.009 && $primerIdCargoApi > 0);
 
             if (count($idsCuotaApi) > 1 && $monto_real > 0.02) {
@@ -630,6 +642,102 @@ class EstadoCuenta extends Controller
             }
         }
         return false;
+    }
+
+    /**
+     * v2: concilia pagos 100% extemporáneos contra notas de GASTOS DE COBRANZA mediante FIFO.
+     *
+     * La API puede enviar varios depósitos (en fechas distintas) que en conjunto liquidan una sola
+     * nota GC. esPagoSoloGastoCobranza exige coincidencia de fecha exacta, por lo que los depósitos
+     * posteriores a la nota (p. ej. nota del 23/03, depósito del 29/03) quedan sin clasificar.
+     * Este método corrige eso: ordena notas y pagos por fecha y asigna FIFO cada depósito 100% ext
+     * a la nota GC más antigua que aún tenga saldo, siempre que la nota sea anterior o igual al pago.
+     *
+     * El resultado se pasa como $gcPorIdPago solo cuando prepararPagosListEstadoCuenta corre en v2 (legacyMode false).
+     *
+     * @return array<string,true>  mapa idPago (string) => true
+     */
+    private function conciliarExtPagosConNotasGC(array $pagos, array $listaNotasCargos): array
+    {
+        // 1. Extraer notas GC (excluir extemporáneos textuales)
+        $notasGc = [];
+        foreach ($listaNotasCargos as $nota) {
+            $conceptoUpper = mb_strtoupper(trim((string) ($nota['concepto'] ?? '')));
+            if (strpos($conceptoUpper, 'GASTO') === false || strpos($conceptoUpper, 'COBRANZA') === false) {
+                continue;
+            }
+            if (strpos($conceptoUpper, 'EXTEMPORANEO') !== false || strpos($conceptoUpper, 'EXTEMPORÁNEO') !== false) {
+                continue;
+            }
+            $fechaRaw = $nota['fechaMovimiento'] ?? $nota['fechaVencimiento'] ?? '';
+            if ($fechaRaw === '' || strtotime((string) $fechaRaw) === false) {
+                continue;
+            }
+            $monto = $this->safe_float($nota['monto'] ?? 0);
+            if ($monto <= 0.009) {
+                continue;
+            }
+            $notasGc[] = [
+                'fecha'    => date('Y-m-d', strtotime((string) $fechaRaw)),
+                'restante' => $monto,
+            ];
+        }
+        if (empty($notasGc)) {
+            return [];
+        }
+        // Ordenar notas por fecha ASC para FIFO
+        usort($notasGc, fn($a, $b) => $a['fecha'] <=> $b['fecha']);
+
+        // 2. Recopilar pagos 100% extemporáneos ordenados por fecha ASC
+        $extPagos = [];
+        foreach ($pagos as $p) {
+            $montoPago = $this->safe_float($p['montoPago'] ?? 0);
+            $ext       = $this->safe_float($p['extemporaneos'] ?? 0);
+            if ($montoPago <= 0.009 || $ext <= 0.009) {
+                continue;
+            }
+            if (max($montoPago - $ext, 0) > 0.02) {
+                continue;  // pago mixto: parte a cuota, parte ext — no entra aquí
+            }
+            $fechaRaw = $p['fechaDeposito'] ?? $p['fechaValor'] ?? $p['fechaRegistro'] ?? '';
+            if ($fechaRaw === '' || strtotime((string) $fechaRaw) === false) {
+                continue;
+            }
+            $extPagos[] = [
+                'idPago' => $p['idPago'] ?? null,
+                'fecha'  => date('Y-m-d', strtotime((string) $fechaRaw)),
+                'ext'    => $ext,
+            ];
+        }
+        if (empty($extPagos)) {
+            return [];
+        }
+        usort($extPagos, fn($a, $b) => $a['fecha'] <=> $b['fecha']);
+
+        // 3. FIFO: asignar cada pago ext a la nota GC más antigua con saldo y fecha ≤ fecha del pago
+        $resultado = [];
+        foreach ($extPagos as $ep) {
+            if ($ep['idPago'] === null) {
+                continue;
+            }
+            foreach ($notasGc as &$nota) {
+                if ($nota['restante'] <= 0.009) {
+                    continue;  // nota ya saldada
+                }
+                if ($nota['fecha'] > $ep['fecha']) {
+                    continue;  // nota creada después del depósito — no aplica
+                }
+                // El depósito encaja dentro del saldo restante (tolerancia $1 por redondeo)
+                if ($ep['ext'] <= round($nota['restante'], 2) + 1.0) {
+                    $nota['restante'] = round($nota['restante'] - $ep['ext'], 2);
+                    $key = is_numeric($ep['idPago']) ? (string) (int) $ep['idPago'] : (string) $ep['idPago'];
+                    $resultado[$key] = true;
+                    break;
+                }
+            }
+            unset($nota);
+        }
+        return $resultado;
     }
 
     /**
@@ -1104,12 +1212,38 @@ class EstadoCuenta extends Controller
     }
 
     /**
+     * Indica si el pago (según pagos_list / API) declara el idCargo de la fila entre sus destinos.
+     * Evita reubicar aplicaciones que S2 asignó explícitamente a esa cuota aunque la fila también tenga Dep. ext.
+     */
+    private function pagoLegitimoDeclaraIdCargoEnCuotas($idPago, int $idCargoFila, array $pagosListByIdPago): bool {
+        if ($idCargoFila <= 0 || $idPago === null || $idPago === '') {
+            return false;
+        }
+        $key = is_numeric($idPago) ? (string) (int) $idPago : (string) $idPago;
+        $pl = $pagosListByIdPago[$key] ?? null;
+        if ($pl === null) {
+            return false;
+        }
+        foreach ((array) ($pl['cuotas'] ?? []) as $idc) {
+            if ((int) $idc === $idCargoFila) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Las líneas Dep. ext. quedan en las cuotas donde se inyectan; los pagos reales que compartían fila
      * se reubican en las primeras cuotas vacías (sin capital aplicado) posteriores a la última fila con Dep. ext.
      * Ej.: ext hasta cuota 56 → pagos reales desde 57.
      * NOTA: gasto_cobranza_deposito NO activa la reubicación; el pago legítimo de esa cuota pertenece ahí.
+     *
+     * Invariante: no se saca de la fila un aplicado legítimo si el mismo idPago, según pagos_list (destinos API),
+     * incluye el idCargo de esa fila — mismo caso que cuota + depósitos 100% ext al mismo numeroCuotaSemanal.
+     *
+     * @param array<string,array> $pagosListByIdPago mapa idPago (string) => fila de pagos_list
      */
-    private function reubicarPagosRealesFueraDeFilasConExtemporaneo(array &$tabla): void {
+    private function reubicarPagosRealesFueraDeFilasConExtemporaneo(array &$tabla, array $pagosListByIdPago = []): void {
         if (empty($tabla)) {
             return;
         }
@@ -1127,10 +1261,18 @@ class EstadoCuenta extends Controller
             if (!$this->filaTieneExtRealParaReubicacion($tabla[$i])) {
                 continue;
             }
+            $idCargoFila = (int) ($tabla[$i]['idCargo'] ?? 0);
             $nuevos = [];
             foreach ($tabla[$i]["aplicados"] ?? [] as $ap) {
                 if ($this->aplicadoEsPagoLegitimoReubicable($ap)) {
-                    $payloads[] = $ap;
+                    if (
+                        !empty($pagosListByIdPago)
+                        && $this->pagoLegitimoDeclaraIdCargoEnCuotas($ap['idPago'] ?? null, $idCargoFila, $pagosListByIdPago)
+                    ) {
+                        $nuevos[] = $ap;
+                    } else {
+                        $payloads[] = $ap;
+                    }
                 } else {
                     $nuevos[] = $ap;
                 }
@@ -1187,6 +1329,20 @@ class EstadoCuenta extends Controller
             $fila["excedente"] = round(max($total - $montoCargo, 0), 2);
         }
         unset($fila);
+    }
+
+    /**
+     * Total pagado coherente con la tabla del estado de cuenta: suma de total_pagado por fila.
+     * Incluye cuotas (y parciales), anticipos y sobrantes ya aplicados a cargos; excluye líneas que
+     * no cuentan para cuota (GC puro informativo, contracargo, etc.) vía no_cuenta_para_total_cuota.
+     * Más fiel que montoOtorgado − saldoTotalVigente de la API cuando el desglose en pantalla importa.
+     */
+    private function calcularSaldoTotalPagadoDesdeTabla(array $tabla): float {
+        $sum = 0.0;
+        foreach ($tabla as $fila) {
+            $sum += (float) ($fila['total_pagado'] ?? 0);
+        }
+        return round($sum, 2);
     }
 
     /**
@@ -1802,12 +1958,18 @@ JS;
             $usarMotorV2 = $this->shouldUseEstadoCuentaEngineV2();
             $shadowV2 = $this->shouldShadowCompareEstadoCuentaEngineV2();
             $this->logEstadoCuentaEngineModo((int) $idConsultado, $usarMotorV2, $shadowV2);
+            // FIFO ext→GC: necesario para v2 en producción y para el brazo v2 del shadow.
+            $necesitaMapaGc = $usarMotorV2 || $shadowV2;
+            $gcPorIdPago = $necesitaMapaGc
+                ? $this->conciliarExtPagosConNotasGC($pagos, $listaNotasCargosParaSoloGc)
+                : [];
             $pagos_list = $this->prepararPagosListEstadoCuenta(
                 $pagos,
                 $cargos,
                 $listaNotasCargosParaSoloGc,
                 $maxIdCargoEnCargos,
-                $usarMotorV2 ? 'v2' : 'legacy'
+                $usarMotorV2 ? $gcPorIdPago : [],
+                !$usarMotorV2
             );
 
             if ($shadowV2) {
@@ -1816,14 +1978,16 @@ JS;
                     $cargos,
                     $listaNotasCargosParaSoloGc,
                     $maxIdCargoEnCargos,
-                    'legacy'
+                    [],
+                    true
                 );
                 $pagosV2 = $this->prepararPagosListEstadoCuenta(
                     $pagos,
                     $cargos,
                     $listaNotasCargosParaSoloGc,
                     $maxIdCargoEnCargos,
-                    'v2'
+                    $gcPorIdPago,
+                    false
                 );
                 $idCreditoDebug = (int) $idConsultado;
                 $this->registrarDiferenciasPagosListMotores($idCreditoDebug, $pagosLegacy, $pagosV2);
@@ -2570,9 +2734,18 @@ JS;
 
             $this->inyectarDepositosSoloGastoCobranza($tabla, $pagos_list);
             $this->consolidarGastosCobranzaVisualizacionEnTabla($tabla, is_array($gastoCobranzaPorFecha ?? null) ? $gastoCobranzaPorFecha : []);
-            $this->reubicarPagosRealesFueraDeFilasConExtemporaneo($tabla);
+            $pagosListByIdPago = [];
+            foreach ($pagos_list as $pl) {
+                $idP = $pl['idPago'] ?? null;
+                if ($idP !== null && $idP !== '') {
+                    $pagosListByIdPago[is_numeric($idP) ? (string) (int) $idP : (string) $idP] = $pl;
+                }
+            }
+            $this->reubicarPagosRealesFueraDeFilasConExtemporaneo($tabla, $pagosListByIdPago);
             $this->ordenarAplicadosExtemporaneosAntesDeLegitimos($tabla);
             $this->recalcularTotalesTablaEstadoCuenta($tabla);
+            $saldoTotalPagadoDesdeTabla = $this->calcularSaldoTotalPagadoDesdeTabla($tabla);
+            self::set('saldoTotalPagadoDesdeTabla', $saldoTotalPagadoDesdeTabla);
             EstadoCuentaTimingLog::mark('tabla_post_procesos');
 
             if (

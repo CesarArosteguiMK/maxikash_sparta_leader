@@ -1846,8 +1846,9 @@ JS;
                             var data = (apiResp.data || {});
                             var distancias = data.distancias_a_casa || [];
                             $(\'#rastreoDireccionesContenido\').html(buildDireccionesMaxiHtml(distancias, data));
-                            (function doReverseGeocode() {
-                                var delay = 800;
+                            (function rastreoLazyReverseGeocodeDirs() {
+                                var MIN_GAP = 1100;
+                                var nextSlot = 0;
                                 var nodes = document.querySelectorAll(\'#rastreoDireccionesContenido .direccion-value[data-lat][data-lng]\');
                                 function setAddr(elm, text) { if (elm && elm.textContent !== undefined) elm.textContent = text; }
                                 function fetchOne(elm, isRetry) {
@@ -1859,15 +1860,37 @@ JS;
                                         if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 2000); } else { setAddr(elm, \'Sin dirección\'); }
                                     });
                                 }
-                                for (var i = 0; i < nodes.length; i++) {
-                                    (function(elm, d) { setTimeout(function() { fetchOne(elm, false); }, d); })(nodes[i], delay);
-                                    delay += 1100;
+                                function scheduleFetch(elm) {
+                                    var now = Date.now();
+                                    var startAt = Math.max(now, nextSlot);
+                                    nextSlot = startAt + MIN_GAP;
+                                    setTimeout(function() { fetchOne(elm, false); }, startAt - now);
+                                }
+                                if (typeof IntersectionObserver !== \'undefined\' && nodes.length) {
+                                    var io = new IntersectionObserver(function(entries) {
+                                        entries.forEach(function(en) {
+                                            if (!en.isIntersecting) return;
+                                            var el = en.target;
+                                            if (el.getAttribute(\'data-rastreo-rev-sched\')) return;
+                                            el.setAttribute(\'data-rastreo-rev-sched\', \'1\');
+                                            io.unobserve(el);
+                                            scheduleFetch(el);
+                                        });
+                                    }, { root: null, rootMargin: \'120px\', threshold: 0.01 });
+                                    for (var i = 0; i < nodes.length; i++) io.observe(nodes[i]);
+                                } else {
+                                    var delay = 400;
+                                    for (var j = 0; j < nodes.length; j++) {
+                                        (function(elm, d) { setTimeout(function() { fetchOne(elm, false); }, d); })(nodes[j], delay);
+                                        delay += MIN_GAP;
+                                    }
                                 }
                             })();
                         }).catch(function() {
                             $(\'#rastreoDireccionesContenido\').html(buildDireccionesMaxiHtml([], null));
-                            (function doReverseGeocode() {
-                                var delay = 800;
+                            (function rastreoLazyReverseGeocodeDirs() {
+                                var MIN_GAP = 1100;
+                                var nextSlot = 0;
                                 var nodes = document.querySelectorAll(\'#rastreoDireccionesContenido .direccion-value[data-lat][data-lng]\');
                                 function setAddr(elm, text) { if (elm && elm.textContent !== undefined) elm.textContent = text; }
                                 function fetchOne(elm, isRetry) {
@@ -1879,9 +1902,30 @@ JS;
                                         if (!isRetry) { setTimeout(function() { fetchOne(elm, true); }, 2000); } else { setAddr(elm, \'Sin dirección\'); }
                                     });
                                 }
-                                for (var i = 0; i < nodes.length; i++) {
-                                    (function(elm, d) { setTimeout(function() { fetchOne(elm, false); }, d); })(nodes[i], delay);
-                                    delay += 1100;
+                                function scheduleFetch(elm) {
+                                    var now = Date.now();
+                                    var startAt = Math.max(now, nextSlot);
+                                    nextSlot = startAt + MIN_GAP;
+                                    setTimeout(function() { fetchOne(elm, false); }, startAt - now);
+                                }
+                                if (typeof IntersectionObserver !== \'undefined\' && nodes.length) {
+                                    var io = new IntersectionObserver(function(entries) {
+                                        entries.forEach(function(en) {
+                                            if (!en.isIntersecting) return;
+                                            var el = en.target;
+                                            if (el.getAttribute(\'data-rastreo-rev-sched\')) return;
+                                            el.setAttribute(\'data-rastreo-rev-sched\', \'1\');
+                                            io.unobserve(el);
+                                            scheduleFetch(el);
+                                        });
+                                    }, { root: null, rootMargin: \'120px\', threshold: 0.01 });
+                                    for (var i = 0; i < nodes.length; i++) io.observe(nodes[i]);
+                                } else {
+                                    var delay = 400;
+                                    for (var j = 0; j < nodes.length; j++) {
+                                        (function(elm, d) { setTimeout(function() { fetchOne(elm, false); }, d); })(nodes[j], delay);
+                                        delay += MIN_GAP;
+                                    }
                                 }
                             })();
                         });
@@ -1889,7 +1933,12 @@ JS;
                         $(\'#rastreoDireccionesContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted">Sin ubicaciones en maxi app para este crédito.</span>\');
                     }
                     $(\'#rastreoDirecciones .rastreo-mapa-wrap\').show();
-                    try { initMapaRastreo(rastreoDireccionesParaMapa); maybeInitMapaAlternas(); } catch (e) { console.warn(\'Rastreo mapas:\', e); }
+                    var ptsMapa = rastreoDireccionesParaMapa;
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            try { initMapaRastreo(ptsMapa); maybeInitMapaAlternas(); } catch (e) { console.warn(\'Rastreo mapas:\', e); }
+                        });
+                    });
                 }, onError: function() {
                     rastreoDomicilioMegareporte = null; rastreoIndiceCasa = null;
                     rastreoPuntosGeo = [];
@@ -1897,7 +1946,11 @@ JS;
                     $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">No se pudieron cargar las direcciones alternas. Revisa la conexión o intenta de nuevo.</span>\');
                     $(\'#rastreoDirecciones .rastreo-mapa-wrap\').show();
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
-                    try { initMapaRastreo([]); maybeInitMapaAlternas(); } catch (e) { console.warn(\'Rastreo mapas:\', e); }
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            try { initMapaRastreo([]); maybeInitMapaAlternas(); } catch (e) { console.warn(\'Rastreo mapas:\', e); }
+                        });
+                    });
                 } });
             });
             $(\'#modalRastreoCredito\').on(\'hidden.bs.modal\', function() {

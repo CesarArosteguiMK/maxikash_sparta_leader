@@ -4,6 +4,11 @@
  *
  * Script por defecto: scripts/reporte_cobranza.py (copiado al repo). Opcional: REPORTE_COBRANZA_SCRIPT en .env.
  * Si no hay script y GASTOS_COBRANZA_DEMO no es "0", /run responde en modo prueba.
+ * Reporte (Maxi app / __SPARTA_SECRET_REDACTED__): el hijo Python hereda process.env; credenciales opcionales
+ * REPORTE_COBRANZA_AWS_HOST, _PORT, _USER, _PASSWORD, _DATABASE (ver docstring del .py).
+ * Pruebas: REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1 no escribe guia_descargo.json;
+ * REPORTE_COBRANZA_SIN_DESCARGO=1 omite descargo por completo.
+ * REPORTE_COBRANZA_MODO_PRUEBA_EXCEL=1 → reporte_cobranza_DD-MM-AAAA_PRUEBA.xlsx (no pisa el oficial).
  *
  * EC Launcher: POST /ec-launcher/run ejecuta tools/ec-webhook-worker/worker.php o
  * tools/ec-gc-excel-enrich/enrich_gc_excel.php (dentro de este agente; misma lógica que launcher/Lanzar.cmd).
