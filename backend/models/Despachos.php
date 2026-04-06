@@ -313,13 +313,14 @@ SQL;
      * Obtener dirección completa desde tbl_segundometro_semana
      * Esta función consulta la base de datos db-megae-reporte
      */
-    private function obtenerDomicilioCompleto($idCredito)
+    private function obtenerDatosSegundometro($idCredito): ?array
     {
         try {
             $dbSegundo = new DatabaseSegundometro();
             $query = <<<SQL
             SELECT
                 Domicilio_Completo,
+                Bucket_Morosidad_Real,
                 Id_cliente,
                 Nombre_cliente
             FROM tbl_segundometro_semana
@@ -328,9 +329,9 @@ SQL;
 SQL;
 
             $resultado = $dbSegundo->queryOne($query, ['idCredito' => $idCredito]);
-            return $resultado['Domicilio_Completo'] ?? null;
+            return $resultado ?: null;
         } catch (\Exception $e) {
-            error_log("Error al obtener Domicilio_Completo: " . $e->getMessage());
+            error_log("Error al obtener datos de segundometro: " . $e->getMessage());
             return null;
         }
     }
@@ -582,6 +583,12 @@ SQL;
         }
 
         $estadoCuenta = $json["estadoCuenta"];
+
+        // Si el crédito no existe en la API, idCredito viene null o vacío
+        if (empty($estadoCuenta["idCredito"])) {
+            return null;
+        }
+
         $cliente = $estadoCuenta["datosCliente"] ?? [];
 
         // Construir dirección completa desde los campos del cliente
@@ -596,24 +603,27 @@ SQL;
         ]);
         $direccionAPI = !empty($direccionParts) ? implode(', ', $direccionParts) : null;
 
-        // Intentar obtener dirección desde tbl_segundometro_semana (prioridad)
-        $domicilioCompleto = $this->obtenerDomicilioCompleto($valor);
+        // Obtener datos de tbl_segundometro_semana (domicilio + bucket)
+        $datosSegundo = $this->obtenerDatosSegundometro($valor);
+        $domicilioCompleto   = $datosSegundo['Domicilio_Completo']    ?? null;
+        $bucketMorosidad     = $datosSegundo['Bucket_Morosidad_Real'] ?? null;
 
         // Usar domicilio completo si existe, sino la de la API, sino mensaje por defecto
         $direccion = $domicilioCompleto ?: ($direccionAPI ?: 'Sin dirección registrada');
 
         return [
-            'id_credito' => $estadoCuenta["idCredito"] ?? $valor,
-            'nombre_cliente' => $cliente["nombreCliente"] ?? 'Sin nombre',
-            'saldo_actual' => $estadoCuenta["datosSaldos"]["saldoTotalVencido"] ?? 0,
-            'dias_mora' => $estadoCuenta["datosSaldos"]["diasMoraMaximo"] ?? 0,
-            'telefono' => $cliente["celular"] ?? 'Sin teléfono',
-            'curp' => $cliente["curp"] ?? 'Sin CURP',
-            'direccion' => $direccion,
-            'direccion_api' => $direccionAPI ?: 'No disponible en API',
+            'id_credito'            => $estadoCuenta["idCredito"],
+            'nombre_cliente'        => $cliente["nombreCliente"] ?? 'Sin nombre',
+            'saldo_actual'          => $estadoCuenta["datosSaldos"]["saldoTotalVencido"] ?? 0,
+            'dias_mora'             => $estadoCuenta["datosSaldos"]["diasMoraMaximo"] ?? 0,
+            'Bucket_Morosidad_Real' => $bucketMorosidad,
+            'telefono'              => $cliente["celular"] ?? 'Sin teléfono',
+            'curp'                  => $cliente["curp"] ?? 'Sin CURP',
+            'direccion'             => $direccion,
+            'direccion_api'         => $direccionAPI ?: 'No disponible en API',
             'direccion_megareporte' => $domicilioCompleto ?: 'No disponible en Megareporte',
-            'sucursal' => $cliente["sucursal"] ?? 'Sin sucursal',
-            'fecha_desembolso' => $estadoCuenta["fechaDesembolso"] ?? 'Sin fecha'
+            'sucursal'              => $cliente["sucursal"] ?? 'Sin sucursal',
+            'fecha_desembolso'      => $estadoCuenta["fechaDesembolso"] ?? 'Sin fecha'
         ];
     }
 
@@ -631,7 +641,7 @@ SQL;
             DATE_FORMAT(acd.fecha_baja, '%Y-%m-%d %H:%i') as fecha_baja,
             d.id_persona,
             CONCAT_WS(' ', per.nombres, per.apellidop) as nombre_despacho,
-            pu.nombre as puesto_despacho,
+            GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ' - ') as puesto_despacho,
             per.telefono_uno as telefono_despacho,
             per.correo as correo_despacho,
             CONCAT_WS(' ', per_asigno.nombres, per_asigno.apellidop) as asignado_por
@@ -642,6 +652,9 @@ SQL;
         LEFT JOIN puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN persona per_asigno ON acd.alta = per_asigno.id
         WHERE acd.id_credito = :idCredito
+        GROUP BY acd.id, acd.id_credito, acd.estatus, acd.fecha_alta, acd.fecha_baja,
+                 d.id_persona, per.nombres, per.apellidop, per.telefono_uno, per.correo,
+                 per_asigno.nombres, per_asigno.apellidop
         ORDER BY acd.fecha_alta DESC
         LIMIT 1
 SQL;
@@ -1372,6 +1385,7 @@ SQL;
                 Id_credito,
                 Nombre_cliente,
                 Dias_mora,
+                Bucket_Morosidad_Real,
                 Saldo_total_capital as saldo
             FROM tbl_segundometro_semana
             WHERE Id_credito IN ($placeholdersStr)
@@ -1399,7 +1413,7 @@ SQL;
             $placeholdersHStr = implode(',', $placeholdersH);
 
             $queryHisto = "
-                SELECT Id_credito, MAX(Nombre_cliente) AS Nombre_cliente, MAX(Dias_mora) AS Dias_mora, MAX(Saldo_total_capital) AS saldo
+                SELECT Id_credito, MAX(Nombre_cliente) AS Nombre_cliente, MAX(Dias_mora) AS Dias_mora, MAX(Bucket_Morosidad_Real) AS Bucket_Morosidad_Real, MAX(Saldo_total_capital) AS saldo
                 FROM tbl_segundometro_histo
                 WHERE Id_credito IN ($placeholdersHStr)
                 GROUP BY Id_credito
@@ -1416,13 +1430,15 @@ SQL;
         foreach ($creditos as &$credito) {
             $idCredito = $credito['id_credito'];
             if (isset($mapaCreditos[$idCredito])) {
-                $credito['nombre_cliente'] = $mapaCreditos[$idCredito]['Nombre_cliente'] ?? 'No disponible';
-                $credito['dias_mora'] = $mapaCreditos[$idCredito]['Dias_mora'] ?? 0;
-                $credito['saldo'] = $mapaCreditos[$idCredito]['saldo'] ?? 0;
+                $credito['nombre_cliente']        = $mapaCreditos[$idCredito]['Nombre_cliente']       ?? 'No disponible';
+                $credito['dias_mora']              = $mapaCreditos[$idCredito]['Dias_mora']             ?? 0;
+                $credito['Bucket_Morosidad_Real']  = $mapaCreditos[$idCredito]['Bucket_Morosidad_Real'] ?? null;
+                $credito['saldo']                  = $mapaCreditos[$idCredito]['saldo']                 ?? 0;
             } else {
-                $credito['nombre_cliente'] = 'No disponible';
-                $credito['dias_mora'] = 0;
-                $credito['saldo'] = 0;
+                $credito['nombre_cliente']        = 'No disponible';
+                $credito['dias_mora']              = 0;
+                $credito['Bucket_Morosidad_Real']  = null;
+                $credito['saldo']                  = 0;
             }
         }
         unset($credito); // Romper referencia
@@ -1566,5 +1582,65 @@ SQL;
     {
         $query = "SELECT nombre_archivo, ruta_archivo FROM documentos_despacho WHERE id = :id";
         return $this->db->queryOne($query, ['id' => $idDocumento]);
+    }
+
+    /**
+     * Obtener historial COMPLETO de asignaciones de un crédito (todos los gestores que lo tuvieron).
+     * Sin LIMIT: devuelve todas las filas ordenadas de más reciente a más antigua.
+     */
+    public function obtenerHistorialGestores($idCredito)
+    {
+        $query = <<<SQL
+        SELECT
+            acd.id_credito,
+            acd.estatus,
+            DATE_FORMAT(acd.fecha_alta, '%Y-%m-%d %H:%i') AS fecha_asignacion,
+            DATE_FORMAT(acd.fecha_baja, '%Y-%m-%d %H:%i') AS fecha_baja,
+            d.id_persona,
+            CONCAT_WS(' ', per.nombres, per.apellidop) AS nombre_despacho,
+            GROUP_CONCAT(DISTINCT pu.nombre ORDER BY pu.nombre SEPARATOR ' - ') AS puesto_despacho,
+            CONCAT_WS(' ', per_asigno.nombres, per_asigno.apellidop) AS asignado_por
+        FROM asigna_creditos_despacho acd
+        INNER JOIN despachos d ON acd.id_despacho = d.id
+        INNER JOIN persona per ON d.id_persona = per.id
+        LEFT JOIN asigna_puesto ap ON per.id = ap.id_persona AND ap.activo = 1
+        LEFT JOIN puesto pu ON ap.id_puesto = pu.id
+        LEFT JOIN persona per_asigno ON acd.alta = per_asigno.id
+        WHERE acd.id_credito = :idCredito
+        GROUP BY acd.id, acd.id_credito, acd.estatus, acd.fecha_alta, acd.fecha_baja,
+                 d.id_persona, per.nombres, per.apellidop, per_asigno.nombres, per_asigno.apellidop
+        ORDER BY acd.fecha_alta DESC
+SQL;
+
+        return $this->db->queryAll($query, ['idCredito' => $idCredito]);
+    }
+
+    /**
+     * Obtener convenios registrados para un crédito.
+     * Incluye conteo de pagos realizados desde la tabla de amortización.
+     */
+    public function obtenerConveniosCredito($idCredito)
+    {
+        $query = <<<SQL
+        SELECT
+            cc.id,
+            cc.estatus,
+            DATE_FORMAT(cc.fecha_acuerdo, '%Y-%m-%d') AS fecha_registro,
+            cc.usuario_alta                            AS registrado_por,
+            cc.total_a_pagar                          AS monto_total,
+            cc.numero_semanas                         AS total_parcialidades,
+            cc.pago_semanal                           AS monto_parcialidad,
+            COALESCE(
+                (SELECT COUNT(*)
+                 FROM convenio_cliente_amortizacion cca
+                 WHERE cca.id_convenio_cliente = cc.id
+                   AND cca.estatus_pago = 'pagado'),
+            0) AS pagos_realizados
+        FROM convenio_cliente cc
+        WHERE cc.id_credito = :idCredito
+        ORDER BY cc.fecha_acuerdo DESC
+SQL;
+
+        return $this->db->queryAll($query, ['idCredito' => $idCredito]);
     }
 }

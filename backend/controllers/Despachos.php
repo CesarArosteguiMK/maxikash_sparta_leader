@@ -1022,4 +1022,48 @@ public function DesasignarCredito()
             ]);
         }
     }
+
+    /**
+     * Historial completo de gestores que tuvieron asignado un crédito.
+     * POST body: { id_credito }
+     */
+    public function ObtenerHistorialGestores()
+    {
+        try {
+            $input     = json_decode(file_get_contents('php://input'), true);
+            $idCredito = $input['id_credito'] ?? null;
+
+            if (empty($idCredito)) {
+                echo json_encode(['success' => false, 'message' => 'Falta id_credito']);
+                return;
+            }
+
+            $historial = $this->model->obtenerHistorialGestores($idCredito);
+            echo json_encode(['success' => true, 'historial' => $historial]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Convenios registrados para un crédito.
+     * POST body: { id_credito }
+     */
+    public function ObtenerConveniosCredito()
+    {
+        try {
+            $input     = json_decode(file_get_contents('php://input'), true);
+            $idCredito = $input['id_credito'] ?? null;
+
+            if (empty($idCredito)) {
+                echo json_encode(['success' => false, 'message' => 'Falta id_credito']);
+                return;
+            }
+
+            $convenios = $this->model->obtenerConveniosCredito($idCredito);
+            echo json_encode(['success' => true, 'convenios' => $convenios]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
 }
