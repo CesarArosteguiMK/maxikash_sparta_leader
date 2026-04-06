@@ -9,6 +9,5 @@ scripts/*.log
 reporte/*.xlsx
 !reporte/reporte_cobranza_EJEMPLO_preview.xlsx
 reporte/ec-uploads/*.xlsx
-reporte/ec-uploads/ec_worker_errores_reintento_*.csv
-reporte/.estados_reporte.json
-reporte/descargo_estatus3/
+reporte/descargo_estatus3/*.xlsx
+reporte/historico/**/*.xlsx

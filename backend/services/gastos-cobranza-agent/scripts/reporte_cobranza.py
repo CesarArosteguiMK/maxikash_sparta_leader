@@ -32,6 +32,7 @@ para alinear con ejecución programada el día previo al día operativo a las 08
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -133,6 +134,212 @@ ETIQUETA_REGLA_GRIS = "Regla aplicable GC < 200 (gris)"
 ETIQUETA_REGLA_HOMERO = "Regla de Homero"
 ETIQUETA_REGLA_PORCENTAJE = "Regla porcentaje"
 ETIQUETA_HOMERO_SALDO_FAVOR = "Homero saldo a favor (= 250)"
+
+# ─────────────────────────────────────────────
+# DESCARGO ESTATUS 3 — MERGE CON EL REPORTE
+# ─────────────────────────────────────────────
+# Directorio donde viven guia_descargo.json y descargo_estatus3.xlsx.
+DESCARGO_ESTATUS3_DIR = os.path.normpath(os.path.join(REPORTE_DIR, "descargo_estatus3"))
+_GUIA_DESCARGO_FILE   = "guia_descargo.json"
+TABLE_DESCARGO        = "cobranza_gc_verificacion_semana"
+
+# IDs excluidos del descargo (misma lista que descargo_cobranza_gc_estatus3.py).
+EXCLUIR_ID_CREDITO_ESTATUS3: tuple = (
+    943898, 1403455, 1454729, 1820460, 456213, 1592177, 1363701,
+    1382512, 837692, 1502282, 1386771, 1031813, 1363075, 1020293,
+)
+
+
+def _leer_guia_descargo() -> dict | None:
+    p = os.path.join(DESCARGO_ESTATUS3_DIR, _GUIA_DESCARGO_FILE)
+    if not os.path.isfile(p):
+        return None
+    try:
+        with open(p, encoding="utf-8-sig") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("No se pudo leer la guía descargo: %s", e)
+        return None
+
+
+def _guardar_guia_descargo(
+    *,
+    ultimo_id_credito: int,
+    ultimo_id_tabla: int,
+    ultimo_registrado_en_cdmx: str,
+) -> None:
+    os.makedirs(DESCARGO_ESTATUS3_DIR, exist_ok=True)
+    payload = {
+        "ultimo_id_tabla": ultimo_id_tabla,
+        "ultimo_registrado_en_cdmx": ultimo_registrado_en_cdmx,
+        "ultimo_id_credito": ultimo_id_credito,
+        "tabla": TABLE_DESCARGO,
+        "orden_descargo": "registrado_en_cdmx ASC, id ASC",
+        "guia_escrita_en_cdmx": datetime.now(TZ_CDMX).strftime("%Y-%m-%d %H:%M:%S"),
+        "nota": (
+            "Checkpoint incremental: la siguiente corrida pide filas con "
+            "(registrado_en_cdmx > ultimo_registrado_en_cdmx) O "
+            "(misma fecha y id de tabla > ultimo_id_tabla). "
+            "Escrito por reporte_cobranza.py al fusionar el reporte unificado."
+        ),
+    }
+    p = os.path.join(DESCARGO_ESTATUS3_DIR, _GUIA_DESCARGO_FILE)
+    try:
+        with open(p, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        log.info("Guía descargo actualizada: %s", os.path.basename(p))
+    except OSError as e:
+        log.warning("No se pudo guardar la guía descargo: %s", e)
+
+
+def _dt_descargo_a_str(val) -> str:
+    """Datetime / str del descargo → cadena legible para la columna fecha_ultimo_abono_efectivo."""
+    if val is None:
+        return ""
+    if isinstance(val, datetime):
+        return val.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(val, date):
+        return val.strftime("%Y-%m-%d 00:00:00")
+    s = str(val).strip()
+    if len(s) >= 10 and s[4] == "-":
+        return s[:19].replace("T", " ")
+    return s
+
+
+def obtener_descargo_incremental() -> list[dict]:
+    """
+    Consulta incrementalmente cobranza_gc_verificacion_semana (estatus=3)
+    usando la guia_descargo.json como checkpoint.
+    Devuelve lista de dicts (pymysql DictCursor).
+    """
+    guia = _leer_guia_descargo()
+    ids  = EXCLUIR_ID_CREDITO_ESTATUS3
+    ph   = ",".join(["%s"] * len(ids))
+    conds: list[str] = [
+        "`estatus` = 3",
+        f"`id_credito` NOT IN ({ph})",
+    ]
+    params: list = list(ids)
+
+    if guia is not None:
+        reg_raw = guia.get("ultimo_registrado_en_cdmx", "")
+        pk_raw  = guia.get("ultimo_id_tabla")
+        if reg_raw and pk_raw is not None:
+            try:
+                lr   = str(reg_raw).strip()
+                pk_i = int(pk_raw)
+                log.info("Descargo checkpoint: id_tabla=%s, fecha=%s", pk_i, lr)
+                conds.append(
+                    "(`registrado_en_cdmx` > %s OR "
+                    "(`registrado_en_cdmx` = %s AND `id` > %s))"
+                )
+                params.extend([lr, lr, pk_i])
+            except (TypeError, ValueError) as e:
+                log.warning(
+                    "Guía descargo con checkpoint inválido (%s): se traen todas las filas.", e
+                )
+        else:
+            log.info("Guía descargo sin checkpoint válido: traer todas las filas estatus=3.")
+    else:
+        log.info("Sin guía descargo previa: traer todas las filas estatus=3.")
+
+    sql = (
+        f"SELECT * FROM `{TABLE_DESCARGO}` "
+        f"WHERE {' AND '.join(conds)} "
+        "ORDER BY `registrado_en_cdmx` ASC, `id` ASC"
+    )
+    conn = pymysql.connect(**DB_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, tuple(params))
+            rows = cur.fetchall()
+        log.info("Descargo filas nuevas en esta corrida: %d", len(rows))
+        return list(rows)
+    finally:
+        conn.close()
+
+
+def _relleno_descargo_obs(reg: dict) -> "PatternFill | None":
+    """
+    Color de fila para registros del descargo que llevan texto de Observaciones.
+    Solo se evalúan reglas numéricas (SALDO_APLICABLE_GC), ya que las reglas basadas
+    en texto (APLICAR / CUOTA SIGUIENTE CUBIERTA) requieren el contexto del día de ejecución
+    que no está disponible para estas filas históricas del descargo.
+    """
+    aplicable = _float_reg(reg, "SALDO_APLICABLE_GC")
+    if aplicable < 200:
+        return FILL_ROW_GRIS
+    return FILL_ROW_NARANJA
+
+
+def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict]) -> list[dict]:
+    """
+    Agrega al listado del reporte las filas del descargo que no estén ya presentes.
+
+    Reglas de negocio:
+    · id_credito del descargo YA en resultados  → saltar (no modificar la fila del reporte).
+    · id_credito del descargo NO en resultados  → insertar nueva fila con campos mapeados:
+        monto_aplicar       → SALDO_APLICABLE_GC
+        tipo_reporte        → STATUS_CREDITO
+        registrado_en_cdmx  → FECHA_ULTIMO_ABONO_EFECTIVO
+        id_credito          → ID_CREDITO
+        nombre              → NOMBRE_CLIENTE
+        mensaje (Observaciones):
+          · Con texto → COMENTARIOS = ese texto; color = reglas numéricas (_relleno_descargo_obs).
+          · Vacío     → COMENTARIOS calculado por armar_comentarios_fila; color = relleno_fila_por_reglas.
+      Columnas del descargo sin equivalente en el reporte se descartan.
+      Columnas del reporte sin datos del descargo quedan en 0 / cadena vacía.
+    """
+    ids_en_reporte: set[str] = {str(r.get("ID_CREDITO", "")) for r in resultados}
+    filas_nuevas  = 0
+    filas_saltadas = 0
+
+    for row in rows_descargo:
+        id_c = str(row.get("id_credito", "") or "")
+        if id_c in ids_en_reporte:
+            filas_saltadas += 1
+            continue
+
+        obs = str(row.get("mensaje", "") or "").strip()
+
+        reg: dict = {
+            "ID_CREDITO":                   row.get("id_credito"),
+            "NOMBRE_CLIENTE":               str(row.get("nombre", "") or ""),
+            "STATUS_CREDITO":               str(row.get("tipo_reporte", "") or ""),
+            "CUOTA_SEMANAL":                0.0,
+            "DEUDA_GC":                     0.0,
+            "SALDO_A_FAVOR":                0.0,
+            "SALDO_APLICABLE_GC":           0.0,
+            "FECHA_ULTIMO_ABONO_EFECTIVO":  _dt_descargo_a_str(row.get("registrado_en_cdmx")),
+            "COMENTARIOS":                  "",
+            "ERROR":                        "",
+        }
+
+        monto_raw = row.get("monto_aplicar")
+        if monto_raw is not None and monto_raw != "":
+            try:
+                reg["SALDO_APLICABLE_GC"] = float(monto_raw)
+            except (TypeError, ValueError):
+                pass
+
+        if obs:
+            reg["COMENTARIOS"]    = obs
+            reg["_fill_override"] = _relleno_descargo_obs(reg)
+        else:
+            reg["COMENTARIOS"] = armar_comentarios_fila("", reg)
+
+        resultados.append(reg)
+        ids_en_reporte.add(id_c)
+        filas_nuevas += 1
+
+    log.info(
+        "Merge descargo: %d fila(s) nueva(s) insertada(s), %d saltada(s) (id ya en reporte).",
+        filas_nuevas,
+        filas_saltadas,
+    )
+    return resultados
+
 
 # ─── QUERY PRINCIPAL: dinámica — filtro fecha = fecha de negocio (ayer CDMX el día de la corrida)
 
@@ -670,7 +877,9 @@ def generar_excel(registros, lunes: date, hoy: date, ruta_salida: str):
     f_data = Font(name="Arial", size=9)
     for ri, reg in enumerate(registros, 3):
         alt = (ri % 2 == 0)
-        row_fill = relleno_fila_por_reglas(reg)
+        row_fill = reg.get("_fill_override")
+        if row_fill is None:
+            row_fill = relleno_fila_por_reglas(reg)
         for ci, (key, _) in enumerate(COLUMNAS, 1):
             val = reg.get(key, "")
             c   = ws.cell(row=ri, column=ci, value=val)
@@ -710,10 +919,25 @@ def main() -> None:
 
     os.makedirs(REPORTE_DIR, exist_ok=True)
     # Nombre: día de generación en CDMX, formato tipo 31-03-2026 (DD-MM-AAAA; sin / por rutas Windows).
-    # Misma fecha de calendario CDMX → mismo archivo (sobrescribe si se vuelve a correr ese día).
     fecha_generacion_cdmx = datetime.now(TZ_CDMX).date()
     nombre_excel = f"reporte_cobranza_{fecha_generacion_cdmx.strftime('%d-%m-%Y')}.xlsx"
     ruta_excel = os.path.join(REPORTE_DIR, nombre_excel)
+
+    # Si el reporte de hoy ya fue generado, avisar y salir sin regenerar.
+    if os.path.isfile(ruta_excel):
+        aviso = (
+            f"\n{'=' * 65}\n"
+            f"  AVISO: El reporte del día ya existe\n"
+            f"  Archivo : {nombre_excel}\n"
+            f"  Este reporte ya fue generado hoy. Por favor descárguelo\n"
+            f"  directamente desde la tabla de reportes y úselo.\n"
+            f"  Si necesita regenerarlo, elimine el archivo existente\n"
+            f"  y vuelva a ejecutar el agente.\n"
+            f"{'=' * 65}"
+        )
+        print(aviso, flush=True)
+        log.warning("Reporte del día ya existe: %s — proceso terminado sin regenerar.", ruta_excel)
+        return
 
     log.info("=" * 65)
     log.info(f"  Reloj CDMX (inicio) : {ahora_cdmx.isoformat()}")
@@ -902,10 +1126,38 @@ def main() -> None:
     log.info(f"  Excluidos post-S2 (no vigente / sin GC / sin saldo) : {excluidos_s2:,}")
     notificar_google_chat(
         f"✅ **S2** terminado. En reporte final: **{len(resultados):,}** filas "
-        f"(excl. post-S2: **{excluidos_s2:,}**). Generando Excel…"
+        f"(excl. post-S2: **{excluidos_s2:,}**). Fusionando descargo…"
     )
 
-    # PASO 3: generar Excel SIEMPRE (aunque sea vacío)
+    # PASO 3: Descargo incremental (estatus=3) + merge con el reporte
+    log.info("Consultando descargo incremental (estatus=3)...")
+    print("--- descargo incremental ---", flush=True)
+    rows_descargo = obtener_descargo_incremental()
+    if rows_descargo:
+        resultados = merge_descargo_en_reporte(resultados, rows_descargo)
+        ult = rows_descargo[-1]
+        _guardar_guia_descargo(
+            ultimo_id_credito=int(ult.get("id_credito", 0) or 0),
+            ultimo_id_tabla=int(ult.get("id", 0) or 0),
+            ultimo_registrado_en_cdmx=_dt_descargo_a_str(ult.get("registrado_en_cdmx")),
+        )
+        print(
+            f"Descargo: {len(rows_descargo)} fila(s) nueva(s) en esta corrida. "
+            "Guía actualizada.",
+            flush=True,
+        )
+        notificar_google_chat(
+            f"🔀 **Descargo estatus-3**: **{len(rows_descargo):,}** fila(s) nueva(s) fusionadas al reporte."
+        )
+    else:
+        log.info("Descargo: sin filas nuevas en esta corrida. La guía no se actualiza.")
+        print(
+            "Descargo incremental: sin filas nuevas en esta corrida. La guía no se actualiza.",
+            flush=True,
+        )
+        notificar_google_chat("ℹ️ **Descargo estatus-3**: sin filas nuevas en esta corrida.")
+
+    # PASO 4: generar Excel unificado (siempre, aunque queden 0 registros)
     generar_excel(resultados, lunes, hoy, ruta_excel)
 
     elapsed = time.time() - t0

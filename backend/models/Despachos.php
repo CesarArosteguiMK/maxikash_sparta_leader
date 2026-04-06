@@ -1165,10 +1165,18 @@ SQL;
         $paresOk = [];
         foreach ($pares as $p) {
             if (!isset($validosDespacho[$p['d']])) {
+                $idD = (int) $p['d'];
+                $idC = (int) $p['c'];
                 $errores[] = [
                     'fila' => $p['fila'],
-                    'reason' => 'id_despacho no existe o no está activo en la tabla despachos',
-                    'valor' => (string) $p['d']
+                    'reason' => sprintf(
+                        'id_despacho %d no existe en «despachos» o no está activo (estatus distinto de «Activo»). Crédito en esta fila: %d.',
+                        $idD,
+                        $idC
+                    ),
+                    'valor' => (string) $idD,
+                    'id_credito' => $idC,
+                    'id_despacho' => $idD,
                 ];
                 continue;
             }

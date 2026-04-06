@@ -184,15 +184,17 @@
                                         <thead class="table-light">
                                         <tr>
                                             <th>Promesa pago</th>
+                                            <th>Motivo negativa</th>
                                             <th>Motivo atraso</th>
                                             <th>Comentarios</th>
                                         </tr>
                                         </thead>
                                         <tbody>
                                         <tr>
-                                            <td><?= $g["promesa_pago"] ?></td>
-                                            <td><?= $g["porque_atraso_pago"] ?></td>
-                                            <td><?= $g["comentarios_generales"] ?></td>
+                                            <td><?= htmlspecialchars((string)($g["promesa_pago"] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars((string)($g["motivo_negativa"] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars((string)($g["porque_atraso_pago"] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= nl2br(htmlspecialchars((string)($g["comentarios_generales"] ?? ''), ENT_QUOTES, 'UTF-8')) ?></td>
                                         </tr>
                                         </tbody>
                                     </table>

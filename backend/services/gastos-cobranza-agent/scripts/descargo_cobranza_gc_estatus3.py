@@ -7,7 +7,7 @@ genera descargo_estatus3.xlsx (columnas legibles y encabezados formateados) y gu
 Repo: backend/services/gastos-cobranza-agent/scripts/
 Agente Node: POST /descargo-estatus3/run (carpeta fija reporte/descargo_estatus3/).
 
-Dependencias: pip install -r scripts/requirements.txt
+Dependencias: mysql-connector-python, openpyxl, tzdata (ver scripts/requirements.txt).
 
 Ejemplo:
   py -3 descargo_cobranza_gc_estatus3.py --mega-php-defaults --datos-dir "C:\\ruta\\descargo_estatus3"
@@ -26,8 +26,8 @@ from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
+import math
 import mysql.connector
-import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -162,64 +162,75 @@ def col_index_ci(colnames: list[str], want: str) -> int:
     sys.exit(2)
 
 
-def _df_col_ci(df: pd.DataFrame, name: str) -> pd.Series:
-    """Serie por nombre de columna insensible a mayúsculas; si no existe, NA en todas las filas."""
-    for c in df.columns:
-        if str(c).lower() == name.lower():
-            return df[c].reset_index(drop=True)
-    return pd.Series([pd.NA] * len(df), dtype=object)
+def _fila_como_mapa_lc(row: tuple, colnames: list[str]) -> dict:
+    """Claves en minúsculas para coincidir columnas BD sin importar mayúsculas."""
+    return {str(colnames[i]).lower(): row[i] for i in range(len(row))}
+
+
+def _valor_presente(v) -> bool:
+    if v is None:
+        return False
+    try:
+        if isinstance(v, float) and math.isnan(v):
+            return False
+    except TypeError:
+        pass
+    if isinstance(v, str) and v.strip() == "":
+        return False
+    return True
 
 
 def _fmt_semana_iso(anio_val, semana_val) -> str:
     try:
-        if pd.notna(anio_val) and pd.notna(semana_val):
+        if _valor_presente(anio_val) and _valor_presente(semana_val):
             return f"{int(anio_val)}-W{int(semana_val):02d}"
-        if pd.notna(semana_val):
+        if _valor_presente(semana_val):
             return str(int(semana_val))
     except (TypeError, ValueError):
         pass
     return ""
 
 
-def construir_dataframe_descargo_export(df: pd.DataFrame) -> pd.DataFrame:
+def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[list[str], list[list]]:
     """
-    Solo las columnas solicitadas para el Excel, con encabezados legibles.
+    Encabezados legibles + filas para el Excel (misma salida que antes vía pandas).
     `mensaje` en BD → Observaciones.
     """
-    n = len(df)
-    if n == 0:
-        return pd.DataFrame()
+    headers = [
+        "ID crédito",
+        "Nombre",
+        "Tipo de reporte",
+        "Monto a aplicar",
+        "Estatus",
+        "Id usuario que reportó",
+        "Semana ISO",
+        "registrado_en_cdmx",
+        "Observaciones",
+    ]
+    data: list[list] = []
+    for row in rows:
+        m = _fila_como_mapa_lc(tuple(row), colnames)
+        anio = m.get("anio_iso")
+        sem = m.get("semana_iso")
+        sem_txt = _fmt_semana_iso(anio, sem)
+        reg = m.get("registrado_en_cdmx")
+        reg_txt = _datetime_a_iso_cdmx(reg) if _valor_presente(reg) else ""
+        fila_out = [
+            m.get("id_credito"),
+            m.get("nombre"),
+            m.get("tipo_reporte"),
+            m.get("monto_aplicar"),
+            m.get("estatus"),
+            m.get("id_usuario_reporte"),
+            sem_txt,
+            reg_txt,
+            m.get("mensaje"),
+        ]
+        data.append(fila_out)
+    return headers, data
 
-    s_anio = _df_col_ci(df, "anio_iso")
-    s_sem = _df_col_ci(df, "semana_iso")
-    semana_iso_txt = [_fmt_semana_iso(s_anio.iloc[i], s_sem.iloc[i]) for i in range(n)]
 
-    s_reg = _df_col_ci(df, "registrado_en_cdmx")
-    reg_txt: list[str] = []
-    for i in range(n):
-        x = s_reg.iloc[i]
-        if x is None or pd.isna(x):
-            reg_txt.append("")
-        else:
-            reg_txt.append(_datetime_a_iso_cdmx(x))
-
-    out = pd.DataFrame(
-        {
-            "ID crédito": _df_col_ci(df, "id_credito"),
-            "Nombre": _df_col_ci(df, "nombre"),
-            "Tipo de reporte": _df_col_ci(df, "tipo_reporte"),
-            "Monto a aplicar": _df_col_ci(df, "monto_aplicar"),
-            "Estatus": _df_col_ci(df, "estatus"),
-            "Id usuario que reportó": _df_col_ci(df, "id_usuario_reporte"),
-            "Semana ISO": semana_iso_txt,
-            "registrado_en_cdmx": reg_txt,
-            "Observaciones": _df_col_ci(df, "mensaje"),
-        }
-    )
-    return out
-
-
-def escribir_excel_descargo_formateado(df_export: pd.DataFrame, path: Path) -> None:
+def escribir_excel_descargo_formateado(encabezados: list[str], data_rows: list[list], path: Path) -> None:
     """Libro .xlsx con encabezados con color, bordes, anchos y filtros."""
     wb = Workbook()
     ws = wb.active
@@ -233,7 +244,7 @@ def escribir_excel_descargo_formateado(df_export: pd.DataFrame, path: Path) -> N
     align_header = Alignment(horizontal="center", vertical="center", wrap_text=True)
     align_num = Alignment(horizontal="right", vertical="top")
 
-    headers = list(df_export.columns)
+    headers = list(encabezados)
     num_cols = len(headers)
     idx_monto = headers.index("Monto a aplicar") + 1 if "Monto a aplicar" in headers else None
     idx_id_cred = headers.index("ID crédito") + 1 if "ID crédito" in headers else None
@@ -249,14 +260,11 @@ def escribir_excel_descargo_formateado(df_export: pd.DataFrame, path: Path) -> N
 
     monto_fmt = '#,##0.00_ ;-#,##0.00_ ;"-"_ '
 
-    for i, row in enumerate(df_export.itertuples(index=False), start=2):
+    for i, row in enumerate(data_rows, start=2):
         for j, val in enumerate(row, start=1):
             v = val
-            try:
-                if v is not None and pd.isna(v):
-                    v = None
-            except TypeError:
-                pass
+            if not _valor_presente(v):
+                v = None
             c = ws.cell(row=i, column=j, value=v)
             c.border = cell_border
             if j == idx_monto and v is not None:
@@ -281,7 +289,7 @@ def escribir_excel_descargo_formateado(df_export: pd.DataFrame, path: Path) -> N
                 c.alignment = align_top
 
     ws.freeze_panes = "A2"
-    last_row = 1 + len(df_export)
+    last_row = 1 + len(data_rows)
     if last_row > 1:
         ws.auto_filter.ref = f"A1:{get_column_letter(num_cols)}{last_row}"
 
@@ -421,9 +429,8 @@ def descargo_estatus_3_incremental(
     if rows:
         try:
             datos_dir.mkdir(parents=True, exist_ok=True)
-            df = pd.DataFrame([list(r) for r in rows], columns=colnames)
-            df_export = construir_dataframe_descargo_export(df)
-            escribir_excel_descargo_formateado(df_export, xlsx_path)
+            hdrs, data_export = construir_tabla_descargo_export(rows, colnames)
+            escribir_excel_descargo_formateado(hdrs, data_export, xlsx_path)
         except OSError as e:
             print(f"No se pudo escribir el Excel ({xlsx_path}): {e}", file=sys.stderr)
             sys.exit(2)

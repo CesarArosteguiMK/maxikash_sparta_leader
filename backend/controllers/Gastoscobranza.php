@@ -44,6 +44,25 @@ class Gastoscobranza extends Controller
         }
     }
 
+    /**
+     * Ruta relativa permitida bajo reporte/ del agente (raíz o historico/<carpeta>/).
+     */
+    private function archivoExcelReporteAgenteValido(string $rel): bool
+    {
+        $rel = str_replace('\\', '/', trim($rel));
+        if ($rel === '' || strpos($rel, '..') !== false) {
+            return false;
+        }
+        if (preg_match('#^reporte_cobranza_[A-Za-z0-9._-]+\.xlsx$#i', $rel)) {
+            return true;
+        }
+        if (preg_match('#^historico/[a-zA-Z0-9._-]+/reporte_cobranza_[A-Za-z0-9._-]+\.xlsx$#i', $rel)) {
+            return true;
+        }
+
+        return false;
+    }
+
     /** Evita que PHP corte la petición a los ~30 s mientras el agente corre reporte / worker (respuesta HTML en lugar de JSON). */
     private function extenderTiempoEjecucionParaAgente()
     {
@@ -331,11 +350,8 @@ class Gastoscobranza extends Controller
      */
     public function descargarReporte()
     {
-        $nombre = isset($_GET['nombre']) ? (string)$_GET['nombre'] : '';
-        if (
-            $nombre === '' || $nombre !== basename($nombre)
-            || !preg_match('/^reporte_cobranza_[A-Za-z0-9._-]+\.xlsx$/', $nombre)
-        ) {
+        $nombre = isset($_GET['nombre']) ? str_replace('\\', '/', trim((string)$_GET['nombre'])) : '';
+        if ($nombre === '' || !$this->archivoExcelReporteAgenteValido($nombre)) {
             header('HTTP/1.0 400 Bad Request');
             echo 'Nombre de archivo inválido';
             exit;
@@ -377,7 +393,7 @@ class Gastoscobranza extends Controller
             exit;
         }
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="' . $nombre . '"');
+        header('Content-Disposition: attachment; filename="' . basename($nombre) . '"');
         header('Content-Length: ' . strlen($bin));
         echo $bin;
         exit;
@@ -503,15 +519,25 @@ class Gastoscobranza extends Controller
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Cuerpo JSON inválido.']);
                 return;
             }
-            $nombre = isset($body['nombre']) ? basename((string)$body['nombre']) : '';
+            $nombreRaw = isset($body['nombre']) ? str_replace('\\', '/', trim((string)$body['nombre'])) : '';
             $tipo = isset($body['tipo']) ? strtolower(trim((string)$body['tipo'])) : '';
             $fechaCorte = isset($body['fechaCorte']) ? trim((string)$body['fechaCorte']) : '';
             $column = isset($body['column']) ? trim((string)$body['column']) : 'ID CREDITO';
             $omitir = isset($body['omitir']) ? (int)$body['omitir'] : 0;
             $soloColumnas = !empty($body['soloColumnas']);
-            if ($nombre === '' || substr(strtolower($nombre), -5) !== '.xlsx') {
+            $origenCarpetaPrev = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
+            if ($nombreRaw === '' || substr(strtolower($nombreRaw), -5) !== '.xlsx') {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Indique el nombre del .xlsx subido previamente.']);
                 return;
+            }
+            if ($origenCarpetaPrev === 'reporte') {
+                if (!$this->archivoExcelReporteAgenteValido($nombreRaw)) {
+                    self::respuestaJSON(['success' => false, 'mensaje' => 'Ruta del Excel en reporte/ no permitida.']);
+                    return;
+                }
+                $nombre = $nombreRaw;
+            } else {
+                $nombre = basename($nombreRaw);
             }
             if ($tipo !== 'worker' && $tipo !== 'enrich') {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'El campo tipo debe ser worker o enrich.']);
@@ -584,13 +610,23 @@ class Gastoscobranza extends Controller
                 self::respuestaJSON(['success' => false, 'mensaje' => 'Cuerpo JSON inválido.']);
                 return;
             }
-            $nombre = isset($body['archivo']) ? basename((string)$body['archivo']) : '';
-            if ($nombre === '' || substr(strtolower($nombre), -5) !== '.xlsx') {
+            $nombreRaw = isset($body['archivo']) ? str_replace('\\', '/', trim((string)$body['archivo'])) : '';
+            $origenCarga = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
+            if ($nombreRaw === '' || substr(strtolower($nombreRaw), -5) !== '.xlsx') {
                 self::respuestaJSON([
                     'success' => false,
                     'mensaje' => 'Indique el nombre del .xlsx (carpeta ec-uploads, o reporte/ si envía origenCarpeta=reporte).',
                 ]);
                 return;
+            }
+            if ($origenCarga === 'reporte') {
+                if (!$this->archivoExcelReporteAgenteValido($nombreRaw)) {
+                    self::respuestaJSON(['success' => false, 'mensaje' => 'Ruta del Excel en reporte/ no permitida.']);
+                    return;
+                }
+                $nombre = $nombreRaw;
+            } else {
+                $nombre = basename($nombreRaw);
             }
             $inicioSemana = isset($body['inicioSemana']) ? trim((string)$body['inicioSemana']) : '';
             if ($inicioSemana !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $inicioSemana)) {
@@ -604,7 +640,6 @@ class Gastoscobranza extends Controller
                 'megaPhpDefaults' => !isset($body['megaPhpDefaults']) || !empty($body['megaPhpDefaults']),
                 'tipoReporteNulo' => true,
             ];
-            $origenCarga = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
             if ($origenCarga === 'reporte') {
                 $payload['origenCarpeta'] = 'reporte';
             }

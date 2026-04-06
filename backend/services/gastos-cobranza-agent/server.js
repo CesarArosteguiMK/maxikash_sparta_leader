@@ -19,9 +19,14 @@
  *   GASTOS_COBRANZA_LOG_MAX_BYTES (0 = sin recorte), GASTOS_COBRANZA_LOG_KEEP_LINES.
  *   GASTOS_COBRANZA_LOG_CLEAR_ON_START=1 vacía el log al arrancar el servicio.
  * POST /logs/clear vacía el archivo (deja una línea de marca).
+ *
+ * Reloj / archivado histórico: la semana «actual» usa el reloj del proceso (Date.now).
+ * Si el servidor tiene hora mal, ponga GASTOS_GC_REMOTE_CDMX_TIME=1 para corregir contra una API HTTP
+ * (ver syncCdmxClockFromRemote), o GASTOS_GC_CLOCK_OFFSET_MS (milisegundos a sumar al reloj local).
  */
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 const { spawn } = require('child_process');
 try {
   require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -71,6 +76,261 @@ const EC_UPLOAD_DIR = path.join(REPORTE_DIR, 'ec-uploads');
 const EC_WORKER_DIR = path.join(__dirname, 'tools', 'ec-webhook-worker');
 const EC_ENRICH_DIR = path.join(__dirname, 'tools', 'ec-gc-excel-enrich');
 const DESCARGO_ESTATUS3_DIR = path.join(REPORTE_DIR, 'descargo_estatus3');
+const HISTORICO_DIR_NAME = 'historico';
+
+/** Subcarpetas en la raíz de reporte/ que no se recorren al listar (historico/ sí se recorre). */
+const REPORTE_SKIP_ROOT_DIRS = new Set(['ec-uploads', 'descargo_estatus3']);
+
+function pad2Seg(n) {
+  return String(n).padStart(2, '0');
+}
+
+function fmtCdmxYmdParts(date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const o = {};
+  parts.forEach((p) => {
+    if (p.type === 'year') o.y = parseInt(p.value, 10);
+    if (p.type === 'month') o.m = parseInt(p.value, 10);
+    if (p.type === 'day') o.d = parseInt(p.value, 10);
+  });
+  return o.y ? o : null;
+}
+
+/** Milisegundos fijos sumados al reloj local (servidor desfasado; p. ej. +600000 si va 10 min atrasado). */
+const MANUAL_CLOCK_OFFSET_MS =
+  Number.parseInt(String(process.env.GASTOS_GC_CLOCK_OFFSET_MS || '0').trim(), 10) || 0;
+/** Offset descubierto vía API (UTC real − Date.now() local). */
+let remoteClockOffsetMs = 0;
+let lastRemoteSyncOkAt = 0;
+let lastRemoteSyncAttemptAt = 0;
+
+function remoteCdmxTimeEnabled() {
+  return String(process.env.GASTOS_GC_REMOTE_CDMX_TIME || '').trim() === '1';
+}
+
+/** Instante usado para «hoy» calendario CDMX en archivado y clave de semana actual. */
+function nowForCdmxCalendar() {
+  return new Date(Date.now() + remoteClockOffsetMs + MANUAL_CLOCK_OFFSET_MS);
+}
+
+function addDaysYmd(y, m, d, delta) {
+  const t = Date.UTC(y, m - 1, d) + delta * 86400000;
+  const x = new Date(t);
+  return { y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate() };
+}
+
+/**
+ * Día de la semana 0=lunes … 6=domingo para una fecha civil gregoriana (y, m, d).
+ * No usa Intl: evita servidores sin locale completo y el bug anterior (fallback a lunes=0)
+ * que trataba el 1-abr-2026 como «lunes» y generaba clave 2026-04-01 en vez de 2026-03-30.
+ * «Hoy CDMX» sigue resolviéndose con fmtCdmxYmdParts(…) y luego el mismo calendario civil.
+ */
+function cdmxWeekdayMon0(y, m, d) {
+  const t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+  const Y = m < 3 ? y - 1 : y;
+  const wSun0 =
+    (Y + Math.floor(Y / 4) - Math.floor(Y / 100) + Math.floor(Y / 400) + t[m - 1] + d) % 7;
+  return (wSun0 + 6) % 7;
+}
+
+function lunesSemanaCdmx(y, m, d) {
+  const k = cdmxWeekdayMon0(y, m, d);
+  return addDaysYmd(y, m, d, -k);
+}
+
+function claveLunesYmd(L) {
+  return `${L.y}-${pad2Seg(L.m)}-${pad2Seg(L.d)}`;
+}
+
+function parseNombreReporteCobranzaFecha(nom) {
+  const m = /^reporte_cobranza_(\d{2})-(\d{2})-(\d{4})\.xlsx$/i.exec(String(nom || ''));
+  if (!m) return null;
+  const dd = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  const yy = parseInt(m[3], 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  return { y: yy, m: mm, d: dd };
+}
+
+function lunesSemanaClaveDesdeArchivoReporte(name, mtime) {
+  const base = path.basename(name);
+  let ymd = parseNombreReporteCobranzaFecha(base);
+  if (!ymd) {
+    const d = mtime instanceof Date ? mtime : new Date(mtime);
+    ymd = fmtCdmxYmdParts(d);
+  }
+  if (!ymd) return null;
+  return claveLunesYmd(lunesSemanaCdmx(ymd.y, ymd.m, ymd.d));
+}
+
+function lunesSemanaActualClave() {
+  const h = fmtCdmxYmdParts(nowForCdmxCalendar());
+  if (!h) return null;
+  return claveLunesYmd(lunesSemanaCdmx(h.y, h.m, h.d));
+}
+
+function ymdDesdeClaveLunes(clave) {
+  const p = String(clave)
+    .split('-')
+    .map((x) => parseInt(x, 10));
+  if (p.length !== 3 || p.some((n) => Number.isNaN(n))) return null;
+  return { y: p[0], m: p[1], d: p[2] };
+}
+
+/** Carpeta legible: 30mar2026_a_5abr2026 (lun–dom de esa semana). */
+function folderNameSemanaCdmx(L, D) {
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const slug = (ymd) => `${ymd.d}${months[ymd.m - 1]}${ymd.y}`;
+  return `${slug(L)}_a_${slug(D)}`;
+}
+
+function migrateEstadoReporteKey(oldName, newRel) {
+  const fp = path.join(REPORTE_DIR, '.estados_reporte.json');
+  if (!fs.existsSync(fp)) return;
+  let map;
+  try {
+    map = JSON.parse(fs.readFileSync(fp, 'utf8'));
+  } catch (_) {
+    return;
+  }
+  if (!map || typeof map !== 'object') return;
+  const base = path.basename(oldName);
+  const keys = [oldName, base, String(oldName).toLowerCase(), base.toLowerCase()];
+  for (const k of keys) {
+    if (Object.prototype.hasOwnProperty.call(map, k)) {
+      map[String(newRel).replace(/\\/g, '/')] = map[k];
+      delete map[k];
+      try {
+        fs.writeFileSync(fp, `${JSON.stringify(map, null, 2)}\n`, 'utf8');
+      } catch (_) {}
+      return;
+    }
+  }
+}
+
+/**
+ * Archiva en reporte/historico/<semana>/ los reporte_cobranza_*.xlsx de la raíz
+ * cuya semana (lun–dom CDMX) según la **fecha en el nombre** ya terminó respecto a la semana actual.
+ *
+ * No usa fecha de modificación para decidir: evita mover reportes de la semana en curso si el nombre
+ * es reporte_cobranza_DD-MM-YYYY.xlsx. Si el nombre no trae esa fecha, no se archiva.
+ */
+function archivarReportesCobranzaRaizSiAplica() {
+  const keyActual = lunesSemanaActualClave();
+  if (!keyActual) return;
+
+  let files;
+  try {
+    files = fs.readdirSync(REPORTE_DIR);
+  } catch (_) {
+    return;
+  }
+
+  const historicoRoot = path.join(REPORTE_DIR, HISTORICO_DIR_NAME);
+
+  for (const name of files) {
+    if (!/^reporte_cobranza_.*\.xlsx$/i.test(name)) continue;
+    const src = path.join(REPORTE_DIR, name);
+    let st;
+    try {
+      st = fs.statSync(src);
+    } catch (_) {
+      continue;
+    }
+    if (!st.isFile()) continue;
+
+    const base = path.basename(name);
+    const ymdNom = parseNombreReporteCobranzaFecha(base);
+    if (!ymdNom) continue;
+    const keyFile = claveLunesYmd(lunesSemanaCdmx(ymdNom.y, ymdNom.m, ymdNom.d));
+    if (!keyFile || keyFile >= keyActual) continue;
+
+    const L = ymdDesdeClaveLunes(keyFile);
+    if (!L) continue;
+    const D = addDaysYmd(L.y, L.m, L.d, 6);
+    const folder = folderNameSemanaCdmx(L, D);
+    const destDir = path.join(historicoRoot, folder);
+    try {
+      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+    } catch (_) {
+      continue;
+    }
+
+    const dest = path.join(destDir, name);
+    const relNew = `${HISTORICO_DIR_NAME}/${folder}/${name}`;
+    if (fs.existsSync(dest)) {
+      const stem = name.replace(/\.xlsx$/i, '');
+      const alt = `${stem}_${Math.floor(st.mtimeMs)}.xlsx`;
+      try {
+        fs.renameSync(src, path.join(destDir, alt));
+        migrateEstadoReporteKey(name, `${HISTORICO_DIR_NAME}/${folder}/${alt}`);
+        appendLog(`[reporte] archivado (nombre único): ${relNew} → ${alt}`);
+      } catch (_) {}
+    } else {
+      try {
+        fs.renameSync(src, dest);
+        migrateEstadoReporteKey(name, relNew);
+        appendLog(`[reporte] archivado: ${relNew}`);
+      } catch (_) {}
+    }
+  }
+}
+
+/**
+ * Resuelve ruta bajo baseDir; rel solo con segmentos [a-zA-Z0-9._-]+ (sin ..).
+ */
+function safeResolveUnderDir(relRaw, baseDir) {
+  const rel = String(relRaw || '')
+    .replace(/\\/g, '/')
+    .trim();
+  if (!rel || rel.includes('..')) return { error: 'Ruta inválida.' };
+  const parts = rel.split('/').filter(Boolean);
+  if (parts.length === 0) return { error: 'Ruta vacía.' };
+  for (const p of parts) {
+    if (!/^[a-zA-Z0-9._-]+$/.test(p)) return { error: 'Nombre de archivo o carpeta no permitido.' };
+  }
+  const abs = path.resolve(path.join(baseDir, ...parts));
+  const root = path.resolve(baseDir);
+  if (!abs.startsWith(root + path.sep) && abs !== root) return { error: 'Ruta fuera de carpeta permitida.' };
+  return { abs };
+}
+
+function collectReporteXlsxRecursive() {
+  const out = [];
+  function walk(dir, relPrefix) {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_) {
+      return;
+    }
+    for (const e of entries) {
+      const name = e.name;
+      if (name.startsWith('.')) continue;
+      const full = path.join(dir, name);
+      const rel = relPrefix ? `${relPrefix}/${name}` : name;
+      if (e.isDirectory()) {
+        if (!relPrefix && REPORTE_SKIP_ROOT_DIRS.has(name.toLowerCase())) continue;
+        walk(full, rel);
+      } else if (e.isFile() && name.toLowerCase().endsWith('.xlsx')) {
+        let st;
+        try {
+          st = fs.statSync(full);
+        } catch (_) {
+          continue;
+        }
+        out.push({ nombre: rel.replace(/\\/g, '/'), st });
+      }
+    }
+  }
+  walk(REPORTE_DIR, '');
+  return out;
+}
 
 /** Texto corto en columna Estado (UI) → tooltip = frase completa operativa */
 const ESTADO_REPORTE = {
@@ -100,7 +360,7 @@ function readEstadosReporteJson() {
 }
 
 function setEstadoReporteArchivo(nombreArchivo, estadoKey) {
-  const nom = path.basename(String(nombreArchivo || ''));
+  const nom = String(nombreArchivo || '').replace(/\\/g, '/').trim();
   if (!nom || !ESTADO_REPORTE_KEYS.has(estadoKey)) return;
   ensureReporteDir();
   const fp = path.join(REPORTE_DIR, '.estados_reporte.json');
@@ -129,14 +389,22 @@ function payloadEstadoReporte(nombreArchivo, estadoKey) {
  * @returns {{ estado: string, estadoDetalle: string }}
  */
 function resolverEstadoReporte(nombreArchivo, mapaJson) {
-  const nom = String(nombreArchivo || '');
-  const keyDirecto = mapaJson[nom] ?? mapaJson[nom.toLowerCase()];
-  const k = typeof keyDirecto === 'string' ? keyDirecto.trim() : '';
+  const nom = String(nombreArchivo || '').replace(/\\/g, '/');
+  const base = path.posix.basename(nom);
+  const tryKeys = [nom, nom.toLowerCase(), base, base.toLowerCase()];
+  let k = '';
+  for (const tk of tryKeys) {
+    const kd = mapaJson[tk];
+    if (typeof kd === 'string' && kd.trim()) {
+      k = kd.trim();
+      break;
+    }
+  }
   if (k && ESTADO_REPORTE_KEYS.has(k) && ESTADO_REPORTE[k]) {
     const { corto, detalle } = ESTADO_REPORTE[k];
     return { estado: corto, estadoDetalle: detalle };
   }
-  if (/^reporte_cobranza_[A-Za-z0-9._-]+\.xlsx$/i.test(nom)) {
+  if (/^reporte_cobranza_[A-Za-z0-9._-]+\.xlsx$/i.test(base)) {
     const { corto, detalle } = ESTADO_REPORTE.generado;
     return { estado: corto, estadoDetalle: detalle };
   }
@@ -205,6 +473,101 @@ function appendLog(text) {
   } catch (_) {}
 }
 
+function timeSyncMaxAgeMs() {
+  const n = parseInt(String(process.env.GASTOS_GC_TIME_SYNC_MAX_AGE_MS || '900000').trim(), 10);
+  return Number.isFinite(n) && n >= 60000 ? n : 900000;
+}
+
+function httpsGetJson(urlStr, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const url = new URL(urlStr);
+    const req = https.request(
+      {
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: `${url.pathname}${url.search}`,
+        method: 'GET',
+        headers: { 'User-Agent': 'gastos-cobranza-agent/1.0' },
+      },
+      (res) => {
+        let d = '';
+        res.on('data', (c) => {
+          d += c;
+        });
+        res.on('end', () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(to);
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(d));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      },
+    );
+    const to = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      req.destroy();
+      reject(new Error('timeout'));
+    }, timeoutMs);
+    req.on('error', (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(to);
+      reject(e);
+    });
+    req.end();
+  });
+}
+
+function offsetMsFromPublicTimeJson(body) {
+  if (!body || typeof body !== 'object') throw new Error('cuerpo vacío');
+  if (body.unixtime != null) return Number(body.unixtime) * 1000 - Date.now();
+  if (body.epochMilliseconds != null) return Number(body.epochMilliseconds) - Date.now();
+  if (body.unixTime != null) return Number(body.unixTime) * 1000 - Date.now();
+  throw new Error('JSON sin unixtime ni epochMilliseconds');
+}
+
+async function syncCdmxClockFromRemote() {
+  const url =
+    String(process.env.GASTOS_GC_TIME_API_URL || '').trim() ||
+    'https://worldtimeapi.org/api/timezone/America/Mexico_City';
+  const timeout = Math.min(
+    30000,
+    Math.max(3000, parseInt(String(process.env.GASTOS_GC_TIME_API_TIMEOUT_MS || '8000').trim(), 10) || 8000),
+  );
+  const body = await httpsGetJson(url, timeout);
+  const off = offsetMsFromPublicTimeJson(body);
+  if (!Number.isFinite(off)) throw new Error('offset NaN');
+  remoteClockOffsetMs = off;
+  lastRemoteSyncOkAt = Date.now();
+  const parts = fmtCdmxYmdParts(nowForCdmxCalendar());
+  appendLog(
+    `[reloj] API hora (${url}) offset_remoto_ms=${remoteClockOffsetMs} ` +
+      `→ CDMX hoy ${parts ? `${parts.y}-${pad2Seg(parts.m)}-${pad2Seg(parts.d)}` : '?'}`,
+  );
+}
+
+async function ensureCdmxTimeFresh() {
+  if (!remoteCdmxTimeEnabled()) return;
+  const n = Date.now();
+  if (lastRemoteSyncOkAt && n - lastRemoteSyncOkAt < timeSyncMaxAgeMs()) return;
+  if (n - lastRemoteSyncAttemptAt < 15000) return;
+  lastRemoteSyncAttemptAt = n;
+  try {
+    await syncCdmxClockFromRemote();
+  } catch (e) {
+    appendLog(`[reloj] Fallo sincronización: ${e?.message || e} (offset_remoto_ms=${remoteClockOffsetMs})`);
+  }
+}
+
 function readLogTail(maxLines) {
   ensureLogDir();
   trimLogFileIfOversized();
@@ -265,10 +628,15 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   ensureReporteDir();
   const scriptPath = getReporteScriptPath();
+  const hCdmx = fmtCdmxYmdParts(nowForCdmxCalendar());
   res.json({
     success: true,
     servicio: 'gastos-cobranza-agent',
     timestamp: new Date().toISOString(),
+    cdmx_calendario_hoy: hCdmx ? `${hCdmx.y}-${pad2Seg(hCdmx.m)}-${pad2Seg(hCdmx.d)}` : null,
+    reloj_remoto_cdmx: remoteCdmxTimeEnabled(),
+    reloj_offset_remoto_ms: remoteClockOffsetMs,
+    reloj_offset_manual_ms: MANUAL_CLOCK_OFFSET_MS,
     script_configurado: scriptPath.length > 0,
     script_bundled: scriptPath !== '' && scriptPath === SCRIPT_BUNDLED,
     demo_sin_script: !scriptPath && demoPermitidoSinScript(),
@@ -288,24 +656,28 @@ app.get('/health', (req, res) => {
   });
 });
 
-/** Listado de .xlsx en carpeta reporte/ (orden: más reciente primero). */
-app.get('/reportes', (req, res) => {
+/** Listado recursivo de .xlsx bajo reporte/ (excluye ec-uploads y descargo_estatus3 en raíz). */
+app.get('/reportes', async (req, res) => {
   ensureReporteDir();
-  let files = [];
   try {
-    files = fs.readdirSync(REPORTE_DIR).filter((f) => f.toLowerCase().endsWith('.xlsx'));
+    await ensureCdmxTimeFresh();
+    archivarReportesCobranzaRaizSiAplica();
+  } catch (e) {
+    appendLog(`[reporte] archivado automático: ${e?.message || e}`);
+  }
+  let items = [];
+  try {
+    items = collectReporteXlsxRecursive();
   } catch (e) {
     return res.json({ success: false, mensaje: String(e.message || e), archivos: [] });
   }
   const mapaEstados = readEstadosReporteJson();
-  const list = files
-    .map((name) => {
+  const list = items
+    .map(({ nombre, st }) => {
       try {
-        const p = path.join(REPORTE_DIR, name);
-        const st = fs.statSync(p);
-        const { estado, estadoDetalle } = resolverEstadoReporte(name, mapaEstados);
+        const { estado, estadoDetalle } = resolverEstadoReporte(nombre, mapaEstados);
         return {
-          nombre: name,
+          nombre,
           bytes: st.size,
           modificado: st.mtime.toISOString(),
           diaSemanaModificado: diaSemanaLargoCdmx(st.mtime),
@@ -341,24 +713,23 @@ app.get('/ec-uploads/descargar-errores-reintento', (req, res) => {
   return res.download(p, nombre);
 });
 
-/** Descarga segura de un Excel de reporte/. */
+/** Descarga segura de un Excel bajo reporte/ (raíz o historico/…). */
 app.get('/reportes/descargar', (req, res) => {
   ensureReporteDir();
-  const raw = String(req.query.nombre || '');
-  const nombre = path.basename(raw);
-  if (
-    !nombre ||
-    nombre !== raw ||
-    !nombre.toLowerCase().endsWith('.xlsx') ||
-    !/^reporte_cobranza_[A-Za-z0-9._-]+\.xlsx$/.test(nombre)
-  ) {
+  const raw = String(req.query.nombre || '').replace(/\\/g, '/');
+  const resolved = safeResolveUnderDir(raw, REPORTE_DIR);
+  if (resolved.error) {
+    return res.status(400).json({ success: false, mensaje: resolved.error });
+  }
+  const p = resolved.abs;
+  const base = path.basename(p);
+  if (!base.toLowerCase().endsWith('.xlsx') || !/^reporte_cobranza_/i.test(base)) {
     return res.status(400).json({ success: false, mensaje: 'Nombre de archivo no permitido.' });
   }
-  const p = path.join(REPORTE_DIR, nombre);
   if (!fs.existsSync(p) || !fs.statSync(p).isFile()) {
     return res.status(404).json({ success: false, mensaje: 'Archivo no encontrado.' });
   }
-  res.download(p, nombre);
+  res.download(p, base);
 });
 
 /** Últimas líneas del log en disco (para panel en la vista). */
@@ -465,13 +836,13 @@ app.post('/run', (req, res) => {
 app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   ensureReporteDir();
   const tipo = String(req.body?.tipo || '').toLowerCase();
-  const archivo = path.basename(String(req.body?.archivo || ''));
+  const archivoRelRaw = String(req.body?.archivo || '').replace(/\\/g, '/').trim();
   const fechaCorte = String(req.body?.fechaCorte || '').trim();
   const column = String(req.body?.column != null ? req.body.column : 'ID CREDITO').trim() || 'ID CREDITO';
   const omitir = Math.max(0, parseInt(String(req.body?.omitir ?? '0'), 10) || 0);
   const soloColumnas = !!req.body?.soloColumnas;
 
-  if (!archivo || archivo.toLowerCase().endsWith('.xlsx') === false) {
+  if (!archivoRelRaw || !archivoRelRaw.toLowerCase().endsWith('.xlsx')) {
     return res.status(400).json({
       success: false,
       mensaje: 'Indique nombre de archivo .xlsx (en reporte/ec-uploads o en reporte/ si origenCarpeta=reporte).',
@@ -484,14 +855,36 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   const origenCarpeta = String(req.body?.origenCarpeta || 'ec-uploads').toLowerCase();
   const baseDir =
     origenCarpeta === 'reporte' ? path.resolve(REPORTE_DIR) : path.resolve(EC_UPLOAD_DIR);
-  const abs = path.resolve(path.join(baseDir, archivo));
-  if (!abs.startsWith(baseDir + path.sep) && abs !== baseDir) {
-    return res.status(400).json({ success: false, mensaje: 'Ruta de archivo no permitida.' });
+
+  let abs;
+  if (origenCarpeta === 'reporte') {
+    const r = safeResolveUnderDir(archivoRelRaw, baseDir);
+    if (r.error) {
+      return res.status(400).json({ success: false, mensaje: r.error });
+    }
+    abs = r.abs;
+  } else {
+    const archivo = path.basename(archivoRelRaw);
+    if (!archivo || !archivo.toLowerCase().endsWith('.xlsx')) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'Indique nombre de archivo .xlsx (en reporte/ec-uploads o en reporte/ si origenCarpeta=reporte).',
+      });
+    }
+    abs = path.resolve(path.join(baseDir, archivo));
+    if (!abs.startsWith(baseDir + path.sep) && abs !== baseDir) {
+      return res.status(400).json({ success: false, mensaje: 'Ruta de archivo no permitida.' });
+    }
   }
+
   if (!fs.existsSync(abs)) {
     const donde = origenCarpeta === 'reporte' ? 'reporte/' : 'reporte/ec-uploads';
     return res.status(404).json({ success: false, mensaje: `Archivo no encontrado en ${donde}.` });
   }
+
+  const archivoBase = path.basename(abs);
+  const archivoEstado =
+    origenCarpeta === 'reporte' ? path.relative(REPORTE_DIR, abs).replace(/\\/g, '/') : archivoBase;
 
   const php = resolvePhpExe();
   /** Evita que PHP acumule stdout en tubería: el log del agente ve líneas al vuelo. */
@@ -546,13 +939,13 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
 
   /** Solo reportes cobranza en reporte/: la tabla del shell muestra estado por .estados_reporte.json */
   const marcarEstadoWorkerReporte =
-    tipo === 'worker' && origenCarpeta === 'reporte' && /^reporte_cobranza_/i.test(archivo);
+    tipo === 'worker' && origenCarpeta === 'reporte' && /^reporte_cobranza_/i.test(archivoBase);
   if (marcarEstadoWorkerReporte) {
-    setEstadoReporteArchivo(archivo, 'enWorker');
+    setEstadoReporteArchivo(archivoEstado, 'enWorker');
   }
 
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
-  appendLog(`--- ec-launcher ${tipo} archivo=${archivo} fecha=${fechaCorte} php=${php} ---`);
+  appendLog(`--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php} ---`);
 
   const child = spawn(php, args, { cwd, env, windowsHide: true, shell: false });
 
@@ -591,12 +984,12 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   child.on('error', (err) => {
     appendLog('[ec-launcher spawn] ' + (err.message || String(err)));
     if (marcarEstadoWorkerReporte) {
-      setEstadoReporteArchivo(archivo, 'generado');
+      setEstadoReporteArchivo(archivoEstado, 'generado');
     }
     enviar({
       success: false,
       mensaje: err.message || String(err),
-      estado_reporte: marcarEstadoWorkerReporte ? payloadEstadoReporte(archivo, 'generado') : null,
+      estado_reporte: marcarEstadoWorkerReporte ? payloadEstadoReporte(archivoEstado, 'generado') : null,
     });
   });
   child.on('close', (code) => {
@@ -616,8 +1009,8 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     let estadoRep = null;
     if (marcarEstadoWorkerReporte) {
       const key = code === 0 || code === 2 ? 'workerListo' : 'generado';
-      setEstadoReporteArchivo(archivo, key);
-      estadoRep = payloadEstadoReporte(archivo, key);
+      setEstadoReporteArchivo(archivoEstado, key);
+      estadoRep = payloadEstadoReporte(archivoEstado, key);
     }
     const payload = {
       success: code === 0,
@@ -625,7 +1018,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       stdout: outSlice,
       stderr: stderr.slice(-8000),
       tipo,
-      archivo,
+      archivo: archivoEstado,
       estado_reporte: estadoRep,
     };
     if (erroresReintentoCsv) {
@@ -647,8 +1040,8 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
     });
   }
 
-  const archivo = path.basename(String(req.body?.archivo || ''));
-  if (!archivo || archivo.toLowerCase().endsWith('.xlsx') === false) {
+  const archivoRelRaw = String(req.body?.archivo || '').replace(/\\/g, '/').trim();
+  if (!archivoRelRaw || !archivoRelRaw.toLowerCase().endsWith('.xlsx')) {
     return res.status(400).json({
       success: false,
       mensaje: 'Indique nombre de archivo .xlsx (ec-uploads o reporte/ con origenCarpeta=reporte).',
@@ -658,14 +1051,29 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   const origenCarpeta = String(req.body?.origenCarpeta || 'ec-uploads').toLowerCase();
   const baseDir =
     origenCarpeta === 'reporte' ? path.resolve(REPORTE_DIR) : path.resolve(EC_UPLOAD_DIR);
-  const abs = path.resolve(path.join(baseDir, archivo));
-  if (!abs.startsWith(baseDir + path.sep) && abs !== baseDir) {
-    return res.status(400).json({ success: false, mensaje: 'Ruta de archivo no permitida.' });
+
+  let abs;
+  if (origenCarpeta === 'reporte') {
+    const r = safeResolveUnderDir(archivoRelRaw, baseDir);
+    if (r.error) {
+      return res.status(400).json({ success: false, mensaje: r.error });
+    }
+    abs = r.abs;
+  } else {
+    const archivo = path.basename(archivoRelRaw);
+    abs = path.resolve(path.join(baseDir, archivo));
+    if (!abs.startsWith(baseDir + path.sep) && abs !== baseDir) {
+      return res.status(400).json({ success: false, mensaje: 'Ruta de archivo no permitida.' });
+    }
   }
+
   if (!fs.existsSync(abs)) {
     const donde = origenCarpeta === 'reporte' ? 'reporte/' : 'reporte/ec-uploads';
     return res.status(404).json({ success: false, mensaje: `Archivo no encontrado en ${donde}.` });
   }
+
+  const archivoLog =
+    origenCarpeta === 'reporte' ? path.relative(REPORTE_DIR, abs).replace(/\\/g, '/') : path.basename(abs);
 
   const inicioSemana = String(req.body?.inicioSemana || '').trim();
   const dryRun = !!req.body?.dryRun;
@@ -716,7 +1124,7 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
 
   const cwd = path.dirname(scriptPath);
   appendLog(
-    `--- carga-verificacion-semana archivo=${archivo} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'} ---`,
+    `--- carga-verificacion-semana archivo=${archivoLog} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'} ---`,
   );
 
   const child = spawn(REPORTE_PYTHON, args, {
@@ -754,24 +1162,24 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   child.on('error', (err) => {
     appendLog('[carga-verificacion spawn] ' + (err.message || String(err)));
     if (origenCarpeta === 'reporte' && !dryRun) {
-      setEstadoReporteArchivo(archivo, 'generado');
+      setEstadoReporteArchivo(archivoLog, 'generado');
     }
     enviar({
       success: false,
       mensaje: err.message || String(err),
       estado_reporte:
-        origenCarpeta === 'reporte' && !dryRun ? payloadEstadoReporte(archivo, 'generado') : null,
+        origenCarpeta === 'reporte' && !dryRun ? payloadEstadoReporte(archivoLog, 'generado') : null,
     });
   });
   child.on('close', (code) => {
     let estadoRepPayload = null;
     if (origenCarpeta === 'reporte' && !dryRun) {
       if (code === 0) {
-        setEstadoReporteArchivo(archivo, 'listaNegra');
-        estadoRepPayload = payloadEstadoReporte(archivo, 'listaNegra');
+        setEstadoReporteArchivo(archivoLog, 'listaNegra');
+        estadoRepPayload = payloadEstadoReporte(archivoLog, 'listaNegra');
       } else {
-        setEstadoReporteArchivo(archivo, 'generado');
-        estadoRepPayload = payloadEstadoReporte(archivo, 'generado');
+        setEstadoReporteArchivo(archivoLog, 'generado');
+        estadoRepPayload = payloadEstadoReporte(archivoLog, 'generado');
       }
     }
     enviar({
@@ -779,7 +1187,7 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
       codigo_salida: code,
       stdout: stdout.slice(-8000),
       stderr: stderr.slice(-8000),
-      archivo,
+      archivo: archivoLog,
       estado_reporte: estadoRepPayload,
     });
   });
@@ -986,4 +1394,10 @@ appendLog(
 
 app.listen(PORT, () => {
   console.log('[gastos-cobranza-agent] escuchando en', PORT);
+  if (remoteCdmxTimeEnabled()) {
+    void ensureCdmxTimeFresh();
+    setInterval(() => {
+      void ensureCdmxTimeFresh();
+    }, 10 * 60 * 1000);
+  }
 });

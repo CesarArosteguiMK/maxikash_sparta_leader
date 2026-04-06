@@ -3,6 +3,7 @@
 backend/config/config.ini
 backend/config/secret.php
 backend/config/master_key.php
+scripts/.mega_reporte_mysql_password
 
 # ========== Llaves SSH (OpenSSH PEM / PuTTY .ppk) ==========
 backend/config/ssh/*.unknown

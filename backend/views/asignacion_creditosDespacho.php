@@ -2603,14 +2603,28 @@ async function iniciarImportacionExcel() {
 
         if (hayErrores && resumen.errores.length > 0) {
             html += `<div class="mt-2"><div class="fw-semibold mb-1 small">Detalle de incidencias (muestra)</div>`;
-            const preview = resumen.errores.slice(0, 20);
+            html += `<p class="small text-muted mb-2 mb-md-1">El número de <strong>fila</strong> es el mismo que en Excel (primera columna de la hoja). Si aparece <code>id_despacho</code> inválido, compruebe ese valor en el archivo y en la tabla <code>despachos</code> (debe existir y tener estatus <strong>Activo</strong>).</p>`;
+            const preview = resumen.errores.slice(0, 40);
             html += `<div class="text-muted small">`;
             preview.forEach((e) => {
                 const arch = escapeHtmlImportPopover(e.archivo || '');
                 if (e.razon) {
                     html += `Archivo <strong>${arch}</strong> — ${escapeHtmlImportPopover(e.razon)}<br>`;
                 } else if (e.fila && e.reason) {
-                    html += `Archivo <strong>${arch}</strong> — fila <strong>${e.fila}</strong>: ${escapeHtmlImportPopover(e.reason)}<br>`;
+                    let linea = `Archivo <strong>${arch}</strong> — <strong>fila ${e.fila}</strong>: ${escapeHtmlImportPopover(e.reason)}`;
+                    const extras = [];
+                    if (e.id_credito != null && String(e.id_credito) !== '') {
+                        extras.push(`id_credito <strong>${escapeHtmlImportPopover(String(e.id_credito))}</strong>`);
+                    }
+                    if (e.id_despacho != null && String(e.id_despacho) !== '') {
+                        extras.push(`id_despacho en Excel <strong>${escapeHtmlImportPopover(String(e.id_despacho))}</strong>`);
+                    } else if (e.valor != null && String(e.valor) !== '') {
+                        extras.push(`valor leído <strong>${escapeHtmlImportPopover(String(e.valor))}</strong>`);
+                    }
+                    if (extras.length) {
+                        linea += ` <span class="text-body">(${extras.join(' · ')})</span>`;
+                    }
+                    html += linea + '<br>';
                 } else {
                     html += `Archivo <strong>${arch}</strong> — ${escapeHtmlImportPopover(JSON.stringify(e))}<br>`;
                 }
