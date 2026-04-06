@@ -524,6 +524,7 @@
                     </ul>
                 </div>
 
+                <div id="seccion-despacho-extras" style="display:none;">
                 <hr class="my-4">
 
                 <!-- Acordeón padre para Documentos del Despacho -->
@@ -556,12 +557,13 @@
                 <div class="mb-3">
                     <textarea id="comentarios-despacho" class="form-control" rows="3" placeholder="Notas internas..."></textarea>
                 </div>
+                </div><!-- /seccion-despacho-extras -->
             </div>
         </div>
     </div>
 
     <!-- PANEL DERECHO -->
-    <div class="col-md-8">
+    <div class="col-md-8" id="panel-buscar-credito" style="display:none;">
         <div class="card h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -932,7 +934,7 @@
 </div><!-- /modal -->
 
 <!-- TABLA DE CRÉDITOS ASIGNADOS -->
-<div class="card">
+<div class="card" id="seccion-tabla-creditos" style="display:none;">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
             <i class="fa-solid fa-list me-2"></i>Créditos asignados al despacho
@@ -1319,8 +1321,11 @@ document.querySelectorAll('input[name="id_celula"]').forEach(radio => {
         document.getElementById('select-despacho').value = "";
         despachoSeleccionado = null;
 
-        // Ocultar información del despacho
+        // Ocultar información del despacho y secciones dependientes
         document.getElementById('info-despacho-container').style.display = 'none';
+        document.getElementById('seccion-despacho-extras').style.display = 'none';
+        document.getElementById('panel-buscar-credito').style.display = 'none';
+        document.getElementById('seccion-tabla-creditos').style.display = 'none';
 
         // Limpiar tabla de créditos asignados
         const tbody = document.getElementById('tbody-creditos');
@@ -1422,8 +1427,11 @@ function cargarDatosDespacho(idPersona) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Mostrar el contenedor de información
+                // Mostrar el contenedor de información y secciones dependientes
                 document.getElementById('info-despacho-container').style.display = 'block';
+                document.getElementById('seccion-despacho-extras').style.display = '';
+                document.getElementById('panel-buscar-credito').style.display = '';
+                document.getElementById('seccion-tabla-creditos').style.display = '';
 
                 // Función auxiliar para verificar si un valor está vacío
                 const estaVacio = (valor) => {
@@ -1856,10 +1864,18 @@ function asignarCreditoDelStack(idCredito) {
 
     // ✅ Determinar el texto del tipo de gestión para mostrar en el mensaje
     const tipoGestion = idCelula === 1 ? 'Despacho' : 'Gestión Call Center';
+    const nombreDespacho = document.getElementById('select-despacho').selectedOptions[0]?.textContent?.trim() || despachoSeleccionado;
 
     Swal.fire({
         title: 'Asignar crédito',
-        text: `¿Desea asignar el crédito ${creditoEncontrado.id_credito} al ${tipoGestion} seleccionado?`,
+        html: `
+            <div class="text-start" style="font-size:0.95rem;">
+                <div class="mb-2"><span class="text-muted">Gestor:</span> <strong>${nombreDespacho}</strong></div>
+                <div class="mb-2"><span class="text-muted">Tipo:</span> <strong>${tipoGestion}</strong></div>
+
+                <div class="mb-2"><span class="text-muted">Crédito:</span> <strong>${creditoEncontrado.id_credito}</strong></div>
+                <div><span class="text-muted">Cliente:</span> ${creditoEncontrado.nombre_cliente}</div>
+            </div>`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, asignar',
@@ -1961,14 +1977,9 @@ function cargarCreditosAsignados(idPersona) {
             </div>`;
     } else {
         accionesHTML = `
-            <div class="form-check form-switch d-flex justify-content-center align-items-center" style="gap:0.5rem;">
-                <input class="form-check-input switch-credito" type="checkbox"
-                       id="switch-${credito.id_credito}"
-                       data-credito="${credito.id_credito}"
-                       ${esActivo ? 'checked' : ''}
-                       style="cursor:pointer; width:2.5rem; height:1.25rem;">
+            <div class="d-flex justify-content-center align-items-center">
                 <button class="btn btn-outline-primary btn-sm btn-seguimiento"
-                        title="Seguimiento" data-credito="${credito.id_credito}">
+                        title="Ver historial" data-credito="${credito.id_credito}">
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>
             </div>`;
@@ -1987,21 +1998,8 @@ function cargarCreditosAsignados(idPersona) {
                 // Actualizar tabla manteniendo página actual
                 actualizaDatosTabla('#tabla-creditos', datosFormateados, true);
 
-                // Agregar event listeners a los switches y botones después de actualizar la tabla
+                // Agregar event listeners a los botones después de actualizar la tabla
                 setTimeout(() => {
-                    document.querySelectorAll('.switch-credito').forEach(switchElement => {
-                        switchElement.addEventListener('change', function(e) {
-                            const idCredito = this.getAttribute('data-credito');
-                            const nuevoEstatus = this.checked ? '1' : '0';
-                            const estadoAnterior = !this.checked;
-
-                            // Revertir el switch temporalmente
-                            this.checked = estadoAnterior;
-
-                            // Pedir confirmación
-                            cambiarEstatusCredito(idCredito, nuevoEstatus, this);
-                        });
-                    });
                     // Botón seguimiento
                     document.querySelectorAll('.btn-seguimiento').forEach(btn => {
                         btn.addEventListener('click', function(e) {
