@@ -522,6 +522,52 @@ public static function getConvenioActivo($id_credito)
 }
 
 /**
+ * Retorna solo statusCredito, fechaLiquidacion y motivo desde S2Movil.
+ * Llamada ligera para el banner del módulo de convenios.
+ */
+public static function getEstatusS2($id_credito)
+{
+    try {
+        $url     = ENDPOINT;
+        $payload = json_encode([
+            'idCredito'  => (int) $id_credito,
+            'fechaCorte' => date('Y-m-d'),
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Token: ' . TOKEN,
+            ],
+        ]);
+
+        $response = curl_exec($ch);
+        curl_close($ch);
+
+        $data = json_decode($response, true);
+        $ec   = $data['estadoCuenta'] ?? null;
+
+        if (!$ec) {
+            return self::resultado(true, 'Sin datos S2.', null);
+        }
+
+        return self::resultado(true, 'Estatus S2 obtenido.', [
+            'statusCredito'    => $ec['statusCredito']    ?? '',
+            'fechaLiquidacion' => $ec['fechaLiquidacion'] ?? null,
+            'motivo'           => $ec['motivo']           ?? null,
+            'adeudoTotal'      => (float) ($ec['datosSaldos']['adeudoTotal'] ?? 0),
+        ]);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al consultar S2.', null);
+    }
+}
+
+/**
  * Igual que getConvenioActivo pero sin filtrar por estatus.
  * Usado para generar el PDF de cualquier convenio (activo, cancelado, completado).
  */

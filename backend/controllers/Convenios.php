@@ -97,6 +97,22 @@ class Convenios extends Controller
     }
 
     // ─────────────────────────────────────────────
+    // API: ESTATUS CRÉDITO EN S2
+    // ─────────────────────────────────────────────
+
+    public function getEstatusS2()
+    {
+        $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+
+        if ($idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+        }
+
+        $r = ConveniosDAO::getEstatusS2($idCredito);
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
     // API: CANCELAR CONVENIO
     // ─────────────────────────────────────────────
 

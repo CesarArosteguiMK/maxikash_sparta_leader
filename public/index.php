@@ -304,7 +304,7 @@ $rutasModulos = [
     'sabueso/quitarasignacionticket' => [18, 19],
     'sabueso/getpersonassabuesojefesporcampo' => [18, 19],
     'sabueso/eliminarevidenciaticket' => [19], 'sabueso/verevidencia' => [18, 19], 'sabueso/otorgarprorrogadictamensistema' => [19], 'sabueso/otorgarintensidaddictamensistema' => [19],
-    'convenios/consulta' => [45], 'convenios/buscarcredito' => [45], 'convenios/getofertascredito' => [45], 'convenios/guardarconvenio' => [45], 'convenios/getconvenioactivo' => [45], 'convenios/descargarpdf' => [45],
+    'convenios/consulta' => [45], 'convenios/buscarcredito' => [45], 'convenios/getofertascredito' => [45], 'convenios/guardarconvenio' => [45], 'convenios/getconvenioactivo' => [45], 'convenios/descargarpdf' => [45], 'convenios/getestatuss2' => [45],
     'despachos/asignacioncreditosdespacho' => [20], 'departamentos/consulta' => [10], 'equivalencias/consulta' => [17],
     'configticketpuesto/consulta' => [26], 'configticketpuesto/getpuestossparta' => [26], 'configticketpuesto/getconfig' => [26], 'configticketpuesto/guardar' => [26], 'configticketpuesto/getconfigestadisticas' => [26], 'configticketpuesto/guardarestadisticas' => [26],
     'configticketpuesto/getusuariospanel' => [26], 'configticketpuesto/getconfigpanelusuario' => [26], 'configticketpuesto/guardarpanelusuario' => [26],
