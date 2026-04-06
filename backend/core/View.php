@@ -145,7 +145,7 @@ function getMenu()
                     'icono' => 'fa-solid fa-ticket',
                     'subItems' => $ticketSubItems
             ],
-            'Despachos' => [
+            'Convenios' => [
                     'icono' => 'fa-solid fa-building-columns',
                     'subItems' => [
                             [
@@ -154,12 +154,12 @@ function getMenu()
                                     'modulos' => [20]
                             ],
                             [
-                                    'label' => 'Mi Gestión',
+                                    'label' => 'Mi Cartera',
                                     'url' => '/Despachos/MiGestion',
-                                    'modulos' => [20]
+                                    'modulos' => [45]
                             ],
                             [
-                                    'label' => 'Convenios',
+                                    'label' => 'Crear Convenio',
                                     'url' => '/convenios/consulta',
                                     'modulos' => [46]
                             ]
