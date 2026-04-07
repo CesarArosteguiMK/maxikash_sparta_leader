@@ -1,4 +1,4 @@
-<style>
+﻿<style>
 /* ══════════════════════════════════════════
    CONVENIOS — ESTILOS GLOBALES
 ══════════════════════════════════════════ */
@@ -1318,13 +1318,18 @@ function seleccionarCredito(idCredito) {
     });
 
     // Llamada 1: ofertas
+    var _errManejadoSel = false;
     http.request({
         endpoint: '/convenios/getOfertasCredito',
         method: 'POST',
         data: { id_credito: idCredito },
         onSuccess: function (respOfertas) {
             if (!respOfertas.success) {
-                Swal.fire('Sin elegibilidad', respOfertas.mensaje || 'Este crédito no cumple los criterios.', 'info');
+                _errManejadoSel = true;
+                var _msgSel = respOfertas.mensaje || 'Este crédito no cumple los criterios.';
+                setTimeout(function () {
+                    Swal.fire('Sin elegibilidad', _msgSel, 'info');
+                }, 0);
                 return;
             }
 
@@ -1337,7 +1342,9 @@ function seleccionarCredito(idCredito) {
             _credito = credito;
             _ofertas = ofertas;
 
-            // Llamada 2: historial para saber qué oferta pintar de gris
+            // Función interna: lanza el flujo historial → convenio activo
+            var _lanzarHistorial = function () {
+            // Llamada 3: historial para saber qué oferta pintar de gris
             http.request({
                 endpoint: '/convenios/getHistorialConvenios',
                 method: 'POST',
@@ -1423,14 +1430,50 @@ function seleccionarCredito(idCredito) {
                     });
                 }
             });
+            }; // fin _lanzarHistorial
+
+            // Llamada 2: validar que el crédito esté en despacho
+            var _errManejadoDesp2 = false;
+            http.request({
+                endpoint: '/convenios/checkDespacho',
+                method: 'POST',
+                data: { id_credito: idCredito },
+                showLoader: false,
+                onSuccess: function (respDesp) {
+                    if (!respDesp.success) {
+                        _errManejadoDesp2 = true;
+                        setTimeout(function () {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Crédito no disponible',
+                                html:
+                                    '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br><br>' +
+                                    'El crédito no se encuentra disponible para convenio.<br>' +
+                                    '<span class="text-muted" style="font-size:.9rem;">Verifica que esté asignado a convenios. Si tienes más dudas, consulta con el administrador.</span>',
+                                confirmButtonColor: '#764ba2',
+                            });
+                        }, 0);
+                        return;
+                    }
+                    _lanzarHistorial();
+                },
+                onError: function () {
+                    if (_errManejadoDesp2) return;
+                    // Si falla la validación de despacho, continuar igualmente (soft fail)
+                    _lanzarHistorial();
+                }
+            });
         },
         onError: function () {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error de conexión',
-                text: 'No se pudo cargar la información del crédito. Intenta de nuevo.',
-                confirmButtonColor: '#764ba2'
-            });
+            if (_errManejadoSel) return;
+            setTimeout(function () {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo cargar la información del crédito. Intenta de nuevo.',
+                    confirmButtonColor: '#764ba2'
+                });
+            }, 0);
         }
     });
 }
@@ -3180,6 +3223,7 @@ window.migBuscarCredito = function () {
             });
 
             // ── Paso 2: Validar que el crédito esté en despacho ──────────
+            var _errManejadoDesp = false;
             http.request({
                 endpoint: '/convenios/validarDespacho',
                 method: 'POST',
@@ -3187,8 +3231,19 @@ window.migBuscarCredito = function () {
                 onSuccess: function (respDespacho) {
 
                     if (!respDespacho.success) {
+                        _errManejadoDesp = true;
                         info.className = 'alert alert-danger d-none';
-                        Swal.fire('Crédito no elegible', respDespacho.mensaje, 'warning');
+                        setTimeout(function () {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Crédito no disponible',
+                                html:
+                                    '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br><br>' +
+                                    'El crédito no se encuentra disponible para convenio.<br>' +
+                                    '<span class="text-muted" style="font-size:.9rem;">Verifica que esté asignado a convenios. Si tienes más dudas, consulta con el administrador.</span>',
+                                confirmButtonColor: '#764ba2',
+                            });
+                        }, 0);
                         return;
                     }
 
@@ -3260,19 +3315,26 @@ window.migBuscarCredito = function () {
                     });
                 },
                 onError: function () {
-                    info.className = 'alert alert-danger';
-                    info.innerHTML =
-                        '<i class="fas fa-times-circle me-2"></i>' +
-                        'El credito no se encuentra disponible para convenio. ' +
-                        'Verifica que el crédito esté asignado a convenios, si tienes más dudas, consulta con el administrador.';
+                    if (_errManejadoDesp) return;
+                    info.className = 'alert alert-danger d-none';
+                    setTimeout(function () {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Crédito no disponible',
+                            html:
+                                '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br><br>' +
+                                'El crédito no se encuentra disponible para convenio.<br>' +
+                                '<span class="text-muted" style="font-size:.9rem;">Verifica que esté asignado a convenios. Si tienes más dudas, consulta con el administrador.</span>',
+                            confirmButtonColor: '#764ba2',
+                        });
+                    }, 0);
                 }
             });
         },
         onError: function () {
-            info.className = 'alert alert-danger';
-            info.innerHTML =
-                '<i class="fas fa-times-circle me-2"></i>' +
-                'Error de conexión. Intenta de nuevo.';
+            if (_errManejadoMig) return;
+            info.className = 'alert alert-danger d-none';
+            Swal.fire('Error de conexión', 'No se pudo verificar el crédito. Intenta de nuevo.', 'error');
         }
     });
 };
