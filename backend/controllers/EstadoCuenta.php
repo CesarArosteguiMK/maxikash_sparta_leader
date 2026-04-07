@@ -6558,9 +6558,11 @@ public function descargarReporteDictamen()
 
             if ($idCreditoLista) {
                 // 1) Prioridad Guatemala: si existe aquí, se procesa como GT aunque exista el mismo ID en MX.
+                error_log("[Guatemala] Buscando id=" . json_encode($idCreditoLista) . " modo=" . ($modo ?? '?'));
                 $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idCreditoLista);
-
+                error_log("[Guatemala] DB result success=" . json_encode($datosGuat['success'] ?? null) . " count=" . count($datosGuat['datos'] ?? []) . " msg=" . json_encode($datosGuat['mensaje'] ?? '') . " error=" . json_encode($datosGuat['error'] ?? ''));
                 if (!empty($datosGuat['datos'])) {
+                    error_log("[Guatemala] Registro encontrado: pkey_credito=" . json_encode($datosGuat['datos'][0]['pkey_credito'] ?? null) . " fk_oferta=" . json_encode($datosGuat['datos'][0]['fk_oferta'] ?? null));
                     // Llamadas a CROOP API (Bandera=445 saldos, Bandera=401 amortización, Bandera=404 pagos)
                     $pkeyCredito     = $datosGuat['datos'][0]['pkey_credito'] ?? null;
                     $reqCliente      = json_decode($datosGuat['datos'][0]['request_cliente'] ?? '{}', true) ?? [];
@@ -6608,7 +6610,7 @@ public function descargarReporteDictamen()
 
                             $apiSaldos       = $this->croop_get("clsCredito/Listar?Bandera=445&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
                             $apiAmortizacion = $this->croop_get("clsCredito/Listar?Bandera=401&PKey={$pkeyCredito}", $croopToken);
-                            $apiPagos        = $this->croop_get("clsCredito/Listar?Bandera=404&PKey={$pkeyParaSaldos}&FK_Empresa={$fkEmpresaLogin}", $croopToken);
+                            $apiPagos        = $this->croop_get("clsPagos/Listar?Bandera=404&FK_Credito={$pkeyParaSaldos}", $croopToken);
 
                             $debugCroop['saldos_count'] = count($apiSaldos);
                             $debugCroop['saldos_raw'] = $apiSaldos[0] ?? null;
@@ -6701,6 +6703,8 @@ public function descargarReporteDictamen()
         $curlError = curl_error($ch);
         curl_close($ch);
 
+        error_log("[croop_login] http_code={$httpCode} curl_error=" . ($curlError ?: 'none') . " response_body=" . ($response ?: 'EMPTY'));
+
         $json  = $response ? (json_decode($response, true) ?? []) : [];
         $token = $json['Token'] ?? null;
 
@@ -6717,6 +6721,7 @@ public function descargarReporteDictamen()
     private function croop_get(string $path, string $token): array
     {
         $url = "https://api.croop.mx/api/" . ltrim($path, '/');
+        error_log("[croop_get] GET {$url}");
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_HTTPHEADER     => [
@@ -6732,6 +6737,7 @@ public function descargarReporteDictamen()
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         curl_close($ch);
+        error_log("[croop_get] http_code={$httpCode} curl_error=" . ($curlError ?: 'none') . " response_body=" . ($response ?: 'EMPTY'));
         if (!$response) return ['__debug_error' => $curlError, '__http_code' => $httpCode];
         $json = json_decode($response, true);
         return is_array($json) ? $json : ['__debug_raw' => substr($response, 0, 300), '__http_code' => $httpCode];

@@ -580,6 +580,8 @@ class CronMorosidad
 
         $this->logger->info("Procesando {$total} registros en {$totalLotes} lotes de {$tamañoLote}");
 
+        $mitadEnviada = false;
+
         foreach ($lotes as $numeroLote => $lote) {
             try {
                 // PASO 1: Extraer IDs del lote para verificar duplicados EN BLOQUE
@@ -690,8 +692,11 @@ class CronMorosidad
                 $progreso = round((($numeroLote + 1) / $totalLotes) * 100, 1);
                 $this->logger->info("Lote " . ($numeroLote + 1) . "/{$totalLotes} completado - Progreso: {$progreso}% ({$insertados} insertados, {$duplicados} duplicados, {$omitidosDespacho} omitidos despacho)");
 
-                // Enviar al webhook cada lote
-                $this->logger->enviarProgreso($insertados, $duplicados, $errores, $total);
+                // Enviar al webhook solo al cruzar el 50% (una sola vez)
+                if (!$mitadEnviada && $progreso >= 50.0) {
+                    $this->logger->enviarProgreso($insertados, $duplicados, $errores, $total);
+                    $mitadEnviada = true;
+                }
 
             } catch (\Exception $e) {
                 $errores += count($lote);
