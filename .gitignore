@@ -1,5 +1,7 @@
 # ========== Credenciales y configuración (NUNCA subir) ==========
 .env
+# Excepción: .env del agente Gastos Cobranza se versiona para que el servidor reciba variables sin configuración manual.
+!backend/services/gastos-cobranza-agent/.env
 backend/config/config.ini
 backend/config/secret.php
 backend/config/master_key.php

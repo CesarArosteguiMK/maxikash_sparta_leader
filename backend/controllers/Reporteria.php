@@ -1062,11 +1062,13 @@ public function getFiltrosCapitalHumano()
         self::render("reporte_primeros_pagos_inicio");
     }
 
-    private function scriptVencimientosLunes(string $fetchUrl): string
+    private function scriptVencimientosLunes(string $fetchUrl, bool $vistaSimple = false): string
     {
         $script = <<<'HTML'
         <script>
         document.addEventListener('DOMContentLoaded', function () {
+
+            const VISTA_SIMPLE = %%VISTA_SIMPLE%%;
 
             const BUCKET_META = {
                 'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current' },
@@ -1109,22 +1111,30 @@ public function getFiltrosCapitalHumano()
             let _data        = [];
             let dtVenc       = null;
             let _corteActual = '';
+            let _totalEnTabla = 0;
 
             /* ── DataTable ── */
             function initDT() {
                 if ($.fn.DataTable.isDataTable('#tablaVencimientos'))
                     $('#tablaVencimientos').DataTable().destroy();
 
-                dtVenc = $('#tablaVencimientos').DataTable({
-                    processing: true, responsive: true, pageLength: 5,
-                    lengthMenu: [[5, 10, 25, -1], [5, 10, 25, 'Todos']],
-                    order: [[0,'asc']], language: dtLang,
-                    columns: [
+                const cols = VISTA_SIMPLE
+                    ? [
+                        { data: 'general', width: '58%' },
+                        { data: 'cuota', className: 'text-end', width: '42%' },
+                    ]
+                    : [
                         { data:'general',   width:'200px' },
                         { data:'jerarquia', width:'220px', orderable: false },
                         { data:'nacio',     className:'text-center', width:'130px' },
                         { data:'corte',     className:'text-center', width:'160px' },
-                    ]
+                    ];
+
+                dtVenc = $('#tablaVencimientos').DataTable({
+                    processing: true, responsive: true, pageLength: 5,
+                    lengthMenu: [[5, 10, 25, -1], [5, 10, 25, 'Todos']],
+                    order: [[0,'asc']], language: dtLang,
+                    columns: cols,
                 });
             }
 
@@ -1162,6 +1172,22 @@ public function getFiltrosCapitalHumano()
             }
 
             function renderStats(data) {
+                if (VISTA_SIMPLE) {
+                    const totalRegs = Number.isFinite(_totalEnTabla) ? _totalEnTabla : (_data.length || 0);
+                    const elNac = document.getElementById('statsNacimiento');
+                    if (elNac) {
+                        const n = Number(totalRegs);
+                        elNac.textContent = Number.isFinite(n) ? n.toLocaleString('es-MX') : '—';
+                    }
+                    const elMat = document.getElementById('statsMatriz');
+                    if (elMat) elMat.innerHTML = '';
+                    const elJer = document.getElementById('statsJerarquia');
+                    if (elJer) elJer.innerHTML = '';
+                    const elCorte = document.getElementById('statsCorte');
+                    if (elCorte) elCorte.innerHTML = '';
+                    return;
+                }
+
                 const { nacDist, matriz } = calcStats(data);
                 const totalRegs = data.length || 0;
                 const pctOf = (n) => (totalRegs ? Math.round((Number(n) / totalRegs) * 100) : 0);
@@ -1679,6 +1705,14 @@ public function getFiltrosCapitalHumano()
             }
 
             function aplicarFiltros(data) {
+                if (VISTA_SIMPLE) {
+                    const busq = (document.getElementById('fBusq')?.value || '').toLowerCase();
+                    if (!busq) return data;
+                    return data.filter(r => {
+                        const h = `${r.Nombre_cliente || ''} ${r.Id_credito || ''}`.toLowerCase();
+                        return h.includes(busq);
+                    });
+                }
                 const f = {
                     bucketNacio: document.getElementById('fBucketNacio')?.value || '',
                     bucketCorte: document.getElementById('fBucketCorte')?.value || '',
@@ -1713,7 +1747,8 @@ public function getFiltrosCapitalHumano()
 
             /* ── Cargar ── */
             async function cargar() {
-                document.getElementById('statTotal').textContent = '…';
+                const elStatLoad = document.getElementById('statTotal');
+                if (elStatLoad) elStatLoad.textContent = '…';
                 if (typeof showWait === 'function') {
                     showWait();
                 } else {
@@ -1728,29 +1763,62 @@ public function getFiltrosCapitalHumano()
                 }
                 try {
                     const r = await fetch('__FETCH_VENCIMIENTOS__', { method:'POST' });
+                    const ct = (r.headers.get('content-type') || '').toLowerCase();
+                    if (!ct.includes('application/json')) {
+                        const raw = await r.text();
+                        throw new Error('La respuesta no es JSON (¿sesión vencida o ruta incorrecta?). ' + raw.substring(0, 120));
+                    }
                     const d = await r.json();
-                    _data        = d.datos        || [];
-                    _corteActual = d.corte_actual || '';
-
                     const elLunes = document.getElementById('lunesFecha');
-                    if (d.lunes_pasado && elLunes) {
-                        elLunes.textContent = d.lunes_pasado;
-                        if (d.usado_fallback_lunes && d.lunes_calendario) {
+
+                    if (d.success === false) {
+                        _data = [];
+                        _totalEnTabla = 0;
+                        if (elLunes) elLunes.textContent = '—';
+                        const errTxt = [d.mensaje, d.error].filter(Boolean).join(' — ');
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'error', title: 'No se cargaron los datos', text: errTxt || 'Error desconocido.' });
+                        } else {
+                            alert(errTxt || 'No se cargaron los datos');
+                        }
+                        renderTabla();
+                        renderStats(_data);
+                        if (!VISTA_SIMPLE) await cargarEstadoEnvioAutomatico();
+                        return;
+                    }
+
+                    _data        = Array.isArray(d.datos) ? d.datos : [];
+                    _corteActual = d.corte_actual || '';
+                    const tTab = Number(d.total_en_tabla);
+                    _totalEnTabla = Number.isFinite(tTab) ? tTab : (_data.length || 0);
+
+                    const fv = (d.fecha_primer_vencimiento_display || d.lunes_pasado || '').toString().trim();
+                    if (elLunes) {
+                        elLunes.textContent = fv || '—';
+                        if (!VISTA_SIMPLE && d.usado_fallback_lunes && d.lunes_calendario) {
                             elLunes.title = 'El lunes ' + d.lunes_calendario + ' aún no tiene filas en segundómetro; se muestra el último lunes con datos: ' + d.lunes_pasado + '.';
                         } else {
                             elLunes.title = '';
                         }
                     }
-                    if (_corteActual)
-                        document.getElementById('corteLabel').textContent =
-                            _corteActual.replace(/_/g,' ');
+                    if (!VISTA_SIMPLE && _corteActual) {
+                        const elCorte = document.getElementById('corteLabel');
+                        if (elCorte) elCorte.textContent = _corteActual.replace(/_/g,' ');
+                    }
 
-                    poblarFiltros(_data);
+                    if (!VISTA_SIMPLE) {
+                        poblarFiltros(_data);
+                    }
                     renderTabla();
                     renderStats(_data);
-                    await cargarEstadoEnvioAutomatico();
+                    if (!VISTA_SIMPLE) await cargarEstadoEnvioAutomatico();
                 } catch(e) {
                     console.error(e);
+                    const elLunes = document.getElementById('lunesFecha');
+                    if (elLunes) elLunes.textContent = '—';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Error de red o formato', text: String(e && e.message ? e.message : e) });
+                    }
                 } finally {
                     Swal.close();
                 }
@@ -1833,13 +1901,28 @@ public function getFiltrosCapitalHumano()
             /* ── Render tabla ── */
             function renderTabla() {
                 const datos = aplicarFiltros(_data);
-                document.getElementById('statTotal').textContent = datos.length;
+                const elStat = document.getElementById('statTotal');
+                if (elStat) elStat.textContent = datos.length;
                 initDT();
 
                 const fmt = v => '$' + parseFloat(v||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
 
                 const rows = datos.map((r, i) => {
-                    const saldo = parseFloat(r.Saldo_vencido_actualizado || 0);
+                    if (VISTA_SIMPLE) {
+                        return {
+                            general: `
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="fa fa-id-card text-primary mt-1" style="font-size:.9rem;"></i>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:.82rem;">${r.Nombre_cliente || '—'}</div>
+                                    <div class="text-muted" style="font-size:.7rem;">
+                                        <i class="fa fa-hashtag fa-xs me-1"></i>${r.Id_credito || ''}
+                                    </div>
+                                </div>
+                            </div>`,
+                            cuota: `<span class="fw-semibold text-body">${fmt(r.Cuota)}</span>`,
+                        };
+                    }
                     return {
                         general: `
                             <div class="d-flex align-items-start gap-2">
@@ -1865,6 +1948,17 @@ public function getFiltrosCapitalHumano()
 
             function buildCorreoPayload() {
                 const datos = aplicarFiltros(_data);
+                if (VISTA_SIMPLE) {
+                    return {
+                        vista_primeros_pagos_simple: true,
+                        total_registros: datos.length,
+                        primer_vencimiento: document.getElementById('lunesFecha')?.textContent?.trim() || '',
+                        corte_actual: '',
+                        generado_en: new Date().toISOString(),
+                        total_en_tabla: _totalEnTabla,
+                        nota: 'Origen: tbl_segundometro_primeros_pagos (__SPARTA_SECRET_REDACTED__).',
+                    };
+                }
                 const { nacDist, matriz } = calcStats(datos);
                 const totalCurrentNac = nacDist['a) Current'] || 0;
                 const total1a7Nac = nacDist['b) 1 a 7 dias'] || 0;
@@ -1929,7 +2023,7 @@ public function getFiltrosCapitalHumano()
                 const csv = [headers,...rows].map(r=>r.map(v=>`"${v??''}"`).join(',')).join('\n');
                 const a   = document.createElement('a');
                 a.href    = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-                a.download = `vencimientos_lunes_${new Date().toISOString().substring(0,10)}.csv`;
+                a.download = 'vencimientos_lunes_' + new Date().toISOString().substring(0,10) + '.csv';
                 a.click();
             });
 
@@ -1962,7 +2056,7 @@ public function getFiltrosCapitalHumano()
             /* ── Enviar correo ── */
             document.getElementById('btnEnviarCorreo')?.addEventListener('click', async () => {
                 const btn = document.getElementById('btnEnviarCorreo');
-                const defaultAsunto = 'Primeros pagos — Lunes de Cierre';
+                const defaultAsunto = VISTA_SIMPLE ? 'Primeros pagos — Semana actual' : 'Primeros pagos — Lunes de Cierre';
                 let destinatariosRaw = '';
                 let asunto = defaultAsunto;
                 const parseEmails = (raw) => (raw || '')
@@ -2103,28 +2197,37 @@ public function getFiltrosCapitalHumano()
             document.getElementById('fBusq')
                 ?.addEventListener('input', renderTabla);
 
-            document.getElementById('btnReset').addEventListener('click', () => {
-                ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
-                    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-                document.getElementById('fBusq').value = '';
-                actualizarOpcionesBucketCorte(_data, '');
-                renderTabla();
-                renderStats(_data);
-            });
+            const btnResetFiltros = document.getElementById('btnReset');
+            if (btnResetFiltros) {
+                btnResetFiltros.addEventListener('click', () => {
+                    ['fBucketNacio','fBucketCorte','fTerritorial','fZonal','fJefe','fGestor','fMovimiento']
+                        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+                    const fb = document.getElementById('fBusq');
+                    if (fb) fb.value = '';
+                    actualizarOpcionesBucketCorte(_data, '');
+                    renderTabla();
+                    renderStats(_data);
+                });
+            }
 
             cargar();
         });
         </script>
     HTML;
 
-        return str_replace('__FETCH_VENCIMIENTOS__', $fetchUrl, $script);
+        return str_replace(
+            ['__FETCH_VENCIMIENTOS__', '%%VISTA_SIMPLE%%'],
+            [$fetchUrl, $vistaSimple ? 'true' : 'false'],
+            $script
+        );
     }
 
     public function VencimientosLunes()
     {
         self::set('titulo', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Lunes de Cierre');
-        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunes'));
+        self::set('vencimientos_vista_simple', false);
+        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunes', false));
         self::render('reporte_vencimientos_lunes');
     }
 
@@ -2132,7 +2235,8 @@ public function getFiltrosCapitalHumano()
     {
         self::set('titulo', 'Primeros pagos — Semana actual');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Semana actual');
-        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunesSiguienteSemana'));
+        self::set('vencimientos_vista_simple', true);
+        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunesSiguienteSemana', true));
         self::render('reporte_vencimientos_lunes');
     }
 
@@ -2151,6 +2255,79 @@ public function getFiltrosCapitalHumano()
             self::respuestaJSON(EmpresasDAO::getVencimientosLunes(0, true));
         } catch (\Exception $e) {
             self::respuestaJSON(["success" => false, "mensaje" => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Excel (.xlsx) con las mismas columnas que la tabla en «Primeros pagos — Semana actual».
+     */
+    public function descargarPrimerosPagosSemanaActualExcel()
+    {
+        try {
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
+            if ($usuarioId < 1) {
+                http_response_code(401);
+                header('Content-Type: text/plain; charset=utf-8');
+                echo 'Sesión no válida.';
+                exit;
+            }
+
+            $raw = EmpresasDAO::getVencimientosLunes(0, true);
+            if (empty($raw['success'])) {
+                http_response_code(404);
+                header('Content-Type: text/plain; charset=utf-8');
+                echo $raw['mensaje'] ?? 'No se pudieron obtener los datos.';
+                exit;
+            }
+
+            $datos = $raw['datos'] ?? [];
+            if (!is_array($datos)) {
+                $datos = [];
+            }
+
+            $filas = [];
+            foreach ($datos as $r) {
+                if (!is_array($r)) {
+                    continue;
+                }
+                $cuotaVal = $r['Cuota'] ?? null;
+                $cuotaNum = is_numeric($cuotaVal) ? (float) $cuotaVal : 0.0;
+                $filas[] = [
+                    'id_credito'     => (string) ($r['Id_credito'] ?? ''),
+                    'nombre_cliente' => trim((string) ($r['Nombre_cliente'] ?? '')),
+                    /* PhpSpreadsheet helper usa html_entity_decode: enviar string */
+                    'cuota'          => number_format($cuotaNum, 2, '.', ''),
+                ];
+            }
+
+            $columnas = [
+                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
+                \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'NOMBRE CLIENTE', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
+                \PHPSpreadsheet::ColumnaExcel('cuota', 'MONTO DE LA CUOTA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda')]),
+            ];
+
+            $nombreArchivo = 'Primeros_pagos_semana_actual_' . date('Y-m-d');
+            \PHPSpreadsheet::DescargaExcel(
+                $nombreArchivo,
+                'Semana actual',
+                'Primeros pagos — Semana actual',
+                $columnas,
+                $filas
+            );
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Reporteria::descargarPrimerosPagosSemanaActualExcel -> ' . $e->getMessage());
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Error al generar el archivo Excel.';
+            exit;
         }
     }
 
@@ -2593,8 +2770,112 @@ public function getFiltrosCapitalHumano()
         }
     }
 
+    /**
+     * Cron / agente Node: envía el Excel del reporte Gastos Cobranza con la misma SMTP que [mail] en config.ini
+     * (mismo criterio que enviarCorreoHtmlVencimientos / correos programados).
+     */
+    public function enviarCorreoReporteGastosCobranza(array $destinatarios, string $rutaAdjuntoAbs, string $asunto = ''): array
+    {
+        try {
+            $rutaAdjuntoAbs = realpath($rutaAdjuntoAbs) ?: trim($rutaAdjuntoAbs);
+            if ($rutaAdjuntoAbs === '' || !is_file($rutaAdjuntoAbs) || !is_readable($rutaAdjuntoAbs)) {
+                return self::respuesta(false, 'Archivo adjunto no encontrado o no legible.');
+            }
+
+            $destinatariosLimpios = [];
+            foreach ($destinatarios as $email) {
+                $email = strtolower(trim((string) $email));
+                if ($email === '') {
+                    continue;
+                }
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    return self::respuesta(false, "Correo inválido: {$email}");
+                }
+                $destinatariosLimpios[] = $email;
+            }
+            $destinatariosLimpios = array_values(array_unique($destinatariosLimpios));
+            if (empty($destinatariosLimpios)) {
+                return self::respuesta(false, 'Sin destinatarios válidos.');
+            }
+
+            $autoload = dirname(RAIZ) . '/vendor/autoload.php';
+            if (!is_file($autoload)) {
+                return self::respuesta(false, 'No se encontró Composer (PHPMailer). Ejecute composer install en la raíz del proyecto.');
+            }
+            require_once $autoload;
+
+            $configPath = RAIZ . '/config/config.ini';
+            $ini = is_file($configPath) ? parse_ini_file($configPath, true) : [];
+            $mail = $ini['mail'] ?? [];
+
+            $smtpHost = trim((string) ($mail['smtp_host'] ?? ''));
+            $smtpPort = (int) ($mail['smtp_port'] ?? 587);
+            $smtpSecure = strtolower(trim((string) ($mail['smtp_secure'] ?? 'tls')));
+            $smtpUser = trim((string) ($mail['smtp_user'] ?? ''));
+            $smtpPass = trim((string) ($mail['smtp_pass'] ?? ''));
+            $from = trim((string) ($mail['mail_from'] ?? $smtpUser));
+            $fromName = trim((string) ($mail['mail_from_name'] ?? 'Sparta Ledger'));
+
+            if ($smtpHost === '' || $smtpUser === '' || $smtpPass === '') {
+                return self::respuesta(false, 'Falta configuración SMTP en backend/config/config.ini sección [mail].');
+            }
+
+            $baseName = basename($rutaAdjuntoAbs);
+            if ($asunto === '') {
+                $asunto = 'Reporte Gastos Cobranza — ' . date('Y-m-d');
+            }
+
+            $esc = static function ($v): string {
+                return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+            };
+            $html = '<p>Se generó el reporte de cobranza adjunto.</p>'
+                . '<p><strong>' . $esc($baseName) . '</strong></p>'
+                . '<p style="color:#555;font-size:12px;">Mensaje automático (agente Gastos Cobranza).</p>';
+
+            $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mailer->isSMTP();
+            $mailer->Host = $smtpHost;
+            $mailer->Port = $smtpPort;
+            $mailer->SMTPAuth = true;
+            $mailer->Username = $smtpUser;
+            $mailer->Password = $smtpPass;
+            if ($smtpSecure === 'ssl') {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+            } else {
+                $mailer->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            }
+            $mailer->CharSet = 'UTF-8';
+            $mailer->isHTML(true);
+            $mailer->setFrom($from !== '' ? $from : $smtpUser, $fromName !== '' ? $fromName : 'Sparta Ledger');
+            $mailer->Sender = ($from !== '' ? $from : $smtpUser);
+            $mailer->addReplyTo(($from !== '' ? $from : $smtpUser), $fromName !== '' ? $fromName : 'Sparta Ledger');
+            $mailer->Subject = $asunto;
+            $mailer->Body = $html;
+            $mailer->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $html));
+            $mailer->addAttachment($rutaAdjuntoAbs, $baseName);
+
+            foreach ($destinatariosLimpios as $email) {
+                $mailer->addAddress($email);
+            }
+            $mailer->send();
+
+            return self::respuesta(true, 'Correo con reporte enviado.', [
+                'destinatarios' => $destinatariosLimpios,
+                'adjunto' => $baseName,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::enviarCorreoReporteGastosCobranza -> ' . $e->getMessage());
+
+            return self::respuesta(false, 'No se pudo enviar el correo: ' . $e->getMessage());
+        }
+    }
+
     private function buildCorreoVencimientosLunesHtml(array $r): string
     {
+        if (!empty($r['vista_primeros_pagos_simple'])) {
+            return $this->buildCorreoVencimientosPrimerosPagosSemanaHtml($r);
+        }
+
         $num = function ($v): string {
             return number_format((float)$v, 0, '.', ',');
         };
@@ -2784,6 +3065,59 @@ public function getFiltrosCapitalHumano()
 </html>
 HTML;
     }
+
+    /**
+     * Plantilla de correo simplificada para «Primeros pagos — Semana actual» (tbl_segundometro_primeros_pagos).
+     *
+     * @param array<string, mixed> $r Payload desde buildCorreoPayload (vista simple).
+     */
+    private function buildCorreoVencimientosPrimerosPagosSemanaHtml(array $r): string
+    {
+        $num = static function ($v): string {
+            return number_format((float)$v, 0, '.', ',');
+        };
+        $esc = static function ($v): string {
+            return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+        };
+
+        $primerVencimiento = $esc($r['primer_vencimiento'] ?? '—');
+        $generadoEn        = isset($r['generado_en']) ? date('Y-m-d', strtotime((string)$r['generado_en'])) : date('Y-m-d');
+        $totalTabla        = (float)($r['total_en_tabla'] ?? $r['total_registros'] ?? 0);
+        $nota              = $esc($r['nota'] ?? 'Generado automáticamente');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8" />
+  <title>Primeros pagos — Semana actual</title>
+</head>
+<body style="margin:0;padding:16px;background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1e293b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
+    <tr>
+      <td style="background:#1d4ed8;padding:20px 18px;color:#fff;">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#bfdbfe;margin-bottom:6px;">Reporte</div>
+        <h1 style="margin:0;font-size:18px;line-height:1.35;">Primeros pagos — Semana actual</h1>
+        <p style="margin:10px 0 0;font-size:12px;color:#e0e2fe;line-height:1.5;">
+          Primer vencimiento: <strong style="color:#fff;">{$primerVencimiento}</strong>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 18px;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Nacimiento · Total de registros</div>
+          <div style="font-size:32px;font-weight:700;color:#1d4ed8;">{$num($totalTabla)}</div>
+        </div>
+        <p style="margin:16px 0 0;font-size:11px;color:#94a3b8;text-align:center;">{$nota} · {$esc($generadoEn)}</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+HTML;
+    }
+
     /**
      * Excel: detalle reciente (dictamen enviado) — misma base que estadísticas Sabueso.
      * Hasta 2000 filas para export; la vista en pantalla sigue usando el límite habitual vía API.
