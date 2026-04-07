@@ -28,6 +28,11 @@
  * Reloj / archivado histórico: la semana «actual» usa el reloj del proceso (Date.now).
  * Si el servidor tiene hora mal, ponga GASTOS_GC_REMOTE_CDMX_TIME=1 para corregir contra una API HTTP
  * (ver syncCdmxClockFromRemote), o GASTOS_GC_CLOCK_OFFSET_MS (milisegundos a sumar al reloj local).
+ *
+ * Ejecución diaria del reporte (POST /run): con GASTOS_GC_AUTO_RUN_10AM_CDMX=1 (por defecto) un timer
+ * en este proceso comprueba la hora civil en America/Mexico_City sobre el instante ya corregido
+ * (offset remoto/manual); no usa el Programador de tareas de Windows. Recomendado activar
+ * GASTOS_GC_REMOTE_CDMX_TIME=1 si el reloj del servidor no es fiable.
  */
 const path = require('path');
 const fs = require('fs');
@@ -104,6 +109,21 @@ function fmtCdmxYmdParts(date) {
     if (p.type === 'day') o.d = parseInt(p.value, 10);
   });
   return o.y ? o : null;
+}
+
+/** Hora 24 h en calendario Ciudad de México para el instante `date` (ya corregido con nowForCdmxCalendar si aplica). */
+function fmtCdmxHm24(date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Mexico_City',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const get = (t) => {
+    const x = parts.find((p) => p.type === t);
+    return x ? parseInt(x.value, 10) : 0;
+  };
+  return { h: get('hour'), m: get('minute') };
 }
 
 /** Milisegundos fijos sumados al reloj local (servidor desfasado; p. ej. +600000 si va 10 min atrasado). */
@@ -573,6 +593,381 @@ async function ensureCdmxTimeFresh() {
   }
 }
 
+/** Programador interno: equivale a «Ejecutar agente» sin Programador de tareas Windows. */
+function autoRun10amCdmxEnabled() {
+  return String(process.env.GASTOS_GC_AUTO_RUN_10AM_CDMX ?? '1').trim() !== '0';
+}
+
+function autoRunTargetHour() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_RUN_HOUR || '10').trim(), 10);
+  return Number.isFinite(n) && n >= 0 && n <= 23 ? n : 10;
+}
+
+function autoRunTargetMinute() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_RUN_MINUTE || '0').trim(), 10);
+  return Number.isFinite(n) && n >= 0 && n <= 59 ? n : 0;
+}
+
+function autoRunWindowMinutes() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_RUN_WINDOW_MINUTES || '5').trim(), 10);
+  return Number.isFinite(n) && n >= 1 && n <= 45 ? n : 5;
+}
+
+function autoRunTickMs() {
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_RUN_TICK_MS || '30000').trim(), 10);
+  return Math.max(10000, Math.min(600000, Number.isFinite(n) ? n : 30000));
+}
+
+function autoRunWeekdaysOnly() {
+  return String(process.env.GASTOS_GC_AUTO_RUN_WEEKDAYS_ONLY || '0').trim() === '1';
+}
+
+function autoRunStateFilePath() {
+  return path.join(LOG_DIR, '.auto_run_reporte_cdmx_ymd.txt');
+}
+
+function readAutoRunLastYmd() {
+  ensureLogDir();
+  try {
+    const p = autoRunStateFilePath();
+    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8').trim();
+  } catch (_) {}
+  return '';
+}
+
+function writeAutoRunLastYmd(ymd) {
+  ensureLogDir();
+  try {
+    fs.writeFileSync(autoRunStateFilePath(), String(ymd).trim(), { encoding: 'utf8' });
+  } catch (_) {}
+}
+
+/** Tras /run exitoso: correo (PHP + PHPMailer) + aviso en Google Chat webhook (texto; el .xlsx va en el correo). */
+function reportePostRunNotifyEnabled() {
+  return String(process.env.GASTOS_GC_REPORTE_POST_RUN_NOTIFY ?? '1').trim() !== '0';
+}
+
+function reporteMailAfterRunEnabled() {
+  return String(process.env.GASTOS_GC_REPORTE_MAIL_ENABLED ?? '1').trim() !== '0';
+}
+
+function reporteChatWebhookUrl() {
+  return String(process.env.GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL || '').trim();
+}
+
+function resolveReporteXlsxPathAfterRun() {
+  ensureReporteDir();
+  const ymd = fmtCdmxYmdParts(nowForCdmxCalendar());
+  if (!ymd) return null;
+  const dd = pad2Seg(ymd.d);
+  const mm = pad2Seg(ymd.m);
+  const yyyy = ymd.y;
+  const prueba = String(process.env.REPORTE_COBRANZA_MODO_PRUEBA_EXCEL || '0').trim() === '1';
+  const suf = prueba ? '_PRUEBA' : '';
+  const base = `reporte_cobranza_${dd}-${mm}-${yyyy}${suf}.xlsx`;
+  const abs = path.join(REPORTE_DIR, base);
+  try {
+    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) return abs;
+  } catch (_) {}
+  try {
+    const names = fs.readdirSync(REPORTE_DIR);
+    let best = null;
+    let bestMs = 0;
+    for (const f of names) {
+      if (!/^reporte_cobranza_.+\.xlsx$/i.test(f)) continue;
+      const p = path.join(REPORTE_DIR, f);
+      let st;
+      try {
+        st = fs.statSync(p);
+      } catch (_) {
+        continue;
+      }
+      if (!st.isFile()) continue;
+      if (st.mtimeMs > bestMs) {
+        bestMs = st.mtimeMs;
+        best = p;
+      }
+    }
+    return best;
+  } catch (_) {
+    return null;
+  }
+}
+
+function postGoogleChatWebhook(urlStr, text) {
+  return new Promise((resolve) => {
+    let u;
+    try {
+      u = new URL(urlStr);
+    } catch (_) {
+      appendLog('[post-reporte] URL webhook inválida.');
+      resolve(false);
+      return;
+    }
+    if (u.protocol !== 'https:') {
+      appendLog('[post-reporte] Solo se admite webhook HTTPS.');
+      resolve(false);
+      return;
+    }
+    const body = JSON.stringify({ text });
+    const opts = {
+      hostname: u.hostname,
+      port: u.port || 443,
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Content-Length': Buffer.byteLength(body, 'utf8'),
+      },
+      timeout: 25000,
+    };
+    const req = https.request(opts, (res) => {
+      let d = '';
+      res.on('data', (c) => {
+        d += c;
+      });
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          appendLog(`[post-reporte] Google Chat OK HTTP ${res.statusCode}`);
+          resolve(true);
+        } else {
+          appendLog(`[post-reporte] Google Chat HTTP ${res.statusCode} ${d ? d.slice(0, 500) : ''}`);
+          resolve(false);
+        }
+      });
+    });
+    req.on('error', (e) => {
+      appendLog('[post-reporte] Google Chat error: ' + (e.message || e));
+      resolve(false);
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      appendLog('[post-reporte] Google Chat timeout');
+      resolve(false);
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
+function spawnPhpEnviarReporteGcMail(xlsxAbs) {
+  const backendRoot = path.resolve(__dirname, '..', '..');
+  const script = path.join(backendRoot, 'cronjobs', 'enviar_reporte_gc_excel.php');
+  const php = resolvePhpExe();
+  if (!fs.existsSync(script)) {
+    appendLog('[post-reporte] No existe cronjobs/enviar_reporte_gc_excel.php');
+    return;
+  }
+  appendLog('[post-reporte] Enviando correo vía PHP (Reporteria / PHPMailer)…');
+  const ch = spawn(php, [script, xlsxAbs], {
+    env: { ...process.env },
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  ch.stdout.on('data', (d) => {
+    const s = d.toString().replace(/\r/g, '').trim();
+    if (s) appendLog('[correo-gc] ' + s);
+  });
+  ch.stderr.on('data', (d) => {
+    const s = d.toString().replace(/\r/g, '').trim();
+    if (s) appendLog('[correo-gc][err] ' + s);
+  });
+  ch.on('exit', (c) => {
+    if (c !== 0) appendLog('[post-reporte] PHP correo exit code ' + c);
+  });
+}
+
+async function runPostReporteEntregas(xlsxAbs) {
+  if (!reportePostRunNotifyEnabled()) return;
+  if (!xlsxAbs || !fs.existsSync(xlsxAbs)) {
+    appendLog('[post-reporte] Sin .xlsx para notificar.');
+    return;
+  }
+  let st;
+  try {
+    st = fs.statSync(xlsxAbs);
+  } catch (_) {
+    appendLog('[post-reporte] No se pudo leer el .xlsx.');
+    return;
+  }
+  if (!st.isFile()) return;
+  const base = path.basename(xlsxAbs);
+  const kb = Math.max(1, Math.round(st.size / 1024));
+
+  if (reporteMailAfterRunEnabled()) {
+    spawnPhpEnviarReporteGcMail(xlsxAbs);
+  }
+
+  const hook = reporteChatWebhookUrl();
+  if (hook) {
+    const text =
+      `📊 *Reporte Gastos Cobranza*\n` +
+      `Archivo: \`${base}\` (~${kb} KB)\n` +
+      `El Excel se envió por correo a los destinatarios configurados (SMTP Reportería).`;
+    await postGoogleChatWebhook(hook, text);
+  }
+}
+
+/** Una sola corrida del reporte a la vez (/run HTTP o auto-run). */
+let reporteRunBusy = false;
+
+/**
+ * Ejecuta reporte_cobranza.py (o demo). `res` null = disparo interno (solo log).
+ * @param {import('express').Response|null} res
+ * @returns {boolean} true si se inició una corrida (o demo); el programador CDMX usa esto para marcar el día.
+ */
+function runReporteCobranza(res) {
+  if (reporteRunBusy) {
+    const msg = 'Ya hay una ejecución del reporte en curso.';
+    appendLog('[run] ' + msg);
+    if (res) {
+      res.status(409).json({ success: false, mensaje: msg });
+    }
+    return false;
+  }
+
+  const REPORTE_COBRANZA_SCRIPT = getReporteScriptPath();
+  if (!REPORTE_COBRANZA_SCRIPT) {
+    if (!demoPermitidoSinScript()) {
+      const err = {
+        success: false,
+        mensaje:
+          'No hay scripts/reporte_cobranza.py ni REPORTE_COBRANZA_SCRIPT en .env. Para demo: no use GASTOS_COBRANZA_DEMO=0.',
+      };
+      if (res) res.json(err);
+      else appendLog('[auto-run] ' + err.mensaje);
+      return false;
+    }
+    const ts = new Date().toISOString();
+    const stdout =
+      `[${ts}] MODO PRUEBA (sin script Python)\n` +
+      'Coloque reporte_cobranza.py en scripts/ o defina REPORTE_COBRANZA_SCRIPT en .env.\n' +
+      'OK — demo completada.\n';
+    appendLog(`--- /run demo ${ts} ---\n${stdout}`);
+    const demoPayload = {
+      success: true,
+      codigo_salida: 0,
+      stdout,
+      stderr: '',
+      demo: true,
+    };
+    if (res) res.json(demoPayload);
+    else appendLog('[auto-run] Demo sin script completada (codigo_salida=0).');
+    return true;
+  }
+
+  const esPy = REPORTE_COBRANZA_SCRIPT.toLowerCase().endsWith('.py');
+  const cmd = esPy ? REPORTE_PYTHON : REPORTE_COBRANZA_SCRIPT;
+  const args = esPy ? [REPORTE_COBRANZA_SCRIPT] : [];
+  const cwd = esPy ? path.dirname(REPORTE_COBRANZA_SCRIPT) : path.dirname(REPORTE_COBRANZA_SCRIPT);
+
+  reporteRunBusy = true;
+  const tag = res ? 'HTTP /run' : 'auto-run CDMX';
+  appendLog(`--- /run inicio (${tag}) ${new Date().toISOString()} ${cmd} ${args.join(' ')} ---`);
+
+  const child = spawn(cmd, args, {
+    cwd,
+    env: esPy ? ENV_CON_PYTHON_UNBUFFERED : { ...process.env },
+    windowsHide: true,
+  });
+
+  let stdout = '';
+  let stderr = '';
+  const maxChunk = 512 * 1024;
+  let respondio = false;
+  const enviar = (payload) => {
+    if (respondio) return;
+    respondio = true;
+    if (payload.codigo_salida !== undefined) {
+      appendLog(`--- cierre código ${payload.codigo_salida} ---`);
+    } else if (payload.mensaje) {
+      appendLog('--- error: ' + payload.mensaje);
+    }
+    if (res) res.json(payload);
+    else if (payload.codigo_salida !== undefined) {
+      appendLog(`[auto-run] Fin script código=${payload.codigo_salida} success=${!!payload.success}`);
+    } else {
+      appendLog(`[auto-run] ${payload.mensaje || 'fin'}`);
+    }
+  };
+
+  child.stdout.on('data', (d) => {
+    const s = d.toString();
+    if (stdout.length < maxChunk) stdout += s;
+    appendLog(s.replace(/\r/g, ''));
+  });
+  child.stderr.on('data', (d) => {
+    const s = d.toString();
+    if (stderr.length < maxChunk) stderr += s;
+    appendLog('[stderr] ' + s.replace(/\r/g, ''));
+  });
+
+  child.on('error', (err) => {
+    reporteRunBusy = false;
+    appendLog('[error spawn] ' + (err.message || String(err)));
+    enviar({
+      success: false,
+      mensaje: err.message || String(err),
+    });
+  });
+
+  child.on('close', (code) => {
+    reporteRunBusy = false;
+    enviar({
+      success: code === 0,
+      codigo_salida: code,
+      stdout: stdout.slice(-8000),
+      stderr: stderr.slice(-8000),
+    });
+    if (code === 0) {
+      const xlsx = resolveReporteXlsxPathAfterRun();
+      runPostReporteEntregas(xlsx).catch((e) => appendLog('[post-reporte] ' + (e?.message || e)));
+    }
+  });
+  return true;
+}
+
+let autoRunTickBusy = false;
+
+async function tickAutoRunReporteCdmx() {
+  if (!autoRun10amCdmxEnabled()) return;
+  if (autoRunTickBusy) return;
+  autoRunTickBusy = true;
+  try {
+    try {
+      await ensureCdmxTimeFresh();
+    } catch (_) {}
+    const wall = nowForCdmxCalendar();
+    const ymd = fmtCdmxYmdParts(wall);
+    if (!ymd) return;
+    const { h, m } = fmtCdmxHm24(wall);
+    const todayStr = `${ymd.y}-${pad2Seg(ymd.m)}-${pad2Seg(ymd.d)}`;
+
+    if (autoRunWeekdaysOnly()) {
+      const wd = cdmxWeekdayMon0(ymd.y, ymd.m, ymd.d);
+      if (wd >= 5) return;
+    }
+
+    const th = autoRunTargetHour();
+    const tm = autoRunTargetMinute();
+    const startMin = th * 60 + tm;
+    const curMin = h * 60 + m;
+    const win = autoRunWindowMinutes();
+    if (curMin < startMin || curMin >= startMin + win) return;
+
+    const last = readAutoRunLastYmd();
+    if (last === todayStr) return;
+
+    appendLog(
+      `[auto-run] Disparo CDMX ${todayStr} ${pad2Seg(h)}:${pad2Seg(m)} (objetivo ${pad2Seg(th)}:${pad2Seg(tm)}, ventana ${win} min; API_reloj=${remoteCdmxTimeEnabled() ? 'on' : 'off'})`,
+    );
+    const started = runReporteCobranza(null);
+    if (started) writeAutoRunLastYmd(todayStr);
+  } finally {
+    autoRunTickBusy = false;
+  }
+}
+
 function readLogTail(maxLines) {
   ensureLogDir();
   trimLogFileIfOversized();
@@ -658,6 +1053,16 @@ app.get('/health', (req, res) => {
       getDescargoEstatus3ScriptPath() !== '' && getDescargoEstatus3ScriptPath() === SCRIPT_DESCARGO_ESTATUS3,
     carpeta_descargo_estatus3: DESCARGO_ESTATUS3_DIR,
     ec_launcher_ocupado: ecLauncherBusy,
+    auto_run_cdmx: {
+      enabled: autoRun10amCdmxEnabled(),
+      hour: autoRunTargetHour(),
+      minute: autoRunTargetMinute(),
+      window_minutes: autoRunWindowMinutes(),
+      tick_ms: autoRunTickMs(),
+      weekdays_only: autoRunWeekdaysOnly(),
+      last_fired_cdmx_ymd: readAutoRunLastYmd(),
+      reporte_busy: reporteRunBusy,
+    },
   });
 });
 
@@ -755,86 +1160,7 @@ app.post('/logs/clear', (req, res) => {
 });
 
 app.post('/run', (req, res) => {
-  const REPORTE_COBRANZA_SCRIPT = getReporteScriptPath();
-  if (!REPORTE_COBRANZA_SCRIPT) {
-    if (!demoPermitidoSinScript()) {
-      return res.json({
-        success: false,
-        mensaje:
-          'No hay scripts/reporte_cobranza.py ni REPORTE_COBRANZA_SCRIPT en .env. Para demo: no use GASTOS_COBRANZA_DEMO=0.',
-      });
-    }
-    const ts = new Date().toISOString();
-    const stdout =
-      `[${ts}] MODO PRUEBA (sin script Python)\n` +
-      'Coloque reporte_cobranza.py en scripts/ o defina REPORTE_COBRANZA_SCRIPT en .env.\n' +
-      'OK — demo completada.\n';
-    appendLog(`--- /run demo ${ts} ---\n${stdout}`);
-    return res.json({
-      success: true,
-      codigo_salida: 0,
-      stdout,
-      stderr: '',
-      demo: true,
-    });
-  }
-
-  const esPy = REPORTE_COBRANZA_SCRIPT.toLowerCase().endsWith('.py');
-  const cmd = esPy ? REPORTE_PYTHON : REPORTE_COBRANZA_SCRIPT;
-  const args = esPy ? [REPORTE_COBRANZA_SCRIPT] : [];
-  const cwd = esPy ? path.dirname(REPORTE_COBRANZA_SCRIPT) : path.dirname(REPORTE_COBRANZA_SCRIPT);
-
-  appendLog(`--- /run inicio ${new Date().toISOString()} ${cmd} ${args.join(' ')} ---`);
-
-  const child = spawn(cmd, args, {
-    cwd,
-    env: esPy ? ENV_CON_PYTHON_UNBUFFERED : { ...process.env },
-    windowsHide: true,
-  });
-
-  let stdout = '';
-  let stderr = '';
-  const maxChunk = 512 * 1024;
-  let respondio = false;
-  const enviar = (payload) => {
-    if (respondio) return;
-    respondio = true;
-    if (payload.codigo_salida !== undefined) {
-      // No repetir stdout/stderr: ya se volcaron en tiempo real con child.stdout/stderr.on('data').
-      appendLog(`--- cierre código ${payload.codigo_salida} ---`);
-    } else if (payload.mensaje) {
-      appendLog('--- error: ' + payload.mensaje);
-    }
-    res.json(payload);
-  };
-
-  child.stdout.on('data', (d) => {
-    const s = d.toString();
-    if (stdout.length < maxChunk) stdout += s;
-    appendLog(s.replace(/\r/g, ''));
-  });
-  child.stderr.on('data', (d) => {
-    const s = d.toString();
-    if (stderr.length < maxChunk) stderr += s;
-    appendLog('[stderr] ' + s.replace(/\r/g, ''));
-  });
-
-  child.on('error', (err) => {
-    appendLog('[error spawn] ' + (err.message || String(err)));
-    enviar({
-      success: false,
-      mensaje: err.message || String(err),
-    });
-  });
-
-  child.on('close', (code) => {
-    enviar({
-      success: code === 0,
-      codigo_salida: code,
-      stdout: stdout.slice(-8000),
-      stderr: stderr.slice(-8000),
-    });
-  });
+  runReporteCobranza(res);
 });
 
 /** EC launcher: worker.php o enrich_gc_excel.php (paridad con launcher/Lanzar.cmd). */
@@ -1404,5 +1730,21 @@ app.listen(PORT, () => {
     setInterval(() => {
       void ensureCdmxTimeFresh();
     }, 10 * 60 * 1000);
+  }
+  if (autoRun10amCdmxEnabled()) {
+    appendLog(
+      `[auto-run] Programador CDMX activo: tick ${autoRunTickMs()} ms · ventana ${pad2Seg(autoRunTargetHour())}:${pad2Seg(autoRunTargetMinute())}–+${autoRunWindowMinutes()} min · solo_lun_vie=${autoRunWeekdaysOnly() ? '1' : '0'}`,
+    );
+    if (!remoteCdmxTimeEnabled()) {
+      appendLog(
+        '[auto-run] Aviso: GASTOS_GC_REMOTE_CDMX_TIME no está en 1; la hora CDMX depende del reloj del servidor. Si va desfasado, ponga GASTOS_GC_REMOTE_CDMX_TIME=1 en .env.',
+      );
+    }
+    setInterval(() => {
+      tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
+    }, autoRunTickMs());
+    tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
+  } else {
+    console.log('[gastos-cobranza-agent] auto-run CDMX desactivado (GASTOS_GC_AUTO_RUN_10AM_CDMX=0)');
   }
 });

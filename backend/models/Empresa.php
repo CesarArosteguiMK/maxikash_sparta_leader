@@ -744,22 +744,24 @@ class Empresa extends Model
 
     /**
      * @param int  $offsetSemanas  0 = lunes de la semana en curso; 1 = siguiente lunes de cierre
-     * @param bool $corteSoloLunes true = mora solo con columnas del día lunes (sin martes+); false = corte actual
-     *                                (cartera desde martes ~8:00, avanza según día/hora)
+     * @param bool $corteSoloLunes true = vista «Primeros pagos — Semana actual»: datos en `tbl_segundometro_primeros_pagos` (__SPARTA_SECRET_REDACTED__).
+     *                             false = corte dinámico desde `tbl_segundometro_semana`.
      */
     public static function getVencimientosLunes(int $offsetSemanas = 0, bool $corteSoloLunes = false): array
     {
-        if (!$corteSoloLunes) {
-            $corteCol = self::getCorteActual();
-            if (!$corteCol) {
-                return [
-                    'success'      => false,
-                    'mensaje'      => 'No hay corte disponible.',
-                    'datos'        => [],
-                    'lunes_pasado' => null,
-                    'corte_actual' => null,
-                ];
-            }
+        if ($corteSoloLunes) {
+            return self::getVencimientosPrimerosPagosDesdeMegaReporte();
+        }
+
+        $corteCol = self::getCorteActual();
+        if (!$corteCol) {
+            return [
+                'success'        => false,
+                'mensaje'        => 'No hay corte disponible.',
+                'datos'          => [],
+                'lunes_pasado'   => null,
+                'corte_actual'   => null,
+            ];
         }
 
         // Lunes de cierre (misma lógica que en SQL: días desde el último lunes)
@@ -770,28 +772,7 @@ class Empresa extends Model
             $lunes = date('Y-m-d', strtotime($lunes . ' +' . (int)$offsetSemanas . ' weeks'));
         }
 
-        if ($corteSoloLunes) {
-            $moraExpr       = self::sqlExprMoraSoloLunes();
-            $bucketCorteSQL = self::sqlBucketDesdeMoraExpr($moraExpr);
-            $corteLabel     = 'Dias_mora_Lunes';
-            $sql            = 'SELECT '
-                . 't.Id_credito, '
-                . 't.Nombre_cliente, '
-                . 't.Bucket_Morosidad_Real AS bucket_nacio, '
-                . 't.Gestor_Asignado, '
-                . 't.Jefe_de_Plaza, '
-                . 't.Zonal, '
-                . 't.Territorial, '
-                . 't.Cuotas_vencidas, '
-                . 't.Saldo_vencido_actualizado, '
-                . 't.Fecha_primer_vencimiento, '
-                . '(' . $moraExpr . ') AS dias_mora_corte, '
-                . $bucketCorteSQL . ' AS bucket_corte_actual '
-                . 'FROM tbl_segundometro_semana t '
-                . 'WHERE DATE(t.Fecha_primer_vencimiento) = :lunes '
-                . 'ORDER BY t.Territorial, t.Zonal, t.Jefe_de_Plaza, t.Gestor_Asignado, t.Nombre_cliente';
-        } else {
-            $bucketCorteSQL = "
+        $bucketCorteSQL = "
             CASE
                 WHEN `$corteCol` IS NULL              THEN NULL
                 WHEN `$corteCol` < 1                  THEN 'a) Current'
@@ -802,8 +783,8 @@ class Empresa extends Model
             END
         ";
 
-            $corteLabel = $corteCol;
-            $sql        = "
+        $corteLabel = $corteCol;
+        $sql        = "
             SELECT
                 t.Id_credito,
                 t.Nombre_cliente,
@@ -826,41 +807,133 @@ class Empresa extends Model
                 t.Gestor_Asignado,
                 t.Nombre_cliente
         ";
-        }
 
         try {
-            $db                = new DatabaseSegundometro();
-            $lunesCalendario   = $lunes;
-            $rows              = $db->queryAll($sql, ['lunes' => $lunes]);
-            $usadoFallbackLunes = false;
-
-            // Semana actual (solo lunes): si el lunes de calendario aún no tiene filas en segundómetro, usar el último lunes con datos.
-            if ($corteSoloLunes && count($rows) === 0) {
-                $fb = $db->queryOne(
-                    'SELECT MAX(DATE(t.Fecha_primer_vencimiento)) AS lm
-                     FROM tbl_segundometro_semana t
-                     WHERE DATE(t.Fecha_primer_vencimiento) <= :lunes
-                       AND WEEKDAY(t.Fecha_primer_vencimiento) = 0',
-                    ['lunes' => $lunesCalendario]
-                );
-                if (!empty($fb['lm'])) {
-                    $lunesEfectivo = $fb['lm'];
-                    $rows          = $db->queryAll($sql, ['lunes' => $lunesEfectivo]);
-                    $usadoFallbackLunes = ($lunesEfectivo !== $lunesCalendario);
-                    $lunes              = $lunesEfectivo;
-                }
-            }
+            $db              = new DatabaseSegundometro();
+            $lunesCalendario = $lunes;
+            $rows            = $db->queryAll($sql, ['lunes' => $lunes]);
 
             return [
                 'success'              => true,
                 'mensaje'              => 'Registros obtenidos.',
                 'lunes_pasado'         => $lunes,
                 'lunes_calendario'     => $lunesCalendario,
-                'usado_fallback_lunes' => $usadoFallbackLunes,
+                'usado_fallback_lunes' => false,
                 'corte_actual'         => $corteLabel,
                 'datos'                => $rows,
             ];
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+        }
+    }
 
+    /**
+     * Une claves en minúsculas (PDO/MySQL) a los nombres que consume el front (PascalCase).
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function normalizarFilaTblPrimerosPagos(array $row): array
+    {
+        $l = array_change_key_case($row, CASE_LOWER);
+        $pick = static function (array $a, array $cands) {
+            foreach ($cands as $c) {
+                if (array_key_exists($c, $a) && $a[$c] !== null && $a[$c] !== '') {
+                    return $a[$c];
+                }
+            }
+            foreach ($cands as $c) {
+                if (array_key_exists($c, $a)) {
+                    return $a[$c];
+                }
+            }
+
+            return null;
+        };
+
+        return [
+            'Id_credito'                => $pick($l, ['id_credito']),
+            'Nombre_cliente'            => $pick($l, ['nombre_cliente']),
+            'Cuota'                     => $pick($l, ['cuota', 'monto_cuota', 'monto_de_la_cuota', 'cuota_mensual']),
+            'Cuotas_vencidas'           => $pick($l, ['cuotas_vencidas']),
+            'Saldo_vencido_actualizado' => $pick($l, ['saldo_vencido_actualizado']),
+            'Fecha_primer_vencimiento'  => $pick($l, ['fecha_primer_vencimiento']),
+            'Gestor_Asignado'           => $pick($l, ['gestor_asignado']),
+            'Jefe_de_Plaza'             => $pick($l, ['jefe_de_plaza']),
+            'Zonal'                     => $pick($l, ['zonal']),
+            'Territorial'               => $pick($l, ['territorial']),
+        ];
+    }
+
+    /**
+     * Primeros pagos — Semana actual: catálogo completo en `tbl_segundometro_primeros_pagos` (__SPARTA_SECRET_REDACTED__).
+     * SELECT * + normalización: evita fallos por mayúsculas/minúsculas en nombres de columnas.
+     */
+    private static function getVencimientosPrimerosPagosDesdeMegaReporte(): array
+    {
+        try {
+            $db  = new DatabaseSegundometro();
+            $sql = 'SELECT * FROM `__SPARTA_SECRET_REDACTED__`.`tbl_segundometro_primeros_pagos`';
+
+            $raw  = $db->queryAll($sql);
+            $rows = [];
+            foreach (is_array($raw) ? $raw : [] as $r) {
+                if (is_array($r)) {
+                    $rows[] = self::normalizarFilaTblPrimerosPagos($r);
+                }
+            }
+
+            usort($rows, static function (array $a, array $b): int {
+                $ka = ($a['Territorial'] ?? '')
+                    . "\0" . ($a['Zonal'] ?? '')
+                    . "\0" . ($a['Jefe_de_Plaza'] ?? '')
+                    . "\0" . ($a['Gestor_Asignado'] ?? '')
+                    . "\0" . ($a['Nombre_cliente'] ?? '');
+                $kb = ($b['Territorial'] ?? '')
+                    . "\0" . ($b['Zonal'] ?? '')
+                    . "\0" . ($b['Jefe_de_Plaza'] ?? '')
+                    . "\0" . ($b['Gestor_Asignado'] ?? '')
+                    . "\0" . ($b['Nombre_cliente'] ?? '');
+
+                return strcmp($ka, $kb);
+            });
+
+            $dateStrs = [];
+            foreach ($rows as $nr) {
+                $f = $nr['Fecha_primer_vencimiento'] ?? null;
+                if ($f === null || $f === '') {
+                    continue;
+                }
+                $ts = strtotime((string) $f);
+                if ($ts !== false) {
+                    $dateStrs[] = date('Y-m-d', $ts);
+                }
+            }
+            $dmin = $dateStrs !== [] ? min($dateStrs) : null;
+            $dmax = $dateStrs !== [] ? max($dateStrs) : null;
+            $cnt  = count($rows);
+
+            $fechaDisplay = '—';
+            if ($dmin !== null && $dmax !== null) {
+                $fechaDisplay = ($dmin === $dmax) ? $dmin : ($dmin . ' – ' . $dmax);
+            } elseif ($dmin !== null) {
+                $fechaDisplay = $dmin;
+            } elseif ($dmax !== null) {
+                $fechaDisplay = $dmax;
+            }
+
+            return [
+                'success'                          => true,
+                'mensaje'                          => 'Registros obtenidos (tbl_segundometro_primeros_pagos).',
+                'lunes_pasado'                     => $dmin,
+                'lunes_calendario'                 => null,
+                'usado_fallback_lunes'             => false,
+                'corte_actual'                     => null,
+                'fecha_primer_vencimiento_display' => $fechaDisplay,
+                'total_en_tabla'                   => $cnt,
+                'vista_tabla_primeros_pagos'       => true,
+                'datos'                            => $rows,
+            ];
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
