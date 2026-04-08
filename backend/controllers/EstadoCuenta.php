@@ -1566,6 +1566,28 @@ class EstadoCuenta extends Controller
         }
         return null;
     }
+
+    /**
+     * S2 devolvió estadoCuenta sin idCredito usable: misma UX que fallo en validarCredito (vuelta a consulta + Swal).
+     */
+    private function renderConsultaAlertaSinIdCreditoS2(string $scriptTemplate, bool $tienePermisoFechaCorte): void
+    {
+        EstadoCuentaTimingLog::finish('sin_id_credito_s2');
+        self::set('titulo', 'Estados de Cuenta');
+        $scriptConsulta = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode(false), $scriptTemplate);
+        $scriptConsulta = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConsulta);
+        self::set('script', $scriptConsulta);
+        self::set('alertaBusqueda', [
+            'icon' => 'error',
+            'title' => 'ID de crédito incorrecto',
+            'html' => "<div style='text-align: center; padding: 10px;'><p style='font-size: 16px; margin-bottom: 15px; color: #333;'><strong>El ID de crédito ingresado no existe o no es válido.</strong></p><p style='font-size: 14px; color: #666;'>Por favor verifícalo y vuelve a intentar.</p></div>",
+            'confirmButtonText' => 'Entendido',
+            'confirmButtonColor' => '#dc3545',
+            'width' => '500px',
+        ]);
+        self::render('__SPARTA_SECRET_REDACTED___consulta');
+    }
+
     public function Consulta()
     {
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
@@ -2751,80 +2773,56 @@ JS;
             if (
                 !isset($resultado['data']['idCredito']) ||
                 $resultado['data']['idCredito'] === null ||
-                $resultado['data']['idCredito'] === ''
+                $resultado['data']['idCredito'] === '' ||
+                empty($resultado['data']['idCredito'])
             ) {
-                self::set("titulo", "Sin resultados para solicitud");
-                self::set("errorGestiones", "No se encontraron resultados");
-                self::set("tabla", $tabla);
-                self::set("notasCargoPorFecha", []);
-                self::set("gastoCobranzaPorFecha", []);
-                self::set("esReembolsoPorFecha", []);
-                self::set("tipoDisplayCargoPorFecha", []);
-                self::set("hayNotasCargos", false);
-                self::set('dictamenContactoPreload', ['id_credito' => 0, 'opciones' => []]);
-                EstadoCuentaTimingLog::finish('sin_id_credito_resultado');
-                return self::render("__SPARTA_SECRET_REDACTED___request");
+                $this->renderConsultaAlertaSinIdCreditoS2($script, $tienePermisoFechaCorte);
+                return;
             }
-            if (empty($resultado["data"]["idCredito"])) {
 
-                self::set("titulo", "Sin resultados para solicitud");
-                self::set("errorGestiones", "No se encontraron resultados");
-                self::set("tabla", $tabla);
-                self::set("notasCargoPorFecha", []);
-                self::set("gastoCobranzaPorFecha", []);
-                self::set("esReembolsoPorFecha", []);
-                self::set("tipoDisplayCargoPorFecha", []);
-                self::set("hayNotasCargos", false);
-                self::set('dictamenContactoPreload', ['id_credito' => 0, 'opciones' => []]);
-                EstadoCuentaTimingLog::finish('sin_id_credito_vacio');
-                return self::render("__SPARTA_SECRET_REDACTED___request");
+            // Diferido — badge se actualiza async
+            self::set('esGestionExternaMx', false);
+            self::set('gestionExternaEtiquetaCelula', '');
+            EstadoCuentaTimingLog::mark('dao_gestion_externa_mx');
 
-            } else {
-
-                // Diferido — badge se actualiza async
-                self::set('esGestionExternaMx', false);
-                self::set('gestionExternaEtiquetaCelula', '');
-                EstadoCuentaTimingLog::mark('dao_gestion_externa_mx');
-
-                self::set("dataCliente", $cliente);
-                self::set("dataEstadoCuenta", $estadoCuenta);
-                self::set("dataOtrosDatos", $otrosDatos); //Recurso Front
-                self::set("direcciones", $respDAO);
-                self::set("referencias", $referencias);
-                self::set("notas", $notas);
-                $idCredDictamenPreload = (int)($estadoCuenta['idCredito'] ?? 0);
-                $refRowDictamenPreload = [];
-                if (!empty($referencias['success']) && !empty($referencias['datos'][0]) && is_array($referencias['datos'][0])) {
-                    $refRowDictamenPreload = $referencias['datos'][0];
-                }
-                $celDictamenPreload = trim((string)($cliente['celular'] ?? ''));
-
-                // Diferido — se carga async al abrir modal de dictamen
-                self::set('dictamenContactoPreload', [
-                    'id_credito' => $idCredDictamenPreload,
-                    'opciones'   => [],
-                ]);
-                EstadoCuentaTimingLog::mark('dictamen_preload');
-
-                $idCreditoCruce = (int) ($estadoCuenta['idCredito'] ?? $idConsultado ?? 0);
-                $notasCruceRaw  = $estadoCuenta['datosNotasCargos'] ?? [];
-                if (!is_array($notasCruceRaw)) {
-                    $notasCruceRaw = [];
-                }
-                self::set('ecCrucePayload', [
-                    'idCredito'   => $idCreditoCruce,
-                    'fechaCorte'  => $fechaHoy,
-                    'notasCargos' => $notasCruceRaw,
-                ]);
-
-                self::set("titulo", "Resultado de la solicitud");
-                $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
-                $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
-                self::set("script", $this->appendRastreoSabuesoScriptSiAplica($scriptConPermiso, $tienePermisoRastreoNeverPaid));
-                self::set("tabla", $tabla);
-                EstadoCuentaTimingLog::finish('render_ok');
-                return self::render("__SPARTA_SECRET_REDACTED___request");
+            self::set("dataCliente", $cliente);
+            self::set("dataEstadoCuenta", $estadoCuenta);
+            self::set("dataOtrosDatos", $otrosDatos); //Recurso Front
+            self::set("direcciones", $respDAO);
+            self::set("referencias", $referencias);
+            self::set("notas", $notas);
+            $idCredDictamenPreload = (int)($estadoCuenta['idCredito'] ?? 0);
+            $refRowDictamenPreload = [];
+            if (!empty($referencias['success']) && !empty($referencias['datos'][0]) && is_array($referencias['datos'][0])) {
+                $refRowDictamenPreload = $referencias['datos'][0];
             }
+            $celDictamenPreload = trim((string)($cliente['celular'] ?? ''));
+
+            // Diferido — se carga async al abrir modal de dictamen
+            self::set('dictamenContactoPreload', [
+                'id_credito' => $idCredDictamenPreload,
+                'opciones'   => [],
+            ]);
+            EstadoCuentaTimingLog::mark('dictamen_preload');
+
+            $idCreditoCruce = (int) ($estadoCuenta['idCredito'] ?? $idConsultado ?? 0);
+            $notasCruceRaw  = $estadoCuenta['datosNotasCargos'] ?? [];
+            if (!is_array($notasCruceRaw)) {
+                $notasCruceRaw = [];
+            }
+            self::set('ecCrucePayload', [
+                'idCredito'   => $idCreditoCruce,
+                'fechaCorte'  => $fechaHoy,
+                'notasCargos' => $notasCruceRaw,
+            ]);
+
+            self::set("titulo", "Resultado de la solicitud");
+            $scriptConPermiso = str_replace('TienePermisoRegistrarDocumentos_PLACEHOLDER', json_encode($tienePermisoRegistrarDocumentos), $script);
+            $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
+            self::set("script", $this->appendRastreoSabuesoScriptSiAplica($scriptConPermiso, $tienePermisoRastreoNeverPaid));
+            self::set("tabla", $tabla);
+            EstadoCuentaTimingLog::finish('render_ok');
+            return self::render("__SPARTA_SECRET_REDACTED___request");
 
 
         }

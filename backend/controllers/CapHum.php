@@ -662,6 +662,7 @@ class CapHum extends Controller
                     renderPuestos(puestos);
                     renderModulos(perfiles.filter(m => (m.pestana || '') !== 'Permisos especiales'));
                     renderPermisosEspeciales(perfiles.filter(m => (m.pestana || '') === 'Permisos especiales'));
+                    actualizarEstadoForceLogoutPanel(persona);
 
                     // Abrir modal en lugar de offcanvas
                     const modalEl = document.getElementById('modalEditPerfil');
@@ -682,6 +683,91 @@ class CapHum extends Controller
                     if (err.name === 'AbortError') return;
                     console.error(err);
                     Swal.fire("Error", "No se pudo cargar la información", "error");
+                });
+            }
+
+            function actualizarEstadoForceLogoutPanel(persona) {
+                var el = document.getElementById('forceLogoutPerfilEstado');
+                var btn = document.getElementById('btnForzarLogoutUsuarioPerfil');
+                if (!el || !btn) return;
+                var mid = typeof window.miUsuarioId !== 'undefined' ? Number(window.miUsuarioId) : 0;
+                var pid = persona && persona.id != null ? Number(persona.id) : 0;
+                if (mid > 0 && pid === mid) {
+                    btn.disabled = true;
+                    el.textContent = 'No aplica a su propio usuario; use Cerrar sesión en el menú.';
+                    el.className = 'small mb-0 mt-3 text-muted';
+                    return;
+                }
+                if (Number(persona.force_logout) === 1) {
+                    el.textContent = 'Cierre de sesión pendiente: en la próxima validación se cerrará la sesión activa.';
+                    el.className = 'small mb-0 mt-3 text-warning';
+                    btn.disabled = true;
+                } else {
+                    el.textContent = '';
+                    el.className = 'small mb-0 mt-3 text-muted';
+                    btn.disabled = false;
+                }
+            }
+
+            function forzarCierreSesionUsuarioPerfil() {
+                if (!currentPersonaId) return;
+                var mid = typeof window.miUsuarioId !== 'undefined' ? Number(window.miUsuarioId) : 0;
+                if (mid > 0 && Number(currentPersonaId) === mid) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Acción no disponible',
+                            text: 'Use Cerrar sesión en el menú principal.',
+                            customClass: { container: 'swal-sobre-modal-perfil' }
+                        });
+                    }
+                    return;
+                }
+                if (typeof Swal === 'undefined') return;
+                Swal.fire({
+                    title: '¿Forzar cierre de sesión?',
+                    text: 'El usuario deberá volver a iniciar sesión.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, forzar',
+                    cancelButtonText: 'Cancelar',
+                    customClass: { container: 'swal-sobre-modal-perfil' }
+                }).then(function(r) {
+                    if (!r.isConfirmed) return;
+                    fetch('/CapHum/forzarCierreSesionUsuario', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ idPersona: currentPersonaId })
+                    })
+                    .then(function(res) { return res.json(); })
+                    .then(function(data) {
+                        if (!data.success) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.mensaje || 'No se pudo aplicar',
+                                customClass: { container: 'swal-sobre-modal-perfil' }
+                            });
+                            return;
+                        }
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Listo',
+                            text: data.mensaje || 'Solicitud registrada.',
+                            timer: 2200,
+                            showConfirmButton: false,
+                            customClass: { container: 'swal-sobre-modal-perfil' }
+                        });
+                        actualizarEstadoForceLogoutPanel({ id: currentPersonaId, force_logout: 1 });
+                    })
+                    .catch(function() {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error de conexión',
+                            customClass: { container: 'swal-sobre-modal-perfil' }
+                        });
+                    });
                 });
             }
 
@@ -9150,6 +9236,33 @@ class CapHum extends Controller
 
         self::respuestaJSON($detalles);
     }
+
+    public function forzarCierreSesionUsuario()
+    {
+        if (empty($_SESSION['usuario_id'])) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión no válida.']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        $idPersona = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+
+        if ($idPersona <= 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona no recibido.']);
+            return;
+        }
+
+        if ($idPersona === (int) $_SESSION['usuario_id']) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No puede forzar el cierre de su propia sesión aquí. Use «Cerrar sesión» en el menú.',
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::forzarLogoutPersona($idPersona));
+    }
+
     public function getDepartamento()
     {
         self::respuestaJSON(
