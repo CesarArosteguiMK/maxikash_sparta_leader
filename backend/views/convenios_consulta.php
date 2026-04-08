@@ -163,8 +163,9 @@ body.dark-mode .oferta-card.oferta-cancelada {
 .conv-slider-section {
     background: linear-gradient(135deg, #f8f5ff 0%, #ede8ff 100%);
     border-radius: 1rem;
-    padding: 1.5rem;
+    padding: 2rem 1.5rem 2.5rem;
     margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
 }
 .conv-slider-section h5 { font-weight: 700; color: #5b2d8e; margin-bottom: 0.3rem; }
 .semanas-valor {
@@ -1942,8 +1943,10 @@ function congelarModulo(convenio) {
 
     // Resumen cards
     document.getElementById('amortTitulo').textContent = '📋 ' + convenio.nombre_producto;
+    // Saldo capital = base real sobre la que se aplicó el descuento
+    var _saldoCapConv = parseFloat(convenio.total_a_pagar) - parseFloat(convenio.monto_adicional || 0) + parseFloat(convenio.descuento_monto);
     document.getElementById('amortResumenCards').innerHTML =
-        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(convenio.adeudo_total_original) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Saldo Capital</div><div class="fw-bold text-primary fs-5">' + fmt(_saldoCapConv) + '</div></div></div>' +
         '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + parseInt(convenio.porcentaje_descuento) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(convenio.descuento_monto) + '</div></div></div>' +
         '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(convenio.total_a_pagar) + '</div></div></div>' +
         '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Pago Semanal</div><div class="fw-bold text-warning fs-5">' + fmt(convenio.pago_semanal) + '</div></div></div>';
@@ -1989,7 +1992,8 @@ function congelarModulo(convenio) {
         if (!el) return;
         var adic = parseFloat(convenio.monto_adicional || 0);
         if (adic > 0) {
-            var adeudoConv = parseFloat(convenio.adeudo_total_original);
+            // Mostrar saldo capital (base real), no el adeudo total con recargos
+            var adeudoConv = parseFloat(convenio.total_a_pagar) - adic + parseFloat(convenio.descuento_monto);
             var totalConv  = parseFloat(convenio.total_a_pagar);
             el.innerHTML =
                 '<div class="p-3 border rounded" style="background:#fff8e1;border-color:#fbbf24 !important;">' +
@@ -2921,7 +2925,7 @@ window.guardarConvenio = function () {
                         timer: 1500,
                         showConfirmButton: false
                     }).then(function () {
-                        location.reload(); // AUTO-REFRESH
+                        seleccionarCredito(_credito.Id_credito); // recarga datos sin salir
                     });
                 } else {
                     Swal.fire('Error', resp.mensaje || 'No se pudo guardar.', 'error');

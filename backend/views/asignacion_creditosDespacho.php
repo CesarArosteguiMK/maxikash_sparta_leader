@@ -3347,10 +3347,14 @@ function hgcRenderTimeline() {
 
         return `
         <div style="display:flex; gap:14px; margin-bottom:1.25rem; position:relative; z-index:1;">
-            <div style="width:34px; height:34px; border-radius:50%; ${avatarStyle}
-                        display:flex; align-items:center; justify-content:center;
-                        font-size:11px; font-weight:500; flex-shrink:0;">
-                ${iniciales}
+            <div style="display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0;">
+                <div style="width:34px; height:34px; border-radius:50%; ${avatarStyle}
+                            display:flex; align-items:center; justify-content:center;
+                            font-size:11px; font-weight:500;">
+                    ${iniciales}
+                </div>
+                ${esActual ? `<span style="background:#00ab55; color:white; font-size:9px; font-weight:700;
+                                          padding:1px 6px; border-radius:10px; letter-spacing:.4px; white-space:nowrap;">ACTIVO</span>` : ''}
             </div>
             <div style="background:#fff; ${cardBorder} border-radius:0.375rem;
                         padding:0.875rem 1rem; flex:1;">
