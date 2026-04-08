@@ -155,6 +155,23 @@ class Convenios extends Controller
     // Usada por el modal de Registrar Convenio Existente.
     // ════════════════════════════════════════════════
 
+    // Valida si el crédito está en despacho (sin restricción de permiso especial).
+    // Usada por seleccionarCredito del buscador principal.
+    public function checkDespacho()
+    {
+        $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+
+        if ($idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+            return;
+        }
+
+        $r = ConveniosDAO::validarCreditoEnDespacho($idCredito);
+        self::respuestaJSON($r);
+    }
+
+    // ════════════════════════════════════════════════
+
     public function validarDespacho()
     {
         if (!$this->usuarioTienePermisoRegistrarConvenioExistente()) {
