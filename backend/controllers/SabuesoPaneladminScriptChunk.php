@@ -1662,7 +1662,7 @@ JS;
                 return;
             }
             var html = \'<p class="small text-muted mb-2" id="swal-rastreo-detalle-count">Total: \' + visitas + \' registro(s), orden del más reciente al más antiguo.</p>\'
-                + \'<p class="small mb-2">Opcional: filtre por un día o rango (vacío = todos).</p>\'
+                + \'<p class="small mb-2">Por defecto se muestran los <strong>últimos 7 días</strong> respecto a la apertura más reciente. Vacíe ambas fechas y pulse Aplicar para ver todos.</p>\'
                 + \'<div class="d-flex flex-wrap gap-2 align-items-end mb-2">\' +
                 \'<div><label class="small d-block">Desde</label><input type="date" id="swal-rastreo-detalle-desde" class="form-control form-control-sm"></div>\' +
                 \'<div><label class="small d-block">Hasta</label><input type="date" id="swal-rastreo-detalle-hasta" class="form-control form-control-sm"></div>\' +
@@ -1676,8 +1676,29 @@ JS;
                 showConfirmButton: true,
                 confirmButtonText: \'Cerrar\',
                 didOpen: function() {
-                    var body = document.getElementById(\'swal-rastreo-detalle-body\');
-                    if (body) body.innerHTML = renderLista(fechasParsed);
+                    var inputDesde = document.getElementById(\'swal-rastreo-detalle-desde\');
+                    var inputHasta = document.getElementById(\'swal-rastreo-detalle-hasta\');
+                    var newest = fechasParsed[0];
+                    var oldest = fechasParsed[fechasParsed.length - 1];
+                    function inicioDiaLocal(d) {
+                        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                    }
+                    function aYmd(d) {
+                        var y = d.getFullYear();
+                        var m = String(d.getMonth() + 1);
+                        if (m.length < 2) m = \'0\' + m;
+                        var day = String(d.getDate());
+                        if (day.length < 2) day = \'0\' + day;
+                        return y + \'-\' + m + \'-\' + day;
+                    }
+                    var hastaDia = inicioDiaLocal(newest);
+                    var desdeDia = new Date(hastaDia.getTime());
+                    desdeDia.setDate(desdeDia.getDate() - 6);
+                    var oldestDia = inicioDiaLocal(oldest);
+                    if (desdeDia.getTime() < oldestDia.getTime()) desdeDia = oldestDia;
+                    if (inputHasta) inputHasta.value = aYmd(hastaDia);
+                    if (inputDesde) inputDesde.value = aYmd(desdeDia);
+                    aplicarFiltro();
                     var btn = document.getElementById(\'swal-rastreo-detalle-aplicar\');
                     if (btn) btn.addEventListener(\'click\', aplicarFiltro);
                     [\'swal-rastreo-detalle-desde\', \'swal-rastreo-detalle-hasta\'].forEach(function(id) {
