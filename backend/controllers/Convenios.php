@@ -92,6 +92,11 @@ class Convenios extends Controller
             ? (float) $_POST['pago_inicial_monto']
             : null;
 
+        // Monto adicional es opcional (cuando el usuario ajusta el total manualmente)
+        $datos['monto_adicional'] = isset($_POST['monto_adicional']) && $_POST['monto_adicional'] !== '' && $_POST['monto_adicional'] !== 'null'
+            ? (float) $_POST['monto_adicional']
+            : 0.0;
+
        $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
 
         $r = ConveniosDAO::guardarConvenio($datos);
@@ -317,11 +322,28 @@ class Convenios extends Controller
         $idCredito      = (int) $convenio['id_credito'];
         $fechaAcuerdo   = $convenio['fecha_acuerdo'];
         $adeudoOrig     = number_format((float) $convenio['adeudo_total_original'], 2);
-        $descuento      = number_format((float) $convenio['descuento_monto'], 2);
-        $totalPagar     = number_format((float) $convenio['total_a_pagar'], 2);
+        $pctDescuento   = (float) $convenio['porcentaje_descuento'];
+        $montoAdicional = (float) ($convenio['monto_adicional'] ?? 0);
+        $totalPagarNum  = (float) $convenio['total_a_pagar'];
+        $totalInicial   = $totalPagarNum - $montoAdicional;
+        $descuentoNum   = (float) $convenio['descuento_monto'];
+        // Base real usada en el cálculo = saldo capital (no el adeudo total con recargos)
+        $saldoCapital   = $totalInicial + $descuentoNum;
+        $saldoCapitalFmt = number_format($saldoCapital, 2);
+        $descuento      = number_format($descuentoNum, 2);
+        $totalPagar     = number_format($totalPagarNum, 2);
         $pagoSemanal    = number_format((float) $convenio['pago_semanal'], 2);
         $numSemanas     = (int) $convenio['numero_semanas'];
         $pagoInicial    = $convenio['pago_inicial_monto'] ? '$' . number_format((float) $convenio['pago_inicial_monto'], 2) : 'No aplica';
+
+        $totalInicialFmt    = number_format($totalInicial, 2);
+        $montoAdicionalFmt  = number_format($montoAdicional, 2);
+
+        // Filas extra solo cuando hay monto adicional
+        $filasAdicionales = $montoAdicional > 0
+            ? "<tr><td>Total inicial</td><td>\$$totalInicialFmt</td></tr>
+                <tr><td>Adicionales</td><td>+\$$montoAdicionalFmt</td></tr>"
+            : '';
 
         $filasHtml = '';
         foreach ($amortizacion as $row) {
@@ -361,7 +383,9 @@ class Convenios extends Controller
             <table class="resumen">
                 <tr><td>Cliente</td><td>$nombreCliente</td></tr>
                 <tr><td>Fecha de acuerdo</td><td>$fechaAcuerdo</td></tr>
-                <tr><td>Deuda original</td><td>$$adeudoOrig</td></tr>
+                <tr><td>Deuda original</td><td>$$saldoCapitalFmt</td></tr>
+                <tr><td>Descuento</td><td>$pctDescuento%</td></tr>
+                $filasAdicionales
                 <tr><td>Descuento aplicado</td><td>-$$descuento</td></tr>
                 <tr><td>Total a pagar</td><td>$$totalPagar</td></tr>
                 <tr><td>Primer pago (inicial)</td><td>$pagoInicial</td></tr>
