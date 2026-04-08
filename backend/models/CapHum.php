@@ -803,6 +803,39 @@ class CapHum extends Model
             return self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
         }
     }
+
+    /**
+     * Marca persona.force_logout = 1. SessionGuard cerrará la sesión en la próxima validación (~20 s).
+     */
+    public static function forzarLogoutPersona($idPersona)
+    {
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            return self::resultado(false, 'ID de persona inválido.');
+        }
+
+        try {
+            $db = new Database();
+            $n = $db->CRUD(
+                "UPDATE persona SET force_logout = 1 WHERE id = :id AND estatus != 'Baja'",
+                ['id' => $idPersona]
+            );
+            if ($n < 1) {
+                return self::resultado(
+                    false,
+                    'No se pudo actualizar. Verifique que el usuario exista y no esté dado de baja.'
+                );
+            }
+
+            return self::resultado(
+                true,
+                'Cierre de sesión solicitado. Se aplicará en cuanto el sistema valide la sesión del usuario (unos segundos).'
+            );
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar.', null, $e->getMessage());
+        }
+    }
+
     public static function getComboDepartamentos($perfil_id = null)
     {
         $where = '';

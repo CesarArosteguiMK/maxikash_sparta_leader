@@ -328,6 +328,11 @@ $rutasModulos = [
     'gastoscobranza/descargardescargoestatus3' => [31],
     'onboarding/index' => [44],
     'onboarding/video' => [44],
+    'cierecredito/consulta' => [50],
+    'cierecredito/getenproceso' => [50],
+    'cierecredito/getenviadofinalizado' => [50],
+    'cierecredito/crear' => [50],
+    'cierecredito/cambiarestatus' => [50],
 ];
 $controladoresModulos = [
     'segundometro' => [16],

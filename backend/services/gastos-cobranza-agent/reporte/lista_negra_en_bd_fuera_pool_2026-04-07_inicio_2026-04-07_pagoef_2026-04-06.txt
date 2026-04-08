@@ -1,0 +1,25 @@
+# En lista negra BD (s2_exitoso / inicio_semana) pero NO en pool elegibles del día
+# (no cumplen el query principal: último pago efectivo y demás filtros).
+# fecha_generacion_cdmx=2026-04-07
+# inicio_semana=2026-04-07
+# filtro_fecha_ultimo_pago_efectivo_principal_QUERY=2026-04-06
+# total_ids=18
+
+313403
+331566
+552662
+685163
+796786
+992497
+1008155
+1040808
+1051517
+1180104
+1195366
+1355687
+1528355
+1632344
+1777502
+1786553
+1866568
+1893810

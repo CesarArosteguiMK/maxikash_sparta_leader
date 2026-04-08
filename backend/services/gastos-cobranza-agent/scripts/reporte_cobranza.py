@@ -589,6 +589,73 @@ def obtener_lista_negra(inicio_semana: date) -> set[str]:
         conn.close()
 
 
+def _orden_id_credito(val: str):
+    s = str(val).strip()
+    if s.isdigit():
+        return (0, int(s))
+    return (1, s)
+
+
+def guardar_ids_negra_fuera_pool_elegible(
+    fecha_generacion_cdmx: date,
+    inicio_semana: date,
+    fecha_filtro_pago: date,
+    ids_fuera: set[str],
+) -> str:
+    """
+    IDs que SÍ están en lista negra (s2_exitoso=1) pero no salieron en el SELECT principal
+    del día (DATE último pago efectivo ≠ fecha_filtro_pago u otros filtros). Explica 45 vs 28.
+    """
+    nombre = (
+        f"lista_negra_en_bd_fuera_pool_{fecha_generacion_cdmx.isoformat()}_"
+        f"inicio_{inicio_semana.isoformat()}_pagoef_{fecha_filtro_pago.isoformat()}.txt"
+    )
+    ruta = os.path.join(REPORTE_DIR, nombre)
+    try:
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(
+                "# En lista negra BD (s2_exitoso / inicio_semana) pero NO en pool elegibles del día\n"
+                "# (no cumplen el query principal: último pago efectivo y demás filtros).\n"
+                f"# fecha_generacion_cdmx={fecha_generacion_cdmx}\n"
+                f"# inicio_semana={inicio_semana}\n"
+                f"# filtro_fecha_ultimo_pago_efectivo_principal_QUERY={fecha_filtro_pago}\n"
+                f"# total_ids={len(ids_fuera)}\n\n"
+            )
+            for _id in sorted(ids_fuera, key=_orden_id_credito):
+                f.write(f"{_id}\n")
+        return ruta
+    except Exception as e:
+        log.warning("No se pudo guardar archivo lista_negra fuera de pool: %s", e)
+        return ""
+
+
+def guardar_ids_descartados_lista_negra(
+    fecha_generacion_cdmx: date,
+    inicio_semana: date,
+    ids_descartados: set[str],
+) -> str:
+    """Guarda en reporte/ el detalle de IDs realmente descartados por lista negra en la corrida."""
+    nombre = (
+        f"lista_negra_descartados_{fecha_generacion_cdmx.isoformat()}_"
+        f"inicio_{inicio_semana.isoformat()}.txt"
+    )
+    ruta = os.path.join(REPORTE_DIR, nombre)
+    try:
+        with open(ruta, "w", encoding="utf-8") as f:
+            f.write(
+                "# IDs realmente descartados por lista negra\n"
+                f"# fecha_generacion_cdmx={fecha_generacion_cdmx}\n"
+                f"# inicio_semana={inicio_semana}\n"
+                f"# total_ids_descartados={len(ids_descartados)}\n\n"
+            )
+            for _id in sorted(ids_descartados, key=_orden_id_credito):
+                f.write(f"{_id}\n")
+        return ruta
+    except Exception as e:
+        log.warning("No se pudo guardar archivo de IDs descartados por lista negra: %s", e)
+        return ""
+
+
 def rango_fechas_ventana_maxi_app_cdmx(fecha_ref_cdmx: date) -> tuple[date, date]:
     """
     Ventana inclusiva según calendario CDMX (fecha_ref = «hoy» CDMX al generar el reporte).
@@ -884,7 +951,7 @@ def calcular_saldo_a_favor(ec, lunes: date):
     return round(total_sf, 2)
 
 
-def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date):
+def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_comentario_cdmx: date):
     """Igual que reporte_cobranza (Downloads): dict con datos o error, None si se excluye."""
     id_credito = row["id_credito"]
     base = {
@@ -934,11 +1001,11 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date):
         return None
 
     saldo_aplicable = round(min(sf, deuda_gc), 2)
-    # sf > 0 garantizado (filtramos arriba). Etiqueta según día de ejecución:
+    # sf > 0 garantizado (filtramos arriba). Etiqueta según día calendario REAL CDMX de ejecución:
     # Martes–Viernes → APLICAR (verde); Sábado–Lunes → CUOTA SIGUIENTE CUBIERTA (rojo).
     comentario = (
         COMENTARIO_APLICAR
-        if hoy.weekday() in _DIAS_APLICAR
+        if fecha_comentario_cdmx.weekday() in _DIAS_APLICAR
         else COMENTARIO_CUOTA_CUBIERTA
     )
 
@@ -1162,13 +1229,15 @@ def generar_excel(registros, lunes: date, hoy: date, ruta_salida: str):
 def main() -> None:
     t0 = time.time()
     hoy, ahora_cdmx = fecha_negocio_y_reloj_cdmx()
+    fecha_calendario_cdmx = ahora_cdmx.date()
     lunes = hoy - timedelta(days=hoy.weekday())
-    inicio_semana = inicio_semana_operativa_martes(hoy)
+    # Lista negra por semana operativa vigente del calendario REAL CDMX (no "ayer").
+    inicio_semana = inicio_semana_operativa_martes(fecha_calendario_cdmx)
     fecha_corte = str(hoy)
 
     os.makedirs(REPORTE_DIR, exist_ok=True)
     # Nombre: día de generación en CDMX, formato tipo 31-03-2026 (DD-MM-AAAA; sin / por rutas Windows).
-    fecha_generacion_cdmx = datetime.now(TZ_CDMX).date()
+    fecha_generacion_cdmx = fecha_calendario_cdmx
     sufijo = "_PRUEBA" if MODO_PRUEBA_EXCEL else ""
     nombre_excel = f"reporte_cobranza_{fecha_generacion_cdmx.strftime('%d-%m-%Y')}{sufijo}.xlsx"
     ruta_excel = os.path.join(REPORTE_DIR, nombre_excel)
@@ -1202,7 +1271,12 @@ def main() -> None:
     log.info("=" * 65)
     log.info(f"  Reloj CDMX (inicio) : {ahora_cdmx.isoformat()}")
     log.info(f"  Fecha negocio (ayer): {hoy}")
-    log.info("  Calendario CDMX al arrancar el proceso : %s", ahora_cdmx.date())
+    log.info("  Calendario CDMX al arrancar el proceso : %s", fecha_calendario_cdmx)
+    log.info(
+        "  Comentarios APLICAR/NO APLICAR según calendario CDMX real: %s (%s)",
+        fecha_calendario_cdmx,
+        _NOMBRE_DIA_SEMANA_ES[fecha_calendario_cdmx.weekday()],
+    )
     log.info(f"  Lunes semana negocio : {lunes}")
     log.info(f"  Inicio semana negra : {inicio_semana}  (martes del periodo)")
     log.info(f"  fechaCorte -> S2    : {fecha_corte}")
@@ -1229,9 +1303,41 @@ def main() -> None:
 
     # PASO 2: traer lista negra y descartar en Python
     ids_negra = obtener_lista_negra(inicio_semana)
-    ids_rows = [r for r in todos_rows if str(r["id_credito"]) not in ids_negra]
-    descartados_negra = len(todos_rows) - len(ids_rows)
-    log.info(f"  Descartados por lista negra : {descartados_negra:,}")
+    ids_todos = {str(r["id_credito"]) for r in todos_rows}
+    ids_descartados_negra = ids_todos & ids_negra
+    ids_negra_sin_pool = ids_negra - ids_todos
+    ids_rows = [r for r in todos_rows if str(r["id_credito"]) not in ids_descartados_negra]
+    descartados_negra = len(ids_descartados_negra)
+    if len(ids_todos) != len(todos_rows):
+        log.warning(
+            "  Aviso: MySQL devolvió %s filas pero solo %s IDs únicos (hay repetidos en el origen).",
+            len(todos_rows),
+            len(ids_todos),
+        )
+    ruta_ids_desc = guardar_ids_descartados_lista_negra(
+        fecha_generacion_cdmx, inicio_semana, ids_descartados_negra
+    )
+    ruta_fuera_pool = guardar_ids_negra_fuera_pool_elegible(
+        fecha_generacion_cdmx, inicio_semana, hoy, ids_negra_sin_pool
+    )
+    log.info(f"  Descartados por lista negra (reales, IDs únicos en cruce) : {descartados_negra:,}")
+    log.info(f"  IDs únicos lista negra semana                              : {len(ids_negra):,}")
+    log.info(
+        "  Lista negra en BD pero NO en pool del día (no consultan S2 esta corrida; "
+        "fecha ult. pago efectivo del query = %s): %s",
+        hoy,
+        f"{len(ids_negra_sin_pool):,}",
+    )
+    if ruta_fuera_pool:
+        log.info("  Archivo: negra BD fuera de pool elegible                 : %s", ruta_fuera_pool)
+    if ids_negra_sin_pool:
+        m2 = ", ".join(sorted(ids_negra_sin_pool, key=_orden_id_credito)[:40])
+        log.info("  Muestra negra sin pool (hasta 40)                         : %s", m2)
+    if ruta_ids_desc:
+        log.info("  Archivo IDs descartados lista negra                       : %s", ruta_ids_desc)
+    if ids_descartados_negra:
+        muestra = ", ".join(sorted(ids_descartados_negra, key=_orden_id_credito)[:40])
+        log.info("  Muestra IDs descartados (hasta 40)                        : %s", muestra)
     log.info(f"  Quedan para consultar S2    : {len(ids_rows):,}")
     notificar_google_chat(
         f"🚫 **Lista negra** semana `{inicio_semana}`: se quitan **{descartados_negra:,}** · "
@@ -1265,7 +1371,9 @@ def main() -> None:
     if total > 0:
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             future_to_idx = {
-                executor.submit(procesar_registro, row, fecha_corte, lunes, hoy): i
+                executor.submit(
+                    procesar_registro, row, fecha_corte, lunes, hoy, fecha_calendario_cdmx
+                ): i
                 for i, row in enumerate(ids_rows)
             }
             for future in as_completed(future_to_idx):
@@ -1341,7 +1449,7 @@ def main() -> None:
         with ThreadPoolExecutor(max_workers=w_retry) as executor:
             future_to_idx = {
                 executor.submit(
-                    procesar_registro, ids_rows[i], fecha_corte, lunes, hoy
+                    procesar_registro, ids_rows[i], fecha_corte, lunes, hoy, fecha_calendario_cdmx
                 ): i
                 for i in pendientes_idx
             }

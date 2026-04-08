@@ -670,6 +670,42 @@ body.dark-mode #migTotalFinal {
                     <div class="row text-center g-2 mb-3" id="amortResumenCards">
                         <!-- llenado por JS -->
                     </div>
+                    <div id="amortResumenAplicacion" class="mb-3" style="display:none;"></div>
+                    <div id="amortPersonalizar" class="mb-3" style="display:none;">
+                        <div class="p-3 border rounded" style="background:#f0fdf4;border-color:#86efac !important;">
+                            <div class="fw-bold mb-2" style="color:#15803d;font-size:0.9rem;">
+                                <i class="fas fa-sliders me-1"></i>Ajuste personalizado
+                            </div>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-4">
+                                    <label class="form-label small text-muted mb-1">Total convenio</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="text" id="amortTotalBase" class="form-control fw-bold" readonly
+                                               style="background:#f8f9fa;color:#15803d;font-size:1rem;">
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small text-muted mb-1">Monto adicional <span class="fw-normal text-muted">(Opcional)</span></label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" id="amortMontoAdicional" class="form-control" min="0" step="0.01"
+                                               placeholder="0.00" oninput="window.amortRecalcularTotal()">
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small text-muted mb-1">Total final <span class="fw-normal text-muted">(editable)</span></label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" id="amortTotalFinal" class="form-control fw-bold" step="0.01" min="0"
+                                               oninput="window.amortTotalFinalChanged()"
+                                               style="color:#764ba2;font-size:1rem;"
+                                               title="Edita para ajustar el total; la tabla se recalcula automáticamente">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-responsive">
                         <table class="tabla-amort table table-borderless">
                             <thead>
@@ -994,7 +1030,8 @@ body.dark-mode #migTotalFinal {
                     <div class="input-group">
                       <span class="input-group-text">$</span>
                       <input type="number" id="migAdeudo" class="form-control"
-                             step="0.01" placeholder="16284.33" oninput="window.migCalcular()">
+                             step="0.01" placeholder="16284.33" readonly
+                             style="background:#f8f9fa;" title="Calculado automáticamente según el producto seleccionado">
                     </div>
                   </div>
 
@@ -1445,7 +1482,8 @@ function seleccionarCredito(idCredito) {
                         setTimeout(function () {
                             Swal.fire({
                                 icon: 'warning',
-                                title: 'Crédito no disponible',
+
+                                title: 'Crédito no asignado',
                                 html:
                                     '<strong>' + credito.Nombre_cliente + '</strong> — Crédito #' + credito.Id_credito + '<br><br>' +
                                     'El crédito no se encuentra disponible para convenio.<br>' +
@@ -1618,6 +1656,36 @@ function renderOfertas(ofertas, productosBloqueados) {
                 '</div>' +
                 '</div>';
         });
+    }
+
+    // ── Prohibición total: sin ofertas disponibles por bloqueo de incumplimiento ──
+    if (ofertas.length === 0 && productosBloqueados && productosBloqueados.length > 0) {
+        cont.innerHTML =
+            '<div class="col-12">' +
+            '<div class="alert d-flex align-items-start gap-3 mb-0 p-4" ' +
+            'style="background:#fff1f2;border:2px solid #ef4444;border-radius:12px;">' +
+            '<div style="font-size:2.2rem;line-height:1;">🚫</div>' +
+            '<div>' +
+            '<div class="fw-bold mb-1" style="color:#991b1b;font-size:1.05rem;">' +
+            'Convenios Prohibidos — Crédito bloqueado por incumplimiento' +
+            '</div>' +
+            '<div style="color:#7f1d1d;font-size:0.9rem;line-height:1.5;">' +
+            'Este crédito tiene convenios cancelados por incumplimiento en todos los productos disponibles. ' +
+            'No es posible generar un nuevo convenio.<br>' +
+            '<span style="margin-top:.4rem;display:inline-block;">' +
+            '<i class="fas fa-circle-info me-1"></i>' +
+            'Para cualquier duda o excepción, consulta con el <strong>Administrador del sistema</strong>.' +
+            '</span>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            htmlBloqueados;
+
+        document.getElementById('sliderSection').style.display = 'none';
+        document.getElementById('amortSection').style.display = 'none';
+        verificarSaldado();
+        return;
     }
 
     cont.innerHTML = htmlOfertas + htmlBloqueados;
@@ -1818,12 +1886,16 @@ function congelarModulo(convenio) {
     slider.value = convenio.numero_semanas;
     _semanasActual = convenio.numero_semanas;
 
+    var esRayoCongelado = false;
     if (idxOferta >= 0) {
         _ofertaActiva = _ofertas[idxOferta];
-        slider.min = _ofertaActiva.periodo_inicio;
-        slider.max = _ofertaActiva.semanas_max;
-        document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
-        document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
+        esRayoCongelado = _ofertaActiva.id_producto === 4;
+        if (!esRayoCongelado) {
+            slider.min = _ofertaActiva.periodo_inicio;
+            slider.max = _ofertaActiva.semanas_max;
+            document.getElementById('labelMin').textContent = _ofertaActiva.periodo_inicio + ' sem';
+            document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
+        }
         document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
     } else if (convenio.tipo === 'globo') {  // ← NUEVO bloque
         document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
@@ -1831,9 +1903,41 @@ function congelarModulo(convenio) {
         document.getElementById('labelMax').textContent = convenio.numero_semanas + ' sem';
     }
 
-    document.getElementById('semanasValor').textContent = convenio.numero_semanas;
-    document.getElementById('pagoSemanalCalc').textContent =
-        '$' + parseFloat(convenio.pago_semanal).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana';
+    if (esRayoCongelado) {
+        // Ocultar slider y mostrar botones rayo bloqueados con la opción activa resaltada
+        slider.style.display = 'none';
+        document.querySelector('.semanas-labels').style.display = 'none';
+
+        var btnsExistentes = document.getElementById('rayoBtns');
+        if (btnsExistentes) btnsExistentes.remove();
+
+        var numSemRayo = convenio.numero_semanas;
+        var rayoBtnLabels = { 1: '⚡ 1 Pago único', 2: '📅 2 Quincenas', 4: '📆 4 Semanas' };
+        var botonesHtml = [1, 2, 4].map(function (op) {
+            var isSelected = op === numSemRayo;
+            var cls = isSelected
+                ? 'btn btn-primary rayo-btn'
+                : 'btn btn-outline-secondary rayo-btn';
+            var style = isSelected
+                ? 'pointer-events:none;cursor:default;'
+                : 'pointer-events:none;cursor:default;opacity:0.35;';
+            return '<button class="' + cls + '" style="' + style + '" disabled>' + rayoBtnLabels[op] + '</button>';
+        }).join('');
+
+        slider.insertAdjacentHTML('afterend',
+            '<div id="rayoBtns" class="d-flex gap-2 justify-content-center mt-2">' + botonesHtml + '</div>'
+        );
+
+        var rayoSemLabels = { 1: '1 pago único', 2: '2 quincenas', 4: '4 semanas' };
+        var rayoPagoSufijo = numSemRayo === 1 ? ' / pago' : numSemRayo === 2 ? ' / quincena' : ' / semana';
+        document.getElementById('semanasValor').textContent = rayoSemLabels[numSemRayo] || numSemRayo;
+        document.getElementById('pagoSemanalCalc').textContent =
+            '$' + parseFloat(convenio.pago_semanal).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + rayoPagoSufijo;
+    } else {
+        document.getElementById('semanasValor').textContent = convenio.numero_semanas;
+        document.getElementById('pagoSemanalCalc').textContent =
+            '$' + parseFloat(convenio.pago_semanal).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana';
+    }
     document.getElementById('sliderSection').style.display = 'block';
 
     // Resumen cards
@@ -1878,6 +1982,39 @@ function congelarModulo(convenio) {
         '</div>' +
         '</div>'
     );
+
+    // ── Resumen de Aplicación (monto_adicional) ─────────
+    (function () {
+        var el = document.getElementById('amortResumenAplicacion');
+        if (!el) return;
+        var adic = parseFloat(convenio.monto_adicional || 0);
+        if (adic > 0) {
+            var adeudoConv = parseFloat(convenio.adeudo_total_original);
+            var totalConv  = parseFloat(convenio.total_a_pagar);
+            el.innerHTML =
+                '<div class="p-3 border rounded" style="background:#fff8e1;border-color:#fbbf24 !important;">' +
+                '<div class="fw-semibold mb-2" style="color:#b45309;font-size:0.85rem;">' +
+                '<i class="fas fa-info-circle me-1"></i>Resumen de Aplicación — el total incluye un monto adicional' +
+                '</div>' +
+                '<div class="row text-center g-2">' +
+                '<div class="col-4"><div class="border rounded p-2 bg-white">' +
+                '<div class="small text-muted">Adeudo Convenio</div>' +
+                '<div class="fw-bold text-primary">' + fmt(adeudoConv) + '</div>' +
+                '</div></div>' +
+                '<div class="col-4"><div class="border rounded p-2 bg-white">' +
+                '<div class="small text-muted">Adicional Calculado</div>' +
+                '<div class="fw-bold text-warning">+' + fmt(adic) + '</div>' +
+                '</div></div>' +
+                '<div class="col-4"><div class="border rounded p-2 bg-white">' +
+                '<div class="small text-muted">Total a Cobrar</div>' +
+                '<div class="fw-bold text-success">' + fmt(totalConv) + '</div>' +
+                '</div></div>' +
+                '</div></div>';
+            el.style.display = 'block';
+        } else {
+            el.innerHTML = ''; el.style.display = 'none';
+        }
+    })();
 
     // ── Calcular grupos de conciliación ───────────
     var gruposConcil = calcularGruposConciliacion(
@@ -2209,7 +2346,7 @@ window.seleccionarOferta = function (idx) {
     var slider = document.getElementById('sliderSemanas');
 
     if (esLiquidacionRayo) {
-        _rayoModo = 'unico'; // default
+        _rayoModo = null; // ninguno seleccionado hasta que el usuario elija
         slider.style.display = 'none';
         document.querySelector('.semanas-labels').style.display = 'none';
 
@@ -2218,17 +2355,15 @@ window.seleccionarOferta = function (idx) {
 
         slider.insertAdjacentHTML('afterend',
             '<div id="rayoBtns" class="d-flex gap-2 justify-content-center mt-2">' +
-            '<button class="btn btn-primary rayo-btn" onclick="window.seleccionarRayo(1, event)">⚡ 1 Pago único</button>' +
-            '<button class="btn btn-outline-primary rayo-btn" onclick="window.seleccionarRayo(2, event)">📅 2 Quincenas</button>' +
-            '<button class="btn btn-outline-primary rayo-btn" onclick="window.seleccionarRayo(4, event)">📆 4 Semanas</button>' +
+            '<button class="btn btn-outline-primary rayo-btn" data-rayo="1" onclick="window.seleccionarRayo(1, event)">⚡ 1 Pago único</button>' +
+            '<button class="btn btn-outline-primary rayo-btn" data-rayo="2" onclick="window.seleccionarRayo(2, event)">📅 2 Quincenas</button>' +
+            '<button class="btn btn-outline-primary rayo-btn" data-rayo="4" onclick="window.seleccionarRayo(4, event)">📆 4 Semanas</button>' +
             '</div>'
         );
 
-        _semanasActual = 1;
-        document.getElementById('semanasValor').textContent = '1 pago único';
-        var total = parseFloat(_ofertaActiva.total_a_pagar);
-        document.getElementById('pagoSemanalCalc').textContent =
-            '$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' / pago';
+        _semanasActual = null;
+        document.getElementById('semanasValor').textContent = 'Selecciona';
+        document.getElementById('pagoSemanalCalc').textContent = 'plazo de pagos';
     } else {
         slider.style.display = 'block';
         document.querySelector('.semanas-labels').style.display = 'flex';
@@ -2245,7 +2380,10 @@ window.seleccionarOferta = function (idx) {
 
     }
     document.getElementById('sliderTitulo').textContent = 'Plazo para: ' + _ofertaActiva.nombre;
-    actualizarSlider(slider.value);
+
+    if (!esLiquidacionRayo) {
+        actualizarSlider(slider.value);
+    }
 
     document.getElementById('sliderSection').style.display = 'block';
     document.getElementById('amortSection').style.display = 'none';
@@ -2287,12 +2425,21 @@ window.actualizarSlider = function (semanas) {
 
 
 window.seleccionarRayo = function (opcion, ev) {
+    var rayoLabels = {
+        1: '⚡ 1 Pago único',
+        2: '📅 2 Quincenas',
+        4: '📆 4 Semanas'
+    };
+
     document.querySelectorAll('.rayo-btn').forEach(function (b) {
-        b.classList.remove('btn-primary');
-        b.classList.add('btn-outline-primary');
+        var op = parseInt(b.getAttribute('data-rayo'));
+        var isSelected = op === opcion;
+        b.classList.toggle('btn-primary', isSelected);
+        b.classList.toggle('btn-outline-primary', !isSelected);
+        b.innerHTML = isSelected
+            ? '<i class="fa-solid fa-check me-1"></i>' + rayoLabels[op]
+            : rayoLabels[op];
     });
-    ev.target.classList.remove('btn-outline-primary');
-    ev.target.classList.add('btn-primary');
 
     _semanasActual = opcion;
     var modos = { 1: 'unico', 2: 'quincenas', 4: 'semanal' };
@@ -2422,6 +2569,25 @@ window.verTablaAmortizacion = function () {
         '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(total) + '</div></div></div>' +
         '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">' + labelPago + '</div><div class="fw-bold text-warning fs-5">' + fmt(montoPago) + '</div></div></div>';
 
+    // Limpiar bloque de resumen adicional (solo aplica en convenio activo)
+    (function () {
+        var elRA = document.getElementById('amortResumenAplicacion');
+        if (elRA) { elRA.innerHTML = ''; elRA.style.display = 'none'; }
+    })();
+
+    // Inicializar bloque personalizado
+    (function () {
+        var ap  = document.getElementById('amortPersonalizar');
+        var atb = document.getElementById('amortTotalBase');
+        var atf = document.getElementById('amortTotalFinal');
+        var ama = document.getElementById('amortMontoAdicional');
+        if (!ap || !atb || !atf || !ama) return;
+        atb.value = total.toFixed(2);
+        atf.value = total.toFixed(2);
+        ama.value = '';
+        ap.style.display = 'block';
+    })();
+
     var filasHtml = '';
 
     if (esLiquidacionRayo && _rayoModo === 'unico') {
@@ -2531,20 +2697,190 @@ window.verTablaAmortizacion = function () {
 };
 
 // ══════════════════════════════════════════════════════
+//  AJUSTE PERSONALIZADO DE TABLA (interfaz principal)
+// ══════════════════════════════════════════════════════
+window.amortRecalcularTotal = function () {
+    if (!_ofertaActiva) return;
+    var base = parseFloat(document.getElementById('amortTotalBase').value) || 0;
+    var adic = parseFloat(document.getElementById('amortMontoAdicional').value) || 0;
+    if (adic < 0) { document.getElementById('amortMontoAdicional').value = 0; adic = 0; }
+    var totalFinal = Math.round((base + adic) * 100) / 100;
+    document.getElementById('amortTotalFinal').value = totalFinal.toFixed(2);
+    _amortRegenerarTabla(totalFinal, adic);
+};
+
+window.amortTotalFinalChanged = function () {
+    if (!_ofertaActiva) return;
+    var totalFinal = parseFloat(document.getElementById('amortTotalFinal').value) || 0;
+    if (totalFinal <= 0) return;
+    // Comparar contra el total del convenio (con descuento), no contra la deuda original
+    var totalConvenio = parseFloat(document.getElementById('amortTotalBase').value) || parseFloat(_ofertaActiva.total_a_pagar);
+    var adic = totalFinal > totalConvenio
+        ? Math.round((totalFinal - totalConvenio) * 100) / 100
+        : 0;
+    document.getElementById('amortMontoAdicional').value = adic > 0 ? adic.toFixed(2) : '';
+    _amortRegenerarTabla(totalFinal, adic);
+};
+
+function _amortRegenerarTabla(totalFinal, adicional) {
+    if (!_ofertaActiva) return;
+    var o = _ofertaActiva;
+    var hoy = new Date().toISOString().split('T')[0];
+    var esLiquidacionRayo = o.id_producto === 4;
+    var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+
+    var montoBase       = parseFloat(o.monto_base);          // deuda original (para mostrar en tarjeta)
+    var totalConvenio   = parseFloat(document.getElementById('amortTotalBase').value) || parseFloat(o.total_a_pagar);
+    var baseEfectiva    = totalFinal > totalConvenio ? totalConvenio : totalFinal;
+    var descuentoNuevo  = Math.round((montoBase - baseEfectiva) * 100) / 100;
+    var pctNuevo        = montoBase > 0 ? Math.round((descuentoNuevo / montoBase) * 10000) / 100 : 0;
+
+    var labelPago, montoPago;
+    if (esLiquidacionRayo) {
+        if (_rayoModo === 'unico')          { labelPago = 'Pago Único';    montoPago = totalFinal; }
+        else if (_rayoModo === 'quincenas') { labelPago = 'Por Quincena'; montoPago = parseFloat((totalFinal / 2).toFixed(2)); }
+        else                               { labelPago = 'Por Semana';   montoPago = parseFloat((totalFinal / 4).toFixed(2)); }
+    } else {
+        labelPago = 'Pago Semanal';
+        montoPago = _semanasActual > 0 ? parseFloat((totalFinal / _semanasActual).toFixed(2)) : 0;
+    }
+
+    document.getElementById('amortResumenCards').innerHTML =
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Deuda Original</div><div class="fw-bold text-primary fs-5">' + fmt(montoBase) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Descuento (' + pctNuevo.toFixed(0) + '%)</div><div class="fw-bold text-danger fs-5">-' + fmt(descuentoNuevo) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">Total a Pagar</div><div class="fw-bold text-success fs-5">' + fmt(totalFinal) + '</div></div></div>' +
+        '<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="small text-muted">' + labelPago + '</div><div class="fw-bold text-warning fs-5">' + fmt(montoPago) + '</div></div></div>';
+
+    var elRA = document.getElementById('amortResumenAplicacion');
+    if (elRA) {
+        if (adicional > 0) {
+            elRA.innerHTML =
+                '<div class="p-3 border rounded" style="background:#fff8e1;border-color:#fbbf24 !important;">' +
+                '<div class="fw-semibold mb-2" style="color:#b45309;font-size:0.85rem;">' +
+                '<i class="fas fa-info-circle me-1"></i>Resumen de Aplicación — el total incluye un monto adicional' +
+                '</div><div class="row text-center g-2">' +
+                '<div class="col-4"><div class="border rounded p-2 bg-white">' +
+                '<div class="small text-muted">Adeudo Convenio</div>' +
+                '<div class="fw-bold text-primary">' + fmt(baseEfectiva) + '</div></div></div>' +
+                '<div class="col-4"><div class="border rounded p-2 bg-white">' +
+                '<div class="small text-muted">Adicional Calculado</div>' +
+                '<div class="fw-bold text-warning">+' + fmt(adicional) + '</div></div></div>' +
+                '<div class="col-4"><div class="border rounded p-2 bg-white">' +
+                '<div class="small text-muted">Total a Cobrar</div>' +
+                '<div class="fw-bold text-success">' + fmt(totalFinal) + '</div></div></div>' +
+                '</div></div>';
+            elRA.style.display = 'block';
+        } else {
+            elRA.innerHTML = ''; elRA.style.display = 'none';
+        }
+    }
+
+    var añadirDias = function (fecha, dias) {
+        var d = new Date(fecha + 'T00:00:00'); d.setDate(d.getDate() + dias); return d.toISOString().split('T')[0];
+    };
+    var filasHtml = '';
+
+    if (esLiquidacionRayo && _rayoModo === 'unico') {
+        filasHtml =
+            '<tr><td><strong>Pago único</strong></td>' +
+            '<td>' + fmtFechaRango(hoy) + '</td>' +
+            '<td><span style="font-weight:600;">' + fmt(totalFinal) + '</span></td>' +
+            '<td>' + fmt(totalFinal) + '</td><td>' + fmt(0) + '</td>' +
+            '<td>' + fmtPagoRealizado(null) + '</td>' +
+            '<td><span class="badge bg-warning text-dark">Pendiente</span></td></tr>';
+
+    } else if (esLiquidacionRayo && _rayoModo === 'quincenas') {
+        var fechas = calcularFechasQuincenales(hoy);
+        var mitad1 = parseFloat((totalFinal / 2).toFixed(2));
+        var mitad2 = parseFloat((totalFinal - mitad1).toFixed(2));
+        filasHtml =
+            '<tr><td><strong>Quincena 1</strong></td>' +
+            '<td><span style="font-weight:600;">' + fmtFecha(fechas[0]) + '</span></td>' +
+            '<td><span style="font-weight:600;">' + fmt(mitad1) + '</span></td>' +
+            '<td>' + fmt(mitad1) + '</td><td>' + fmt(mitad2) + '</td>' +
+            '<td>' + fmtPagoRealizado(null) + '</td>' +
+            '<td><span class="badge bg-warning text-dark">Pendiente</span></td></tr>' +
+            '<tr><td><strong>Quincena 2</strong></td>' +
+            '<td><span style="font-weight:600;">' + fmtFecha(fechas[1]) + '</span></td>' +
+            '<td><span style="font-weight:600;">' + fmt(mitad2) + '</span></td>' +
+            '<td>' + fmt(mitad2) + '</td><td>' + fmt(0) + '</td>' +
+            '<td>' + fmtPagoRealizado(null) + '</td>' +
+            '<td><span class="badge bg-warning text-dark">Pendiente</span></td></tr>';
+
+    } else if (esLiquidacionRayo && _rayoModo === 'semanal') {
+        var _saldoR4 = totalFinal;
+        var _sem4 = parseFloat((totalFinal / 4).toFixed(2));
+        for (var s = 1; s <= 4; s++) {
+            var fpR4 = añadirDias(hoy, (s - 1) * 7 + 8);
+            var capR4 = (s < 4) ? _sem4 : parseFloat(_saldoR4.toFixed(2));
+            _saldoR4 = parseFloat((_saldoR4 - capR4).toFixed(2));
+            if (_saldoR4 < 0) _saldoR4 = 0;
+            filasHtml +=
+                '<tr><td><strong>Semana ' + s + '</strong></td>' +
+                '<td>' + fmtFechaRango(fpR4) + '</td>' +
+                '<td><span style="font-weight:600;">' + fmt(_sem4) + '</span></td>' +
+                '<td>' + fmt(capR4) + '</td><td>' + fmt(_saldoR4) + '</td>' +
+                '<td>' + fmtPagoRealizado(null) + '</td>' +
+                '<td><span class="badge bg-warning text-dark">Pendiente</span></td></tr>';
+        }
+
+    } else {
+        var _semN = montoPago;
+        var _saldoN = totalFinal;
+        var _residuoN = _semN > 0 ? Math.round((totalFinal - Math.floor(totalFinal / _semN) * _semN) * 100) / 100 : 0;
+        for (var s = 1; s <= _semanasActual; s++) {
+            var fpN = añadirDias(hoy, (s - 1) * 7 + 8);
+            var esUltN = s === _semanasActual;
+            var capN = (esUltN && _residuoN >= 1.00) ? parseFloat(_saldoN.toFixed(2)) : _semN;
+            _saldoN = Math.round((_saldoN - capN) * 100) / 100;
+            if (_saldoN < 0) _saldoN = 0;
+            filasHtml +=
+                '<tr><td>Semana ' + s + '</td>' +
+                '<td>' + fmtFechaRango(fpN) + '</td>' +
+                '<td><span style="display:block;font-weight:600;">' + fmt(_semN) + '</span>' +
+                '<span style="display:block;font-size:0.82em;color:#888;">' + fmt(capN) + '</span></td>' +
+                '<td>' + fmt(_saldoN) + '</td>' +
+                '<td>' + fmtPagoRealizado(null) + '</td>' +
+                '<td><span class="badge bg-warning text-dark">Pendiente</span></td></tr>';
+        }
+    }
+
+    document.getElementById('tablaAmortBody').innerHTML = filasHtml;
+}
+
+// ══════════════════════════════════════════════════════
 //  GUARDAR CONVENIO
 // ══════════════════════════════════════════════════════
 window.guardarConvenio = function () {
     if (!_ofertaActiva || !_credito) return;
 
-    // Calcular ANTES del Swal
+    // Calcular ANTES del Swal — leer personalización si el bloque está visible
     var hoy = new Date().toISOString().split('T')[0];
-    var total = parseFloat(_ofertaActiva.total_a_pagar);
-    var semanal = parseFloat((total / _semanasActual).toFixed(2));
+    var _apEl = document.getElementById('amortPersonalizar');
+    var _usaPersonalizado = _apEl && _apEl.style.display !== 'none';
+    var total = _usaPersonalizado
+        ? (parseFloat(document.getElementById('amortTotalFinal').value) || parseFloat(_ofertaActiva.total_a_pagar))
+        : parseFloat(_ofertaActiva.total_a_pagar);
+    var _adicPersonalizado = _usaPersonalizado
+        ? (parseFloat(document.getElementById('amortMontoAdicional').value) || 0)
+        : 0;
+
+    var _esRayoG = _ofertaActiva.id_producto === 4;
+    var _numSemanasG = _esRayoG
+        ? (_rayoModo === 'unico' ? 1 : _rayoModo === 'quincenas' ? 2 : 4)
+        : _semanasActual;
+    var semanal = _numSemanasG > 0 ? parseFloat((total / _numSemanasG).toFixed(2)) : 0;
+
+    var _montoBaseG      = parseFloat(_ofertaActiva.monto_base);              // deuda original
+    var _totalConvenioG  = parseFloat(document.getElementById('amortTotalBase')?.value) || parseFloat(_ofertaActiva.total_a_pagar);
+    var _baseEfectivaG   = total > _totalConvenioG ? _totalConvenioG : total;
+    var _descuentoMontoG = Math.round((_montoBaseG - _baseEfectivaG) * 100) / 100;
+    var _pctDescuentoG   = _montoBaseG > 0 ? Math.round((_descuentoMontoG / _montoBaseG) * 10000) / 100 : 0;
 
     Swal.fire({
         title: '¿Confirmar convenio?',
         html: '<strong>' + _ofertaActiva.nombre + '</strong> — ' +
-            _semanasActual + ' semanas — $' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana<br><br>' +
+            _numSemanasG + ' semanas — $' + semanal.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ' / semana<br><br>' +
             '<span class="text-muted" style="font-size:.9rem;">Cliente: <strong>' + _credito.Nombre_cliente + '</strong></span><br>' +
             '<span class="text-muted" style="font-size:.9rem;">Total a pagar: <strong>$' + total.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong></span>',
         icon: 'question',
@@ -2567,11 +2903,12 @@ window.guardarConvenio = function () {
                 dias_mora: _credito.Dias_mora,
                 avance_pago_plazo: _credito.Avance_Pago_Plazo,
                 adeudo_total_original: _credito.Adeudo_total,
-                porcentaje_descuento: _ofertaActiva.porcentaje_descuento,
-                descuento_monto: _ofertaActiva.descuento_monto,
+                porcentaje_descuento: _pctDescuentoG,
+                descuento_monto: _descuentoMontoG,
                 total_a_pagar: total,
+                monto_adicional: _adicPersonalizado > 0 ? _adicPersonalizado.toFixed(2) : null,
                 pago_inicial_monto: _ofertaActiva.pago_inicial_monto || '',
-                numero_semanas: _semanasActual,
+                numero_semanas: _numSemanasG,
                 pago_semanal: semanal,
                 fecha_acuerdo: hoy,
             },
@@ -3815,7 +4152,8 @@ migGenerarPreamort(filasGlobo);
 
     var semanasEnt = Math.floor(total / semanal);
     var residuo = Math.round((total - semanasEnt * semanal) * 100) / 100;
-    var semanas = residuo > 0 ? semanasEnt + 1 : semanasEnt;
+    // Solo se genera semana extra si el residuo es >= $1.00 (evita cuota fantasma por centavos)
+    var semanas = residuo >= 1.00 ? semanasEnt + 1 : semanasEnt;
     _migSemanas = semanas;
 
     if (semanas < 1 || semanas > 52) {
@@ -3879,7 +4217,7 @@ migGenerarPreamort(filasGlobo);
 
     for (var n = 1; n <= semanas; n++) {
         var esUltN = n === semanas;
-        var montoN = esUltN && residuo > 0 ? residuo : semanal;
+        var montoN = (esUltN && residuo >= 1.00) ? residuo : semanal;
         saldoN = Math.round((saldoN - montoN) * 100) / 100;
         if (saldoN < 0) saldoN = 0;
         filasNorm.push({
@@ -3955,7 +4293,7 @@ window.migRecalcularTotal = function () {
         var _saldoR = totalFinal;
         for (var _r = 1; _r <= _semR; _r++) {
             var _esUltR = _r === _semR;
-            var _montoR = (_esUltR && _residuoR > 0.005) ? _residuoR : _semanal;
+            var _montoR = (_esUltR && _residuoR >= 1.00) ? _residuoR : _semanal;
             _saldoR = Math.round((_saldoR - _montoR) * 100) / 100;
             if (_saldoR < 0) _saldoR = 0;
             _filasR.push({ num: _r, fecha: _addDiasR(_fechaR, (_r - 1) * 7), monto: _montoR, tipo: 'normal', saldo: _saldoR });
@@ -3982,26 +4320,37 @@ window.migTotalFinalChanged = function () {
 
     if (totalFinal <= 0 || adeudo <= 0 || semanal <= 0 || !fecha) return;
 
-    // ── Semanas (basadas en pago semanal fijo) ────────────────────────
+    // ── Separar base (con descuento) y adicional ─────────────────────
+    // Si el usuario captura un total mayor al adeudo base, el excedente
+    // se redirige automáticamente al campo de Monto Adicional.
+    var adicionalAuto = 0;
+    var baseEfectiva  = totalFinal;
+    if (totalFinal > adeudo) {
+        adicionalAuto = Math.round((totalFinal - adeudo) * 100) / 100;
+        baseEfectiva  = adeudo;
+    }
+
+    // ── Semanas (basadas en pago semanal fijo sobre el total completo) ──
     var semanasEnt = Math.floor(totalFinal / semanal);
     var residuo    = Math.round((totalFinal - semanasEnt * semanal) * 100) / 100;
-    var semanas    = residuo > 0.005 ? semanasEnt + 1 : semanasEnt;
+    // Solo se genera semana extra si el residuo es >= $1.00 (evita cuota fantasma por centavos)
+    var semanas    = residuo >= 1.00 ? semanasEnt + 1 : semanasEnt;
     if (semanas < 1 || semanas > 52) return;
     _migSemanas = semanas;
 
-    // ── % Descuento ──────────────────────────────────────────
-    var pctReal  = adeudo > 0 ? Math.round(((adeudo - totalFinal) / adeudo) * 10000) / 100 : 0;
-    var descuento = Math.round((adeudo - totalFinal) * 100) / 100;
+    // ── % Descuento (solo sobre la base, sin incluir adicional) ─────
+    var pctReal   = adeudo > 0 ? Math.round(((adeudo - baseEfectiva) / adeudo) * 10000) / 100 : 0;
+    var descuento = Math.round((adeudo - baseEfectiva) * 100) / 100;
 
     // Actualizar campo % (sin bloquear si es readOnly; es escritura programática)
     var migPorcentajeEl = document.getElementById('migPorcentaje');
     if (migPorcentajeEl) migPorcentajeEl.value = pctReal.toFixed(2);
 
-    // Sincronizar migTotalBase y limpiar monto adicional
+    // Sincronizar migTotalBase y enrutar excedente a migMontoAdicional
     var migTotalBase = document.getElementById('migTotalBase');
-    if (migTotalBase) migTotalBase.value = totalFinal.toFixed(2);
+    if (migTotalBase) migTotalBase.value = baseEfectiva.toFixed(2);
     var migMontoAdicional = document.getElementById('migMontoAdicional');
-    if (migMontoAdicional) migMontoAdicional.value = '';
+    if (migMontoAdicional) migMontoAdicional.value = adicionalAuto > 0 ? adicionalAuto.toFixed(2) : '';
 
     // ── Resumen cards ──────────────────────────────────────────
     var fmt = function (v) {
@@ -4016,6 +4365,11 @@ window.migTotalFinalChanged = function () {
             '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
             '<div class="small text-muted">Descuento (' + pctReal.toFixed(2) + '%)</div>' +
             '<div class="fw-bold text-danger">-' + fmt(descuento) + '</div></div></div>' +
+            (adicionalAuto > 0
+                ? '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+                  '<div class="small text-muted">Adicional</div>' +
+                  '<div class="fw-bold text-info">+' + fmt(adicionalAuto) + '</div></div></div>'
+                : '') +
             '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
             '<div class="small text-muted">Total a Pagar</div>' +
             '<div class="fw-bold text-success">' + fmt(totalFinal) + '</div></div></div>' +
@@ -4034,7 +4388,7 @@ window.migTotalFinalChanged = function () {
     var saldo = totalFinal;
     for (var n = 1; n <= semanas; n++) {
         var esUlt = n === semanas;
-        var monto = (esUlt && residuo > 0.005) ? residuo : semanal;
+        var monto = (esUlt && residuo >= 1.00) ? residuo : semanal;
         saldo = Math.round((saldo - monto) * 100) / 100;
         if (saldo < 0) saldo = 0;
         filas.push({ num: n, fecha: addDias(fecha, (n - 1) * 7), monto: monto, tipo: 'normal', saldo: saldo });
@@ -4127,8 +4481,11 @@ window.migGuardar = function () {
 
     var _adeudoEnvio = parseFloat(document.getElementById('migAdeudo')?.value) || 0;
     var _totalEnvio = parseFloat(document.getElementById('migTotalFinal')?.value) || 0;
+    // El porcentaje de descuento debe calcularse sobre la parte base (sin el monto adicional),
+    // de lo contrario cuando totalFinal > adeudo se genera un porcentaje negativo que el backend
+    // aplica como doble carga junto con monto_adicional.
     var _pctEnvio = _adeudoEnvio > 0
-        ? Math.round(((_adeudoEnvio - _totalEnvio) / _adeudoEnvio) * 10000) / 100
+        ? Math.round(((_adeudoEnvio - (_totalEnvio - adicional)) / _adeudoEnvio) * 10000) / 100
         : 0;
 
     if (!adeudo || parseFloat(adeudo) <= 0 || (!esGloboMig && (pct === '' || pct === null || pct === undefined || parseFloat(pct) < 0)) || !semanal || !fecha || totalFinal <= 0) {
