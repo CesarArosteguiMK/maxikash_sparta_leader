@@ -593,6 +593,20 @@ async function ensureCdmxTimeFresh() {
   }
 }
 
+/** Igual que ensureCdmxTimeFresh pero también actúa si GASTOS_GC_AUTO_RUN_SYNC_REMOTE_CLOCK=1 (sin GASTOS_GC_REMOTE_CDMX_TIME). */
+async function ensureCdmxTimeFreshForAutoRunTick() {
+  if (!remoteCdmxTimeEnabled() && !autoRunSyncRemoteClockForTick()) return;
+  const n = Date.now();
+  if (lastRemoteSyncOkAt && n - lastRemoteSyncOkAt < timeSyncMaxAgeMs()) return;
+  if (n - lastRemoteSyncAttemptAt < 15000) return;
+  lastRemoteSyncAttemptAt = n;
+  try {
+    await syncCdmxClockFromRemote();
+  } catch (e) {
+    appendLog(`[reloj][auto-run] Fallo sincronización: ${e?.message || e} (offset_remoto_ms=${remoteClockOffsetMs})`);
+  }
+}
+
 /** Programador interno: equivale a «Ejecutar agente» sin Programador de tareas Windows. */
 function autoRun10amCdmxEnabled() {
   return String(process.env.GASTOS_GC_AUTO_RUN_10AM_CDMX ?? '1').trim() !== '0';
@@ -609,8 +623,8 @@ function autoRunTargetMinute() {
 }
 
 function autoRunWindowMinutes() {
-  const n = parseInt(String(process.env.GASTOS_GC_AUTO_RUN_WINDOW_MINUTES || '5').trim(), 10);
-  return Number.isFinite(n) && n >= 1 && n <= 45 ? n : 5;
+  const n = parseInt(String(process.env.GASTOS_GC_AUTO_RUN_WINDOW_MINUTES || '25').trim(), 10);
+  return Number.isFinite(n) && n >= 1 && n <= 120 ? n : 25;
 }
 
 function autoRunTickMs() {
@@ -621,6 +635,13 @@ function autoRunTickMs() {
 function autoRunWeekdaysOnly() {
   return String(process.env.GASTOS_GC_AUTO_RUN_WEEKDAYS_ONLY || '0').trim() === '1';
 }
+
+/** Con auto-run, sincroniza hora vía API aunque GASTOS_GC_REMOTE_CDMX_TIME=0 (solo para el tick programado). Desactivar: =0 */
+function autoRunSyncRemoteClockForTick() {
+  return String(process.env.GASTOS_GC_AUTO_RUN_SYNC_REMOTE_CLOCK || '1').trim() !== '0';
+}
+
+let lastAutoRunDebugLogMs = 0;
 
 function autoRunStateFilePath() {
   return path.join(LOG_DIR, '.auto_run_reporte_cdmx_ymd.txt');
@@ -810,13 +831,17 @@ async function runPostReporteEntregas(xlsxAbs) {
 
 /** Una sola corrida del reporte a la vez (/run HTTP o auto-run). */
 let reporteRunBusy = false;
+/** Proceso hijo de reporte_cobranza.py mientras corre (para POST /run/cancel). */
+let reporteChild = null;
 
 /**
  * Ejecuta reporte_cobranza.py (o demo). `res` null = disparo interno (solo log).
  * @param {import('express').Response|null} res
- * @returns {boolean} true si se inició una corrida (o demo); el programador CDMX usa esto para marcar el día.
+ * @param {{ autoRunMarkYmd?: string }} [opts] Si `autoRunMarkYmd` (YYYY-MM-DD CDMX), solo se escribe estado al terminar con código 0 (no al iniciar).
+ * @returns {boolean} true si se inició una corrida (o demo).
  */
-function runReporteCobranza(res) {
+function runReporteCobranza(res, opts = {}) {
+  const autoRunMarkYmd = typeof opts.autoRunMarkYmd === 'string' ? opts.autoRunMarkYmd.trim() : '';
   if (reporteRunBusy) {
     const msg = 'Ya hay una ejecución del reporte en curso.';
     appendLog('[run] ' + msg);
@@ -852,7 +877,10 @@ function runReporteCobranza(res) {
       demo: true,
     };
     if (res) res.json(demoPayload);
-    else appendLog('[auto-run] Demo sin script completada (codigo_salida=0).');
+    else {
+      appendLog('[auto-run] Demo sin script completada (codigo_salida=0).');
+      if (autoRunMarkYmd) writeAutoRunLastYmd(autoRunMarkYmd);
+    }
     return true;
   }
 
@@ -870,6 +898,7 @@ function runReporteCobranza(res) {
     env: esPy ? ENV_CON_PYTHON_UNBUFFERED : { ...process.env },
     windowsHide: true,
   });
+  reporteChild = child;
 
   let stdout = '';
   let stderr = '';
@@ -904,6 +933,7 @@ function runReporteCobranza(res) {
 
   child.on('error', (err) => {
     reporteRunBusy = false;
+    reporteChild = null;
     appendLog('[error spawn] ' + (err.message || String(err)));
     enviar({
       success: false,
@@ -913,6 +943,7 @@ function runReporteCobranza(res) {
 
   child.on('close', (code) => {
     reporteRunBusy = false;
+    reporteChild = null;
     enviar({
       success: code === 0,
       codigo_salida: code,
@@ -920,8 +951,13 @@ function runReporteCobranza(res) {
       stderr: stderr.slice(-8000),
     });
     if (code === 0) {
+      if (autoRunMarkYmd) writeAutoRunLastYmd(autoRunMarkYmd);
       const xlsx = resolveReporteXlsxPathAfterRun();
       runPostReporteEntregas(xlsx).catch((e) => appendLog('[post-reporte] ' + (e?.message || e)));
+    } else if (autoRunMarkYmd) {
+      appendLog(
+        `[auto-run] El script terminó con código ${code}; no se marca el día como enviado — dentro de la ventana se reintentará.`,
+      );
     }
   });
   return true;
@@ -932,16 +968,30 @@ let autoRunTickBusy = false;
 async function tickAutoRunReporteCdmx() {
   if (!autoRun10amCdmxEnabled()) return;
   if (autoRunTickBusy) return;
+  if (reporteRunBusy) return;
+
   autoRunTickBusy = true;
   try {
-    try {
-      await ensureCdmxTimeFresh();
-    } catch (_) {}
+    await ensureCdmxTimeFreshForAutoRunTick();
+
     const wall = nowForCdmxCalendar();
     const ymd = fmtCdmxYmdParts(wall);
     if (!ymd) return;
     const { h, m } = fmtCdmxHm24(wall);
     const todayStr = `${ymd.y}-${pad2Seg(ymd.m)}-${pad2Seg(ymd.d)}`;
+
+    if (String(process.env.GASTOS_GC_AUTO_RUN_DEBUG || '').trim() === '1') {
+      const nowMs = Date.now();
+      if (nowMs - lastAutoRunDebugLogMs > 9 * 60 * 1000) {
+        lastAutoRunDebugLogMs = nowMs;
+        const th = autoRunTargetHour();
+        const tm = autoRunTargetMinute();
+        const win = autoRunWindowMinutes();
+        appendLog(
+          `[auto-run][debug] CDMX ahora ${pad2Seg(h)}:${pad2Seg(m)} · calendario ${todayStr} · objetivo ${pad2Seg(th)}:${pad2Seg(tm)} +${win} min · offset_remoto_ms=${remoteClockOffsetMs} · OKhoy=${readAutoRunLastYmd()}`,
+        );
+      }
+    }
 
     if (autoRunWeekdaysOnly()) {
       const wd = cdmxWeekdayMon0(ymd.y, ymd.m, ymd.d);
@@ -959,10 +1009,9 @@ async function tickAutoRunReporteCdmx() {
     if (last === todayStr) return;
 
     appendLog(
-      `[auto-run] Disparo CDMX ${todayStr} ${pad2Seg(h)}:${pad2Seg(m)} (objetivo ${pad2Seg(th)}:${pad2Seg(tm)}, ventana ${win} min; API_reloj=${remoteCdmxTimeEnabled() ? 'on' : 'off'})`,
+      `[auto-run] Disparo CDMX ${todayStr} ${pad2Seg(h)}:${pad2Seg(m)} (objetivo ${pad2Seg(th)}:${pad2Seg(tm)}, ventana ${win} min; offset_remoto_ms=${remoteClockOffsetMs})`,
     );
-    const started = runReporteCobranza(null);
-    if (started) writeAutoRunLastYmd(todayStr);
+    runReporteCobranza(null, { autoRunMarkYmd: todayStr });
   } finally {
     autoRunTickBusy = false;
   }
@@ -1063,6 +1112,10 @@ app.get('/health', (req, res) => {
       last_fired_cdmx_ymd: readAutoRunLastYmd(),
       reporte_busy: reporteRunBusy,
     },
+    reporte: {
+      en_curso: reporteRunBusy,
+      cancelar: 'POST /run/cancel (misma API key) termina el proceso Python del reporte si está en ejecución.',
+    },
   });
 });
 
@@ -1161,6 +1214,30 @@ app.post('/logs/clear', (req, res) => {
 
 app.post('/run', (req, res) => {
   runReporteCobranza(res);
+});
+
+/**
+ * Detiene la corrida actual de reporte_cobranza.py (hijo del proceso Node).
+ * No afecta otros endpoints (EC launcher, etc.).
+ */
+app.post('/run/cancel', (req, res) => {
+  if (!reporteChild || reporteChild.killed) {
+    return res.status(404).json({
+      success: false,
+      mensaje: 'No hay corrida de reporte en ejecución.',
+    });
+  }
+  try {
+    appendLog('[run/cancel] Cancelación solicitada: terminando proceso del reporte…');
+    reporteChild.kill();
+    res.json({
+      success: true,
+      mensaje: 'Se envió la señal de terminación al reporte. Revise el log del agente.',
+    });
+  } catch (e) {
+    appendLog('[run/cancel] Error: ' + (e?.message || e));
+    res.status(500).json({ success: false, mensaje: String(e?.message || e) });
+  }
 });
 
 /** EC launcher: worker.php o enrich_gc_excel.php (paridad con launcher/Lanzar.cmd). */

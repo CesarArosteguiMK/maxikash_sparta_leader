@@ -4908,28 +4908,32 @@ function _pintarHistorial(datos) {
                 </tr>`;
 
         } else if (esPagoParcialCompletado) {
-            const restoCompletado = parseFloat((montoOriginal - montoParcialPagado).toFixed(2));
+            // Solo mostrar "+ …" si queda efectivo tras el parcial; no confundir condonación parcial con segundo abono.
+            const restoEfectivoTrasParcialYCond = Math.max(
+                0,
+                parseFloat((montoOriginal - montoParcialPagado - condonacionParcial).toFixed(2)),
+            );
+            const htmlMontoFinalParcial =
+                '<span class="text-success fw-bold">$' + montoParcialPagado.toFixed(2) + '</span>' +
+                (restoEfectivoTrasParcialYCond > 0.009
+                    ? '<div class="small text-muted lh-sm mt-1">+ $' + restoEfectivoTrasParcialYCond.toFixed(2) + '</div>'
+                    : '');
+            const htmlMontoOriginalParcial = '<span class="text-muted text-decoration-line-through" style="font-size:0.9em;">$' +
+                montoOriginal.toFixed(2) + '</span>' +
+                '<div class="text-dark small fw-bold">$' + montoParcialPagado.toFixed(2) + '</div>';
             html += `
                 <tr>
                     <td>${g.semana}</td>
                     <td><small class="text-muted">${g.periodo}</small></td>
                     <td class="text-center">${parcialidad}</td>
-                    <td class="text-end">$${montoOriginal.toFixed(2)}</td>
+                    <td class="text-end">${htmlMontoOriginalParcial}</td>
                     <td class="text-center">
-                        <span class="badge bg-info px-2 py-1" style="min-width:80px;">Pago parcial</span>
+                        <div class="d-inline-flex flex-column align-items-center gap-1">
+                            <span class="badge bg-success px-2 py-1" style="min-width:7.5rem;">Completado</span>
+                            <div class="bg-secondary opacity-25 rounded-pill" style="height:1px;width:3.25rem;" role="presentation" aria-hidden="true"></div>
+                        </div>
                     </td>
-                    <td class="text-end"><span class="text-info fw-bold">$${montoParcialPagado.toFixed(2)}</span></td>
-                    <td class="text-center"><small>${fechaPago}</small></td>
-                </tr>
-                <tr>
-                    <td>${g.semana}</td>
-                    <td><small class="text-muted">${g.periodo}</small></td>
-                    <td class="text-center">${parcialidad}</td>
-                    <td class="text-end">$${montoOriginal.toFixed(2)}</td>
-                    <td class="text-center">
-                        <span class="badge bg-success px-2 py-1" style="min-width:80px;">Completado</span>
-                    </td>
-                    <td class="text-end"><span class="text-success fw-bold">$${restoCompletado.toFixed(2)}</span></td>
+                    <td class="text-end">${htmlMontoFinalParcial}</td>
                     <td class="text-center"><small>${fechaPago}</small></td>
                 </tr>`;
 

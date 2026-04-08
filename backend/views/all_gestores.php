@@ -3031,6 +3031,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 <i class="fa fa-key me-2" style="color: #6c757d;"></i>Permisos especiales
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tabSesionRemota-tab" data-bs-toggle="tab" data-bs-target="#tabSesionRemota" type="button" role="tab" aria-controls="tabSesionRemota">
+                                <i class="fa fa-sign-out me-2" style="color: #6c757d;"></i>Sesión remota
+                            </button>
+                        </li>
                     </ul>
 
                     <div class="tab-content p-4">
@@ -3077,6 +3082,22 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             </div>
                             <div id="permisos-especiales-container" style="overflow-y: visible; margin-left: 1.25rem; padding-left: 0.5rem; border-left: 2px solid #e9ecef;">
                                 <div id="modal-edit-perfil-permisos-especiales-form"></div>
+                            </div>
+                        </div>
+
+                        <!-- TAB SESIÓN REMOTA (force_logout en persona) -->
+                        <div class="tab-pane fade" id="tabSesionRemota" role="tabpanel" aria-labelledby="tabSesionRemota-tab">
+                            <div class="row justify-content-center">
+                                <div class="col-12 col-md-10 col-lg-7">
+                                    <div class="border rounded-3 p-4 bg-light">
+                                        <h6 class="fw-semibold mb-2">Forzar cierre de sesión</h6>
+                                        <p class="text-muted small mb-4 mb-md-0">La sesión activa de este usuario se cerrará en cuanto el sistema la valide (normalmente en unos segundos). Deberá volver a iniciar sesión.</p>
+                                        <button type="button" class="btn btn-outline-danger w-100 mt-md-4" id="btnForzarLogoutUsuarioPerfil" onclick="forzarCierreSesionUsuarioPerfil()">
+                                            <i class="fa fa-sign-out me-2"></i>Forzar cierre de sesión
+                                        </button>
+                                        <p class="small mb-0 mt-3 text-muted" id="forceLogoutPerfilEstado"></p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
