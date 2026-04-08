@@ -162,6 +162,11 @@ function getMenu()
                                     'label' => 'Crear Convenio',
                                     'url' => '/convenios/consulta',
                                     'modulos' => [46]
+                            ],
+                            [
+                                    'label' => 'Cierre de Crédito',
+                                    'url' => '/CierreCredito/consulta',
+                                    'modulos' => [50]
                             ]
                     ]
             ],
