@@ -16,8 +16,9 @@ if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 
 function getMenu()
 {
-    if (!isset($_SESSION['modulos'])) {
-        return '';
+    $modulosUsuario = $_SESSION['modulos'] ?? [];
+    if (!is_array($modulosUsuario)) {
+        $modulosUsuario = [];
     }
 
     $personaIdSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
@@ -136,6 +137,11 @@ function getMenu()
                                     'label' => 'Capital Humano',
                                     'url' => '/reporteria/reporteCapitalHumano',
                                     'modulos' => [21]
+                            ],
+                            [
+                                    'label' => 'Flujo cobranza',
+                                    'url' => '/ReporteriaBI/FlujoCobranza',
+                                    'modulos' => [50]
                             ]
 
 
@@ -232,7 +238,7 @@ function getMenu()
         foreach ($item['subItems'] as $subItem) {
 
             // ✅ VALIDACIÓN POR MÓDULOS
-            if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $_SESSION['modulos'])) {
+            if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $modulosUsuario)) {
                 continue;
             }
 

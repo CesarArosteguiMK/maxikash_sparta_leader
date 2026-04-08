@@ -1114,6 +1114,105 @@ class EstadoCuenta extends Controller
         unset($fila);
     }
 
+    /**
+     * Garantiza visibilidad de GC por fecha cuando el flujo de contracargo
+     * reconstruye pagos legítimos y deja extemporaneos=0 en esas líneas.
+     * Solo inyecta la diferencia faltante de la nota por fecha y nunca afecta
+     * total_pagado de la cuota (línea informativa no contabilizable).
+     */
+    private function inyectarLineasGastoCobranzaFaltantesPorFecha(array &$tabla, array $gastoCobranzaPorFecha): void {
+        if (empty($tabla) || empty($gastoCobranzaPorFecha)) {
+            return;
+        }
+
+        $gcExistentePorFecha = [];
+        $hayExtVisiblePorFecha = [];
+        $filaCandidataPorFecha = [];
+        $metaPagoPorFecha = [];
+
+        foreach ($tabla as $idxFila => $fila) {
+            foreach ($fila["aplicados"] ?? [] as $ap) {
+                $fn = $this->fechaNormalizadaAplicadoParaCuota($ap);
+                if ($fn === null) {
+                    continue;
+                }
+
+                $tipo = (string) ($ap["tipo"] ?? "");
+                if ($tipo === "gasto_cobranza_deposito") {
+                    if (!isset($gcExistentePorFecha[$fn])) {
+                        $gcExistentePorFecha[$fn] = 0.0;
+                    }
+                    $gcExistentePorFecha[$fn] += round((float) ($ap["aplicado"] ?? 0), 2);
+                    continue;
+                }
+
+                if (!$this->aplicadoEsPagoLegitimoReubicable($ap)) {
+                    continue;
+                }
+
+                if (!isset($filaCandidataPorFecha[$fn])) {
+                    $filaCandidataPorFecha[$fn] = $idxFila;
+                    $metaPagoPorFecha[$fn] = [
+                        "idPago" => $ap["idPago"] ?? null,
+                        "fechaRegistro" => $ap["fechaRegistro"] ?? ($fn . " 12:00:00"),
+                    ];
+                }
+
+                $ext = round((float) ($ap["extemporaneos"] ?? 0), 2);
+                if ($ext > 0.009) {
+                    $hayExtVisiblePorFecha[$fn] = true;
+                }
+            }
+        }
+
+        foreach ($gastoCobranzaPorFecha as $fn => $montoNotaRaw) {
+            $montoNota = round((float) $montoNotaRaw, 2);
+            if ($montoNota <= 0.009) {
+                continue;
+            }
+
+            // Si la fecha ya tiene GC visible por extemporaneos o ya tiene línea GC suficiente, no duplicar.
+            if (!empty($hayExtVisiblePorFecha[$fn])) {
+                continue;
+            }
+
+            $gcExistente = round((float) ($gcExistentePorFecha[$fn] ?? 0), 2);
+            if ($gcExistente >= $montoNota - 0.009) {
+                continue;
+            }
+
+            if (!isset($filaCandidataPorFecha[$fn])) {
+                continue;
+            }
+
+            $faltante = round(max(0.0, $montoNota - $gcExistente), 2);
+            if ($faltante <= 0.009) {
+                continue;
+            }
+
+            $idxFila = $filaCandidataPorFecha[$fn];
+            $metaPago = $metaPagoPorFecha[$fn] ?? ["idPago" => null, "fechaRegistro" => ($fn . " 12:00:00")];
+            $fechaRef = $metaPago["fechaRegistro"] ?? ($fn . " 12:00:00");
+
+            $tabla[$idxFila]["aplicados"][] = [
+                "tipo"                       => "gasto_cobranza_deposito",
+                "idPago"                     => $metaPago["idPago"] ?? null,
+                "montoPago"                  => $faltante,
+                "aplicado"                   => $faltante,
+                "aplicadoTotalPago"          => $faltante,
+                "fechaRegistro"              => $fechaRef,
+                "fechaPago"                  => null,
+                "diasMora"                   => null,
+                "extemporaneos"              => 0,
+                "es_sobrante"                => false,
+                "gasto_cobranza"             => true,
+                "no_cuenta_para_total_cuota" => true,
+                "gc_consolidado"             => true,
+                "_sortDate"                  => $fechaRef,
+            ];
+        }
+    }
+
     private function fechaNormalizadaAplicadoParaCuota(array $ap): ?string {
         $fr = $ap["fechaRegistro"] ?? $ap["fechaPago"] ?? null;
         if ($fr === null || $fr === "") {
@@ -2764,6 +2863,7 @@ JS;
                 }
             }
             $this->reubicarPagosRealesFueraDeFilasConExtemporaneo($tabla, $pagosListByIdPago);
+            $this->inyectarLineasGastoCobranzaFaltantesPorFecha($tabla, is_array($gastoCobranzaPorFecha ?? null) ? $gastoCobranzaPorFecha : []);
             $this->ordenarAplicadosExtemporaneosAntesDeLegitimos($tabla);
             $this->recalcularTotalesTablaEstadoCuenta($tabla);
             $saldoTotalPagadoDesdeTabla = $this->calcularSaldoTotalPagadoDesdeTabla($tabla);
