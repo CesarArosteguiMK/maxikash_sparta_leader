@@ -614,6 +614,18 @@ class CronMorosidad
                     $duplicadosSet[(int) $idDup] = true;
                 }
 
+                // Parcialidad: contar GC existentes por crédito → el nuevo será el siguiente secuencial
+                $paramsIds = array_diff_key($paramsVerificar, ['semana' => null]);
+                $sqlParcialidad = "SELECT Id_credito, COUNT(*) AS total_gastos
+                                   FROM gastos_cobranza
+                                   WHERE Id_credito IN ($placeholders)
+                                   GROUP BY Id_credito";
+                $parcialidadRows = $this->db->queryAll($sqlParcialidad, $paramsIds);
+                $parcialidadMap = [];
+                foreach ($parcialidadRows as $row) {
+                    $parcialidadMap[(int) $row['Id_credito']] = (int) $row['total_gastos'];
+                }
+
                 $despachoSet = $this->obtenerCreditosAsignadosDespachoActivo($idsLote);
 
                 // PASO 3: Construir multi-INSERT (solo registros no duplicados)
@@ -652,7 +664,7 @@ class CronMorosidad
                         $semanaTexto,
                         $periodoInicio,  // Calculado (lunes de la semana)
                         $periodoFin,     // Calculado (domingo de la semana)
-                        $credito['Num_cuotas_pagadas'] ?? null,  // parcialidad
+                        ($parcialidadMap[$idCredito] ?? 0) + 1,  // parcialidad: Nth GC de este crédito (secuencial)
                         250,  // monto_valor (siempre 250)
                         $credito['Fecha_primer_vencimiento'] ?? null,
                         $credito['Cuota'] ?? 0,  // cuota

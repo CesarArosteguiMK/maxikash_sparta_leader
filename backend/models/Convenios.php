@@ -339,7 +339,7 @@ class Convenios extends Model
         'pct_descuento'     => (float) $datos['porcentaje_descuento'],
         'descuento_monto'   => (float) $datos['descuento_monto'],
         'total_pagar'       => (float) $datos['total_a_pagar'],
-        'monto_adicional'   => 0.0,
+        'monto_adicional'   => isset($datos['monto_adicional']) ? (float) $datos['monto_adicional'] : 0.0,
         'pago_inicial'      => isset($datos['pago_inicial_monto']) ? (float) $datos['pago_inicial_monto'] : null,
         'num_semanas'       => $semanas,
         'pago_semanal'      => (float) $datos['pago_semanal'],
@@ -1368,7 +1368,8 @@ public static function migrarConvenio($datos)
         $totalAPagar    = round($adeudoBase - $descuentoMonto + $montoAdicional, 2);
         $semanasEnteras = (int) floor($totalAPagar / $pagoSemanal);
         $residuo        = round($totalAPagar - ($semanasEnteras * $pagoSemanal), 2);
-        $semanas        = $residuo > 0 ? $semanasEnteras + 1 : $semanasEnteras;
+        // Solo genera semana extra si el residuo es >= $1.00 (evita cuota fantasma por centavos)
+        $semanas        = $residuo >= 1.00 ? $semanasEnteras + 1 : $semanasEnteras;
         $fechaUltimoPago = date('Y-m-d', strtotime($fechaInicio . ' +' . (($semanas - 1) * 7) . ' days'));
 
         // 3. Insertar convenio (ahora con campo pdf_adjunto)
