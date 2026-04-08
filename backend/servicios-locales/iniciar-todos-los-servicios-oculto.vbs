@@ -1,4 +1,4 @@
-' Arranca todos los servicios sin ventana de consola.
+' Arranca todos los servicios sin ventana de consola (Node 3001/3100/3110/3120 + API Python 8000).
 ' Si algo falla, ejecute iniciar-todos-los-servicios.bat en esta misma carpeta.
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
