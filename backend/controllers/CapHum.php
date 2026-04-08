@@ -957,7 +957,9 @@ class CapHum extends Controller
                 46: 'fa fa-handshake',
                 '46': 'fa fa-handshake',
                 49: 'fa fa-calendar-week',
-                '49': 'fa fa-calendar-week'
+                '49': 'fa fa-calendar-week',
+                50: 'fa fa-chart-line',
+                '50': 'fa fa-chart-line'
             };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
@@ -1561,6 +1563,7 @@ class CapHum extends Controller
                     46: 'fa fa-handshake', /* Despachos — Convenios */
                     47: 'fa fa-chart-pie',
                     49: 'fa fa-calendar-week', /* Reportería — Primeros pagos */
+                    50: 'fa fa-chart-line', /* Reportería — Flujo cobranza */
                     /* Cerrado/Eliminado Sabueso: tickets archivados/cerrados */
                     48: 'fa fa-archive'
                 };
