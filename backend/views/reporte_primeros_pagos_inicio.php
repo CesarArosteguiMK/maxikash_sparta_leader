@@ -34,6 +34,7 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
 
 <style>
 .pp-icon-svg { height: 150px; width: auto; max-width: 100%; stroke: url(#pp-icon-gradient); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pp-hero-mascot { max-height: 220px; width: auto; }
 </style>
 
 <div class="card">
@@ -51,12 +52,12 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
                     </div>
                 </div>
 
-                <!-- Ilustración Sneat (man-with-laptop). Si falla la red, coloca el PNG en public/assets/img/illustrations/man-with-laptop.png -->
+                <!-- Ilustración local: public/assets/img/illustrations/primeros-pagos-mascota.png -->
                 <div class="col-12 col-md-4">
                     <div class="card-body ps-md-2 pe-5 text-end">
-                        <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
-                             class="img-fluid scaleX-n1-rtl"
-                             alt="View Badge User">
+                        <img src="/assets/img/illustrations/primeros-pagos-mascota.png"
+                             class="img-fluid pp-hero-mascot"
+                             alt="Primeros pagos — ilustración">
                     </div>
                 </div>
 
@@ -69,7 +70,7 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
                                         <h5 class="text-primary mb-1">Cobranza esperada - semana actual</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoSemana, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Primer vencimiento en el lunes de cierre. Corte de mora según calendario de cartera (martes ~8:00). Matriz, distribución y jerarquía.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Primer vencimiento en el lunes de cierre. Corte de mora según calendario de cartera (martes ~8:00). Distribución y jerarquía.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <a href="/reporteria/VencimientosLunes" class="btn btn-primary w-100">
