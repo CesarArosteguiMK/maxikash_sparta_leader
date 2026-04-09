@@ -1,4 +1,4 @@
-# Arranca en paralelo los servicios locales de Sparta Ledger (Node + Docker API).
+# Arranca en paralelo los servicios locales de Sparta Ledger (Node + API Python local).
 # Lo invoca iniciar-todos-los-servicios.bat con -BackendRoot (carpeta backend).
 param(
     [Parameter(Mandatory = $true)]
@@ -22,7 +22,7 @@ Write-Host '  Sparta Ledger - arranque de servicios' -ForegroundColor Yellow
 Write-Host '============================================' -ForegroundColor Yellow
 Write-Host "  Carpeta backend: $BackendRoot"
 if ($SinVentanas) {
-    Write-Host '  Modo: sin ventanas (agentes y Docker ocultos)' -ForegroundColor DarkGray
+    Write-Host '  Modo: sin ventanas (agentes y API 8000 ocultos)' -ForegroundColor DarkGray
 }
 Write-Host ''
 
@@ -93,42 +93,20 @@ if (($nodeExe) -and (Test-Path -LiteralPath $gcBat)) {
 
 Start-Sleep -Milliseconds 400
 
-# --- 5) API Python verificacion documentos (Docker, puerto 8000) ---
+# --- 5) API Python verificacion documentos (uvicorn puerto 8000; global o venv si existe) ---
 $apiDir = Join-Path $BackendRoot 'API'
-$compose = Join-Path $apiDir 'docker-compose.yml'
-if (Test-Path -LiteralPath $compose) {
-    Write-Step '[5/5] API verificacion documentos (Docker -> 8000)...'
-    $dockerOk = $false
-    try {
-        $null = & docker info 2>$null
-        if ($LASTEXITCODE -eq 0) { $dockerOk = $true }
-    } catch { }
-    if ($dockerOk) {
-        # cmd.exe evita el lio de stderr de docker en PowerShell. SinVentanas = cmd oculto.
-        $dcArgs = @{
-            FilePath               = 'cmd.exe'
-            ArgumentList           = '/c', 'docker compose up -d'
-            WorkingDirectory       = $apiDir
-            Wait                   = $true
-            PassThru               = $true
-        }
-        if ($SinVentanas) {
-            $dcArgs['WindowStyle'] = 'Hidden'
-        } else {
-            $dcArgs['NoNewWindow'] = $true
-        }
-        $dc = Start-Process @dcArgs
-        if ($dc.ExitCode -ne 0) {
-            Write-Host '[AVISO] docker compose up -d termino con codigo' $dc.ExitCode '- Revise Docker Desktop.' -ForegroundColor DarkYellow
-        } else {
-            Write-Host '[OK] Docker compose up -d listo (API ~8000).' -ForegroundColor DarkGray
-        }
-    } else {
-        Write-Host '[AVISO] Docker no responde. Omitido API Python (8000).' -ForegroundColor DarkYellow
-        Write-Host '        Use backend\API\Iniciar-API-Verificacion.bat cuando Docker este listo.' -ForegroundColor DarkYellow
-    }
+$apiOcultoPs1 = Join-Path $apiDir 'iniciar-agente-oculto.ps1'
+$apiOcultoVbs = Join-Path $apiDir 'iniciar-agente-oculto.vbs'
+if (Test-Path -LiteralPath $apiOcultoPs1) {
+    Write-Step '[5/5] API verificacion documentos (Python -> 8000, segundo plano)...'
+    Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $apiOcultoPs1
+    ) -WorkingDirectory $apiDir -WindowStyle Hidden
+} elseif (Test-Path -LiteralPath $apiOcultoVbs) {
+    Write-Step '[5/5] API verificacion documentos (solo .vbs -> 8000)...'
+    Start-Process -FilePath 'wscript.exe' -ArgumentList @('//nologo', $apiOcultoVbs) -WorkingDirectory $apiDir -WindowStyle Hidden
 } else {
-    Write-Host '[SKIP] No hay docker-compose.yml en API.' -ForegroundColor DarkYellow
+    Write-Host '[SKIP] No hay API\iniciar-agente-oculto.ps1 ni .vbs' -ForegroundColor DarkYellow
 }
 
 Write-Host ''
@@ -137,7 +115,7 @@ Write-Host '  3001  documentacion candidato (Node)'
 Write-Host '  3100  agente Segundometro (Node)'
 Write-Host '  3110  agente correos primeros pagos (Node)'
 Write-Host '  3120  agente Gastos cobranza (Node)'
-Write-Host '  8000  API verificacion documentos (Docker / uvicorn)'
+Write-Host '  8000  API verificacion documentos (Python global o venv + uvicorn; Docker opcional)'
 Write-Host ''
 Write-Host 'Para detener: backend\servicios-locales\cerrar-todos-los-servicios.bat'
 Write-Host ''

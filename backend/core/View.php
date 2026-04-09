@@ -806,11 +806,20 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 localStorage.setItem(NOTIF_SOUND_PLAYED_KEY, JSON.stringify(merged));
             } catch (e) {}
         }
+        /**
+         * URLs sin query ?url= (pide negocio). public/.htaccess reescribe /ruta → index.php internamente.
+         */
         function notifUrl(path) {
             var p = (path || "").replace(/^\//, "").replace(/\/$/, "");
-            var base = location.pathname.replace(/\/[^/]*$/, "") || "/";
-            var pathPart = (base === "/" || base === "") ? "/" : (base.endsWith("/") ? base : base + "/");
-            return location.origin + pathPart + "index.php?url=" + encodeURIComponent(p || "notificaciones/listar");
+            if (!p) {
+                p = "notificaciones/listar";
+            }
+            var dir = location.pathname.replace(/\/[^/]*$/, "");
+            if (dir === "") {
+                dir = "/";
+            }
+            var pathPart = (dir === "/") ? "/" : (dir.endsWith("/") ? dir : dir + "/");
+            return location.origin + pathPart + p;
         }
         if (!badgeEl || !bodyEl) return;
 

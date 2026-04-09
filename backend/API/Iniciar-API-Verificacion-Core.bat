@@ -1,11 +1,12 @@
 @echo off
+:: Flujo Docker (compose). Uso diario sin Docker: iniciar-agente.bat o Iniciar-API-Verificacion.bat
 chcp 65001 >nul
-title API Verificación Documentos - Sparta Ledger
+title API Verificación Documentos - Sparta Ledger (Docker)
 cd /d "%~dp0"
 
 echo.
 echo  ============================================
-echo   API Verificación Documentos (FAD / Ingresos)
+echo   API Verificación Documentos (Docker)
 echo  ============================================
 echo.
 

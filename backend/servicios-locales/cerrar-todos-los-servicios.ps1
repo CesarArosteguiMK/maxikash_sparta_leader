@@ -1,4 +1,4 @@
-# Detiene servicios locales: Node (3001, 3100, 3110, 3120) y Docker API (8000).
+# Detiene servicios locales: Node (3001, 3100, 3110, 3120) y API Python (8000) + Docker compose si aplica.
 param(
     [Parameter(Mandatory = $true)]
     [string] $BackendRoot
@@ -70,6 +70,15 @@ if (Test-Path -LiteralPath $ps3120) {
     Write-Host '[OK] Puerto 3120 (fallback)' -ForegroundColor Gray
 }
 
+$ps8000 = Join-Path $BackendRoot 'API\cerrar-agente.ps1'
+if (Test-Path -LiteralPath $ps8000) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $ps8000 -Silent
+    Write-Host '[OK] Puerto 8000 (API verificacion documentos)' -ForegroundColor Gray
+} else {
+    Stop-Port -Port 8000
+    Write-Host '[OK] Puerto 8000 (fallback)' -ForegroundColor Gray
+}
+
 $apiDir = Join-Path $BackendRoot 'API'
 $compose = Join-Path $apiDir 'docker-compose.yml'
 if (Test-Path -LiteralPath $compose) {
@@ -78,12 +87,10 @@ if (Test-Path -LiteralPath $compose) {
         if ($LASTEXITCODE -eq 0) {
             $dd = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'docker compose down' -WorkingDirectory $apiDir -Wait -NoNewWindow -PassThru
             if ($dd.ExitCode -eq 0) {
-                Write-Host '[OK] Docker compose down (API 8000)' -ForegroundColor Gray
+                Write-Host '[OK] Docker compose down (API, si usaba contenedores)' -ForegroundColor Gray
             } else {
                 Write-Host '[AVISO] docker compose down codigo' $dd.ExitCode -ForegroundColor DarkYellow
             }
-        } else {
-            Write-Host '[AVISO] Docker no responde; API 8000 no detenida por compose.' -ForegroundColor DarkYellow
         }
     } catch {
         Write-Host '[AVISO] No se pudo ejecutar docker compose down.' -ForegroundColor DarkYellow
