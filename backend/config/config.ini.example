@@ -23,6 +23,12 @@ ssh_command = /usr/bin/ssh
 ssh_key = /ruta/a/clave_privada
 ; ssh_command_plink, ssh_key_plink, ssh_hostkey, ssh_pscp = según entorno
 
+; API Python de verificación de documentos + extracción FAD (Sabueso "donde trabaja").
+; No la levanta XAMPP: ejecutar backend\API\iniciar-agente.bat (puerto 8000) o Docker.
+[doc_verificacion]
+api_url = "http://127.0.0.1:8000/api/v1/verificar"
+api_key = "sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key"
+
 ; Sonda HTTP del agente Node de correos (Primeros pagos — Lunes). La UI usa esto para el badge "Agente: en línea".
 [correos_primeros_pagos_agent]
 enabled = 1

@@ -1,25 +1,33 @@
 <div class="container-xxl flex-grow-1 container-p-y">
 
-    <!-- 🎯 ENCABEZADO -->
+    <!-- Encabezado (mismo patrón que Shell Gastos Cobranza) -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1">
-                                <i class="fa fa-terminal text-primary me-2"></i>
-                                Shell Segundómetro - Gestión de Reportes
-                            </h4>
-                            <p class="text-muted mb-0">
-                                Modulo para gestionar archivos de reportes <code>mega_rpt_*.csv.zip</code>
+            <div class="card shadow-sm border-0 gc-shell-hero-card">
+                <div class="card-body py-4">
+                    <div class="row align-items-center g-4">
+                        <div class="col-lg-8">
+                            <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-1">
+                                <h4 class="mb-0 fw-semibold text-heading gc-shell-hero-title">
+                                    <i class="fa fa-stopwatch text-primary me-2" aria-hidden="true"></i>
+                                    Shell Segundómetro - Gestión de Reportes
+                                </h4>
+                                <span id="sgAgenteEstado" class="badge bg-label-secondary">Agente: comprobando…</span>
+                            </div>
+                            <div id="sgAgenteDetalle" class="small text-muted mt-1" style="min-height:1.25em">Consultando estado…</div>
+                            <p class="text-muted mt-2 mb-0 small">
+                                Modulo para gestionar archivos de reportes
                             </p>
                         </div>
-                        <div class="col-md-4 text-end">
-                            <small class="text-muted"><i class="fa fa-sync-alt me-1"></i>Actualización al abrir y en ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31, 23:50 (CDMX)</small>
-                            <div class="mt-2 small">
-                                <span class="text-muted"><i class="fa fa-clock me-1"></i>Hora real CDMX:</span>
-                                <strong id="segundometroHoraServidor" class="ms-1">—</strong>
+                        <div class="col-lg-4 d-flex justify-content-lg-end">
+                            <div class="gc-shell-module-card">
+                                <div class="gc-shell-module-icon" aria-hidden="true">
+                                    <i class="fa fa-shield-alt"></i>
+                                </div>
+                                <div class="gc-shell-module-text">
+                                    <span class="gc-shell-module-label">Control de acceso</span>
+                                    <span class="gc-shell-module-name">Módulo 16</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -28,69 +36,46 @@
         </div>
     </div>
 
-    <!-- 📝 DESCRIPCIÓN DEL MÓDULO -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">
-                        <i class="fa fa-info-circle text-primary me-2"></i>¿Qué hace este módulo?
-                    </h5>
-                    <p class="text-muted mb-3">
-                        Esta herramienta permite copiar y gestionar archivos de reportes <code>mega_rpt_*.csv.zip</code> de forma segura y controlada, sin necesidad de utilizar comandos de terminal.
-                    </p>
-                    <ul class="mb-0 ps-4 ms-2">
-                        <li class="mb-2"><strong>Historial:</strong> se muestran los reportes generados en los últimos 2 días (hoy y ayer), organizados por fecha. Cada archivo indica si es del <span class="text-danger">proveedor</span> o <span class="text-success">nosotros</span>.</li>
-                        <li class="mb-2"><strong>Frecuencia:</strong> la lista se actualiza al abrir la página (F5) y solo durante 2 minutos en las ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31 y 23:50 (hora CDMX), cada 30 s en esa ventana. No se ejecutan consultas SSH si está en otra pestaña o menú.</li>
-                        <li class="mb-2"><strong>Copiar +1s:</strong> con un clic se copia el archivo en el servidor y el nuevo nombre incrementa +1 segundo (ej.: <code>07_31_58</code> → <code>07_31_59</code>; si es 59 segundos, pasa al minuto siguiente).</li>
-                        <li class="mb-2"><strong>Descargar:</strong> se puede descargar cualquier reporte directamente desde la interfaz al equipo local.</li>
-                        <li class="mb-2"><strong>Eliminar:</strong> solo los archivos propios (nosotros, owner root) pueden eliminarse; los del proveedor no muestran esta opción.</li>
-                        <li class="mb-0"><strong>Ejecución:</strong> todas las operaciones se ejecutan en el servidor remoto de forma automática (listar, copiar, descargar y eliminar).</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Botón Truncar, Monitorear y Diagnóstico -->
+    <!-- Centro de control -->
     <div class="row mb-3">
         <div class="col-12">
-            <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="Disponible solo los martes de 7:00 a 9:30 AM (CDMX)">
-                <i class="fa fa-cut me-2"></i>Truncar
-            </button>
-            <button type="button" class="btn btn-monitorear-segundometro ms-2" id="btnMonitorearSegundometro" title="Abrir monitoreo en vivo en esta página. Usa «Minimizar» en el panel para usar Truncar y otros botones sin cortar el stream.">
-                <i class="fa fa-terminal me-2"></i>Monitorear
-            </button>
-            <button type="button" class="btn btn-diagnostico-ssh ms-2" id="btnDiagnosticoSSH" title="Diagnóstico: prueba SSH (Plink / OpenSSH), llaves, permisos, listado, descarga y monitoreo">
-                <i class="fa fa-stethoscope me-2"></i>Diagnóstico SSH
-            </button>
-            <span class="ms-3 align-middle" id="wrapLinkTruncarPrueba" style="display: none;">
-                <a href="#" id="linkTruncarModoPrueba" class="small text-muted" title="Habilita el botón Truncar para probar (sin restricción de horario). Recarga la página con ?truncar_test=1">Habilitar Truncar para pruebas</a>
-            </span>
-        </div>
-    </div>
-
-    <!-- Estado de integración con agente -->
-    <div class="row mb-3">
-        <div class="col-12">
-            <div id="shellSegundometroAgenteBar" class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-0 py-2">
-                <strong class="me-2"><i class="fa fa-robot text-primary me-1"></i>Integración agente</strong>
-                <span class="badge bg-secondary" id="sgAgenteModo">Agente: verificando...</span>
-                <span class="badge bg-secondary" id="sgAgenteEstado">Estado: verificando...</span>
-                <div class="form-check form-switch ms-2 mb-0">
-                    <input class="form-check-input" type="checkbox" role="switch" id="sgAutoCopyEnabled">
-                    <label class="form-check-label small" for="sgAutoCopyEnabled">Auto-copy</label>
+            <div id="shellSegundometroAgenteBar" class="card shadow-sm border-0">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <span class="fw-semibold text-body d-inline-flex align-items-center">
+                            <i class="fa fa-robot text-primary me-2"></i>Integración agente
+                        </span>
+                        <div class="form-check form-switch mb-0" title="Activa o desactiva el auto-copy del agente en segundo plano.">
+                            <input class="form-check-input" type="checkbox" role="switch" id="sgAutoCopyEnabled">
+                            <label class="form-check-label small" for="sgAutoCopyEnabled">Auto-copy</label>
+                        </div>
+                    </div>
+                    <div class="row g-2 align-items-stretch">
+                        <div class="col-12 col-md d-grid" id="wrapBtnTruncarSegundometro" style="display: none;">
+                            <button type="button" class="btn btn-outline-danger w-100 py-2" id="btnTruncarSegundometro" disabled title="Trunca la tabla Semana: copia a histórico y limpia datos actuales.">
+                                <i class="fa fa-cut me-2"></i>Truncar
+                            </button>
+                        </div>
+                        <div class="col-12 col-md d-grid">
+                            <button type="button" class="btn btn-outline-secondary w-100 py-2" id="btnMonitorearSegundometro" title="Abre monitoreo en vivo en esta página.">
+                                <i class="fa fa-terminal me-2"></i>Monitorear
+                            </button>
+                        </div>
+                        <div class="col-12 col-md d-grid">
+                            <button type="button" class="btn btn-outline-primary w-100 py-2" id="btnDiagnosticoSSH" title="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura.">
+                                <i class="fa fa-stethoscope me-2"></i>Diagnóstico SSH
+                            </button>
+                        </div>
+                        <div class="col-12 col-md d-grid">
+                            <button type="button" class="btn btn-outline-success w-100 py-2" id="sgEjecutarAhora" title="Lanza ahora el flujo automático: monitoreo + copia del último reporte +1s.">
+                                <i class="fa fa-play me-2"></i>Ejecutar ahora
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-2" id="wrapLinkTruncarPrueba" style="display: none;">
+                        <a href="#" id="linkTruncarModoPrueba" class="small text-muted" title="Activa el modo prueba (?truncar_test=1) para mostrar Truncar fuera del horario normal.">Habilitar Truncar para pruebas</a>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-success ms-1" id="sgEjecutarAhora" title="Ejecuta ahora el mismo flujo del automático: inicia monitoreo, copia el último reporte +1s. Útil para probar o recuperar un horario perdido.">
-                    <i class="fa fa-play me-1"></i>Ejecutar ahora
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-info ms-1" id="sgCatchUpEstado" title="Ver estado del catch-up automático al arrancar el agente (reportes pendientes al inicio)">
-                    <i class="fa fa-history me-1"></i>Catch-up
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-primary ms-1" id="sgAgenteProbarBd">
-                    <i class="fa fa-database me-1"></i>Probar verificación BD
-                </button>
-                <span class="small text-muted ms-2" id="sgAgenteDetalle">Consultando estado...</span>
             </div>
         </div>
     </div>
@@ -143,6 +128,72 @@
 
 <!-- 🎨 ESTILOS PERSONALIZADOS -->
 <style>
+    /* Shell hero + tarjeta módulo (alineado con shell_gastos_cobranza.php) */
+    .gc-shell-hero-card {
+        background: linear-gradient(135deg, #fcfdff 0%, #f6f8fc 100%);
+        border: 1px solid rgba(67, 89, 113, 0.08) !important;
+    }
+    .gc-shell-hero-title {
+        letter-spacing: -0.02em;
+    }
+    .gc-shell-module-card {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        max-width: 16rem;
+        padding: 0.85rem 1rem;
+        border-radius: 0.65rem;
+        background: #fff;
+        border: 1px solid rgba(67, 89, 113, 0.1);
+        box-shadow: 0 2px 8px rgba(67, 89, 113, 0.06);
+    }
+    .gc-shell-module-icon {
+        flex-shrink: 0;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(145deg, rgba(105, 108, 255, 0.18), rgba(105, 108, 255, 0.06));
+        color: #696cff;
+        font-size: 1.1rem;
+    }
+    .gc-shell-module-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 0;
+    }
+    .gc-shell-module-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #a1acb8;
+    }
+    .gc-shell-module-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #566a7f;
+        line-height: 1.2;
+    }
+    body.dark-mode .gc-shell-hero-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.65) 100%);
+        border-color: rgba(148, 163, 184, 0.12) !important;
+    }
+    body.dark-mode .gc-shell-module-card {
+        background: rgba(30, 41, 59, 0.85);
+        border-color: rgba(148, 163, 184, 0.15);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    body.dark-mode .gc-shell-module-label {
+        color: #94a3b8;
+    }
+    body.dark-mode .gc-shell-module-name {
+        color: #e2e8f0;
+    }
+
     .font-monospace {
         font-family: 'Courier New', monospace;
         font-size: 0.9rem;
@@ -195,129 +246,6 @@
     .card-header.bg-primary h5 i,
     .card-header.bg-primary * {
         color: #ffffff !important;
-    }
-
-    /* Botón Truncar: neon leve deshabilitado, neon más vivo habilitado */
-    .btn-truncar-segundometro {
-        font-weight: 600;
-        transition: background-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-    }
-    .btn-truncar-segundometro:disabled {
-        background: rgba(0, 230, 230, 0.12);
-        border: 1px solid rgba(0, 200, 220, 0.4);
-        color: rgba(0, 120, 140, 0.85);
-        box-shadow: 0 0 12px rgba(0, 230, 230, 0.15);
-    }
-    .btn-truncar-segundometro:disabled .fa-cut {
-        color: rgba(0, 150, 170, 0.9);
-    }
-    .btn-truncar-segundometro:not(:disabled) {
-        background: linear-gradient(135deg, #00c9d4 0%, #00a8b8 100%);
-        border: 1px solid rgba(0, 200, 220, 0.8);
-        color: #fff;
-        box-shadow: 0 0 16px rgba(0, 200, 220, 0.4);
-    }
-    .btn-truncar-segundometro:not(:disabled):hover {
-        background: linear-gradient(135deg, #00d4e0 0%, #00b8c8 100%);
-        color: #fff;
-        box-shadow: 0 0 20px rgba(0, 220, 230, 0.5);
-    }
-    .btn-truncar-segundometro:not(:disabled) .fa-cut {
-        color: #fff;
-    }
-
-    /* Botón Monitorear: tono elegante y suave (ámbar/arena), mismo tamaño que Truncar */
-    .btn-monitorear-segundometro {
-        font-weight: 600;
-        padding: 0.5rem 1rem;
-        transition: background-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-        background: linear-gradient(135deg, #c4b5a0 0%, #a89888 100%);
-        border: 1px solid rgba(168, 152, 136, 0.6);
-        color: #3d3630;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-    }
-    .btn-monitorear-segundometro:hover {
-        background: linear-gradient(135deg, #d4c8b8 0%, #b8a898 100%);
-        color: #2d2824;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    }
-    .btn-monitorear-segundometro .fa-terminal {
-        color: #4a423a;
-    }
-
-    /* Botón Diagnóstico SSH: tono azul-oscuro profesional */
-    .btn-diagnostico-ssh {
-        font-weight: 600;
-        padding: 0.5rem 1rem;
-        transition: background-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, border-color 0.25s ease;
-        background: linear-gradient(135deg, #5c6bc0 0%, #3f51b5 100%);
-        border: 1px solid rgba(63, 81, 181, 0.6);
-        color: #fff;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-    }
-    .btn-diagnostico-ssh:hover {
-        background: linear-gradient(135deg, #7986cb 0%, #5c6bc0 100%);
-        color: #fff;
-        box-shadow: 0 2px 8px rgba(63, 81, 181, 0.35);
-    }
-    .btn-diagnostico-ssh .fa-stethoscope {
-        color: #e8eaf6;
-    }
-
-    /* Modo oscuro: Truncar y Monitorear con estilo consistente (relleno sólido, buen contraste) */
-    body.dark-mode .btn-truncar-segundometro:disabled {
-        background: rgba(0, 180, 200, 0.2);
-        border: 1px solid rgba(0, 200, 220, 0.5);
-        color: rgba(160, 230, 240, 0.9);
-        box-shadow: 0 0 12px rgba(0, 200, 220, 0.2);
-    }
-    body.dark-mode .btn-truncar-segundometro:disabled .fa-cut {
-        color: rgba(160, 230, 240, 0.95);
-    }
-    body.dark-mode .btn-truncar-segundometro:not(:disabled) {
-        background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-        border: 1px solid rgba(20, 184, 166, 0.6);
-        color: #fff;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-    body.dark-mode .btn-truncar-segundometro:not(:disabled):hover {
-        background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
-        color: #fff;
-        box-shadow: 0 0 18px rgba(20, 184, 166, 0.4);
-    }
-    body.dark-mode .btn-truncar-segundometro:not(:disabled) .fa-cut {
-        color: #fff;
-    }
-    /* Monitorear: conservar colores del modo claro en modo oscuro (anular reglas globales de dark-mode.css) */
-    body.dark-mode .btn-monitorear-segundometro {
-        background: linear-gradient(135deg, #c4b5a0 0%, #a89888 100%) !important;
-        background-image: linear-gradient(135deg, #c4b5a0 0%, #a89888 100%) !important;
-        border: 1px solid rgba(168, 152, 136, 0.7) !important;
-        color: #3d3630 !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
-        filter: none !important;
-    }
-    body.dark-mode .btn-monitorear-segundometro:hover {
-        background: linear-gradient(135deg, #d4c8b8 0%, #b8a898 100%) !important;
-        background-image: linear-gradient(135deg, #d4c8b8 0%, #b8a898 100%) !important;
-        color: #2d2824 !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-        filter: none !important;
-    }
-    body.dark-mode .btn-monitorear-segundometro .fa-terminal {
-        color: #4a423a !important;
-    }
-
-    /* Diagnóstico SSH: modo oscuro */
-    body.dark-mode .btn-diagnostico-ssh {
-        background: linear-gradient(135deg, #5c6bc0 0%, #3949ab 100%) !important;
-        border: 1px solid rgba(92, 107, 192, 0.5) !important;
-        color: #fff !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-    }
-    body.dark-mode .btn-diagnostico-ssh:hover {
-        background: linear-gradient(135deg, #7986cb 0%, #5c6bc0 100%) !important;
-        box-shadow: 0 4px 12px rgba(63, 81, 181, 0.4) !important;
     }
 
     /* Badge contador de archivos - texto negro/oscuro */

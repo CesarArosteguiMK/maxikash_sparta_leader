@@ -11,7 +11,7 @@ En `backend/API/` conviven:
 
 - **Esta API (Python / FastAPI)** — verificación de documentos (p. ej. puerto **8000** según `.env`).
 - **`documentacion-candidato/`** — microservicio **Node.js** para listado rápido de documentación de candidatos (puerto **3001** por defecto). Ver su [README](documentacion-candidato/README.md).
-- **Arranque conjunto** — scripts en [`../servicios-locales/`](../servicios-locales/README.md) para iniciar/detener API Docker (8000), documentación candidato (3001), Segundómetro (3100) y agente de correos (3110).
+- **Arranque conjunto** — scripts en [`../servicios-locales/`](../servicios-locales/README.md) para iniciar/detener API Python local o Docker (8000), documentación candidato (3001), Segundómetro (3100) y agente de correos (3110).
 
 ```
 doc-verificacion/
@@ -39,7 +39,7 @@ doc-verificacion/
 ├── tests/
 │   └── test_verificacion.py
 ├── Dockerfile              ← Imagen autocontenida (Tesseract + RapidOCR + deps)
-├── docker-compose.yml      ← API + PostgreSQL + Redis
+├── docker-compose.yml      ← Solo servicio API (sin Postgres/Redis en compose)
 ```
 
 ---
@@ -79,9 +79,30 @@ cp .env.example .env
 # Editar .env con tus valores
 ```
 
-### 3. Levantar con Docker (recomendado, todo incluido)
+### 3. Levantar en local sin Docker (recomendado en el día a día)
 
-La imagen incluye Tesseract, RapidOCR, libzbar y todas las dependencias. No hace falta instalar nada en el servidor.
+Requisitos y un solo comando de instalación: **[REQUISITOS_API_LOCAL.md](REQUISITOS_API_LOCAL.md)**.
+
+```bat
+cd backend\API
+instalar-agente.bat
+iniciar-agente-oculto.vbs
+```
+
+Sin ventanas: **`iniciar-agente-oculto.vbs`** (o `.\iniciar-agente-oculto.ps1` desde PowerShell oculto). Con consola para ver errores: **`iniciar-agente.bat`**.
+
+Equivalente en PowerShell: `.\instalar-api-consola.ps1` y luego el arranque oculto o `.\iniciar-agente.bat`. La API queda en **http://127.0.0.1:8000** (ajustable en `.env`). Documentación: **http://127.0.0.1:8000/docs**.
+
+Para solo la línea de comandos tras tener el `venv`:
+
+```bash
+# Desde backend/API (no es obligatorio PostgreSQL ni Redis para solo verificación)
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 4. Levantar con Docker (opcional, todo incluido en imagen)
+
+La imagen incluye Tesseract, RapidOCR, libzbar y dependencias del contenedor. En Windows, el atajo del repo es **`Iniciar-API-Verificacion-Docker.bat`**.
 
 ```bash
 # Desde backend/API
@@ -90,7 +111,7 @@ cd backend/API
 # Opcional: si no tienes .env, cópialo para poder ajustar MASTER_API_KEY, etc.
 cp .env.example .env
 
-# Construir y levantar (API + PostgreSQL + Redis)
+# Construir y levantar (solo contenedor API)
 docker compose up -d --build
 
 # La API queda en http://localhost:8000
@@ -103,13 +124,6 @@ Para solo construir la imagen y usarla en otro servidor:
 ```bash
 docker compose build
 # La imagen se puede exportar/importar o subir a un registry; en el servidor solo hace falta tener Docker y ejecutar el contenedor.
-```
-
-### 4. Levantar sin Docker (desarrollo)
-
-```bash
-# Desde backend/API (no es necesario PostgreSQL ni Redis para solo verificación)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Integración con Sparta Ledger (PHP):**
@@ -305,8 +319,8 @@ Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form
 
 | Variable | Descripción | Default |
 |----------|-------------|---------|
-| `MASTER_API_KEY` | API key principal | Requerida |
-| `DATABASE_URL` | PostgreSQL | Requerida |
+| `MASTER_API_KEY` | API key principal | Recomendada (default en código para dev) |
+| `DATABASE_URL` | Reservado en Settings; **no se usa** en rutas actuales | SQLite por defecto en código |
 | `TESSERACT_CMD` | Ruta a tesseract | `/usr/bin/tesseract` |
 | `USE_ML_CLASSIFIER` | Activar ML | `false` |
 | `UMBRAL_REAL` | Score mínimo ORIGINAL | `75` |

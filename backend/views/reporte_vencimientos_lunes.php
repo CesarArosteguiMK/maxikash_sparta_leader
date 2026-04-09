@@ -1,3 +1,33 @@
+<?php
+$vlSemanaNum = null;
+$vlSemanaRango = '';
+if (empty($vencimientos_vista_simple)) {
+    $vlTz = new DateTimeZone('America/Mexico_City');
+    $vlHoy = new DateTimeImmutable('now', $vlTz);
+    $vlDow = (int) $vlHoy->format('N');
+    $vlLunes = $vlHoy->modify('-' . ($vlDow - 1) . ' days');
+    $vlDomingo = $vlLunes->modify('+6 days');
+    $vlSemanaNum = (int) $vlLunes->format('W');
+    $vlMeses = [1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril', 5 => 'mayo', 6 => 'junio', 7 => 'julio', 8 => 'agosto', 9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre'];
+    $vlDiasSem = [1 => 'lunes', 2 => 'martes', 3 => 'miércoles', 4 => 'jueves', 5 => 'viernes', 6 => 'sábado', 7 => 'domingo'];
+    $vlFmtDia = static function (DateTimeImmutable $d, array $meses, array $dias, bool $incluirAnio): string {
+        $n = (int) $d->format('N');
+        $dia = (int) $d->format('j');
+        $mes = $meses[(int) $d->format('n')];
+        $s = $dias[$n] . ' ' . $dia . ' de ' . $mes;
+        if ($incluirAnio) {
+            $s .= ' de ' . $d->format('Y');
+        }
+        return $s;
+    };
+    if ($vlLunes->format('Y') === $vlDomingo->format('Y')) {
+        $vlSemanaRango = $vlFmtDia($vlLunes, $vlMeses, $vlDiasSem, false) . ' al ' . $vlFmtDia($vlDomingo, $vlMeses, $vlDiasSem, true);
+    } else {
+        $vlSemanaRango = $vlFmtDia($vlLunes, $vlMeses, $vlDiasSem, true) . ' al ' . $vlFmtDia($vlDomingo, $vlMeses, $vlDiasSem, true);
+    }
+}
+$vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
+?>
 <div class="container-xxl flex-grow-1 container-p-y">
 
 
@@ -8,15 +38,12 @@
                 <i class="fa fa-calendar-week text-primary me-2"></i>
                 <?= htmlspecialchars($vencimientos_titulo_card ?? 'Primeros pagos — Lunes de Cierre', ENT_QUOTES, 'UTF-8'); ?>
             </h4>
+            <?php if (!empty($vencimientos_vista_simple)): ?>
             <p class="text-muted mb-0" style="font-size:.8rem;">
                 Primer vencimiento:
                 <strong class="text-primary" id="lunesFecha">calculando…</strong>
-                <?php if (empty($vencimientos_vista_simple)): ?>
-                &nbsp;·&nbsp;
-                Corte actual:
-                <code id="corteLabel" class="text-info">—</code>
-                <?php endif; ?>
             </p>
+            <?php endif; ?>
         </div>
         <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
             <?php if (!empty($vencimientos_vista_simple)): ?>
@@ -25,9 +52,15 @@
                     <i class="fa fa-file-excel me-2"></i>
                     <span class="fw-semibold">Descargar Excel</span>
                 </a>
-            <?php elseif ((int)($_SESSION['usuario_id'] ?? 0) === 1): ?>
+                <?php if (!empty($vencimientos_puede_enviar_correo_primeros_pagos)): ?>
+                <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm shadow-sm d-inline-flex align-items-center">
+                    <i class="fa fa-envelope me-1"></i> Enviar correo
+                </button>
+                <?php endif; ?>
+            <?php elseif (empty($vencimientos_vista_simple)): ?>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <div class="d-flex align-items-center gap-1"
+                    <?php if ($vlEsUsuarioRoot): ?>
+                    <div class="d-flex align-items-center gap-2 flex-wrap me-1"
                          title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50 en 24 h). Requiere agente Node o bucle PHP en esta máquina. No afecta “Enviar correo” manual.">
                         <div class="form-check form-switch m-0">
                             <input class="form-check-input" type="checkbox" role="switch"
@@ -35,25 +68,26 @@
                             <label class="form-check-label text-nowrap user-select-none" for="switchAutoEnvioPrimerosPagos"
                                    style="font-size:.72rem;">Auto horario</label>
                         </div>
+                        <div class="d-flex flex-column align-items-end gap-1" style="min-width:0;">
+                            <span id="estadoEnvioAuto" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
+                                  title="Estado del envío automático (CDMX, horario 24 h: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50).">
+                                <i class="fa fa-clock me-1"></i> Auto correo: pendiente
+                            </span>
+                            <span id="estadoAgenteCorreos" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
+                                  title="Agente Node que ejecuta el cron de correos (puerto 3110 por defecto).">
+                                <i class="fa fa-robot me-1"></i> Agente: …
+                            </span>
+                        </div>
                     </div>
-                    <div class="d-flex flex-column align-items-end gap-1" style="min-width:0;">
-                        <span id="estadoEnvioAuto" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
-                              title="Estado del envío automático (CDMX, horario 24 h: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50).">
-                            <i class="fa fa-clock me-1"></i> Auto correo: pendiente
-                        </span>
-                        <span id="estadoAgenteCorreos" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
-                              title="Agente Node que ejecuta el cron de correos (puerto 3110 por defecto).">
-                            <i class="fa fa-robot me-1"></i> Agente: …
-                        </span>
-                    </div>
-                    <div class="d-flex align-items-center gap-1 flex-wrap">
-                        <button id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
-                            <i class="fa fa-envelope me-1"></i> Enviar correo
-                        </button>
-                        <button id="btnExportarCSV" class="btn btn-outline-success btn-sm">
-                            <i class="fa fa-file-csv me-1"></i> Exportar CSV
-                        </button>
-                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($vencimientos_puede_enviar_correo_primeros_pagos)): ?>
+                    <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
+                        <i class="fa fa-envelope me-1"></i> Enviar correo
+                    </button>
+                    <?php endif; ?>
+                    <button type="button" id="btnExportarCSV" class="btn btn-outline-success btn-sm">
+                        <i class="fa fa-file-csv me-1"></i> Exportar CSV
+                    </button>
                 </div>
             <?php endif; ?>
             <a href="/reporteria/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
@@ -63,9 +97,25 @@
     </div>
 
     <?php if (empty($vencimientos_vista_simple)): ?>
-    <!-- ── Stat total ── -->
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-2">
+    <!-- ── Contexto semana / vencimiento / corte + Registros ── -->
+    <div class="row g-3 mb-3 align-items-start">
+        <div class="col-12 col-md-auto">
+            <div class="card border shadow-sm">
+                <div class="card-body py-2 px-3">
+                    <div class="fw-semibold text-body">Semana <?= (int) $vlSemanaNum ?></div>
+                    <p class="text-muted small mb-2"><strong>Periodo del:</strong> <?= htmlspecialchars($vlSemanaRango, ENT_QUOTES, 'UTF-8') ?></p>
+                    <hr class="my-2">
+                    <p class="text-muted mb-0" style="font-size:.8rem;">
+                        Primer vencimiento:
+                        <strong class="text-primary" id="lunesFecha">calculando…</strong>
+                        &nbsp;·&nbsp;
+                        Corte actual:
+                        <code id="corteLabel" class="text-info">—</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
             <div class="card text-center h-100">
                 <div class="card-body py-2">
                     <div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;">
@@ -96,15 +146,28 @@
     <div class="row g-3 mb-3">
         <div class="col-12 col-md-6">
             <div class="card h-100 mb-0">
-                <div class="card-header py-2">
+                <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <span class="fw-semibold" style="font-size:.82rem;">
                         <i class="fa fa-egg text-primary me-1"></i>
                         Distribución de nacimiento
                     </span>
+                    <span class="badge bg-label-warning"><i class="fa fa-globe me-1"></i>Global</span>
                 </div>
                 <div class="card-body py-2">
-                    <div class="row row-cols-2 g-2" id="statsNacimiento">
+                    <div class="row row-cols-2 g-2" id="statsNacimientoTop"></div>
+                    <div id="nacimientoGlobalResumen" class="mt-3 mb-0" style="display:none;">
+                        <div class="d-flex rounded-pill overflow-hidden border" style="height:0.82rem;background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1) !important;" role="group" aria-label="Distribución global Current vs 1-7 días">
+                            <div id="nacBarCurrent" class="d-flex align-items-center justify-content-center bg-success text-white fw-semibold flex-shrink-0 overflow-hidden"
+                                 role="progressbar" style="width:0%;min-width:0;font-size:.58rem;line-height:1;padding:0 2px;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                <span id="nacPctCurrent"></span>
+                            </div>
+                            <div id="nacBar17" class="d-flex align-items-center justify-content-center bg-danger text-white fw-semibold flex-shrink-0 overflow-hidden"
+                                 role="progressbar" style="width:0%;min-width:0;font-size:.58rem;line-height:1;padding:0 2px;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                <span id="nacPct17"></span>
+                            </div>
+                        </div>
                     </div>
+                    <div class="row row-cols-2 g-2 mt-2" id="statsNacimientoRest"></div>
                 </div>
             </div>
         </div>
@@ -130,12 +193,6 @@
     <?php endif; ?>
 
     <?php if (empty($vencimientos_vista_simple)): ?>
-    <!-- ── Matriz nacimiento → corte ── -->
-    <div class="card mb-3">
-        <div class="card-body py-2 px-2" id="statsMatriz">
-        </div>
-    </div>
-
     <!-- ── Seguimiento por jerarquía ── -->
     <div class="card mb-3">
         <div class="card-header py-2">

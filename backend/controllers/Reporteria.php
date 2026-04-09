@@ -9,6 +9,23 @@ require_once dirname(__DIR__) . '/cronjobs/PrimerosPagosAutoSwitch.php';
 
 class Reporteria extends Controller
 {
+    /** Módulo web 33 — Permisos especiales: Enviar correo (reportes de primeros pagos). */
+    private const MODULO_ENVIAR_CORREO_PRIMEROS_PAGOS = 33;
+
+    /**
+     * Usuario id 1 o permiso especial modulos_web id 33.
+     */
+    private function puedeEnviarCorreoPrimerosPagos(): bool
+    {
+        $uid = (int) ($_SESSION['usuario_id'] ?? 0);
+        if ($uid === 1) {
+            return true;
+        }
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+
+        return in_array(self::MODULO_ENVIAR_CORREO_PRIMEROS_PAGOS, $mods, true);
+    }
+
     public function reporteCapitalHumano()
     {
         $script = "";
@@ -1072,13 +1089,13 @@ public function getFiltrosCapitalHumano()
 
             const BUCKET_META = {
                 'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current' },
-                'b) 1 a 7 dias':   { cls: 'bg-label-info',      icon: 'fa-clock',                short: '1-7d'    },
+                'b) 1 a 7 dias':   { cls: 'bg-label-danger',    icon: 'fa-clock',                short: '1-7d'    },
                 'c) 8 a 30 dias':  { cls: 'bg-label-warning',   icon: 'fa-triangle-exclamation', short: '8-30d'   },
                 'd) 31 a 60 dias': { cls: 'bg-label-danger',    icon: 'fa-fire',                 short: '31-60d'  },
                 'e) 61+ dias':     { cls: 'bg-label-secondary', icon: 'fa-skull-crossbones',     short: '61+d'    },
             };
             const BUCKET_ORDER  = Object.keys(BUCKET_META);
-            const BUCKET_MATRIZ = BUCKET_ORDER.slice(0, 2);
+            const BUCKET_NAC_TOP = ['a) Current', 'b) 1 a 7 dias'];
 
             function badgeBucket(val, small = false) {
                 const v = val || '—';
@@ -1179,8 +1196,6 @@ public function getFiltrosCapitalHumano()
                         const n = Number(totalRegs);
                         elNac.textContent = Number.isFinite(n) ? n.toLocaleString('es-MX') : '—';
                     }
-                    const elMat = document.getElementById('statsMatriz');
-                    if (elMat) elMat.innerHTML = '';
                     const elJer = document.getElementById('statsJerarquia');
                     if (elJer) elJer.innerHTML = '';
                     const elCorte = document.getElementById('statsCorte');
@@ -1192,13 +1207,40 @@ public function getFiltrosCapitalHumano()
                 const totalRegs = data.length || 0;
                 const pctOf = (n) => (totalRegs ? Math.round((Number(n) / totalRegs) * 100) : 0);
 
-                /* Cards nacimiento */
-                let htmlNac = '';
-                BUCKET_ORDER.forEach(b => {
+                /* Barra global en Distribución de nacimiento: Current vs 1-7d (misma lógica que fila Global de la matriz) */
+                (function () {
+                    const elWrap = document.getElementById('nacimientoGlobalResumen');
+                    const elPc = document.getElementById('nacPctCurrent');
+                    const elP17 = document.getElementById('nacPct17');
+                    const elBc = document.getElementById('nacBarCurrent');
+                    const elB17 = document.getElementById('nacBar17');
+                    if (!elWrap || !elPc || !elP17 || !elBc || !elB17) return;
+                    const totalCurrent = nacDist['a) Current'] || 0;
+                    const total17 = nacDist['b) 1 a 7 dias'] || 0;
+                    const totalG = totalCurrent + total17;
+                    if (totalG > 0) {
+                        const pC = Math.round((totalCurrent / totalG) * 100);
+                        const p7 = 100 - pC;
+                        elPc.textContent = pC + '%';
+                        elP17.textContent = p7 + '%';
+                        elBc.style.width = pC + '%';
+                        elB17.style.width = p7 + '%';
+                        elBc.style.visibility = pC > 0 ? '' : 'hidden';
+                        elB17.style.visibility = p7 > 0 ? '' : 'hidden';
+                        elBc.setAttribute('aria-valuenow', String(pC));
+                        elB17.setAttribute('aria-valuenow', String(p7));
+                        elWrap.style.display = '';
+                    } else {
+                        elWrap.style.display = 'none';
+                    }
+                })();
+
+                /* Cards nacimiento: Current + 1-7d arriba; barra global debajo; resto de buckets abajo */
+                const cardNacHtml = (b) => {
                     const m   = BUCKET_META[b] ?? {};
                     const cnt = nacDist[b] || 0;
-                    if (!cnt) return;
-                    htmlNac += `
+                    if (!cnt) return '';
+                    return `
                     <div class="col">
                         <div class="card text-center h-100 border-0 shadow-sm">
                             <div class="card-body py-2 px-2">
@@ -1210,8 +1252,21 @@ public function getFiltrosCapitalHumano()
                             </div>
                         </div>
                     </div>`;
+                };
+                let htmlNacTop = '';
+                let htmlNacRest = '';
+                BUCKET_NAC_TOP.forEach(b => { htmlNacTop += cardNacHtml(b); });
+                BUCKET_ORDER.forEach(b => {
+                    if (BUCKET_NAC_TOP.includes(b)) return;
+                    htmlNacRest += cardNacHtml(b);
                 });
-                document.getElementById('statsNacimiento').innerHTML = htmlNac;
+                const elTop = document.getElementById('statsNacimientoTop');
+                const elRest = document.getElementById('statsNacimientoRest');
+                if (elTop) elTop.innerHTML = htmlNacTop;
+                if (elRest) {
+                    elRest.innerHTML = htmlNacRest;
+                    elRest.classList.toggle('d-none', !htmlNacRest.trim());
+                }
 
                 /* Distribución de corte: Current | Pendientes primeros pagos */
                 const totalCurrentNac = nacDist['a) Current'] || 0;
@@ -1241,174 +1296,6 @@ public function getFiltrosCapitalHumano()
                 </div>`;
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
                 actualizarTituloDistribCorte();
-
-                /* Matriz de efectividad */
-                let htmlMat = `
-                <style>
-                    .mef-header {
-                        display: grid;
-                        grid-template-columns: 150px 70px 1fr 1fr 140px;
-                        gap: 12px;
-                        padding: 4px 14px 8px;
-                        font-size: .68rem;
-                        color: #888;
-                        text-transform: uppercase;
-                        letter-spacing: .5px;
-                    }
-                    .mef-row {
-                        display: grid;
-                        grid-template-columns: 150px 70px 1fr 1fr 140px;
-                        align-items: center;
-                        gap: 12px;
-                        padding: 10px 14px;
-                        border-radius: .375rem;
-                        margin-bottom: 6px;
-                        background: var(--bs-light, #f8f9fa);
-                        border: 1px solid rgba(0,0,0,.06);
-                    }
-                    .mef-num { font-size: 1.25rem; font-weight: 600; }
-                    .mef-cell { display: flex; flex-direction: column; gap: 2px; }
-                    .mef-lbl  { font-size: .68rem; color: #888; }
-                    .mef-val-green { font-size: .92rem; font-weight: 600; color: #28a745; }
-                    .mef-val-gray  { font-size: .92rem; font-weight: 500; color: #6c757d; }
-                    .mef-bar-track { height: 5px; background: rgba(0,0,0,.08); border-radius: 3px; width: 100%; margin-top: 3px; }
-                    .mef-bar-fill  { height: 5px; border-radius: 3px; }
-                    .mef-pct  { font-size: .82rem; font-weight: 600; }
-                    .mef-note { font-size: .67rem; color: #888; margin-top: 1px; }
-                </style>
-
-                <div class="mef-header">
-                    <span>Cómo nació</span>
-                    <span>Total</span>
-                    <span>Recuperaron ↑</span>
-                    <span>Sin cambio</span>
-                    <span>Efectividad</span>
-                </div>`;
-
-                /* Fila Global (cartera completa, naranja) */
-                const totalCurrent = nacDist['a) Current'] || 0;
-                const total17     = nacDist['b) 1 a 7 dias'] || 0;
-                const totalGlobal = totalCurrent + total17;
-                if (totalGlobal > 0) {
-                    const pctCurrent = Math.round(totalCurrent / totalGlobal * 100);
-                    const pct17      = 100 - pctCurrent;
-                    const badgeGlobal = '<span class="badge bg-label-warning"><i class="fa fa-globe me-1"></i>Global</span>';
-                    const colRecuperoGlobal = `
-                        <div class="mef-cell">
-                            <span class="mef-lbl">Toda la cartera</span>
-                            <span class="mef-val-gray">${totalGlobal} créditos</span>
-                        </div>`;
-                    const colIgualGlobal = `
-                        <div class="mef-cell">
-                            <span class="mef-lbl">Resumen cartera</span>
-                            <span class="mef-val-gray">${totalCurrent} current · ${total17} 1-7d</span>
-                        </div>`;
-                    const colEfectGlobal = `
-                        <div>
-                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                <span class="mef-pct text-success">${pctCurrent}%</span>
-                                <span class="mef-note">current</span>
-                                <span class="mef-note">·</span>
-                                <span class="mef-pct text-info">${pct17}%</span>
-                                <span class="mef-note">1-7d</span>
-                            </div>
-                            <div class="mef-bar-track" style="display:flex;">
-                                <div class="mef-bar-fill" style="flex:0 0 ${pctCurrent}%;background:var(--bs-success,#28a745);"></div>
-                                <div class="mef-bar-fill" style="flex:0 0 ${pct17}%;background:var(--bs-info,#03c3ec);"></div>
-                            </div>
-                        </div>`;
-                    htmlMat += `
-                    <div class="mef-row">
-                        <div>${badgeGlobal}</div>
-                        <div class="mef-num">${totalGlobal}</div>
-                        ${colRecuperoGlobal}
-                        ${colIgualGlobal}
-                        ${colEfectGlobal}
-                    </div>`;
-                }
-
-                BUCKET_MATRIZ.forEach(b => {
-                    const total = BUCKET_ORDER.reduce((a, c) => a + (matriz[b][c] || 0), 0);
-                    if (!total) return;
-
-                    const iB = BUCKET_ORDER.indexOf(b);
-
-                    let mejoraron = 0;
-                    BUCKET_ORDER.forEach((c, iC) => { if (iC < iB) mejoraron += (matriz[b][c] || 0); });
-                    const igual = matriz[b][b] || 0;
-                    let empeoraron = 0;
-                    BUCKET_ORDER.forEach((c, iC) => { if (iC > iB) empeoraron += (matriz[b][c] || 0); });
-
-                    const pct      = total ? Math.round(mejoraron / total * 100) : 0;
-                    const barColor = pct >= 70 ? '#28a745' : pct >= 40 ? '#fd7e14' : '#dc3545';
-                    const pctCls   = pct >= 70 ? 'text-success' : pct >= 40 ? 'text-warning' : 'text-danger';
-
-                    let colRecupero = '';
-                    if (iB === 0) {
-                        colRecupero = `
-                        <div class="mef-cell">
-                            <span class="mef-lbl">Ya eran current</span>
-                            <span class="mef-val-gray">— no aplica</span>
-                        </div>`;
-                    } else {
-                        colRecupero = `
-                        <div class="mef-cell">
-                            <span class="mef-lbl">Bajaron a mejor bucket</span>
-                            <span class="mef-val-green">
-                                <i class="fa fa-arrow-up fa-xs me-1"></i>${mejoraron} créditos
-                            </span>
-                        </div>`;
-                    }
-
-                    const colIgual = `
-                    <div class="mef-cell">
-                        <span class="mef-lbl">${iB === 0 ? 'Siguen current' : 'Siguen en ' + BUCKET_META[b].short}</span>
-                        <span class="mef-val-gray">${igual} créditos</span>
-                        ${empeoraron > 0
-                            ? `<span class="mef-lbl text-danger mt-1">
-                                   <i class="fa fa-arrow-down fa-xs me-1"></i>${empeoraron} empeoraron
-                               </span>`
-                            : ''}
-                    </div>`;
-
-                    let colEfect = '';
-                    if (iB === 0) {
-                        colEfect = `
-                        <div>
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="mef-pct text-success">100%</span>
-                                <span class="mef-note">sin mora al corte</span>
-                            </div>
-                            <div class="mef-bar-track">
-                                <div class="mef-bar-fill" style="width:100%;background:#28a745;"></div>
-                            </div>
-                        </div>`;
-                    } else {
-                        const pendientes = total - mejoraron;
-                        colEfect = `
-                        <div>
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="mef-pct ${pctCls}">${pct}%</span>
-                                <span class="mef-note">recuperados</span>
-                            </div>
-                            <div class="mef-bar-track">
-                                <div class="mef-bar-fill" style="width:${pct}%;background:${barColor};"></div>
-                            </div>
-                            <div class="mef-note mt-1">${pendientes} pendiente${pendientes !== 1 ? 's' : ''} de gestión</div>
-                        </div>`;
-                    }
-
-                    htmlMat += `
-                    <div class="mef-row">
-                        <div>${badgeBucket(b)}</div>
-                        <div class="mef-num">${total}</div>
-                        ${colRecupero}
-                        ${colIgual}
-                        ${colEfect}
-                    </div>`;
-                });
-
-                document.getElementById('statsMatriz').innerHTML = htmlMat;
 
                 renderStatsJerarquia(data);
             }
@@ -2227,6 +2114,7 @@ public function getFiltrosCapitalHumano()
         self::set('titulo', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_vista_simple', false);
+        self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
         self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunes', false));
         self::render('reporte_vencimientos_lunes');
     }
@@ -2236,6 +2124,7 @@ public function getFiltrosCapitalHumano()
         self::set('titulo', 'Primeros pagos — Semana actual');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Semana actual');
         self::set('vencimientos_vista_simple', true);
+        self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
         self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunesSiguienteSemana', true));
         self::render('reporte_vencimientos_lunes');
     }
@@ -2666,8 +2555,8 @@ public function getFiltrosCapitalHumano()
     public function enviarCorreoVencimientosLunes()
     {
         try {
-            if ((int)($_SESSION['usuario_id'] ?? 0) !== 1) {
-                self::respuestaJSON(self::respuesta(false, 'No autorizado para enviar este correo.'));
+            if (!$this->puedeEnviarCorreoPrimerosPagos()) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado para enviar este correo. Se requiere el permiso «Enviar correo» (módulo 33) o usuario administrador.'));
             }
 
             $input = json_decode(file_get_contents('php://input'), true) ?: [];
@@ -2943,6 +2832,7 @@ public function getFiltrosCapitalHumano()
     .badge { display: inline-block; border-radius: 20px; padding: 3px 10px; font-size: 10px; font-weight: 600; margin-bottom: 8px; }
     .badge-green { background: #dcfce7; color: #16a34a; }
     .badge-info { background: #e0f2fe; color: #0284c7; }
+    .badge-red { background: #fee2e2; color: #dc2626; }
     .badge-yellow { background: #fef9c3; color: #b45309; }
     .num { font-size: 24px; font-weight: 600; color: #0f172a; line-height: 1.2; margin-bottom: 4px; }
     .num-pct { font-size: 16px; font-weight: 600; color: #64748b; margin-left: 4px; }
@@ -3009,7 +2899,7 @@ public function getFiltrosCapitalHumano()
                     </td>
                     <td class="stack-col" width="50%" style="width:50%;vertical-align:top;padding:0 0 0 6px;">
                       <div class="mini-card">
-                        <div class="badge badge-info">🕐 1-7d</div>
+                        <div class="badge badge-red">🕐 1-7d</div>
                         <div class="num mono">{$num($nac17)}<span class="num-pct">({$pctNac17}%)</span></div>
                         <div class="sub">nacieron</div>
                       </div>

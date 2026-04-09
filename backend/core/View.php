@@ -78,7 +78,7 @@ function getMenu()
                     'icono' => 'fa-solid fa-screwdriver-wrench',
                     'subItems' => [
                             [
-                                    'label' => 'Histórico Gestiones',
+                                    'label' => 'Histórico',
                                     'url' => '/gestiones/seguimiento',
                                     'modulos' => [3]
                             ]
@@ -107,6 +107,11 @@ function getMenu()
                                     'label' => 'Organigrama',
                                     'url' => '/caphum/organigrama',
                                     'modulos' => [5]
+                            ],
+                            [
+                                'label' => 'Capital Humano',
+                                'url' => '/reporteria/reporteCapitalHumano',
+                                'modulos' => [21]
                             ]
                     ]
             ],
@@ -132,11 +137,6 @@ function getMenu()
                                     'label' => 'Layout Legacy',
                                     'url' => '/reporteria/layoutlegacy',
                                     'modulos' => [7]
-                            ],
-                            [
-                                    'label' => 'Capital Humano',
-                                    'url' => '/reporteria/reporteCapitalHumano',
-                                    'modulos' => [21]
                             ],
                             [
                                     'label' => 'Flujo cobranza',
@@ -806,11 +806,20 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                 localStorage.setItem(NOTIF_SOUND_PLAYED_KEY, JSON.stringify(merged));
             } catch (e) {}
         }
+        /**
+         * URLs sin query ?url= (pide negocio). public/.htaccess reescribe /ruta → index.php internamente.
+         */
         function notifUrl(path) {
             var p = (path || "").replace(/^\//, "").replace(/\/$/, "");
-            var base = location.pathname.replace(/\/[^/]*$/, "") || "/";
-            var pathPart = (base === "/" || base === "") ? "/" : (base.endsWith("/") ? base : base + "/");
-            return location.origin + pathPart + "index.php?url=" + encodeURIComponent(p || "notificaciones/listar");
+            if (!p) {
+                p = "notificaciones/listar";
+            }
+            var dir = location.pathname.replace(/\/[^/]*$/, "");
+            if (dir === "") {
+                dir = "/";
+            }
+            var pathPart = (dir === "/") ? "/" : (dir.endsWith("/") ? dir : dir + "/");
+            return location.origin + pathPart + p;
         }
         if (!badgeEl || !bodyEl) return;
 

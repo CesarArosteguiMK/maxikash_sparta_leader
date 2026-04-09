@@ -363,23 +363,30 @@ console.groupEnd();
     body.dark-mode .estado-cuenta-page .reference-card {
         background: rgba(30, 41, 59, 0.9) !important;
     }
-    .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+    .estado-cuenta-page .ec-resumen-pagos-metricas-wrap {
         background: rgba(248, 249, 250, 0.9) !important;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
+        border: 1px solid #000000 !important;
+        box-shadow: 0 0 0 1px #000000 !important;
     }
-    .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+    .estado-cuenta-page .ec-metrica-pago-item {
         background: rgba(255, 255, 255, 0.85) !important;
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
+        border: none !important;
+        box-shadow: 0 0 0 1px #000000 !important;
     }
-    html.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6,
-    body.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+    html.dark-mode .estado-cuenta-page .ec-resumen-pagos-metricas-wrap,
+    body.dark-mode .estado-cuenta-page .ec-resumen-pagos-metricas-wrap {
         background: rgba(30, 41, 59, 0.7) !important;
+        border-color: #94a3b8 !important;
+        box-shadow: 0 0 0 1px #94a3b8 !important;
     }
-    html.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div,
-    body.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+    html.dark-mode .estado-cuenta-page .ec-metrica-pago-item,
+    body.dark-mode .estado-cuenta-page .ec-metrica-pago-item {
         background: rgba(51, 65, 85, 0.8) !important;
+        box-shadow: 0 0 0 1px #94a3b8 !important;
     }
 
     /* ==========================
@@ -723,13 +730,14 @@ console.groupEnd();
         .row { margin-bottom: 0.5rem; }
         .sidebar-cliente .card { margin-bottom: 0.75rem !important; }
         .badge-container-ids .badge { font-size: 0.65rem !important; padding: 0.35em 0.5em !important; }
-        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 { flex-direction: column; align-items: flex-start; margin-bottom: 0.75rem !important; }
-        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 { font-size: 0.85rem; margin-bottom: 0.5rem; width: 100%; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3,
+        .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar { flex-direction: column; align-items: flex-start; margin-bottom: 0.75rem !important; }
+        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5,
+        .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar h5 { font-size: 0.85rem; margin-bottom: 0.5rem; width: 100%; }
         .btn-notas, .btn-condonar, .btn-dictaminar, .btn-aclaraciones, .btn-rastreo-neverpaid { width: 36px !important; height: 36px !important; }
         .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-aclaraciones i, .btn-rastreo-neverpaid i { font-size: 0.9rem !important; }
-        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { flex: 1 1 calc(50% - 0.5rem); margin-bottom: 0.5rem; gap: 0.5rem; }
-        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 { font-size: 0.8rem; }
-        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span { font-size: 0.7rem; }
+        .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item h5 { font-size: inherit; }
+        .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item > div:last-child span { font-size: inherit; }
         .tabla-scrollable { margin-top: 0.5rem; }
         .cuotas-table td, .cuotas-table th { font-size: 0.6rem !important; padding: 0.3rem !important; }
         .cuotas-table .badge { font-size: 0.55rem !important; padding: 0.2em 0.3em !important; }
@@ -754,12 +762,116 @@ console.groupEnd();
     .accordion-body { animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 { padding: 1rem 1.25rem !important; border-radius: 10px; margin: 1.5rem 0 !important; border: 1px solid #e9ecef; gap: 1rem !important; }
-    .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid #f0f0f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+    .ec-card-metricas-resumen,
+    .ec-card-metricas-resumen .card-body.p-0 {
+        overflow: visible;
+    }
+    .ec-resumen-pagos-metricas-wrap {
+        padding: 1rem 1.25rem !important;
+        border-radius: 10px;
+        margin: 0 !important;
+        border: 1px solid #000000;
+        box-shadow: 0 0 0 1px #000000;
+        container-type: inline-size;
+        container-name: ec-metricas-pagos;
+        overflow: visible;
+    }
+    .ec-resumen-pagos-metricas-wrap > .row > .col {
+        container-type: inline-size;
+        container-name: ec-metrica-col;
+    }
+    .ec-metrica-pago-item {
+        padding: clamp(0.35rem, 1.2cqw + 0.25rem, 0.75rem) clamp(0.25rem, 1.5cqw + 0.2rem, 0.75rem);
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 0 0 1px #000000;
+        min-height: 100%;
+    }
+    .ec-metricas-fila-principal {
+        flex-wrap: nowrap !important;
+        --ec-metrica-gap: clamp(0.2rem, 2.5cqw, 0.65rem);
+    }
+    .ec-metricas-fila-principal > .ec-metrica-pago-col {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: auto !important;
+    }
+    .ec-metricas-fila-principal .ec-metrica-pago-item { gap: var(--ec-metrica-gap) !important; }
+    .ec-metricas-fila-principal .avatar.flex-shrink-0 { flex-shrink: 0 !important; }
+    .ec-metricas-fila-principal .avatar-initial {
+        width: clamp(1.65rem, 18cqw, 2.75rem) !important;
+        height: clamp(1.65rem, 18cqw, 2.75rem) !important;
+        min-width: 0;
+        font-size: clamp(0.65rem, 10cqw, 1.125rem) !important;
+    }
+    .ec-metricas-fila-principal .ec-metrica-q-gt {
+        font-size: clamp(0.7rem, 11cqw, 1.2rem);
+    }
+    .ec-metricas-fila-principal .ec-metrica-pago-text { min-width: 0; max-width: 100%; }
+    .ec-metricas-fila-principal .ec-metrica-pago-text h5.mb-0 {
+        font-size: clamp(0.28rem, 12cqw + 0.08rem, 1.375rem);
+        line-height: 1.12;
+        white-space: nowrap;
+        overflow: visible;
+        max-width: 100%;
+        text-overflow: clip;
+        font-variant-numeric: tabular-nums;
+    }
+    .ec-metricas-fila-principal .ec-metrica-pago-text > span {
+        display: block;
+        font-size: clamp(0.26rem, 9cqw + 0.06rem, 0.9375rem);
+        line-height: 1.1;
+        white-space: nowrap;
+        overflow: visible;
+        max-width: 100%;
+        text-overflow: clip;
+    }
+    .ec-metricas-fila-principal .ec-metrica-pago-col--ref .ec-metrica-pago-text h5.mb-0 {
+        font-size: clamp(0.2rem, 14cqw + 0.04rem, 1.125rem);
+        letter-spacing: -0.04em;
+        font-family: ui-monospace, "Cascadia Code", "Segoe UI", Consolas, monospace;
+        text-overflow: clip;
+    }
+    @media (max-width: 991.98px) and (min-width: 577px) {
+        .ec-metricas-fila-principal .ec-metrica-pago-text h5.mb-0 { font-size: clamp(0.26rem, 13cqw + 0.06rem, 1.1875rem); }
+        .ec-metricas-fila-principal .ec-metrica-pago-text > span { font-size: clamp(0.24rem, 10cqw + 0.05rem, 0.875rem); }
+        .ec-metricas-fila-principal .ec-metrica-pago-col--ref .ec-metrica-pago-text h5.mb-0 { font-size: clamp(0.2rem, 15cqw + 0.03rem, 1rem); }
+    }
+    @media (max-width: 576px) {
+        .ec-metricas-fila-principal { flex-wrap: wrap !important; row-gap: 0.5rem; }
+        .ec-metricas-fila-principal > .ec-metrica-pago-col {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+        .ec-metricas-fila-principal .ec-metrica-pago-text h5.mb-0,
+        .ec-metricas-fila-principal .ec-metrica-pago-col--ref .ec-metrica-pago-text h5.mb-0 {
+            font-size: 1rem !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: unset !important;
+            max-width: none !important;
+            word-break: break-word;
+        }
+        .ec-metricas-fila-principal .ec-metrica-pago-col--ref .ec-metrica-pago-text h5.mb-0 { word-break: break-all; }
+        .ec-metricas-fila-principal .ec-metrica-pago-text > span {
+            font-size: 0.8125rem !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: unset !important;
+            max-width: none !important;
+        }
+        .ec-metrica-pago-item { min-height: 0; }
+    }
+    @supports not (container-type: inline-size) {
+        .ec-metricas-fila-principal .ec-metrica-pago-text h5.mb-0 { font-size: clamp(0.28rem, 3.6vw + 0.08rem, 1.375rem); }
+        .ec-metricas-fila-principal .ec-metrica-pago-text > span { font-size: clamp(0.26rem, 2.8vw + 0.06rem, 0.9375rem); }
+        .ec-metricas-fila-principal .ec-metrica-pago-col--ref .ec-metrica-pago-text h5.mb-0 { font-size: clamp(0.2rem, 4.2vw + 0.04rem, 1.125rem); }
+    }
 
     @media (max-width: 768px) {
-        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 { padding: 0.75rem !important; }
-        .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div { padding: 0.4rem 0.6rem; }
+        .ec-resumen-pagos-metricas-wrap { padding: 0.5rem 0.45rem !important; }
         .sidebar-cliente .info-compact li { display: grid !important; grid-template-columns: 1.2rem minmax(140px, 1fr) auto; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.2rem 0; }
         .sidebar-cliente .info-compact i.fa-lg { grid-column: 1; font-size: 0.85rem; text-align: center; width: 1.2rem; }
         .sidebar-cliente .info-compact .info-label { display: flex !important; justify-content: space-between; align-items: center; width: 100%; }
@@ -777,9 +889,9 @@ console.groupEnd();
     .sidebar-cliente .info-compact .info-label span:last-child { font-family: 'Segoe UI', 'Roboto', 'SF Mono', Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
 </style>
 <style>
-body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 h5,
+body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item h5,
 body:not(.dark-mode) .d-flex.justify-content-between.my-3 h5 { color: #212529 !important; }
-body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 span,
+body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item > div:last-child span,
 body:not(.dark-mode) .d-flex.justify-content-between.my-3 span.small { color: #6c757d !important; }
 body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:first-child { color: #495057 !important; }
 body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:last-child { color: #212529 !important; }
@@ -1255,12 +1367,12 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
 
 
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="d-flex align-items-center gap-2">
+        <div class="d-flex flex-column flex-sm-row flex-wrap justify-content-between align-items-start align-items-sm-center gap-2 gap-sm-3 mb-3 ec-resumen-pagos-toolbar">
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
                 <h5 class="mb-0">Resumen general de pagos del cliente</h5>
             </div>
 
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center w-100 w-sm-auto justify-content-start justify-content-sm-end">
                 <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
                     <button type="button"
                             class="btn btn-rastreo-neverpaid position-relative"
@@ -1305,42 +1417,53 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
             </div>
         </div>
 
-        <div class="card mb-6">
-            <div class="d-flex justify-content-around flex-wrap my-6 gap-0 gap-md-3">
-                <div class="d-flex align-items-center me-5 gap-4">
-                    <div class="avatar">
-                        <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
-                            <span style="font-weight:700;font-size:1.1rem;">Q</span>
+        <div class="card mb-6 ec-card-metricas-resumen">
+            <div class="card-body p-0">
+                <div class="ec-resumen-pagos-metricas-wrap">
+                    <div class="row ec-metricas-fila-principal g-2">
+                        <div class="col ec-metrica-pago-col">
+                            <div class="d-flex align-items-center ec-metrica-pago-item">
+                                <div class="avatar flex-shrink-0">
+                                    <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
+                                        <span class="fw-bold ec-metrica-q-gt">Q</span>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-grow-1 ec-metrica-pago-text">
+                                    <h5 class="mb-0 ec-fit-dynamic"><?= format_currency($dataEstadoCuenta["cuota"] ?? 0) ?></h5>
+                                    <span>Cuota Semanal</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <h5 class="mb-0"><?= format_currency($dataEstadoCuenta["cuota"] ?? 0) ?></h5>
-                        <span>Cuota Semanal</span>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center gap-4">
-                    <div class="avatar">
-                        <div class="avatar-initial bg-label-primary rounded w-px-40 h-px-40">
-                            <i class="fa fa-calendar"></i>
+                        <div class="col ec-metrica-pago-col">
+                            <div class="d-flex align-items-center ec-metrica-pago-item">
+                                <div class="avatar flex-shrink-0">
+                                    <div class="avatar-initial bg-label-primary rounded w-px-40 h-px-40">
+                                        <i class="fa fa-calendar"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-grow-1 ec-metrica-pago-text">
+                                    <h5 class="mb-0 ec-fit-dynamic"><?= $fechaUltimoPagoCompleto ? format_date($fechaUltimoPagoCompleto) : '—' ?></h5>
+                                    <span>Último Pago</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <h5 class="mb-0"><?= $fechaUltimoPagoCompleto ? format_date($fechaUltimoPagoCompleto) : '—' ?></h5>
-                        <span>Último Pago</span>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center gap-4">
-                    <div class="avatar">
-                        <div class="avatar-initial bg-label-facebook rounded w-px-40 h-px-40">
-                            <i class="fa fa-id-card"></i>
+                        <div class="col ec-metrica-pago-col ec-metrica-pago-col--ref">
+                            <div class="d-flex align-items-center ec-metrica-pago-item">
+                                <div class="avatar flex-shrink-0">
+                                    <div class="avatar-initial bg-label-facebook rounded w-px-40 h-px-40">
+                                        <i class="fa fa-id-card"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-grow-1 ec-metrica-pago-text">
+                                    <h5 class="mb-0 ec-fit-dynamic ec-fit-ref"><?= htmlspecialchars($dataEstadoCuenta["idExterno"] ?? '') ?></h5>
+                                    <span>Ref. LBTR (ID Externo)</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <h5 class="mb-0"><?= htmlspecialchars($dataEstadoCuenta["idExterno"] ?? '') ?></h5>
-                        <span>Ref. LBTR (ID Externo)</span>
                     </div>
                 </div>
             </div>
+        </div>
 
             <!-- TABLA DINÁMICA -->
             <div class="table-responsive tabla-scrollable">
@@ -2728,6 +2851,68 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
         })
         .catch(err => { console.error(err); Swal.fire("Error", "Error de conexión", "error"); });
     }
+
+    // Ajuste dinámico real: baja fuente hasta que el texto quepa (sin puntos suspensivos).
+    function ecAjustarTextoMetricas() {
+        const esMovil = window.matchMedia('(max-width: 576px)').matches;
+        const nodos = document.querySelectorAll('.ec-metricas-fila-principal .ec-metrica-pago-text h5.ec-fit-dynamic');
+
+        nodos.forEach((el) => {
+            if (esMovil) {
+                el.style.removeProperty('font-size');
+                return;
+            }
+
+            if (!el.clientWidth || el.clientWidth <= 0) return;
+
+            const maxPx = parseFloat(getComputedStyle(el).fontSize) || 16;
+            const minPx = el.classList.contains('ec-fit-ref') ? 6 : 8;
+            let low = minPx;
+            let high = maxPx;
+            let best = minPx;
+
+            const cabe = () => el.scrollWidth <= el.clientWidth + 1;
+
+            el.style.fontSize = `${high}px`;
+            if (cabe()) return;
+
+            while ((high - low) > 0.25) {
+                const mid = (low + high) / 2;
+                el.style.fontSize = `${mid}px`;
+                if (cabe()) {
+                    best = mid;
+                    low = mid;
+                } else {
+                    high = mid;
+                }
+            }
+
+            el.style.fontSize = `${best.toFixed(2)}px`;
+        });
+    }
+
+    (function ecInitAjusteMetricas() {
+        let timer = null;
+        const ejecutar = () => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(ecAjustarTextoMetricas, 40);
+        };
+
+        document.addEventListener('DOMContentLoaded', ejecutar);
+        window.addEventListener('load', ejecutar);
+        window.addEventListener('resize', ejecutar);
+        window.addEventListener('orientationchange', ejecutar);
+
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(ejecutar).catch(() => {});
+        }
+
+        const fila = document.querySelector('.ec-metricas-fila-principal');
+        if (window.ResizeObserver && fila) {
+            const ro = new ResizeObserver(ejecutar);
+            ro.observe(fila);
+        }
+    })();
 </script>
 
 <script>

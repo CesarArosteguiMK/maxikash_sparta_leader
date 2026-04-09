@@ -2,7 +2,7 @@
 chcp 65001 >nul
 setlocal
 
-title Sparta Ledger - npm install en todos los agentes Node
+title Sparta Ledger - deps Node + API Python
 
 for %%I in ("%~dp0..") do set "BACKEND=%%~fI"
 
@@ -38,7 +38,20 @@ call :NpmInstall "%BACKEND%\services\gastos-cobranza-agent" gastos-cobranza-agen
 if errorlevel 1 goto :fin
 
 echo.
+echo --------------------------------------------
+echo  API Python verificacion documentos
+echo  ^(pip global por defecto; ver instalar-agente.bat /VENV^)
+echo --------------------------------------------
+call "%BACKEND%\API\instalar-agente.bat" /SILENT
+if errorlevel 1 (
+    echo [AVISO] Fallo instalacion API Python. Revise mensajes arriba.
+    echo          Guia: API\REQUISITOS_API_LOCAL.md
+    goto :fin
+)
+
+echo.
 echo [OK] Dependencias listas en las cuatro carpetas Node ^(doc, segundometro, correos, gastos cobranza^).
+echo      API Python: requirements.txt ^(global^) en API\
 echo      Arranque con iniciar-todos-los-servicios.bat
 echo.
 echo AVISO: En correos, si aun no tiene .env, ejecute una vez:

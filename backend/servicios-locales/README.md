@@ -1,6 +1,6 @@
 # Servicios locales (orquestador)
 
-Scripts para levantar o apagar **todos** los procesos auxiliares (Node + Docker) desde una sola carpeta.
+Scripts para levantar o apagar **todos** los procesos auxiliares (Node + API Python en 8000, Docker opcional) desde una sola carpeta.
 
 **Ruta:** `backend/servicios-locales/`
 
@@ -10,7 +10,7 @@ Scripts para levantar o apagar **todos** los procesos auxiliares (Node + Docker)
 
 | Archivo | Descripcion |
 |---------|-------------|
-| `instalar-todos-deps-node.bat` | Hace `npm install` en documentacion-candidato, segundometro-agent, correos-primeros-pagos-agent y gastos-cobranza-agent (una ventana, un solo `pause` al final). |
+| `instalar-todos-deps-node.bat` | Hace `npm install` en documentacion-candidato, segundometro-agent, correos-primeros-pagos-agent y gastos-cobranza-agent; al final ejecuta `API\instalar-agente.bat /SILENT` (pip global + `requirements.txt`). Una ventana, un solo `pause` al final. |
 | `instalar-agente.bat` | En **cada** carpeta de agente: instalacion detallada; en correos tambien ayuda con `.env` desde `.env.example`. |
 
 Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `instalar-agente.bat` por carpeta; luego ya puede usar solo **iniciar** / **iniciar-todos**.
@@ -21,7 +21,7 @@ Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `i
 |---------|-------------|
 | `iniciar-todos-los-servicios.bat` | Consola con resumen; agentes se abren **minimizados** en la barra (no ocultos del todo). |
 | `iniciar-todos-los-servicios.ps1` | Logica (lo llama el `.bat`). |
-| `iniciar-todos-los-servicios-oculto.vbs` | **Sin ventanas:** ni la consola del orquestador ni las de agentes/Docker (usa `-SinVentanas` en el `.ps1`). Si algo falla, use el `.bat` para ver mensajes. |
+| `iniciar-todos-los-servicios-oculto.vbs` | **Sin ventanas:** ni la consola del orquestador ni las de agentes/API (usa `-SinVentanas` en el `.ps1`). Si algo falla, use el `.bat` para ver mensajes. |
 
 **Qué inicia** (rutas relativas a `backend/`):
 
@@ -29,15 +29,15 @@ Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `i
 2. **3100** - Agente `services/segundometro-agent/`
 3. **3110** - Agente `services/correos-primeros-pagos-agent/` (con el `.bat` minimizada en la barra; con el `.vbs` oculto **no** deberia verse)
 4. **3120** - Agente `services/gastos-cobranza-agent/` (reporte cobranza, worker EC, carga lista negra, descargo estatus 3)
-5. **8000** - Docker en `API/` si Docker responde; si no, aviso en consola.
+5. **8000** - API Python en `API/` mediante `iniciar-agente-oculto.ps1` (sin ventana CMD; mismo efecto que `iniciar-agente-oculto.vbs`). Docker no es obligatorio.
 
-**Requisitos:** Node.js; dependencias npm instaladas antes ^(ver seccion anterior^); Docker para la API 8000.
+**Requisitos:** Node.js; dependencias npm y Python de la API instaladas antes ^(ver seccion anterior^); Python 3.10+ y Tesseract en Windows para la API local ^(detalle en `API\REQUISITOS_API_LOCAL.md`^).
 
 ## Detener
 
 | Archivo | Descripcion |
 |---------|-------------|
-| `cerrar-todos-los-servicios.bat` | Cierra 3001, 3100, 3110, 3120 y `docker compose down` en `API` si aplica. |
+| `cerrar-todos-los-servicios.bat` | Cierra 3001, 3100, 3110, 3120; libera el puerto 8000 ^(`API\cerrar-agente.ps1`^); y `docker compose down` en `API` si Docker esta activo. |
 | `cerrar-todos-los-servicios.ps1` | Logica. |
 | `cerrar-todos-los-servicios-oculto.vbs` | Sin ventana. |
 

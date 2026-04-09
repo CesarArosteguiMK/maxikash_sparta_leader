@@ -596,20 +596,22 @@
     @keyframes evidenciaVerEntrada { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     /* Panel Admin: columnas y textos un poco más chicos; botones tipo menú gestión (btn-sm estándar) */
     #tablaTicketsPanel.table thead th {
-        font-size: 0.78rem;
+        font-size: var(--pa-th-font, 0.78rem);
         letter-spacing: 0.02em;
+        padding: var(--pa-cell-py, 0.5rem) var(--pa-cell-px, 0.75rem);
     }
     #tablaTicketsPanel.table tbody td {
-        font-size: 0.8125rem;
+        font-size: var(--pa-td-font, 0.8125rem);
+        padding: var(--pa-cell-py, 0.5rem) var(--pa-cell-px, 0.75rem);
     }
     #tablaTicketsPanel.table tbody td .small,
     #tablaTicketsPanel.table tbody td small {
-        font-size: 0.72rem;
+        font-size: var(--pa-small-font, 0.72rem);
     }
     /* Botones acción: mismo tamaño que analítica/gestión (btn-sm) */
     #tablaTicketsPanel.table tbody td:last-child .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.8125rem;
+        padding: var(--pa-btn-py, 0.25rem) var(--pa-btn-px, 0.5rem);
+        font-size: var(--pa-btn-font, 0.8125rem);
         line-height: 1.35;
     }
     @media (min-width: 992px) {
@@ -622,6 +624,15 @@
         min-width: 0;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        /* Variables base; JS recalcula según resolución/ancho disponible */
+        --pa-th-font: 0.78rem;
+        --pa-td-font: 0.8125rem;
+        --pa-small-font: 0.72rem;
+        --pa-btn-font: 0.8125rem;
+        --pa-cell-py: 0.5rem;
+        --pa-cell-px: 0.75rem;
+        --pa-btn-py: 0.25rem;
+        --pa-btn-px: 0.5rem;
     }
     .panel-admin-sabueso-card {
         min-width: 0;
@@ -1923,6 +1934,13 @@ window.actualizarDictamenCamposPorTipo = function() {
                             '<div><span class="text-muted small d-block">Teléfono cliente</span><div class="fw-semibold">' + tel + '</div></div>' +
                             '<div><span class="text-muted small d-block">Dirección megareporte</span><div class="fw-semibold small">' + dom + '</div></div>';
                         $('#rastreoTopLeft').html(htmlTop);
+                        if (typeof sabuesoAppendInformacionIngresos === 'function') {
+                            var escFad = function(s) {
+                                var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;');
+                                return x.split(String.fromCharCode(34)).join('&quot;');
+                            };
+                            sabuesoAppendInformacionIngresos(document.getElementById('rastreoTopLeft'), d, escFad);
+                        }
                         window.idCreditoRastreoActual = idCred;
                         if (typeof $ !== 'undefined' && $.fn.modal) $modalRastreo.modal('show');
                     },
@@ -2425,6 +2443,51 @@ window.actualizarDictamenCamposPorTipo = function() {
             $('#rastreoDictamenDescripcion').val($('#rastreoDictamenAmpliadaDescripcion').val());
             enviarDictamenGestorUI();
         });
+
+        // Escala dinámica de tabla panel admin según ancho disponible.
+        function panelAdminAjustarEscalaTabla() {
+            var wrap = document.getElementById('wrapTablaTicketsPanel');
+            if (!wrap) return;
+            var w = wrap.clientWidth || 0;
+            if (!w) return;
+
+            // 1.00 cuando hay espacio; baja gradualmente hasta 0.74 en anchos estrechos.
+            var minW = 560, maxW = 1360;
+            var t = (w - minW) / (maxW - minW);
+            t = Math.max(0, Math.min(1, t));
+            var scale = 0.74 + (0.26 * t);
+
+            var setVar = function(name, val) { wrap.style.setProperty(name, val); };
+            setVar('--pa-th-font', (0.78 * scale).toFixed(3) + 'rem');
+            setVar('--pa-td-font', (0.8125 * scale).toFixed(3) + 'rem');
+            setVar('--pa-small-font', (0.72 * scale).toFixed(3) + 'rem');
+            setVar('--pa-btn-font', (0.8125 * scale).toFixed(3) + 'rem');
+            setVar('--pa-cell-py', Math.max(0.28, 0.50 * scale).toFixed(3) + 'rem');
+            setVar('--pa-cell-px', Math.max(0.35, 0.75 * scale).toFixed(3) + 'rem');
+            setVar('--pa-btn-py', Math.max(0.16, 0.25 * scale).toFixed(3) + 'rem');
+            setVar('--pa-btn-px', Math.max(0.28, 0.50 * scale).toFixed(3) + 'rem');
+
+            // Recalcula DataTables para respetar nuevos anchos tipográficos.
+            try {
+                if ($.fn.DataTable && $.fn.DataTable.isDataTable('#tablaTicketsPanel')) {
+                    var dtEsc = $('#tablaTicketsPanel').DataTable();
+                    dtEsc.columns.adjust();
+                    if (dtEsc.responsive && typeof dtEsc.responsive.recalc === 'function') {
+                        dtEsc.responsive.recalc();
+                    }
+                }
+            } catch (eEsc) {}
+        }
+
+        var panelAdminEscalaTimer = null;
+        function panelAdminProgramarEscalaTabla() {
+            if (panelAdminEscalaTimer) clearTimeout(panelAdminEscalaTimer);
+            panelAdminEscalaTimer = setTimeout(panelAdminAjustarEscalaTabla, 35);
+        }
+
+        $(window).on('resize orientationchange', panelAdminProgramarEscalaTabla);
+        panelAdminProgramarEscalaTabla();
+
         $('#tablaTicketsPanel').on('draw.dt', function() {
             var tabla;
             try { tabla = $(this).DataTable(); } catch(ex) { return; }
@@ -2443,6 +2506,7 @@ window.actualizarDictamenCamposPorTipo = function() {
                 }
             });
             $('#tablaTicketsPanel [data-bs-toggle="tooltip"]').tooltip();
+            panelAdminProgramarEscalaTabla();
         });
         $(document).on('click', '#tablaTicketsPanel .btn-dictamen-ojito, #tablaTicketsPanel .fa-eye, #tablaTicketsPanel .fa-eye-slash, #tablaTicketsPanel .dictamen-countdown', function(e) {
             e.preventDefault();
