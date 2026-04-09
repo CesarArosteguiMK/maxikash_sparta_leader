@@ -14,6 +14,10 @@
                                 <span id="gastosCobranzaEstadoBadge" class="badge bg-label-secondary">Comprobando…</span>
                             </div>
                             <div id="gastosCobranzaDetalle" class="small text-muted mt-1" style="min-height:1.25em"></div>
+                            <div id="gastosCobranzaEjecucionBanner" class="alert alert-primary d-none py-2 px-3 mt-2 mb-0 small d-flex align-items-center gap-2" role="status" aria-live="polite">
+                                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                                <span class="gc-ejec-text fw-semibold">Operación en curso…</span>
+                            </div>
                         </div>
                         <div class="col-lg-4 d-flex justify-content-lg-end">
                             <div class="gc-shell-module-card">
@@ -237,15 +241,18 @@
                     </div>
                     <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGastosCobranzaLogAhora"
-                            title="Pide al agente las últimas líneas del archivo de log en disco y las muestra aquí; baja el scroll al final para ver lo más reciente.">
+                            title="Actualiza el texto del log desde el agente. Si ya desplazaste el panel, el scroll no se mueve salvo que estuvieras al final.">
                             <i class="fa fa-download me-1"></i>Traer log ahora
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnGastosCobranzaLogCopiar" title="Copiar todo el contenido visible del log al portapapeles">
+                            <i class="fa fa-copy me-1"></i>Copiar log
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-warning" id="btnGastosCobranzaLogVaciar" title="Borra el historial del archivo de log en el agente (solo la bitácora en disco)">
                             <i class="fa fa-eraser me-1"></i>Vaciar log
                         </button>
-                        <span class="small text-muted mb-0 d-none d-lg-inline">Últimas ~400 líneas del archivo de log en el agente. Al cargar o al pulsar, el panel baja al <strong>final</strong>. Con «Auto cada 4 s» solo baja el scroll si ya estabas abajo (para no interrumpir si lees más arriba).</span>
+                        <span class="small text-muted mb-0 d-none d-xl-inline">Log en área de texto: puede seleccionar y copiar. Con «Auto cada 4 s» y durante Worker/lista negra el scroll <strong>solo</strong> baja si ya estabas al final; al recargar la página sí se muestra el final.</span>
                     </div>
-                    <pre id="gastosCobranzaLogPanel" class="bg-dark text-light border-0 rounded p-3 small mb-0 font-monospace" style="max-height:320px;overflow:auto;white-space:pre-wrap;">—</pre>
+                    <textarea id="gastosCobranzaLogPanel" class="bg-dark text-light border-0 rounded p-3 small mb-0 font-monospace w-100" rows="14" readonly style="max-height:320px;resize:vertical;white-space:pre;overflow:auto;">—</textarea>
                 </div>
             </div>
         </div>
@@ -467,6 +474,7 @@
     var logPanel = document.getElementById('gastosCobranzaLogPanel');
     var chkLog = document.getElementById('chkGastosCobranzaLogAuto');
     var btnLog = document.getElementById('btnGastosCobranzaLogAhora');
+    var btnLogCopiar = document.getElementById('btnGastosCobranzaLogCopiar');
     var btnLogVaciar = document.getElementById('btnGastosCobranzaLogVaciar');
     var btnListarRep = document.getElementById('btnGastosCobranzaListarReportes');
     var btnHistoricoRep = document.getElementById('btnGastosCobranzaHistoricoReportes');
@@ -485,34 +493,106 @@
     var ivLogEcWorker = null;
     /** Agente alcanzable y con EC listo (misma condición que antes para habilitar subida EC). */
     var gcAgenteOnline = false;
-    /** Worker o enrich vía ec-launcher en curso (esta pestaña): desactiva subida EC y engranajes en tabla. */
-    var gcEcJobEnCurso = false;
     /** El agente reporta proceso EC en curso (otra pestaña u otro usuario): mismo bloqueo en UI. */
     var gcAgenteReportaEcOcupado = false;
+    /** reporte | worker | enrich | lista_negra | descargo — bloquea el resto del shell mientras corre. */
+    var gcShellOperacionEnCurso = null;
+    /** Último estado de scripts en agente (para re-habilitar botones al terminar operación shell). */
+    var gcUltimoScriptCarga = false;
+    var gcUltimoScriptDescargo = false;
     /** Evita reejecutar el mismo día (CDMX) tras un reporte real exitoso. */
     var LS_REPORTE_OK_YMD = 'gastosCobranza_reporteRealOkYmd';
 
-    function aplicarEstadoBotonesEcWorker() {
-        var puedeLanzarEc = gcAgenteOnline && !gcEcJobEnCurso && !gcAgenteReportaEcOcupado;
-        if (btnEcLauncher) {
-            btnEcLauncher.disabled = !puedeLanzarEc;
+    var ejecucionBanner = document.getElementById('gastosCobranzaEjecucionBanner');
+
+    function actualizarBannerEjecucion() {
+        if (!ejecucionBanner) return;
+        var span = ejecucionBanner.querySelector('.gc-ejec-text');
+        if (!gcShellOperacionEnCurso) {
+            ejecucionBanner.classList.add('d-none');
+            return;
         }
-        try {
-            document.querySelectorAll('.btn-gc-worker-reporte').forEach(function (b) {
-                b.disabled = !puedeLanzarEc;
-            });
-        } catch (e) { /* ignorar */ }
+        var txt = {
+            reporte: 'Se está ejecutando el reporte de cobranza…',
+            worker: 'Se está ejecutando el Worker EC (no cierre esta pestaña)…',
+            enrich: 'Se está ejecutando el Excel enriquecido…',
+            lista_negra: 'Se está ejecutando la carga a lista negra…',
+            descargo: 'Se está generando el descargo estatus 3…'
+        };
+        if (span) span.textContent = txt[gcShellOperacionEnCurso] || 'Operación en curso…';
+        ejecucionBanner.classList.remove('d-none');
     }
 
-    async function conBloqueoWorkerEc(asyncFn) {
-        gcEcJobEnCurso = true;
-        aplicarEstadoBotonesEcWorker();
+    function iniciarOperacionShell(tipo) {
+        gcShellOperacionEnCurso = tipo;
+        actualizarBannerEjecucion();
+        aplicarEstadoBotonesShellCompleto();
+    }
+
+    function finalizarOperacionShell() {
+        gcShellOperacionEnCurso = null;
+        actualizarBannerEjecucion();
+        aplicarEstadoBotonesShellCompleto();
+    }
+
+    /** codigo_salida puede venir como número o string (p. ej. según capas PHP); evita que lista negra no se dispare en servidor. */
+    function normalizarCodigoSalida(data) {
+        if (!data || data.codigo_salida === undefined || data.codigo_salida === null) return -1;
+        var n = parseInt(String(data.codigo_salida), 10);
+        return isNaN(n) ? -1 : n;
+    }
+
+    function aplicarEstadoBotonesShellCompleto() {
+        var shellBloq = !!gcShellOperacionEnCurso;
+        var puedeEc = gcAgenteOnline && !gcAgenteReportaEcOcupado && !shellBloq;
+        if (btnEcLauncher) btnEcLauncher.disabled = !puedeEc;
         try {
-            return await asyncFn();
-        } finally {
-            gcEcJobEnCurso = false;
-            aplicarEstadoBotonesEcWorker();
+            document.querySelectorAll('.btn-gc-worker-reporte').forEach(function (b) {
+                b.disabled = !puedeEc;
+            });
+            document.querySelectorAll('.btn-gc-lista-negra-reporte').forEach(function (b) {
+                b.disabled = !puedeEc;
+            });
+        } catch (e) { /* ignorar */ }
+
+        var puedeReporte = gcAgenteOnline && !shellBloq && !gcAgenteReportaEcOcupado;
+        if (btnRun) btnRun.disabled = !puedeReporte;
+
+        if (btnListarRep) btnListarRep.disabled = shellBloq;
+        if (btnHistoricoRep) btnHistoricoRep.disabled = shellBloq;
+        if (ecFile) ecFile.disabled = shellBloq;
+        if (ecFecha) ecFecha.disabled = shellBloq;
+        if (ecCol) ecCol.disabled = shellBloq;
+        if (ecOmitir) ecOmitir.disabled = shellBloq;
+        if (ecEnrich) ecEnrich.disabled = shellBloq;
+        if (cargaVerifFile) cargaVerifFile.disabled = shellBloq;
+        if (cargaVerifEstatus) cargaVerifEstatus.disabled = shellBloq;
+        if (cargaVerifMensaje) cargaVerifMensaje.disabled = shellBloq;
+        var cargaVerifHeaderRow = document.getElementById('cargaVerifHeaderRow');
+        if (cargaVerifHeaderRow) cargaVerifHeaderRow.disabled = shellBloq;
+        if (cargaVerifDry) cargaVerifDry.disabled = shellBloq;
+        if (chkDescargoSinActualizarGuia) chkDescargoSinActualizarGuia.disabled = shellBloq;
+        if (chkMostrarCargaVerifManual) chkMostrarCargaVerifManual.disabled = shellBloq;
+        if (chkMostrarDescargo) chkMostrarDescargo.disabled = shellBloq;
+
+        if (shellBloq) {
+            if (btnCargaVerif) btnCargaVerif.disabled = true;
+            if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+        } else {
+            if (btnCargaVerif) btnCargaVerif.disabled = !gcUltimoScriptCarga;
+            if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = !gcUltimoScriptDescargo;
         }
+        try {
+            document.querySelectorAll('a.gc-rep-btn-descargar').forEach(function (a) {
+                if (shellBloq) {
+                    a.classList.add('disabled');
+                    a.setAttribute('tabindex', '-1');
+                } else {
+                    a.classList.remove('disabled');
+                    a.removeAttribute('tabindex');
+                }
+            });
+        } catch (eDl) { /* ignorar */ }
     }
 
     /** El servidor ya manda las últimas N líneas; el panel debe bajar el scroll para mostrar lo más reciente. */
@@ -854,7 +934,7 @@
         } else {
             tbodyRep.innerHTML = htmlFilasTablaReportes(filtrados);
         }
-        aplicarEstadoBotonesEcWorker();
+        aplicarEstadoBotonesShellCompleto();
     }
 
     /** true si la ruta del listado está bajo reporte/historico/… */
@@ -910,7 +990,7 @@
             return;
         }
         tbodyRepHist.innerHTML = htmlFilasTablaReportes(filtrados, { soloDescargar: true });
-        aplicarEstadoBotonesEcWorker();
+        aplicarEstadoBotonesShellCompleto();
     }
 
     function gcAbrirModalHistoricoReportes() {
@@ -941,7 +1021,7 @@
                     tbodyRep.innerHTML = '<tr><td colspan="6" class="text-warning small">' +
                         (data.mensaje || 'No se pudo listar reportes.') + '</td></tr>';
                 }
-                aplicarEstadoBotonesEcWorker();
+                aplicarEstadoBotonesShellCompleto();
                 return;
             }
             gcCacheArchivosReporte = data.archivos;
@@ -952,7 +1032,7 @@
             if (tbodyRep) {
                 tbodyRep.innerHTML = '<tr><td colspan="6" class="text-danger small">' + String(e.message || e) + '</td></tr>';
             }
-            aplicarEstadoBotonesEcWorker();
+            aplicarEstadoBotonesShellCompleto();
         }
     }
 
@@ -980,9 +1060,9 @@
             });
             var data = await r.json();
             if (data.success && typeof data.contenido === 'string') {
-                logPanel.textContent = data.contenido.length ? data.contenido : '(log vacío todavía)';
+                logPanel.value = data.contenido.length ? data.contenido : '(log vacío todavía)';
             } else {
-                logPanel.textContent = data.mensaje || 'No se pudo leer el log (¿agente caído?).';
+                logPanel.value = data.mensaje || 'No se pudo leer el log (¿agente caído?).';
             }
             var bajar;
             if (opts.scrollBottom === true) {
@@ -996,7 +1076,37 @@
                 scrollLogPanelAlFinal();
             }
         } catch (e) {
-            logPanel.textContent = String(e.message || e);
+            logPanel.value = String(e.message || e);
+        }
+    }
+
+    function copiarLogAlPortapapeles() {
+        if (!logPanel) return;
+        var t = logPanel.value || '';
+        function feedbackCopiado() {
+            if (!btnLogCopiar) return;
+            var prev = btnLogCopiar.innerHTML;
+            btnLogCopiar.innerHTML = '<i class="fa fa-check me-1"></i>Copiado';
+            setTimeout(function () { btnLogCopiar.innerHTML = prev; }, 2000);
+        }
+        function copiarSeleccionManual() {
+            try {
+                logPanel.focus();
+                logPanel.select();
+                logPanel.setSelectionRange(0, t.length);
+                if (document.execCommand('copy')) {
+                    feedbackCopiado();
+                } else {
+                    alertar('Copiar log', 'Seleccione el texto en el área del log y use Ctrl+C.', 'info');
+                }
+            } catch (e) {
+                alertar('Copiar log', 'Seleccione el texto en el área del log y use Ctrl+C.', 'info');
+            }
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(t).then(feedbackCopiado).catch(copiarSeleccionManual);
+        } else {
+            copiarSeleccionManual();
         }
     }
 
@@ -1034,9 +1144,9 @@
 
     function comenzarLogRapidoEcWorker() {
         if (ivLogEcWorker) clearInterval(ivLogEcWorker);
-        traerLog(380, { scrollBottom: true });
+        traerLog(380, { scrollBottom: 'auto' });
         ivLogEcWorker = setInterval(function () {
-            traerLog(380, { scrollBottom: true });
+            traerLog(380, { scrollBottom: 'auto' });
         }, 2500);
     }
 
@@ -1086,6 +1196,7 @@
      * cargaOpts: {} para archivo en ec-uploads; { origenCarpeta: 'reporte' } para Excel ya en reporte/.
      */
     async function ejecutarPayloadEcYListaNegra(payloadEc, cargaOpts) {
+        iniciarOperacionShell(payloadEc.tipo === 'enrich' ? 'enrich' : 'worker');
         comenzarLogRapidoEcWorker();
         try {
             var r2;
@@ -1114,7 +1225,7 @@
             }
             var ok = !!data.success;
             var msg = data.mensaje || (ok ? 'Proceso EC terminado.' : 'Error en worker / enrich.');
-            var codigoSalida = (typeof data.codigo_salida === 'number') ? data.codigo_salida : -1;
+            var codigoSalida = normalizarCodigoSalida(data);
             var esWorker = payloadEc.tipo === 'worker';
             var workerLlegoAlFin = esWorker && (codigoSalida === 0 || codigoSalida === 2);
             if (data.stdout || data.stderr) {
@@ -1129,9 +1240,12 @@
             if (workerLlegoAlFin) {
                 /* Worker llegó al final (0 = todo ok, 2 = ok con errores parciales) → cargar lista negra automático */
                 await traerListaReportes();
+                var nombreExcelListaNegra = (data.archivo && String(data.archivo).trim())
+                    ? String(data.archivo).trim()
+                    : payloadEc.nombre;
                 var dataCarga;
                 try {
-                    dataCarga = await invocarCargaVerificacionAgente(payloadEc.nombre, cargaOpts);
+                    dataCarga = await invocarCargaVerificacionAgente(nombreExcelListaNegra, cargaOpts);
                 } catch (eCarga) {
                     alertar('Worker ok — lista negra falló',
                         'El worker terminó (código ' + codigoSalida + ') pero no se pudo contactar al servidor para la lista negra. ' +
@@ -1174,7 +1288,8 @@
                     alertar('Worker ok — Lista negra FALLÓ',
                         'El worker terminó (código ' + codigoSalida + ') pero la carga a lista negra tuvo un error: ' +
                         (dataCarga.mensaje || 'sin detalle') +
-                        '.\nPuedes intentarla manualmente con el botón morado en la tabla de reportes.' +
+                        '.\nArchivo enviado a carga: «' + nombreExcelListaNegra + '».' +
+                        '\nPuedes intentarla manualmente con el botón morado en la tabla de reportes.' +
                         lineaEstadoReporteRespuesta(dataCarga.estado_reporte),
                         'warning');
                 }
@@ -1195,6 +1310,7 @@
             await traerListaReportes();
         } finally {
             detenerLogRapidoEcWorker();
+            finalizarOperacionShell();
         }
     }
 
@@ -1219,16 +1335,20 @@
             if (!data.success) {
                 gcAgenteOnline = false;
                 gcAgenteReportaEcOcupado = false;
+                gcUltimoScriptCarga = false;
+                gcUltimoScriptDescargo = false;
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Error';
                 if (detalle) detalle.textContent = data.mensaje || 'Error';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
-                aplicarEstadoBotonesEcWorker();
+                aplicarEstadoBotonesShellCompleto();
                 return;
             }
             if (!data.agente_configurado) {
                 gcAgenteOnline = false;
                 gcAgenteReportaEcOcupado = false;
+                gcUltimoScriptCarga = false;
+                gcUltimoScriptDescargo = false;
                 badge.className = 'badge bg-label-secondary';
                 badge.textContent = 'INI desactivado';
                 if (detalle) detalle.innerHTML = data.detalle || '';
@@ -1241,7 +1361,7 @@
                 }
                 gcActualizarHintSemanaActual();
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
-                aplicarEstadoBotonesEcWorker();
+                aplicarEstadoBotonesShellCompleto();
                 return;
             }
             if (data.agente_online) {
@@ -1249,6 +1369,8 @@
                 badge.className = 'badge bg-label-success';
                 badge.textContent = 'Agente en línea';
                 var a = data.agente || {};
+                gcUltimoScriptCarga = !!a.script_carga_verificacion_semana;
+                gcUltimoScriptDescargo = !!a.script_descargo_estatus3;
                 gcAgenteReportaEcOcupado = !!a.ec_launcher_ocupado;
                 if (detalle) {
                     if (gcAgenteReportaEcOcupado) {
@@ -1257,10 +1379,7 @@
                         detalle.textContent = '';
                     }
                 }
-                if (btnRun) btnRun.disabled = false;
-                if (btnCargaVerif) btnCargaVerif.disabled = !a.script_carga_verificacion_semana;
-                if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = !a.script_descargo_estatus3;
-                aplicarEstadoBotonesEcWorker();
+                aplicarEstadoBotonesShellCompleto();
                 if (!sil) {
                     traerLog(400, { scrollBottom: true });
                     traerListaReportes();
@@ -1268,10 +1387,12 @@
             } else {
                 gcAgenteOnline = false;
                 gcAgenteReportaEcOcupado = false;
+                gcUltimoScriptCarga = false;
+                gcUltimoScriptDescargo = false;
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Sin conexión';
                 if (detalle) detalle.textContent = data.detalle || '';
-                logPanel.textContent = 'Levante el agente (npm start en gastos-cobranza-agent, puerto 3120).';
+                logPanel.value = 'Levante el agente (npm start en gastos-cobranza-agent, puerto 3120).';
                 gcCacheArchivosReporte = [];
                 if (tbodyRep) {
                     tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
@@ -1281,16 +1402,18 @@
                 }
                 gcActualizarHintSemanaActual();
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
-                aplicarEstadoBotonesEcWorker();
+                aplicarEstadoBotonesShellCompleto();
             }
         } catch (e) {
             gcAgenteOnline = false;
             gcAgenteReportaEcOcupado = false;
+            gcUltimoScriptCarga = false;
+            gcUltimoScriptDescargo = false;
             badge.className = 'badge bg-label-danger';
             badge.textContent = 'Error red';
             if (detalle) detalle.textContent = String(e.message || e);
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
-            aplicarEstadoBotonesEcWorker();
+            aplicarEstadoBotonesShellCompleto();
         }
     }
 
@@ -1299,6 +1422,7 @@
     }
 
     async function ejecutarDescargoEstatus3Flujo() {
+        iniciarOperacionShell('descargo');
         if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
         setDescargoDescargando(true);
         try {
@@ -1346,6 +1470,7 @@
             alertar('Error', String(e.message || e), 'error');
         } finally {
             setDescargoDescargando(false);
+            finalizarOperacionShell();
             refrescarEstado();
         }
     }
@@ -1396,6 +1521,7 @@
             alertar('Falta archivo', 'Seleccione un Excel .xlsx.', 'warning');
             return;
         }
+        iniciarOperacionShell('lista_negra');
         if (btnCargaVerif) btnCargaVerif.disabled = true;
         if (cargaVerifOutWrap) cargaVerifOutWrap.classList.add('d-none');
         try {
@@ -1409,6 +1535,7 @@
             var ju = await up.json();
             if (!ju.success || !ju.nombre) {
                 alertar('Subida', ju.mensaje || 'No se pudo subir el archivo.', 'error');
+                finalizarOperacionShell();
                 refrescarEstado();
                 return;
             }
@@ -1425,6 +1552,8 @@
             await traerLog(400, { scrollBottom: true });
         } catch (e) {
             alertar('Error', String(e.message || e), 'error');
+        } finally {
+            finalizarOperacionShell();
         }
         refrescarEstado();
     }
@@ -1447,6 +1576,7 @@
             }
         }
 
+        iniciarOperacionShell('reporte');
         if (btnRun) btnRun.disabled = true;
         if (outWrap) outWrap.classList.add('d-none');
         try {
@@ -1485,6 +1615,7 @@
         } catch (e) {
             alertar('Error', String(e.message || e), 'error');
         } finally {
+            finalizarOperacionShell();
             refrescarEstado();
         }
     }
@@ -1494,6 +1625,7 @@
      * Respeta dry-run, estatus, headerRow y mensaje del panel manual (checkboxs/inputs existen aunque el panel esté colapsado).
      */
     async function ejecutarListaNegraDesdeReporte(nombreArchivo) {
+        iniciarOperacionShell('lista_negra');
         comenzarLogRapidoEcWorker();
         if (cargaVerifOutWrap) cargaVerifOutWrap.classList.add('d-none');
         try {
@@ -1516,6 +1648,7 @@
             alertar('Error', String(e.message || e), 'error');
         } finally {
             detenerLogRapidoEcWorker();
+            finalizarOperacionShell();
             refrescarEstado();
         }
     }
@@ -1529,18 +1662,16 @@
         ecOutWrap.classList.add('d-none');
         if (ecErroresReintentoBanner) ecErroresReintentoBanner.classList.add('d-none');
         try {
-            await conBloqueoWorkerEc(function () {
-                var payloadEc = {
-                    nombre: nombreArchivo,
-                    tipo: 'worker',
-                    fechaCorte: ecFecha.value,
-                    column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
-                    omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
-                    soloColumnas: false,
-                    origenCarpeta: 'reporte'
-                };
-                return ejecutarPayloadEcYListaNegra(payloadEc, { origenCarpeta: 'reporte' });
-            });
+            var payloadEcW = {
+                nombre: nombreArchivo,
+                tipo: 'worker',
+                fechaCorte: ecFecha.value,
+                column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
+                omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
+                soloColumnas: false,
+                origenCarpeta: 'reporte'
+            };
+            await ejecutarPayloadEcYListaNegra(payloadEcW, { origenCarpeta: 'reporte' });
         } catch (e) {
             alertar('Error', String(e.message || e), 'error');
         }
@@ -1572,6 +1703,7 @@
     if (btnLog) btnLog.addEventListener('click', function () {
         traerLog(400, { scrollBottom: true });
     });
+    if (btnLogCopiar) btnLogCopiar.addEventListener('click', copiarLogAlPortapapeles);
     if (btnLogVaciar) btnLogVaciar.addEventListener('click', vaciarLogAgente);
     function manejarClickAccionesTablaReporte(ev, root) {
         if (!root) return;

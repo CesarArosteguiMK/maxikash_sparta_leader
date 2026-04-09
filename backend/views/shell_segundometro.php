@@ -1,25 +1,29 @@
 <div class="container-xxl flex-grow-1 container-p-y">
 
-    <!-- 🎯 ENCABEZADO -->
+    <!-- Encabezado (mismo patrón que Shell Gastos Cobranza) -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <h4 class="mb-1">
-                                <i class="fa fa-terminal text-primary me-2"></i>
+            <div class="card shadow-sm border-0 gc-shell-hero-card">
+                <div class="card-body py-4">
+                    <div class="row align-items-center g-4">
+                        <div class="col-lg-8">
+                            <h4 class="mb-0 fw-semibold text-heading gc-shell-hero-title">
+                                <i class="fa fa-stopwatch text-primary me-2" aria-hidden="true"></i>
                                 Shell Segundómetro - Gestión de Reportes
                             </h4>
-                            <p class="text-muted mb-0">
-                                Modulo para gestionar archivos de reportes <code>mega_rpt_*.csv.zip</code>
+                            <p class="text-muted mt-2 mb-0 small">
+                                Modulo para gestionar archivos de reportes
                             </p>
                         </div>
-                        <div class="col-md-4 text-end">
-                            <small class="text-muted"><i class="fa fa-sync-alt me-1"></i>Actualización al abrir y en ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31, 23:50 (CDMX)</small>
-                            <div class="mt-2 small">
-                                <span class="text-muted"><i class="fa fa-clock me-1"></i>Hora real CDMX:</span>
-                                <strong id="segundometroHoraServidor" class="ms-1">—</strong>
+                        <div class="col-lg-4 d-flex justify-content-lg-end">
+                            <div class="gc-shell-module-card">
+                                <div class="gc-shell-module-icon" aria-hidden="true">
+                                    <i class="fa fa-shield-alt"></i>
+                                </div>
+                                <div class="gc-shell-module-text">
+                                    <span class="gc-shell-module-label">Control de acceso</span>
+                                    <span class="gc-shell-module-name">Módulo 16</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -28,34 +32,10 @@
         </div>
     </div>
 
-    <!-- 📝 DESCRIPCIÓN DEL MÓDULO -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">
-                        <i class="fa fa-info-circle text-primary me-2"></i>¿Qué hace este módulo?
-                    </h5>
-                    <p class="text-muted mb-3">
-                        Esta herramienta permite copiar y gestionar archivos de reportes <code>mega_rpt_*.csv.zip</code> de forma segura y controlada, sin necesidad de utilizar comandos de terminal.
-                    </p>
-                    <ul class="mb-0 ps-4 ms-2">
-                        <li class="mb-2"><strong>Historial:</strong> se muestran los reportes generados en los últimos 2 días (hoy y ayer), organizados por fecha. Cada archivo indica si es del <span class="text-danger">proveedor</span> o <span class="text-success">nosotros</span>.</li>
-                        <li class="mb-2"><strong>Frecuencia:</strong> la lista se actualiza al abrir la página (F5) y solo durante 2 minutos en las ventanas 7:31, 9:31, 11:31, 13:31, 14:31, 16:31, 18:31, 20:31 y 23:50 (hora CDMX), cada 30 s en esa ventana. No se ejecutan consultas SSH si está en otra pestaña o menú.</li>
-                        <li class="mb-2"><strong>Copiar +1s:</strong> con un clic se copia el archivo en el servidor y el nuevo nombre incrementa +1 segundo (ej.: <code>07_31_58</code> → <code>07_31_59</code>; si es 59 segundos, pasa al minuto siguiente).</li>
-                        <li class="mb-2"><strong>Descargar:</strong> se puede descargar cualquier reporte directamente desde la interfaz al equipo local.</li>
-                        <li class="mb-2"><strong>Eliminar:</strong> solo los archivos propios (nosotros, owner root) pueden eliminarse; los del proveedor no muestran esta opción.</li>
-                        <li class="mb-0"><strong>Ejecución:</strong> todas las operaciones se ejecutan en el servidor remoto de forma automática (listar, copiar, descargar y eliminar).</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Botón Truncar, Monitorear y Diagnóstico -->
     <div class="row mb-3">
         <div class="col-12">
-            <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" disabled title="Disponible solo los martes de 7:00 a 9:30 AM (CDMX)">
+            <button type="button" class="btn btn-truncar-segundometro" id="btnTruncarSegundometro" style="display: none;" disabled title="Truncar tabla Semana (copia a Historial y limpia)">
                 <i class="fa fa-cut me-2"></i>Truncar
             </button>
             <button type="button" class="btn btn-monitorear-segundometro ms-2" id="btnMonitorearSegundometro" title="Abrir monitoreo en vivo en esta página. Usa «Minimizar» en el panel para usar Truncar y otros botones sin cortar el stream.">
@@ -83,12 +63,6 @@
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-success ms-1" id="sgEjecutarAhora" title="Ejecuta ahora el mismo flujo del automático: inicia monitoreo, copia el último reporte +1s. Útil para probar o recuperar un horario perdido.">
                     <i class="fa fa-play me-1"></i>Ejecutar ahora
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-info ms-1" id="sgCatchUpEstado" title="Ver estado del catch-up automático al arrancar el agente (reportes pendientes al inicio)">
-                    <i class="fa fa-history me-1"></i>Catch-up
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-primary ms-1" id="sgAgenteProbarBd">
-                    <i class="fa fa-database me-1"></i>Probar verificación BD
                 </button>
                 <span class="small text-muted ms-2" id="sgAgenteDetalle">Consultando estado...</span>
             </div>
@@ -143,6 +117,72 @@
 
 <!-- 🎨 ESTILOS PERSONALIZADOS -->
 <style>
+    /* Shell hero + tarjeta módulo (alineado con shell_gastos_cobranza.php) */
+    .gc-shell-hero-card {
+        background: linear-gradient(135deg, #fcfdff 0%, #f6f8fc 100%);
+        border: 1px solid rgba(67, 89, 113, 0.08) !important;
+    }
+    .gc-shell-hero-title {
+        letter-spacing: -0.02em;
+    }
+    .gc-shell-module-card {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        max-width: 16rem;
+        padding: 0.85rem 1rem;
+        border-radius: 0.65rem;
+        background: #fff;
+        border: 1px solid rgba(67, 89, 113, 0.1);
+        box-shadow: 0 2px 8px rgba(67, 89, 113, 0.06);
+    }
+    .gc-shell-module-icon {
+        flex-shrink: 0;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(145deg, rgba(105, 108, 255, 0.18), rgba(105, 108, 255, 0.06));
+        color: #696cff;
+        font-size: 1.1rem;
+    }
+    .gc-shell-module-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 0;
+    }
+    .gc-shell-module-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #a1acb8;
+    }
+    .gc-shell-module-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #566a7f;
+        line-height: 1.2;
+    }
+    body.dark-mode .gc-shell-hero-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.65) 100%);
+        border-color: rgba(148, 163, 184, 0.12) !important;
+    }
+    body.dark-mode .gc-shell-module-card {
+        background: rgba(30, 41, 59, 0.85);
+        border-color: rgba(148, 163, 184, 0.15);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    body.dark-mode .gc-shell-module-label {
+        color: #94a3b8;
+    }
+    body.dark-mode .gc-shell-module-name {
+        color: #e2e8f0;
+    }
+
     .font-monospace {
         font-family: 'Courier New', monospace;
         font-size: 0.9rem;

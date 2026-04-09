@@ -39,18 +39,10 @@ qrcode==7.4.2
 piexif==1.1.3
 hachoir==3.3.0                   # Metadatos generales
 
-# --- Base de Datos ---
-sqlalchemy==2.0.30
-asyncpg==0.29.0                  # PostgreSQL async
-alembic==1.13.1                  # Migraciones
-
-# --- Cache ---
-redis==5.0.4
-hiredis==2.3.2
-
-# --- Auth / Seguridad ---
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+# --- Base de datos / cache / JWT ---
+# No usados por el código actual (app/ solo verifica con API key; BD por defecto SQLite en config sin conexión activa).
+# Si en el futuro se añaden modelos SQLAlchemy, PostgreSQL, Redis o JWT, volver a incluir aquí, p. ej.:
+#   sqlalchemy, asyncpg o aiomysql, alembic, redis, hiredis (opcional), python-jose, passlib[bcrypt]
 slowapi==0.1.9                   # Rate limiting
 
 # --- Logging ---
@@ -65,5 +57,3 @@ factory-boy==3.3.0
 
 # --- Utilidades ---
 python-dotenv==1.0.1
-httpx==0.27.0
-tenacity==8.3.0                  # Retry logic

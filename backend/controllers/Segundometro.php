@@ -847,37 +847,6 @@ class Segundometro extends Controller
                 }
             }
 
-            async function probarVerificacionBdAgente() {
-                try {
-                    Swal.fire({
-                        title: 'Probando verificación BD...',
-                        html: 'Consultando último archivo y validando estado en BD.',
-                        allowOutsideClick: false,
-                        didOpen: function() { Swal.showLoading(); }
-                    });
-                    const response = await fetch('/segundometro/probarVerificacionBdAgente', {
-                        method: 'GET',
-                        headers: { 'Front-Request': 'true' }
-                    });
-                    const data = await response.json();
-                    if (!data.success) throw new Error(data.mensaje || 'No fue posible validar');
-                    const estado = data.estado || 'procesando';
-                    const color = estado === 'ok' ? 'success' : (estado === 'error' ? 'error' : 'info');
-                    const icono = estado === 'ok' ? '✅' : (estado === 'error' ? '❌' : '⏳');
-                    Swal.fire({
-                        icon: color,
-                        title: 'Resultado verificación BD',
-                        html: '<div class="text-start">'
-                            + '<p class="mb-1"><strong>Archivo:</strong> <code>' + (data.nombre_archivo || 'N/D') + '</code></p>'
-                            + '<p class="mb-1"><strong>Estado BD:</strong> ' + icono + ' <strong>' + estado + '</strong></p>'
-                            + '<p class="mb-0 text-muted small"><strong>Fuente:</strong> ' + (data.fuente || 'N/D') + '</p>'
-                            + '</div>'
-                    });
-                } catch (e) {
-                    Swal.fire('Error', e.message || 'Error en prueba BD', 'error');
-                }
-            }
-
             // ── Ejecutar ahora: mismo flujo que el automático ──────────────────────
             async function ejecutarAhora() {
                 var confirmResult = await Swal.fire({
@@ -969,41 +938,6 @@ class Segundometro extends Controller
                     .then(function() { listarArchivos(true); actualizarEstadoAgente(); });
             }
 
-            // ── Estado del catch-up ────────────────────────────────────────────────
-            async function verEstadoCatchUp() {
-                Swal.fire({ title: 'Consultando catch-up...', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
-                try {
-                    var r = await fetch('/segundometro/catchUpEstado', { method: 'GET', headers: { 'Front-Request': 'true' } });
-                    var data = await r.json();
-                    if (!data.success || !data.estado) throw new Error(data.mensaje || 'Sin datos');
-                    var est = data.estado;
-                    var esc = s => (s + '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    var html = '<div class="text-start" style="max-height:60vh;overflow-y:auto;">';
-                    var estadoBadge = est.running
-                        ? '<span class="badge bg-warning text-dark">En curso</span>'
-                        : (est.completado ? '<span class="badge bg-success">Completado</span>' : '<span class="badge bg-secondary">No iniciado / sin datos</span>');
-                    html += '<p class="mb-2"><strong>Estado:</strong> ' + estadoBadge + '</p>';
-                    html += '<p class="mb-1"><strong>Procesados:</strong> ' + (est.procesados || 0) + ' &nbsp; <strong>Errores:</strong> ' + (est.errores || 0) + '</p>';
-                    if (est.pendientes && est.pendientes.length) {
-                        html += '<p class="mb-1"><strong>Pendientes (' + est.pendientes.length + '):</strong></p><ul class="mb-2 small">';
-                        est.pendientes.forEach(function(n){ html += '<li><code>' + esc(n) + '</code></li>'; });
-                        html += '</ul>';
-                    } else {
-                        html += '<p class="mb-1 text-success small">Sin pendientes detectados.</p>';
-                    }
-                    if (est.log && est.log.length) {
-                        html += '<details class="mt-2"><summary class="fw-bold small text-secondary" style="cursor:pointer;">Log (' + est.log.length + ' líneas)</summary>';
-                        html += '<pre class="mt-2 p-2 bg-dark text-light rounded small" style="max-height:200px;overflow-y:auto;font-size:0.75rem;">';
-                        est.log.forEach(function(l){ html += esc(l) + '\n'; });
-                        html += '</pre></details>';
-                    }
-                    html += '</div>';
-                    Swal.fire({ title: 'Estado Catch-up al arrancar', html: html, icon: est.completado ? 'success' : (est.running ? 'info' : 'question'), confirmButtonText: 'Cerrar', width: '700px' });
-                } catch(e) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: e.message || 'No se pudo consultar', confirmButtonText: 'Cerrar' });
-                }
-            }
-
             document.addEventListener('DOMContentLoaded', function() {
                 // Delegado único: aviso de descarga + fetch (funciona en localhost y servidor aunque haya caché)
                 document.addEventListener('click', function descargarReporteClick(e) {
@@ -1076,12 +1010,8 @@ class Segundometro extends Controller
                 if (btnTruncar) btnTruncar.addEventListener('click', truncarSegundometro);
                 var btnDiag = document.getElementById('btnDiagnosticoSSH');
                 if (btnDiag) btnDiag.addEventListener('click', ejecutarDiagnosticoSSH);
-                var btnProbarBd = document.getElementById('sgAgenteProbarBd');
-                if (btnProbarBd) btnProbarBd.addEventListener('click', probarVerificacionBdAgente);
                 var btnEjecutarAhora = document.getElementById('sgEjecutarAhora');
                 if (btnEjecutarAhora) btnEjecutarAhora.addEventListener('click', ejecutarAhora);
-                var btnCatchUp = document.getElementById('sgCatchUpEstado');
-                if (btnCatchUp) btnCatchUp.addEventListener('click', verEstadoCatchUp);
                 var chkAutoCopy = document.getElementById('sgAutoCopyEnabled');
                 if (chkAutoCopy) chkAutoCopy.addEventListener('change', guardarEstadoAutoCopy);
                 var linkPrueba = document.getElementById('linkTruncarModoPrueba');
@@ -1573,43 +1503,6 @@ class Segundometro extends Controller
     }
 
     /**
-     * Prueba rápida de verificación BD sobre el último archivo visible.
-     * Sirve para validar desde UI la lógica base usada por el fallback.
-     */
-    public function probarVerificacionBdAgente()
-    {
-        try {
-            if (!$this->validarModoSoloAgente('probar verificación BD')) return;
-            $nombre = null;
-            $fuente = 'agente';
-            $agent = $this->agenteRequest('GET', '/files');
-            if ($agent['success'] && is_array($agent['json']) && !empty($agent['json']['success'])) {
-                $lista = $agent['json']['datos'] ?? [];
-                if (is_array($lista) && !empty($lista) && !empty($lista[0]['nombre'])) {
-                    $nombre = (string)$lista[0]['nombre'];
-                }
-            }
-            if ($nombre === null) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'No hay archivos para validar en BD.']);
-                return;
-            }
-            $estado = 'procesando';
-            $estadoReq = $this->agenteRequest('POST', '/reportes/estado', ['nombres' => [$nombre]]);
-            if ($estadoReq['success'] && is_array($estadoReq['json']) && !empty($estadoReq['json']['success']) && isset($estadoReq['json']['estados'][$nombre])) {
-                $estado = $estadoReq['json']['estados'][$nombre];
-            }
-            self::respuestaJSON([
-                'success' => true,
-                'nombre_archivo' => $nombre,
-                'estado' => $estado,
-                'fuente' => $fuente
-            ]);
-        } catch (\Exception $e) {
-            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
-        }
-    }
-
-    /**
      * Hora del servidor en CDMX (para revisar desfase del reloj). GET → { hora_servidor_cdmx: "Y-m-d H:i:s T" }
      */
     public function horaServidor()
@@ -1781,27 +1674,6 @@ class Segundometro extends Controller
             $agent = $this->agenteRequest('GET', '/auto-copy/ejecutar-ahora/estado', null, 25);
             if (!$agent['success'] || !is_array($agent['json'])) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo consultar estado de ejecución.']);
-                return;
-            }
-            self::respuestaJSON([
-                'success' => !empty($agent['json']['success']),
-                'estado'  => $agent['json']['estado'] ?? null,
-            ]);
-        } catch (\Exception $e) {
-            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Estado del catch-up automático al arrancar el agente.
-     */
-    public function catchUpEstado()
-    {
-        try {
-            if (!$this->validarModoSoloAgente('estado catch-up')) return;
-            $agent = $this->agenteRequest('GET', '/catch-up/estado');
-            if (!$agent['success'] || !is_array($agent['json'])) {
-                self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo consultar catch-up.']);
                 return;
             }
             self::respuestaJSON([
