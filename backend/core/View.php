@@ -78,7 +78,7 @@ function getMenu()
                     'icono' => 'fa-solid fa-screwdriver-wrench',
                     'subItems' => [
                             [
-                                    'label' => 'Histórico Gestiones',
+                                    'label' => 'Histórico',
                                     'url' => '/gestiones/seguimiento',
                                     'modulos' => [3]
                             ]
@@ -107,6 +107,11 @@ function getMenu()
                                     'label' => 'Organigrama',
                                     'url' => '/caphum/organigrama',
                                     'modulos' => [5]
+                            ],
+                            [
+                                'label' => 'Capital Humano',
+                                'url' => '/reporteria/reporteCapitalHumano',
+                                'modulos' => [21]
                             ]
                     ]
             ],
@@ -132,11 +137,6 @@ function getMenu()
                                     'label' => 'Layout Legacy',
                                     'url' => '/reporteria/layoutlegacy',
                                     'modulos' => [7]
-                            ],
-                            [
-                                    'label' => 'Capital Humano',
-                                    'url' => '/reporteria/reporteCapitalHumano',
-                                    'modulos' => [21]
                             ],
                             [
                                     'label' => 'Flujo cobranza',
