@@ -27,7 +27,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/Despachos/AsignacionCreditosDespacho', 'label' => 'Despachos', 'icon' => 'fa-solid fa-building-columns', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/Despachos/MiGestion', 'label' => 'Mi Gestión', 'icon' => 'fa-solid fa-chart-gantt', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/convenios/consulta', 'label' => 'Convenios', 'icon' => 'fa-solid fa-handshake', 'bg' => 'bg-purple', 'modulos' => [46]],
-            ['url' => '/CierreCredito/consulta', 'label' => 'Cierre de Crédito', 'icon' => 'fa-solid fa-file-circle-check', 'bg' => 'bg-blue', 'modulos' => [50]],
+            ['url' => '/CierreCredito/consulta', 'label' => 'Cierre de Crédito', 'icon' => 'fa-solid fa-file-circle-check', 'bg' => 'bg-blue', 'modulos' => [51]],
             ['url' => '/paises/consulta', 'label' => 'Países', 'icon' => 'fa-solid fa-globe', 'bg' => 'bg-blue', 'modulos' => [41]],
             ['url' => '/onboarding/index', 'label' => 'Curso Onboarding', 'icon' => 'fa-solid fa-graduation-cap', 'bg' => 'bg-blue', 'modulos' => [44]],
             ['url' => '/departamentos/consulta/', 'label' => 'Departamentos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],

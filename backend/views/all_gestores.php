@@ -32,13 +32,60 @@
         border-bottom: none !important;
     }
 
+    /* Módulos del sistema (modal perfil): bloques al estilo menú lateral */
+    .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+        background: #fff;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+        background: rgba(30, 41, 59, 0.95) !important;
+        border-color: #e2e8f0 !important;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo-header {
+        background: rgba(51, 65, 85, 0.5) !important;
+        border-bottom-color: #e2e8f0 !important;
+        color: #f1f5f9 !important;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila {
+        border-bottom-color: #334155 !important;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila:hover {
+        background-color: rgba(51, 65, 85, 0.4) !important;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila td.fw-medium span {
+        color: #f1f5f9 !important;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modulo-icon-box {
+        background: rgba(129, 140, 248, 0.15) !important;
+        border-color: rgba(129, 140, 248, 0.35) !important;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modulo-icon-box i {
+        color: #93c5fd !important;
+    }
+
+    /* Módulos del sistema (modal): máximo 2 bloques por fila; el resto baja a la siguiente fila */
+    #modalEditPerfil .modal-perfil-modulos-agrupados {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    /* Exactamente 2 bloques por fila (gap 1rem entre columnas) */
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+        flex: 1 1 calc(50% - 0.5rem);
+        max-width: calc(50% - 0.5rem);
+        min-width: 0;
+        margin-bottom: 0 !important;
+    }
+
     #offcanvasEditPerfil .tab-content:not(.doc-example-content) {
         padding: .25rem 0;
     }
 
-    /* SweetAlert por encima del modal de permisos (asignar/quitar módulo o puesto) */
+    /* SweetAlert2 por encima de #modalEditPerfil / #modalKpiDesglose (z-index 99999) y #customModalOverlay (99998).
+       La clase .swal-sobre-modal-perfil quedó como alias por si algún Swal usa customClass.container. */
+    body .swal2-container,
     .swal2-container.swal-sobre-modal-perfil {
-        z-index: 100000 !important;
+        z-index: 100010 !important;
     }
 
     /* Estilos para el Modal de Permisos */
@@ -1400,6 +1447,12 @@
     max-height: 55vh !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Una columna en pantallas muy estrechas (anula max-width 50% de escritorio) */
+  #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
   }
 
   /* ── 10. PERMISOS ESPECIALES CONTAINER ── */

@@ -28,33 +28,37 @@ function getMenu()
     $mostrarMenuValidacionesAuto = $resValidacionesOp !== null;
     $urlMenuValidacionesAuto = $resValidacionesOp['url'] ?? '/validaciones/gestor';
 
+    require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
+    $menuItems = getMenuSidebarModulosStructure();
+
     $ticketSubItems = [
         [
             'label' => 'Ticket',
             'url' => '/sabueso/ticket',
-            'modulos' => [18]
+            'modulos' => [18],
         ],
     ];
     if ($mostrarMenuValidacionesAuto) {
         $ticketSubItems[] = [
             'label' => 'Validaciones',
             'url' => $urlMenuValidacionesAuto,
-            'modulos' => []
+            'modulos' => [],
         ];
     }
     $ticketSubItems[] = [
         'label' => 'Panel Admin',
         'url' => '/sabueso/panelAdminInicio',
-        'modulos' => [19, 25, 27]
+        'modulos' => [19, 25, 27],
     ];
     $ticketSubItems[] = [
         'label' => 'Cerrado/Eliminado Sabueso',
         'url' => '/sabueso/cerradoEliminado',
-        'modulos' => [48]
+        'modulos' => [48],
     ];
     $ticketSubItems[] = [
         'label' => 'Estadísticas',
         'url' => '/sabueso/estadisticas',
+<<<<<<< HEAD
         'modulos' => [47]
     ];
 
@@ -227,7 +231,11 @@ function getMenu()
                     ]
             ],
 
+=======
+        'modulos' => [47],
+>>>>>>> b2e9051a3d15c0dc34c07429684aad4e23747a62
     ];
+    $menuItems['Ticket']['subItems'] = $ticketSubItems;
 
     $menu = '';
 

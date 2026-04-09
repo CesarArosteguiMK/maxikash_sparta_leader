@@ -1079,13 +1079,15 @@ public function getFiltrosCapitalHumano()
         self::render("reporte_primeros_pagos_inicio");
     }
 
-    private function scriptVencimientosLunes(string $fetchUrl, bool $vistaSimple = false): string
+    private function scriptVencimientosLunes(string $fetchUrl, bool $vistaSimple = false, array $primerosPagosCols = []): string
     {
-        $script = <<<'HTML'
+        $colsJson = json_encode($primerosPagosCols, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $script     = <<<'HTML'
         <script>
         document.addEventListener('DOMContentLoaded', function () {
 
             const VISTA_SIMPLE = %%VISTA_SIMPLE%%;
+            const PRIMEROS_PAGOS_COLS = %%PRIMEROS_PAGOS_COLS%%;
 
             const BUCKET_META = {
                 'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current' },
@@ -1136,10 +1138,15 @@ public function getFiltrosCapitalHumano()
                     $('#tablaVencimientos').DataTable().destroy();
 
                 const cols = VISTA_SIMPLE
-                    ? [
-                        { data: 'general', width: '58%' },
-                        { data: 'cuota', className: 'text-end', width: '42%' },
-                    ]
+                    ? (Array.isArray(PRIMEROS_PAGOS_COLS) ? PRIMEROS_PAGOS_COLS : []).map(c => ({
+                        data: c.key,
+                        defaultContent: '—',
+                        className: (c.key === 'monto' || c.key === 'cuota') ? 'text-end text-nowrap' : 'text-nowrap',
+                        render: function (data) {
+                            if (data === null || data === undefined || data === '') return '—';
+                            return String(data);
+                        },
+                    }))
                     : [
                         { data:'general',   width:'200px' },
                         { data:'jerarquia', width:'220px', orderable: false },
@@ -1148,8 +1155,10 @@ public function getFiltrosCapitalHumano()
                     ];
 
                 dtVenc = $('#tablaVencimientos').DataTable({
-                    processing: true, responsive: true, pageLength: 5,
-                    lengthMenu: [[5, 10, 25, -1], [5, 10, 25, 'Todos']],
+                    processing: true, responsive: true, scrollX: VISTA_SIMPLE, pageLength: VISTA_SIMPLE ? 10 : 5,
+                    lengthMenu: VISTA_SIMPLE
+                        ? [[10, 25, 50, -1], [10, 25, 50, 'Todos']]
+                        : [[5, 10, 25, -1], [5, 10, 25, 'Todos']],
                     order: [[0,'asc']], language: dtLang,
                     columns: cols,
                 });
@@ -1593,12 +1602,7 @@ public function getFiltrosCapitalHumano()
 
             function aplicarFiltros(data) {
                 if (VISTA_SIMPLE) {
-                    const busq = (document.getElementById('fBusq')?.value || '').toLowerCase();
-                    if (!busq) return data;
-                    return data.filter(r => {
-                        const h = `${r.Nombre_cliente || ''} ${r.Id_credito || ''}`.toLowerCase();
-                        return h.includes(busq);
-                    });
+                    return data;
                 }
                 const f = {
                     bucketNacio: document.getElementById('fBucketNacio')?.value || '',
@@ -1796,19 +1800,17 @@ public function getFiltrosCapitalHumano()
 
                 const rows = datos.map((r, i) => {
                     if (VISTA_SIMPLE) {
-                        return {
-                            general: `
-                            <div class="d-flex align-items-start gap-2">
-                                <i class="fa fa-id-card text-primary mt-1" style="font-size:.9rem;"></i>
-                                <div>
-                                    <div class="fw-semibold" style="font-size:.82rem;">${r.Nombre_cliente || '—'}</div>
-                                    <div class="text-muted" style="font-size:.7rem;">
-                                        <i class="fa fa-hashtag fa-xs me-1"></i>${r.Id_credito || ''}
-                                    </div>
-                                </div>
-                            </div>`,
-                            cuota: `<span class="fw-semibold text-body">${fmt(r.Cuota)}</span>`,
-                        };
+                        const o = {};
+                        (Array.isArray(PRIMEROS_PAGOS_COLS) ? PRIMEROS_PAGOS_COLS : []).forEach(c => {
+                            let v = r[c.key];
+                            if (v === null || v === undefined) v = '';
+                            if ((c.key === 'monto' || c.key === 'cuota') && v !== '' && !Number.isNaN(parseFloat(v))) {
+                                o[c.key] = fmt(v);
+                            } else {
+                                o[c.key] = v === '' ? '' : String(v);
+                            }
+                        });
+                        return o;
                     }
                     return {
                         general: `
@@ -2084,6 +2086,82 @@ public function getFiltrosCapitalHumano()
             document.getElementById('fBusq')
                 ?.addEventListener('input', renderTabla);
 
+            if (VISTA_SIMPLE) {
+                const btnXlsSemana = document.getElementById('btnDescargarExcelPrimerosPagosSemana');
+                if (btnXlsSemana) {
+                    btnXlsSemana.addEventListener('click', async function() {
+                        if (typeof Swal === 'undefined') {
+                            window.location.href = '/reporteria/descargarPrimerosPagosSemanaActualExcel';
+                            return;
+                        }
+                        Swal.fire({
+                            title: 'Descargando Excel',
+                            html: '<p class="mb-0 text-muted" style="font-size:0.9rem;">Generando el archivo…</p>',
+                            allowOutsideClick: false,
+                            allowEscapeKey: true,
+                            showConfirmButton: false,
+                            didOpen: () => { Swal.showLoading(); },
+                            customClass: { popup: 'shadow-lg' }
+                        });
+                        try {
+                            const r = await fetch('/reporteria/descargarPrimerosPagosSemanaActualExcel', {
+                                method: 'GET',
+                                credentials: 'same-origin'
+                            });
+                            const ct = (r.headers.get('content-type') || '').toLowerCase();
+                            if (!r.ok || ct.includes('text/plain') || ct.includes('text/html') || ct.includes('application/json')) {
+                                const t = await r.text();
+                                throw new Error((t || '').trim().substring(0, 280) || 'No se pudo generar el Excel.');
+                            }
+                            const blob = await r.blob();
+                            const cd = r.headers.get('Content-Disposition') || '';
+                            let fname = 'Primeros_pagos_semana_actual.xlsx';
+                            const mStar = cd.match(/filename\\*=UTF-8''([^;]+)/i);
+                            const mQuot = cd.match(/filename="([^"]+)"/i);
+                            if (mStar) {
+                                try { fname = decodeURIComponent(mStar[1].trim()); } catch (e) { /* usar default */ }
+                            } else if (mQuot) {
+                                fname = mQuot[1];
+                            }
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = fname;
+                            a.rel = 'noopener';
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            URL.revokeObjectURL(url);
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Descarga completada',
+                                text: 'El Excel se generó y la descarga debería haberse iniciado. Si no ves el archivo, revisa la carpeta de descargas o la barra del navegador.',
+                                confirmButtonText: '<i class="fa fa-check me-2"></i>Aceptar',
+                                buttonsStyling: false,
+                                customClass: {
+                                    popup: 'shadow-lg rounded-3',
+                                    confirmButton: 'btn btn-success px-4 fw-semibold',
+                                    actions: 'mt-3 mb-1'
+                                }
+                            });
+                        } catch (err) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'No se pudo descargar',
+                                text: err && err.message ? err.message : 'Error al descargar el Excel.',
+                                confirmButtonText: 'Entendido',
+                                buttonsStyling: false,
+                                customClass: {
+                                    popup: 'shadow-lg rounded-3',
+                                    confirmButton: 'btn btn-danger px-4 fw-semibold',
+                                    actions: 'mt-3 mb-1'
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+
             const btnResetFiltros = document.getElementById('btnReset');
             if (btnResetFiltros) {
                 btnResetFiltros.addEventListener('click', () => {
@@ -2103,8 +2181,12 @@ public function getFiltrosCapitalHumano()
     HTML;
 
         return str_replace(
-            ['__FETCH_VENCIMIENTOS__', '%%VISTA_SIMPLE%%'],
-            [$fetchUrl, $vistaSimple ? 'true' : 'false'],
+            ['__FETCH_VENCIMIENTOS__', '%%VISTA_SIMPLE%%', '%%PRIMEROS_PAGOS_COLS%%'],
+            [
+                $fetchUrl,
+                $vistaSimple ? 'true' : 'false',
+                $colsJson !== '' ? $colsJson : '[]',
+            ],
             $script
         );
     }
@@ -2114,8 +2196,9 @@ public function getFiltrosCapitalHumano()
         self::set('titulo', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_vista_simple', false);
+        self::set('columnas_primeros_pagos', []);
         self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
-        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunes', false));
+        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunes', false, []));
         self::render('reporte_vencimientos_lunes');
     }
 
@@ -2124,8 +2207,10 @@ public function getFiltrosCapitalHumano()
         self::set('titulo', 'Primeros pagos — Semana actual');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Semana actual');
         self::set('vencimientos_vista_simple', true);
+        $colsMeta = EmpresasDAO::columnasPrimerosPagosMegareporte();
+        self::set('columnas_primeros_pagos', $colsMeta);
         self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
-        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunesSiguienteSemana', true));
+        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunesSiguienteSemana', true, $colsMeta));
         self::render('reporte_vencimientos_lunes');
     }
 
@@ -2178,26 +2263,34 @@ public function getFiltrosCapitalHumano()
                 $datos = [];
             }
 
+            $colsMeta = EmpresasDAO::columnasPrimerosPagosMegareporte();
+            $columnas = [];
+            foreach ($colsMeta as $c) {
+                $esMoneda = ($c['excel_tipo'] ?? '') === 'moneda';
+                $columnas[] = \PHPSpreadsheet::ColumnaExcel(
+                    $c['key'],
+                    $c['titulo'],
+                    ['estilo' => \PHPSpreadsheet::GetEstilosExcel($esMoneda ? 'moneda' : 'texto_izquierda')]
+                );
+            }
+
             $filas = [];
             foreach ($datos as $r) {
                 if (!is_array($r)) {
                     continue;
                 }
-                $cuotaVal = $r['Cuota'] ?? null;
-                $cuotaNum = is_numeric($cuotaVal) ? (float) $cuotaVal : 0.0;
-                $filas[] = [
-                    'id_credito'     => (string) ($r['Id_credito'] ?? ''),
-                    'nombre_cliente' => trim((string) ($r['Nombre_cliente'] ?? '')),
-                    /* PhpSpreadsheet helper usa html_entity_decode: enviar string */
-                    'cuota'          => number_format($cuotaNum, 2, '.', ''),
-                ];
+                $fila = [];
+                foreach ($colsMeta as $c) {
+                    $k = $c['key'];
+                    $v = $r[$k] ?? null;
+                    if (($c['excel_tipo'] ?? '') === 'moneda' && $v !== null && $v !== '' && is_numeric($v)) {
+                        $fila[$k] = number_format((float) $v, 2, '.', '');
+                    } else {
+                        $fila[$k] = $v === null || $v === '' ? '' : (string) $v;
+                    }
+                }
+                $filas[] = $fila;
             }
-
-            $columnas = [
-                \PHPSpreadsheet::ColumnaExcel('id_credito', 'ID CRÉDITO', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_centrado')]),
-                \PHPSpreadsheet::ColumnaExcel('nombre_cliente', 'NOMBRE CLIENTE', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('texto_izquierda')]),
-                \PHPSpreadsheet::ColumnaExcel('cuota', 'MONTO DE LA CUOTA', ['estilo' => \PHPSpreadsheet::GetEstilosExcel('moneda')]),
-            ];
 
             $nombreArchivo = 'Primeros_pagos_semana_actual_' . date('Y-m-d');
             \PHPSpreadsheet::DescargaExcel(
