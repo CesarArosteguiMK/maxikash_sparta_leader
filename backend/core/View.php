@@ -58,7 +58,6 @@ function getMenu()
     $ticketSubItems[] = [
         'label' => 'Estadísticas',
         'url' => '/sabueso/estadisticas',
-<<<<<<< HEAD
         'modulos' => [47]
     ];
 
@@ -231,9 +230,7 @@ function getMenu()
                     ]
             ],
 
-=======
         'modulos' => [47],
->>>>>>> b2e9051a3d15c0dc34c07429684aad4e23747a62
     ];
     $menuItems['Ticket']['subItems'] = $ticketSubItems;
 
