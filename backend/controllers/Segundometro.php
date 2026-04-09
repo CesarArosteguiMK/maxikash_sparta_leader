@@ -520,16 +520,16 @@ class Segundometro extends Controller
                         var txt = document.getElementById('sgAgenteDetalle');
                         if (!badgeModo || !badgeEstado || !txt) return;
                         if (!data || !data.success) {
-                            badgeModo.className = 'badge bg-secondary';
+                            badgeModo.className = 'badge bg-label-secondary';
                             badgeModo.textContent = 'Agente: no disponible';
-                            badgeEstado.className = 'badge bg-secondary';
+                            badgeEstado.className = 'badge bg-label-secondary';
                             badgeEstado.textContent = 'Estado: desconocido';
                             txt.textContent = (data && data.mensaje) ? data.mensaje : 'No se pudo consultar el estado de integración.';
                             return;
                         }
-                        badgeModo.className = data.usando_agente ? 'badge bg-success' : 'badge bg-warning text-dark';
+                        badgeModo.className = data.usando_agente ? 'badge bg-label-success' : 'badge bg-label-warning';
                         badgeModo.textContent = data.usando_agente ? 'Agente: activo' : 'Agente: inactivo';
-                        badgeEstado.className = data.agente_online ? 'badge bg-success' : 'badge bg-danger';
+                        badgeEstado.className = data.agente_online ? 'badge bg-label-success' : 'badge bg-label-danger';
                         badgeEstado.textContent = data.agente_online ? 'Estado: en línea' : 'Estado: fuera de línea';
                         txt.textContent = data.detalle || 'Sin detalle';
                     })
@@ -537,8 +537,8 @@ class Segundometro extends Controller
                         var badgeModo = document.getElementById('sgAgenteModo');
                         var badgeEstado = document.getElementById('sgAgenteEstado');
                         var txt = document.getElementById('sgAgenteDetalle');
-                        if (badgeModo) { badgeModo.className = 'badge bg-secondary'; badgeModo.textContent = 'Agente: no disponible'; }
-                        if (badgeEstado) { badgeEstado.className = 'badge bg-secondary'; badgeEstado.textContent = 'Estado: desconocido'; }
+                        if (badgeModo) { badgeModo.className = 'badge bg-label-secondary'; badgeModo.textContent = 'Agente: no disponible'; }
+                        if (badgeEstado) { badgeEstado.className = 'badge bg-label-secondary'; badgeEstado.textContent = 'Estado: desconocido'; }
                         if (txt) txt.textContent = 'Error de red al consultar estado del agente.';
                     });
             }
@@ -622,20 +622,30 @@ class Segundometro extends Controller
 
             function actualizarEstadoBotonTruncar() {
                 var btn = document.getElementById('btnTruncarSegundometro');
+                var wrapBtn = document.getElementById('wrapBtnTruncarSegundometro');
                 if (!btn) return;
                 var habilitado = false;
                 if (esTruncarModoPrueba()) {
                     habilitado = true;
                     btn.title = 'Modo prueba: Truncar habilitado (URL con ?truncar_test=1). Quita el parámetro para volver al horario normal.';
-                } else {
-                    var dia = new Date().toLocaleDateString('en-GB', { timeZone: 'America/Mexico_City', weekday: 'short' });
-                    var r = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false });
-                    var p = r.split(':');
-                    var minDia = parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
-                    habilitado = (dia === 'Tue' && minDia >= 420 && minDia < 570); // Martes 7:00 (420) a 9:30 (570)
-                    btn.title = habilitado ? 'Truncar tabla Semana (copia a Historial y limpia)' : 'Disponible solo los martes de 7:00 a 9:30 AM (CDMX)';
+                    if (wrapBtn) wrapBtn.style.display = '';
+                    btn.disabled = false;
+                    return;
                 }
-                btn.disabled = !habilitado;
+                var dia = new Date().toLocaleDateString('en-GB', { timeZone: 'America/Mexico_City', weekday: 'short' });
+                var r = new Date().toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false });
+                var p = r.split(':');
+                var minDia = parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+                habilitado = (dia === 'Tue' && minDia >= 420 && minDia < 570); // Martes 7:00 (420) a 9:30 (570)
+                if (habilitado) {
+                    if (wrapBtn) wrapBtn.style.display = '';
+                    btn.disabled = false;
+                    btn.title = 'Truncar tabla Semana (copia a Historial y limpia)';
+                } else {
+                    if (wrapBtn) wrapBtn.style.display = 'none';
+                    btn.disabled = true;
+                    btn.title = 'Disponible solo los martes de 7:00 a 9:30 AM (CDMX)';
+                }
             }
 
             // Monitorear: panel en la misma página (streaming). Minimizar deja usar otros botones sin cortar el stream.
@@ -1003,6 +1013,7 @@ class Segundometro extends Controller
                 programarRefrescos();
                 setTimeout(function(){ actualizarEstadoReportes(); }, 800);
                 setInterval(function(){ if (!document.hidden) actualizarEstadoAgente(); }, 30000);
+                setInterval(function(){ if (!document.hidden) actualizarEstadoBotonTruncar(); }, 30000);
                 // Poll rápido para estados pendientes y poll normal de mantenimiento.
                 segundometroEstadoFastInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 7000);
                 segundometroEstadoInterval = setInterval(function() { if (!document.hidden) actualizarEstadoReportes(); }, 30000);

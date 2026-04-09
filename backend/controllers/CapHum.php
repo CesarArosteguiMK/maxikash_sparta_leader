@@ -967,6 +967,8 @@ class CapHum extends Controller
                 '31': 'fa fa-laptop',
                 32: 'fa fa-file-import',
                 '32': 'fa fa-file-import',
+                33: 'fa fa-envelope',
+                '33': 'fa fa-envelope',
                 43: 'fa fa-key',
                 '43': 'fa fa-key',
                 45: 'fa fa-chart-gantt',
