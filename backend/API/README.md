@@ -39,7 +39,7 @@ doc-verificacion/
 ├── tests/
 │   └── test_verificacion.py
 ├── Dockerfile              ← Imagen autocontenida (Tesseract + RapidOCR + deps)
-├── docker-compose.yml      ← API + PostgreSQL + Redis
+├── docker-compose.yml      ← Solo servicio API (sin Postgres/Redis en compose)
 ```
 
 ---
@@ -111,7 +111,7 @@ cd backend/API
 # Opcional: si no tienes .env, cópialo para poder ajustar MASTER_API_KEY, etc.
 cp .env.example .env
 
-# Construir y levantar (API + PostgreSQL + Redis)
+# Construir y levantar (solo contenedor API)
 docker compose up -d --build
 
 # La API queda en http://localhost:8000
@@ -319,8 +319,8 @@ Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -Form $form
 
 | Variable | Descripción | Default |
 |----------|-------------|---------|
-| `MASTER_API_KEY` | API key principal | Requerida |
-| `DATABASE_URL` | PostgreSQL | Requerida |
+| `MASTER_API_KEY` | API key principal | Recomendada (default en código para dev) |
+| `DATABASE_URL` | Reservado en Settings; **no se usa** en rutas actuales | SQLite por defecto en código |
 | `TESSERACT_CMD` | Ruta a tesseract | `/usr/bin/tesseract` |
 | `USE_ML_CLASSIFIER` | Activar ML | `false` |
 | `UMBRAL_REAL` | Score mínimo ORIGINAL | `75` |

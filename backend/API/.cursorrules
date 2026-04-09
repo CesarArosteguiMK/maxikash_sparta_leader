@@ -1,7 +1,7 @@
 # 🤖 REGLAS PARA CURSOR AI - Sistema de Verificación de Documentos Mexicanos
 
 ## CONTEXTO DEL PROYECTO
-Sistema de verificación de autenticidad de documentos mexicanos (INE, Residencia Temporal, 
+Sistema de verificación de autenticidad de documentos mexicanos (INE, Residencia Temporal,
 Residencia Permanente) usando análisis de imagen multicapa.
 
 ## STACK TECNOLÓGICO
@@ -10,8 +10,7 @@ Residencia Permanente) usando análisis de imagen multicapa.
 - **OCR**: Tesseract + pytesseract / Google Vision API (opcional)
 - **ML**: PyTorch + torchvision (EfficientNet-B3)
 - **Validación**: Algoritmos CURP/INE propios
-- **Base de datos**: PostgreSQL + SQLAlchemy (logs de verificaciones)
-- **Cache**: Redis
+- **Base de datos / cache**: no implementados en código actual (Settings tiene `database_url` / `redis_url` por si se añaden después). Sparta Ledger (PHP) usa MySQL aparte.
 - **Deploy**: Docker + Docker Compose
 - **Testing**: pytest
 
@@ -67,7 +66,7 @@ doc-verificacion/
 
 ## TIPOS DE DOCUMENTOS SOPORTADOS
 - INE_NUEVA (2014+)
-- INE_ANTERIOR  
+- INE_ANTERIOR
 - RESIDENCIA_TEMPORAL
 - RESIDENCIA_TEMPORAL_ACUMULATIVA
 - RESIDENCIA_PERMANENTE
