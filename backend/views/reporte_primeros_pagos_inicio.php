@@ -57,28 +57,45 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     position: relative;
     z-index: 0;
     overflow: visible;
+    /*
+     * Tamaño visual de la mascota (escritorio): no afecta la altura del hero porque la img va absolute.
+     * Sube max-w / max-h aquí para una ilustración más grande sin cambiar el layout del card.
+     */
+    --pp-mascot-max-w: 280px;
+    --pp-mascot-max-h: min(280px, 44vh);
+    --pp-mascot-translate-x: -4.1rem;
+    --pp-mascot-translate-y: 4.25rem;
 }
 .pp-hero-text .card-body {
-    padding-bottom: 1rem !important;
+    padding-bottom: 1.25rem !important;
 }
 @media (min-width: 768px) {
+    /* Hero más alto: más aire y altura mínima del “cuadro” antes de las tarjetas */
+    .pp-hero-row.pp-hero-row--con-mascota {
+        align-items: stretch;
+        min-height: 17rem;
+    }
     .pp-hero-text .card-body {
-        padding-top: 1.25rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 1.75rem !important;
+        padding-bottom: 3.25rem !important;
         padding-right: 0.5rem;
     }
 }
-/* Mascota en columna Bootstrap (flujo normal): tamaño tipo referencia, sin absolute ni overflow clip */
 .pp-hero-mascot-col {
     padding-top: 0.5rem;
     padding-bottom: 0.75rem;
 }
 @media (min-width: 768px) {
+    /* Ancla la mascota: la img en absolute no estira el alto del bloque respecto al texto */
     .pp-hero-mascot-col {
-        padding-top: 1rem;
-        padding-right: 1.75rem;
-        padding-bottom: 1rem;
-        padding-left: 0.5rem;
+        position: relative;
+        min-height: 0;
+        padding: 0;
+        align-self: stretch;
+    }
+    .pp-hero-text {
+        position: relative;
+        z-index: 2;
     }
 }
 .pp-hero-mascot-floating {
@@ -88,28 +105,42 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     filter: drop-shadow(0 10px 28px rgba(26, 82, 168, 0.12));
 }
 @media (max-width: 767.98px) {
+    .pp-hero-row.pp-hero-row--con-mascota {
+        min-height: 11.5rem;
+    }
+    /* Mismo criterio que las tarjetas inferiores: texto e ilustración centrados */
+    .pp-hero-text .card-body {
+        text-align: center;
+        padding-bottom: 2rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    .pp-hero-mascot-col {
+        align-items: center !important;
+    }
     .pp-hero-mascot-floating {
         margin: 0.5rem auto 0;
-        max-width: min(68vw, 240px);
-        max-height: min(38vh, 220px);
+        max-width: min(52vw, 168px);
+        max-height: min(28vh, 160px);
         width: auto;
         height: auto;
         object-position: bottom center;
+        transform: translate(0, 3rem);
     }
 }
 @media (min-width: 768px) {
-    .pp-hero-row.pp-hero-row--con-mascota {
-        align-items: stretch;
-    }
     .pp-hero-mascot-floating {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
         width: auto;
         height: auto;
-        max-width: 100%;
-        max-height: min(300px, 52vh);
-        margin-left: auto;
-        margin-right: 0.75rem;
-        transform: translateX(-1.85rem);
+        max-width: var(--pp-mascot-max-w, 280px);
+        max-height: var(--pp-mascot-max-h, 280px);
+        margin: 0;
         object-position: bottom right;
+        transform: translate(var(--pp-mascot-translate-x, -4.1rem), var(--pp-mascot-translate-y, 4.25rem));
     }
 }
 body.dark-mode .pp-hero-mascot-floating {
