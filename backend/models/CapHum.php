@@ -789,6 +789,8 @@ class CapHum extends Model
 
             $persona = $db->queryOne($query);
             $perfiles = $db->queryAll($query_perfiles);
+            require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
+            $perfiles = enriquecerPerfilesModulosConMenuSidebar($perfiles);
             $puestos = $db->queryAll($query_puestos);
             $asignacionActual = $db->queryOne($query_asignacion_actual);
 

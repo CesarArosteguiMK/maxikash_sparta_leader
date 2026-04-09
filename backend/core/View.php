@@ -28,206 +28,39 @@ function getMenu()
     $mostrarMenuValidacionesAuto = $resValidacionesOp !== null;
     $urlMenuValidacionesAuto = $resValidacionesOp['url'] ?? '/validaciones/gestor';
 
+    require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
+    $menuItems = getMenuSidebarModulosStructure();
+
     $ticketSubItems = [
         [
             'label' => 'Ticket',
             'url' => '/sabueso/ticket',
-            'modulos' => [18]
+            'modulos' => [18],
         ],
     ];
     if ($mostrarMenuValidacionesAuto) {
         $ticketSubItems[] = [
             'label' => 'Validaciones',
             'url' => $urlMenuValidacionesAuto,
-            'modulos' => []
+            'modulos' => [],
         ];
     }
     $ticketSubItems[] = [
         'label' => 'Panel Admin',
         'url' => '/sabueso/panelAdminInicio',
-        'modulos' => [19, 25, 27]
+        'modulos' => [19, 25, 27],
     ];
     $ticketSubItems[] = [
         'label' => 'Cerrado/Eliminado Sabueso',
         'url' => '/sabueso/cerradoEliminado',
-        'modulos' => [48]
+        'modulos' => [48],
     ];
     $ticketSubItems[] = [
         'label' => 'Estadísticas',
         'url' => '/sabueso/estadisticas',
-        'modulos' => [47]
+        'modulos' => [47],
     ];
-
-    $menuItems = [
-            'Créditos' => [
-                    'icono' => 'fa-solid fa-sack-dollar',
-                    'subItems' => [
-                            [
-                                    'label' => 'Estados de Cuenta',
-                                    'url' => '/estadocuenta/consulta',
-                                    'modulos' => [1]
-                            ],
-                            [
-                                    'label' => 'Documentación',
-                                    'url' => '/estadocuenta/documentacion',
-                                    'modulos' => [2]
-                            ]
-                    ]
-            ],
-            'Gestiones' => [
-                    'icono' => 'fa-solid fa-screwdriver-wrench',
-                    'subItems' => [
-                            [
-                                    'label' => 'Histórico Gestiones',
-                                    'url' => '/gestiones/seguimiento',
-                                    'modulos' => [3]
-                            ]
-                    ]
-            ],
-
-            'Capital Humano' => [
-                    'icono' => 'fa-solid fa-users',
-                    'subItems' => [
-                            [
-                                    'label' => 'Gestión',
-                                    'url' => '/caphum/gestion',
-                                    'modulos' => [4]
-                            ],
-                            [
-                                'label' => 'Candidatos',
-                                'url' => '/caphum/candidatos',
-                                'modulos' => [42]
-                            ],
-                            [
-                                'label' => 'Bajas',
-                                'url' => '/caphum/bajas',
-                                'modulos' => [13]
-                            ],
-                            [
-                                    'label' => 'Organigrama',
-                                    'url' => '/caphum/organigrama',
-                                    'modulos' => [5]
-                            ]
-                    ]
-            ],
-            'Reportería' => [
-                    'icono' => 'fa-solid fa-file',
-                    'subItems' => [
-                            [
-                                    'label' => 'Call Center',
-                                    'url' => '/reporteria/callcenter',
-                                    'modulos' => [6, 14, 15]
-                            ],
-                            [
-                                'label' => 'Primeros pagos',
-                                'url' => '/reporteria/PrimerosPagos',
-                                    'modulos' => [49]
-                            ],
-                            [
-                                    'label' => 'Sabuesos',
-                                    'url' => '/reporteria/sabuesos',
-                                    'modulos' => [18, 19]
-                            ],
-                            [
-                                    'label' => 'Layout Legacy',
-                                    'url' => '/reporteria/layoutlegacy',
-                                    'modulos' => [7]
-                            ],
-                            [
-                                    'label' => 'Capital Humano',
-                                    'url' => '/reporteria/reporteCapitalHumano',
-                                    'modulos' => [21]
-                            ],
-                            [
-                                    'label' => 'Flujo cobranza',
-                                    'url' => '/ReporteriaBI/FlujoCobranza',
-                                    'modulos' => [50]
-                            ]
-
-
-                    ]
-            ],
-            'Ticket' => [
-                    'icono' => 'fa-solid fa-ticket',
-                    'subItems' => $ticketSubItems
-            ],
-            'Convenios' => [
-                    'icono' => 'fa-solid fa-building-columns',
-                    'subItems' => [
-                            [
-                                    'label' => 'Asignación de Créditos',
-                                    'url' => '/Despachos/AsignacionCreditosDespacho',
-                                    'modulos' => [20]
-                            ],
-                            [
-                                    'label' => 'Mi Cartera',
-                                    'url' => '/Despachos/MiGestion',
-                                    'modulos' => [45]
-                            ],
-                            [
-                                    'label' => 'Crear Convenio',
-                                    'url' => '/convenios/consulta',
-                                    'modulos' => [46]
-                            ],
-                            [
-                                    'label' => 'Cierre de Crédito',
-                                    'url' => '/CierreCredito/consulta',
-                                    'modulos' => [50]
-                            ]
-                    ]
-            ],
-            'Onboarding' => [
-                    'icono' => 'fa-solid fa-graduation-cap',
-                    'subItems' => [
-                            [
-                                    'label' => 'Curso Onboarding',
-                                    'url' => '/onboarding/index',
-                                    'modulos' => [44]
-                            ]
-                    ]
-            ],
-            'Configuración' => [
-                    'icono' => 'fa-solid fa-cog',
-                    'subItems' => [
-                            [
-                                    'label' => 'Departamentos',
-                                    'url' => '/departamentos/consulta/',
-                                    'modulos' => [10]
-                            ],
-                            [
-                                    'label' => 'Países',
-                                    'url' => '/paises/consulta',
-                                    'modulos' => [41]
-                            ],
-                            [
-                                    'label' => 'Equivalencia puestos',
-                                    'url' => '/equivalencias/consulta',
-                                    'modulos' => [17]
-                            ],
-                            [
-                                    'label' => 'Asignación por puestos',
-                                    'url' => '/configticketpuesto/consulta',
-                                    'modulos' => [26]
-                            ],
-                    ]
-            ],
-            'Shell' => [
-                    'icono' => 'fa-solid fa-laptop',
-                    'subItems' => [
-                            [
-                                    'label' => 'Shell Segundómetro',
-                                    'url' => '/segundometro/shell',
-                                    'modulos' => [16]
-                            ],
-                            [
-                                    'label' => 'Shell Gastos Cobranza',
-                                    'url' => '/gastoscobranza/shell',
-                                    'modulos' => [31]
-                            ],
-                    ]
-            ],
-
-    ];
+    $menuItems['Ticket']['subItems'] = $ticketSubItems;
 
     $menu = '';
 

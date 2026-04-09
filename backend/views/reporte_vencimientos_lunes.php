@@ -192,6 +192,15 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
     </div>
     <?php endif; ?>
 
+    <?php if (!empty($vencimientos_vista_simple)): ?>
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <label for="fBusqPrimerosPagos" class="form-label mb-1" style="font-size:.75rem;">Buscar en todas las columnas</label>
+            <input type="search" id="fBusqPrimerosPagos" class="form-control form-control-sm" placeholder="Texto en cualquier campo…" autocomplete="off">
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if (empty($vencimientos_vista_simple)): ?>
     <!-- ── Seguimiento por jerarquía ── -->
     <div class="card mb-3">
@@ -261,15 +270,12 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                        style="width:100%">
                     <thead class="table-light">
                     <tr>
-                        <?php if (!empty($vencimientos_vista_simple)): ?>
-                        <th>
-                            <i class="fa fa-id-card text-primary me-1"></i>
-                            General
-                        </th>
-                        <th class="text-end">
-                            <i class="fa fa-money-bill-wave text-success me-1"></i>
-                            Monto de la cuota
-                        </th>
+                        <?php if (!empty($vencimientos_vista_simple) && !empty($columnas_primeros_pagos)): ?>
+                            <?php foreach ($columnas_primeros_pagos as $colPp): ?>
+                        <th class="text-nowrap" style="font-size:.7rem;"><?= htmlspecialchars($colPp['titulo'] ?? '', ENT_QUOTES, 'UTF-8'); ?></th>
+                            <?php endforeach; ?>
+                        <?php elseif (!empty($vencimientos_vista_simple)): ?>
+                        <th colspan="2" class="text-muted small">Columnas (definir en Empresa::columnasPrimerosPagosMegareporte)</th>
                         <?php else: ?>
                         <th>
                             <i class="fa fa-id-card text-primary me-1"></i>

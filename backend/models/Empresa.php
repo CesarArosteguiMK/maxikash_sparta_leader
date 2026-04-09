@@ -828,79 +828,114 @@ class Empresa extends Model
     }
 
     /**
-     * Une claves en minúsculas (PDO/MySQL) a los nombres que consume el front (PascalCase).
+     * Columnas de «Primeros pagos — Semana actual» (mega-reporte): orden de tabla, CSV/JSON y Excel.
+     * Para añadir un campo: 1) alias en `sqlPrimerosPagosMegareporte()` en MAYÚSCULAS con guiones bajos (p. ej. `MI_CAMPO`);
+     * 2) una entrada aquí con la misma clave en minúsculas (`mi_campo`). El normalizador rellena solo estas claves.
+     *
+     * @return list<array{key: string, titulo: string, excel_tipo: string}>
+     */
+    public static function columnasPrimerosPagosMegareporte(): array
+    {
+        return [
+            ['key' => 'id_cliente', 'titulo' => 'ID CLIENTE', 'excel_tipo' => 'texto'],
+            ['key' => 'id_credito', 'titulo' => 'ID CRÉDITO', 'excel_tipo' => 'texto'],
+            ['key' => 'nombre_cliente', 'titulo' => 'NOMBRE CLIENTE', 'excel_tipo' => 'texto'],
+            ['key' => 'stp', 'titulo' => 'STP', 'excel_tipo' => 'texto'],
+            ['key' => 'banco', 'titulo' => 'BANCO', 'excel_tipo' => 'texto'],
+            ['key' => 'monto', 'titulo' => 'MONTO', 'excel_tipo' => 'moneda'],
+            ['key' => 'cuota', 'titulo' => 'CUOTA', 'excel_tipo' => 'moneda'],
+            ['key' => 'kt', 'titulo' => 'KT', 'excel_tipo' => 'texto'],
+            ['key' => 'inicio', 'titulo' => 'INICIO', 'excel_tipo' => 'texto'],
+            ['key' => 'bucket_respuesta', 'titulo' => 'BUCKET RESPUESTA', 'excel_tipo' => 'texto'],
+            ['key' => 'estado', 'titulo' => 'ESTADO', 'excel_tipo' => 'texto'],
+            ['key' => 'sucursal', 'titulo' => 'SUCURSAL', 'excel_tipo' => 'texto'],
+            ['key' => 'forma_de_pago', 'titulo' => 'FORMA DE PAGO', 'excel_tipo' => 'texto'],
+            ['key' => 'celular', 'titulo' => 'CELULAR', 'excel_tipo' => 'texto'],
+            ['key' => 'tipe', 'titulo' => 'TIPE', 'excel_tipo' => 'texto'],
+            ['key' => 'nombre_referencia_01', 'titulo' => 'NOMBRE REFERENCIA 01', 'excel_tipo' => 'texto'],
+            ['key' => 'telefono_referencia_01', 'titulo' => 'TELÉFONO REFERENCIA 01', 'excel_tipo' => 'texto'],
+            ['key' => 'nombre_referencia_02', 'titulo' => 'NOMBRE REFERENCIA 02', 'excel_tipo' => 'texto'],
+            ['key' => 'telefono_referencia_02', 'titulo' => 'TELÉFONO REFERENCIA 02', 'excel_tipo' => 'texto'],
+        ];
+    }
+
+    /** SELECT explícito alineado a columnas de negocio (misma fuente que Excel/tabla). */
+    private static function sqlPrimerosPagosMegareporte(): string
+    {
+        return <<<'SQL'
+SELECT
+    t.`Id_cliente` AS `ID_CLIENTE`,
+    t.`Id_credito` AS `ID_CREDITO`,
+    t.`Nombre_cliente` AS `NOMBRE_CLIENTE`,
+    t.`Referencia_stp` AS `STP`,
+    CASE
+        WHEN t.`Referencia_stp` LIKE '6461%' THEN 'STP'
+        WHEN t.`Referencia_stp` LIKE '011%' THEN 'Ve por Mas'
+        ELSE 'OTRO'
+    END AS `BANCO`,
+    t.`Monto_otorgado` AS `MONTO`,
+    t.`Cuota` AS `CUOTA`,
+    t.`KT` AS `KT`,
+    t.`Fecha_inicio` AS `INICIO`,
+    t.`Bucket_Morosidad_Final` AS `BUCKET_RESPUESTA`,
+    t.`Estado` AS `ESTADO`,
+    t.`Sucursal` AS `SUCURSAL`,
+    'TRANSFERENCIA' AS `FORMA_DE_PAGO`,
+    t.`Celular` AS `CELULAR`,
+    t.`Tipo_Referencia` AS `TIPE`,
+    NULL AS `NOMBRE_REFERENCIA_01`,
+    t.`Telefono_referencia_01` AS `TELEFONO_REFERENCIA_01`,
+    t.`Nombre_referencia_02` AS `NOMBRE_REFERENCIA_02`,
+    t.`Telefono_referencia_02` AS `TELEFONO_REFERENCIA_02`
+FROM `__SPARTA_SECRET_REDACTED__`.`tbl_segundometro_primeros_pagos` t
+SQL;
+    }
+
+    /**
+     * Alinea la fila SQL (alias en mayúsculas/minúsculas variables) a las claves de `columnasPrimerosPagosMegareporte()`.
      *
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private static function normalizarFilaTblPrimerosPagos(array $row): array
+    private static function normalizarFilaPrimerosPagosMegareporte(array $row): array
     {
-        $l = array_change_key_case($row, CASE_LOWER);
-        $pick = static function (array $a, array $cands) {
-            foreach ($cands as $c) {
-                if (array_key_exists($c, $a) && $a[$c] !== null && $a[$c] !== '') {
-                    return $a[$c];
-                }
-            }
-            foreach ($cands as $c) {
-                if (array_key_exists($c, $a)) {
-                    return $a[$c];
-                }
-            }
+        $l   = array_change_key_case($row, CASE_LOWER);
+        $out = [];
+        foreach (self::columnasPrimerosPagosMegareporte() as $col) {
+            $k          = $col['key'];
+            $out[$k] = array_key_exists($k, $l) ? $l[$k] : null;
+        }
 
-            return null;
-        };
-
-        return [
-            'Id_credito'                => $pick($l, ['id_credito']),
-            'Nombre_cliente'            => $pick($l, ['nombre_cliente']),
-            'Cuota'                     => $pick($l, ['cuota', 'monto_cuota', 'monto_de_la_cuota', 'cuota_mensual']),
-            'Cuotas_vencidas'           => $pick($l, ['cuotas_vencidas']),
-            'Saldo_vencido_actualizado' => $pick($l, ['saldo_vencido_actualizado']),
-            'Fecha_primer_vencimiento'  => $pick($l, ['fecha_primer_vencimiento']),
-            'Gestor_Asignado'           => $pick($l, ['gestor_asignado']),
-            'Jefe_de_Plaza'             => $pick($l, ['jefe_de_plaza']),
-            'Zonal'                     => $pick($l, ['zonal']),
-            'Territorial'               => $pick($l, ['territorial']),
-        ];
+        return $out;
     }
 
     /**
-     * Primeros pagos — Semana actual: catálogo completo en `tbl_segundometro_primeros_pagos` (__SPARTA_SECRET_REDACTED__).
-     * SELECT * + normalización: evita fallos por mayúsculas/minúsculas en nombres de columnas.
+     * Primeros pagos — Semana actual: `tbl_segundometro_primeros_pagos` (__SPARTA_SECRET_REDACTED__).
      */
     private static function getVencimientosPrimerosPagosDesdeMegaReporte(): array
     {
         try {
             $db  = new DatabaseSegundometro();
-            $sql = 'SELECT * FROM `__SPARTA_SECRET_REDACTED__`.`tbl_segundometro_primeros_pagos`';
+            $sql = self::sqlPrimerosPagosMegareporte();
 
             $raw  = $db->queryAll($sql);
             $rows = [];
             foreach (is_array($raw) ? $raw : [] as $r) {
                 if (is_array($r)) {
-                    $rows[] = self::normalizarFilaTblPrimerosPagos($r);
+                    $rows[] = self::normalizarFilaPrimerosPagosMegareporte($r);
                 }
             }
 
             usort($rows, static function (array $a, array $b): int {
-                $ka = ($a['Territorial'] ?? '')
-                    . "\0" . ($a['Zonal'] ?? '')
-                    . "\0" . ($a['Jefe_de_Plaza'] ?? '')
-                    . "\0" . ($a['Gestor_Asignado'] ?? '')
-                    . "\0" . ($a['Nombre_cliente'] ?? '');
-                $kb = ($b['Territorial'] ?? '')
-                    . "\0" . ($b['Zonal'] ?? '')
-                    . "\0" . ($b['Jefe_de_Plaza'] ?? '')
-                    . "\0" . ($b['Gestor_Asignado'] ?? '')
-                    . "\0" . ($b['Nombre_cliente'] ?? '');
+                $ka = ($a['nombre_cliente'] ?? '') . "\0" . ($a['id_credito'] ?? '');
+                $kb = ($b['nombre_cliente'] ?? '') . "\0" . ($b['id_credito'] ?? '');
 
                 return strcmp($ka, $kb);
             });
 
             $dateStrs = [];
             foreach ($rows as $nr) {
-                $f = $nr['Fecha_primer_vencimiento'] ?? null;
+                $f = $nr['inicio'] ?? null;
                 if ($f === null || $f === '') {
                     continue;
                 }
