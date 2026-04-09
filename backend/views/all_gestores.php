@@ -3089,13 +3089,23 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <div class="tab-pane fade" id="tabSesionRemota" role="tabpanel" aria-labelledby="tabSesionRemota-tab">
                             <div class="row justify-content-center">
                                 <div class="col-12 col-md-10 col-lg-7">
-                                    <div class="border rounded-3 p-4 bg-light">
-                                        <h6 class="fw-semibold mb-2">Forzar cierre de sesión</h6>
-                                        <p class="text-muted small mb-4 mb-md-0">La sesión activa de este usuario se cerrará en cuanto el sistema la valide (normalmente en unos segundos). Deberá volver a iniciar sesión.</p>
-                                        <button type="button" class="btn btn-outline-danger w-100 mt-md-4" id="btnForzarLogoutUsuarioPerfil" onclick="forzarCierreSesionUsuarioPerfil()">
-                                            <i class="fa fa-sign-out me-2"></i>Forzar cierre de sesión
-                                        </button>
-                                        <p class="small mb-0 mt-3 text-muted" id="forceLogoutPerfilEstado"></p>
+                                    <div class="card border-danger-subtle shadow-sm">
+                                        <div class="card-body p-4">
+                                            <div class="d-flex align-items-start gap-3 mb-3">
+                                                <span class="badge bg-danger-subtle text-danger-emphasis">
+                                                    <i class="fa fa-shield-alt me-1"></i>Seguridad de sesión
+                                                </span>
+                                            </div>
+                                            <h6 class="fw-semibold mb-2">Forzar cierre de sesión</h6>
+                                            <p class="text-muted small mb-3">La sesión activa de este usuario (incluido usted si abre su propio perfil) se cerrará en cuanto el sistema la valide. Después deberá iniciar sesión nuevamente.</p>
+                                            <div class="alert alert-light border small mb-3" role="alert">
+                                                <i class="fa fa-info-circle me-2 text-primary"></i>Use esta acción cuando necesite cerrar una sesión remota por seguridad.
+                                            </div>
+                                            <button type="button" class="btn btn-danger w-100" id="btnForzarLogoutUsuarioPerfil" onclick="forzarCierreSesionUsuarioPerfil()">
+                                                <i class="fa fa-sign-out-alt me-2"></i>Forzar cierre ahora
+                                            </button>
+                                            <p class="small mb-0 mt-3" id="forceLogoutPerfilEstado"></p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

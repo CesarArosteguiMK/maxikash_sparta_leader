@@ -184,22 +184,22 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
     body.dark-mode .estado-cuenta-page .reference-card {
         background: rgba(30, 41, 59, 0.9) !important;
     }
-    .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+    .estado-cuenta-page .ec-resumen-pagos-metricas-wrap {
         background: rgba(248, 249, 250, 0.9) !important;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
     }
-    .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+    .estado-cuenta-page .ec-metrica-pago-item {
         background: rgba(255, 255, 255, 0.85) !important;
         backdrop-filter: blur(6px);
         -webkit-backdrop-filter: blur(6px);
     }
-    html.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6,
-    body.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+    html.dark-mode .estado-cuenta-page .ec-resumen-pagos-metricas-wrap,
+    body.dark-mode .estado-cuenta-page .ec-resumen-pagos-metricas-wrap {
         background: rgba(30, 41, 59, 0.7) !important;
     }
-    html.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div,
-    body.dark-mode .estado-cuenta-page .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+    html.dark-mode .estado-cuenta-page .ec-metrica-pago-item,
+    body.dark-mode .estado-cuenta-page .ec-metrica-pago-item {
         background: rgba(51, 65, 85, 0.8) !important;
     }
 
@@ -1073,13 +1073,15 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
            padding: 0.35em 0.5em !important;
        }
 
-       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 {
+       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3,
+       .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar {
            flex-direction: column;
            align-items: flex-start;
            margin-bottom: 0.75rem !important;
        }
 
-       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5 {
+       .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5,
+       .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar h5 {
            font-size: 0.85rem;
            margin-bottom: 0.5rem;
            width: 100%;
@@ -1094,17 +1096,11 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
            font-size: 0.9rem !important;
        }
 
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
-           flex: 1 1 calc(50% - 0.5rem);
-           margin-bottom: 0.5rem;
-           gap: 0.5rem;
-       }
-
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 h5 {
+       .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item h5 {
            font-size: 0.8rem;
        }
 
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 span {
+       .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item > div:last-child span {
            font-size: 0.7rem;
        }
 
@@ -1262,35 +1258,31 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
    }
 
     /* ==========================
-       PADDING MÉTRICAS HORIZONTALES (Cuota Semanal, etc.)
+       Resumen pagos (Cuota, Último pago, STP) — grid responsive
    ========================== */
 
-   /* MOD: Añadir padding a métricas horizontales */
-   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+   .ec-resumen-pagos-metricas-wrap {
        padding: 1rem 1.25rem !important;
        border-radius: 10px;
-       margin: 1.5rem 0 !important;
+       margin: 0 !important;
        border: 1px solid #e9ecef;
    }
 
-   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
+   .ec-metrica-pago-item {
        padding: 0.5rem 0.75rem;
        border-radius: 8px;
        border: 1px solid #f0f0f0;
        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-   }
-
-   .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
-       gap: 1rem !important;
+       min-height: 100%;
    }
 
    @media (max-width: 768px) {
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 {
+       .ec-resumen-pagos-metricas-wrap {
            padding: 0.75rem !important;
        }
 
-       .col-xl-8.col-lg-7 .d-flex.justify-content-around.flex-wrap.my-6 > div {
-           padding: 0.4rem 0.6rem;
+       .ec-metrica-pago-item {
+           padding: 0.5rem 0.65rem;
        }
    }
 
@@ -1443,11 +1435,11 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
 </style>
 <style>
 /* Restaurar colores de métricas en modo claro */
-body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 h5,
+body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item h5,
 body:not(.dark-mode) .d-flex.justify-content-between.my-3 h5 {
     color: #212529 !important;
 }
-body:not(.dark-mode) .d-flex.justify-content-around.flex-wrap.my-6 span,
+body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item > div:last-child span,
 body:not(.dark-mode) .d-flex.justify-content-between.my-3 span.small {
     color: #6c757d !important;
 }
@@ -2059,10 +2051,10 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
 
     <!-- CONTENIDO PRINCIPAL -->
     <div class="col-xl-8 col-lg-7 order-0 order-lg-1">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">Resumen general de pagos del cliente</h5>
+        <div class="d-flex flex-column flex-sm-row flex-wrap justify-content-between align-items-start align-items-sm-center gap-2 gap-sm-3 mb-3 ec-resumen-pagos-toolbar">
+            <h5 class="mb-0 flex-shrink-0">Resumen general de pagos del cliente</h5>
 
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center w-100 w-sm-auto justify-content-start justify-content-sm-end">
                 <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
                     <button type="button"
                             class="btn btn-rastreo-neverpaid position-relative"
@@ -2118,65 +2110,72 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
 
 
         <div class="card mb-6">
-            <div class="d-flex justify-content-around flex-wrap my-6 gap-0 gap-md-3">
-
-                <div class="d-flex align-items-center me-5 gap-4">
-                    <div class="avatar">
-                        <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
-                            <i class="fa fa-dollar-sign"></i>
+            <div class="card-body p-0">
+                <div class="ec-resumen-pagos-metricas-wrap">
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+                        <div class="col">
+                            <div class="d-flex align-items-center gap-3 ec-metrica-pago-item">
+                                <div class="avatar flex-shrink-0">
+                                    <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
+                                        <i class="fa fa-dollar-sign"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <h5 class="mb-0"><?= format_currency($dataEstadoCuenta["cuota"] ?? 0) ?></h5>
+                                    <span>Cuota Semanal</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <h5 class="mb-0"><?= format_currency($dataEstadoCuenta["cuota"] ?? 0) ?></h5>
-                        <span>Cuota Semanal</span>
-                    </div>
-                </div>
-
-                <div class="d-flex align-items-center gap-4">
-                    <div class="avatar">
-                        <div class="avatar-initial bg-label-primary rounded w-px-40 h-px-40">
-                            <i class="fa fa-calendar"></i>
+                        <div class="col">
+                            <div class="d-flex align-items-center gap-3 ec-metrica-pago-item">
+                                <div class="avatar flex-shrink-0">
+                                    <div class="avatar-initial bg-label-primary rounded w-px-40 h-px-40">
+                                        <i class="fa fa-calendar"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <h5 class="mb-0">
+                                        <?= $fechaUltimoPagoCompleto
+                                                ? format_date($fechaUltimoPagoCompleto)
+                                                : '—'
+                                        ?>
+                                    </h5>
+                                    <span>Último Pago</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <h5 class="mb-0">
-                            <?= $fechaUltimoPagoCompleto
-                                    ? format_date($fechaUltimoPagoCompleto)
-                                    : '—'
-                            ?>
-                        </h5>
-                        <span>Último Pago</span>
-                    </div>
-                </div>
-
-                <div class="d-flex align-items-center gap-4">
-                    <div class="avatar">
-                        <div class="avatar-initial bg-label-facebook rounded w-px-40 h-px-40">
-                            <i class="fa fa-id-card"></i>
+                        <div class="col">
+                            <div class="d-flex align-items-center gap-3 ec-metrica-pago-item">
+                                <div class="avatar flex-shrink-0">
+                                    <div class="avatar-initial bg-label-facebook rounded w-px-40 h-px-40">
+                                        <i class="fa fa-id-card"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <h5 class="mb-0 text-break"><?= htmlspecialchars($dataEstadoCuenta["referenciaSTP"] ?? '') ?></h5>
+                                    <span>Referencia STP</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <h5 class="mb-0"><?= htmlspecialchars($dataEstadoCuenta["referenciaSTP"] ?? '') ?></h5>
-                        <span>Referencia STP</span>
+                        <?php if (!empty($resultadoCruce['saldo_favor']) && $resultadoCruce['saldo_favor'] > 0): ?>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center gap-3 ec-metrica-pago-item">
+                                <div class="avatar flex-shrink-0">
+                                    <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
+                                        <i class="fa fa-piggy-bank"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-grow-1">
+                                    <h5 class="mb-0"><?= format_currency($resultadoCruce['saldo_favor']) ?></h5>
+                                    <span>Saldo a favor gastos</span>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
-            </div>
-
-             <?php if (!empty($resultadoCruce['saldo_favor']) && $resultadoCruce['saldo_favor'] > 0): ?>
-        <div class="d-flex align-items-center gap-4">
-            <div class="avatar">
-                <div class="avatar-initial bg-label-success rounded w-px-40 h-px-40">
-                    <i class="fa fa-piggy-bank"></i>
-                </div>
-            </div>
-            <div>
-                <h5 class="mb-0"><?= format_currency($resultadoCruce['saldo_favor']) ?></h5>
-                <span>Saldo a favor gastos</span>
             </div>
         </div>
-        <?php endif; ?>
-
-    </div>
 
             <!-- TABLA DINÁMICA -->
             <div class="table-responsive tabla-scrollable">

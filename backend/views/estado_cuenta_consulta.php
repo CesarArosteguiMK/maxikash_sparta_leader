@@ -140,20 +140,17 @@
 
             <div class="col-12 col-md-8">
                 <label class="form-label">Filtro</label>
-                <div class="input-group input-group-merge">
-
-                    <div class="form-check form-check-inline me-3">
+                <div class="d-flex align-items-center flex-wrap gap-3">
+                    <div class="form-check form-check-inline m-0">
                         <input class="form-check-input" type="radio" name="modoBusqueda" id="modoID" value="id"
                             <?= (!isset($_POST['modoBusqueda']) || $_POST['modoBusqueda'] === 'id') ? 'checked' : '' ?>>
                         <label class="form-check-label" for="modoID">ID de crédito</label>
                     </div>
-
-                    <div class="form-check form-check-inline">
+                    <div class="form-check form-check-inline m-0">
                         <input class="form-check-input" type="radio" name="modoBusqueda" id="modoNombre" value="nombre"
                             <?= (isset($_POST['modoBusqueda']) && $_POST['modoBusqueda'] === 'nombre') ? 'checked' : '' ?>>
                         <label class="form-check-label" for="modoNombre">Nombre del cliente</label>
                     </div>
-
                 </div>
             </div>
 
@@ -199,8 +196,13 @@
                     <div class="col-12 col-md-6" id="divFechaCorte" style="display: none;">
                         <label for="fechaCorte" class="form-label small mb-1">
                             <i class="fa fa-calendar-alt me-1"></i>Fecha de corte
-                            <i class="fa fa-info-circle text-muted ms-1" style="cursor: help; font-size: 0.85rem;"
-                               title="La consulta mostrará datos hasta esta fecha (corte histórico). Solo se mostrarán movimientos hasta el día seleccionado, no posteriores."></i>
+                            <button type="button" class="btn p-0 border-0 bg-transparent text-muted ms-1 align-middle lh-1"
+                                    style="cursor:pointer;"
+                                    id="btnAyudaFechaCorte"
+                                    aria-label="Información sobre fecha de corte"
+                                    data-ayuda-fecha="<?= htmlspecialchars('La consulta mostrará datos hasta esta fecha (corte histórico). Solo se mostrarán movimientos hasta el día seleccionado, no posteriores.', ENT_QUOTES, 'UTF-8') ?>">
+                                <i class="fa fa-info-circle" style="font-size:0.85rem;" aria-hidden="true"></i>
+                            </button>
                         </label>
                         <input type="text" class="form-control flatpickr-fecha-corte" id="fechaCorte" name="fechaCorte"
                                style="max-width: 10rem; cursor: pointer;"
@@ -223,6 +225,25 @@
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+
+        const btnAyudaFechaCorte = document.getElementById('btnAyudaFechaCorte');
+        if (btnAyudaFechaCorte) {
+            btnAyudaFechaCorte.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const txt = btnAyudaFechaCorte.getAttribute('data-ayuda-fecha') || '';
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Fecha de corte',
+                        text: txt,
+                        confirmButtonText: 'Entendido',
+                    });
+                } else {
+                    window.alert(txt);
+                }
+            });
+        }
 
         // ═══════════════════════════════════════════════════════════
         // BOTÓN CAMBIAR PAÍS

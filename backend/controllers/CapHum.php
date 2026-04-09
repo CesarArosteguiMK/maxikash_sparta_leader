@@ -690,19 +690,25 @@ class CapHum extends Controller
                 var el = document.getElementById('forceLogoutPerfilEstado');
                 var btn = document.getElementById('btnForzarLogoutUsuarioPerfil');
                 if (!el || !btn) return;
+                if (!persona) {
+                    el.textContent = '';
+                    el.className = 'small mb-0 mt-3 text-muted';
+                    btn.disabled = false;
+                    return;
+                }
                 var mid = typeof window.miUsuarioId !== 'undefined' ? Number(window.miUsuarioId) : 0;
                 var pid = persona && persona.id != null ? Number(persona.id) : 0;
-                if (mid > 0 && pid === mid) {
-                    btn.disabled = true;
-                    el.textContent = 'No aplica a su propio usuario; use Cerrar sesión en el menú.';
-                    el.className = 'small mb-0 mt-3 text-muted';
-                    return;
+                var esPropio = mid > 0 && pid === mid;
+                if (esPropio && Number(persona.force_logout) !== 1) {
+                    el.textContent = 'Si es su propio usuario, al forzar el cierre deberá volver a iniciar sesión en cuanto el sistema aplique la solicitud.';
+                    el.className = 'alert alert-info small mb-0 mt-3';
+                    btn.disabled = false;
                 }
                 if (Number(persona.force_logout) === 1) {
                     el.textContent = 'Cierre de sesión pendiente: en la próxima validación se cerrará la sesión activa.';
-                    el.className = 'small mb-0 mt-3 text-warning';
+                    el.className = 'alert alert-warning small mb-0 mt-3';
                     btn.disabled = true;
-                } else {
+                } else if (!esPropio) {
                     el.textContent = '';
                     el.className = 'small mb-0 mt-3 text-muted';
                     btn.disabled = false;
@@ -711,29 +717,38 @@ class CapHum extends Controller
 
             function forzarCierreSesionUsuarioPerfil() {
                 if (!currentPersonaId) return;
-                var mid = typeof window.miUsuarioId !== 'undefined' ? Number(window.miUsuarioId) : 0;
-                if (mid > 0 && Number(currentPersonaId) === mid) {
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Acción no disponible',
-                            text: 'Use Cerrar sesión en el menú principal.',
-                            customClass: { container: 'swal-sobre-modal-perfil' }
-                        });
-                    }
-                    return;
-                }
                 if (typeof Swal === 'undefined') return;
+                var mid = typeof window.miUsuarioId !== 'undefined' ? Number(window.miUsuarioId) : 0;
+                var esPropio = mid > 0 && Number(currentPersonaId) === mid;
                 Swal.fire({
                     title: '¿Forzar cierre de sesión?',
-                    text: 'El usuario deberá volver a iniciar sesión.',
+                    html: esPropio
+                        ? '<div class="text-start"><p class="mb-2">Se cerrará su <strong>propia sesión</strong> en la próxima validación.</p><p class="mb-0 text-muted small">Deberá iniciar sesión nuevamente.</p></div>'
+                        : '<div class="text-start"><p class="mb-2">Se cerrará la sesión activa de este usuario.</p><p class="mb-0 text-muted small">La persona deberá volver a iniciar sesión.</p></div>',
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonText: 'Sí, forzar',
+                    confirmButtonText: 'Sí, forzar cierre',
                     cancelButtonText: 'Cancelar',
-                    customClass: { container: 'swal-sobre-modal-perfil' }
+                    reverseButtons: true,
+                    focusCancel: true,
+                    buttonsStyling: false,
+                    customClass: {
+                        container: 'swal-sobre-modal-perfil',
+                        actions: 'd-flex gap-2 justify-content-center',
+                        confirmButton: 'btn btn-danger px-4',
+                        cancelButton: 'btn btn-outline-secondary px-4'
+                    }
                 }).then(function(r) {
                     if (!r.isConfirmed) return;
+                    Swal.fire({
+                        title: 'Aplicando cierre...',
+                        text: 'Espere un momento.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        didOpen: function() { Swal.showLoading(); },
+                        customClass: { container: 'swal-sobre-modal-perfil' }
+                    });
                     fetch('/CapHum/forzarCierreSesionUsuario', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -744,17 +759,18 @@ class CapHum extends Controller
                         if (!data.success) {
                             Swal.fire({
                                 icon: 'error',
-                                title: 'Error',
-                                text: data.mensaje || 'No se pudo aplicar',
+                                title: 'No se pudo forzar el cierre',
+                                text: data.mensaje || 'No se pudo aplicar la solicitud.',
+                                confirmButtonText: 'Entendido',
                                 customClass: { container: 'swal-sobre-modal-perfil' }
                             });
                             return;
                         }
                         Swal.fire({
                             icon: 'success',
-                            title: 'Listo',
-                            text: data.mensaje || 'Solicitud registrada.',
-                            timer: 2200,
+                            title: 'Cierre solicitado',
+                            text: data.mensaje || 'La sesión se cerrará en la próxima validación.',
+                            timer: 2400,
                             showConfirmButton: false,
                             customClass: { container: 'swal-sobre-modal-perfil' }
                         });
@@ -763,8 +779,9 @@ class CapHum extends Controller
                     .catch(function() {
                         Swal.fire({
                             icon: 'error',
-                            title: 'Error',
-                            text: 'Error de conexión',
+                            title: 'Error de conexión',
+                            text: 'No se pudo contactar al servidor. Intente nuevamente.',
+                            confirmButtonText: 'Cerrar',
                             customClass: { container: 'swal-sobre-modal-perfil' }
                         });
                     });
@@ -950,6 +967,8 @@ class CapHum extends Controller
                 '31': 'fa fa-laptop',
                 32: 'fa fa-file-import',
                 '32': 'fa fa-file-import',
+                33: 'fa fa-envelope',
+                '33': 'fa fa-envelope',
                 43: 'fa fa-key',
                 '43': 'fa fa-key',
                 45: 'fa fa-chart-gantt',
@@ -1325,6 +1344,7 @@ class CapHum extends Controller
                         showConfirmButton: false,
                         customClass: { container: 'swal-sobre-modal-perfil' }
                     });
+                    if (typeof getUsuarios === 'function') getUsuarios();
                 })
                 .catch(err => {
                     console.error(err);
@@ -2092,6 +2112,9 @@ class CapHum extends Controller
                                 if (listEl) { listEl.innerHTML = ""; listEl.style.display = "none"; }
                                 const spanBajaOk = document.getElementById("bajaModal_nombreArchivo");
                                 if (spanBajaOk) spanBajaOk.textContent = "No se ha seleccionado ningún archivo";
+
+                                if (typeof getUsuarios === 'function') getUsuarios();
+                                if (typeof getBajas === 'function') getBajas();
                             } else {
                                 Swal.fire({
                                     icon: 'error',
@@ -2155,6 +2178,7 @@ class CapHum extends Controller
                         showConfirmButton: false,
                         customClass: { container: 'swal-sobre-modal-perfil' }
                     });
+                    if (typeof getUsuarios === 'function') getUsuarios();
                 })
                 .catch(err => {
                     console.error(err);
@@ -2238,7 +2262,7 @@ class CapHum extends Controller
                         document.getElementById('offcanvasEditUser')
                     ).hide();
 
-                    // cargarGestores(); // opcional
+                    if (typeof getUsuarios === 'function') getUsuarios();
                 });
             }
 
@@ -9252,14 +9276,6 @@ class CapHum extends Controller
 
         if ($idPersona <= 0) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de persona no recibido.']);
-            return;
-        }
-
-        if ($idPersona === (int) $_SESSION['usuario_id']) {
-            self::respuestaJSON([
-                'success' => false,
-                'mensaje' => 'No puede forzar el cierre de su propia sesión aquí. Use «Cerrar sesión» en el menú.',
-            ]);
             return;
         }
 

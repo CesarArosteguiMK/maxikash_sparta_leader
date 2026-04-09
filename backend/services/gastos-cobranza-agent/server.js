@@ -133,6 +133,9 @@ const MANUAL_CLOCK_OFFSET_MS =
 let remoteClockOffsetMs = 0;
 let lastRemoteSyncOkAt = 0;
 let lastRemoteSyncAttemptAt = 0;
+/** Evita saturar el log si la API de hora falla en bucle (ECONNRESET, etc.). */
+let lastRemoteSyncFailLogAt = 0;
+let lastRemoteSyncFailMsg = '';
 
 function remoteCdmxTimeEnabled() {
   return String(process.env.GASTOS_GC_REMOTE_CDMX_TIME || '').trim() === '1';
@@ -498,6 +501,24 @@ function appendLog(text) {
   } catch (_) {}
 }
 
+/** Mínimo entre líneas de log por el mismo error de sync (ms). Default 5 min. */
+function remoteSyncFailLogIntervalMs() {
+  const n = parseInt(String(process.env.GASTOS_GC_TIME_SYNC_FAIL_LOG_MIN_MS || '300000').trim(), 10);
+  return Number.isFinite(n) && n >= 10000 ? n : 300000;
+}
+
+function appendRemoteSyncFailureLog(tagPrefix, err) {
+  const msg = String(err && err.message != null ? err.message : err);
+  const now = Date.now();
+  const minMs = remoteSyncFailLogIntervalMs();
+  if (msg === lastRemoteSyncFailMsg && now - lastRemoteSyncFailLogAt < minMs) {
+    return;
+  }
+  lastRemoteSyncFailMsg = msg;
+  lastRemoteSyncFailLogAt = now;
+  appendLog(`${tagPrefix} Fallo sincronización: ${msg} (offset_remoto_ms=${remoteClockOffsetMs})`);
+}
+
 function timeSyncMaxAgeMs() {
   const n = parseInt(String(process.env.GASTOS_GC_TIME_SYNC_MAX_AGE_MS || '900000').trim(), 10);
   return Number.isFinite(n) && n >= 60000 ? n : 900000;
@@ -573,6 +594,7 @@ async function syncCdmxClockFromRemote() {
   if (!Number.isFinite(off)) throw new Error('offset NaN');
   remoteClockOffsetMs = off;
   lastRemoteSyncOkAt = Date.now();
+  lastRemoteSyncFailMsg = '';
   const parts = fmtCdmxYmdParts(nowForCdmxCalendar());
   appendLog(
     `[reloj] API hora (${url}) offset_remoto_ms=${remoteClockOffsetMs} ` +
@@ -589,7 +611,7 @@ async function ensureCdmxTimeFresh() {
   try {
     await syncCdmxClockFromRemote();
   } catch (e) {
-    appendLog(`[reloj] Fallo sincronización: ${e?.message || e} (offset_remoto_ms=${remoteClockOffsetMs})`);
+    appendRemoteSyncFailureLog('[reloj]', e);
   }
 }
 
@@ -603,7 +625,7 @@ async function ensureCdmxTimeFreshForAutoRunTick() {
   try {
     await syncCdmxClockFromRemote();
   } catch (e) {
-    appendLog(`[reloj][auto-run] Fallo sincronización: ${e?.message || e} (offset_remoto_ms=${remoteClockOffsetMs})`);
+    appendRemoteSyncFailureLog('[reloj][auto-run]', e);
   }
 }
 
@@ -636,9 +658,13 @@ function autoRunWeekdaysOnly() {
   return String(process.env.GASTOS_GC_AUTO_RUN_WEEKDAYS_ONLY || '0').trim() === '1';
 }
 
-/** Con auto-run, sincroniza hora vía API aunque GASTOS_GC_REMOTE_CDMX_TIME=0 (solo para el tick programado). Desactivar: =0 */
+/**
+ * Con auto-run, opcionalmente sincroniza hora vía API aunque GASTOS_GC_REMOTE_CDMX_TIME=0 (solo el tick programado).
+ * Por defecto desactivado: evita llamadas a internet y log masivo si no hay salida estable (ECONNRESET).
+ * Activar: GASTOS_GC_AUTO_RUN_SYNC_REMOTE_CLOCK=1
+ */
 function autoRunSyncRemoteClockForTick() {
-  return String(process.env.GASTOS_GC_AUTO_RUN_SYNC_REMOTE_CLOCK || '1').trim() !== '0';
+  return String(process.env.GASTOS_GC_AUTO_RUN_SYNC_REMOTE_CLOCK || '0').trim() === '1';
 }
 
 let lastAutoRunDebugLogMs = 0;
@@ -1810,11 +1836,11 @@ app.listen(PORT, () => {
   }
   if (autoRun10amCdmxEnabled()) {
     appendLog(
-      `[auto-run] Programador CDMX activo: tick ${autoRunTickMs()} ms · ventana ${pad2Seg(autoRunTargetHour())}:${pad2Seg(autoRunTargetMinute())}–+${autoRunWindowMinutes()} min · solo_lun_vie=${autoRunWeekdaysOnly() ? '1' : '0'}`,
+      `[auto-run] Programador CDMX activo: tick ${autoRunTickMs()} ms · ventana ${pad2Seg(autoRunTargetHour())}:${pad2Seg(autoRunTargetMinute())}–+${autoRunWindowMinutes()} min · solo_lun_vie=${autoRunWeekdaysOnly() ? '1' : '0'} · sync_api_en_tick=${autoRunSyncRemoteClockForTick() ? '1' : '0'}`,
     );
     if (!remoteCdmxTimeEnabled()) {
       appendLog(
-        '[auto-run] Aviso: GASTOS_GC_REMOTE_CDMX_TIME no está en 1; la hora CDMX depende del reloj del servidor. Si va desfasado, ponga GASTOS_GC_REMOTE_CDMX_TIME=1 en .env.',
+        '[auto-run] Aviso: GASTOS_GC_REMOTE_CDMX_TIME no está en 1; la hora CDMX depende del reloj del servidor. Si va desfasado, ponga GASTOS_GC_REMOTE_CDMX_TIME=1 o GASTOS_GC_AUTO_RUN_SYNC_REMOTE_CLOCK=1 (sync solo en ticks del auto-run).',
       );
     }
     setInterval(() => {

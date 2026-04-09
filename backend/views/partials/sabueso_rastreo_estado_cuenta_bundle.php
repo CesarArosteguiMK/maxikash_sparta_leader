@@ -1633,7 +1633,7 @@ window.actualizarDictamenCamposPorTipo = function() {
                 http.request({
                     endpoint: '/sabueso/getDatosCredito',
                     metodo: 'POST',
-                    data: JSON.stringify({ id_credito: id, omitir_fad: true }),
+                    data: JSON.stringify({ id_credito: id }),
                     contentType: 'application/json',
                     processData: false,
                     onSuccess: function(resp) {
@@ -1652,6 +1652,13 @@ window.actualizarDictamenCamposPorTipo = function() {
                             '<div><span class="text-muted small d-block">Teléfono cliente</span><div class="fw-semibold">' + tel + '</div></div>' +
                             '<div><span class="text-muted small d-block">Dirección megareporte</span><div class="fw-semibold small">' + dom + '</div></div>';
                         $('#rastreoTopLeft').html(htmlTop);
+                        if (typeof sabuesoAppendInformacionIngresos === 'function') {
+                            var escFad = function(s) {
+                                var x = (s + '').split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;');
+                                return x.split(String.fromCharCode(34)).join('&quot;');
+                            };
+                            sabuesoAppendInformacionIngresos(document.getElementById('rastreoTopLeft'), d, escFad);
+                        }
                         window.idCreditoRastreoActual = idCred;
                         if (typeof $ !== 'undefined' && $.fn.modal) $modalRastreo.modal('show');
                     },
