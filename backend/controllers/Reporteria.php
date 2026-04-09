@@ -1602,10 +1602,7 @@ public function getFiltrosCapitalHumano()
 
             function aplicarFiltros(data) {
                 if (VISTA_SIMPLE) {
-                    const busq = (document.getElementById('fBusqPrimerosPagos')?.value || document.getElementById('fBusq')?.value || '').toLowerCase();
-                    if (!busq) return data;
-                    const cols = Array.isArray(PRIMEROS_PAGOS_COLS) ? PRIMEROS_PAGOS_COLS : [];
-                    return data.filter(r => cols.some(c => String(r[c.key] ?? '').toLowerCase().includes(busq)));
+                    return data;
                 }
                 const f = {
                     bucketNacio: document.getElementById('fBucketNacio')?.value || '',
@@ -2088,8 +2085,82 @@ public function getFiltrosCapitalHumano()
 
             document.getElementById('fBusq')
                 ?.addEventListener('input', renderTabla);
-            document.getElementById('fBusqPrimerosPagos')
-                ?.addEventListener('input', renderTabla);
+
+            if (VISTA_SIMPLE) {
+                const btnXlsSemana = document.getElementById('btnDescargarExcelPrimerosPagosSemana');
+                if (btnXlsSemana) {
+                    btnXlsSemana.addEventListener('click', async function() {
+                        if (typeof Swal === 'undefined') {
+                            window.location.href = '/reporteria/descargarPrimerosPagosSemanaActualExcel';
+                            return;
+                        }
+                        Swal.fire({
+                            title: 'Descargando Excel',
+                            html: '<p class="mb-0 text-muted" style="font-size:0.9rem;">Generando el archivo…</p>',
+                            allowOutsideClick: false,
+                            allowEscapeKey: true,
+                            showConfirmButton: false,
+                            didOpen: () => { Swal.showLoading(); },
+                            customClass: { popup: 'shadow-lg' }
+                        });
+                        try {
+                            const r = await fetch('/reporteria/descargarPrimerosPagosSemanaActualExcel', {
+                                method: 'GET',
+                                credentials: 'same-origin'
+                            });
+                            const ct = (r.headers.get('content-type') || '').toLowerCase();
+                            if (!r.ok || ct.includes('text/plain') || ct.includes('text/html') || ct.includes('application/json')) {
+                                const t = await r.text();
+                                throw new Error((t || '').trim().substring(0, 280) || 'No se pudo generar el Excel.');
+                            }
+                            const blob = await r.blob();
+                            const cd = r.headers.get('Content-Disposition') || '';
+                            let fname = 'Primeros_pagos_semana_actual.xlsx';
+                            const mStar = cd.match(/filename\\*=UTF-8''([^;]+)/i);
+                            const mQuot = cd.match(/filename="([^"]+)"/i);
+                            if (mStar) {
+                                try { fname = decodeURIComponent(mStar[1].trim()); } catch (e) { /* usar default */ }
+                            } else if (mQuot) {
+                                fname = mQuot[1];
+                            }
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = fname;
+                            a.rel = 'noopener';
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            URL.revokeObjectURL(url);
+                            await Swal.fire({
+                                icon: 'success',
+                                title: 'Descarga completada',
+                                text: 'El Excel se generó y la descarga debería haberse iniciado. Si no ves el archivo, revisa la carpeta de descargas o la barra del navegador.',
+                                confirmButtonText: '<i class="fa fa-check me-2"></i>Aceptar',
+                                buttonsStyling: false,
+                                customClass: {
+                                    popup: 'shadow-lg rounded-3',
+                                    confirmButton: 'btn btn-success px-4 fw-semibold',
+                                    actions: 'mt-3 mb-1'
+                                }
+                            });
+                        } catch (err) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'No se pudo descargar',
+                                text: err && err.message ? err.message : 'Error al descargar el Excel.',
+                                confirmButtonText: 'Entendido',
+                                buttonsStyling: false,
+                                customClass: {
+                                    popup: 'shadow-lg rounded-3',
+                                    confirmButton: 'btn btn-danger px-4 fw-semibold',
+                                    actions: 'mt-3 mb-1'
+                                }
+                            });
+                        }
+                    });
+                }
+            }
 
             const btnResetFiltros = document.getElementById('btnReset');
             if (btnResetFiltros) {

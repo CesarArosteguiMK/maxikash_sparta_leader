@@ -62,6 +62,21 @@
         color: #93c5fd !important;
     }
 
+    /* Módulos del sistema (modal): máximo 2 bloques por fila; el resto baja a la siguiente fila */
+    #modalEditPerfil .modal-perfil-modulos-agrupados {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    /* Exactamente 2 bloques por fila (gap 1rem entre columnas) */
+    #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+        flex: 1 1 calc(50% - 0.5rem);
+        max-width: calc(50% - 0.5rem);
+        min-width: 0;
+        margin-bottom: 0 !important;
+    }
+
     #offcanvasEditPerfil .tab-content:not(.doc-example-content) {
         padding: .25rem 0;
     }
@@ -1432,6 +1447,12 @@
     max-height: 55vh !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Una columna en pantallas muy estrechas (anula max-width 50% de escritorio) */
+  #modalEditPerfil .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
   }
 
   /* ── 10. PERMISOS ESPECIALES CONTAINER ── */

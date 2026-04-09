@@ -78,7 +78,8 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
                     ['label' => 'Mi Cartera', 'url' => '/Despachos/MiGestion', 'modulos' => [45]],
                     ['label' => 'Crear Convenio', 'url' => '/convenios/consulta', 'modulos' => [46]],
-                    ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [50]],
+                    /* id 51: mismo criterio que menu_accesos_inicio / getRutasModulos (no reutilizar 50 = Flujo cobranza) */
+                    ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [51]],
                 ],
             ],
             'Onboarding' => [
@@ -145,6 +146,30 @@ if (!function_exists('mapModuloWebIdToSidebarMeta')) {
     }
 }
 
+if (!function_exists('getMenuSidebarGrupoBaseMeta')) {
+    /**
+     * Metadatos de agrupación (sin ítem) para un grupo del menú lateral.
+     *
+     * @return array{menu_grupo: string, menu_grupo_icono: string, menu_grupo_orden: int}|null
+     */
+    function getMenuSidebarGrupoBaseMeta(string $grupoNombre): ?array
+    {
+        $orden = 0;
+        foreach (getMenuSidebarModulosStructure() as $gn => $def) {
+            if ($gn === $grupoNombre) {
+                return [
+                    'menu_grupo' => $gn,
+                    'menu_grupo_icono' => (string) ($def['icono'] ?? 'fa-solid fa-folder'),
+                    'menu_grupo_orden' => $orden,
+                ];
+            }
+            $orden++;
+        }
+
+        return null;
+    }
+}
+
 if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
     /**
      * Añade campos menu_* y ordena como el menú lateral.
@@ -157,6 +182,28 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
         foreach ($perfiles as &$p) {
             $mid = (int) ($p['modulo_id'] ?? 0);
             $meta = mapModuloWebIdToSidebarMeta($mid);
+            if ($meta === null && $mid > 0) {
+                $nombreRaw = trim((string) ($p['modulo_nombre'] ?? ''));
+                $nb = mb_strtolower($nombreRaw, 'UTF-8');
+                $nbNorm = str_replace(
+                    ['á', 'é', 'í', 'ó', 'ú', 'ü', 'ñ'],
+                    ['a', 'e', 'i', 'o', 'u', 'u', 'n'],
+                    $nb
+                );
+                $baseReporteria = getMenuSidebarGrupoBaseMeta('Reportería');
+                $baseConvenios = getMenuSidebarGrupoBaseMeta('Convenios');
+                if ($baseReporteria !== null && str_contains($nbNorm, 'bono') && str_contains($nbNorm, 'cobranza')) {
+                    $meta = array_merge($baseReporteria, [
+                        'menu_item_label' => $nombreRaw !== '' ? $nombreRaw : 'Bonos cobranza',
+                        'menu_item_orden' => 998,
+                    ]);
+                } elseif ($baseConvenios !== null && str_contains($nbNorm, 'cierre') && str_contains($nbNorm, 'credito')) {
+                    $meta = array_merge($baseConvenios, [
+                        'menu_item_label' => $nombreRaw !== '' ? $nombreRaw : 'Cierre de Crédito',
+                        'menu_item_orden' => 998,
+                    ]);
+                }
+            }
             if ($meta !== null) {
                 $p['menu_grupo'] = $meta['menu_grupo'];
                 $p['menu_grupo_icono'] = $meta['menu_grupo_icono'];

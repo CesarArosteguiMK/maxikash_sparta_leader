@@ -957,7 +957,9 @@ class CapHum extends Controller
                 49: 'fa fa-calendar-week',
                 '49': 'fa fa-calendar-week',
                 50: 'fa fa-chart-line',
-                '50': 'fa fa-chart-line'
+                '50': 'fa fa-chart-line',
+                51: 'fa-solid fa-file-circle-check',
+                '51': 'fa-solid fa-file-circle-check'
             };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
@@ -1631,6 +1633,7 @@ class CapHum extends Controller
                     47: 'fa fa-chart-pie',
                     49: 'fa fa-calendar-week',
                     50: 'fa fa-chart-line',
+                    51: 'fa-solid fa-file-circle-check',
                     48: 'fa fa-archive'
                 };
 
@@ -1667,7 +1670,7 @@ class CapHum extends Controller
                     });
 
                     const section = document.createElement('section');
-                    section.className = 'modal-perfil-modulo-grupo card mb-3 shadow-sm';
+                    section.className = 'modal-perfil-modulo-grupo card mb-0 shadow-sm';
                     section.style.border = '2px solid #000';
                     section.style.borderRadius = '0.5rem';
                     section.style.overflow = 'hidden';

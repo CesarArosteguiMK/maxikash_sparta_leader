@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "preRunMonitoreo": true,
   "horarios": [
     "07:40",
@@ -12,34 +12,8 @@
     "20:40",
     "00:05"
   ],
-  "lastRunBySlot": {
-    "fallback_13:40": "2026-04-08",
-    "fallback_14:40": "2026-04-08",
-    "14:40": "2026-03-23",
-<<<<<<< HEAD
-    "fallback_16:40": "2026-04-08",
-=======
-    "fallback_16:40": "2026-04-07",
->>>>>>> 1e3d284fe8d77664ef609104e9be4e724ed0da5f
-    "fallback_18:40": "2026-04-08",
-    "18:40": "2026-03-23",
-    "18:56": "2026-03-23",
-    "19:07": "2026-03-23",
-    "fallback_11:40": "2026-04-08",
-    "fallback_20:40": "2026-04-08",
-    "fallback_00:05": "2026-04-09",
-    "fallback_07:40": "2026-04-09",
-    "fallback_09:40": "2026-04-08"
-  },
-  "lastRunResult": {
-    "success": true,
-    "mensaje": "Archivo copiado automáticamente",
-    "origen": "mega_rpt_20260323_18_31_33.csv.zip",
-    "destino": "mega_rpt_20260323_18_31_34.csv.zip",
-    "fecha": "2026-03-23",
-    "hora": "19:07",
-    "esPrueba": false
-  },
+  "lastRunBySlot": {},
+  "lastRunResult": null,
   "pruebaEjecutarEn": null,
   "pruebaNoAntesDe": null
 }

@@ -47,11 +47,11 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
         </div>
         <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
             <?php if (!empty($vencimientos_vista_simple)): ?>
-                <a href="/reporteria/descargarPrimerosPagosSemanaActualExcel"
-                   class="btn btn-success btn-sm shadow-sm px-3 d-inline-flex align-items-center">
+                <button type="button" id="btnDescargarExcelPrimerosPagosSemana"
+                        class="btn btn-success btn-sm shadow-sm px-3 d-inline-flex align-items-center">
                     <i class="fa fa-file-excel me-2"></i>
                     <span class="fw-semibold">Descargar Excel</span>
-                </a>
+                </button>
                 <?php if (!empty($vencimientos_puede_enviar_correo_primeros_pagos)): ?>
                 <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm shadow-sm d-inline-flex align-items-center">
                     <i class="fa fa-envelope me-1"></i> Enviar correo
@@ -188,15 +188,6 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if (!empty($vencimientos_vista_simple)): ?>
-    <div class="card mb-3">
-        <div class="card-body py-2">
-            <label for="fBusqPrimerosPagos" class="form-label mb-1" style="font-size:.75rem;">Buscar en todas las columnas</label>
-            <input type="search" id="fBusqPrimerosPagos" class="form-control form-control-sm" placeholder="Texto en cualquier campo…" autocomplete="off">
         </div>
     </div>
     <?php endif; ?>
