@@ -515,30 +515,35 @@ class Segundometro extends Controller
                 fetch('/segundometro/estadoAgente', { method: 'GET', headers: { 'Front-Request': 'true' } })
                     .then(function(r){ return r.json(); })
                     .then(function(data){
-                        var badgeModo = document.getElementById('sgAgenteModo');
-                        var badgeEstado = document.getElementById('sgAgenteEstado');
+                        var badge = document.getElementById('sgAgenteEstado');
                         var txt = document.getElementById('sgAgenteDetalle');
-                        if (!badgeModo || !badgeEstado || !txt) return;
+                        if (!badge || !txt) return;
                         if (!data || !data.success) {
-                            badgeModo.className = 'badge bg-label-secondary';
-                            badgeModo.textContent = 'Agente: no disponible';
-                            badgeEstado.className = 'badge bg-label-secondary';
-                            badgeEstado.textContent = 'Estado: desconocido';
-                            txt.textContent = (data && data.mensaje) ? data.mensaje : 'No se pudo consultar el estado de integración.';
+                            badge.className = 'badge bg-label-secondary';
+                            badge.textContent = 'Agente: estado desconocido';
+                            txt.textContent = (data && data.mensaje) ? data.mensaje : 'No se pudo consultar el estado del agente.';
                             return;
                         }
-                        badgeModo.className = data.usando_agente ? 'badge bg-label-success' : 'badge bg-label-warning';
-                        badgeModo.textContent = data.usando_agente ? 'Agente: activo' : 'Agente: inactivo';
-                        badgeEstado.className = data.agente_online ? 'badge bg-label-success' : 'badge bg-label-danger';
-                        badgeEstado.textContent = data.agente_online ? 'Estado: en línea' : 'Estado: fuera de línea';
-                        txt.textContent = data.detalle || 'Sin detalle';
+                        if (!data.usando_agente) {
+                            badge.className = 'badge bg-label-warning';
+                            badge.textContent = 'Agente: modo legado';
+                            txt.textContent = data.detalle || 'Sin agente Node (SSH desde PHP).';
+                            return;
+                        }
+                        if (!data.agente_online) {
+                            badge.className = 'badge bg-label-danger';
+                            badge.textContent = 'Agente: fuera de línea';
+                            txt.textContent = data.detalle || 'No responde en la URL configurada.';
+                            return;
+                        }
+                        badge.className = 'badge bg-label-success';
+                        badge.textContent = 'Agente: en línea';
+                        txt.textContent = data.detalle || 'Conexión correcta con el agente.';
                     })
                     .catch(function(){
-                        var badgeModo = document.getElementById('sgAgenteModo');
-                        var badgeEstado = document.getElementById('sgAgenteEstado');
+                        var badge = document.getElementById('sgAgenteEstado');
                         var txt = document.getElementById('sgAgenteDetalle');
-                        if (badgeModo) { badgeModo.className = 'badge bg-label-secondary'; badgeModo.textContent = 'Agente: no disponible'; }
-                        if (badgeEstado) { badgeEstado.className = 'badge bg-label-secondary'; badgeEstado.textContent = 'Estado: desconocido'; }
+                        if (badge) { badge.className = 'badge bg-label-secondary'; badge.textContent = 'Agente: sin respuesta'; }
                         if (txt) txt.textContent = 'Error de red al consultar estado del agente.';
                     });
             }

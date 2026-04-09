@@ -12,8 +12,7 @@
                                     <i class="fa fa-stopwatch text-primary me-2" aria-hidden="true"></i>
                                     Shell Segundómetro - Gestión de Reportes
                                 </h4>
-                                <span id="sgAgenteModo" class="badge bg-label-secondary">Agente: verificando…</span>
-                                <span id="sgAgenteEstado" class="badge bg-label-secondary">Estado: verificando…</span>
+                                <span id="sgAgenteEstado" class="badge bg-label-secondary">Agente: comprobando…</span>
                             </div>
                             <div id="sgAgenteDetalle" class="small text-muted mt-1" style="min-height:1.25em">Consultando estado…</div>
                             <p class="text-muted mt-2 mb-0 small">
