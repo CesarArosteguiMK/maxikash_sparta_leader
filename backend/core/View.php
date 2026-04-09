@@ -109,7 +109,7 @@ function getMenu()
                                     'modulos' => [5]
                             ],
                             [
-                                'label' => 'Capital Humano',
+                                'label' => 'Reportería',
                                 'url' => '/reporteria/reporteCapitalHumano',
                                 'modulos' => [21]
                             ]
