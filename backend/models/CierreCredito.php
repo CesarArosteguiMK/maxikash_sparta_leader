@@ -3,6 +3,7 @@
 namespace Models;
 
 use Core\Model;
+use Core\Database;
 use Core\DatabaseSegundometro;
 
 class CierreCredito extends Model
@@ -33,23 +34,56 @@ class CierreCredito extends Model
     }
 
     /**
-     * Devuelve todos los registros con estatus 'enviado_finalizado'.
+     * Convenios con estatus 'saldado' — fuente principal de Cierre de Crédito.
+     * Trae datos del convenio, producto, progreso de amortización y despacho asignado.
      */
     public static function getEnviadoFinalizado(): array
     {
         try {
-            $db   = new DatabaseSegundometro();
+            $db   = new Database();
             $rows = $db->queryAll(
-                "SELECT id, id_credito, nombre_cliente, estatus,
-                        fecha_alta, usuario_alta,
-                        fecha_actualizacion, usuario_actualizacion
-                 FROM estatus_cierre_final
-                 WHERE estatus = 'enviado_finalizado'
-                 ORDER BY fecha_alta DESC"
+                "SELECT
+                    cc.id,
+                    cc.id_credito,
+                    cc.nombre_cliente,
+                    cc.id_producto_convenio,
+                    pc.nombre                      AS nombre_producto,
+                    cc.adeudo_total_original,
+                    cc.porcentaje_descuento,
+                    cc.descuento_monto,
+                    cc.total_a_pagar,
+                    cc.monto_adicional,
+                    cc.pago_inicial_monto,
+                    cc.numero_semanas,
+                    cc.pago_semanal,
+                    cc.fecha_acuerdo,
+                    cc.fecha_primer_pago,
+                    cc.fecha_ultimo_pago,
+                    cc.estatus,
+                    cc.usuario_alta,
+                    cc.fecha_alta,
+                    (SELECT COUNT(*)
+                     FROM convenio_cliente_amortizacion a
+                     WHERE a.id_convenio_cliente = cc.id
+                       AND a.estatus_pago = 'pagado')  AS cuotas_pagadas,
+                    (SELECT TRIM(CONCAT_WS(' ',
+                            per.nombres, per.segundo_nombre,
+                            per.apellidop, per.apellidom))
+                     FROM asigna_creditos_despacho acd
+                     INNER JOIN despachos d   ON d.id  = acd.id_despacho
+                     INNER JOIN persona   per ON per.id = d.id_persona
+                     WHERE acd.id_credito = cc.id_credito
+                       AND acd.estatus    = '1'
+                     ORDER BY acd.fecha_alta DESC
+                     LIMIT 1)                          AS nombre_despacho
+                 FROM convenio_cliente cc
+                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE cc.estatus = 'completado'
+                 ORDER BY cc.fecha_alta DESC"
             );
-            return self::resultado(true, 'Registros enviados / finalizados.', $rows ?: []);
+            return self::resultado(true, 'Convenios saldados.', $rows ?: []);
         } catch (\Exception $e) {
-            return self::resultado(false, 'Error al obtener registros finalizados.', [], $e->getMessage());
+            return self::resultado(false, 'Error al obtener convenios saldados.', [], $e->getMessage());
         }
     }
 

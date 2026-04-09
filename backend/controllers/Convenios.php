@@ -97,7 +97,14 @@ class Convenios extends Controller
             ? (float) $_POST['monto_adicional']
             : 0.0;
 
-       $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        // Tipo calendario y fechas libres (solo para productos tipo_calendario='libre')
+        $datos['tipo_calendario'] = isset($_POST['tipo_calendario']) && $_POST['tipo_calendario'] === 'libre'
+            ? 'libre'
+            : 'semanal';
+
+        $datos['fechas_pagos'] = isset($_POST['fechas_pagos']) ? trim($_POST['fechas_pagos']) : '';
+
+        $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
 
         $r = ConveniosDAO::guardarConvenio($datos);
         self::respuestaJSON($r);

@@ -33,6 +33,8 @@ class CierreCredito extends Controller
     public function getEnviadoFinalizado()
     {
         $r = CierreCreditoDAO::getEnviadoFinalizado();
+        // Añadir el usuario de sesión para mostrarlo en la UI de validación
+        $r['validador'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Sin sesión';
         self::respuestaJSON($r);
     }
 

@@ -172,7 +172,7 @@ function getMenu()
                             [
                                     'label' => 'Cierre de Crédito',
                                     'url' => '/CierreCredito/consulta',
-                                    'modulos' => [50]
+                                    'modulos' => [51]
                             ]
                     ]
             ],
