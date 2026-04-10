@@ -29,12 +29,12 @@ class Reporteria extends Controller
     public function reporteCapitalHumano()
     {
         $script = "";
-        self::set("titulo", "Capital Humano");
+        self::set("titulo", "Reportes de Personal");
         self::set("script", $script);
         self::render("reporte_capital_humano");
     }
 
-    // ==== Reporte de Capital Humano ====
+    // ==== Reportes de Personal ====
     public function getUsuariosCapitalHumano()
 {
     // No activar display_errors en producción; los errores se registran en log del servidor
@@ -247,15 +247,11 @@ class Reporteria extends Controller
     }
 
     /**
-     * Obtener filtros dinámicos para el reporte de Capital Humano
+     * Obtener filtros dinámicos para Reportes de Personal
      * GET /Reporteria/getFiltrosCapitalHumano
      */
-    /**
- * Obtener filtros dinámicos para el reporte de Capital Humano
- * GET /Reporteria/getFiltrosCapitalHumano
- */
-public function getFiltrosCapitalHumano()
-{
+    public function getFiltrosCapitalHumano()
+    {
     // No activar display_errors en producción; los errores se registran en log del servidor
     // Limpiar cualquier salida previa
     while (ob_get_level()) ob_end_clean();

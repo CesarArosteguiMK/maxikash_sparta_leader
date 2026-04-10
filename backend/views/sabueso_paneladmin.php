@@ -139,7 +139,7 @@
     #modalRastreoCredito.consulta-sin-ticket .rastreo-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
     #modalRastreoCredito.consulta-sin-ticket .modal-title::after { content: ' (solo consulta)'; font-weight: 400; font-size: 0.85em; opacity: 0.85; }
     #modalRastreoCredito.consulta-sin-ticket #btnAsignarRastreo { display: none !important; }
-    /* Vista Reportería: solo consulta por ID — sin sufijo ni botón asignar en pie */
+    /* Vista Analítica: solo consulta por ID — sin sufijo ni botón asignar en pie */
     #modalRastreoCredito.consulta-reporteria-solo .modal-title::after { content: none !important; }
     #modalRastreoCredito.consulta-reporteria-solo #btnAsignarRastreo { display: none !important; }
     #modalRastreoCredito .rastreo-ticket-info-col { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -1142,7 +1142,7 @@ $panel_admin_icono = isset($panel_admin_icono) ? $panel_admin_icono : 'fa-list';
     </div>
 </div>
 
-<!-- Modal datos del crédito (desde ticket = rastreo; desde Reportería = solo consulta por ID) -->
+<!-- Modal datos del crédito (desde ticket = rastreo; desde Analítica = solo consulta por ID) -->
 <div class="modal fade<?= $panel_admin_solo_consulta_credito ? ' consulta-sin-ticket consulta-reporteria-solo' : '' ?>" id="modalRastreoCredito" tabindex="-1" aria-labelledby="modalRastreoCreditoLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-content-glass shadow-sm">

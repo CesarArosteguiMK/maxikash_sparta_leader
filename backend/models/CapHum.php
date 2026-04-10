@@ -23,7 +23,7 @@ class CapHum extends Model
     {
         // =========================
         // VER TODOS: admin O sin departamento asignado (módulo 10)
-        // Si no tiene "Configuración > Departamentos" asignado → ver todos los usuarios.
+        // Si no tiene "Organización > Departamentos" asignado → ver todos los usuarios.
         // =========================
         $verTodos = in_array($id_gestor_sesion, [1, 2, 3, 396, 797]) || !$tieneDepartamento;
 
