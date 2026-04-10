@@ -1577,8 +1577,20 @@ public static function migrarConvenio($datos)
         $pdfAdjunto   = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
 
         $montoAdicional = (float) ($datos['monto_adicional'] ?? 0);
-        $descuentoMonto = round($adeudoBase * ($pctDescuento / 100), 2);
-        $totalAPagar    = round($adeudoBase - $descuentoMonto + $montoAdicional, 2);
+
+        // Usar el total enviado directamente por el frontend para evitar errores de redondeo
+        // al reconvertir desde el porcentaje (que ya estaba redondeado a 2 decimales).
+        // El campo 'total_final_con_adicional' es la fuente de verdad.
+        if (!empty($datos['total_final_con_adicional']) && (float) $datos['total_final_con_adicional'] > 0) {
+            $totalAPagar    = round((float) $datos['total_final_con_adicional'], 2);
+            $descuentoMonto = round($adeudoBase - ($totalAPagar - $montoAdicional), 2);
+            // Recalcular pct para que coincida con el total real guardado
+            $pctDescuento   = $adeudoBase > 0 ? round(($descuentoMonto / $adeudoBase) * 100, 4) : $pctDescuento;
+        } else {
+            $descuentoMonto = round($adeudoBase * ($pctDescuento / 100), 2);
+            $totalAPagar    = round($adeudoBase - $descuentoMonto + $montoAdicional, 2);
+        }
+
         $semanasEnteras = (int) floor($totalAPagar / $pagoSemanal);
         $residuo        = round($totalAPagar - ($semanasEnteras * $pagoSemanal), 2);
         // Solo genera semana extra si el residuo es >= $1.00 (evita cuota fantasma por centavos)
