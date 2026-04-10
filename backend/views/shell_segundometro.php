@@ -53,27 +53,27 @@
                     </div>
                     <div class="sg-agent-actions">
                         <div class="sg-agent-row-top">
-                            <div id="wrapBtnTruncarSegundometro" class="sg-btn-wrap" style="display: none;">
-                                <button type="button" class="sg-tip-btn sg-btn-danger" id="btnTruncarSegundometro" disabled title="Trunca la tabla Semana: copia a histórico y limpia datos actuales." data-tip="Elimina entradas antiguas del reporte semanal">
+                            <div id="wrapBtnTruncarSegundometro" class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-danger" id="btnTruncarSegundometro" disabled data-tip="Disponible solo los martes de 7:00 a 9:30 AM (CDMX). En horario: trunca la tabla Semana (copia al historial y limpia datos actuales).">
                                     <i class="fa fa-cut"></i>
                                     <span class="sg-btn-label">Truncar</span>
                                 </button>
                             </div>
                             <div class="sg-btn-wrap">
-                                <button type="button" class="sg-tip-btn sg-btn-warn" id="btnMonitorearSegundometro" title="Abre monitoreo en vivo en esta página." data-tip="CPU, memoria y actividad en vivo">
+                                <button type="button" class="sg-tip-btn sg-btn-warn" id="btnMonitorearSegundometro" data-tip="Abre el monitoreo en vivo en esta página (CPU, memoria y actividad del servidor).">
                                     <i class="fa fa-terminal"></i>
                                     <span class="sg-btn-label">Monitorear</span>
                                 </button>
                             </div>
                             <div class="sg-btn-wrap">
-                                <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnDiagnosticoSSH" title="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura." data-tip="Verifica conectividad y túnel remoto">
+                                <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnDiagnosticoSSH" data-tip="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura en el remoto.">
                                     <i class="fa fa-stethoscope"></i>
                                     <span class="sg-btn-label">Diagnóstico SSH</span>
                                 </button>
                             </div>
                         </div>
                         <div class="sg-agent-row-bottom">
-                            <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="sgEjecutarAhora" title="Lanza ahora el flujo automático: monitoreo + copia del último reporte +1s." data-tip="Lanza el agente de inmediato">
+                            <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="sgEjecutarAhora" data-tip="Lanza ahora el flujo automático del agente: monitoreo previo, copia del último reporte y ajuste +1s.">
                                 <i class="fa fa-play"></i>
                                 <span class="sg-btn-label">Ejecutar ahora</span>
                             </button>
@@ -206,6 +206,9 @@
         border: 0.5px solid #e2e8f0 !important;
         border-radius: 14px;
         background: #fff;
+        display: inline-block;
+        width: fit-content;
+        max-width: 100%;
     }
     #shellSegundometroAgenteBar .sg-agent-head {
         display: flex;
@@ -247,6 +250,8 @@
     }
     #shellSegundometroAgenteBar .sg-agent-row-bottom {
         margin-top: 8px;
+        display: flex;
+        width: 100%;
     }
     #shellSegundometroAgenteBar .sg-btn-wrap {
         min-width: 0;
@@ -327,8 +332,15 @@
     #shellSegundometroAgenteBar .sg-tip-btn-run {
         min-height: 38px;
         height: 38px;
-        width: min(320px, 100%);
+        width: 100%;
+        flex: 1 1 auto;
         font-size: 0.82rem;
+        display: flex;
+        justify-content: center;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn-run .sg-btn-label {
+        flex: 0 1 auto;
+        text-align: center;
     }
     #shellSegundometroAgenteBar .sg-tip-btn::after {
         content: attr(data-tip);
@@ -338,11 +350,14 @@
         transform: translateX(-50%) translateY(3px);
         font-size: 0.68rem;
         line-height: 1.25;
-        background: #1e293b;
-        color: #e2e8f0;
+        background: #0f172a;
+        color: #f1f5f9;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
         padding: 0.37rem 0.5rem;
         border-radius: 7px;
-        white-space: nowrap;
+        white-space: normal;
+        max-width: min(320px, 92vw);
+        text-align: left;
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.16s ease, transform 0.16s ease;
@@ -355,7 +370,7 @@
         bottom: calc(100% + 2px);
         transform: translateX(-50%);
         border: 4px solid transparent;
-        border-top-color: #1e293b;
+        border-top-color: #0f172a;
         opacity: 0;
         transition: opacity 0.16s ease;
         z-index: 20;
