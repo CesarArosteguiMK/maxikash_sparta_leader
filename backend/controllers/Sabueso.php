@@ -82,7 +82,7 @@ class Sabueso extends Controller
      * Vista Panel Admin: tabla de todos los tickets con columna Quién levantó. Sin botón Levantar ticket ni buscador.
      */
     /**
-     * @param bool|null $forzarSoloConsultaCredito Solo true cuando se invoca desde Reportería (URL /reporteria/consultaIdCredito).
+     * @param bool|null $forzarSoloConsultaCredito Solo true cuando se invoca desde Analítica (URL /reporteria/consultaIdCredito).
      *                             No usar otros valores: rutas tipo /sabueso/paneladmin/extra seguirían siendo parámetros de URL.
      */
     public function paneladmin($forzarSoloConsultaCredito = null)
@@ -93,7 +93,7 @@ class Sabueso extends Controller
         /** Rastreo: módulo 29 (permiso especial) o legado 18/19; sin requerir panel sabueso_paneladmin. */
         $soloConsultaCredito = ($forzarSoloConsultaCredito === true)
             || (isset($_GET['solo_consulta_credito']) && (string)$_GET['solo_consulta_credito'] === '1');
-        // URL canónica bajo Reportería (evita /sabueso/paneladmin?solo_consulta_credito=1 en la barra de direcciones).
+        // URL canónica bajo Analítica (evita /sabueso/paneladmin?solo_consulta_credito=1 en la barra de direcciones).
         if ($soloConsultaCredito && $forzarSoloConsultaCredito !== true && isset($_GET['solo_consulta_credito'])) {
             header('Location: /reporteria/consultaIdCredito', true, 302);
             exit;
@@ -173,7 +173,7 @@ class Sabueso extends Controller
     }
 
     /**
-     * Mismo bloque de script que el panel admin en modo solo consulta por ID de crédito (reportería), para incrustarlo en Estado de cuenta en la misma página.
+     * Mismo bloque de script que el panel admin en modo solo consulta por ID de crédito (Analítica), para incrustarlo en Estado de cuenta en la misma página.
      */
     public function getPaneladminScriptSoloConsultaParaEstadoCuenta(): string
     {

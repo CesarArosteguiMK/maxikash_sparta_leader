@@ -26,20 +26,20 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-users',
                 'subItems' => [
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4]],
-                    ['label' => 'Organigrama', 'url' => '/caphum/organigrama', 'modulos' => [5]],
-                    ['label' => 'Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
-                    ['label' => 'Candidatos', 'url' => '/caphum/candidatos', 'modulos' => [42]],
+                    ['label' => 'Organigrama Cobranza', 'url' => '/caphum/organigrama', 'modulos' => [5]],
+                    ['label' => 'Control de Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
+                    ['label' => 'Selección de Personal', 'url' => '/caphum/candidatos', 'modulos' => [42]],
                     ['label' => 'Curso Onboarding', 'url' => '/onboarding/index', 'modulos' => [44]],
+                    ['label' => 'Reportes de Personal', 'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [34]],
                 ],
             ],
-            'Reportería' => [
-                'icono' => 'fa-solid fa-file',
+            'Analítica' => [
+                'icono' => 'fa-solid fa-chart-line',
                 'subItems' => [
                     ['label' => 'Primeros pagos', 'url' => '/reporteria/PrimerosPagos', 'modulos' => [49]],
                     ['label' => 'Call Center', 'url' => '/reporteria/callcenter', 'modulos' => [6, 14, 15]],
                     // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/reporteria/layoutlegacy', 'modulos' => [7]],
-                    ['label' => 'Capital Humano', 'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [21]],
                 ],
             ],
             'Tickets' => [
@@ -76,7 +76,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [51]],
                 ],
             ],
-            'Configuración' => [
+            'Organización' => [
                 'icono' => 'fa-solid fa-cog',
                 'subItems' => [
                     ['label' => 'Departamentos', 'url' => '/departamentos/consulta/', 'modulos' => [10]],
@@ -178,10 +178,10 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
                     ['a', 'e', 'i', 'o', 'u', 'u', 'n'],
                     $nb
                 );
-                $baseReporteria = getMenuSidebarGrupoBaseMeta('Reportería');
+                $baseAnalitica = getMenuSidebarGrupoBaseMeta('Analítica');
                 $baseConvenios = getMenuSidebarGrupoBaseMeta('Convenios');
-                if ($baseReporteria !== null && str_contains($nbNorm, 'bono') && str_contains($nbNorm, 'cobranza')) {
-                    $meta = array_merge($baseReporteria, [
+                if ($baseAnalitica !== null && str_contains($nbNorm, 'bono') && str_contains($nbNorm, 'cobranza')) {
+                    $meta = array_merge($baseAnalitica, [
                         'menu_item_label' => $nombreRaw !== '' ? $nombreRaw : 'Bonos cobranza',
                         'menu_item_orden' => 998,
                     ]);

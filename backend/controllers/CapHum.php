@@ -913,6 +913,39 @@ class CapHum extends Controller
                MÓDULOS (lista plana duplicada eliminada; ver renderModulos agrupado más abajo)
             ========================= */
 
+            function updateModuloCheckboxLabel(checkbox) {
+                if (!checkbox) return;
+                const wrap = checkbox.closest('div.form-check');
+                const label = wrap ? wrap.querySelector('label.form-check-label') : null;
+                if (!label) return;
+                label.innerHTML = checkbox.checked
+                    ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                    : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+            }
+
+            function syncGrupoModuloMaster(master, tbody) {
+                if (!master || !tbody) return;
+                const cbs = tbody.querySelectorAll('.modal-perfil-modulo-item-cb');
+                const total = cbs.length;
+                if (total === 0) {
+                    master.checked = false;
+                    master.indeterminate = false;
+                    return;
+                }
+                let n = 0;
+                cbs.forEach(c => { if (c.checked) n++; });
+                master.checked = n === total;
+                master.indeterminate = n > 0 && n < total;
+            }
+
+            function syncGrupoModuloMasterFromChild(checkbox) {
+                const section = checkbox.closest('section.modal-perfil-modulo-grupo');
+                if (!section) return;
+                const master = section.querySelector('.modal-perfil-modulo-master-cb');
+                const tbody = section.querySelector('tbody');
+                syncGrupoModuloMaster(master, tbody);
+            }
+
             function renderPermisosEspeciales(perfiles) {
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 if (!container) return;
@@ -921,14 +954,35 @@ class CapHum extends Controller
                     container.innerHTML = '<p class="text-muted small mb-0">No hay permisos especiales configurados.</p>';
                     return;
                 }
-                const table = document.createElement('table');
-                table.className = 'table table-flush-spacing mb-0 border-top';
-                const tbody = document.createElement('tbody');
-                perfiles.forEach(mod => {
-                    tbody.appendChild(crearFilaModulo(mod));
-                });
-                table.appendChild(tbody);
-                container.appendChild(table);
+                function buildPermisosCard(items, colClass) {
+                    const col = document.createElement('div');
+                    col.className = colClass;
+                    const card = document.createElement('div');
+                    card.className = 'card border shadow-sm h-100 modal-perfil-permisos-col-card';
+                    const body = document.createElement('div');
+                    body.className = 'card-body p-0';
+                    const table = document.createElement('table');
+                    table.className = 'table table-flush-spacing mb-0 modal-perfil-permisos-table';
+                    const tbody = document.createElement('tbody');
+                    items.forEach(mod => tbody.appendChild(crearFilaModulo(mod)));
+                    table.appendChild(tbody);
+                    body.appendChild(table);
+                    card.appendChild(body);
+                    col.appendChild(card);
+                    return col;
+                }
+                const grid = document.createElement('div');
+                grid.className = 'row g-3 align-items-stretch modal-perfil-permisos-dos-columnas';
+                const half = Math.ceil(perfiles.length / 2);
+                const left = perfiles.slice(0, half);
+                const right = perfiles.slice(half);
+                if (perfiles.length === 1) {
+                    grid.appendChild(buildPermisosCard(left, 'col-12'));
+                } else {
+                    grid.appendChild(buildPermisosCard(left, 'col-12 col-lg-6'));
+                    grid.appendChild(buildPermisosCard(right, 'col-12 col-lg-6'));
+                }
+                container.appendChild(grid);
             }
 
             /* Íconos por modulo_id (modulos_web): pestaña Módulos del sistema y Permisos especiales */
@@ -965,7 +1019,6 @@ class CapHum extends Controller
                 const tr = document.createElement('tr');
                 const tdName = document.createElement('td');
                 tdName.className = 'fw-medium text-heading';
-                tdName.style.paddingLeft = '1.5rem';
                 const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
                 const iconClass = iconosPermisosEspeciales[modId] || iconosPermisosEspeciales[Number(modId)];
                 if (iconClass) {
@@ -1570,10 +1623,9 @@ class CapHum extends Controller
 
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
-                checkbox.className = 'form-check-input';
+                checkbox.className = 'form-check-input modal-perfil-modulo-item-cb';
                 checkbox.checked = Number(mod.asignado_flag) === 1;
                 checkbox.value = mod.modulo_id;
-                checkbox.onchange = () => onModuloChange(checkbox);
                 checkbox.style.cursor = 'pointer';
                 checkbox.style.width = '1.1em';
                 checkbox.style.height = '1.1em';
@@ -1587,9 +1639,8 @@ class CapHum extends Controller
                 label.style.userSelect = 'none';
 
                 checkbox.addEventListener('change', function() {
-                    label.innerHTML = this.checked
-                        ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
-                        : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                    updateModuloCheckboxLabel(this);
+                    onModuloChange(this);
                 });
 
                 divCheck.append(checkbox, label);
@@ -1621,7 +1672,8 @@ class CapHum extends Controller
                     25: 'fa fa-table-cells',
                     27: 'fa fa-table-cells',
                     20: 'fa fa-building-columns',
-                    21: 'fa fa-file-alt',
+                    21: 'fa fa-file-upload',
+                    34: 'fa fa-file-alt',
                     29: 'fa fa-id-card',
                     30: 'fa fa-balance-scale',
                     31: 'fa fa-laptop',
@@ -1676,13 +1728,31 @@ class CapHum extends Controller
                     section.style.overflow = 'hidden';
 
                     const header = document.createElement('div');
-                    header.className = 'modal-perfil-modulo-grupo-header px-3 py-2 d-flex align-items-center fw-semibold';
+                    header.className = 'modal-perfil-modulo-grupo-header px-3 py-2 d-flex align-items-center flex-wrap gap-2 fw-semibold';
                     header.style.background = 'rgba(26, 82, 168, 0.08)';
                     header.style.borderBottom = '2px solid #000';
+
+                    const masterWrap = document.createElement('div');
+                    masterWrap.className = 'form-check mb-0 d-flex align-items-center flex-shrink-0';
+                    const masterCb = document.createElement('input');
+                    masterCb.type = 'checkbox';
+                    masterCb.className = 'form-check-input modal-perfil-modulo-master-cb';
+                    masterCb.title = 'Marcar o desmarcar todos los módulos de este grupo';
+                    masterCb.setAttribute('aria-label', 'Seleccionar todos los módulos de ' + gName);
+                    masterCb.style.cursor = 'pointer';
+                    masterCb.style.width = '1.15em';
+                    masterCb.style.height = '1.15em';
+                    masterWrap.appendChild(masterCb);
+
                     const hi = document.createElement('i');
                     hi.className = (g.icono || 'fa-solid fa-folder') + ' me-2 text-primary';
+                    hi.style.flexShrink = '0';
                     const ht = document.createElement('span');
-                    ht.textContent = gName;
+                    ht.className = 'flex-grow-1 min-w-0';
+                    ht.style.color = '#1e293b';
+                    ht.textContent = gName + ' (' + g.items.length + ')';
+
+                    header.appendChild(masterWrap);
                     header.appendChild(hi);
                     header.appendChild(ht);
 
@@ -1699,6 +1769,48 @@ class CapHum extends Controller
                     });
 
                     table.appendChild(tbody);
+
+                    masterCb.addEventListener('change', function() {
+                        const want = this.checked;
+                        this.indeterminate = false;
+                        const cbs = [...tbody.querySelectorAll('.modal-perfil-modulo-item-cb')];
+                        const toToggle = cbs.filter(cb => cb.checked !== want);
+                        if (toToggle.length === 0) {
+                            syncGrupoModuloMaster(masterCb, tbody);
+                            return;
+                        }
+                        masterCb.disabled = true;
+                        let chain = Promise.resolve(true);
+                        toToggle.forEach(cb => {
+                            chain = chain.then((ok) => {
+                                if (!ok) return false;
+                                cb.checked = want;
+                                updateModuloCheckboxLabel(cb);
+                                return onModuloChange(cb, { silent: true });
+                            });
+                        });
+                        chain
+                            .then((ok) => {
+                                if (ok) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Grupo actualizado',
+                                        text: 'Los permisos del grupo se guardaron correctamente.',
+                                        timer: 1600,
+                                        showConfirmButton: false,
+                                        customClass: { container: 'swal-sobre-modal-perfil' }
+                                    });
+                                }
+                                if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                            })
+                            .finally(() => {
+                                masterCb.disabled = false;
+                                syncGrupoModuloMaster(masterCb, tbody);
+                            });
+                    });
+
+                    syncGrupoModuloMaster(masterCb, tbody);
+
                     section.appendChild(header);
                     section.appendChild(table);
                     container.appendChild(section);
@@ -2135,8 +2247,12 @@ class CapHum extends Controller
 
 
 
-            function onModuloChange(checkbox) {
-                if (!checkbox || currentPersonaId == null) return;
+            function onModuloChange(checkbox, opts) {
+                opts = opts || {};
+                const silent = !!opts.silent;
+                if (!checkbox || currentPersonaId == null) {
+                    return Promise.resolve(false);
+                }
 
                 const payload = {
                     idPersona: currentPersonaId,
@@ -2144,7 +2260,7 @@ class CapHum extends Controller
                     asignado: checkbox.checked ? 1 : 0
                 };
 
-                fetch('/CapHum/PerfilCheckBoxEstado', {
+                return fetch('/CapHum/PerfilCheckBoxEstado', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2156,31 +2272,38 @@ class CapHum extends Controller
                 .then(data => {
 
                     if (!data.success) {
-                        // Revertimos el checkbox si falla
                         checkbox.checked = !checkbox.checked;
+                        updateModuloCheckboxLabel(checkbox);
+                        syncGrupoModuloMasterFromChild(checkbox);
                         Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
-                        return;
+                        return false;
                     }
 
-                    // ALERTA SEGÚN ACCIÓN (z-index para verse sobre el modal de permisos)
-                    Swal.fire({
-                        icon: 'success',
-                        title: checkbox.checked
-                            ? 'Asignación correcta'
-                            : 'Asignación eliminada',
-                        text: checkbox.checked
-                            ? 'El módulo fue asignado correctamente'
-                            : 'El módulo fue desasignado correctamente',
-                        timer: 1600,
-                        showConfirmButton: false,
-                        customClass: { container: 'swal-sobre-modal-perfil' }
-                    });
-                    if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                    if (!silent) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: checkbox.checked
+                                ? 'Asignación correcta'
+                                : 'Asignación eliminada',
+                            text: checkbox.checked
+                                ? 'El módulo fue asignado correctamente'
+                                : 'El módulo fue desasignado correctamente',
+                            timer: 1600,
+                            showConfirmButton: false,
+                            customClass: { container: 'swal-sobre-modal-perfil' }
+                        });
+                        if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                    }
+                    syncGrupoModuloMasterFromChild(checkbox);
+                    return true;
                 })
                 .catch(err => {
                     console.error(err);
                     checkbox.checked = !checkbox.checked;
+                    updateModuloCheckboxLabel(checkbox);
+                    syncGrupoModuloMasterFromChild(checkbox);
                     Swal.fire({ icon: 'error', title: 'Error', text: 'Error de comunicación con el servidor', customClass: { container: 'swal-sobre-modal-perfil' } });
+                    return false;
                 });
             }
 
@@ -4869,7 +4992,7 @@ class CapHum extends Controller
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeGestionarCandidatos = in_array(42, $modulos);
 
-        self::set("titulo", "Candidatos");
+        self::set("titulo", "Selección de Personal");
         self::set("script", $script);
         self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
         self::set("departamento", $departamento);
@@ -8946,7 +9069,7 @@ class CapHum extends Controller
         $scriptGestion .= "\n" . $bajasEaster;
 
         $modulos = $_SESSION['modulos'] ?? [];
-        self::set("titulo", "Personas dadas de baja");
+        self::set("titulo", "Control de Bajas");
         self::set("script", $scriptGestion);
         self::set("departamento", ['datos' => []]); // Array vacío para no romper la vista
         self::set("puedeEditarTodos", in_array(10, $modulos));
@@ -9532,12 +9655,12 @@ public function getMunicipios()
         session_start(); //  IMPORTANTE
         header('Content-Type: application/json; charset=utf-8');
 
-        // Mismo permiso que Gestiones: solo quien tiene Configuración - Departamentos (módulo 10) puede editar
+        // Mismo permiso que Gestiones: solo quien tiene Organización - Departamentos (módulo 10) puede editar
         $modulos = $_SESSION['modulos'] ?? [];
         if (!in_array(10, $modulos)) {
             echo json_encode([
                 'success' => false,
-                'mensaje' => 'No tiene permiso para editar. Solo usuarios con acceso a Configuración - Departamentos pueden modificar la información.'
+                'mensaje' => 'No tiene permiso para editar. Solo usuarios con acceso a Organización - Departamentos pueden modificar la información.'
             ]);
             exit;
         }
@@ -9580,9 +9703,9 @@ public function getMunicipios()
         }
 
         $modulos = $_SESSION['modulos'] ?? [];
-        $puedeEditarTodos = in_array(10, $modulos); // Configuración - Departamentos (igual que en Gestiones)
+        $puedeEditarTodos = in_array(10, $modulos); // Organización - Departamentos (igual que en Gestiones)
 
-        self::set("titulo", "Organigrama");
+        self::set("titulo", "Organigrama Cobranza");
         self::set("script", $script);
         self::set("Departamentos", $getDepartamentos);
         self::set("puedeEditarTodos", $puedeEditarTodos);

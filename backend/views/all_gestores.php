@@ -45,6 +45,9 @@
         border-bottom-color: #e2e8f0 !important;
         color: #f1f5f9 !important;
     }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo-header .flex-grow-1.min-w-0 {
+        color: #f1f5f9 !important;
+    }
     body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-fila {
         border-bottom-color: #334155 !important;
     }
@@ -61,6 +64,16 @@
     body.dark-mode .modal-perfil-modulos-agrupados .modulo-icon-box i {
         color: #93c5fd !important;
     }
+    #modalEditPerfil .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-cb {
+        flex-shrink: 0;
+        width: 1.1rem;
+        height: 1.1rem;
+        margin-top: 0.15rem;
+        cursor: pointer;
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-cb {
+        filter: brightness(1.15);
+    }
 
     /* Módulos del sistema (modal): máximo 2 bloques por fila; el resto baja a la siguiente fila */
     #modalEditPerfil .modal-perfil-modulos-agrupados {
@@ -75,6 +88,58 @@
         max-width: calc(50% - 0.5rem);
         min-width: 0;
         margin-bottom: 0 !important;
+    }
+
+    /* Permisos especiales (modal): dos columnas en escritorio */
+    #modalEditPerfil .modal-perfil-permisos-outer {
+        overflow-y: visible;
+    }
+    #modalEditPerfil .modal-perfil-permisos-col-card {
+        border-radius: 0.5rem !important;
+        border-color: #dee2e6 !important;
+        background: #fff;
+        transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    #modalEditPerfil .modal-perfil-permisos-col-card:hover {
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08) !important;
+        border-color: #ced4da !important;
+    }
+    #modalEditPerfil .modal-perfil-permisos-table tbody tr:last-child td {
+        border-bottom: none !important;
+    }
+    /* Texto un poco más compacto y aire respecto al borde (table-flush-spacing anula padding lateral) */
+    #modalEditPerfil .modal-perfil-permisos-table {
+        font-size: 0.9rem;
+    }
+    #modalEditPerfil .modal-perfil-permisos-table tbody tr > td:first-child {
+        padding-left: 1.25rem !important;
+        padding-right: 0.75rem !important;
+    }
+    #modalEditPerfil .modal-perfil-permisos-table tbody tr > td:last-child {
+        padding-right: 1.25rem !important;
+        padding-left: 0.5rem !important;
+    }
+    #modalEditPerfil .modal-perfil-permisos-table td {
+        vertical-align: middle;
+        padding-top: 0.65rem;
+        padding-bottom: 0.65rem;
+    }
+    #modalEditPerfil .modal-perfil-permisos-table small.text-muted.d-block {
+        font-size: 0.8125rem;
+        line-height: 1.35;
+    }
+    body.dark-mode #modalEditPerfil .modal-perfil-permisos-col-card {
+        background: rgba(30, 41, 59, 0.72) !important;
+        border-color: #475569 !important;
+    }
+    body.dark-mode #modalEditPerfil .modal-perfil-permisos-col-card:hover {
+        border-color: #64748b !important;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    /* Sesión remota: contenido alineado a la izquierda */
+    #modalEditPerfil .modal-tab-sesion-remota-card {
+        border-radius: 0.5rem;
     }
 
     #offcanvasEditPerfil .tab-content:not(.doc-example-content) {
@@ -3121,16 +3186,16 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                     <small class="text-muted">Asigna permisos adicionales para acciones específicas</small>
                                 </div>
                             </div>
-                            <div id="permisos-especiales-container" style="overflow-y: visible; margin-left: 1.25rem; padding-left: 0.5rem; border-left: 2px solid #e9ecef;">
+                            <div id="permisos-especiales-container" class="modal-perfil-permisos-outer">
                                 <div id="modal-edit-perfil-permisos-especiales-form"></div>
                             </div>
                         </div>
 
                         <!-- TAB SESIÓN REMOTA (force_logout en persona) -->
                         <div class="tab-pane fade" id="tabSesionRemota" role="tabpanel" aria-labelledby="tabSesionRemota-tab">
-                            <div class="row justify-content-center">
-                                <div class="col-12 col-md-10 col-lg-7">
-                                    <div class="card border-danger-subtle shadow-sm">
+                            <div class="row justify-content-start">
+                                <div class="col-12 col-md-10 col-lg-6 col-xl-5">
+                                    <div class="card border-danger-subtle shadow-sm modal-tab-sesion-remota-card">
                                         <div class="card-body p-4">
                                             <div class="d-flex align-items-start gap-3 mb-3">
                                                 <span class="badge bg-danger-subtle text-danger-emphasis">

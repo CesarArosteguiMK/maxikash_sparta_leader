@@ -288,7 +288,7 @@ class Condonaciones extends Controller
     }
 
     /**
-     * Historial integrado en Reportería → Call Center (URL canónica).
+     * Historial integrado en Analítica → Call Center (URL canónica).
      */
     public function historial()
     {

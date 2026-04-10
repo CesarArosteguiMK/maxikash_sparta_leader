@@ -468,7 +468,7 @@ img.sidebar-logo {
 }
 
 /*
- * Área de contenido: una sola capa de padding vertical (referencia Reportería / Call Center).
+ * Área de contenido: una sola capa de padding vertical (referencia Analítica / Call Center).
  * View.php ya envuelve $contenido en .container-xxl.container-p-y. Si una vista repite ese
  * mismo bloque como primer hijo, se duplicaba padding-block y el ritmo no coincidía con
  * las vistas que empiezan directo en .card (p. ej. call_center.php).
