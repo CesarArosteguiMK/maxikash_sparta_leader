@@ -155,7 +155,7 @@ class Gastoscobranza extends Controller
     }
 
     /**
-     * Vista principal (Configuración → Shell Gastos Cobranza).
+     * Vista principal (Shell → Shell Gastos Cobranza).
      */
     public function shell()
     {

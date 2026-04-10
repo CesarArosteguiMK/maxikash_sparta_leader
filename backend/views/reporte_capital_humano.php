@@ -46,7 +46,7 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
         <div class="row g-0 align-items-center">
             <div class="col-12 col-md-8">
                 <div class="card-body">
-                    <h5 class="card-title text-primary mb-3">Reporte de Capital Humano</h5>
+                    <h5 class="card-title text-primary mb-3">Reportes de Personal</h5>
                     <p class="mb-6">
                         Consulta, filtra y descarga información de capital humano, incluyendo puestos, departamentos y estatus de empleados.
                     </p>
@@ -56,7 +56,7 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
                 <div class="card-body ps-md-2 pe-5 text-end">
                     <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
                          class="img-fluid scaleX-n1-rtl"
-                         alt="Capital Humano">
+                         alt="Reportes de Personal">
                 </div>
             </div>
             <div class="row gy-3 mb-3">
@@ -91,7 +91,7 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
                 <div>
                     <h5 class="modal-title fw-semibold">
                         <i class="fas fa-file-excel text-success me-2"></i>
-                        Reporte de Capital Humano
+                        Reportes de Personal
                     </h5>
                     <small class="text-muted">Consulta y descarga información del personal activo</small>
                 </div>
@@ -182,7 +182,7 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
 
 <script>
 // ============================================
-// REPORTERÍA CAPITAL HUMANO - SOLO USUARIOS ACTIVOS
+// ANALÍTICA — REPORTE CAPITAL HUMANO - SOLO USUARIOS ACTIVOS
 // ============================================
 
 let tablaUsuarios = null;

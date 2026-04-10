@@ -24,11 +24,11 @@ Listado de **todos** los Easter eggs: nombre, cómo activarlos, qué hacen y dó
 
 ---
 
-## Configuración
+## Organización
 
 | Nombre | Cómo activarlo | Qué hace | Dónde |
 |--------|----------------|----------|--------|
-| **Bandera México** | Triple clic en la bandera de México | Sonido `speedy.mp3` | Configuración → Países |
+| **Bandera México** | Triple clic en la bandera de México | Sonido `speedy.mp3` | Organización → Países |
 
 ---
 
@@ -54,11 +54,11 @@ Listado de **todos** los Easter eggs: nombre, cómo activarlos, qué hacen y dó
 
 ---
 
-## Configuración → Shell Segundómetro
+## Shell Segundómetro
 
 | Nombre | Cómo activarlo | Qué hace | Dónde |
 |--------|----------------|----------|--------|
-| **Shell listo** | Atajo **Ctrl+Shift+S** | Lluvia Matrix (canvas) + scan line + toast “$ Shell listo” con efecto typing + cursor parpadeante + beeps | Configuración → Shell Segundómetro |
+| **Shell listo** | Atajo **Ctrl+Shift+S** | Lluvia Matrix (canvas) + scan line + toast “$ Shell listo” con efecto typing + cursor parpadeante + beeps | Shell → Shell Segundómetro |
 
 ---
 
@@ -70,11 +70,11 @@ Listado de **todos** los Easter eggs: nombre, cómo activarlos, qué hacen y dó
 
 ---
 
-## Reportería
+## Analítica
 
 | Nombre | Cómo activarlo | Qué hace | Dónde |
 |--------|----------------|----------|--------|
-| **Llamada en curso** | Triple clic en el icono del teléfono 📞 | “Llamada en curso” + `ring.mp3` + icono animado (~6 s) | Reportería → Resumen Call Center |
+| **Llamada en curso** | Triple clic en el icono del teléfono 📞 | “Llamada en curso” + `ring.mp3` + icono animado (~6 s) | Analítica → Resumen Call Center |
 
 ---
 

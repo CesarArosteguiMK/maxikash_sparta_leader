@@ -879,7 +879,7 @@ async function runPostReporteEntregas(xlsxAbs) {
     const text =
       `📊 *Reporte Gastos Cobranza*\n` +
       `Archivo: \`${base}\` (~${kb} KB)\n` +
-      `El Excel se envió por correo a los destinatarios configurados (SMTP Reportería).`;
+      `El Excel se envió por correo a los destinatarios configurados (PHPMailer).`;
     await postGoogleChatWebhook(hook, text);
   }
 }

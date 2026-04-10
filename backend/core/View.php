@@ -4,7 +4,7 @@ $titulo = $titulo ?? "Inicio | "  . CONFIGURACION['EMPRESA'];
 $usuario = $_SESSION['nombre'] ?? 'Usuario';
 /** Si la vista lo define (p. ej. estado de cuenta), se omiten CSS/JS vendor masivos para acelerar carga */
 $layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
-/** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta reportería) */
+/** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta Analítica) */
 $layoutChromelessReporteriaEmbed = isset($layoutChromelessReporteriaEmbed) && $layoutChromelessReporteriaEmbed;
 
 // Cache-busting para CSS
@@ -45,7 +45,7 @@ function getMenu(): string
                 ['label' => 'Control de Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
                 ['label' => 'Selección de Personal',       'url' => '/caphum/candidatos',               'modulos' => [42]],
                 ['label' => 'Curso de Inducción', 'url' => '/onboarding/index',                'modulos' => [44]],
-                ['label' => 'Reportes de Personal',   'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [21]],
+                ['label' => 'Reportes de Personal',   'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [34]],
             ],
         ],
         'Convenios' => [
