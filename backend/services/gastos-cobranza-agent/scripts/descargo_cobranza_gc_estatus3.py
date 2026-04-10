@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Descarga incremental desde __SPARTA_SECRET_REDACTED__: filas estatus=3 (con exclusión fija de id_credito),
+Descarga incremental desde __SPARTA_SECRET_REDACTED__: filas estatus=3,
 genera descargo_estatus3.xlsx (columnas legibles y encabezados formateados) y guia_descargo.json.
 
 Repo: backend/services/gastos-cobranza-agent/scripts/
@@ -45,23 +45,6 @@ _DATOS_SUBDIR = "cobranza_gc_estatus3_datos"
 _GUIA_DESCARGO_BASENAME = "guia_descargo.json"
 _GUIA_LEGACY_CHECKPOINT = "descargo_checkpoint.json"
 _DESCARGO_XLSX_BASENAME = "descargo_estatus3.xlsx"
-
-EXCLUIR_ID_CREDITO_LISTAR_ESTATUS_3: tuple[int, ...] = (
-    943898,
-    1403455,
-    1454729,
-    1820460,
-    456213,
-    1592177,
-    1363701,
-    1382512,
-    837692,
-    1502282,
-    1386771,
-    1031813,
-    1363075,
-    1020293,
-)
 
 
 def carpeta_datos_descargo(ruta_explicita: Optional[str]) -> Path:
@@ -205,6 +188,7 @@ def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[li
         "Id usuario que reportó",
         "Semana ISO",
         "registrado_en_cdmx",
+        "Último pago efectivo",
         "Observaciones",
     ]
     data: list[list] = []
@@ -215,6 +199,8 @@ def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[li
         sem_txt = _fmt_semana_iso(anio, sem)
         reg = m.get("registrado_en_cdmx")
         reg_txt = _datetime_a_iso_cdmx(reg) if _valor_presente(reg) else ""
+        upe = m.get("ultimo_pago_efectivo")
+        upe_txt = _datetime_a_iso_cdmx(upe) if _valor_presente(upe) else ""
         fila_out = [
             m.get("id_credito"),
             m.get("nombre"),
@@ -224,6 +210,7 @@ def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[li
             m.get("id_usuario_reporte"),
             sem_txt,
             reg_txt,
+            upe_txt,
             m.get("mensaje"),
         ]
         data.append(fila_out)
@@ -303,6 +290,7 @@ def escribir_excel_descargo_formateado(encabezados: list[str], data_rows: list[l
         "Id usuario que reportó": 20,
         "Semana ISO": 14,
         "registrado_en_cdmx": 22,
+        "Último pago efectivo": 22,
         "Observaciones": 48,
     }
     for j, h in enumerate(headers, start=1):
@@ -367,13 +355,8 @@ def descargo_estatus_3_incremental(
             "Modo --sin-actualizar-guía: si hay filas, se genera el Excel pero no se escribe guia_descargo.json.",
             flush=True,
         )
-    ids = EXCLUIR_ID_CREDITO_LISTAR_ESTATUS_3
-    ph = ",".join(["%s"] * len(ids))
-    conds = [
-        "`estatus` = 3",
-        f"`id_credito` NOT IN ({ph})",
-    ]
-    exec_params: list = list(ids)
+    conds = ["`estatus` = 3"]
+    exec_params: list = []
 
     if not desde_cero:
         guia = cargar_lectura_guia(datos_dir)
@@ -421,10 +404,7 @@ def descargo_estatus_3_incremental(
     cur.execute(sql, tuple(exec_params))
     colnames = [d[0] for d in (cur.description or [])]
     rows = cur.fetchall()
-    print(
-        f"Filas nuevas en esta corrida (excl. {len(ids)} id_credito fijos del filtro): {len(rows)}",
-        flush=True,
-    )
+    print(f"Filas nuevas en esta corrida (estatus=3): {len(rows)}", flush=True)
 
     if rows:
         try:

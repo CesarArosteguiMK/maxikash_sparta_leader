@@ -1,5 +1,3 @@
-<div class="container-xxl flex-grow-1 container-p-y">
-
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm border-0 gc-shell-hero-card">
@@ -190,7 +188,12 @@
                             <h5 class="card-title mb-0"><i class="fa fa-table text-success me-2"></i>Reportes en carpeta <code>reporte/</code></h5>
                             <p id="gastosCobranzaSemanaActualHint" class="small text-muted mb-0 mt-1">Semana actual (lun–dom, Ciudad de México): —</p>
                         </div>
-                        <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <div class="form-check form-switch mb-0 gc-auto-run-switch d-flex align-items-center gap-2">
+                                <input class="form-check-input flex-shrink-0" type="checkbox" role="switch" id="switchGcAutoRunReporte" autocomplete="off" disabled
+                                    title="Si está activo, el agente Node dispara el reporte en la ventana horaria CDMX configurada (por defecto ~10:00). Requiere agente en línea. La preferencia se guarda en el servidor del agente.">
+                                <label class="form-check-label small mb-0 text-nowrap" for="switchGcAutoRunReporte">Reporte automático</label>
+                            </div>
                             <button type="button" class="btn btn-sm btn-primary" id="btnGastosCobranzaEjecutar" disabled>
                                 <i class="fa fa-play me-1"></i>Ejecutar agente
                             </button>
@@ -297,8 +300,6 @@
         </div>
     </div>
 
-</div>
-
 <style>
     .container-p-y .row.mb-4:last-of-type {
         margin-bottom: 1rem !important;
@@ -366,6 +367,42 @@
         font-weight: 600;
         color: #566a7f;
         line-height: 1.2;
+    }
+    html.dark-mode .gc-shell-hero-card,
+    body.dark-mode .gc-shell-hero-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.99) 100%) !important;
+        border-color: rgba(148, 163, 184, 0.22) !important;
+    }
+    html.dark-mode .gc-shell-hero-title,
+    body.dark-mode .gc-shell-hero-title {
+        color: #e2e8f0 !important;
+    }
+    html.dark-mode .gc-shell-module-card,
+    body.dark-mode .gc-shell-module-card {
+        background: rgba(30, 41, 59, 0.95) !important;
+        border-color: rgba(148, 163, 184, 0.28) !important;
+        box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+    }
+    html.dark-mode .gc-shell-module-icon,
+    body.dark-mode .gc-shell-module-icon {
+        background: linear-gradient(145deg, rgba(129, 140, 248, 0.35), rgba(99, 102, 241, 0.12)) !important;
+        color: #c7d2fe !important;
+    }
+    html.dark-mode .gc-shell-module-label,
+    body.dark-mode .gc-shell-module-label {
+        color: #cbd5e1 !important;
+    }
+    html.dark-mode .gc-shell-module-name,
+    body.dark-mode .gc-shell-module-name {
+        color: #f8fafc !important;
+    }
+    .gc-auto-run-switch .form-check-label {
+        cursor: pointer;
+        user-select: none;
+    }
+    html.dark-mode .gc-auto-run-switch .form-check-label,
+    body.dark-mode .gc-auto-run-switch .form-check-label {
+        color: #cbd5e1;
     }
 
     .card.gc-card-accent-descargo.border-0 {
@@ -504,6 +541,22 @@
     var LS_REPORTE_OK_YMD = 'gastosCobranza_reporteRealOkYmd';
 
     var ejecucionBanner = document.getElementById('gastosCobranzaEjecucionBanner');
+    var switchGcAutoRun = document.getElementById('switchGcAutoRunReporte');
+    /** Evita POST al sincronizar el switch desde /health */
+    var gcAutoRunProgrammatic = false;
+
+    function aplicarAutoRunDesdeAgente(agente) {
+        if (!switchGcAutoRun) return;
+        if (!gcAgenteOnline || !agente || !agente.auto_run_cdmx) {
+            switchGcAutoRun.disabled = true;
+            return;
+        }
+        switchGcAutoRun.disabled = false;
+        var on = !!agente.auto_run_cdmx.enabled;
+        gcAutoRunProgrammatic = true;
+        switchGcAutoRun.checked = on;
+        gcAutoRunProgrammatic = false;
+    }
 
     function actualizarBannerEjecucion() {
         if (!ejecucionBanner) return;
@@ -1341,6 +1394,7 @@
                 badge.textContent = 'Error';
                 if (detalle) detalle.textContent = data.mensaje || 'Error';
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+                aplicarAutoRunDesdeAgente(null);
                 aplicarEstadoBotonesShellCompleto();
                 return;
             }
@@ -1361,6 +1415,7 @@
                 }
                 gcActualizarHintSemanaActual();
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+                aplicarAutoRunDesdeAgente(null);
                 aplicarEstadoBotonesShellCompleto();
                 return;
             }
@@ -1379,6 +1434,7 @@
                         detalle.textContent = '';
                     }
                 }
+                aplicarAutoRunDesdeAgente(a);
                 aplicarEstadoBotonesShellCompleto();
                 if (!sil) {
                     traerLog(400, { scrollBottom: true });
@@ -1402,6 +1458,7 @@
                 }
                 gcActualizarHintSemanaActual();
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+                aplicarAutoRunDesdeAgente(null);
                 aplicarEstadoBotonesShellCompleto();
             }
         } catch (e) {
@@ -1413,6 +1470,7 @@
             badge.textContent = 'Error red';
             if (detalle) detalle.textContent = String(e.message || e);
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
+            aplicarAutoRunDesdeAgente(null);
             aplicarEstadoBotonesShellCompleto();
         }
     }
@@ -1768,6 +1826,46 @@
             });
         }
     } catch (eBt) { /* ignorar */ }
+    if (switchGcAutoRun) {
+        switchGcAutoRun.addEventListener('change', async function () {
+            if (gcAutoRunProgrammatic) return;
+            if (!gcAgenteOnline) return;
+            var deseado = switchGcAutoRun.checked;
+            switchGcAutoRun.disabled = true;
+            try {
+                var r = await fetch('/gastoscobranza/configurarautorunreporte', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                    body: JSON.stringify({ enabled: deseado }),
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!d.success) {
+                    gcAutoRunProgrammatic = true;
+                    switchGcAutoRun.checked = !deseado;
+                    gcAutoRunProgrammatic = false;
+                    var msg = d.mensaje || 'No se pudo actualizar. ¿Agente actualizado (ruta /auto-run-reporte)?';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Reporte automático', text: msg, confirmButtonColor: '#696cff' });
+                    } else {
+                        alert(msg);
+                    }
+                } else {
+                    await refrescarEstado({ silencioso: true });
+                }
+            } catch (err) {
+                gcAutoRunProgrammatic = true;
+                switchGcAutoRun.checked = !deseado;
+                gcAutoRunProgrammatic = false;
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Red', text: String(err.message || err), confirmButtonColor: '#696cff' });
+                } else {
+                    alert(String(err.message || err));
+                }
+            } finally {
+                if (gcAgenteOnline && switchGcAutoRun) switchGcAutoRun.disabled = false;
+            }
+        });
+    }
     refrescarEstado();
     programarPoll();
 })();

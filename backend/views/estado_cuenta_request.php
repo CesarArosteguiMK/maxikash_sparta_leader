@@ -3004,7 +3004,7 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
                                 Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
                             </label>
                             <textarea id="descripcionCondonacion" class="form-control" rows="3"
-                                placeholder="Describe el motivo de la condonación..."></textarea>
+                                placeholder="Describe el motivo de la condonación (mínimo 25 caracteres)..."></textarea>
                         </div>
 
                     </div>
@@ -3059,9 +3059,9 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
                 </div>
                 <div class="mb-0">
                     <label class="form-label fw-semibold">Motivo de la condonación parcial <span class="text-danger">*</span></label>
-                    <textarea id="condonarParcial_motivo" class="form-control" rows="4" minlength="100"
-                        placeholder="Describa la promoción o razón de la condonación a detalle (mínimo 100 caracteres, 8 palabras)..."></textarea>
-                    <small class="text-muted"><span id="condonarParcial_motivoCount">0</span>/100 caracteres · Mínimo 8 palabras</small>
+                    <textarea id="condonarParcial_motivo" class="form-control" rows="4" minlength="25"
+                        placeholder="Describa el motivo de la condonación parcial (mínimo 25 caracteres)..."></textarea>
+                    <small class="text-muted"><span id="condonarParcial_motivoCount">0</span> caracteres · Mínimo 25</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -4464,9 +4464,9 @@ function _fetchGastosCobranza(idCredito) {
 
         // Ambos son obligatorios para poder dar Aceptar
         const faltaMonto = montoParcial <= 0;
-        const faltaMotivo = motivo.length < 100;
+        const faltaMotivo = motivo.length < 25;
         if (faltaMonto && faltaMotivo) {
-            Swal.fire('Atención', 'Debe completar el monto a condonar y el motivo de condonación (mínimo 100 caracteres) para continuar.', 'warning');
+            Swal.fire('Atención', 'Debe completar el monto a condonar y el motivo de condonación (mínimo 25 caracteres) para continuar.', 'warning');
             return;
         }
         if (faltaMonto) {
@@ -4474,22 +4474,11 @@ function _fetchGastosCobranza(idCredito) {
             return;
         }
         if (faltaMotivo) {
-            Swal.fire('Atención', 'Debe completar el motivo de condonación con al menos 100 caracteres.', 'warning');
+            Swal.fire('Atención', 'Debe completar el motivo de condonación con al menos 25 caracteres.', 'warning');
             return;
         }
         if (montoParcial >= montoMax) {
             Swal.fire('Atención', 'El monto a condonar debe ser menor al monto total del gasto.', 'warning');
-            return;
-        }
-        // Mismo criterio que el backend: no mismo carácter repetido (ej. xxx, XXXXX)
-        if (/(.)\1{2,}/u.test(motivo)) {
-            Swal.fire('Atención', 'El motivo no puede contener la misma letra o carácter repetido muchas veces. Describe la promoción o razón con palabras normales.', 'warning');
-            return;
-        }
-        // Mínimo 8 palabras
-        const palabras = motivo.split(/\s+/).filter(Boolean);
-        if (palabras.length < 8) {
-            Swal.fire('Atención', 'El motivo debe incluir al menos 8 palabras describiendo la promoción o razón de la condonación.', 'warning');
             return;
         }
 
@@ -4691,17 +4680,8 @@ function _fetchGastosCobranza(idCredito) {
             Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning");
             return;
         }
-        if (comentario.length < 100) {
-            Swal.fire("Atención", "El motivo debe tener al menos 100 caracteres.", "warning");
-            return;
-        }
-        if (/(.)\1{2,}/u.test(comentario)) {
-            Swal.fire("Atención", "El motivo no puede contener la misma letra o carácter repetido muchas veces. Describe con palabras normales.", "warning");
-            return;
-        }
-        const palabras = comentario.split(/\s+/).filter(Boolean);
-        if (palabras.length < 8) {
-            Swal.fire("Atención", "El motivo debe incluir al menos 8 palabras describiendo la condonación.", "warning");
+        if (comentario.length < 25) {
+            Swal.fire("Atención", "El motivo debe tener al menos 25 caracteres.", "warning");
             return;
         }
 
@@ -4897,98 +4877,6 @@ let historialCargado = false;
 
 
 // ===== HISTORIAL GASTOS COBRANZA =====
-
-/*
-
-
-function cargarHistorialGastos()
-{
-
-     console.log('cargarHistorialGastos llamado, idCreditoCondonar:', idCreditoCondonar);
-    console.log('historialCargado:', historialCargado);
-    if (historialCargado) return;
-
-    const idCredito = idCreditoCondonar;
-    console.log('idCredito a usar:', idCredito);
-
-    const contenedor = document.getElementById('contenedorHistorial');
-
-    if (!idCredito) {
-        contenedor.innerHTML = '<p class="text-muted text-center py-3">No se encontró el ID de crédito.</p>';
-        return;
-    }
-
-    contenedor.innerHTML = `
-        <div class="text-center text-muted py-4">
-            <i class="fa fa-spinner fa-spin fa-2x mb-2 d-block"></i>
-            <p>Cargando historial...</p>
-        </div>`;
-
-    fetch('/EstadoCuenta/getHistorialGastosCobranza', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ idCredito: idCredito })
-    })
-    .then(res => res.json())
-    .then(resp => {
-        if (!resp.success) {
-            contenedor.innerHTML = '<p class="text-danger text-center py-3">Error al cargar el historial.</p>';
-            return;
-        }
-
-        const datos = resp.datos ?? [];
-
-        if (datos.length === 0) {
-            contenedor.innerHTML = `
-                <div class="text-center text-muted py-4">
-                    <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
-                    <p>No hay gastos condonados registrados.</p>
-                </div>`;
-            historialCargado = true;
-            return;
-        }
-
-        let html = `
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Semana</th>
-                        <th>Periodo</th>
-                        <th class="text-end">Monto Original</th>
-                        <th class="text-center">Tipo</th>
-                        <th class="text-end">Monto</th>
-                        <th class="text-center">Fecha</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-
-        datos.forEach(g => {
-           html += `
-                <tr>
-                    <td>${g.semana}</td>
-                    <td><small>${g.periodo}</small></td>
-                    <td class="text-end">$${parseFloat(g.monto_original).toFixed(2)}</td>
-                    <td class="text-center">
-                        <span class="badge ${g.condonado ? 'bg-warning' : 'bg-success'} px-3 py-2">
-                            ${g.condonado ? 'Condonado' : 'Pagado'}
-                        </span>
-                    </td>
-                    <td class="text-end text-success fw-semibold">$${parseFloat(g.monto_condonado).toFixed(2)}</td>
-                    <td class="text-center"><small>${g.fecha_condonacion}</small></td>
-                </tr>`;
-        });
-
-        html += `</tbody></table></div>`;
-        contenedor.innerHTML = html;
-        historialCargado = true;
-    })
-    .catch(() => {
-        contenedor.innerHTML = '<p class="text-danger text-center py-3">Error de conexión.</p>';
-    });
-}
-
-*/
 
 function cargarHistorialGastos() {
     if (historialCargado) return;

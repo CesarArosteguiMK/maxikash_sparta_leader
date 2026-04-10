@@ -756,9 +756,6 @@ public function DesasignarCredito()
     public function ObtenerMisCreditos()
     {
         try {
-            // ⚠️ TEST: descomentar junto con el panel de pruebas en la vista
-            // $testId    = isset($_GET['test_id']) ? (int) $_GET['test_id'] : null;
-            // $idPersona = $testId ?: ($_SESSION['usuario_id'] ?? null);
             $idPersona = $_SESSION['usuario_id'] ?? null;
 
             if (!$idPersona) {

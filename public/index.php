@@ -315,6 +315,7 @@ $rutasModulos = [
     'segundometro/shell' => [16],
     'gastoscobranza/shell' => [31],
     'gastoscobranza/estadoagente' => [31],
+    'gastoscobranza/configurarautorunreporte' => [31],
     'gastoscobranza/ejecutarreporte' => [31],
     'gastoscobranza/logagente' => [31],
     'gastoscobranza/vaciarlogagente' => [31],
