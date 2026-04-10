@@ -225,6 +225,39 @@ body.dark-mode .cc-conv-card { background: #1e293b; border-color: #334155; }
 body.dark-mode .cc-conv-details .cc-detail-row .cc-val { color: #e2e8f0; }
 body.dark-mode .cc-resumen-aplicacion { background: #0f172a; border-color: #334155; }
 body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155; }
+
+/* ── Checklist de documentos (tab En Proceso) ── */
+.cc-doccheck-wrap {
+    background: #f8fafc;
+    border-radius: .5rem;
+    padding: .5rem .75rem;
+    border: 1px solid #e2e8f0;
+}
+.cc-doccheck-title {
+    font-size: .72rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: .4rem;
+}
+.cc-doccheck-items { display: flex; flex-wrap: wrap; gap: .4rem; }
+.cc-doc-ok, .cc-doc-missing, .cc-doc-partial {
+    display: inline-flex;
+    align-items: center;
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+.cc-doc-ok      { background: #dcfce7; color: #15803d; }
+.cc-doc-missing { background: #fee2e2; color: #b91c1c; }
+.cc-doc-partial { background: #fef9c3; color: #854d0e; }
+body.dark-mode .cc-doccheck-wrap  { background: #0f172a; border-color: #334155; }
+body.dark-mode .cc-doccheck-title { color: #94a3b8; }
+body.dark-mode .cc-doc-ok      { background: rgba(21,128,61,.2);  color: #4ade80; }
+body.dark-mode .cc-doc-missing { background: rgba(185,28,28,.2); color: #f87171; }
+body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24; }
 </style>
 
 <!-- ══════════════════════════════════════
@@ -324,27 +357,12 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
                     Cargando registros...
                 </div>
-                <div id="wrap-tabla-en-proceso" class="d-none">
-                    <div class="table-responsive">
-                        <table class="table table-hover cc-table align-middle mb-0" id="tbl-en-proceso">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>ID Crédito</th>
-                                    <th>Cliente</th>
-                                    <th>Fecha Alta</th>
-                                    <th>Usuario Alta</th>
-                                    <th>Última Act.</th>
-                                    <th>Estatus</th>
-                                </tr>
-                            </thead>
-                            <tbody id="body-en-proceso"></tbody>
-                        </table>
-                    </div>
+                <div id="wrap-ep-cards" class="d-none">
+                    <!-- Cards renderizadas por JS -->
                 </div>
                 <div id="empty-en-proceso" class="text-center py-5 text-muted d-none">
                     <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
-                    Sin registros en proceso.
+                    Sin registros en proceso de validación.
                 </div>
             </div>
         </div>
@@ -542,7 +560,7 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
 
             <!-- Footer: botón confirmar -->
             <div class="cc-conv-card-footer">
-                <button class="cc-btn-confirmar" onclick="ccConfirmar(${r.id}, '${esc(r.id_credito)}')"
+                <button class="cc-btn-confirmar" onclick="ccConfirmar(${r.id}, '${esc(r.id_credito)}', '${esc(r.nombre_cliente)}')"
                         id="cc-btn-${r.id}">
                     <i class="fa-solid fa-check-circle"></i>
                     Confirmar cierre
@@ -553,32 +571,100 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
     }
 
     /* ══════════════════════════════════
-       RENDER: TABLA EN PROCESO
+       RENDER: CARDS EN PROCESO
     ══════════════════════════════════ */
-    function renderTablaEnProceso(rows) {
+    function renderEnProceso(rows) {
         document.getElementById('loader-en-proceso').classList.add('d-none');
+        document.getElementById('badge-en-proceso').textContent = rows.length;
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-en-proceso').classList.remove('d-none');
-            document.getElementById('badge-en-proceso').textContent = '0';
             return;
         }
 
-        document.getElementById('badge-en-proceso').textContent = rows.length;
-        document.getElementById('wrap-tabla-en-proceso').classList.remove('d-none');
+        const wrap = document.getElementById('wrap-ep-cards');
+        wrap.innerHTML = '<div class="row g-3">' +
+            rows.map(r => `<div class="col-12 col-md-6 col-xl-4">${buildEnProcesoCard(r)}</div>`).join('') +
+            '</div>';
+        wrap.classList.remove('d-none');
+    }
 
-        const tbody = document.getElementById('body-en-proceso');
-        tbody.innerHTML = rows.map((r, i) => `
-            <tr>
-                <td class="text-muted fw-semibold">${i + 1}</td>
-                <td><strong>${r.id_credito}</strong></td>
-                <td>${r.nombre_cliente || '—'}</td>
-                <td>${fmtFecha(r.fecha_alta)}</td>
-                <td>${r.usuario_alta || '—'}</td>
-                <td>${fmtFecha(r.fecha_actualizacion)}</td>
-                <td>${badgeEstatus(r.estatus)}</td>
-            </tr>
-        `).join('');
+    function buildEnProcesoCard(r) {
+        const fmtN   = (n) => parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
+        const numCon = parseInt(r.comprobantes_subidos) || 0;
+        const numTot = parseInt(r.comprobantes_total)   || 0;
+        const compOk = numTot > 0 && numCon === numTot;
+        const todoListo = pdfOk && compOk;
+
+        const pdfBadge = pdfOk
+            ? `<span class="cc-doc-ok"><i class="fa-solid fa-file-pdf me-1"></i>PDF Convenio</span>`
+            : `<span class="cc-doc-missing"><i class="fa-solid fa-file-pdf me-1"></i>Sin PDF convenio</span>`;
+
+        let compBadge;
+        if (numTot === 0) {
+            compBadge = `<span class="cc-doc-missing"><i class="fa-solid fa-receipt me-1"></i>Sin comprobantes</span>`;
+        } else if (compOk) {
+            compBadge = `<span class="cc-doc-ok"><i class="fa-solid fa-receipt me-1"></i>Comprobantes ${numCon}/${numTot}</span>`;
+        } else {
+            compBadge = `<span class="cc-doc-partial"><i class="fa-solid fa-receipt me-1"></i>Comprobantes ${numCon}/${numTot}</span>`;
+        }
+
+        const estadoBadge = todoListo
+            ? `<span class="badge" style="background:rgba(255,255,255,.2);color:#fff;font-size:.7rem;"><i class="fa-solid fa-circle-check me-1"></i>Listo</span>`
+            : `<span class="badge" style="background:rgba(250,200,0,.3);color:#fff;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs incompletos</span>`;
+
+        const pdfLink = pdfOk
+            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-light" style="font-size:.78rem;"><i class="fa-solid fa-eye me-1"></i>Ver PDF</a>`
+            : '';
+
+        return `
+        <div class="cc-conv-card" id="cc-ep-card-${r.id}">
+            <div class="cc-conv-card-header">
+                <span class="cc-credito-id">#${esc(r.id_credito)} <small>${esc(r.nombre_cliente)}</small></span>
+                ${estadoBadge}
+            </div>
+            <div class="cc-conv-card-body">
+                <div class="cc-conv-details">
+                    <div class="cc-detail-row">
+                        <span class="cc-lbl">Producto</span>
+                        <span class="cc-val">${esc(r.nombre_producto)}</span>
+                        <span style="background:#e0edff;color:#1d4ed8;font-size:.75rem;font-weight:700;
+                                      padding:2px 8px;border-radius:20px;margin-left:.35rem;white-space:nowrap;">
+                            ${parseFloat(r.porcentaje_descuento) || 0}%
+                        </span>
+                    </div>
+                    <div class="cc-detail-row">
+                        <span class="cc-lbl">Total pagado</span>
+                        <span class="cc-val fw-bold text-success">${fmtN(r.total_a_pagar)}</span>
+                    </div>
+                    <div class="cc-detail-row">
+                        <span class="cc-lbl">Registrado por</span>
+                        <span class="cc-val">${esc(r.usuario_alta)}</span>
+                    </div>
+                    <div class="cc-detail-row">
+                        <span class="cc-lbl">Fecha envío</span>
+                        <span class="cc-val">${fmtFecha(r.fecha_alta)}</span>
+                    </div>
+                    <div class="cc-doccheck-wrap mt-2">
+                        <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
+                        <div class="cc-doccheck-items">
+                            ${pdfBadge}
+                            ${compBadge}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="cc-conv-card-footer" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                ${pdfLink}
+                <button class="cc-btn-confirmar"
+                        style="background:linear-gradient(135deg,#059669,#10b981);flex:1;min-width:140px;"
+                        onclick="ccEnviarACartera(${r.id})" id="cc-ep-btn-${r.id}">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Enviar a cartera
+                </button>
+            </div>
+        </div>`;
     }
 
     /* ══════════════════════════════════
@@ -608,7 +694,7 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
-                renderTablaEnProceso(res.datos);
+                renderEnProceso(res.datos);
             })
             .catch(err => {
                 document.getElementById('loader-en-proceso').innerHTML =
@@ -623,13 +709,13 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
     cargarEnviadoFinalizado();
 
     /* ══════════════════════════════════
-       CONFIRMAR CIERRE
+       CONFIRMAR CIERRE (Tab 1 → crea registro en proceso)
     ══════════════════════════════════ */
-    window.ccConfirmar = function(idRegistro, idCredito) {
+    window.ccConfirmar = function(idRegistro, idCredito, nombreCliente) {
         Swal.fire({
             title: '¿Confirmar cierre?',
-            html: `Se confirmará el cierre del crédito <strong>${idCredito}</strong>.<br>
-                   <small class="text-muted">Esta acción quedará registrada con tu usuario.</small>`,
+            html: `Se enviará el crédito <strong>${idCredito}</strong> al proceso de validación.<br>
+                   <small class="text-muted">La gestora validadora revisará los documentos antes de enviarlo a cartera.</small>`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#059669',
@@ -639,20 +725,81 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
             if (!result.isConfirmed) return;
 
             const btn = document.getElementById(`cc-btn-${idRegistro}`);
-            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Confirmando...'; }
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Enviando...'; }
 
-            // TODO: llamar endpoint de confirmación cuando esté listo
-            setTimeout(() => {
+            const params = new URLSearchParams({
+                id_credito:     idCredito,
+                nombre_cliente: nombreCliente || '',
+                estatus:        'en_proceso'
+            });
+            fetch('/CierreCredito/crear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
                 Swal.fire({
                     title: '¡Confirmado!',
-                    text: `Cierre del crédito ${idCredito} registrado.`,
+                    text: `Crédito ${idCredito} enviado al proceso de validación.`,
                     icon: 'success',
-                    timer: 2000,
+                    timer: 2500,
                     showConfirmButton: false
                 });
-                const card = document.getElementById(`cc-card-${idRegistro}`);
-                if (card) card.style.opacity = '.45';
-            }, 600);
+                if (btn) {
+                    btn.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i>Enviado a validación';
+                    btn.style.background = 'linear-gradient(135deg,#64748b,#94a3b8)';
+                    btn.style.cursor = 'default';
+                }
+                // Incrementar badge tab 2 y resetear flag de carga lazy
+                const badge2 = document.getElementById('badge-en-proceso');
+                if (badge2) badge2.textContent = (parseInt(badge2.textContent) || 0) + 1;
+                enProcesoCargado = false;
+            })
+            .catch(err => {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Confirmar cierre'; }
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            });
+        });
+    };
+
+    /* ══════════════════════════════════
+       ENVIAR A CARTERA (Tab 2)
+    ══════════════════════════════════ */
+    window.ccEnviarACartera = function(idRegistro) {
+        Swal.fire({
+            title: '¿Enviar a cartera?',
+            html: 'Se marcará este cierre como <strong>enviado a cartera</strong>.<br><small class="text-muted">El área de cartera actualizará el sistema.</small>',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#059669',
+            confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, enviar',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+
+            const btn = document.getElementById(`cc-ep-btn-${idRegistro}`);
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Enviando...'; }
+
+            fetch('/CierreCredito/enviarACartera', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `id=${idRegistro}`
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                Swal.fire({ title: '¡Enviado!', text: 'El cierre fue enviado a cartera.', icon: 'success', timer: 2000, showConfirmButton: false });
+                const card = document.getElementById(`cc-ep-card-${idRegistro}`);
+                if (card) { card.style.opacity = '.4'; card.style.pointerEvents = 'none'; }
+                const badge = document.getElementById('badge-en-proceso');
+                if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 1) - 1);
+            })
+            .catch(err => {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar a cartera'; }
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            });
         });
     };
 
