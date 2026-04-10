@@ -212,6 +212,52 @@ class Gastoscobranza extends Controller
     }
 
     /**
+     * Activa o desactiva la generación automática del reporte (timer CDMX en el agente Node).
+     * Persistencia: archivo logs/.auto_run_reporte_runtime.txt en la carpeta del agente (no modifica .env).
+     */
+    public function configurarAutoRunReporte()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            if (!$this->agenteHabilitado()) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Agente deshabilitado en config.ini ([gastoscobranza_agent] enabled=0).',
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: 'null', true);
+            if (!is_array($body) || !array_key_exists('enabled', $body)) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'JSON inválido: se requiere { "enabled": true|false }.',
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $en = $body['enabled'] === true || $body['enabled'] === 1
+                || $body['enabled'] === '1' || strtolower((string)$body['enabled']) === 'true';
+            $req = $this->agenteRequest('POST', '/auto-run-reporte', ['enabled' => $en], 25);
+            if (!$req['success'] || !is_array($req['json']) || empty($req['json']['success'])) {
+                $msg = is_array($req['json']) && !empty($req['json']['mensaje'])
+                    ? (string)$req['json']['mensaje']
+                    : ($req['error'] ?: ('HTTP ' . ($req['status'] ?? 0)));
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'No se pudo actualizar el agente: ' . $msg,
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            echo json_encode($req['json'], JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
      * Dispara ejecución en el agente (POST /run).
      */
     public function ejecutarReporte()

@@ -28,9 +28,6 @@ if (empty($vencimientos_vista_simple)) {
 }
 $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
 ?>
-<div class="container-xxl flex-grow-1 container-p-y">
-
-
     <!-- ── Header ── -->
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <div>
@@ -292,5 +289,3 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
             </div>
         </div>
     </div>
-
-</div>

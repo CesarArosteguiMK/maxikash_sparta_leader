@@ -2036,8 +2036,6 @@ JS;
             });
             EstadoCuentaTimingLog::mark('auditoria');
 
-            //$GestionesAll = GestionesDao::getAllGestiones($idCredito, $nombre);
-            //$resultado =  $this->api___SPARTA_SECRET_REDACTED__($idCredito, "2025-12-04");
             // variables para guardar por bloques los arrreglos
             // ---------------------------------------------------------------
             // 1. Extraemos las secciones del JSON original
@@ -2045,8 +2043,6 @@ JS;
             $cliente = $resultado['data']['datosCliente'];
             $estadoCuenta = $resultado['data'];
             $otrosDatos = $resultado['data']['datosSaldos'];
-            //$datosCargos = $resultado['data']['datosCargos'];
-            //$datosPagos = $resultado['data']['datosPagos'];
 
             // ---------------------------------------------------------------
             // 2. Crear estructura base para cada cuota con la información del cargo
@@ -6551,14 +6547,22 @@ public function descargarReporteDictamen()
         $input = json_decode(file_get_contents("php://input"), true);
 
         $idCredito  = $input['idCredito'] ?? null;
-        $comentario = $input['comentario'] ?? null;
+        $comentario = isset($input['comentario']) ? trim((string) $input['comentario']) : '';
         $gastos     = $input['gastos'] ?? [];
         $total      = $input['total'] ?? 0;
 
-        if (empty($idCredito) || empty($comentario) || empty($gastos)) {
+        if (empty($idCredito) || $comentario === '' || empty($gastos)) {
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'Datos incompletos'
+            ]);
+            return;
+        }
+
+        if (mb_strlen($comentario, 'UTF-8') < 25) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'El motivo debe tener al menos 25 caracteres.',
             ]);
             return;
         }

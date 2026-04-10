@@ -255,21 +255,6 @@ if (empty($tabla) && !empty($amortRows)) {
     }
 }
 ?>
-<script>
-/* ============================================================
-   DEBUG CROOP API — visible en DevTools > Console
-   ============================================================ */
-console.group('%c[CROOP DEBUG]', 'color:#0ea5e9;font-weight:bold;font-size:13px');
-console.log('Trace general:',   <?= json_encode($debugCroop ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
-console.log('saldoGT (445):',   <?= json_encode($saldoGT ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
-console.log('amortizacion (401) primeras 3 filas:', <?= json_encode(array_slice($amortRows ?? [], 0, 3), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
-console.log('pagos (404) primeros 3:', <?= json_encode(array_slice($apiPagos ?? [], 0, 3), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
-console.log('dataEstadoCuenta:', <?= json_encode($dataEstadoCuenta ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
-console.log('dataOtrosDatos:',  <?= json_encode($dataOtrosDatos ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
-console.log('fechaUltimoPago:', <?= json_encode($fechaUltimoPagoCompleto ?? null) ?>);
-console.log('tabla[0]:', <?= json_encode($tabla[0] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) ?>);
-console.groupEnd();
-</script>
 
 <style>
     /* ==========================
@@ -1877,7 +1862,7 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
                 </div>
                 <div class="mt-3" <?= $hideStyle ?>>
                     <label class="form-label fw-semibold">Motivo de la condonación (convenio de pago) <span class="text-danger">*</span></label>
-                    <textarea id="descripcionCondonacion" class="form-control" rows="3" placeholder="Describe el motivo de la condonación..."></textarea>
+                    <textarea id="descripcionCondonacion" class="form-control" rows="3" placeholder="Describe el motivo de la condonación (mínimo 25 caracteres)..."></textarea>
                 </div>
             </div>
             <div class="modal-footer" <?= $hideStyle ?>>
@@ -1909,9 +1894,9 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
                 </div>
                 <div class="mb-0">
                     <label class="form-label fw-semibold">Motivo de la condonación parcial <span class="text-danger">*</span></label>
-                    <textarea id="condonarParcial_motivo" class="form-control" rows="4" minlength="100"
-                        placeholder="Describa la promoción o razón de la condonación a detalle (mínimo 100 caracteres, 8 palabras)..."></textarea>
-                    <small class="text-muted"><span id="condonarParcial_motivoCount">0</span>/100 caracteres · Mínimo 8 palabras</small>
+                    <textarea id="condonarParcial_motivo" class="form-control" rows="4" minlength="25"
+                        placeholder="Describa el motivo de la condonación parcial (mínimo 25 caracteres)..."></textarea>
+                    <small class="text-muted"><span id="condonarParcial_motivoCount">0</span> caracteres · Mínimo 25</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2729,12 +2714,10 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
         const motivo = document.getElementById('condonarParcial_motivo').value.trim();
         const montoMax = parseFloat(document.getElementById('condonarParcial_montoMax').textContent || 0);
         if (!idGasto || !idCredito) { Swal.fire('Error', 'Datos de gasto o crédito no disponibles.', 'error'); return; }
-        if (montoParcial <= 0 && motivo.length < 100) { Swal.fire('Atención', 'Debe completar el monto y el motivo (mínimo 100 caracteres).', 'warning'); return; }
+        if (montoParcial <= 0 && motivo.length < 25) { Swal.fire('Atención', 'Debe completar el monto y el motivo (mínimo 25 caracteres).', 'warning'); return; }
         if (montoParcial <= 0) { Swal.fire('Atención', 'Debe indicar el monto a condonar.', 'warning'); return; }
-        if (motivo.length < 100) { Swal.fire('Atención', 'El motivo debe tener al menos 100 caracteres.', 'warning'); return; }
+        if (motivo.length < 25) { Swal.fire('Atención', 'El motivo debe tener al menos 25 caracteres.', 'warning'); return; }
         if (montoParcial >= montoMax) { Swal.fire('Atención', 'El monto debe ser menor al monto total del gasto.', 'warning'); return; }
-        if (/(.)\1{2,}/u.test(motivo)) { Swal.fire('Atención', 'El motivo no puede contener caracteres repetidos muchas veces.', 'warning'); return; }
-        if (motivo.split(/\s+/).filter(Boolean).length < 8) { Swal.fire('Atención', 'El motivo debe incluir al menos 8 palabras.', 'warning'); return; }
         Swal.fire({ title: '¿Aplicar condonación parcial?', text: 'Se registrará la condonación parcial de $' + montoParcial.toFixed(2) + '. ¿Continuar?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aplicar', cancelButtonText: 'Cancelar' })
         .then((result) => {
             if (!result.isConfirmed) return;
@@ -2833,9 +2816,7 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
         const checks = document.querySelectorAll('.chk-condona:checked');
         if (checks.length === 0) { Swal.fire("Atención", "Selecciona al menos un gasto", "warning"); return; }
         if (!comentario) { Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning"); return; }
-        if (comentario.length < 100) { Swal.fire("Atención", "El motivo debe tener al menos 100 caracteres.", "warning"); return; }
-        if (/(.)\1{2,}/u.test(comentario)) { Swal.fire("Atención", "El motivo no puede contener caracteres repetidos muchas veces.", "warning"); return; }
-        if (comentario.split(/\s+/).filter(Boolean).length < 8) { Swal.fire("Atención", "El motivo debe incluir al menos 8 palabras.", "warning"); return; }
+        if (comentario.length < 25) { Swal.fire("Atención", "El motivo debe tener al menos 25 caracteres.", "warning"); return; }
         const gastos = [];
         let total = 0;
         checks.forEach(chk => { gastos.push({ id_gastos_cobranza: chk.dataset.id, monto: parseFloat(chk.dataset.monto) }); total += parseFloat(chk.dataset.monto); });

@@ -79,6 +79,8 @@ function demoPermitidoSinScript() {
 
 const LOG_DIR = path.join(__dirname, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'agente-gastos-cobranza.log');
+/** 1/0 escrito por la UI (shell PHP): anula solo en runtime el default de GASTOS_GC_AUTO_RUN_10AM_CDMX en .env */
+const AUTO_RUN_RUNTIME_FILE = path.join(LOG_DIR, '.auto_run_reporte_runtime.txt');
 /** Salida de scripts Python línea a línea hacia el log del agente (evita buffer de stdout sin TTY). */
 const ENV_CON_PYTHON_UNBUFFERED = { ...process.env, PYTHONUNBUFFERED: '1' };
 const REPORTE_DIR = path.join(__dirname, 'reporte');
@@ -634,6 +636,33 @@ function autoRun10amCdmxEnabled() {
   return String(process.env.GASTOS_GC_AUTO_RUN_10AM_CDMX ?? '1').trim() !== '0';
 }
 
+function readAutoRunRuntimeOverride() {
+  ensureLogDir();
+  try {
+    if (!fs.existsSync(AUTO_RUN_RUNTIME_FILE)) return null;
+    const t = fs.readFileSync(AUTO_RUN_RUNTIME_FILE, 'utf8').trim().toLowerCase();
+    if (t === '0' || t === 'false' || t === 'off') return false;
+    if (t === '1' || t === 'true' || t === 'on') return true;
+  } catch (_) {}
+  return null;
+}
+
+function writeAutoRunRuntimeOverride(enabled) {
+  ensureLogDir();
+  fs.writeFileSync(AUTO_RUN_RUNTIME_FILE, enabled ? '1' : '0', { encoding: 'utf8' });
+  appendLog(
+    `[auto-run] Preferencia runtime (${enabled ? 'activada' : 'desactivada'}) → ${AUTO_RUN_RUNTIME_FILE}`,
+  );
+}
+
+/** Si hay archivo runtime: manda sobre .env; si no, se usa GASTOS_GC_AUTO_RUN_10AM_CDMX. */
+function autoRun10amCdmxEffective() {
+  const o = readAutoRunRuntimeOverride();
+  if (o === true) return true;
+  if (o === false) return false;
+  return autoRun10amCdmxEnabled();
+}
+
 function autoRunTargetHour() {
   const n = parseInt(String(process.env.GASTOS_GC_AUTO_RUN_HOUR || '10').trim(), 10);
   return Number.isFinite(n) && n >= 0 && n <= 23 ? n : 10;
@@ -992,7 +1021,7 @@ function runReporteCobranza(res, opts = {}) {
 let autoRunTickBusy = false;
 
 async function tickAutoRunReporteCdmx() {
-  if (!autoRun10amCdmxEnabled()) return;
+  if (!autoRun10amCdmxEffective()) return;
   if (autoRunTickBusy) return;
   if (reporteRunBusy) return;
 
@@ -1100,10 +1129,44 @@ app.use((req, res, next) => {
   next();
 });
 
+app.post('/auto-run-reporte', (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    if (!Object.prototype.hasOwnProperty.call(body, 'enabled')) {
+      return res.status(400).json({ success: false, mensaje: 'Falta el campo enabled (boolean).' });
+    }
+    const en =
+      body.enabled === true ||
+      body.enabled === 1 ||
+      String(body.enabled).toLowerCase() === '1' ||
+      String(body.enabled).toLowerCase() === 'true';
+    writeAutoRunRuntimeOverride(en);
+    const ro = readAutoRunRuntimeOverride();
+    return res.json({
+      success: true,
+      auto_run_cdmx: {
+        enabled: autoRun10amCdmxEffective(),
+        enabled_env: autoRun10amCdmxEnabled(),
+        runtime_override: ro === null ? null : ro ? 1 : 0,
+        hour: autoRunTargetHour(),
+        minute: autoRunTargetMinute(),
+        window_minutes: autoRunWindowMinutes(),
+        tick_ms: autoRunTickMs(),
+        weekdays_only: autoRunWeekdaysOnly(),
+        last_fired_cdmx_ymd: readAutoRunLastYmd(),
+        reporte_busy: reporteRunBusy,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, mensaje: String(e?.message || e) });
+  }
+});
+
 app.get('/health', (req, res) => {
   ensureReporteDir();
   const scriptPath = getReporteScriptPath();
   const hCdmx = fmtCdmxYmdParts(nowForCdmxCalendar());
+  const runtimeOr = readAutoRunRuntimeOverride();
   res.json({
     success: true,
     servicio: 'gastos-cobranza-agent',
@@ -1129,7 +1192,9 @@ app.get('/health', (req, res) => {
     carpeta_descargo_estatus3: DESCARGO_ESTATUS3_DIR,
     ec_launcher_ocupado: ecLauncherBusy,
     auto_run_cdmx: {
-      enabled: autoRun10amCdmxEnabled(),
+      enabled: autoRun10amCdmxEffective(),
+      enabled_env: autoRun10amCdmxEnabled(),
+      runtime_override: runtimeOr === null ? null : runtimeOr ? 1 : 0,
       hour: autoRunTargetHour(),
       minute: autoRunTargetMinute(),
       window_minutes: autoRunWindowMinutes(),
@@ -1834,20 +1899,20 @@ app.listen(PORT, () => {
       void ensureCdmxTimeFresh();
     }, 10 * 60 * 1000);
   }
-  if (autoRun10amCdmxEnabled()) {
-    appendLog(
-      `[auto-run] Programador CDMX activo: tick ${autoRunTickMs()} ms · ventana ${pad2Seg(autoRunTargetHour())}:${pad2Seg(autoRunTargetMinute())}–+${autoRunWindowMinutes()} min · solo_lun_vie=${autoRunWeekdaysOnly() ? '1' : '0'} · sync_api_en_tick=${autoRunSyncRemoteClockForTick() ? '1' : '0'}`,
-    );
+  appendLog(
+    `[auto-run] Tick cada ${autoRunTickMs()} ms · efectivo=${autoRun10amCdmxEffective() ? 'sí' : 'no'} · env=${autoRun10amCdmxEnabled() ? 'sí' : 'no'} · override=${readAutoRunRuntimeOverride() === null ? '—' : readAutoRunRuntimeOverride() ? '1' : '0'}`,
+  );
+  if (autoRun10amCdmxEffective()) {
     if (!remoteCdmxTimeEnabled()) {
       appendLog(
         '[auto-run] Aviso: GASTOS_GC_REMOTE_CDMX_TIME no está en 1; la hora CDMX depende del reloj del servidor. Si va desfasado, ponga GASTOS_GC_REMOTE_CDMX_TIME=1 o GASTOS_GC_AUTO_RUN_SYNC_REMOTE_CLOCK=1 (sync solo en ticks del auto-run).',
       );
     }
-    setInterval(() => {
-      tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
-    }, autoRunTickMs());
-    tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
-  } else {
-    console.log('[gastos-cobranza-agent] auto-run CDMX desactivado (GASTOS_GC_AUTO_RUN_10AM_CDMX=0)');
+  } else if (!autoRun10amCdmxEnabled() && readAutoRunRuntimeOverride() === null) {
+    console.log('[gastos-cobranza-agent] auto-run CDMX desactivado por .env (GASTOS_GC_AUTO_RUN_10AM_CDMX=0)');
   }
+  setInterval(() => {
+    tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
+  }, autoRunTickMs());
+  tickAutoRunReporteCdmx().catch((e) => appendLog(`[auto-run] error tick: ${e?.message || e}`));
 });

@@ -650,7 +650,7 @@ class Segundometro extends Controller
                 } else {
                     btn.disabled = true;
                     btn.removeAttribute('title');
-                    btn.setAttribute('data-tip', 'Disponible solo los martes de 7:00 a 9:30 AM (CDMX). Fuera de ese horario el botón permanece deshabilitado; para pruebas usa el enlace inferior o ?truncar_test=1.');
+                    btn.setAttribute('data-tip', 'Disponible solo los martes de 7:00 a 9:30 AM (CDMX).');
                 }
             }
 

@@ -1020,6 +1020,7 @@ public static function getGastosCobranza($idCredito)
  * monto_aplicar: positivo si falta_aplicar; negativo si error (monto a corregir).
  * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
  * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
+ * ultimo_pago_efectivo: se obtiene en servidor desde tbl_segundometro_semana (usuario no interviene).
  */
 public static function insertAclaracionGcVerificacionSemana(array $p): array
 {
@@ -1079,6 +1080,31 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         return self::resultado(false, 'Error al calcular fecha', [], $e->getMessage());
     }
 
+    $ultimoPagoEfectivo = null;
+    try {
+        $dbSm = new DatabaseSegundometro();
+        $filaSm = $dbSm->queryOne(
+            'SELECT `Fecha_ultimo_pago_efectivo` AS f FROM `tbl_segundometro_semana` '
+            . 'WHERE `Id_credito` = :id_credito LIMIT 1',
+            ['id_credito' => $idCredito]
+        );
+        if (!empty($filaSm) && array_key_exists('f', $filaSm) && $filaSm['f'] !== null && $filaSm['f'] !== '') {
+            $rawF = $filaSm['f'];
+            if ($rawF instanceof \DateTimeInterface) {
+                $ultimoPagoEfectivo = $rawF->format('Y-m-d H:i:s');
+            } else {
+                $s = trim((string) $rawF);
+                if (strlen($s) >= 10) {
+                    $ultimoPagoEfectivo = strlen($s) > 10
+                        ? substr(str_replace('T', ' ', $s), 0, 19)
+                        : ($s . ' 00:00:00');
+                }
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('insertAclaracionGcVerificacionSemana ultimo_pago_efectivo: ' . $e->getMessage());
+    }
+
     $sqlDup = "
         SELECT `estatus`
         FROM `cobranza_gc_verificacion_semana`
@@ -1092,6 +1118,7 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         `anio_iso`,
         `semana_iso`,
         `registrado_en_cdmx`,
+        `ultimo_pago_efectivo`,
         `s2_exitoso`,
         `incluido_reporte`,
         `mensaje`,
@@ -1107,6 +1134,7 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         :anio_iso,
         :semana_iso,
         :registrado_en_cdmx,
+        :ultimo_pago_efectivo,
         :s2_exitoso,
         :incluido_reporte,
         :mensaje,
@@ -1120,20 +1148,21 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
     ";
 
     $params = [
-        'id_credito'          => $idCredito,
-        'inicio_semana'       => $inicioSemana,
-        'anio_iso'            => $anioIso,
-        'semana_iso'          => $semanaIso,
-        'registrado_en_cdmx'  => $registradoEnCdmx,
-        's2_exitoso'          => 1,
-        'incluido_reporte'    => 1,
-        'mensaje'             => $mensaje,
-        'nombre'              => $nombre,
-        'tipo_reporte'        => $tipo,
-        'monto_aplicar'       => $montoAplicar,
-        'estatus'             => $estatus,
-        'celula'              => $celula,
-        'id_usuario_reporte'  => $idUsuarioReporte,
+        'id_credito'             => $idCredito,
+        'inicio_semana'          => $inicioSemana,
+        'anio_iso'               => $anioIso,
+        'semana_iso'             => $semanaIso,
+        'registrado_en_cdmx'     => $registradoEnCdmx,
+        'ultimo_pago_efectivo'   => $ultimoPagoEfectivo,
+        's2_exitoso'             => 1,
+        'incluido_reporte'       => 1,
+        'mensaje'                => $mensaje,
+        'nombre'                 => $nombre,
+        'tipo_reporte'           => $tipo,
+        'monto_aplicar'          => $montoAplicar,
+        'estatus'                => $estatus,
+        'celula'                 => $celula,
+        'id_usuario_reporte'     => $idUsuarioReporte,
     ];
 
     try {
@@ -1612,8 +1641,7 @@ public static function getGastosTodosConEstatus($idCredito)
 
 
     /**
-     * Valida que el motivo de condonación parcial tenga al menos 100 caracteres y no sea texto sin sentido
-     * (evita rellenado con repeticiones, tecleo aleatorio, etc.).
+     * Valida que el motivo de condonación parcial tenga al menos 25 caracteres (tras trim).
      *
      * @param string $motivo
      * @return array [ true ] o [ false, 'mensaje_error' ]
@@ -1621,51 +1649,8 @@ public static function getGastosTodosConEstatus($idCredito)
     public static function validarMotivoCondonacionParcial($motivo)
     {
         $motivo = trim((string) $motivo);
-        if (strlen($motivo) < 100) {
-            return [false, 'El motivo debe tener al menos 100 caracteres.'];
-        }
-        // Evitar mismo carácter repetido (ej. xxx, aaaa)
-        if (preg_match('/(.)\1{2,}/u', $motivo)) {
-            return [false, 'El motivo no puede contener la misma letra o carácter repetido muchas veces.'];
-        }
-        // Proporción de caracteres únicos: si es muy baja, es probablemente relleno (ej. xxxxx, aaaaa)
-        // En español normal se repiten muchas letras (e, a, o, r), por eso usamos umbral bajo (0.15)
-        $len = mb_strlen($motivo);
-        $unicos = count(array_unique(preg_split('//u', $motivo, -1, PREG_SPLIT_NO_EMPTY)));
-        if ($len > 0 && ($unicos / $len) < 0.15) {
-            return [false, 'El motivo debe describir con claridad la promoción o razón de la condonación (evita rellenar con caracteres repetidos).'];
-        }
-        // Mínimo de palabras (promoción a detalle)
-        $palabras = preg_split('/\s+/u', $motivo, -1, PREG_SPLIT_NO_EMPTY);
-        if (count($palabras) < 8) {
-            return [false, 'El motivo debe incluir al menos 8 palabras describiendo la promoción o razón de la condonación.'];
-        }
-        // Rechazar patrones típicos de teclado (qwerty, asdf, 1234, etc.)
-        $patrones = ['/qwerty/ui', '/asdfgh/ui', '/zxcvbn/ui', '/12345678/ui', '/abcdefgh/ui'];
-        foreach ($patrones as $pat) {
-            if (preg_match($pat, $motivo)) {
-                return [false, 'El motivo debe describir la promoción o razón real de la condonación, no secuencias de teclado.'];
-            }
-        }
-        // Palabras coherentes: en español toda palabra tiene al menos una vocal. Rechazar si hay palabras largas sin vocales (ej. asjbasjfb)
-        $vocales = 'aáeéiíoóuúAÁEÉIÍOÓUÚ';
-        $palabrasLargasSinVocal = 0;
-        foreach ($palabras as $p) {
-            $pLen = mb_strlen($p);
-            if ($pLen >= 4) {
-                $tieneVocal = (bool) preg_match('/[' . $vocales . ']/u', $p);
-                if (!$tieneVocal) {
-                    $palabrasLargasSinVocal++;
-                }
-            }
-        }
-        if ($palabrasLargasSinVocal >= 2) {
-            return [false, 'El motivo debe usar palabras con sentido (evita cadenas sin vocales como "asjbasjfb"). Describe la promoción o razón de la condonación.'];
-        }
-        // Proporción de vocales en el texto: en español suele ser ~45%. Si es muy baja, huele a tecleo aleatorio
-        $numVocales = preg_match_all('/[' . $vocales . ']/u', $motivo);
-        if ($len > 0 && ($numVocales / $len) < 0.20) {
-            return [false, 'El motivo debe describir la promoción o razón con palabras comprensibles (evita cadenas sin sentido).'];
+        if (mb_strlen($motivo, 'UTF-8') < 25) {
+            return [false, 'El motivo debe tener al menos 25 caracteres.'];
         }
         return [true];
     }

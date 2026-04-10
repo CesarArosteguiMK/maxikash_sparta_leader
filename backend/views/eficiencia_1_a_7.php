@@ -244,16 +244,6 @@ document.addEventListener("DOMContentLoaded", () => {
             renderizarTabla(datosOriginales);
             poblarFiltros(datosOriginales);
             
-            // Opción B: Llamada AJAX (recomendado para actualizaciones)
-            // const respuesta = await fetch(API_ENDPOINT);
-            // const data = await respuesta.json();
-            // if (data.success) {
-            //     datosOriginales = data.data;
-            //     actualizarTotales(data.totales);
-            //     renderizarTabla(datosOriginales);
-            //     poblarFiltros(datosOriginales);
-            // }
-            
             <?php else: ?>
             console.warn('No hay datos disponibles');
             mostrarMensajeSinDatos();

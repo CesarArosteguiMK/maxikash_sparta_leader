@@ -321,7 +321,7 @@
             </div>
         </div>
 <?php else: ?>
-<div class="container-fluid px-0 pt-1">
+<div class="container-fluid px-0">
 <?php endif; ?>
 
         <!-- KPIs / Métricas -->

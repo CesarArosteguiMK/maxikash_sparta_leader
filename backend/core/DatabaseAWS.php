@@ -89,11 +89,6 @@ class DatabaseAWS
                     <p>Estamos trabajando para resolver la situación. Por favor, vuelva a intentarlo más tarde.</p>
                 </div>
             </body>
-            <script>
-                window.onload = () => {
-                    console.log("$mensaje")
-                }
-            </script>
             </html>
         HTML;
         exit();

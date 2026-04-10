@@ -1,5 +1,3 @@
-<div class="container-xxl flex-grow-1 container-p-y">
-
     <!-- Encabezado (mismo patrón que Shell Gastos Cobranza) -->
     <div class="row mb-4">
         <div class="col-12">
@@ -54,28 +52,36 @@
                     <div class="sg-agent-actions">
                         <div class="sg-agent-row-top">
                             <div id="wrapBtnTruncarSegundometro" class="sg-btn-wrap">
-                                <button type="button" class="sg-tip-btn sg-btn-danger" id="btnTruncarSegundometro" disabled data-tip="Disponible solo los martes de 7:00 a 9:30 AM (CDMX). En horario: trunca la tabla Semana (copia al historial y limpia datos actuales).">
-                                    <i class="fa fa-cut"></i>
-                                    <span class="sg-btn-label">Truncar</span>
+                                <button type="button" class="sg-tip-btn sg-btn-danger" id="btnTruncarSegundometro" disabled data-tip="Disponible solo los martes de 7:00 a 9:30 AM (CDMX).">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-cut"></i>
+                                        <span class="sg-btn-label">Truncar</span>
+                                    </span>
                                 </button>
                             </div>
                             <div class="sg-btn-wrap">
                                 <button type="button" class="sg-tip-btn sg-btn-warn" id="btnMonitorearSegundometro" data-tip="Abre el monitoreo en vivo en esta página (CPU, memoria y actividad del servidor).">
-                                    <i class="fa fa-terminal"></i>
-                                    <span class="sg-btn-label">Monitorear</span>
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-terminal"></i>
+                                        <span class="sg-btn-label">Monitorear</span>
+                                    </span>
                                 </button>
                             </div>
                             <div class="sg-btn-wrap">
                                 <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnDiagnosticoSSH" data-tip="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura en el remoto.">
-                                    <i class="fa fa-stethoscope"></i>
-                                    <span class="sg-btn-label">Diagnóstico SSH</span>
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-stethoscope"></i>
+                                        <span class="sg-btn-label">Diagnóstico SSH</span>
+                                    </span>
                                 </button>
                             </div>
                         </div>
                         <div class="sg-agent-row-bottom">
                             <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="sgEjecutarAhora" data-tip="Lanza ahora el flujo automático del agente: monitoreo previo, copia del último reporte y ajuste +1s.">
-                                <i class="fa fa-play"></i>
-                                <span class="sg-btn-label">Ejecutar ahora</span>
+                                <span class="sg-tip-btn-face">
+                                    <i class="fa fa-play"></i>
+                                    <span class="sg-btn-label">Ejecutar ahora</span>
+                                </span>
                             </button>
                         </div>
                     </div>
@@ -95,8 +101,6 @@
             </div>
         </div>
     </div>
-
-</div>
 
 <!-- 💫 OVERLAY DE CARGA -->
 <div id="loading-overlay" style="
@@ -263,7 +267,6 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.45rem;
         border-radius: 8px;
         border: 1px solid;
         background: #fff;
@@ -273,6 +276,14 @@
         line-height: 1;
         transition: all 0.16s ease;
         white-space: nowrap;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn-face {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        width: 100%;
+        min-width: 0;
     }
     #shellSegundometroAgenteBar .sg-tip-btn i {
         font-size: 0.8rem;
@@ -289,9 +300,12 @@
         transform: scale(0.98);
     }
     #shellSegundometroAgenteBar .sg-tip-btn:disabled {
-        opacity: 0.55;
+        opacity: 0.9;
         cursor: not-allowed;
         transform: none;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn:disabled .sg-tip-btn-face {
+        opacity: 0.55;
     }
     #shellSegundometroAgenteBar .sg-btn-danger {
         background: #fff5f5;
@@ -348,20 +362,22 @@
         left: 50%;
         bottom: calc(100% + 8px);
         transform: translateX(-50%) translateY(3px);
-        font-size: 0.68rem;
-        line-height: 1.25;
-        background: #0f172a;
-        color: #f1f5f9;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-        padding: 0.37rem 0.5rem;
-        border-radius: 7px;
+        font-size: 0.72rem;
+        line-height: 1.35;
+        background: #020617;
+        color: #f8fafc;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+        padding: 0.45rem 0.65rem;
+        border-radius: 8px;
         white-space: normal;
-        max-width: min(320px, 92vw);
+        max-width: min(460px, 95vw);
+        min-width: min(280px, 92vw);
         text-align: left;
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.16s ease, transform 0.16s ease;
-        z-index: 20;
+        z-index: 10050;
     }
     #shellSegundometroAgenteBar .sg-tip-btn::before {
         content: '';
@@ -370,10 +386,10 @@
         bottom: calc(100% + 2px);
         transform: translateX(-50%);
         border: 4px solid transparent;
-        border-top-color: #0f172a;
+        border-top-color: #020617;
         opacity: 0;
         transition: opacity 0.16s ease;
-        z-index: 20;
+        z-index: 10050;
     }
     #shellSegundometroAgenteBar .sg-tip-btn:hover::after,
     #shellSegundometroAgenteBar .sg-tip-btn:hover::before {
@@ -408,6 +424,56 @@
     body.dark-mode #shellSegundometroAgenteBar .sg-agent-autocopy,
     body.dark-mode #shellSegundometroAgenteBar .sg-agent-autocopy .form-check-label {
         color: #94a3b8;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-tip-btn {
+        background: rgba(30, 41, 59, 0.9);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-danger {
+        background: rgba(127, 29, 29, 0.5);
+        border-color: rgba(248, 113, 113, 0.55);
+        color: #fecaca;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-danger:hover {
+        background: rgba(153, 27, 27, 0.62);
+        border-color: #f87171;
+        color: #fef2f2;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-warn {
+        background: rgba(120, 53, 15, 0.45);
+        border-color: rgba(251, 191, 36, 0.5);
+        color: #fde68a;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-warn:hover {
+        background: rgba(146, 64, 14, 0.58);
+        border-color: #fbbf24;
+        color: #fffbeb;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-cyan {
+        background: rgba(17, 94, 89, 0.42);
+        border-color: rgba(45, 212, 191, 0.45);
+        color: #99f6e4;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-cyan:hover {
+        background: rgba(19, 78, 74, 0.55);
+        border-color: #2dd4bf;
+        color: #ccfbf1;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-green {
+        background: rgba(20, 83, 45, 0.48);
+        border-color: rgba(74, 222, 128, 0.5);
+        color: #bbf7d0;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-btn-green:hover {
+        background: rgba(22, 101, 52, 0.6);
+        border-color: #4ade80;
+        color: #f0fdf4;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-tip-btn:disabled {
+        opacity: 1;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-tip-btn:disabled .sg-tip-btn-face {
+        opacity: 0.6;
     }
 
     .font-monospace {
