@@ -620,8 +620,14 @@ class Convenios extends Controller
         return;
     }
 
-    if ($pagoGloboMonto <= 0) {
-        echo json_encode(['success' => false, 'mensaje' => 'El monto del pago globo debe ser mayor a 0.']);
+    if ($pagoGloboMonto < 0) {
+        echo json_encode(['success' => false, 'mensaje' => 'El monto del pago globo no puede ser negativo.']);
+        return;
+    }
+
+    // Al menos uno entre pago inicial y pago globo debe ser > 0
+    if ($pagoInicialMonto <= 0 && $pagoGloboMonto <= 0) {
+        echo json_encode(['success' => false, 'mensaje' => 'Debe indicar al menos un Pago Inicial o un Pago de Cierre mayor a $0.00.']);
         return;
     }
 

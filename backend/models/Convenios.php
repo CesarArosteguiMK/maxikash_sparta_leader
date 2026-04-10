@@ -2202,9 +2202,9 @@ public static function registrarConvenioGlobo($datos)
         // ── 3. Calcular fechas ────────────────────────────────────────
         $fechaPrimerPago = $datos['fecha_primer_pago'];
         $hayInicial      = $pagoInicial > 0;
-        // Si hay pago inicial: filas = 1_inicial + N_normales + 1_globo
-        // Si NO hay inicial:   filas = N_normales + 1_globo  (evita la fila $0.00)
-        $totalRegistrosAmort = $pagosIgualesCant + 1 + ($hayInicial ? 1 : 0);
+        $hayGlobo        = $pagoGloboMonto > 0;
+        // filas = (inicial si existe) + N normales + (globo si existe)
+        $totalRegistrosAmort = $pagosIgualesCant + ($hayInicial ? 1 : 0) + ($hayGlobo ? 1 : 0);
 
         $fechaUltimoPago = date('Y-m-d', strtotime(
             $fechaPrimerPago . ' +' . (($totalRegistrosAmort - 1) * $diasIntervalo) . ' days'
@@ -2268,8 +2268,8 @@ public static function registrarConvenioGlobo($datos)
                 // Fila 1 (solo si hay pago inicial): Pago Inicial
                 $tipoPago = "Inicial";
                 $monto = $pagoInicial;
-            } elseif ($p === $totalRegistrosAmort) {
-                // Última fila: Pago Globo
+            } elseif ($hayGlobo && $p === $totalRegistrosAmort) {
+                // Última fila (solo si hay pago globo > 0): Pago Globo
                 $tipoPago = "Globo";
                 $monto = $pagoGloboMonto;
             } else {
