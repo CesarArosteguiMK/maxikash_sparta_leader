@@ -1108,7 +1108,8 @@ body.dark-mode #migTotalFinal {
                     <div class="d-flex align-items-center gap-2">
                       <label class="fw-semibold mb-0 text-nowrap small">Número de pagos:</label>
                       <input type="number" id="migLibreNumPagos" class="form-control form-control-sm"
-                             style="width:75px;" min="1" max="12" value="2"
+                             style="width:75px;" min="2" max="12" value="2"
+                             onkeydown="(function(e){var k=e.key;if(k==='e'||k==='E'||k==='+'||k==='-'||k==='.'){e.preventDefault();}})(event)"
                              oninput="window.migLibreGenerarFilas()">
                       <small class="text-muted">(máx. 12)</small>
                     </div>
@@ -1159,6 +1160,8 @@ body.dark-mode #migTotalFinal {
                           <span class="input-group-text">$</span>
                           <input type="number" id="migMontoAdicional" class="form-control"
                                  min="0" step="0.01" placeholder="0.00"
+                                 data-maxintdigits="3"
+                                 onkeydown="if(event.key==='e'||event.key==='E')event.preventDefault()"
                                  oninput="window.migRecalcularTotal()">
                         </div>
                       </div>
@@ -1168,6 +1171,8 @@ body.dark-mode #migTotalFinal {
                           <span class="input-group-text">$</span>
                           <input type="number" id="migTotalFinal" class="form-control fw-bold"
                                  step="0.01" min="0"
+                                 data-maxintdigits="7"
+                                 onkeydown="if(event.key==='e'||event.key==='E')event.preventDefault()"
                                  oninput="window.migTotalFinalChanged()"
                                  style="color:#764ba2;font-size:1rem;"
                                  title="Edita este valor para ajustar el total a pagar; el % de descuento y las semanas se recalcularán automáticamente">
@@ -2926,8 +2931,10 @@ function _sanitizarMonto(inputEl, maxValido) {
         return false;
     }
 
-    // 2. Demasiados caracteres (max razonable: 15 dígitos incluyendo punto decimal)
-    if (raw.replace(/[^0-9]/g, '').length > 12) {
+    // 2. Demasiados dígitos — se respeta data-maxintdigits en el elemento (solo parte entera)
+    var _maxIntDigits = parseInt(inputEl.dataset.maxintdigits) || 12;
+    var _intPart = raw.split('.')[0].replace(/[^0-9]/g, '');
+    if (_intPart.length > _maxIntDigits) {
         inputEl.value = '';
         _flashInvalid(inputEl);
         return false;
@@ -4178,7 +4185,7 @@ window.migLibreGenerarFilas = function () {
     var tbody = document.getElementById('migLibreFilasBody');
     if (!tbody) return;
     var n = parseInt((document.getElementById('migLibreNumPagos') || {}).value) || 2;
-    if (n < 1) n = 1;
+    if (n < 2) n = 2;
     if (n > 12) {
         n = 12;
         var elNumPagos = document.getElementById('migLibreNumPagos');
