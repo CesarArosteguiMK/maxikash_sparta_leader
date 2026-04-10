@@ -47,11 +47,11 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
         </div>
         <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
             <?php if (!empty($vencimientos_vista_simple)): ?>
-                <a href="/reporteria/descargarPrimerosPagosSemanaActualExcel"
-                   class="btn btn-success btn-sm shadow-sm px-3 d-inline-flex align-items-center">
+                <button type="button" id="btnDescargarExcelPrimerosPagosSemana"
+                        class="btn btn-success btn-sm shadow-sm px-3 d-inline-flex align-items-center">
                     <i class="fa fa-file-excel me-2"></i>
                     <span class="fw-semibold">Descargar Excel</span>
-                </a>
+                </button>
                 <?php if (!empty($vencimientos_puede_enviar_correo_primeros_pagos)): ?>
                 <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm shadow-sm d-inline-flex align-items-center">
                     <i class="fa fa-envelope me-1"></i> Enviar correo
@@ -261,15 +261,12 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                        style="width:100%">
                     <thead class="table-light">
                     <tr>
-                        <?php if (!empty($vencimientos_vista_simple)): ?>
-                        <th>
-                            <i class="fa fa-id-card text-primary me-1"></i>
-                            General
-                        </th>
-                        <th class="text-end">
-                            <i class="fa fa-money-bill-wave text-success me-1"></i>
-                            Monto de la cuota
-                        </th>
+                        <?php if (!empty($vencimientos_vista_simple) && !empty($columnas_primeros_pagos)): ?>
+                            <?php foreach ($columnas_primeros_pagos as $colPp): ?>
+                        <th class="text-nowrap" style="font-size:.7rem;"><?= htmlspecialchars($colPp['titulo'] ?? '', ENT_QUOTES, 'UTF-8'); ?></th>
+                            <?php endforeach; ?>
+                        <?php elseif (!empty($vencimientos_vista_simple)): ?>
+                        <th colspan="2" class="text-muted small">Columnas (definir en Empresa::columnasPrimerosPagosMegareporte)</th>
                         <?php else: ?>
                         <th>
                             <i class="fa fa-id-card text-primary me-1"></i>

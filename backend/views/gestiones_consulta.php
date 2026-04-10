@@ -3,8 +3,8 @@
     <!-- Título -->
     <div class="row mb-3">
         <div class="col-12">
-            <h4 class="mb-0">Consulta las gestiones de los creditos <i class="fa-solid fa-screwdriver-wrench ms-2 gestiones-easter-icon" id="gestionesCampoEaster" aria-hidden="true"></i></h4>
-            <p class="text-muted small">Busca por nombre o por ID de crédito</p>
+            <h4 class="mb-0">Histórico de gestiones en los créditos <i id="gestionesCampoEaster" aria-hidden="true"></i></h4>
+            <p class="text-muted small">Busca por ID de crédito</p>
         </div>
     </div>
 

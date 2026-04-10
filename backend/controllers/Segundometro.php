@@ -629,11 +629,12 @@ class Segundometro extends Controller
                 var btn = document.getElementById('btnTruncarSegundometro');
                 var wrapBtn = document.getElementById('wrapBtnTruncarSegundometro');
                 if (!btn) return;
+                if (wrapBtn) wrapBtn.style.display = '';
                 var habilitado = false;
                 if (esTruncarModoPrueba()) {
                     habilitado = true;
-                    btn.title = 'Modo prueba: Truncar habilitado (URL con ?truncar_test=1). Quita el parámetro para volver al horario normal.';
-                    if (wrapBtn) wrapBtn.style.display = '';
+                    btn.removeAttribute('title');
+                    btn.setAttribute('data-tip', 'Modo prueba: Truncar habilitado (URL con ?truncar_test=1). Quita el parámetro para volver al horario normal. Acción: copia la tabla Semana al historial y la limpia.');
                     btn.disabled = false;
                     return;
                 }
@@ -643,13 +644,13 @@ class Segundometro extends Controller
                 var minDia = parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
                 habilitado = (dia === 'Tue' && minDia >= 420 && minDia < 570); // Martes 7:00 (420) a 9:30 (570)
                 if (habilitado) {
-                    if (wrapBtn) wrapBtn.style.display = '';
                     btn.disabled = false;
-                    btn.title = 'Truncar tabla Semana (copia a Historial y limpia)';
+                    btn.removeAttribute('title');
+                    btn.setAttribute('data-tip', 'Truncar tabla Semana: copia registros al historial, notifica y vacía la tabla actual. Acción irreversible. Solo en martes 7:00–9:30 CDMX.');
                 } else {
-                    if (wrapBtn) wrapBtn.style.display = 'none';
                     btn.disabled = true;
-                    btn.title = 'Disponible solo los martes de 7:00 a 9:30 AM (CDMX)';
+                    btn.removeAttribute('title');
+                    btn.setAttribute('data-tip', 'Disponible solo los martes de 7:00 a 9:30 AM (CDMX). Fuera de ese horario el botón permanece deshabilitado; para pruebas usa el enlace inferior o ?truncar_test=1.');
                 }
             }
 

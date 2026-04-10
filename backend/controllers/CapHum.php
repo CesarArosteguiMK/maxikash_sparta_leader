@@ -19,9 +19,11 @@ class CapHum extends Controller
         $script = <<<'HTML'
         <script>
 
-            const getUsuarios = () => {
+            const getUsuarios = (opts) => {
+            opts = opts || {};
             http.request({
                 endpoint: "/caphum/getUsuarios",
+                showLoader: opts.showLoader !== false,
                 onSuccess: (resp) => {
                     // ==========================================
                     // CONSOLIDAR USUARIOS CON MÚLTIPLES PUESTOS
@@ -908,31 +910,8 @@ class CapHum extends Controller
             }
 
             /* =========================
-               MÓDULOS
+               MÓDULOS (lista plana duplicada eliminada; ver renderModulos agrupado más abajo)
             ========================= */
-            function renderModulos(perfiles) {
-
-                const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
-                if (!container) return;
-                container.innerHTML = '';
-
-                const modulosPorPestana = {};
-                perfiles.forEach(m => {
-                    if (!modulosPorPestana[m.pestana]) modulosPorPestana[m.pestana] = [];
-                    modulosPorPestana[m.pestana].push(m);
-                });
-
-                const table = document.createElement('table');
-                table.className = 'table table-flush-spacing mb-0 border-top';
-                const tbody = document.createElement('tbody');
-                Object.keys(modulosPorPestana).forEach(pestana => {
-                    modulosPorPestana[pestana].forEach(mod => {
-                        tbody.appendChild(crearFilaModulo(mod));
-                    });
-                });
-                table.appendChild(tbody);
-                container.appendChild(table);
-            }
 
             function renderPermisosEspeciales(perfiles) {
                 const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
@@ -978,7 +957,9 @@ class CapHum extends Controller
                 49: 'fa fa-calendar-week',
                 '49': 'fa fa-calendar-week',
                 50: 'fa fa-chart-line',
-                '50': 'fa fa-chart-line'
+                '50': 'fa fa-chart-line',
+                51: 'fa-solid fa-file-circle-check',
+                '51': 'fa-solid fa-file-circle-check'
             };
             function crearFilaModulo(mod) {
                 const tr = document.createElement('tr');
@@ -1026,36 +1007,6 @@ class CapHum extends Controller
                 tr.append(tdName, tdCheck);
                 return tr;
             }
-
-            function onModuloChange(checkbox) {
-                if (!checkbox || !currentPersonaId) return;
-                const payload = {
-                    idPersona: currentPersonaId,
-                    modulo_id: checkbox.value,
-                    asignado: checkbox.checked ? 1 : 0
-                };
-                fetch('/CapHum/PerfilCheckBoxEstado', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Guardado', text: data.mensaje || 'Permiso actualizado', timer: 1500, showConfirmButton: false });
-                    } else {
-                        if (typeof Swal !== 'undefined') Swal.fire('Error', data.mensaje || 'No se pudo actualizar', 'error');
-                        checkbox.checked = !checkbox.checked;
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    if (typeof Swal !== 'undefined') Swal.fire('Error', 'Error de conexión', 'error');
-                    checkbox.checked = !checkbox.checked;
-                });
-            }
-
-
 
             /* =========================
                RENDER PUESTOS
@@ -1344,7 +1295,7 @@ class CapHum extends Controller
                         showConfirmButton: false,
                         customClass: { container: 'swal-sobre-modal-perfil' }
                     });
-                    if (typeof getUsuarios === 'function') getUsuarios();
+                    if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
                 })
                 .catch(err => {
                     console.error(err);
@@ -1536,176 +1487,222 @@ class CapHum extends Controller
             }
 
             /* =========================
-               RENDER MÓDULOS
+               RENDER MÓDULOS (agrupados como menú lateral; datos menu_* vienen del backend)
             ========================= */
-            function renderModulos(perfiles) {
+            function buildFilaModuloSistema(mod, displayLabel, iconosModulos) {
+                const tr = document.createElement('tr');
+                tr.className = 'modal-perfil-modulo-fila';
+                tr.style.transition = 'all 0.3s ease';
+                tr.style.cursor = 'pointer';
+                tr.style.borderLeft = '3px solid transparent';
+                tr.style.borderBottom = '1px solid #e9ecef';
 
+                tr.onmouseenter = () => {
+                    tr.style.backgroundColor = '#f8f9fa';
+                    tr.style.borderLeftColor = '#495057';
+                    tr.style.transform = 'translateX(4px)';
+                };
+                tr.onmouseleave = () => {
+                    tr.style.backgroundColor = '';
+                    tr.style.borderLeftColor = 'transparent';
+                    tr.style.transform = 'translateX(0)';
+                };
+
+                const tdName = document.createElement('td');
+                tdName.className = 'fw-medium';
+                tdName.style.padding = '0.875rem 0.875rem 0.875rem 1.75rem';
+                tdName.style.verticalAlign = 'middle';
+
+                const nombreDiv = document.createElement('div');
+                nombreDiv.style.display = 'flex';
+                nombreDiv.style.alignItems = 'center';
+                nombreDiv.style.gap = '0.75rem';
+
+                const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
+                const iconClass = iconosModulos[modId] || iconosModulos[Number(modId)] || 'fa fa-cube';
+                const iconoModulo = document.createElement('div');
+                iconoModulo.className = 'modulo-icon-box';
+                iconoModulo.style.width = '40px';
+                iconoModulo.style.height = '40px';
+                iconoModulo.style.borderRadius = '10px';
+                iconoModulo.style.background = 'rgba(26, 82, 168, 0.12)';
+                iconoModulo.style.border = '1px solid rgba(26, 82, 168, 0.25)';
+                iconoModulo.style.display = 'flex';
+                iconoModulo.style.alignItems = 'center';
+                iconoModulo.style.justifyContent = 'center';
+                iconoModulo.style.flexShrink = '0';
+
+                const iconoInner = document.createElement('i');
+                iconoInner.className = iconClass;
+                iconoInner.style.color = '#1A52A8';
+                iconoInner.style.fontSize = '1rem';
+                iconoInner.title = displayLabel || mod.modulo_nombre || '';
+                iconoModulo.appendChild(iconoInner);
+
+                const nombre = document.createElement('span');
+                nombre.innerText = displayLabel || mod.modulo_nombre || 'Módulo';
+                nombre.style.fontWeight = '600';
+                nombre.style.color = '#2c3e50';
+                nombre.style.fontSize = '0.95rem';
+
+                nombreDiv.appendChild(iconoModulo);
+                nombreDiv.appendChild(nombre);
+
+                const desc = document.createElement('small');
+                desc.className = 'text-muted d-block mt-1';
+                desc.style.fontSize = '0.75rem';
+                desc.innerText = mod.descripcion ?? '';
+
+                tdName.append(nombreDiv, desc);
+
+                const tdCheck = document.createElement('td');
+                tdCheck.className = 'text-end';
+                tdCheck.style.padding = '0.875rem';
+                tdCheck.style.verticalAlign = 'middle';
+                tdCheck.style.width = '130px';
+
+                const divCheck = document.createElement('div');
+                divCheck.className = 'form-check mb-0';
+                divCheck.style.display = 'flex';
+                divCheck.style.alignItems = 'center';
+                divCheck.style.justifyContent = 'flex-end';
+                divCheck.style.gap = '0.5rem';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input';
+                checkbox.checked = Number(mod.asignado_flag) === 1;
+                checkbox.value = mod.modulo_id;
+                checkbox.onchange = () => onModuloChange(checkbox);
+                checkbox.style.cursor = 'pointer';
+                checkbox.style.width = '1.1em';
+                checkbox.style.height = '1.1em';
+
+                const label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.innerHTML = checkbox.checked
+                    ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                    : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                label.style.cursor = 'pointer';
+                label.style.userSelect = 'none';
+
+                checkbox.addEventListener('change', function() {
+                    label.innerHTML = this.checked
+                        ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                        : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                });
+
+                divCheck.append(checkbox, label);
+                tdCheck.appendChild(divCheck);
+
+                tr.append(tdName, tdCheck);
+                return tr;
+            }
+
+            function renderModulos(perfiles) {
                 const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
                 if (!container) return;
                 container.innerHTML = '';
+                container.classList.add('modal-perfil-modulos-agrupados');
 
                 if (!perfiles || perfiles.length === 0) {
-                    container.innerHTML = `<div class="text-muted small text-center py-4">No hay módulos disponibles</div>`;
+                    container.innerHTML = '<div class="text-muted small text-center py-4">No hay módulos disponibles</div>';
                     return;
                 }
-
-                const modulosPorPestana = {};
-                perfiles.forEach(m => {
-                    if (!modulosPorPestana[m.pestana]) modulosPorPestana[m.pestana] = [];
-                    modulosPorPestana[m.pestana].push(m);
-                });
-
-                const table = document.createElement('table');
-                table.className = 'table table-hover mb-0';
-                table.style.fontSize = '0.9rem';
-
-                const tbody = document.createElement('tbody');
 
                 const iconosModulos = {
                     1: 'fa fa-file-invoice-dollar', 2: 'fa fa-folder-open', 3: 'fa fa-screwdriver-wrench',
                     4: 'fa fa-users', 5: 'fa fa-sitemap', 6: 'fa fa-chart-bar', 7: 'fa fa-file-alt',
                     10: 'fa fa-cog', 13: 'fa fa-user-minus', 14: 'fa fa-file-alt', 15: 'fa fa-hand-holding-dollar',
                     16: 'fa fa-cog', 17: 'fa fa-cog',
-                    26: 'fa fa-list-check', /* Asignación por puestos */
-                    18: 'fa-solid fa-ticket', /* menú Ticket (levantar ticket) */
-                    19: 'fa fa-table-cells', /* ya no se muestra; unificado en 27 Panel Admin */
-                    25: 'fa fa-table-cells', /* ya no se muestra; unificado en 27 Panel Admin */
-                    27: 'fa fa-table-cells', /* Panel Admin (acceso real por Asignación por puestos → Panel por usuario) */
+                    26: 'fa fa-list-check',
+                    18: 'fa-solid fa-ticket',
+                    19: 'fa fa-table-cells',
+                    25: 'fa fa-table-cells',
+                    27: 'fa fa-table-cells',
                     20: 'fa fa-building-columns',
                     21: 'fa fa-file-alt',
                     29: 'fa fa-id-card',
                     30: 'fa fa-balance-scale',
-                    31: 'fa fa-laptop', /* Shell Gastos Cobranza */
-                    32: 'fa fa-file-import', /* Registrar convenio existente (permiso especial, puede listarse en módulos) */
+                    31: 'fa fa-laptop',
+                    32: 'fa fa-file-import',
                     41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
-                    43: 'fa fa-key', /* Gestionar permisos */
-                    45: 'fa fa-chart-gantt', /* Despachos — Mi gestión / Mi cartera */
-                    46: 'fa fa-handshake', /* Despachos — Convenios */
+                    43: 'fa fa-key',
+                    45: 'fa fa-chart-gantt',
+                    46: 'fa fa-handshake',
                     47: 'fa fa-chart-pie',
-                    49: 'fa fa-calendar-week', /* Reportería — Primeros pagos */
-                    50: 'fa fa-chart-line', /* Reportería — Flujo cobranza */
-                    /* Cerrado/Eliminado Sabueso: tickets archivados/cerrados */
+                    49: 'fa fa-calendar-week',
+                    50: 'fa fa-chart-line',
+                    51: 'fa-solid fa-file-circle-check',
                     48: 'fa fa-archive'
                 };
 
-                Object.keys(modulosPorPestana).forEach(pestana => {
-                    modulosPorPestana[pestana].forEach((mod, modIndex) => {
-
-                        const tr = document.createElement('tr');
-                        tr.style.transition = 'all 0.3s ease';
-                        tr.style.cursor = 'pointer';
-                        tr.style.borderLeft = '3px solid transparent';
-                        tr.style.borderBottom = '1px solid #e9ecef';
-
-                        tr.onmouseenter = () => {
-                            tr.style.backgroundColor = '#f8f9fa';
-                            tr.style.borderLeftColor = '#495057';
-                            tr.style.transform = 'translateX(4px)';
-                        };
-                        tr.onmouseleave = () => {
-                            tr.style.backgroundColor = '';
-                            tr.style.borderLeftColor = 'transparent';
-                            tr.style.transform = 'translateX(0)';
-                        };
-
-                        const tdName = document.createElement('td');
-                        tdName.className = 'fw-medium';
-                        tdName.style.padding = '0.875rem';
-                        tdName.style.verticalAlign = 'middle';
-
-                        const nombreDiv = document.createElement('div');
-                        nombreDiv.style.display = 'flex';
-                        nombreDiv.style.alignItems = 'center';
-                        nombreDiv.style.gap = '0.75rem';
-
-                        const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
-                        const iconClass = iconosModulos[modId] || iconosModulos[Number(modId)] || 'fa fa-cube';
-                        const iconoModulo = document.createElement('div');
-                        iconoModulo.className = 'modulo-icon-box';
-                        iconoModulo.style.width = '40px';
-                        iconoModulo.style.height = '40px';
-                        iconoModulo.style.borderRadius = '10px';
-                        iconoModulo.style.background = 'rgba(26, 82, 168, 0.12)';
-                        iconoModulo.style.border = '1px solid rgba(26, 82, 168, 0.25)';
-                        iconoModulo.style.display = 'flex';
-                        iconoModulo.style.alignItems = 'center';
-                        iconoModulo.style.justifyContent = 'center';
-                        iconoModulo.style.flexShrink = '0';
-
-                        const iconoInner = document.createElement('i');
-                        iconoInner.className = iconClass;
-                        iconoInner.style.color = '#1A52A8';
-                        iconoInner.style.fontSize = '1rem';
-                        iconoInner.title = mod.modulo_nombre ?? '';
-                        iconoModulo.appendChild(iconoInner);
-
-                        const nombre = document.createElement('span');
-                        nombre.innerText = mod.modulo_nombre ?? 'Módulo';
-                        nombre.style.fontWeight = '600';
-                        nombre.style.color = '#2c3e50';
-                        nombre.style.fontSize = '0.95rem';
-
-                        nombreDiv.appendChild(iconoModulo);
-                        nombreDiv.appendChild(nombre);
-
-                        const desc = document.createElement('small');
-                        desc.className = 'text-muted d-block mt-1';
-                        desc.style.fontSize = '0.75rem';
-                        desc.innerText = mod.descripcion ?? '';
-
-                        tdName.append(nombreDiv, desc);
-
-                        const tdCheck = document.createElement('td');
-                        tdCheck.className = 'text-end';
-                        tdCheck.style.padding = '0.875rem';
-                        tdCheck.style.verticalAlign = 'middle';
-                        tdCheck.style.width = '130px';
-
-                        const divCheck = document.createElement('div');
-                        divCheck.className = 'form-check mb-0';
-                        divCheck.style.display = 'flex';
-                        divCheck.style.alignItems = 'center';
-                        divCheck.style.justifyContent = 'flex-end';
-                        divCheck.style.gap = '0.5rem';
-
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.className = 'form-check-input';
-                        checkbox.checked = Number(mod.asignado_flag) === 1;
-                        checkbox.value = mod.modulo_id;
-                        checkbox.onchange = () => onModuloChange(checkbox);
-                        checkbox.style.cursor = 'pointer';
-                        checkbox.style.width = '1.1em';
-                        checkbox.style.height = '1.1em';
-
-                        const label = document.createElement('label');
-                        label.className = 'form-check-label';
-                        label.innerHTML = checkbox.checked
-                            ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
-                            : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
-                        label.style.cursor = 'pointer';
-                        label.style.userSelect = 'none';
-
-                        checkbox.addEventListener('change', function() {
-                            label.innerHTML = this.checked
-                                ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
-                                : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                const grupos = new Map();
+                const nombresGrupo = [];
+                perfiles.forEach(m => {
+                    const g = (m.menu_grupo != null && String(m.menu_grupo).trim() !== '') ? String(m.menu_grupo).trim() : 'Otros';
+                    if (!grupos.has(g)) {
+                        grupos.set(g, {
+                            icono: m.menu_grupo_icono || 'fa-solid fa-folder',
+                            orden: Number(m.menu_grupo_orden),
+                            items: []
                         });
-
-                        divCheck.append(checkbox, label);
-                        tdCheck.appendChild(divCheck);
-
-                        tr.append(tdName, tdCheck);
-                        tbody.appendChild(tr);
-                    });
+                        if (!Number.isFinite(grupos.get(g).orden)) grupos.get(g).orden = 999;
+                        nombresGrupo.push(g);
+                    }
+                    grupos.get(g).items.push(m);
                 });
 
-                table.appendChild(tbody);
-                container.appendChild(table);
-            }
+                nombresGrupo.sort((a, b) => {
+                    const oa = grupos.get(a).orden;
+                    const ob = grupos.get(b).orden;
+                    if (oa !== ob) return oa - ob;
+                    return a.localeCompare(b, 'es');
+                });
 
-            function onModuloChange(checkbox) {
-                // Módulo change handler
+                nombresGrupo.forEach(gName => {
+                    const g = grupos.get(gName);
+                    g.items.sort((a, b) => {
+                        const ia = Number(a.menu_item_orden);
+                        const ib = Number(b.menu_item_orden);
+                        if (Number.isFinite(ia) && Number.isFinite(ib) && ia !== ib) return ia - ib;
+                        return (Number(a.modulo_id) || 0) - (Number(b.modulo_id) || 0);
+                    });
+
+                    const section = document.createElement('section');
+                    section.className = 'modal-perfil-modulo-grupo card mb-0 shadow-sm';
+                    section.style.border = '2px solid #000';
+                    section.style.borderRadius = '0.5rem';
+                    section.style.overflow = 'hidden';
+
+                    const header = document.createElement('div');
+                    header.className = 'modal-perfil-modulo-grupo-header px-3 py-2 d-flex align-items-center fw-semibold';
+                    header.style.background = 'rgba(26, 82, 168, 0.08)';
+                    header.style.borderBottom = '2px solid #000';
+                    const hi = document.createElement('i');
+                    hi.className = (g.icono || 'fa-solid fa-folder') + ' me-2 text-primary';
+                    const ht = document.createElement('span');
+                    ht.textContent = gName;
+                    header.appendChild(hi);
+                    header.appendChild(ht);
+
+                    const table = document.createElement('table');
+                    table.className = 'table table-hover mb-0';
+                    table.style.fontSize = '0.9rem';
+
+                    const tbody = document.createElement('tbody');
+                    g.items.forEach(mod => {
+                        const lbl = (mod.menu_item_label != null && String(mod.menu_item_label).trim() !== '')
+                            ? String(mod.menu_item_label).trim()
+                            : (mod.modulo_nombre || 'Módulo');
+                        tbody.appendChild(buildFilaModuloSistema(mod, lbl, iconosModulos));
+                    });
+
+                    table.appendChild(tbody);
+                    section.appendChild(header);
+                    section.appendChild(table);
+                    container.appendChild(section);
+                });
             }
 
             function baja_gestor(id) {
@@ -2139,7 +2136,7 @@ class CapHum extends Controller
 
 
             function onModuloChange(checkbox) {
-                if (!checkbox || currentPersonaId === null) return;
+                if (!checkbox || currentPersonaId == null) return;
 
                 const payload = {
                     idPersona: currentPersonaId,
@@ -2178,7 +2175,7 @@ class CapHum extends Controller
                         showConfirmButton: false,
                         customClass: { container: 'swal-sobre-modal-perfil' }
                     });
-                    if (typeof getUsuarios === 'function') getUsuarios();
+                    if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
                 })
                 .catch(err => {
                     console.error(err);
@@ -7433,9 +7430,11 @@ class CapHum extends Controller
             }
             // ----- Fin reingreso -----
 
-            const getUsuarios = () => {
+            const getUsuarios = (opts) => {
+            opts = opts || {};
             http.request({
                 endpoint: "/caphum/getUsuarios",
+                showLoader: opts.showLoader !== false,
                 onSuccess: (resp) => {
                     const datos = resp.datos.map(p => {
                         const codisoP = p.codigo_iso_pais || 'xx';

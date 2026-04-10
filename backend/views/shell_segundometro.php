@@ -41,34 +41,41 @@
         <div class="col-12">
             <div id="shellSegundometroAgenteBar" class="card shadow-sm border-0">
                 <div class="card-body py-3">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                        <span class="fw-semibold text-body d-inline-flex align-items-center">
-                            <i class="fa fa-robot text-primary me-2"></i>Integración agente
+                    <div class="sg-agent-head mb-3">
+                        <span class="sg-agent-title">
+                            <span class="sg-agent-dot" aria-hidden="true"></span>
+                            Integración agente
                         </span>
-                        <div class="form-check form-switch mb-0" title="Activa o desactiva el auto-copy del agente en segundo plano.">
+                        <div class="form-check form-switch mb-0 sg-agent-autocopy" title="Activa o desactiva el auto-copy del agente en segundo plano.">
                             <input class="form-check-input" type="checkbox" role="switch" id="sgAutoCopyEnabled">
                             <label class="form-check-label small" for="sgAutoCopyEnabled">Auto-copy</label>
                         </div>
                     </div>
-                    <div class="row g-2 align-items-stretch">
-                        <div class="col-12 col-md d-grid" id="wrapBtnTruncarSegundometro" style="display: none;">
-                            <button type="button" class="btn btn-outline-danger w-100 py-2" id="btnTruncarSegundometro" disabled title="Trunca la tabla Semana: copia a histórico y limpia datos actuales.">
-                                <i class="fa fa-cut me-2"></i>Truncar
-                            </button>
+                    <div class="sg-agent-actions">
+                        <div class="sg-agent-row-top">
+                            <div id="wrapBtnTruncarSegundometro" class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-danger" id="btnTruncarSegundometro" disabled data-tip="Disponible solo los martes de 7:00 a 9:30 AM (CDMX). En horario: trunca la tabla Semana (copia al historial y limpia datos actuales).">
+                                    <i class="fa fa-cut"></i>
+                                    <span class="sg-btn-label">Truncar</span>
+                                </button>
+                            </div>
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-warn" id="btnMonitorearSegundometro" data-tip="Abre el monitoreo en vivo en esta página (CPU, memoria y actividad del servidor).">
+                                    <i class="fa fa-terminal"></i>
+                                    <span class="sg-btn-label">Monitorear</span>
+                                </button>
+                            </div>
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnDiagnosticoSSH" data-tip="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura en el remoto.">
+                                    <i class="fa fa-stethoscope"></i>
+                                    <span class="sg-btn-label">Diagnóstico SSH</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-12 col-md d-grid">
-                            <button type="button" class="btn btn-outline-secondary w-100 py-2" id="btnMonitorearSegundometro" title="Abre monitoreo en vivo en esta página.">
-                                <i class="fa fa-terminal me-2"></i>Monitorear
-                            </button>
-                        </div>
-                        <div class="col-12 col-md d-grid">
-                            <button type="button" class="btn btn-outline-primary w-100 py-2" id="btnDiagnosticoSSH" title="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura.">
-                                <i class="fa fa-stethoscope me-2"></i>Diagnóstico SSH
-                            </button>
-                        </div>
-                        <div class="col-12 col-md d-grid">
-                            <button type="button" class="btn btn-outline-success w-100 py-2" id="sgEjecutarAhora" title="Lanza ahora el flujo automático: monitoreo + copia del último reporte +1s.">
-                                <i class="fa fa-play me-2"></i>Ejecutar ahora
+                        <div class="sg-agent-row-bottom">
+                            <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="sgEjecutarAhora" data-tip="Lanza ahora el flujo automático del agente: monitoreo previo, copia del último reporte y ajuste +1s.">
+                                <i class="fa fa-play"></i>
+                                <span class="sg-btn-label">Ejecutar ahora</span>
                             </button>
                         </div>
                     </div>
@@ -192,6 +199,215 @@
     }
     body.dark-mode .gc-shell-module-name {
         color: #e2e8f0;
+    }
+
+    /* Estilo del bloque de acciones del agente (4 botones) */
+    #shellSegundometroAgenteBar {
+        border: 0.5px solid #e2e8f0 !important;
+        border-radius: 14px;
+        background: #fff;
+        display: inline-block;
+        width: fit-content;
+        max-width: 100%;
+    }
+    #shellSegundometroAgenteBar .sg-agent-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    #shellSegundometroAgenteBar .sg-agent-title {
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: #64748b;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+    }
+    #shellSegundometroAgenteBar .sg-agent-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #22c55e;
+    }
+    #shellSegundometroAgenteBar .sg-agent-autocopy {
+        color: #94a3b8;
+    }
+    #shellSegundometroAgenteBar .sg-agent-autocopy .form-check-label {
+        font-size: 0.78rem;
+    }
+    #shellSegundometroAgenteBar .sg-agent-actions {
+        width: min(860px, 100%);
+    }
+    #shellSegundometroAgenteBar .sg-agent-row-top {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(150px, 1fr));
+        gap: 8px;
+        align-items: stretch;
+    }
+    #shellSegundometroAgenteBar .sg-agent-row-bottom {
+        margin-top: 8px;
+        display: flex;
+        width: 100%;
+    }
+    #shellSegundometroAgenteBar .sg-btn-wrap {
+        min-width: 0;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn {
+        position: relative;
+        width: 100%;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        border-radius: 8px;
+        border: 1px solid;
+        background: #fff;
+        padding: 0 0.9rem;
+        font-size: 0.79rem;
+        font-weight: 500;
+        line-height: 1;
+        transition: all 0.16s ease;
+        white-space: nowrap;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn i {
+        font-size: 0.8rem;
+        line-height: 1;
+    }
+    #shellSegundometroAgenteBar .sg-btn-label {
+        flex: 1;
+        text-align: left;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn:hover {
+        transform: translateY(-1px);
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn:active {
+        transform: scale(0.98);
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+    }
+    #shellSegundometroAgenteBar .sg-btn-danger {
+        background: #fff5f5;
+        border-color: #fca5a5;
+        color: #dc2626;
+    }
+    #shellSegundometroAgenteBar .sg-btn-danger:hover {
+        background: #fee2e2;
+        border-color: #f87171;
+    }
+    #shellSegundometroAgenteBar .sg-btn-warn {
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #b45309;
+    }
+    #shellSegundometroAgenteBar .sg-btn-warn:hover {
+        background: #fef3c7;
+        border-color: #fbbf24;
+    }
+    #shellSegundometroAgenteBar .sg-btn-cyan {
+        background: #f0fdfa;
+        border-color: #5eead4;
+        color: #0d9488;
+    }
+    #shellSegundometroAgenteBar .sg-btn-cyan:hover {
+        background: #ccfbf1;
+        border-color: #2dd4bf;
+    }
+    #shellSegundometroAgenteBar .sg-btn-green {
+        background: #f0fdf4;
+        border-color: #86efac;
+        color: #16a34a;
+    }
+    #shellSegundometroAgenteBar .sg-btn-green:hover {
+        background: #dcfce7;
+        border-color: #4ade80;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn-run {
+        min-height: 38px;
+        height: 38px;
+        width: 100%;
+        flex: 1 1 auto;
+        font-size: 0.82rem;
+        display: flex;
+        justify-content: center;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn-run .sg-btn-label {
+        flex: 0 1 auto;
+        text-align: center;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn::after {
+        content: attr(data-tip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%) translateY(3px);
+        font-size: 0.68rem;
+        line-height: 1.25;
+        background: #0f172a;
+        color: #f1f5f9;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        padding: 0.37rem 0.5rem;
+        border-radius: 7px;
+        white-space: normal;
+        max-width: min(320px, 92vw);
+        text-align: left;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.16s ease, transform 0.16s ease;
+        z-index: 20;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 2px);
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #0f172a;
+        opacity: 0;
+        transition: opacity 0.16s ease;
+        z-index: 20;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn:hover::after,
+    #shellSegundometroAgenteBar .sg-tip-btn:hover::before {
+        opacity: 1;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn:hover::after {
+        transform: translateX(-50%) translateY(0);
+    }
+    @media (max-width: 991.98px) {
+        #shellSegundometroAgenteBar .sg-agent-actions {
+            width: 100%;
+        }
+    }
+    @media (max-width: 767.98px) {
+        #shellSegundometroAgenteBar .sg-agent-row-top {
+            grid-template-columns: 1fr;
+        }
+        #shellSegundometroAgenteBar .sg-tip-btn {
+            height: 36px;
+        }
+        #shellSegundometroAgenteBar .sg-tip-btn-run {
+            width: 100%;
+        }
+    }
+    body.dark-mode #shellSegundometroAgenteBar {
+        background: rgba(30, 41, 59, 0.92);
+        border-color: rgba(148, 163, 184, 0.18) !important;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-agent-title {
+        color: #cbd5e1;
+    }
+    body.dark-mode #shellSegundometroAgenteBar .sg-agent-autocopy,
+    body.dark-mode #shellSegundometroAgenteBar .sg-agent-autocopy .form-check-label {
+        color: #94a3b8;
     }
 
     .font-monospace {

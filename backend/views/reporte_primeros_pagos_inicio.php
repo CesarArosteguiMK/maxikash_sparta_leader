@@ -22,6 +22,16 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
 } else {
     $ppRangoSemana = $ppFmtDia($ppLunes, true) . ' al ' . $ppFmtDia($ppDomingo, true);
 }
+
+/* Próximo lunes de corte (semana siguiente) y periodo jueves→lunes (alineado a «Disponible de jueves a lunes») */
+$ppLunesSiguiente = $ppLunes->modify('+7 days');
+$ppNumSemanaSiguiente = (int) $ppLunesSiguiente->format('W');
+$ppJuevesVentana = $ppLunesSiguiente->modify('-4 days');
+if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
+    $ppRangoVentanaPrimerosPagos = $ppFmtDia($ppJuevesVentana, false) . ' al ' . $ppFmtDia($ppLunesSiguiente, true);
+} else {
+    $ppRangoVentanaPrimerosPagos = $ppFmtDia($ppJuevesVentana, true) . ' al ' . $ppFmtDia($ppLunesSiguiente, true);
+}
 ?>
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
     <defs>
@@ -34,34 +44,135 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
 
 <style>
 .pp-icon-svg { height: 150px; width: auto; max-width: 100%; stroke: url(#pp-icon-gradient); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.pp-hero-mascot { max-height: 220px; width: auto; }
+
+/* Evita scroll horizontal por la ilustración; el hero no recorta la mascota */
+.pp-primeros-pagos-page {
+    overflow-x: hidden;
+}
+.pp-primeros-pagos-page .pp-primeros-inner-card,
+.pp-primeros-pagos-page .pp-hero-row {
+    overflow: visible;
+}
+.pp-hero-block {
+    position: relative;
+    z-index: 0;
+    overflow: visible;
+    /*
+     * Tamaño visual de la mascota (escritorio): no afecta la altura del hero porque la img va absolute.
+     * Sube max-w / max-h aquí para una ilustración más grande sin cambiar el layout del card.
+     */
+    --pp-mascot-max-w: 280px;
+    --pp-mascot-max-h: min(280px, 44vh);
+    --pp-mascot-translate-x: -4.1rem;
+    --pp-mascot-translate-y: 4.25rem;
+}
+.pp-hero-text .card-body {
+    padding-bottom: 1.25rem !important;
+}
+@media (min-width: 768px) {
+    /* Hero más alto: más aire y altura mínima del “cuadro” antes de las tarjetas */
+    .pp-hero-row.pp-hero-row--con-mascota {
+        align-items: stretch;
+        min-height: 17rem;
+    }
+    .pp-hero-text .card-body {
+        padding-top: 1.75rem !important;
+        padding-bottom: 3.25rem !important;
+        padding-right: 0.5rem;
+    }
+}
+.pp-hero-mascot-col {
+    padding-top: 0.5rem;
+    padding-bottom: 0.75rem;
+}
+@media (min-width: 768px) {
+    /* Ancla la mascota: la img en absolute no estira el alto del bloque respecto al texto */
+    .pp-hero-mascot-col {
+        position: relative;
+        min-height: 0;
+        padding: 0;
+        align-self: stretch;
+    }
+    .pp-hero-text {
+        position: relative;
+        z-index: 2;
+    }
+}
+.pp-hero-mascot-floating {
+    display: block;
+    object-fit: contain;
+    object-position: bottom center;
+    filter: drop-shadow(0 10px 28px rgba(26, 82, 168, 0.12));
+}
+@media (max-width: 767.98px) {
+    .pp-hero-row.pp-hero-row--con-mascota {
+        min-height: 11.5rem;
+    }
+    /* Mismo criterio que las tarjetas inferiores: texto e ilustración centrados */
+    .pp-hero-text .card-body {
+        text-align: center;
+        padding-bottom: 2rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    .pp-hero-mascot-col {
+        align-items: center !important;
+    }
+    .pp-hero-mascot-floating {
+        margin: 0.5rem auto 0;
+        max-width: min(52vw, 168px);
+        max-height: min(28vh, 160px);
+        width: auto;
+        height: auto;
+        object-position: bottom center;
+        transform: translate(0, 3rem);
+    }
+}
+@media (min-width: 768px) {
+    .pp-hero-mascot-floating {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        width: auto;
+        height: auto;
+        max-width: var(--pp-mascot-max-w, 280px);
+        max-height: var(--pp-mascot-max-h, 280px);
+        margin: 0;
+        object-position: bottom right;
+        transform: translate(var(--pp-mascot-translate-x, -4.1rem), var(--pp-mascot-translate-y, 4.25rem));
+    }
+}
+body.dark-mode .pp-hero-mascot-floating {
+    filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.35));
+}
 </style>
 
-<div class="card">
-    <div>
-        <div class="card">
-            <div class="row g-0 align-items-center">
+<div class="card pp-primeros-pagos-page">
+    <div class="overflow-visible">
+        <div class="card pp-primeros-inner-card overflow-visible border-0 shadow-none">
+            <div class="pp-hero-block">
+            <div class="row g-0 overflow-visible pp-hero-row pp-hero-row--con-mascota">
 
-                <!-- Texto -->
-                <div class="col-12 col-md-8">
+                <div class="col-12 col-md-8 pp-hero-text">
                     <div class="card-body">
-                        <h5 class="card-title text-primary mb-3">HOLA, <?= isset($_SESSION['usuario_nombre']) ? htmlspecialchars(strtoupper($_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8') : 'USUARIO'; ?> <i class="fa-solid fa-calendar-week ms-2 text-primary" aria-hidden="true"></i></h5>
-                        <p class="mb-6">
+                        <h5 class="card-title text-primary mb-2">HOLA, <?= isset($_SESSION['usuario_nombre']) ? htmlspecialchars(strtoupper($_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8') : 'USUARIO'; ?> <i class="fa-solid fa-calendar-week ms-2 text-primary" aria-hidden="true"></i></h5>
+                        <p class="mb-0">
                             Monitoreo en cada corte del comportamiento de los primeros pagos de la semana, identificando avances y proyectando la recuperación futura a partir del jueves.
                         </p>
                     </div>
                 </div>
 
-                <!-- Ilustración local: public/assets/img/illustrations/primeros-pagos-mascota.png -->
-                <div class="col-12 col-md-4">
-                    <div class="card-body ps-md-2 pe-5 text-end">
-                        <img src="/assets/img/illustrations/primeros-pagos-mascota.png"
-                             class="img-fluid pp-hero-mascot"
-                             alt="Primeros pagos — ilustración">
-                    </div>
+                <div class="col-12 col-md-4 d-flex flex-column justify-content-end align-items-center align-items-md-end pp-hero-mascot-col">
+                    <img src="/assets/img/illustrations/primeros-pagos-mascota.png"
+                         class="pp-hero-mascot-floating img-fluid"
+                         alt="Primeros pagos — ilustración">
                 </div>
 
-                <div class="row gy-6 mb-6">
+            </div>
+            </div>
+
+                <div class="row gy-4 mb-4 gx-0">
                     <div class="col-lg-4">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -70,7 +181,7 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
                                         <h5 class="text-primary mb-1">Cobranza esperada - semana actual</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoSemana, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Primer vencimiento en el lunes de cierre. Corte de mora según calendario de cartera (martes ~8:00). Distribución y jerarquía.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de martes a domingo. En este espacio podrás consultar el resumen ejecutivo de los primeros pagos con fecha de vencimiento correspondiente a la semana en curso.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <a href="/reporteria/VencimientosLunes" class="btn btn-primary w-100">
@@ -93,8 +204,10 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-1">Primeros pagos semana actual</h5>
-                                        <p class="text-body small app-academy-sm-60 app-academy-xl-100 mb-0">Mismos créditos que cobranza esperada. El “corte actual” usa solo cortes del lunes (primer slot del día), sin martes en adelante.</p>
+                                        <h5 class="text-primary mb-1">Primeros pagos próxima semana</h5>
+                                        <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemanaSiguiente ?></p>
+                                        <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoVentanaPrimerosPagos, ENT_QUOTES, 'UTF-8') ?></p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de jueves a lunes. En este espacio podrás consultar el resumen ejecutivo de los primeros pagos previstos para la siguiente semana, correspondiente a ventas realizadas en días anteriores cuya primera fecha de vencimiento ocurre en la próxima semana.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <a href="/reporteria/VencimientosLunesSiguienteSemana" class="btn btn-primary w-100">
@@ -114,7 +227,6 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
                     </div>
                 </div>
 
-            </div>
         </div>
     </div>
 </div>
