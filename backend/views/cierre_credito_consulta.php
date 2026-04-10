@@ -183,6 +183,12 @@
 }
 .cc-validacion-box i { color: #d97706; font-size: .85rem; }
 .cc-validacion-box .cc-val-user { font-weight: 700; color: #92400e; }
+body.dark-mode .cc-validacion-box {
+    background: rgba(180, 83, 9, 0.15);
+    border-color: rgba(217, 119, 6, 0.4);
+}
+body.dark-mode .cc-validacion-box i { color: #fbbf24; }
+body.dark-mode .cc-validacion-box .cc-val-user { color: #fcd34d; }
 
 /* Footer de la card con botón confirmar */
 .cc-conv-card-footer {
@@ -239,28 +245,49 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
 ══════════════════════════════════════ -->
 <div class="card shadow-sm">
     <div class="card-body pb-0">
-        <ul class="nav nav-tabs cc-nav-tabs" id="ccTabs" role="tablist">
-            <!-- Pestaña 1: Enviados Finalizados (activa por defecto) -->
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-env-finalizado-btn"
-                        data-bs-toggle="tab" data-bs-target="#tab-env-finalizado"
-                        type="button" role="tab"
-                        aria-controls="tab-env-finalizado" aria-selected="true">
-                    <i class="fa-solid fa-circle-check me-1 text-success"></i>Enviados Finalizados
-                    <span class="badge bg-success ms-1" id="badge-env-finalizado">0</span>
-                </button>
-            </li>
-            <!-- Pestaña 2: En Proceso -->
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-en-proceso-btn"
-                        data-bs-toggle="tab" data-bs-target="#tab-en-proceso"
-                        type="button" role="tab"
-                        aria-controls="tab-en-proceso" aria-selected="false">
-                    <i class="fa-solid fa-hourglass-half me-1 text-warning"></i>En Proceso
-                    <span class="badge bg-warning text-dark ms-1" id="badge-en-proceso">0</span>
-                </button>
-            </li>
-        </ul>
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0">
+            <!-- Pestañas -->
+            <ul class="nav nav-tabs cc-nav-tabs border-0 mb-0" id="ccTabs" role="tablist">
+                <!-- Pestaña 1: Enviados Finalizados (activa por defecto) -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-env-finalizado-btn"
+                            data-bs-toggle="tab" data-bs-target="#tab-env-finalizado"
+                            type="button" role="tab"
+                            aria-controls="tab-env-finalizado" aria-selected="true">
+                        <i class="fa-solid fa-circle-check me-1 text-success"></i>Enviados Finalizados
+                        <span class="badge bg-success ms-1" id="badge-env-finalizado">0</span>
+                    </button>
+                </li>
+                <!-- Pestaña 2: En Proceso -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-en-proceso-btn"
+                            data-bs-toggle="tab" data-bs-target="#tab-en-proceso"
+                            type="button" role="tab"
+                            aria-controls="tab-en-proceso" aria-selected="false">
+                        <i class="fa-solid fa-hourglass-half me-1 text-warning"></i>En Proceso
+                        <span class="badge bg-warning text-dark ms-1" id="badge-en-proceso">0</span>
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Barra de búsqueda derecha (se muestra al cargar datos) -->
+            <div id="cc-search-bar" style="display:none;">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-transparent border-end-0">
+                        <i class="fa-solid fa-magnifying-glass text-muted" style="font-size:.8rem;"></i>
+                    </span>
+                    <input type="text" id="cc-input-buscar"
+                           class="form-control form-control-sm border-start-0"
+                           style="min-width:260px;"
+                           placeholder="Buscar crédito, cliente, producto..."
+                           autocomplete="off">
+                    <button type="button" class="btn btn-sm btn-outline-secondary border-start-0"
+                            id="cc-btn-limpiar-busqueda" title="Limpiar" style="display:none;">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -271,6 +298,7 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
 
     <!-- ══ PESTAÑA 1: ENVIADOS FINALIZADOS ══ -->
     <div class="tab-pane fade show active" id="tab-env-finalizado" role="tabpanel">
+
         <div id="loader-env-finalizado" class="text-center py-5 text-muted">
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
             Cargando convenios...
@@ -281,6 +309,10 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
         <div id="empty-env-finalizado" class="text-center py-5 text-muted d-none">
             <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
             Sin convenios saldados por el momento.
+        </div>
+        <div id="empty-busqueda" class="text-center py-5 text-muted d-none">
+            <i class="fa-solid fa-search fa-2x mb-2 d-block opacity-50"></i>
+            Sin resultados para la búsqueda.
         </div>
     </div>
 
@@ -350,22 +382,78 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
     /* ══════════════════════════════════
        RENDER: CARDS ENVIADOS FINALIZADOS
     ══════════════════════════════════ */
-    function renderCards(rows, validador) {
-        document.getElementById('loader-env-finalizado').classList.add('d-none');
-        const wrap  = document.getElementById('wrap-env-finalizado');
-        const empty = document.getElementById('empty-env-finalizado');
-        const badge = document.getElementById('badge-env-finalizado');
+    let _allRows    = [];
+    let _validador  = '—';
 
+    function renderCards(rows, validador) {
+        _allRows   = rows;
+        _validador = validador;
+
+        document.getElementById('loader-env-finalizado').classList.add('d-none');
+        const badge = document.getElementById('badge-env-finalizado');
         badge.textContent = rows.length;
 
         if (!rows.length) {
-            empty.classList.remove('d-none');
+            document.getElementById('empty-env-finalizado').classList.remove('d-none');
+            return;
+        }
+
+        // Mostrar barra de búsqueda
+        document.getElementById('cc-search-bar').style.display = '';
+
+        _pintarCards(rows);
+    }
+
+    function _pintarCards(rows) {
+        const wrap         = document.getElementById('wrap-env-finalizado');
+        const emptyNormal  = document.getElementById('empty-env-finalizado');
+        const emptySearch  = document.getElementById('empty-busqueda');
+
+        emptyNormal.classList.add('d-none');
+        emptySearch.classList.add('d-none');
+
+        if (!rows.length) {
+            wrap.classList.add('d-none');
+            wrap.innerHTML = '';
+            emptySearch.classList.remove('d-none');
             return;
         }
 
         wrap.classList.remove('d-none');
-        wrap.innerHTML = rows.map(r => buildCard(r, validador)).join('');
+        wrap.innerHTML = rows.map(r => buildCard(r, _validador)).join('');
     }
+
+    /* ── Filtro en tiempo real ── */
+    function ccFiltrar(termino) {
+        const t = termino.trim().toLowerCase();
+        const btnLimpiar = document.getElementById('cc-btn-limpiar-busqueda');
+        btnLimpiar.style.display = t ? '' : 'none';
+
+        if (!t) {
+            _pintarCards(_allRows);
+            return;
+        }
+
+        const filtrados = _allRows.filter(r =>
+            String(r.id_credito   || '').toLowerCase().includes(t) ||
+            String(r.nombre_cliente || '').toLowerCase().includes(t) ||
+            String(r.nombre_producto || '').toLowerCase().includes(t) ||
+            String(r.nombre_despacho || '').toLowerCase().includes(t)
+        );
+        _pintarCards(filtrados);
+    }
+
+    document.getElementById('cc-input-buscar')
+        .addEventListener('input', function () { ccFiltrar(this.value); });
+
+    document.getElementById('cc-btn-limpiar-busqueda')
+        .addEventListener('click', function () {
+            const input = document.getElementById('cc-input-buscar');
+            input.value = '';
+            this.style.display = 'none';
+            _pintarCards(_allRows);
+            input.focus();
+        });
 
     function buildCard(r, validador) {
         const semanas      = parseInt(r.numero_semanas) || 1;
@@ -419,6 +507,10 @@ body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155
                     <div class="cc-detail-row">
                         <span class="cc-lbl">Producto elegido</span>
                         <span class="cc-val">${esc(r.nombre_producto)}</span>
+                        <span style="background:#e0edff; color:#1d4ed8; font-size:.75rem; font-weight:700;
+                                      padding:2px 8px; border-radius:20px; margin-left:.35rem; white-space:nowrap;">
+                            ${parseFloat(r.porcentaje_descuento) || 0}%
+                        </span>
                     </div>
 
                     <div class="cc-detail-row">

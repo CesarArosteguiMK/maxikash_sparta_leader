@@ -117,6 +117,36 @@ class Convenios extends Model
         );
 
         if (!$credito) {
+            // Puede ser un crédito cuyo convenio ya fue completado y salió de segundometro.
+            // Verificar si existe un convenio completado en convenio_cliente.
+            $convenioComp = $db->queryOne(
+                "SELECT id_credito, nombre_cliente, bucket_morosidad_real,
+                        dias_mora, avance_pago_plazo, adeudo_total_original
+                 FROM convenio_cliente
+                 WHERE id_credito = :id AND estatus = 'completado'
+                 ORDER BY fecha_alta DESC
+                 LIMIT 1",
+                ['id' => (int) $id_credito]
+            );
+            if ($convenioComp) {
+                $creditoSintetico = [
+                    'Id_credito'            => $convenioComp['id_credito'],
+                    'Nombre_cliente'        => $convenioComp['nombre_cliente'],
+                    'Bucket_Morosidad_Real' => $convenioComp['bucket_morosidad_real'],
+                    'Dias_mora'             => $convenioComp['dias_mora'],
+                    'Avance_Pago_Plazo'     => $convenioComp['avance_pago_plazo'],
+                    'Adeudo_total'          => $convenioComp['adeudo_total_original'],
+                    'Saldo_total_capital'   => $convenioComp['adeudo_total_original'],
+                    'Rango_Monto'           => null,
+                ];
+                return self::resultado(true, 'OK', [
+                    'credito'              => $creditoSintetico,
+                    'ofertas'              => [],
+                    'elegible'             => false,
+                    'razon'                => 'convenio_completado',
+                    'productos_bloqueados' => [],
+                ]);
+            }
             return self::resultado(false, 'Crédito no encontrado.');
         }
 
@@ -495,7 +525,7 @@ public static function getConvenioActivo($id_credito)
             "SELECT cc.*, pc.nombre AS nombre_producto
              FROM convenio_cliente cc
              INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
-             WHERE cc.id_credito = :id AND cc.estatus = 'activo'
+             WHERE cc.id_credito = :id AND cc.estatus IN ('activo', 'completado')
              ORDER BY cc.fecha_alta DESC
              LIMIT 1",
             ['id' => (int) $id_credito]
@@ -503,6 +533,11 @@ public static function getConvenioActivo($id_credito)
 
         if (!$convenio) {
             return self::resultado(true, 'Sin convenio activo.', null);
+        }
+
+        // Para convenios ya completados no aplicar lógica de auto-cancelación.
+        if ($convenio['estatus'] === 'completado') {
+            return self::resultado(true, 'Convenio completado.', $convenio);
         }
 
         // ── Auto-cancelación por incumplimiento (3 días corridos) ──

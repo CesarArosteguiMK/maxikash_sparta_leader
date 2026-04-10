@@ -1465,7 +1465,9 @@ function seleccionarCredito(idCredito) {
                             document.getElementById('btnGuardar').style.display = 'inline-block';
                             document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
 
-                            _estatusConvenio = (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') ? 'activo' : 'sin_convenio';
+                            _estatusConvenio = (respConvenio.success && respConvenio.datos)
+                                ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
+                                : 'sin_convenio';
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
                             renderOfertas(ofertas, bloqueados);
@@ -1483,7 +1485,8 @@ function seleccionarCredito(idCredito) {
 
                             verificarSaldado();
 
-                            if (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') {
+                            if (respConvenio.success && respConvenio.datos &&
+                                (respConvenio.datos.estatus === 'activo' || respConvenio.datos.estatus === 'completado')) {
                                 congelarModulo(respConvenio.datos);
                             }
                         },
@@ -1507,14 +1510,17 @@ function seleccionarCredito(idCredito) {
                         data: { id_credito: idCredito },
                         onSuccess: function (respConvenio) {
                             Swal.close();
-                            _estatusConvenio = (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') ? 'activo' : 'sin_convenio';
+                            _estatusConvenio = (respConvenio.success && respConvenio.datos)
+                                ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
+                                : 'sin_convenio';
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
                             renderOfertas(ofertas, bloqueados);
                             document.getElementById('convContenido').style.display = 'block';
                             verificarSaldado();
 
-                            if (respConvenio.success && respConvenio.datos && respConvenio.datos.estatus === 'activo') {
+                            if (respConvenio.success && respConvenio.datos &&
+                                (respConvenio.datos.estatus === 'activo' || respConvenio.datos.estatus === 'completado')) {
                                 congelarModulo(respConvenio.datos);
                             }
                         },
@@ -1531,6 +1537,13 @@ function seleccionarCredito(idCredito) {
                 }
             });
             }; // fin _lanzarHistorial
+
+            // Si el convenio ya está completado, saltar la validación de despacho
+            // (el crédito pudo regularizarse y ya no está en asigna_creditos_despacho activo)
+            if (datos.razon === 'convenio_completado') {
+                _lanzarHistorial();
+                return;
+            }
 
             // Llamada 2: validar que el crédito esté en despacho
             var _errManejadoDesp2 = false;
@@ -4183,10 +4196,23 @@ window.migLibreGenerarFilas = function () {
     tbody.innerHTML = '';
     for (var i = 1; i <= n; i++) {
         var prev = existentes[i - 1] || { fecha: '', monto: '' };
+        // Calcular min date: el día siguiente a la fecha del pago anterior
+        var minDate = '';
+        if (i > 1) {
+            var prevFechaRef = existentes[i - 2] ? existentes[i - 2].fecha : '';
+            if (prevFechaRef) {
+                var dt = new Date(prevFechaRef + 'T00:00:00');
+                dt.setDate(dt.getDate() + 1);
+                minDate = dt.toISOString().split('T')[0];
+            }
+        }
         var tr = document.createElement('tr');
         tr.innerHTML =
             '<td class="text-center fw-bold text-muted">' + i + '</td>' +
-            '<td><input type="date" class="form-control form-control-sm mig-libre-fecha" value="' + (prev.fecha || '') + '" oninput="window.migLibreDateChanged(this)"></td>' +
+            '<td><input type="date" class="form-control form-control-sm mig-libre-fecha"' +
+                ' value="' + (prev.fecha || '') + '"' +
+                (minDate ? ' min="' + minDate + '"' : '') +
+                ' oninput="window.migLibreDateChanged(this)"></td>' +
             '<td><input type="number" class="form-control form-control-sm mig-libre-monto" min="0" step="0.01" placeholder="0.00" value="' + (prev.monto || '') + '" oninput="window.migLibreActualizarTotal()"></td>';
         tbody.appendChild(tr);
     }
@@ -4195,30 +4221,80 @@ window.migLibreGenerarFilas = function () {
 
 window.migLibreValidarFechas = function () {
     var fechaInputs = document.querySelectorAll('#migLibreFilasBody .mig-libre-fecha');
+    var usadas = [];
     var prevFecha = '';
     var valido = true;
     fechaInputs.forEach(function (inp) {
         inp.classList.remove('is-invalid');
         var f = inp.value;
-        if (f && prevFecha && f < prevFecha) {
-            inp.classList.add('is-invalid');
-            valido = false;
+        if (f) {
+            // Orden cronológico estrictamente ascendente (no igual)
+            if (prevFecha && f <= prevFecha) {
+                inp.classList.add('is-invalid');
+                valido = false;
+            }
+            // Fecha duplicada con cualquier otra
+            if (usadas.indexOf(f) !== -1) {
+                inp.classList.add('is-invalid');
+                valido = false;
+            } else {
+                usadas.push(f);
+            }
+            prevFecha = f;
         }
-        if (f) prevFecha = f;
     });
     return valido;
 };
 
-// Sync primera fecha a migFechaInicio y valida orden cronológico
+// Sync primera fecha a migFechaInicio, actualiza min-dates subsecuentes y valida
 window.migLibreDateChanged = function (input) {
     var tbody = document.getElementById('migLibreFilasBody');
-    if (tbody && tbody.rows.length > 0) {
-        var firstDate = tbody.rows[0].querySelector('.mig-libre-fecha');
+    if (!tbody) return;
+
+    var rows = tbody.querySelectorAll('tr');
+    // Detectar el índice de la fila que cambió
+    var idxCambiado = -1;
+    rows.forEach(function (tr, i) {
+        if (tr.querySelector('.mig-libre-fecha') === input) idxCambiado = i;
+    });
+
+    // Si cambió la primera fecha → limpiar todas las fechas posteriores
+    if (idxCambiado === 0) {
+        for (var j = 1; j < rows.length; j++) {
+            var fInp = rows[j].querySelector('.mig-libre-fecha');
+            if (fInp) fInp.value = '';
+        }
+    }
+
+    // Actualizar min-date de todos los inputs a partir del índice cambiado
+    var lastFecha = '';
+    rows.forEach(function (tr, i) {
+        var fInp = tr.querySelector('.mig-libre-fecha');
+        if (!fInp) return;
+        if (i === 0) {
+            fInp.removeAttribute('min');
+            lastFecha = fInp.value;
+        } else {
+            if (lastFecha) {
+                var dt = new Date(lastFecha + 'T00:00:00');
+                dt.setDate(dt.getDate() + 1);
+                fInp.min = dt.toISOString().split('T')[0];
+            } else {
+                fInp.removeAttribute('min');
+            }
+            lastFecha = fInp.value || lastFecha;
+        }
+    });
+
+    // Sync primera fecha a migFechaInicio
+    if (rows.length > 0) {
+        var firstDate = rows[0].querySelector('.mig-libre-fecha');
         var migFechaInicioEl = document.getElementById('migFechaInicio');
         if (firstDate && migFechaInicioEl) {
             migFechaInicioEl.value = firstDate.value;
         }
     }
+
     window.migLibreActualizarTotal();
 };
 
@@ -4255,7 +4331,7 @@ window.migLibreActualizarTotal = function () {
             if (indicador) {
                 indicador.style.borderColor = '#dc2626';
                 indicador.style.color = '#dc2626';
-                indicador.textContent = '⚠ Las fechas deben estar en orden cronológico ascendente';
+                indicador.textContent = '⚠ Las fechas deben ser distintas y en orden ascendente (sin repetir)';
             }
             return;
         }
@@ -5108,7 +5184,7 @@ window.migGuardar = function () {
             return;
         }
         if (!filasLibre.every(function (r) { return r.fecha && r.monto > 0; })) {
-            Swal.fire('Tabla incompleta', 'Todas las filas deben tener fecha y monto mayor a $0.', 'warning');
+            Swal.fire('Tabla incompleta', 'Todas las filas deben tener fecha, verifica de nuevo.', 'warning');
             return;
         }
 
