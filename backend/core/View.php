@@ -40,12 +40,12 @@ function getMenu(): string
         'Capital Humano' => [
             'icono'    => 'fa-solid fa-users',
             'subItems' => [
-                ['label' => 'Gestión',          'url' => '/caphum/gestion',                  'modulos' => [4]],
-                ['label' => 'Organigrama',      'url' => '/caphum/organigrama',              'modulos' => [5]],
-                ['label' => 'Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
-                ['label' => 'Candidatos',       'url' => '/caphum/candidatos',               'modulos' => [42]],
-                ['label' => 'Curso Onboarding', 'url' => '/onboarding/index',                'modulos' => [44]],
-                ['label' => 'Capital Humano',   'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [21]],
+                ['label' => 'Gestión de Personal',          'url' => '/caphum/gestion',                  'modulos' => [4]],
+                ['label' => 'Organigrama Cobranza',      'url' => '/caphum/organigrama',              'modulos' => [5]],
+                ['label' => 'Control de Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
+                ['label' => 'Selección de Personal',       'url' => '/caphum/candidatos',               'modulos' => [42]],
+                ['label' => 'Curso de Inducción', 'url' => '/onboarding/index',                'modulos' => [44]],
+                ['label' => 'Reportes de Personal',   'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [21]],
             ],
         ],
         'Convenios' => [
@@ -60,7 +60,7 @@ function getMenu(): string
         'Tickets' => [
             'icono'    => 'fa-solid fa-ticket',
             'subItems' => array_values(array_filter([
-                ['label' => 'Ticket',                    'url' => '/sabueso/ticket',           'modulos' => [18]],
+                ['label' => 'Mis Tickets',                    'url' => '/sabueso/ticket',           'modulos' => [18]],
                 $mostrarMenuValidacionesAuto
                     ? ['label' => 'Validaciones',        'url' => $urlMenuValidacionesAuto,    'modulos' => []]
                     : null,
