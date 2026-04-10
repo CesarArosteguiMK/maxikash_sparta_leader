@@ -2,6 +2,12 @@
 /* ══════════════════════════════════════════
    CONVENIOS — ESTILOS GLOBALES
 ══════════════════════════════════════════ */
+
+/* Ocultar flechas del input numérico de pagos libres */
+#migLibreNumPagos::-webkit-outer-spin-button,
+#migLibreNumPagos::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#migLibreNumPagos { -moz-appearance: textfield; appearance: textfield; }
+
 .conv-header-gradient {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 1rem;
@@ -1108,10 +1114,10 @@ body.dark-mode #migTotalFinal {
                     <div class="d-flex align-items-center gap-2">
                       <label class="fw-semibold mb-0 text-nowrap small">Número de pagos:</label>
                       <input type="number" id="migLibreNumPagos" class="form-control form-control-sm"
-                             style="width:75px;" min="2" max="12" value="2"
-                             onkeydown="(function(e){var k=e.key;if(k==='e'||k==='E'||k==='+'||k==='-'||k==='.'){e.preventDefault();}})(event)"
-                             oninput="window.migLibreGenerarFilas()">
-                      <small class="text-muted">(máx. 12)</small>
+                             style="width:75px;-moz-appearance:textfield;appearance:textfield;" min="2" max="15" value="2"
+                             onkeydown="(function(e){var k=e.key;if(k==='e'||k==='E'||k==='+'||k==='-'||k==='.'||k==='ArrowUp'||k==='ArrowDown'){e.preventDefault();}})(event)"
+                             oninput="(function(el){var v=parseInt(el.value);if(isNaN(v)||v<2){el.value=2;}else if(v>15){el.value=15;}window.migLibreGenerarFilas();})(this)">
+                      <small class="text-muted">(máx. 15)</small>
                     </div>
                     <button type="button" class="btn btn-outline-secondary btn-sm"
                             onclick="window.migLibreDistribuirIgual()">
@@ -4186,10 +4192,10 @@ window.migLibreGenerarFilas = function () {
     if (!tbody) return;
     var n = parseInt((document.getElementById('migLibreNumPagos') || {}).value) || 2;
     if (n < 2) n = 2;
-    if (n > 12) {
-        n = 12;
+    if (n > 15) {
+        n = 15;
         var elNumPagos = document.getElementById('migLibreNumPagos');
-        if (elNumPagos) elNumPagos.value = 12;
+        if (elNumPagos) elNumPagos.value = 15;
     }
 
     // Preservar valores existentes
