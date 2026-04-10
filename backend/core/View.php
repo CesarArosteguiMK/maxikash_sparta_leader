@@ -7,77 +7,105 @@ $layoutVendorLite = isset($layoutVendorLite) && $layoutVendorLite;
 /** Rastreo embebido desde Estado de cuenta: ocultar menú/navbar (solo con ?chromeless=1 en consulta reportería) */
 $layoutChromelessReporteriaEmbed = isset($layoutChromelessReporteriaEmbed) && $layoutChromelessReporteriaEmbed;
 
-// Cache-busting para CSS: mismo estilo en todos los navegadores (evita caché vieja en otros equipos)
-$__demoCss = realpath(__DIR__ . '/../../public/assets/css/demo.css');
-$__darkCss = realpath(__DIR__ . '/../../public/assets/css/dark-mode.css');
+// Cache-busting para CSS
+$__demoCss    = realpath(__DIR__ . '/../../public/assets/css/demo.css');
+$__darkCss    = realpath(__DIR__ . '/../../public/assets/css/dark-mode.css');
 $__swalGlassCss = realpath(__DIR__ . '/../../public/assets/css/swal-liquid-glass.css');
-$__assetsVer = ($__demoCss ? filemtime($__demoCss) : '') . ($__darkCss ? '.' . filemtime($__darkCss) : '') . ($__swalGlassCss ? '.' . filemtime($__swalGlassCss) : '');
+$__assetsVer  = ($__demoCss ? filemtime($__demoCss) : '')
+    . ($__darkCss ? '.' . filemtime($__darkCss) : '')
+    . ($__swalGlassCss ? '.' . filemtime($__swalGlassCss) : '');
 if ($__assetsVer === '.' || $__assetsVer === '') $__assetsVer = (string) time();
 
-function getMenu()
+function getMenu(): string
 {
     $modulosUsuario = $_SESSION['modulos'] ?? [];
-    if (!is_array($modulosUsuario)) {
-        $modulosUsuario = [];
-    }
+    if (!is_array($modulosUsuario)) $modulosUsuario = [];
 
     $personaIdSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
     $resValidacionesOp = $personaIdSesion > 0
         ? \Core\TicketsPanelModuloHelper::resolverEntradaValidacionesOperativa($personaIdSesion)
         : null;
     $mostrarMenuValidacionesAuto = $resValidacionesOp !== null;
-    $urlMenuValidacionesAuto = $resValidacionesOp['url'] ?? '/validaciones/gestor';
+    $urlMenuValidacionesAuto     = $resValidacionesOp['url'] ?? '/validaciones/gestor';
 
-    require_once __DIR__ . '/../config/menu_modulos_sidebar.php';
-    $menuItems = getMenuSidebarModulosStructure();
-
-    $ticketSubItems = [
-        [
-            'label' => 'Ticket',
-            'url' => '/sabueso/ticket',
-            'modulos' => [18],
+    $menuItems = [
+        'Créditos' => [
+            'icono'    => 'fa-solid fa-sack-dollar',
+            'subItems' => [
+                ['label' => 'Estados de Cuenta',  'url' => '/estadocuenta/consulta',      'modulos' => [1]],
+                ['label' => 'Documentación',       'url' => '/estadocuenta/documentacion', 'modulos' => [2]],
+                ['label' => 'Histórico Gestiones', 'url' => '/gestiones/seguimiento',      'modulos' => [3]],
+            ],
+        ],
+        'Capital Humano' => [
+            'icono'    => 'fa-solid fa-users',
+            'subItems' => [
+                ['label' => 'Gestión',          'url' => '/caphum/gestion',                  'modulos' => [4]],
+                ['label' => 'Organigrama',      'url' => '/caphum/organigrama',              'modulos' => [5]],
+                ['label' => 'Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
+                ['label' => 'Candidatos',       'url' => '/caphum/candidatos',               'modulos' => [42]],
+                ['label' => 'Curso Onboarding', 'url' => '/onboarding/index',                'modulos' => [44]],
+                ['label' => 'Capital Humano',   'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [21]],
+            ],
+        ],
+        'Convenios' => [
+            'icono'    => 'fa-solid fa-building-columns',
+            'subItems' => [
+                ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
+                ['label' => 'Mi Cartera',              'url' => '/Despachos/MiGestion',                  'modulos' => [45]],
+                ['label' => 'Crear Convenio',          'url' => '/convenios/consulta',                   'modulos' => [46]],
+                ['label' => 'Cierre de Crédito',       'url' => '/CierreCredito/consulta',               'modulos' => [51]],
+            ],
+        ],
+        'Tickets' => [
+            'icono'    => 'fa-solid fa-ticket',
+            'subItems' => array_values(array_filter([
+                ['label' => 'Ticket',                    'url' => '/sabueso/ticket',           'modulos' => [18]],
+                $mostrarMenuValidacionesAuto
+                    ? ['label' => 'Validaciones',        'url' => $urlMenuValidacionesAuto,    'modulos' => []]
+                    : null,
+                ['label' => 'Panel Admin',               'url' => '/sabueso/panelAdminInicio', 'modulos' => [19, 25, 27]],
+                ['label' => 'Cerrado/Eliminado Sabueso', 'url' => '/sabueso/cerradoEliminado', 'modulos' => [48]],
+                ['label' => 'Estadísticas',              'url' => '/sabueso/estadisticas',     'modulos' => [47]],
+            ])),
+        ],
+        'Analítica' => [
+            'icono'    => 'fa-solid fa-chart-line',
+            'subItems' => [
+                ['label' => 'Primeros pagos', 'url' => '/reporteria/PrimerosPagos', 'modulos' => [49]],
+                ['label' => 'Call Center',    'url' => '/reporteria/callcenter',    'modulos' => [6, 14, 15]],
+                ['label' => 'Layout Legacy',  'url' => '/reporteria/layoutlegacy',  'modulos' => [7]],
+            ],
+        ],
+        'Organización' => [
+            'icono'    => 'fa-solid fa-cog',
+            'subItems' => [
+                ['label' => 'Departamentos',          'url' => '/departamentos/consulta/',     'modulos' => [10]],
+                ['label' => 'Países',                 'url' => '/paises/consulta',             'modulos' => [41]],
+                ['label' => 'Equivalencia puestos',   'url' => '/equivalencias/consulta',      'modulos' => [17]],
+                ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
+            ],
+        ],
+        'Shell' => [
+            'icono'    => 'fa-solid fa-laptop',
+            'subItems' => [
+                ['label' => 'Shell Segundómetro',    'url' => '/segundometro/shell',   'modulos' => [16]],
+                ['label' => 'Shell Gastos Cobranza', 'url' => '/gastoscobranza/shell', 'modulos' => [31]],
+            ],
         ],
     ];
-    if ($mostrarMenuValidacionesAuto) {
-        $ticketSubItems[] = [
-            'label' => 'Validaciones',
-            'url' => $urlMenuValidacionesAuto,
-            'modulos' => [],
-        ];
-    }
-    $ticketSubItems[] = [
-        'label' => 'Panel Admin',
-        'url' => '/sabueso/panelAdminInicio',
-        'modulos' => [19, 25, 27],
-    ];
-    $ticketSubItems[] = [
-        'label' => 'Cerrado/Eliminado Sabueso',
-        'url' => '/sabueso/cerradoEliminado',
-        'modulos' => [48],
-    ];
-    $ticketSubItems[] = [
-        'label' => 'Estadísticas',
-        'url' => '/sabueso/estadisticas',
-        'modulos' => [47],
-    ];
-    $menuItems['Ticket']['subItems'] = $ticketSubItems;
 
     $menu = '';
 
     foreach ($menuItems as $key => $item) {
-
         $submenu = '';
 
         foreach ($item['subItems'] as $subItem) {
-
-            // ✅ VALIDACIÓN POR MÓDULOS
             if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $modulosUsuario)) {
                 continue;
             }
 
-            $activo = strtolower($subItem['url']) == strtolower($_SERVER['REQUEST_URI'])
-                    ? 'active'
-                    : '';
+            $activo = strtolower($subItem['url']) === strtolower($_SERVER['REQUEST_URI']) ? 'active' : '';
 
             $submenu .= <<<HTML
                 <li class="menu-item $activo">
@@ -90,8 +118,12 @@ function getMenu()
 
         if ($submenu === '') continue;
 
-        $abierto = strpos($submenu, 'active') !== false ? 'active open' : '';
-        $keyNorm = str_replace(['á','é','í','ó','ú','ñ','Á','É','Í','Ó','Ú','Ñ','ü','Ü'], ['a','e','i','o','u','n','a','e','i','o','u','n','u','u'], $key);
+        $abierto = str_contains($submenu, 'active') ? 'active open' : '';
+        $keyNorm = str_replace(
+            ['á','é','í','ó','ú','ñ','Á','É','Í','Ó','Ú','Ñ','ü','Ü'],
+            ['a','e','i','o','u','n','a','e','i','o','u','n','u','u'],
+            $key
+        );
         $slug = 'menu-' . strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $keyNorm), '-'));
 
         $menu .= <<<HTML
@@ -109,8 +141,8 @@ function getMenu()
 
     return $menu;
 }
-
 ?>
+
 
 <!doctype html>
 
