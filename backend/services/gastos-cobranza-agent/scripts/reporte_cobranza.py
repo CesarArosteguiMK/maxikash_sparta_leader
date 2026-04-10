@@ -214,12 +214,6 @@ DESCARGO_ESTATUS3_DIR = os.path.normpath(os.path.join(REPORTE_DIR, "descargo_est
 _GUIA_DESCARGO_FILE   = "guia_descargo.json"
 TABLE_DESCARGO        = "cobranza_gc_verificacion_semana"
 
-# IDs excluidos del descargo (misma lista que descargo_cobranza_gc_estatus3.py).
-EXCLUIR_ID_CREDITO_ESTATUS3: tuple = (
-    943898, 1403455, 1454729, 1820460, 456213, 1592177, 1363701,
-    1382512, 837692, 1502282, 1386771, 1031813, 1363075, 1020293,
-)
-
 
 def _leer_guia_descargo() -> dict | None:
     p = os.path.join(DESCARGO_ESTATUS3_DIR, _GUIA_DESCARGO_FILE)
@@ -285,13 +279,8 @@ def obtener_descargo_incremental() -> list[dict]:
     Devuelve lista de dicts (pymysql DictCursor).
     """
     guia = _leer_guia_descargo()
-    ids  = EXCLUIR_ID_CREDITO_ESTATUS3
-    ph   = ",".join(["%s"] * len(ids))
-    conds: list[str] = [
-        "`estatus` = 3",
-        f"`id_credito` NOT IN ({ph})",
-    ]
-    params: list = list(ids)
+    conds: list[str] = ["`estatus` = 3"]
+    params: list = []
 
     if guia is not None:
         reg_raw = guia.get("ultimo_registrado_en_cdmx", "")

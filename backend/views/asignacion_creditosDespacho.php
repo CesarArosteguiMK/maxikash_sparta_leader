@@ -1543,6 +1543,10 @@ function buscarCredito() {
         return;
     }
 
+    const btnBuscar = document.getElementById('btn-buscar-credito');
+    btnBuscar.disabled = true;
+    btnBuscar.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Buscando…';
+
     fetch('/despachos/buscarCredito', {
         method: 'POST',
         headers: {
@@ -1552,7 +1556,7 @@ function buscarCredito() {
             tipo: 'id_credito',
             valor: idCredito
         })
-    })
+    }) 
     .then(response => response.json())
     .then(data => {
         if (data.success && data.credito) {
@@ -1615,6 +1619,11 @@ function buscarCredito() {
     .catch(error => {
         console.error('Error al buscar crédito:', error);
         Swal.fire('Error', 'Error al buscar el crédito', 'error');
+    })
+    .finally(() => {
+        const btnBuscar = document.getElementById('btn-buscar-credito');
+        btnBuscar.disabled = false;
+        btnBuscar.innerHTML = '<i class="fa-solid fa-search me-1"></i>Buscar';
     });
 }
 

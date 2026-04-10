@@ -898,9 +898,9 @@ def main() -> None:
         sql = (
             f"INSERT {'IGNORE ' if args.ignore_duplicates else ''}INTO `{TABLE_NAME}` "
             "(id_credito, inicio_semana, anio_iso, semana_iso, registrado_en_cdmx, "
-            "s2_exitoso, incluido_reporte, mensaje, nombre, tipo_reporte, monto_aplicar, "
-            "estatus, celula, id_usuario_reporte) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            "ultimo_pago_efectivo, s2_exitoso, incluido_reporte, mensaje, nombre, tipo_reporte, "
+            "monto_aplicar, estatus, celula, id_usuario_reporte) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         )
         sql_update_e3 = (
             f"UPDATE `{TABLE_NAME}` SET `estatus` = %s, `celula` = %s "
@@ -941,6 +941,7 @@ def main() -> None:
                 anio_iso,
                 semana_iso,
                 registrado_naive,
+                None,
                 s2_ok,
                 incluido,
                 args.mensaje,

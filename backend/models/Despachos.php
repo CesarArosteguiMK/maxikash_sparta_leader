@@ -1443,6 +1443,58 @@ SQL;
         }
         unset($credito); // Romper referencia
 
+        // ── Enriquecer con datos de convenio (local DB) ────────────────────────
+        if (!empty($idsCredito)) {
+            $placeholdersCv = [];
+            $paramsCv       = [];
+            foreach ($idsCredito as $idx => $idCredito) {
+                $key               = "cv$idx";
+                $placeholdersCv[]  = ":$key";
+                $paramsCv[$key]    = $idCredito;
+            }
+            $placeholdersCvStr = implode(',', $placeholdersCv);
+
+            $queryCv = "
+                SELECT
+                    cc.id_credito,
+                    1 AS tiene_convenio,
+                    MAX(
+                        CASE
+                            WHEN cca.fecha_pago < CURDATE()
+                             AND (cca.estatus_pago IS NULL OR cca.estatus_pago != 'pagado')
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS tiene_atraso
+                FROM convenio_cliente cc
+                LEFT JOIN convenio_cliente_amortizacion cca
+                       ON cca.id_convenio_cliente = cc.id
+                WHERE cc.id_credito IN ($placeholdersCvStr)
+                  AND cc.estatus = 'activo'
+                GROUP BY cc.id_credito
+            ";
+
+            $convenioRows = $this->db->queryAll($queryCv, $paramsCv);
+
+            $convenioMap = [];
+            if ($convenioRows) {
+                foreach ($convenioRows as $cv) {
+                    $convenioMap[(int) $cv['id_credito']] = [
+                        'tiene_convenio' => 1,
+                        'tiene_atraso'   => (int) $cv['tiene_atraso'],
+                    ];
+                }
+            }
+
+            foreach ($creditos as &$credito) {
+                $cv = $convenioMap[(int) $credito['id_credito']] ?? null;
+                $credito['tiene_convenio'] = $cv ? 1 : 0;
+                $credito['tiene_atraso']   = $cv ? $cv['tiene_atraso'] : 0;
+            }
+            unset($credito);
+        }
+        // ── Fin enriquecimiento convenio ───────────────────────────────────────
+
         return $creditos;
     }
 

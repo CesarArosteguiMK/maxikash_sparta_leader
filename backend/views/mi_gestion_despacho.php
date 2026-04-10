@@ -43,11 +43,11 @@
 
     .kpi-card:hover::before { height: 6px; }
 
-    .kpi-card.kpi-creditos   { --kpi-color-start: #696cff; --kpi-color-end: #9155fd; }
-    .kpi-card.kpi-activos    { --kpi-color-start: #28a745; --kpi-color-end: #20c997; }
-    .kpi-card.kpi-inactivos  { --kpi-color-start: #8592a3; --kpi-color-end: #b4bcc4; }
-    .kpi-card.kpi-saldo      { --kpi-color-start: #dc3545; --kpi-color-end: #fd7e14; }
-    .kpi-card.kpi-mora       { --kpi-color-start: #f59e0b; --kpi-color-end: #fbbf24; }
+    .kpi-card.kpi-creditos      { --kpi-color-start: #696cff; --kpi-color-end: #9155fd; }
+    .kpi-card.kpi-activos       { --kpi-color-start: #28a745; --kpi-color-end: #20c997; }
+    .kpi-card.kpi-convenios     { --kpi-color-start: #0ea5e9; --kpi-color-end: #38bdf8; }
+    .kpi-card.kpi-conv-atraso   { --kpi-color-start: #dc3545; --kpi-color-end: #fd7e14; }
+    .kpi-card.kpi-conv-regla    { --kpi-color-start: #10b981; --kpi-color-end: #34d399; }
 
     .kpi-card .card-body {
         padding: 1rem 1rem 0.85rem;
@@ -175,29 +175,29 @@
         </div>
     </div>
     <div class="kpi-item">
-        <div class="card kpi-card kpi-inactivos">
+        <div class="card kpi-card kpi-convenios">
             <div class="card-body">
-                <i class="fa-solid fa-circle-pause kpi-icon"></i>
-                <div class="kpi-number" id="kpi-inactivos">—</div>
-                <p class="kpi-label">Inactivos</p>
+                <i class="fa-solid fa-handshake kpi-icon"></i>
+                <div class="kpi-number" id="kpi-convenios">—</div>
+                <p class="kpi-label">Núm. Convenios</p>
             </div>
         </div>
     </div>
     <div class="kpi-item">
-        <div class="card kpi-card kpi-saldo">
+        <div class="card kpi-card kpi-conv-atraso">
             <div class="card-body">
-                <i class="fa-solid fa-dollar-sign kpi-icon"></i>
-                <div class="kpi-number" id="kpi-saldo">—</div>
-                <p class="kpi-label">Saldo Total</p>
+                <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
+                <div class="kpi-number" id="kpi-conv-atraso">—</div>
+                <p class="kpi-label">Convenios con Atraso</p>
             </div>
         </div>
     </div>
     <div class="kpi-item">
-        <div class="card kpi-card kpi-mora">
+        <div class="card kpi-card kpi-conv-regla">
             <div class="card-body">
-                <i class="fa-solid fa-calendar-xmark kpi-icon"></i>
-                <div class="kpi-number" id="kpi-mora">—</div>
-                <p class="kpi-label">Promedio Mora</p>
+                <i class="fa-solid fa-circle-check kpi-icon"></i>
+                <div class="kpi-number" id="kpi-conv-regla">—</div>
+                <p class="kpi-label">Convenios en Regla</p>
             </div>
         </div>
     </div>
@@ -330,18 +330,16 @@ function cargarMiGestion(testIdPersona) {
 // KPIs
 // ============================================================
 function actualizarKPIs(creditos) {
-    const activos   = creditos.filter(c => c.estado === '1' || c.estado === 1);
-    const inactivos = creditos.filter(c => c.estado !== '1' && c.estado !== 1);
-    const saldoTotal = creditos.reduce((acc, c) => acc + parseFloat(c.saldo || 0), 0);
-    const promMora  = creditos.length
-        ? Math.round(creditos.reduce((acc, c) => acc + parseInt(c.dias_mora || 0), 0) / creditos.length)
-        : 0;
+    const activos      = creditos.filter(c => c.estado === '1' || c.estado === 1);
+    const conConvenio  = creditos.filter(c => parseInt(c.tiene_convenio) === 1);
+    const convAtraso   = conConvenio.filter(c => parseInt(c.tiene_atraso) === 1);
+    const convRegla    = conConvenio.filter(c => parseInt(c.tiene_atraso) === 0);
 
-    document.getElementById('kpi-total').textContent    = creditos.length;
-    document.getElementById('kpi-activos').textContent  = activos.length;
-    document.getElementById('kpi-inactivos').textContent = inactivos.length;
-    document.getElementById('kpi-saldo').textContent    = formatearMonedaCorta(saldoTotal);
-    document.getElementById('kpi-mora').textContent     = promMora + ' días';
+    document.getElementById('kpi-total').textContent       = creditos.length;
+    document.getElementById('kpi-activos').textContent     = activos.length;
+    document.getElementById('kpi-convenios').textContent   = conConvenio.length;
+    document.getElementById('kpi-conv-atraso').textContent = convAtraso.length;
+    document.getElementById('kpi-conv-regla').textContent  = convRegla.length;
 }
 
 // ============================================================
@@ -421,9 +419,8 @@ function mostrarEmptyState() {
         actualizaDatosTabla('#tabla-mi-gestion', [], false);
     }
     // KPIs en cero
-    ['kpi-total','kpi-activos','kpi-inactivos'].forEach(id => document.getElementById(id).textContent = '0');
-    document.getElementById('kpi-saldo').textContent = '$0';
-    document.getElementById('kpi-mora').textContent  = '0 días';
+    ['kpi-total','kpi-activos','kpi-convenios','kpi-conv-atraso','kpi-conv-regla']
+        .forEach(id => document.getElementById(id).textContent = '0');
 }
 
 // ============================================================

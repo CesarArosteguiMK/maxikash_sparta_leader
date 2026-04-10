@@ -1184,11 +1184,6 @@ class CapHum extends Model
             // -------------------------------------------------------
             // 2) Mayor nivel jerárquico
             // -------------------------------------------------------
-            //$nivelMax = max(array_column($puestos, 'nivel'));
-
-            //$puestosTop = array_filter($puestos, function ($p) use ($nivelMax) {
-            //    return $p['nivel'] == $nivelMax;
-            //});
             $puestosTopIds = array_column($puestos, 'id');
 
 
