@@ -11,28 +11,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
      */
     function getMenuSidebarModulosStructure(): array
     {
-        $ticketSubItems = [
-            [
-                'label' => 'Ticket',
-                'url' => '/sabueso/ticket',
-                'modulos' => [18],
-            ],
-            [
-                'label' => 'Panel Admin',
-                'url' => '/sabueso/panelAdminInicio',
-                'modulos' => [19, 25, 27],
-            ],
-            [
-                'label' => 'Cerrado/Eliminado Sabueso',
-                'url' => '/sabueso/cerradoEliminado',
-                'modulos' => [48],
-            ],
-            [
-                'label' => 'Estadísticas',
-                'url' => '/sabueso/estadisticas',
-                'modulos' => [47],
-            ],
-        ];
+
 
         return [
             'Créditos' => [
@@ -40,11 +19,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'subItems' => [
                     ['label' => 'Estados de Cuenta', 'url' => '/estadocuenta/consulta', 'modulos' => [1]],
                     ['label' => 'Documentación', 'url' => '/estadocuenta/documentacion', 'modulos' => [2]],
-                ],
-            ],
-            'Gestiones' => [
-                'icono' => 'fa-solid fa-screwdriver-wrench',
-                'subItems' => [
                     ['label' => 'Histórico Gestiones', 'url' => '/gestiones/seguimiento', 'modulos' => [3]],
                 ],
             ],
@@ -52,25 +26,46 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-users',
                 'subItems' => [
                     ['label' => 'Gestión', 'url' => '/caphum/gestion', 'modulos' => [4]],
-                    ['label' => 'Candidatos', 'url' => '/caphum/candidatos', 'modulos' => [42]],
-                    ['label' => 'Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
                     ['label' => 'Organigrama', 'url' => '/caphum/organigrama', 'modulos' => [5]],
+                    ['label' => 'Bajas', 'url' => '/caphum/bajas', 'modulos' => [13]],
+                    ['label' => 'Candidatos', 'url' => '/caphum/candidatos', 'modulos' => [42]],
+                    ['label' => 'Curso Onboarding', 'url' => '/onboarding/index', 'modulos' => [44]],
                 ],
             ],
             'Reportería' => [
                 'icono' => 'fa-solid fa-file',
                 'subItems' => [
-                    ['label' => 'Call Center', 'url' => '/reporteria/callcenter', 'modulos' => [6, 14, 15]],
                     ['label' => 'Primeros pagos', 'url' => '/reporteria/PrimerosPagos', 'modulos' => [49]],
-                    ['label' => 'Sabuesos', 'url' => '/reporteria/sabuesos', 'modulos' => [18, 19]],
+                    ['label' => 'Call Center', 'url' => '/reporteria/callcenter', 'modulos' => [6, 14, 15]],
+                    // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/reporteria/layoutlegacy', 'modulos' => [7]],
                     ['label' => 'Capital Humano', 'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [21]],
-                    ['label' => 'Flujo cobranza', 'url' => '/ReporteriaBI/FlujoCobranza', 'modulos' => [50]],
                 ],
             ],
-            'Ticket' => [
+            'Tickets' => [
                 'icono' => 'fa-solid fa-ticket',
-                'subItems' => $ticketSubItems,
+                'subItems' => [
+                    [
+                        'label' => 'Mis Tickets',
+                        'url' => '/sabueso/ticket',
+                        'modulos' => [18],
+                    ],
+                    [
+                        'label' => 'Panel Admin',
+                        'url' => '/sabueso/panelAdminInicio',
+                        'modulos' => [19, 25, 27],
+                    ],
+                    [
+                        'label' => 'Cerrado/Eliminado Sabueso',
+                        'url' => '/sabueso/cerradoEliminado',
+                        'modulos' => [48],
+                    ],
+                    [
+                        'label' => 'Estadísticas',
+                        'url' => '/sabueso/estadisticas',
+                        'modulos' => [47],
+                    ],
+                ],
             ],
             'Convenios' => [
                 'icono' => 'fa-solid fa-building-columns',
@@ -78,14 +73,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Asignación de Créditos', 'url' => '/Despachos/AsignacionCreditosDespacho', 'modulos' => [20]],
                     ['label' => 'Mi Cartera', 'url' => '/Despachos/MiGestion', 'modulos' => [45]],
                     ['label' => 'Crear Convenio', 'url' => '/convenios/consulta', 'modulos' => [46]],
-                    /* id 51: mismo criterio que menu_accesos_inicio / getRutasModulos (no reutilizar 50 = Flujo cobranza) */
                     ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [51]],
-                ],
-            ],
-            'Onboarding' => [
-                'icono' => 'fa-solid fa-graduation-cap',
-                'subItems' => [
-                    ['label' => 'Curso Onboarding', 'url' => '/onboarding/index', 'modulos' => [44]],
                 ],
             ],
             'Configuración' => [

@@ -78,4 +78,22 @@ class CierreCredito extends Controller
         $r = CierreCreditoDAO::cambiarEstatus($id, $estatus, $usuario);
         self::respuestaJSON($r);
     }
+
+    // ─────────────────────────────────────────────
+    // API: ENVIAR A CARTERA
+    // ─────────────────────────────────────────────
+
+    public function enviarACartera()
+    {
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::enviarACartera($id, $usuario);
+        self::respuestaJSON($r);
+    }
 }

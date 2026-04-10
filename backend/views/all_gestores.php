@@ -835,18 +835,6 @@
         margin-bottom: 0.5rem;
         display: block;
     }
-        justify-content: center;
-        font-size: 10px;
-        color: white;
-        font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        z-index: 10;
-    }
-
-    /* Estilo para botones de acción con indicador */
-    .btn-with-indicator {
-        position: relative;
-    }
 
     /* Mejora en filtros - feedback visual */
     .filter-active {

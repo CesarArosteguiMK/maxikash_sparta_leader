@@ -140,7 +140,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h4 class="mb-0">
-            <i class="fa-solid fa-chart-gantt me-2"></i>Mi Gestión
+            <i class="fa-solid fa-chart-gantt me-2"></i>Mi Cartera
         </h4>
         <p class="text-muted small mb-0">Créditos asignados a tu cartera</p>
     </div>
