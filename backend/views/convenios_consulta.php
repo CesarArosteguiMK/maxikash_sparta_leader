@@ -2,6 +2,12 @@
 /* ══════════════════════════════════════════
    CONVENIOS — ESTILOS GLOBALES
 ══════════════════════════════════════════ */
+
+/* Ocultar flechas del input numérico de pagos libres */
+#migLibreNumPagos::-webkit-outer-spin-button,
+#migLibreNumPagos::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#migLibreNumPagos { -moz-appearance: textfield; appearance: textfield; }
+
 .conv-header-gradient {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 1rem;
@@ -1108,10 +1114,10 @@ body.dark-mode #migTotalFinal {
                     <div class="d-flex align-items-center gap-2">
                       <label class="fw-semibold mb-0 text-nowrap small">Número de pagos:</label>
                       <input type="number" id="migLibreNumPagos" class="form-control form-control-sm"
-                             style="width:75px;" min="2" max="12" value="2"
-                             onkeydown="(function(e){var k=e.key;if(k==='e'||k==='E'||k==='+'||k==='-'||k==='.'){e.preventDefault();}})(event)"
-                             oninput="window.migLibreGenerarFilas()">
-                      <small class="text-muted">(máx. 12)</small>
+                             style="width:75px;-moz-appearance:textfield;appearance:textfield;" min="2" max="15" value="2"
+                             onkeydown="(function(e){var k=e.key;if(k==='e'||k==='E'||k==='+'||k==='-'||k==='.'||k==='ArrowUp'||k==='ArrowDown'){e.preventDefault();}})(event)"
+                             oninput="(function(el){var v=parseInt(el.value);if(isNaN(v)||v<2){el.value=2;}else if(v>15){el.value=15;}window.migLibreGenerarFilas();})(this)">
+                      <small class="text-muted">(máx. 15)</small>
                     </div>
                     <button type="button" class="btn btn-outline-secondary btn-sm"
                             onclick="window.migLibreDistribuirIgual()">
@@ -2911,6 +2917,32 @@ function _flashInvalid(el) {
 }
 
 /**
+ * Muestra un toast no bloqueante cuando el monto capturado supera la deuda.
+ * Usa una bandera por "contexto" para no repetir el toast en cada tecla.
+ */
+var _alertaExcedeBandera = {};
+function _alertarExcedeDeuda(contexto, totalCapturado, deuda) {
+    var fmt = function (v) {
+        return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    var excede = totalCapturado > deuda + 0.009; // tolerancia de centavos
+    if (excede && !_alertaExcedeBandera[contexto]) {
+        _alertaExcedeBandera[contexto] = true;
+        var excedente = Math.round((totalCapturado - deuda) * 100) / 100;
+        Swal.fire({
+            icon: 'info',
+            title: 'Monto mayor a la deuda',
+            html: 'El excedente de <strong>' + fmt(excedente) + '</strong> se registrará como monto adicional.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#3b82f6',
+        });
+    }
+    if (!excede) {
+        _alertaExcedeBandera[contexto] = false; // reset si vuelve a estar por debajo
+    }
+}
+
+/**
  * Valida un input numérico de monto.
  * Borra el campo y lo flashea en rojo si:
  *   - contiene notación científica (e / E)
@@ -2986,6 +3018,7 @@ window.amortTotalFinalChanged = function () {
     var adic = totalFinal > totalConvenio
         ? Math.round((totalFinal - totalConvenio) * 100) / 100
         : 0;
+    _alertarExcedeDeuda('amort', totalFinal, totalConvenio);
     document.getElementById('amortMontoAdicional').value = adic > 0 ? adic.toFixed(2) : '';
     _amortRegenerarTabla(totalFinal, adic);
 };
@@ -4186,10 +4219,10 @@ window.migLibreGenerarFilas = function () {
     if (!tbody) return;
     var n = parseInt((document.getElementById('migLibreNumPagos') || {}).value) || 2;
     if (n < 2) n = 2;
-    if (n > 12) {
-        n = 12;
+    if (n > 15) {
+        n = 15;
         var elNumPagos = document.getElementById('migLibreNumPagos');
-        if (elNumPagos) elNumPagos.value = 12;
+        if (elNumPagos) elNumPagos.value = 15;
     }
 
     // Preservar valores existentes
@@ -4327,6 +4360,7 @@ window.migLibreActualizarTotal = function () {
         indicador.style.color = color;
         indicador.textContent = 'Asignado: ' + fmt(asignado) + ' / ' + fmt(totalEsperado);
     }
+    _alertarExcedeDeuda('migLibre', asignado, adeudo);
 
     if (asignado > 0 && typeof window.migCalcular === 'function') {
         if (!window.migLibreValidarFechas()) {
@@ -5034,6 +5068,7 @@ window.migTotalFinalChanged = function () {
         adicionalAuto = Math.round((totalFinal - adeudo) * 100) / 100;
         baseEfectiva  = adeudo;
     }
+    _alertarExcedeDeuda('mig', totalFinal, adeudo);
 
     // ── Semanas (basadas en pago semanal fijo sobre el total completo) ──
     var semanasEnt = Math.floor(totalFinal / semanal);

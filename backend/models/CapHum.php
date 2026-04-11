@@ -1618,7 +1618,22 @@ class CapHum extends Model
                         (DEFAULT, $id_persona, $id_jefe, NOW(), NOW())
                 ");
 
-                // 4️⃣ Asignar legión si se marcó el checkbox
+                // 4️⃣ Auto-registrar en despachos si el puesto lo requiere
+                $id_celula_despacho = self::resolverCelulaDespacho($db, (int)$id_puesto);
+                if ($id_celula_despacho !== null) {
+                    $existeDespacho = $db->queryOne(
+                        "SELECT id FROM despachos WHERE id_persona = :idp AND estatus = 'Activo' LIMIT 1",
+                        ['idp' => $id_persona]
+                    );
+                    if (!$existeDespacho) {
+                        $db->queryOne(
+                            "INSERT INTO despachos (id_persona, estatus, fecha_alta, id_celula) VALUES (:idp, 'Activo', NOW(), :cel)",
+                            ['idp' => $id_persona, 'cel' => $id_celula_despacho]
+                        );
+                    }
+                }
+
+                // 5️⃣ Asignar legión si se marcó el checkbox
                 if (isset($data['asignar_legion']) && $data['asignar_legion'] && isset($data['id_legion']) && $data['id_legion']) {
                     $id_legion = (int)$data['id_legion'];
 
@@ -1858,11 +1873,79 @@ class CapHum extends Model
                 ");
             }
 
+            // Auto-sincronizar despachos según los puestos actualizados
+            $idCelulaDespacho = null;
+            if ($puestosAdicionales && is_array($puestosAdicionales) && count($puestosAdicionales) > 0) {
+                foreach ($puestosAdicionales as $pObj) {
+                    $cel = self::resolverCelulaDespacho($db, (int)($pObj['id_puesto'] ?? 0));
+                    if ($cel !== null) {
+                        $idCelulaDespacho = $cel;
+                        break;
+                    }
+                }
+            } else {
+                $idCelulaDespacho = self::resolverCelulaDespacho($db, $id_puesto);
+            }
+
+            $existeDespachoActivo = $db->queryOne(
+                "SELECT id FROM despachos WHERE id_persona = :idp AND estatus = 'Activo' LIMIT 1",
+                ['idp' => $id_persona]
+            );
+
+            if ($idCelulaDespacho !== null) {
+                if ($existeDespachoActivo) {
+                    $db->queryOne(
+                        'UPDATE despachos SET id_celula = :cel WHERE id = :id',
+                        ['cel' => $idCelulaDespacho, 'id' => $existeDespachoActivo['id']]
+                    );
+                } else {
+                    $db->queryOne(
+                        "INSERT INTO despachos (id_persona, estatus, fecha_alta, id_celula) VALUES (:idp, 'Activo', NOW(), :cel)",
+                        ['idp' => $id_persona, 'cel' => $idCelulaDespacho]
+                    );
+                }
+            } elseif ($existeDespachoActivo) {
+                $db->queryOne(
+                    "UPDATE despachos SET estatus = 'Inactivo' WHERE id = :id",
+                    ['id' => $existeDespachoActivo['id']]
+                );
+            }
+
             return self::resultado(true, 'Persona actualizada correctamente.', null);
 
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al actualizar persona.', null, $e->getMessage());
         }
+    }
+
+    /**
+     * Resuelve el id_celula para la tabla despachos según el nombre del puesto.
+     * Devuelve 1 (Despacho), 2 (Call Center) o null si el puesto no aplica.
+     *
+     * Puestos cubiertas:
+     *  id_celula = 1: Gestor Despacho, Supervisor Despacho
+     *  id_celula = 2: Agente Call Center, Supervisora Call Center
+     */
+    private static function resolverCelulaDespacho(Database $db, int $id_puesto): ?int
+    {
+        if ($id_puesto <= 0) {
+            return null;
+        }
+        $row = $db->queryOne(
+            'SELECT nombre FROM puesto WHERE id = :id LIMIT 1',
+            ['id' => $id_puesto]
+        );
+        if (!$row) {
+            return null;
+        }
+        $nombre = strtolower(trim((string)($row['nombre'] ?? '')));
+        if (in_array($nombre, ['agente call center', 'supervisora call center'], true)) {
+            return 2;
+        }
+        if (in_array($nombre, ['gestor despacho', 'supervisor despacho'], true)) {
+            return 1;
+        }
+        return null;
     }
 
     public static function registrarBajaGestor($data)
@@ -1915,6 +1998,13 @@ class CapHum extends Model
             UPDATE __SPARTA_SECRET_REDACTED__.persona
             SET estatus = 'Baja'
             WHERE id = '$id_persona'
+        ");
+
+            // 4️⃣ Inhabilitar en despachos si el gestor estaba registrado
+            $db->queryOne("
+            UPDATE __SPARTA_SECRET_REDACTED__.despachos
+            SET estatus = 'Inactivo'
+            WHERE id_persona = '$id_persona' AND estatus = 'Activo'
         ");
 
             return self::resultado(true, 'Baja registrada correctamente con archivos.');

@@ -1458,6 +1458,21 @@ SQL;
                 SELECT
                     cc.id_credito,
                     1 AS tiene_convenio,
+                    cc.total_a_pagar        AS conv_total_pagar,
+                    cc.numero_semanas       AS conv_num_semanas,
+                    cc.pago_semanal         AS conv_pago_semanal,
+                    cc.fecha_primer_pago    AS conv_fecha_inicio,
+                    cc.fecha_ultimo_pago    AS conv_fecha_fin,
+                    (SELECT COUNT(*)
+                       FROM convenio_cliente_amortizacion x
+                      WHERE x.id_convenio_cliente = cc.id
+                        AND x.estatus_pago = 'pagado'
+                    ) AS conv_pagos_realizados,
+                    (SELECT MIN(x2.fecha_pago)
+                       FROM convenio_cliente_amortizacion x2
+                      WHERE x2.id_convenio_cliente = cc.id
+                        AND (x2.estatus_pago IS NULL OR x2.estatus_pago != 'pagado')
+                    ) AS conv_fecha_proximo_pago,
                     MAX(
                         CASE
                             WHEN cca.fecha_pago < CURDATE()
@@ -1471,7 +1486,8 @@ SQL;
                        ON cca.id_convenio_cliente = cc.id
                 WHERE cc.id_credito IN ($placeholdersCvStr)
                   AND cc.estatus = 'activo'
-                GROUP BY cc.id_credito
+                GROUP BY cc.id, cc.id_credito, cc.total_a_pagar, cc.numero_semanas,
+                         cc.pago_semanal, cc.fecha_primer_pago, cc.fecha_ultimo_pago
             ";
 
             $convenioRows = $this->db->queryAll($queryCv, $paramsCv);
@@ -1480,16 +1496,30 @@ SQL;
             if ($convenioRows) {
                 foreach ($convenioRows as $cv) {
                     $convenioMap[(int) $cv['id_credito']] = [
-                        'tiene_convenio' => 1,
-                        'tiene_atraso'   => (int) $cv['tiene_atraso'],
+                        'tiene_convenio'         => 1,
+                        'tiene_atraso'           => (int) $cv['tiene_atraso'],
+                        'conv_total_pagar'       => $cv['conv_total_pagar'],
+                        'conv_num_semanas'       => $cv['conv_num_semanas'],
+                        'conv_pago_semanal'      => $cv['conv_pago_semanal'],
+                        'conv_fecha_inicio'      => $cv['conv_fecha_inicio'],
+                        'conv_fecha_fin'         => $cv['conv_fecha_fin'],
+                        'conv_pagos_realizados'  => (int) $cv['conv_pagos_realizados'],
+                        'conv_fecha_proximo_pago'=> $cv['conv_fecha_proximo_pago'],
                     ];
                 }
             }
 
             foreach ($creditos as &$credito) {
                 $cv = $convenioMap[(int) $credito['id_credito']] ?? null;
-                $credito['tiene_convenio'] = $cv ? 1 : 0;
-                $credito['tiene_atraso']   = $cv ? $cv['tiene_atraso'] : 0;
+                $credito['tiene_convenio']          = $cv ? 1 : 0;
+                $credito['tiene_atraso']            = $cv ? $cv['tiene_atraso'] : 0;
+                $credito['conv_total_pagar']        = $cv['conv_total_pagar']        ?? null;
+                $credito['conv_num_semanas']        = $cv['conv_num_semanas']        ?? null;
+                $credito['conv_pago_semanal']       = $cv['conv_pago_semanal']       ?? null;
+                $credito['conv_fecha_inicio']       = $cv['conv_fecha_inicio']       ?? null;
+                $credito['conv_fecha_fin']          = $cv['conv_fecha_fin']          ?? null;
+                $credito['conv_pagos_realizados']   = $cv['conv_pagos_realizados']   ?? null;
+                $credito['conv_fecha_proximo_pago'] = $cv['conv_fecha_proximo_pago'] ?? null;
             }
             unset($credito);
         }
