@@ -90,6 +90,42 @@
 
     .kpi-card:hover .kpi-icon { opacity: 0.2; transform: scale(1.1) rotate(5deg); }
 
+    /* ===== KPI CLICKABLES ===== */
+    .kpi-card.kpi-clickable { cursor: pointer; }
+    .kpi-card.kpi-clickable:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 24px -6px rgba(0,0,0,0.15);
+    }
+    .kpi-card.kpi-clickable .kpi-label::after {
+        content: ' ▸';
+        opacity: 0.5;
+        font-size: 0.6rem;
+    }
+
+    /* ===== MODAL CONVENIOS ===== */
+    .conv-kpi-card {
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        padding: 1rem 1.1rem 0.9rem;
+        transition: box-shadow 0.2s;
+    }
+    .conv-kpi-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .conv-progress-bar {
+        height: 8px;
+        border-radius: 4px;
+        background: #e9ecef;
+        overflow: hidden;
+        margin: 0.4rem 0 0.2rem;
+    }
+    .conv-progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.6s ease;
+    }
+    .conv-progress-fill.fill-regla  { background: linear-gradient(90deg,#10b981,#34d399); }
+    .conv-progress-fill.fill-atraso { background: linear-gradient(90deg,#dc3545,#fd7e14); }
+
     /* ===== FILTROS ===== */
     .filter-bar {
         background: #f8f9fa;
@@ -176,8 +212,8 @@
             </div>
         </div>
     </div>
-    <div class="kpi-item">
-        <div class="card kpi-card kpi-convenios">
+    <div class="kpi-item" onclick="abrirModalConveniosKpi('todos')" title="Ver todos los convenios">
+        <div class="card kpi-card kpi-convenios kpi-clickable">
             <div class="card-body">
                 <i class="fa-solid fa-handshake kpi-icon"></i>
                 <div class="kpi-number" id="kpi-convenios">—</div>
@@ -185,8 +221,8 @@
             </div>
         </div>
     </div>
-    <div class="kpi-item">
-        <div class="card kpi-card kpi-conv-atraso">
+    <div class="kpi-item" onclick="abrirModalConveniosKpi('atraso')" title="Ver convenios con atraso">
+        <div class="card kpi-card kpi-conv-atraso kpi-clickable">
             <div class="card-body">
                 <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
                 <div class="kpi-number" id="kpi-conv-atraso">—</div>
@@ -194,12 +230,37 @@
             </div>
         </div>
     </div>
-    <div class="kpi-item">
-        <div class="card kpi-card kpi-conv-regla">
+    <div class="kpi-item" onclick="abrirModalConveniosKpi('regla')" title="Ver convenios en regla">
+        <div class="card kpi-card kpi-conv-regla kpi-clickable">
             <div class="card-body">
                 <i class="fa-solid fa-circle-check kpi-icon"></i>
                 <div class="kpi-number" id="kpi-conv-regla">—</div>
                 <p class="kpi-label">Convenios en Regla</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL CONVENIOS KPI ===== -->
+<div class="modal fade" id="modalConveniosKpi" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" id="modalConvHeader">
+                <h5 class="modal-title fw-bold text-white" id="modalConvTitulo">
+                    <i class="fa-solid fa-handshake me-2"></i>Mis Convenios
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <!-- Resumen rápido -->
+                <div id="modalConvResumen" class="d-flex gap-3 mb-3 flex-wrap"></div>
+                <!-- Lista de convenios -->
+                <div id="modalConvLista"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark me-1"></i>Cerrar
+                </button>
             </div>
         </div>
     </div>
@@ -423,6 +484,110 @@ function mostrarEmptyState() {
     // KPIs en cero
     ['kpi-total','kpi-activos','kpi-convenios','kpi-conv-atraso','kpi-conv-regla']
         .forEach(id => document.getElementById(id).textContent = '0');
+}
+
+// ============================================================
+// MODAL CONVENIOS KPI
+// ============================================================
+function abrirModalConveniosKpi(tipo) {
+    const conConvenio = misCreditosCargados.filter(c => parseInt(c.tiene_convenio) === 1);
+    let lista, titulo, gradiente, icono;
+
+    if (tipo === 'atraso') {
+        lista     = conConvenio.filter(c => parseInt(c.tiene_atraso) === 1);
+        titulo    = 'Convenios con Atraso';
+        gradiente = 'linear-gradient(135deg,#dc3545,#fd7e14)';
+        icono     = 'fa-triangle-exclamation';
+    } else if (tipo === 'regla') {
+        lista     = conConvenio.filter(c => parseInt(c.tiene_atraso) === 0);
+        titulo    = 'Convenios en Regla';
+        gradiente = 'linear-gradient(135deg,#10b981,#34d399)';
+        icono     = 'fa-circle-check';
+    } else {
+        lista     = conConvenio;
+        titulo    = 'Todos los Convenios';
+        gradiente = 'linear-gradient(135deg,#0ea5e9,#38bdf8)';
+        icono     = 'fa-handshake';
+    }
+
+    // Header color dinámico
+    const header = document.getElementById('modalConvHeader');
+    header.style.background = gradiente;
+
+    // Título
+    document.getElementById('modalConvTitulo').innerHTML =
+        `<i class="fa-solid ${icono} me-2"></i>${titulo} <span class="badge bg-white text-dark ms-2" style="font-size:0.75rem;">${lista.length}</span>`;
+
+    // Resumen rápido
+    const enRegla  = lista.filter(c => parseInt(c.tiene_atraso) === 0).length;
+    const enAtraso = lista.filter(c => parseInt(c.tiene_atraso) === 1).length;
+    document.getElementById('modalConvResumen').innerHTML = lista.length ? `
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+            <i class="fa-solid fa-circle-check me-1"></i>En regla: ${enRegla}
+        </span>
+        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i>Con atraso: ${enAtraso}
+        </span>` : '';
+
+    // Renderizar lista
+    const contenedor = document.getElementById('modalConvLista');
+    if (!lista.length) {
+        contenedor.innerHTML = `
+            <div class="text-center py-5 text-muted">
+                <i class="fa-solid fa-inbox fa-3x mb-3 d-block opacity-30"></i>
+                <p class="mb-0">No hay convenios en esta categoría.</p>
+            </div>`;
+    } else {
+        contenedor.innerHTML = lista.map(c => {
+            const realizados   = parseInt(c.conv_pagos_realizados  || 0);
+            const totalSemanas = parseInt(c.conv_num_semanas       || 0);
+            const pct          = totalSemanas > 0 ? Math.min(100, Math.round((realizados / totalSemanas) * 100)) : 0;
+            const esAtraso     = parseInt(c.tiene_atraso) === 1;
+            const fillClass    = esAtraso ? 'fill-atraso' : 'fill-regla';
+            const badge        = esAtraso
+                ? '<span class="badge bg-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Con atraso</span>'
+                : '<span class="badge bg-success"><i class="fa-solid fa-circle-check me-1"></i>En regla</span>';
+
+            const nombre = c.nombre_cliente && c.nombre_cliente !== 'No disponible'
+                ? escapeHtml(c.nombre_cliente)
+                : '<span class="text-muted fst-italic">No disponible</span>';
+
+            const proxPago = c.conv_fecha_proximo_pago
+                ? `<span class="text-muted small"><i class="fa-regular fa-calendar me-1"></i>Próximo pago: <strong>${escapeHtml(c.conv_fecha_proximo_pago)}</strong></span>`
+                : `<span class="text-muted small">Sin pagos pendientes</span>`;
+
+            const totalStr = c.conv_total_pagar
+                ? formatearMoneda(parseFloat(c.conv_total_pagar))
+                : '—';
+            const pagoStr = c.conv_pago_semanal
+                ? formatearMoneda(parseFloat(c.conv_pago_semanal))
+                : '—';
+
+            return `
+            <div class="conv-kpi-card mb-3">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-1 mb-1">
+                    <div>
+                        <span class="fw-bold text-primary me-2">#${escapeHtml(String(c.id_credito))}</span>
+                        ${nombre}
+                    </div>
+                    ${badge}
+                </div>
+                <div class="d-flex gap-3 flex-wrap mb-2" style="font-size:0.8rem;">
+                    <span class="text-muted"><i class="fa-solid fa-dollar-sign me-1"></i>Total convenio: <strong>${totalStr}</strong></span>
+                    <span class="text-muted"><i class="fa-solid fa-coins me-1"></i>Pago periódico: <strong>${pagoStr}</strong></span>
+                    ${proxPago}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="conv-progress-bar flex-grow-1">
+                        <div class="conv-progress-fill ${fillClass}" style="width:${pct}%"></div>
+                    </div>
+                    <span class="text-muted small text-nowrap" style="min-width:90px;">${realizados} / ${totalSemanas} pagos (${pct}%)</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    new bootstrap.Modal(document.getElementById('modalConveniosKpi')).show();
 }
 
 // ============================================================

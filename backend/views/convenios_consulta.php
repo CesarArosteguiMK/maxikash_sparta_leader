@@ -2917,6 +2917,36 @@ function _flashInvalid(el) {
 }
 
 /**
+ * Muestra un toast no bloqueante cuando el monto capturado supera la deuda.
+ * Usa una bandera por "contexto" para no repetir el toast en cada tecla.
+ */
+var _alertaExcedeBandera = {};
+function _alertarExcedeDeuda(contexto, totalCapturado, deuda) {
+    var fmt = function (v) {
+        return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    var excede = totalCapturado > deuda + 0.009; // tolerancia de centavos
+    if (excede && !_alertaExcedeBandera[contexto]) {
+        _alertaExcedeBandera[contexto] = true;
+        var excedente = Math.round((totalCapturado - deuda) * 100) / 100;
+        Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 5000,
+            timerProgressBar: true,
+            icon: 'warning',
+        }).fire({
+            title: 'Monto mayor a la deuda',
+            html: 'El excedente de <strong>' + fmt(excedente) + '</strong> se registrará como monto adicional.',
+        });
+    }
+    if (!excede) {
+        _alertaExcedeBandera[contexto] = false; // reset si vuelve a estar por debajo
+    }
+}
+
+/**
  * Valida un input numérico de monto.
  * Borra el campo y lo flashea en rojo si:
  *   - contiene notación científica (e / E)
@@ -2992,6 +3022,7 @@ window.amortTotalFinalChanged = function () {
     var adic = totalFinal > totalConvenio
         ? Math.round((totalFinal - totalConvenio) * 100) / 100
         : 0;
+    _alertarExcedeDeuda('amort', totalFinal, totalConvenio);
     document.getElementById('amortMontoAdicional').value = adic > 0 ? adic.toFixed(2) : '';
     _amortRegenerarTabla(totalFinal, adic);
 };
@@ -4333,6 +4364,7 @@ window.migLibreActualizarTotal = function () {
         indicador.style.color = color;
         indicador.textContent = 'Asignado: ' + fmt(asignado) + ' / ' + fmt(totalEsperado);
     }
+    _alertarExcedeDeuda('migLibre', asignado, adeudo);
 
     if (asignado > 0 && typeof window.migCalcular === 'function') {
         if (!window.migLibreValidarFechas()) {
@@ -5040,6 +5072,7 @@ window.migTotalFinalChanged = function () {
         adicionalAuto = Math.round((totalFinal - adeudo) * 100) / 100;
         baseEfectiva  = adeudo;
     }
+    _alertarExcedeDeuda('mig', totalFinal, adeudo);
 
     // ── Semanas (basadas en pago semanal fijo sobre el total completo) ──
     var semanasEnt = Math.floor(totalFinal / semanal);
