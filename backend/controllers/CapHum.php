@@ -791,125 +791,6 @@ class CapHum extends Controller
             }
 
             /* =========================
-               PUESTOS
-            ========================= */
-            function renderPuestos(puestos) {
-
-                const container = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
-                if (!container) return;
-                container.innerHTML = '';
-
-            if (!puestos.length) {
-                    container.innerHTML = `<div class="text-muted small">No hay puestos asignados</div>`;
-                    return;
-                }
-
-                const table = document.createElement('table');
-                table.className = 'table table-flush-spacing mb-0 border-top';
-
-                const tbody = document.createElement('tbody');
-
-                puestos.forEach(puesto => {
-
-                    const tr = document.createElement('tr');
-
-                    // Nombre + descripción
-                    const tdName = document.createElement('td');
-                    tdName.className = 'fw-medium text-heading';
-
-                    const nombre = document.createElement('div');
-                    nombre.innerText =
-                        puesto.nombre_puesto ||
-                        puesto.puesto_nombre ||
-                        'Puesto sin nombre';
-
-                    const desc = document.createElement('small');
-                    desc.className = 'text-muted d-block fs-7';
-                    desc.innerText = puesto.descripcion ?? '';
-
-                    tdName.append(nombre, desc);
-
-                    // Checkbox
-                    const tdCheck = document.createElement('td');
-                    tdCheck.className = 'text-end';
-
-                    const divCheck = document.createElement('div');
-                    divCheck.className = 'form-check mb-0';
-
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'form-check-input';
-                    checkbox.checked = Number(puesto.asignado_flag) === 1;
-                    checkbox.value =
-                        puesto.id_puesto ||
-                        puesto.puesto_id ||
-                        '';
-
-                    checkbox.onchange = () => onPuestoChange(checkbox);
-
-                    const label = document.createElement('label');
-                    label.className = 'form-check-label';
-                    label.innerText = 'Asignar';
-
-                    divCheck.append(checkbox, label);
-                    tdCheck.appendChild(divCheck);
-
-                    tr.append(tdName, tdCheck);
-                    tbody.appendChild(tr);
-                });
-
-                table.appendChild(tbody);
-                container.appendChild(table);
-            }
-
-            function onPuestoChange(checkbox) {
-                if (!checkbox || !currentPersonaId) return;
-
-                const payload = {
-                    idPersona: currentPersonaId,
-                    idPuesto: checkbox.value,
-                    asignado: checkbox.checked ? 1 : 0
-                };
-
-                fetch('/caphum/actualizarPuestoPerfil', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.success) {
-                        // Revertimos el checkbox si falla
-                        checkbox.checked = !checkbox.checked;
-                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
-                        return;
-                    }
-
-                    // ALERTA SEGÚN ACCIÓN - igual que módulos (z-index para verse sobre el modal)
-                    Swal.fire({
-                        icon: 'success',
-                        title: checkbox.checked
-                            ? 'Asignación correcta'
-                            : 'Asignación eliminada',
-                        text: checkbox.checked
-                            ? 'El puesto fue asignado correctamente'
-                            : 'El puesto fue deseleccionado correctamente',
-                        timer: 1600,
-                        showConfirmButton: false,
-                        customClass: { container: 'swal-sobre-modal-perfil' }
-                    });
-                })
-                .catch(err => {
-                    console.error(err);
-                    checkbox.checked = !checkbox.checked;
-                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el puesto', customClass: { container: 'swal-sobre-modal-perfil' } });
-                });
-            }
-
-            /* =========================
                MÓDULOS (lista plana duplicada eliminada; ver renderModulos agrupado más abajo)
             ========================= */
 
@@ -923,6 +804,59 @@ class CapHum extends Controller
                     : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
             }
 
+            function updateGrupoModuloMasterLabel(master, tbody) {
+                if (!master) return;
+                const wrap = master.closest('.modal-perfil-modulo-master-wrap');
+                const lbl = wrap ? wrap.querySelector('.modal-perfil-modulo-master-label') : null;
+                if (!lbl) return;
+                const tbodyEl = tbody || master.closest('section.modal-perfil-modulo-grupo')?.querySelector('tbody');
+                const cbs = tbodyEl ? tbodyEl.querySelectorAll('.modal-perfil-modulo-item-cb') : [];
+                const total = cbs.length;
+                let n = 0;
+                cbs.forEach(c => { if (c.checked) n++; });
+                const gNom = (master.getAttribute('data-grupo-nombre') || 'este grupo').trim();
+                const tipo = (master.getAttribute('data-grupo-tipo') || 'modulos').toLowerCase();
+                const esPuestos = tipo === 'puestos';
+                let text = '';
+                let title = '';
+                let aria = '';
+                if (total === 0) {
+                    text = '';
+                    title = esPuestos
+                        ? 'Este departamento no tiene puestos listados'
+                        : 'Este grupo no tiene módulos listados';
+                    aria = esPuestos
+                        ? ('Departamento sin puestos: ' + gNom)
+                        : ('Grupo sin módulos: ' + gNom);
+                } else if (n === 0) {
+                    text = 'Marcar todo';
+                    title = esPuestos
+                        ? ('Asignar todos los puestos de ' + gNom + ' a esta persona')
+                        : ('Asignar todos los módulos de ' + gNom + ' a esta persona');
+                    aria = esPuestos
+                        ? ('Marcar todos los puestos: ' + gNom)
+                        : ('Marcar todo el grupo ' + gNom);
+                } else if (n === total) {
+                    text = 'Desmarcar todo';
+                    title = esPuestos
+                        ? ('Quitar la asignación de todos los puestos de ' + gNom)
+                        : ('Quitar la asignación de todos los módulos de ' + gNom);
+                    aria = esPuestos
+                        ? ('Desmarcar todos los puestos: ' + gNom)
+                        : ('Desmarcar todo el grupo ' + gNom);
+                } else {
+                    text = 'Marcar o desmarcar todo';
+                    title = 'Hay asignación parcial en ' + gNom + '. Al marcar se completan todos; si ya están todos, se desmarcan.';
+                    aria = esPuestos
+                        ? ('Departamento ' + gNom + ': asignación parcial de puestos')
+                        : ('Grupo ' + gNom + ': asignación parcial. Marcar o desmarcar todo el grupo.');
+                }
+                lbl.textContent = text;
+                lbl.title = title;
+                master.title = title;
+                master.setAttribute('aria-label', aria);
+            }
+
             function syncGrupoModuloMaster(master, tbody) {
                 if (!master || !tbody) return;
                 const cbs = tbody.querySelectorAll('.modal-perfil-modulo-item-cb');
@@ -930,12 +864,14 @@ class CapHum extends Controller
                 if (total === 0) {
                     master.checked = false;
                     master.indeterminate = false;
+                    updateGrupoModuloMasterLabel(master, tbody);
                     return;
                 }
                 let n = 0;
                 cbs.forEach(c => { if (c.checked) n++; });
                 master.checked = n === total;
                 master.indeterminate = n > 0 && n < total;
+                updateGrupoModuloMasterLabel(master, tbody);
             }
 
             function syncGrupoModuloMasterFromChild(checkbox) {
@@ -1062,255 +998,348 @@ class CapHum extends Controller
             }
 
             /* =========================
-               RENDER PUESTOS
+               RENDER PUESTOS (rejilla 2 columnas; tarjeta por departamento con collapse / acordeón independiente)
             ========================= */
-           function renderPuestos(puestos) {
+            function buildFilaPuestoSistema(puesto) {
+                const tr = document.createElement('tr');
+                tr.className = 'modal-perfil-modulo-fila';
+                tr.style.transition = 'all 0.3s ease';
+                tr.style.cursor = 'pointer';
+                tr.style.borderLeft = '3px solid transparent';
+                tr.style.borderBottom = '1px solid #e9ecef';
 
-            const container = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
-            if (!container) return;
-            container.innerHTML = '';
+                tr.onmouseenter = () => {
+                    tr.style.backgroundColor = '#f8f9fa';
+                    tr.style.borderLeftColor = '#495057';
+                    tr.style.transform = 'translateX(4px)';
+                };
+                tr.onmouseleave = () => {
+                    tr.style.backgroundColor = '';
+                    tr.style.borderLeftColor = 'transparent';
+                    tr.style.transform = 'translateX(0)';
+                };
 
-            if (!puestos || puestos.length === 0) {
-                container.innerHTML = `<div class="text-muted small text-center py-3">No hay puestos disponibles</div>`;
-                return;
+                const tdName = document.createElement('td');
+                tdName.className = 'fw-medium';
+                tdName.style.padding = '0.875rem 0.875rem 0.875rem 1.75rem';
+                tdName.style.verticalAlign = 'middle';
+
+                const nombreDiv = document.createElement('div');
+                nombreDiv.style.display = 'flex';
+                nombreDiv.style.alignItems = 'center';
+                nombreDiv.style.gap = '0.75rem';
+
+                const iconoBox = document.createElement('div');
+                iconoBox.className = 'modulo-icon-box';
+                iconoBox.style.width = '40px';
+                iconoBox.style.height = '40px';
+                iconoBox.style.borderRadius = '10px';
+                iconoBox.style.display = 'flex';
+                iconoBox.style.alignItems = 'center';
+                iconoBox.style.justifyContent = 'center';
+                iconoBox.style.flexShrink = '0';
+
+                const nivel = puesto.nivel ?? 0;
+                const iconoInner = document.createElement('i');
+                iconoInner.style.fontSize = '1rem';
+                /* Misma línea visual que Módulos: caja azul corporativa (#1A52A8), matices por nivel */
+                if (nivel >= 5) {
+                    iconoBox.style.background = 'rgba(26, 82, 168, 0.18)';
+                    iconoBox.style.border = '1px solid rgba(26, 82, 168, 0.42)';
+                    iconoInner.className = 'fa fa-crown';
+                    iconoInner.style.color = '#0f3d86';
+                    iconoBox.title = 'Nivel ejecutivo';
+                } else if (nivel >= 3) {
+                    iconoBox.style.background = 'rgba(26, 82, 168, 0.14)';
+                    iconoBox.style.border = '1px solid rgba(26, 82, 168, 0.32)';
+                    iconoInner.className = 'fa fa-star';
+                    iconoInner.style.color = '#1A52A8';
+                    iconoBox.title = 'Nivel gerencial';
+                } else {
+                    iconoBox.style.background = 'rgba(26, 82, 168, 0.12)';
+                    iconoBox.style.border = '1px solid rgba(26, 82, 168, 0.25)';
+                    iconoInner.className = 'fa fa-briefcase';
+                    iconoInner.style.color = '#1A52A8';
+                    iconoBox.title = 'Nivel operativo';
+                }
+                iconoBox.appendChild(iconoInner);
+
+                const nombre = document.createElement('span');
+                nombre.innerText = puesto.nombre_puesto || puesto.puesto_nombre || 'Puesto sin nombre';
+                nombre.style.fontWeight = '600';
+                nombre.style.color = '#2c3e50';
+                nombre.style.fontSize = '0.95rem';
+
+                nombreDiv.appendChild(iconoBox);
+                nombreDiv.appendChild(nombre);
+
+                const desc = document.createElement('small');
+                desc.className = 'text-muted d-block mt-1';
+                desc.style.fontSize = '0.75rem';
+                desc.innerText = puesto.descripcion ?? '';
+
+                tdName.append(nombreDiv, desc);
+
+                const tdCheck = document.createElement('td');
+                tdCheck.className = 'text-end';
+                tdCheck.style.padding = '0.875rem';
+                tdCheck.style.verticalAlign = 'middle';
+                tdCheck.style.width = '130px';
+
+                const divCheck = document.createElement('div');
+                divCheck.className = 'form-check mb-0';
+                divCheck.style.display = 'flex';
+                divCheck.style.alignItems = 'center';
+                divCheck.style.justifyContent = 'flex-end';
+                divCheck.style.gap = '0.5rem';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input modal-perfil-modulo-item-cb';
+                checkbox.checked = Number(puesto.asignado_flag) === 1;
+                checkbox.value = puesto.id_puesto || puesto.puesto_id || '';
+                checkbox.style.cursor = 'pointer';
+                checkbox.style.width = '1.1em';
+                checkbox.style.height = '1.1em';
+
+                const label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.innerHTML = checkbox.checked
+                    ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
+                    : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                label.style.cursor = 'pointer';
+                label.style.userSelect = 'none';
+
+                checkbox.addEventListener('change', function() {
+                    updateModuloCheckboxLabel(this);
+                    onPuestoChange(this);
+                });
+
+                divCheck.append(checkbox, label);
+                tdCheck.appendChild(divCheck);
+
+                tr.append(tdName, tdCheck);
+                return tr;
             }
 
-            /* =========================
-               AGRUPAR POR ID_DEPARTAMENTO Y ORDENAR
-            ========================= */
-            const puestosPorDepto = {};
+            function renderPuestos(puestos) {
+                const container = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+                if (!container) return;
+                container.innerHTML = '';
+                container.classList.add('modal-perfil-modulos-agrupados');
 
-            puestos.forEach(puesto => {
-                const deptoId = puesto.id_departamento ?? 0;
-                if (!puestosPorDepto[deptoId]) {
-                    puestosPorDepto[deptoId] = {
-                        nombre: puesto.nombre_departamento ?? `Departamento ${deptoId}`,
-                        puestos: []
-                    };
+                if (!puestos || puestos.length === 0) {
+                    container.innerHTML = '<div class="text-muted small text-center py-4">No hay puestos disponibles</div>';
+                    return;
                 }
-                puestosPorDepto[deptoId].puestos.push(puesto);
-            });
 
-            // Ordenar puestos dentro de cada departamento por nivel (mayor a menor)
-            Object.keys(puestosPorDepto).forEach(deptoId => {
-                puestosPorDepto[deptoId].puestos.sort((a, b) => {
-                    const nivelA = a.nivel ?? 0;
-                    const nivelB = b.nivel ?? 0;
-                    return nivelB - nivelA; // Mayor nivel primero
-                });
-            });
-
-            // Ordenar departamentos alfabéticamente
-            const deptosOrdenados = Object.keys(puestosPorDepto).sort((a, b) => {
-                const nombreA = puestosPorDepto[a].nombre.toLowerCase();
-                const nombreB = puestosPorDepto[b].nombre.toLowerCase();
-                return nombreA.localeCompare(nombreB);
-            });
-
-            /* =========================
-               CREAR ACORDEÓN MEJORADO
-            ========================= */
-            const accordion = document.createElement('div');
-            accordion.className = 'accordion';
-            accordion.id = 'modalEditPerfilAccordionPuestos';
-            accordion.style.cssText = '--bs-accordion-border-radius: 0.5rem;';
-
-            let index = 0;
-
-            deptosOrdenados.forEach(deptoId => {
-
-                const deptoData = puestosPorDepto[deptoId];
-                const puestosDepto = deptoData.puestos;
-                const deptoNombre = deptoData.nombre;
-
-                const accId = `depto_${deptoId}`;
-
-                const item = document.createElement('div');
-                item.className = 'accordion-item';
-                item.style.border = '1px solid #dee2e6';
-                item.style.marginBottom = '0.75rem';
-                item.style.borderRadius = '0.5rem';
-                item.style.overflow = 'hidden';
-
-                item.innerHTML = `
-                    <h2 class="accordion-header" id="heading_${accId}">
-                        <button class="accordion-button collapsed"
-                                type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#collapse_${accId}"
-                                aria-expanded="false"
-                                style="background: #f8f9fa; font-weight: 600; padding: 1rem 1.5rem; border: none;">
-                            <div class="d-flex align-items-center w-100">
-                                <i class="fa fa-building me-3" style="color: #6c757d; font-size: 1.1rem;"></i>
-                                <div class="flex-grow-1 text-start">
-                                    <strong style="color: #212529;">${deptoNombre}</strong>
-                                </div>
-                                <span class="badge rounded-pill bg-secondary" style="font-size: 0.75rem; padding: 0.35rem 0.75rem;">
-                                    ${puestosDepto.length} puesto${puestosDepto.length !== 1 ? 's' : ''}
-                                </span>
-                            </div>
-                        </button>
-                    </h2>
-                    <div id="collapse_${accId}"
-                         class="accordion-collapse collapse"
-                         data-bs-parent="#modalEditPerfilAccordionPuestos">
-                        <div class="accordion-body p-3" style="background-color: #ffffff; max-height: 450px; overflow-y: auto;"></div>
-                    </div>
-                `;
-
-                /* =========================
-                   TABLA MEJORADA CON MEJOR ESTRUCTURA
-                ========================= */
-                const body = item.querySelector('.accordion-body');
-
-                const table = document.createElement('table');
-                table.className = 'table table-hover mb-0';
-                table.style.fontSize = '0.9rem';
-                table.style.borderCollapse = 'separate';
-                table.style.borderSpacing = '0';
-
-                const tbody = document.createElement('tbody');
-
-                puestosDepto.forEach((puesto, puestoIndex) => {
-
-                    const tr = document.createElement('tr');
-                    tr.style.borderBottom = puestoIndex < puestosDepto.length - 1 ? '1px solid #e9ecef' : 'none';
-                    tr.style.transition = 'all 0.3s ease';
-                    tr.style.cursor = 'pointer';
-                    tr.style.borderLeft = '3px solid transparent';
-
-                    tr.onmouseenter = () => {
-                        tr.style.backgroundColor = '#f8f9fa';
-                        tr.style.borderLeftColor = '#495057';
-                        tr.style.transform = 'translateX(4px)';
-                    };
-                    tr.onmouseleave = () => {
-                        tr.style.backgroundColor = '';
-                        tr.style.borderLeftColor = 'transparent';
-                        tr.style.transform = 'translateX(0)';
-                    };
-
-                    const tdName = document.createElement('td');
-                    tdName.className = 'fw-medium';
-                    tdName.style.padding = '0.75rem';
-                    tdName.style.verticalAlign = 'middle';
-
-                    const nombreDiv = document.createElement('div');
-                    nombreDiv.style.display = 'flex';
-                    nombreDiv.style.alignItems = 'center';
-                    nombreDiv.style.gap = '0.5rem';
-
-                    // Icono según nivel - diseño en blanco y negro (aún más pequeño)
-                    const icono = document.createElement('div');
-                    icono.style.width = '18px';
-                    icono.style.height = '18px';
-                    icono.style.borderRadius = '50%';
-                    icono.style.display = 'flex';
-                    icono.style.alignItems = 'center';
-                    icono.style.justifyContent = 'center';
-                    icono.style.flexShrink = '0';
-                    icono.style.border = '1.5px solid #dee2e6';
-
-                    const nivel = puesto.nivel ?? 0;
-                    const iconoInner = document.createElement('i');
-                    if (nivel >= 5) {
-                        icono.style.background = '#212529';
-                        icono.style.borderColor = '#212529';
-                        iconoInner.className = 'fa fa-crown';
-                        iconoInner.style.color = '#fff';
-                        iconoInner.style.fontSize = '0.5rem';
-                        icono.title = 'Nivel Ejecutivo';
-                    } else if (nivel >= 3) {
-                        icono.style.background = '#495057';
-                        icono.style.borderColor = '#495057';
-                        iconoInner.className = 'fa fa-star';
-                        iconoInner.style.color = '#fff';
-                        iconoInner.style.fontSize = '0.45rem';
-                        icono.title = 'Nivel Gerencial';
-                    } else {
-                        icono.style.background = '#e9ecef';
-                        icono.style.borderColor = '#adb5bd';
-                        iconoInner.className = 'fa fa-circle';
-                        iconoInner.style.color = '#6c757d';
-                        iconoInner.style.fontSize = '0.3rem';
-                        icono.title = 'Nivel Operativo';
+                const puestosPorDepto = {};
+                puestos.forEach(puesto => {
+                    const deptoId = puesto.id_departamento ?? 0;
+                    if (!puestosPorDepto[deptoId]) {
+                        puestosPorDepto[deptoId] = {
+                            nombre: puesto.nombre_departamento ?? `Departamento ${deptoId}`,
+                            puestos: []
+                        };
                     }
-                    icono.appendChild(iconoInner);
+                    puestosPorDepto[deptoId].puestos.push(puesto);
+                });
 
-                    const nombre = document.createElement('span');
-                    nombre.innerText = puesto.nombre_puesto || puesto.puesto_nombre || 'Puesto sin nombre';
-                    nombre.style.fontWeight = '600';
-                    nombre.style.color = '#2c3e50';
-                    nombre.style.fontSize = '0.95rem';
+                Object.keys(puestosPorDepto).forEach(deptoId => {
+                    puestosPorDepto[deptoId].puestos.sort((a, b) => {
+                        const nivelA = a.nivel ?? 0;
+                        const nivelB = b.nivel ?? 0;
+                        return nivelB - nivelA;
+                    });
+                });
 
-                    nombreDiv.append(icono, nombre);
+                const deptosOrdenados = Object.keys(puestosPorDepto).sort((a, b) => {
+                    const nombreA = puestosPorDepto[a].nombre.toLowerCase();
+                    const nombreB = puestosPorDepto[b].nombre.toLowerCase();
+                    return nombreA.localeCompare(nombreB);
+                });
 
-                    const desc = document.createElement('small');
-                    desc.className = 'text-muted d-block mt-1';
-                    desc.style.fontSize = '0.75rem';
-                    desc.innerText = puesto.descripcion ?? '';
+                deptosOrdenados.forEach((deptoId, grupoIdx) => {
+                    const deptoData = puestosPorDepto[deptoId];
+                    const puestosDepto = deptoData.puestos;
+                    const deptoNombre = deptoData.nombre;
+                    const collapseId = 'puesto-card-collapse-' + grupoIdx;
 
-                    tdName.append(nombreDiv, desc);
+                    const section = document.createElement('section');
+                    section.className = 'modal-perfil-modulo-grupo modal-perfil-puesto-grupo card mb-0 shadow-sm';
+                    section.style.border = '2px solid #000';
+                    section.style.borderRadius = '0.5rem';
+                    section.style.overflow = 'hidden';
 
-                    const tdCheck = document.createElement('td');
-                    tdCheck.className = 'text-end';
-                    tdCheck.style.padding = '0.75rem';
-                    tdCheck.style.verticalAlign = 'middle';
-                    tdCheck.style.width = '130px';
+                    const header = document.createElement('div');
+                    header.className = 'modal-perfil-modulo-grupo-header modal-perfil-puesto-card-toggle px-3 py-2 d-flex align-items-center flex-wrap gap-2 fw-semibold';
+                    header.style.background = 'rgba(26, 82, 168, 0.08)';
+                    header.style.borderBottom = '2px solid #000';
+                    header.style.cursor = 'pointer';
+                    header.setAttribute('role', 'button');
+                    header.setAttribute('tabindex', '0');
+                    header.setAttribute('aria-expanded', 'false');
+                    header.setAttribute('aria-controls', collapseId);
+                    header.setAttribute('data-bs-toggle', 'collapse');
+                    header.setAttribute('data-bs-target', '#' + collapseId);
 
-                    const divCheck = document.createElement('div');
-                    divCheck.className = 'form-check mb-0';
-                    divCheck.style.display = 'flex';
-                    divCheck.style.alignItems = 'center';
-                    divCheck.style.justifyContent = 'flex-end';
-                    divCheck.style.gap = '0.5rem';
+                    const chevron = document.createElement('i');
+                    chevron.className = 'fa fa-chevron-down modal-perfil-puesto-chevron text-primary';
+                    chevron.style.flexShrink = '0';
+                    chevron.style.fontSize = '0.75rem';
+                    chevron.style.transition = 'transform 0.2s ease';
+                    chevron.style.transform = 'rotate(-90deg)';
+                    chevron.setAttribute('aria-hidden', 'true');
 
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'form-check-input';
-                    checkbox.value = puesto.id_puesto || puesto.puesto_id || '';
-                    checkbox.checked = Number(puesto.asignado_flag) === 1;
-                    checkbox.onchange = () => onPuestoChange(checkbox);
-                    checkbox.style.cursor = 'pointer';
-                    checkbox.style.width = '1.1em';
-                    checkbox.style.height = '1.1em';
+                    const masterWrap = document.createElement('div');
+                    masterWrap.className = 'd-flex align-items-center gap-2 ms-auto flex-shrink-0 modal-perfil-modulo-master-wrap';
+                    const stopToggle = (e) => { e.stopPropagation(); };
+                    masterWrap.addEventListener('click', stopToggle);
+                    masterWrap.addEventListener('mousedown', stopToggle);
 
-                    const label = document.createElement('label');
-                    label.className = 'form-check-label';
-                    label.innerHTML = checkbox.checked
-                        ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
-                        : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
-                    label.style.cursor = 'pointer';
-                    label.style.userSelect = 'none';
+                    const masterCb = document.createElement('input');
+                    masterCb.type = 'checkbox';
+                    masterCb.className = 'form-check-input modal-perfil-modulo-master-cb';
+                    masterCb.id = 'modal-perfil-puesto-master-' + grupoIdx;
+                    masterCb.setAttribute('data-grupo-nombre', deptoNombre);
+                    masterCb.setAttribute('data-grupo-tipo', 'puestos');
+                    masterCb.style.cursor = 'pointer';
+                    const masterLbl = document.createElement('label');
+                    masterLbl.className = 'form-check-label small text-secondary mb-0 modal-perfil-modulo-master-label';
+                    masterLbl.setAttribute('for', masterCb.id);
+                    masterLbl.style.cursor = 'pointer';
+                    masterWrap.appendChild(masterLbl);
+                    masterWrap.appendChild(masterCb);
 
-                    // Actualizar label cuando cambia el checkbox
-                    checkbox.addEventListener('change', function() {
-                        label.innerHTML = this.checked
-                            ? '<span class="badge bg-success rounded-pill px-3 py-1"><i class="fa fa-check me-1"></i>Asignado</span>'
-                            : '<span class="badge bg-secondary rounded-pill px-3 py-1">Asignar</span>';
+                    const hi = document.createElement('i');
+                    hi.className = 'fa fa-building me-2 text-primary';
+                    hi.style.flexShrink = '0';
+                    const ht = document.createElement('span');
+                    ht.className = 'flex-grow-1 min-w-0';
+                    ht.style.color = '#1e293b';
+                    ht.textContent = deptoNombre + ' (' + puestosDepto.length + ')';
+
+                    header.appendChild(chevron);
+                    header.appendChild(hi);
+                    header.appendChild(ht);
+                    header.appendChild(masterWrap);
+
+                    header.addEventListener('keydown', function(ev) {
+                        if (ev.key === 'Enter' || ev.key === ' ') {
+                            ev.preventDefault();
+                            const el = document.getElementById(collapseId);
+                            if (!el) return;
+                            if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                                const inst = bootstrap.Collapse.getOrCreateInstance(el);
+                                inst.toggle();
+                            } else {
+                                el.classList.toggle('show');
+                                syncChevron(el.classList.contains('show'));
+                                actualizarBotonExpandirPuestos();
+                            }
+                        }
                     });
 
-                    divCheck.append(checkbox, label);
-                    tdCheck.appendChild(divCheck);
+                    const table = document.createElement('table');
+                    table.className = 'table table-hover mb-0';
+                    table.style.fontSize = '0.9rem';
 
-                    tr.append(tdName, tdCheck);
-                    tbody.appendChild(tr);
+                    const tbody = document.createElement('tbody');
+                    puestosDepto.forEach(p => tbody.appendChild(buildFilaPuestoSistema(p)));
+                    table.appendChild(tbody);
+
+                    const collapse = document.createElement('div');
+                    collapse.id = collapseId;
+                    collapse.className = 'collapse modal-perfil-puesto-card-collapse';
+
+                    const syncChevron = (open) => {
+                        header.setAttribute('aria-expanded', open ? 'true' : 'false');
+                        chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+                    };
+                    collapse.addEventListener('shown.bs.collapse', () => {
+                        syncChevron(true);
+                        actualizarBotonExpandirPuestos();
+                    });
+                    collapse.addEventListener('hidden.bs.collapse', () => {
+                        syncChevron(false);
+                        actualizarBotonExpandirPuestos();
+                    });
+
+                    masterCb.addEventListener('change', function() {
+                        const want = this.checked;
+                        this.indeterminate = false;
+                        const cbs = [...tbody.querySelectorAll('.modal-perfil-modulo-item-cb')];
+                        const toToggle = cbs.filter(cb => cb.checked !== want);
+                        if (toToggle.length === 0) {
+                            syncGrupoModuloMaster(masterCb, tbody);
+                            return;
+                        }
+                        masterCb.disabled = true;
+                        let chain = Promise.resolve(true);
+                        toToggle.forEach(cb => {
+                            chain = chain.then((ok) => {
+                                if (!ok) return false;
+                                cb.checked = want;
+                                updateModuloCheckboxLabel(cb);
+                                return onPuestoChange(cb, { silent: true });
+                            });
+                        });
+                        chain
+                            .then((ok) => {
+                                if (ok) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Departamento actualizado',
+                                        text: 'Los puestos del departamento se guardaron correctamente.',
+                                        timer: 1600,
+                                        showConfirmButton: false,
+                                        customClass: { container: 'swal-sobre-modal-perfil' }
+                                    });
+                                }
+                                if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                            })
+                            .finally(() => {
+                                masterCb.disabled = false;
+                                syncGrupoModuloMaster(masterCb, tbody);
+                            });
+                    });
+
+                    syncGrupoModuloMaster(masterCb, tbody);
+
+                    collapse.appendChild(table);
+                    section.appendChild(header);
+                    section.appendChild(collapse);
+                    container.appendChild(section);
                 });
 
-                table.appendChild(tbody);
-                body.appendChild(table);
+                actualizarBotonExpandirPuestos();
+            }
 
-                accordion.appendChild(item);
-                index++;
-            });
+            function actualizarBotonExpandirPuestos() {
+                const form = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+                const btn = document.getElementById('btn-puestos-expandir-todos');
+                if (!btn) return;
+                if (!form) {
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    return;
+                }
+                const cols = form.querySelectorAll('.modal-perfil-puesto-card-collapse');
+                if (cols.length === 0) {
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    return;
+                }
+                const allExpanded = Array.from(cols).every(c => c.classList.contains('show'));
+                btn.innerHTML = allExpanded
+                    ? '<i class="fa fa-compress me-1"></i>Contraer todos'
+                    : '<i class="fa fa-expand me-1"></i>Expandir todos';
+            }
 
-            container.appendChild(accordion);
-        }
-
-
-
-            function onPuestoChange(checkbox) {
-                if (!checkbox || !currentPersonaId) return;
+            function onPuestoChange(checkbox, opts) {
+                opts = opts || {};
+                const silent = !!opts.silent;
+                if (!checkbox || !currentPersonaId) {
+                    return Promise.resolve(false);
+                }
 
                 const payload = {
                     idPersona: currentPersonaId,
@@ -1318,7 +1347,7 @@ class CapHum extends Controller
                     asignado: checkbox.checked ? 1 : 0
                 };
 
-                fetch('/caphum/actualizarPuestoPerfil', {
+                return fetch('/caphum/actualizarPuestoPerfil', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1329,82 +1358,73 @@ class CapHum extends Controller
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success) {
-                        // Revertimos el checkbox si falla
                         checkbox.checked = !checkbox.checked;
+                        updateModuloCheckboxLabel(checkbox);
+                        syncGrupoModuloMasterFromChild(checkbox);
                         Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
-                        return;
+                        return false;
                     }
 
-                    // ALERTA SEGÚN ACCIÓN - igual que módulos (z-index para verse sobre el modal)
-                    Swal.fire({
-                        icon: 'success',
-                        title: checkbox.checked
-                            ? 'Asignación correcta'
-                            : 'Asignación eliminada',
-                        text: checkbox.checked
-                            ? 'El puesto fue asignado correctamente'
-                            : 'El puesto fue deseleccionado correctamente',
-                        timer: 1600,
-                        showConfirmButton: false,
-                        customClass: { container: 'swal-sobre-modal-perfil' }
-                    });
-                    if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                    if (!silent) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: checkbox.checked
+                                ? 'Asignación correcta'
+                                : 'Asignación eliminada',
+                            text: checkbox.checked
+                                ? 'El puesto fue asignado correctamente'
+                                : 'El puesto fue deseleccionado correctamente',
+                            timer: 1600,
+                            showConfirmButton: false,
+                            customClass: { container: 'swal-sobre-modal-perfil' }
+                        });
+                        if (typeof getUsuarios === 'function') getUsuarios({ showLoader: false });
+                    }
+                    syncGrupoModuloMasterFromChild(checkbox);
+                    return true;
                 })
                 .catch(err => {
                     console.error(err);
                     checkbox.checked = !checkbox.checked;
+                    updateModuloCheckboxLabel(checkbox);
+                    syncGrupoModuloMasterFromChild(checkbox);
                     Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el puesto', customClass: { container: 'swal-sobre-modal-perfil' } });
+                    return false;
                 });
             }
 
-            // Función para expandir/colapsar todos los acordeones de puestos
             function expandirTodosPuestos() {
-                const accordion = document.getElementById('modalEditPerfilAccordionPuestos') || document.getElementById('accordionPuestos');
-                if (!accordion) return;
+                const form = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+                if (!form) return;
+                const collapses = form.querySelectorAll('.modal-perfil-puesto-card-collapse');
+                if (collapses.length === 0) return;
 
-                const collapses = accordion.querySelectorAll('.accordion-collapse');
-                const isAllExpanded = Array.from(collapses).every(c => c.classList.contains('show'));
+                const allCollapsed = Array.from(collapses).every(c => !c.classList.contains('show'));
+                const doExpand = allCollapsed;
 
-                if (!isAllExpanded) {
-                    collapses.forEach(collapse => {
-                        collapse.removeAttribute('data-bs-parent');
-                    });
-                }
-
-                collapses.forEach(collapse => {
-                    const btn = document.querySelector(`[data-bs-target="#${collapse.id}"]`);
+                collapses.forEach(collapseEl => {
                     if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
-                        const bsCollapse = bootstrap.Collapse.getInstance(collapse) || new bootstrap.Collapse(collapse, { toggle: false });
-                        if (isAllExpanded) {
-                            bsCollapse.hide();
-                            if (btn) { btn.classList.add('collapsed'); btn.setAttribute('aria-expanded', 'false'); }
+                        const inst = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                        if (doExpand) {
+                            inst.show();
                         } else {
-                            bsCollapse.show();
-                            if (btn) { btn.classList.remove('collapsed'); btn.setAttribute('aria-expanded', 'true'); }
+                            inst.hide();
                         }
                     } else {
-                        if (isAllExpanded) {
-                            collapse.classList.remove('show');
-                            if (btn) { btn.classList.add('collapsed'); btn.setAttribute('aria-expanded', 'false'); }
-                        } else {
-                            collapse.classList.add('show');
-                            if (btn) { btn.classList.remove('collapsed'); btn.setAttribute('aria-expanded', 'true'); }
+                        collapseEl.classList.toggle('show', doExpand);
+                        const cid = collapseEl.id;
+                        const hdr = form.querySelector('[aria-controls="' + cid + '"]');
+                        if (hdr) {
+                            hdr.setAttribute('aria-expanded', doExpand ? 'true' : 'false');
+                            const ch = hdr.querySelector('.modal-perfil-puesto-chevron');
+                            if (ch) {
+                                ch.style.transform = doExpand ? 'rotate(0deg)' : 'rotate(-90deg)';
+                            }
                         }
                     }
                 });
 
-                if (isAllExpanded) {
-                    collapses.forEach(collapse => {
-                        collapse.setAttribute('data-bs-parent', '#modalEditPerfilAccordionPuestos');
-                    });
-                }
-
-                const btnExpandir = document.querySelector('#modalEditPerfil #tabPuestos button[onclick="expandirTodosPuestos()"]') || document.querySelector('#tabPuestos button[onclick="expandirTodosPuestos()"]') || (typeof event !== 'undefined' && event.target);
-                if (btnExpandir) {
-                    btnExpandir.innerHTML = isAllExpanded
-                        ? '<i class="fa fa-expand me-1"></i>Expandir Departamentos'
-                        : '<i class="fa fa-compress me-1"></i>Colapsar Departamentos';
-                }
+                actualizarBotonExpandirPuestos();
             }
 
             // Función para guardar permisos
@@ -1712,7 +1732,7 @@ class CapHum extends Controller
                     return a.localeCompare(b, 'es');
                 });
 
-                nombresGrupo.forEach(gName => {
+                nombresGrupo.forEach((gName, grupoIdx) => {
                     const g = grupos.get(gName);
                     g.items.sort((a, b) => {
                         const ia = Number(a.menu_item_orden);
@@ -1733,15 +1753,19 @@ class CapHum extends Controller
                     header.style.borderBottom = '2px solid #000';
 
                     const masterWrap = document.createElement('div');
-                    masterWrap.className = 'form-check mb-0 d-flex align-items-center flex-shrink-0';
+                    masterWrap.className = 'd-flex align-items-center gap-2 ms-auto flex-shrink-0 modal-perfil-modulo-master-wrap';
                     const masterCb = document.createElement('input');
                     masterCb.type = 'checkbox';
                     masterCb.className = 'form-check-input modal-perfil-modulo-master-cb';
-                    masterCb.title = 'Marcar o desmarcar todos los módulos de este grupo';
-                    masterCb.setAttribute('aria-label', 'Seleccionar todos los módulos de ' + gName);
+                    masterCb.id = 'modal-perfil-modulo-master-' + grupoIdx;
+                    masterCb.setAttribute('data-grupo-nombre', gName);
+                    masterCb.setAttribute('data-grupo-tipo', 'modulos');
                     masterCb.style.cursor = 'pointer';
-                    masterCb.style.width = '1.15em';
-                    masterCb.style.height = '1.15em';
+                    const masterLbl = document.createElement('label');
+                    masterLbl.className = 'form-check-label small text-secondary mb-0 modal-perfil-modulo-master-label';
+                    masterLbl.setAttribute('for', masterCb.id);
+                    masterLbl.style.cursor = 'pointer';
+                    masterWrap.appendChild(masterLbl);
                     masterWrap.appendChild(masterCb);
 
                     const hi = document.createElement('i');
@@ -1752,9 +1776,9 @@ class CapHum extends Controller
                     ht.style.color = '#1e293b';
                     ht.textContent = gName + ' (' + g.items.length + ')';
 
-                    header.appendChild(masterWrap);
                     header.appendChild(hi);
                     header.appendChild(ht);
+                    header.appendChild(masterWrap);
 
                     const table = document.createElement('table');
                     table.className = 'table table-hover mb-0';

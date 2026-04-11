@@ -11,6 +11,9 @@ use Models\Login as LoginDAO;
 
 class EstadoCuenta extends Controller
 {
+    private const EC_PERMISO_DICTAMINAR_LLAMADA = 35;
+    private const EC_PERMISO_CONDONAR_GASTOS_COBRANZA = 36;
+    private const EC_PERMISO_NOTAS_CLIENTE = 37;
 
     // ---------------- SAFE FLOAT ----------------
     private function safe_float($value, $default = 0.0) {
@@ -24,6 +27,28 @@ class EstadoCuenta extends Controller
         if ($value === null || $value === "") return $default;
         if (is_numeric($value)) return intval($value);
         return $default;
+    }
+
+    /** Permisos especiales (modulos_web en $_SESSION['modulos']). Usuario id 1: mismo bypass que rastreo (29) y aclaraciones GC (30). */
+    private function tienePermisoModuloSesion(int $moduloId): bool
+    {
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        if ($idUsuario === 1) {
+            return true;
+        }
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        return in_array($moduloId, $mods, true);
+    }
+
+    private function requierePermisoEstadoCuentaModulo(int $moduloId): void
+    {
+        if ($this->tienePermisoModuloSesion($moduloId)) {
+            return;
+        }
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => 'No tiene permiso para realizar esta acción.',
+        ]);
     }
 
     /**
@@ -1698,6 +1723,9 @@ class EstadoCuenta extends Controller
         // Permiso especial Aclaraciones GC (modulos_web id 30, categoría Permisos especiales).
         $tienePermisoAclaracionesGc = ($idUsuario === 1) || in_array(30, $modsSesionConsulta, true);
         self::set('tienePermisoAclaracionesGc', $tienePermisoAclaracionesGc);
+        self::set('tienePermisoDictaminarLlamada', $this->tienePermisoModuloSesion(self::EC_PERMISO_DICTAMINAR_LLAMADA));
+        self::set('tienePermisoCondonarGastosCobranza', $this->tienePermisoModuloSesion(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA));
+        self::set('tienePermisoNotasCliente', $this->tienePermisoModuloSesion(self::EC_PERMISO_NOTAS_CLIENTE));
         $tienePermisoRegistrarDocumentos = in_array(21, $modulosActuales);
         $tienePermisoFechaCorte = in_array(23, $modulosActuales);
         // --- JS COMPLETO EN EL CONTROLADOR ---
@@ -5541,6 +5569,7 @@ public function descargar()
 
     public function AddNote()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_NOTAS_CLIENTE);
         $input = json_decode(file_get_contents("php://input"), true);
 
         $data = [
@@ -5550,21 +5579,20 @@ public function descargar()
             'usuario_id'    => $_SESSION['usuario_id'] ?? '1'
         ];
 
-        $resultado = EstadoCuentaDAO::insertNotas($data);
+        EstadoCuentaDAO::insertNotas($data);
 
-        // 👇 NORMALIZAMOS RESPUESTA PARA JS
-        echo json_encode([
+        self::respuestaJSON([
             'success' => true,
             'mensaje' => 'Nota agregada correctamente.',
             'data' => [
-                'usuario' => $_SESSION['usuario'] ?? 'Operador'
-            ]
+                'usuario' => $_SESSION['usuario'] ?? 'Operador',
+            ],
         ]);
-        exit;
     }
 
     public function getNotasCredito()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_NOTAS_CLIENTE);
         $input = json_decode(file_get_contents("php://input"), true);
 
         $idCredito = $input['idCredito'] ?? null;
@@ -5585,6 +5613,7 @@ public function descargar()
 
     public function getGastosCobranza()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA);
         $input = json_decode(file_get_contents("php://input"), true);
         $idCredito = $input['idCredito'] ?? null;
 
@@ -5665,6 +5694,7 @@ public function descargar()
      */
     public function guardarCondonacionParcialGasto()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA);
         $input = json_decode(file_get_contents("php://input"), true);
         $idGasto = $input['id_gastos_cobranza'] ?? null;
         $montoParcial = $input['monto_parcial'] ?? null;
@@ -5682,12 +5712,14 @@ public function descargar()
 
     public function getTiposContacto()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $resultado = EstadoCuentaDAO::getTiposContacto();
         self::respuestaJSON($resultado);
     }
 
     public function getResultadosContacto()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $input = json_decode(file_get_contents("php://input"), true);
         $tipoContactoId = $input['tipo_contacto_id'] ?? null;
 
@@ -5705,6 +5737,7 @@ public function descargar()
 
     public function getDictamenes()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $input = json_decode(file_get_contents("php://input"), true);
         $resultadoContactoId = $input['resultado_contacto_id'] ?? null;
 
@@ -5722,24 +5755,28 @@ public function descargar()
 
     public function getMotivosNoPago()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $resultado = EstadoCuentaDAO::getMotivosNoPago();
         self::respuestaJSON($resultado);
     }
 
     public function getPlataformas()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $resultado = EstadoCuentaDAO::getPlataformas();
         self::respuestaJSON($resultado);
     }
 
     public function getTiposMotivoNoPago()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $resultado = EstadoCuentaDAO::getTiposMotivoNoPago();
         self::respuestaJSON($resultado);
     }
 
     public function getMotivosNoPagoPorTipo()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $input = json_decode(file_get_contents("php://input"), true);
         $tipoId = $input['tipo_motivo_id'] ?? null;
 
@@ -5761,6 +5798,7 @@ public function descargar()
      */
     public function getCatalogosDictamenModal()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $tipos = EstadoCuentaDAO::getTiposContacto();
         $plat = EstadoCuentaDAO::getPlataformas();
         $tiposMot = EstadoCuentaDAO::getTiposMotivoNoPago();
@@ -5787,6 +5825,7 @@ public function descargar()
      */
     public function getOpcionesContactoDictamenLlamada()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $input = json_decode(file_get_contents('php://input'), true);
         $idCredito = $input['id_credito'] ?? null;
         if (empty($idCredito)) {
@@ -5802,6 +5841,7 @@ public function descargar()
 
     public function guardarDictamen()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         $input = json_decode(file_get_contents("php://input"), true);
 
         $llamadaOrigenIn = trim((string)($input['llamada_origen'] ?? ''));
@@ -5939,6 +5979,11 @@ public function descargar()
             'mensaje' => 'Sesión expirada',
             'code' => 'SESSION_EXPIRED'
         ]);
+        return;
+    }
+
+    if (!$this->tienePermisoModuloSesion(self::EC_PERMISO_DICTAMINAR_LLAMADA)) {
+        echo json_encode(['success' => false, 'mensaje' => 'No tiene permiso para realizar esta acción.']);
         return;
     }
 
@@ -6386,6 +6431,10 @@ public function descargarReporteDictamen()
         ob_end_clean();
     }
 
+    if (!$this->tienePermisoModuloSesion(self::EC_PERMISO_DICTAMINAR_LLAMADA)) {
+        die('No tiene permiso para descargar el reporte de dictamen.');
+    }
+
     try {
         // Obtener parámetros de fecha del GET
         $fechaInicio = $_GET['fechaInicio'] ?? null;
@@ -6481,6 +6530,7 @@ public function descargarReporteDictamen()
 
     public function getDictamenLlamadas()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_DICTAMINAR_LLAMADA);
         // Obtener filtros de fecha
         $fechaInicio = $_POST['fechaInicio'] ?? null;
         $fechaFin = $_POST['fechaFin'] ?? null;
@@ -6544,6 +6594,7 @@ public function descargarReporteDictamen()
 
     public function confirmarCondonacionGastos()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA);
         $input = json_decode(file_get_contents("php://input"), true);
 
         $idCredito  = $input['idCredito'] ?? null;
@@ -6732,6 +6783,15 @@ public function descargarReporteDictamen()
                     self::set('tienePermisoRastreoNeverPaid', $tienePermisoRastreoNeverPaidGt);
                     $tienePermisoAclaracionesGcGt = ($idUsuarioGt === 1) || in_array(30, $modsSesionGt, true);
                     self::set('tienePermisoAclaracionesGc', $tienePermisoAclaracionesGcGt);
+                    self::set('tienePermisoDictaminarLlamada', $this->tienePermisoModuloSesion(self::EC_PERMISO_DICTAMINAR_LLAMADA));
+                    self::set('tienePermisoCondonarGastosCobranza', $this->tienePermisoModuloSesion(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA));
+                    self::set('tienePermisoNotasCliente', $this->tienePermisoModuloSesion(self::EC_PERMISO_NOTAS_CLIENTE));
+                    $idCredNotasGt = is_numeric($idCreditoLista) ? (int) $idCreditoLista : 0;
+                    $notasGt = ['success' => true, 'datos' => [['num' => 0]]];
+                    if ($idCredNotasGt > 0 && $this->tienePermisoModuloSesion(self::EC_PERMISO_NOTAS_CLIENTE)) {
+                        $notasGt = EmpresasDAO::getNotasNum($idCredNotasGt);
+                    }
+                    self::set('notas', $notasGt);
 
                     self::set("titulo", "Estado de Cuenta - Guatemala");
                     self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);
@@ -6856,6 +6916,7 @@ public function descargarReporteDictamen()
 
     public function getHistorialGastosCobranza()
     {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA);
         $input = json_decode(file_get_contents("php://input"), true);
         $idCredito = $input['idCredito'] ?? null;
 
@@ -6944,7 +7005,10 @@ public function descargarReporteDictamen()
         try {
             $referencias = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idCredito);
             $direcciones = EmpresasDAO::getConsultaDireccionEstadoCuenta($idCredito);
-            $notas = EmpresasDAO::getNotasNum($idCredito);
+            $notas = ['success' => true, 'mensaje' => '', 'datos' => [['num' => 0]]];
+            if ($this->tienePermisoModuloSesion(self::EC_PERMISO_NOTAS_CLIENTE)) {
+                $notas = EmpresasDAO::getNotasNum($idCredito);
+            }
             echo json_encode([
                 'success'     => true,
                 'referencias' => $referencias,

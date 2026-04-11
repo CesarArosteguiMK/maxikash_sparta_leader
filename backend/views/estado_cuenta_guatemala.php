@@ -1376,16 +1376,20 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                 </button>
                 <?php endif; ?>
 
-                <!-- Dictaminar, condonar y notas: visibles para todos; el backend valida permisos en cada acción. -->
+                <?php if (!empty($tienePermisoDictaminarLlamada) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button" class="btn btn-dictaminar position-relative"
                         data-bs-toggle="modal" data-bs-target="#modalDictamen" title="Dictaminar llamada">
                     <i class="fa fa-headset"></i>
                 </button>
+                <?php endif; ?>
+                <?php if (!empty($tienePermisoCondonarGastosCobranza) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button" class="btn btn-condonar position-relative"
                         title="Condonar gastos de cobranza"
                         onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-hand-holding-usd"></i>
                 </button>
+                <?php endif; ?>
+                <?php if (!empty($tienePermisoNotasCliente) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button" class="btn btn-notas position-relative"
                         title="Notas del cliente"
                         onclick="consultaNotas(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
@@ -1394,6 +1398,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                         <?= htmlspecialchars($notas['datos'][0]['num'] ?? '') ?>
                     </span>
                 </button>
+                <?php endif; ?>
 
                 <a href="/EstadoCuenta/Guatemala" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>
