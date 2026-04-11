@@ -2929,16 +2929,12 @@ function _alertarExcedeDeuda(contexto, totalCapturado, deuda) {
     if (excede && !_alertaExcedeBandera[contexto]) {
         _alertaExcedeBandera[contexto] = true;
         var excedente = Math.round((totalCapturado - deuda) * 100) / 100;
-        Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 5000,
-            timerProgressBar: true,
-            icon: 'warning',
-        }).fire({
+        Swal.fire({
+            icon: 'info',
             title: 'Monto mayor a la deuda',
             html: 'El excedente de <strong>' + fmt(excedente) + '</strong> se registrará como monto adicional.',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#3b82f6',
         });
     }
     if (!excede) {
