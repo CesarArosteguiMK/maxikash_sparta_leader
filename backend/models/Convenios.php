@@ -1496,6 +1496,47 @@ public static function getProductosConvenio()
 }
 
 // ════════════════════════════════════════════════
+// ELIMINAR CONVENIOS DE UN CRÉDITO (acción admin express)
+// Borra todos los registros de convenio_cliente (y su amortización)
+// para el id_credito dado, dejando al sistema libre para generar uno nuevo.
+// ════════════════════════════════════════════════
+
+public static function eliminarConveniosCredito(int $id_credito): array
+{
+    if ($id_credito <= 0) {
+        return self::resultado(false, 'ID de crédito inválido.');
+    }
+    try {
+        $db = new Database();
+
+        // Obtener todos los IDs de convenio del crédito
+        $convenios = $db->queryAll(
+            "SELECT id FROM convenio_cliente WHERE id_credito = :id",
+            ['id' => $id_credito]
+        );
+
+        if (empty($convenios)) {
+            return self::resultado(false, 'No se encontró ningún convenio para el crédito ' . $id_credito . '.');
+        }
+
+        $ids = array_map('intval', array_column($convenios, 'id'));
+        $idsStr = implode(',', $ids);
+
+        // 1. Eliminar amortizaciones
+        $db->CRUD("DELETE FROM convenio_cliente_amortizacion WHERE id_convenio_cliente IN ($idsStr)");
+
+        // 2. Eliminar convenios
+        $db->CRUD("DELETE FROM convenio_cliente WHERE id IN ($idsStr)");
+
+        $total = count($ids);
+        return self::resultado(true, "Se eliminaron $total convenio(s) y su amortización para el crédito $id_credito.");
+
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al eliminar los convenios.', null, $e->getMessage());
+    }
+}
+
+// ════════════════════════════════════════════════
     // VALIDAR CRÉDITO EN DESPACHO
     // Consulta __SPARTA_SECRET_REDACTED__.asigna_creditos_despacho.
     //

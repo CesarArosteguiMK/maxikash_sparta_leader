@@ -258,6 +258,111 @@ body.dark-mode .cc-doccheck-title { color: #94a3b8; }
 body.dark-mode .cc-doc-ok      { background: rgba(21,128,61,.2);  color: #4ade80; }
 body.dark-mode .cc-doc-missing { background: rgba(185,28,28,.2); color: #f87171; }
 body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24; }
+
+/* ── Panel lateral derecho (Tab En Proceso) ── */
+.cc-ep-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+}
+.cc-side-panel {
+    width: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    flex-shrink: 0;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: none;
+    border-radius: 0 .75rem .75rem 0;
+    box-shadow: 3px 2px 10px rgba(0,0,0,.06);
+    transition: width .32s cubic-bezier(.4,0,.2,1), max-height .32s cubic-bezier(.4,0,.2,1), opacity .25s ease, padding .32s ease;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+.cc-side-panel.open {
+    width: 540px;
+    max-height: 80vh;
+    overflow-y: auto;
+    opacity: 1;
+    padding: 1.1rem 1.25rem;
+}
+.cc-conv-card.cc-has-panel {
+    border-radius: .75rem 0 0 .75rem;
+    border-right-color: #bfdbfe;
+}
+.cc-side-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .85rem;
+    padding-bottom: .6rem;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+.cc-side-panel-header .cc-sp-title {
+    font-weight: 700;
+    font-size: .82rem;
+    color: #1d4ed8;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.cc-side-panel-close {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 0 .25rem;
+    font-size: .9rem;
+    line-height: 1;
+    transition: color .15s;
+}
+.cc-side-panel-close:hover { color: #dc2626; }
+body.dark-mode .cc-side-panel {
+    background: #0f172a;
+    border-color: #334155;
+    box-shadow: 3px 2px 10px rgba(0,0,0,.25);
+}
+body.dark-mode .cc-side-panel-header { border-color: #334155; }
+body.dark-mode .cc-side-panel-header .cc-sp-title { color: #60a5fa; }
+
+/* Tabla de amortización dentro del acordeón */
+.cc-amort-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+.cc-amort-table th {
+    background:#e8f0fe; color:#1e40af; font-weight:700;
+    font-size:.72rem; text-transform:uppercase; letter-spacing:.03em;
+    padding:.4rem .6rem; text-align:left; border-bottom:2px solid #bfdbfe;
+}
+.cc-amort-table td { padding:.4rem .6rem; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.cc-amort-table tr:last-child td { border-bottom:none; }
+.cc-amort-table tr.pagada td { background: rgba(220,252,231,.35); }
+.cc-amort-table tr.pendiente td { background: rgba(254,242,242,.4); }
+body.dark-mode .cc-amort-table th { background:#1e3a5f; color:#93c5fd; border-color:#1e40af; }
+body.dark-mode .cc-amort-table td { border-color:#1e293b; }
+body.dark-mode .cc-amort-table tr.pagada td  { background: rgba(21,128,61,.12); }
+body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1); }
+
+/* Botón descartar rojo visible */
+.cc-btn-descartar {
+    background: #dc2626;
+    border: none;
+    color: #fff;
+    border-radius: .4rem;
+    padding: .3rem .75rem;
+    font-size: .78rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    transition: background .15s, transform .1s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.cc-btn-descartar:hover  { background: #b91c1c; transform: translateY(-1px); }
+.cc-btn-descartar:active { transform: translateY(0); }
 </style>
 
 <!-- ══════════════════════════════════════
@@ -299,6 +404,15 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
                             aria-controls="tab-en-proceso" aria-selected="false">
                         <i class="fa-solid fa-hourglass-half me-1 text-warning"></i>En Proceso
                         <span class="badge bg-warning text-dark ms-1" id="badge-en-proceso">0</span>
+                    </button>
+                </li>
+                <!-- Pestaña 3: Historial -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-historial-btn"
+                            data-bs-toggle="tab" data-bs-target="#tab-historial"
+                            type="button" role="tab"
+                            aria-controls="tab-historial" aria-selected="false">
+                        <i class="fa-solid fa-clock-rotate-left me-1 text-info"></i>Historial
                     </button>
                 </li>
             </ul>
@@ -364,6 +478,33 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
                     <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
                     Sin registros en proceso de validación.
                 </div>
+                <div id="empty-busqueda-ep" class="text-center py-5 text-muted d-none">
+                    <i class="fa-solid fa-search fa-2x mb-2 d-block opacity-50"></i>
+                    Sin resultados para la búsqueda.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ PESTAÑA 3: HISTORIAL ══ -->
+    <div class="tab-pane fade" id="tab-historial" role="tabpanel">
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div id="loader-historial" class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
+                    Cargando historial...
+                </div>
+                <div id="wrap-historial" class="d-none">
+                    <!-- Tabla inyectada por JS -->
+                </div>
+                <div id="empty-historial" class="text-center py-5 text-muted d-none">
+                    <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+                    Sin movimientos registrados todavía.
+                </div>
+                <div id="empty-busqueda-hist" class="text-center py-5 text-muted d-none">
+                    <i class="fa-solid fa-search fa-2x mb-2 d-block opacity-50"></i>
+                    Sin resultados para la búsqueda.
+                </div>
             </div>
         </div>
     </div>
@@ -400,8 +541,10 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
     /* ══════════════════════════════════
        RENDER: CARDS ENVIADOS FINALIZADOS
     ══════════════════════════════════ */
-    let _allRows    = [];
-    let _validador  = '—';
+    let _allRows     = [];
+    let _allRowsEp   = [];
+    let _allRowsHist = [];
+    let _validador   = '—';
 
     function renderCards(rows, validador) {
         _allRows   = rows;
@@ -441,24 +584,45 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
         wrap.innerHTML = rows.map(r => buildCard(r, _validador)).join('');
     }
 
-    /* ── Filtro en tiempo real ── */
+    /* ── Detecta qué pestaña está activa ── */
+    function _tabActiva() {
+        if (document.getElementById('tab-en-proceso').classList.contains('show')) return 'ep';
+        if (document.getElementById('tab-historial').classList.contains('show'))   return 'hist';
+        return 'ef';
+    }
+
+    /* ── Filtro en tiempo real (aplica en la pestaña activa) ── */
     function ccFiltrar(termino) {
         const t = termino.trim().toLowerCase();
         const btnLimpiar = document.getElementById('cc-btn-limpiar-busqueda');
         btnLimpiar.style.display = t ? '' : 'none';
 
-        if (!t) {
-            _pintarCards(_allRows);
+        const tab = _tabActiva();
+
+        if (tab === 'ep') {
+            _pintarEnProceso(!t ? _allRowsEp : _allRowsEp.filter(r =>
+                String(r.id_credito      || '').toLowerCase().includes(t) ||
+                String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
+                String(r.nombre_producto || '').toLowerCase().includes(t)
+            ));
             return;
         }
 
-        const filtrados = _allRows.filter(r =>
-            String(r.id_credito   || '').toLowerCase().includes(t) ||
-            String(r.nombre_cliente || '').toLowerCase().includes(t) ||
+        if (tab === 'hist') {
+            _pintarHistorial(!t ? _allRowsHist : _allRowsHist.filter(r =>
+                String(r.id_credito     || '').toLowerCase().includes(t) ||
+                String(r.nombre_cliente || '').toLowerCase().includes(t)
+            ));
+            return;
+        }
+
+        // Tab 1: Enviados Finalizados
+        _pintarCards(!t ? _allRows : _allRows.filter(r =>
+            String(r.id_credito      || '').toLowerCase().includes(t) ||
+            String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
             String(r.nombre_producto || '').toLowerCase().includes(t) ||
             String(r.nombre_despacho || '').toLowerCase().includes(t)
-        );
-        _pintarCards(filtrados);
+        ));
     }
 
     document.getElementById('cc-input-buscar')
@@ -468,8 +632,7 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
         .addEventListener('click', function () {
             const input = document.getElementById('cc-input-buscar');
             input.value = '';
-            this.style.display = 'none';
-            _pintarCards(_allRows);
+            ccFiltrar('');
             input.focus();
         });
 
@@ -508,13 +671,13 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
                     <small>${esc(r.nombre_cliente)}</small>
                 </span>
                 <div class="cc-progress-wrap">
-                    <span class="cc-prog-label">0</span>
+                    <span class="cc-prog-label">${pagadas}</span>
                     <div class="progress">
                         <div class="progress-bar" role="progressbar"
                              style="width:${pct}%"
                              aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
-                    <span class="cc-prog-label">100</span>
+                    <span class="cc-prog-label">${semanas}</span>
                 </div>
             </div>
 
@@ -567,6 +730,20 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
                 </button>
             </div>
 
+            <!-- Panel lateral derecho (oculto por defecto) -->
+            <div class="cc-side-panel" id="cc-acc-body-${r.id}">
+                <div class="cc-side-panel-header">
+                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
+                    <button class="cc-side-panel-close" onclick="ccToggleDetalle(${r.id})" title="Cerrar panel">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div id="cc-acc-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
+                </div>
+                <div id="cc-acc-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
+            </div>
+
         </div>`;
     }
 
@@ -574,18 +751,39 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
        RENDER: CARDS EN PROCESO
     ══════════════════════════════════ */
     function renderEnProceso(rows) {
+        _allRowsEp = rows;
         document.getElementById('loader-en-proceso').classList.add('d-none');
         document.getElementById('badge-en-proceso').textContent = rows.length;
+        document.getElementById('cc-search-bar').style.display = '';
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-en-proceso').classList.remove('d-none');
             return;
         }
 
-        const wrap = document.getElementById('wrap-ep-cards');
-        wrap.innerHTML = '<div class="row g-3">' +
-            rows.map(r => `<div class="col-12 col-md-6 col-xl-4">${buildEnProcesoCard(r)}</div>`).join('') +
-            '</div>';
+        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
+        _pintarEnProceso(t ? rows.filter(r =>
+            String(r.id_credito      || '').toLowerCase().includes(t) ||
+            String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
+            String(r.nombre_producto || '').toLowerCase().includes(t)
+        ) : rows);
+    }
+
+    function _pintarEnProceso(rows) {
+        const wrap        = document.getElementById('wrap-ep-cards');
+        const emptyNormal = document.getElementById('empty-en-proceso');
+        const emptySearch = document.getElementById('empty-busqueda-ep');
+        emptyNormal.classList.add('d-none');
+        if (emptySearch) emptySearch.classList.add('d-none');
+
+        if (!rows.length) {
+            wrap.classList.add('d-none');
+            wrap.innerHTML = '';
+            if (emptySearch) emptySearch.classList.remove('d-none');
+            return;
+        }
+
+        wrap.innerHTML = rows.map(r => buildEnProcesoCard(r)).join('');
         wrap.classList.remove('d-none');
     }
 
@@ -615,56 +813,221 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
             : `<span class="badge" style="background:rgba(250,200,0,.3);color:#fff;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs incompletos</span>`;
 
         const pdfLink = pdfOk
-            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-light" style="font-size:.78rem;"><i class="fa-solid fa-eye me-1"></i>Ver PDF</a>`
+            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;"><i class="fa-solid fa-eye me-1"></i>Ver PDF</a>`
             : '';
 
         return `
-        <div class="cc-conv-card" id="cc-ep-card-${r.id}">
-            <div class="cc-conv-card-header">
-                <span class="cc-credito-id">#${esc(r.id_credito)} <small>${esc(r.nombre_cliente)}</small></span>
-                ${estadoBadge}
-            </div>
-            <div class="cc-conv-card-body">
-                <div class="cc-conv-details">
-                    <div class="cc-detail-row">
-                        <span class="cc-lbl">Producto</span>
-                        <span class="cc-val">${esc(r.nombre_producto)}</span>
-                        <span style="background:#e0edff;color:#1d4ed8;font-size:.75rem;font-weight:700;
-                                      padding:2px 8px;border-radius:20px;margin-left:.35rem;white-space:nowrap;">
-                            ${parseFloat(r.porcentaje_descuento) || 0}%
-                        </span>
+        <div class="cc-ep-wrapper" id="cc-ep-wrapper-${r.id}">
+
+            <!-- Card principal -->
+            <div class="cc-conv-card" id="cc-ep-card-${r.id}" style="min-width:300px;width:420px;max-width:100%;">
+
+                <!-- Cabecera -->
+                <div class="cc-conv-card-header">
+                    <span class="cc-credito-id">#${esc(r.id_credito)} <small>${esc(r.nombre_cliente)}</small></span>
+                    <div style="display:flex;align-items:center;gap:.5rem;">
+                        ${estadoBadge}
+                        <button class="cc-btn-descartar" onclick="ccDescartar(${r.id})"
+                                title="Descartar — regresar a Enviados Finalizados">
+                            <i class="fa-solid fa-rotate-left"></i>Descartar
+                        </button>
                     </div>
-                    <div class="cc-detail-row">
-                        <span class="cc-lbl">Total pagado</span>
-                        <span class="cc-val fw-bold text-success">${fmtN(r.total_a_pagar)}</span>
-                    </div>
-                    <div class="cc-detail-row">
-                        <span class="cc-lbl">Registrado por</span>
-                        <span class="cc-val">${esc(r.usuario_alta)}</span>
-                    </div>
-                    <div class="cc-detail-row">
-                        <span class="cc-lbl">Fecha envío</span>
-                        <span class="cc-val">${fmtFecha(r.fecha_alta)}</span>
-                    </div>
-                    <div class="cc-doccheck-wrap mt-2">
-                        <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
-                        <div class="cc-doccheck-items">
-                            ${pdfBadge}
-                            ${compBadge}
+                </div>
+
+                <!-- Resumen rápido -->
+                <div class="cc-conv-card-body">
+                    <div class="cc-conv-details">
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Producto</span>
+                            <span class="cc-val">${esc(r.nombre_producto)}</span>
+                            <span style="background:#e0edff;color:#1d4ed8;font-size:.75rem;font-weight:700;
+                                          padding:2px 8px;border-radius:20px;margin-left:.35rem;white-space:nowrap;">
+                                ${parseFloat(r.porcentaje_descuento) || 0}%
+                            </span>
+                        </div>
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Total pagado</span>
+                            <span class="cc-val fw-bold text-success">${fmtN(r.total_a_pagar)}</span>
+                        </div>
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Registrado por</span>
+                            <span class="cc-val">${esc(r.usuario_alta)}</span>
+                        </div>
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Fecha envío</span>
+                            <span class="cc-val">${fmtFecha(r.fecha_alta)}</span>
+                        </div>
+                        <div class="cc-doccheck-wrap mt-2">
+                            <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
+                            <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Footer -->
+                <div class="cc-conv-card-footer" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                    ${pdfLink}
+                    <button class="btn btn-sm btn-outline-primary" id="cc-acc-btn-${r.id}"
+                            style="font-size:.78rem;" onclick="ccToggleDetalle(${r.id})">
+                        <i class="fa-solid fa-table-list me-1"></i>Ver detalle
+                    </button>
+                    <a href="/CierreCredito/descargarExcelCierre?id=${r.id}"
+                       class="btn btn-sm btn-outline-success" style="font-size:.78rem;">
+                        <i class="fa-solid fa-file-excel me-1"></i>Excel
+                    </a>
+                    <button class="cc-btn-confirmar"
+                            style="background:linear-gradient(135deg,#059669,#10b981);flex:1;min-width:120px;"
+                            onclick="ccEnviarACartera(${r.id})" id="cc-ep-btn-${r.id}">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        Enviar a cartera
+                    </button>
+                </div>
+
             </div>
-            <div class="cc-conv-card-footer" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-                ${pdfLink}
-                <button class="cc-btn-confirmar"
-                        style="background:linear-gradient(135deg,#059669,#10b981);flex:1;min-width:140px;"
-                        onclick="ccEnviarACartera(${r.id})" id="cc-ep-btn-${r.id}">
-                    <i class="fa-solid fa-paper-plane"></i>
-                    Enviar a cartera
-                </button>
+
+            <!-- Panel lateral derecho (oculto por defecto) -->
+            <div class="cc-side-panel" id="cc-acc-body-${r.id}">
+                <div class="cc-side-panel-header">
+                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
+                    <button class="cc-side-panel-close" onclick="ccToggleDetalle(${r.id})" title="Cerrar panel">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div id="cc-acc-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
+                </div>
+                <div id="cc-acc-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
+            </div>
+
+        </div>`;
+    }
+
+    /* ══════════════════════════════════
+       ACORDÉON DE DETALLE (Tab 2)
+    ══════════════════════════════════ */
+    const _detalleCache = {};
+
+    window.ccToggleDetalle = function(id) {
+        const btn    = document.getElementById(`cc-acc-btn-${id}`);
+        const panel  = document.getElementById(`cc-acc-body-${id}`);
+        const card   = document.getElementById(`cc-ep-card-${id}`);
+        const loader = document.getElementById(`cc-acc-loader-${id}`);
+        const content = document.getElementById(`cc-acc-content-${id}`);
+        const isOpen = panel.classList.contains('open');
+
+        if (isOpen) {
+            panel.classList.remove('open');
+            card.classList.remove('cc-has-panel');
+            btn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver detalle';
+            return;
+        }
+
+        panel.classList.add('open');
+        card.classList.add('cc-has-panel');
+        btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
+
+        // Ya cargado previamente
+        if (_detalleCache[id]) {
+            content.innerHTML = buildDetalleHtml(_detalleCache[id]);
+            return;
+        }
+
+        loader.style.display = '';
+        content.innerHTML = '';
+
+        fetch('/CierreCredito/getDetalleCierre', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `id=${id}`
+        })
+        .then(r => r.json())
+        .then(res => {
+            loader.style.display = 'none';
+            if (!res.success) throw new Error(res.mensaje);
+            _detalleCache[id] = res.datos;
+            content.innerHTML = buildDetalleHtml(res.datos);
+        })
+        .catch(err => {
+            loader.style.display = 'none';
+            content.innerHTML = `<div class="alert alert-danger py-2">Error: ${esc(err.message)}</div>`;
+        });
+    };
+
+    function buildDetalleHtml(d) {
+        const fmtN = (n) => parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        const conv = d.convenio || {};
+        const amort = d.amortizacion || [];
+
+        // ── Resumen financiero ──
+        const resumenHtml = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1rem;">
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Adeudo original</div>
+                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}</div>
+            </div>
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
+                <div style="font-size:1rem;font-weight:700;color:#16a34a;">- ${fmtN(conv.descuento_monto)}</div>
+            </div>
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Total a pagar</div>
+                <div style="font-size:1rem;font-weight:700;color:#1d4ed8;">${fmtN(conv.total_a_pagar)}</div>
+            </div>
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Pago semanal</div>
+                <div style="font-size:1rem;font-weight:700;color:#475569;">${fmtN(conv.pago_semanal)}</div>
             </div>
         </div>`;
+
+        // ── Tabla de amortización ──
+        let filasAmort = '';
+        if (amort.length === 0) {
+            filasAmort = `<tr><td colspan="7" class="text-center text-muted py-3">Sin filas de amortización registradas.</td></tr>`;
+        } else {
+            filasAmort = amort.map(a => {
+                const pagada = (a.estatus_pago === 'pagado');
+                const cls    = pagada ? 'pagada' : 'pendiente';
+                const icon   = pagada
+                    ? `<i class="fa-solid fa-circle-check text-success"></i>`
+                    : `<i class="fa-regular fa-clock text-warning"></i>`;
+                const compIcon = a.comprobante_path
+                    ? `<i class="fa-solid fa-paperclip text-success" title="Comprobante subido"></i>`
+                    : `<i class="fa-solid fa-minus text-muted"></i>`;
+                return `
+                <tr class="${cls}">
+                    <td class="text-center fw-bold">${esc(a.numero_semana)}</td>
+                    <td>${esc(a.fecha_pago || '—')}</td>
+                    <td class="text-end">${fmtN(a.pago_semanal)}</td>
+                    <td class="text-end">${fmtN(a.capital)}</td>
+                    <td class="text-end">${fmtN(a.saldo_restante)}</td>
+                    <td class="text-center">${icon} ${pagada ? 'Pagado' : 'Pendiente'}</td>
+                    <td class="text-center">${compIcon}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        const tablaAmort = `
+        <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d4ed8;margin-bottom:.5rem;">
+            <i class="fa-solid fa-table-list me-1"></i>Tabla de amortización
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="cc-amort-table">
+                <thead>
+                    <tr>
+                        <th class="text-center">#</th>
+                        <th>Fecha pago</th>
+                        <th class="text-end">Pago</th>
+                        <th class="text-end">Capital</th>
+                        <th class="text-end">Saldo</th>
+                        <th class="text-center">Estatus</th>
+                        <th class="text-center">Comprobante</th>
+                    </tr>
+                </thead>
+                <tbody>${filasAmort}</tbody>
+            </table>
+        </div>`;
+
+        return resumenHtml + tablaAmort;
     }
 
     /* ══════════════════════════════════
@@ -702,8 +1065,149 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
             });
     }
 
+    // (tab-en-proceso-btn listener is registered after cargarHistorial below)
+
+    /* ══════════════════════════════════
+       HISTORIAL — carga y render
+    ══════════════════════════════════ */
+    let historialCargado = false;
+
+    function cargarHistorial() {
+        historialCargado = true;
+        document.getElementById('loader-historial').classList.remove('d-none');
+        document.getElementById('wrap-historial').classList.add('d-none');
+        document.getElementById('empty-historial').classList.add('d-none');
+        fetch('/CierreCredito/getHistorial', { method: 'POST' })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                renderHistorial(res.datos);
+            })
+            .catch(err => {
+                document.getElementById('loader-historial').innerHTML =
+                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
+            });
+    }
+
+    // Refresca silenciosamente solo si la pestaña ya fue visitada
+    function refrescarHistorial() {
+        if (!historialCargado) return;
+        cargarHistorial();
+    }
+
+    function renderHistorial(rows) {
+        _allRowsHist = rows;
+        document.getElementById('loader-historial').classList.add('d-none');
+        document.getElementById('cc-search-bar').style.display = '';
+
+        if (!rows || rows.length === 0) {
+            document.getElementById('empty-historial').classList.remove('d-none');
+            return;
+        }
+
+        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
+        _pintarHistorial(t ? rows.filter(r =>
+            String(r.id_credito     || '').toLowerCase().includes(t) ||
+            String(r.nombre_cliente || '').toLowerCase().includes(t)
+        ) : rows);
+    }
+
+    function _pintarHistorial(rows) {
+        const wrap        = document.getElementById('wrap-historial');
+        const emptyHist   = document.getElementById('empty-historial');
+        const emptySearch = document.getElementById('empty-busqueda-hist');
+        emptyHist.classList.add('d-none');
+        if (emptySearch) emptySearch.classList.add('d-none');
+
+        if (!rows.length) {
+            wrap.classList.add('d-none');
+            wrap.innerHTML = '';
+            if (emptySearch) emptySearch.classList.remove('d-none');
+            return;
+        }
+
+        const etiqueta = (r) => {
+            if (r.estatus === 'enviado_cartera' && r.email_destino_cartera) {
+                return `<span class="badge rounded-pill" style="background:#dcfce7;color:#15803d;font-size:.78rem;">
+                            <i class="fa-solid fa-circle-check me-1"></i>Enviado — correo notificado
+                        </span>`;
+            }
+            if (r.estatus === 'enviado_cartera') {
+                return `<span class="badge rounded-pill" style="background:#fef9c3;color:#854d0e;font-size:.78rem;">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
+                        </span>`;
+            }
+            if (r.estatus === 'descartado') {
+                return `<span class="badge rounded-pill" style="background:#ffedd5;color:#9a3412;font-size:.78rem;">
+                            <i class="fa-solid fa-rotate-left me-1"></i>Regresado a revisión
+                        </span>`;
+            }
+            // en_proceso u otro
+            return `<span class="badge rounded-pill" style="background:#dbeafe;color:#1e40af;font-size:.78rem;">
+                        <i class="fa-solid fa-hourglass-half me-1"></i>En Proceso
+                    </span>`;
+        };
+
+        const fechaMovimiento = (r) => {
+            if (r.estatus === 'enviado_cartera') return fmtFecha(r.fecha_envio_cartera);
+            if (r.estatus === 'descartado')      return fmtFecha(r.fecha_actualizacion);
+            return fmtFecha(r.fecha_alta);
+        };
+
+        const quienMovio = (r) => {
+            if (r.estatus === 'en_proceso') return esc(r.usuario_alta);
+            return esc(r.usuario_actualizacion || r.usuario_alta);
+        };
+
+        const filas = rows.map(r => `
+            <tr>
+                <td class="ps-3" style="font-weight:600;color:#1e293b;white-space:nowrap;">
+                    #${esc(r.id_credito)}
+                </td>
+                <td style="font-size:.88rem;">${esc(r.nombre_cliente)}</td>
+                <td>${etiqueta(r)}</td>
+                <td style="font-size:.83rem;color:#475569;">${quienMovio(r)}</td>
+                <td style="font-size:.83rem;color:#475569;white-space:nowrap;">${fechaMovimiento(r)}</td>
+            </tr>`).join('');
+
+        wrap.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 cc-table">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Crédito</th>
+                        <th>Cliente</th>
+                        <th>Estatus</th>
+                        <th>Realizado por</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>${filas}</tbody>
+            </table>
+        </div>`;
+        wrap.classList.remove('d-none');
+    }
+
+    document.getElementById('tab-historial-btn')
+        .addEventListener('shown.bs.tab', cargarHistorial);
+
     document.getElementById('tab-en-proceso-btn')
-        .addEventListener('shown.bs.tab', cargarEnProceso);
+        .addEventListener('shown.bs.tab', function () {
+            cargarEnProceso();
+            // Re-aplica filtro si los datos ya estaban cargados (segunda visita)
+            if (_allRowsEp.length) {
+                const t = document.getElementById('cc-input-buscar').value;
+                if (t.trim()) ccFiltrar(t);
+            }
+        });
+
+    document.getElementById('tab-env-finalizado-btn')
+        .addEventListener('shown.bs.tab', function () {
+            if (_allRows.length) {
+                const t = document.getElementById('cc-input-buscar').value;
+                if (t.trim()) ccFiltrar(t);
+            }
+        });
 
     // Carga inicial
     cargarEnviadoFinalizado();
@@ -744,18 +1248,20 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
                     title: '¡Confirmado!',
                     text: `Crédito ${idCredito} enviado al proceso de validación.`,
                     icon: 'success',
-                    timer: 2500,
+                    timer: 2000,
                     showConfirmButton: false
                 });
-                if (btn) {
-                    btn.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i>Enviado a validación';
-                    btn.style.background = 'linear-gradient(135deg,#64748b,#94a3b8)';
-                    btn.style.cursor = 'default';
-                }
+                // Eliminar de _allRows y repintar para que no reaparezca en búsquedas
+                _allRows = _allRows.filter(row => String(row.id) !== String(idRegistro));
+                _pintarCards(_allRows);
+                // Actualizar badge Tab 1
+                const badge1 = document.getElementById('badge-env-finalizado');
+                if (badge1) badge1.textContent = Math.max(0, (parseInt(badge1.textContent) || 1) - 1);
                 // Incrementar badge tab 2 y resetear flag de carga lazy
                 const badge2 = document.getElementById('badge-en-proceso');
                 if (badge2) badge2.textContent = (parseInt(badge2.textContent) || 0) + 1;
                 enProcesoCargado = false;
+                refrescarHistorial();
             })
             .catch(err => {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Confirmar cierre'; }
@@ -790,14 +1296,85 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
-                Swal.fire({ title: '¡Enviado!', text: 'El cierre fue enviado a cartera.', icon: 'success', timer: 2000, showConfirmButton: false });
-                const card = document.getElementById(`cc-ep-card-${idRegistro}`);
-                if (card) { card.style.opacity = '.4'; card.style.pointerEvents = 'none'; }
+
+                const emailOk  = !res.email_error;
+                const emailMsg = res.email_error
+                    ? `<div class="alert alert-warning mt-2 mb-0 py-1 px-2" style="font-size:.8rem;text-align:left;">
+                           <i class="fa-solid fa-triangle-exclamation me-1"></i><strong>Error de correo SMTP:</strong><br>${esc(res.email_error)}
+                       </div>`
+                    : '';
+
+                Swal.fire({
+                    title: '¡Enviado!',
+                    html: `<span>${res.mensaje}</span>${emailMsg}`,
+                    icon: emailOk ? 'success' : 'warning',
+                    timer: emailOk ? 2000 : undefined,
+                    showConfirmButton: !emailOk
+                });
+                const wrapper = document.getElementById(`cc-ep-wrapper-${idRegistro}`);
+                if (wrapper) { wrapper.remove(); }
                 const badge = document.getElementById('badge-en-proceso');
                 if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 1) - 1);
+                // Si no quedan cards, mostrar estado vacío
+                const wrap2 = document.getElementById('wrap-ep-cards');
+                if (wrap2 && wrap2.querySelectorAll('[id^="cc-ep-card-"]').length === 0) {
+                    wrap2.classList.add('d-none');
+                    document.getElementById('empty-en-proceso').classList.remove('d-none');
+                }
+                refrescarHistorial();
             })
             .catch(err => {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar a cartera'; }
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            });
+        });
+    };
+
+    /* ══════════════════════════════════
+       DESCARTAR (Tab 2 → regresa a Tab 1)
+    ══════════════════════════════════ */
+    window.ccDescartar = function(idRegistro) {
+        Swal.fire({
+            title: '¿Descartar registro?',
+            html: 'El convenio regresará a <strong>Enviados Finalizados</strong>.<br><small class="text-muted">Se podrá confirmar nuevamente desde allí.</small>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: '<i class="fa-solid fa-rotate-left me-1"></i>Sí, descartar',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+
+            fetch('/CierreCredito/descartar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `id=${idRegistro}`
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                // Eliminar card de Tab 2
+                const wrapper = document.getElementById(`cc-ep-wrapper-${idRegistro}`);
+                if (wrapper) { wrapper.remove(); }
+                const badge = document.getElementById('badge-en-proceso');
+                if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 1) - 1);
+                const wrap2 = document.getElementById('wrap-ep-cards');
+                if (wrap2 && wrap2.querySelectorAll('[id^="cc-ep-card-"]').length === 0) {
+                    wrap2.classList.add('d-none');
+                    document.getElementById('empty-en-proceso').classList.remove('d-none');
+                }
+                // Refrescar Tab 1 para que reaparezca el convenio
+                document.getElementById('loader-env-finalizado').classList.remove('d-none');
+                document.getElementById('wrap-env-finalizado').classList.add('d-none');
+                document.getElementById('empty-env-finalizado').classList.add('d-none');
+                document.getElementById('empty-busqueda').classList.add('d-none');
+                document.getElementById('cc-search-bar').style.display = 'none';
+                document.getElementById('cc-input-buscar').value = '';
+                cargarEnviadoFinalizado();
+                refrescarHistorial();
+                Swal.fire({ title: '¡Descartado!', text: 'El convenio regresó a Enviados Finalizados.', icon: 'success', timer: 2000, showConfirmButton: false });
+            })
+            .catch(err => {
                 Swal.fire({ icon: 'error', title: 'Error', text: err.message });
             });
         });

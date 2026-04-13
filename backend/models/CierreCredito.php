@@ -172,6 +172,11 @@ class CierreCredito extends Model
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  WHERE cc.estatus = 'completado'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM cierre_credito_seguimiento ccs
+                       WHERE ccs.id_credito = cc.id_credito
+                         AND ccs.estatus IN ('en_proceso', 'enviado_cartera')
+                   )
                  ORDER BY cc.fecha_alta DESC"
             );
             return self::resultado(true, 'Convenios saldados.', $rows ?: []);
@@ -194,15 +199,34 @@ class CierreCredito extends Model
         try {
             $db = new Database();
 
-            // Evitar duplicados: si ya existe un registro en_proceso para este crédito, reutilizarlo
+            // Si ya existe un registro (cualquier estatus) para este crédito, reutilizarlo
             $existing = $db->queryOne(
-                "SELECT id FROM cierre_credito_seguimiento
-                 WHERE id_credito = :id AND estatus = 'en_proceso'
+                "SELECT id, estatus FROM cierre_credito_seguimiento
+                 WHERE id_credito = :id
+                 ORDER BY fecha_alta DESC
                  LIMIT 1",
                 ['id' => (int) $datos['id_credito']]
             );
+
             if ($existing) {
-                return self::resultado(true, 'Este crédito ya está en proceso de validación.');
+                if ($existing['estatus'] === 'en_proceso') {
+                    return self::resultado(true, 'Este crédito ya está en proceso de validación.');
+                }
+                // Reutilizar el registro existente (UPDATE en lugar de INSERT)
+                $db->CRUD(
+                    "UPDATE cierre_credito_seguimiento
+                     SET estatus                = 'en_proceso',
+                         nombre_cliente         = :nombre_cliente,
+                         usuario_actualizacion  = :usuario,
+                         fecha_actualizacion    = NOW()
+                     WHERE id = :id",
+                    [
+                        'nombre_cliente' => $datos['nombre_cliente'],
+                        'usuario'        => $datos['usuario_alta'],
+                        'id'             => (int) $existing['id'],
+                    ]
+                );
+                return self::resultado(true, 'Registro actualizado a En Proceso.');
             }
 
             $db->CRUD(
@@ -211,10 +235,10 @@ class CierreCredito extends Model
                  VALUES
                     (:id_credito, :nombre_cliente, :estatus, :usuario_alta, :usuario_actualizacion)",
                 [
-                    'id_credito'          => (int) $datos['id_credito'],
-                    'nombre_cliente'      => $datos['nombre_cliente'],
-                    'estatus'             => $datos['estatus'] ?? 'en_proceso',
-                    'usuario_alta'        => $datos['usuario_alta'],
+                    'id_credito'            => (int) $datos['id_credito'],
+                    'nombre_cliente'        => $datos['nombre_cliente'],
+                    'estatus'               => $datos['estatus'] ?? 'en_proceso',
+                    'usuario_alta'          => $datos['usuario_alta'],
                     'usuario_actualizacion' => $datos['usuario_alta'],
                 ]
             );
@@ -246,7 +270,7 @@ class CierreCredito extends Model
             $db = new Database();
             $db->CRUD(
                 "UPDATE cierre_credito_seguimiento
-                 SET estatus = :estatus, usuario_actualizacion = :usuario
+                 SET estatus = :estatus, usuario_actualizacion = :usuario, fecha_actualizacion = NOW()
                  WHERE id = :id",
                 ['estatus' => $estatus, 'usuario' => $usuario, 'id' => $id]
             );
@@ -313,8 +337,10 @@ class CierreCredito extends Model
             $smtpUser    = trim((string) ($mailCfg['smtp_user']    ?? ''));
             $smtpPass    = trim((string) ($mailCfg['smtp_pass']    ?? ''));
 
-            $emailEnviado    = false;
+            $emailEnviado      = false;
             $emailDestinatario = null;
+            $emailError        = null;
+            $smtpDebugLog      = '';
 
             // 4. Intentar enviar email solo si mail_cartera está configurado
             if ($mailCartera !== '' && filter_var($mailCartera, FILTER_VALIDATE_EMAIL)
@@ -384,33 +410,65 @@ class CierreCredito extends Model
                     </html>
                     HTML;
 
-                    $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
-                    $mailer->isSMTP();
-                    $mailer->Host       = $smtpHost;
-                    $mailer->Port       = $smtpPort;
-                    $mailer->SMTPAuth   = true;
-                    $mailer->Username   = $smtpUser;
-                    $mailer->Password   = $smtpPass;
-                    $mailer->SMTPSecure = ($smtpSecure === 'ssl')
-                        ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
-                        : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-                    $mailer->CharSet    = 'UTF-8';
-                    $mailer->isHTML(true);
-                    $mailer->setFrom($smtpUser, $fromName);
-                    $mailer->Sender     = $smtpUser;
-                    $mailer->addReplyTo($smtpUser, $fromName);
-                    $mailer->addAddress($mailCartera);
-                    $mailer->Subject    = "Cierre de Crédito #{$idCredito} — {$cliente}";
-                    $mailer->Body       = $html;
-                    $mailer->AltBody    = strip_tags($html);
+                    // Activar debug SMTP: captura toda la conversación en un buffer
+                    $smtpDebugLog = '';
+                    try {
+                        $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+                        $mailer->isSMTP();
+                        $mailer->SMTPDebug   = \PHPMailer\PHPMailer\SMTP::DEBUG_SERVER;
+                        $mailer->Debugoutput = function (string $str, int $level) use (&$smtpDebugLog) {
+                            $smtpDebugLog .= "[{$level}] {$str}\n";
+                        };
+                        $mailer->Host       = $smtpHost;
+                        $mailer->Port       = $smtpPort;
+                        $mailer->SMTPAuth   = true;
+                        $mailer->Username   = $smtpUser;
+                        $mailer->Password   = $smtpPass;
+                        $mailer->SMTPSecure = ($smtpSecure === 'ssl')
+                            ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                            : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                        $mailer->CharSet    = 'UTF-8';
+                        $mailer->isHTML(true);
+                        $mailer->setFrom($smtpUser, $fromName);
+                        $mailer->Sender     = $smtpUser;
+                        $mailer->addReplyTo($smtpUser, $fromName);
+                        $mailer->addAddress($mailCartera);
+                        $mailer->Subject    = "Cierre de Crédito #{$idCredito} — {$cliente}";
+                        $mailer->Body       = $html;
+                        $mailer->AltBody    = strip_tags($html);
 
-                    foreach ($adjuntos as $adj) {
-                        $mailer->addAttachment($adj);
+                        foreach ($adjuntos as $adj) {
+                            $mailer->addAttachment($adj);
+                        }
+
+                        $mailer->send();
+                        $emailEnviado      = true;
+                        $emailDestinatario = $mailCartera;
+
+                        // Guardar log exitoso (opcional, comentar si genera ruido)
+                        $logPath = defined('RAIZ') ? (RAIZ . '/storage/logs/smtp_cierre_credito.log')
+                                                    : (__DIR__ . '/../../storage/logs/smtp_cierre_credito.log');
+                        @file_put_contents($logPath, date('Y-m-d H:i:s') . " [OK] Credito#{$idCredito}\n" . $smtpDebugLog . "\n", FILE_APPEND);
+
+                    } catch (\Throwable $mailEx) {
+                        $emailError = $mailEx->getMessage();
+
+                        // Escribir log completo con la conversación SMTP
+                        $logPath = defined('RAIZ') ? (RAIZ . '/storage/logs/smtp_cierre_credito.log')
+                                                    : (__DIR__ . '/../../storage/logs/smtp_cierre_credito.log');
+                        $logDir = dirname($logPath);
+                        if (!is_dir($logDir)) { @mkdir($logDir, 0755, true); }
+                        @file_put_contents(
+                            $logPath,
+                            date('Y-m-d H:i:s') . " [ERROR] Credito#{$idCredito} — {$emailError}\n"
+                            . "From: {$smtpUser}  To: {$mailCartera}\n"
+                            . $smtpDebugLog . "\n",
+                            FILE_APPEND
+                        );
+
+                        error_log('CierreCredito::enviarACartera mail -> ' . $emailError);
+                        // El correo falló pero el proceso continúa hacia el paso 5
                     }
-
-                    $mailer->send();
-                    $emailEnviado      = true;
-                    $emailDestinatario = $mailCartera;
                 }
             }
 
@@ -429,15 +487,159 @@ class CierreCredito extends Model
                 ]
             );
 
-            $msg = $emailEnviado
-                ? "Cierre enviado a cartera y correo notificado a {$emailDestinatario}."
-                : 'Cierre marcado como enviado a cartera. (Correo pendiente de configurar: mail_cartera en config.ini)';
+            if ($emailEnviado) {
+                $msg = "Cierre enviado a cartera y correo notificado a {$emailDestinatario}.";
+            } elseif ($emailError !== null) {
+                $msg = 'Cierre marcado como enviado a cartera. El correo no pudo enviarse.';
+            } else {
+                $msg = 'Cierre marcado como enviado a cartera. (Correo no configurado: revisar mail_cartera en config.ini)';
+            }
 
-            return self::resultado(true, $msg);
+            $resultado = self::resultado(true, $msg);
+            if ($emailError !== null) {
+                $resultado['email_error']     = $emailError;
+                $resultado['email_smtp_log']  = $smtpDebugLog ?? '';
+            }
+            return $resultado;
 
         } catch (\Throwable $e) {
             error_log('CierreCredito::enviarACartera -> ' . $e->getMessage());
             return self::resultado(false, 'Error al enviar a cartera.', [], $e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // DETALLE PARA ACORDEÓN + EXCEL
+    // ─────────────────────────────────────────────
+
+    /**
+     * Devuelve encabezado del convenio + tabla de amortización completa
+     * para un registro de cierre_credito_seguimiento dado.
+     *
+     * @param int $idCierre  PK de cierre_credito_seguimiento
+     */
+    public static function getDetalleCierre(int $idCierre): array
+    {
+        try {
+            $db = new Database();
+
+            // 1. Registro de seguimiento
+            $cierre = $db->queryOne(
+                "SELECT id, id_credito, nombre_cliente, estatus,
+                        usuario_alta, fecha_alta
+                 FROM cierre_credito_seguimiento
+                 WHERE id = :id LIMIT 1",
+                ['id' => $idCierre]
+            );
+            if (!$cierre) {
+                return self::resultado(false, 'Registro no encontrado.');
+            }
+
+            // 2. Convenio completado
+            $convenio = $db->queryOne(
+                "SELECT cc.id AS id_convenio, cc.id_credito,
+                        pc.nombre               AS nombre_producto,
+                        cc.pdf_adjunto,
+                        cc.total_a_pagar, cc.porcentaje_descuento,
+                        cc.descuento_monto,     cc.adeudo_total_original,
+                        cc.monto_adicional,     cc.pago_inicial_monto,
+                        cc.numero_semanas,      cc.pago_semanal,
+                        cc.fecha_acuerdo,       cc.fecha_primer_pago,
+                        cc.fecha_ultimo_pago
+                 FROM convenio_cliente cc
+                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE cc.id_credito = :id_credito AND cc.estatus = 'completado'
+                 ORDER BY cc.fecha_alta DESC LIMIT 1",
+                ['id_credito' => (int) $cierre['id_credito']]
+            );
+
+            // 3. Tabla de amortización
+            $amortizacion = [];
+            if ($convenio) {
+                $amortizacion = $db->queryAll(
+                    "SELECT numero_semana, fecha_pago, pago_semanal,
+                            capital, saldo_restante, estatus_pago,
+                            comprobante_path, fecha_pago_real
+                     FROM convenio_cliente_amortizacion
+                     WHERE id_convenio_cliente = :id
+                     ORDER BY numero_semana ASC",
+                    ['id' => (int) $convenio['id_convenio']]
+                ) ?: [];
+            }
+
+            return self::resultado(true, 'Detalle obtenido.', [
+                'cierre'       => $cierre,
+                'convenio'     => $convenio,
+                'amortizacion' => $amortizacion,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener el detalle.', [], $e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // DESCARTAR (regresa a Enviados Finalizados)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Elimina el registro de cierre_credito_seguimiento para que el convenio
+     * vuelva a aparecer en la pestaña de Enviados Finalizados.
+     */
+    public static function descartar(int $id, string $usuario): array
+    {
+        try {
+            $db = new Database();
+
+            $registro = $db->queryOne(
+                "SELECT id FROM cierre_credito_seguimiento
+                 WHERE id = :id AND estatus = 'en_proceso'
+                 LIMIT 1",
+                ['id' => $id]
+            );
+
+            if (!$registro) {
+                return self::resultado(false, 'Registro no encontrado o ya no está en proceso.');
+            }
+
+            $db->CRUD(
+                "UPDATE cierre_credito_seguimiento
+                 SET estatus = 'descartado',
+                     usuario_actualizacion = :usuario,
+                     fecha_actualizacion   = NOW()
+                 WHERE id = :id",
+                ['id' => $id, 'usuario' => $usuario]
+            );
+
+            return self::resultado(true, 'Registro descartado. El convenio regresó a Enviados Finalizados.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al descartar el registro.', [], $e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // HISTORIAL DE MOVIMIENTOS
+    // ─────────────────────────────────────────────
+
+    /**
+     * Devuelve todos los registros de cierre_credito_seguimiento ordenados
+     * por actividad más reciente, para la pestaña Historial.
+     */
+    public static function getHistorial(): array
+    {
+        try {
+            $db   = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, id_credito, nombre_cliente, estatus,
+                        usuario_alta, fecha_alta,
+                        usuario_actualizacion, fecha_actualizacion,
+                        fecha_envio_cartera, email_destino_cartera
+                 FROM cierre_credito_seguimiento
+                 ORDER BY COALESCE(fecha_envio_cartera, fecha_actualizacion, fecha_alta) DESC
+                 LIMIT 300"
+            );
+            return self::resultado(true, 'Historial de movimientos.', $rows ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener el historial.', [], $e->getMessage());
         }
     }
 }
