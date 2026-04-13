@@ -791,7 +791,6 @@ class CapHum extends Controller
             }
 
             /* =========================
-<<<<<<< HEAD
                ELIMINAR CONVENIOS DE CRÉDITO (admin express)
             ========================= */
             function adminReactivarProductoConvenio() {
@@ -957,8 +956,6 @@ class CapHum extends Controller
             }
 
             /* =========================
-=======
->>>>>>> a7f6faba82f0028f551a035b03af5fc3d76d0ff1
                MÓDULOS (lista plana duplicada eliminada; ver renderModulos agrupado más abajo)
             ========================= */
 
