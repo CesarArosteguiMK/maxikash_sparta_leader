@@ -64,15 +64,41 @@
     body.dark-mode .modal-perfil-modulos-agrupados .modulo-icon-box i {
         color: #93c5fd !important;
     }
+    #modalEditPerfil .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-wrap {
+        text-align: right;
+    }
+    #modalEditPerfil .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-label {
+        line-height: 1.2;
+    }
     #modalEditPerfil .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-cb {
         flex-shrink: 0;
         width: 1.1rem;
         height: 1.1rem;
-        margin-top: 0.15rem;
+        margin-top: 0;
         cursor: pointer;
     }
     body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-cb {
         filter: brightness(1.15);
+    }
+    body.dark-mode .modal-perfil-modulos-agrupados .modal-perfil-modulo-grupo-header .modal-perfil-modulo-master-label {
+        color: #cbd5e1 !important;
+    }
+
+    /* Puestos: cabecera de tarjeta colapsable (misma rejilla 2 columnas que módulos) */
+    #modalEditPerfil .modal-perfil-puesto-card-toggle:focus {
+        outline: none;
+    }
+    #modalEditPerfil .modal-perfil-puesto-card-toggle:focus-visible {
+        box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(26, 82, 168, 0.45);
+    }
+    body.dark-mode #modalEditPerfil .modal-perfil-puesto-card-toggle:focus-visible {
+        box-shadow: 0 0 0 2px #1e293b, 0 0 0 4px rgba(147, 197, 253, 0.4);
+    }
+    #modalEditPerfil .modal-perfil-puesto-card-collapse {
+        background: #fff;
+    }
+    body.dark-mode #modalEditPerfil .modal-perfil-puesto-card-collapse {
+        background: rgba(30, 41, 59, 0.95) !important;
     }
 
     /* Módulos del sistema (modal): máximo 2 bloques por fila; el resto baja a la siguiente fila */
@@ -1518,14 +1544,15 @@
     border-left: none !important;
   }
 
-  /* ── 11. BOTÓN EXPANDIR DEPARTAMENTOS ── */
-  #modalEditPerfil #tabPuestos .d-flex.justify-content-between {
+  /* ── 11. Pestaña Puestos: encabezado y expandir todos (móvil) ── */
+  #modalEditPerfil #tabPuestos .d-flex.justify-content-between,
+  #modalEditPerfil #tabPuestos .d-flex.justify-content-between.align-items-center.mb-4 {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0.5rem !important;
   }
 
-  #modalEditPerfil #tabPuestos button[onclick="expandirTodosPuestos()"] {
+  #modalEditPerfil #btn-puestos-expandir-todos {
     width: 100% !important;
     justify-content: center !important;
     font-size: 0.8rem !important;
@@ -3163,17 +3190,17 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <div class="tab-pane fade" id="tabPuestos" role="tabpanel">
                             <input type="hidden" id="edit_perfil_id">
 
-                            <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                                 <div>
                                     <h6 class="mb-1 fw-bold">Puestos Disponibles</h6>
                                     <small class="text-muted">Selecciona los puestos a los que tendrá acceso este usuario</small>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="expandirTodosPuestos()">
-                                    <i class="fa fa-expand me-1"></i>Expandir Departamentos
+                                <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-puestos-expandir-todos" onclick="expandirTodosPuestos()">
+                                    <i class="fa fa-expand me-1"></i>Expandir todos
                                 </button>
                             </div>
 
-                            <div id="puestos-container" style="max-height: 500px; overflow-y: auto;">
+                            <div id="puestos-container" style="overflow-y: visible;">
                                 <div id="modal-edit-perfil-puestos-form"></div>
                             </div>
                         </div>

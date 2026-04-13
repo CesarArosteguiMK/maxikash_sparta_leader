@@ -2224,7 +2224,7 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                 </button>
                 <?php endif; ?>
 
-                <!-- Dictaminar, condonar y notas: visibles para todos; el backend valida permisos en cada acción. -->
+                <?php if (!empty($tienePermisoDictaminarLlamada) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button"
                         class="btn btn-dictaminar position-relative"
                         data-bs-toggle="modal"
@@ -2232,14 +2232,18 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                         title="Dictaminar llamada">
                     <i class="fa fa-headset"></i>
                 </button>
+                <?php endif; ?>
 
+                <?php if (!empty($tienePermisoCondonarGastosCobranza) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button"
                         class="btn btn-condonar position-relative"
                         title="<?= $esGestionExternaMx ? 'No disponible: gestión externa' : 'Condonar gastos de cobranza' ?>"
                         onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-hand-holding-usd"></i>
                 </button>
+                <?php endif; ?>
 
+                <?php if (!empty($tienePermisoNotasCliente) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button"
                         class="btn btn-notas position-relative"
                         title="Notas del cliente"
@@ -2250,6 +2254,7 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                         …
                     </span>
                 </button>
+                <?php endif; ?>
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
                     <i class="fa fa-search"></i>
