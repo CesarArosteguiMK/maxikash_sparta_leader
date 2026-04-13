@@ -1,8 +1,11 @@
 const TZ = 'America/Mexico_City';
 const CACHE_TTL_MS = 20000;
 const ALLOW_LOCAL_FALLBACK = (process.env.ALLOW_LOCAL_TIME_FALLBACK || '0') === '1';
+const REMOTE_TIMEOUT_MS = Math.max(800, parseInt(process.env.CDMX_TIME_REMOTE_TIMEOUT_MS || '2500', 10) || 2500);
+const REMOTE_FAIL_COOLDOWN_MS = Math.max(30000, parseInt(process.env.CDMX_TIME_REMOTE_FAIL_COOLDOWN_MS || '120000', 10) || 120000);
 
 let cache = null;
+let remoteBlockedUntilMs = 0;
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -37,8 +40,18 @@ function localFallbackNow() {
   };
 }
 
+async function fetchWithTimeout(url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REMOTE_TIMEOUT_MS);
+  try {
+    return await fetch(url, { method: 'GET', signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchWorldTimeApi() {
-  const r = await fetch('https://worldtimeapi.org/api/timezone/America/Mexico_City', { method: 'GET' });
+  const r = await fetchWithTimeout('https://worldtimeapi.org/api/timezone/America/Mexico_City');
   if (!r.ok) throw new Error('worldtimeapi HTTP ' + r.status);
   const j = await r.json();
   const dt = j.datetime ? new Date(j.datetime) : (Number.isFinite(j.unixtime) ? new Date(j.unixtime * 1000) : null);
@@ -54,7 +67,7 @@ async function fetchWorldTimeApi() {
 
 async function fetchTimeApiIo() {
   const url = 'https://timeapi.io/api/Time/current/zone?timeZone=America/Mexico_City';
-  const r = await fetch(url, { method: 'GET' });
+  const r = await fetchWithTimeout(url);
   if (!r.ok) throw new Error('timeapi.io HTTP ' + r.status);
   const j = await r.json();
   const d = String(j.date || '').trim();       // MM/DD/YYYY
@@ -82,6 +95,14 @@ async function fetchTimeApiIo() {
 async function getAccurateCdmxNow() {
   const nowMs = Date.now();
   if (cache && (nowMs - cache.cachedAtMs) < CACHE_TTL_MS) return cache.value;
+  if (remoteBlockedUntilMs > nowMs) {
+    if (ALLOW_LOCAL_FALLBACK) {
+      const value = localFallbackNow();
+      cache = { cachedAtMs: nowMs, value };
+      return value;
+    }
+    throw new Error('Fuentes de hora remota en enfriamiento temporal.');
+  }
 
   let value = null;
   try {
@@ -91,10 +112,15 @@ async function getAccurateCdmxNow() {
       value = await fetchTimeApiIo();
     } catch (_) {
       if (!ALLOW_LOCAL_FALLBACK) {
+        remoteBlockedUntilMs = Date.now() + REMOTE_FAIL_COOLDOWN_MS;
         throw new Error('No se pudo obtener hora CDMX remota (worldtimeapi/timeapi.io).');
       }
       value = localFallbackNow();
+      remoteBlockedUntilMs = Date.now() + REMOTE_FAIL_COOLDOWN_MS;
     }
+  }
+  if (value && value.fromRemote) {
+    remoteBlockedUntilMs = 0;
   }
   cache = { cachedAtMs: nowMs, value };
   return value;

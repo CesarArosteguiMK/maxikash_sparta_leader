@@ -50,12 +50,21 @@ function loadConfig() {
 /**
  * Ejecuta un comando en el servidor remoto vía SSH.
  * @param {string} command
- * @param {{ timeoutMs?: number }} [options] — timeoutMs: 0 = sin límite; por defecto env SSH_COMMAND_TIMEOUT_MS o 120000 ms
+ * @param {{ timeoutMs?: number, retries?: number, retryDelayMs?: number, readyTimeoutMs?: number }} [options]
+ *   - timeoutMs: 0 = sin límite; por defecto env SSH_COMMAND_TIMEOUT_MS o 120000 ms
+ *   - retries: reintentos extra en errores transitorios (por defecto env SSH_RUNCOMMAND_RETRIES o 2)
+ *   - retryDelayMs: base de espera entre reintentos (por defecto env SSH_RUNCOMMAND_RETRY_DELAY_MS o 1200)
  * @returns {Promise<{ success: boolean, output: string, error: string, code: number }>}
  */
 function runCommand(command, options = {}) {
-  const maxRetries = Math.max(0, parseInt(process.env.SSH_RUNCOMMAND_RETRIES || '2', 10) || 2);
-  const retryDelayMs = Math.max(250, parseInt(process.env.SSH_RUNCOMMAND_RETRY_DELAY_MS || '1200', 10) || 1200);
+  const envRetries = parseInt(process.env.SSH_RUNCOMMAND_RETRIES || '2', 10);
+  const envDelay = parseInt(process.env.SSH_RUNCOMMAND_RETRY_DELAY_MS || '1200', 10);
+  const maxRetries = options.retries != null
+    ? Math.max(0, parseInt(options.retries, 10) || 0)
+    : Math.max(0, envRetries || 2);
+  const retryDelayMs = options.retryDelayMs != null
+    ? Math.max(250, parseInt(options.retryDelayMs, 10) || 250)
+    : Math.max(250, envDelay || 1200);
   const envT = process.env.SSH_COMMAND_TIMEOUT_MS;
   let defaultTimeout = 120000;
   if (envT !== undefined && envT !== '') {
@@ -66,6 +75,12 @@ function runCommand(command, options = {}) {
 
   function runOnce() {
     const config = loadConfig();
+    if (options.readyTimeoutMs != null) {
+      const rt = parseInt(options.readyTimeoutMs, 10);
+      if (Number.isFinite(rt) && rt > 0) {
+        config.readyTimeout = rt;
+      }
+    }
     return new Promise((resolve) => {
       const conn = new Client();
       let stdout = '';

@@ -16,6 +16,8 @@ const express = require('express');
 const { runCommand, downloadFileStream, runCommandStream } = require('./lib/sshClient');
 const autoCopyConfig = require('./lib/autoCopyConfig');
 const { getAccurateCdmxNow, getCdmxLocalSync } = require('./lib/cdmxTime');
+const CDMX_WARN_LOG_COOLDOWN_MS = Math.max(30000, parseInt(process.env.CDMX_WARN_LOG_COOLDOWN_MS || '120000', 10) || 120000);
+let lastCdmxWarnLogMs = 0;
 
 /**
  * Hora CDMX para respuestas HTTP: nunca lanza (evita tumbar el proceso Node si
@@ -27,7 +29,11 @@ async function getCdmxNowForHttp() {
   try {
     return await getAccurateCdmxNow();
   } catch (e) {
-    console.warn('[cdmx] Fuentes remotas no disponibles; usando reloj local:', e.message);
+    const now = Date.now();
+    if ((now - lastCdmxWarnLogMs) >= CDMX_WARN_LOG_COOLDOWN_MS) {
+      console.warn('[cdmx] Fuentes remotas no disponibles; usando reloj local:', e.message);
+      lastCdmxWarnLogMs = now;
+    }
     return getCdmxLocalSync();
   }
 }
@@ -1189,14 +1195,14 @@ app.get('/files', async (req, res) => {
     try {
       nowCdmx = await Promise.race([
         getAccurateCdmxNow(),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout hora CDMX')), 6000)),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout hora CDMX')), 2500)),
       ]);
     } catch (_) {
       nowCdmx = getCdmxLocalSync();
     }
     const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
     const cmd = `cd '${dirEsc}' && ls -l mega_rpt_*.csv.zip 2>/dev/null`;
-    const result = await runCommand(cmd);
+    const result = await runCommand(cmd, { timeoutMs: 25000, retries: 0, readyTimeoutMs: 10000 });
     if (!result.success) {
       return res.status(500).json({
         success: false,

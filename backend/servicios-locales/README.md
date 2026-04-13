@@ -20,7 +20,7 @@ Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `i
 | Archivo | Descripcion |
 |---------|-------------|
 | `iniciar-todos-los-servicios.bat` | Consola con resumen; agentes se abren **minimizados** en la barra (no ocultos del todo). |
-| `iniciar-todos-los-servicios.ps1` | Logica (lo llama el `.bat`). |
+| `iniciar-todos-los-servicios.ps1` | Lógica (lo llama el `.bat`): arranca y valida puertos (3001, 3100, 3110, 3120, 8000), avisando si alguno no levantó en el tiempo esperado. |
 | `iniciar-todos-los-servicios-oculto.vbs` | **Sin ventanas:** ni la consola del orquestador ni las de agentes/API (usa `-SinVentanas` en el `.ps1`). Si algo falla, use el `.bat` para ver mensajes. |
 
 **Qué inicia** (rutas relativas a `backend/`):

@@ -39,6 +39,7 @@
     $gcUltRep = isset($ultimo_reporte) ? (string) $ultimo_reporte : '—';
     $gcRepAuto = isset($reporte_automatico) ? (string) $reporte_automatico : '—';
     $gcRepAutoColor = ($gcRepAuto === 'Activo') ? '#2ecc8b' : (($gcRepAuto === 'Inactivo') ? '#e74c3c' : '#6b7a90');
+    $gcRepAutoClase = ($gcRepAuto === 'Activo') ? 'text-success' : (($gcRepAuto === 'Inactivo') ? 'text-danger' : 'text-muted');
     ?>
     <div style="background:#fff; border:0.5px solid #dde3ec; border-radius:12px; padding:16px 22px; margin-bottom:12px; display:flex; gap:0; flex-wrap:wrap;">
         <div style="flex:1; padding-right:20px; border-right:0.5px solid #eef1f5;">
@@ -51,7 +52,11 @@
         </div>
         <div style="flex:1; padding-left:20px;">
             <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Reporte automático</div>
-            <div style="font-size:15px; font-weight:700; color:<?= htmlspecialchars($gcRepAutoColor, ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars($gcRepAuto, ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="form-check form-switch mb-0 gc-auto-run-switch d-flex align-items-center gap-2 ps-0">
+                <input class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch" id="switchGcAutoRunReporte" autocomplete="off" disabled
+                    title="Si está activo, el agente Node dispara el reporte en la ventana horaria CDMX configurada (por defecto ~10:00). Requiere agente en línea. La preferencia se guarda en el servidor del agente.">
+                <span id="gcAutoRunEstadoTexto" class="small fw-semibold <?= htmlspecialchars($gcRepAutoClase, ENT_QUOTES, 'UTF-8') ?>" style="color:<?= htmlspecialchars($gcRepAutoColor, ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars($gcRepAuto, ENT_QUOTES, 'UTF-8') ?></span>
+            </div>
         </div>
     </div>
 
@@ -72,7 +77,7 @@
                                     <span class="sg-tip-btn-face">
                                         <i class="fa fa-rocket" aria-hidden="true"></i>
                                         <span class="sg-btn-label">EC Worker</span>
-                                        <span class="sg-tooltip-icon" data-tip="Puede tardar mucho. Con el Worker, al terminar la corrida la lista negra se actualiza sola con el mismo Excel."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                        <span class="sg-tooltip-icon" data-tip="El Worker es el proceso que actualiza los gastos de cobranza en la base de datos una vez que Cartera ha confirmado que el criterio quedó aplicado en el S2. Cuando el Worker finaliza correctamente, el sistema ejecuta de forma automática la carga a lista negra usando el mismo Excel."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                     </span>
                                 </button>
                             </div>
@@ -81,7 +86,7 @@
                                     <span class="sg-tip-btn-face">
                                         <i class="fa fa-database" aria-hidden="true"></i>
                                         <span class="sg-btn-label">Lista negra</span>
-                                        <span class="sg-tooltip-icon" data-tip="(opcional). El Worker ya aplica la lista negra al terminar el lote; abre esto solo para ajustar parámetros o para subir un Excel sin pasar por el Worker."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                        <span class="sg-tooltip-icon" data-tip="(Opcional.) Si ya usó el Worker, la lista negra suele haberse cargado sola al terminar. Abra este modal solo para ajustar parámetros o para subir un Excel a verificación semana sin pasar antes por el Worker."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                     </span>
                                 </button>
                             </div>
@@ -111,137 +116,115 @@
     </div>
 
     <div class="modal fade" id="modalGcEcWorker" tabindex="-1" aria-labelledby="modalGcEcWorkerLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered gc-modal-shell-dialog">
-            <div class="position-relative w-100 gc-modal-shell-wrap">
-                <button type="button" class="gc-shell-gc-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">
-                    <span class="gc-shell-gc-modal-close-x" aria-hidden="true">&times;</span>
-                </button>
-                <div class="modal-content border-0 shadow gc-modal-shell-content">
-                    <div class="modal-header border-0 pb-2 pt-3 px-4">
-                        <h5 class="modal-title fw-semibold mb-0" id="modalGcEcWorkerLabel" style="color:#1a3a5c;"><i class="fa fa-rocket gc-ec-worker-title-icon me-2" aria-hidden="true"></i>EC Worker / Excel enriquecido</h5>
-                    </div>
-                    <div class="modal-body pt-0 px-4 pb-4 gc-modal-shell-body-scroll">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-12 col-md-5 col-lg-4">
-                                <div class="form-label small mb-1 text-muted">Excel (.xlsx) — requerido</div>
-                                <div class="gc-excel-file-zone gc-excel-zone-empty" id="ecLauncherFileZone" role="presentation">
-                                    <input type="file" class="d-none" id="ecLauncherFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" autocomplete="off">
-                                    <label for="ecLauncherFile" class="gc-excel-file-face mb-0">
-                                        <i class="fa fa-paperclip text-secondary" aria-hidden="true"></i>
-                                        <span id="ecLauncherFileFace" class="gc-excel-file-face-text fw-semibold text-body">Seleccionar archivo</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3 col-lg-3">
-                                <label class="form-label small mb-1 text-muted" for="ecLauncherFecha">Fecha corte S2</label>
-                                <input type="date" class="form-control form-control-sm" id="ecLauncherFecha">
-                            </div>
-                            <div class="col-12 col-md-4 col-lg-3">
-                                <label class="form-label small mb-1 text-muted" for="ecLauncherCol">Columna ID en Excel</label>
-                                <input type="text" class="form-control form-control-sm" id="ecLauncherCol" value="ID CREDITO" placeholder="ID CREDITO">
-                            </div>
-                            <div class="col-6 col-md-2 col-lg-2">
-                                <label class="form-label small mb-1 text-nowrap text-muted" for="ecLauncherOmitir" title="Saltar primeros créditos (N)">Omitir N</label>
-                                <input type="number" class="form-control form-control-sm" id="ecLauncherOmitir" value="0" min="0" title="Saltar primeros créditos: ignorar los primeros N IDs del Excel" style="max-width: 4.25rem">
-                            </div>
-                            <div class="col-12">
-                                <div class="form-check mb-0">
-                                    <input class="form-check-input" type="checkbox" id="ecLauncherEnrich" autocomplete="off">
-                                    <label class="form-check-label small d-inline-flex align-items-center flex-wrap gap-1" for="ecLauncherEnrich">
-                                        Excel enriquecido (+ Chat)
-                                        <span class="text-muted" style="cursor: help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" title="Sin marcar: Worker (S2 + BD + Chat; al terminar la corrida, lista negra automática). Marcada: enriquecido completo (mismo criterio de BD y auditoría que el flujo enrich del servidor)."><i class="fa fa-info-circle" aria-hidden="true"></i><span class="visually-hidden"> Ayuda modos Worker / enriquecido</span></span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-12 mt-1">
-                                <div class="d-flex flex-column align-items-start gap-1">
-                                    <button type="button" class="btn gc-excel-run-btn gc-excel-run-btn-compact" id="btnEcLauncherEjecutar" disabled>
-                                        <i class="fa fa-play me-2" aria-hidden="true"></i>Ejecutar corrida del agente
-                                    </button>
-                                    <span class="small text-muted">Puede tardar varios minutos. Con el Worker, al terminar la lista negra se actualiza con el mismo Excel.</span>
-                                </div>
-                            </div>
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold" id="modalGcEcWorkerLabel" style="color:#1a3a5c;">
+                        <i class="fa fa-rocket text-secondary me-2" aria-hidden="true"></i>EC Worker / Excel enriquecido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-12 col-md-6 col-lg-5">
+                            <label class="form-label small mb-1 text-muted" for="ecLauncherFile">Excel (.xlsx) — requerido</label>
+                            <input type="file" class="form-control form-control-sm" id="ecLauncherFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" autocomplete="off">
                         </div>
-                        <div id="ecErroresReintentoBanner" class="alert alert-warning d-none mt-3 mb-0 py-2 small" role="alert">
-                            Tras la segunda pasada automática aún hubo créditos con error.
-                            <a id="ecErroresReintentoLink" class="alert-link fw-semibold" href="#">Descargar CSV (id, tipo de error y detalle)</a>
-                            para revisión manual.
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label class="form-label small mb-1 text-muted" for="ecLauncherFecha">Fecha corte S2</label>
+                            <input type="date" class="form-control form-control-sm" id="ecLauncherFecha">
                         </div>
-                        <div id="ecLauncherSalidaWrap" class="d-none mt-3">
-                            <label class="form-label small fw-semibold">Salida EC worker / enrich</label>
-                            <pre id="ecLauncherSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
+                        <div class="col-12 col-md-3 col-lg-3">
+                            <label class="form-label small mb-1 text-muted" for="ecLauncherCol">Columna ID en Excel</label>
+                            <input type="text" class="form-control form-control-sm" id="ecLauncherCol" value="ID CREDITO" placeholder="ID CREDITO">
+                        </div>
+                        <div class="col-6 col-md-3 col-lg-2">
+                            <label class="form-label small mb-1 text-nowrap text-muted" for="ecLauncherOmitir" title="Saltar primeros créditos (N)">Omitir N</label>
+                            <input type="number" class="form-control form-control-sm" id="ecLauncherOmitir" value="0" min="0" title="Saltar primeros créditos: ignorar los primeros N IDs del Excel" style="max-width: 4.25rem">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="ecLauncherEnrich" autocomplete="off">
+                                <label class="form-check-label small d-inline-flex align-items-center flex-wrap gap-1" for="ecLauncherEnrich">
+                                    Excel enriquecido (+ Chat)
+                                    <span class="text-muted" style="cursor: help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" title="Sin marcar: modo Worker (S2, base de datos y Chat). Actualiza gastos de cobranza cuando Cartera confirmó la aplicación en S2; al terminar bien, corre sola la lista negra con este Excel. Marcada: solo flujo «Excel enriquecido» (enrich completo en servidor, misma auditoría que el proceso enrich)."><i class="fa fa-info-circle" aria-hidden="true"></i><span class="visually-hidden"> Ayuda modos Worker / enriquecido</span></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
+                    <div id="ecErroresReintentoBanner" class="alert alert-warning d-none mt-3 mb-0 py-2 small" role="alert">
+                        Tras la segunda pasada automática aún hubo créditos con error.
+                        <a id="ecErroresReintentoLink" class="alert-link fw-semibold" href="#">Descargar CSV (id, tipo de error y detalle)</a>
+                        para revisión manual.
+                    </div>
+                    <div id="ecLauncherSalidaWrap" class="d-none mt-3">
+                        <label class="form-label small fw-semibold">Salida EC worker / enrich</label>
+                        <pre id="ecLauncherSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex flex-wrap align-items-center gap-2">
+                    <span class="small text-muted text-start flex-grow-1 me-auto" style="min-width: 12rem;">La corrida puede tardar varios minutos. En modo Worker estándar, al finalizar bien se dispara en automático la lista negra con el mismo Excel para dejar reflejados esos valores en verificación semana.</span>
+                    <button type="button" class="btn btn-primary" id="btnEcLauncherEjecutar" disabled>
+                        <i class="fa fa-play me-2" aria-hidden="true"></i>Ejecutar corrida del agente
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="modal fade" id="modalGcListaNegra" tabindex="-1" aria-labelledby="modalGcListaNegraLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered gc-modal-shell-dialog">
-            <div class="position-relative w-100 gc-modal-shell-wrap">
-                <button type="button" class="gc-shell-gc-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">
-                    <span class="gc-shell-gc-modal-close-x" aria-hidden="true">&times;</span>
-                </button>
-                <div class="modal-content border-0 shadow gc-modal-shell-content">
-                    <div class="modal-header border-0 pb-2 pt-3 px-4">
-                        <h5 class="modal-title fw-semibold mb-0" id="modalGcListaNegraLabel" style="color:#1a3a5c;"><i class="fa fa-database text-secondary me-2"></i>Carga manual a lista negra</h5>
-                    </div>
-                    <div class="modal-body pt-0 px-4 pb-4 gc-modal-shell-body-scroll">
-                        <p class="small text-muted mb-3 d-flex flex-wrap align-items-baseline gap-2">
-                            <span>Carga verificación semana (Excel → BD). Tabla <code>cobranza_gc_verificacion_semana</code>.</span>
-                            <span class="text-muted flex-shrink-0" tabindex="0" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" data-bs-custom-class="gc-tooltip-carga-verif" title="Carga verificación semana (Excel → BD). Tabla cobranza_gc_verificacion_semana. SALDO APLICABLE A GC → monto_aplicar. Inicio de semana se calcula solo en el agente: martes que abre la semana operativa según hoy (hora Ciudad de México), igual que en la pantalla de estado de cuenta. Si el mismo id_credito ya tiene fila en esa semana con estatus 3, no se duplica: pasa a estatus 2 y se actualiza celula si viene COMENTARIOS en el Excel. Los nuevos se insertan con el estatus que elijas abajo (por defecto 2). En esta carga, tipo_reporte debe quedar NULL en MySQL. Si el Excel tiene título o filas vacías encima de los encabezados, deje en auto el campo «Fila de encabezados» o indique la fila donde está id_credito (1 = primera fila del libro). Misma lógica cuando el Worker dispara la carga automática (detección automática de fila de títulos).">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                                <span class="visually-hidden"> Ayuda detallada de la carga a lista negra</span>
-                            </span>
-                        </p>
-                        <div class="row g-3 align-items-end">
-                            <div class="col-12 col-md-6 col-lg-5">
-                                <div class="form-label small mb-1 text-muted">Excel (.xlsx) — requerido</div>
-                                <div class="gc-excel-file-zone gc-excel-zone-empty" id="cargaVerifFileZone" role="presentation">
-                                    <input type="file" class="d-none" id="cargaVerifFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" autocomplete="off">
-                                    <label for="cargaVerifFile" class="gc-excel-file-face mb-0">
-                                        <i class="fa fa-paperclip text-secondary" aria-hidden="true"></i>
-                                        <span id="cargaVerifFileFace" class="gc-excel-file-face-text fw-semibold text-body">Seleccionar archivo</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small mb-1 text-muted">Estatus (filas nuevas)</label>
-                                <select class="form-select form-select-sm" id="cargaVerifEstatus" title="Solo aplica a INSERT; las que ya estaban en 3 pasan a 2">
-                                    <option value="2" selected>2</option>
-                                    <option value="1">1</option>
-                                    <option value="0">0</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small mb-1 text-muted">Fila encabezados (Excel)</label>
-                                <input type="number" class="form-control form-control-sm" id="cargaVerifHeaderRow" min="1" max="200" placeholder="Auto" title="Número de fila donde están id_credito, etc. (1 = primera). Vacío = el script la detecta solo.">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label small mb-1 text-muted">Mensaje lote (opcional)</label>
-                                <input type="text" class="form-control form-control-sm" id="cargaVerifMensaje" placeholder="Vacío = mensaje automático en el script" maxlength="500">
-                            </div>
-                            <div class="col-md-12">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="cargaVerifDryRun">
-                                    <label class="form-check-label small" for="cargaVerifDryRun">Solo simular (dry-run, no inserta en BD)</label>
-                                </div>
-                            </div>
-                            <div class="col-12 mt-1">
-                                <div class="d-flex flex-column align-items-start gap-1">
-                                    <button type="button" class="btn gc-excel-run-btn gc-excel-run-btn-secondary gc-excel-run-btn-compact" id="btnCargaVerifEjecutar" disabled>
-                                        <i class="fa fa-cogs me-2" aria-hidden="true"></i>Cargar lista negra vía agente
-                                    </button>
-                                    <span class="small text-muted">Python en el agente: <code>openpyxl</code>, <code>mysql-connector-python</code>.</span>
-                                </div>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold mb-0" id="modalGcListaNegraLabel" style="color:#1a3a5c;"><i class="fa fa-database text-secondary me-2"></i>Carga manual a lista negra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3 d-flex flex-wrap align-items-baseline gap-2">
+                        <span>Carga verificación semana (Excel → BD). Tabla <code>cobranza_gc_verificacion_semana</code>.</span>
+                        <span class="text-muted flex-shrink-0" tabindex="0" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" data-bs-custom-class="gc-tooltip-carga-verif" title="Carga verificación semana (Excel → BD). Tabla cobranza_gc_verificacion_semana. SALDO APLICABLE A GC → monto_aplicar. Inicio de semana se calcula solo en el agente: martes que abre la semana operativa según hoy (hora Ciudad de México), igual que en la pantalla de estado de cuenta. Si el mismo id_credito ya tiene fila en esa semana con estatus 3, no se duplica: pasa a estatus 2 y se actualiza celula si viene COMENTARIOS en el Excel. Los nuevos se insertan con el estatus que elijas abajo (por defecto 2). En esta carga, tipo_reporte debe quedar NULL en MySQL. Si el Excel tiene título o filas vacías encima de los encabezados, deje en auto el campo «Fila de encabezados» o indique la fila donde está id_credito (1 = primera fila del libro). Misma lógica cuando el Worker dispara la carga automática (detección automática de fila de títulos).">
+                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                            <span class="visually-hidden"> Ayuda detallada de la carga a lista negra</span>
+                        </span>
+                    </p>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-12 col-md-6 col-lg-5">
+                            <label class="form-label small mb-1 text-muted" for="cargaVerifFile">Excel (.xlsx) — requerido</label>
+                            <input type="file" class="form-control form-control-sm" id="cargaVerifFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" autocomplete="off">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1 text-muted">Estatus (filas nuevas)</label>
+                            <select class="form-select form-select-sm" id="cargaVerifEstatus" title="Solo aplica a INSERT; las que ya estaban en 3 pasan a 2">
+                                <option value="2" selected>2</option>
+                                <option value="1">1</option>
+                                <option value="0">0</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1 text-muted">Fila encabezados (Excel)</label>
+                            <input type="number" class="form-control form-control-sm" id="cargaVerifHeaderRow" min="1" max="200" placeholder="Auto" title="Número de fila donde están id_credito, etc. (1 = primera). Vacío = el script la detecta solo.">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small mb-1 text-muted">Mensaje lote (opcional)</label>
+                            <input type="text" class="form-control form-control-sm" id="cargaVerifMensaje" placeholder="Vacío = mensaje automático en el script" maxlength="500">
+                        </div>
+                        <div class="col-md-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="cargaVerifDryRun">
+                                <label class="form-check-label small" for="cargaVerifDryRun">Solo simular (dry-run, no inserta en BD)</label>
                             </div>
                         </div>
-                        <div id="cargaVerifSalidaWrap" class="d-none mt-3">
-                            <label class="form-label small fw-semibold">Salida carga verificación</label>
-                            <pre id="cargaVerifSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
-                        </div>
                     </div>
+                    <div id="cargaVerifSalidaWrap" class="d-none mt-3">
+                        <label class="form-label small fw-semibold">Salida carga verificación</label>
+                        <pre id="cargaVerifSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex flex-wrap align-items-center gap-2">
+                    <span class="small text-muted text-start flex-grow-1 me-auto">Python en el agente: <code>openpyxl</code>, <code>mysql-connector-python</code>.</span>
+                    <button type="button" class="btn btn-primary" id="btnCargaVerifEjecutar" disabled>
+                        <i class="fa fa-cogs me-2" aria-hidden="true"></i>Cargar lista negra vía agente
+                    </button>
                 </div>
             </div>
         </div>
@@ -337,11 +320,6 @@
                             <p id="gastosCobranzaSemanaActualHint" class="small text-muted mb-0 mt-1">Semana actual (lun–dom, Ciudad de México): —</p>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-3">
-                            <div class="form-check form-switch mb-0 gc-auto-run-switch d-flex align-items-center gap-2">
-                                <input class="form-check-input flex-shrink-0" type="checkbox" role="switch" id="switchGcAutoRunReporte" autocomplete="off" disabled
-                                    title="Si está activo, el agente Node dispara el reporte en la ventana horaria CDMX configurada (por defecto ~10:00). Requiere agente en línea. La preferencia se guarda en el servidor del agente.">
-                                <label class="form-check-label small mb-0 text-nowrap" for="switchGcAutoRunReporte">Reporte automático</label>
-                            </div>
                             <div id="shellGastosCobranzaReporteToolbar" class="d-flex flex-wrap align-items-center gap-2">
                                 <div class="sg-btn-wrap">
                                     <button type="button" class="sg-tip-btn sg-btn-green" id="btnGastosCobranzaEjecutar" disabled>
@@ -439,10 +417,6 @@
     .container-p-y .row.mb-4:last-of-type {
         margin-bottom: 1rem !important;
     }
-    .gc-ec-worker-title-icon {
-        color: #7b61ff;
-    }
-
     /* Shell hero: encabezado y módulo */
     .gc-shell-hero-card {
         background: linear-gradient(135deg, #fcfdff 0%, #f6f8fc 100%);
@@ -521,13 +495,27 @@
     body.dark-mode .gc-shell-module-name {
         color: #f8fafc !important;
     }
+    .gc-auto-run-wrap {
+        min-width: 170px;
+    }
     .gc-auto-run-switch .form-check-label {
         cursor: pointer;
         user-select: none;
     }
+    .gc-auto-run-switch #gcAutoRunEstadoTexto {
+        min-width: 64px;
+    }
     html.dark-mode .gc-auto-run-switch .form-check-label,
     body.dark-mode .gc-auto-run-switch .form-check-label {
         color: #cbd5e1;
+    }
+    html.dark-mode .gc-auto-run-switch #gcAutoRunEstadoTexto.text-success,
+    body.dark-mode .gc-auto-run-switch #gcAutoRunEstadoTexto.text-success {
+        color: #4ade80 !important;
+    }
+    html.dark-mode .gc-auto-run-switch #gcAutoRunEstadoTexto.text-danger,
+    body.dark-mode .gc-auto-run-switch #gcAutoRunEstadoTexto.text-danger {
+        color: #f87171 !important;
     }
 
     /* Barra de acciones alineada con Shell Segundómetro (sg-tip-btn) */
@@ -794,41 +782,29 @@
     #shellGastosCobranzaAccionesBar .sg-tooltip-icon:hover::after {
         transform: translateX(-50%) translateY(0);
     }
-    /* Modales Shell Gastos Cobranza: cierre flotante + sin recorte horizontal */
+    /* Modales Shell Gastos Cobranza (log y descargo): cierre flotante + sin recorte horizontal. EC Worker y lista negra usan modal Bootstrap estándar. */
     #modalGcAgenteLog.modal,
-    #modalGcEcWorker.modal,
-    #modalGcListaNegra.modal,
     #modalGcDescargo.modal {
         overflow-x: visible !important;
     }
     #modalGcAgenteLog .gc-modal-shell-dialog,
-    #modalGcEcWorker .gc-modal-shell-dialog,
-    #modalGcListaNegra .gc-modal-shell-dialog,
     #modalGcDescargo .gc-modal-shell-dialog {
         position: relative;
     }
     #modalGcAgenteLog .gc-modal-shell-wrap,
-    #modalGcEcWorker .gc-modal-shell-wrap,
-    #modalGcListaNegra .gc-modal-shell-wrap,
     #modalGcDescargo .gc-modal-shell-wrap {
         overflow: visible;
         pointer-events: none;
     }
     #modalGcAgenteLog .gc-modal-shell-wrap .modal-content,
-    #modalGcEcWorker .gc-modal-shell-wrap .modal-content,
-    #modalGcListaNegra .gc-modal-shell-wrap .modal-content,
     #modalGcDescargo .gc-modal-shell-wrap .modal-content {
         pointer-events: auto;
     }
     #modalGcAgenteLog .gc-modal-shell-content,
-    #modalGcEcWorker .gc-modal-shell-content,
-    #modalGcListaNegra .gc-modal-shell-content,
     #modalGcDescargo .gc-modal-shell-content {
         overflow: visible;
         border-radius: 0.5rem;
     }
-    #modalGcEcWorker .gc-modal-shell-body-scroll,
-    #modalGcListaNegra .gc-modal-shell-body-scroll,
     #modalGcDescargo .gc-modal-shell-body-scroll {
         max-height: min(78vh, 680px);
         overflow-y: auto;
@@ -881,6 +857,41 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+    /* EC Worker (modal estándar): misma escala visual que form-control-sm de la fila */
+    #modalGcEcWorker .gc-excel-file-zone {
+        border-radius: 0.375rem;
+        background: #fff;
+        border-color: #ced4da;
+    }
+    #modalGcEcWorker .gc-excel-file-zone.gc-excel-zone-empty {
+        background: #fff;
+        background-image: none;
+    }
+    #modalGcEcWorker .gc-excel-file-face {
+        min-height: 31px;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        gap: 0.4rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    #modalGcEcWorker .gc-excel-file-face .fa-paperclip {
+        font-size: 0.8125rem;
+        opacity: 0.85;
+    }
+    #modalGcEcWorker .gc-excel-file-zone:focus-within {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    }
+    html.dark-mode #modalGcEcWorker .gc-excel-file-zone,
+    body.dark-mode #modalGcEcWorker .gc-excel-file-zone {
+        background: rgba(15, 23, 42, 0.55);
+        border-color: #64748b;
+    }
+    html.dark-mode #modalGcEcWorker .gc-excel-file-zone.gc-excel-zone-filled,
+    body.dark-mode #modalGcEcWorker .gc-excel-file-zone.gc-excel-zone-filled {
+        background: rgba(15, 23, 42, 0.65);
     }
     .gc-excel-run-btn {
         border-radius: 10px;
@@ -940,8 +951,6 @@
         overflow-x: hidden;
     }
     #modalGcAgenteLog .gc-shell-gc-modal-close,
-    #modalGcEcWorker .gc-shell-gc-modal-close,
-    #modalGcListaNegra .gc-shell-gc-modal-close,
     #modalGcDescargo .gc-shell-gc-modal-close {
         position: absolute;
         top: -12px;
@@ -968,35 +977,25 @@
         appearance: none;
     }
     #modalGcAgenteLog .gc-shell-gc-modal-close:hover,
-    #modalGcEcWorker .gc-shell-gc-modal-close:hover,
-    #modalGcListaNegra .gc-shell-gc-modal-close:hover,
     #modalGcDescargo .gc-shell-gc-modal-close:hover {
         background-color: #eceff4;
         color: #5c6b7d;
         border-color: #d5dbe6;
     }
     #modalGcAgenteLog .gc-shell-gc-modal-close:focus,
-    #modalGcEcWorker .gc-shell-gc-modal-close:focus,
-    #modalGcListaNegra .gc-shell-gc-modal-close:focus,
     #modalGcDescargo .gc-shell-gc-modal-close:focus {
         outline: none;
         box-shadow: 0 2px 10px rgba(15, 23, 42, 0.14), 0 0 0 2px rgba(105, 108, 255, 0.35);
     }
     #modalGcAgenteLog .gc-shell-gc-modal-close-x,
-    #modalGcEcWorker .gc-shell-gc-modal-close-x,
-    #modalGcListaNegra .gc-shell-gc-modal-close-x,
     #modalGcDescargo .gc-shell-gc-modal-close-x {
         display: block;
         margin-top: -3px;
         font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     }
     html.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close,
-    html.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close,
-    html.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close,
     html.dark-mode #modalGcDescargo .gc-shell-gc-modal-close,
     body.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close,
-    body.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close,
-    body.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close,
     body.dark-mode #modalGcDescargo .gc-shell-gc-modal-close {
         background-color: #3d4a5c;
         border-color: rgba(148, 163, 184, 0.35);
@@ -1004,12 +1003,8 @@
         box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
     }
     html.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close:hover,
-    html.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close:hover,
-    html.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close:hover,
     html.dark-mode #modalGcDescargo .gc-shell-gc-modal-close:hover,
     body.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close:hover,
-    body.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close:hover,
-    body.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close:hover,
     body.dark-mode #modalGcDescargo .gc-shell-gc-modal-close:hover {
         background-color: #4b5c73;
         color: #f1f5f9;
@@ -1273,13 +1268,22 @@
 
     var ejecucionBanner = document.getElementById('gastosCobranzaEjecucionBanner');
     var switchGcAutoRun = document.getElementById('switchGcAutoRunReporte');
+    var txtGcAutoRunEstado = document.getElementById('gcAutoRunEstadoTexto');
     /** Evita POST al sincronizar el switch desde /health */
     var gcAutoRunProgrammatic = false;
+
+    function actualizarTextoAutoRun(on) {
+        if (!txtGcAutoRunEstado) return;
+        txtGcAutoRunEstado.textContent = on ? 'Activo' : 'Inactivo';
+        txtGcAutoRunEstado.classList.remove('text-success', 'text-danger');
+        txtGcAutoRunEstado.classList.add(on ? 'text-success' : 'text-danger');
+    }
 
     function aplicarAutoRunDesdeAgente(agente) {
         if (!switchGcAutoRun) return;
         if (!gcAgenteOnline || !agente || !agente.auto_run_cdmx) {
             switchGcAutoRun.disabled = true;
+            actualizarTextoAutoRun(!!switchGcAutoRun.checked);
             return;
         }
         switchGcAutoRun.disabled = false;
@@ -1287,6 +1291,7 @@
         gcAutoRunProgrammatic = true;
         switchGcAutoRun.checked = on;
         gcAutoRunProgrammatic = false;
+        actualizarTextoAutoRun(on);
     }
 
     function actualizarBannerEjecucion() {
@@ -1716,7 +1721,7 @@
             var esRep = esExcelReporteCobranza(nom);
             var btnWorker = !soloDesc && esRep
                 ? '<button type="button" class="btn btn-sm btn-gc-worker-reporte gc-rep-btn-worker ms-1" data-nombre-enc="' +
-                    encodeURIComponent(nom) + '" title="Worker S2: lanza el proceso de cobranza con este Excel sin subirlo de nuevo. Al terminar ok, la lista negra se actualiza automáticamente.">' +
+                    encodeURIComponent(nom) + '" title="Worker S2: procesa este reporte con el agente (misma lógica que el modal EC Worker). Actualiza gastos de cobranza en BD cuando Cartera confirmó el criterio en S2; si termina bien, la lista negra corre sola con el mismo Excel.">' +
                     '<i class="fa fa-cogs" aria-hidden="true"></i><span class="visually-hidden"> Worker S2</span></button>'
                 : '';
             var btnListaNegra = !soloDesc && esRep
@@ -2617,11 +2622,13 @@
             });
         }
     } catch (eBt) { /* ignorar */ }
+    if (switchGcAutoRun) actualizarTextoAutoRun(!!switchGcAutoRun.checked);
     if (switchGcAutoRun) {
         switchGcAutoRun.addEventListener('change', async function () {
             if (gcAutoRunProgrammatic) return;
             if (!gcAgenteOnline) return;
             var deseado = switchGcAutoRun.checked;
+            actualizarTextoAutoRun(deseado);
             switchGcAutoRun.disabled = true;
             try {
                 var r = await fetch('/gastoscobranza/configurarautorunreporte', {
@@ -2634,6 +2641,7 @@
                     gcAutoRunProgrammatic = true;
                     switchGcAutoRun.checked = !deseado;
                     gcAutoRunProgrammatic = false;
+                    actualizarTextoAutoRun(!deseado);
                     var msg = d.mensaje || 'No se pudo actualizar. ¿Agente actualizado (ruta /auto-run-reporte)?';
                     if (typeof Swal !== 'undefined') {
                         Swal.fire({ icon: 'error', title: 'Reporte automático', text: msg, confirmButtonColor: '#696cff' });
@@ -2647,6 +2655,7 @@
                 gcAutoRunProgrammatic = true;
                 switchGcAutoRun.checked = !deseado;
                 gcAutoRunProgrammatic = false;
+                actualizarTextoAutoRun(!deseado);
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'error', title: 'Red', text: String(err.message || err), confirmButtonColor: '#696cff' });
                 } else {
