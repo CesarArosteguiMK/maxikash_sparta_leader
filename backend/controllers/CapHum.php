@@ -791,6 +791,174 @@ class CapHum extends Controller
             }
 
             /* =========================
+<<<<<<< HEAD
+               ELIMINAR CONVENIOS DE CRÉDITO (admin express)
+            ========================= */
+            function adminReactivarProductoConvenio() {
+                var input = document.getElementById('adminReactivarIdCredito');
+                var idCredito = input ? parseInt(input.value, 10) : 0;
+                if (!idCredito || idCredito <= 0) {
+                    Swal.fire({ icon: 'warning', title: 'ID requerido', text: 'Ingresa un ID de crédito válido.', customClass: { container: 'swal-sobre-modal-perfil' } });
+                    return;
+                }
+                Swal.fire({
+                    title: '¿Eliminar convenios del crédito ' + idCredito + '?',
+                    html: '<p class="mb-1">Se <strong>eliminarán todos los convenios</strong> y su amortización para este crédito.</p><p class="text-muted small mb-0">El crédito quedará libre para generar un convenio nuevo.</p>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                    buttonsStyling: false,
+                    customClass: {
+                        container: 'swal-sobre-modal-perfil',
+                        actions: 'd-flex gap-2 justify-content-center',
+                        confirmButton: 'btn btn-danger px-4',
+                        cancelButton: 'btn btn-outline-secondary px-4'
+                    }
+                }).then(function(res) {
+                    if (!res.isConfirmed) return;
+                    Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: function() { Swal.showLoading(); }, customClass: { container: 'swal-sobre-modal-perfil' } });
+                    var fd = new FormData();
+                    fd.append('id_credito', idCredito);
+                    fetch('/Convenios/eliminarConveniosCredito', { method: 'POST', body: fd })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.success) {
+                                Swal.fire({ icon: 'success', title: '¡Eliminado!', text: data.mensaje || 'Convenios eliminados correctamente.', confirmButtonText: 'Cerrar', customClass: { container: 'swal-sobre-modal-perfil' } });
+                                if (input) input.value = '';
+                            } else {
+                                Swal.fire({ icon: 'error', title: 'No se pudo eliminar', text: data.mensaje || 'Ocurrió un error.', confirmButtonText: 'Entendido', customClass: { container: 'swal-sobre-modal-perfil' } });
+                            }
+                        })
+                        .catch(function() {
+                            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo contactar al servidor.', customClass: { container: 'swal-sobre-modal-perfil' } });
+                        });
+                });
+            }
+
+            /* =========================
+               PUESTOS
+            ========================= */
+            function renderPuestos(puestos) {
+
+                const container = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
+                if (!container) return;
+                container.innerHTML = '';
+
+            if (!puestos.length) {
+                    container.innerHTML = `<div class="text-muted small">No hay puestos asignados</div>`;
+                    return;
+                }
+
+                const table = document.createElement('table');
+                table.className = 'table table-flush-spacing mb-0 border-top';
+
+                const tbody = document.createElement('tbody');
+
+                puestos.forEach(puesto => {
+
+                    const tr = document.createElement('tr');
+
+                    // Nombre + descripción
+                    const tdName = document.createElement('td');
+                    tdName.className = 'fw-medium text-heading';
+
+                    const nombre = document.createElement('div');
+                    nombre.innerText =
+                        puesto.nombre_puesto ||
+                        puesto.puesto_nombre ||
+                        'Puesto sin nombre';
+
+                    const desc = document.createElement('small');
+                    desc.className = 'text-muted d-block fs-7';
+                    desc.innerText = puesto.descripcion ?? '';
+
+                    tdName.append(nombre, desc);
+
+                    // Checkbox
+                    const tdCheck = document.createElement('td');
+                    tdCheck.className = 'text-end';
+
+                    const divCheck = document.createElement('div');
+                    divCheck.className = 'form-check mb-0';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input';
+                    checkbox.checked = Number(puesto.asignado_flag) === 1;
+                    checkbox.value =
+                        puesto.id_puesto ||
+                        puesto.puesto_id ||
+                        '';
+
+                    checkbox.onchange = () => onPuestoChange(checkbox);
+
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.innerText = 'Asignar';
+
+                    divCheck.append(checkbox, label);
+                    tdCheck.appendChild(divCheck);
+
+                    tr.append(tdName, tdCheck);
+                    tbody.appendChild(tr);
+                });
+
+                table.appendChild(tbody);
+                container.appendChild(table);
+            }
+
+            function onPuestoChange(checkbox) {
+                if (!checkbox || !currentPersonaId) return;
+
+                const payload = {
+                    idPersona: currentPersonaId,
+                    idPuesto: checkbox.value,
+                    asignado: checkbox.checked ? 1 : 0
+                };
+
+                fetch('/caphum/actualizarPuestoPerfil', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        // Revertimos el checkbox si falla
+                        checkbox.checked = !checkbox.checked;
+                        Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo actualizar', customClass: { container: 'swal-sobre-modal-perfil' } });
+                        return;
+                    }
+
+                    // ALERTA SEGÚN ACCIÓN - igual que módulos (z-index para verse sobre el modal)
+                    Swal.fire({
+                        icon: 'success',
+                        title: checkbox.checked
+                            ? 'Asignación correcta'
+                            : 'Asignación eliminada',
+                        text: checkbox.checked
+                            ? 'El puesto fue asignado correctamente'
+                            : 'El puesto fue deseleccionado correctamente',
+                        timer: 1600,
+                        showConfirmButton: false,
+                        customClass: { container: 'swal-sobre-modal-perfil' }
+                    });
+                })
+                .catch(err => {
+                    console.error(err);
+                    checkbox.checked = !checkbox.checked;
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el puesto', customClass: { container: 'swal-sobre-modal-perfil' } });
+                });
+            }
+
+            /* =========================
+=======
+>>>>>>> a7f6faba82f0028f551a035b03af5fc3d76d0ff1
                MÓDULOS (lista plana duplicada eliminada; ver renderModulos agrupado más abajo)
             ========================= */
 

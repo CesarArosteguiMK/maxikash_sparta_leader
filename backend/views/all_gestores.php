@@ -3216,6 +3216,29 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                             <div id="permisos-especiales-container" class="modal-perfil-permisos-outer">
                                 <div id="modal-edit-perfil-permisos-especiales-form"></div>
                             </div>
+
+                            <!-- ── Herramienta admin: Eliminar convenios del crédito (temporalmente oculta) ──
+                            <div class="mt-4">
+                                <div class="card border shadow-sm">
+                                    <div class="card-header py-2 px-3 d-flex align-items-center gap-2" style="background:#f8f9fa;">
+                                        <i class="fa fa-trash-alt text-danger"></i>
+                                        <span class="fw-semibold small">Eliminar convenios del crédito</span>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <p class="text-muted small mb-3">Elimina <strong>todos los convenios y su amortización</strong> para un crédito. Úsalo cuando el crédito tenga convenios cancelados que bloquean la generación de uno nuevo.</p>
+                                        <div class="d-flex gap-2 align-items-end flex-wrap">
+                                            <div class="flex-grow-1" style="max-width:240px;">
+                                                <label class="form-label small mb-1 fw-medium">ID Crédito</label>
+                                                <input type="number" id="adminReactivarIdCredito" class="form-control form-control-sm" placeholder="Ej. 123456" min="1">
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="adminReactivarProductoConvenio()">
+                                                <i class="fa fa-trash-alt me-1"></i>Eliminar convenios
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            -->
                         </div>
 
                         <!-- TAB SESIÓN REMOTA (force_logout en persona) -->

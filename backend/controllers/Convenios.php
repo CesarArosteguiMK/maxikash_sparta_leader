@@ -482,6 +482,22 @@ class Convenios extends Controller
         self::respuestaJSON($r);
     }
 
+    // ════════════════════════════════════════════════
+    // API: ELIMINAR CONVENIOS DE UN CRÉDITO (acción admin express)
+    // POST: id_credito
+    // ════════════════════════════════════════════════
+
+    public function eliminarConveniosCredito()
+    {
+        $idCredito = isset($_POST['id_credito']) ? (int) $_POST['id_credito'] : 0;
+        if ($idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de crédito inválido.'));
+            return;
+        }
+        $r = ConveniosDAO::eliminarConveniosCredito($idCredito);
+        self::respuestaJSON($r);
+    }
+
     public function getAmortizacionConvenio()
     {
         if (empty($_POST['id_convenio'])) {
