@@ -110,7 +110,7 @@ class Segundometro extends Controller
     }
 
     /**
-     * Vista principal del Shell de Segundómetro
+     * Vista principal Segundometro
      */
     public function shell()
     {
@@ -1075,7 +1075,7 @@ class Segundometro extends Controller
         </script>
         HTML;
 
-        self::set("titulo", "Shell Segundómetro");
+        self::set('titulo', 'Segundometro');
         self::set("script", $script);
         self::render("shell_segundometro");
     }

@@ -19,6 +19,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/reporteria/primerospagos', 'label' => 'Primeros pagos', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [49]],
             ['url' => '/reporteria/layoutlegacy', 'label' => 'Layout Legacy', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [7]],
             ['url' => '/reporteria/reporteCapitalHumano', 'label' => 'Reportes de Personal', 'icon' => 'fa-solid fa-file-lines', 'bg' => 'bg-purple', 'modulos' => [34]],
+            ['url' => '/caphum/estadisticas', 'label' => 'Estadísticas Capital Humano', 'icon' => 'fa-solid fa-chart-pie', 'bg' => 'bg-purple', 'modulos' => [38]],
             ['url' => '/ReporteriaBI/FlujoCobranza', 'label' => 'Flujo cobranza', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [50]],
             ['url' => '/sabueso/ticket', 'label' => 'Sabueso - Ticket', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [18]],
             ['url' => '/sabueso/panelAdminInicio', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-table-cells', 'bg' => 'bg-teal', 'modulos' => [19, 25]],
@@ -33,8 +34,8 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/departamentos/consulta/', 'label' => 'Departamentos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [10]],
             ['url' => '/equivalencias/consulta', 'label' => 'Equivalencia puestos', 'icon' => 'fa-solid fa-cog', 'bg' => 'bg-blue', 'modulos' => [17]],
             ['url' => '/configticketpuesto/consulta', 'label' => 'Asignación por puestos', 'icon' => 'fa-solid fa-ticket', 'bg' => 'bg-blue', 'modulos' => [26]],
-            ['url' => '/segundometro/shell', 'label' => 'Shell Segundómetro', 'icon' => 'fa-solid fa-laptop', 'bg' => 'bg-secondary', 'modulos' => [16]],
-            ['url' => '/gastoscobranza/shell', 'label' => 'Shell Gastos Cobranza', 'icon' => 'fa-solid fa-laptop', 'bg' => 'bg-secondary', 'modulos' => [31]],
+            ['url' => '/segundometro/shell', 'label' => 'Segundometro', 'icon' => 'fa-solid fa-laptop', 'bg' => 'bg-secondary', 'modulos' => [16]],
+            ['url' => '/gastoscobranza/shell', 'label' => 'Gastos Cobranza', 'icon' => 'fa-solid fa-laptop', 'bg' => 'bg-secondary', 'modulos' => [31]],
         ];
     }
 }

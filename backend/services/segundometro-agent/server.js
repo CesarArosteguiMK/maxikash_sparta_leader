@@ -17,6 +17,28 @@ const { runCommand, downloadFileStream, runCommandStream } = require('./lib/sshC
 const autoCopyConfig = require('./lib/autoCopyConfig');
 const { getAccurateCdmxNow, getCdmxLocalSync } = require('./lib/cdmxTime');
 
+/**
+ * Hora CDMX para respuestas HTTP: nunca lanza (evita tumbar el proceso Node si
+ * worldtimeapi/timeapi.io fallan y ALLOW_LOCAL_TIME_FALLBACK=0).
+ * El Shell llama a GET /auto-copy justo después de /health; un rechazo no
+ * manejado aquí dejaba el agente muerto y el puerto 3100 vacío al recargar.
+ */
+async function getCdmxNowForHttp() {
+  try {
+    return await getAccurateCdmxNow();
+  } catch (e) {
+    console.warn('[cdmx] Fuentes remotas no disponibles; usando reloj local:', e.message);
+    return getCdmxLocalSync();
+  }
+}
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[agente] unhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[agente] uncaughtException:', err);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3100;
 const REMOTE_DIR = process.env.REMOTE_DIR || '/home/usuariossftp/s2/mega_reporte';
@@ -414,7 +436,7 @@ function startEjecutarAhoraBackground(source) {
   (async () => {
     try {
       const workPromise = (async () => {
-        const nowCdmx = await getAccurateCdmxNow();
+        const nowCdmx = await getCdmxNowForHttp();
         const slot = nowCdmx.hora;
         const fecha = nowCdmx.fecha;
         return await runAutoCopyJob(slot, fecha);
@@ -978,7 +1000,7 @@ async function ejecutarPruebaProgramadaSiToca() {
     updated.pruebaEjecutarEn = null;
     updated.pruebaNoAntesDe = null;
     autoCopyConfig.writeConfig(updated);
-    const nowCdmx = await getAccurateCdmxNow();
+    const nowCdmx = await getCdmxNowForHttp();
     const fecha = nowCdmx.fecha;
     appendPruebaLog('EJECUTANDO job PRUEBA');
     console.log('[auto-copy] Ejecutando prueba programada (último informe +1s)', new Date().toISOString());
@@ -1051,7 +1073,7 @@ function startAutoCopyScheduler() {
   autoCopySchedulerInterval = setInterval(async () => {
     try {
       const config = autoCopyConfig.readConfig();
-      const nowCdmx = await getAccurateCdmxNow();
+      const nowCdmx = await getCdmxNowForHttp();
       const hora = nowCdmx.hora;
       const fecha = nowCdmx.fecha;
 
@@ -1351,7 +1373,7 @@ app.get('/health', (req, res) => {
 
 app.get('/hora-cdmx', async (req, res) => {
   try {
-    const nowCdmx = await getAccurateCdmxNow();
+    const nowCdmx = await getCdmxNowForHttp();
     const hora = nowCdmx.fecha + ' ' + nowCdmx.horaSeg + ' CDMX';
     res.json({
       success: true,
@@ -1367,12 +1389,7 @@ app.get('/hora-cdmx', async (req, res) => {
 
 app.post('/reportes/estado', async (req, res) => {
   // Hora CDMX: no tumbar el endpoint si falla la red; la consulta BD no depende de hora remota.
-  let nowCdmx;
-  try {
-    nowCdmx = await getAccurateCdmxNow();
-  } catch (_) {
-    nowCdmx = getCdmxLocalSync();
-  }
+  const nowCdmx = await getCdmxNowForHttp();
   try {
     const nombres = Array.isArray(req.body && req.body.nombres) ? req.body.nombres : [];
     const lote = await consultarEstadoBDLote(nombres);
@@ -1401,7 +1418,7 @@ app.post('/reportes/estado', async (req, res) => {
 // --- Auto Copiar +1s (activar/desactivar y horarios CDMX) ---
 app.get('/auto-copy', async (req, res) => {
   const config = autoCopyConfig.readConfig();
-  const nowCdmx = await getAccurateCdmxNow();
+  const nowCdmx = await getCdmxNowForHttp();
   const proxima = proximaEjecucionByNow(config, nowCdmx);
   const pruebaMs = config.pruebaEjecutarEn;
   res.json({
@@ -1431,7 +1448,7 @@ app.post('/auto-copy', async (req, res) => {
   }
   autoCopyConfig.writeConfig(config);
   const updated = autoCopyConfig.readConfig();
-  const nowCdmx = await getAccurateCdmxNow();
+  const nowCdmx = await getCdmxNowForHttp();
   const proxima = proximaEjecucionByNow(updated, nowCdmx);
   res.json({
     success: true,

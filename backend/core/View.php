@@ -46,6 +46,7 @@ function getMenu(): string
                 ['label' => 'Selección de Personal',       'url' => '/caphum/candidatos',               'modulos' => [42]],
                 ['label' => 'Curso de Inducción', 'url' => '/onboarding/index',                'modulos' => [44]],
                 ['label' => 'Reportes de Personal',   'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [34]],
+                ['label' => 'Estadísticas',            'url' => '/caphum/estadisticas',               'modulos' => [38]],
             ],
         ],
         'Convenios' => [
@@ -86,11 +87,11 @@ function getMenu(): string
                 ['label' => 'Asignación por puestos', 'url' => '/configticketpuesto/consulta', 'modulos' => [26]],
             ],
         ],
-        'Shell' => [
+        'Servicios' => [
             'icono'    => 'fa-solid fa-laptop',
             'subItems' => [
-                ['label' => 'Shell Segundómetro',    'url' => '/segundometro/shell',   'modulos' => [16]],
-                ['label' => 'Shell Gastos Cobranza', 'url' => '/gastoscobranza/shell', 'modulos' => [31]],
+                ['label' => 'Segundometro',    'url' => '/segundometro/shell',   'modulos' => [16]],
+                ['label' => 'Gastos Cobranza', 'url' => '/gastoscobranza/shell', 'modulos' => [31]],
             ],
         ],
     ];

@@ -932,6 +932,12 @@ class CapHum extends Controller
                 '29': 'fa fa-id-card',
                 30: 'fa fa-balance-scale',
                 '30': 'fa fa-balance-scale',
+                35: 'fa fa-headset',
+                '35': 'fa fa-headset',
+                36: 'fa fa-hand-holding-usd',
+                '36': 'fa fa-hand-holding-usd',
+                37: 'fa fa-sticky-note',
+                '37': 'fa fa-sticky-note',
                 31: 'fa fa-laptop',
                 '31': 'fa fa-laptop',
                 32: 'fa fa-file-import',
@@ -1696,6 +1702,9 @@ class CapHum extends Controller
                     34: 'fa fa-file-alt',
                     29: 'fa fa-id-card',
                     30: 'fa fa-balance-scale',
+                    35: 'fa fa-headset',
+                    36: 'fa fa-hand-holding-usd',
+                    37: 'fa fa-sticky-note',
                     31: 'fa fa-laptop',
                     32: 'fa fa-file-import',
                     41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
@@ -10677,5 +10686,44 @@ public function getMunicipios()
                 'mensaje' => 'Error al actualizar puesto: ' . $e->getMessage()
             ]);
         }
+    }
+
+    public function estadisticas()
+    {
+        $anio = (int) date('Y');
+        $mes = (int) date('n');
+        $res = \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, 0);
+        $datos = ($res['success'] ?? false) ? ($res['datos'] ?? []) : [];
+        self::set('titulo', 'Capital Humano — Estadísticas | ' . CONFIGURACION['EMPRESA']);
+        self::set('anioDefault', $anio);
+        self::set('mesDefault', $mes);
+        self::set('semanaDefault', 0);
+        self::set('datosInicialesJson', json_encode($datos, JSON_UNESCAPED_UNICODE));
+        self::render('caphum_estadisticas');
+    }
+
+    public function getEstadisticasPanel()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw ?: '[]', true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $anio = (int) ($body['anio'] ?? date('Y'));
+        $mes = (int) ($body['mes'] ?? date('n'));
+        $semana = (int) ($body['semana'] ?? 0);
+        if ($anio < 2000 || $anio > 2100) {
+            $anio = (int) date('Y');
+        }
+        if ($mes < 1 || $mes > 12) {
+            $mes = (int) date('n');
+        }
+        if ($semana < 0 || $semana > 4) {
+            $semana = 0;
+        }
+        $res = \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
     }
 }

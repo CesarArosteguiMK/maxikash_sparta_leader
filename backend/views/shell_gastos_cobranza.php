@@ -7,7 +7,7 @@
                             <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-1">
                                 <h4 class="mb-0 fw-semibold text-heading gc-shell-hero-title">
                                     <i class="fa fa-file-invoice-dollar text-primary me-2"></i>
-                                    <?= htmlspecialchars(isset($tituloShell) ? $tituloShell : 'Shell Gastos Cobranza', ENT_QUOTES, 'UTF-8') ?>
+                                    <?= htmlspecialchars(isset($tituloShell) ? $tituloShell : 'Gastos Cobranza', ENT_QUOTES, 'UTF-8') ?>
                                 </h4>
                                 <span id="gastosCobranzaEstadoBadge" class="badge bg-label-secondary">Comprobando…</span>
                             </div>
@@ -34,86 +34,180 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-3">
+    <?php
+    $gcRepSem = isset($reportes_esta_semana) ? (string) $reportes_esta_semana : '—';
+    $gcUltRep = isset($ultimo_reporte) ? (string) $ultimo_reporte : '—';
+    $gcRepAuto = isset($reporte_automatico) ? (string) $reporte_automatico : '—';
+    $gcRepAutoColor = ($gcRepAuto === 'Activo') ? '#2ecc8b' : (($gcRepAuto === 'Inactivo') ? '#e74c3c' : '#6b7a90');
+    ?>
+    <div style="background:#fff; border:0.5px solid #dde3ec; border-radius:12px; padding:16px 22px; margin-bottom:12px; display:flex; gap:0; flex-wrap:wrap;">
+        <div style="flex:1; padding-right:20px; border-right:0.5px solid #eef1f5;">
+            <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Reportes esta semana</div>
+            <div style="font-size:15px; font-weight:700; color:#2ecc8b;"><?= htmlspecialchars($gcRepSem, ENT_QUOTES, 'UTF-8') ?></div>
+        </div>
+        <div style="flex:1; padding:0 20px; border-right:0.5px solid #eef1f5;">
+            <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Último reporte</div>
+            <div style="font-size:15px; font-weight:700; color:#1a3a5c;"><?= htmlspecialchars($gcUltRep, ENT_QUOTES, 'UTF-8') ?></div>
+        </div>
+        <div style="flex:1; padding-left:20px;">
+            <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Reporte automático</div>
+            <div style="font-size:15px; font-weight:700; color:<?= htmlspecialchars($gcRepAutoColor, ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars($gcRepAuto, ENT_QUOTES, 'UTF-8') ?></div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
         <div class="col-12">
-            <div class="card shadow-sm border-0 h-100 gc-card-accent-ec-worker">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fa fa-rocket gc-ec-worker-title-icon me-2" aria-hidden="true"></i>EC Worker / Excel enriquecido</h5>
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-4">
-                            <label class="form-label small mb-1">Excel (.xlsx)</label>
-                            <input type="file" class="form-control form-control-sm" id="ecLauncherFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small mb-1">Fecha corte S2</label>
-                            <input type="date" class="form-control form-control-sm" id="ecLauncherFecha">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small mb-1">Columna ID en Excel</label>
-                            <input type="text" class="form-control form-control-sm" id="ecLauncherCol" value="ID CREDITO" placeholder="ID CREDITO">
-                        </div>
-                        <div class="col-12 col-md-auto flex-grow-0">
-                            <label class="form-label small mb-1 text-nowrap" title="Saltar primeros créditos (N)">Omitir N</label>
-                            <input type="number" class="form-control form-control-sm" id="ecLauncherOmitir" value="0" min="0" title="Saltar primeros créditos: ignorar los primeros N IDs del Excel" style="max-width: 4.25rem">
-                        </div>
-                        <div class="col-12">
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" id="ecLauncherEnrich" autocomplete="off">
-                                <label class="form-check-label small d-inline-flex align-items-center flex-wrap gap-1" for="ecLauncherEnrich">
-                                    Excel enriquecido (+ Chat)
-                                    <span class="text-muted" style="cursor: help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" title="Sin marcar: Worker (S2 + BD + Chat; al terminar la corrida, lista negra automática). Marcada: enriquecido completo (mismo criterio de BD y auditoría que el flujo enrich del servidor)."><i class="fa fa-info-circle" aria-hidden="true"></i><span class="visually-hidden"> Ayuda modos Worker / enriquecido</span></span>
-                                </label>
+            <div id="shellGastosCobranzaAccionesBar" class="card shadow-sm border-0">
+                <div class="card-body py-3">
+                    <div class="sg-agent-head mb-3">
+                        <span class="sg-agent-title">
+                            <span class="sg-agent-dot" aria-hidden="true"></span>
+                            Herramientas del agente
+                        </span>
+                    </div>
+                    <div class="sg-agent-actions">
+                        <div class="sg-agent-row-top">
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-violet" id="btnGcAbrirModalEcWorker" data-bs-toggle="modal" data-bs-target="#modalGcEcWorker">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-rocket" aria-hidden="true"></i>
+                                        <span class="sg-btn-label">EC Worker</span>
+                                        <span class="sg-tooltip-icon" data-tip="Puede tardar mucho. Con el Worker, al terminar la corrida la lista negra se actualiza sola con el mismo Excel."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                    </span>
+                                </button>
+                            </div>
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-warn" id="btnGcAbrirModalListaNegra" data-bs-toggle="modal" data-bs-target="#modalGcListaNegra">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-database" aria-hidden="true"></i>
+                                        <span class="sg-btn-label">Lista negra</span>
+                                        <span class="sg-tooltip-icon" data-tip="(opcional). El Worker ya aplica la lista negra al terminar el lote; abre esto solo para ajustar parámetros o para subir un Excel sin pasar por el Worker."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                    </span>
+                                </button>
+                            </div>
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnGcAbrirModalDescargo" data-bs-toggle="modal" data-bs-target="#modalGcDescargo">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-file-export" aria-hidden="true"></i>
+                                        <span class="sg-btn-label">Descargo GC</span>
+                                        <span class="sg-tooltip-icon" data-tip="(opcional). Con Ejecutar agente el reporte unificado ya incluye el descargo; use esto solo si necesita el Excel aparte o una corrida manual."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                    </span>
+                                </button>
                             </div>
                         </div>
-                        <div class="col-12">
-                            <button type="button" class="btn btn-primary btn-sm" id="btnEcLauncherEjecutar" disabled>
-                                <i class="fa fa-play me-1"></i>Ejecutar corrida del agente
+                        <div class="sg-agent-row-bottom">
+                            <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="btnGcAbrirModalLog" data-bs-toggle="modal" data-bs-target="#modalGcAgenteLog">
+                                <span class="sg-tip-btn-face">
+                                    <i class="fa fa-scroll" aria-hidden="true"></i>
+                                    <span class="sg-btn-label">Ver log del agente</span>
+                                    <span class="sg-tooltip-icon" data-tip="Log en área de texto: puede seleccionar y copiar. Con «Auto cada 4 s» y durante Worker/lista negra el scroll solo baja si ya estabas al final; al recargar la página sí se muestra el final."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                </span>
                             </button>
-                            <span class="small text-muted ms-2">Puede tardar mucho. Con el Worker, al terminar la corrida la lista negra se actualiza sola con el mismo Excel.</span>
                         </div>
-                    </div>
-                    <div id="ecErroresReintentoBanner" class="alert alert-warning d-none mt-3 mb-0 py-2 small" role="alert">
-                        Tras la segunda pasada automática aún hubo créditos con error.
-                        <a id="ecErroresReintentoLink" class="alert-link fw-semibold" href="#">Descargar CSV (id, tipo de error y detalle)</a>
-                        para revisión manual.
-                    </div>
-                    <div id="ecLauncherSalidaWrap" class="d-none mt-3">
-                        <label class="form-label small fw-semibold">Salida EC worker / enrich</label>
-                        <pre id="ecLauncherSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm border-0 border-secondary">
-                <div class="card-body py-3">
-                    <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" id="chkMostrarCargaVerifManual" autocomplete="off">
-                        <label class="form-check-label small" for="chkMostrarCargaVerifManual">
-                            <strong>Carga manual a lista negra</strong> (opcional). El <strong>Worker</strong> ya aplica la lista negra al terminar el lote; abre esto solo para ajustar parámetros o para subir un Excel <em>sin</em> pasar por el Worker.
-                        </label>
+    <div class="modal fade" id="modalGcEcWorker" tabindex="-1" aria-labelledby="modalGcEcWorkerLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered gc-modal-shell-dialog">
+            <div class="position-relative w-100 gc-modal-shell-wrap">
+                <button type="button" class="gc-shell-gc-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">
+                    <span class="gc-shell-gc-modal-close-x" aria-hidden="true">&times;</span>
+                </button>
+                <div class="modal-content border-0 shadow gc-modal-shell-content">
+                    <div class="modal-header border-0 pb-2 pt-3 px-4">
+                        <h5 class="modal-title fw-semibold mb-0" id="modalGcEcWorkerLabel" style="color:#1a3a5c;"><i class="fa fa-rocket gc-ec-worker-title-icon me-2" aria-hidden="true"></i>EC Worker / Excel enriquecido</h5>
+                    </div>
+                    <div class="modal-body pt-0 px-4 pb-4 gc-modal-shell-body-scroll">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-12 col-md-5 col-lg-4">
+                                <div class="form-label small mb-1 text-muted">Excel (.xlsx) — requerido</div>
+                                <div class="gc-excel-file-zone gc-excel-zone-empty" id="ecLauncherFileZone" role="presentation">
+                                    <input type="file" class="d-none" id="ecLauncherFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" autocomplete="off">
+                                    <label for="ecLauncherFile" class="gc-excel-file-face mb-0">
+                                        <i class="fa fa-paperclip text-secondary" aria-hidden="true"></i>
+                                        <span id="ecLauncherFileFace" class="gc-excel-file-face-text fw-semibold text-body">Seleccionar archivo</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3 col-lg-3">
+                                <label class="form-label small mb-1 text-muted" for="ecLauncherFecha">Fecha corte S2</label>
+                                <input type="date" class="form-control form-control-sm" id="ecLauncherFecha">
+                            </div>
+                            <div class="col-12 col-md-4 col-lg-3">
+                                <label class="form-label small mb-1 text-muted" for="ecLauncherCol">Columna ID en Excel</label>
+                                <input type="text" class="form-control form-control-sm" id="ecLauncherCol" value="ID CREDITO" placeholder="ID CREDITO">
+                            </div>
+                            <div class="col-6 col-md-2 col-lg-2">
+                                <label class="form-label small mb-1 text-nowrap text-muted" for="ecLauncherOmitir" title="Saltar primeros créditos (N)">Omitir N</label>
+                                <input type="number" class="form-control form-control-sm" id="ecLauncherOmitir" value="0" min="0" title="Saltar primeros créditos: ignorar los primeros N IDs del Excel" style="max-width: 4.25rem">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="ecLauncherEnrich" autocomplete="off">
+                                    <label class="form-check-label small d-inline-flex align-items-center flex-wrap gap-1" for="ecLauncherEnrich">
+                                        Excel enriquecido (+ Chat)
+                                        <span class="text-muted" style="cursor: help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" title="Sin marcar: Worker (S2 + BD + Chat; al terminar la corrida, lista negra automática). Marcada: enriquecido completo (mismo criterio de BD y auditoría que el flujo enrich del servidor)."><i class="fa fa-info-circle" aria-hidden="true"></i><span class="visually-hidden"> Ayuda modos Worker / enriquecido</span></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-1">
+                                <div class="d-flex flex-column align-items-start gap-1">
+                                    <button type="button" class="btn gc-excel-run-btn gc-excel-run-btn-compact" id="btnEcLauncherEjecutar" disabled>
+                                        <i class="fa fa-play me-2" aria-hidden="true"></i>Ejecutar corrida del agente
+                                    </button>
+                                    <span class="small text-muted">Puede tardar varios minutos. Con el Worker, al terminar la lista negra se actualiza con el mismo Excel.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="ecErroresReintentoBanner" class="alert alert-warning d-none mt-3 mb-0 py-2 small" role="alert">
+                            Tras la segunda pasada automática aún hubo créditos con error.
+                            <a id="ecErroresReintentoLink" class="alert-link fw-semibold" href="#">Descargar CSV (id, tipo de error y detalle)</a>
+                            para revisión manual.
+                        </div>
+                        <div id="ecLauncherSalidaWrap" class="d-none mt-3">
+                            <label class="form-label small fw-semibold">Salida EC worker / enrich</label>
+                            <pre id="ecLauncherSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
+                        </div>
                     </div>
                 </div>
-                <div id="wrapCargaVerifManual" class="d-none border-top">
-                    <div class="card-body pt-3">
-                        <h6 class="mb-2"><i class="fa fa-database text-secondary me-2"></i>Carga verificación semana (Excel → BD)</h6>
-                        <p class="small text-muted mb-3">
-                            Tabla <code>cobranza_gc_verificacion_semana</code>. <strong>SALDO APLICABLE A GC</strong> → <code>monto_aplicar</code>.
-                            <strong>Inicio de semana</strong> se calcula solo en el agente: martes que abre la semana operativa según <em>hoy</em> (hora Ciudad de México), igual que en la pantalla de estado de cuenta.
-                            Si el mismo <code>id_credito</code> ya tiene fila en esa semana con <strong>estatus 3</strong>, no se duplica: pasa a <strong>estatus 2</strong> y se actualiza <code>celula</code> si viene COMENTARIOS en el Excel. Los <strong>nuevos</strong> se insertan con el estatus que elijas abajo (por defecto 2). En esta carga, <code>tipo_reporte</code> debe quedar <strong>NULL</strong> en MySQL.
-                            Si el Excel tiene <strong>título o filas vacías</strong> encima de los encabezados, deje en auto el campo «Fila de encabezados» o indique la fila donde está <code>id_credito</code> (1 = primera fila del libro).
-                            Misma lógica cuando el Worker dispara la carga automática (detección automática de fila de títulos).
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGcListaNegra" tabindex="-1" aria-labelledby="modalGcListaNegraLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered gc-modal-shell-dialog">
+            <div class="position-relative w-100 gc-modal-shell-wrap">
+                <button type="button" class="gc-shell-gc-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">
+                    <span class="gc-shell-gc-modal-close-x" aria-hidden="true">&times;</span>
+                </button>
+                <div class="modal-content border-0 shadow gc-modal-shell-content">
+                    <div class="modal-header border-0 pb-2 pt-3 px-4">
+                        <h5 class="modal-title fw-semibold mb-0" id="modalGcListaNegraLabel" style="color:#1a3a5c;"><i class="fa fa-database text-secondary me-2"></i>Carga manual a lista negra</h5>
+                    </div>
+                    <div class="modal-body pt-0 px-4 pb-4 gc-modal-shell-body-scroll">
+                        <p class="small text-muted mb-3 d-flex flex-wrap align-items-baseline gap-2">
+                            <span>Carga verificación semana (Excel → BD). Tabla <code>cobranza_gc_verificacion_semana</code>.</span>
+                            <span class="text-muted flex-shrink-0" tabindex="0" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" data-bs-custom-class="gc-tooltip-carga-verif" title="Carga verificación semana (Excel → BD). Tabla cobranza_gc_verificacion_semana. SALDO APLICABLE A GC → monto_aplicar. Inicio de semana se calcula solo en el agente: martes que abre la semana operativa según hoy (hora Ciudad de México), igual que en la pantalla de estado de cuenta. Si el mismo id_credito ya tiene fila en esa semana con estatus 3, no se duplica: pasa a estatus 2 y se actualiza celula si viene COMENTARIOS en el Excel. Los nuevos se insertan con el estatus que elijas abajo (por defecto 2). En esta carga, tipo_reporte debe quedar NULL en MySQL. Si el Excel tiene título o filas vacías encima de los encabezados, deje en auto el campo «Fila de encabezados» o indique la fila donde está id_credito (1 = primera fila del libro). Misma lógica cuando el Worker dispara la carga automática (detección automática de fila de títulos).">
+                                <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                <span class="visually-hidden"> Ayuda detallada de la carga a lista negra</span>
+                            </span>
                         </p>
                         <div class="row g-3 align-items-end">
-                            <div class="col-md-5">
-                                <label class="form-label small mb-1">Excel (.xlsx)</label>
-                                <input type="file" class="form-control form-control-sm" id="cargaVerifFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                            <div class="col-12 col-md-6 col-lg-5">
+                                <div class="form-label small mb-1 text-muted">Excel (.xlsx) — requerido</div>
+                                <div class="gc-excel-file-zone gc-excel-zone-empty" id="cargaVerifFileZone" role="presentation">
+                                    <input type="file" class="d-none" id="cargaVerifFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" autocomplete="off">
+                                    <label for="cargaVerifFile" class="gc-excel-file-face mb-0">
+                                        <i class="fa fa-paperclip text-secondary" aria-hidden="true"></i>
+                                        <span id="cargaVerifFileFace" class="gc-excel-file-face-text fw-semibold text-body">Seleccionar archivo</span>
+                                    </label>
+                                </div>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label small mb-1">Estatus (filas nuevas)</label>
+                                <label class="form-label small mb-1 text-muted">Estatus (filas nuevas)</label>
                                 <select class="form-select form-select-sm" id="cargaVerifEstatus" title="Solo aplica a INSERT; las que ya estaban en 3 pasan a 2">
                                     <option value="2" selected>2</option>
                                     <option value="1">1</option>
@@ -121,11 +215,11 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label small mb-1">Fila encabezados (Excel)</label>
+                                <label class="form-label small mb-1 text-muted">Fila encabezados (Excel)</label>
                                 <input type="number" class="form-control form-control-sm" id="cargaVerifHeaderRow" min="1" max="200" placeholder="Auto" title="Número de fila donde están id_credito, etc. (1 = primera). Vacío = el script la detecta solo.">
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small mb-1">Mensaje lote (opcional)</label>
+                                <label class="form-label small mb-1 text-muted">Mensaje lote (opcional)</label>
                                 <input type="text" class="form-control form-control-sm" id="cargaVerifMensaje" placeholder="Vacío = mensaje automático en el script" maxlength="500">
                             </div>
                             <div class="col-md-12">
@@ -134,11 +228,13 @@
                                     <label class="form-check-label small" for="cargaVerifDryRun">Solo simular (dry-run, no inserta en BD)</label>
                                 </div>
                             </div>
-                            <div class="col-12">
-                                <button type="button" class="btn btn-secondary btn-sm" id="btnCargaVerifEjecutar" disabled>
-                                    <i class="fa fa-cogs me-1"></i>Cargar lista negra vía agente
-                                </button>
-                                <span class="small text-muted ms-2">Python en el agente: <code>openpyxl</code>, <code>mysql-connector-python</code>.</span>
+                            <div class="col-12 mt-1">
+                                <div class="d-flex flex-column align-items-start gap-1">
+                                    <button type="button" class="btn gc-excel-run-btn gc-excel-run-btn-secondary gc-excel-run-btn-compact" id="btnCargaVerifEjecutar" disabled>
+                                        <i class="fa fa-cogs me-2" aria-hidden="true"></i>Cargar lista negra vía agente
+                                    </button>
+                                    <span class="small text-muted">Python en el agente: <code>openpyxl</code>, <code>mysql-connector-python</code>.</span>
+                                </div>
                             </div>
                         </div>
                         <div id="cargaVerifSalidaWrap" class="d-none mt-3">
@@ -147,20 +243,22 @@
                         </div>
                     </div>
                 </div>
-                <div class="card-body py-3 border-top bg-label-secondary bg-opacity-10">
-                    <div class="form-check mb-0">
-                        <input class="form-check-input" type="checkbox" id="chkMostrarDescargoEstatus3" autocomplete="off">
-                        <label class="form-check-label small" for="chkMostrarDescargoEstatus3">
-                            <strong>Descargo cobranza GC (estatus 3)</strong> (opcional). Con <strong>Ejecutar agente</strong> el reporte unificado ya incluye el descargo; use esto solo si necesita el Excel aparte o una corrida manual.
-                        </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGcDescargo" tabindex="-1" aria-labelledby="modalGcDescargoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered gc-modal-shell-dialog">
+            <div class="position-relative w-100 gc-modal-shell-wrap">
+                <button type="button" class="gc-shell-gc-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">
+                    <span class="gc-shell-gc-modal-close-x" aria-hidden="true">&times;</span>
+                </button>
+                <div class="modal-content border-0 shadow gc-modal-shell-content">
+                    <div class="modal-header border-0 pb-2 pt-3 px-4">
+                        <h5 class="modal-title fw-semibold mb-0" id="modalGcDescargoLabel" style="color:#1a3a5c;"><i class="fa fa-file-export text-info me-2"></i>Descargo cobranza GC (estatus 3)</h5>
                     </div>
-                </div>
-                <div id="wrapDescargoEstatus3" class="d-none border-top">
-                    <div class="card-body pt-3 gc-card-accent-descargo-inner">
-                        <h6 class="mb-2"><i class="fa fa-file-export text-info me-2"></i>Descargo estatus 3</h6>
-                        <p class="small text-muted mb-3">
-                            Lee <code>cobranza_gc_verificacion_semana</code> con <code>estatus = 3</code>.
-                        </p>
+                    <div class="modal-body pt-0 px-4 pb-4 gc-modal-shell-body-scroll">
+                        <p class="small text-muted mb-3">Lee <code>cobranza_gc_verificacion_semana</code> con <code>estatus = 3</code>.</p>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="chkDescargoSinActualizarGuia" autocomplete="off">
                             <label class="form-check-label small" for="chkDescargoSinActualizarGuia">Solo prueba: generar Excel pero <strong>no</strong> escribir <code>guia_descargo.json</code> (déjalo desmarcado para corrida real)</label>
@@ -173,6 +271,56 @@
                                 <i class="fa fa-spinner fa-spin fa-lg" aria-hidden="true"></i>
                             </span>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGcAgenteLog" tabindex="-1" aria-labelledby="modalGcAgenteLogLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered gc-modal-shell-dialog">
+            <div class="position-relative w-100 gc-modal-shell-wrap">
+                <button type="button" class="gc-shell-gc-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">
+                    <span class="gc-shell-gc-modal-close-x" aria-hidden="true">&times;</span>
+                </button>
+                <div class="modal-content border-0 shadow gc-modal-shell-content">
+                    <div class="modal-header border-0 pb-0 align-items-center flex-wrap gap-2 pe-4">
+                        <h5 class="modal-title me-auto mb-0" id="modalGcAgenteLogLabel"><i class="fa fa-scroll text-secondary me-2"></i>Log del agente</h5>
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="chkGastosCobranzaLogAuto" checked>
+                            <label class="form-check-label small" for="chkGastosCobranzaLogAuto">Auto cada 4 s</label>
+                        </div>
+                    </div>
+                    <div class="modal-body pt-2 gc-modal-shell-body-scroll gc-modal-log-body-tall">
+                        <div id="shellGastosCobranzaLogToolbar" class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-green" id="btnGastosCobranzaLogAhora"
+                                    title="Actualiza el texto del log desde el agente. Si ya desplazaste el panel, el scroll no se mueve salvo que estuvieras al final.">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-download" aria-hidden="true"></i>
+                                        <span class="sg-btn-label">Traer log ahora</span>
+                                    </span>
+                                </button>
+                            </div>
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnGastosCobranzaLogCopiar" title="Copiar todo el contenido visible del log al portapapeles">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-copy" aria-hidden="true"></i>
+                                        <span class="sg-btn-label">Copiar log</span>
+                                    </span>
+                                </button>
+                            </div>
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-warn" id="btnGastosCobranzaLogVaciar" title="Borra el historial del archivo de log en el agente (solo la bitácora en disco)">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-eraser" aria-hidden="true"></i>
+                                        <span class="sg-btn-label">Vaciar log</span>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="small text-muted mb-2 d-none d-md-block">Log en área de texto: puede seleccionar y copiar. Con «Auto cada 4 s» y durante Worker/lista negra el scroll <strong>solo</strong> baja si ya estabas al final; al recargar la página sí se muestra el final.</p>
+                        <textarea id="gastosCobranzaLogPanel" class="bg-dark text-light border-0 rounded p-3 small mb-0 font-monospace w-100" rows="16" readonly style="max-height:min(52vh,420px);resize:vertical;white-space:pre;overflow:auto;">—</textarea>
                     </div>
                 </div>
             </div>
@@ -194,15 +342,32 @@
                                     title="Si está activo, el agente Node dispara el reporte en la ventana horaria CDMX configurada (por defecto ~10:00). Requiere agente en línea. La preferencia se guarda en el servidor del agente.">
                                 <label class="form-check-label small mb-0 text-nowrap" for="switchGcAutoRunReporte">Reporte automático</label>
                             </div>
-                            <button type="button" class="btn btn-sm btn-primary" id="btnGastosCobranzaEjecutar" disabled>
-                                <i class="fa fa-play me-1"></i>Ejecutar agente
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGastosCobranzaHistoricoReportes" title="Ver reportes de semanas anteriores (los archivos no se borran)">
-                                <i class="fa fa-history me-1"></i>Histórico
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-success" id="btnGastosCobranzaListarReportes">
-                                <i class="fa fa-sync-alt me-1"></i>Actualizar lista
-                            </button>
+                            <div id="shellGastosCobranzaReporteToolbar" class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="sg-btn-wrap">
+                                    <button type="button" class="sg-tip-btn sg-btn-green" id="btnGastosCobranzaEjecutar" disabled>
+                                        <span class="sg-tip-btn-face">
+                                            <i class="fa fa-play" aria-hidden="true"></i>
+                                            <span class="sg-btn-label">Ejecutar agente</span>
+                                        </span>
+                                    </button>
+                                </div>
+                                <div class="sg-btn-wrap">
+                                    <button type="button" class="sg-tip-btn sg-btn-warn" id="btnGastosCobranzaHistoricoReportes" title="Ver reportes de semanas anteriores (los archivos no se borran)">
+                                        <span class="sg-tip-btn-face">
+                                            <i class="fa fa-history" aria-hidden="true"></i>
+                                            <span class="sg-btn-label">Histórico</span>
+                                        </span>
+                                    </button>
+                                </div>
+                                <div class="sg-btn-wrap">
+                                    <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnGastosCobranzaListarReportes">
+                                        <span class="sg-tip-btn-face">
+                                            <i class="fa fa-sync-alt" aria-hidden="true"></i>
+                                            <span class="sg-btn-label">Actualizar lista</span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div id="gastosCobranzaSalidaWrap" class="d-none mb-3">
@@ -226,36 +391,6 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-                        <h5 class="card-title mb-0"><i class="fa fa-scroll text-secondary me-2"></i>Log del agente</h5>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="chkGastosCobranzaLogAuto" checked>
-                            <label class="form-check-label small" for="chkGastosCobranzaLogAuto">Auto cada 4 s</label>
-                        </div>
-                    </div>
-                    <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGastosCobranzaLogAhora"
-                            title="Actualiza el texto del log desde el agente. Si ya desplazaste el panel, el scroll no se mueve salvo que estuvieras al final.">
-                            <i class="fa fa-download me-1"></i>Traer log ahora
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnGastosCobranzaLogCopiar" title="Copiar todo el contenido visible del log al portapapeles">
-                            <i class="fa fa-copy me-1"></i>Copiar log
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-warning" id="btnGastosCobranzaLogVaciar" title="Borra el historial del archivo de log en el agente (solo la bitácora en disco)">
-                            <i class="fa fa-eraser me-1"></i>Vaciar log
-                        </button>
-                        <span class="small text-muted mb-0 d-none d-xl-inline">Log en área de texto: puede seleccionar y copiar. Con «Auto cada 4 s» y durante Worker/lista negra el scroll <strong>solo</strong> baja si ya estabas al final; al recargar la página sí se muestra el final.</span>
-                    </div>
-                    <textarea id="gastosCobranzaLogPanel" class="bg-dark text-light border-0 rounded p-3 small mb-0 font-monospace w-100" rows="14" readonly style="max-height:320px;resize:vertical;white-space:pre;overflow:auto;">—</textarea>
                 </div>
             </div>
         </div>
@@ -303,16 +438,6 @@
 <style>
     .container-p-y .row.mb-4:last-of-type {
         margin-bottom: 1rem !important;
-    }
-    /*
-     * Franja lateral: Bootstrap .border-0 pone border:0 !important en toda la tarjeta y deja invisible un solo border-left.
-     * Forzamos borde izquierdo con selector más específico y anulamos los otros lados.
-     */
-    .card.gc-card-accent-ec-worker.border-0 {
-        border-top: 0 !important;
-        border-right: 0 !important;
-        border-bottom: 0 !important;
-        border-left: 4px solid #7b61ff !important;
     }
     .gc-ec-worker-title-icon {
         color: #7b61ff;
@@ -405,6 +530,616 @@
         color: #cbd5e1;
     }
 
+    /* Barra de acciones alineada con Shell Segundómetro (sg-tip-btn) */
+    #shellGastosCobranzaAccionesBar .sg-agent-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    #shellGastosCobranzaAccionesBar .sg-agent-title {
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: #64748b;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+    }
+    #shellGastosCobranzaAccionesBar .sg-agent-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #22c55e;
+    }
+    #shellGastosCobranzaAccionesBar .sg-agent-actions,
+    #shellGastosCobranzaReporteToolbar {
+        width: min(860px, 100%);
+    }
+    #shellGastosCobranzaReporteToolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 8px;
+    }
+    #shellGastosCobranzaAccionesBar .sg-agent-row-top {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(150px, 1fr));
+        gap: 8px;
+        align-items: stretch;
+    }
+    #shellGastosCobranzaAccionesBar .sg-agent-row-bottom {
+        margin-top: 8px;
+        display: flex;
+        width: 100%;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-wrap,
+    #shellGastosCobranzaReporteToolbar .sg-btn-wrap,
+    #shellGastosCobranzaLogToolbar .sg-btn-wrap {
+        min-width: 0;
+    }
+    #shellGastosCobranzaReporteToolbar .sg-btn-wrap {
+        flex: 1 1 auto;
+        max-width: 100%;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn,
+    #shellGastosCobranzaReporteToolbar .sg-tip-btn,
+    #shellGastosCobranzaLogToolbar .sg-tip-btn {
+        position: relative;
+        width: 100%;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid;
+        background: #fff;
+        padding: 0 0.9rem;
+        font-size: 0.79rem;
+        font-weight: 500;
+        line-height: 1;
+        transition: all 0.16s ease;
+        white-space: nowrap;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn-face,
+    #shellGastosCobranzaReporteToolbar .sg-tip-btn-face,
+    #shellGastosCobranzaLogToolbar .sg-tip-btn-face {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        width: 100%;
+        min-width: 0;
+        padding-right: 1.35rem;
+    }
+    #shellGastosCobranzaLogToolbar .sg-tip-btn-face {
+        padding-right: 0.65rem;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn-face > i,
+    #shellGastosCobranzaReporteToolbar .sg-tip-btn-face > i,
+    #shellGastosCobranzaLogToolbar .sg-tip-btn-face > i {
+        font-size: 0.8rem;
+        line-height: 1;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tooltip-icon {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: help;
+        opacity: 0.55;
+        flex-shrink: 0;
+        line-height: 1;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tooltip-icon i {
+        font-size: 0.72rem;
+        line-height: 1;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-label,
+    #shellGastosCobranzaReporteToolbar .sg-btn-label,
+    #shellGastosCobranzaLogToolbar .sg-btn-label {
+        flex: 1;
+        text-align: left;
+    }
+    #shellGastosCobranzaReporteToolbar .sg-btn-label,
+    #shellGastosCobranzaLogToolbar .sg-btn-label {
+        text-align: center;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn:hover,
+    #shellGastosCobranzaReporteToolbar .sg-tip-btn:hover,
+    #shellGastosCobranzaLogToolbar .sg-tip-btn:hover {
+        transform: translateY(-1px);
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn:active,
+    #shellGastosCobranzaReporteToolbar .sg-tip-btn:active,
+    #shellGastosCobranzaLogToolbar .sg-tip-btn:active {
+        transform: scale(0.98);
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn:disabled,
+    #shellGastosCobranzaReporteToolbar .sg-tip-btn:disabled,
+    #shellGastosCobranzaLogToolbar .sg-tip-btn:disabled {
+        opacity: 0.9;
+        cursor: not-allowed;
+        transform: none;
+        pointer-events: none;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn:disabled .sg-tooltip-icon {
+        pointer-events: auto;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn:disabled .sg-tip-btn-face,
+    #shellGastosCobranzaReporteToolbar .sg-tip-btn:disabled .sg-tip-btn-face,
+    #shellGastosCobranzaLogToolbar .sg-tip-btn:disabled .sg-tip-btn-face {
+        opacity: 0.55;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-danger,
+    #shellGastosCobranzaReporteToolbar .sg-btn-danger,
+    #shellGastosCobranzaLogToolbar .sg-btn-danger {
+        background: #fff5f5;
+        border-color: #fca5a5;
+        color: #dc2626;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-danger:hover,
+    #shellGastosCobranzaReporteToolbar .sg-btn-danger:hover,
+    #shellGastosCobranzaLogToolbar .sg-btn-danger:hover {
+        background: #fee2e2;
+        border-color: #f87171;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-warn,
+    #shellGastosCobranzaReporteToolbar .sg-btn-warn,
+    #shellGastosCobranzaLogToolbar .sg-btn-warn {
+        background: #fffbeb;
+        border-color: #fcd34d;
+        color: #b45309;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-warn:hover,
+    #shellGastosCobranzaReporteToolbar .sg-btn-warn:hover,
+    #shellGastosCobranzaLogToolbar .sg-btn-warn:hover {
+        background: #fef3c7;
+        border-color: #fbbf24;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-cyan,
+    #shellGastosCobranzaReporteToolbar .sg-btn-cyan,
+    #shellGastosCobranzaLogToolbar .sg-btn-cyan {
+        background: #f0fdfa;
+        border-color: #5eead4;
+        color: #0d9488;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-cyan:hover,
+    #shellGastosCobranzaReporteToolbar .sg-btn-cyan:hover,
+    #shellGastosCobranzaLogToolbar .sg-btn-cyan:hover {
+        background: #ccfbf1;
+        border-color: #2dd4bf;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-green,
+    #shellGastosCobranzaReporteToolbar .sg-btn-green,
+    #shellGastosCobranzaLogToolbar .sg-btn-green {
+        background: #f0fdf4;
+        border-color: #86efac;
+        color: #16a34a;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-green:hover,
+    #shellGastosCobranzaReporteToolbar .sg-btn-green:hover,
+    #shellGastosCobranzaLogToolbar .sg-btn-green:hover {
+        background: #dcfce7;
+        border-color: #4ade80;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-violet {
+        background: #f5f3ff;
+        border-color: #c4b5fd;
+        color: #5b21b6;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-violet:hover {
+        background: #ede9fe;
+        border-color: #a78bfa;
+        color: #4c1d95;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn-run {
+        min-height: 38px;
+        height: 38px;
+        width: 100%;
+        flex: 1 1 auto;
+        font-size: 0.82rem;
+        display: flex;
+        justify-content: center;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tip-btn-run .sg-btn-label {
+        flex: 0 1 auto;
+        text-align: center;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tooltip-icon::after {
+        content: attr(data-tip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%) translateY(3px);
+        font-size: 0.72rem;
+        line-height: 1.35;
+        background: #020617;
+        color: #f8fafc;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+        padding: 0.45rem 0.65rem;
+        border-radius: 8px;
+        white-space: normal;
+        max-width: min(460px, 95vw);
+        min-width: min(280px, 92vw);
+        text-align: left;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.16s ease, transform 0.16s ease;
+        z-index: 1080;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tooltip-icon::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 2px);
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #020617;
+        opacity: 0;
+        transition: opacity 0.16s ease;
+        z-index: 1080;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tooltip-icon:hover::after,
+    #shellGastosCobranzaAccionesBar .sg-tooltip-icon:hover::before {
+        opacity: 1;
+    }
+    #shellGastosCobranzaAccionesBar .sg-tooltip-icon:hover::after {
+        transform: translateX(-50%) translateY(0);
+    }
+    /* Modales Shell Gastos Cobranza: cierre flotante + sin recorte horizontal */
+    #modalGcAgenteLog.modal,
+    #modalGcEcWorker.modal,
+    #modalGcListaNegra.modal,
+    #modalGcDescargo.modal {
+        overflow-x: visible !important;
+    }
+    #modalGcAgenteLog .gc-modal-shell-dialog,
+    #modalGcEcWorker .gc-modal-shell-dialog,
+    #modalGcListaNegra .gc-modal-shell-dialog,
+    #modalGcDescargo .gc-modal-shell-dialog {
+        position: relative;
+    }
+    #modalGcAgenteLog .gc-modal-shell-wrap,
+    #modalGcEcWorker .gc-modal-shell-wrap,
+    #modalGcListaNegra .gc-modal-shell-wrap,
+    #modalGcDescargo .gc-modal-shell-wrap {
+        overflow: visible;
+        pointer-events: none;
+    }
+    #modalGcAgenteLog .gc-modal-shell-wrap .modal-content,
+    #modalGcEcWorker .gc-modal-shell-wrap .modal-content,
+    #modalGcListaNegra .gc-modal-shell-wrap .modal-content,
+    #modalGcDescargo .gc-modal-shell-wrap .modal-content {
+        pointer-events: auto;
+    }
+    #modalGcAgenteLog .gc-modal-shell-content,
+    #modalGcEcWorker .gc-modal-shell-content,
+    #modalGcListaNegra .gc-modal-shell-content,
+    #modalGcDescargo .gc-modal-shell-content {
+        overflow: visible;
+        border-radius: 0.5rem;
+    }
+    #modalGcEcWorker .gc-modal-shell-body-scroll,
+    #modalGcListaNegra .gc-modal-shell-body-scroll,
+    #modalGcDescargo .gc-modal-shell-body-scroll {
+        max-height: min(78vh, 680px);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    .tooltip.gc-tooltip-carga-verif {
+        --bs-tooltip-max-width: min(38rem, 94vw);
+    }
+    .tooltip.gc-tooltip-carga-verif .tooltip-inner {
+        text-align: left;
+        line-height: 1.45;
+    }
+    /* Zona Excel tipo “Seleccionar archivo” + botón corrida ancho (EC Worker / lista negra) */
+    .gc-excel-file-zone {
+        border-radius: 12px;
+        border: 1px dashed #b0bec5;
+        background: linear-gradient(180deg, #fafbfd 0%, #f4f6f9 100%);
+        transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .gc-excel-file-zone.gc-excel-zone-filled {
+        border-style: solid;
+        border-color: #cfd8e3;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    .gc-excel-file-zone.gc-excel-zone-shell-blocked {
+        opacity: 0.55;
+        pointer-events: none;
+    }
+    .gc-excel-file-zone:focus-within {
+        border-color: #94a3b8;
+        box-shadow: 0 0 0 0.2rem rgba(26, 58, 92, 0.12);
+    }
+    .gc-excel-file-face {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        min-height: 2.5rem;
+        padding: 0.5rem 0.9rem;
+        cursor: pointer;
+        border-radius: 11px;
+        user-select: none;
+    }
+    .gc-excel-file-face:hover {
+        background: rgba(26, 58, 92, 0.04);
+    }
+    .gc-excel-file-face-text {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .gc-excel-run-btn {
+        border-radius: 10px;
+        font-weight: 600;
+        padding: 0.55rem 1rem;
+        border: 1px solid #c5ced9;
+        background: #f1f4f8;
+        color: #1a3a5c;
+        min-height: 2.55rem;
+    }
+    .gc-excel-run-btn-compact {
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 0.4rem 0.75rem;
+        min-height: 2.35rem;
+        line-height: 1.25;
+        white-space: nowrap;
+        width: auto;
+        align-self: flex-start;
+    }
+    .gc-excel-run-btn:hover:not(:disabled) {
+        background: #e8ecf2;
+        border-color: #aebccf;
+        color: #142d45;
+    }
+    .gc-excel-run-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+    .gc-excel-run-btn-secondary {
+        background: #f8f9fb;
+        color: #334155;
+    }
+    .gc-excel-run-btn-secondary:hover:not(:disabled) {
+        background: #eef1f6;
+        color: #1e293b;
+    }
+    html.dark-mode .gc-excel-file-zone,
+    body.dark-mode .gc-excel-file-zone {
+        background: rgba(30, 41, 59, 0.35);
+        border-color: #64748b;
+    }
+    html.dark-mode .gc-excel-file-zone.gc-excel-zone-filled,
+    body.dark-mode .gc-excel-file-zone.gc-excel-zone-filled {
+        background: rgba(15, 23, 42, 0.55);
+        border-color: #94a3b8;
+    }
+    html.dark-mode .gc-excel-run-btn,
+    body.dark-mode .gc-excel-run-btn {
+        background: rgba(30, 41, 59, 0.6);
+        border-color: #64748b;
+        color: #e2e8f0;
+    }
+    #modalGcAgenteLog .gc-modal-shell-body-scroll.gc-modal-log-body-tall {
+        max-height: min(72vh, 620px);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    #modalGcAgenteLog .gc-shell-gc-modal-close,
+    #modalGcEcWorker .gc-shell-gc-modal-close,
+    #modalGcListaNegra .gc-shell-gc-modal-close,
+    #modalGcDescargo .gc-shell-gc-modal-close {
+        position: absolute;
+        top: -12px;
+        right: -12px;
+        z-index: 20;
+        width: 36px;
+        height: 36px;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e2e6ed;
+        border-radius: 10px;
+        background-color: #f4f6f9;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+        color: #8b95a5;
+        font-size: 1.35rem;
+        line-height: 1;
+        font-weight: 300;
+        cursor: pointer;
+        pointer-events: auto;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    #modalGcAgenteLog .gc-shell-gc-modal-close:hover,
+    #modalGcEcWorker .gc-shell-gc-modal-close:hover,
+    #modalGcListaNegra .gc-shell-gc-modal-close:hover,
+    #modalGcDescargo .gc-shell-gc-modal-close:hover {
+        background-color: #eceff4;
+        color: #5c6b7d;
+        border-color: #d5dbe6;
+    }
+    #modalGcAgenteLog .gc-shell-gc-modal-close:focus,
+    #modalGcEcWorker .gc-shell-gc-modal-close:focus,
+    #modalGcListaNegra .gc-shell-gc-modal-close:focus,
+    #modalGcDescargo .gc-shell-gc-modal-close:focus {
+        outline: none;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.14), 0 0 0 2px rgba(105, 108, 255, 0.35);
+    }
+    #modalGcAgenteLog .gc-shell-gc-modal-close-x,
+    #modalGcEcWorker .gc-shell-gc-modal-close-x,
+    #modalGcListaNegra .gc-shell-gc-modal-close-x,
+    #modalGcDescargo .gc-shell-gc-modal-close-x {
+        display: block;
+        margin-top: -3px;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    html.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close,
+    html.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close,
+    html.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close,
+    html.dark-mode #modalGcDescargo .gc-shell-gc-modal-close,
+    body.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close,
+    body.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close,
+    body.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close,
+    body.dark-mode #modalGcDescargo .gc-shell-gc-modal-close {
+        background-color: #3d4a5c;
+        border-color: rgba(148, 163, 184, 0.35);
+        color: #cbd5e1;
+        box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+    }
+    html.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close:hover,
+    html.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close:hover,
+    html.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close:hover,
+    html.dark-mode #modalGcDescargo .gc-shell-gc-modal-close:hover,
+    body.dark-mode #modalGcAgenteLog .gc-shell-gc-modal-close:hover,
+    body.dark-mode #modalGcEcWorker .gc-shell-gc-modal-close:hover,
+    body.dark-mode #modalGcListaNegra .gc-shell-gc-modal-close:hover,
+    body.dark-mode #modalGcDescargo .gc-shell-gc-modal-close:hover {
+        background-color: #4b5c73;
+        color: #f1f5f9;
+        border-color: rgba(148, 163, 184, 0.5);
+    }
+    @media (max-width: 991.98px) {
+        #shellGastosCobranzaAccionesBar .sg-agent-actions {
+            width: 100%;
+        }
+    }
+    @media (max-width: 767.98px) {
+        #shellGastosCobranzaAccionesBar .sg-agent-row-top {
+            grid-template-columns: 1fr;
+        }
+        #shellGastosCobranzaAccionesBar .sg-tip-btn,
+        #shellGastosCobranzaReporteToolbar .sg-tip-btn,
+        #shellGastosCobranzaLogToolbar .sg-tip-btn {
+            height: 36px;
+        }
+        #shellGastosCobranzaAccionesBar .sg-tip-btn-run {
+            width: 100%;
+        }
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar,
+    body.dark-mode #shellGastosCobranzaAccionesBar {
+        background: rgba(30, 41, 59, 0.92);
+        border-color: rgba(148, 163, 184, 0.18) !important;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-agent-title,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-agent-title {
+        color: #cbd5e1;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-tip-btn,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-tip-btn,
+    html.dark-mode #shellGastosCobranzaLogToolbar .sg-tip-btn,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-tip-btn,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-tip-btn,
+    body.dark-mode #shellGastosCobranzaLogToolbar .sg-tip-btn {
+        background: rgba(30, 41, 59, 0.9);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-danger,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-danger,
+    html.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-danger,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-danger,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-danger,
+    body.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-danger {
+        background: rgba(127, 29, 29, 0.5);
+        border-color: rgba(248, 113, 113, 0.55);
+        color: #fecaca;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-danger:hover,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-danger:hover,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-danger:hover,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-danger:hover {
+        background: rgba(153, 27, 27, 0.62);
+        border-color: #f87171;
+        color: #fef2f2;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-warn,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-warn,
+    html.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-warn,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-warn,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-warn,
+    body.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-warn {
+        background: rgba(120, 53, 15, 0.45);
+        border-color: rgba(251, 191, 36, 0.5);
+        color: #fde68a;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-warn:hover,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-warn:hover,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-warn:hover,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-warn:hover {
+        background: rgba(146, 64, 14, 0.58);
+        border-color: #fbbf24;
+        color: #fffbeb;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-cyan,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-cyan,
+    html.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-cyan,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-cyan,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-cyan,
+    body.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-cyan {
+        background: rgba(17, 94, 89, 0.42);
+        border-color: rgba(45, 212, 191, 0.45);
+        color: #99f6e4;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-cyan:hover,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-cyan:hover,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-cyan:hover,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-cyan:hover {
+        background: rgba(19, 78, 74, 0.55);
+        border-color: #2dd4bf;
+        color: #ccfbf1;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-green,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-green,
+    html.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-green,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-green,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-green,
+    body.dark-mode #shellGastosCobranzaLogToolbar .sg-btn-green {
+        background: rgba(20, 83, 45, 0.48);
+        border-color: rgba(74, 222, 128, 0.5);
+        color: #bbf7d0;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-green:hover,
+    html.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-green:hover,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-green:hover,
+    body.dark-mode #shellGastosCobranzaReporteToolbar .sg-btn-green:hover {
+        background: rgba(22, 101, 52, 0.6);
+        border-color: #4ade80;
+        color: #f0fdf4;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-violet,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-violet {
+        background: rgba(76, 29, 149, 0.45);
+        border-color: rgba(167, 139, 250, 0.5);
+        color: #e9d5ff;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-violet:hover,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-violet:hover {
+        background: rgba(91, 33, 182, 0.55);
+        border-color: #c4b5fd;
+        color: #f5f3ff;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-tip-btn:disabled,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-tip-btn:disabled {
+        opacity: 1;
+    }
+
     .card.gc-card-accent-descargo.border-0 {
         border-top: 0 !important;
         border-right: 0 !important;
@@ -495,8 +1230,6 @@
     var cargaVerifDry = document.getElementById('cargaVerifDryRun');
     var cargaVerifOutWrap = document.getElementById('cargaVerifSalidaWrap');
     var cargaVerifOutPre = document.getElementById('cargaVerifSalida');
-    var chkMostrarCargaVerifManual = document.getElementById('chkMostrarCargaVerifManual');
-    var wrapCargaVerifManual = document.getElementById('wrapCargaVerifManual');
     var ecFile = document.getElementById('ecLauncherFile');
     var ecFecha = document.getElementById('ecLauncherFecha');
     var ecEnrich = document.getElementById('ecLauncherEnrich');
@@ -519,8 +1252,6 @@
     var tbodyRepHist = document.getElementById('gastosCobranzaTablaReportesHistorico');
     var selHistoricoSemana = document.getElementById('selHistoricoSemanaGc');
     var hintSemanaActual = document.getElementById('gastosCobranzaSemanaActualHint');
-    var chkMostrarDescargo = document.getElementById('chkMostrarDescargoEstatus3');
-    var wrapDescargo = document.getElementById('wrapDescargoEstatus3');
     /** Última lista completa del agente (sin filtrar por semana). */
     var gcCacheArchivosReporte = [];
     var ivEstado = null;
@@ -595,10 +1326,46 @@
         return isNaN(n) ? -1 : n;
     }
 
+    function gcEcLauncherTieneExcel() {
+        try {
+            return !!(ecFile && ecFile.files && ecFile.files.length > 0);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function gcListaNegraTieneExcel() {
+        try {
+            return !!(cargaVerifFile && cargaVerifFile.files && cargaVerifFile.files.length > 0);
+        } catch (e2) {
+            return false;
+        }
+    }
+
+    /** Texto «Seleccionar archivo» / nombre y clases relleno en las zonas Excel de los modales. */
+    function gcPintarZonaExcelCliente() {
+        var face = document.getElementById('ecLauncherFileFace');
+        var zone = document.getElementById('ecLauncherFileZone');
+        if (face && ecFile && zone) {
+            var ok = gcEcLauncherTieneExcel();
+            face.textContent = ok ? (ecFile.files[0].name || 'Archivo seleccionado') : 'Seleccionar archivo';
+            zone.classList.toggle('gc-excel-zone-filled', ok);
+            zone.classList.toggle('gc-excel-zone-empty', !ok);
+        }
+        var face2 = document.getElementById('cargaVerifFileFace');
+        var zone2 = document.getElementById('cargaVerifFileZone');
+        if (face2 && cargaVerifFile && zone2) {
+            var ok2 = gcListaNegraTieneExcel();
+            face2.textContent = ok2 ? (cargaVerifFile.files[0].name || 'Archivo seleccionado') : 'Seleccionar archivo';
+            zone2.classList.toggle('gc-excel-zone-filled', ok2);
+            zone2.classList.toggle('gc-excel-zone-empty', !ok2);
+        }
+    }
+
     function aplicarEstadoBotonesShellCompleto() {
         var shellBloq = !!gcShellOperacionEnCurso;
         var puedeEc = gcAgenteOnline && !gcAgenteReportaEcOcupado && !shellBloq;
-        if (btnEcLauncher) btnEcLauncher.disabled = !puedeEc;
+        if (btnEcLauncher) btnEcLauncher.disabled = !puedeEc || !gcEcLauncherTieneExcel();
         try {
             document.querySelectorAll('.btn-gc-worker-reporte').forEach(function (b) {
                 b.disabled = !puedeEc;
@@ -625,16 +1392,19 @@
         if (cargaVerifHeaderRow) cargaVerifHeaderRow.disabled = shellBloq;
         if (cargaVerifDry) cargaVerifDry.disabled = shellBloq;
         if (chkDescargoSinActualizarGuia) chkDescargoSinActualizarGuia.disabled = shellBloq;
-        if (chkMostrarCargaVerifManual) chkMostrarCargaVerifManual.disabled = shellBloq;
-        if (chkMostrarDescargo) chkMostrarDescargo.disabled = shellBloq;
 
         if (shellBloq) {
             if (btnCargaVerif) btnCargaVerif.disabled = true;
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
         } else {
-            if (btnCargaVerif) btnCargaVerif.disabled = !gcUltimoScriptCarga;
+            if (btnCargaVerif) btnCargaVerif.disabled = !gcUltimoScriptCarga || !gcListaNegraTieneExcel();
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = !gcUltimoScriptDescargo;
         }
+        var zEc = document.getElementById('ecLauncherFileZone');
+        var zCv = document.getElementById('cargaVerifFileZone');
+        if (zEc) zEc.classList.toggle('gc-excel-zone-shell-blocked', shellBloq);
+        if (zCv) zCv.classList.toggle('gc-excel-zone-shell-blocked', shellBloq);
+        gcPintarZonaExcelCliente();
         try {
             document.querySelectorAll('a.gc-rep-btn-descargar').forEach(function (a) {
                 if (shellBloq) {
@@ -1680,9 +2450,15 @@
 
     /**
      * Carga verificación semana (lista negra) usando un Excel ya en reporte/ (mismo nombre de fila).
-     * Respeta dry-run, estatus, headerRow y mensaje del panel manual (checkboxs/inputs existen aunque el panel esté colapsado).
+     * Respeta dry-run, estatus, headerRow y mensaje del formulario en el modal «Lista negra».
      */
     async function ejecutarListaNegraDesdeReporte(nombreArchivo) {
+        try {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                var mLn = document.getElementById('modalGcListaNegra');
+                if (mLn) bootstrap.Modal.getOrCreateInstance(mLn).show();
+            }
+        } catch (eLn) { /* ignorar */ }
         iniciarOperacionShell('lista_negra');
         comenzarLogRapidoEcWorker();
         if (cargaVerifOutWrap) cargaVerifOutWrap.classList.add('d-none');
@@ -1713,7 +2489,13 @@
 
     async function ejecutarWorkerDesdeReporte(nombreArchivo) {
         if (!ecFecha || !ecFecha.value) {
-            alertar('Fecha de corte', 'Indique la fecha de corte S2 en la sección «EC Worker / Excel enriquecido» (la misma que usaría al subir el Excel).', 'warning');
+            alertar('Fecha de corte', 'Indique la fecha de corte S2 en el modal «EC Worker / Excel enriquecido» (la misma que usaría al subir el Excel).', 'warning');
+            try {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    var mEc = document.getElementById('modalGcEcWorker');
+                    if (mEc) bootstrap.Modal.getOrCreateInstance(mEc).show();
+                }
+            } catch (eM) { /* ignorar */ }
             if (ecFecha) ecFecha.focus();
             return;
         }
@@ -1755,12 +2537,18 @@
         }, 12000);
     }
 
-    chkLog.addEventListener('change', function () {
+    if (chkLog) chkLog.addEventListener('change', function () {
         if (chkLog.checked) traerLog(400, { scrollBottom: true });
     });
     if (btnLog) btnLog.addEventListener('click', function () {
         traerLog(400, { scrollBottom: true });
     });
+    var modalGcAgenteLog = document.getElementById('modalGcAgenteLog');
+    if (modalGcAgenteLog) {
+        modalGcAgenteLog.addEventListener('shown.bs.modal', function () {
+            traerLog(400, { scrollBottom: true });
+        });
+    }
     if (btnLogCopiar) btnLogCopiar.addEventListener('click', copiarLogAlPortapapeles);
     if (btnLogVaciar) btnLogVaciar.addEventListener('click', vaciarLogAgente);
     function manejarClickAccionesTablaReporte(ev, root) {
@@ -1801,22 +2589,25 @@
     if (selHistoricoSemana) {
         selHistoricoSemana.addEventListener('change', gcPintarTablaHistorico);
     }
-    if (chkMostrarDescargo && wrapDescargo) {
-        chkMostrarDescargo.addEventListener('change', function () {
-            wrapDescargo.classList.toggle('d-none', !chkMostrarDescargo.checked);
-        });
-    }
     if (btnListarRep) btnListarRep.addEventListener('click', traerListaReportes);
     if (btnRun) btnRun.addEventListener('click', ejecutar);
     if (ecFecha) ecFecha.value = fechaCalendarioCdmxYmd();
+    if (ecFile) {
+        ecFile.addEventListener('change', function () {
+            gcPintarZonaExcelCliente();
+            aplicarEstadoBotonesShellCompleto();
+        });
+    }
+    if (cargaVerifFile) {
+        cargaVerifFile.addEventListener('change', function () {
+            gcPintarZonaExcelCliente();
+            aplicarEstadoBotonesShellCompleto();
+        });
+    }
+    gcPintarZonaExcelCliente();
     if (btnEcLauncher) btnEcLauncher.addEventListener('click', ejecutarEcLauncherFlujo);
     if (btnCargaVerif) btnCargaVerif.addEventListener('click', ejecutarCargaVerificacionFlujo);
     if (btnDescargoEstatus3) btnDescargoEstatus3.addEventListener('click', ejecutarDescargoEstatus3Flujo);
-    if (chkMostrarCargaVerifManual && wrapCargaVerifManual) {
-        chkMostrarCargaVerifManual.addEventListener('change', function () {
-            wrapCargaVerifManual.classList.toggle('d-none', !chkMostrarCargaVerifManual.checked);
-        });
-    }
     try {
         if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
             document.querySelectorAll('.container-xxl [data-bs-toggle="tooltip"]').forEach(function (el) {
