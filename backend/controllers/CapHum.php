@@ -791,6 +791,52 @@ class CapHum extends Controller
             }
 
             /* =========================
+               ELIMINAR CONVENIOS DE CRÉDITO (admin express)
+            ========================= */
+            function adminReactivarProductoConvenio() {
+                var input = document.getElementById('adminReactivarIdCredito');
+                var idCredito = input ? parseInt(input.value, 10) : 0;
+                if (!idCredito || idCredito <= 0) {
+                    Swal.fire({ icon: 'warning', title: 'ID requerido', text: 'Ingresa un ID de crédito válido.', customClass: { container: 'swal-sobre-modal-perfil' } });
+                    return;
+                }
+                Swal.fire({
+                    title: '¿Eliminar convenios del crédito ' + idCredito + '?',
+                    html: '<p class="mb-1">Se <strong>eliminarán todos los convenios</strong> y su amortización para este crédito.</p><p class="text-muted small mb-0">El crédito quedará libre para generar un convenio nuevo.</p>',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    reverseButtons: true,
+                    buttonsStyling: false,
+                    customClass: {
+                        container: 'swal-sobre-modal-perfil',
+                        actions: 'd-flex gap-2 justify-content-center',
+                        confirmButton: 'btn btn-danger px-4',
+                        cancelButton: 'btn btn-outline-secondary px-4'
+                    }
+                }).then(function(res) {
+                    if (!res.isConfirmed) return;
+                    Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, allowEscapeKey: false, showConfirmButton: false, didOpen: function() { Swal.showLoading(); }, customClass: { container: 'swal-sobre-modal-perfil' } });
+                    var fd = new FormData();
+                    fd.append('id_credito', idCredito);
+                    fetch('/Convenios/eliminarConveniosCredito', { method: 'POST', body: fd })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.success) {
+                                Swal.fire({ icon: 'success', title: '¡Eliminado!', text: data.mensaje || 'Convenios eliminados correctamente.', confirmButtonText: 'Cerrar', customClass: { container: 'swal-sobre-modal-perfil' } });
+                                if (input) input.value = '';
+                            } else {
+                                Swal.fire({ icon: 'error', title: 'No se pudo eliminar', text: data.mensaje || 'Ocurrió un error.', confirmButtonText: 'Entendido', customClass: { container: 'swal-sobre-modal-perfil' } });
+                            }
+                        })
+                        .catch(function() {
+                            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo contactar al servidor.', customClass: { container: 'swal-sobre-modal-perfil' } });
+                        });
+                });
+            }
+
+            /* =========================
                PUESTOS
             ========================= */
             function renderPuestos(puestos) {
