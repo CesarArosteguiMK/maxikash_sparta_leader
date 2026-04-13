@@ -259,7 +259,7 @@ body.dark-mode .cc-doc-ok      { background: rgba(21,128,61,.2);  color: #4ade80
 body.dark-mode .cc-doc-missing { background: rgba(185,28,28,.2); color: #f87171; }
 body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24; }
 
-/* ── Panel lateral izquierdo (Tab En Proceso) ── */
+/* ── Panel lateral derecho (Tab En Proceso) ── */
 .cc-ep-wrapper {
     display: flex;
     flex-direction: row;
@@ -274,9 +274,9 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
     flex-shrink: 0;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-right: none;
-    border-radius: .75rem 0 0 .75rem;
-    box-shadow: -3px 2px 10px rgba(0,0,0,.06);
+    border-left: none;
+    border-radius: 0 .75rem .75rem 0;
+    box-shadow: 3px 2px 10px rgba(0,0,0,.06);
     transition: width .32s cubic-bezier(.4,0,.2,1), max-height .32s cubic-bezier(.4,0,.2,1), opacity .25s ease, padding .32s ease;
     padding: 0;
     display: flex;
@@ -290,8 +290,8 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
     padding: 1.1rem 1.25rem;
 }
 .cc-conv-card.cc-has-panel {
-    border-radius: 0 .75rem .75rem 0;
-    border-left-color: #bfdbfe;
+    border-radius: .75rem 0 0 .75rem;
+    border-right-color: #bfdbfe;
 }
 .cc-side-panel-header {
     display: flex;
@@ -323,7 +323,7 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
 body.dark-mode .cc-side-panel {
     background: #0f172a;
     border-color: #334155;
-    box-shadow: -3px 2px 10px rgba(0,0,0,.25);
+    box-shadow: 3px 2px 10px rgba(0,0,0,.25);
 }
 body.dark-mode .cc-side-panel-header { border-color: #334155; }
 body.dark-mode .cc-side-panel-header .cc-sp-title { color: #60a5fa; }
@@ -730,6 +730,20 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                 </button>
             </div>
 
+            <!-- Panel lateral derecho (oculto por defecto) -->
+            <div class="cc-side-panel" id="cc-acc-body-${r.id}">
+                <div class="cc-side-panel-header">
+                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
+                    <button class="cc-side-panel-close" onclick="ccToggleDetalle(${r.id})" title="Cerrar panel">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div id="cc-acc-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
+                </div>
+                <div id="cc-acc-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
+            </div>
+
         </div>`;
     }
 
@@ -805,20 +819,6 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         return `
         <div class="cc-ep-wrapper" id="cc-ep-wrapper-${r.id}">
 
-            <!-- Panel lateral izquierdo (oculto por defecto) -->
-            <div class="cc-side-panel" id="cc-acc-body-${r.id}">
-                <div class="cc-side-panel-header">
-                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
-                    <button class="cc-side-panel-close" onclick="ccToggleDetalle(${r.id})" title="Cerrar panel">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-                <div id="cc-acc-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
-                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
-                </div>
-                <div id="cc-acc-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
-            </div>
-
             <!-- Card principal -->
             <div class="cc-conv-card" id="cc-ep-card-${r.id}" style="min-width:300px;width:420px;max-width:100%;">
 
@@ -884,6 +884,21 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                 </div>
 
             </div>
+
+            <!-- Panel lateral derecho (oculto por defecto) -->
+            <div class="cc-side-panel" id="cc-acc-body-${r.id}">
+                <div class="cc-side-panel-header">
+                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
+                    <button class="cc-side-panel-close" onclick="ccToggleDetalle(${r.id})" title="Cerrar panel">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div id="cc-acc-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
+                </div>
+                <div id="cc-acc-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
+            </div>
+
         </div>`;
     }
 
@@ -1233,7 +1248,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     title: '¡Confirmado!',
                     text: `Crédito ${idCredito} enviado al proceso de validación.`,
                     icon: 'success',
-                    timer: 2500,
+                    timer: 2000,
                     showConfirmButton: false
                 });
                 // Eliminar de _allRows y repintar para que no reaparezca en búsquedas

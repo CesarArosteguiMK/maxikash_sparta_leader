@@ -199,15 +199,34 @@ class CierreCredito extends Model
         try {
             $db = new Database();
 
-            // Evitar duplicados: si ya existe un registro en_proceso para este crédito, reutilizarlo
+            // Si ya existe un registro (cualquier estatus) para este crédito, reutilizarlo
             $existing = $db->queryOne(
-                "SELECT id FROM cierre_credito_seguimiento
-                 WHERE id_credito = :id AND estatus = 'en_proceso'
+                "SELECT id, estatus FROM cierre_credito_seguimiento
+                 WHERE id_credito = :id
+                 ORDER BY fecha_alta DESC
                  LIMIT 1",
                 ['id' => (int) $datos['id_credito']]
             );
+
             if ($existing) {
-                return self::resultado(true, 'Este crédito ya está en proceso de validación.');
+                if ($existing['estatus'] === 'en_proceso') {
+                    return self::resultado(true, 'Este crédito ya está en proceso de validación.');
+                }
+                // Reutilizar el registro existente (UPDATE en lugar de INSERT)
+                $db->CRUD(
+                    "UPDATE cierre_credito_seguimiento
+                     SET estatus                = 'en_proceso',
+                         nombre_cliente         = :nombre_cliente,
+                         usuario_actualizacion  = :usuario,
+                         fecha_actualizacion    = NOW()
+                     WHERE id = :id",
+                    [
+                        'nombre_cliente' => $datos['nombre_cliente'],
+                        'usuario'        => $datos['usuario_alta'],
+                        'id'             => (int) $existing['id'],
+                    ]
+                );
+                return self::resultado(true, 'Registro actualizado a En Proceso.');
             }
 
             $db->CRUD(
@@ -216,10 +235,10 @@ class CierreCredito extends Model
                  VALUES
                     (:id_credito, :nombre_cliente, :estatus, :usuario_alta, :usuario_actualizacion)",
                 [
-                    'id_credito'          => (int) $datos['id_credito'],
-                    'nombre_cliente'      => $datos['nombre_cliente'],
-                    'estatus'             => $datos['estatus'] ?? 'en_proceso',
-                    'usuario_alta'        => $datos['usuario_alta'],
+                    'id_credito'            => (int) $datos['id_credito'],
+                    'nombre_cliente'        => $datos['nombre_cliente'],
+                    'estatus'               => $datos['estatus'] ?? 'en_proceso',
+                    'usuario_alta'          => $datos['usuario_alta'],
                     'usuario_actualizacion' => $datos['usuario_alta'],
                 ]
             );
