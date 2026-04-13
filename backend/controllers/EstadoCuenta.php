@@ -29,6 +29,43 @@ class EstadoCuenta extends Controller
         return $default;
     }
 
+    /**
+     * Meta del último pago efectivo (Segundómetro) para el modal de Aclaraciones GC en vistas de estado de cuenta.
+     */
+    private function setEcAclaracionesUltimoPagoMetaParaVista(int $idCredito): void
+    {
+        $metaRow = $idCredito > 0 ? EstadoCuentaDAO::obtenerUltimoPagoEfectivoSegundometroParaCredito($idCredito) : null;
+        $tzEc = new \DateTimeZone('America/Mexico_City');
+        $hoyEc = new \DateTimeImmutable('today', $tzEc);
+        $ayerEc = $hoyEc->modify('-1 day');
+        $permite = false;
+        if ($metaRow === null || empty($metaRow['ymd'])) {
+            // Bloqueado: sin dato en Segundómetro (el modal no muestra texto largo; solo aviso corto en vista).
+        } else {
+            $v = EstadoCuentaDAO::validarUltimoPagoEfectivoVentanaAclaracionGc($metaRow['ymd']);
+            $permite = !empty($v['ok']);
+        }
+        $ymd = is_array($metaRow) ? ($metaRow['ymd'] ?? null) : null;
+        $labelDisplay = 'Sin registro en Segundómetro';
+        if ($ymd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+            try {
+                $dLab = \DateTimeImmutable::createFromFormat('!Y-m-d', $ymd, $tzEc);
+                if ($dLab instanceof \DateTimeImmutable) {
+                    $labelDisplay = $dLab->format('d/m/Y');
+                }
+            } catch (\Throwable $e) {
+                $labelDisplay = $ymd;
+            }
+        }
+        self::set('ecAclaracionesUltimoPagoMeta', [
+            'ymd' => $ymd,
+            'min_guardar_ymd' => $ayerEc->format('Y-m-d'),
+            'max_guardar_ymd' => $hoyEc->format('Y-m-d'),
+            'permite_guardar' => $permite,
+            'label_display' => $labelDisplay,
+        ]);
+    }
+
     /** Permisos especiales (modulos_web en $_SESSION['modulos']). Usuario id 1: mismo bypass que rastreo (29) y aclaraciones GC (30). */
     private function tienePermisoModuloSesion(int $moduloId): bool
     {
@@ -2911,6 +2948,7 @@ JS;
 
             self::set("dataCliente", $cliente);
             self::set("dataEstadoCuenta", $estadoCuenta);
+            $this->setEcAclaracionesUltimoPagoMetaParaVista((int) ($estadoCuenta['idCredito'] ?? 0));
             self::set("dataOtrosDatos", $otrosDatos); //Recurso Front
             self::set("direcciones", $respDAO);
             self::set("referencias", $referencias);
@@ -6792,6 +6830,7 @@ public function descargarReporteDictamen()
                         $notasGt = EmpresasDAO::getNotasNum($idCredNotasGt);
                     }
                     self::set('notas', $notasGt);
+                    $this->setEcAclaracionesUltimoPagoMetaParaVista($idCredNotasGt);
 
                     self::set("titulo", "Estado de Cuenta - Guatemala");
                     self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);

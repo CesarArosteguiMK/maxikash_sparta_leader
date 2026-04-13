@@ -13,6 +13,30 @@ $idCredAcl = (string) ($dataEstadoCuenta['idCredito'] ?? '');
 $idCredAclEsc = htmlspecialchars($idCredAcl, ENT_QUOTES, 'UTF-8');
 $nombreAclEsc = htmlspecialchars($nombreParaAcl, ENT_QUOTES, 'UTF-8');
 
+$ecMeta = isset($ecAclaracionesUltimoPagoMeta) && is_array($ecAclaracionesUltimoPagoMeta)
+    ? $ecAclaracionesUltimoPagoMeta
+    : [
+        'ymd' => null,
+        'min_guardar_ymd' => '',
+        'max_guardar_ymd' => '',
+        'permite_guardar' => false,
+        'label_display' => 'Sin registro en Segundómetro',
+    ];
+$ecAclarPuedeGuardar = !empty($ecMeta['permite_guardar']);
+$ecMetaJson = htmlspecialchars(
+    json_encode(
+        [
+            'permite' => $ecAclarPuedeGuardar,
+            'ymd' => $ecMeta['ymd'] ?? null,
+            'min' => (string) ($ecMeta['min_guardar_ymd'] ?? ''),
+            'max' => (string) ($ecMeta['max_guardar_ymd'] ?? ''),
+        ],
+        JSON_UNESCAPED_UNICODE
+    ),
+    ENT_QUOTES,
+    'UTF-8'
+);
+
 $ecAclarFechaCdmxServidor = '';
 try {
     $dtA = new DateTime('now', new DateTimeZone('America/Mexico_City'));
@@ -47,6 +71,23 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
                         <input type="text" id="ecAclaracionesFechaCdmx" class="form-control bg-light" readonly autocomplete="off" value="<?= $ecAclarFechaCdmxEsc ?>">
                         <small class="text-muted">Zona horaria: Ciudad de México</small>
                     </div>
+                    <input type="hidden" id="ecAclaracionesPagoMetaJson" value="<?= $ecMetaJson ?>">
+                    <?php if (!$ecAclarPuedeGuardar): ?>
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 rounded-3 border border-danger bg-label-danger p-2">
+                            <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                                <span class="small text-muted text-nowrap">Último pago efectivo</span>
+                                <span class="fw-semibold text-truncate" id="ecAclaracionesUltimoPago"><?= htmlspecialchars((string) ($ecMeta['label_display'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                            </div>
+                            <span class="fw-semibold text-danger text-nowrap align-self-center">No se puede guardar</span>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" for="ecAclaracionesUltimoPago">Último pago efectivo (Segundómetro)</label>
+                        <input type="text" id="ecAclaracionesUltimoPago" class="form-control bg-light" readonly autocomplete="off" value="<?= htmlspecialchars((string) ($ecMeta['label_display'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                        <small class="text-muted">Solo se puede guardar si esa fecha es <strong>hoy o ayer</strong> (calendario Ciudad de México).</small>
+                    </div>
                     <div class="col-12">
                         <span class="form-label fw-semibold d-block mb-2">Tipo de reporte</span>
                         <div class="d-flex flex-wrap gap-4 align-items-center" role="radiogroup" aria-label="Tipo de reporte">
@@ -72,13 +113,16 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
                         <label class="form-label fw-semibold" for="ecAclaracionesObservaciones">Observaciones</label>
                         <textarea id="ecAclaracionesObservaciones" class="form-control" rows="4" placeholder="Detalle de la aclaración…" autocomplete="off"></textarea>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <?php if ($ecAclarPuedeGuardar): ?>
                 <button type="button" class="btn btn-primary" id="ecAclaracionesBtnGuardar" onclick="guardarAclaracionesGc()">
                     <i class="fa fa-save me-1"></i>Guardar
                 </button>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -159,6 +203,29 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
 })();
 
 function guardarAclaracionesGc() {
+    var metaIn = document.getElementById('ecAclaracionesPagoMetaJson');
+    var meta = null;
+    if (metaIn && metaIn.value) {
+        try {
+            meta = JSON.parse(metaIn.value);
+        } catch (e1) {
+            meta = null;
+        }
+    }
+    if (!meta || !meta.permite) {
+        if (typeof Swal !== 'undefined') Swal.fire('No permitido', 'No se puede guardar.', 'warning');
+        else alert('No se puede guardar.');
+        return;
+    }
+    var ymd = meta.ymd || '';
+    var minY = meta.min || '';
+    var maxY = meta.max || '';
+    if (!ymd || !minY || !maxY || ymd < minY || ymd > maxY) {
+        if (typeof Swal !== 'undefined') Swal.fire('No permitido', 'No se puede guardar.', 'warning');
+        else alert('No se puede guardar.');
+        return;
+    }
+
     var tipo = '';
     var chk = document.querySelector('input[name="ecAclaracionesTipoReporte"]:checked');
     if (chk) tipo = chk.value;
