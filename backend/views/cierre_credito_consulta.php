@@ -363,6 +363,10 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 }
 .cc-btn-descartar:hover  { background: #b91c1c; transform: translateY(-1px); }
 .cc-btn-descartar:active { transform: translateY(0); }
+
+/* ── Panel de detalle (child row DataTables) ── */
+/* Panel de detalle (child row DataTables) */
+.cc-conv-detail-inner { padding: 1rem 1.25rem; max-height: 520px; overflow-y: auto; }
 </style>
 
 <!-- ══════════════════════════════════════
@@ -456,16 +460,29 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
             Cargando convenios...
         </div>
-        <div id="wrap-convenios" class="d-none">
-            <!-- Cards renderizadas por JS -->
+        <div id="wrap-convenios" class="card d-none">
+            <div class="card-datatable table-responsive">
+                <table id="tablaConveniosTodos" class="dt-responsive table border-top">
+                    <thead>
+                        <tr>
+                            <th></th><!-- control responsive -->
+                            <th>Crédito / Cliente</th>
+                            <th>Producto</th>
+                            <th>Total</th>
+                            <th>Fecha acuerdo</th>
+                            <th>Avance</th>
+                            <th>Estatus</th>
+                            <th>Docs</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
         <div id="empty-convenios" class="text-center py-5 text-muted d-none">
             <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
             Sin convenios registrados.
-        </div>
-        <div id="empty-busqueda-conv" class="text-center py-5 text-muted d-none">
-            <i class="fa-solid fa-search fa-2x mb-2 d-block opacity-50"></i>
-            Sin resultados para la búsqueda.
         </div>
     </div>
 
@@ -656,11 +673,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         }
 
         if (tab === 'conv') {
-            _pintarConvenios(!t ? _allRowsConv : _allRowsConv.filter(r =>
-                String(r.id_credito      || '').toLowerCase().includes(t) ||
-                String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
-                String(r.nombre_producto || '').toLowerCase().includes(t)
-            ));
+            if (_tablaConv) { _tablaConv.search(t).draw(); }
             return;
         }
 
@@ -766,6 +779,29 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                         <span>Validación:</span>
                         <span class="cc-val-user">${esc(validador)}</span>
                     </div>
+
+                    <!-- Documentos adjuntos -->
+                    ${(() => {
+                        const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
+                        const compSub = parseInt(r.comprobantes_subidos) || 0;
+                        if (!pdfOk && compSub === 0) return '';
+                        let items = '';
+                        if (pdfOk)
+                            items += `<a href="${esc(r.pdf_adjunto)}" target="_blank"
+                                         class="btn btn-sm btn-outline-secondary"
+                                         style="font-size:.78rem;">
+                                         <i class="fa-solid fa-file-pdf me-1"></i>PDF convenio
+                                      </a>`;
+                        if (compSub > 0)
+                            items += `<span class="cc-doc-ok" style="padding:3px 10px;font-size:.78rem;font-weight:700;"
+                                           title="${compSub} comprobante${compSub !== 1 ? 's' : ''} subido${compSub !== 1 ? 's' : ''}">
+                                           <i class="fa-solid fa-receipt me-1"></i>${compSub} comprobante${compSub !== 1 ? 's' : ''}
+                                      </span>`;
+                        return `<div class="cc-doccheck-wrap mt-2">
+                                    <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
+                                    <div class="cc-doccheck-items" style="display:flex;gap:.4rem;flex-wrap:wrap;">${items}</div>
+                                </div>`;
+                    })()}
 
                 </div>
             </div>
@@ -959,6 +995,111 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     /* ══════════════════════════════════
        RENDER: CARDS CONVENIOS (Tab 0)
     ══════════════════════════════════ */
+    /* ══════════════════════════════════
+       RENDER: TABLA CONVENIOS (Tab 0)
+    ══════════════════════════════════ */
+    let _tablaConv = null;
+
+    function _initTablaConv() {
+        if (_tablaConv) return;
+        _tablaConv = $('#tablaConveniosTodos').DataTable({
+            data: [],
+            columns: [
+                { data: null, orderable: false, searchable: false, className: 'control', defaultContent: '' },
+                {
+                    data: null,
+                    render: function(d, t, r) {
+                        if (t === 'filter' || t === 'sort')
+                            return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
+                        return `<span class="fw-bold" style="color:#4F46E5;display:block;">#${esc(r.id_credito)}</span>` +
+                               `<span class="text-muted" style="font-size:.78rem;">${esc(r.nombre_cliente)}</span>`;
+                    }
+                },
+                {
+                    data: null,
+                    render: function(d, t, r) {
+                        if (t === 'filter' || t === 'sort') return String(r.nombre_producto || '');
+                        const pct = parseFloat(r.porcentaje_descuento) || 0;
+                        return `<span>${esc(r.nombre_producto)}</span><br>` +
+                               `<span style="background:#e0edff;color:#1d4ed8;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:20px;">${pct}%</span>`;
+                    }
+                },
+                {
+                    data: 'total_a_pagar',
+                    className: 'text-end',
+                    render: function(d) { return `<strong class="text-success">${fmt(d)}</strong>`; }
+                },
+                { data: 'fecha_acuerdo', render: function(d) { return esc(d || '—'); } },
+                {
+                    data: null, orderable: false, searchable: false,
+                    render: function(d, t, r) {
+                        const pagadas = parseInt(r.cuotas_pagadas) || 0;
+                        const semanas = parseInt(r.numero_semanas) || parseInt(r.num_semanas_amort) || 0;
+                        if (!semanas) return '<span class="text-muted">—</span>';
+                        const done = pagadas >= semanas
+                            ? ' <i class="fa-solid fa-circle-check text-success" style="font-size:.72rem;"></i>' : '';
+                        return `<span style="font-size:.83rem;white-space:nowrap;">${pagadas}/${semanas}${done}</span>`;
+                    }
+                },
+                {
+                    data: 'estatus',
+                    render: function(d) { return convenioEstatusBadge(d); }
+                },
+                {
+                    data: null, orderable: false, searchable: false,
+                    render: function(d, t, r) {
+                        const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
+                        const compSub = parseInt(r.comprobantes_subidos) || 0;
+                        if (!pdfOk && compSub === 0) return '<span class="text-muted">—</span>';
+                        let html = '<div style="display:flex;gap:.3rem;flex-wrap:wrap;">';
+                        if (pdfOk)
+                            html += `<a href="${esc(r.pdf_adjunto)}" target="_blank"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        style="font-size:.72rem;padding:.2rem .55rem;"
+                                        title="Ver PDF del convenio">
+                                        <i class="fa-solid fa-file-pdf me-1"></i>PDF
+                                     </a>`;
+                        if (compSub > 0)
+                            html += `<span class="cc-doc-ok" style="padding:2px 9px;font-size:.75rem;font-weight:700;"
+                                          title="${compSub} comprobante${compSub !== 1 ? 's' : ''} subido${compSub !== 1 ? 's' : ''}">
+                                          <i class="fa-solid fa-receipt me-1"></i>${compSub}
+                                     </span>`;
+                        html += '</div>';
+                        return html;
+                    }
+                },
+                {
+                    data: null, orderable: false, searchable: false,
+                    render: function(d, t, r) {
+                        return `<button class="btn btn-sm btn-outline-primary" style="font-size:.72rem;white-space:nowrap;"` +
+                               ` onclick="ccToggleDetalleConv(this,${r.id})"` +
+                               ` title="Ver amortización y documentos">` +
+                               `<i class="fa-solid fa-chevron-down" style="font-size:.65rem;"></i> Ver detalle` +
+                               `</button>`;
+                    }
+                }
+            ],
+            pageLength: 15,
+            lengthMenu: [10, 15, 25, 50, 100],
+            order: [[1, 'asc']],
+            responsive: { details: { type: 'column', target: 0 } },
+            language: {
+                emptyTable:   'Sin convenios registrados',
+                infoEmpty:    'Sin registros',
+                info:         'Mostrando _START_ a _END_ de _TOTAL_ convenios',
+                infoFiltered: '(filtrado de _MAX_ totales)',
+                lengthMenu:   'Mostrar _MENU_ registros',
+                zeroRecords:  'Sin resultados para la búsqueda',
+                paginate: { first: '«', last: '»', next: '›', previous: '‹' }
+            },
+            dom: '<"row"<"col-sm-12"tr>><"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            autoWidth: false,
+            drawCallback: function() {
+                $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+            }
+        });
+    }
+
     function renderConvenios(rows) {
         _allRowsConv = rows;
         document.getElementById('loader-convenios').classList.add('d-none');
@@ -970,115 +1111,21 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             return;
         }
 
-        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
-        _pintarConvenios(t ? rows.filter(r =>
-            String(r.id_credito      || '').toLowerCase().includes(t) ||
-            String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
-            String(r.nombre_producto || '').toLowerCase().includes(t)
-        ) : rows);
+        document.getElementById('wrap-convenios').classList.remove('d-none');
+        _initTablaConv();
+        _tablaConv.clear().rows.add(rows).draw();
     }
 
+    /* kept so ccFiltrar can call it; delegates to DataTables search */
     function _pintarConvenios(rows) {
-        const wrap        = document.getElementById('wrap-convenios');
-        const emptyNormal = document.getElementById('empty-convenios');
-        const emptySearch = document.getElementById('empty-busqueda-conv');
-        emptyNormal.classList.add('d-none');
-        if (emptySearch) emptySearch.classList.add('d-none');
-
-        if (!rows.length) {
-            wrap.classList.add('d-none');
-            wrap.innerHTML = '';
-            if (emptySearch) emptySearch.classList.remove('d-none');
-            return;
+        if (_tablaConv) {
+            _tablaConv.clear().rows.add(rows).draw();
         }
-
-        wrap.innerHTML = rows.map(r => buildConvenioCard(r)).join('');
-        wrap.classList.remove('d-none');
     }
 
-    function buildConvenioCard(r) {
-        const pagadas = parseInt(r.cuotas_pagadas)   || 0;
-        const semanas = parseInt(r.numero_semanas)   || parseInt(r.num_semanas_amort) || 0;
-        const compSub = parseInt(r.comprobantes_subidos) || 0;
-        const pdfOk   = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
-
-        const pdfBadge = pdfOk
-            ? `<span class="cc-doc-ok"><i class="fa-solid fa-file-pdf me-1"></i>PDF convenio</span>`
-            : `<span class="cc-doc-missing"><i class="fa-solid fa-file-pdf me-1"></i>Sin PDF</span>`;
-
-        const compBadge = compSub > 0
-            ? `<span class="cc-doc-ok"><i class="fa-solid fa-receipt me-1"></i>${compSub} comprobante${compSub !== 1 ? 's' : ''}</span>`
-            : `<span class="cc-doc-missing"><i class="fa-solid fa-receipt me-1"></i>Sin comprobantes</span>`;
-
-        const pdfLink = pdfOk
-            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;">
-                   <i class="fa-solid fa-eye me-1"></i>PDF
-               </a>`
-            : '';
-
-        return `
-        <div class="cc-ep-wrapper" id="cc-conv-wrapper-${r.id}">
-            <!-- Card principal -->
-            <div class="cc-conv-card" id="cc-conv-card-${r.id}" style="min-width:300px;width:460px;max-width:100%;">
-                <!-- Cabecera -->
-                <div class="cc-conv-card-header">
-                    <span class="cc-credito-id">#${esc(r.id_credito)} <small>${esc(r.nombre_cliente)}</small></span>
-                    ${convenioEstatusBadge(r.estatus)}
-                </div>
-                <!-- Cuerpo -->
-                <div class="cc-conv-card-body">
-                    <div class="cc-conv-details">
-                        <div class="cc-detail-row">
-                            <span class="cc-lbl">Producto</span>
-                            <span class="cc-val">${esc(r.nombre_producto)}</span>
-                            <span style="background:#e0edff;color:#1d4ed8;font-size:.75rem;font-weight:700;
-                                         padding:2px 8px;border-radius:20px;margin-left:.35rem;white-space:nowrap;">
-                                ${parseFloat(r.porcentaje_descuento) || 0}%
-                            </span>
-                        </div>
-                        <div class="cc-detail-row">
-                            <span class="cc-lbl">Total a pagar</span>
-                            <span class="cc-val fw-bold text-success">${fmt(r.total_a_pagar)}</span>
-                        </div>
-                        <div class="cc-detail-row">
-                            <span class="cc-lbl">Fecha acuerdo</span>
-                            <span class="cc-val">${esc(r.fecha_acuerdo || '—')}</span>
-                        </div>
-                        ${semanas > 0 ? `
-                        <div class="cc-detail-row">
-                            <span class="cc-lbl">Avance de pagos</span>
-                            <span class="cc-val">${pagadas} de ${semanas} cuotas${pagadas >= semanas && semanas > 0 ? ' <i class="bi bi-check-circle-fill" style="color:#16a34a"></i>' : ''}</span>
-                        </div>` : ''}
-                        <div class="cc-doccheck-wrap mt-2">
-                            <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
-                            <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Footer -->
-                <div class="cc-conv-card-footer" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-                    ${pdfLink}
-                    <button class="btn btn-sm btn-outline-primary" id="cc-conv-btn-${r.id}"
-                            style="font-size:.78rem;" onclick="ccToggleDetalleConv(${r.id})">
-                        <i class="fa-solid fa-table-list me-1"></i>Ver amortización y docs
-                    </button>
-                </div>
-            </div>
-            <!-- Panel lateral derecho -->
-            <div class="cc-side-panel" id="cc-conv-panel-${r.id}">
-                <div class="cc-side-panel-header">
-                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del convenio</span>
-                    <button class="cc-side-panel-close" onclick="ccToggleDetalleConv(${r.id})" title="Cerrar">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-                <div id="cc-conv-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
-                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
-                </div>
-                <div id="cc-conv-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
-            </div>
-        </div>`;
-    }
+    /* legacy alias */
+    function buildConvenioCard(r) { return r; }
+    function buildConvenioRow(r)  { return r; }
 
     /* ══════════════════════════════════
        ACORDÉON DE DETALLE (Tab 2)
@@ -1212,32 +1259,29 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     /* ══════════════════════════════════
        TOGGLE Y DETALLE — TAB CONVENIOS (Tab 0)
     ══════════════════════════════════ */
-    window.ccToggleDetalleConv = function(id) {
-        const btn     = document.getElementById(`cc-conv-btn-${id}`);
-        const panel   = document.getElementById(`cc-conv-panel-${id}`);
-        const card    = document.getElementById(`cc-conv-card-${id}`);
-        const loader  = document.getElementById(`cc-conv-loader-${id}`);
-        const content = document.getElementById(`cc-conv-content-${id}`);
-        const isOpen  = panel.classList.contains('open');
+    window.ccToggleDetalleConv = function(btn, id) {
+        if (!_tablaConv) return;
+        const tr  = $(btn).closest('tr');
+        const row = _tablaConv.row(tr);
 
-        if (isOpen) {
-            panel.classList.remove('open');
-            card.classList.remove('cc-has-panel');
-            btn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver amortización y docs';
+        if (row.child.isShown()) {
+            row.child.hide();
+            tr.removeClass('shown');
+            btn.innerHTML = '<i class="fa-solid fa-chevron-down" style="font-size:.65rem;"></i> Ver detalle';
+            btn.classList.replace('btn-primary', 'btn-outline-primary');
             return;
         }
 
-        panel.classList.add('open');
-        card.classList.add('cc-has-panel');
-        btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
+        btn.innerHTML = '<i class="fa-solid fa-chevron-up" style="font-size:.65rem;"></i> Cerrar';
+        btn.classList.replace('btn-outline-primary', 'btn-primary');
+        tr.addClass('shown');
 
         if (_detalleConvCache[id]) {
-            content.innerHTML = buildDetalleConvHtml(_detalleConvCache[id]);
+            row.child(`<div class="cc-conv-detail-inner">${buildDetalleConvHtml(_detalleConvCache[id])}</div>`).show();
             return;
         }
 
-        loader.style.display = '';
-        content.innerHTML = '';
+        row.child('<div class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...</div>').show();
 
         fetch('/CierreCredito/getDetalleConvenio', {
             method: 'POST',
@@ -1246,14 +1290,12 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         })
         .then(r => r.json())
         .then(res => {
-            loader.style.display = 'none';
             if (!res.success) throw new Error(res.mensaje);
             _detalleConvCache[id] = res.datos;
-            content.innerHTML = buildDetalleConvHtml(res.datos);
+            row.child(`<div class="cc-conv-detail-inner">${buildDetalleConvHtml(res.datos)}</div>`).show();
         })
         .catch(err => {
-            loader.style.display = 'none';
-            content.innerHTML = `<div class="alert alert-danger py-2">Error: ${esc(err.message)}</div>`;
+            row.child(`<div class="alert alert-danger m-2 py-2">Error: ${esc(err.message)}</div>`).show();
         });
     };
 

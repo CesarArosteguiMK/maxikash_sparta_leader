@@ -692,7 +692,7 @@ body.dark-mode #migTotalFinal {
                     <div id="amortPersonalizar" class="mb-3" style="display:none;">
                         <div class="p-3 border rounded" style="background:#f0fdf4;border-color:#86efac !important;">
                             <div class="fw-bold mb-2" style="color:#15803d;font-size:0.9rem;">
-                                <i class="fas fa-sliders me-1"></i>Ajuste personalizado
+                                <i class="fas fa-sliders me-1"></i>Ajuste personalizado (opcional)
                             </div>
                             <div class="row g-3 align-items-end">
                                 <div class="col-4">
@@ -707,8 +707,9 @@ body.dark-mode #migTotalFinal {
                                     <label class="form-label small text-muted mb-1">Monto adicional <span class="fw-normal text-muted">(Opcional)</span></label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">$</span>
-                                        <input type="number" id="amortMontoAdicional" class="form-control" min="0" step="0.01"
-                                               placeholder="0.00" oninput="window.amortRecalcularTotal()">
+                                        <input type="number" id="amortMontoAdicional" class="form-control" min="0" max="500" step="0.01"
+                                               placeholder="0.00" oninput="window.amortRecalcularTotal()"
+                                               title="Máximo $500">
                                     </div>
                                 </div>
                                 <div class="col-4">
@@ -1173,10 +1174,11 @@ body.dark-mode #migTotalFinal {
                         <div class="input-group input-group-sm">
                           <span class="input-group-text">$</span>
                           <input type="number" id="migMontoAdicional" class="form-control"
-                                 min="0" step="0.01" placeholder="0.00"
+                                 min="0" max="500" step="0.01" placeholder="0.00"
                                  data-maxintdigits="3"
                                  onkeydown="if(event.key==='e'||event.key==='E')event.preventDefault()"
-                                 oninput="window.migRecalcularTotal()">
+                                 oninput="window.migRecalcularTotal()"
+                                 title="Máximo $500">
                         </div>
                       </div>
                       <div class="col-4">
@@ -1485,7 +1487,9 @@ function seleccionarCredito(idCredito) {
                             Swal.close();
 
                             document.getElementById('btnGuardar').style.display = 'inline-block';
+                            document.getElementById('btnPdf').style.display = 'none';
                             document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
+                            document.getElementById('btnCancelar').style.display = 'none';
 
                             _estatusConvenio = (respConvenio.success && respConvenio.datos)
                                 ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
@@ -1540,6 +1544,10 @@ function seleccionarCredito(idCredito) {
                         data: { id_credito: idCredito },
                         onSuccess: function (respConvenio) {
                             Swal.close();
+                            document.getElementById('btnGuardar').style.display = 'inline-block';
+                            document.getElementById('btnPdf').style.display = 'none';
+                            document.getElementById('btnPdf').className = 'btn btn-outline-secondary';
+                            document.getElementById('btnCancelar').style.display = 'none';
                             _estatusConvenio = (respConvenio.success && respConvenio.datos)
                                 ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
                                 : 'sin_convenio';
@@ -1562,6 +1570,9 @@ function seleccionarCredito(idCredito) {
                         },
                         onError: function () {
                             Swal.close();
+                            document.getElementById('btnGuardar').style.display = 'inline-block';
+                            document.getElementById('btnPdf').style.display = 'none';
+                            document.getElementById('btnCancelar').style.display = 'none';
                             _estatusConvenio = 'desconocido';
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
@@ -2775,6 +2786,12 @@ function fmtPagoRealizado(pago) {
 window.verTablaAmortizacion = function () {
     if (!_ofertaActiva || !_credito) return;
 
+    // Limpiar error de descuento/adicional de una edición previa
+    var _errPrevio = document.getElementById('_errDescuentoAmort');
+    if (_errPrevio) _errPrevio.style.display = 'none';
+    var _btnG = document.getElementById('btnGuardar');
+    if (_btnG) _btnG.style.display = 'inline-block';
+
     var o = _ofertaActiva;
     var total = parseFloat(o.total_a_pagar);
     var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
@@ -3030,6 +3047,22 @@ window.amortRecalcularTotal = function () {
     var _maxAdic = parseFloat(_ofertaActiva.monto_base) || base;
     if (!_sanitizarMonto(elAdic, _maxAdic)) return;
     var adic = parseFloat(elAdic.value) || 0;
+    if (adic > 500) {
+        elAdic.value = '500';
+        adic = 500;
+        _flashInvalid(elAdic);
+        var _errAdicAmort = document.getElementById('_errDescuentoAmort');
+        if (!_errAdicAmort) {
+            _errAdicAmort = document.createElement('div');
+            _errAdicAmort.id = '_errDescuentoAmort';
+            var _apParentA = document.getElementById('amortPersonalizar');
+            if (_apParentA) _apParentA.insertAdjacentElement('afterend', _errAdicAmort);
+        }
+        _errAdicAmort.className = 'alert alert-danger mt-2 mb-0';
+        _errAdicAmort.innerHTML = '<i class="fas fa-ban me-2"></i>El monto adicional no puede exceder <strong>$500</strong>. Se ha ajustado al máximo permitido.';
+        _errAdicAmort.style.display = 'block';
+        setTimeout(function () { if (_errAdicAmort) _errAdicAmort.style.display = 'none'; }, 3000);
+    }
     var totalFinal = Math.round((base + adic) * 100) / 100;
     document.getElementById('amortTotalFinal').value = totalFinal.toFixed(2);
     _amortRegenerarTabla(totalFinal, adic);
@@ -3047,6 +3080,23 @@ window.amortTotalFinalChanged = function () {
     var adic = totalFinal > totalConvenio
         ? Math.round((totalFinal - totalConvenio) * 100) / 100
         : 0;
+    if (adic > 500) {
+        adic = 500;
+        totalFinal = Math.round((totalConvenio + adic) * 100) / 100;
+        elTF.value = totalFinal.toFixed(2);
+        _flashInvalid(elTF);
+        var _errAdicTF = document.getElementById('_errDescuentoAmort');
+        if (!_errAdicTF) {
+            _errAdicTF = document.createElement('div');
+            _errAdicTF.id = '_errDescuentoAmort';
+            var _apParentTF = document.getElementById('amortPersonalizar');
+            if (_apParentTF) _apParentTF.insertAdjacentElement('afterend', _errAdicTF);
+        }
+        _errAdicTF.className = 'alert alert-danger mt-2 mb-0';
+        _errAdicTF.innerHTML = '<i class="fas fa-ban me-2"></i>El monto adicional no puede exceder <strong>$500</strong>. Se ha ajustado al máximo permitido.';
+        _errAdicTF.style.display = 'block';
+        setTimeout(function () { if (_errAdicTF) _errAdicTF.style.display = 'none'; }, 3000);
+    }
     _alertarExcedeDeuda('amort', totalFinal, totalConvenio);
     document.getElementById('amortMontoAdicional').value = adic > 0 ? adic.toFixed(2) : '';
     _amortRegenerarTabla(totalFinal, adic);
@@ -3064,6 +3114,27 @@ function _amortRegenerarTabla(totalFinal, adicional) {
     var baseEfectiva    = totalFinal > totalConvenio ? totalConvenio : totalFinal;
     var descuentoNuevo  = Math.round((montoBase - baseEfectiva) * 100) / 100;
     var pctNuevo        = montoBase > 0 ? Math.round((descuentoNuevo / montoBase) * 10000) / 100 : 0;
+
+    // ── Descuento máximo 45% ──────────────────────────────────────────────
+    var _errDescAmort = document.getElementById('_errDescuentoAmort');
+    if (pctNuevo > 45) {
+        if (!_errDescAmort) {
+            _errDescAmort = document.createElement('div');
+            _errDescAmort.id = '_errDescuentoAmort';
+            var _apParent = document.getElementById('amortPersonalizar');
+            if (_apParent) _apParent.insertAdjacentElement('afterend', _errDescAmort);
+        }
+        _errDescAmort.className = 'alert alert-danger mt-2 mb-0';
+        _errDescAmort.innerHTML = '<i class="fas fa-ban me-2"></i>El descuento calculado <strong>' + pctNuevo.toFixed(2) + '%</strong> supera el máximo permitido del <strong>45%</strong>. El total mínimo es <strong>$' +
+            (montoBase * 0.55).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong>.';
+        _errDescAmort.style.display = 'block';
+        document.getElementById('btnGuardar').style.display = 'none';
+        document.getElementById('tablaAmortBody').innerHTML = '';
+        return;
+    }
+    if (_errDescAmort) _errDescAmort.style.display = 'none';
+    document.getElementById('btnGuardar').style.display = 'inline-block';
+    // ─────────────────────────────────────────────────────────────────────
 
     var labelPago, montoPago;
     if (esLiquidacionRayo) {
@@ -3212,6 +3283,11 @@ window.guardarConvenio = function () {
         var pctDescuento    = montoBase > 0 ? Math.round((descuentoMonto / montoBase) * 10000) / 100 : 0;
         var numPagos        = pagos.length;
 
+        if (pctDescuento > 45) {
+            Swal.fire('Descuento no permitido', 'El descuento calculado (' + pctDescuento.toFixed(2) + '%) supera el máximo permitido del 45%.', 'error');
+            return;
+        }
+
         // Resumen para confirmación
         var resumenHtml = pagos.map(function (p, i) {
             return '<tr><td style="padding:2px 8px;">' + (i + 1) + '</td>' +
@@ -3295,6 +3371,11 @@ window.guardarConvenio = function () {
     var _baseEfectivaG   = total > _totalConvenioG ? _totalConvenioG : total;
     var _descuentoMontoG = Math.round((_montoBaseG - _baseEfectivaG) * 100) / 100;
     var _pctDescuentoG   = _montoBaseG > 0 ? Math.round((_descuentoMontoG / _montoBaseG) * 10000) / 100 : 0;
+
+    if (_pctDescuentoG > 45) {
+        Swal.fire('Descuento no permitido', 'El descuento calculado (' + _pctDescuentoG.toFixed(2) + '%) supera el máximo permitido del 45%.', 'error');
+        return;
+    }
 
     Swal.fire({
         title: '¿Confirmar convenio?',
@@ -4596,8 +4677,8 @@ window.migCalcular = function () {
                 return;
             }
 
-            // ── Descuento máximo 70% (modo libre) ────────────────────────────────
-            if (pctL > 70) {
+            // ── Descuento máximo 45% (modo libre) ────────────────────────────────
+            if (pctL > 45) {
                 var errLibre = document.getElementById('migErrorGlobo');
                 if (!errLibre) {
                     errLibre = document.createElement('div');
@@ -4609,9 +4690,9 @@ window.migCalcular = function () {
                 }
                 errLibre.className = 'alert alert-warning mt-2';
                 errLibre.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>' +
-                    'El descuento calculado (' + pctL.toFixed(2) + '%) supera el máximo permitido del <strong>70%</strong>. ' +
+                    'El descuento calculado (' + pctL.toFixed(2) + '%) supera el máximo permitido del <strong>45%</strong>. ' +
                     'El total a cobrar mínimo es <strong>$' +
-                    (adeudoL * 0.30).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong>.';
+                    (adeudoL * 0.55).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong>.';
                 errLibre.style.display = 'block';
                 if (previewL) previewL.classList.add('d-none');
                 var _btnLCap = getGuardarBtnL();
@@ -4758,11 +4839,11 @@ window.migCalcular = function () {
             mostrarErrorGlobo('La suma de pagos ($' + totalCalculado.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + ') excede el adeudo base ($' + adeudo.toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '). Ajusta los montos.');
             return;
         }
-        // 6. Descuento máximo 70%
+        // 6. Descuento máximo 45%
         var _pctDescuentoCalc = adeudo > 0 ? Math.round(((adeudo - totalCalculado) / adeudo) * 10000) / 100 : 0;
-        if (_pctDescuentoCalc > 70) {
-            mostrarErrorGlobo('El descuento calculado (' + _pctDescuentoCalc.toFixed(2) + '%) supera el máximo permitido del <strong>70%</strong>. ' +
-                'El total a cobrar mínimo es <strong>$' + (adeudo * 0.30).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong>.');
+        if (_pctDescuentoCalc > 45) {
+            mostrarErrorGlobo('El descuento calculado (' + _pctDescuentoCalc.toFixed(2) + '%) supera el máximo permitido del <strong>45%</strong>. ' +
+                'El total a cobrar mínimo es <strong>$' + (adeudo * 0.55).toLocaleString('es-MX', { minimumFractionDigits: 2 }) + '</strong>.');
             return;
         }
         // ─────────────────────────────────────────────────────────────
@@ -4956,8 +5037,8 @@ migGenerarPreamort(filasGlobo);
         return;
     }
 
-    if (pct < 0 || pct > 100) {
-        mostrarError('migPorcentaje', 'El porcentaje de descuento debe estar entre 0% y 100%.');
+    if (pct < 0 || pct > 45) {
+        mostrarError('migPorcentaje', 'El porcentaje de descuento debe estar entre 0% y 45%.');
         return;
     }
 
@@ -5036,6 +5117,21 @@ window.migRecalcularTotal = function () {
     var _maxAdicMig = parseFloat((document.getElementById('migAdeudo') || {}).value) || base;
     if (!_sanitizarMonto(elAdicMig, _maxAdicMig)) return;
     var adicional = parseFloat(elAdicMig.value) || 0;
+    if (adicional > 500) {
+        elAdicMig.value = '500';
+        adicional = 500;
+        _flashInvalid(elAdicMig);
+        var _errAdicMig = document.getElementById('migErrorSemanal');
+        if (!_errAdicMig) {
+            _errAdicMig = document.createElement('div');
+            _errAdicMig.id = 'migErrorSemanal';
+            _errAdicMig.style.cssText = 'color:#dc2626;font-size:0.78rem;margin-top:4px;display:flex;align-items:center;gap:5px;';
+            elAdicMig.parentNode.appendChild(_errAdicMig);
+        }
+        _errAdicMig.innerHTML = '<i class="fas fa-triangle-exclamation"></i> El monto adicional no puede exceder <strong>$500</strong>. Se ha ajustado al máximo permitido.';
+        _errAdicMig.style.display = 'flex';
+        setTimeout(function () { if (_errAdicMig) _errAdicMig.style.display = 'none'; }, 3000);
+    }
 
     var totalFinal = Math.round((base + adicional) * 100) / 100;
     var totalFinalInput = document.getElementById('migTotalFinal');
@@ -5173,6 +5269,28 @@ window.migTotalFinalChanged = function () {
     // ── % Descuento (solo sobre la base, sin incluir adicional) ─────
     var pctReal   = adeudo > 0 ? Math.round(((adeudo - baseEfectiva) / adeudo) * 10000) / 100 : 0;
     var descuento = Math.round((adeudo - baseEfectiva) * 100) / 100;
+
+    // ── Descuento máximo 45% ──────────────────────────────────────
+    if (pctReal > 45) {
+        var _errTFNorm = document.getElementById('migErrorSemanal');
+        if (!_errTFNorm) {
+            _errTFNorm = document.createElement('div');
+            _errTFNorm.id = 'migErrorSemanal';
+            _errTFNorm.style.cssText = 'color:#dc2626;font-size:0.78rem;margin-top:4px;display:flex;align-items:center;gap:5px;';
+            elTFNorm.parentNode.appendChild(_errTFNorm);
+        }
+        _errTFNorm.innerHTML = '<i class="fas fa-triangle-exclamation"></i> El descuento (' + pctReal.toFixed(2) + '%) supera el máximo de 45%. Total mínimo: $' +
+            (adeudo * 0.55).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+        _flashInvalid(elTFNorm);
+        var _migGBtn = document.querySelector('#modalMigracion .modal-footer .btn-success');
+        if (_migGBtn) _migGBtn.style.display = 'none';
+        var _migPrev = document.getElementById('migPreview');
+        if (_migPrev) _migPrev.classList.add('d-none');
+        return;
+    }
+    var _errTFNormOK = document.getElementById('migErrorSemanal');
+    if (_errTFNormOK) _errTFNormOK.remove();
+    // ─────────────────────────────────────────────────────────────
 
     // Actualizar campo % (sin bloquear si es readOnly; es escritura programática)
     var migPorcentajeEl = document.getElementById('migPorcentaje');
@@ -5467,6 +5585,11 @@ window.migGuardar = function () {
 
     if (!adeudo || parseFloat(adeudo) <= 0 || (!esGloboMig && (pct === '' || pct === null || pct === undefined || parseFloat(pct) < 0)) || !semanal || !fecha || totalFinal <= 0) {
         Swal.fire('Campos incompletos', 'Llena todos los campos requeridos o el adeudo/total es inválido.', 'warning');
+        return;
+    }
+
+    if (_pctEnvio > 45) {
+        Swal.fire('Descuento no permitido', 'El descuento calculado (' + _pctEnvio.toFixed(2) + '%) supera el máximo permitido del 45%.', 'error');
         return;
     }
 
