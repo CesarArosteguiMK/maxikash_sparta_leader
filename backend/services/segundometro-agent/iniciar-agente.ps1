@@ -11,4 +11,13 @@ if (-not (Test-Path -LiteralPath $js)) {
     Write-Error "No existe server.js en $dir"
     exit 1
 }
-Start-Process -FilePath $node -ArgumentList $js -WorkingDirectory $dir -WindowStyle Hidden
+# Salida a log (evita que STDOUT/STDERR sin consumidor cuelguen el proceso en algunos entornos Windows).
+$dataDir = Join-Path $dir 'data'
+if (-not (Test-Path -LiteralPath $dataDir)) {
+    New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
+}
+$outLog = Join-Path $dataDir 'agente-node-out.log'
+$errLog = Join-Path $dataDir 'agente-node-err.log'
+$arg = "`"$js`""
+Start-Process -FilePath $node -ArgumentList $arg -WorkingDirectory $dir -WindowStyle Hidden `
+    -RedirectStandardOutput $outLog -RedirectStandardError $errLog

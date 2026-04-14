@@ -2205,15 +2205,6 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
             <h5 class="mb-0 flex-shrink-0">Resumen general de pagos del cliente</h5>
 
             <div class="d-flex flex-wrap gap-2 align-items-center w-100 w-sm-auto justify-content-start justify-content-sm-end">
-                <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
-                    <button type="button"
-                            class="btn btn-rastreo-neverpaid position-relative"
-                            title="Rastreo"
-                            onclick='abrirRastreoNeverPaidModalEc(<?= json_encode((string)($dataEstadoCuenta['idCredito'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE) ?>)'>
-                        <i class="fa fa-id-card" aria-hidden="true"></i>
-                    </button>
-                <?php endif; ?>
-
                 <?php if (!empty($tienePermisoAclaracionesGc) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button"
                         class="btn btn-aclaraciones position-relative"
@@ -2254,6 +2245,15 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                         …
                     </span>
                 </button>
+                <?php endif; ?>
+
+                <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
+                    <button type="button"
+                            class="btn btn-rastreo-neverpaid position-relative"
+                            title="Rastreo"
+                            onclick='abrirRastreoNeverPaidModalEc(<?= json_encode((string)($dataEstadoCuenta['idCredito'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_UNESCAPED_UNICODE) ?>)'>
+                        <i class="fa fa-id-card" aria-hidden="true"></i>
+                    </button>
                 <?php endif; ?>
 
                 <a href="/estadocuenta/consulta" class="btn btn-outline-secondary d-flex align-items-center gap-1">
@@ -2904,8 +2904,14 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
 </script>
 <?php endif; ?>
 
+<?php
+$ecCondonarDept9 = isset($_SESSION['departamento']) && (int)$_SESSION['departamento'] === 9;
+$ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
+?>
+
 <div class="modal fade" id="modalCondonar" tabindex="-1" aria-hidden="true"
-     data-bs-backdrop="false" data-bs-keyboard="true">
+     data-bs-backdrop="false" data-bs-keyboard="true"
+     data-condonar-dept9="<?= $ecCondonarDept9 ? '1' : '0' ?>">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
 
@@ -2951,27 +2957,21 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
                     <!-- TAB 1: GASTOS PENDIENTES -->
                     <div class="tab-pane fade show active" id="tab-gastos" role="tabpanel">
 
-                        <!-- Resumen -->
-                        <div class="row mb-3">
-                            <?php
-                            $hideStyle = (
-                                isset($_SESSION['departamento']) &&
-                                (int)$_SESSION['departamento'] === 9
-                            ) ? 'style="display:none;"' : '';
-                            ?>
-                            <div class="col-md-4" id="boxSeleccionados" <?= $hideStyle ?>>
+                        <!-- Resumen (cajas ocultas si el valor es 0; ver syncVisibilidadResumenCondonacion) -->
+                        <div class="row mb-3" id="filaResumenCondonacion">
+                            <div class="col-md-4<?= $ecCondonarDept9 ? '' : ' d-none' ?>" id="boxSeleccionados" <?= $ecCondonarDept9 ? $ecCondonarHideStyle : '' ?>>
                                 <div class="alert alert-success py-2 mb-2">
                                     <strong>Seleccionados:</strong>
                                     <span id="countCondonados">0</span>
                                 </div>
                             </div>
-                            <div class="col-md-4" id="boxMonto" <?= $hideStyle ?>>
+                            <div class="col-md-4<?= $ecCondonarDept9 ? '' : ' d-none' ?>" id="boxMonto" <?= $ecCondonarDept9 ? $ecCondonarHideStyle : '' ?>>
                                 <div class="alert alert-warning py-2 mb-2">
                                     <strong>Monto a condonar:</strong>
                                     $<span id="montoCondonar">0.00</span>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-4 d-none" id="boxTotalSinCondonarCol">
                                 <div class="alert alert-danger py-2 mb-2 d-flex justify-content-between align-items-center">
                                     <span class="fw-semibold text-dark">
                                         Total gastos cobranza sin condonar:
@@ -3003,8 +3003,8 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
                             </table>
                         </div>
 
-                        <!-- Motivo -->
-                        <div class="mt-3" <?= $hideStyle ?>>
+                        <!-- Motivo (solo visible si hay monto a condonar > 0; dept. 9 sigue oculto por reglas de negocio) -->
+                        <div class="mt-3<?= $ecCondonarDept9 ? '' : ' d-none' ?>" id="wrapMotivoCondonacionTotal" <?= $ecCondonarDept9 ? $ecCondonarHideStyle : '' ?>>
                             <label class="form-label fw-semibold">
                                 Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
                             </label>
@@ -3028,7 +3028,7 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
             </div>
 
             <!-- Footer -->
-            <div class="modal-footer" <?= $hideStyle ?>>
+            <div class="modal-footer" <?= $ecCondonarHideStyle ?>>
                 <button class="btn btn-secondary" data-bs-dismiss="modal">
                     Cancelar
                 </button>
@@ -3465,6 +3465,9 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
 
         document.getElementById('countCondonados').textContent = count;
         document.getElementById('montoCondonar').textContent = total.toFixed(2);
+        if (typeof syncVisibilidadResumenCondonacion === 'function') {
+            syncVisibilidadResumenCondonacion();
+        }
     }
 
     function lanzarBillete(x, y) {
@@ -4205,6 +4208,9 @@ function consultaGastosCondonables(idCredito) {
     countSpan.textContent = 0;
     montoSpan.textContent = '0.00';
     document.getElementById('montoTotalSinCondonar').textContent = '0.00';
+    if (typeof syncVisibilidadResumenCondonacion === 'function') {
+        syncVisibilidadResumenCondonacion();
+    }
 
     // 👉 Abrir modal SIEMPRE (igual que antes)
     const modal = new bootstrap.Modal(document.getElementById('modalCondonar'));
@@ -4383,7 +4389,51 @@ function _fetchGastosCobranza(idCredito) {
     });
 }
 
+/**
+ * Oculta cajas de resumen cuando el valor es 0 y el bloque de motivo hasta que haya monto a condonar.
+ * Departamento 9: no altera cajas/motivo ya ocultos por PHP; solo ajusta total sin condonar y la fila.
+ */
+function syncVisibilidadResumenCondonacion() {
+    const modal = document.getElementById('modalCondonar');
+    if (!modal) return;
+    const dept9 = modal.getAttribute('data-condonar-dept9') === '1';
 
+    const elCount = document.getElementById('countCondonados');
+    const elMonto = document.getElementById('montoCondonar');
+    const elTotalSin = document.getElementById('montoTotalSinCondonar');
+    const count = parseInt(String((elCount && elCount.textContent) || '0'), 10) || 0;
+    const montoSel = parseFloat(String((elMonto && elMonto.textContent) || '0')) || 0;
+    const totalSin = parseFloat(String((elTotalSin && elTotalSin.textContent) || '0')) || 0;
+
+    const boxTotal = document.getElementById('boxTotalSinCondonarCol');
+    if (boxTotal) {
+        boxTotal.classList.toggle('d-none', totalSin < 0.005);
+    }
+
+    if (!dept9) {
+        const boxSel = document.getElementById('boxSeleccionados');
+        const boxMo = document.getElementById('boxMonto');
+        if (boxSel) boxSel.classList.toggle('d-none', count === 0);
+        if (boxMo) boxMo.classList.toggle('d-none', montoSel < 0.005);
+        const wrapMot = document.getElementById('wrapMotivoCondonacionTotal');
+        const showMot = montoSel >= 0.005;
+        if (wrapMot) {
+            wrapMot.classList.toggle('d-none', !showMot);
+            if (!showMot) {
+                const ta = document.getElementById('descripcionCondonacion');
+                if (ta) ta.value = '';
+            }
+        }
+    }
+
+    const fila = document.getElementById('filaResumenCondonacion');
+    if (fila) {
+        const anySel = !dept9 && (count > 0 || montoSel >= 0.005);
+        const anyTotal = totalSin >= 0.005;
+        const showFila = dept9 ? anyTotal : (anySel || anyTotal);
+        fila.classList.toggle('d-none', !showFila);
+    }
+}
 
     function recalcularCondonacion() {
 
@@ -4411,6 +4461,8 @@ function _fetchGastosCobranza(idCredito) {
             if (chk && chk.checked) btn.classList.remove('d-none');
             else btn.classList.add('d-none');
         });
+
+        syncVisibilidadResumenCondonacion();
     }
 
     document.addEventListener('click', function(e) {

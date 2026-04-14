@@ -13,6 +13,47 @@ $idCredAcl = (string) ($dataEstadoCuenta['idCredito'] ?? '');
 $idCredAclEsc = htmlspecialchars($idCredAcl, ENT_QUOTES, 'UTF-8');
 $nombreAclEsc = htmlspecialchars($nombreParaAcl, ENT_QUOTES, 'UTF-8');
 
+$ecMeta = isset($ecAclaracionesUltimoPagoMeta) && is_array($ecAclaracionesUltimoPagoMeta)
+    ? $ecAclaracionesUltimoPagoMeta
+    : [
+        'ymd' => null,
+        'min_guardar_ymd' => '',
+        'max_guardar_ymd' => '',
+        'tiene_ultimo_pago' => false,
+        'ventana_ok' => false,
+        'permite_guardar' => false,
+        'label_display' => 'Sin registro en Segundómetro',
+        'ventana_falta_mensaje' => '',
+        'ventana_falta_lunes_fin_semana' => false,
+    ];
+$ymdMeta = isset($ecMeta['ymd']) && is_string($ecMeta['ymd']) ? $ecMeta['ymd'] : '';
+$tieneYmdValido = $ymdMeta !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymdMeta);
+$ecAclarTieneUltimoPago = array_key_exists('tiene_ultimo_pago', $ecMeta)
+    ? !empty($ecMeta['tiene_ultimo_pago'])
+    : $tieneYmdValido;
+$ecAclarVentanaOk = array_key_exists('ventana_ok', $ecMeta)
+    ? !empty($ecMeta['ventana_ok'])
+    : (!empty($ecMeta['permite_guardar']));
+$ecAclarPuedeGuardar = $ecAclarTieneUltimoPago;
+$ecAclarLabelUltimoEsc = htmlspecialchars((string) ($ecMeta['label_display'] ?? ''), ENT_QUOTES, 'UTF-8');
+$ecMetaJson = htmlspecialchars(
+    json_encode(
+        [
+            'permite' => $ecAclarTieneUltimoPago,
+            'ventana_ok' => $ecAclarVentanaOk,
+            'label_ultimo' => (string) ($ecMeta['label_display'] ?? ''),
+            'ymd' => $ecMeta['ymd'] ?? null,
+            'min' => (string) ($ecMeta['min_guardar_ymd'] ?? ''),
+            'max' => (string) ($ecMeta['max_guardar_ymd'] ?? ''),
+            'ventana_falta_mensaje' => (string) ($ecMeta['ventana_falta_mensaje'] ?? ''),
+            'ventana_falta_lunes_fin_semana' => !empty($ecMeta['ventana_falta_lunes_fin_semana']),
+        ],
+        JSON_UNESCAPED_UNICODE
+    ),
+    ENT_QUOTES,
+    'UTF-8'
+);
+
 $ecAclarFechaCdmxServidor = '';
 try {
     $dtA = new DateTime('now', new DateTimeZone('America/Mexico_City'));
@@ -47,6 +88,34 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
                         <input type="text" id="ecAclaracionesFechaCdmx" class="form-control bg-light" readonly autocomplete="off" value="<?= $ecAclarFechaCdmxEsc ?>">
                         <small class="text-muted">Zona horaria: Ciudad de México</small>
                     </div>
+                    <input type="hidden" id="ecAclaracionesPagoMetaJson" value="<?= $ecMetaJson ?>">
+                    <?php if (!$ecAclarTieneUltimoPago): ?>
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 rounded-3 border border-danger bg-label-danger p-2">
+                            <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                                <span class="small text-muted text-nowrap">Último pago efectivo</span>
+                                <span class="fw-semibold text-truncate" id="ecAclaracionesUltimoPago"><?= htmlspecialchars((string) ($ecMeta['label_display'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                            </div>
+                            <span class="fw-semibold text-danger text-nowrap align-self-center">Sin dato en Segundómetro</span>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="col-12" id="ecAclaracionesRowUltimoDetalle">
+                        <label class="form-label fw-semibold" for="ecAclaracionesUltimoPagoInput">Último pago efectivo (Segundómetro)</label>
+                        <input type="text" id="ecAclaracionesUltimoPagoInput" class="form-control bg-light" readonly autocomplete="off" value="<?= $ecAclarLabelUltimoEsc ?>">
+                    </div>
+                    <div class="col-12 d-none" id="ecAclaracionesBannerVentana">
+                        <div id="ecAclaracionesBannerVentanaInner" class="rounded-3 border border-danger bg-label-danger p-2">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                                    <span class="small text-muted text-nowrap">Último pago efectivo</span>
+                                    <span class="fw-semibold text-truncate" id="ecAclaracionesBannerVentanaFecha"><?= $ecAclarLabelUltimoEsc ?></span>
+                                </div>
+                                <span id="ecAclaracionesBannerVentanaEtiqueta" class="fw-semibold text-danger text-nowrap align-self-center">No se puede guardar</span>
+                            </div>
+                            <p class="small text-danger mb-0 mt-2" id="ecAclaracionesBannerVentanaMsg"></p>
+                        </div>
+                    </div>
                     <div class="col-12">
                         <span class="form-label fw-semibold d-block mb-2">Tipo de reporte</span>
                         <div class="d-flex flex-wrap gap-4 align-items-center" role="radiogroup" aria-label="Tipo de reporte">
@@ -68,17 +137,22 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
                         <label class="form-label fw-semibold" for="ecAclaracionesMonto">Monto a aplicar</label>
                         <input type="number" id="ecAclaracionesMonto" class="form-control" min="0" step="0.01" placeholder="0.00" autocomplete="off">
                     </div>
-                    <div class="col-12">
+                    <div class="col-12" id="ecAclaracionesObsWrap">
                         <label class="form-label fw-semibold" for="ecAclaracionesObservaciones">Observaciones</label>
                         <textarea id="ecAclaracionesObservaciones" class="form-control" rows="4" placeholder="Detalle de la aclaración…" autocomplete="off"></textarea>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="ecAclaracionesBtnGuardar" onclick="guardarAclaracionesGc()">
-                    <i class="fa fa-save me-1"></i>Guardar
-                </button>
+                <?php if ($ecAclarPuedeGuardar): ?>
+                <span id="ecAclaracionesFooterGuardarWrap">
+                    <button type="button" class="btn btn-primary" id="ecAclaracionesBtnGuardar" onclick="guardarAclaracionesGc()">
+                        <i class="fa fa-save me-1"></i>Guardar
+                    </button>
+                </span>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -107,12 +181,98 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
         return r ? r.value : '';
     }
 
+    function ecAclaracionesLeerMeta() {
+        var metaIn = document.getElementById('ecAclaracionesPagoMetaJson');
+        if (!metaIn || !metaIn.value) return null;
+        try {
+            return JSON.parse(metaIn.value);
+        } catch (e) {
+            return null;
+        }
+    }
+
     function ecActualizarVistaTipoAclaraciones() {
+        var meta = ecAclaracionesLeerMeta();
+        var ventanaOk = !!(meta && meta.ventana_ok);
+        var tipo = ecAclaracionesTipoSeleccionado();
+        var bloqueadoFaltaVentana = (tipo === 'falta_aplicar' && !ventanaOk);
+
+        var rowUltimo = document.getElementById('ecAclaracionesRowUltimoDetalle');
+        var banner = document.getElementById('ecAclaracionesBannerVentana');
+        var fechaBanner = document.getElementById('ecAclaracionesBannerVentanaFecha');
+        if (fechaBanner) {
+            var lblUlt = (meta && meta.label_ultimo) ? String(meta.label_ultimo) : '';
+            if (!lblUlt) {
+                var inpUlt = document.getElementById('ecAclaracionesUltimoPagoInput');
+                lblUlt = inpUlt ? String(inpUlt.value || '') : '';
+            }
+            fechaBanner.textContent = lblUlt;
+        }
+
+        var bannerMsg = document.getElementById('ecAclaracionesBannerVentanaMsg');
+        var bannerInner = document.getElementById('ecAclaracionesBannerVentanaInner');
+        var bannerEtq = document.getElementById('ecAclaracionesBannerVentanaEtiqueta');
+        var clsDangerInner = 'rounded-3 border border-danger bg-label-danger p-2';
+        var clsOkInner = 'rounded-3 border border-success bg-label-success p-2';
+        if (bloqueadoFaltaVentana) {
+            if (rowUltimo) rowUltimo.classList.add('d-none');
+            if (banner) banner.classList.remove('d-none');
+            var esFinSem = !!(meta && meta.ventana_falta_lunes_fin_semana);
+            if (bannerInner) bannerInner.className = esFinSem ? clsOkInner : clsDangerInner;
+            if (bannerEtq) {
+                bannerEtq.className = esFinSem
+                    ? 'fw-semibold text-success text-nowrap align-self-center'
+                    : 'fw-semibold text-danger text-nowrap align-self-center';
+                bannerEtq.textContent = esFinSem ? 'Información' : 'No se puede guardar';
+            }
+            if (bannerMsg) {
+                bannerMsg.className = esFinSem ? 'small text-success mb-0 mt-2' : 'small text-danger mb-0 mt-2';
+                bannerMsg.textContent = (meta && meta.ventana_falta_mensaje)
+                    ? String(meta.ventana_falta_mensaje)
+                    : 'No es posible registrar «falta aplicar» con la fecha de último pago mostrada (calendario Ciudad de México).';
+            }
+        } else {
+            if (rowUltimo) rowUltimo.classList.remove('d-none');
+            if (banner) banner.classList.add('d-none');
+            if (bannerInner) bannerInner.className = clsDangerInner;
+            if (bannerEtq) {
+                bannerEtq.className = 'fw-semibold text-danger text-nowrap align-self-center';
+                bannerEtq.textContent = 'No se puede guardar';
+            }
+            if (bannerMsg) {
+                bannerMsg.className = 'small text-danger mb-0 mt-2';
+                bannerMsg.textContent = '';
+            }
+        }
+
         var wrapFalta = document.getElementById('ecAclaracionesMontoWrap');
         var wrapErr = document.getElementById('ecAclaracionesErrorWrap');
         var montoAplicar = document.getElementById('ecAclaracionesMonto');
         var montoCorr = document.getElementById('ecAclaracionesMontoCorregir');
-        var tipo = ecAclaracionesTipoSeleccionado();
+        var obsWrap = document.getElementById('ecAclaracionesObsWrap');
+        var btnWrap = document.getElementById('ecAclaracionesFooterGuardarWrap');
+
+        if (bloqueadoFaltaVentana) {
+            if (wrapFalta) {
+                wrapFalta.classList.add('d-none');
+                if (montoAplicar) montoAplicar.value = '';
+            }
+            if (wrapErr) {
+                wrapErr.classList.add('d-none');
+                if (montoCorr) montoCorr.value = '';
+            }
+            if (obsWrap) {
+                obsWrap.classList.add('d-none');
+                var obs = document.getElementById('ecAclaracionesObservaciones');
+                if (obs) obs.value = '';
+            }
+            if (btnWrap) btnWrap.classList.add('d-none');
+            return;
+        }
+
+        if (obsWrap) obsWrap.classList.remove('d-none');
+        if (btnWrap) btnWrap.classList.remove('d-none');
+
         var esFalta = tipo === 'falta_aplicar';
         var esError = tipo === 'error';
         if (wrapFalta) {
@@ -159,6 +319,21 @@ $ecAclarFechaCdmxEsc = htmlspecialchars($ecAclarFechaCdmxServidor, ENT_QUOTES, '
 })();
 
 function guardarAclaracionesGc() {
+    var metaIn = document.getElementById('ecAclaracionesPagoMetaJson');
+    var meta = null;
+    if (metaIn && metaIn.value) {
+        try {
+            meta = JSON.parse(metaIn.value);
+        } catch (e1) {
+            meta = null;
+        }
+    }
+    if (!meta || !meta.permite) {
+        if (typeof Swal !== 'undefined') Swal.fire('No permitido', 'No hay fecha de último pago efectivo en Segundómetro para este crédito.', 'warning');
+        else alert('No se puede guardar.');
+        return;
+    }
+
     var tipo = '';
     var chk = document.querySelector('input[name="ecAclaracionesTipoReporte"]:checked');
     if (chk) tipo = chk.value;
@@ -166,6 +341,28 @@ function guardarAclaracionesGc() {
         if (typeof Swal !== 'undefined') Swal.fire('Atención', 'Seleccione el tipo de reporte.', 'warning');
         else alert('Seleccione el tipo de reporte.');
         return;
+    }
+
+    var ymd = meta.ymd || '';
+    var minY = meta.min || '';
+    var maxY = meta.max || '';
+    var ventanaOk = !!meta.ventana_ok;
+    if (tipo === 'falta_aplicar') {
+        if (!ventanaOk || !ymd || !minY || !maxY || ymd < minY || ymd > maxY) {
+            var txtVent = (meta && meta.ventana_falta_mensaje) ? String(meta.ventana_falta_mensaje)
+                : 'Para «Falta aplicar» el último pago efectivo debe estar dentro de la ventana permitida (calendario Ciudad de México).';
+            var esFinSemSw = !!(meta && meta.ventana_falta_lunes_fin_semana);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: esFinSemSw ? 'Aviso' : 'No permitido',
+                    text: txtVent,
+                    icon: esFinSemSw ? 'success' : 'warning'
+                });
+            } else {
+                alert(txtVent);
+            }
+            return;
+        }
     }
     var monto = 0;
     if (tipo === 'falta_aplicar') {

@@ -5,7 +5,7 @@ namespace Controllers;
 use Core\Controller;
 
 /**
- * Shell Gastos Cobranza — agente HTTP + reporte_cobranza.py (iterativo).
+ * Gastos Cobranza — agente HTTP + reporte_cobranza.py (iterativo).
  * Permisos: módulo web id 31 (rutas en public/index.php).
  */
 class Gastoscobranza extends Controller
@@ -155,15 +155,247 @@ class Gastoscobranza extends Controller
     }
 
     /**
-     * Vista principal (Shell → Shell Gastos Cobranza).
+     * Vista principal Gastos Cobranza.
      */
     public function shell()
     {
-        $this->set('titulo', 'Shell Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
-        $this->set('tituloShell', 'Shell Gastos Cobranza');
+        $this->set('titulo', 'Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
+        $this->set('tituloShell', 'Gastos Cobranza');
         $this->set('gastosCobranzaAgenteUrl', $this->agenteBaseUrl());
         $this->set('gastosCobranzaAgenteHabilitado', $this->agenteHabilitado());
+        $resumen = $this->shellCalcularResumenReportesVista();
+        $this->set('reportes_esta_semana', $resumen['reportes_esta_semana']);
+        $this->set('ultimo_reporte', $resumen['ultimo_reporte']);
+        $this->set('reporte_automatico', $resumen['reporte_automatico']);
         self::render('shell_gastos_cobranza');
+    }
+
+    /** Igual que en la vista JS: nombre de archivo sin carpeta. */
+    private function gcNombreBaseArchivoListado(string $nom): string
+    {
+        $s = str_replace('\\', '/', trim($nom));
+        $i = strrpos($s, '/');
+
+        return $i === false ? $s : substr($s, $i + 1);
+    }
+
+    /** Fecha en nombre reporte_cobranza_DD-MM-YYYY.xlsx → [y,m,d] calendario del reporte. */
+    private function gcParseNombreReporteCobranza(string $nom): ?array
+    {
+        $base = $this->gcNombreBaseArchivoListado($nom);
+        if (!preg_match('/^reporte_cobranza_(\d{2})-(\d{2})-(\d{4})\.xlsx$/i', $base, $m)) {
+            return null;
+        }
+
+        return ['d' => (int) $m[1], 'm' => (int) $m[2], 'y' => (int) $m[3]];
+    }
+
+    /** {y,m,d} en calendario Ciudad de México desde ISO de modificación. */
+    private function gcModificadoCdmxYmd(?string $iso): ?array
+    {
+        if ($iso === null || $iso === '') {
+            return null;
+        }
+        try {
+            $dt = new \DateTimeImmutable($iso);
+        } catch (\Exception $e) {
+            return null;
+        }
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $local = $dt->setTimezone($tz);
+
+        return ['y' => (int) $local->format('Y'), 'm' => (int) $local->format('n'), 'd' => (int) $local->format('j')];
+    }
+
+    /** 0 = lunes … 6 = domingo (misma fórmula que shell_gastos_cobranza.js). */
+    private function gcCdmxWeekdayMon0(int $y, int $m, int $d): int
+    {
+        $t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+        $Y = $m < 3 ? $y - 1 : $y;
+        $wSun0 = ($Y + intdiv($Y, 4) - intdiv($Y, 100) + intdiv($Y, 400) + $t[$m - 1] + $d) % 7;
+
+        return ($wSun0 + 6) % 7;
+    }
+
+    /** @return array{y:int,m:int,d:int} */
+    private function gcAddDaysYmd(int $y, int $m, int $d, int $delta): array
+    {
+        $dt = new \DateTimeImmutable(sprintf('%04d-%02d-%02d', $y, $m, $d), new \DateTimeZone('UTC'));
+        $dt = $dt->modify(($delta >= 0 ? '+' : '') . $delta . ' days');
+
+        return ['y' => (int) $dt->format('Y'), 'm' => (int) $dt->format('n'), 'd' => (int) $dt->format('j')];
+    }
+
+    /** @return array{y:int,m:int,d:int} lunes de la semana civil CDMX. */
+    private function gcLunesSemanaCdmx(int $y, int $m, int $d): array
+    {
+        $k = $this->gcCdmxWeekdayMon0($y, $m, $d);
+
+        return $this->gcAddDaysYmd($y, $m, $d, -$k);
+    }
+
+    private function gcClaveLunesYmd(array $L): string
+    {
+        return sprintf('%04d-%02d-%02d', $L['y'], $L['m'], $L['d']);
+    }
+
+    private function gcClaveSemanaActualCdmx(): string
+    {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $now = new \DateTimeImmutable('now', $tz);
+        $h = ['y' => (int) $now->format('Y'), 'm' => (int) $now->format('n'), 'd' => (int) $now->format('j')];
+        $L = $this->gcLunesSemanaCdmx($h['y'], $h['m'], $h['d']);
+
+        return $this->gcClaveLunesYmd($L);
+    }
+
+    /** Fecha de referencia para agrupar por semana (nombre DD-MM-YYYY o mtime CDMX). */
+    private function gcFechaReferenciaSemanaArchivo(array $a): ?array
+    {
+        $nom = (string) ($a['nombre'] ?? '');
+        $pn = $this->gcParseNombreReporteCobranza($nom);
+        if ($pn !== null) {
+            return ['y' => $pn['y'], 'm' => $pn['m'], 'd' => $pn['d']];
+        }
+        $base = $this->gcNombreBaseArchivoListado($nom);
+        if (preg_match('/^reporte_cobranza_/i', $base)) {
+            $fm = $this->gcModificadoCdmxYmd(isset($a['modificado']) ? (string) $a['modificado'] : null);
+            if ($fm !== null) {
+                return $fm;
+            }
+        }
+
+        return $this->gcModificadoCdmxYmd(isset($a['modificado']) ? (string) $a['modificado'] : null);
+    }
+
+    private function gcClaveLunesSemanaDeArchivo(array $a, string $fallbackClave): string
+    {
+        $f = $this->gcFechaReferenciaSemanaArchivo($a);
+        if ($f === null) {
+            return $fallbackClave;
+        }
+        $L = $this->gcLunesSemanaCdmx($f['y'], $f['m'], $f['d']);
+
+        return $this->gcClaveLunesYmd($L);
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function shellObtenerArchivosReporteAgente(): array
+    {
+        if (!$this->agenteHabilitado()) {
+            return [];
+        }
+        $req = $this->agenteRequest('GET', '/reportes', null, 12);
+        if (!$req['success'] || !is_array($req['json']) || empty($req['json']['success'])) {
+            return [];
+        }
+        $arch = $req['json']['archivos'] ?? [];
+
+        return is_array($arch) ? $arch : [];
+    }
+
+    /** @return array<string,mixed>|null */
+    private function shellObtenerHealthAgente(): ?array
+    {
+        if (!$this->agenteHabilitado()) {
+            return null;
+        }
+        $req = $this->agenteRequest('GET', '/health', null, 10);
+        if (!$req['success'] || !is_array($req['json']) || empty($req['json']['success'])) {
+            return null;
+        }
+
+        return $req['json'];
+    }
+
+    private function shellFormatearUltimoReporteUtc(?string $iso): string
+    {
+        if ($iso === null || $iso === '') {
+            return '—';
+        }
+        try {
+            $dt = new \DateTimeImmutable($iso);
+        } catch (\Exception $e) {
+            return '—';
+        }
+        $utc = new \DateTimeZone('UTC');
+        $dtUtc = $dt->setTimezone($utc);
+        $nowUtc = new \DateTimeImmutable('now', $utc);
+        $meses = [1 => 'ene', 2 => 'feb', 3 => 'mar', 4 => 'abr', 5 => 'may', 6 => 'jun', 7 => 'jul', 8 => 'ago', 9 => 'sep', 10 => 'oct', 11 => 'nov', 12 => 'dic'];
+        $dia = $dtUtc->format('d');
+        $nMes = (int) $dtUtc->format('n');
+        $mes = $meses[$nMes] ?? $dtUtc->format('m');
+        $hm = $dtUtc->format('H:i');
+        if ($dtUtc->format('Y-m-d') === $nowUtc->format('Y-m-d')) {
+            return 'Hoy ' . $hm . ' UTC';
+        }
+
+        return $dia . ' ' . $mes . ' ' . $hm . ' UTC';
+    }
+
+    /**
+     * Resumen para la fila informativa del shell (GET /reportes + /health).
+     *
+     * @return array{reportes_esta_semana: string, ultimo_reporte: string, reporte_automatico: string}
+     */
+    private function shellCalcularResumenReportesVista(): array
+    {
+        if (!$this->agenteHabilitado()) {
+            return [
+                'reportes_esta_semana' => '—',
+                'ultimo_reporte' => '—',
+                'reporte_automatico' => '—',
+            ];
+        }
+        $archivos = $this->shellObtenerArchivosReporteAgente();
+        $claveActual = $this->gcClaveSemanaActualCdmx();
+        $n = 0;
+        /** Solo reportes de la semana operativa actual (CDMX): el “último” se reinicia cada semana. */
+        $ultimoIsoSemana = null;
+        $ultimoTsSemana = null;
+        foreach ($archivos as $a) {
+            if (!is_array($a)) {
+                continue;
+            }
+            if ($this->gcClaveLunesSemanaDeArchivo($a, $claveActual) !== $claveActual) {
+                continue;
+            }
+            ++$n;
+            $iso = isset($a['modificado']) ? (string) $a['modificado'] : '';
+            if ($iso === '') {
+                continue;
+            }
+            try {
+                $ts = (new \DateTimeImmutable($iso))->getTimestamp();
+            } catch (\Exception $e) {
+                continue;
+            }
+            if ($ultimoTsSemana === null || $ts > $ultimoTsSemana) {
+                $ultimoTsSemana = $ts;
+                $ultimoIsoSemana = $iso;
+            }
+        }
+        $health = $this->shellObtenerHealthAgente();
+        $autoTxt = '—';
+        if ($health !== null && isset($health['auto_run_cdmx']) && is_array($health['auto_run_cdmx'])) {
+            $arc = $health['auto_run_cdmx'];
+            if (array_key_exists('enabled', $arc)) {
+                $en = $arc['enabled'];
+                $on = $en === true || $en === 1 || $en === '1' || strtolower((string) $en) === 'true';
+                $autoTxt = $on ? 'Activo' : 'Inactivo';
+            }
+        }
+
+        $ultimoTxt = '----';
+        if ($n > 0) {
+            $ultimoTxt = $this->shellFormatearUltimoReporteUtc($ultimoIsoSemana);
+        }
+
+        return [
+            'reportes_esta_semana' => $n . ' generados',
+            'ultimo_reporte' => $ultimoTxt,
+            'reporte_automatico' => $autoTxt,
+        ];
     }
 
     /**

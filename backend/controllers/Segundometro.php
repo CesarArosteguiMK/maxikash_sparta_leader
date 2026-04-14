@@ -110,7 +110,7 @@ class Segundometro extends Controller
     }
 
     /**
-     * Vista principal del Shell de Segundómetro
+     * Vista principal Segundometro
      */
     public function shell()
     {
@@ -1075,7 +1075,7 @@ class Segundometro extends Controller
         </script>
         HTML;
 
-        self::set("titulo", "Shell Segundómetro");
+        self::set('titulo', 'Segundometro');
         self::set("script", $script);
         self::render("shell_segundometro");
     }
@@ -1211,7 +1211,7 @@ class Segundometro extends Controller
     {
         try {
             if (!$this->validarModoSoloAgente('listar archivos')) return;
-            $agent = $this->agenteRequest('GET', '/files');
+            $agent = $this->agenteRequest('GET', '/files', null, 35);
             if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
                 $msg = 'No se pudieron listar archivos vía agente.';
                 if (is_array($agent['json']) && !empty($agent['json']['mensaje'])) $msg .= ' ' . $agent['json']['mensaje'];
@@ -1486,7 +1486,7 @@ class Segundometro extends Controller
                 ]);
                 return;
             }
-            $health = $this->agenteRequest('GET', '/health');
+            $health = $this->agenteRequest('GET', '/health', null, 12);
             if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {
                 self::respuestaJSON([
                     'success' => true,
@@ -1496,7 +1496,7 @@ class Segundometro extends Controller
                 ]);
                 return;
             }
-            $auto = $this->agenteRequest('GET', '/auto-copy');
+            $auto = $this->agenteRequest('GET', '/auto-copy', null, 12);
             $detalle = 'Agente en línea.';
             if ($auto['success'] && is_array($auto['json']) && !empty($auto['json']['success'])) {
                 $enabled = !empty($auto['json']['enabled']) ? 'activo' : 'inactivo';
@@ -1525,7 +1525,7 @@ class Segundometro extends Controller
     public function horaServidor()
     {
         if (!$this->validarModoSoloAgente('consultar hora servidor')) return;
-        $agent = $this->agenteRequest('GET', '/hora-cdmx');
+        $agent = $this->agenteRequest('GET', '/hora-cdmx', null, 12);
         if ($agent['success'] && is_array($agent['json']) && !empty($agent['json']['success'])) {
             self::respuestaJSON([
                 'success' => true,
@@ -1562,7 +1562,7 @@ class Segundometro extends Controller
             if (empty($nombres) && isset($_POST['nombres']) && is_array($_POST['nombres'])) {
                 $nombres = $_POST['nombres'];
             }
-            $agent = $this->agenteRequest('POST', '/reportes/estado', ['nombres' => $nombres]);
+            $agent = $this->agenteRequest('POST', '/reportes/estado', ['nombres' => $nombres], 25);
             if ($agent['success'] && is_array($agent['json']) && !empty($agent['json']['success'])) {
                 self::respuestaJSON([
                     'success' => true,
@@ -1604,7 +1604,7 @@ class Segundometro extends Controller
     {
         try {
             if (!$this->validarModoSoloAgente('consultar auto-copy')) return;
-            $agent = $this->agenteRequest('GET', '/auto-copy');
+            $agent = $this->agenteRequest('GET', '/auto-copy', null, 12);
             if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo consultar auto-copy en agente.']);
                 return;
@@ -1639,7 +1639,7 @@ class Segundometro extends Controller
             if (array_key_exists('enabled', $body)) $payload['enabled'] = (bool)$body['enabled'];
             if (array_key_exists('preRunMonitoreo', $body)) $payload['preRunMonitoreo'] = (bool)$body['preRunMonitoreo'];
             if (isset($body['horarios']) && is_array($body['horarios'])) $payload['horarios'] = $body['horarios'];
-            $agent = $this->agenteRequest('POST', '/auto-copy', $payload);
+            $agent = $this->agenteRequest('POST', '/auto-copy', $payload, 20);
             if (!$agent['success'] || !is_array($agent['json']) || empty($agent['json']['success'])) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No se pudo guardar auto-copy en agente.']);
                 return;
@@ -1664,7 +1664,7 @@ class Segundometro extends Controller
     {
         try {
             if (!$this->validarModoSoloAgente('ejecutar ahora')) return;
-            $agent = $this->agenteRequest('POST', '/auto-copy/ejecutar-ahora');
+            $agent = $this->agenteRequest('POST', '/auto-copy/ejecutar-ahora', null, 20);
             if (!$agent['success'] || !is_array($agent['json'])) {
                 $msg = 'No se pudo lanzar ejecución en agente.';
                 if (!empty($agent['error'])) $msg .= ' ' . $agent['error'];

@@ -171,6 +171,7 @@
                         <button id="pdfNext" class="btn btn-sm btn-light" style="min-width: 44px; min-height: 44px;">
                             <i class="fa fa-chevron-right"></i>
                         </button>
+                        <span id="pdfControlsZoomGroup" class="d-inline-flex align-items-center" style="gap: 10px;">
                         <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3);"></div>
                         <button id="pdfZoomOut" class="btn btn-sm btn-light" style="min-width: 44px; min-height: 44px;">
                             <i class="fa fa-search-minus"></i>
@@ -179,6 +180,7 @@
                         <button id="pdfZoomIn" class="btn btn-sm btn-light" style="min-width: 44px; min-height: 44px;">
                             <i class="fa fa-search-plus"></i>
                         </button>
+                        </span>
                         <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3);" id="pdfVideosSep"></div>
                         <button id="pdfVideosBtn" class="btn btn-sm btn-info" style="min-width: 44px; min-height: 44px;" title="Ver videos / audio de esta página">
                             <i class="fa fa-video"></i>
@@ -1857,6 +1859,26 @@
         function esFAD_DOCConPermisoControl() {
             return typeof window.tienePermisoControlFAD_DOC !== 'undefined' && window.tienePermisoControlFAD_DOC && typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
         }
+        /** Oculta solo los controles de zoom del visor PDF cuando el documento es EVIDENCIA (Documentación). */
+        function actualizarVisibilidadZoomPdfControlesEvidencia() {
+            var grp = document.getElementById('pdfControlsZoomGroup');
+            if (!grp) return;
+            var tipo = (typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual)
+                ? String(window.tipoDocumentoActual).toUpperCase() : '';
+            var tituloEl = document.querySelector('#modalDocumento .modal-title');
+            var titulo = tituloEl ? tituloEl.textContent.replace(/\s+/g, ' ').trim().toUpperCase() : '';
+            var esEvidencia = tipo === 'EVIDENCIA' || titulo === 'EVIDENCIA' || titulo.indexOf('EVIDENCIA') !== -1;
+            if (esEvidencia) {
+                grp.classList.remove('d-inline-flex');
+                grp.classList.add('d-none');
+                grp.style.setProperty('display', 'none', 'important');
+            } else {
+                grp.classList.remove('d-none');
+                grp.classList.add('d-inline-flex');
+                grp.style.removeProperty('display');
+            }
+        }
+
         // false = botón "Ver videos" solo habilitado en páginas con medios; true = siempre habilitado
         var SIEMPRE_HABILITAR_BOTON_VIDEOS = false;
         function actualizarBotonVideosMedia() {
@@ -2681,6 +2703,13 @@
                     const pdfVideosSep = document.getElementById('pdfVideosSep');
                     if (pdfVideosBtn) pdfVideosBtn.classList.remove('visible-solo-fad-doc');
                     if (pdfVideosSep) pdfVideosSep.classList.remove('visible-solo-fad-doc');
+                    if (typeof actualizarBotonDescargarFAD === 'function') actualizarBotonDescargarFAD();
+                    var zgPdf = document.getElementById('pdfControlsZoomGroup');
+                    if (zgPdf) {
+                        zgPdf.classList.remove('d-none');
+                        zgPdf.classList.add('d-inline-flex');
+                        zgPdf.style.removeProperty('display');
+                    }
                 });
 
                 // Actualizar marcas de agua cuando cambie el tamaño de la ventana (solo si el modal está abierto)
@@ -3449,6 +3478,7 @@
             if (pdfControls) {
                 pdfControls.style.display = 'flex';
                 if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
+                if (typeof actualizarVisibilidadZoomPdfControlesEvidencia === 'function') actualizarVisibilidadZoomPdfControlesEvidencia();
             }
 
             // Ocultar otros contenedores
@@ -4089,6 +4119,7 @@
                     pdfControls.style.visibility = 'visible';
                     pdfControls.style.opacity = '1';
                     if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
+                    if (typeof actualizarVisibilidadZoomPdfControlesEvidencia === 'function') actualizarVisibilidadZoomPdfControlesEvidencia();
                 }
 
                 // Los controles de zoom ya están en el HTML y se mostrarán automáticamente

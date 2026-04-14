@@ -74,9 +74,18 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de martes a domingo. En este espacio podrás consultar el resumen ejecutivo de los primeros pagos con fecha de vencimiento correspondiente a la semana en curso.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
+                                        <?php if ($ppDow === 1): ?>
+                                        <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
+                                            La cartera no abre hasta el martes, revise los datos en la sección de <strong>Primeros pagos próxima semana</strong>.
+                                        </div>
+                                        <button type="button" class="btn btn-secondary w-100" id="ppBtnCobranzaEsperadaLunes">
+                                            <i class="fa fa-table-columns me-1"></i>Ver cobranza esperada
+                                        </button>
+                                        <?php else: ?>
                                         <a href="/reporteria/VencimientosLunes" class="btn btn-primary w-100">
                                             <i class="fa fa-table-columns me-1"></i>Ver cobranza esperada
                                         </a>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
@@ -230,4 +239,35 @@ body.dark-mode .pp-hero-mascot-floating {
     pointer-events: none;
 }
 </style>
+<script>
+(function () {
+    var PP_MSG_CARTERA_LUNES = 'La cartera no abre hasta el martes, revise los datos en la sección de Primeros pagos próxima semana.';
+    var PP_ES_LUNES = <?php echo $ppDow === 1 ? 'true' : 'false'; ?>;
+    document.addEventListener('DOMContentLoaded', function () {
+        var btn = document.getElementById('ppBtnCobranzaEsperadaLunes');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'info', title: 'Cobranza esperada — semana actual', text: PP_MSG_CARTERA_LUNES });
+                } else {
+                    alert(PP_MSG_CARTERA_LUNES);
+                }
+            });
+        }
+        try {
+            var params = new URLSearchParams(window.location.search || '');
+            if (params.get('pp_cartera_lunes') === '1' && PP_ES_LUNES) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'info', title: 'Cobranza esperada — semana actual', text: PP_MSG_CARTERA_LUNES });
+                } else {
+                    alert(PP_MSG_CARTERA_LUNES);
+                }
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState(null, '', window.location.pathname);
+                }
+            }
+        } catch (e1) { /* ignorar */ }
+    });
+})();
+</script>
 </div><!-- /#pp-landing -->

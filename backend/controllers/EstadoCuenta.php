@@ -29,6 +29,54 @@ class EstadoCuenta extends Controller
         return $default;
     }
 
+    /**
+     * Meta del último pago efectivo (Segundómetro) para el modal de Aclaraciones GC en vistas de estado de cuenta.
+     */
+    private function setEcAclaracionesUltimoPagoMetaParaVista(int $idCredito): void
+    {
+        $metaRow = $idCredito > 0 ? EstadoCuentaDAO::obtenerUltimoPagoEfectivoSegundometroParaCredito($idCredito) : null;
+        $tzEc = new \DateTimeZone('America/Mexico_City');
+        $hoyEc = new \DateTimeImmutable('today', $tzEc);
+        $dowEc = (int) $hoyEc->format('N');
+        $minGuardarEc = ($dowEc === 1) ? $hoyEc : $hoyEc->modify('-1 day');
+        $tieneUltimoPago = false;
+        $ventanaOk = false;
+        $ventanaFaltaMensaje = '';
+        $ventanaFaltaLunesFinSemana = false;
+        if ($metaRow !== null && !empty($metaRow['ymd'])) {
+            $tieneUltimoPago = true;
+            $v = EstadoCuentaDAO::validarUltimoPagoEfectivoVentanaAclaracionGc($metaRow['ymd']);
+            $ventanaOk = !empty($v['ok']);
+            if (!$ventanaOk && !empty($v['mensaje'])) {
+                $ventanaFaltaMensaje = (string) $v['mensaje'];
+                $ventanaFaltaLunesFinSemana = !empty($v['lunes_fin_semana']);
+            }
+        }
+        $ymd = is_array($metaRow) ? ($metaRow['ymd'] ?? null) : null;
+        $labelDisplay = 'Sin registro en Segundómetro';
+        if ($ymd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+            try {
+                $dLab = \DateTimeImmutable::createFromFormat('!Y-m-d', $ymd, $tzEc);
+                if ($dLab instanceof \DateTimeImmutable) {
+                    $labelDisplay = $dLab->format('d/m/Y');
+                }
+            } catch (\Throwable $e) {
+                $labelDisplay = $ymd;
+            }
+        }
+        self::set('ecAclaracionesUltimoPagoMeta', [
+            'ymd' => $ymd,
+            'min_guardar_ymd' => $minGuardarEc->format('Y-m-d'),
+            'max_guardar_ymd' => $hoyEc->format('Y-m-d'),
+            'tiene_ultimo_pago' => $tieneUltimoPago,
+            'ventana_ok' => $ventanaOk,
+            'permite_guardar' => $tieneUltimoPago,
+            'label_display' => $labelDisplay,
+            'ventana_falta_mensaje' => $ventanaFaltaMensaje,
+            'ventana_falta_lunes_fin_semana' => $ventanaFaltaLunesFinSemana,
+        ]);
+    }
+
     /** Permisos especiales (modulos_web en $_SESSION['modulos']). Usuario id 1: mismo bypass que rastreo (29) y aclaraciones GC (30). */
     private function tienePermisoModuloSesion(int $moduloId): bool
     {
@@ -2911,6 +2959,7 @@ JS;
 
             self::set("dataCliente", $cliente);
             self::set("dataEstadoCuenta", $estadoCuenta);
+            $this->setEcAclaracionesUltimoPagoMetaParaVista((int) ($estadoCuenta['idCredito'] ?? 0));
             self::set("dataOtrosDatos", $otrosDatos); //Recurso Front
             self::set("direcciones", $respDAO);
             self::set("referencias", $referencias);
@@ -4410,12 +4459,23 @@ JS;
                                 const esImagen = (data.esImagen === true) || (data.extension && ['jpg', 'jpeg', 'png', 'gif'].indexOf(String(data.extension).toLowerCase()) !== -1);
                                 if (esImagen && data.url) {
                                     pdfContainer.style.display = 'none';
+                                    const pdfControls = document.getElementById('pdfControls');
+                                    if (pdfControls) {
+                                        pdfControls.style.display = 'none';
+                                    }
                                     imgContainer.style.display = 'block';
                                     const imgDocumento = document.getElementById('imgDocumento');
                                     if (imgDocumento) {
                                         imgDocumento.src = data.url;
                                         imgDocumento.style.display = 'block';
                                     }
+                                    window.tipoDocumentoActual = data.tipo;
+                                    window.urlDocumentoActual = data.url;
+                                    window.idCreditoDocumentoActual = id;
+                                    window.paginasConMediaFAD_DOC = null;
+                                    if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
+                                    if (typeof actualizarBotonDescargarFAD === 'function') actualizarBotonDescargarFAD();
+                                    if (typeof actualizarVisibilidadZoomPdfControlesEvidencia === 'function') actualizarVisibilidadZoomPdfControlesEvidencia();
                                     const modalElement = document.getElementById('modalDocumento');
                                     const modalTitle = document.querySelector('#modalDocumento .modal-title');
                                     if (modalTitle) {
@@ -4452,6 +4512,8 @@ JS;
                                 };
                                 modalTitle.textContent = tipoNombre[data.tipo] || 'Documento';
                             }
+                            if (typeof actualizarVisibilidadZoomPdfControlesEvidencia === 'function') actualizarVisibilidadZoomPdfControlesEvidencia();
+                            if (typeof actualizarBotonDescargarFAD === 'function') actualizarBotonDescargarFAD();
 
                             // El modal se muestra automáticamente desde cargarPDFFactura
                         } else {
@@ -6701,17 +6763,12 @@ public function descargarReporteDictamen()
         ];
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $modo = $_POST['modoBusqueda'] ?? 'id';
-
-            if ($modo === 'id') {
-                $idCreditoLista = $_POST['idCredito'] ?? null;
-            } else {
-                $idCreditoLista = $_POST['idCreditoLista'] ?? null;
-            }
+            // Guatemala: solo búsqueda por ID (no por nombre / idCreditoLista).
+            $idCreditoLista = $_POST['idCredito'] ?? null;
 
             if ($idCreditoLista) {
                 // 1) Prioridad Guatemala: si existe aquí, se procesa como GT aunque exista el mismo ID en MX.
-                error_log("[Guatemala] Buscando id=" . json_encode($idCreditoLista) . " modo=" . ($modo ?? '?'));
+                error_log('[Guatemala] Buscando id=' . json_encode($idCreditoLista));
                 $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idCreditoLista);
                 error_log("[Guatemala] DB result success=" . json_encode($datosGuat['success'] ?? null) . " count=" . count($datosGuat['datos'] ?? []) . " msg=" . json_encode($datosGuat['mensaje'] ?? '') . " error=" . json_encode($datosGuat['error'] ?? ''));
                 if (!empty($datosGuat['datos'])) {
@@ -6792,6 +6849,7 @@ public function descargarReporteDictamen()
                         $notasGt = EmpresasDAO::getNotasNum($idCredNotasGt);
                     }
                     self::set('notas', $notasGt);
+                    $this->setEcAclaracionesUltimoPagoMetaParaVista($idCredNotasGt);
 
                     self::set("titulo", "Estado de Cuenta - Guatemala");
                     self::set("paisData", ['nombre_pais' => 'Guatemala', 'codigo_iso' => 'gt', 'pais_activo' => 1]);

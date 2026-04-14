@@ -33,6 +33,10 @@ backend/BD/geo_ssl_*.pem
 # ========== Test y diagnóstico (no subir; pueden exponer rutas) ==========
 public/test_geo_ssl.php
 
+# ========== Subidas públicas (runtime; no versionar contenido) ==========
+public/uploads/**
+!public/uploads/.gitkeep
+
 # ========== Medios temporales y logs (RUNTIME: nunca git add de .log) ==========
 # Generan archivos .log: EstadoCuenta (engine→storage/logs), EstadoCuentaTimingLog, Api (location_audit),
 # LoginRateLimit, SegundometroDAO (ssh_debug), Ticket (dictamen_error), LocationAuditLogger,

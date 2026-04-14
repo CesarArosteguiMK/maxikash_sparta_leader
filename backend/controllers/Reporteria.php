@@ -26,6 +26,17 @@ class Reporteria extends Controller
         return in_array(self::MODULO_ENVIAR_CORREO_PRIMEROS_PAGOS, $mods, true);
     }
 
+    /**
+     * Lunes ISO (America/Mexico_City): la cartera «Cobranza esperada — semana actual» no está disponible hasta el martes.
+     */
+    private function esLunesCdmxCarteraSemanaActualCerrada(): bool
+    {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $hoy = new \DateTimeImmutable('now', $tz);
+
+        return (int) $hoy->format('N') === 1;
+    }
+
     public function reporteCapitalHumano()
     {
         $script = "";
@@ -2189,6 +2200,10 @@ class Reporteria extends Controller
 
     public function VencimientosLunes()
     {
+        if ($this->esLunesCdmxCarteraSemanaActualCerrada()) {
+            header('Location: /reporteria/PrimerosPagos?pp_cartera_lunes=1', true, 302);
+            exit;
+        }
         self::set('titulo', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_vista_simple', false);
@@ -2212,6 +2227,14 @@ class Reporteria extends Controller
 
     public function getVencimientosLunes()
     {
+        if ($this->esLunesCdmxCarteraSemanaActualCerrada()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'La cartera no abre hasta el martes, revise los datos en la sección de Primeros pagos próxima semana.',
+            ]);
+
+            return;
+        }
         try {
             self::respuestaJSON(EmpresasDAO::getVencimientosLunes(0, false));
         } catch (\Exception $e) {

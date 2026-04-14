@@ -8,7 +8,7 @@
                             <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-1">
                                 <h4 class="mb-0 fw-semibold text-heading gc-shell-hero-title">
                                     <i class="fa fa-stopwatch text-primary me-2" aria-hidden="true"></i>
-                                    Shell Segundómetro - Gestión de Reportes
+                                    Segundometro - Gestión de Reportes
                                 </h4>
                                 <span id="sgAgenteEstado" class="badge bg-label-secondary">Agente: comprobando…</span>
                             </div>
@@ -52,35 +52,39 @@
                     <div class="sg-agent-actions">
                         <div class="sg-agent-row-top">
                             <div id="wrapBtnTruncarSegundometro" class="sg-btn-wrap">
-                                <button type="button" class="sg-tip-btn sg-btn-danger" id="btnTruncarSegundometro" disabled data-tip="Disponible solo los martes de 7:00 a 9:30 AM (CDMX).">
+                                <button type="button" class="sg-tip-btn sg-btn-danger" id="btnTruncarSegundometro" disabled>
                                     <span class="sg-tip-btn-face">
                                         <i class="fa fa-cut"></i>
                                         <span class="sg-btn-label">Truncar</span>
+                                        <span class="sg-tooltip-icon" data-tip="Disponible solo los martes de 7:00 a 9:30 AM (CDMX)."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                     </span>
                                 </button>
                             </div>
                             <div class="sg-btn-wrap">
-                                <button type="button" class="sg-tip-btn sg-btn-warn" id="btnMonitorearSegundometro" data-tip="Abre el monitoreo en vivo en esta página (CPU, memoria y actividad del servidor).">
+                                <button type="button" class="sg-tip-btn sg-btn-warn" id="btnMonitorearSegundometro">
                                     <span class="sg-tip-btn-face">
                                         <i class="fa fa-terminal"></i>
                                         <span class="sg-btn-label">Monitorear</span>
+                                        <span class="sg-tooltip-icon" data-tip="Abre el monitoreo en vivo en esta página (CPU, memoria y actividad del servidor)."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                     </span>
                                 </button>
                             </div>
                             <div class="sg-btn-wrap">
-                                <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnDiagnosticoSSH" data-tip="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura en el remoto.">
+                                <button type="button" class="sg-tip-btn sg-btn-cyan" id="btnDiagnosticoSSH">
                                     <span class="sg-tip-btn-face">
                                         <i class="fa fa-stethoscope"></i>
                                         <span class="sg-btn-label">Diagnóstico SSH</span>
+                                        <span class="sg-tooltip-icon" data-tip="Ejecuta diagnóstico SSH: conexión, llaves, permisos y pruebas de lectura/escritura en el remoto."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                     </span>
                                 </button>
                             </div>
                         </div>
                         <div class="sg-agent-row-bottom">
-                            <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="sgEjecutarAhora" data-tip="Lanza ahora el flujo automático del agente: monitoreo previo, copia del último reporte y ajuste +1s.">
+                            <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="sgEjecutarAhora">
                                 <span class="sg-tip-btn-face">
                                     <i class="fa fa-play"></i>
                                     <span class="sg-btn-label">Ejecutar ahora</span>
+                                    <span class="sg-tooltip-icon" data-tip="Lanza ahora el flujo automático del agente: monitoreo previo, copia del último reporte y ajuste +1s."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                 </span>
                             </button>
                         </div>
@@ -278,15 +282,34 @@
         white-space: nowrap;
     }
     #shellSegundometroAgenteBar .sg-tip-btn-face {
+        position: relative;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 0.45rem;
         width: 100%;
         min-width: 0;
+        padding-right: 1.35rem;
     }
-    #shellSegundometroAgenteBar .sg-tip-btn i {
+    #shellSegundometroAgenteBar .sg-tip-btn-face > i {
         font-size: 0.8rem;
+        line-height: 1;
+    }
+    #shellSegundometroAgenteBar .sg-tooltip-icon {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: help;
+        opacity: 0.55;
+        flex-shrink: 0;
+        line-height: 1;
+    }
+    #shellSegundometroAgenteBar .sg-tooltip-icon i {
+        font-size: 0.72rem;
         line-height: 1;
     }
     #shellSegundometroAgenteBar .sg-btn-label {
@@ -303,6 +326,10 @@
         opacity: 0.9;
         cursor: not-allowed;
         transform: none;
+        pointer-events: none;
+    }
+    #shellSegundometroAgenteBar .sg-tip-btn:disabled .sg-tooltip-icon {
+        pointer-events: auto;
     }
     #shellSegundometroAgenteBar .sg-tip-btn:disabled .sg-tip-btn-face {
         opacity: 0.55;
@@ -356,7 +383,7 @@
         flex: 0 1 auto;
         text-align: center;
     }
-    #shellSegundometroAgenteBar .sg-tip-btn::after {
+    #shellSegundometroAgenteBar .sg-tooltip-icon::after {
         content: attr(data-tip);
         position: absolute;
         left: 50%;
@@ -379,7 +406,7 @@
         transition: opacity 0.16s ease, transform 0.16s ease;
         z-index: 10050;
     }
-    #shellSegundometroAgenteBar .sg-tip-btn::before {
+    #shellSegundometroAgenteBar .sg-tooltip-icon::before {
         content: '';
         position: absolute;
         left: 50%;
@@ -391,11 +418,11 @@
         transition: opacity 0.16s ease;
         z-index: 10050;
     }
-    #shellSegundometroAgenteBar .sg-tip-btn:hover::after,
-    #shellSegundometroAgenteBar .sg-tip-btn:hover::before {
+    #shellSegundometroAgenteBar .sg-tooltip-icon:hover::after,
+    #shellSegundometroAgenteBar .sg-tooltip-icon:hover::before {
         opacity: 1;
     }
-    #shellSegundometroAgenteBar .sg-tip-btn:hover::after {
+    #shellSegundometroAgenteBar .sg-tooltip-icon:hover::after {
         transform: translateX(-50%) translateY(0);
     }
     @media (max-width: 991.98px) {

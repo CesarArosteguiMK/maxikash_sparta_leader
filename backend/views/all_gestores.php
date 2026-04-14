@@ -1826,10 +1826,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
              PANEL DE INDICADORES (GESTIÓN) — REDISEÑO v3
         ======================== -->
 
-        <!-- Tooltip global para donuts -->
-        <div class="kpi-donut-tooltip" id="kpiDonutTooltip"></div>
+        <!-- Tooltip global para donuts (panel de indicadores oculto) -->
+        <div class="kpi-donut-tooltip d-none" id="kpiDonutTooltip" aria-hidden="true"></div>
 
-        <div id="panelIndicadoresGestion" class="px-4 pt-3 pb-2">
+        <div id="panelIndicadoresGestion" class="px-4 pt-3 pb-2 d-none" aria-hidden="true">
 
             <!-- TOOLBAR: toggle + modos + reset -->
             <div class="kpi-toolbar">

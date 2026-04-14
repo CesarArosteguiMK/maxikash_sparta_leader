@@ -20,6 +20,19 @@ Para **detener** el agente sin Administrador de tareas: **`cerrar-agente-oculto.
 
 Si el agente **ya estaba** corriendo (puerto 3100 ocupado), el `.bat` lo indica y **no** lanza un segundo proceso.
 
+### “Funcionó una vez y al volver al Shell / F5 ya está fuera de línea”
+
+Eso casi siempre significa que el **proceso Node del agente se cerró** (el puerto **3100** ya no escucha). No es que el menú de Sparta “desconecte” al agente al navegar: el agente es un programa aparte en tu PC.
+
+Causas frecuentes:
+
+1. **Bug corregido en versiones recientes del agente:** la pantalla del Shell llama a `/health` y enseguida a `/auto-copy`. Si las APIs de hora en internet (`worldtimeapi` / `timeapi.io`) fallan y en `.env` no está `ALLOW_LOCAL_TIME_FALLBACK=1`, una versión anterior podía **tirar todo el proceso Node** al atender `/auto-copy`. Solución: **actualizar** `server.js` del agente o poner en `.env` del agente: `ALLOW_LOCAL_TIME_FALLBACK=1`.
+2. **Cerraron la consola** donde alguien había lanzado `node server.js` a mano (al cerrar la ventana, muere el proceso).
+3. **Ejecutaron** `cerrar-agente-oculto.vbs` / `cerrar-agente.bat` sin querer.
+4. **Revisar logs** del agente tras arrancar con el `.bat` / `.ps1` actualizado: carpeta `data/agente-node-out.log` y `data/agente-node-err.log`.
+
+Comprobación rápida: **Administrador de tareas** → buscar **`node.exe`** → si no hay ninguno escuchando en el puerto configurado, vuelvan a ejecutar **`iniciar-agente-oculto.vbs`**.
+
 ---
 
 ## Cuándo volver a usar `instalar-agente.bat`

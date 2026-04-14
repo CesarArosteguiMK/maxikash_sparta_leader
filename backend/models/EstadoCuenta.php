@@ -1011,6 +1011,127 @@ public static function getGastosCobranza($idCredito)
 }
 
 /**
+ * Lee Fecha_ultimo_pago_efectivo en tbl_segundometro_semana (misma fuente que insertAclaracionGcVerificacionSemana).
+ *
+ * @return array{ymd: string, datetime_sql: string}|null ymd = Y-m-d (calendario); datetime_sql para columna ultimo_pago_efectivo.
+ */
+public static function obtenerUltimoPagoEfectivoSegundometroParaCredito(int $idCredito): ?array
+{
+    if ($idCredito <= 0) {
+        return null;
+    }
+    try {
+        $dbSm = new DatabaseSegundometro();
+        $filaSm = $dbSm->queryOne(
+            'SELECT `Fecha_ultimo_pago_efectivo` AS f FROM `tbl_segundometro_semana` '
+            . 'WHERE `Id_credito` = :id_credito LIMIT 1',
+            ['id_credito' => $idCredito]
+        );
+        if (empty($filaSm) || !array_key_exists('f', $filaSm) || $filaSm['f'] === null || $filaSm['f'] === '') {
+            return null;
+        }
+        $rawF = $filaSm['f'];
+        $datetimeSql = null;
+        $ymd = null;
+        if ($rawF instanceof \DateTimeInterface) {
+            $datetimeSql = $rawF->format('Y-m-d H:i:s');
+            $ymd = $rawF->format('Y-m-d');
+        } else {
+            $s = trim((string) $rawF);
+            if (strlen($s) >= 10) {
+                $ymd = substr($s, 0, 10);
+                $datetimeSql = strlen($s) > 10
+                    ? substr(str_replace('T', ' ', $s), 0, 19)
+                    : ($ymd . ' 00:00:00');
+            }
+        }
+        if ($ymd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+            return null;
+        }
+        if ($datetimeSql === null) {
+            $datetimeSql = $ymd . ' 00:00:00';
+        }
+
+        return ['ymd' => $ymd, 'datetime_sql' => $datetimeSql];
+    } catch (\Throwable $e) {
+        error_log('obtenerUltimoPagoEfectivoSegundometroParaCredito: ' . $e->getMessage());
+
+        return null;
+    }
+}
+
+/**
+ * Ventana «falta aplicar» (calendario Ciudad de México).
+ * Martes a domingo: último pago debe ser ayer u hoy.
+ * Lunes: solo si el último pago efectivo es del mismo lunes; sábado o domingo no aplican (cartera el martes).
+ *
+ * @return array{ok: bool, mensaje: string, lunes_fin_semana?: bool}
+ */
+public static function validarUltimoPagoEfectivoVentanaAclaracionGc(?string $fechaYmd): array
+{
+    if ($fechaYmd === null || $fechaYmd === '') {
+        return [
+            'ok' => false,
+            'mensaje' => 'No se encontró fecha de último pago efectivo en Segundómetro para este crédito. No es posible registrar la aclaración.',
+        ];
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaYmd)) {
+        return [
+            'ok' => false,
+            'mensaje' => 'La fecha de último pago efectivo no es válida. No es posible registrar la aclaración.',
+        ];
+    }
+    try {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $hoy = new \DateTimeImmutable('today', $tz);
+        $dowHoy = (int) $hoy->format('N');
+        $fp = \DateTimeImmutable::createFromFormat('!Y-m-d', $fechaYmd, $tz);
+        if ($fp === false) {
+            return ['ok' => false, 'mensaje' => 'No se pudo interpretar la fecha del último pago efectivo.'];
+        }
+        if ($fp > $hoy) {
+            return [
+                'ok' => false,
+                'mensaje' => 'La fecha del último pago efectivo es posterior a hoy; no es posible registrar la aclaración.',
+            ];
+        }
+
+        if ($dowHoy === 1) {
+            $dowFp = (int) $fp->format('N');
+            if ($dowFp === 6 || $dowFp === 7) {
+                return [
+                    'ok' => false,
+                    'mensaje' => 'El último pago efectivo corresponde al fin de semana. No es necesario registrar «falta aplicar»: la aplicación en cartera se reflejará el martes.',
+                    'lunes_fin_semana' => true,
+                ];
+            }
+            if ($fp->format('Y-m-d') !== $hoy->format('Y-m-d')) {
+                return [
+                    'ok' => false,
+                    'mensaje' => 'Los lunes solo puede registrarse «falta aplicar» si el último pago efectivo es del mismo día (Ciudad de México). El último pago registrado es del '
+                        . $fp->format('d/m/Y') . '.',
+                ];
+            }
+
+            return ['ok' => true, 'mensaje' => ''];
+        }
+
+        $ayer = $hoy->modify('-1 day');
+        if ($fp < $ayer) {
+            return [
+                'ok' => false,
+                'mensaje' => 'El último pago efectivo queda fuera de la ventana permitida para «falta aplicar» (calendario Ciudad de México). El último pago registrado es del '
+                    . $fp->format('d/m/Y') . '.',
+            ];
+        }
+
+        return ['ok' => true, 'mensaje' => ''];
+    } catch (\Throwable $e) {
+        return ['ok' => false, 'mensaje' => 'Error al validar la fecha del último pago.'];
+    }
+}
+
+/**
  * Inserta registro de aclaración GC en cobranza_gc_verificacion_semana (__SPARTA_SECRET_REDACTED__).
  * Requiere columnas: nombre, tipo_reporte, monto_aplicar, estatus (TINYINT), celula (además de las base).
  * tipo_reporte: error | falta_aplicar.
@@ -1021,6 +1142,7 @@ public static function getGastosCobranza($idCredito)
  * inicio_semana: martes que inicia la semana operativa (mar–lun); si hoy es lunes, es el martes anterior.
  * anio_iso / semana_iso: semana ISO del calendario asociada a ese martes.
  * ultimo_pago_efectivo: se obtiene en servidor desde tbl_segundometro_semana (usuario no interviene).
+ * Ventana CDMX para falta_aplicar (lunes distinto a mar–dom): solo aplica a tipo_reporte falta_aplicar. Con tipo error puede guardarse aunque la fecha sea anterior.
  */
 public static function insertAclaracionGcVerificacionSemana(array $p): array
 {
@@ -1080,30 +1202,23 @@ public static function insertAclaracionGcVerificacionSemana(array $p): array
         return self::resultado(false, 'Error al calcular fecha', [], $e->getMessage());
     }
 
-    $ultimoPagoEfectivo = null;
-    try {
-        $dbSm = new DatabaseSegundometro();
-        $filaSm = $dbSm->queryOne(
-            'SELECT `Fecha_ultimo_pago_efectivo` AS f FROM `tbl_segundometro_semana` '
-            . 'WHERE `Id_credito` = :id_credito LIMIT 1',
-            ['id_credito' => $idCredito]
+    $ultimoInfo = self::obtenerUltimoPagoEfectivoSegundometroParaCredito($idCredito);
+    $ymdUltimo = $ultimoInfo['ymd'] ?? null;
+    if ($ymdUltimo === null || $ymdUltimo === '') {
+        return self::resultado(
+            false,
+            'No se encontró fecha de último pago efectivo en Segundómetro para este crédito. No es posible registrar la aclaración.',
+            [],
+            'ultimo_pago_efectivo'
         );
-        if (!empty($filaSm) && array_key_exists('f', $filaSm) && $filaSm['f'] !== null && $filaSm['f'] !== '') {
-            $rawF = $filaSm['f'];
-            if ($rawF instanceof \DateTimeInterface) {
-                $ultimoPagoEfectivo = $rawF->format('Y-m-d H:i:s');
-            } else {
-                $s = trim((string) $rawF);
-                if (strlen($s) >= 10) {
-                    $ultimoPagoEfectivo = strlen($s) > 10
-                        ? substr(str_replace('T', ' ', $s), 0, 19)
-                        : ($s . ' 00:00:00');
-                }
-            }
-        }
-    } catch (\Throwable $e) {
-        error_log('insertAclaracionGcVerificacionSemana ultimo_pago_efectivo: ' . $e->getMessage());
     }
+    if ($tipo === 'falta_aplicar') {
+        $valUp = self::validarUltimoPagoEfectivoVentanaAclaracionGc($ymdUltimo);
+        if (!$valUp['ok']) {
+            return self::resultado(false, $valUp['mensaje'], [], 'ultimo_pago_efectivo');
+        }
+    }
+    $ultimoPagoEfectivo = $ultimoInfo['datetime_sql'] ?? null;
 
     $sqlDup = "
         SELECT `estatus`
