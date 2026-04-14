@@ -157,10 +157,16 @@ class CierreCredito extends Model
                     cc.usuario_alta,
                     cc.fecha_alta,
                     cc.fecha_modifica,
+                    cc.pdf_adjunto,
                     (SELECT COUNT(*)
                      FROM convenio_cliente_amortizacion a
                      WHERE a.id_convenio_cliente = cc.id
                        AND a.estatus_pago = 'pagado')  AS cuotas_pagadas,
+                    (SELECT COUNT(*)
+                     FROM convenio_cliente_amortizacion a
+                     WHERE a.id_convenio_cliente = cc.id
+                       AND a.comprobante_path IS NOT NULL
+                       AND a.comprobante_path != '')   AS comprobantes_subidos,
                     (SELECT TRIM(CONCAT_WS(' ',
                             per.nombres, per.segundo_nombre,
                             per.apellidop, per.apellidom))
@@ -367,7 +373,7 @@ class CierreCredito extends Model
                     $fechaAcuerdo = $convenio ? htmlspecialchars($convenio['fecha_acuerdo'] ?? '', ENT_QUOTES, 'UTF-8') : '—';
                     $fechaEnvio  = date('d/m/Y H:i');
 
-                    // Adjuntar PDF si existe
+                    // Adjuntar PDF del convenio si existe
                     $adjuntos = [];
                     if ($convenio && !empty($convenio['pdf_adjunto'])) {
                         $pdfPath = defined('RAIZ')
@@ -375,6 +381,27 @@ class CierreCredito extends Model
                             : (__DIR__ . '/../../storage/convenios/' . basename($convenio['pdf_adjunto']));
                         if (is_file($pdfPath) && is_readable($pdfPath)) {
                             $adjuntos[] = $pdfPath;
+                        }
+                    }
+
+                    // Adjuntar comprobantes de pago si existen
+                    if ($convenio) {
+                        $compRows = $db->queryAll(
+                            "SELECT comprobante_path FROM convenio_cliente_amortizacion
+                             WHERE id_convenio_cliente = :id
+                               AND comprobante_path IS NOT NULL AND comprobante_path != ''",
+                            ['id' => (int) $convenio['id_convenio']]
+                        );
+                        if ($compRows) {
+                            $uploadsBase = defined('RAIZ')
+                                ? (dirname(RAIZ) . '/public/uploads/comprobantes/')
+                                : (__DIR__ . '/../../../public/uploads/comprobantes/');
+                            foreach ($compRows as $cr) {
+                                $compPath = $uploadsBase . basename($cr['comprobante_path']);
+                                if (is_file($compPath) && is_readable($compPath)) {
+                                    $adjuntos[] = $compPath;
+                                }
+                            }
                         }
                     }
 
@@ -401,7 +428,7 @@ class CierreCredito extends Model
                           </table>
                           <p style="margin-top:20px;font-size:13px;color:#666;">
                             Este crédito fue validado y está listo para su procesamiento en cartera.
-                            Se adjunta el PDF del convenio cuando está disponible.
+                            Se adjuntan el PDF del convenio y los comprobantes de pago cuando están disponibles.
                           </p>
                         </div>
                         <div style="background:#f4f6fb;padding:12px 24px;font-size:11px;color:#999;text-align:center;">
@@ -740,7 +767,7 @@ class CierreCredito extends Model
                         cc.monto_adicional,     cc.pago_inicial_monto,
                         cc.numero_semanas,      cc.pago_semanal,
                         cc.fecha_acuerdo,       cc.fecha_primer_pago,
-                        cc.fecha_ultimo_pago
+                        cc.fecha_ultimo_pago,   cc.usuario_alta
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  WHERE cc.id = :id LIMIT 1",
