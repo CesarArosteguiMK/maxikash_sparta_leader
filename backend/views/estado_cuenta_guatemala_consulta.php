@@ -135,25 +135,26 @@
     <!-- Card principal -->
     <div class="card estado-cuenta-card">
 
-        <!-- Acciones (sin búsqueda por nombre en GT) -->
-        <div class="row justify-content-between m-4 g-2">
-
-            <div class="col-12 col-md-8 d-flex align-items-end">
-                <span class="text-muted small">Ingresa el ID de crédito.</span>
-            </div>
-
-            <div class="col-12 col-md-4 d-flex align-items-end justify-content-start justify-content-md-end gap-2 mt-2 mt-md-0">
-                <button id="btnCambioPais" class="btn btn-outline-info" type="button">
-                    <i class="fa-solid fa-globe me-1"></i> Selecciona País
-                </button>
-                <button id="btnResetFiltros" class="btn btn-outline-secondary" type="button">Limpiar</button>
-            </div>
-        </div>
-
         <!-- FORMULARIO -->
         <div class="card-body">
             <form method="POST" id="formBusqueda">
-                <input type="hidden" name="modoBusqueda" value="id">
+                <div class="row justify-content-between mb-3 g-2">
+                    <div class="col-12 col-md-8">
+                        <label class="form-label">Filtro</label>
+                        <div class="d-flex align-items-center flex-wrap gap-3">
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="radio" name="modoBusqueda" id="modoID" value="id" checked>
+                                <label class="form-check-label" for="modoID">ID de crédito</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 d-flex align-items-end justify-content-start justify-content-md-end gap-2 mt-2 mt-md-0">
+                        <button id="btnCambioPais" class="btn btn-outline-info" type="button">
+                            <i class="fa-solid fa-globe me-1"></i> Selecciona País
+                        </button>
+                        <button id="btnResetFiltros" class="btn btn-outline-secondary" type="button">Limpiar</button>
+                    </div>
+                </div>
 
                 <div class="row g-3 align-items-end">
                     <div class="col-12 col-md-6">

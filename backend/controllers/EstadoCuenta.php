@@ -1461,7 +1461,10 @@ class EstadoCuenta extends Controller
                     $j++;
                     continue;
                 }
-                if ($this->sumaAplicadosQueCuentanCapital($tabla[$j]) <= 0.009) {
+                $montoCargoJ = (float) ($tabla[$j]["monto_cargo"] ?? 0);
+                $aplicadoJ = $this->sumaAplicadosQueCuentanCapital($tabla[$j]);
+                $deficitJ = round($montoCargoJ - $aplicadoJ, 2);
+                if ($deficitJ > 0.009) {
                     break;
                 }
                 $j++;
@@ -1476,7 +1479,12 @@ class EstadoCuenta extends Controller
             }
             $ap["fechaPago"] = $tabla[$j]["fecha"] ?? ($ap["fechaPago"] ?? null);
             $tabla[$j]["aplicados"][] = $ap;
-            $j++;
+            $montoCargoJ = (float) ($tabla[$j]["monto_cargo"] ?? 0);
+            $aplicadoJ = $this->sumaAplicadosQueCuentanCapital($tabla[$j]);
+            $deficitJ = round($montoCargoJ - $aplicadoJ, 2);
+            if ($deficitJ <= 0.009) {
+                $j++;
+            }
         }
     }
 
