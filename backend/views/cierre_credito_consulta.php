@@ -780,6 +780,29 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                         <span class="cc-val-user">${esc(validador)}</span>
                     </div>
 
+                    <!-- Documentos adjuntos -->
+                    ${(() => {
+                        const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
+                        const compSub = parseInt(r.comprobantes_subidos) || 0;
+                        if (!pdfOk && compSub === 0) return '';
+                        let items = '';
+                        if (pdfOk)
+                            items += `<a href="${esc(r.pdf_adjunto)}" target="_blank"
+                                         class="btn btn-sm btn-outline-secondary"
+                                         style="font-size:.78rem;">
+                                         <i class="fa-solid fa-file-pdf me-1"></i>PDF convenio
+                                      </a>`;
+                        if (compSub > 0)
+                            items += `<span class="cc-doc-ok" style="padding:3px 10px;font-size:.78rem;font-weight:700;"
+                                           title="${compSub} comprobante${compSub !== 1 ? 's' : ''} subido${compSub !== 1 ? 's' : ''}">
+                                           <i class="fa-solid fa-receipt me-1"></i>${compSub} comprobante${compSub !== 1 ? 's' : ''}
+                                      </span>`;
+                        return `<div class="cc-doccheck-wrap mt-2">
+                                    <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
+                                    <div class="cc-doccheck-items" style="display:flex;gap:.4rem;flex-wrap:wrap;">${items}</div>
+                                </div>`;
+                    })()}
+
                 </div>
             </div>
 
