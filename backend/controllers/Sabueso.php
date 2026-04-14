@@ -333,8 +333,6 @@ class Sabueso extends Controller
         $base = [
             ['data' => null, 'defaultContent' => '', 'className' => 'control', 'orderable' => false],
             ['data' => 'folio_tipo', 'title' => 'Folio / Tipo'],
-            ['data' => 'estado', 'title' => 'Estado'],
-            ['data' => 'prioridad', 'title' => 'Prioridad'],
             ['data' => 'credito', 'title' => 'Crédito'],
             ['data' => 'fechas', 'title' => 'Fechas'],
             ['data' => 'creador', 'title' => 'Quién levantó'],
@@ -374,18 +372,10 @@ class Sabueso extends Controller
                         var fechaCreacion = t.fecha_creacion ? new Date(t.fecha_creacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
                         var fechaVenc = t.fecha_vencimiento ? new Date(t.fecha_vencimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
                         var fechaElim = t.fecha_eliminacion ? new Date(t.fecha_eliminacion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-                        var prioridadNombre = (t.prioridad_nombre || '').toLowerCase();
-                        var prioridadBadge = '<span class=\"badge bg-label-secondary\">' + (t.prioridad_nombre || '—') + '</span>';
-                        if (prioridadNombre.indexOf('alta') !== -1) prioridadBadge = '<span class=\"badge bg-danger text-white\">' + (t.prioridad_nombre || '—') + '</span>';
-                        else if (prioridadNombre.indexOf('medio') !== -1 || prioridadNombre.indexOf('media') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#fd7e14;color:#fff;\">' + (t.prioridad_nombre || '—') + '</span>';
-                        else if (prioridadNombre.indexOf('bajo') !== -1 || prioridadNombre.indexOf('baja') !== -1) prioridadBadge = '<span class=\"badge\" style=\"background-color:#ffc107;color:#212529;\">' + (t.prioridad_nombre || '—') + '</span>';
-                        var estadoBadge = '<span class="badge bg-secondary">Cerrado/Eliminado</span>';
                         var tipoAccion = (t.tipo_accion || '').toLowerCase();
                         var tipoAccionBadge = tipoAccion === 'cerrado' ? '<span class="badge bg-warning text-dark">Cerrado</span>' : '<span class="badge bg-danger">Eliminado</span>';
                         var row = {
                             folio_tipo: '<div class=\"fw-semibold\">' + (t.folio || '—') + '</div><div class=\"small text-muted mt-1\">' + (t.tipo_ticket_nombre || '—') + '</div>',
-                            estado: estadoBadge,
-                            prioridad: prioridadBadge,
                             credito: '<small>#' + (t.id_credito != null ? t.id_credito : '—') + '</small>',
                             fechas: '<div class="small">Creación: ' + fechaCreacion + '</div><div class="small text-muted mt-1">Venc: ' + fechaVenc + '</div>',
                             creador: '<small>' + (t.creador_nombre || '—') + '</small>',

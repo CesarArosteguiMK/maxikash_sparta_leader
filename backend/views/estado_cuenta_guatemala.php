@@ -1535,6 +1535,32 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             }
                         }
 
+                        $filaRegistroApiExt = false;
+                        if ($total_pagado <= 0.009 && $pendiente > 0.009 && !empty($aplicados)) {
+                            $tieneLineaExtApi = false;
+                            $tieneAplicacionACapitalCuota = false;
+                            foreach ($aplicados as $a) {
+                                $t = (string) ($a['tipo'] ?? '');
+                                if ($t === 'extemporaneo_deposito' || $t === 'extemporaneos_resumen') {
+                                    $tieneLineaExtApi = true;
+                                }
+                                if ($t === 'contracargo') {
+                                    continue;
+                                }
+                                if (!empty($a['cc_invalido'])) {
+                                    continue;
+                                }
+                                if (!empty($a['no_cuenta_para_total_cuota'])) {
+                                    continue;
+                                }
+                                if ((float) ($a['aplicado'] ?? 0) > 0.009) {
+                                    $tieneAplicacionACapitalCuota = true;
+                                    break;
+                                }
+                            }
+                            $filaRegistroApiExt = $tieneLineaExtApi && !$tieneAplicacionACapitalCuota;
+                        }
+
                         if ($creditoSaldado && $esUltimaCuota) {
                             $badge = '<span class="badge bg-success px-3 py-2">Crédito saldado</span>';
                         } elseif ($pendiente <= 0) {
@@ -1542,6 +1568,8 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                             if ($diasMora > 0) {
                                 $badge = '<span class="badge bg-danger px-3 py-2">Pago completo<br>' . htmlspecialchars($diasMora) . ' día' . ($diasMora>1?'s':'') . ' de mora</span>';
                             }
+                        } elseif ($filaRegistroApiExt) {
+                            $badge = '<span class="badge bg-info text-dark px-3 py-2">Registro API: ext.</span>';
                         } elseif ($total_pagado > 0) {
                             $badge = '<span class="badge bg-warning px-3 py-2">Pago parcial<br>' . htmlspecialchars($diasMora) . ' día' . ($diasMora>1?'s':'') . ' de mora</span>';
                         } else {
@@ -1588,13 +1616,12 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                                             <?php
                                             $pago_monto = safe($pago['montoPago'], 0.0);
                                             $pago_fecha = safe($pago['fechaRegistro'], $pago['fechaPago'] ?? null);
-                                            $pago_aplicado = safe($pago['aplicado'], 0.0);
                                             ?>
                                             <li class="text-muted small mb-0 linea-extemporaneo-api">
                                                 <i class="fa fa-info-circle opacity-40 me-1 align-text-bottom" style="font-size: 0.72rem;" title="Solo extemporáneo según API; no cuenta a capital de la cuota."></i>
                                                 <span class="text-secondary">Dep. ext.</span>:
                                                 <?= format_currency($pago_monto) ?> -
-                                                <span class="etiqueta-aplicado">Aplicado</span>: <?= format_currency($pago_aplicado) ?> -
+                                                <span class="etiqueta-aplicado">Aplicado</span>: <?= format_currency(0.0) ?> -
                                                 <span class="text-muted fecha-pago"><?= htmlspecialchars(format_date($pago_fecha)) ?></span>
                                             </li>
                                             <?php else: ?>

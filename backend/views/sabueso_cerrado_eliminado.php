@@ -1,5 +1,5 @@
 <style>
-    #tablaTicketsCerradosEliminados th:nth-child(6) { min-width: 10rem; white-space: nowrap; }
+    #tablaTicketsCerradosEliminados th:nth-child(4) { min-width: 10rem; white-space: nowrap; }
     #tablaTicketsCerradosEliminados .btn-ver-cerrado { padding: 0.35rem 0.6rem; }
     .cerrado-ver-seccion { margin-bottom: 1.25rem; }
     .cerrado-ver-seccion:last-child { margin-bottom: 0; }
@@ -19,8 +19,6 @@
                 <tr>
                     <th></th>
                     <th>Folio / Tipo</th>
-                    <th>Estado</th>
-                    <th>Prioridad</th>
                     <th>Crédito</th>
                     <th>Fechas</th>
                     <th>Quién levantó</th>

@@ -68,10 +68,36 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
         box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.18) inset;
         background: #eef5ff;
     }
-    .modal-elegir-categoria .ticket-categoria-card[data-disponible="0"] {
+    .modal-elegir-categoria .ticket-categoria-card[data-disponible="0"],
+    .modal-elegir-categoria .ticket-categoria-card:disabled {
         opacity: 0.62;
         cursor: not-allowed;
         background: #fafbfc;
+        pointer-events: none;
+    }
+    .modal-elegir-categoria .ticket-categoria-card--proximamente {
+        overflow: hidden;
+    }
+    /* Lazo esquina superior derecha (no seleccionable vía disabled + data-disponible) */
+    .modal-elegir-categoria .ticket-categoria-lazo {
+        position: absolute;
+        /* Más abajo + translateY: la P de "Próximamente" no queda bajo el recorte overflow:hidden de la card */
+        top: 1.35rem;
+        right: -2.35rem;
+        z-index: 2;
+        transform: translateY(0.22rem) rotate(40deg);
+        transform-origin: center center;
+        background: linear-gradient(90deg, #6c757d, #495057);
+        color: #fff;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 0.38rem 2.55rem 0.32rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        line-height: 1.35;
+        white-space: nowrap;
+        pointer-events: none;
+        user-select: none;
     }
     .modal-elegir-categoria .ticket-categoria-icon {
         width: 56px;
@@ -193,7 +219,7 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
     </div>
 </div>
 
-<!-- Modal 1: Elegir categoría antes de levantar ticket (solo Sabueso activo por ahora) -->
+<!-- Modal 1: Elegir categoría antes de levantar ticket (activos: Sabueso y Validaciones; resto muestran Próximamente) -->
 <div class="modal fade modal-elegir-categoria" id="modalElegirCategoriaTicket" tabindex="-1" aria-labelledby="modalElegirCategoriaTicketLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content modal-content-glass">
@@ -207,13 +233,24 @@ $funcionesTicket = isset($funcionesTicket) && is_array($funcionesTicket) ? $func
             <div class="modal-body">
                 <div class="row g-3" id="modalCategoriasTicketLista">
                     <?php
+                    $categoriasLevantamientoActivas = ['sabueso', 'validaciones'];
                     foreach ($funcionesTicket as $clave => $info):
                         if (!$en($clave)) continue;
                         $label = isset($info['label']) ? $info['label'] : $clave;
                         $icon = isset($info['icon']) ? $info['icon'] : 'fa-solid fa-circle';
+                        $funcionaAhora = in_array($clave, $categoriasLevantamientoActivas, true);
+                        $clsCard = 'ticket-categoria-card' . ($funcionaAhora ? '' : ' ticket-categoria-card--proximamente');
+                        $disp = $funcionaAhora ? '1' : '0';
                     ?>
                     <div class="col-md-4 col-6">
-                        <button type="button" class="ticket-categoria-card" data-categoria="<?php echo htmlspecialchars($clave); ?>" data-disponible="1">
+                        <button type="button"
+                                class="<?php echo htmlspecialchars($clsCard, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-categoria="<?php echo htmlspecialchars($clave, ENT_QUOTES, 'UTF-8'); ?>"
+                                data-disponible="<?php echo htmlspecialchars($disp, ENT_QUOTES, 'UTF-8'); ?>"
+                                <?php if (!$funcionaAhora): ?>disabled<?php endif; ?>>
+                            <?php if (!$funcionaAhora): ?>
+                            <span class="ticket-categoria-lazo">Próximamente</span>
+                            <?php endif; ?>
                             <span class="ticket-categoria-check"><i class="fa-solid fa-check"></i></span>
                             <span class="ticket-categoria-icon"><i class="<?php echo htmlspecialchars($icon); ?>"></i></span>
                             <span class="ticket-categoria-name"><?php echo htmlspecialchars($label); ?></span>
