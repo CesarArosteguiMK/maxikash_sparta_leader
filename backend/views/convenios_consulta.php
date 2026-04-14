@@ -7117,4 +7117,19 @@ window.migResetearFormulario = function () {
 
 console.log('✅ Módulo Convenios cargado correctamente');
 
+// ══════════════════════════════════════════════════════
+//  AUTO-CARGA desde parámetro URL ?credito=ID
+// ══════════════════════════════════════════════════════
+(function () {
+    var params = new URLSearchParams(window.location.search);
+    var idCredito = params.get('credito');
+    if (idCredito && !isNaN(idCredito) && parseInt(idCredito) > 0) {
+        var input = document.getElementById('inputBusqueda');
+        if (input) {
+            input.value = parseInt(idCredito);
+            window.buscarCredito();
+        }
+    }
+}());
+
 </script>

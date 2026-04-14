@@ -213,6 +213,22 @@ body.dark-mode .cc-validacion-box .cc-val-user { color: #fcd34d; }
     transition: opacity .2s, transform .15s;
 }
 .cc-btn-confirmar:hover { opacity: .9; transform: translateY(-1px); }
+.cc-btn-convenio {
+    background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    font-size: .85rem;
+    padding: .45rem 1.4rem;
+    border-radius: 2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    transition: opacity .2s, transform .15s;
+    text-decoration: none;
+}
+.cc-btn-convenio:hover { opacity: .9; transform: translateY(-1px); color: #fff; }
 .cc-btn-confirmar:active { transform: translateY(0); }
 .cc-btn-confirmar:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -883,8 +899,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 </div>
             </div>
 
-            <!-- Footer: botón confirmar -->
-            <div class="cc-conv-card-footer">
+<!-- Footer: botones -->
+            <div class="cc-conv-card-footer" style="gap:.5rem;">
+                <a class="cc-btn-convenio" href="/Convenios/consulta?credito=${esc(r.id_credito)}" target="_blank">
+                    <i class="fa-solid fa-handshake"></i>
+                    Ir al convenio
+                </a>
                 <button class="cc-btn-confirmar" onclick="ccConfirmar(${r.id}, '${esc(r.id_credito)}', '${esc(r.nombre_cliente)}')"
                         id="cc-btn-${r.id}">
                     <i class="fa-solid fa-check-circle"></i>
@@ -1468,83 +1488,114 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
        CARGA DE DATOS
     ══════════════════════════════════ */
 
-    // Convenios — lazy: solo al activar la pestaña
-    let conveniosCargado = false;
+    // ── Funciones de carga (también usadas para refrescar individualmente) ──
     function cargarConvenios() {
-        if (conveniosCargado) return;
-        conveniosCargado = true;
-        document.getElementById('loader-convenios').classList.remove('d-none');
-        fetch('/CierreCredito/getAllConvenios', { method: 'POST' })
+        return fetch('/CierreCredito/getAllConvenios', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderConvenios(res.datos);
-            })
-            .catch(err => {
-                document.getElementById('loader-convenios').innerHTML =
-                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // Enviados Finalizados — carga inicial (pestaña activa)
     function cargarEnviadoFinalizado() {
-        fetch('/CierreCredito/getEnviadoFinalizado', { method: 'POST' })
+        return fetch('/CierreCredito/getEnviadoFinalizado', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderCards(res.datos, res.validador || '—');
-            })
-            .catch(err => {
-                document.getElementById('loader-env-finalizado').innerHTML =
-                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // En Proceso — lazy: solo al activar la pestaña
-    let enProcesoCargado = false;
     function cargarEnProceso() {
-        if (enProcesoCargado) return;
-        enProcesoCargado = true;
-        fetch('/CierreCredito/getEnProceso', { method: 'POST' })
+        return fetch('/CierreCredito/getEnProceso', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderEnProceso(res.datos);
-            })
-            .catch(err => {
-                document.getElementById('loader-en-proceso').innerHTML =
-                    `<div class="alert alert-danger">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // (tab-en-proceso-btn listener is registered after cargarHistorial below)
-
-    /* ══════════════════════════════════
-       HISTORIAL — carga y render
-    ══════════════════════════════════ */
-    let historialCargado = false;
-
     function cargarHistorial() {
-        historialCargado = true;
         document.getElementById('loader-historial').classList.remove('d-none');
         document.getElementById('wrap-historial').classList.add('d-none');
         document.getElementById('empty-historial').classList.add('d-none');
-        fetch('/CierreCredito/getHistorial', { method: 'POST' })
+        return fetch('/CierreCredito/getHistorial', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderHistorial(res.datos);
-            })
-            .catch(err => {
-                document.getElementById('loader-historial').innerHTML =
-                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // Refresca silenciosamente solo si la pestaña ya fue visitada
+    // Refresca historial silenciosamente (llamado tras descartar)
     function refrescarHistorial() {
-        if (!historialCargado) return;
-        cargarHistorial();
+        cargarHistorial().catch(() => {});
+    }
+
+    /* ══════════════════════════════════
+       CARGA INICIAL — todas las pestañas en paralelo
+    ══════════════════════════════════ */
+    function cargarTodo() {
+        const hasSwal = typeof Swal !== 'undefined';
+        if (hasSwal) {
+            Swal.fire({
+                title: 'Obteniendo datos...',
+                html: '<span style="font-size:.875rem;color:#64748b;">Cargando todas las pestañas</span>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        const promesas = [];
+        if (CC_P.convenios)  promesas.push(cargarConvenios().catch(() => {}));
+        if (CC_P.validacion) promesas.push(cargarEnviadoFinalizado().catch(() => {}));
+        if (CC_P.en_proceso) promesas.push(cargarEnProceso().catch(() => {}));
+        if (CC_P.historial)  promesas.push(cargarHistorial().catch(() => {}));
+
+        Promise.all(promesas).then(() => { if (hasSwal) Swal.close(); });
+    }
+
+    // Listeners de pestañas — solo re-aplican el filtro activo (datos ya están renderizados)
+    const tabHistorialBtn = document.getElementById('tab-historial-btn');
+    if (tabHistorialBtn) {
+        tabHistorialBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    const tabConveniosBtn = document.getElementById('tab-convenios-btn');
+    if (tabConveniosBtn) {
+        tabConveniosBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    const tabEnProcesoBtn = document.getElementById('tab-en-proceso-btn');
+    if (tabEnProcesoBtn) {
+        tabEnProcesoBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    const tabEnvFinalizadoBtn = document.getElementById('tab-env-finalizado-btn');
+    if (tabEnvFinalizadoBtn) {
+        tabEnvFinalizadoBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    // Carga inicial — se difiere a window load para que SweetAlert2 (cargado al final del layout) ya esté disponible
+    if (document.readyState === 'complete') {
+        cargarTodo();
+    } else {
+        window.addEventListener('load', cargarTodo);
     }
 
     function renderHistorial(rows) {
@@ -1681,18 +1732,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         wrap.classList.remove('d-none');
     }
 
-    const tabHistorialBtn = document.getElementById('tab-historial-btn');
-    if (tabHistorialBtn) {
-        tabHistorialBtn.addEventListener('shown.bs.tab', cargarHistorial);
-    }
-
-    const tabConveniosBtn = document.getElementById('tab-convenios-btn');
-    if (tabConveniosBtn) {
-        tabConveniosBtn.addEventListener('shown.bs.tab', function () {
-            cargarConvenios();
-        });
-    }
-
     /* ══════════════════════════════════
        MARCAR LISTO (en_cola → listo_envio)
     ══════════════════════════════════ */
@@ -1767,41 +1806,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             });
         });
     };
-
-    const tabEnProcesoBtn = document.getElementById('tab-en-proceso-btn');
-    if (tabEnProcesoBtn) {
-        tabEnProcesoBtn.addEventListener('shown.bs.tab', function () {
-            cargarEnProceso();
-            if (_allRowsEp.length) {
-                const t = document.getElementById('barraGeneral-input').value;
-                if (t.trim()) ccFiltrar(t);
-            }
-        });
-    }
-
-    const tabEnvFinalizadoBtn = document.getElementById('tab-env-finalizado-btn');
-    if (tabEnvFinalizadoBtn) {
-        tabEnvFinalizadoBtn.addEventListener('shown.bs.tab', function () {
-            if (!_allRows.length) {
-                cargarEnviadoFinalizado();
-            } else {
-                const t = document.getElementById('barraGeneral-input').value;
-                if (t.trim()) ccFiltrar(t);
-            }
-        });
-    }
-
-    // Carga inicial según la primera pestaña visible (permisos especiales)
-    const def = CC_P.defaultTab || 'validacion';
-    if (def === 'convenios') {
-        cargarConvenios();
-    } else if (def === 'validacion') {
-        cargarEnviadoFinalizado();
-    } else if (def === 'en_proceso') {
-        cargarEnProceso();
-    } else if (def === 'historial') {
-        cargarHistorial();
-    }
 
     /* ══════════════════════════════════
        CONFIRMAR CIERRE (Tab 1 → crea registro en proceso)
