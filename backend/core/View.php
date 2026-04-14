@@ -445,7 +445,7 @@ html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li>
                                         <a class="dropdown-item user-dropdown-perfil" href="/perfil">
-                                            <i class="fa-solid fa-user-pen fa-fw"></i><span>Ajustes (tu perfil)</span>
+                                            <i class="fa-solid fa-user-pen fa-fw"></i><span>Mi perfil</span>
                                         </a>
                                     </li>
                                     <li>

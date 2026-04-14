@@ -52,9 +52,12 @@ const MONITOREAR_SCRIPT = process.env.MONITOREAR_SCRIPT || '/home/jesus/scripts/
 const API_KEY = process.env.API_KEY || '';
 /** Ruta del front PHP para estado BD (misma app que /segundometro/shell). */
 const ESTADO_BD_PATH = 'index.php?url=segundometro/estadoReportesAgente';
+/** Ruta del front PHP para truncar automático (ejecución interna del agente). */
+const TRUNCAR_AUTO_PATH = 'index.php?url=segundometro/truncarAutomaticoAgente';
 const SEGUNDOMETRO_AGENT_KEY = process.env.SEGUNDOMETRO_AGENT_KEY || '';
 /** URL que funcionó la última vez (evita probar en cada request). */
 let estadoBdUrlCached = null;
+let truncarAutoUrlCached = null;
 
 /**
  * URLs candidatas para POST estadoReportesAgente.
@@ -154,6 +157,94 @@ async function postEstadoBdJson(body, signal) {
     error: lastErr || 'Ninguna URL candidata respondió JSON válido. Configure SEGUNDOMETRO_ESTADO_BD_URL o revise Apache/puerto.',
   };
 }
+
+function getTruncarAutoUrlCandidates() {
+  const fromEnv = (process.env.SEGUNDOMETRO_TRUNCAR_AUTO_URL || '').trim();
+  const seen = new Set();
+  const list = [];
+  const push = (u) => {
+    const s = String(u || '').trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    list.push(s);
+  };
+  if (fromEnv.includes(',')) {
+    fromEnv.split(',').forEach((s) => push(s.trim()));
+    return list;
+  }
+  if (fromEnv) {
+    push(fromEnv);
+  } else {
+    getEstadoBdUrlCandidates().forEach((u) => {
+      if (u.includes(ESTADO_BD_PATH)) {
+        push(u.replace(ESTADO_BD_PATH, TRUNCAR_AUTO_PATH));
+      }
+    });
+    [
+      'http://localhost:8086/' + TRUNCAR_AUTO_PATH,
+      'http://127.0.0.1:8086/' + TRUNCAR_AUTO_PATH,
+      'http://localhost/' + TRUNCAR_AUTO_PATH,
+      'http://127.0.0.1/' + TRUNCAR_AUTO_PATH,
+    ].forEach(push);
+  }
+  return list;
+}
+
+async function postTruncarAutomaticoAgente(body, signal) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Front-Request': 'true',
+  };
+  if (SEGUNDOMETRO_AGENT_KEY) headers['X-Agent-Key'] = SEGUNDOMETRO_AGENT_KEY;
+
+  const candidates = getTruncarAutoUrlCandidates();
+  if (truncarAutoUrlCached && !candidates.includes(truncarAutoUrlCached)) {
+    candidates.unshift(truncarAutoUrlCached);
+  } else if (truncarAutoUrlCached) {
+    candidates.splice(candidates.indexOf(truncarAutoUrlCached), 1);
+    candidates.unshift(truncarAutoUrlCached);
+  }
+
+  let lastErr = null;
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body || {}),
+        signal,
+      });
+      const text = await r.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (_) {
+        lastErr = 'No JSON en ' + url + ' (HTTP ' + r.status + '): ' + String(text).slice(0, 120);
+        continue;
+      }
+      if (!data || typeof data !== 'object') {
+        lastErr = 'JSON inesperado en ' + url;
+        continue;
+      }
+      if (truncarAutoUrlCached !== url) {
+        console.log('[truncar-auto] URL automática:', url);
+      }
+      truncarAutoUrlCached = url;
+      return { r, data, text, url };
+    } catch (e) {
+      lastErr = url + ': ' + e.message;
+    }
+  }
+  truncarAutoUrlCached = null;
+  return {
+    r: null,
+    data: null,
+    text: null,
+    url: null,
+    error: lastErr || 'Ninguna URL candidata respondió JSON válido para truncar automático.',
+  };
+}
+
 const AUTO_COPY_MAIN_ENABLED = (process.env.AUTO_COPY_MAIN_ENABLED || '0') === '1';
 
 const MEGA_RPT_REGEX = /mega_rpt_(\d{8})_(\d{2})_(\d{2})_(\d{2})\.csv\.zip/;
@@ -179,6 +270,20 @@ function sumarDiasYmd(fechaYYYYMMDD, deltaDias) {
   const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
   d.setDate(d.getDate() + deltaDias);
   return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+}
+
+function dayOfWeekFromYmd(fechaYYYYMMDD) {
+  const p = String(fechaYYYYMMDD || '').split('-');
+  if (p.length !== 3) return null;
+  const y = parseInt(p[0], 10);
+  const m = parseInt(p[1], 10);
+  const d = parseInt(p[2], 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0)).getUTCDay();
+}
+
+function esMartesFecha(fechaYYYYMMDD) {
+  return dayOfWeekFromYmd(fechaYYYYMMDD) === 2;
 }
 
 function proximaEjecucionByNow(config, nowCdmx) {
@@ -415,6 +520,7 @@ const PRUEBA_DELAY_MS = 60000;
 const autoCopyRunningSlots = new Set();
 /** Evita varias consultas fallback en paralelo para el mismo slot. */
 const fallbackAsyncRunning = new Set();
+let truncarAutoRunning = false;
 
 let autoCopySchedulerInterval = null;
 let pruebaTimeoutId = null;
@@ -486,6 +592,125 @@ async function consultarEstadoBD(nombreArchivo) {
     return { success: false, estado: null, error: e.message };
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+function esSlotEspecialMartesSemanal(hora, fallbackMeta, fechaCdmx) {
+  return (
+    esMartesFecha(fechaCdmx)
+    && hora === '07:40'
+    && fallbackMeta
+    && fallbackMeta.hh === '07'
+    && fallbackMeta.mm === '32'
+    && (fallbackMeta.dayOffset || 0) === 0
+  );
+}
+
+async function runMartesSemanalJob(slot, fechaCdmx, nombreEsperado) {
+  const commandTemplate = String(process.env.MARTES_SEMANAL_REMOTE_COMMAND || '').trim();
+  if (!commandTemplate) {
+    return {
+      success: false,
+      mensaje: 'MARTES_SEMANAL_REMOTE_COMMAND no está configurado en .env (rama especial martes 07:31).',
+      slot,
+      fecha: fechaCdmx,
+      archivo: nombreEsperado,
+      tipo: 'martes_semanal',
+    };
+  }
+  const timeoutMs = Math.max(60000, parseInt(process.env.MARTES_SEMANAL_TIMEOUT_MS || '900000', 10) || 900000);
+  const archivoBase = String(nombreEsperado || '').replace(/\.zip$/i, '');
+  const cmd = commandTemplate
+    .replace(/\{archivo\}/g, String(nombreEsperado || ''))
+    .replace(/\{archivo_base\}/g, archivoBase)
+    .replace(/\{fecha\}/g, String(fechaCdmx || ''))
+    .replace(/\{slot\}/g, String(slot || ''));
+  try {
+    console.log('[martes-semanal] Ejecutando rama especial:', slot, 'archivo=', nombreEsperado);
+    const r = await runCommand(cmd, { timeoutMs, retries: 0, readyTimeoutMs: 12000 });
+    if (!r.success) {
+      return {
+        success: false,
+        mensaje: r.error || 'Error al ejecutar rama especial martes semanal.',
+        slot,
+        fecha: fechaCdmx,
+        archivo: nombreEsperado,
+        tipo: 'martes_semanal',
+      };
+    }
+    return {
+      success: true,
+      mensaje: 'Rama especial martes semanal completada.',
+      slot,
+      fecha: fechaCdmx,
+      archivo: nombreEsperado,
+      tipo: 'martes_semanal',
+      output: String(r.output || '').slice(0, 800),
+    };
+  } catch (e) {
+    return {
+      success: false,
+      mensaje: e.message || 'Error inesperado en rama especial martes semanal.',
+      slot,
+      fecha: fechaCdmx,
+      archivo: nombreEsperado,
+      tipo: 'martes_semanal',
+    };
+  }
+}
+
+async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
+  if (!config || !config.enabled) return;
+  if (!esMartesFecha(nowCdmx.fecha)) return;
+  if (String(nowCdmx.hora) !== '07:00') return;
+  const slotKey = 'truncar_auto_07_00';
+  const lastBySlot = config.lastRunBySlot || {};
+  if (lastBySlot[slotKey] === nowCdmx.fecha) return;
+  if (truncarAutoRunning) return;
+
+  truncarAutoRunning = true;
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const result = await postTruncarAutomaticoAgente(
+      {
+        source: 'auto-copy-scheduler',
+        fecha_cdmx: nowCdmx.fecha,
+        hora_cdmx: nowCdmx.hora,
+      },
+      ctrl.signal
+    );
+    const ok = !!(result && result.r && result.r.ok && result.data && result.data.success);
+    if (!ok) {
+      const msg = (result && result.data && result.data.mensaje) || (result && result.error) || 'No se pudo ejecutar truncar automático.';
+      ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático martes 07:00: ' + msg, tipo: 'truncar_auto' };
+      ejecutarAhoraState.finishedAt = new Date().toISOString();
+      console.warn('[truncar-auto] Falló:', msg);
+      return;
+    }
+    const c = autoCopyConfig.readConfig();
+    c.lastRunBySlot = c.lastRunBySlot || {};
+    c.lastRunBySlot[slotKey] = nowCdmx.fecha;
+    c.lastRunResult = {
+      success: true,
+      mensaje: (result.data && result.data.mensaje) || 'Truncar automático martes 07:00 ejecutado.',
+      tipo: 'truncar_auto',
+      fecha: nowCdmx.fecha,
+      hora: nowCdmx.hora,
+      registros_copiados: result.data && result.data.registros_copiados,
+    };
+    autoCopyConfig.writeConfig(c);
+    ejecutarAhoraState.lastResult = c.lastRunResult;
+    ejecutarAhoraState.finishedAt = new Date().toISOString();
+    console.log('[truncar-auto] Ejecutado con éxito martes 07:00.');
+  } catch (e) {
+    const msg = e && e.message ? e.message : 'Error en truncar automático.';
+    ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático martes 07:00: ' + msg, tipo: 'truncar_auto' };
+    ejecutarAhoraState.finishedAt = new Date().toISOString();
+    console.warn('[truncar-auto] Excepción:', msg);
+  } finally {
+    clearTimeout(to);
+    truncarAutoRunning = false;
   }
 }
 
@@ -1083,6 +1308,10 @@ function startAutoCopyScheduler() {
       const hora = nowCdmx.hora;
       const fecha = nowCdmx.fecha;
 
+    // Truncar automático (obligatorio) martes 07:00 CDMX.
+    // Corre únicamente cuando auto-copy está activo.
+    await ejecutarTruncarAutomaticoSiToca(config, nowCdmx);
+
     // Respaldo: a xx:40 (y 00:05 para el slot de 23:52) consulta BD;
     // si no está en BD (ok), dispara ejecución automática en background.
     const fallbackMeta = FALLBACK_DB_CHECK_MAP[hora] || null;
@@ -1149,6 +1378,19 @@ function startAutoCopyScheduler() {
             };
             ejecutarAhoraState.finishedAt = new Date().toISOString();
             console.warn('[fallback]', hora, 'estado BD no esperado; sin acción.', nombreEsperado, 'estadoBD=', bd.estado);
+            return;
+          }
+          // Martes 07:31 (validación a las 07:40): rama especial en lugar del flujo normal.
+          if (esSlotEspecialMartesSemanal(hora, fallbackMeta, fecha)) {
+            const especial = await runMartesSemanalJob('MARTES_07_31', fecha, nombreEsperado);
+            ejecutarAhoraState.lastResult = especial;
+            ejecutarAhoraState.finishedAt = new Date().toISOString();
+            if (especial.success) {
+              consumeFallbackSlot();
+              console.log('[fallback]', hora, 'rama especial martes semanal completada.', nombreEsperado);
+            } else {
+              console.warn('[fallback]', hora, 'rama especial martes semanal falló:', especial.mensaje);
+            }
             return;
           }
           if (ejecutarAhoraState.running) {

@@ -261,21 +261,33 @@ class CapHumEstadisticas extends Model
                 FROM ' . $tp . ' p
                 WHERE ' . $sqlNoBaja . '
                   AND ' . $sqlIngHastaFfHi;
-            $totalEmpleados = self::scalarInt(
+            // Plantilla al cierre del periodo (excluye baja formal; ingreso hasta último día): usada en rotación y tasas por periodo.
+            $headcountPlantillaCierre = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c ' . $sqlHeadcountBase,
                 $paramsRango
             );
-            $empleadosActivos = self::scalarInt(
+            // KPI superior: totales actuales en tabla persona (sin filtro de fechas del periodo).
+            $totalPersonaTabla = self::scalarInt(
+                $db,
+                'SELECT COUNT(*) AS c FROM ' . $tp . ' p',
+                []
+            );
+            $empleadosActivosCierre = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c ' . $sqlHeadcountBase . ' AND ' . $sqlActivo,
                 $paramsRango
             );
-            $empleadosInactivos = self::scalarInt(
+            $empleadosActivos = self::scalarInt(
                 $db,
-                'SELECT COUNT(*) AS c ' . $sqlHeadcountBase
-                . ' AND NOT (' . $sqlActivo . ')',
-                $paramsRango
+                'SELECT COUNT(*) AS c FROM ' . $tp . ' p WHERE ' . $sqlActivo,
+                []
+            );
+            $empleadosBaja = self::scalarInt(
+                $db,
+                'SELECT COUNT(*) AS c FROM ' . $tp . ' p
+                 WHERE LOWER(TRIM(COALESCE(p.estatus,\'\'))) = \'baja\'',
+                []
             );
             $totalDepartamentos = self::scalarInt(
                 $db,
@@ -324,7 +336,7 @@ class CapHumEstadisticas extends Model
                 $paramsRango
             );
 
-            $denRot = $totalEmpleados > 0 ? $totalEmpleados : 1;
+            $denRot = $headcountPlantillaCierre > 0 ? $headcountPlantillaCierre : 1;
             $rotacionPct = round(100.0 * ($bajas / $denRot), 1);
             if ($rotacionPct <= 5.0) {
                 $rotacionBadge = 'bg-success';
@@ -337,8 +349,8 @@ class CapHumEstadisticas extends Model
                 $rotacionBadgeText = 'Sobre meta';
             }
 
-            $inactivosBadge = $empleadosInactivos > 0 ? 'bg-warning text-dark' : 'bg-secondary';
-            $inactivosBadgeText = $empleadosInactivos > 0 ? 'Atención' : 'OK';
+            $bajaBadge = $empleadosBaja > 0 ? 'bg-info text-dark' : 'bg-secondary';
+            $bajaBadgeText = $empleadosBaja > 0 ? 'Con baja' : 'Sin bajas';
 
             $vacantesAbiertas = self::scalarInt(
                 $db,
@@ -604,7 +616,7 @@ class CapHumEstadisticas extends Model
                        )' . $hcActivoCierre,
                     $paramsRango
                 );
-                $denTasa = $diasHabilesRango * max(1, $empleadosActivos);
+                $denTasa = $diasHabilesRango * max(1, $empleadosActivosCierre);
                 $ausTasaPct = $denTasa > 0 ? round(100.0 * ($ausDiasTotal / $denTasa), 1) : 0.0;
             }
 
@@ -713,9 +725,10 @@ class CapHumEstadisticas extends Model
                 'periodo_label' => $rango['periodo_label'],
                 'fecha_ini' => $fi,
                 'fecha_fin' => $ff,
-                'total_empleados' => $totalEmpleados,
+                'total_empleados' => $totalPersonaTabla,
+                'plantilla_cierre_total' => $headcountPlantillaCierre,
                 'empleados_activos' => $empleadosActivos,
-                'empleados_inactivos' => $empleadosInactivos,
+                'empleados_baja' => $empleadosBaja,
                 'total_departamentos' => $totalDepartamentos,
                 'puestos_unicos' => $puestosUnicos,
                 'ingresos' => $ingresos,
@@ -725,8 +738,8 @@ class CapHumEstadisticas extends Model
                 'rotacion_pct' => $rotacionPct,
                 'rotacion_badge_class' => $rotacionBadge,
                 'rotacion_badge_text' => $rotacionBadgeText,
-                'inactivos_badge_class' => $inactivosBadge,
-                'inactivos_badge_text' => $inactivosBadgeText,
+                'empleados_baja_badge_class' => $bajaBadge,
+                'empleados_baja_badge_text' => $bajaBadgeText,
                 'vacantes_abiertas' => $vacantesAbiertas,
                 'candidatos_activos' => $candidatosActivos,
                 'seleccion_badge_class' => $selBadge,

@@ -114,7 +114,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         <div class="mb-4 d-flex flex-wrap" style="gap:12px;">
             <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 20px; text-align: center; flex: 1; min-width: 140px;">
                 <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                    title="Al último día del periodo: todas las personas en plantilla (estatus distinto de «Baja» y fecha de ingreso ≤ esa fecha). Incluye activos e inactivos en sistema que aún no están dados de baja."
+                    title="Total de filas en la tabla persona (todos los registros, cualquier estatus)."
                     aria-label="Ayuda: total empleados en plantilla">
                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                 </button>
@@ -123,7 +123,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             </div>
             <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 20px; text-align: center; flex: 1; min-width: 140px;">
                 <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                    title="Personas con estatus «activo» en la misma fecha de corte (último día del periodo seleccionado), con las mismas reglas de plantilla que usa el panel."
+                    title="Personas cuyo estatus es «Activo» (comparación sin distinguir mayúsculas), contadas en toda la tabla persona."
                     aria-label="Ayuda: empleados activos">
                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                 </button>
@@ -132,14 +132,14 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             </div>
             <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 20px; text-align: center; flex: 1; min-width: 140px;">
                 <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                    title="Personas en plantilla al cierre (misma base que «Total empleados en plantilla») cuyo estatus no es «activo»: licencias, suspendidos u otros estatus que no sean baja formal."
-                    aria-label="Ayuda: empleados inactivos">
+                    title="Personas con estatus «Baja» (comparación sin distinguir mayúsculas), contadas en toda la tabla persona."
+                    aria-label="Ayuda: empleados baja">
                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                 </button>
                 <div style="position: absolute; top: 6px; right: 30px;">
                     <span id="chBadgeInactivos" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px; display: inline-block;">—</span>
                 </div>
-                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Empleados inactivos</div>
+                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Empleados baja</div>
                 <div id="chKpiInactivos" style="font-size: 32px; font-weight: 800; color: #95a5a6; line-height: 1;">0</div>
             </div>
             <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 12px; flex: 1.4; min-width: 260px;">
@@ -237,7 +237,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Rotación</span>
                             <span id="chRotRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90;">—</span>
                             <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Indica qué porcentaje de empleados dejó la empresa en el período seleccionado, en relación con el total de trabajadores en plantilla al cierre."
+                                title="Indica qué porcentaje de empleados dejó la empresa en el período seleccionado, en relación con la plantilla al cierre (personas sin estatus Baja e ingreso hasta el último día del filtro)."
                                 aria-label="Ayuda: rotación">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
@@ -246,7 +246,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     </div>
                     <div class="d-flex flex-column justify-content-center text-center pt-2">
                         <div id="chRotacionPct" style="font-size: 28px; font-weight: 800; color: #2ecc8b;">0%</div>
-                        <div style="font-size: 11px; color: #6b7a90; margin-top: 4px;">(Bajas / total empleados en plantilla) × 100</div>
+                        <div style="font-size: 11px; color: #6b7a90; margin-top: 4px;">(Bajas período / plantilla al cierre) × 100</div>
                     </div>
                     <div class="mt-3 pt-3" style="border-top: 1px solid #dde3ec;">
                         <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #6b7a90; margin-bottom: 2px; text-align: center;">Indicador de rotación</div>
@@ -962,8 +962,8 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         }
         setText('chKpiTotalEmp', String(d.total_empleados ?? 0));
         setText('chKpiActivos', String(d.empleados_activos ?? 0));
-        setText('chKpiInactivos', String(d.empleados_inactivos ?? 0));
-        setBadge('chBadgeInactivos', d.inactivos_badge_text || '—', d.inactivos_badge_class || '');
+        setText('chKpiInactivos', String(d.empleados_baja ?? 0));
+        setBadge('chBadgeInactivos', d.empleados_baja_badge_text || '—', d.empleados_baja_badge_class || '');
         setText('chKpiDeptos', String(d.total_departamentos ?? 0));
         setText('chKpiPuestos', String(d.puestos_unicos ?? 0));
         var rangoCorto = (d.fecha_ini && d.fecha_fin) ? (String(d.fecha_ini) + ' → ' + String(d.fecha_fin)) : '—';
@@ -976,7 +976,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         setRotacionPctStyle(d.rotacion_pct ?? 0);
         setBadge('chBadgeRotacion', d.rotacion_badge_text || '—', d.rotacion_badge_class || '');
         setText('chRotLegendBajas', String(d.bajas ?? 0));
-        setText('chRotLegendPlantilla', String(d.total_empleados ?? 0));
+        setText('chRotLegendPlantilla', String(d.plantilla_cierre_total ?? d.total_empleados ?? 0));
 
         var topSede = d.plantilla_sede_top || [];
         var sedeLines = [];

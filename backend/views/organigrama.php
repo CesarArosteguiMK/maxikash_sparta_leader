@@ -182,15 +182,9 @@
         overflow-wrap: normal;   /* 👈 NO break-word aquí */
     }
 
-    /* Selects: departamento corto, persona y niveles un poco más largos para nombres largos */
-    #depSelect {
-    width: 100%;
-    max-width: 360px;
-    font-size: 1rem;
-    font-weight: 400;
-    line-height: 1.5;
-    color: #697a8d;
-}
+    /* Selects: mismo ancho máximo (departamento/puesto usan el mismo wrapper con búsqueda que persona/niveles) */
+    #depSelect,
+    #personaPuestoSelect,
     #personaSelect,
     #personaLevelsContainer .org-level-select,
     #personaLevel1Slot .org-level-select {
@@ -204,8 +198,8 @@
         font-weight: 600;
     }
 
-    /* Select con búsqueda (persona y niveles) */
-    .select-search-wrapper { position: relative; width: 100%; max-width: 350px; }
+    /* Select con búsqueda (departamento, puesto, persona y niveles) */
+    .select-search-wrapper { position: relative; width: 100%; max-width: 360px; }
     .select-search-wrapper .form-select { display: none; }
     .select-search-display {
         position: relative; width: 100%;
@@ -582,9 +576,7 @@
         SearchableSelect.prototype.loadOptions = function () {
             this.options = [];
             Array.from(this.select.options).forEach(function (option) {
-                if (option.value !== '') {
-                    this.options.push({ value: option.value, text: option.text });
-                }
+                this.options.push({ value: option.value, text: option.text });
             }, this);
             this.renderOptions(this.options);
         };
@@ -639,8 +631,9 @@
                 self.renderOptions(filtered);
             });
             this.dropdown.addEventListener('click', function (e) { e.stopPropagation(); });
-            document.addEventListener('click', function () { if (self.isOpen) self.close(); });
-            var observer = new MutationObserver(function () {
+            this._docClose = function () { if (self.isOpen) self.close(); };
+            document.addEventListener('click', this._docClose);
+            this._mutationObserver = new MutationObserver(function () {
                 self.loadOptions();
                 var selectedOption = self.select.options[self.select.selectedIndex];
                 if (selectedOption) {
@@ -648,7 +641,7 @@
                     self.selectedValue = selectedOption.value;
                 }
             });
-            observer.observe(this.select, { childList: true, subtree: true });
+            this._mutationObserver.observe(this.select, { childList: true, subtree: true });
         };
         SearchableSelect.prototype.refresh = function () {
             this.loadOptions();
@@ -661,9 +654,43 @@
                 this.selectedValue = '';
             }
         };
+        SearchableSelect.prototype.destroy = function () {
+            if (this._docClose) {
+                document.removeEventListener('click', this._docClose);
+                this._docClose = null;
+            }
+            if (this._mutationObserver) {
+                this._mutationObserver.disconnect();
+                this._mutationObserver = null;
+            }
+            if (this.wrapper && this.wrapper.parentNode && this.select) {
+                this.wrapper.parentNode.insertBefore(this.select, this.wrapper);
+                this.wrapper.remove();
+            }
+            this.wrapper = null;
+            this.display = null;
+            this.dropdown = null;
+            this.searchInput = null;
+            this.optionsContainer = null;
+        };
 
         let organigramaRows = [];
         var personaSearchSelect = null;
+        var depSearchSelect = null;
+        var puestoSearchSelect = null;
+
+        function destroyPersonaSearchIfAny() {
+            if (personaSearchSelect) {
+                personaSearchSelect.destroy();
+                personaSearchSelect = null;
+            }
+        }
+        function destroyPuestoSearchIfAny() {
+            if (puestoSearchSelect) {
+                puestoSearchSelect.destroy();
+                puestoSearchSelect = null;
+            }
+        }
 
         function getSubordinadosDirectos(idJefe) {
             return organigramaRows.filter(function (r) {
@@ -1068,11 +1095,9 @@
             var puestoSlot = document.getElementById("personaPuestoSlot");
             var puestoSelect = document.getElementById("personaPuestoSelect");
             puestoSlot.style.display = "none";
+            destroyPuestoSearchIfAny();
             puestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
             puestoSelect.value = "";
-
-            personaSelect.innerHTML = "<option>Cargando...</option>";
-            personaSelect.disabled = true;
 
             document.getElementById("resultado").innerHTML = "";
             document.getElementById("orgTituloSeleccion").textContent = "";
@@ -1083,9 +1108,18 @@
             mostrarLoadingOrganigrama(false);
             actualizarHistorialPuestos();
             document.getElementById("btnGuardarOrganigrama").disabled = true;
-            if (personaSearchSelect) personaSearchSelect.refresh();
 
-            if (!dep_id) return;
+            if (!dep_id) {
+                destroyPersonaSearchIfAny();
+                personaSelect.innerHTML = "<option value=\"\">-- Selecciona un departamento primero --</option>";
+                personaSelect.disabled = true;
+                personaSelect.value = "";
+                return;
+            }
+
+            destroyPersonaSearchIfAny();
+            personaSelect.innerHTML = "<option>Cargando...</option>";
+            personaSelect.disabled = true;
 
             fetch("/CapHum/getPersonasOrganigrama", {
                 method: 'POST',
@@ -1097,9 +1131,9 @@
                     personaSelect.innerHTML = "";
 
                     if (!respuesta.success) {
+                        destroyPersonaSearchIfAny();
                         personaSelect.innerHTML = "<option>Error al cargar personas</option>";
                         personaSelect.disabled = true;
-                        if (personaSearchSelect) personaSearchSelect.refresh();
                         return;
                     }
 
@@ -1108,9 +1142,9 @@
                         : Object.values(respuesta.datos);
 
                     if (!personas.length) {
+                        destroyPersonaSearchIfAny();
                         personaSelect.innerHTML = "<option>No hay personas</option>";
                         personaSelect.disabled = true;
-                        if (personaSearchSelect) personaSearchSelect.refresh();
                         return;
                     }
 
@@ -1120,17 +1154,13 @@
                     });
 
                     personaSelect.disabled = false;
-                    if (!personaSearchSelect) {
-                        personaSearchSelect = new SearchableSelect(personaSelect);
-                    } else {
-                        personaSearchSelect.refresh();
-                    }
+                    personaSearchSelect = new SearchableSelect(personaSelect);
                 })
                 .catch(err => {
                     console.error("Error al cargar personas:", err);
+                    destroyPersonaSearchIfAny();
                     personaSelect.innerHTML = "<option>Error al cargar personas</option>";
                     personaSelect.disabled = true;
-                    if (personaSearchSelect) personaSearchSelect.refresh();
                 });
         });
 
@@ -1144,6 +1174,7 @@
             var puestoSlot = document.getElementById("personaPuestoSlot");
             var puestoSelect = document.getElementById("personaPuestoSelect");
             puestoSlot.style.display = "none";
+            destroyPuestoSearchIfAny();
             puestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
 
             if (!persona_id) {
@@ -1152,6 +1183,7 @@
                 document.getElementById("btnGuardarOrganigrama").disabled = true;
                 document.getElementById("orgTituloSeleccion").textContent = "";
                 actualizarHistorialPuestos();
+                if (personaSearchSelect) personaSearchSelect.refresh();
                 return;
             }
 
@@ -1185,6 +1217,8 @@
                         opt.textContent = p.nombre;
                         puestoSelect.appendChild(opt);
                     });
+                    destroyPuestoSearchIfAny();
+                    puestoSearchSelect = new SearchableSelect(puestoSelect);
                     document.getElementById("chart").innerHTML = getOrganigramaMsgGlassHtml("Selecciona un puesto para ver el organigrama.");
                     document.getElementById("btnGuardarOrganigrama").disabled = true;
                     document.getElementById("orgTituloSeleccion").textContent = "";
@@ -1219,13 +1253,16 @@
         document.getElementById("btnLimpiarOrganigrama").addEventListener("click", function () {
             var depSelect = document.getElementById("depSelect");
             depSelect.selectedIndex = 0; // "Seleccione una opción"
+            if (depSearchSelect) depSearchSelect.refresh();
             var personaSelect = document.getElementById("personaSelect");
+            destroyPersonaSearchIfAny();
             personaSelect.innerHTML = "<option value=\"\">-- Selecciona un departamento primero --</option>";
             personaSelect.disabled = true;
             personaSelect.value = "";
             var personaPuestoSlot = document.getElementById("personaPuestoSlot");
             var personaPuestoSelect = document.getElementById("personaPuestoSelect");
             personaPuestoSlot.style.display = "none";
+            destroyPuestoSearchIfAny();
             personaPuestoSelect.innerHTML = "<option value=\"\">-- Selecciona un puesto --</option>";
             document.getElementById("personaLevel1Slot").innerHTML = "";
             document.getElementById("personaLevelsContainer").innerHTML = "";
@@ -1236,7 +1273,11 @@
             mostrarLoadingOrganigrama(false);
             actualizarHistorialPuestos();
             document.getElementById("btnGuardarOrganigrama").disabled = true;
-            if (personaSearchSelect) personaSearchSelect.refresh();
+            try {
+                scale = 1;
+                var chartLimpiar = document.getElementById("chart");
+                if (chartLimpiar) chartLimpiar.style.transform = "scale(1)";
+            } catch (eLim) {}
         });
 
         /* ============================= */
@@ -1450,6 +1491,8 @@
             chartDiv.style.transform = `scale(${escala})`;
             chartDiv.style.transformOrigin = 'top left';
         }
+
+        depSearchSelect = new SearchableSelect(document.getElementById("depSelect"));
 
         window.addEventListener('resize', ajustarEscalaChart);
 

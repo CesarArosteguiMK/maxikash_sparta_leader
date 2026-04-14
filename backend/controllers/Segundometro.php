@@ -1703,6 +1703,65 @@ class Segundometro extends Controller
     }
 
     /**
+     * Truncar automático invocado por segundometro-agent.
+     * Seguridad:
+     * - Si existe segundometro_agent_key, requiere header X-Agent-Key válido.
+     * - Si no hay key, solo localhost.
+     *
+     * Regla operativa:
+     * - Solo martes 07:00 CDMX (minuto exacto 00).
+     */
+    public function truncarAutomaticoAgente()
+    {
+        $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+        $esLocal = in_array($remoteAddr, ['127.0.0.1', '::1'], true);
+        $expectedKey = trim((string) (CONFIGURACION['segundometro_agent_key'] ?? ''));
+        $providedKey = trim((string) ($_SERVER['HTTP_X_AGENT_KEY'] ?? ''));
+
+        if ($expectedKey !== '') {
+            if ($providedKey === '' || !hash_equals($expectedKey, $providedKey)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado']);
+                return;
+            }
+        } else {
+            if (!$esLocal) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado (solo localhost)']);
+                return;
+            }
+        }
+
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $ahora = new \DateTime('now', $tz);
+            $diaSemana = $ahora->format('N'); // 2 = martes
+            $hora = (int)$ahora->format('G');
+            $minuto = (int)$ahora->format('i');
+
+            if ($diaSemana != 2 || $hora !== 7 || $minuto !== 0) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'Fuera de ventana para truncar automático. Solo martes 07:00 CDMX.',
+                    'hora_cdmx' => $ahora->format('Y-m-d H:i:s') . ' CDMX'
+                ]);
+                return;
+            }
+
+            $resultado = SegundometroDAO::truncarSemanaAHistorico();
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => $resultado['mensaje'] ?? 'Truncar automático ejecutado.',
+                'registros_copiados' => $resultado['registros_copiados'] ?? 0,
+                'hora_cdmx' => $ahora->format('Y-m-d H:i:s') . ' CDMX'
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Error en truncar automático: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Estado de reportes para el agente (sin sesión web).
      * Seguridad:
      * - Si existe segundometro_agent_key en config.ini, requiere header X-Agent-Key válido.

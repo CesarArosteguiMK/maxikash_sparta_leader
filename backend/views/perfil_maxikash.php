@@ -107,7 +107,7 @@ body.dark-mode .pf-flash{background:#14532d;border-color:#166534;color:#86efac;}
         <div class="sb-online"></div>
       </div>
       <div class="sb-user-dropdown" id="sbUserDropdown">
-        <a href="/perfil" class="ud-item"><span class="ud-ico">⚙️</span><span>Ajustes <small style="color:var(--soft);font-size:11px;font-weight:400;">(tu perfil)</small></span></a>
+        <a href="/perfil" class="ud-item"><span class="ud-ico">⚙️</span><span>Mi perfil</span></a>
         <div class="ud-divider"></div>
         <button type="button" id="btnDarkMode" class="ud-item"><span class="ud-ico" id="darkModeIco">🌙</span><span class="ud-label">Modo oscuro</span></button>
         <div class="ud-divider"></div>
