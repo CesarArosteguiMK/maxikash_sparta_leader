@@ -26,7 +26,8 @@ class Despachos extends Controller
         </script>
         HTML;
 
-        self::set("titulo", "Asignación de Créditos - Despachos de Cobranza");
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Asignación de créditos | ' . $emp);
         self::set("script", $script);
         return self::render("asignacion_creditosDespacho");
     }
@@ -746,7 +747,8 @@ public function DesasignarCredito()
      */
     public function MiGestion()
     {
-        self::set('titulo', 'Mi Gestión - Despachos');
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Mi Cartera | ' . $emp);
         return self::render('mi_gestion_despacho');
     }
 

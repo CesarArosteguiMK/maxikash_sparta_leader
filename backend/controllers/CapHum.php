@@ -1047,45 +1047,6 @@ class CapHum extends Controller
                 syncGrupoModuloMaster(master, tbody);
             }
 
-            function renderPermisosEspeciales(perfiles) {
-                const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
-                if (!container) return;
-                container.innerHTML = '';
-                if (!perfiles || perfiles.length === 0) {
-                    container.innerHTML = '<p class="text-muted small mb-0">No hay permisos especiales configurados.</p>';
-                    return;
-                }
-                function buildPermisosCard(items, colClass) {
-                    const col = document.createElement('div');
-                    col.className = colClass;
-                    const card = document.createElement('div');
-                    card.className = 'card border shadow-sm h-100 modal-perfil-permisos-col-card';
-                    const body = document.createElement('div');
-                    body.className = 'card-body p-0';
-                    const table = document.createElement('table');
-                    table.className = 'table table-flush-spacing mb-0 modal-perfil-permisos-table';
-                    const tbody = document.createElement('tbody');
-                    items.forEach(mod => tbody.appendChild(crearFilaModulo(mod)));
-                    table.appendChild(tbody);
-                    body.appendChild(table);
-                    card.appendChild(body);
-                    col.appendChild(card);
-                    return col;
-                }
-                const grid = document.createElement('div');
-                grid.className = 'row g-3 align-items-stretch modal-perfil-permisos-dos-columnas';
-                const half = Math.ceil(perfiles.length / 2);
-                const left = perfiles.slice(0, half);
-                const right = perfiles.slice(half);
-                if (perfiles.length === 1) {
-                    grid.appendChild(buildPermisosCard(left, 'col-12'));
-                } else {
-                    grid.appendChild(buildPermisosCard(left, 'col-12 col-lg-6'));
-                    grid.appendChild(buildPermisosCard(right, 'col-12 col-lg-6'));
-                }
-                container.appendChild(grid);
-            }
-
             /* Íconos por modulo_id (modulos_web): pestaña Módulos del sistema y Permisos especiales */
             const iconosPermisosEspeciales = {
                 21: 'fa fa-file-upload',
@@ -1122,51 +1083,38 @@ class CapHum extends Controller
                 51: 'fa-solid fa-file-circle-check',
                 '51': 'fa-solid fa-file-circle-check'
             };
-            function crearFilaModulo(mod) {
-                const tr = document.createElement('tr');
-                const tdName = document.createElement('td');
-                tdName.className = 'fw-medium text-heading';
-                const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
-                const iconClass = iconosPermisosEspeciales[modId] || iconosPermisosEspeciales[Number(modId)];
-                if (iconClass) {
-                    const icon = document.createElement('i');
-                    icon.className = iconClass + ' me-2';
-                    icon.style.color = '#6c757d';
-                    icon.title = mod.modulo_nombre ?? '';
-                    const nombre = document.createElement('div');
-                    nombre.style.display = 'inline';
-                    nombre.innerText = mod.modulo_nombre ?? 'Módulo';
-                    const wrap = document.createElement('div');
-                    wrap.append(icon, nombre);
-                    tdName.appendChild(wrap);
-                } else {
-                    const nombre = document.createElement('div');
-                    nombre.innerText = mod.modulo_nombre ?? 'Módulo';
-                    tdName.appendChild(nombre);
-                }
-                const desc = document.createElement('small');
-                desc.className = 'text-muted d-block fs-7 mt-1';
-                desc.style.marginLeft = iconClass ? '1.75rem' : '0';
-                desc.innerText = mod.descripcion ?? '';
-                tdName.appendChild(desc);
-                const tdCheck = document.createElement('td');
-                tdCheck.className = 'text-end';
-                const divCheck = document.createElement('div');
-                divCheck.className = 'form-check mb-0';
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.className = 'form-check-input';
-                checkbox.checked = Number(mod.asignado_flag) === 1;
-                checkbox.value = mod.modulo_id;
-                checkbox.onchange = () => onModuloChange(checkbox);
-                const label = document.createElement('label');
-                label.className = 'form-check-label';
-                label.innerText = 'Asignar';
-                divCheck.append(checkbox, label);
-                tdCheck.appendChild(divCheck);
-                tr.append(tdName, tdCheck);
-                return tr;
-            }
+
+            /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
+            const iconosModulosSistemaPerfil = {
+                1: 'fa fa-file-invoice-dollar', 2: 'fa fa-folder-open', 3: 'fa fa-screwdriver-wrench',
+                4: 'fa fa-users', 5: 'fa fa-sitemap', 6: 'fa fa-chart-bar', 7: 'fa fa-file-alt',
+                10: 'fa fa-cog', 13: 'fa fa-user-minus', 14: 'fa fa-file-alt', 15: 'fa fa-hand-holding-dollar',
+                16: 'fa fa-cog', 17: 'fa fa-cog',
+                26: 'fa fa-list-check',
+                18: 'fa-solid fa-ticket',
+                19: 'fa fa-table-cells',
+                25: 'fa fa-table-cells',
+                27: 'fa fa-table-cells',
+                20: 'fa fa-building-columns',
+                21: 'fa fa-file-upload',
+                34: 'fa fa-file-alt',
+                29: 'fa fa-id-card',
+                30: 'fa fa-balance-scale',
+                35: 'fa fa-headset',
+                36: 'fa fa-hand-holding-usd',
+                37: 'fa fa-sticky-note',
+                31: 'fa fa-laptop',
+                32: 'fa fa-file-import',
+                41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
+                43: 'fa fa-key',
+                45: 'fa fa-chart-gantt',
+                46: 'fa fa-handshake',
+                47: 'fa fa-chart-pie',
+                49: 'fa fa-calendar-week',
+                50: 'fa fa-chart-line',
+                51: 'fa-solid fa-file-circle-check',
+                48: 'fa fa-archive'
+            };
 
             /* =========================
                RENDER PUESTOS (rejilla 2 columnas; tarjeta por departamento con collapse / acordeón independiente)
@@ -1486,6 +1434,59 @@ class CapHum extends Controller
                 actualizarBotonExpandirPuestos();
             }
 
+            function actualizarBotonExpandirPermisosEspeciales() {
+                const form = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
+                const btn = document.getElementById('btn-permisos-esp-expandir-todos');
+                if (!btn) return;
+                if (!form) {
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    return;
+                }
+                const cols = form.querySelectorAll('.modal-perfil-modulo-grupo-collapse');
+                if (cols.length === 0) {
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    return;
+                }
+                const allExpanded = Array.from(cols).every(c => c.classList.contains('show'));
+                btn.innerHTML = allExpanded
+                    ? '<i class="fa fa-compress me-1"></i>Contraer todos'
+                    : '<i class="fa fa-expand me-1"></i>Expandir todos';
+            }
+
+            function expandirTodosPermisosEspeciales() {
+                const form = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
+                if (!form) return;
+                const collapses = form.querySelectorAll('.modal-perfil-modulo-grupo-collapse');
+                if (collapses.length === 0) return;
+
+                const allCollapsed = Array.from(collapses).every(c => !c.classList.contains('show'));
+                const doExpand = allCollapsed;
+
+                collapses.forEach(collapseEl => {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                        const inst = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                        if (doExpand) {
+                            inst.show();
+                        } else {
+                            inst.hide();
+                        }
+                    } else {
+                        collapseEl.classList.toggle('show', doExpand);
+                        const cid = collapseEl.id;
+                        const hdr = form.querySelector('[aria-controls="' + cid + '"]');
+                        if (hdr) {
+                            hdr.setAttribute('aria-expanded', doExpand ? 'true' : 'false');
+                            const ch = hdr.querySelector('.modal-perfil-modulo-grupo-chevron');
+                            if (ch) {
+                                ch.style.transform = doExpand ? 'rotate(0deg)' : 'rotate(-90deg)';
+                            }
+                        }
+                    }
+                });
+
+                actualizarBotonExpandirPermisosEspeciales();
+            }
+
             function actualizarBotonExpandirPuestos() {
                 const form = document.getElementById('modal-edit-perfil-puestos-form') || document.getElementById('puestos-form');
                 const btn = document.getElementById('btn-puestos-expandir-todos');
@@ -1733,7 +1734,45 @@ class CapHum extends Controller
             /* =========================
                RENDER MÓDULOS (agrupados como menú lateral; datos menu_* vienen del backend)
             ========================= */
-            function buildFilaModuloSistema(mod, displayLabel, iconosModulos) {
+            function normalizarTextoPermisoModal(s) {
+                return String(s || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .toLowerCase()
+                    .trim();
+            }
+
+            function esGrupoCierreDeCreditoModal(grupoNombre) {
+                const n = normalizarTextoPermisoModal(grupoNombre);
+                return n.includes('cierre') && n.includes('credito');
+            }
+
+            /** Las 4 pestañas de Cierre de crédito en permisos especiales (Convenios, Validación, En proceso, Historial). */
+            function esFilaCuatroPestanasCierreCredito(displayLabel) {
+                const lab = normalizarTextoPermisoModal(displayLabel);
+                if (!lab) return false;
+                if (lab === 'convenios' || lab === 'convenio') return true;
+                if (lab.includes('validacion') && lab.includes('cierre')) return true;
+                if (lab === 'en proceso') return true;
+                if (lab === 'historial') return true;
+                return false;
+            }
+
+            /** Icono dentro del cuadro (misma UI que otras tarjetas de permisos especiales). */
+            function iconoCuadroCierreCreditoPermisoEsp(displayLabel) {
+                const lab = normalizarTextoPermisoModal(displayLabel);
+                if (lab === 'convenios' || lab === 'convenio') return 'fa-solid fa-handshake';
+                if (lab.includes('validacion') && lab.includes('cierre')) return 'fa-solid fa-clipboard-check';
+                if (lab === 'en proceso') return 'fa-solid fa-list-check';
+                if (lab === 'historial') return 'fa-solid fa-clock-rotate-left';
+                return null;
+            }
+
+            function buildFilaModuloSistema(mod, displayLabel, iconosModulos, ctx) {
+                ctx = ctx || {};
+                const grupoNombre = ctx.grupoNombre != null ? String(ctx.grupoNombre) : '';
+                const iconosCierrePorEtiqueta = !!ctx.iconosCierreCreditoPorEtiquetaPermisosEsp;
+
                 const tr = document.createElement('tr');
                 tr.className = 'modal-perfil-modulo-fila';
                 tr.style.transition = 'all 0.3s ease';
@@ -1763,7 +1802,13 @@ class CapHum extends Controller
                 nombreDiv.style.gap = '0.75rem';
 
                 const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
-                const iconClass = iconosModulos[modId] || iconosModulos[Number(modId)] || 'fa fa-cube';
+                let iconClass = iconosModulos[modId] || iconosModulos[Number(modId)] || 'fa fa-cube';
+                if (iconosCierrePorEtiqueta
+                    && esGrupoCierreDeCreditoModal(grupoNombre)
+                    && esFilaCuatroPestanasCierreCredito(displayLabel || mod.modulo_nombre)) {
+                    const icEsp = iconoCuadroCierreCreditoPermisoEsp(displayLabel || mod.modulo_nombre);
+                    if (icEsp) iconClass = icEsp;
+                }
                 const iconoModulo = document.createElement('div');
                 iconoModulo.className = 'modulo-icon-box';
                 iconoModulo.style.width = '40px';
@@ -1841,47 +1886,25 @@ class CapHum extends Controller
                 return tr;
             }
 
-            function renderModulos(perfiles) {
-                const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
+            /**
+             * Tarjetas agrupadas por menu_grupo (misma UI en «Módulos del sistema» y «Permisos especiales»).
+             * @param {{ masterIdPrefix: string, iconosMap: Object, emptyHtml: string, collapseGrupos?: boolean, collapseIdPrefix?: string, iconosCierreCreditoPorEtiquetaPermisosEsp?: boolean }} opts
+             */
+            function renderAgrupadoPorMenuGrupo(perfiles, container, opts) {
+                const masterIdPrefix = opts.masterIdPrefix;
+                const iconosMap = opts.iconosMap;
+                const emptyHtml = opts.emptyHtml;
+                const useCollapseGrupos = !!opts.collapseGrupos;
+                const collapseIdPrefix = opts.collapseIdPrefix || 'modal-perfil-grupo';
+                const iconosCierreCreditoPorEtiquetaPermisosEsp = !!opts.iconosCierreCreditoPorEtiquetaPermisosEsp;
                 if (!container) return;
                 container.innerHTML = '';
                 container.classList.add('modal-perfil-modulos-agrupados');
 
                 if (!perfiles || perfiles.length === 0) {
-                    container.innerHTML = '<div class="text-muted small text-center py-4">No hay módulos disponibles</div>';
+                    container.innerHTML = emptyHtml;
                     return;
                 }
-
-                const iconosModulos = {
-                    1: 'fa fa-file-invoice-dollar', 2: 'fa fa-folder-open', 3: 'fa fa-screwdriver-wrench',
-                    4: 'fa fa-users', 5: 'fa fa-sitemap', 6: 'fa fa-chart-bar', 7: 'fa fa-file-alt',
-                    10: 'fa fa-cog', 13: 'fa fa-user-minus', 14: 'fa fa-file-alt', 15: 'fa fa-hand-holding-dollar',
-                    16: 'fa fa-cog', 17: 'fa fa-cog',
-                    26: 'fa fa-list-check',
-                    18: 'fa-solid fa-ticket',
-                    19: 'fa fa-table-cells',
-                    25: 'fa fa-table-cells',
-                    27: 'fa fa-table-cells',
-                    20: 'fa fa-building-columns',
-                    21: 'fa fa-file-upload',
-                    34: 'fa fa-file-alt',
-                    29: 'fa fa-id-card',
-                    30: 'fa fa-balance-scale',
-                    35: 'fa fa-headset',
-                    36: 'fa fa-hand-holding-usd',
-                    37: 'fa fa-sticky-note',
-                    31: 'fa fa-laptop',
-                    32: 'fa fa-file-import',
-                    41: 'fa fa-globe', 42: 'fa fa-users', 44: 'fa fa-graduation-cap',
-                    43: 'fa fa-key',
-                    45: 'fa fa-chart-gantt',
-                    46: 'fa fa-handshake',
-                    47: 'fa fa-chart-pie',
-                    49: 'fa fa-calendar-week',
-                    50: 'fa fa-chart-line',
-                    51: 'fa-solid fa-file-circle-check',
-                    48: 'fa fa-archive'
-                };
 
                 const grupos = new Map();
                 const nombresGrupo = [];
@@ -1931,7 +1954,7 @@ class CapHum extends Controller
                     const masterCb = document.createElement('input');
                     masterCb.type = 'checkbox';
                     masterCb.className = 'form-check-input modal-perfil-modulo-master-cb';
-                    masterCb.id = 'modal-perfil-modulo-master-' + grupoIdx;
+                    masterCb.id = masterIdPrefix + grupoIdx;
                     masterCb.setAttribute('data-grupo-nombre', gName);
                     masterCb.setAttribute('data-grupo-tipo', 'modulos');
                     masterCb.style.cursor = 'pointer';
@@ -1950,9 +1973,59 @@ class CapHum extends Controller
                     ht.style.color = '#1e293b';
                     ht.textContent = gName + ' (' + g.items.length + ')';
 
-                    header.appendChild(hi);
-                    header.appendChild(ht);
-                    header.appendChild(masterWrap);
+                    let collapseId = '';
+                    if (useCollapseGrupos) {
+                        collapseId = collapseIdPrefix + '-collapse-' + grupoIdx;
+                        header.classList.add('modal-perfil-modulo-grupo-toggle');
+                        header.style.cursor = 'pointer';
+                        header.setAttribute('role', 'button');
+                        header.setAttribute('tabindex', '0');
+                        header.setAttribute('aria-expanded', 'true');
+                        header.setAttribute('aria-controls', collapseId);
+                        header.setAttribute('data-bs-toggle', 'collapse');
+                        header.setAttribute('data-bs-target', '#' + collapseId);
+
+                        const stopToggle = (e) => { e.stopPropagation(); };
+                        masterWrap.addEventListener('click', stopToggle);
+                        masterWrap.addEventListener('mousedown', stopToggle);
+
+                        const chevron = document.createElement('i');
+                        chevron.className = 'fa fa-chevron-down modal-perfil-modulo-grupo-chevron text-primary';
+                        chevron.style.flexShrink = '0';
+                        chevron.style.fontSize = '0.75rem';
+                        chevron.style.transition = 'transform 0.2s ease';
+                        chevron.style.transform = 'rotate(0deg)';
+                        chevron.setAttribute('aria-hidden', 'true');
+
+                        header.appendChild(chevron);
+                        header.appendChild(hi);
+                        header.appendChild(ht);
+                        header.appendChild(masterWrap);
+
+                        header.addEventListener('keydown', function(ev) {
+                            if (ev.key === 'Enter' || ev.key === ' ') {
+                                ev.preventDefault();
+                                const el = document.getElementById(collapseId);
+                                if (!el) return;
+                                if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                                    bootstrap.Collapse.getOrCreateInstance(el).toggle();
+                                } else {
+                                    el.classList.toggle('show');
+                                    const open = el.classList.contains('show');
+                                    header.setAttribute('aria-expanded', open ? 'true' : 'false');
+                                    const ch = header.querySelector('.modal-perfil-modulo-grupo-chevron');
+                                    if (ch) ch.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+                                    if (typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
+                                        actualizarBotonExpandirPermisosEspeciales();
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        header.appendChild(hi);
+                        header.appendChild(ht);
+                        header.appendChild(masterWrap);
+                    }
 
                     const table = document.createElement('table');
                     table.className = 'table table-hover mb-0';
@@ -1963,7 +2036,10 @@ class CapHum extends Controller
                         const lbl = (mod.menu_item_label != null && String(mod.menu_item_label).trim() !== '')
                             ? String(mod.menu_item_label).trim()
                             : (mod.modulo_nombre || 'Módulo');
-                        tbody.appendChild(buildFilaModuloSistema(mod, lbl, iconosModulos));
+                        tbody.appendChild(buildFilaModuloSistema(mod, lbl, iconosMap, {
+                            grupoNombre: gName,
+                            iconosCierreCreditoPorEtiquetaPermisosEsp: iconosCierreCreditoPorEtiquetaPermisosEsp,
+                        }));
                     });
 
                     table.appendChild(tbody);
@@ -2009,9 +2085,66 @@ class CapHum extends Controller
 
                     syncGrupoModuloMaster(masterCb, tbody);
 
-                    section.appendChild(header);
-                    section.appendChild(table);
+                    if (useCollapseGrupos) {
+                        const collapse = document.createElement('div');
+                        collapse.id = collapseId;
+                        collapse.className = 'collapse show modal-perfil-modulo-grupo-collapse';
+
+                        const syncChevron = (open) => {
+                            header.setAttribute('aria-expanded', open ? 'true' : 'false');
+                            const ch = header.querySelector('.modal-perfil-modulo-grupo-chevron');
+                            if (ch) ch.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+                        };
+                        collapse.addEventListener('shown.bs.collapse', () => {
+                            syncChevron(true);
+                            if (typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
+                                actualizarBotonExpandirPermisosEspeciales();
+                            }
+                        });
+                        collapse.addEventListener('hidden.bs.collapse', () => {
+                            syncChevron(false);
+                            if (typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
+                                actualizarBotonExpandirPermisosEspeciales();
+                            }
+                        });
+
+                        syncChevron(true);
+
+                        collapse.appendChild(table);
+                        section.appendChild(header);
+                        section.appendChild(collapse);
+                    } else {
+                        section.appendChild(header);
+                        section.appendChild(table);
+                    }
+
                     container.appendChild(section);
+                });
+
+                if (useCollapseGrupos && typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
+                    actualizarBotonExpandirPermisosEspeciales();
+                }
+            }
+
+            function renderPermisosEspeciales(perfiles) {
+                const container = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
+                const iconosMap = Object.assign({}, iconosModulosSistemaPerfil, iconosPermisosEspeciales);
+                renderAgrupadoPorMenuGrupo(perfiles, container, {
+                    masterIdPrefix: 'modal-perfil-perm-esp-master-',
+                    iconosMap: iconosMap,
+                    emptyHtml: '<p class="text-muted small mb-0">No hay permisos especiales configurados.</p>',
+                    collapseGrupos: true,
+                    collapseIdPrefix: 'modal-perfil-perm-esp',
+                    iconosCierreCreditoPorEtiquetaPermisosEsp: true,
+                });
+            }
+
+            function renderModulos(perfiles) {
+                const container = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
+                renderAgrupadoPorMenuGrupo(perfiles, container, {
+                    masterIdPrefix: 'modal-perfil-modulo-master-',
+                    iconosMap: iconosModulosSistemaPerfil,
+                    emptyHtml: '<div class="text-muted small text-center py-4">No hay módulos disponibles</div>',
                 });
             }
 

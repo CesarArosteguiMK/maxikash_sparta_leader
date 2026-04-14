@@ -13,6 +13,8 @@ class CierreCredito extends Controller
 
     public function consulta()
     {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $this->set('titulo', 'Cierre de crédito | ' . $emp);
         $this->render('cierre_credito_consulta');
     }
 

@@ -1559,6 +1559,19 @@
     padding: 0.5rem 0.75rem !important;
   }
 
+  #modalEditPerfil #tabPermisosEspeciales .d-flex.justify-content-between.align-items-center.mb-4 {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  #modalEditPerfil #btn-permisos-esp-expandir-todos {
+    width: 100% !important;
+    justify-content: center !important;
+    font-size: 0.8rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
   /* ── 12. TABLAS dentro de módulos/permisos ── */
   #modalEditPerfil .table-hover tbody tr:hover {
     transform: none !important;              /* deshabilitar translateX en touch */
@@ -3207,11 +3220,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                         <!-- TAB PERMISOS ESPECIALES -->
                         <div class="tab-pane fade" id="tabPermisosEspeciales" role="tabpanel">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                                 <div>
                                     <h6 class="mb-1 fw-bold">Permisos especiales</h6>
-                                    <small class="text-muted">Asigna permisos adicionales para acciones específicas</small>
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-permisos-esp-expandir-todos" onclick="expandirTodosPermisosEspeciales()">
+                                    <i class="fa fa-expand me-1"></i>Expandir todos
+                                </button>
                             </div>
                             <div id="permisos-especiales-container" class="modal-perfil-permisos-outer">
                                 <div id="modal-edit-perfil-permisos-especiales-form"></div>
