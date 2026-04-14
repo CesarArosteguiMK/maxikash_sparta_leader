@@ -176,7 +176,28 @@ class CierreCredito extends Model
                      WHERE acd.id_credito = cc.id_credito
                        AND acd.estatus    = '1'
                      ORDER BY acd.fecha_alta DESC
-                     LIMIT 1)                          AS nombre_despacho
+                     LIMIT 1)                          AS nombre_despacho,
+                    (SELECT cat.motivo
+                     FROM cierre_credito_seguimiento ccs
+                     LEFT JOIN catalogo_cierre_credito_seguimiento cat ON cat.id = ccs.motivo_descarte
+                     WHERE ccs.id_credito = cc.id_credito
+                       AND ccs.estatus = 'descartado'
+                     ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS ultimo_motivo_descarte,
+                    (SELECT ccs.comentario_descarte
+                     FROM cierre_credito_seguimiento ccs
+                     WHERE ccs.id_credito = cc.id_credito
+                       AND ccs.estatus = 'descartado'
+                     ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS ultimo_comentario_descarte,
+                    (SELECT ccs.usuario_actualizacion
+                     FROM cierre_credito_seguimiento ccs
+                     WHERE ccs.id_credito = cc.id_credito
+                       AND ccs.estatus = 'descartado'
+                     ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS usuario_descarte,
+                    (SELECT ccs.fecha_actualizacion
+                     FROM cierre_credito_seguimiento ccs
+                     WHERE ccs.id_credito = cc.id_credito
+                       AND ccs.estatus = 'descartado'
+                     ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS fecha_descarte
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  WHERE cc.estatus = 'completado'
@@ -615,6 +636,24 @@ class CierreCredito extends Model
     }
 
     // ─────────────────────────────────────────────
+    // CATÁLOGO DE MOTIVOS DE DESCARTE
+    // ─────────────────────────────────────────────
+
+    public static function getCatalogoDescarte(): array
+    {
+        try {
+            $db   = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, motivo FROM catalogo_cierre_credito_seguimiento
+                 WHERE estatus = 1 ORDER BY id ASC"
+            );
+            return self::resultado(true, 'Catálogo obtenido.', $rows ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener catálogo.', [], $e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────
     // DESCARTAR (regresa a Enviados Finalizados)
     // ─────────────────────────────────────────────
 
@@ -622,7 +661,7 @@ class CierreCredito extends Model
      * Elimina el registro de cierre_credito_seguimiento para que el convenio
      * vuelva a aparecer en la pestaña de Enviados Finalizados.
      */
-    public static function descartar(int $id, string $usuario): array
+    public static function descartar(int $id, string $usuario, int $motivoId = 0, string $comentario = ''): array
     {
         try {
             $db = new Database();
@@ -640,11 +679,13 @@ class CierreCredito extends Model
 
             $db->CRUD(
                 "UPDATE cierre_credito_seguimiento
-                 SET estatus = 'descartado',
+                 SET estatus               = 'descartado',
+                     motivo_descarte       = :motivo,
+                     comentario_descarte   = :comentario,
                      usuario_actualizacion = :usuario,
                      fecha_actualizacion   = NOW()
                  WHERE id = :id",
-                ['id' => $id, 'usuario' => $usuario]
+                ['id' => $id, 'usuario' => $usuario, 'motivo' => $motivoId ?: null, 'comentario' => $comentario ?: null]
             );
 
             return self::resultado(true, 'Registro descartado. El convenio regresó a Enviados Finalizados.');

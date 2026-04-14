@@ -155,6 +155,16 @@ class CierreCredito extends Controller
     }
 
     // ─────────────────────────────────────────────
+    // API: CATÁLOGO DE MOTIVOS DE DESCARTE
+    // ─────────────────────────────────────────────
+
+    public function getCatalogoDescarte()
+    {
+        $r = CierreCreditoDAO::getCatalogoDescarte();
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
     // API: DESCARTAR (regresa a Enviados Finalizados)
     // ─────────────────────────────────────────────
 
@@ -167,8 +177,15 @@ class CierreCredito extends Controller
             return;
         }
 
+        // ID del motivo del catálogo
+        $motivoId = isset($_POST['motivo_id']) ? (int) $_POST['motivo_id'] : 0;
+
+        // Comentario libre — sanitizado contra inyecciones
+        $comentario = trim(strip_tags($_POST['comentario'] ?? ''));
+        $comentario = mb_substr($comentario, 0, 150);
+
         $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
-        $r = CierreCreditoDAO::descartar($id, $usuario);
+        $r = CierreCreditoDAO::descartar($id, $usuario, $motivoId, $comentario);
         self::respuestaJSON($r);
     }
 

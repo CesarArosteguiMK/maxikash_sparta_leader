@@ -367,6 +367,12 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 /* ── Panel de detalle (child row DataTables) ── */
 /* Panel de detalle (child row DataTables) */
 .cc-conv-detail-inner { padding: 1rem 1.25rem; max-height: 520px; overflow-y: auto; }
+
+/* ── Controles DataTables Convenios ── */
+#tablaConveniosTodos_wrapper .dataTables_length { padding-left: .75rem; }
+#tablaConveniosTodos_wrapper .dataTables_filter { padding-right: .75rem; }
+#tablaConveniosTodos_wrapper .dataTables_info   { padding-left: .75rem; }
+#tablaConveniosTodos_wrapper .dataTables_paginate { padding-right: .75rem; }
 </style>
 
 <!-- ══════════════════════════════════════
@@ -428,24 +434,27 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                         <i class="fa-solid fa-clock-rotate-left me-1 text-info"></i>Historial
                     </button>
                 </li>
+                <!-- Barra de búsqueda general -->
+                <li class="ms-auto d-flex align-items-center py-1 pe-2">
+                    <div id="barraGeneral" class="dataTables_filter">
+                        <label style="display:flex;align-items:center;gap:.4rem;margin:0;font-size:.875rem;font-weight:400;color:#566a7f;">
+                            Buscar:
+                            <span style="position:relative;display:inline-flex;align-items:center;">
+                                <input type="text" id="barraGeneral-input"
+                                       class="form-control form-control-sm"
+                                       placeholder=""
+                                       autocomplete="off"
+                                       style="padding-right:1.6rem;">
+                                <button type="button" id="barraGeneral-limpiar"
+                                        title="Limpiar"
+                                        style="display:none;position:absolute;right:.35rem;background:none;border:none;padding:0;line-height:1;color:#a1acb8;cursor:pointer;font-size:.8rem;">
+                                    &#x2715;
+                                </button>
+                            </span>
+                        </label>
+                    </div>
+                </li>
             </ul>
-    </div>
-</div>
-
-<!-- Barra de búsqueda (fuera del card de pestañas) -->
-<div id="cc-search-bar" class="mt-8 d-flex justify-content-end" style="display:none;">
-    <div class="input-group input-group-sm" style="max-width:380px;">
-        <span class="input-group-text bg-transparent border-end-0">
-            <i class="fa-solid fa-magnifying-glass text-muted" style="font-size:.8rem;"></i>
-        </span>
-        <input type="text" id="cc-input-buscar"
-               class="form-control form-control-sm border-start-0"
-               placeholder="Buscar crédito, cliente, producto..."
-               autocomplete="off">
-        <button type="button" class="btn btn-sm btn-outline-secondary border-start-0"
-                id="cc-btn-limpiar-busqueda" title="Limpiar" style="display:none;">
-            <i class="fa-solid fa-times"></i>
-        </button>
     </div>
 </div>
 
@@ -615,9 +624,6 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             return;
         }
 
-        // Mostrar barra de búsqueda
-        document.getElementById('cc-search-bar').style.display = '';
-
         _pintarCards(rows);
     }
 
@@ -651,7 +657,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     /* ── Filtro en tiempo real (aplica en la pestaña activa) ── */
     function ccFiltrar(termino) {
         const t = termino.trim().toLowerCase();
-        const btnLimpiar = document.getElementById('cc-btn-limpiar-busqueda');
+        const btnLimpiar = document.getElementById('barraGeneral-limpiar');
         btnLimpiar.style.display = t ? '' : 'none';
 
         const tab = _tabActiva();
@@ -687,12 +693,12 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         ));
     }
 
-    document.getElementById('cc-input-buscar')
+    document.getElementById('barraGeneral-input')
         .addEventListener('input', function () { ccFiltrar(this.value); });
 
-    document.getElementById('cc-btn-limpiar-busqueda')
+    document.getElementById('barraGeneral-limpiar')
         .addEventListener('click', function () {
-            const input = document.getElementById('cc-input-buscar');
+            const input = document.getElementById('barraGeneral-input');
             input.value = '';
             ccFiltrar('');
             input.focus();
@@ -781,6 +787,18 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                         <span class="cc-val-user">${esc(validador)}</span>
                     </div>
 
+                    <!-- Descarte previo -->
+                    ${r.ultimo_motivo_descarte ? `
+                    <div style="margin-top:.65rem;background:#fef3c7;border:1px solid #fde68a;border-radius:.45rem;padding:.55rem .8rem;font-size:.78rem;color:#78350f;">
+                        <div style="font-weight:700;margin-bottom:.3rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Descartado</div>
+                        <div><span style="font-weight:600;">Motivo:</span> ${esc(r.ultimo_motivo_descarte)}</div>
+                        ${r.ultimo_comentario_descarte ? `<div style="margin-top:.25rem;"><span style="font-weight:600;">Comentario:</span> ${esc(r.ultimo_comentario_descarte)}</div>` : ''}
+                        <div style="margin-top:.25rem;color:#92400e;">
+                            <i class="fa-solid fa-user-pen me-1"></i>${esc(r.usuario_descarte || '—')}
+                            ${r.fecha_descarte ? `<span class="ms-2"><i class="fa-regular fa-clock me-1"></i>${new Date(r.fecha_descarte).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</span>` : ''}
+                        </div>
+                    </div>` : ''}
+
                     <!-- Documentos adjuntos -->
                     ${(() => {
                         const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
@@ -840,14 +858,13 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         _allRowsEp = rows;
         document.getElementById('loader-en-proceso').classList.add('d-none');
         document.getElementById('badge-en-proceso').textContent = rows.length;
-        document.getElementById('cc-search-bar').style.display = '';
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-en-proceso').classList.remove('d-none');
             return;
         }
 
-        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
+        const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
         _pintarEnProceso(t ? rows.filter(r =>
             String(r.id_credito      || '').toLowerCase().includes(t) ||
             String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
@@ -993,9 +1010,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         </div>`;
     }
 
-    /* ══════════════════════════════════
-       RENDER: CARDS CONVENIOS (Tab 0)
-    ══════════════════════════════════ */
+    
     /* ══════════════════════════════════
        RENDER: TABLA CONVENIOS (Tab 0)
     ══════════════════════════════════ */
@@ -1093,13 +1108,18 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                 info:         'Mostrando _START_ a _END_ de _TOTAL_ convenios',
                 infoFiltered: '(filtrado de _MAX_ totales)',
                 lengthMenu:   'Mostrar _MENU_ registros',
+                search:       'Buscar:',
                 zeroRecords:  'Sin resultados para la búsqueda',
                 paginate: { first: '«', last: '»', next: '›', previous: '‹' }
             },
-            dom: '<"row"<"col-sm-12"tr>><"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            dom: '<"row"<"col-sm-12 col-md-6"l>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
             autoWidth: false,
             drawCallback: function() {
                 $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+                $('.dataTables_length select').addClass('form-select form-select-sm');
+                $('.dataTables_filter input').addClass('form-control form-control-sm');
             }
         });
     }
@@ -1108,7 +1128,6 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         _allRowsConv = rows;
         document.getElementById('loader-convenios').classList.add('d-none');
         document.getElementById('badge-convenios').textContent = rows.length;
-        document.getElementById('cc-search-bar').style.display = '';
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-convenios').classList.remove('d-none');
@@ -1475,14 +1494,13 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     function renderHistorial(rows) {
         _allRowsHist = rows;
         document.getElementById('loader-historial').classList.add('d-none');
-        document.getElementById('cc-search-bar').style.display = '';
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-historial').classList.remove('d-none');
             return;
         }
 
-        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
+        const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
         _pintarHistorial(t ? rows.filter(r =>
             String(r.id_credito     || '').toLowerCase().includes(t) ||
             String(r.nombre_cliente || '').toLowerCase().includes(t)
@@ -1613,10 +1631,6 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     document.getElementById('tab-convenios-btn')
         .addEventListener('shown.bs.tab', function () {
             cargarConvenios();
-            if (_allRowsConv.length) {
-                const t = document.getElementById('cc-input-buscar').value;
-                if (t.trim()) ccFiltrar(t);
-            }
         });
 
     /* ══════════════════════════════════
@@ -1699,7 +1713,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             cargarEnProceso();
             // Re-aplica filtro si los datos ya estaban cargados (segunda visita)
             if (_allRowsEp.length) {
-                const t = document.getElementById('cc-input-buscar').value;
+                const t = document.getElementById('barraGeneral-input').value;
                 if (t.trim()) ccFiltrar(t);
             }
         });
@@ -1707,7 +1721,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     document.getElementById('tab-env-finalizado-btn')
         .addEventListener('shown.bs.tab', function () {
             if (_allRows.length) {
-                const t = document.getElementById('cc-input-buscar').value;
+                const t = document.getElementById('barraGeneral-input').value;
                 if (t.trim()) ccFiltrar(t);
             }
         });
@@ -1843,22 +1857,61 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
        DESCARTAR (Tab 2 → regresa a Tab 1)
     ══════════════════════════════════ */
     window.ccDescartar = function(idRegistro) {
-        Swal.fire({
-            title: '¿Descartar registro?',
-            html: 'El convenio regresará a <strong>Enviados Finalizados</strong>.<br><small class="text-muted">Se podrá confirmar nuevamente desde allí.</small>',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc2626',
-            confirmButtonText: '<i class="fa-solid fa-rotate-left me-1"></i>Sí, descartar',
-            cancelButtonText: 'Cancelar'
-        }).then(result => {
-            if (!result.isConfirmed) return;
+        // Cargar catálogo antes de abrir el Swal
+        fetch('/CierreCredito/getCatalogoDescarte', { method: 'POST' })
+        .then(r => r.json())
+        .then(cat => {
+            const opciones = (cat.datos || []).map(m =>
+                `<option value="${m.id}">${esc(m.motivo)}</option>`
+            ).join('');
 
-            fetch('/CierreCredito/descartar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `id=${idRegistro}`
-            })
+            Swal.fire({
+                title: '¿Descartar registro?',
+                html: `<p class="text-muted mb-3" style="font-size:.85rem;">El convenio regresará a <strong>Validación de Cierre</strong>. Se podrá confirmar nuevamente desde allí.</p>
+<div class="text-start mb-3">
+  <label class="form-label fw-semibold" style="font-size:.83rem;">Motivo de descarte <span class="text-danger">*</span></label>
+  <select id="swal-motivo-descarte" class="form-select form-select-sm">
+    <option value="">— Selecciona un motivo —</option>
+    ${opciones}
+  </select>
+</div>
+<div class="text-start">
+  <label class="form-label fw-semibold" style="font-size:.83rem;">Comentario adicional <span class="text-muted fw-normal">(opcional)</span></label>
+  <textarea id="swal-comentario-descarte" class="form-control form-control-sm" rows="3"
+            maxlength="150"
+            placeholder="Describe el motivo con más detalle… (máx. 150 caracteres)"
+            style="resize:vertical;"></textarea>
+  <div class="text-end mt-1" style="font-size:.72rem;color:#94a3b8;"><span id="swal-coment-count">0</span> / 150</div>
+</div>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: '<i class="fa-solid fa-rotate-left me-1"></i>Sí, descartar',
+                cancelButtonText: 'Cancelar',
+                focusConfirm: false,
+                didOpen: () => {
+                    const ta = document.getElementById('swal-comentario-descarte');
+                    const counter = document.getElementById('swal-coment-count');
+                    ta.addEventListener('input', () => { counter.textContent = ta.value.length; });
+                },
+                preConfirm: () => {
+                    const motivoId = document.getElementById('swal-motivo-descarte').value;
+                    const comentario = document.getElementById('swal-comentario-descarte').value.trim();
+                    if (!motivoId) {
+                        Swal.showValidationMessage('Debes seleccionar un motivo de descarte.');
+                        return false;
+                    }
+                    return { motivoId, comentario };
+                }
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                const { motivoId, comentario } = result.value;
+
+                fetch('/CierreCredito/descartar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `id=${idRegistro}&motivo_id=${encodeURIComponent(motivoId)}&comentario=${encodeURIComponent(comentario)}`
+                })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
@@ -1877,8 +1930,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                 document.getElementById('wrap-env-finalizado').classList.add('d-none');
                 document.getElementById('empty-env-finalizado').classList.add('d-none');
                 document.getElementById('empty-busqueda').classList.add('d-none');
-                document.getElementById('cc-search-bar').style.display = 'none';
-                document.getElementById('cc-input-buscar').value = '';
+                document.getElementById('barraGeneral-input').value = '';
                 cargarEnviadoFinalizado();
                 refrescarHistorial();
                 Swal.fire({ title: '¡Descartado!', text: 'El convenio regresó a Enviados Finalizados.', icon: 'success', timer: 2000, showConfirmButton: false });
@@ -1886,7 +1938,8 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             .catch(err => {
                 Swal.fire({ icon: 'error', title: 'Error', text: err.message });
             });
-        });
+        });   // cierra Swal.then(result)
+        });   // cierra fetch outer .then(cat)
     };
 
 })();
