@@ -2224,6 +2224,11 @@ body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card[data-disponibl
     background: #1e293b !important;
     opacity: 0.75;
 }
+body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-lazo {
+    background: linear-gradient(90deg, #64748b, #475569) !important;
+    color: #f8fafc !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
 body.dark-mode #modalElegirCategoriaTicket .ticket-categoria-card .ticket-categoria-icon {
     background: #475569 !important;
     border-color: #64748b !important;

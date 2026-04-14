@@ -132,8 +132,9 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 </div>
 <style>
 .pp-icon-svg { height: 150px; width: auto; max-width: 100%; stroke: url(#pp-icon-gradient); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.pp-primeros-pagos-page {
-    overflow-x: hidden;
+.pp-primeros-pagos-page,
+#pp-landing.pp-primeros-pagos-page {
+    overflow: visible;
 }
 .pp-primeros-pagos-page .pp-hero-row {
     overflow: visible;
@@ -147,29 +148,29 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     z-index: 0;
     overflow: visible;
     --pp-mascot-max-w: 280px;
-    --pp-mascot-max-h: min(280px, 44vh);
-    --pp-mascot-translate-x: -4.1rem;
-    /* Más translateY = mascota más abajo (alineada visualmente con otras landings) */
-    --pp-mascot-translate-y: 11.25rem;
+    --pp-mascot-max-h: min(300px, 44vh);
+    --pp-mascot-translate-x: -6rem;
+    --pp-mascot-translate-y: 3rem;
 }
 .pp-hero-text .card-body {
     padding-bottom: 1.25rem !important;
-    padding-top: 3.25rem !important;
+    padding-top: 2rem !important;
 }
 @media (min-width: 768px) {
     .pp-hero-row.pp-hero-row--con-mascota {
         align-items: stretch;
-        min-height: 20.5rem;
+        min-height: 23rem;
+        padding-bottom: 5rem;
     }
     .pp-hero-text .card-body {
-        padding-top: 3.65rem !important;
-        padding-bottom: 3.25rem !important;
+        padding-top: 2rem !important;
+        padding-bottom: 1.5rem !important;
         padding-right: 0.5rem;
     }
 }
 .pp-hero-mascot-col {
-    padding-top: 2.35rem;
-    padding-bottom: 0.75rem;
+    padding-top: 1rem;
+    padding-bottom: 2rem;
 }
 @media (min-width: 768px) {
     .pp-hero-mascot-col {
@@ -195,37 +196,38 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     }
     .pp-hero-text .card-body {
         text-align: center;
-        padding-top: 3.25rem !important;
-        padding-bottom: 2rem !important;
+        padding-top: 2rem !important;
+        padding-bottom: 1rem !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
     }
     .pp-hero-mascot-col {
         align-items: center !important;
+        padding-top: 0;
     }
     .pp-hero-mascot-floating {
-        margin: 0.5rem auto 0;
-        max-width: min(52vw, 168px);
-        max-height: min(28vh, 160px);
+        margin: 0 auto;
+        max-width: min(58vw, 200px);
+        max-height: min(32vh, 200px);
         width: auto;
         height: auto;
         object-position: bottom center;
-        transform: translate(0, 8.5rem);
+        transform: translateY(var(--pp-mascot-translate-y, 3rem));
     }
 }
 @media (min-width: 768px) {
     .pp-hero-mascot-floating {
-        position: absolute;
-        right: 0;
-        bottom: 0;
+        position: relative;
+        right: auto;
+        bottom: auto;
         z-index: 1;
         width: auto;
         height: auto;
         max-width: var(--pp-mascot-max-w, 280px);
-        max-height: var(--pp-mascot-max-h, 280px);
-        margin: 0;
+        max-height: var(--pp-mascot-max-h, 300px);
+        margin: 0 0 0 auto;
         object-position: bottom right;
-        transform: translate(var(--pp-mascot-translate-x, -4.1rem), var(--pp-mascot-translate-y, 11.25rem));
+        transform: translate(var(--pp-mascot-translate-x, -6rem), var(--pp-mascot-translate-y, 3rem));
     }
 }
 body.dark-mode .pp-hero-mascot-floating {

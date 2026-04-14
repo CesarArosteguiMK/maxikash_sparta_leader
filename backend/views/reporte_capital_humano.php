@@ -41,25 +41,26 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
 }
 </style>
 
+<div id="rch-landing" class="rch-reportes-personal-page">
 <div class="card">
     <div class="card">
-        <div class="row g-0 align-items-center">
-            <div class="col-12 col-md-8">
+        <div class="row g-0 align-items-center overflow-visible rch-hero-row rch-hero-row--con-mascota rch-hero-block">
+            <div class="col-12 col-md-8 rch-hero-text">
                 <div class="card-body">
-                    <h5 class="card-title text-primary mb-3">Reportes de Personal</h5>
-                    <p class="mb-6">
+                    <h5 class="card-title text-primary mb-3">HOLA, <?= isset($_SESSION['usuario_nombre']) ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8') : 'USUARIO'; ?> <i class="fa-solid fa-users ms-2 text-primary" aria-hidden="true"></i></h5>
+                    <p class="mb-6 mb-md-0">
                         Consulta, filtra y descarga información de capital humano, incluyendo puestos, departamentos y estatus de empleados.
                     </p>
                 </div>
             </div>
-            <div class="col-12 col-md-4">
-                <div class="card-body ps-md-2 pe-5 text-end">
-                    <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
-                         class="img-fluid scaleX-n1-rtl"
-                         alt="Reportes de Personal">
-                </div>
+            <div class="col-12 col-md-4 d-flex flex-column justify-content-end align-items-center align-items-md-end rch-hero-mascot-col">
+                <img src="/assets/img/illustrations/reportes-personal-mascota.png"
+                     class="rch-hero-mascot-floating img-fluid"
+                     width="400"
+                     height="400"
+                     alt="Reportes de Personal — ilustración">
             </div>
-            <div class="row gy-3 mb-3">
+            <div class="row gy-3 mb-3 gx-0">
                 <div class="col-12 col-md-8 col-lg-4">
                     <div class="card shadow-none bg-label-primary h-100">
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
@@ -73,7 +74,7 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
                                 </button>
                             </div>
                             <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png" alt="capital humano illustration">
+                                <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png" alt="Descarga reporte de personal">
                             </div>
                         </div>
                     </div>
@@ -82,6 +83,111 @@ body.dark-mode .swal2-popup .btn-secondary:hover {
         </div>
     </div>
 </div>
+<style>
+/* Hero Reportes de Personal — misma mascota (tamaño/posición/ángulo) que Panel Admin */
+.rch-reportes-personal-page,
+#rch-landing.rch-reportes-personal-page {
+    overflow: visible;
+}
+.rch-reportes-personal-page .rch-hero-row {
+    overflow: visible;
+}
+.rch-reportes-personal-page > .card {
+    overflow: visible;
+    position: relative;
+}
+.rch-hero-block {
+    position: relative;
+    z-index: 0;
+    overflow: visible;
+    --rch-mascot-max-w: 280px;
+    --rch-mascot-max-h: min(300px, 44vh);
+    --rch-mascot-translate-x: -6rem;
+    --rch-mascot-translate-y: 3rem;
+}
+.rch-hero-text .card-body {
+    padding-bottom: 1.25rem !important;
+    padding-top: 2rem !important;
+}
+@media (min-width: 768px) {
+    .rch-hero-row.rch-hero-row--con-mascota {
+        align-items: stretch;
+        min-height: 23rem;
+        padding-bottom: 5rem;
+    }
+    .rch-hero-text .card-body {
+        padding-top: 2rem !important;
+        padding-bottom: 1.5rem !important;
+        padding-right: 0.5rem;
+    }
+}
+.rch-hero-mascot-col {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+}
+@media (min-width: 768px) {
+    .rch-hero-mascot-col {
+        position: relative;
+        min-height: 0;
+        padding: 0;
+        align-self: stretch;
+    }
+    .rch-hero-text {
+        position: relative;
+        z-index: 2;
+    }
+}
+.rch-hero-mascot-floating {
+    display: block;
+    object-fit: contain;
+    object-position: bottom center;
+    filter: drop-shadow(0 10px 28px rgba(26, 82, 168, 0.12));
+}
+@media (max-width: 767.98px) {
+    .rch-hero-row.rch-hero-row--con-mascota {
+        min-height: 15rem;
+    }
+    .rch-hero-text .card-body {
+        text-align: center;
+        padding-top: 2rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    .rch-hero-mascot-col {
+        align-items: center !important;
+        padding-top: 0;
+    }
+    .rch-hero-mascot-floating {
+        margin: 0 auto;
+        max-width: min(58vw, 200px);
+        max-height: min(32vh, 200px);
+        width: auto;
+        height: auto;
+        object-position: bottom center;
+        transform: translateY(var(--rch-mascot-translate-y, 3rem));
+    }
+}
+@media (min-width: 768px) {
+    .rch-hero-mascot-floating {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        z-index: 1;
+        width: auto;
+        height: auto;
+        max-width: var(--rch-mascot-max-w, 280px);
+        max-height: var(--rch-mascot-max-h, 300px);
+        margin: 0 0 0 auto;
+        object-position: bottom right;
+        transform: translate(var(--rch-mascot-translate-x, -6rem), var(--rch-mascot-translate-y, 3rem));
+    }
+}
+body.dark-mode .rch-hero-mascot-floating {
+    filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.35));
+}
+</style>
+</div><!-- /#rch-landing -->
 
 <!-- MODAL DE REPORTE CAPITAL HUMANO - SOLO USUARIOS ACTIVOS -->
 <div class="modal fade" id="modalCapitalHumano" tabindex="-1" aria-hidden="true">
