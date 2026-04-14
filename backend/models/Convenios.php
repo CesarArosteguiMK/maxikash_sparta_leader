@@ -536,7 +536,16 @@ public static function getConvenioActivo($id_credito)
         }
 
         // Para convenios ya completados no aplicar lógica de auto-cancelación.
+        // Sí cargar la amortización para que el front pueda mostrar la tabla.
         if ($convenio['estatus'] === 'completado') {
+            $amortCompletada = $db->queryAll(
+                "SELECT * FROM convenio_cliente_amortizacion
+                 WHERE id_convenio_cliente = :id
+                 ORDER BY numero_semana",
+                ['id' => (int) $convenio['id']]
+            );
+            $convenio['amortizacion']  = $amortCompletada ?: [];
+            $convenio['pagos_s2movil'] = [];
             return self::resultado(true, 'Convenio completado.', $convenio);
         }
 

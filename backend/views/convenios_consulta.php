@@ -2375,12 +2375,20 @@ function congelarModulo(convenio) {
     document.getElementById('btnGuardar').style.display = 'none';
     document.getElementById('btnPdf').className = 'btn btn-primary';
     document.getElementById('btnPdf').style.display = 'inline-block';
-    document.getElementById('btnCancelar').style.display = 'inline-block';
+    document.getElementById('btnCancelar').style.display = convenio.estatus === 'completado' ? 'none' : 'inline-block';
     window._idConvenioActivo = convenio.id;
 
     // Banner informativo
-    var fechaAcuerdo = new Date(convenio.fecha_acuerdo + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    var fechaUltimoPago = new Date(convenio.fecha_ultimo_pago + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    var fmtFechaOpc = function (f) {
+        if (!f) return '—';
+        return new Date(f + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
+    var fechaAcuerdo    = fmtFechaOpc(convenio.fecha_acuerdo);
+    var fechaUltimoPago = fmtFechaOpc(convenio.fecha_ultimo_pago);
+    var esCompletado    = convenio.estatus === 'completado';
+    var bannerTexto     = esCompletado
+        ? '<strong>Convenio completado.</strong> Acuerdo del ' + fechaAcuerdo + '. Solo puedes descargar el PDF.'
+        : '<strong>Convenio activo registrado.</strong> Acuerdo del ' + fechaAcuerdo + '. Último pago: ' + fechaUltimoPago + '. Solo puedes descargar el PDF.';
 
     var pdfBadge = '';
     if (convenio.pdf_adjunto) {
@@ -2399,10 +2407,7 @@ function congelarModulo(convenio) {
         '<div id="bannerConvenioActivo" class="alert d-flex align-items-center gap-2 mb-3 banner-convenio-activo-light">' +
         '<i class="fa-solid fa-lock fa-lg"></i>' +
         '<div>' +
-        '<strong>Convenio activo registrado.</strong> ' +
-        'Acuerdo del ' + fechaAcuerdo + '. ' +
-        'Último pago: ' + fechaUltimoPago + '. ' +
-        'Solo puedes descargar el PDF.' +
+        bannerTexto +
         pdfBadge +
         '</div>' +
         '</div>'
