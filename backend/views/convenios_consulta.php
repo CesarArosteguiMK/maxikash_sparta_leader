@@ -2786,6 +2786,12 @@ function fmtPagoRealizado(pago) {
 window.verTablaAmortizacion = function () {
     if (!_ofertaActiva || !_credito) return;
 
+    // Limpiar error de descuento/adicional de una edición previa
+    var _errPrevio = document.getElementById('_errDescuentoAmort');
+    if (_errPrevio) _errPrevio.style.display = 'none';
+    var _btnG = document.getElementById('btnGuardar');
+    if (_btnG) _btnG.style.display = 'inline-block';
+
     var o = _ofertaActiva;
     var total = parseFloat(o.total_a_pagar);
     var fmt = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
