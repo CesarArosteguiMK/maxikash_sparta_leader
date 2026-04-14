@@ -31,6 +31,8 @@ class Convenios extends Controller
     public function consulta()
     {
         $this->set('permisoRegistrarConvenioExistente', $this->usuarioTienePermisoRegistrarConvenioExistente());
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $this->set('titulo', 'Crear convenio | ' . $emp);
         $this->render('convenios_consulta');
     }
 
