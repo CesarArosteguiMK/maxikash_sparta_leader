@@ -383,9 +383,18 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 ══════════════════════════════════════ -->
 <div class="card shadow-sm">
     <div class="card-body pb-0">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0">
-            <!-- Pestañas -->
-            <ul class="nav nav-tabs cc-nav-tabs border-0 mb-0" id="ccTabs" role="tablist">
+        <!-- Pestañas -->
+        <ul class="nav nav-tabs cc-nav-tabs border-0 mb-0" id="ccTabs" role="tablist">
+                <!-- Pestaña 0: Convenios (todos) -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-convenios-btn"
+                            data-bs-toggle="tab" data-bs-target="#tab-convenios"
+                            type="button" role="tab"
+                            aria-controls="tab-convenios" aria-selected="false">
+                        <i class="fa-solid fa-handshake me-1 text-primary"></i>Convenios
+                        <span class="badge bg-secondary ms-1" id="badge-convenios">0</span>
+                    </button>
+                </li>
                 <!-- Pestaña 1: Enviados Finalizados (activa por defecto) -->
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="tab-env-finalizado-btn"
@@ -416,25 +425,23 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     </button>
                 </li>
             </ul>
+    </div>
+</div>
 
-            <!-- Barra de búsqueda derecha (se muestra al cargar datos) -->
-            <div id="cc-search-bar" style="display:none;">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-transparent border-end-0">
-                        <i class="fa-solid fa-magnifying-glass text-muted" style="font-size:.8rem;"></i>
-                    </span>
-                    <input type="text" id="cc-input-buscar"
-                           class="form-control form-control-sm border-start-0"
-                           style="min-width:260px;"
-                           placeholder="Buscar crédito, cliente, producto..."
-                           autocomplete="off">
-                    <button type="button" class="btn btn-sm btn-outline-secondary border-start-0"
-                            id="cc-btn-limpiar-busqueda" title="Limpiar" style="display:none;">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
+<!-- Barra de búsqueda (fuera del card de pestañas) -->
+<div id="cc-search-bar" class="mt-8 d-flex justify-content-end" style="display:none;">
+    <div class="input-group input-group-sm" style="max-width:380px;">
+        <span class="input-group-text bg-transparent border-end-0">
+            <i class="fa-solid fa-magnifying-glass text-muted" style="font-size:.8rem;"></i>
+        </span>
+        <input type="text" id="cc-input-buscar"
+               class="form-control form-control-sm border-start-0"
+               placeholder="Buscar crédito, cliente, producto..."
+               autocomplete="off">
+        <button type="button" class="btn btn-sm btn-outline-secondary border-start-0"
+                id="cc-btn-limpiar-busqueda" title="Limpiar" style="display:none;">
+            <i class="fa-solid fa-times"></i>
+        </button>
     </div>
 </div>
 
@@ -442,6 +449,25 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
      CONTENIDO DE PESTAÑAS
 ══════════════════════════════════════ -->
 <div class="tab-content mt-3" id="ccTabContent">
+
+    <!-- ══ PESTAÑA 0: CONVENIOS (TODOS) ══ -->
+    <div class="tab-pane fade" id="tab-convenios" role="tabpanel">
+        <div id="loader-convenios" class="text-center py-5 text-muted d-none">
+            <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
+            Cargando convenios...
+        </div>
+        <div id="wrap-convenios" class="d-none">
+            <!-- Cards renderizadas por JS -->
+        </div>
+        <div id="empty-convenios" class="text-center py-5 text-muted d-none">
+            <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+            Sin convenios registrados.
+        </div>
+        <div id="empty-busqueda-conv" class="text-center py-5 text-muted d-none">
+            <i class="fa-solid fa-search fa-2x mb-2 d-block opacity-50"></i>
+            Sin resultados para la búsqueda.
+        </div>
+    </div>
 
     <!-- ══ PESTAÑA 1: ENVIADOS FINALIZADOS ══ -->
     <div class="tab-pane fade show active" id="tab-env-finalizado" role="tabpanel">
@@ -537,6 +563,17 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     function esc(str) {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
+    function convenioEstatusBadge(estatus) {
+        const map = {
+            'completado': { bg: '#bbf7d0', color: '#14532d', icon: 'fa-circle-check',   label: 'Completado' },
+            'activo':     { bg: '#dbeafe', color: '#1e40af', icon: 'fa-hourglass-half', label: 'Activo'     },
+            'cancelado':  { bg: '#fee2e2', color: '#b91c1c', icon: 'fa-ban',            label: 'Cancelado'  },
+        };
+        const cfg = map[estatus] || { bg: '#f1f5f9', color: '#475569', icon: 'fa-circle', label: esc(estatus || '—') };
+        return `<span class="badge rounded-pill" style="background:${cfg.bg};color:${cfg.color};font-size:.75rem;font-weight:700;">
+                    <i class="fa-solid ${cfg.icon} me-1"></i>${cfg.label}
+                </span>`;
+    }
 
     /* ══════════════════════════════════
        RENDER: CARDS ENVIADOS FINALIZADOS
@@ -544,6 +581,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     let _allRows     = [];
     let _allRowsEp   = [];
     let _allRowsHist = [];
+    let _allRowsConv = [];
     let _validador   = '—';
 
     function renderCards(rows, validador) {
@@ -586,7 +624,8 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 
     /* ── Detecta qué pestaña está activa ── */
     function _tabActiva() {
-        if (document.getElementById('tab-en-proceso').classList.contains('show')) return 'ep';
+        if (document.getElementById('tab-convenios').classList.contains('show'))   return 'conv';
+        if (document.getElementById('tab-en-proceso').classList.contains('show'))  return 'ep';
         if (document.getElementById('tab-historial').classList.contains('show'))   return 'hist';
         return 'ef';
     }
@@ -612,6 +651,15 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             _pintarHistorial(!t ? _allRowsHist : _allRowsHist.filter(r =>
                 String(r.id_credito     || '').toLowerCase().includes(t) ||
                 String(r.nombre_cliente || '').toLowerCase().includes(t)
+            ));
+            return;
+        }
+
+        if (tab === 'conv') {
+            _pintarConvenios(!t ? _allRowsConv : _allRowsConv.filter(r =>
+                String(r.id_credito      || '').toLowerCase().includes(t) ||
+                String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
+                String(r.nombre_producto || '').toLowerCase().includes(t)
             ));
             return;
         }
@@ -670,15 +718,9 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     Crédito: ${esc(r.id_credito)}
                     <small>${esc(r.nombre_cliente)}</small>
                 </span>
-                <div class="cc-progress-wrap">
-                    <span class="cc-prog-label">${pagadas}</span>
-                    <div class="progress">
-                        <div class="progress-bar" role="progressbar"
-                             style="width:${pct}%"
-                             aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                    <span class="cc-prog-label">${semanas}</span>
-                </div>
+                <span style="color:#fff; font-size:.82rem; font-weight:600; white-space:nowrap;">
+                    ${pagadas} pagos de ${semanas}${pagadas >= semanas ? ' <i class=\'bi bi-check-circle-fill\' style=\'color:#4ade80\'></i>' : ''}
+                </span>
             </div>
 
             <!-- Cuerpo: detalles -->
@@ -710,6 +752,13 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                         <span class="cc-lbl">Despacho a cargo</span>
                         <span class="cc-val">${despacho}</span>
                     </div>
+
+                    <!-- Fecha de finalización -->
+                    ${r.fecha_modifica ? `
+                    <div class="cc-detail-row" style="margin-top:.35rem;">
+                        <span class="cc-lbl">Finalizado el</span>
+                        <span class="cc-val">${new Date(r.fecha_modifica).toLocaleString('es-MX', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}</span>
+                    </div>` : ''}
 
                     <!-- Validación: usuario de sesión actual -->
                     <div class="cc-validacion-box">
@@ -810,7 +859,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 
         const estadoBadge = todoListo
             ? `<span class="badge" style="background:rgba(255,255,255,.2);color:#fff;font-size:.7rem;"><i class="fa-solid fa-circle-check me-1"></i>Listo</span>`
-            : `<span class="badge" style="background:rgba(250,200,0,.3);color:#fff;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs incompletos</span>`;
+            : `<span class="badge" style="background:rgba(250,200,0,.3);color:#fff;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs adjuntos</span>`;
 
         const pdfLink = pdfOk
             ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;"><i class="fa-solid fa-eye me-1"></i>Ver PDF</a>`
@@ -861,6 +910,11 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                             <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
                             <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
                         </div>
+                        ${r.fecha_envio_cartera ? `
+                        <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#fef9c3;border:1px solid #fde68a;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#854d0e;">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>Envío previo fallido — correo no notificado</span>
+                        </div>` : ''}
                     </div>
                 </div>
 
@@ -903,9 +957,134 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     }
 
     /* ══════════════════════════════════
+       RENDER: CARDS CONVENIOS (Tab 0)
+    ══════════════════════════════════ */
+    function renderConvenios(rows) {
+        _allRowsConv = rows;
+        document.getElementById('loader-convenios').classList.add('d-none');
+        document.getElementById('badge-convenios').textContent = rows.length;
+        document.getElementById('cc-search-bar').style.display = '';
+
+        if (!rows || rows.length === 0) {
+            document.getElementById('empty-convenios').classList.remove('d-none');
+            return;
+        }
+
+        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
+        _pintarConvenios(t ? rows.filter(r =>
+            String(r.id_credito      || '').toLowerCase().includes(t) ||
+            String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
+            String(r.nombre_producto || '').toLowerCase().includes(t)
+        ) : rows);
+    }
+
+    function _pintarConvenios(rows) {
+        const wrap        = document.getElementById('wrap-convenios');
+        const emptyNormal = document.getElementById('empty-convenios');
+        const emptySearch = document.getElementById('empty-busqueda-conv');
+        emptyNormal.classList.add('d-none');
+        if (emptySearch) emptySearch.classList.add('d-none');
+
+        if (!rows.length) {
+            wrap.classList.add('d-none');
+            wrap.innerHTML = '';
+            if (emptySearch) emptySearch.classList.remove('d-none');
+            return;
+        }
+
+        wrap.innerHTML = rows.map(r => buildConvenioCard(r)).join('');
+        wrap.classList.remove('d-none');
+    }
+
+    function buildConvenioCard(r) {
+        const pagadas = parseInt(r.cuotas_pagadas)   || 0;
+        const semanas = parseInt(r.numero_semanas)   || parseInt(r.num_semanas_amort) || 0;
+        const compSub = parseInt(r.comprobantes_subidos) || 0;
+        const pdfOk   = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
+
+        const pdfBadge = pdfOk
+            ? `<span class="cc-doc-ok"><i class="fa-solid fa-file-pdf me-1"></i>PDF convenio</span>`
+            : `<span class="cc-doc-missing"><i class="fa-solid fa-file-pdf me-1"></i>Sin PDF</span>`;
+
+        const compBadge = compSub > 0
+            ? `<span class="cc-doc-ok"><i class="fa-solid fa-receipt me-1"></i>${compSub} comprobante${compSub !== 1 ? 's' : ''}</span>`
+            : `<span class="cc-doc-missing"><i class="fa-solid fa-receipt me-1"></i>Sin comprobantes</span>`;
+
+        const pdfLink = pdfOk
+            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;">
+                   <i class="fa-solid fa-eye me-1"></i>PDF
+               </a>`
+            : '';
+
+        return `
+        <div class="cc-ep-wrapper" id="cc-conv-wrapper-${r.id}">
+            <!-- Card principal -->
+            <div class="cc-conv-card" id="cc-conv-card-${r.id}" style="min-width:300px;width:460px;max-width:100%;">
+                <!-- Cabecera -->
+                <div class="cc-conv-card-header">
+                    <span class="cc-credito-id">#${esc(r.id_credito)} <small>${esc(r.nombre_cliente)}</small></span>
+                    ${convenioEstatusBadge(r.estatus)}
+                </div>
+                <!-- Cuerpo -->
+                <div class="cc-conv-card-body">
+                    <div class="cc-conv-details">
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Producto</span>
+                            <span class="cc-val">${esc(r.nombre_producto)}</span>
+                            <span style="background:#e0edff;color:#1d4ed8;font-size:.75rem;font-weight:700;
+                                         padding:2px 8px;border-radius:20px;margin-left:.35rem;white-space:nowrap;">
+                                ${parseFloat(r.porcentaje_descuento) || 0}%
+                            </span>
+                        </div>
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Total a pagar</span>
+                            <span class="cc-val fw-bold text-success">${fmt(r.total_a_pagar)}</span>
+                        </div>
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Fecha acuerdo</span>
+                            <span class="cc-val">${esc(r.fecha_acuerdo || '—')}</span>
+                        </div>
+                        ${semanas > 0 ? `
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Avance de pagos</span>
+                            <span class="cc-val">${pagadas} de ${semanas} cuotas${pagadas >= semanas && semanas > 0 ? ' <i class="bi bi-check-circle-fill" style="color:#16a34a"></i>' : ''}</span>
+                        </div>` : ''}
+                        <div class="cc-doccheck-wrap mt-2">
+                            <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
+                            <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Footer -->
+                <div class="cc-conv-card-footer" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                    ${pdfLink}
+                    <button class="btn btn-sm btn-outline-primary" id="cc-conv-btn-${r.id}"
+                            style="font-size:.78rem;" onclick="ccToggleDetalleConv(${r.id})">
+                        <i class="fa-solid fa-table-list me-1"></i>Ver amortización y docs
+                    </button>
+                </div>
+            </div>
+            <!-- Panel lateral derecho -->
+            <div class="cc-side-panel" id="cc-conv-panel-${r.id}">
+                <div class="cc-side-panel-header">
+                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del convenio</span>
+                    <button class="cc-side-panel-close" onclick="ccToggleDetalleConv(${r.id})" title="Cerrar">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div id="cc-conv-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
+                </div>
+                <div id="cc-conv-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
+            </div>
+        </div>`;
+    }
+
+    /* ══════════════════════════════════
        ACORDÉON DE DETALLE (Tab 2)
     ══════════════════════════════════ */
-    const _detalleCache = {};
+    const _detalleCache    = {};
+    const _detalleConvCache = {};
 
     window.ccToggleDetalle = function(id) {
         const btn    = document.getElementById(`cc-acc-btn-${id}`);
@@ -1031,8 +1210,152 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     }
 
     /* ══════════════════════════════════
+       TOGGLE Y DETALLE — TAB CONVENIOS (Tab 0)
+    ══════════════════════════════════ */
+    window.ccToggleDetalleConv = function(id) {
+        const btn     = document.getElementById(`cc-conv-btn-${id}`);
+        const panel   = document.getElementById(`cc-conv-panel-${id}`);
+        const card    = document.getElementById(`cc-conv-card-${id}`);
+        const loader  = document.getElementById(`cc-conv-loader-${id}`);
+        const content = document.getElementById(`cc-conv-content-${id}`);
+        const isOpen  = panel.classList.contains('open');
+
+        if (isOpen) {
+            panel.classList.remove('open');
+            card.classList.remove('cc-has-panel');
+            btn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver amortización y docs';
+            return;
+        }
+
+        panel.classList.add('open');
+        card.classList.add('cc-has-panel');
+        btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
+
+        if (_detalleConvCache[id]) {
+            content.innerHTML = buildDetalleConvHtml(_detalleConvCache[id]);
+            return;
+        }
+
+        loader.style.display = '';
+        content.innerHTML = '';
+
+        fetch('/CierreCredito/getDetalleConvenio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `id=${id}`
+        })
+        .then(r => r.json())
+        .then(res => {
+            loader.style.display = 'none';
+            if (!res.success) throw new Error(res.mensaje);
+            _detalleConvCache[id] = res.datos;
+            content.innerHTML = buildDetalleConvHtml(res.datos);
+        })
+        .catch(err => {
+            loader.style.display = 'none';
+            content.innerHTML = `<div class="alert alert-danger py-2">Error: ${esc(err.message)}</div>`;
+        });
+    };
+
+    function buildDetalleConvHtml(d) {
+        const fmtN = (n) => parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        const conv  = d.convenio     || {};
+        const amort = d.amortizacion || [];
+
+        // ── Resumen financiero ──
+        const resumenHtml = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.75rem;margin-bottom:1rem;">
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Adeudo original</div>
+                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}</div>
+            </div>
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
+                <div style="font-size:1rem;font-weight:700;color:#16a34a;">- ${fmtN(conv.descuento_monto)}</div>
+            </div>
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Total a pagar</div>
+                <div style="font-size:1rem;font-weight:700;color:#1d4ed8;">${fmtN(conv.total_a_pagar)}</div>
+            </div>
+            <div class="cc-resumen-aplicacion" style="margin:0;">
+                <div class="cc-res-title">Pago semanal</div>
+                <div style="font-size:1rem;font-weight:700;color:#475569;">${fmtN(conv.pago_semanal)}</div>
+            </div>
+        </div>`;
+
+        // ── Tabla de amortización con documentos ──
+        let filasAmort = '';
+        if (amort.length === 0) {
+            filasAmort = `<tr><td colspan="5" class="text-center text-muted py-3">Sin amortización registrada.</td></tr>`;
+        } else {
+            filasAmort = amort.map(a => {
+                const pagada = (a.estatus_pago === 'pagado');
+                const cls    = pagada ? 'pagada' : 'pendiente';
+                const icon   = pagada
+                    ? `<i class="fa-solid fa-circle-check text-success"></i>`
+                    : `<i class="fa-regular fa-clock text-warning"></i>`;
+                const compHtml = a.comprobante_path
+                    ? `<a href="${esc(a.comprobante_path)}" target="_blank"
+                              style="font-size:.72rem;padding:2px 8px;border-radius:4px;
+                                     background:#dcfce7;color:#15803d;text-decoration:none;white-space:nowrap;">
+                           <i class="fa-solid fa-paperclip me-1"></i>Ver ticket
+                       </a>`
+                    : `<span style="color:#94a3b8;font-size:.75rem;">—</span>`;
+
+                return `
+                <tr class="${cls}">
+                    <td class="text-center fw-bold">${esc(a.numero_semana)}</td>
+                    <td>${esc(a.fecha_pago || '—')}</td>
+                    <td class="text-end">${fmtN(a.pago_semanal)}</td>
+                    <td class="text-center">${icon} ${pagada ? 'Pagado' : 'Pendiente'}</td>
+                    <td class="text-center">${compHtml}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        const tablaAmort = `
+        <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d4ed8;margin-bottom:.5rem;">
+            <i class="fa-solid fa-table-list me-1"></i>Amortización y tickets de pago
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="cc-amort-table">
+                <thead>
+                    <tr>
+                        <th class="text-center">#</th>
+                        <th>Fecha pago</th>
+                        <th class="text-end">Pago</th>
+                        <th class="text-center">Estatus</th>
+                        <th class="text-center">Comprobante</th>
+                    </tr>
+                </thead>
+                <tbody>${filasAmort}</tbody>
+            </table>
+        </div>`;
+
+        return resumenHtml + tablaAmort;
+    }
+
+    /* ══════════════════════════════════
        CARGA DE DATOS
     ══════════════════════════════════ */
+
+    // Convenios — lazy: solo al activar la pestaña
+    let conveniosCargado = false;
+    function cargarConvenios() {
+        if (conveniosCargado) return;
+        conveniosCargado = true;
+        document.getElementById('loader-convenios').classList.remove('d-none');
+        fetch('/CierreCredito/getAllConvenios', { method: 'POST' })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                renderConvenios(res.datos);
+            })
+            .catch(err => {
+                document.getElementById('loader-convenios').innerHTML =
+                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
+            });
+    }
 
     // Enviados Finalizados — carga inicial (pestaña activa)
     function cargarEnviadoFinalizado() {
@@ -1137,9 +1460,31 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                             <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
                         </span>`;
             }
+            if (r.estatus === 'en_cola') {
+                return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
+                            <span class="badge rounded-pill" style="background:#fef9c3;color:#854d0e;font-size:.78rem;">
+                                <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
+                            </span>
+                            <button onclick="ccMarcarListoEnvio(${r.id})"
+                                style="font-size:.73rem;padding:2px 9px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:6px;white-space:nowrap;cursor:pointer;">
+                                <i class="fa-solid fa-check me-1"></i>Marcar listo para reenvío
+                            </button>
+                        </div>`;
+            }
+            if (r.estatus === 'listo_envio') {
+                return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
+                            <span class="badge rounded-pill" style="background:#fef9c3;color:#854d0e;font-size:.78rem;">
+                                <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
+                            </span>
+                            <button onclick="ccReenviarACartera(${r.id})" id="cc-hist-btn-${r.id}"
+                                style="font-size:.73rem;padding:2px 9px;background:linear-gradient(135deg,#059669,#10b981);border:none;color:#fff;border-radius:6px;white-space:nowrap;cursor:pointer;">
+                                <i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera
+                            </button>
+                        </div>`;
+            }
             if (r.estatus === 'descartado') {
                 return `<span class="badge rounded-pill" style="background:#ffedd5;color:#9a3412;font-size:.78rem;">
-                            <i class="fa-solid fa-rotate-left me-1"></i>Regresado a revisión
+                            <i class="fa-solid fa-rotate-left me-1"></i>Devuelto a revisión
                         </span>`;
             }
             // en_proceso u otro
@@ -1151,8 +1496,28 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         const fechaMovimiento = (r) => {
             if (r.estatus === 'enviado_cartera') return fmtFecha(r.fecha_envio_cartera);
             if (r.estatus === 'descartado')      return fmtFecha(r.fecha_actualizacion);
+            if (r.estatus === 'en_cola')         return fmtFecha(r.fecha_actualizacion);
+            if (r.estatus === 'listo_envio')     return fmtFecha(r.fecha_actualizacion);
             return fmtFecha(r.fecha_alta);
         };
+
+        /* Columna Acción — comentada, disponible para funciones futuras
+        const accionCol = (r) => {
+            if (r.estatus === 'en_cola') {
+                return `<button onclick="ccMarcarListoEnvio(${r.id})"
+                    style="font-size:.75rem;padding:3px 10px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:6px;white-space:nowrap;">
+                    <i class="fa-solid fa-check me-1"></i>Marcar listo
+                </button>`;
+            }
+            if (r.estatus === 'listo_envio') {
+                return `<button onclick="ccReenviarACartera(${r.id})" id="cc-hist-btn-${r.id}"
+                    style="font-size:.75rem;padding:3px 10px;background:linear-gradient(135deg,#059669,#10b981);border:none;color:#fff;border-radius:6px;white-space:nowrap;">
+                    <i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera
+                </button>`;
+            }
+            return '';
+        };
+        */
 
         const quienMovio = (r) => {
             if (r.estatus === 'en_proceso') return esc(r.usuario_alta);
@@ -1190,6 +1555,90 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 
     document.getElementById('tab-historial-btn')
         .addEventListener('shown.bs.tab', cargarHistorial);
+
+    document.getElementById('tab-convenios-btn')
+        .addEventListener('shown.bs.tab', function () {
+            cargarConvenios();
+            if (_allRowsConv.length) {
+                const t = document.getElementById('cc-input-buscar').value;
+                if (t.trim()) ccFiltrar(t);
+            }
+        });
+
+    /* ══════════════════════════════════
+       MARCAR LISTO (en_cola → listo_envio)
+    ══════════════════════════════════ */
+    window.ccMarcarListoEnvio = function(idRegistro) {
+        Swal.fire({
+            title: '¿Marcar como listo para reenvío?',
+            html: 'Confirma que el límite de envíos ya se restableció y este correo puede ser enviado.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#d97706',
+            confirmButtonText: '<i class="fa-solid fa-check me-1"></i>Sí, marcar listo',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            fetch('/CierreCredito/marcarListoEnvio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `id=${idRegistro}`
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                Swal.fire({ icon: 'success', title: 'Listo', text: res.mensaje, timer: 1800, showConfirmButton: false });
+                refrescarHistorial();
+            })
+            .catch(err => Swal.fire({ icon: 'error', title: 'Error', text: err.message }));
+        });
+    };
+
+    /* ══════════════════════════════════
+       REENVIAR A CARTERA (listo_envio → enviado_cartera / en_cola)
+    ══════════════════════════════════ */
+    window.ccReenviarACartera = function(idRegistro) {
+        Swal.fire({
+            title: '¿Reenviar a cartera?',
+            html: 'Se intentará enviar el correo de notificación nuevamente.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#059669',
+            confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, reenviar',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            const btn = document.getElementById(`cc-hist-btn-${idRegistro}`);
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Enviando...'; }
+            fetch('/CierreCredito/reenviarACartera', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `id=${idRegistro}`
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                const emailOk  = !res.email_error;
+                const emailMsg = res.email_error
+                    ? `<div class="alert alert-warning mt-2 mb-0 py-1 px-2" style="font-size:.8rem;text-align:left;">
+                           <i class="fa-solid fa-triangle-exclamation me-1"></i><strong>Error SMTP:</strong><br>${esc(res.email_error)}
+                       </div>`
+                    : '';
+                Swal.fire({
+                    title: emailOk ? '¡Enviado!' : 'En cola',
+                    html: `<span>${res.mensaje}</span>${emailMsg}`,
+                    icon: emailOk ? 'success' : 'warning',
+                    timer: emailOk ? 2000 : undefined,
+                    showConfirmButton: !emailOk
+                });
+                refrescarHistorial();
+            })
+            .catch(err => {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera'; }
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            });
+        });
+    };
 
     document.getElementById('tab-en-proceso-btn')
         .addEventListener('shown.bs.tab', function () {
@@ -1305,23 +1754,29 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     : '';
 
                 Swal.fire({
-                    title: '¡Enviado!',
+                    title: emailOk ? '¡Enviado!' : 'Error de envío',
                     html: `<span>${res.mensaje}</span>${emailMsg}`,
                     icon: emailOk ? 'success' : 'warning',
                     timer: emailOk ? 2000 : undefined,
                     showConfirmButton: !emailOk
                 });
-                const wrapper = document.getElementById(`cc-ep-wrapper-${idRegistro}`);
-                if (wrapper) { wrapper.remove(); }
-                const badge = document.getElementById('badge-en-proceso');
-                if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 1) - 1);
-                // Si no quedan cards, mostrar estado vacío
-                const wrap2 = document.getElementById('wrap-ep-cards');
-                if (wrap2 && wrap2.querySelectorAll('[id^="cc-ep-card-"]').length === 0) {
-                    wrap2.classList.add('d-none');
-                    document.getElementById('empty-en-proceso').classList.remove('d-none');
+
+                if (emailOk) {
+                    const wrapper = document.getElementById(`cc-ep-wrapper-${idRegistro}`);
+                    if (wrapper) { wrapper.remove(); }
+                    const badge = document.getElementById('badge-en-proceso');
+                    if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 1) - 1);
+                    // Si no quedan cards, mostrar estado vacío
+                    const wrap2 = document.getElementById('wrap-ep-cards');
+                    if (wrap2 && wrap2.querySelectorAll('[id^="cc-ep-card-"]').length === 0) {
+                        wrap2.classList.add('d-none');
+                        document.getElementById('empty-en-proceso').classList.remove('d-none');
+                    }
+                    refrescarHistorial();
+                } else {
+                    // El registro regresó a en_proceso — recargar tab para mostrar badge de envío fallido
+                    cargarEnProceso();
                 }
-                refrescarHistorial();
             })
             .catch(err => {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar a cartera'; }

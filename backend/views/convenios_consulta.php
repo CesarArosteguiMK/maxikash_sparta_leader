@@ -605,6 +605,14 @@ body.dark-mode #migTotalFinal {
                 <i class="fas fa-file-import"></i> Registrar Convenio Existente
             </button>
             <?php endif; ?>
+            <?php if (!empty($permisoReactivarOfertas)): ?>
+            <button type="button" class="btn btn-outline-success"
+                    id="btnReactivarOfertas"
+                    style="display:none;"
+                    onclick="window.reactivarOfertasCredito()">
+                <i class="fa-solid fa-rotate-right me-1"></i> Reactivar Ofertas
+            </button>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -1409,6 +1417,8 @@ function seleccionarCredito(idCredito) {
     document.getElementById('btnHistorialWrap').style.display = 'none';
     var _btnRegConvSel = document.getElementById('btnRegistrarConvenioExistente');
     if (_btnRegConvSel) _btnRegConvSel.style.display = 'none';
+    var _btnReactSel = document.getElementById('btnReactivarOfertas');
+    if (_btnReactSel) _btnReactSel.style.display = 'none';
 
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
@@ -1449,6 +1459,7 @@ function seleccionarCredito(idCredito) {
             var ofertas = datos.ofertas;
             var elegible = datos.elegible;
             var razon = datos.razon;
+            var estaReactivado = !!datos.reactivado;
 
             _credito = credito;
             _ofertas = ofertas;
@@ -1479,6 +1490,10 @@ function seleccionarCredito(idCredito) {
                             _estatusConvenio = (respConvenio.success && respConvenio.datos)
                                 ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
                                 : 'sin_convenio';
+                            // Si reactivado + sólo convenios completados, usar badge neutro
+                            if (estaReactivado && _estatusConvenio === 'completado') {
+                                _estatusConvenio = 'sin_convenio';
+                            }
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
                             renderOfertas(ofertas, bloqueados);
@@ -1496,8 +1511,12 @@ function seleccionarCredito(idCredito) {
 
                             verificarSaldado();
 
+                            // Solo congelar si hay convenio activo (no congelar en créditos reactivados con convenio completado)
                             if (respConvenio.success && respConvenio.datos &&
-                                (respConvenio.datos.estatus === 'activo' || respConvenio.datos.estatus === 'completado')) {
+                                respConvenio.datos.estatus === 'activo') {
+                                congelarModulo(respConvenio.datos);
+                            } else if (!estaReactivado && respConvenio.success && respConvenio.datos &&
+                                respConvenio.datos.estatus === 'completado') {
                                 congelarModulo(respConvenio.datos);
                             }
                         },
@@ -1524,6 +1543,9 @@ function seleccionarCredito(idCredito) {
                             _estatusConvenio = (respConvenio.success && respConvenio.datos)
                                 ? (respConvenio.datos.estatus === 'activo' ? 'activo' : (respConvenio.datos.estatus === 'completado' ? 'completado' : 'sin_convenio'))
                                 : 'sin_convenio';
+                            if (estaReactivado && _estatusConvenio === 'completado') {
+                                _estatusConvenio = 'sin_convenio';
+                            }
                             renderCreditoBanner(credito);
                             var bloqueados = datos.productos_bloqueados || [];
                             renderOfertas(ofertas, bloqueados);
@@ -1531,7 +1553,10 @@ function seleccionarCredito(idCredito) {
                             verificarSaldado();
 
                             if (respConvenio.success && respConvenio.datos &&
-                                (respConvenio.datos.estatus === 'activo' || respConvenio.datos.estatus === 'completado')) {
+                                respConvenio.datos.estatus === 'activo') {
+                                congelarModulo(respConvenio.datos);
+                            } else if (!estaReactivado && respConvenio.success && respConvenio.datos &&
+                                respConvenio.datos.estatus === 'completado') {
                                 congelarModulo(respConvenio.datos);
                             }
                         },
@@ -1551,7 +1576,8 @@ function seleccionarCredito(idCredito) {
 
             // Si el convenio ya está completado, saltar la validación de despacho
             // (el crédito pudo regularizarse y ya no está en asigna_creditos_despacho activo)
-            if (datos.razon === 'convenio_completado') {
+            // También si el crédito fue reactivado, saltar la validación de despacho
+            if (datos.razon === 'convenio_completado' || estaReactivado) {
                 _lanzarHistorial();
                 return;
             }
@@ -1632,6 +1658,9 @@ function renderCreditoBanner(c) {
 
     var _btnRegConvBanner = document.getElementById('btnRegistrarConvenioExistente');
     if (_btnRegConvBanner) _btnRegConvBanner.style.display = 'inline-block';
+
+    var _btnReact = document.getElementById('btnReactivarOfertas');
+    if (_btnReact) _btnReact.style.display = 'inline-block';
 }
 
 // ══════════════════════════════════════════════════════
@@ -3654,6 +3683,69 @@ var _migSemanas = 0;
 var _migOfertas = [];  // ofertas del crédito activo en el modal
 
 
+
+// ══════════════════════════════════════════════════════
+//  REACTIVAR OFERTAS
+// ══════════════════════════════════════════════════════
+window.reactivarOfertasCredito = function () {
+    if (!_credito) return;
+    var idCredito = _credito.Id_credito;
+    var nombre = _credito.Nombre_cliente || '';
+
+    Swal.fire({
+        title: 'Reactivar Ofertas',
+        html:
+            '<p>Crédito <strong>#' + idCredito + '</strong> — ' + nombre + '</p>' +
+            '<p class="text-muted small mb-0">Se habilitarán todas las ofertas disponibles para este crédito, ' +
+            'ignorando convenios finalizados o cancelados anteriores. ' +
+            'El historial de convenios se conserva intacto.</p>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-rotate-right me-1"></i>Sí, reactivar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        buttonsStyling: false,
+        customClass: {
+            actions: 'd-flex gap-2 justify-content-center',
+            confirmButton: 'btn btn-success px-4',
+            cancelButton: 'btn btn-outline-secondary px-4'
+        }
+    }).then(function (res) {
+        if (!res.isConfirmed) return;
+
+        var fd = new FormData();
+        fd.append('id_credito', idCredito);
+
+        Swal.fire({
+            title: 'Reactivando...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: function () { Swal.showLoading(); }
+        });
+
+        fetch('/convenios/reactivarOfertas', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Ofertas reactivadas!',
+                        text: data.mensaje || 'Ahora puedes generar un nuevo convenio.',
+                        confirmButtonText: 'Continuar'
+                    }).then(function () {
+                        // Volver a cargar el crédito para mostrar las ofertas frescas
+                        seleccionarCredito(idCredito);
+                    });
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'Ocurrió un error.' });
+                }
+            })
+            .catch(function () {
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo contactar al servidor.' });
+            });
+    });
+};
 
 window.abrirModalMigracion = function () {
     // Resetear variables
