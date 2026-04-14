@@ -5948,7 +5948,7 @@ class CapHum extends Controller
         $ttl = 45;
 
         if (function_exists('apcu_fetch')) {
-            $cached = @apcu_fetch($cacheKey);
+            $cached = @\apcu_fetch($cacheKey);
             if ($cached !== false && is_array($cached) && isset($cached['ts']) && (time() - $cached['ts']) <= $ttl && isset($cached['json'])) {
                 echo $cached['json'];
                 return;
@@ -6012,7 +6012,7 @@ class CapHum extends Controller
         $json = json_encode(self::respuesta(true, 'OK', $payload));
 
         if (function_exists('apcu_store')) {
-            @apcu_store($cacheKey, ['ts' => time(), 'json' => $json], $ttl);
+            @\apcu_store($cacheKey, ['ts' => time(), 'json' => $json], $ttl);
         } else {
             if (!is_dir($cacheDir)) {
                 @mkdir($cacheDir, 0755, true);
@@ -6619,7 +6619,6 @@ class CapHum extends Controller
         $hBody = curl_exec($hc);
         $hCode = curl_getinfo($hc, CURLINFO_HTTP_CODE);
         $hErr = curl_error($hc);
-        curl_close($hc);
         if ($hCode !== 200 || $hBody === false) {
             return ['error' => 'La API no responde (health-check falló en 3 s). Enciéndela con: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000' . ($hErr ? ' — ' . $hErr : '')];
         }
@@ -6661,7 +6660,6 @@ class CapHum extends Controller
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr = curl_error($ch);
         $curlErrno = curl_errno($ch);
-        curl_close($ch);
         if ($curlErrno !== 0 || $body === false) {
             $mensaje = $curlErr ?: 'Error de conexión (código ' . $curlErrno . ').';
             return ['error' => 'No se pudo conectar con la API: ' . $mensaje];
@@ -6708,7 +6706,6 @@ class CapHum extends Controller
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr = curl_error($ch);
-        curl_close($ch);
         if ($body === false || $httpCode !== 200) {
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -6752,7 +6749,6 @@ class CapHum extends Controller
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr = curl_error($ch);
-        curl_close($ch);
         if ($body === false || $httpCode !== 200) {
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -6793,7 +6789,6 @@ class CapHum extends Controller
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr = curl_error($ch);
-        curl_close($ch);
         if ($body === false || $httpCode !== 200) {
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -6833,7 +6828,6 @@ class CapHum extends Controller
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr = curl_error($ch);
-        curl_close($ch);
         if ($body === false || $httpCode !== 200) {
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -6872,7 +6866,6 @@ class CapHum extends Controller
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
         if ($body === false || $httpCode !== 200) {
             return null;
         }
@@ -6920,7 +6913,6 @@ class CapHum extends Controller
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
         if ($httpCode !== 200 || $body === false || $body === '') {
             return null;
         }
@@ -6975,7 +6967,6 @@ class CapHum extends Controller
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err = curl_error($ch);
-        curl_close($ch);
         if ($err !== '' || $httpCode !== 200 || $body === false || $body === '') {
             return null;
         }
@@ -7509,7 +7500,6 @@ class CapHum extends Controller
             $response = curl_exec($ch);
             $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $curlErr  = curl_error($ch);
-            curl_close($ch);
             if ($curlErr !== '') {
                 $this->enviarCorreoUltimoError = 'SendGrid: ' . $curlErr;
                 return false;
@@ -9665,7 +9655,7 @@ public function getMunicipios()
                     ? 'Módulo asignado correctamente'
                     : 'Módulo eliminado correctamente'
             ]);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             self::respuestaJSON([
                 'success' => false,
                 'mensaje' => 'Error al actualizar el módulo'

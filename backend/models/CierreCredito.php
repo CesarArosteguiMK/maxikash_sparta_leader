@@ -23,7 +23,8 @@ class CierreCredito extends Model
             $rows = $db->queryAll(
                 "SELECT id, id_credito, nombre_cliente, estatus,
                         fecha_alta, usuario_alta,
-                        fecha_actualizacion, usuario_actualizacion
+                        fecha_actualizacion, usuario_actualizacion,
+                        fecha_envio_cartera
                  FROM cierre_credito_seguimiento
                  WHERE estatus = 'en_proceso'
                  ORDER BY fecha_alta DESC"
@@ -155,6 +156,7 @@ class CierreCredito extends Model
                     cc.estatus,
                     cc.usuario_alta,
                     cc.fecha_alta,
+                    cc.fecha_modifica,
                     (SELECT COUNT(*)
                      FROM convenio_cliente_amortizacion a
                      WHERE a.id_convenio_cliente = cc.id
@@ -175,7 +177,7 @@ class CierreCredito extends Model
                    AND NOT EXISTS (
                        SELECT 1 FROM cierre_credito_seguimiento ccs
                        WHERE ccs.id_credito = cc.id_credito
-                         AND ccs.estatus IN ('en_proceso', 'enviado_cartera')
+                         AND ccs.estatus IN ('en_proceso', 'enviado_cartera', 'en_cola', 'listo_envio')
                    )
                  ORDER BY cc.fecha_alta DESC"
             );
@@ -291,7 +293,7 @@ class CierreCredito extends Model
      *
      * Para activar el envío de email, descomentar mail_cartera en config.ini [mail].
      */
-    public static function enviarACartera(int $id, string $usuario): array
+    public static function enviarACartera(int $id, string $usuario, string $estatusOrigen = 'en_proceso'): array
     {
         try {
             $db = new Database();
@@ -300,13 +302,13 @@ class CierreCredito extends Model
             $registro = $db->queryOne(
                 "SELECT id, id_credito, nombre_cliente, estatus
                  FROM cierre_credito_seguimiento
-                 WHERE id = :id AND estatus = 'en_proceso'
+                 WHERE id = :id AND estatus = :estatus
                  LIMIT 1",
-                ['id' => $id]
+                ['id' => $id, 'estatus' => $estatusOrigen]
             );
 
             if (!$registro) {
-                return self::resultado(false, 'Registro no encontrado o ya fue enviado.');
+                return self::resultado(false, 'Registro no encontrado o no está en el estatus esperado.');
             }
 
             // 2. Obtener datos del convenio (para el cuerpo del correo)
@@ -472,27 +474,35 @@ class CierreCredito extends Model
                 }
             }
 
-            // 5. Actualizar estatus (siempre, independientemente del email)
-            $db->CRUD(
-                "UPDATE cierre_credito_seguimiento
-                 SET estatus                = 'enviado_cartera',
-                     usuario_actualizacion  = :usuario,
-                     fecha_envio_cartera    = NOW(),
-                     email_destino_cartera  = :email
-                 WHERE id = :id",
-                [
-                    'usuario' => $usuario,
-                    'email'   => $emailDestinatario,
-                    'id'      => $id,
-                ]
-            );
-
-            if ($emailEnviado) {
-                $msg = "Cierre enviado a cartera y correo notificado a {$emailDestinatario}.";
-            } elseif ($emailError !== null) {
-                $msg = 'Cierre marcado como enviado a cartera. El correo no pudo enviarse.';
+            // 5. Actualizar estatus
+            if ($emailError !== null) {
+                // Email fallido: regresar a en_proceso y guardar fecha_envio_cartera como señal
+                $db->CRUD(
+                    "UPDATE cierre_credito_seguimiento
+                     SET estatus               = 'en_proceso',
+                         usuario_actualizacion = :usuario,
+                         fecha_actualizacion   = NOW(),
+                         fecha_envio_cartera   = NOW()
+                     WHERE id = :id",
+                    ['usuario' => $usuario, 'id' => $id]
+                );
+                $msg = 'El correo no pudo enviarse. El registro regresó a En Proceso para reintento.';
             } else {
-                $msg = 'Cierre marcado como enviado a cartera. (Correo no configurado: revisar mail_cartera en config.ini)';
+                // Email OK o no configurado
+                $db->CRUD(
+                    "UPDATE cierre_credito_seguimiento
+                     SET estatus               = 'enviado_cartera',
+                         usuario_actualizacion = :usuario,
+                         fecha_envio_cartera   = NOW(),
+                         email_destino_cartera = :email
+                     WHERE id = :id",
+                    ['usuario' => $usuario, 'email' => $emailDestinatario, 'id' => $id]
+                );
+                if ($emailEnviado) {
+                    $msg = "Cierre enviado a cartera y correo notificado a {$emailDestinatario}.";
+                } else {
+                    $msg = 'Cierre marcado como enviado a cartera. (Correo no configurado: revisar mail_cartera en config.ini)';
+                }
             }
 
             $resultado = self::resultado(true, $msg);
@@ -624,6 +634,139 @@ class CierreCredito extends Model
      * Devuelve todos los registros de cierre_credito_seguimiento ordenados
      * por actividad más reciente, para la pestaña Historial.
      */
+    // ─────────────────────────────────────────────
+    // MARCAR LISTO PARA REENVÍO
+    // ─────────────────────────────────────────────
+
+    /**
+     * Promueve un registro de 'en_cola' a 'listo_envio'.
+     * El usuario decide manualmente cuando el límite de envíos ya se restableció.
+     */
+    public static function marcarListoEnvio(int $id, string $usuario): array
+    {
+        try {
+            $db = new Database();
+            $registro = $db->queryOne(
+                "SELECT id FROM cierre_credito_seguimiento WHERE id = :id AND estatus = 'en_cola' LIMIT 1",
+                ['id' => $id]
+            );
+            if (!$registro) {
+                return self::resultado(false, 'Registro no encontrado o no está en cola.');
+            }
+            $db->CRUD(
+                "UPDATE cierre_credito_seguimiento
+                 SET estatus               = 'listo_envio',
+                     usuario_actualizacion = :usuario,
+                     fecha_actualizacion   = NOW()
+                 WHERE id = :id",
+                ['usuario' => $usuario, 'id' => $id]
+            );
+            return self::resultado(true, 'Registro marcado como listo para reenvío.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar.', [], $e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // TODOS LOS CONVENIOS (pestaña Convenios)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Devuelve todos los convenios con progreso de pagos y documentos adjuntos.
+     */
+    public static function getAllConvenios(): array
+    {
+        try {
+            $db   = new Database();
+            $rows = $db->queryAll(
+                "SELECT
+                    cc.id,
+                    cc.id_credito,
+                    cc.nombre_cliente,
+                    pc.nombre               AS nombre_producto,
+                    cc.porcentaje_descuento,
+                    cc.descuento_monto,
+                    cc.total_a_pagar,
+                    cc.monto_adicional,
+                    cc.adeudo_total_original,
+                    cc.numero_semanas,
+                    cc.pago_semanal,
+                    cc.fecha_acuerdo,
+                    cc.fecha_primer_pago,
+                    cc.fecha_ultimo_pago,
+                    cc.estatus,
+                    cc.pdf_adjunto,
+                    cc.usuario_alta,
+                    cc.fecha_alta,
+                    cc.fecha_modifica,
+                    (SELECT COUNT(*)
+                     FROM convenio_cliente_amortizacion a
+                     WHERE a.id_convenio_cliente = cc.id
+                       AND a.estatus_pago = 'pagado')                         AS cuotas_pagadas,
+                    (SELECT COUNT(*)
+                     FROM convenio_cliente_amortizacion a
+                     WHERE a.id_convenio_cliente = cc.id)                     AS num_semanas_amort,
+                    (SELECT COUNT(*)
+                     FROM convenio_cliente_amortizacion a
+                     WHERE a.id_convenio_cliente = cc.id
+                       AND a.comprobante_path IS NOT NULL
+                       AND a.comprobante_path != '')                          AS comprobantes_subidos
+                 FROM convenio_cliente cc
+                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 ORDER BY cc.fecha_alta DESC"
+            );
+            return self::resultado(true, 'Convenios.', $rows ?: []);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener convenios.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Devuelve encabezado del convenio + tabla de amortización completa
+     * para un convenio_cliente.id dado (acceso directo, sin cierre_credito_seguimiento).
+     *
+     * @param int $idConvenio  PK de convenio_cliente
+     */
+    public static function getDetalleConvenio(int $idConvenio): array
+    {
+        try {
+            $db      = new Database();
+            $convenio = $db->queryOne(
+                "SELECT cc.id AS id_convenio, cc.id_credito, cc.nombre_cliente,
+                        pc.nombre               AS nombre_producto,
+                        cc.pdf_adjunto,
+                        cc.total_a_pagar,       cc.porcentaje_descuento,
+                        cc.descuento_monto,     cc.adeudo_total_original,
+                        cc.monto_adicional,     cc.pago_inicial_monto,
+                        cc.numero_semanas,      cc.pago_semanal,
+                        cc.fecha_acuerdo,       cc.fecha_primer_pago,
+                        cc.fecha_ultimo_pago
+                 FROM convenio_cliente cc
+                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE cc.id = :id LIMIT 1",
+                ['id' => $idConvenio]
+            );
+            if (!$convenio) {
+                return self::resultado(false, 'Convenio no encontrado.');
+            }
+            $amortizacion = $db->queryAll(
+                "SELECT numero_semana, fecha_pago, pago_semanal,
+                        capital, saldo_restante, estatus_pago,
+                        comprobante_path, fecha_pago_real
+                 FROM convenio_cliente_amortizacion
+                 WHERE id_convenio_cliente = :id
+                 ORDER BY numero_semana ASC",
+                ['id' => $idConvenio]
+            ) ?: [];
+            return self::resultado(true, 'Detalle del convenio.', [
+                'convenio'     => $convenio,
+                'amortizacion' => $amortizacion,
+            ]);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener el detalle.', [], $e->getMessage());
+        }
+    }
+
     public static function getHistorial(): array
     {
         try {

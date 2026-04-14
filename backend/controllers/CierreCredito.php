@@ -98,6 +98,63 @@ class CierreCredito extends Controller
     }
 
     // ─────────────────────────────────────────────
+    // API: MARCAR LISTO PARA REENVÍO (en_cola → listo_envio)
+    // ─────────────────────────────────────────────
+
+    public function marcarListoEnvio()
+    {
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::marcarListoEnvio($id, $usuario);
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: REENVIAR A CARTERA (listo_envio → enviado_cartera / en_cola)
+    // ─────────────────────────────────────────────
+
+    public function reenviarACartera()
+    {
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::enviarACartera($id, $usuario, 'listo_envio');
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: TODOS LOS CONVENIOS (pestaña Convenios)
+    // ─────────────────────────────────────────────
+
+    public function getAllConvenios()
+    {
+        $r = CierreCreditoDAO::getAllConvenios();
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: DETALLE DE CONVENIO (por convenio_cliente.id)
+    // ─────────────────────────────────────────────
+
+    public function getDetalleConvenio()
+    {
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        $r = CierreCreditoDAO::getDetalleConvenio($id);
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
     // API: DESCARTAR (regresa a Enviados Finalizados)
     // ─────────────────────────────────────────────
 

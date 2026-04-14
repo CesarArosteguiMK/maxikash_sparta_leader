@@ -13,7 +13,106 @@
         cursor: pointer;
     }
 
-    /* DataTables usará sus propios estilos */
+    /* ===== DATATABLE ===== */
+    .card-datatable {
+        padding: 1.5rem;
+    }
+
+    .table thead th {
+        background: #f8f9fa;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e9ecef;
+        padding: 1rem 0.75rem;
+        white-space: nowrap;
+    }
+
+    .table tbody td {
+        font-size: 0.85rem;
+        vertical-align: middle;
+        padding: 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+        transition: all 0.2s ease;
+    }
+
+    .dataTables_paginate {
+        margin-top: 1rem;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .pagination {
+        margin: 0;
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .pagination .paginate_button {
+        display: inline-block;
+        padding: 0.375rem 0.75rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        color: #0d6efd;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .pagination .paginate_button:hover {
+        background: #e9ecef;
+        border-color: #dee2e6;
+    }
+
+    .pagination .paginate_button.current {
+        background: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+    }
+
+    .pagination .paginate_button.disabled {
+        color: #6c757d;
+        pointer-events: none;
+        background: #e9ecef;
+    }
+
+    .dataTables_length {
+        margin-bottom: 1rem;
+    }
+
+    .dataTables_length select {
+        margin: 0 0.5rem;
+        padding: 0.375rem 1.75rem 0.375rem 0.75rem;
+    }
+
+    .dataTables_filter {
+        margin-bottom: 1rem;
+        text-align: right;
+    }
+
+    .dataTables_filter input {
+        margin-left: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        border: 1px solid #d9dee3;
+        border-radius: 0.375rem;
+    }
+
+    .dataTables_filter input:focus {
+        border-color: #0d6efd;
+        outline: none;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    }
+
+    .dataTables_info {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
 
     /* ===== BADGES ===== */
     .badge {
@@ -456,6 +555,105 @@
 
 <script>
 let condonacionesData = [];
+let tablaCondonaciones = null;
+
+/* ========== INICIALIZAR DATATABLE ========== */
+function inicializarDataTable() {
+    if ($.fn.DataTable.isDataTable('#tablaCondonaciones')) {
+        $('#tablaCondonaciones').DataTable().destroy();
+    }
+
+    // Filtro por rango de fechas (campo fecha_solicitud en columna 5 - índice visible)
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        if (settings.nTable.id !== 'tablaCondonaciones') return true;
+        const desde = document.getElementById('fechaDesde').value;
+        const hasta = document.getElementById('fechaHasta').value;
+        if (!desde && !hasta) return true;
+        const row = tablaCondonaciones.row(dataIndex).data();
+        if (!row) return true;
+        const fechaFila = new Date(row.fecha_solicitud);
+        if (desde && fechaFila < new Date(desde)) return false;
+        if (hasta && fechaFila > new Date(hasta + 'T23:59:59')) return false;
+        return true;
+    });
+
+    tablaCondonaciones = $('#tablaCondonaciones').DataTable({
+        data: [],
+        columns: [
+            { orderable: false, searchable: false, data: null, defaultContent: '', className: 'control' },
+            { data: 'id_condonacion', render: d => `#${d}` },
+            { data: 'nombre_colaborador', defaultContent: 'N/A' },
+            { data: 'id_credito' },
+            {
+                data: 'total_condonado',
+                render: d => `<strong class="text-success">$${parseFloat(d).toFixed(2)}</strong>`
+            },
+            {
+                data: 'fecha_solicitud',
+                render: d => formatearFecha(d)
+            },
+            { data: 'nombre_usuario', defaultContent: 'N/A' },
+            {
+                data: 'total_detalles',
+                render: d => `<span class="badge bg-info">${d || 0} gastos</span>`,
+                orderable: false
+            },
+            {
+                data: null,
+                orderable: false,
+                searchable: false,
+                render: (d, t, row) =>
+                    `<button class="btn btn-sm btn-outline-primary" onclick="verDetalleCondonacion(${row.id_condonacion})">
+                        <i class="bx bx-show"></i> Ver
+                    </button>`
+            }
+        ],
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        order: [[5, 'desc']],
+        responsive: {
+            details: {
+                display: $.fn.dataTable.Responsive.display.modal({
+                    header: function(row) {
+                        const d = row.data();
+                        return 'Condonación #' + d.id_condonacion;
+                    }
+                }),
+                renderer: $.fn.dataTable.Responsive.renderer.tableAll({
+                    tableClass: 'table table-bordered'
+                })
+            }
+        },
+        language: {
+            decimal: "",
+            emptyTable: "No hay condonaciones registradas",
+            info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+            infoEmpty: "Mostrando 0 a 0 de 0 registros",
+            infoFiltered: "(filtrado de _MAX_ registros totales)",
+            thousands: ",",
+            lengthMenu: "Mostrar _MENU_ registros",
+            loadingRecords: "Cargando...",
+            processing: "Procesando...",
+            search: "Buscar:",
+            zeroRecords: "No se encontraron resultados",
+            paginate: {
+                first: "«",
+                last: "»",
+                next: "›",
+                previous: "‹"
+            }
+        },
+        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+             '<"row"<"col-sm-12"tr>>' +
+             '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+        autoWidth: false,
+        drawCallback: function() {
+            $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+            $('.dataTables_length select').addClass('form-select form-select-sm');
+            $('.dataTables_filter input').addClass('form-control form-control-sm');
+        }
+    });
+}
 
 /* ========== CARGAR CONDONACIONES ========== */
 function cargarCondonaciones() {
@@ -465,57 +663,20 @@ function cargarCondonaciones() {
         onSuccess: (resp) => {
             if (resp.success && resp.datos) {
                 condonacionesData = resp.datos;
-                renderCondonaciones(resp.datos);
+                tablaCondonaciones.clear().rows.add(resp.datos).draw();
                 cargarEstadisticas();
             } else {
-                mostrarTablaVacia();
+                tablaCondonaciones.clear().draw();
             }
         },
         onError: (err) => {
             console.error('Error al cargar condonaciones:', err);
-            mostrarError();
+            tablaCondonaciones.clear().draw();
         }
     });
 }
 
 /* ========== RENDERIZAR TABLA ========== */
-function renderCondonaciones(datos) {
-    const tbody = document.getElementById('bodyCondonaciones');
-
-    if (!datos || datos.length === 0) {
-        mostrarTablaVacia();
-        return;
-    }
-
-    let html = '';
-    datos.forEach(item => {
-        html += `
-            <tr class="fade-in">
-                <td></td>
-                <td data-label="ID">#${item.id_condonacion}</td>
-                <td data-label="Cliente">${item.nombre_colaborador || 'N/A'}</td>
-                <td data-label="Crédito">${item.id_credito}</td>
-                <td data-label="Monto">
-                    <strong class="text-success">$${parseFloat(item.total_condonado).toFixed(2)}</strong>
-                </td>
-                <td data-label="Fecha">${formatearFecha(item.fecha_solicitud)}</td>
-                <td data-label="Usuario">${item.nombre_usuario || item.usuario || 'N/A'}</td>
-                <td data-label="Detalles">
-                    <span class="badge bg-info">${item.total_detalles || 0} gastos</span>
-                </td>
-                <td data-label="Acciones">
-                    <button class="btn btn-sm btn-outline-primary"
-                            onclick="verDetalleCondonacion(${item.id_condonacion})">
-                        <i class="bx bx-show"></i> Ver
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-
-    tbody.innerHTML = html;
-}
-
 /* ========== MOSTRAR DETALLE ========== */
 function verDetalleCondonacion(id) {
     http.request({
@@ -668,52 +829,26 @@ function cargarEstadisticas() {
 
 /* ========== FILTROS ========== */
 function aplicarFiltros() {
-    const buscar = document.getElementById('buscarTexto').value.toLowerCase();
-    const fechaDesde = document.getElementById('fechaDesde').value;
-    const fechaHasta = document.getElementById('fechaHasta').value;
+    if (!tablaCondonaciones) return;
+
+    // Búsqueda de texto (usa el search nativo de DataTables)
+    const buscar = document.getElementById('buscarTexto').value;
+    tablaCondonaciones.search(buscar);
+
+    // Ordenar por select externo
     const ordenar = document.getElementById('ordenar').value;
-
-    let datosFiltrados = [...condonacionesData];
-
-    // Filtro de búsqueda
-    if (buscar) {
-        datosFiltrados = datosFiltrados.filter(item =>
-            (item.id_condonacion && item.id_condonacion.toString().includes(buscar)) ||
-            (item.nombre_colaborador && item.nombre_colaborador.toLowerCase().includes(buscar)) ||
-            (item.nombre_usuario && item.nombre_usuario.toLowerCase().includes(buscar)) ||
-            (item.usuario && item.usuario.toLowerCase().includes(buscar))
-        );
+    const ordenMap = {
+        fecha_desc:  [5, 'desc'],
+        fecha_asc:   [5, 'asc'],
+        monto_desc:  [4, 'desc'],
+        monto_asc:   [4, 'asc']
+    };
+    if (ordenMap[ordenar]) {
+        tablaCondonaciones.order(ordenMap[ordenar]);
     }
 
-    // Filtro de fechas
-    if (fechaDesde) {
-        datosFiltrados = datosFiltrados.filter(item =>
-            new Date(item.fecha_solicitud) >= new Date(fechaDesde)
-        );
-    }
-    if (fechaHasta) {
-        datosFiltrados = datosFiltrados.filter(item =>
-            new Date(item.fecha_solicitud) <= new Date(fechaHasta)
-        );
-    }
-
-    // Ordenar
-    datosFiltrados.sort((a, b) => {
-        switch(ordenar) {
-            case 'fecha_desc':
-                return new Date(b.fecha_solicitud) - new Date(a.fecha_solicitud);
-            case 'fecha_asc':
-                return new Date(a.fecha_solicitud) - new Date(b.fecha_solicitud);
-            case 'monto_desc':
-                return parseFloat(b.total_condonado) - parseFloat(a.total_condonado);
-            case 'monto_asc':
-                return parseFloat(a.total_condonado) - parseFloat(b.total_condonado);
-            default:
-                return 0;
-        }
-    });
-
-    renderCondonaciones(datosFiltrados);
+    // Redibujar con filtros de fecha (gestionados por ext.search)
+    tablaCondonaciones.draw();
 }
 
 /* ========== UTILIDADES ========== */
@@ -727,29 +862,6 @@ function formatearFecha(fecha) {
         hour: '2-digit',
         minute: '2-digit'
     });
-}
-
-function mostrarTablaVacia() {
-    document.getElementById('bodyCondonaciones').innerHTML = `
-        <tr>
-            <td colspan="9" class="text-center py-5">
-                <div class="empty-state">
-                    <i class="bx bx-file-blank"></i>
-                    <p>No hay condonaciones registradas</p>
-                </div>
-            </td>
-        </tr>
-    `;
-}
-
-function mostrarError() {
-    document.getElementById('bodyCondonaciones').innerHTML = `
-        <tr>
-            <td colspan="9" class="text-center py-5 text-danger">
-                Error al cargar los datos
-            </td>
-        </tr>
-    `;
 }
 
 function showToast(mensaje, tipo = 'info') {
@@ -787,6 +899,7 @@ function showToast(mensaje, tipo = 'info') {
 
 /* ========== INICIALIZACIÓN ========== */
 document.addEventListener('DOMContentLoaded', function() {
+    inicializarDataTable();
     cargarCondonaciones();
 });
 </script>
