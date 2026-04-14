@@ -1027,29 +1027,32 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     render: function(d, t, r) {
                         const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
                         const compSub = parseInt(r.comprobantes_subidos) || 0;
-                        const pdfIcon = pdfOk
-                            ? `<span class="cc-doc-ok" style="padding:2px 7px;" title="PDF convenio adjunto"><i class="fa-solid fa-file-pdf"></i></span>`
-                            : `<span class="cc-doc-missing" style="padding:2px 7px;" title="Sin PDF convenio"><i class="fa-solid fa-file-pdf"></i></span>`;
-                        const compIcon = compSub > 0
-                            ? `<span class="cc-doc-ok" style="padding:2px 8px;" title="${compSub} comprobante${compSub !== 1 ? 's' : ''}"><i class="fa-solid fa-receipt me-1"></i>${compSub}</span>`
-                            : `<span class="cc-doc-missing" style="padding:2px 7px;" title="Sin comprobantes"><i class="fa-solid fa-receipt"></i></span>`;
-                        return `<div style="display:flex;gap:.3rem;">${pdfIcon}${compIcon}</div>`;
+                        if (!pdfOk && compSub === 0) return '<span class="text-muted">—</span>';
+                        let html = '<div style="display:flex;gap:.3rem;flex-wrap:wrap;">';
+                        if (pdfOk)
+                            html += `<a href="${esc(r.pdf_adjunto)}" target="_blank"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        style="font-size:.72rem;padding:.2rem .55rem;"
+                                        title="Ver PDF del convenio">
+                                        <i class="fa-solid fa-file-pdf me-1"></i>PDF
+                                     </a>`;
+                        if (compSub > 0)
+                            html += `<span class="cc-doc-ok" style="padding:2px 9px;font-size:.75rem;font-weight:700;"
+                                          title="${compSub} comprobante${compSub !== 1 ? 's' : ''} subido${compSub !== 1 ? 's' : ''}">
+                                          <i class="fa-solid fa-receipt me-1"></i>${compSub}
+                                     </span>`;
+                        html += '</div>';
+                        return html;
                     }
                 },
                 {
                     data: null, orderable: false, searchable: false,
                     render: function(d, t, r) {
-                        const pdfOk = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
-                        const pdfLink = pdfOk
-                            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .5rem;" title="Abrir PDF"><i class="fa-solid fa-file-pdf"></i></a>`
-                            : '';
-                        return `<div style="display:inline-flex;gap:.35rem;align-items:center;">` +
-                               pdfLink +
-                               `<button class="btn btn-sm btn-outline-primary" style="font-size:.72rem;white-space:nowrap;"` +
+                        return `<button class="btn btn-sm btn-outline-primary" style="font-size:.72rem;white-space:nowrap;"` +
                                ` onclick="ccToggleDetalleConv(this,${r.id})"` +
                                ` title="Ver amortización y documentos">` +
                                `<i class="fa-solid fa-chevron-down" style="font-size:.65rem;"></i> Ver detalle` +
-                               `</button></div>`;
+                               `</button>`;
                     }
                 }
             ],
