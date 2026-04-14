@@ -248,7 +248,6 @@ class CapHumEstadisticas extends Model
             $tbp = self::tblBd('baja_persona');
             $tcnd = self::tblBd('candidatos');
             $tmw = self::tblBd('asigna_modulo_web');
-            $taj = self::tblBd('asigna_jefe');
             $trg = self::tblBd('reingresos');
             $tpa = self::tblBd('paises');
             $taus = self::tblBd('ausencia');
@@ -315,14 +314,6 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT COUNT(*) AS c FROM ' . $tbp . ' bp
                  WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff',
-                $paramsRango
-            );
-
-            $transferencias = self::scalarInt(
-                $db,
-                'SELECT COUNT(*) AS c FROM ' . $taj . ' aj
-                 WHERE aj.fecha_fin IS NOT NULL
-                   AND DATE(aj.fecha_fin) BETWEEN :fi AND :ff',
                 $paramsRango
             );
 
@@ -679,6 +670,45 @@ class CapHumEstadisticas extends Model
                 $opDeptoTopCnt = (int) ($rowDepto['cnt'] ?? 0);
             }
 
+            $rowsPlantDepto = self::queryAllSafe(
+                $db,
+                'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
+                 FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
+                 LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id
+                 WHERE ' . $sqlActivo . $hcActivoCierre . '
+                 GROUP BY d.id, d.nombre
+                 ORDER BY cnt DESC',
+                $paramsRango
+            );
+            $plantillaPorDepto = [];
+            $maxSlices = 20;
+            $nPlantDept = count($rowsPlantDepto);
+            if ($nPlantDept === 0) {
+                // sin filas
+            } elseif ($nPlantDept <= $maxSlices) {
+                foreach ($rowsPlantDepto as $r) {
+                    $plantillaPorDepto[] = [
+                        'nombre' => (string) ($r['nombre'] ?? '—'),
+                        'cnt' => (int) ($r['cnt'] ?? 0),
+                    ];
+                }
+            } else {
+                for ($i = 0; $i < $maxSlices - 1; $i++) {
+                    $r = $rowsPlantDepto[$i];
+                    $plantillaPorDepto[] = [
+                        'nombre' => (string) ($r['nombre'] ?? '—'),
+                        'cnt' => (int) ($r['cnt'] ?? 0),
+                    ];
+                }
+                $otrosSum = 0;
+                for ($i = $maxSlices - 1; $i < $nPlantDept; $i++) {
+                    $otrosSum += (int) ($rowsPlantDepto[$i]['cnt'] ?? 0);
+                }
+                if ($otrosSum > 0) {
+                    $plantillaPorDepto[] = ['nombre' => 'Otros', 'cnt' => $otrosSum];
+                }
+            }
+
             $datos = [
                 'periodo_label' => $rango['periodo_label'],
                 'fecha_ini' => $fi,
@@ -690,8 +720,8 @@ class CapHumEstadisticas extends Model
                 'puestos_unicos' => $puestosUnicos,
                 'ingresos' => $ingresos,
                 'bajas' => $bajas,
-                'transferencias' => $transferencias,
                 'reingresos' => $reingresos,
+                'plantilla_por_departamento' => $plantillaPorDepto,
                 'rotacion_pct' => $rotacionPct,
                 'rotacion_badge_class' => $rotacionBadge,
                 'rotacion_badge_text' => $rotacionBadgeText,
@@ -736,6 +766,130 @@ class CapHumEstadisticas extends Model
             return self::resultado(true, 'OK', $datos);
         } catch (\Throwable $e) {
             return self::resultado(false, 'Error al calcular estadísticas.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Agrupa filas [{nombre, cnt}, ...] en máximo $maxSlices segmentos (último = «Otros»).
+     *
+     * @param list<array<string, mixed>> $rows
+     * @return list<array{nombre: string, cnt: int}>
+     */
+    private static function bucketDepartamentoRows(array $rows, int $maxSlices = 20): array
+    {
+        $maxSlices = max(2, $maxSlices);
+        $out = [];
+        $n = count($rows);
+        if ($n === 0) {
+            return [];
+        }
+        if ($n <= $maxSlices) {
+            foreach ($rows as $r) {
+                $out[] = [
+                    'nombre' => (string) ($r['nombre'] ?? '—'),
+                    'cnt' => (int) ($r['cnt'] ?? 0),
+                ];
+            }
+
+            return $out;
+        }
+        for ($i = 0; $i < $maxSlices - 1; $i++) {
+            $r = $rows[$i];
+            $out[] = [
+                'nombre' => (string) ($r['nombre'] ?? '—'),
+                'cnt' => (int) ($r['cnt'] ?? 0),
+            ];
+        }
+        $otros = 0;
+        for ($i = $maxSlices - 1; $i < $n; $i++) {
+            $otros += (int) ($rows[$i]['cnt'] ?? 0);
+        }
+        if ($otros > 0) {
+            $out[] = ['nombre' => 'Otros', 'cnt' => $otros];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Desglose por departamento de ingresos, bajas o reingresos en el mismo rango que el panel.
+     * Departamento = del puesto de la última fila de asigna_puesto por persona (MAX id).
+     *
+     * @return array{success: bool, datos?: array<string, mixed>, error?: string}
+     */
+    public static function getMovimientoPorDepartamento(string $tipo, int $anio, int $mes, int $semana): array
+    {
+        $tipo = strtolower(trim($tipo));
+        if (!in_array($tipo, ['ingresos', 'bajas', 'reingresos'], true)) {
+            return self::resultado(false, 'Tipo no válido. Use ingresos, bajas o reingresos.', null);
+        }
+        try {
+            $db = new Database();
+            $rango = self::rangoMesSemana($anio, $mes, $semana);
+            $fi = $rango['fecha_ini'];
+            $ff = $rango['fecha_fin'];
+            $params = ['fi' => $fi, 'ff' => $ff];
+
+            $tp = self::tblBd('persona');
+            $tap = self::tblBd('asigna_puesto');
+            $tpu = self::tblBd('puesto');
+            $td = self::tblBd('departamento');
+            $tbp = self::tblBd('baja_persona');
+            $trg = self::tblBd('reingresos');
+
+            $sqlJoinUltPuestoDepto = '
+                 LEFT JOIN (
+                     SELECT apx.id_persona, apx.id_puesto
+                     FROM ' . $tap . ' apx
+                     INNER JOIN (
+                         SELECT id_persona, MAX(id) AS mid
+                         FROM ' . $tap . '
+                         GROUP BY id_persona
+                     ) apm ON apm.id_persona = apx.id_persona AND apm.mid = apx.id
+                 ) ap ON ap.id_persona = p.id
+                 LEFT JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
+                 LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id';
+
+            if ($tipo === 'ingresos') {
+                $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(DISTINCT p.id) AS cnt
+                    FROM ' . $tp . ' p' . $sqlJoinUltPuestoDepto . '
+                    WHERE p.fecha_ingreso IS NOT NULL
+                      AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
+                      AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff
+                    GROUP BY d.id, d.nombre
+                    ORDER BY cnt DESC';
+            } elseif ($tipo === 'bajas') {
+                $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
+                    FROM ' . $tbp . ' bp
+                    INNER JOIN ' . $tp . ' p ON p.id = bp.id_persona' . $sqlJoinUltPuestoDepto . '
+                    WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff
+                    GROUP BY d.id, d.nombre
+                    ORDER BY cnt DESC';
+            } else {
+                $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
+                    FROM ' . $trg . ' r
+                    INNER JOIN ' . $tp . ' p ON p.id = r.id_persona' . $sqlJoinUltPuestoDepto . '
+                    WHERE DATE(r.fecha_reingreso) BETWEEN :fi AND :ff
+                    GROUP BY d.id, d.nombre
+                    ORDER BY cnt DESC';
+            }
+
+            $rows = self::queryAllSafe($db, $sql, $params);
+            $porDepto = self::bucketDepartamentoRows($rows, 20);
+            $total = 0;
+            foreach ($porDepto as $item) {
+                $total += (int) ($item['cnt'] ?? 0);
+            }
+
+            return self::resultado(true, 'OK', [
+                'tipo' => $tipo,
+                'fecha_ini' => $fi,
+                'fecha_fin' => $ff,
+                'total' => $total,
+                'por_departamento' => $porDepto,
+            ]);
+        } catch (\Throwable $e) {
+            return self::resultado(false, 'Error al calcular el desglose.', null, $e->getMessage());
         }
     }
 }

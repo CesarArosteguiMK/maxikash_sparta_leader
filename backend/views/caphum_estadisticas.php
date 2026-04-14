@@ -49,6 +49,32 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         align-self: flex-start;
         margin-top: 0;
     }
+    .ch-mov-card {
+        cursor: pointer;
+        border: 2px solid transparent !important;
+        border-radius: 8px;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .ch-mov-card:hover {
+        border-color: rgba(26, 58, 92, 0.25) !important;
+        box-shadow: 0 2px 8px rgba(26, 58, 92, 0.08);
+    }
+    .ch-mov-card.ch-mov-card-active {
+        border-color: #2ecc8b !important;
+        box-shadow: 0 0 0 1px rgba(46, 204, 139, 0.35);
+    }
+    .ch-mov-card:focus-visible {
+        outline: 2px solid #2ecc8b;
+        outline-offset: 2px;
+    }
+    .ch-rot-legend-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
 </style>
 <div class="content-wrapper">
     <div class="container-xxl flex-grow-1 container-p-y">
@@ -88,11 +114,11 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         <div class="mb-4 d-flex flex-wrap" style="gap:12px;">
             <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 20px; text-align: center; flex: 1; min-width: 140px;">
                 <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                    title="Foto al último día del periodo filtrado: personas que no tienen estatus «Baja» y cuya fecha de ingreso es anterior o igual a esa fecha. Puede incluir inactivos que no estén dados de baja en sistema."
-                    aria-label="Ayuda: total empleados">
+                    title="Al último día del periodo: todas las personas en plantilla (estatus distinto de «Baja» y fecha de ingreso ≤ esa fecha). Incluye activos e inactivos en sistema que aún no están dados de baja."
+                    aria-label="Ayuda: total empleados en plantilla">
                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                 </button>
-                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total Empleados</div>
+                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total empleados en plantilla</div>
                 <div id="chKpiTotalEmp" style="font-size: 32px; font-weight: 800; color: #1a3a5c; line-height: 1;">0</div>
             </div>
             <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 20px; text-align: center; flex: 1; min-width: 140px;">
@@ -101,34 +127,64 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     aria-label="Ayuda: empleados activos">
                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                 </button>
-                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Empleados Activos</div>
+                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Empleados activos</div>
                 <div id="chKpiActivos" style="font-size: 32px; font-weight: 800; color: #2ecc8b; line-height: 1;">0</div>
             </div>
             <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 20px; text-align: center; flex: 1; min-width: 140px;">
                 <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                    title="Cantidad de departamentos distintos entre los empleados activos que tienen puesto asignado en el modelo del panel (al cierre del periodo)."
-                    aria-label="Ayuda: total departamentos">
+                    title="Personas en plantilla al cierre (misma base que «Total empleados en plantilla») cuyo estatus no es «activo»: licencias, suspendidos u otros estatus que no sean baja formal."
+                    aria-label="Ayuda: empleados inactivos">
                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                 </button>
-                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total Departamentos</div>
-                <div id="chKpiDeptos" style="font-size: 32px; font-weight: 800; color: #1a3a5c; line-height: 1;">0</div>
+                <div style="position: absolute; top: 6px; right: 30px;">
+                    <span id="chBadgeInactivos" style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px; display: inline-block;">—</span>
+                </div>
+                <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Empleados inactivos</div>
+                <div id="chKpiInactivos" style="font-size: 32px; font-weight: 800; color: #95a5a6; line-height: 1;">0</div>
+            </div>
+            <div style="position: relative; background: #ffffff; border: 1px solid #dde3ec; border-radius: 10px; padding: 16px 12px; flex: 1.4; min-width: 260px;">
+                <div class="d-flex" style="align-items: stretch;">
+                    <div style="flex: 1 1 50%; text-align: center; padding: 0 8px; border-right: 1px solid #dde3ec;">
+                        <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                            title="Cantidad de departamentos distintos entre los empleados activos con puesto asignado (última asignación) al cierre del periodo."
+                            aria-label="Ayuda: total departamentos">
+                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                        </button>
+                        <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total departamentos</div>
+                        <div id="chKpiDeptos" style="font-size: 32px; font-weight: 800; color: #1a3a5c; line-height: 1;">0</div>
+                    </div>
+                    <div style="flex: 1 1 50%; text-align: center; padding: 0 8px;">
+                        <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                            title="Cantidad de puestos distintos (catálogo de puestos) entre los mismos empleados activos con asignación al cierre del periodo."
+                            aria-label="Ayuda: total puestos">
+                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                        </button>
+                        <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total puestos</div>
+                        <div id="chKpiPuestos" style="font-size: 32px; font-weight: 800; color: #1a3a5c; line-height: 1;">0</div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="row g-3 mb-4">
             <div class="col-lg-8">
                 <div style="position: relative; background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Movimientos del período</div>
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2" style="margin-bottom: 10px;">
+                        <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex: 1; min-width: 0;">
+                            <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Movimientos del período</span>
+                            <span id="chMovRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90; letter-spacing: 0.02em;">—</span>
+                        </div>
                         <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Cada número cuenta eventos ocurridos entre la primera y la última fecha del filtro (año, mes y semana): ingresos, bajas, cierres de asignación de jefe (transferencias) y reingresos."
+                            title="Cada número cuenta eventos entre la primera y la última fecha del filtro (año, mes y semana): ingresos, bajas y reingresos. Haz clic en cada tarjeta para ver el desglose por departamento (puesto vigente = última asignación)."
                             aria-label="Ayuda: movimientos del período">
                             <i class="fa fa-info-circle" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div class="d-flex flex-wrap gap-2" style="gap:8px;">
-                        <div style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
-                            <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                        <div class="ch-mov-card" data-ch-mov-tipo="ingresos" role="button" tabindex="0" aria-expanded="false" title="Clic para ver en qué departamento están hoy (puesto vigente)"
+                            style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
+                            <button type="button" class="ch-est-tip-btn ch-mov-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                                onclick="event.stopPropagation();"
                                 title="Personas cuya fecha de ingreso cae dentro del periodo seleccionado (no es la plantilla completa, solo altas en esas fechas)."
                                 aria-label="Ayuda: ingresos">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
@@ -136,8 +192,10 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <div style="font-size: 11px; color: #6b7a90; margin-bottom: 4px; padding-right: 10px;">Ingresos</div>
                             <div id="chMovIngresos" style="font-size: 22px; font-weight: 700; color: #2ecc8b;">0</div>
                         </div>
-                        <div style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
-                            <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                        <div class="ch-mov-card" data-ch-mov-tipo="bajas" role="button" tabindex="0" aria-expanded="false" title="Clic para ver departamento según puesto vigente en sistema"
+                            style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
+                            <button type="button" class="ch-est-tip-btn ch-mov-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                                onclick="event.stopPropagation();"
                                 title="Registros en baja_persona cuya fecha de baja está dentro del periodo seleccionado."
                                 aria-label="Ayuda: bajas">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
@@ -145,17 +203,10 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <div style="font-size: 11px; color: #6b7a90; margin-bottom: 4px; padding-right: 10px;">Bajas</div>
                             <div id="chMovBajas" style="font-size: 22px; font-weight: 700; color: #e74c3c;">0</div>
                         </div>
-                        <div style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
-                            <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                                title="En este periodo cuenta cuántas veces se registró el fin de una asignación de jefe (campo fecha_fin en asigna_jefe). Puede deberse a cambio de jefe, de área u otro movimiento; el sistema no indica el motivo. No es transferencia bancaria."
-                                aria-label="Ayuda: qué cuenta como transferencia">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size: 11px; color: #6b7a90; margin-bottom: 4px; padding-right: 10px;">Transferencias</div>
-                            <div id="chMovTransf" style="font-size: 22px; font-weight: 700; color: #f0a500;">0</div>
-                        </div>
-                        <div style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
-                            <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                        <div class="ch-mov-card" data-ch-mov-tipo="reingresos" role="button" tabindex="0" aria-expanded="false" title="Clic para ver desglose por departamento"
+                            style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
+                            <button type="button" class="ch-est-tip-btn ch-mov-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
+                                onclick="event.stopPropagation();"
                                 title="Registros en la tabla reingresos cuya fecha de reingreso cae dentro del periodo seleccionado."
                                 aria-label="Ayuda: reingresos">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
@@ -164,16 +215,29 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <div id="chMovReingresos" style="font-size: 22px; font-weight: 700; color: #3498db;">0</div>
                         </div>
                     </div>
-                    <div id="chChartMovimientos" style="min-height: 220px; margin-top: 10px;"></div>
+                    <div id="chMovResumenBarWrap" style="min-height: 220px; margin-top: 10px;">
+                        <div id="chChartMovimientos"></div>
+                    </div>
+                    <div id="chMovDetalleWrap" class="d-none" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #dde3ec;">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                            <div>
+                                <div id="chMovDetalleTitulo" style="font-size: 13px; font-weight: 700; color: #1a3a5c;">—</div>
+                                <div id="chMovDetalleSub" style="font-size: 11px; color: #6b7a90; margin-top: 2px;">Departamento según última asignación de puesto (MAX id en asigna_puesto).</div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="chMovDetalleCerrar">Cerrar</button>
+                        </div>
+                        <div id="chChartMovDetalle" style="min-height: 260px;"></div>
+                    </div>
                 </div>
             </div>
             <div class="col-lg-4">
                 <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-start gap-1">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Rotación</div>
+                    <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+                        <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex: 1; min-width: 0;">
+                            <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Rotación</span>
+                            <span id="chRotRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90;">—</span>
                             <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Indica qué porcentaje de empleados dejó la empresa en el período seleccionado, en relación con el total de trabajadores."
+                                title="Indica qué porcentaje de empleados dejó la empresa en el período seleccionado, en relación con el total de trabajadores en plantilla al cierre."
                                 aria-label="Ayuda: rotación">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
@@ -182,80 +246,15 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     </div>
                     <div class="d-flex flex-column justify-content-center text-center pt-2">
                         <div id="chRotacionPct" style="font-size: 28px; font-weight: 800; color: #2ecc8b;">0%</div>
-                        <div style="font-size: 11px; color: #6b7a90; margin-top: 4px;">(Bajas / total empleados) × 100</div>
+                        <div style="font-size: 11px; color: #6b7a90; margin-top: 4px;">(Bajas / total empleados en plantilla) × 100</div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row g-3">
-            <div class="col-md-6 col-lg-3">
-                <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-start gap-1">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Selección</div>
-                            <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Vacantes abiertas y candidatos en proceso se calculan con el estado actual del módulo de candidatos; no se filtran por el mes o semana del panel, por eso pueden no cambiar al mover el filtro."
-                                aria-label="Ayuda: selección y candidatos">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
+                    <div class="mt-3 pt-3" style="border-top: 1px solid #dde3ec;">
+                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #6b7a90; margin-bottom: 2px; text-align: center;">Indicador de rotación</div>
+                        <div id="chChartRotacion" style="min-height: 200px; max-width: 280px; margin: 0 auto;"></div>
+                        <div class="d-flex justify-content-center align-items-center flex-wrap gap-3 mt-1" style="font-size: 11px; color: #6b7a90;">
+                            <span><span class="ch-rot-legend-dot" style="background:#2ecc8b;"></span> Bajas período: <strong id="chRotLegendBajas">0</strong></span>
+                            <span><span class="ch-rot-legend-dot" style="background:#bdc3c7;"></span> Plantilla cierre: <strong id="chRotLegendPlantilla">0</strong></span>
                         </div>
-                        <span id="chBadgeSeleccion">—</span>
-                    </div>
-                    <div style="font-size: 12px; color: #6b7a90;">Vacantes abiertas (combinación depto / puesto)</div>
-                    <div id="chVacantes" style="font-size: 24px; font-weight: 700; color: #f0a500; margin-top: 4px; margin-bottom: 16px;">0</div>
-                    <div style="font-size: 12px; color: #6b7a90;">Candidatos activos en proceso</div>
-                    <div id="chCandActivos" style="font-size: 20px; font-weight: 700; color: #1a3a5c; margin-top: 4px;">0</div>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-3">
-                <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Contrataciones</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Candidatos que pasaron a estatus Contratado con fecha de actualización o registro dentro del periodo. Los días promedio comparan registro inicial con la fecha en que quedaron contratados, solo para esos casos del periodo."
-                            aria-label="Ayuda: contrataciones">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div style="font-size: 12px; color: #6b7a90;">Nuevos contratados (período)</div>
-                    <div id="chContrata" style="font-size: 24px; font-weight: 700; color: #2ecc8b; margin-top: 4px; margin-bottom: 16px;">0</div>
-                    <div style="font-size: 12px; color: #6b7a90;">Días promedio de proceso</div>
-                    <div id="chDiasProm" style="font-size: 20px; font-weight: 700; color: #1a3a5c; margin-top: 4px;">0</div>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-3">
-                <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Inducción</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Cursos en progreso: empleados activos al cierre que aún tienen asignado el módulo web de onboarding (id 44). Cursos completados (periodo): activos que ingresaron en el periodo y ya no tienen ese módulo asignado (se considera cerrado en sistema)."
-                            aria-label="Ayuda: inducción cursos">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div style="font-size: 12px; color: #6b7a90;">Cursos en progreso (módulo onboarding)</div>
-                    <div id="chIndProg" style="font-size: 24px; font-weight: 700; color: #1a3a5c; margin-top: 4px; margin-bottom: 16px;">0</div>
-                    <div style="font-size: 12px; color: #6b7a90;">Cursos completados (período)</div>
-                    <div id="chIndComp" style="font-size: 24px; font-weight: 700; color: #2ecc8b; margin-top: 4px;">0</div>
-                </div>
-            </div>
-            <div class="col-md-6 col-lg-3">
-                <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-start gap-1">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Aprobación</div>
-                            <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Porcentaje de candidatos cuya fecha de registro cae en el periodo y que quedaron en estatus Validado o Contratado, respecto del total de candidatos registrados en ese mismo periodo."
-                                aria-label="Ayuda: tasa de aprobación">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <span id="chBadgeAprob" style="background: #1a3a5c; color: #ffffff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px;">Meta</span>
-                    </div>
-                    <div class="d-flex flex-column justify-content-center text-center pt-2">
-                        <div id="chTasaAprob" style="font-size: 28px; font-weight: 800; color: #2ecc8b;">0%</div>
-                        <div style="font-size: 11px; color: #6b7a90; margin-top: 6px;">Candidatos registrados en el período (Validado + Contratado)</div>
                     </div>
                 </div>
             </div>
@@ -335,30 +334,17 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             </div>
         </div>
         <div class="row g-3 mb-3">
-            <div class="col-lg-6">
+            <div class="col-lg-12">
                 <div style="background: #ffffff; border: 1px solid #dde3ec; border-radius: 12px; padding: 14px 16px;">
                     <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 6px;">
                         <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; padding-right: 8px;">Composición de plantilla</div>
                         <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Gráfico radial: porcentaje de empleados activos respecto del total de plantilla al cierre del periodo (según las reglas del panel)."
-                            aria-label="Ayuda: composición de plantilla">
+                            title="Distribución de empleados activos al cierre del periodo por departamento del puesto vigente (última asignación en asigna_puesto). Clic en un sector lo separa (expand). Si hay muchos departamentos, el resto se agrupa en «Otros»."
+                            aria-label="Ayuda: composición de plantilla por departamento">
                             <i class="fa fa-info-circle" aria-hidden="true"></i>
                         </button>
                     </div>
-                    <div id="chChartPlantilla" style="min-height: 220px;"></div>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div style="background: #ffffff; border: 1px solid #dde3ec; border-radius: 12px; padding: 14px 16px;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 6px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; padding-right: 8px;">Onboarding e incorporación</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Serie con onboarding completo y pendiente (módulo web 44) al cierre, y empleados con ingreso en los últimos 90 días respecto al fin del periodo."
-                            aria-label="Ayuda: gráfico onboarding">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div id="chChartOnboarding" style="min-height: 220px;"></div>
+                    <div id="chChartPlantilla" style="min-height: 320px;"></div>
                 </div>
             </div>
         </div>
@@ -463,21 +449,6 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                 </div>
             </div>
         </div>
-        <div class="row g-3 mb-3">
-            <div class="col-12">
-                <div style="background: #ffffff; border: 1px solid #dde3ec; border-radius: 12px; padding: 14px 16px;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 6px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; padding-right: 8px;">Tendencia de estructura operativa</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Barras al cierre del periodo: cantidad de agentes de Call Center, supervisores (puesto marcado como jefe) y número de personas del departamento con más personal activo."
-                            aria-label="Ayuda: gráfico estructura operativa">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div id="chChartEstructura" style="min-height: 210px;"></div>
-                </div>
-            </div>
-        </div>
         </div>
     </div>
 </div>
@@ -500,7 +471,15 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
     var ST_APROB_OK = 'font-size: 28px; font-weight: 800; color: #2ecc8b;';
     var ST_APROB_MID = 'font-size: 28px; font-weight: 800; color: #f0a500;';
     var ST_APROB_LOW = 'font-size: 28px; font-weight: 800; color: #e74c3c;';
-    var chCharts = { mov: null, plantilla: null, estructura: null, onb: null };
+    var chCharts = { mov: null, plantilla: null, rotacion: null, movDetalle: null };
+    var chMovTipoAbierto = null;
+    var chMovDetalleReqSeq = 0;
+    /** Paleta cíclica para sectores del pie de departamentos */
+    var CH_DEPTO_COLORS = [
+        '#1a3a5c', '#2ecc8b', '#3498db', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22',
+        '#34495e', '#16a085', '#27ae60', '#2980b9', '#8e44ad', '#c0392b', '#d35400', '#7f8c8d',
+        '#00b894', '#0984e3', '#6c5ce7', '#fdcb6e', '#e17055', '#636e72', '#00cec9', '#a29bfe', '#fab1a0'
+    ];
     var chReqSeq = 0;
     var chLoadingOpen = false;
     var chApexLoading = false;
@@ -613,17 +592,6 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         el.setAttribute('style', n > 5 ? ST_ROT_BAD : ST_ROT_OK);
     }
 
-    function setTasaAprobStyle(pct) {
-        var el = document.getElementById('chTasaAprob');
-        if (!el) return;
-        var n = parseFloat(String(pct).replace(',', '.'));
-        if (isNaN(n)) n = 0;
-        var st = ST_APROB_OK;
-        if (n < 50) st = ST_APROB_LOW;
-        else if (n < 80) st = ST_APROB_MID;
-        el.setAttribute('style', st);
-    }
-
     function setColVisible(id, show) {
         var el = document.getElementById(id);
         if (!el) return;
@@ -654,95 +622,310 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         chLastDataForCharts = d;
         if (!ensureApexReady()) return;
 
-        var total = Math.max(0, n(d.total_empleados));
-        var activos = Math.max(0, n(d.empleados_activos));
-
-        var movSeries = [n(d.ingresos), n(d.bajas), n(d.transferencias), n(d.reingresos)];
-        var onbSeries = [n(d.onb_completa_activos), n(d.onb_pendiente_activos), n(d.plantilla_empleados_nuevos_90)];
-        var estSeries = [n(d.op_agentes_call), n(d.op_supervisores), n(d.op_depto_top_cnt)];
+        var movSeries = [n(d.ingresos), n(d.bajas), n(d.reingresos)];
+        var rotPct = Math.min(100, Math.max(0, n(d.rotacion_pct)));
+        var rotColor = rotPct > 5 ? '#e74c3c' : '#2ecc8b';
 
         if (!chCharts.mov) {
             chCharts.mov = new ApexCharts(document.querySelector('#chChartMovimientos'), {
                 chart: { type: 'bar', height: 250, toolbar: { show: false } },
                 series: [{ name: 'Personas', data: movSeries }],
-                xaxis: { categories: ['Ingresos', 'Bajas', 'Transferencias', 'Reingresos'] },
-                colors: ['#2ecc8b'],
+                xaxis: { categories: ['Ingresos', 'Bajas', 'Reingresos'] },
+                colors: ['#2ecc8b', '#e74c3c', '#3498db'],
                 dataLabels: { enabled: false },
-                plotOptions: { bar: { borderRadius: 6, columnWidth: '48%' } },
+                plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } },
                 grid: { borderColor: '#eef1f5' }
             });
             chCharts.mov.render();
         } else {
-            chCharts.mov.updateOptions({ xaxis: { categories: ['Ingresos', 'Bajas', 'Transferencias', 'Reingresos'] } }, false, true);
+            chCharts.mov.updateOptions({
+                xaxis: { categories: ['Ingresos', 'Bajas', 'Reingresos'] },
+                colors: ['#2ecc8b', '#e74c3c', '#3498db'],
+                plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } }
+            }, false, true);
             chCharts.mov.updateSeries([{ name: 'Personas', data: movSeries }], true);
         }
 
-        if (!chCharts.plantilla) {
-            chCharts.plantilla = new ApexCharts(document.querySelector('#chChartPlantilla'), {
-                chart: { type: 'radialBar', height: 250 },
-                series: [total > 0 ? Math.round((activos / total) * 100) : 0],
-                labels: ['Activos'],
-                colors: ['#2ecc8b'],
-                plotOptions: {
-                    radialBar: {
-                        hollow: { size: '62%' },
-                        dataLabels: {
-                            name: { fontSize: '14px' },
-                            value: { fontSize: '22px', formatter: function (val) { return Math.round(val) + '%'; } },
-                            total: {
-                                show: true,
-                                label: 'Total',
-                                formatter: function () { return String(total); }
-                            }
-                        }
-                    }
+        var deptoRows = Array.isArray(d.plantilla_por_departamento) ? d.plantilla_por_departamento : [];
+        var pieLabels = [];
+        var pieSeries = [];
+        for (var di = 0; di < deptoRows.length; di++) {
+            pieLabels.push(deptoRows[di].nombre || '—');
+            pieSeries.push(n(deptoRows[di].cnt));
+        }
+        if (!pieLabels.length) {
+            pieLabels = ['Sin datos'];
+            pieSeries = [1];
+        }
+        var pieColors = [];
+        for (var ci = 0; ci < pieLabels.length; ci++) {
+            pieColors.push(CH_DEPTO_COLORS[ci % CH_DEPTO_COLORS.length]);
+        }
+        if (pieLabels.length === 1 && pieLabels[0] === 'Sin datos') {
+            pieColors = ['#dde3ec'];
+        }
+
+        var plantChartType = null;
+        try {
+            if (chCharts.plantilla && chCharts.plantilla.w && chCharts.plantilla.w.config && chCharts.plantilla.w.config.chart) {
+                plantChartType = chCharts.plantilla.w.config.chart.type;
+            }
+        } catch (ePt) { plantChartType = null; }
+        if (chCharts.plantilla && plantChartType !== 'pie') {
+            try { chCharts.plantilla.destroy(); } catch (ePd) {}
+            chCharts.plantilla = null;
+        }
+
+        var pieCommon = {
+            chart: { type: 'pie', height: 300, toolbar: { show: false }, animations: { speed: 380 } },
+            labels: pieLabels,
+            colors: pieColors,
+            legend: {
+                position: 'bottom',
+                fontSize: '11px',
+                horizontalAlign: 'center',
+                itemMargin: { horizontal: 8, vertical: 3 },
+                onItemClick: { toggleDataSeries: false },
+                onItemHover: { highlightDataSeries: true },
+                formatter: function (seriesName, opts) {
+                    var idx = opts.seriesIndex;
+                    var val = opts.w.globals.series[idx];
+                    return seriesName + ': ' + val;
                 }
-            });
+            },
+            plotOptions: {
+                pie: {
+                    expandOnClick: true
+                }
+            },
+            dataLabels: {
+                enabled: pieLabels.length <= 14 && !(pieLabels.length === 1 && pieLabels[0] === 'Sin datos'),
+                formatter: function (val, opts) {
+                    return String(opts.w.config.series[opts.seriesIndex]);
+                },
+                style: { fontSize: '11px', fontWeight: 600 }
+            },
+            tooltip: {
+                y: { formatter: function (val) { return val + ' personas'; } }
+            },
+            stroke: { width: 1, colors: ['#ffffff'] }
+        };
+
+        if (!chCharts.plantilla) {
+            chCharts.plantilla = new ApexCharts(document.querySelector('#chChartPlantilla'), Object.assign({}, pieCommon, {
+                series: pieSeries
+            }));
             chCharts.plantilla.render();
         } else {
-            chCharts.plantilla.updateSeries([total > 0 ? Math.round((activos / total) * 100) : 0], true);
-            chCharts.plantilla.updateOptions({
-                plotOptions: {
-                    radialBar: {
-                        dataLabels: {
-                            total: { formatter: function () { return String(total); } }
+            chCharts.plantilla.updateOptions(pieCommon, false, true);
+            chCharts.plantilla.updateSeries(pieSeries, true);
+        }
+
+        var elRot = document.querySelector('#chChartRotacion');
+        if (elRot) {
+            if (!chCharts.rotacion) {
+                chCharts.rotacion = new ApexCharts(elRot, {
+                    chart: { type: 'radialBar', height: 200, toolbar: { show: false }, animations: { speed: 400 } },
+                    series: [rotPct],
+                    labels: ['Rotación'],
+                    colors: [rotColor],
+                    plotOptions: {
+                        radialBar: {
+                            hollow: { size: '62%', background: 'transparent' },
+                            track: { background: '#e9ecef', strokeWidth: '100%' },
+                            dataLabels: {
+                                name: {
+                                    show: true,
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: '#6b7a90',
+                                    offsetY: 14
+                                },
+                                value: {
+                                    show: true,
+                                    fontSize: '24px',
+                                    fontWeight: 800,
+                                    color: '#1a3a5c',
+                                    offsetY: -10,
+                                    formatter: function (v) {
+                                        var x = parseFloat(String(v).replace(',', '.'));
+                                        if (isNaN(x)) x = 0;
+                                        return Math.round(x) + '%';
+                                    }
+                                },
+                                total: { show: false }
+                            }
                         }
-                    }
+                    },
+                    stroke: { lineCap: 'round' }
+                });
+                chCharts.rotacion.render();
+            } else {
+                chCharts.rotacion.updateOptions({ colors: [rotColor] }, false, false);
+                chCharts.rotacion.updateSeries([rotPct], true);
+            }
+        }
+    }
+
+    function destruirMovDetalleChart() {
+        if (chCharts.movDetalle) {
+            try { chCharts.movDetalle.destroy(); } catch (eM) {}
+            chCharts.movDetalle = null;
+        }
+    }
+
+    function setMovResumenBarVisible(show) {
+        var w = document.getElementById('chMovResumenBarWrap');
+        if (!w) return;
+        if (show) {
+            w.classList.remove('d-none');
+            if (chCharts.mov && typeof chCharts.mov.resize === 'function') {
+                requestAnimationFrame(function () {
+                    try { chCharts.mov.resize(); } catch (eR) { /* ignorar */ }
+                });
+            }
+        } else {
+            w.classList.add('d-none');
+        }
+    }
+
+    function cerrarMovDetallePanel() {
+        chMovTipoAbierto = null;
+        var wrap = document.getElementById('chMovDetalleWrap');
+        if (wrap) wrap.classList.add('d-none');
+        document.querySelectorAll('.ch-mov-card').forEach(function (el) {
+            el.classList.remove('ch-mov-card-active');
+            el.setAttribute('aria-expanded', 'false');
+        });
+        destruirMovDetalleChart();
+        setMovResumenBarVisible(true);
+    }
+
+    function actualizarSeleccionMovCards(tipoActivo) {
+        document.querySelectorAll('.ch-mov-card').forEach(function (el) {
+            var t = el.getAttribute('data-ch-mov-tipo');
+            if (t === tipoActivo) {
+                el.classList.add('ch-mov-card-active');
+                el.setAttribute('aria-expanded', 'true');
+            } else {
+                el.classList.remove('ch-mov-card-active');
+                el.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    function renderMovDetallePie(rows) {
+        if (!ensureApexReady()) return;
+        destruirMovDetalleChart();
+        var el = document.querySelector('#chChartMovDetalle');
+        if (!el) return;
+        var labels = [];
+        var series = [];
+        for (var i = 0; i < rows.length; i++) {
+            labels.push(rows[i].nombre || '—');
+            series.push(n(rows[i].cnt));
+        }
+        if (!labels.length) {
+            labels = ['Sin datos'];
+            series = [1];
+        }
+        var pieColors = [];
+        for (var c = 0; c < labels.length; c++) {
+            pieColors.push(CH_DEPTO_COLORS[c % CH_DEPTO_COLORS.length]);
+        }
+        if (labels.length === 1 && labels[0] === 'Sin datos') {
+            pieColors = ['#dde3ec'];
+        }
+        chCharts.movDetalle = new ApexCharts(el, {
+            chart: { type: 'pie', height: 280, toolbar: { show: false }, animations: { speed: 360 } },
+            series: series,
+            labels: labels,
+            colors: pieColors,
+            legend: {
+                position: 'bottom',
+                fontSize: '11px',
+                horizontalAlign: 'center',
+                itemMargin: { horizontal: 6, vertical: 2 },
+                onItemClick: { toggleDataSeries: false },
+                onItemHover: { highlightDataSeries: true },
+                formatter: function (seriesName, opts) {
+                    var idx = opts.seriesIndex;
+                    return seriesName + ': ' + opts.w.globals.series[idx];
                 }
-            }, false, true);
-        }
+            },
+            plotOptions: { pie: { expandOnClick: true } },
+            dataLabels: {
+                enabled: labels.length <= 12 && !(labels.length === 1 && labels[0] === 'Sin datos'),
+                formatter: function (val, opts) {
+                    return String(opts.w.config.series[opts.seriesIndex]);
+                },
+                style: { fontSize: '11px', fontWeight: 600 }
+            },
+            tooltip: { y: { formatter: function (val) { return val + ' personas'; } } },
+            stroke: { width: 1, colors: ['#ffffff'] }
+        });
+        chCharts.movDetalle.render();
+    }
 
-        if (!chCharts.estructura) {
-            chCharts.estructura = new ApexCharts(document.querySelector('#chChartEstructura'), {
-                chart: { type: 'bar', height: 230, toolbar: { show: false } },
-                series: [{ name: 'Personas', data: estSeries }],
-                xaxis: { categories: ['Agentes CC', 'Supervisores', 'Top depto (cant.)'] },
-                colors: ['#1a3a5c'],
-                dataLabels: { enabled: false },
-                plotOptions: { bar: { borderRadius: 6, columnWidth: '50%' } },
-                grid: { borderColor: '#eef1f5' }
-            });
-            chCharts.estructura.render();
-        } else {
-            chCharts.estructura.updateOptions({ xaxis: { categories: ['Agentes CC', 'Supervisores', 'Top depto (cant.)'] } }, false, true);
-            chCharts.estructura.updateSeries([{ name: 'Personas', data: estSeries }], true);
+    function solicitarMovDetalle(tipo) {
+        if (tipo === chMovTipoAbierto) {
+            cerrarMovDetallePanel();
+            return;
         }
-
-        if (!chCharts.onb) {
-            chCharts.onb = new ApexCharts(document.querySelector('#chChartOnboarding'), {
-                chart: { type: 'line', height: 230, toolbar: { show: false } },
-                series: [{ name: 'Personas', data: onbSeries }],
-                xaxis: { categories: ['Onboarding completo', 'Onboarding pendiente', 'Nuevos < 90 días'] },
-                stroke: { curve: 'smooth', width: 3 },
-                markers: { size: 4 },
-                colors: ['#f0a500'],
-                dataLabels: { enabled: false },
-                grid: { borderColor: '#eef1f5' }
+        chMovTipoAbierto = tipo;
+        actualizarSeleccionMovCards(tipo);
+        setMovResumenBarVisible(false);
+        var wrap = document.getElementById('chMovDetalleWrap');
+        if (wrap) wrap.classList.remove('d-none');
+        var titulos = {
+            ingresos: 'Ingresos del período — por departamento',
+            bajas: 'Bajas del período — por departamento',
+            reingresos: 'Reingresos del período — por departamento'
+        };
+        setText('chMovDetalleTitulo', (titulos[tipo] || tipo) + ' (cargando…)');
+        setText('chMovDetalleSub', 'Departamento según última asignación de puesto (MAX id en asigna_puesto).');
+        var sem = parseInt(document.getElementById('chEstSemana').value, 10);
+        if (isNaN(sem)) sem = 0;
+        var m = parseInt(document.getElementById('chEstMes').value, 10);
+        if (isNaN(m)) m = mesSel;
+        var reqId = ++chMovDetalleReqSeq;
+        fetch('/caphum/getEstadisticasMovimientoDetalle', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+            body: JSON.stringify({ tipo: tipo, anio: anioSel, mes: m, semana: sem })
+        })
+            .then(function (r) {
+                return r.text().then(function (txt) {
+                    var j = null;
+                    try { j = JSON.parse(txt); } catch (e2) { j = null; }
+                    return { ok: r.ok, json: j };
+                });
+            })
+            .then(function (wrap) {
+                if (reqId !== chMovDetalleReqSeq || tipo !== chMovTipoAbierto) return;
+                var resp = wrap.json;
+                if (!wrap.ok || !resp || !resp.success || !resp.datos) {
+                    setText('chMovDetalleTitulo', titulos[tipo] || tipo);
+                    if (resp && resp.mensaje) {
+                        setText('chMovDetalleSub', String(resp.mensaje) + (resp.error ? ' — ' + String(resp.error) : ''));
+                    }
+                    renderMovDetallePie([]);
+                    return;
+                }
+                var dat = resp.datos;
+                var rng = (dat.fecha_ini && dat.fecha_fin) ? (String(dat.fecha_ini) + ' → ' + String(dat.fecha_fin)) : '';
+                var suf = (dat.total != null ? ' · Total: ' + String(dat.total) : '') + (rng ? ' · ' + rng : '');
+                setText('chMovDetalleTitulo', (titulos[tipo] || tipo) + suf);
+                setText('chMovDetalleSub', 'Departamento según última asignación de puesto (MAX id en asigna_puesto).');
+                renderMovDetallePie(dat.por_departamento || []);
+            })
+            .catch(function () {
+                if (reqId !== chMovDetalleReqSeq || tipo !== chMovTipoAbierto) return;
+                setText('chMovDetalleTitulo', titulos[tipo] || tipo);
+                setText('chMovDetalleSub', 'Error de red al cargar el desglose.');
+                renderMovDetallePie([]);
             });
-            chCharts.onb.render();
-        } else {
-            chCharts.onb.updateSeries([{ name: 'Personas', data: onbSeries }], true);
-        }
     }
 
     function showLoadingAviso() {
@@ -770,6 +953,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
 
     function pintar(d) {
         if (!d) return;
+        cerrarMovDetallePanel();
         setText('chEstSubtitulo', d.periodo_label || '—');
         if (d.fecha_ini && d.fecha_fin) {
             setText('chEstRangoFechas', 'Rango consultado: ' + d.fecha_ini + ' → ' + d.fecha_fin);
@@ -778,23 +962,21 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         }
         setText('chKpiTotalEmp', String(d.total_empleados ?? 0));
         setText('chKpiActivos', String(d.empleados_activos ?? 0));
+        setText('chKpiInactivos', String(d.empleados_inactivos ?? 0));
+        setBadge('chBadgeInactivos', d.inactivos_badge_text || '—', d.inactivos_badge_class || '');
         setText('chKpiDeptos', String(d.total_departamentos ?? 0));
+        setText('chKpiPuestos', String(d.puestos_unicos ?? 0));
+        var rangoCorto = (d.fecha_ini && d.fecha_fin) ? (String(d.fecha_ini) + ' → ' + String(d.fecha_fin)) : '—';
+        setText('chMovRangoInline', rangoCorto);
+        setText('chRotRangoInline', rangoCorto);
         setText('chMovIngresos', String(d.ingresos ?? 0));
         setText('chMovBajas', String(d.bajas ?? 0));
-        setText('chMovTransf', String(d.transferencias ?? 0));
         setText('chMovReingresos', String(d.reingresos ?? 0));
         setText('chRotacionPct', String(d.rotacion_pct ?? 0) + '%');
         setRotacionPctStyle(d.rotacion_pct ?? 0);
         setBadge('chBadgeRotacion', d.rotacion_badge_text || '—', d.rotacion_badge_class || '');
-        setText('chVacantes', String(d.vacantes_abiertas ?? 0));
-        setText('chCandActivos', String(d.candidatos_activos ?? 0));
-        setBadge('chBadgeSeleccion', d.seleccion_badge_text || '—', d.seleccion_badge_class || '');
-        setText('chContrata', String(d.contrataciones ?? 0));
-        setText('chDiasProm', String(d.dias_promedio_contratacion ?? 0));
-        setText('chIndProg', String(d.induccion_progreso ?? 0));
-        setText('chIndComp', String(d.induccion_completados ?? 0));
-        setText('chTasaAprob', String(d.tasa_aprobacion_pct ?? 0) + '%');
-        setTasaAprobStyle(d.tasa_aprobacion_pct ?? 0);
+        setText('chRotLegendBajas', String(d.bajas ?? 0));
+        setText('chRotLegendPlantilla', String(d.total_empleados ?? 0));
 
         var topSede = d.plantilla_sede_top || [];
         var sedeLines = [];
@@ -916,6 +1098,23 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         refrescar();
     });
     document.getElementById('chEstSemana').addEventListener('change', refrescar);
+
+    document.querySelectorAll('.ch-mov-card').forEach(function (card) {
+        card.addEventListener('click', function (e) {
+            if (e.target.closest('.ch-mov-no-abrir')) return;
+            var tipo = card.getAttribute('data-ch-mov-tipo');
+            if (tipo) solicitarMovDetalle(tipo);
+        });
+        card.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            if (e.target.closest('.ch-mov-no-abrir')) return;
+            var tipo = card.getAttribute('data-ch-mov-tipo');
+            if (tipo) solicitarMovDetalle(tipo);
+        });
+    });
+    var btnCerrMov = document.getElementById('chMovDetalleCerrar');
+    if (btnCerrMov) btnCerrMov.addEventListener('click', cerrarMovDetallePanel);
 
     function initChEstTooltips() {
         if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) {

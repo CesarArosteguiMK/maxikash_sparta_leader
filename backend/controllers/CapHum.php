@@ -10891,4 +10891,31 @@ public function getMunicipios()
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
     }
+
+    /** Desglose por departamento de ingresos / bajas / reingresos (mismo rango que el panel). */
+    public function getEstadisticasMovimientoDetalle()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw ?: '[]', true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $tipo = (string) ($body['tipo'] ?? '');
+        $anio = (int) ($body['anio'] ?? date('Y'));
+        $mes = (int) ($body['mes'] ?? date('n'));
+        $semana = (int) ($body['semana'] ?? 0);
+        if ($anio < 2000 || $anio > 2100) {
+            $anio = (int) date('Y');
+        }
+        if ($mes < 1 || $mes > 12) {
+            $mes = (int) date('n');
+        }
+        if ($semana < 0 || $semana > 4) {
+            $semana = 0;
+        }
+        $res = \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
