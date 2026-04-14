@@ -405,7 +405,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                             data-bs-toggle="tab" data-bs-target="#tab-env-finalizado"
                             type="button" role="tab"
                             aria-controls="tab-env-finalizado" aria-selected="true">
-                        <i class="fa-solid fa-circle-check me-1 text-success"></i>Enviados Finalizados
+                        <i class="fa-solid fa-circle-check me-1 text-success"></i>Validacion de cierre 
                         <span class="badge bg-success ms-1" id="badge-env-finalizado">0</span>
                     </button>
                 </li>
@@ -474,6 +474,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                             <th>Estatus</th>
                             <th>Docs</th>
                             <th>Acciones</th>
+                            <th></th><!-- id oculto para orden -->
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -582,7 +583,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     }
     function convenioEstatusBadge(estatus) {
         const map = {
-            'completado': { bg: '#bbf7d0', color: '#14532d', icon: 'fa-circle-check',   label: 'Completado' },
+            'completado': { bg: '#bbf7d0', color: '#14532d', icon: 'fa-circle-check',   label: 'Completo' },
             'activo':     { bg: '#dbeafe', color: '#1e40af', icon: 'fa-hourglass-half', label: 'Activo'     },
             'cancelado':  { bg: '#fee2e2', color: '#b91c1c', icon: 'fa-ban',            label: 'Cancelado'  },
         };
@@ -913,7 +914,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     <div style="display:flex;align-items:center;gap:.5rem;">
                         ${estadoBadge}
                         <button class="cc-btn-descartar" onclick="ccDescartar(${r.id})"
-                                title="Descartar — regresar a Enviados Finalizados">
+                                title="Descartar — regresar a Validacion de cierre">
                             <i class="fa-solid fa-rotate-left"></i>Descartar
                         </button>
                     </div>
@@ -1011,7 +1012,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     render: function(d, t, r) {
                         if (t === 'filter' || t === 'sort')
                             return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
-                        return `<span class="fw-bold" style="color:#4F46E5;display:block;">#${esc(r.id_credito)}</span>` +
+                        return `<span class="fw-bold" style="color:#3b82f6;display:block;">#${esc(r.id_credito)}</span>` +
                                `<span class="text-muted" style="font-size:.78rem;">${esc(r.nombre_cliente)}</span>`;
                     }
                 },
@@ -1079,9 +1080,12 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
                     }
                 }
             ],
+            columnDefs: [
+                { targets: 9, data: 'id', visible: false, searchable: false }
+            ],
             pageLength: 15,
             lengthMenu: [10, 15, 25, 50, 100],
-            order: [[1, 'asc']],
+            order: [[9, 'desc']],
             responsive: { details: { type: 'column', target: 0 } },
             language: {
                 emptyTable:   'Sin convenios registrados',
@@ -1304,6 +1308,14 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         const conv  = d.convenio     || {};
         const amort = d.amortizacion || [];
 
+        // ── Registrado por ──
+        const altaHtml = conv.usuario_alta
+            ? `<div style="margin-bottom:.75rem;font-size:.8rem;color:#64748b;">
+                   <i class="fa-solid fa-user-pen me-1"></i>
+                   <span style="font-weight:600;">Registrado por:</span> ${esc(conv.usuario_alta)}
+               </div>`
+            : '';
+
         // ── Resumen financiero ──
         const resumenHtml = `
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.75rem;margin-bottom:1rem;">
@@ -1374,7 +1386,7 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             </table>
         </div>`;
 
-        return resumenHtml + tablaAmort;
+        return altaHtml + resumenHtml + tablaAmort;
     }
 
     /* ══════════════════════════════════
