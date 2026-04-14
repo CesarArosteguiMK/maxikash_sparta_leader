@@ -358,6 +358,10 @@ class CapHum extends Model
                         $db->CRUD("DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id IN (19, 25)", ['uid' => $idPersona]);
                     }
                 }
+                $db->CRUD(
+                    "UPDATE persona SET session_version = COALESCE(session_version, 1) + 1 WHERE id = :id",
+                    ['id' => (int) $idPersona]
+                );
 
                 return self::resultado(
                     true,
@@ -378,6 +382,10 @@ class CapHum extends Model
                         ['uid' => $idPersona]
                     );
                 }
+                $db->CRUD(
+                    "UPDATE persona SET session_version = COALESCE(session_version, 1) + 1 WHERE id = :id",
+                    ['id' => (int) $idPersona]
+                );
 
                 return self::resultado(
                     true,

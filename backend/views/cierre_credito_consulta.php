@@ -382,56 +382,82 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
     </div>
 </div>
 
+<?php
+/* Permisos por pestaña (modulos_web 52–55). Si la vista se carga sin el controlador, no muestra pestañas por seguridad. */
+if (!isset($cc_perm_alguno)) {
+    $cc_perm_convenios = false;
+    $cc_perm_validacion = false;
+    $cc_perm_en_proceso = false;
+    $cc_perm_historial = false;
+    $cc_perm_alguno = false;
+    $cc_default_tab = null;
+}
+$ccActConv = ($cc_default_tab === 'convenios');
+$ccActVal = ($cc_default_tab === 'validacion');
+$ccActEp = ($cc_default_tab === 'en_proceso');
+$ccActHist = ($cc_default_tab === 'historial');
+?>
 <!-- ══════════════════════════════════════
-     PESTAÑAS
+     PESTAÑAS (visibles según permisos especiales modulos_web 52–55)
 ══════════════════════════════════════ -->
+<?php if (empty($cc_perm_alguno)): ?>
+<div class="alert alert-warning shadow-sm mb-3" role="alert">
+    <i class="fa-solid fa-lock me-2"></i>
+    <strong>Acceso restringido.</strong> No tiene permisos asignados para las pestañas de Cierre de crédito. Solicite a Capital Humano la habilitación correspondiente.
+</div>
+<?php else: ?>
 <div class="card shadow-sm">
     <div class="card-body pb-0">
-        <!-- Pestañas -->
         <ul class="nav nav-tabs cc-nav-tabs border-0 mb-0" id="ccTabs" role="tablist">
-                <!-- Pestaña 0: Convenios (todos) -->
+                <?php if (!empty($cc_perm_convenios)): ?>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-convenios-btn"
+                    <button class="nav-link<?= $ccActConv ? ' active' : '' ?>" id="tab-convenios-btn"
                             data-bs-toggle="tab" data-bs-target="#tab-convenios"
                             type="button" role="tab"
-                            aria-controls="tab-convenios" aria-selected="false">
+                            aria-controls="tab-convenios" aria-selected="<?= $ccActConv ? 'true' : 'false' ?>">
                         <i class="fa-solid fa-handshake me-1 text-primary"></i>Convenios
                         <span class="badge bg-secondary ms-1" id="badge-convenios">0</span>
                     </button>
                 </li>
-                <!-- Pestaña 1: Enviados Finalizados (activa por defecto) -->
+                <?php endif; ?>
+                <?php if (!empty($cc_perm_validacion)): ?>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="tab-env-finalizado-btn"
+                    <button class="nav-link<?= $ccActVal ? ' active' : '' ?>" id="tab-env-finalizado-btn"
                             data-bs-toggle="tab" data-bs-target="#tab-env-finalizado"
                             type="button" role="tab"
-                            aria-controls="tab-env-finalizado" aria-selected="true">
-                        <i class="fa-solid fa-circle-check me-1 text-success"></i>Validacion de cierre 
+                            aria-controls="tab-env-finalizado" aria-selected="<?= $ccActVal ? 'true' : 'false' ?>">
+                        <i class="fa-solid fa-circle-check me-1 text-success"></i>Validacion de cierre
                         <span class="badge bg-success ms-1" id="badge-env-finalizado">0</span>
                     </button>
                 </li>
-                <!-- Pestaña 2: En Proceso -->
+                <?php endif; ?>
+                <?php if (!empty($cc_perm_en_proceso)): ?>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-en-proceso-btn"
+                    <button class="nav-link<?= $ccActEp ? ' active' : '' ?>" id="tab-en-proceso-btn"
                             data-bs-toggle="tab" data-bs-target="#tab-en-proceso"
                             type="button" role="tab"
-                            aria-controls="tab-en-proceso" aria-selected="false">
+                            aria-controls="tab-en-proceso" aria-selected="<?= $ccActEp ? 'true' : 'false' ?>">
                         <i class="fa-solid fa-hourglass-half me-1 text-warning"></i>En Proceso
                         <span class="badge bg-warning text-dark ms-1" id="badge-en-proceso">0</span>
                     </button>
                 </li>
-                <!-- Pestaña 3: Historial -->
+                <?php endif; ?>
+                <?php if (!empty($cc_perm_historial)): ?>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-historial-btn"
+                    <button class="nav-link<?= $ccActHist ? ' active' : '' ?>" id="tab-historial-btn"
                             data-bs-toggle="tab" data-bs-target="#tab-historial"
                             type="button" role="tab"
-                            aria-controls="tab-historial" aria-selected="false">
+                            aria-controls="tab-historial" aria-selected="<?= $ccActHist ? 'true' : 'false' ?>">
                         <i class="fa-solid fa-clock-rotate-left me-1 text-info"></i>Historial
                     </button>
                 </li>
+                <?php endif; ?>
             </ul>
     </div>
 </div>
+<?php endif; ?>
 
+<?php if (!empty($cc_perm_alguno)): ?>
 <!-- Barra de búsqueda (fuera del card de pestañas) -->
 <div id="cc-search-bar" class="mt-8 d-flex justify-content-end" style="display:none;">
     <div class="input-group input-group-sm" style="max-width:380px;">
@@ -454,8 +480,9 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 ══════════════════════════════════════ -->
 <div class="tab-content mt-3" id="ccTabContent">
 
+    <?php if (!empty($cc_perm_convenios)): ?>
     <!-- ══ PESTAÑA 0: CONVENIOS (TODOS) ══ -->
-    <div class="tab-pane fade" id="tab-convenios" role="tabpanel">
+    <div class="tab-pane fade<?= $ccActConv ? ' show active' : '' ?>" id="tab-convenios" role="tabpanel">
         <div id="loader-convenios" class="text-center py-5 text-muted d-none">
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
             Cargando convenios...
@@ -486,11 +513,13 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             Sin convenios registrados.
         </div>
     </div>
+    <?php endif; ?>
 
+    <?php if (!empty($cc_perm_validacion)): ?>
     <!-- ══ PESTAÑA 1: ENVIADOS FINALIZADOS ══ -->
-    <div class="tab-pane fade show active" id="tab-env-finalizado" role="tabpanel">
+    <div class="tab-pane fade<?= $ccActVal ? ' show active' : '' ?>" id="tab-env-finalizado" role="tabpanel">
 
-        <div id="loader-env-finalizado" class="text-center py-5 text-muted">
+        <div id="loader-env-finalizado" class="text-center py-5 text-muted<?= $ccActVal ? '' : ' d-none' ?>">
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
             Cargando convenios...
         </div>
@@ -506,12 +535,14 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             Sin resultados para la búsqueda.
         </div>
     </div>
+    <?php endif; ?>
 
+    <?php if (!empty($cc_perm_en_proceso)): ?>
     <!-- ══ PESTAÑA 2: EN PROCESO ══ -->
-    <div class="tab-pane fade" id="tab-en-proceso" role="tabpanel">
+    <div class="tab-pane fade<?= $ccActEp ? ' show active' : '' ?>" id="tab-en-proceso" role="tabpanel">
         <div class="card shadow-sm">
             <div class="card-body">
-                <div id="loader-en-proceso" class="text-center py-5 text-muted">
+                <div id="loader-en-proceso" class="text-center py-5 text-muted<?= $ccActEp ? '' : ' d-none' ?>">
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
                     Cargando registros...
                 </div>
@@ -529,12 +560,14 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
+    <?php if (!empty($cc_perm_historial)): ?>
     <!-- ══ PESTAÑA 3: HISTORIAL ══ -->
-    <div class="tab-pane fade" id="tab-historial" role="tabpanel">
+    <div class="tab-pane fade<?= $ccActHist ? ' show active' : '' ?>" id="tab-historial" role="tabpanel">
         <div class="card shadow-sm">
             <div class="card-body p-0">
-                <div id="loader-historial" class="text-center py-5 text-muted">
+                <div id="loader-historial" class="text-center py-5 text-muted<?= $ccActHist ? '' : ' d-none' ?>">
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
                     Cargando historial...
                 </div>
@@ -552,15 +585,39 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
 </div>
+<?php endif; ?>
 
+<script>
+window.__CC_PESTANAS_PERM__ = <?= json_encode([
+    'alguno' => !empty($cc_perm_alguno),
+    'convenios' => !empty($cc_perm_convenios),
+    'validacion' => !empty($cc_perm_validacion),
+    'en_proceso' => !empty($cc_perm_en_proceso),
+    'historial' => !empty($cc_perm_historial),
+    'defaultTab' => isset($cc_default_tab) ? $cc_default_tab : null,
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+</script>
 <script>
 /* ══════════════════════════════════════════
    CIERRE DE CRÉDITO — JS
 ══════════════════════════════════════════ */
 (function () {
     'use strict';
+
+    const CC_P = window.__CC_PESTANAS_PERM__ || {
+        alguno: true,
+        convenios: true,
+        validacion: true,
+        en_proceso: true,
+        historial: true,
+        defaultTab: 'validacion',
+    };
+    if (!CC_P.alguno) {
+        return;
+    }
 
     /* ── Helpers ── */
     function fmt(n) {
@@ -642,9 +699,12 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 
     /* ── Detecta qué pestaña está activa ── */
     function _tabActiva() {
-        if (document.getElementById('tab-convenios').classList.contains('show'))   return 'conv';
-        if (document.getElementById('tab-en-proceso').classList.contains('show'))  return 'ep';
-        if (document.getElementById('tab-historial').classList.contains('show'))   return 'hist';
+        const elConv = document.getElementById('tab-convenios');
+        if (elConv && elConv.classList.contains('show')) return 'conv';
+        const elEp = document.getElementById('tab-en-proceso');
+        if (elEp && elEp.classList.contains('show')) return 'ep';
+        const elHist = document.getElementById('tab-historial');
+        if (elHist && elHist.classList.contains('show')) return 'hist';
         return 'ef';
     }
 
@@ -1607,17 +1667,21 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         wrap.classList.remove('d-none');
     }
 
-    document.getElementById('tab-historial-btn')
-        .addEventListener('shown.bs.tab', cargarHistorial);
+    const tabHistorialBtn = document.getElementById('tab-historial-btn');
+    if (tabHistorialBtn) {
+        tabHistorialBtn.addEventListener('shown.bs.tab', cargarHistorial);
+    }
 
-    document.getElementById('tab-convenios-btn')
-        .addEventListener('shown.bs.tab', function () {
+    const tabConveniosBtn = document.getElementById('tab-convenios-btn');
+    if (tabConveniosBtn) {
+        tabConveniosBtn.addEventListener('shown.bs.tab', function () {
             cargarConvenios();
             if (_allRowsConv.length) {
                 const t = document.getElementById('cc-input-buscar').value;
                 if (t.trim()) ccFiltrar(t);
             }
         });
+    }
 
     /* ══════════════════════════════════
        MARCAR LISTO (en_cola → listo_envio)
@@ -1694,26 +1758,40 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
         });
     };
 
-    document.getElementById('tab-en-proceso-btn')
-        .addEventListener('shown.bs.tab', function () {
+    const tabEnProcesoBtn = document.getElementById('tab-en-proceso-btn');
+    if (tabEnProcesoBtn) {
+        tabEnProcesoBtn.addEventListener('shown.bs.tab', function () {
             cargarEnProceso();
-            // Re-aplica filtro si los datos ya estaban cargados (segunda visita)
             if (_allRowsEp.length) {
                 const t = document.getElementById('cc-input-buscar').value;
                 if (t.trim()) ccFiltrar(t);
             }
         });
+    }
 
-    document.getElementById('tab-env-finalizado-btn')
-        .addEventListener('shown.bs.tab', function () {
-            if (_allRows.length) {
+    const tabEnvFinalBtn = document.getElementById('tab-env-finalizado-btn');
+    if (tabEnvFinalBtn) {
+        tabEnvFinalBtn.addEventListener('shown.bs.tab', function () {
+            if (_allRows.length === 0) {
+                cargarEnviadoFinalizado();
+            } else {
                 const t = document.getElementById('cc-input-buscar').value;
                 if (t.trim()) ccFiltrar(t);
             }
         });
+    }
 
-    // Carga inicial
-    cargarEnviadoFinalizado();
+    // Carga inicial según la primera pestaña visible (permisos especiales)
+    const def = CC_P.defaultTab || 'validacion';
+    if (def === 'convenios') {
+        cargarConvenios();
+    } else if (def === 'validacion') {
+        cargarEnviadoFinalizado();
+    } else if (def === 'en_proceso') {
+        cargarEnProceso();
+    } else if (def === 'historial') {
+        cargarHistorial();
+    }
 
     /* ══════════════════════════════════
        CONFIRMAR CIERRE (Tab 1 → crea registro en proceso)

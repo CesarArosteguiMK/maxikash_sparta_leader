@@ -7,6 +7,7 @@ use Core\SecureUpload;
 use Core\OcrIdentidad;
 use Models\CapHum as CapHumDAO;
 use Models\Candidatos as CandidatosDAO;
+use Models\Login as LoginDao;
 use Models\Notificacion;
 
 class CapHum extends Controller
@@ -1081,7 +1082,15 @@ class CapHum extends Controller
                 50: 'fa fa-chart-line',
                 '50': 'fa fa-chart-line',
                 51: 'fa-solid fa-file-circle-check',
-                '51': 'fa-solid fa-file-circle-check'
+                '51': 'fa-solid fa-file-circle-check',
+                52: 'fa-solid fa-handshake',
+                '52': 'fa-solid fa-handshake',
+                53: 'fa-solid fa-clipboard-check',
+                '53': 'fa-solid fa-clipboard-check',
+                54: 'fa-solid fa-list-check',
+                '54': 'fa-solid fa-list-check',
+                55: 'fa-solid fa-clock-rotate-left',
+                '55': 'fa-solid fa-clock-rotate-left',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -9790,6 +9799,13 @@ public function getMunicipios()
                 $moduloId,
                 (int)$asignado
             );
+
+            // Refresco inmediato de sesión cuando el usuario edita sus propios módulos.
+            if ((int) ($_SESSION['usuario_id'] ?? 0) === (int) $idPersona) {
+                $_SESSION['modulos'] = array_values(
+                    array_map('intval', (array) LoginDao::getModulosUsuario((int) $idPersona))
+                );
+            }
 
             self::respuestaJSON([
                 'success' => true,

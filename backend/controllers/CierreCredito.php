@@ -7,6 +7,65 @@ use Models\CierreCredito as CierreCreditoDAO;
 
 class CierreCredito extends Controller
 {
+    /**
+     * modulos_web — pestaña «Permisos especiales» (Cierre de crédito).
+     * Deben coincidir con los registros asignables en CapHum / BD.
+     */
+    private const CC_PESTANA_PERM_CONVENIOS = 52;
+
+    private const CC_PESTANA_PERM_VALIDACION = 53;
+
+    private const CC_PESTANA_PERM_EN_PROCESO = 54;
+
+    private const CC_PESTANA_PERM_HISTORIAL = 55;
+
+    private function cierreTieneModuloPermisoSesion(int $moduloId): bool
+    {
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+
+        return in_array($moduloId, $mods, true);
+    }
+
+    /**
+     * @param list<int> $moduloIds
+     */
+    private function cierreTieneAlgunoDeModulos(array $moduloIds): bool
+    {
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        foreach ($moduloIds as $id) {
+            if (in_array((int) $id, $mods, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cierreRequiereModuloPermiso(int $moduloId): void
+    {
+        if ($this->cierreTieneModuloPermisoSesion($moduloId)) {
+            return;
+        }
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => 'No tiene permiso para realizar esta acción.',
+        ]);
+    }
+
+    /**
+     * @param list<int> $moduloIds
+     */
+    private function cierreRequiereAlgunoDeModulos(array $moduloIds): void
+    {
+        if ($this->cierreTieneAlgunoDeModulos($moduloIds)) {
+            return;
+        }
+        self::respuestaJSON([
+            'success' => false,
+            'mensaje' => 'No tiene permiso para realizar esta acción.',
+        ]);
+    }
+
     // ─────────────────────────────────────────────
     // VISTA PRINCIPAL
     // ─────────────────────────────────────────────
@@ -15,6 +74,35 @@ class CierreCredito extends Controller
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
         $this->set('titulo', 'Cierre de crédito | ' . $emp);
+
+        $ccPermConvenios = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CONVENIOS);
+        $ccPermValidacion = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VALIDACION);
+        $ccPermEnProceso = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_EN_PROCESO);
+        $ccPermHistorial = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_HISTORIAL);
+        $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermHistorial;
+
+        $ccDefaultTab = null;
+        foreach (
+            [
+                'convenios' => $ccPermConvenios,
+                'validacion' => $ccPermValidacion,
+                'en_proceso' => $ccPermEnProceso,
+                'historial' => $ccPermHistorial,
+            ] as $clave => $ok
+        ) {
+            if ($ok) {
+                $ccDefaultTab = $clave;
+                break;
+            }
+        }
+
+        $this->set('cc_perm_convenios', $ccPermConvenios);
+        $this->set('cc_perm_validacion', $ccPermValidacion);
+        $this->set('cc_perm_en_proceso', $ccPermEnProceso);
+        $this->set('cc_perm_historial', $ccPermHistorial);
+        $this->set('cc_perm_alguno', $ccPermAlguno);
+        $this->set('cc_default_tab', $ccDefaultTab);
+
         $this->render('cierre_credito_consulta');
     }
 
@@ -24,6 +112,7 @@ class CierreCredito extends Controller
 
     public function getEnProceso()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
         $r = CierreCreditoDAO::getEnProceso();
         self::respuestaJSON($r);
     }
@@ -34,6 +123,7 @@ class CierreCredito extends Controller
 
     public function getEnviadoFinalizado()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_VALIDACION);
         $r = CierreCreditoDAO::getEnviadoFinalizado();
         // Añadir el usuario de sesión para mostrarlo en la UI de validación
         $r['validador'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Sin sesión';
@@ -46,6 +136,7 @@ class CierreCredito extends Controller
 
     public function crear()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_VALIDACION);
         $campos = ['id_credito', 'nombre_cliente', 'estatus'];
 
         $datos = [];
@@ -68,6 +159,10 @@ class CierreCredito extends Controller
 
     public function cambiarEstatus()
     {
+        $this->cierreRequiereAlgunoDeModulos([
+            self::CC_PESTANA_PERM_VALIDACION,
+            self::CC_PESTANA_PERM_EN_PROCESO,
+        ]);
         $id      = isset($_POST['id'])      ? (int) $_POST['id']            : 0;
         $estatus = isset($_POST['estatus']) ? trim($_POST['estatus'])        : '';
 
@@ -87,6 +182,7 @@ class CierreCredito extends Controller
 
     public function enviarACartera()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 
         if ($id <= 0) {
@@ -105,6 +201,7 @@ class CierreCredito extends Controller
 
     public function marcarListoEnvio()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_HISTORIAL);
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
         if ($id <= 0) {
             self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
@@ -121,6 +218,7 @@ class CierreCredito extends Controller
 
     public function reenviarACartera()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_HISTORIAL);
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
         if ($id <= 0) {
             self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
@@ -137,6 +235,7 @@ class CierreCredito extends Controller
 
     public function getAllConvenios()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_CONVENIOS);
         $r = CierreCreditoDAO::getAllConvenios();
         self::respuestaJSON($r);
     }
@@ -147,6 +246,7 @@ class CierreCredito extends Controller
 
     public function getDetalleConvenio()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_CONVENIOS);
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
         if ($id <= 0) {
             self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
@@ -162,6 +262,7 @@ class CierreCredito extends Controller
 
     public function descartar()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 
         if ($id <= 0) {
@@ -180,6 +281,7 @@ class CierreCredito extends Controller
 
     public function getDetalleCierre()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
         if ($id <= 0) {
             self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
@@ -195,6 +297,7 @@ class CierreCredito extends Controller
 
     public function descargarExcelCierre()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
         while (ob_get_level()) { ob_end_clean(); }
 
         $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
@@ -283,6 +386,7 @@ class CierreCredito extends Controller
 
     public function getHistorial()
     {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_HISTORIAL);
         $r = CierreCreditoDAO::getHistorial();
         self::respuestaJSON($r);
     }
