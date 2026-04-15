@@ -288,12 +288,13 @@ class Condonaciones extends Controller
     }
 
     /**
-     * Historial integrado en Analítica → Call Center (URL canónica).
+     * Historial de condonaciones de cobranza (menú Gastos Cobranza).
      */
     public function historial()
     {
-        header('Location: /reporteria/callcenter?seccion=condonaciones', true, 302);
-        exit;
+        $this->set('titulo', 'Historial condonaciones');
+        $this->set('script', '');
+        $this->render('historial_condonaciones');
     }
 
     /* ========== MÉTODOS API ========== */

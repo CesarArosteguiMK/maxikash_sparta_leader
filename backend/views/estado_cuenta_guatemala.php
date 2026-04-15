@@ -1384,7 +1384,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                 <?php endif; ?>
                 <?php if (!empty($tienePermisoCondonarGastosCobranza) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button" class="btn btn-condonar position-relative"
-                        title="Condonar gastos de cobranza"
+                        title="Condonar Gastos Cobranza"
                         onclick="consultaGastosCondonables(<?= htmlspecialchars($dataEstadoCuenta["idCredito"] ?? '') ?>)">
                     <i class="fa fa-hand-holding-usd"></i>
                 </button>
@@ -1851,7 +1851,7 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-success bg-opacity-10">
-                <h5 class="modal-title"><i class="fa fa-hand-holding-usd text-success me-2"></i>Condonar gastos de cobranza</h5>
+                <h5 class="modal-title"><i class="fa fa-hand-holding-usd text-success me-2"></i>Condonar Gastos Cobranza</h5>
                 <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -2654,7 +2654,7 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
             const gastos = resp.datos ?? resp.data ?? [];
             tabla.innerHTML = '';
             if (!Array.isArray(gastos) || gastos.length === 0) {
-                tabla.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay gastos de cobranza</td></tr>';
+                tabla.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay Gastos Cobranza</td></tr>';
                 document.getElementById('montoTotalSinCondonar').textContent = '0.00';
                 return;
             }

@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\GastosCobranzaEstadistica;
 
 /**
  * Gastos Cobranza — agente HTTP + reporte_cobranza.py (iterativo).
@@ -168,6 +169,36 @@ class Gastoscobranza extends Controller
         $this->set('ultimo_reporte', $resumen['ultimo_reporte']);
         $this->set('reporte_automatico', $resumen['reporte_automatico']);
         self::render('shell_gastos_cobranza');
+    }
+
+    /**
+     * Pantalla «Estadística Gastos Cobranza» — resumen de condonaciones (módulo web 40).
+     * El detalle por registro está en Condonaciones → Historial condonaciones.
+     */
+    public function estadisticagc()
+    {
+        $this->set('titulo', 'Estadística Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
+        $this->set('script', '');
+        self::render('gastos_cobranza_estadistica');
+    }
+
+    /**
+     * JSON único para el dashboard Estadística Gastos Cobranza (módulo 40).
+     * POST JSON: periodo (semana|mes|trimestre|anio), serie_grupo (semana|mes).
+     */
+    public function getDashboardEstadistica()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw ?: '[]', true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $periodo = (string) ($body['periodo'] ?? 'mes');
+        $serieGrupo = (string) ($body['serie_grupo'] ?? 'semana');
+        $res = GastosCobranzaEstadistica::getDashboard($periodo, $serieGrupo);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
     }
 
     /** Igual que en la vista JS: nombre de archivo sin carpeta. */
