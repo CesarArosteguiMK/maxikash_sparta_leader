@@ -341,7 +341,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     <div id="chChartPlantilla" style="min-height: 320px;"></div>
                     </div>
                 </div>
-                <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; margin: 20px 0 10px;">Onboarding e Inducción</div>
+                <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; margin: 20px 0 10px;"></div>
                 <div id="chColTiempoInduccion" class="d-none mb-2" style="max-width: 420px;">
                     <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px;">
                     <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">

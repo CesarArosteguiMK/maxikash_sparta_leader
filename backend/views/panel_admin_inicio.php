@@ -120,6 +120,34 @@ $panelesVisibles = isset($panelesVisibles) && is_array($panelesVisibles) ? $pane
 body.dark-mode .pai-hero-mascot-floating {
     filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.35));
 }
+/* Próximamente — mismo criterio visual que categorías en Levantar ticket (sabueso_ticket) */
+#panelAdminInicioWrap .panel-admin-modulo-card {
+    position: relative;
+}
+#panelAdminInicioWrap .panel-admin-modulo-card--proximamente {
+    overflow: hidden;
+    opacity: 0.62;
+    pointer-events: none;
+}
+#panelAdminInicioWrap .panel-admin-modulo-lazo {
+    position: absolute;
+    top: 1.35rem;
+    right: -2.35rem;
+    z-index: 2;
+    transform: translateY(0.22rem) rotate(40deg);
+    transform-origin: center center;
+    background: linear-gradient(90deg, #6c757d, #495057);
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.38rem 2.55rem 0.32rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    line-height: 1.35;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
 </style>
 <div class="card mb-4 pai-panel-admin-page" id="panelAdminInicioWrap">
     <div class="card">
@@ -141,6 +169,8 @@ body.dark-mode .pai-hero-mascot-floating {
             </div>
             <div class="row gy-6 mb-6 gx-0 pai-hero-paneles-row">
                 <?php
+                /** Solo estos paneles están operativos; el resto muestra lazo «Próximamente» (como en Levantar ticket). */
+                $panelesActivosAhora = ['sabueso_paneladmin', 'sabueso_panel_validaciones'];
                 $descripciones = [
                     'sabueso_paneladmin' => 'Todos los tickets Sabueso, asignación, dictámenes y seguimiento.',
                     'sabueso_panel_validaciones' => 'Tickets de validación de domicilio y validaciones. Ver y gestionar solicitudes.',
@@ -157,9 +187,15 @@ body.dark-mode .pai-hero-mascot-floating {
                     $icon = $info['icon'] ?? 'fa-solid fa-table-cells';
                     $url = $info['url'] ?? '#';
                     $desc = $descripciones[$clave] ?? 'Panel de administración.';
+                    $panelOperativo = in_array($clave, $panelesActivosAhora, true);
+                    $clsModulo = 'card shadow-none bg-label-primary h-100 panel-admin-modulo-card'
+                        . ($panelOperativo ? '' : ' panel-admin-modulo-card--proximamente');
                 ?>
                 <div class="col-lg-4">
-                    <div class="card shadow-none bg-label-primary h-100">
+                    <div class="<?= htmlspecialchars($clsModulo, ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php if (!$panelOperativo): ?>
+                        <span class="panel-admin-modulo-lazo">Próximamente</span>
+                        <?php endif; ?>
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                             <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                 <div class="card-title">
@@ -167,7 +203,11 @@ body.dark-mode .pai-hero-mascot-floating {
                                     <p class="text-body w-sm-80 app-academy-xl-100"><?= htmlspecialchars($desc); ?></p>
                                 </div>
                                 <div class="mb-0">
+                                    <?php if ($panelOperativo): ?>
                                     <a href="<?= htmlspecialchars($url); ?>" class="btn btn-primary">VER <?= strtoupper(htmlspecialchars($label)); ?></a>
+                                    <?php else: ?>
+                                    <span class="btn btn-primary disabled" aria-disabled="true">VER <?= strtoupper(htmlspecialchars($label)); ?></span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
@@ -180,14 +220,15 @@ body.dark-mode .pai-hero-mascot-floating {
                 </div>
                 <?php endforeach; ?>
                 <div class="col-lg-4">
-                    <div class="card shadow-none bg-label-primary h-100">
+                    <div class="card shadow-none bg-label-primary h-100 panel-admin-modulo-card panel-admin-modulo-card--proximamente">
+                        <span class="panel-admin-modulo-lazo">Próximamente</span>
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                             <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                 <div class="card-title">
                                     <h5 class="text-primary mb-2">Más paneles</h5>
                                     <p class="text-body app-academy-sm-60 app-academy-xl-100">Nuevos paneles de administración se habilitarán aquí.</p>
                                 </div>
-                                <div class="mb-0"><span class="btn btn-sm btn-primary" disabled>PRÓXIMAMENTE</span></div>
+                                <div class="mb-0"><span class="btn btn-sm btn-primary disabled" aria-disabled="true">PRÓXIMAMENTE</span></div>
                             </div>
                             <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
                                 <div class="rounded-3 d-flex align-items-center justify-content-center h-100 text-secondary" style="min-height: 120px; min-width: 100px;">
