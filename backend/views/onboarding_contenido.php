@@ -92,11 +92,11 @@
         <div class="card mb-4">
             <div class="card-body">
                 <div class="d-flex flex-wrap gap-2 mb-3">
-                    <span class="badge bg-label-primary course-badge">UI/UX</span>
-                    <span class="badge bg-label-success course-badge">Diseño</span>
+                    <span class="badge bg-label-primary course-badge">Bienvenido!</span>
+                    <span class="badge bg-label-success course-badge">Cobranza</span>
                     <span class="badge bg-label-warning course-badge">Principiante</span>
                 </div>
-                <h4 class="card-title mb-0">UI/UX Basic Fundamentals</h4>
+                <h4 class="card-title mb-0">Curso de inducción para cobranza Maxikash</h4>
             </div>
         </div>
 
@@ -160,14 +160,16 @@
             <div class="card-body">
                 <h5 class="card-title mb-3"><i class="fa-solid fa-circle-info me-2 text-primary"></i>Acerca de este curso</h5>
                 <p class="mb-0">
-                    Aprende diseño web en 1 hora con más de 25 reglas y directrices simples de uso sencillo —
-                    ¡con toneladas de recursos increíbles de diseño web incluidos! El material de este curso
-                    también está cubierto en mi otro curso sobre diseño y desarrollo web con HTML5 &amp; CSS3.
+                    Bienvenido a Maxikash! El departamento de cobranza es el área responsable de gestionar la recuperación
+                    de los créditos otorgados a nuestros clientes. Su misión es mantener la cartera sana mediante
+                    el seguimiento oportuno de pagos, la negociación de acuerdos y el trato digno con cada persona.
+                    Es un equipo clave para la operación financiera de la empresa y el primer punto de contacto
+                    cuando un cliente necesita apoyo para regularizar su situación.
                 </p>
             </div>
         </div>
 
-        <!-- By the numbers ───────────────────────────────────────────────── -->
+        <!-- En números — comentado temporalmente, descomentar cuando se requiera
         <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title mb-4"><i class="fa-solid fa-chart-bar me-2 text-primary"></i>En números</h5>
@@ -223,31 +225,27 @@
                 </div>
             </div>
         </div>
+        -->
 
         <!-- Description ──────────────────────────────────────────────────── -->
         <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title mb-3"><i class="fa-solid fa-align-left me-2 text-primary"></i>Descripción</h5>
                 <p class="lh-lg">
-                    Este módulo de onboarding está diseñado para guiar a cada nuevo integrante del equipo a través de
-                    los procesos, herramientas y cultura que definen nuestra forma de trabajar. Aquí encontrarás desde
-                    los fundamentos operativos hasta las buenas prácticas que nos permiten colaborar con eficiencia y
-                    claridad. Cada lección ha sido construida con un propósito concreto: reducir la curva de aprendizaje
-                    y darte la autonomía necesaria para desempeñarte con confianza desde el primer día.
+                    Este curso de inducción está diseñado para ayudarte a integrarte al área de Cobranza de Maxikash. Aquí conocerás cómo funciona el departamento, sus objetivos y las actividades clave del día a día.
                 </p>
                 <p class="lh-lg">
-                    A lo largo del recorrido explorarás el uso de nuestras plataformas internas, los flujos de
-                    comunicación entre áreas, los criterios de calidad que aplicamos en cada entrega y los valores
-                    que sostienen nuestro trabajo diario. No se trata solo de aprender procedimientos; se trata de
-                    comprender el porqué detrás de cada decisión y de apropiarte de ese conocimiento para crecer
-                    dentro de la organización.
+                    Aprenderás a manejar los diferentes tipos de cartera, usar nuestras herramientas internas y aplicar buenas prácticas de atención y negociación con clientes. También conocerás las reglas y procesos que guían nuestro trabajo.
                 </p>
                 <p class="lh-lg">
-                    Al finalizar este programa tendrás una visión completa de quiénes somos, cómo operamos y hacia
-                    dónde vamos. Estarás listo para contribuir de manera significativa, aportando ideas, resolviendo
-                    problemas con criterio y siendo un referente positivo para quienes lleguen después de ti.
-                    Bienvenido al equipo — este es tu punto de partida.
+                    Además, te acercarás a la cultura del equipo: el respeto al cliente, el trabajo en conjunto y el impacto que tiene tu labor en la empresa.
                 </p>
+                <p class="lh-lg">
+                    Al finalizar, tendrás las bases necesarias para comenzar a operar con confianza y desarrollarte dentro del área.
+                    
+                </p>
+
+               <p> Bienvenido a Cobranza Maxikash — este es tu primer paso! </p> 
             </div>
         </div>
 
