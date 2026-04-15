@@ -1985,6 +1985,16 @@
         }
     }
 
+    /** Cierra el modal EC Worker / Excel enriquecido al arrancar la corrida (banner + log siguen visibles). */
+    function cerrarModalEcWorker() {
+        try {
+            var mEl = document.getElementById('modalGcEcWorker');
+            if (!mEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+            var inst = bootstrap.Modal.getInstance(mEl);
+            if (inst) inst.hide();
+        } catch (eCerr) { /* ignorar */ }
+    }
+
     function construirPayloadCargaVerificacion(nombreArchivo, cargaOpts) {
         cargaOpts = cargaOpts || {};
         var payload = {
@@ -2026,6 +2036,7 @@
     async function ejecutarPayloadEcYListaNegra(payloadEc, cargaOpts) {
         iniciarOperacionShell(payloadEc.tipo === 'enrich' ? 'enrich' : 'worker');
         comenzarLogRapidoEcWorker();
+        cerrarModalEcWorker();
         try {
             var r2;
             try {
@@ -2413,11 +2424,39 @@
         if (btnRun) btnRun.disabled = true;
         if (outWrap) outWrap.classList.add('d-none');
         try {
-            var r = await fetch('/gastoscobranza/ejecutarReporte', {
-                method: 'POST',
-                headers: { 'Front-Request': 'true' }
-            });
-            var rawRep = await r.text();
+            var r;
+            try {
+                r = await fetch('/gastoscobranza/ejecutarReporte', {
+                    method: 'POST',
+                    headers: { 'Front-Request': 'true' }
+                });
+            } catch (eFetch) {
+                /*
+                 * "Failed to fetch": el navegador perdió la conexión con PHP (timeout de proxy/nginx,
+                 * cierre de red, etc.). El reporte puede haber terminado igual en el agente.
+                 */
+                var m0 = String(eFetch.message || eFetch);
+                var extra0 = (m0 === 'Failed to fetch' || /networkerror|load failed|aborted/i.test(m0))
+                    ? '\n\nEl reporte tarda muchos minutos: a veces un proxy o el servidor web corta la espera antes de que PHP devuelva la respuesta, aunque el agente siga y genere el Excel. Pulse «Listar reportes» o abra el log del agente para comprobar si ya quedó listo.'
+                    : '';
+                alertar('No se recibió respuesta del servidor', m0 + extra0, 'warning');
+                await traerListaReportes();
+                await traerLog(400, { scrollBottom: true });
+                return;
+            }
+            var rawRep;
+            try {
+                rawRep = await r.text();
+            } catch (eBody) {
+                var m1 = String(eBody.message || eBody);
+                var extra1 = (m1 === 'Failed to fetch' || /networkerror|load failed/i.test(m1))
+                    ? '\n\nLa conexión se cortó al leer la respuesta (tiempos largos). Revise la tabla de reportes y el log del agente por si el proceso ya terminó.'
+                    : '';
+                alertar('Respuesta incompleta', m1 + extra1, 'warning');
+                await traerListaReportes();
+                await traerLog(400, { scrollBottom: true });
+                return;
+            }
             var data;
             try {
                 data = JSON.parse(rawRep);
@@ -2446,7 +2485,15 @@
                 await traerListaReportes();
             }
         } catch (e) {
-            alertar('Error', String(e.message || e), 'error');
+            var m = String(e.message || e);
+            var extra = (m === 'Failed to fetch' || /networkerror|load failed/i.test(m))
+                ? '\n\nSi el agente ya terminó, use «Listar reportes» o el log para verificar.'
+                : '';
+            alertar('Error', m + extra, 'error');
+            try {
+                await traerListaReportes();
+                await traerLog(400, { scrollBottom: true });
+            } catch (ePost) { /* ignorar */ }
         } finally {
             finalizarOperacionShell();
             refrescarEstado();

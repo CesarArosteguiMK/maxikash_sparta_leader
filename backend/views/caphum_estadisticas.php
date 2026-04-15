@@ -126,6 +126,42 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             min-width: 140px;
         }
     }
+    /* Cuatro cards en una fila en desktop; más compactas */
+    .ch-plantilla-strip--4col {
+        gap: 8px;
+    }
+    @media (min-width: 992px) {
+        .ch-plantilla-strip--4col {
+            flex-wrap: nowrap;
+        }
+        .ch-plantilla-strip--4col > .ch-plantilla-card-wrap {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+    }
+    .ch-plantilla-strip--4col .ch-plantilla-card-inner {
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
+    }
+    .ch-plantilla-strip--4col .ch-plantilla-kpi-num {
+        font-size: 22px !important;
+        line-height: 1.15;
+    }
+    .ch-plantilla-strip--4col .ch-plantilla-title-sm {
+        font-size: 9px !important;
+        letter-spacing: 0.9px !important;
+    }
+    .ch-plantilla-strip--4col #chPlantillaSedeLista {
+        font-size: 11px !important;
+    }
+    .ch-plantilla-strip--4col #chPlantillaGenH,
+    .ch-plantilla-strip--4col #chPlantillaGenM {
+        font-size: 18px !important;
+    }
+    .ch-plantilla-strip--4col #chPlantillaAntig {
+        font-size: 16px !important;
+        line-height: 1.25;
+    }
 </style>
 <div class="content-wrapper">
     <div class="container-xxl flex-grow-1 container-p-y">
@@ -200,7 +236,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <span id="chMovRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90; letter-spacing: 0.02em;">—</span>
                         </div>
                         <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Cada número cuenta eventos entre la primera y la última fecha del filtro (año, mes y semana): ingresos, bajas y reingresos. Al hacer clic en Ingresos, Bajas o Reingresos se abre abajo el panel con la gráfica (torta) por departamento según el puesto vigente (última asignación en asigna_puesto)."
+                            title="Cada número cuenta eventos entre la primera y la última fecha del filtro (año, mes y semana): ingresos, bajas y reingresos. Al hacer clic en Ingresos, Bajas o Reingresos se abre el panel con la gráfica por departamento; allí puede elegir barras, pastel o línea según el puesto vigente (última asignación en asigna_puesto)."
                             aria-label="Ayuda: movimientos del período">
                             <i class="fa fa-info-circle" aria-hidden="true"></i>
                         </button>
@@ -252,16 +288,28 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="chMovDetalleCerrar">Cerrar</button>
                         </div>
-                        <div id="chChartMovDetalle" style="min-height: 260px;"></div>
+                        <div id="chMovDetalleChartShell" class="position-relative rounded border bg-white" style="border-color: #dde3ec; min-height: 260px;">
+                            <div class="position-absolute top-0 end-0 p-2 pt-2 pe-2" style="z-index: 2;">
+                                <div class="btn-group" role="group" aria-label="Tipo de gráfica por departamento">
+                                    <input type="radio" class="btn-check" name="chMovDetChartTipo" id="chDetTipoPie" value="pie" checked autocomplete="off">
+                                    <label class="btn btn-outline-secondary px-3 py-2" for="chDetTipoPie" title="Pastel"><span class="small lh-1"><i class="fa fa-pie-chart" aria-hidden="true"></i></span></label>
+                                    <input type="radio" class="btn-check" name="chMovDetChartTipo" id="chDetTipoBar" value="bar" autocomplete="off">
+                                    <label class="btn btn-outline-secondary px-3 py-2" for="chDetTipoBar" title="Barras"><span class="small lh-1"><i class="fa fa-bar-chart" aria-hidden="true"></i></span></label>
+                                    <input type="radio" class="btn-check" name="chMovDetChartTipo" id="chDetTipoLine" value="line" autocomplete="off">
+                                    <label class="btn btn-outline-secondary px-3 py-2" for="chDetTipoLine" title="Línea"><span class="small lh-1"><i class="fa fa-line-chart" aria-hidden="true"></i></span></label>
+                                </div>
+                            </div>
+                            <div id="chChartMovDetalle" class="pt-1" style="min-height: 260px;"></div>
+                        </div>
                     </div>
                 </div>
 
                 <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; margin: 20px 0 10px;">Plantilla y Estructura</div>
-                <div class="ch-plantilla-strip">
+                <div class="ch-plantilla-strip ch-plantilla-strip--4col">
                     <div class="ch-plantilla-card-wrap">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
+                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
                     <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Distribución por Sede</div>
+                        <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Distribución por Sede</div>
                         <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
                             title="Top de países/sedes con más personal activo al último día del periodo. El número inferior cuenta cuántas sedes distintas tienen al menos un activo en ese cierre."
                             aria-label="Ayuda: distribución por sede">
@@ -270,14 +318,14 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     </div>
                     <div id="chPlantillaSedeLista" style="font-size: 12px; color: #6b7a90; margin-bottom: 10px; white-space: pre-line;">—</div>
                     <div style="font-size: 12px; color: #6b7a90;">Total sedes con personal activo</div>
-                    <div id="chPlantillaSedeTotal" style="font-size: 24px; font-weight: 700; color: #1a3a5c; margin-top: 4px;">0</div>
+                    <div id="chPlantillaSedeTotal" class="ch-plantilla-kpi-num" style="font-weight: 700; color: #1a3a5c; margin-top: 4px;">0</div>
                         </div>
                     </div>
                     <div class="ch-plantilla-card-wrap d-none" id="chWrapCardGenero">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
+                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div class="d-flex align-items-start gap-1">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Distribución por Género</div>
+                            <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b;">Distribución por Género</div>
                             <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
                                 title="Conteo de empleados activos al cierre del periodo según el campo género o sexo en persona (si existe en la base de datos)."
                                 aria-label="Ayuda: distribución por género">
@@ -297,34 +345,51 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                         </div>
                     </div>
                     <div class="ch-plantilla-card-wrap">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
+                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
                     <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Antigüedad Promedio</div>
+                        <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Antigüedad Promedio</div>
                         <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
                             title="AVG(DATEDIFF(último día del período, fecha_ingreso)) solo entre empleados Activos con fecha de ingreso no nula y al cierre del período (mismo criterio que plantilla al cierre: ingreso hasta ese día). No incluye el KPI «Total empleados en plantilla» (todas las filas de persona). Debajo del número verás cuántas personas entran en ese promedio."
                             aria-label="Ayuda: antigüedad promedio">
                             <i class="fa fa-info-circle" aria-hidden="true"></i>
                         </button>
                     </div>
-                    <div id="chPlantillaAntig" style="font-size: 22px; font-weight: 800; color: #1a3a5c;">—</div>
+                    <div id="chPlantillaAntig" class="ch-plantilla-kpi-num" style="font-weight: 800; color: #1a3a5c;">—</div>
                     <div style="font-size: 12px; color: #6b7a90; margin-top: 8px;">años promedio en la empresa</div>
                         </div>
                     </div>
                     <div class="ch-plantilla-card-wrap">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; height: 100%;">
+                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div class="d-flex align-items-start gap-1 flex-wrap">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Empleados Nuevos (&lt; 90 días)</div>
+                            <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b;">Empleados Nuevos (&lt; 90 días)</div>
                             <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Activos al cierre cuya fecha de ingreso está entre (último día del período − 89 días) y ese último día inclusive: 90 días calendario que terminan en la fecha fin del filtro. El rango exacto se muestra debajo del número."
+                                title="Cuenta empleados con estatus Activo al cierre del período y cuya fecha de ingreso cae en los 90 días calendario que terminan el último día del período filtrado (fecha fin del filtro): desde (ese día − 89 días) hasta ese mismo día inclusive."
                                 aria-label="Ayuda: empleados nuevos 90 días">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
                         </div>
                         <span id="chBadgeNuevos90" style="background: #fef3cd; color: #7a5000; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; display: inline-block;">Recién ingresados</span>
                     </div>
-                    <div id="chPlantillaNuevos90" style="font-size: 28px; font-weight: 800; color: #f0a500; margin-top: 8px;">0</div>
-                    <div style="font-size: 12px; color: #6b7a90; margin-top: 6px;">Al cierre del período filtrado</div>
+                    <div id="chPlantillaNuevos90" class="ch-plantilla-kpi-num" style="font-weight: 800; color: #f0a500; margin-top: 8px;">0</div>
+                    <div style="font-size: 11px; color: #6b7a90; margin-top: 6px;">Al cierre del período filtrado</div>
+                        </div>
+                    </div>
+                    <div class="ch-plantilla-card-wrap">
+                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-start gap-1 flex-wrap">
+                            <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b;">Empleados Bajas (&lt; 90 días)</div>
+                            <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
+                                title="Cuenta registros en baja_persona cuya fecha de baja cae en los 90 días calendario que terminan el último día del período filtrado (fecha fin del filtro): desde (ese día − 89 días) hasta ese mismo día inclusive. Es la misma ventana que «Empleados Nuevos», pero sobre fecha de baja. El texto bajo el número solo indica que el indicador se refiere al cierre del período filtrado; aquí no se listan fechas."
+                                aria-label="Ayuda: empleados bajas 90 días">
+                                <i class="fa fa-info-circle" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <span id="chBadgeBajas90" style="background: #fde8e8; color: #7a1111; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; display: inline-block;">Bajas recientes</span>
+                    </div>
+                    <div id="chPlantillaBajas90" class="ch-plantilla-kpi-num" style="font-weight: 800; color: #e74c3c; margin-top: 8px;">0</div>
+                    <div style="font-size: 11px; color: #6b7a90; margin-top: 6px;">Al cierre del período filtrado</div>
                         </div>
                     </div>
                 </div>
@@ -386,7 +451,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Rotación</span>
                             <span id="chRotRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90;">—</span>
                             <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="El % mostrado es (bajas del período / plantilla al cierre) × 100. La plantilla al cierre son personas sin estatus Baja con ingreso hasta el último día del filtro. La segunda fórmula (sobre empleados activos al cierre) es referencia; no sustituye al indicador principal."
+                                title="El % mostrado es (bajas del período / empleados activos) × 100."
                                 aria-label="Ayuda: rotación">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
@@ -396,7 +461,6 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     <div class="d-flex flex-column justify-content-center text-center pt-2">
                         <div id="chRotacionPct" style="font-size: 28px; font-weight: 800; color: #2ecc8b;">0%</div>
                         <div style="font-size: 10px; color: #6b7a90; margin-top: 6px; line-height: 1.45;">
-                            <div>(Bajas período / plantilla al cierre) × 100</div>
                             <div>(Bajas período / empleados activos) × 100</div>
                         </div>
                     </div>
@@ -405,7 +469,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                         <div id="chChartRotacion" style="min-height: 200px; max-width: 280px; margin: 0 auto;"></div>
                         <div class="d-flex justify-content-center align-items-center flex-wrap gap-3 mt-1" style="font-size: 11px; color: #6b7a90;">
                             <span><span class="ch-rot-legend-dot" style="background:#2ecc8b;"></span> Bajas período: <strong id="chRotLegendBajas">0</strong></span>
-                            <span><span class="ch-rot-legend-dot" style="background:#bdc3c7;"></span> Plantilla cierre: <strong id="chRotLegendPlantilla">0</strong></span>
+                            <span><span class="ch-rot-legend-dot" style="background:#bdc3c7;"></span> Empleados activos: <strong id="chRotLegendPlantilla">0</strong></span>
                         </div>
                     </div>
                 </div>
@@ -431,6 +495,12 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
     var ST_ROT_BAD = 'font-size: 28px; font-weight: 800; color: #e74c3c;';
 
     var chCharts = { mov: null, plantilla: null, rotacion: null, movDetalle: null };
+    /** Tipo de gráfica del panel «por departamento» (solo con Ingresos/Bajas/Reingresos abiertos): bar | pie | line */
+    var chMovDetalleChartTipo = 'pie';
+    /** Últimas filas por departamento mostradas; permite cambiar tipo sin nueva petición */
+    var chMovDetalleLastRows = [];
+    /** Evita redibujar al cambiar tipo antes de que llegue el desglose (o con datos del panel anterior). */
+    var chMovDetalleListo = false;
     var chMovTipoAbierto = null;
     var chMovDetalleReqSeq = 0;
     /** Paleta cíclica para sectores del pie de departamentos */
@@ -589,26 +659,38 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         if (!ensureApexReady()) return;
 
         var movSeries = [n(d.ingresos), n(d.bajas), n(d.reingresos)];
+        var movCats = ['Ingresos', 'Bajas', 'Reingresos'];
+        var movColors = ['#2ecc8b', '#e74c3c', '#3498db'];
         var rotPct = Math.min(100, Math.max(0, n(d.rotacion_pct)));
         var rotColor = rotPct > 5 ? '#e74c3c' : '#2ecc8b';
 
-        if (!chCharts.mov) {
-            chCharts.mov = new ApexCharts(document.querySelector('#chChartMovimientos'), {
-                chart: { type: 'bar', height: 250, toolbar: { show: false } },
-                series: [{ name: 'Personas', data: movSeries }],
-                xaxis: { categories: ['Ingresos', 'Bajas', 'Reingresos'] },
-                colors: ['#2ecc8b', '#e74c3c', '#3498db'],
-                dataLabels: { enabled: false },
-                plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } },
-                grid: { borderColor: '#eef1f5' }
-            });
+        var tipoResumenActual = null;
+        try {
+            if (chCharts.mov && chCharts.mov.w && chCharts.mov.w.config && chCharts.mov.w.config.chart) {
+                tipoResumenActual = chCharts.mov.w.config.chart.type;
+            }
+        } catch (eTipo) {
+            tipoResumenActual = null;
+        }
+        if (chCharts.mov && tipoResumenActual !== 'bar') {
+            destruirChartMovimientosResumen();
+        }
+
+        var elMov = document.querySelector('#chChartMovimientos');
+        var optMovBar = {
+            chart: { type: 'bar', height: 250, toolbar: { show: false } },
+            series: [{ name: 'Personas', data: movSeries }],
+            xaxis: { categories: movCats },
+            colors: movColors,
+            dataLabels: { enabled: false },
+            plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } },
+            grid: { borderColor: '#eef1f5' },
+            tooltip: { y: { formatter: function (val) { return val + ' personas'; } } }
+        };
+        if (elMov && !chCharts.mov) {
+            chCharts.mov = new ApexCharts(elMov, optMovBar);
             chCharts.mov.render();
-        } else {
-            chCharts.mov.updateOptions({
-                xaxis: { categories: ['Ingresos', 'Bajas', 'Reingresos'] },
-                colors: ['#2ecc8b', '#e74c3c', '#3498db'],
-                plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } }
-            }, false, true);
+        } else if (chCharts.mov) {
             chCharts.mov.updateSeries([{ name: 'Personas', data: movSeries }], true);
         }
 
@@ -740,6 +822,13 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         }
     }
 
+    function destruirChartMovimientosResumen() {
+        if (chCharts.mov) {
+            try { chCharts.mov.destroy(); } catch (eMr) {}
+            chCharts.mov = null;
+        }
+    }
+
     function setMovResumenBarVisible(show) {
         var w = document.getElementById('chMovResumenBarWrap');
         if (!w) return;
@@ -757,6 +846,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
 
     function cerrarMovDetallePanel() {
         chMovTipoAbierto = null;
+        chMovDetalleListo = false;
         var wrap = document.getElementById('chMovDetalleWrap');
         if (wrap) wrap.classList.add('d-none');
         document.querySelectorAll('.ch-mov-card').forEach(function (el) {
@@ -780,16 +870,24 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         });
     }
 
-    function renderMovDetallePie(rows) {
+    function syncMovDetalleTipoRadios() {
+        var t = chMovDetalleChartTipo || 'pie';
+        document.querySelectorAll('input[name="chMovDetChartTipo"]').forEach(function (r) {
+            r.checked = (r.value === t);
+        });
+    }
+
+    function renderMovDetalleChart(rows) {
+        chMovDetalleLastRows = Array.isArray(rows) ? rows.slice() : [];
         if (!ensureApexReady()) return;
         destruirMovDetalleChart();
         var el = document.querySelector('#chChartMovDetalle');
         if (!el) return;
         var labels = [];
         var series = [];
-        for (var i = 0; i < rows.length; i++) {
-            labels.push(rows[i].nombre || '—');
-            series.push(n(rows[i].cnt));
+        for (var i = 0; i < chMovDetalleLastRows.length; i++) {
+            labels.push(chMovDetalleLastRows[i].nombre || '—');
+            series.push(n(chMovDetalleLastRows[i].cnt));
         }
         if (!labels.length) {
             labels = ['Sin datos'];
@@ -802,35 +900,134 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         if (labels.length === 1 && labels[0] === 'Sin datos') {
             pieColors = ['#dde3ec'];
         }
-        chCharts.movDetalle = new ApexCharts(el, {
-            chart: { type: 'pie', height: 280, toolbar: { show: false }, animations: { speed: 360 } },
-            series: series,
-            labels: labels,
-            colors: pieColors,
-            legend: {
-                position: 'bottom',
-                fontSize: '11px',
-                horizontalAlign: 'center',
-                itemMargin: { horizontal: 6, vertical: 2 },
-                onItemClick: { toggleDataSeries: false },
-                onItemHover: { highlightDataSeries: true },
-                formatter: function (seriesName, opts) {
-                    var idx = opts.seriesIndex;
-                    return seriesName + ': ' + opts.w.globals.series[idx];
-                }
-            },
-            plotOptions: { pie: { expandOnClick: true } },
-            dataLabels: {
-                enabled: labels.length <= 12 && !(labels.length === 1 && labels[0] === 'Sin datos'),
-                formatter: function (val, opts) {
-                    return String(opts.w.config.series[opts.seriesIndex]);
+        var tipo = chMovDetalleChartTipo || 'pie';
+        var opt;
+
+        if (tipo === 'pie') {
+            opt = {
+                chart: { type: 'pie', height: 280, toolbar: { show: false }, animations: { speed: 360 } },
+                series: series,
+                labels: labels,
+                colors: pieColors,
+                legend: {
+                    position: 'bottom',
+                    fontSize: '11px',
+                    horizontalAlign: 'center',
+                    itemMargin: { horizontal: 6, vertical: 2 },
+                    onItemClick: { toggleDataSeries: false },
+                    onItemHover: { highlightDataSeries: true },
+                    formatter: function (seriesName, opts) {
+                        var idx = opts.seriesIndex;
+                        return seriesName + ': ' + opts.w.globals.series[idx];
+                    }
                 },
-                style: { fontSize: '11px', fontWeight: 600 }
-            },
-            tooltip: { y: { formatter: function (val) { return val + ' personas'; } } },
-            stroke: { width: 1, colors: ['#ffffff'] }
-        });
+                plotOptions: { pie: { expandOnClick: true } },
+                dataLabels: {
+                    enabled: labels.length <= 12 && !(labels.length === 1 && labels[0] === 'Sin datos'),
+                    formatter: function (val, opts) {
+                        return String(opts.w.config.series[opts.seriesIndex]);
+                    },
+                    style: { fontSize: '11px', fontWeight: 600 }
+                },
+                tooltip: { y: { formatter: function (val) { return val + ' personas'; } } },
+                stroke: { width: 1, colors: ['#ffffff'] }
+            };
+        } else if (tipo === 'line') {
+            /** Versión estable: trazo simple + markers.discrete por punto. Evita que Apex deje la línea oculta y mantiene colores distintos en cada punto. */
+            var markerColors = pieColors.slice(0, series.length);
+            while (markerColors.length < series.length) {
+                markerColors.push(CH_DEPTO_COLORS[markerColors.length % CH_DEPTO_COLORS.length]);
+            }
+            var markerDiscrete = [];
+            for (var m = 0; m < series.length; m++) {
+                markerDiscrete.push({
+                    seriesIndex: 0,
+                    dataPointIndex: m,
+                    fillColor: markerColors[m],
+                    strokeColor: '#ffffff',
+                    size: 7
+                });
+            }
+            var lineStroke = '#5a6a7d';
+            opt = {
+                chart: { type: 'line', height: 290, toolbar: { show: false }, zoom: { enabled: false } },
+                series: [{ name: 'Personas', data: series }],
+                xaxis: {
+                    categories: labels,
+                    labels: {
+                        style: { fontSize: '10px' },
+                        rotate: labels.length > 6 ? -35 : 0,
+                        rotateAlways: labels.length > 6
+                    }
+                },
+                yaxis: { min: 0 },
+                colors: [lineStroke],
+                stroke: {
+                    curve: 'straight',
+                    width: 4,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                },
+                legend: { show: false },
+                markers: {
+                    size: 7,
+                    strokeWidth: 2,
+                    strokeColors: '#ffffff',
+                    hover: { size: 9 },
+                    discrete: markerDiscrete
+                },
+                dataLabels: { enabled: false },
+                grid: { borderColor: '#eef1f5', padding: { top: 8, right: 12 } },
+                tooltip: {
+                    y: {
+                        formatter: function (val, opts) {
+                            var i = opts.dataPointIndex;
+                            return val + ' personas' + (labels[i] != null ? ' · ' + labels[i] : '');
+                        }
+                    }
+                }
+            };
+        } else {
+            var hBar = Math.min(520, Math.max(260, labels.length * 28));
+            opt = {
+                chart: { type: 'bar', height: hBar, toolbar: { show: false } },
+                series: [{ name: 'Personas', data: series }],
+                plotOptions: {
+                    bar: {
+                        horizontal: true,
+                        borderRadius: 4,
+                        distributed: true,
+                        barHeight: '72%',
+                        dataLabels: { position: 'end' }
+                    }
+                },
+                colors: pieColors,
+                dataLabels: {
+                    enabled: labels.length <= 14 && !(labels.length === 1 && labels[0] === 'Sin datos'),
+                    formatter: function (val) { return String(Math.round(val)); },
+                    textAnchor: 'start',
+                    offsetX: 24,
+                    style: { fontSize: '11px', fontWeight: 700, colors: ['#2f3b52'] },
+                    dropShadow: { enabled: false }
+                },
+                xaxis: {
+                    categories: labels,
+                    labels: { style: { fontSize: '10px' } }
+                },
+                yaxis: {
+                    labels: {
+                        maxWidth: 200,
+                        style: { fontSize: '10px' }
+                    }
+                },
+                grid: { borderColor: '#eef1f5', padding: { top: 4, right: 62 } },
+                tooltip: { y: { formatter: function (val) { return val + ' personas'; } } }
+            };
+        }
+
+        chCharts.movDetalle = new ApexCharts(el, opt);
         chCharts.movDetalle.render();
+        chMovDetalleListo = true;
     }
 
     function solicitarMovDetalle(tipo) {
@@ -839,10 +1036,14 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             return;
         }
         chMovTipoAbierto = tipo;
+        chMovDetalleListo = false;
+        chMovDetalleLastRows = [];
+        destruirMovDetalleChart();
         actualizarSeleccionMovCards(tipo);
         setMovResumenBarVisible(false);
         var wrap = document.getElementById('chMovDetalleWrap');
         if (wrap) wrap.classList.remove('d-none');
+        syncMovDetalleTipoRadios();
         var titulos = {
             ingresos: 'Ingresos del período — por departamento',
             bajas: 'Bajas del período — por departamento',
@@ -878,7 +1079,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     } else {
                         setText('chMovDetalleSub', '');
                     }
-                    renderMovDetallePie([]);
+                    renderMovDetalleChart([]);
                     return;
                 }
                 var dat = resp.datos;
@@ -886,13 +1087,13 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                 var suf = (dat.total != null ? ' · Total: ' + String(dat.total) : '') + (rng ? ' · ' + rng : '');
                 setText('chMovDetalleTitulo', (titulos[tipo] || tipo) + suf);
                 setText('chMovDetalleSub', '');
-                renderMovDetallePie(dat.por_departamento || []);
+                renderMovDetalleChart(dat.por_departamento || []);
             })
             .catch(function () {
                 if (reqId !== chMovDetalleReqSeq || tipo !== chMovTipoAbierto) return;
                 setText('chMovDetalleTitulo', titulos[tipo] || tipo);
                 setText('chMovDetalleSub', 'Error de red al cargar el desglose.');
-                renderMovDetallePie([]);
+                renderMovDetalleChart([]);
             });
     }
 
@@ -944,7 +1145,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         setRotacionPctStyle(d.rotacion_pct ?? 0);
         setBadge('chBadgeRotacion', d.rotacion_badge_text || '—', d.rotacion_badge_class || '');
         setText('chRotLegendBajas', String(d.bajas ?? 0));
-        setText('chRotLegendPlantilla', String(d.plantilla_cierre_total ?? d.total_empleados ?? 0));
+        setText('chRotLegendPlantilla', String(d.empleados_activos ?? 0));
 
         var topSede = d.plantilla_sede_top || [];
         var sedeLines = [];
@@ -972,6 +1173,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
 
         setText('chPlantillaAntig', d.plantilla_antiguedad_label || '—');
         setText('chPlantillaNuevos90', String(d.plantilla_empleados_nuevos_90 ?? 0));
+        setText('chPlantillaBajas90', String(d.plantilla_empleados_bajas_90 ?? 0));
         var omitTi = !!d.onb_omit_tiempo_induccion;
         setColVisible('chColTiempoInduccion', !omitTi);
         setText('chOnbDiasProm', String(d.onb_dias_prom_induccion ?? 0));
@@ -1052,6 +1254,16 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         refrescar();
     });
     document.getElementById('chEstSemana').addEventListener('change', refrescar);
+
+    document.querySelectorAll('input[name="chMovDetChartTipo"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            if (!this.checked) return;
+            chMovDetalleChartTipo = this.value || 'pie';
+            if (chMovTipoAbierto && chMovDetalleListo) {
+                renderMovDetalleChart(chMovDetalleLastRows);
+            }
+        });
+    });
 
     document.querySelectorAll('.ch-mov-card').forEach(function (card) {
         card.addEventListener('click', function (e) {

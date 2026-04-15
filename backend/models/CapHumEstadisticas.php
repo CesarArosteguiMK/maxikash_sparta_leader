@@ -261,7 +261,7 @@ class CapHumEstadisticas extends Model
                 FROM ' . $tp . ' p
                 WHERE ' . $sqlNoBaja . '
                   AND ' . $sqlIngHastaFfHi;
-            // Plantilla al cierre del periodo (excluye baja formal; ingreso hasta último día): usada en rotación y tasas por periodo.
+            // Plantilla al cierre del periodo (excluye baja formal; ingreso hasta último día): usada en tasas por periodo.
             $headcountPlantillaCierre = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c ' . $sqlHeadcountBase,
@@ -336,7 +336,7 @@ class CapHumEstadisticas extends Model
                 $paramsRango
             );
 
-            $denRot = $headcountPlantillaCierre > 0 ? $headcountPlantillaCierre : 1;
+            $denRot = $empleadosActivos > 0 ? $empleadosActivos : 1;
             $rotacionPct = round(100.0 * ($bajas / $denRot), 1);
             if ($rotacionPct <= 5.0) {
                 $rotacionBadge = 'bg-success';
@@ -415,7 +415,7 @@ class CapHumEstadisticas extends Model
                 $paramsRango
             );
 
-            // --- Plantilla & estructura (sede / género / antigüedad / nuevos 90 días) ---
+            // --- Plantilla & estructura (sede / género / antigüedad / nuevos 90 días / bajas 90 días) ---
             $plantillaSedeTop = [];
             $plantillaTotalSedes = 0;
             $rowsSede = self::queryAllSafe(
@@ -500,6 +500,13 @@ class CapHumEstadisticas extends Model
                    AND p.fecha_ingreso IS NOT NULL
                    AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
                    AND DATE(p.fecha_ingreso) BETWEEN DATE_SUB(:ff_90a, INTERVAL 89 DAY) AND :ff_90b' . $hcActivoCierre,
+                $paramsRango
+            );
+
+            $plantillaEmpleadosBajas90 = self::scalarInt(
+                $db,
+                'SELECT COUNT(*) AS c FROM ' . $tbp . ' bp
+                 WHERE DATE(bp.fecha_baja) BETWEEN DATE_SUB(:ff_90a, INTERVAL 89 DAY) AND :ff_90b',
                 $paramsRango
             );
 
@@ -763,6 +770,9 @@ class CapHumEstadisticas extends Model
                 'plantilla_empleados_nuevos_90' => $plantillaEmpleadosNuevos90,
                 'plantilla_nuevos90_desde' => $plantillaNuevos90Desde,
                 'plantilla_nuevos90_hasta' => $ff,
+                'plantilla_empleados_bajas_90' => $plantillaEmpleadosBajas90,
+                'plantilla_bajas90_desde' => $plantillaNuevos90Desde,
+                'plantilla_bajas90_hasta' => $ff,
                 'ausentismo_omit' => $omitAusentismo,
                 'ausentismo_dias_total' => $ausDiasTotal,
                 'ausentismo_empleados_3mas' => $ausEmpleados3mas,
