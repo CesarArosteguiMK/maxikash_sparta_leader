@@ -251,27 +251,21 @@
 
         <!-- Instructor ───────────────────────────────────────────────────── -->
 
-        <?php
-            $instructorNombre = htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario');
-            $instructorPuesto = htmlspecialchars($_SESSION['nombre_puesto'] ?? '');
-            $instructorFoto   = htmlspecialchars($_SESSION['foto_perfil']   ?? '/assets/img/misc/user.svg');
-        ?>
-        <div class="card mb-4">
-            <div class="card-body instructor-card">
-                <h5 class="card-title mb-3"><i class="fa-solid fa-chalkboard-user me-2 text-primary"></i>Instructor</h5>
-                <div class="d-flex align-items-center gap-3">
-                    <img src="<?= $instructorFoto ?>"
-                         alt="<?= $instructorNombre ?>"
-                         class="instructor-avatar" />
-                    <div>
-                        <h6 class="mb-0"><?= $instructorNombre ?></h6>
-                        <?php if ($instructorPuesto): ?>
-                            <p class="text-muted small mb-0"><?= $instructorPuesto ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
+      <div class="card mb-4">
+    <div class="card-body instructor-card">
+        <h5 class="card-title mb-3"><i class="fa-solid fa-chalkboard-user me-2 text-primary"></i>Instructor</h5>
+        <div class="d-flex align-items-center gap-3">
+            <img src="/assets/img/misc/user-female.svg"
+                 alt="Sandra Yunueth Avendaño Villanueva"
+                 class="instructor-avatar"
+                 onerror="this.src='/assets/img/avatars/default-female.png'" />
+            <div>
+                <h6 class="mb-0">Sandra Yunueth Avendaño Villanueva</h6>
+                <p class="text-muted small mb-0">Administradora de Cobranza</p>
             </div>
         </div>
+    </div>
+</div>
 
     </div><!-- /col left -->
 
