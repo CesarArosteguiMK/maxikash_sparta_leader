@@ -3,12 +3,11 @@
  * PHP en /gastoscobranza/* hace proxy aquí; el script Python vive en la máquina donde corre Node.
  *
  * Script por defecto: scripts/reporte_cobranza.py (copiado al repo). Opcional: REPORTE_COBRANZA_SCRIPT en .env.
- * Si no hay script y GASTOS_COBRANZA_DEMO no es "0", /run responde en modo prueba.
+ * Si no hay script y GASTOS_COBRANZA_DEMO=1, /run responde en modo prueba (solo desarrollo).
  * Reporte (Maxi app / __SPARTA_SECRET_REDACTED__): el hijo Python hereda process.env; credenciales opcionales
  * REPORTE_COBRANZA_AWS_HOST, _PORT, _USER, _PASSWORD, _DATABASE (ver docstring del .py).
- * Pruebas: REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1 no escribe guia_descargo.json;
- * REPORTE_COBRANZA_SIN_DESCARGO=1 omite descargo por completo.
- * REPORTE_COBRANZA_MODO_PRUEBA_EXCEL=1 → reporte_cobranza_DD-MM-AAAA_PRUEBA.xlsx (no pisa el oficial).
+ * Opcionales (solo pruebas locales): REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1 no escribe guia_descargo.json;
+ * REPORTE_COBRANZA_SIN_DESCARGO=1 omite descargo; REPORTE_COBRANZA_MODO_PRUEBA_EXCEL=1 → nombre ..._PRUEBA.xlsx.
  *
  * EC Launcher: POST /ec-launcher/run ejecuta tools/ec-webhook-worker/worker.php o
  * tools/ec-gc-excel-enrich/enrich_gc_excel.php (dentro de este agente; misma lógica que launcher/Lanzar.cmd).
@@ -74,7 +73,7 @@ function getDescargoEstatus3ScriptPath() {
 }
 
 function demoPermitidoSinScript() {
-  return String(process.env.GASTOS_COBRANZA_DEMO || '1').trim() !== '0';
+  return String(process.env.GASTOS_COBRANZA_DEMO || '0').trim() === '1';
 }
 
 const LOG_DIR = path.join(__dirname, 'logs');
@@ -912,7 +911,7 @@ function runReporteCobranza(res, opts = {}) {
       const err = {
         success: false,
         mensaje:
-          'No hay scripts/reporte_cobranza.py ni REPORTE_COBRANZA_SCRIPT en .env. Para demo: no use GASTOS_COBRANZA_DEMO=0.',
+          'No hay scripts/reporte_cobranza.py ni REPORTE_COBRANZA_SCRIPT en .env. Para modo demo sin script: GASTOS_COBRANZA_DEMO=1.',
       };
       if (res) res.json(err);
       else appendLog('[auto-run] ' + err.mensaje);

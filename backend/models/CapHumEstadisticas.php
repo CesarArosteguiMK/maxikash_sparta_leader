@@ -349,9 +349,6 @@ class CapHumEstadisticas extends Model
                 $rotacionBadgeText = 'Sobre meta';
             }
 
-            $bajaBadge = $empleadosBaja > 0 ? 'bg-info text-dark' : 'bg-secondary';
-            $bajaBadgeText = $empleadosBaja > 0 ? 'Con baja' : 'Sin bajas';
-
             $vacantesAbiertas = self::scalarInt(
                 $db,
                 'SELECT COUNT(DISTINCT CONCAT(IFNULL(c.id_departamento, 0), \'-\', IFNULL(c.id_puesto, 0))) AS c
@@ -486,7 +483,15 @@ class CapHumEstadisticas extends Model
                  WHERE ' . $sqlActivo . ' AND p.fecha_ingreso IS NOT NULL' . $hcActivoCierre,
                 $paramsRango
             );
+            $plantillaAntigN = self::scalarInt(
+                $db,
+                'SELECT COUNT(*) AS c
+                 FROM ' . $tp . ' p
+                 WHERE ' . $sqlActivo . ' AND p.fecha_ingreso IS NOT NULL' . $hcActivoCierre,
+                $paramsRango
+            );
             $plantillaAntigLabel = self::antiguedadLabelDesdeDiasPromedio($avgDiasAntig);
+            $plantillaNuevos90Desde = date('Y-m-d', strtotime($ff . ' -89 days'));
 
             $plantillaEmpleadosNuevos90 = self::scalarInt(
                 $db,
@@ -738,8 +743,6 @@ class CapHumEstadisticas extends Model
                 'rotacion_pct' => $rotacionPct,
                 'rotacion_badge_class' => $rotacionBadge,
                 'rotacion_badge_text' => $rotacionBadgeText,
-                'empleados_baja_badge_class' => $bajaBadge,
-                'empleados_baja_badge_text' => $bajaBadgeText,
                 'vacantes_abiertas' => $vacantesAbiertas,
                 'candidatos_activos' => $candidatosActivos,
                 'seleccion_badge_class' => $selBadge,
@@ -756,7 +759,10 @@ class CapHumEstadisticas extends Model
                 'plantilla_genero_mujeres' => $plantillaGeneroM,
                 'plantilla_genero_badge' => $plantillaGeneroBadge,
                 'plantilla_antiguedad_label' => $plantillaAntigLabel,
+                'plantilla_antiguedad_n' => $plantillaAntigN,
                 'plantilla_empleados_nuevos_90' => $plantillaEmpleadosNuevos90,
+                'plantilla_nuevos90_desde' => $plantillaNuevos90Desde,
+                'plantilla_nuevos90_hasta' => $ff,
                 'ausentismo_omit' => $omitAusentismo,
                 'ausentismo_dias_total' => $ausDiasTotal,
                 'ausentismo_empleados_3mas' => $ausEmpleados3mas,
