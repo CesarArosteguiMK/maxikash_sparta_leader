@@ -683,4 +683,90 @@ class Convenios extends Controller
     echo json_encode($resultado);
 }
 
+
+    // ─────────────────────────────────────────────
+    // VISTA: Estadística Convenios
+    // ─────────────────────────────────────────────
+
+    public function estadisticas()
+    {
+        $anio = (int) date('Y');
+        $mes  = (int) date('n');
+
+        $resConv  = ConveniosDAO::getEstadisticasConvenios($anio, $mes);
+        $resCierr = ConveniosDAO::getEstadisticasCierresCredito($anio, $mes);
+        $resAsig  = ConveniosDAO::getEstadisticasAsignacionCreditos($anio, $mes);
+
+        $datos = [
+            'convenios'  => ($resConv['success']  ?? false) ? ($resConv['datos']  ?? []) : [],
+            'cierres'    => ($resCierr['success'] ?? false) ? ($resCierr['datos'] ?? []) : [],
+            'asignacion' => ($resAsig['success']  ?? false) ? ($resAsig['datos']  ?? []) : [],
+        ];
+
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Estadística Convenios | ' . $emp);
+        self::set('anioDefault', $anio);
+        self::set('mesDefault',  $mes);
+        self::set('datosInicialesJson', json_encode($datos, JSON_UNESCAPED_UNICODE));
+        self::render('convenios_estadisticas');
+    }
+
+
+public function getEstadisticasConvenios()
+{
+    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
+    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
+
+    if ($anio <= 0) {
+        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+        return;
+    }
+
+    $r = ConveniosDAO::getEstadisticasConvenios($anio, $mes);
+    self::respuestaJSON($r);
+}
+
+public function getEstadisticasConveniosDetalle()
+{
+    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
+    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
+    $tipo = isset($_POST['tipo']) ? trim($_POST['tipo']) : 'activos';
+
+    if ($anio <= 0) {
+        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+        return;
+    }
+
+    $r = ConveniosDAO::getEstadisticasConveniosDetalle($anio, $mes, $tipo);
+    self::respuestaJSON($r);
+}
+
+public function getEstadisticasCierresCredito()
+{
+    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
+    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
+
+    if ($anio <= 0) {
+        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+        return;
+    }
+
+    $r = ConveniosDAO::getEstadisticasCierresCredito($anio, $mes);
+    self::respuestaJSON($r);
+}
+
+public function getEstadisticasAsignacionCreditos()
+{
+    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
+    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
+
+    if ($anio <= 0) {
+        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+        return;
+    }
+
+    $r = ConveniosDAO::getEstadisticasAsignacionCreditos($anio, $mes);
+    self::respuestaJSON($r);
+}
+
 }

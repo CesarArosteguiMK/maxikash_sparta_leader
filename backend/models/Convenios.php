@@ -2400,4 +2400,322 @@ public static function registrarConvenioGlobo($datos)
         return self::resultado(false, 'Error: ' . $e->getMessage());
     }
 }
+
+    // ══════════════════════════════════════════════════════════
+    // ESTADÍSTICAS CONVENIOS
+    // ══════════════════════════════════════════════════════════
+
+    /** Calcula el primer y último día de un mes. */
+    private static function _cvRangoMes(int $anio, int $mes): array
+    {
+        $finDia   = (int) date('t', mktime(0, 0, 0, $mes, 1, $anio));
+        $fechaIni = sprintf('%04d-%02d-01', $anio, $mes);
+        $fechaFin = sprintf('%04d-%02d-%02d', $anio, $mes, $finDia);
+        return [$fechaIni, $fechaFin];
+    }
+
+    /** Devuelve "Abril 2025" etc. */
+    private static function _cvPeriodoLabel(int $anio, int $mes): string
+    {
+        $nombres = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        return ($nombres[$mes] ?? 'Mes ' . $mes) . ' ' . $anio;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // getEstadisticasConvenios
+    // KPIs globales (totales por estatus) + nuevos del período
+    // (fecha_alta dentro del mes/año seleccionado).
+    // ──────────────────────────────────────────────────────────
+
+    public static function getEstadisticasConvenios(int $anio, ?int $mes): array
+    {
+        if ($mes === null || $mes < 1 || $mes > 12) {
+            $mes = (int) date('n');
+        }
+        try {
+            $db = new Database();
+            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+
+            // ── KPIs globales (sin filtro de fecha) ──
+            $kpis = $db->queryOne(
+                "SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN LOWER(estatus) = 'activo'     THEN 1 ELSE 0 END) AS total_activos,
+                    SUM(CASE WHEN LOWER(estatus) = 'completado' THEN 1 ELSE 0 END) AS total_completados,
+                    SUM(CASE WHEN LOWER(estatus) = 'cancelado'  THEN 1 ELSE 0 END) AS total_cancelados
+                 FROM convenio_cliente",
+                []
+            ) ?: [];
+
+            // ── Nuevos del período (fecha_alta dentro del mes) ──
+            $nuevos = $db->queryOne(
+                "SELECT
+                    COUNT(*) AS nuevos_total,
+                    SUM(CASE WHEN LOWER(estatus) = 'activo'     THEN 1 ELSE 0 END) AS nuevos_activos,
+                    SUM(CASE WHEN LOWER(estatus) = 'completado' THEN 1 ELSE 0 END) AS nuevos_completados,
+                    SUM(CASE WHEN LOWER(estatus) = 'cancelado'  THEN 1 ELSE 0 END) AS nuevos_cancelados
+                 FROM convenio_cliente
+                 WHERE DATE(fecha_alta) BETWEEN :fi AND :ff",
+                ['fi' => $fechaIni, 'ff' => $fechaFin]
+            ) ?: [];
+
+            $datos = [
+                'periodo_label'      => self::_cvPeriodoLabel($anio, $mes),
+                'fecha_ini'          => $fechaIni,
+                'fecha_fin'          => $fechaFin,
+                'total_convenios'    => (int) ($kpis['total']             ?? 0),
+                'total_activos'      => (int) ($kpis['total_activos']     ?? 0),
+                'total_completados'  => (int) ($kpis['total_completados'] ?? 0),
+                'total_cancelados'   => (int) ($kpis['total_cancelados']  ?? 0),
+                'nuevos_total'       => (int) ($nuevos['nuevos_total']     ?? 0),
+                'nuevos_activos'     => (int) ($nuevos['nuevos_activos']   ?? 0),
+                'nuevos_completados' => (int) ($nuevos['nuevos_completados'] ?? 0),
+                'nuevos_cancelados'  => (int) ($nuevos['nuevos_cancelados'] ?? 0),
+            ];
+
+            return self::resultado(true, 'OK', $datos);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener estadísticas de convenios.', [], $e->getMessage());
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // getEstadisticasConveniosDetalle
+    // Desglose por producto al clic: convenio_cliente JOIN
+    // producto_convenio, filtrado por estatus + fecha_alta.
+    // ──────────────────────────────────────────────────────────
+
+    public static function getEstadisticasConveniosDetalle(int $anio, ?int $mes, string $tipo = 'activos'): array
+    {
+        if ($mes === null || $mes < 1 || $mes > 12) {
+            $mes = (int) date('n');
+        }
+        $tiposValidos = ['activos', 'completados', 'cancelados'];
+        if (!in_array($tipo, $tiposValidos, true)) {
+            $tipo = 'activos';
+        }
+        try {
+            $db = new Database();
+            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+
+            $estatusMap = ['activos' => 'activo', 'completados' => 'completado', 'cancelados' => 'cancelado'];
+            $estatus    = $estatusMap[$tipo];
+
+            $rows = $db->queryAll(
+                "SELECT
+                    COALESCE(pc.nombre, 'Sin producto') AS nombre,
+                    COUNT(*) AS cnt
+                 FROM convenio_cliente cc
+                 LEFT JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE LOWER(cc.estatus) = :estatus
+                   AND DATE(cc.fecha_alta) BETWEEN :fi AND :ff
+                 GROUP BY pc.id, pc.nombre
+                 ORDER BY cnt DESC",
+                ['estatus' => $estatus, 'fi' => $fechaIni, 'ff' => $fechaFin]
+            ) ?: [];
+
+            $datos = [
+                'tipo'         => $tipo,
+                'fecha_ini'    => $fechaIni,
+                'fecha_fin'    => $fechaFin,
+                'total'        => (int) array_sum(array_column($rows, 'cnt')),
+                'por_producto' => $rows,
+            ];
+
+            return self::resultado(true, 'OK', $datos);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener desglose por producto.', [], $e->getMessage());
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // getEstadisticasCierresCredito
+    // Recuperación: monto comprometido (activos+completados) vs
+    // monto pagado en amortizaciones del período seleccionado.
+    // ──────────────────────────────────────────────────────────
+
+    public static function getEstadisticasCierresCredito(int $anio, ?int $mes): array
+    {
+        if ($mes === null || $mes < 1 || $mes > 12) {
+            $mes = (int) date('n');
+        }
+        try {
+            $db = new Database();
+            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+
+            // Monto total comprometido (convenios activos + completados, sin filtro de fecha)
+            $montos = $db->queryOne(
+                "SELECT COALESCE(SUM(total_a_pagar), 0) AS monto_comprometido
+                 FROM convenio_cliente
+                 WHERE LOWER(estatus) IN ('activo', 'completado')",
+                []
+            ) ?: [];
+
+            // Semanas cuya fecha_pago cae en el período, agrupadas por estatus_pago
+            $semanas = $db->queryOne(
+                "SELECT
+                    COALESCE(SUM(CASE WHEN LOWER(estatus_pago) = 'pagado'              THEN pago_semanal ELSE 0 END), 0) AS monto_pagado,
+                    COUNT(CASE WHEN LOWER(estatus_pago) = 'pagado'              THEN 1 END) AS semanas_pagadas,
+                    COUNT(CASE WHEN LOWER(estatus_pago) = 'pendiente'           THEN 1 END) AS semanas_pendientes,
+                    COUNT(CASE WHEN LOWER(estatus_pago) = 'vencido'             THEN 1 END) AS semanas_vencidas,
+                    COUNT(CASE WHEN LOWER(estatus_pago) = 'parcial'             THEN 1 END) AS semanas_parciales,
+                    COUNT(CASE WHEN LOWER(estatus_pago) = 'cancelado'           THEN 1 END) AS semanas_canceladas,
+                    COUNT(CASE WHEN LOWER(estatus_pago) = 'pendiente_conciliar' THEN 1 END) AS semanas_conciliar
+                 FROM convenio_cliente_amortizacion
+                 WHERE fecha_pago BETWEEN :fi AND :ff",
+                ['fi' => $fechaIni, 'ff' => $fechaFin]
+            ) ?: [];
+
+            $montoComp  = (float) ($montos['monto_comprometido'] ?? 0);
+            $montoRecup = (float) ($semanas['monto_pagado']      ?? 0);
+            $pctRecup   = $montoComp > 0 ? round(($montoRecup / $montoComp) * 100, 1) : 0.0;
+
+            if ($pctRecup >= 60)     { $badgeText = 'Recuperación alta';  $badgeClass = 'success'; }
+            elseif ($pctRecup >= 30) { $badgeText = 'Recuperación media'; $badgeClass = 'warning'; }
+            else                     { $badgeText = 'Recuperación baja';  $badgeClass = 'danger';  }
+
+            $datos = [
+                'fecha_ini'                => $fechaIni,
+                'fecha_fin'                => $fechaFin,
+                'monto_comprometido'       => $montoComp,
+                'monto_recuperado'         => $montoRecup,
+                'pct_recuperacion'         => $pctRecup,
+                'recuperacion_badge_text'  => $badgeText,
+                'recuperacion_badge_class' => $badgeClass,
+                'semanas_pagadas'          => (int) ($semanas['semanas_pagadas']    ?? 0),
+                'semanas_pendientes'       => (int) ($semanas['semanas_pendientes'] ?? 0),
+                'semanas_vencidas'         => (int) ($semanas['semanas_vencidas']   ?? 0),
+                'semanas_parciales'        => (int) ($semanas['semanas_parciales']  ?? 0),
+                'semanas_canceladas'       => (int) ($semanas['semanas_canceladas'] ?? 0),
+                'semanas_conciliar'        => (int) ($semanas['semanas_conciliar']  ?? 0),
+            ];
+
+            return self::resultado(true, 'OK', $datos);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener recuperación.', [], $e->getMessage());
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // getEstadisticasAsignacionCreditos
+    // Penetración: créditos en despacho (asigna_creditos_despacho
+    // estatus=1) cruzados con convenio_cliente estatus=activo.
+    // ──────────────────────────────────────────────────────────
+
+    public static function getEstadisticasAsignacionCreditos(int $anio, ?int $mes): array
+    {
+        if ($mes === null || $mes < 1 || $mes > 12) {
+            $mes = (int) date('n');
+        }
+        try {
+            $db = new Database();
+            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+
+            // Total créditos activos en despacho
+            $despacho = $db->queryOne(
+                "SELECT COUNT(*) AS total_despacho
+                 FROM asigna_creditos_despacho
+                 WHERE estatus = 1",
+                []
+            ) ?: [];
+
+            // De esos, cuántos tienen convenio activo
+            $conConvenio = $db->queryOne(
+                "SELECT COUNT(DISTINCT acd.id_credito) AS con_convenio
+                 FROM asigna_creditos_despacho acd
+                 INNER JOIN convenio_cliente cc
+                         ON cc.id_credito = acd.id_credito
+                        AND LOWER(cc.estatus) = 'activo'
+                 WHERE acd.estatus = 1",
+                []
+            ) ?: [];
+
+            $totalDesp = (int) ($despacho['total_despacho']  ?? 0);
+            $totalConv = (int) ($conConvenio['con_convenio'] ?? 0);
+            $sinConv   = max(0, $totalDesp - $totalConv);
+            $pctPen    = $totalDesp > 0 ? round(($totalConv / $totalDesp) * 100, 1) : 0.0;
+
+            if ($pctPen >= 40)     { $badgeText = 'Penetración alta';  $badgeClass = 'success'; }
+            elseif ($pctPen >= 20) { $badgeText = 'Penetración media'; $badgeClass = 'warning'; }
+            else                   { $badgeText = 'Penetración baja';  $badgeClass = 'danger';  }
+
+            // ── KPIs de entidades de despacho ──────────────────────────────
+            // Total despachos activos (filas en tabla despachos)
+            $despActivos = $db->queryOne(
+                "SELECT COUNT(*) AS total FROM despachos WHERE estatus = 'Activo'",
+                []
+            ) ?: [];
+
+            // Despachos con al menos un convenio activo
+            $despConConvenio = $db->queryOne(
+                "SELECT COUNT(DISTINCT d.id) AS total
+                 FROM despachos d
+                 INNER JOIN asigna_creditos_despacho acd ON acd.id_despacho = d.id AND acd.estatus = 1
+                 INNER JOIN convenio_cliente cc
+                         ON cc.id_credito = acd.id_credito
+                        AND LOWER(cc.estatus) = 'activo'
+                 WHERE d.estatus = 'Activo'",
+                []
+            ) ?: [];
+
+            // Células (id_celula: 1=Despacho, 2=Gestión Call Center)
+            $celulaRows = $db->queryAll(
+                "SELECT id_celula, COUNT(*) AS cnt
+                 FROM despachos
+                 WHERE estatus = 'Activo'
+                 GROUP BY id_celula",
+                []
+            ) ?: [];
+            $celulaMap = [];
+            foreach ($celulaRows as $row) {
+                $celulaMap[(int) $row['id_celula']] = (int) $row['cnt'];
+            }
+
+            // Despacho con más convenios activos (TOP 1)
+            $topDespacho = $db->queryOne(
+                "SELECT d.id,
+                        CONCAT_WS(' ', per.nombres, per.apellidop) AS nombre_despacho,
+                        COUNT(cc.id) AS total_convenios
+                 FROM despachos d
+                 INNER JOIN asigna_creditos_despacho acd ON acd.id_despacho = d.id AND acd.estatus = 1
+                 INNER JOIN convenio_cliente cc
+                         ON cc.id_credito = acd.id_credito
+                        AND LOWER(cc.estatus) = 'activo'
+                 LEFT JOIN persona per ON per.id = d.id_persona
+                 WHERE d.estatus = 'Activo'
+                 GROUP BY d.id
+                 ORDER BY total_convenios DESC
+                 LIMIT 1",
+                []
+            ) ?: [];
+
+            $totalDespActivos  = (int) ($despActivos['total']      ?? 0);
+            $despConConv       = (int) ($despConConvenio['total']  ?? 0);
+            $despSinConv       = max(0, $totalDespActivos - $despConConv);
+
+            $datos = [
+                'fecha_ini'               => $fechaIni,
+                'fecha_fin'               => $fechaFin,
+                'total_despacho'          => $totalDesp,
+                'con_convenio_activo'     => $totalConv,
+                'sin_convenio'            => $sinConv,
+                'pct_penetracion'         => $pctPen,
+                'penetracion_badge_text'  => $badgeText,
+                'penetracion_badge_class' => $badgeClass,
+                // ── nuevos KPIs de entidades de despacho ──
+                'total_despachos_activos' => $totalDespActivos,
+                'despachos_con_convenio'  => $despConConv,
+                'despachos_sin_convenio'  => $despSinConv,
+                'celula_despacho_cnt'     => $celulaMap[1] ?? 0,
+                'celula_callcenter_cnt'   => $celulaMap[2] ?? 0,
+                'top_despacho_nombre'     => $topDespacho['nombre_despacho']  ?? '—',
+                'top_despacho_convenios'  => (int) ($topDespacho['total_convenios'] ?? 0),
+            ];
+
+            return self::resultado(true, 'OK', $datos);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener penetración de cartera.', [], $e->getMessage());
+        }
+    }
 }
