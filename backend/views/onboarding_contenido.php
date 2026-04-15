@@ -258,10 +258,10 @@
             <img src="/assets/img/misc/user-female.svg"
                  alt="Sandra Yunueth Avendaño Villanueva"
                  class="instructor-avatar"
-                 onerror="this.src='https://static.vecteezy.com/system/resources/previews/010/962/888/non_2x/avatar-woman-wearing-glasses-free-vector.jpg'" />
+                 onerror="this.src='https://media.vogue.mx/photos/5dfb443c38e2b300084b20b7/2:3/w_2560%2Cc_limit/GettyImages-818664.jpg'" />
             <div>
                 <h6 class="mb-0">Sandra Yunueth Avendaño Villanueva</h6>
-                <p class="text-muted small mb-0">Administradora de Cobranza</p>
+                <p class="text-muted small mb-0">Administradora, Cobranza</p>
             </div>
         </div>
     </div>
