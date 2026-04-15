@@ -258,7 +258,7 @@
             <img src="/assets/img/misc/user-female.svg"
                  alt="Sandra Yunueth Avendaño Villanueva"
                  class="instructor-avatar"
-                 onerror="this.src='/assets/img/avatars/default-female.png'" />
+                 onerror="this.src='https://static.vecteezy.com/system/resources/previews/010/962/888/non_2x/avatar-woman-wearing-glasses-free-vector.jpg'" />
             <div>
                 <h6 class="mb-0">Sandra Yunueth Avendaño Villanueva</h6>
                 <p class="text-muted small mb-0">Administradora de Cobranza</p>
