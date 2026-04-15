@@ -676,11 +676,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     /* ══════════════════════════════════
        RENDER: CARDS ENVIADOS FINALIZADOS
     ══════════════════════════════════ */
-    let _allRows     = [];
-    let _allRowsEp   = [];
-    let _allRowsHist = [];
-    let _allRowsConv = [];
-    let _validador   = '—';
+    let _allRows          = [];
+    let _allRowsEp        = [];
+    let _allRowsHist      = [];
+    let _allRowsConv      = [];
+    let _validador        = '—';
+    let enProcesoCargado  = false;
 
     function renderCards(rows, validador) {
         _allRows   = rows;
@@ -1513,6 +1514,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderEnProceso(res.datos);
+                enProcesoCargado = true;
             });
     }
 
@@ -1578,6 +1580,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     const tabEnProcesoBtn = document.getElementById('tab-en-proceso-btn');
     if (tabEnProcesoBtn) {
         tabEnProcesoBtn.addEventListener('shown.bs.tab', function () {
+            if (!enProcesoCargado) {
+                cargarEnProceso().catch(() => {});
+                return;
+            }
             const t = document.getElementById('barraGeneral-input').value;
             if (t.trim()) ccFiltrar(t);
         });
