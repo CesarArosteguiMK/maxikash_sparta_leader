@@ -37,6 +37,18 @@ class Reporteria extends Controller
         return (int) $hoy->format('N') === 1;
     }
 
+    /**
+     * Martes o miércoles ISO (America/Mexico_City): «Primeros pagos próxima semana» no está disponible; solo de jueves a lunes.
+     */
+    private function esMartesOMiercolesCdmxPrimerosPagosProximaSemanaCerrada(): bool
+    {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $hoy = new \DateTimeImmutable('now', $tz);
+        $n = (int) $hoy->format('N');
+
+        return $n === 2 || $n === 3;
+    }
+
     public function reporteCapitalHumano()
     {
         $script = "";
@@ -2215,6 +2227,10 @@ class Reporteria extends Controller
 
     public function VencimientosLunesSiguienteSemana()
     {
+        if ($this->esMartesOMiercolesCdmxPrimerosPagosProximaSemanaCerrada()) {
+            header('Location: /reporteria/PrimerosPagos?pp_proxima_semana_cerrada=1', true, 302);
+            exit;
+        }
         self::set('titulo', 'Primeros pagos — Semana actual');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Semana actual');
         self::set('vencimientos_vista_simple', true);
@@ -2244,6 +2260,14 @@ class Reporteria extends Controller
 
     public function getVencimientosLunesSiguienteSemana()
     {
+        if ($this->esMartesOMiercolesCdmxPrimerosPagosProximaSemanaCerrada()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'La cartera de primeros pagos (próxima semana) no está disponible. Podrá consultarla de jueves a lunes; mientras tanto revise la sección de Cobranza esperada — semana actual.',
+            ]);
+
+            return;
+        }
         try {
             self::respuestaJSON(EmpresasDAO::getVencimientosLunes(0, true));
         } catch (\Exception $e) {
@@ -2266,6 +2290,13 @@ class Reporteria extends Controller
                 http_response_code(401);
                 header('Content-Type: text/plain; charset=utf-8');
                 echo 'Sesión no válida.';
+                exit;
+            }
+
+            if ($this->esMartesOMiercolesCdmxPrimerosPagosProximaSemanaCerrada()) {
+                http_response_code(403);
+                header('Content-Type: text/plain; charset=utf-8');
+                echo 'La descarga no está disponible. Podrá descargar el Excel de jueves a lunes.';
                 exit;
             }
 

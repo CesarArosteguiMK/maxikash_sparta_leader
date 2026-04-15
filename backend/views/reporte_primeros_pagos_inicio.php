@@ -2,6 +2,8 @@
 $ppSemanaTz = new DateTimeZone('America/Mexico_City');
 $ppHoy = new DateTimeImmutable('now', $ppSemanaTz);
 $ppDow = (int) $ppHoy->format('N');
+/** Martes o miércoles CDMX: bloqueo de «Primeros pagos próxima semana» (solo jueves→lunes). */
+$ppBloqueoProximaSemanaMartesMiercoles = ($ppDow === 2 || $ppDow === 3);
 $ppLunes = $ppHoy->modify('-' . ($ppDow - 1) . ' days');
 $ppDomingo = $ppLunes->modify('+6 days');
 $ppNumSemana = (int) $ppLunes->format('W');
@@ -106,12 +108,21 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <h5 class="text-primary mb-1">Primeros pagos próxima semana</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemanaSiguiente ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoVentanaPrimerosPagos, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de jueves a lunes. En este espacio podrás consultar el resumen ejecutivo de los primeros pagos previstos para la siguiente semana, correspondiente a ventas realizadas en días anteriores cuya primera fecha de vencimiento ocurre en la próxima semana.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de jueves a lunes (no disponible martes ni miércoles). En este espacio podrás consultar el resumen ejecutivo de los primeros pagos previstos para la siguiente semana, correspondiente a ventas realizadas en días anteriores cuya primera fecha de vencimiento ocurre en la próxima semana.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
+                                        <?php if ($ppBloqueoProximaSemanaMartesMiercoles): ?>
+                                        <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
+                                            La cartera de próxima semana no está disponible; podrá consultarla a partir del jueves. Mientras tanto revise <strong>Cobranza esperada — semana actual</strong>.
+                                        </div>
+                                        <button type="button" class="btn btn-secondary w-100" id="ppBtnProximaSemanaBloqueado">
+                                            <i class="fa fa-calendar-check me-1"></i>Ver corte semana actual
+                                        </button>
+                                        <?php else: ?>
                                         <a href="/reporteria/VencimientosLunesSiguienteSemana" class="btn btn-primary w-100">
                                             <i class="fa fa-calendar-check me-1"></i>Ver corte semana actual
                                         </a>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
@@ -244,7 +255,9 @@ body.dark-mode .pp-hero-mascot-floating {
 <script>
 (function () {
     var PP_MSG_CARTERA_LUNES = 'La cartera no abre hasta el martes, revise los datos en la sección de Primeros pagos próxima semana.';
+    var PP_MSG_PROXIMA_SEMANA_CERRADA = 'La cartera de primeros pagos (próxima semana) no está disponible. Podrá consultarla de jueves a lunes; mientras tanto revise la sección de Cobranza esperada — semana actual.';
     var PP_ES_LUNES = <?php echo $ppDow === 1 ? 'true' : 'false'; ?>;
+    var PP_ES_MARTES_MIERCOLES = <?php echo $ppBloqueoProximaSemanaMartesMiercoles ? 'true' : 'false'; ?>;
     document.addEventListener('DOMContentLoaded', function () {
         var btn = document.getElementById('ppBtnCobranzaEsperadaLunes');
         if (btn) {
@@ -256,6 +269,16 @@ body.dark-mode .pp-hero-mascot-floating {
                 }
             });
         }
+        var btnProx = document.getElementById('ppBtnProximaSemanaBloqueado');
+        if (btnProx) {
+            btnProx.addEventListener('click', function () {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'info', title: 'Primeros pagos próxima semana', text: PP_MSG_PROXIMA_SEMANA_CERRADA });
+                } else {
+                    alert(PP_MSG_PROXIMA_SEMANA_CERRADA);
+                }
+            });
+        }
         try {
             var params = new URLSearchParams(window.location.search || '');
             if (params.get('pp_cartera_lunes') === '1' && PP_ES_LUNES) {
@@ -263,6 +286,16 @@ body.dark-mode .pp-hero-mascot-floating {
                     Swal.fire({ icon: 'info', title: 'Cobranza esperada — semana actual', text: PP_MSG_CARTERA_LUNES });
                 } else {
                     alert(PP_MSG_CARTERA_LUNES);
+                }
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState(null, '', window.location.pathname);
+                }
+            }
+            if (params.get('pp_proxima_semana_cerrada') === '1' && PP_ES_MARTES_MIERCOLES) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'info', title: 'Primeros pagos próxima semana', text: PP_MSG_PROXIMA_SEMANA_CERRADA });
+                } else {
+                    alert(PP_MSG_PROXIMA_SEMANA_CERRADA);
                 }
                 if (window.history && window.history.replaceState) {
                     window.history.replaceState(null, '', window.location.pathname);
