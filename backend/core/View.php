@@ -78,6 +78,13 @@ function getMenu(): string
                 ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
             ],
         ],
+        'Gastos Cobranza' => [
+            'icono'    => 'fa-solid fa-file-invoice-dollar',
+            'subItems' => [
+                ['label' => 'Historial condonaciones', 'url' => '/condonaciones/historial', 'modulos' => [15, 39]],
+                ['label' => 'Estadística Gastos Cobranza', 'url' => '/gastoscobranza/estadisticagc', 'modulos' => [40]],
+            ],
+        ],
         'Organización' => [
             'icono'    => 'fa-solid fa-cog',
             'subItems' => [

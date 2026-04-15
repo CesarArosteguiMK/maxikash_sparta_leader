@@ -1318,7 +1318,7 @@ def generar_excel(registros, lunes: date, hoy: date, ruta_salida: str):
 
     ws.merge_cells(f"A1:{get_column_letter(ncols)}1")
     ws["A1"] = (
-        f"Reporte Gastos de Cobranza  |  Generado: {hoy}  |  "
+        f"Reporte Gastos Cobranza  |  Generado: {hoy}  |  "
         f"Lunes semana: {lunes}  |  GC desde: {FECHA_CORTE_GASTOS}  |  "
         f"Total registros: {len(registros):,}"
     )

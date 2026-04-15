@@ -349,7 +349,7 @@ class Condonaciones extends Model
 
             echo json_encode([
                 "success" => true,
-                "mensaje" => "Gastos de cobranza encontrados.",
+                "mensaje" => "Gastos Cobranza encontrados.",
                 "datos" => $datos
             ]);
 

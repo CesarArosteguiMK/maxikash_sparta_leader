@@ -73,6 +73,13 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Cierre de Crédito', 'url' => '/CierreCredito/consulta', 'modulos' => [51]],
                 ],
             ],
+            'Gastos Cobranza' => [
+                'icono' => 'fa-solid fa-file-invoice-dollar',
+                'subItems' => [
+                    ['label' => 'Historial condonaciones', 'url' => '/condonaciones/historial', 'modulos' => [15, 39]],
+                    ['label' => 'Estadística Gastos Cobranza', 'url' => '/gastoscobranza/estadisticagc', 'modulos' => [40]],
+                ],
+            ],
             'Organización' => [
                 'icono' => 'fa-solid fa-cog',
                 'subItems' => [
@@ -198,7 +205,9 @@ if (!function_exists('mapMetaDesdeAnclaModuloMenu')) {
 
 if (!function_exists('mapPermisoEspecialToMenuMeta')) {
     /**
-     * Ubica permisos especiales (pestana «Permisos especiales») bajo el mismo bloque que su pantalla en el menú lateral.
+     * Ubica permisos especiales bajo el **módulo padre** del menú lateral (Créditos, Capital Humano,
+     * Convenios, Analítica, …), no bajo el submenú (p. ej. «Estados de Cuenta»), para el modal de perfiles.
+     *
      * Ids alineados con EstadoCuenta, Reporteria, Convenios, CapHum, etc.
      */
     function mapPermisoEspecialToMenuMeta(int $mid, string $pestana, string $nombreRaw): ?array
@@ -207,16 +216,15 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             return null;
         }
         $nombreRaw = trim(preg_replace('/\x{00A0}/u', ' ', str_replace("\xc2\xa0", ' ', trim((string) $nombreRaw))));
-        /** modulo_web del menú ancla => orden relativo dentro del grupo (mayor separación = bloques por submenú) */
+        /** modulo_web del menú ancla => orden dentro del grupo padre */
         static $anclas = [
-            // Estados de cuenta (Créditos) — primero en la tarjeta «Créditos»
+            // Anclas 1 y 2 → tarjeta «Créditos»
             23 => [1, 110],
             29 => [1, 120],
             30 => [1, 130],
             35 => [1, 140],
             36 => [1, 150],
             37 => [1, 160],
-            // Documentación (Créditos)
             21 => [2, 210],
             22 => [2, 220],
             24 => [2, 230],
@@ -226,12 +234,12 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             32 => [46, 110],
             // Capital Humano — Gestión
             43 => [4, 110],
-            // Cierre de crédito (mismo submenú que módulo 51); añadir aquí ids extra si existen en BD
+            // Cierre de crédito (ancla 51 vía nombre): tarjeta «Convenios»
         ];
         if (isset($anclas[$mid])) {
             [$ancla, $orden] = $anclas[$mid];
 
-            return mapMetaDesdeAnclaModuloMenu($ancla, $nombreRaw, $orden, true);
+            return mapMetaDesdeAnclaModuloMenu($ancla, $nombreRaw, $orden, false);
         }
         $nb = mb_strtolower(trim($nombreRaw), 'UTF-8');
         $nbNorm = str_replace(
@@ -242,7 +250,7 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
         if ($nbNorm === '') {
             return null;
         }
-        // Cierre de crédito (submódulo menú 51): orden — 401 Convenio, 411 Validación, 421 En proceso, 431 Historial
+        // Cierre de crédito (ancla módulo 51 → grupo «Convenios»): orden 401 / 411 / 421 / 431
         $excluyeCrearConvenio = str_contains($nbNorm, 'crear convenio')
             || str_contains($nbNorm, 'registrar convenio');
         $tNorm = preg_replace('/\s+/u', ' ', trim($nbNorm));
@@ -253,26 +261,26 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
                 || $tNorm === 'convenios'
                 || preg_match('/^convenios?\b/u', $tNorm) === 1
             ) {
-                return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 401, true);
+                return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 401, false);
             }
         }
         // 2. Validación de cierre
         if (str_contains($nbNorm, 'validaci') && str_contains($nbNorm, 'cierre')) {
-            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 411, true);
+            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 411, false);
         }
         // 3. En proceso
         if ($tNorm === 'en proceso' || (preg_match('/\ben\s+proceso\b/u', $nbNorm) !== 0
                 && (str_contains($nbNorm, 'cierre') || str_contains($nbNorm, 'credito')))) {
-            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 421, true);
+            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 421, false);
         }
         // 4. Historial
         if ($tNorm === 'historial' || (preg_match('/\bhistorial\b/u', $nbNorm) !== 0
                 && (str_contains($nbNorm, 'cierre') || str_contains($nbNorm, 'credito')))) {
-            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 431, true);
+            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 431, false);
         }
         // Otros textos de cierre de crédito
         if (str_contains($nbNorm, 'cierre') && str_contains($nbNorm, 'credito')) {
-            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 450, true);
+            return mapMetaDesdeAnclaModuloMenu(51, $nombreRaw, 450, false);
         }
 
         return null;
@@ -315,7 +323,7 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
                         'menu_item_orden' => 998,
                     ]);
                 } elseif (str_contains($nbNorm, 'cierre') && str_contains($nbNorm, 'credito')) {
-                    $meta = mapMetaDesdeAnclaModuloMenu(51, $nombreRaw !== '' ? $nombreRaw : 'Cierre de Crédito', 998, true);
+                    $meta = mapMetaDesdeAnclaModuloMenu(51, $nombreRaw !== '' ? $nombreRaw : 'Cierre de Crédito', 998, false);
                 }
             }
             if ($meta !== null) {

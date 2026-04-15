@@ -446,18 +446,23 @@ class Reporteria extends Controller
     }
 
     /**
-     * Call Center: dictamen de llamadas + historial condonaciones.
+     * Call Center: dictamen de llamadas.
      * URL canónica: /reporteria/callcenter
+     * El historial de condonaciones está en Gastos Cobranza → /condonaciones/historial
      */
     public function callcenter()
     {
+        if (isset($_GET['seccion']) && (string) $_GET['seccion'] === 'condonaciones') {
+            header('Location: /condonaciones/historial', true, 302);
+            exit;
+        }
         self::set('titulo', 'Call Center');
         self::set('script', '');
         self::render('call_center');
     }
 
     /**
-     * Alias antiguo → redirige a callcenter (conserva query string, ej. ?seccion=condonaciones).
+     * Alias antiguo → redirige a callcenter (conserva query string).
      */
     public function resumencallcenter()
     {
