@@ -707,9 +707,9 @@ body.dark-mode #migTotalFinal {
                                     <label class="form-label small text-muted mb-1">Monto adicional <span class="fw-normal text-muted">(Opcional)</span></label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">$</span>
-                                        <input type="number" id="amortMontoAdicional" class="form-control" min="0" max="500" step="0.01"
+                                        <input type="number" id="amortMontoAdicional" class="form-control" min="0" max="10000" step="0.01"
                                                placeholder="0.00" oninput="window.amortRecalcularTotal()"
-                                               title="Máximo $500">
+                                               title="Máximo $10,000">
                                     </div>
                                 </div>
                                 <div class="col-4">
@@ -1174,11 +1174,11 @@ body.dark-mode #migTotalFinal {
                         <div class="input-group input-group-sm">
                           <span class="input-group-text">$</span>
                           <input type="number" id="migMontoAdicional" class="form-control"
-                                 min="0" max="500" step="0.01" placeholder="0.00"
-                                 data-maxintdigits="3"
+                                 min="0" max="10000" step="0.01" placeholder="0.00"
+                                 data-maxintdigits="5"
                                  onkeydown="if(event.key==='e'||event.key==='E')event.preventDefault()"
                                  oninput="window.migRecalcularTotal()"
-                                 title="Máximo $500">
+                                 title="Máximo $10,000">
                         </div>
                       </div>
                       <div class="col-4">
@@ -3052,9 +3052,9 @@ window.amortRecalcularTotal = function () {
     var _maxAdic = parseFloat(_ofertaActiva.monto_base) || base;
     if (!_sanitizarMonto(elAdic, _maxAdic)) return;
     var adic = parseFloat(elAdic.value) || 0;
-    if (adic > 500) {
-        elAdic.value = '500';
-        adic = 500;
+    if (adic > 10000) {
+        elAdic.value = '10000';
+        adic = 10000;
         _flashInvalid(elAdic);
         var _errAdicAmort = document.getElementById('_errDescuentoAmort');
         if (!_errAdicAmort) {
@@ -3064,7 +3064,7 @@ window.amortRecalcularTotal = function () {
             if (_apParentA) _apParentA.insertAdjacentElement('afterend', _errAdicAmort);
         }
         _errAdicAmort.className = 'alert alert-danger mt-2 mb-0';
-        _errAdicAmort.innerHTML = '<i class="fas fa-ban me-2"></i>El monto adicional no puede exceder <strong>$500</strong>. Se ha ajustado al máximo permitido.';
+        _errAdicAmort.innerHTML = '<i class="fas fa-ban me-2"></i>El monto adicional no puede exceder <strong>$10,000</strong>. Se ha ajustado al máximo permitido.';
         _errAdicAmort.style.display = 'block';
         setTimeout(function () { if (_errAdicAmort) _errAdicAmort.style.display = 'none'; }, 3000);
     }
@@ -3085,8 +3085,8 @@ window.amortTotalFinalChanged = function () {
     var adic = totalFinal > totalConvenio
         ? Math.round((totalFinal - totalConvenio) * 100) / 100
         : 0;
-    if (adic > 500) {
-        adic = 500;
+    if (adic > 10000) {
+        adic = 10000;
         totalFinal = Math.round((totalConvenio + adic) * 100) / 100;
         elTF.value = totalFinal.toFixed(2);
         _flashInvalid(elTF);
@@ -3098,7 +3098,7 @@ window.amortTotalFinalChanged = function () {
             if (_apParentTF) _apParentTF.insertAdjacentElement('afterend', _errAdicTF);
         }
         _errAdicTF.className = 'alert alert-danger mt-2 mb-0';
-        _errAdicTF.innerHTML = '<i class="fas fa-ban me-2"></i>El monto adicional no puede exceder <strong>$500</strong>. Se ha ajustado al máximo permitido.';
+        _errAdicTF.innerHTML = '<i class="fas fa-ban me-2"></i>El monto adicional no puede exceder <strong>$10,000</strong>. Se ha ajustado al máximo permitido.';
         _errAdicTF.style.display = 'block';
         setTimeout(function () { if (_errAdicTF) _errAdicTF.style.display = 'none'; }, 3000);
     }
@@ -5122,9 +5122,9 @@ window.migRecalcularTotal = function () {
     var _maxAdicMig = parseFloat((document.getElementById('migAdeudo') || {}).value) || base;
     if (!_sanitizarMonto(elAdicMig, _maxAdicMig)) return;
     var adicional = parseFloat(elAdicMig.value) || 0;
-    if (adicional > 500) {
-        elAdicMig.value = '500';
-        adicional = 500;
+    if (adicional > 10000) {
+        elAdicMig.value = '10000';
+        adicional = 10000;
         _flashInvalid(elAdicMig);
         var _errAdicMig = document.getElementById('migErrorSemanal');
         if (!_errAdicMig) {
@@ -5133,7 +5133,7 @@ window.migRecalcularTotal = function () {
             _errAdicMig.style.cssText = 'color:#dc2626;font-size:0.78rem;margin-top:4px;display:flex;align-items:center;gap:5px;';
             elAdicMig.parentNode.appendChild(_errAdicMig);
         }
-        _errAdicMig.innerHTML = '<i class="fas fa-triangle-exclamation"></i> El monto adicional no puede exceder <strong>$500</strong>. Se ha ajustado al máximo permitido.';
+        _errAdicMig.innerHTML = '<i class="fas fa-triangle-exclamation"></i> El monto adicional no puede exceder <strong>$10,000</strong>. Se ha ajustado al máximo permitido.';
         _errAdicMig.style.display = 'flex';
         setTimeout(function () { if (_errAdicMig) _errAdicMig.style.display = 'none'; }, 3000);
     }

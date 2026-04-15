@@ -126,6 +126,9 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     html.dark-mode .cv-top-desp *[style*="color:#1a3a5c"] { color: #e2e8f0 !important; }
     html.dark-mode .cv-top-desp *[style*="color:#6b7a90"] { color: #94a3b8 !important; }
     html.dark-mode .cv-top-desp *[style*="color:#0d5c3a"] { color: #4ade80 !important; }
+    /* card gestor período (azul) */
+    html.dark-mode .cv-top-desp[style*="eaf3fb"] { background: rgba(52,152,219,0.08) !important; border-color: rgba(52,152,219,0.25) !important; }
+    html.dark-mode .cv-top-desp *[style*="color:#2471a3"] { color: #60a5fa !important; }
     /* Tip buttons */
     html.dark-mode .cv-tip-btn { color: #475569 !important; }
     html.dark-mode .cv-tip-btn:hover,
@@ -161,7 +164,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             </div>
 
             <!-- ── MAIN ROW ─────────────────────────────────── -->
-            <div class="row g-3 mb-4 align-items-start">
+            <div class="row g-3 mb-4 align-items-stretch">
 
                 <!-- ── LEFT COL (col-lg-8) ─────────────────── -->
                 <div class="col-lg-8">
@@ -313,6 +316,8 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 Canceladas <span id="cvSemCanceladas" class="cv-sem-num">0</span>
                             </span>
                         </div>
+                        <!-- Gráfica horizontal de semanas -->
+                        <div id="cvChartSemanas" style="margin-top:14px;"></div>
                     </div>
 
                 </div><!-- /col-lg-8 -->
@@ -334,7 +339,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             <span id="cvBadgeRecuperacion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size:12px;color:#6b7a90;">Comprometido total</span>
+                            <span style="font-size:12px;color:#6b7a90;">Dinero calculado</span>
                             <span id="cvMontoComp" style="font-size:13px;font-weight:700;color:#1a3a5c;">$0.00</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
@@ -351,14 +356,14 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         </div>
                     </div>
 
-                    <!-- Tarjeta de penetración de cartera -->
+                    <!-- Tarjeta de cobertura de convenios -->
                     <div class="cv-card-pen" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:12px;padding:16px 18px;flex:1 1 auto;">
                         <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
                             <div class="d-flex flex-wrap align-items-baseline gap-1" style="flex:1;min-width:0;">
-                                <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Penetración de cartera</span>
+                                <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Cobertura de convenios</span>
                                 <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
                                     title="De los créditos activos en despacho (estatus=1 en asigna_creditos_despacho), el porcentaje que tiene convenio activo. Indica cuánta cartera en mora externa ya ha sido captada con convenio."
-                                    aria-label="Ayuda: penetración de cartera">
+                                    aria-label="Ayuda: cobertura de convenios">
                                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                                 </button>
                             </div>
@@ -392,7 +397,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             <!-- ── PANEL DESPACHOS ──────────────────────── -->
             <div class="cv-panel-desp" style="background:#ffffff;border:1px solid #dde3ec;border-radius:12px;padding:16px 18px;margin-top:0;">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Despachos</span>
+                    <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Gestores de convenios</span>
                     <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
                         title="Despachos activos registrados en el sistema, su distribución por célula (Despacho / Agente Call Center) y cuántos tienen al menos un convenio activo."
                         aria-label="Ayuda: despachos">
@@ -401,26 +406,32 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 </div>
                 <div class="row g-2">
                     <!-- Totales despacho -->
+                    <!--
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
                             <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Total despachos</div>
                             <div id="cvDespTotal" style="font-size:28px;font-weight:800;color:#1a3a5c;line-height:1;">0</div>
                         </div>
                     </div>
+                    -->
                     <!-- Con convenio -->
+                    <!--
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
                             <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Con convenios activos</div>
                             <div id="cvDespConConvenio" style="font-size:28px;font-weight:800;color:#2ecc8b;line-height:1;">0</div>
                         </div>
                     </div>
+                    -->
                     <!-- Sin convenio -->
+                    <!--
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
                             <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Sin convenios</div>
                             <div id="cvDespSinConvenio" style="font-size:28px;font-weight:800;color:#e74c3c;line-height:1;">0</div>
                         </div>
                     </div>
+                    -->
                     <!-- Célula Despacho -->
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
@@ -451,6 +462,54 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             </div>
                         </div>
                     </div>
+                    <!-- % Gestores activos -->
+                    <div class="col-6 col-md-4 col-xl-2">
+                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
+                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <i class="fa fa-percent fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Gestores activos
+                            </div>
+                            <div id="cvDespPctActivos" style="font-size:28px;font-weight:800;color:#2ecc8b;line-height:1;">0%</div>
+                        </div>
+                    </div>
+                    <!-- Créditos en gestión -->
+                    <div class="col-6 col-md-4 col-xl-2">
+                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
+                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <i class="fa fa-file-text fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Créditos en gestión
+                            </div>
+                            <div id="cvDespCreditosGestion" style="font-size:28px;font-weight:800;color:#1a3a5c;line-height:1;">0</div>
+                        </div>
+                    </div>
+                    <!-- Promedio convenios/gestor -->
+                    <div class="col-6 col-md-4 col-xl-2">
+                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
+                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <i class="fa fa-bar-chart fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Prom. convenios/gestor
+                            </div>
+                            <div id="cvDespPromedioConv" style="font-size:28px;font-weight:800;color:#3498db;line-height:1;">0</div>
+                        </div>
+                    </div>
+                    <!-- Gestores con meta cumplida -->
+                    <div class="col-6 col-md-4 col-xl-2">
+                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
+                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <i class="fa fa-check-circle fa-sm" aria-hidden="true" style="margin-right:3px;color:#2ecc8b;"></i>Con meta (≥5 conv.)
+                            </div>
+                            <div id="cvDespEnMeta" style="font-size:28px;font-weight:800;color:#2ecc8b;line-height:1;">0</div>
+                        </div>
+                    </div>
+                    <!-- Gestor más activo del período -->
+                    <div class="col-12 col-md-8 col-xl-4">
+                        <div class="cv-top-desp" style="background:#eaf3fb;border:1px solid rgba(52,152,219,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
+                            <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
+                                <i class="fa fa-star fa-sm" aria-hidden="true" style="color:#3498db;margin-right:4px;"></i>Gestor más activo del período
+                            </div>
+                            <div id="cvTopGestorPeriodoNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
+                            <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
+                                Convenios en el período: <strong id="cvTopGestorPeriodoConvenios" style="color:#2471a3;">0</strong>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div><!-- /panel despachos -->
         </div>
@@ -469,13 +528,14 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
 
     var CV_COLORS = ['#1a3a5c','#2ecc8b','#3498db','#e74c3c','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e','#16a085','#27ae60','#2980b9','#8e44ad'];
 
-    var cvCharts            = { nuevos: null, nuevosDetalle: null, recuperacion: null, penetracion: null };
+    var cvCharts            = { nuevos: null, nuevosDetalle: null, recuperacion: null, penetracion: null, semanas: null };
     var cvNuevoTipoAbierto  = null;
     var cvDetalleReqSeq     = 0;
     var cvReqConv           = 0;
     var cvReqCierr          = 0;
     var cvReqAsig           = 0;
     var cvApexLoading       = false;
+    var cvApexCallbacks     = [];
     var cvLoadingOpen       = false;
 
     // ─── Helpers ────────────────────────────────────────────
@@ -563,12 +623,17 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     // ─── ApexCharts lazy load ───────────────────────────────
     function ensureApex(cb) {
         if (typeof ApexCharts !== 'undefined') { if (cb) cb(); return; }
+        if (cb) cvApexCallbacks.push(cb);
         if (cvApexLoading) { return; }
         cvApexLoading = true;
         var s = document.createElement('script');
         s.src = '/assets/vendor/libs/apex-charts/apexcharts.js';
-        s.onload  = function () { cvApexLoading = false; if (cb) cb(); };
-        s.onerror = function () { cvApexLoading = false; };
+        s.onload  = function () {
+            cvApexLoading = false;
+            var cbs = cvApexCallbacks.splice(0);
+            for (var i = 0; i < cbs.length; i++) { try { cbs[i](); } catch (e) {} }
+        };
+        s.onerror = function () { cvApexLoading = false; cvApexCallbacks = []; };
         document.head.appendChild(s);
     }
 
@@ -588,6 +653,45 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 try { j = JSON.parse(txt); } catch (e) { j = null; }
                 return { ok: r.ok, status: r.status, json: j };
             });
+        });
+    }
+
+    // ─── Render: barra horizontal de semanas ───────────────
+    function renderBarSemanas(d) {
+        var cats   = ['Pagadas', 'Pendientes', 'Vencidas', 'Parciales', 'A conciliar', 'Canceladas'];
+        var series = [
+            nv(d.semanas_pagadas),
+            nv(d.semanas_pendientes),
+            nv(d.semanas_vencidas),
+            nv(d.semanas_parciales),
+            nv(d.semanas_conciliar),
+            nv(d.semanas_canceladas)
+        ];
+        var colors = ['#2ecc8b', '#3498db', '#e74c3c', '#f39c12', '#9b59b6', '#95a5a6'];
+        ensureApex(function () {
+            var dark = isDark();
+            var opts = {
+                chart: { type: 'bar', height: 220, toolbar: { show: false }, animations: { speed: 380 } },
+                series: [{ name: 'Semanas', data: series }],
+                xaxis: { categories: cats, labels: { style: { colors: dark ? '#94a3b8' : '#6b7a90', fontSize: '11px' } } },
+                yaxis: { labels: { style: { colors: dark ? '#94a3b8' : '#6b7a90', fontSize: '11px' } } },
+                colors: colors,
+                dataLabels: {
+                    enabled: true,
+                    formatter: function (v) { return v > 0 ? v : ''; },
+                    style: { fontSize: '11px', fontWeight: 700, colors: ['#ffffff'] }
+                },
+                plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '52%', distributed: true } },
+                legend: { show: false },
+                grid: { borderColor: dark ? '#334155' : '#eef1f5', xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+                tooltip: { theme: dark ? 'dark' : 'light', y: { formatter: function (v) { return v + ' semanas'; } } }
+            };
+            if (!cvCharts.semanas) {
+                cvCharts.semanas = new ApexCharts(document.querySelector('#cvChartSemanas'), opts);
+                cvCharts.semanas.render();
+            } else {
+                cvCharts.semanas.updateOptions(opts, true, true);
+            }
         });
     }
 
@@ -753,11 +857,13 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         setText('cvRecupLegendComp',  formatDinero(d.monto_comprometido ?? 0));
         setBadge('cvBadgeRecuperacion', d.recuperacion_badge_text || '—', d.recuperacion_badge_class || '');
         renderRadialRecuperacion(Math.min(100, Math.max(0, nv(d.pct_recuperacion ?? 0))));
+        renderBarSemanas(d);
     }
 
-    // ─── Pintar: penetración de cartera ─────────────────────
+    // ─── Pintar: cobertura de convenios ─────────────────────
     function pintarAsignacion(d) {
-        if (!d) return;
+        console.log('[cvAsignacion] datos recibidos:', JSON.parse(JSON.stringify(d || {})));
+        if (!d) { console.warn('[cvAsignacion] datos vacíos/nulos'); return; }
         var pct   = Math.min(100, Math.max(0, nv(d.pct_penetracion ?? 0)));
         var color = pct >= 40 ? '#2ecc8b' : (pct >= 20 ? '#f0a500' : '#e74c3c');
         var elPct = document.getElementById('cvPctPenetracion');
@@ -778,6 +884,12 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         setText('cvDespCelulaCC',    String(d.celula_callcenter_cnt    ?? 0));
         setText('cvTopDespNombre',    d.top_despacho_nombre   || '—');
         setText('cvTopDespConvenios', String(d.top_despacho_convenios ?? 0));
+        setText('cvDespPctActivos',    (d.pct_gestores_activos ?? 0) + '%');
+        setText('cvDespCreditosGestion', String(d.creditos_en_gestion      ?? 0));
+        setText('cvDespPromedioConv',    String(d.promedio_convenios_gestor ?? 0));
+        setText('cvDespEnMeta',          String(d.gestores_en_meta          ?? 0));
+        setText('cvTopGestorPeriodoNombre',    d.top_gestor_periodo_nombre    || '—');
+        setText('cvTopGestorPeriodoConvenios', String(d.top_gestor_periodo_convenios ?? 0));
     }
 
     // ─── Loading helpers ─────────────────────────────────────
@@ -913,10 +1025,15 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             .then(function (wrap) {
                 if (rAsig !== cvReqAsig) return;
                 var resp = wrap.json;
+                console.log('[cvAsignacion] respuesta HTTP ok=' + wrap.ok, resp);
+                if (!wrap.ok)       { console.error('[cvAsignacion] HTTP error', wrap); }
+                else if (!resp)     { console.error('[cvAsignacion] respuesta no es JSON'); }
+                else if (!resp.success) { console.error('[cvAsignacion] success=false msg=', resp.message, 'debug=', resp.debug); }
+                else if (!resp.datos)   { console.error('[cvAsignacion] success=true pero datos vacíos'); }
                 if (wrap.ok && resp && resp.success && resp.datos) pintarAsignacion(resp.datos);
                 checkDone();
             })
-            .catch(function () { if (rAsig !== cvReqAsig) return; checkDone(); });
+            .catch(function (err) { if (rAsig !== cvReqAsig) return; console.error('[cvAsignacion] catch error', err); checkDone(); });
     }
 
     // ─── Inicialización ──────────────────────────────────────

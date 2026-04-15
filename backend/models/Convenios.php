@@ -2636,9 +2636,9 @@ public static function registrarConvenioGlobo($datos)
             $sinConv   = max(0, $totalDesp - $totalConv);
             $pctPen    = $totalDesp > 0 ? round(($totalConv / $totalDesp) * 100, 1) : 0.0;
 
-            if ($pctPen >= 40)     { $badgeText = 'Penetración alta';  $badgeClass = 'success'; }
-            elseif ($pctPen >= 20) { $badgeText = 'Penetración media'; $badgeClass = 'warning'; }
-            else                   { $badgeText = 'Penetración baja';  $badgeClass = 'danger';  }
+            if ($pctPen >= 40)     { $badgeText = 'Cobertura alta';  $badgeClass = 'success'; }
+            elseif ($pctPen >= 20) { $badgeText = 'Cobertura media'; $badgeClass = 'warning'; }
+            else                   { $badgeText = 'Cobertura baja';  $badgeClass = 'danger';  }
 
             // ── KPIs de entidades de despacho ──────────────────────────────
             // Total despachos activos (filas en tabla despachos)
@@ -2694,6 +2694,56 @@ public static function registrarConvenioGlobo($datos)
             $despConConv       = (int) ($despConConvenio['total']  ?? 0);
             $despSinConv       = max(0, $totalDespActivos - $despConConv);
 
+            // Créditos en gestión (asignados a despacho activo)
+            $creditosGestion = $db->queryOne(
+                "SELECT COUNT(DISTINCT acd.id_credito) AS total
+                 FROM asigna_creditos_despacho acd
+                 INNER JOIN despachos d ON d.id = acd.id_despacho AND d.estatus = 'Activo'
+                 WHERE acd.estatus = 1",
+                []
+            ) ?: [];
+
+            // Gestores con meta cumplida (≥ 5 convenios activos)
+            $gestoresEnMeta = $db->queryOne(
+                "SELECT COUNT(*) AS total FROM (
+                    SELECT d.id
+                    FROM despachos d
+                    INNER JOIN asigna_creditos_despacho acd ON acd.id_despacho = d.id AND acd.estatus = 1
+                    INNER JOIN convenio_cliente cc
+                            ON cc.id_credito = acd.id_credito
+                           AND LOWER(cc.estatus) = 'activo'
+                    WHERE d.estatus = 'Activo'
+                    GROUP BY d.id
+                    HAVING COUNT(cc.id) >= 5
+                ) sub",
+                []
+            ) ?: [];
+
+            // Gestor más activo del período (convenios pactados en el rango)
+            $topGestorPeriodo = $db->queryOne(
+                "SELECT d.id,
+                        CONCAT_WS(' ', per.nombres, per.apellidop) AS nombre_gestor,
+                        COUNT(cc.id) AS total_convenios
+                 FROM despachos d
+                 INNER JOIN asigna_creditos_despacho acd ON acd.id_despacho = d.id AND acd.estatus = 1
+                 INNER JOIN convenio_cliente cc
+                         ON cc.id_credito = acd.id_credito
+                        AND LOWER(cc.estatus) = 'activo'
+                        AND cc.fecha_acuerdo BETWEEN ? AND ?
+                 LEFT JOIN persona per ON per.id = d.id_persona
+                 WHERE d.estatus = 'Activo'
+                 GROUP BY d.id
+                 ORDER BY total_convenios DESC
+                 LIMIT 1",
+                [$fechaIni, $fechaFin]
+            ) ?: [];
+
+            // % gestores activos y promedio de convenios por gestor (calculados)
+            $pctGestoresActivos      = $totalDespActivos > 0
+                ? round(($despConConv / $totalDespActivos) * 100, 1) : 0.0;
+            $promedioConveniosGestor = $despConConv > 0
+                ? round(($totalConv / $despConConv), 1) : 0.0;
+
             $datos = [
                 'fecha_ini'               => $fechaIni,
                 'fecha_fin'               => $fechaFin,
@@ -2711,6 +2761,13 @@ public static function registrarConvenioGlobo($datos)
                 'celula_callcenter_cnt'   => $celulaMap[2] ?? 0,
                 'top_despacho_nombre'     => $topDespacho['nombre_despacho']  ?? '—',
                 'top_despacho_convenios'  => (int) ($topDespacho['total_convenios'] ?? 0),
+                // ── KPIs adicionales gestores ──
+                'creditos_en_gestion'         => (int) ($creditosGestion['total']     ?? 0),
+                'gestores_en_meta'            => (int) ($gestoresEnMeta['total']      ?? 0),
+                'top_gestor_periodo_nombre'   => $topGestorPeriodo['nombre_gestor']   ?? '—',
+                'top_gestor_periodo_convenios'=> (int) ($topGestorPeriodo['total_convenios'] ?? 0),
+                'pct_gestores_activos'        => $pctGestoresActivos,
+                'promedio_convenios_gestor'   => $promedioConveniosGestor,
             ];
 
             return self::resultado(true, 'OK', $datos);
