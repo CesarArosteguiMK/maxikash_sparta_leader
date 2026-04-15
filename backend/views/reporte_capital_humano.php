@@ -191,13 +191,13 @@ body.dark-mode .rch-hero-mascot-floating {
 
 <!-- MODAL DE REPORTE CAPITAL HUMANO - SOLO USUARIOS ACTIVOS -->
 <div class="modal fade" id="modalCapitalHumano" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 92vw;">
         <div class="modal-content">
             <div class="modal-header border-bottom py-3">
                 <div>
                     <h5 class="modal-title fw-semibold">
                         <i class="fas fa-file-excel text-success me-2"></i>
-                        Reportes de Personal
+                        Reporte de Personal
                     </h5>
                     <small class="text-muted">Consulta y descarga información del personal activo</small>
                 </div>
