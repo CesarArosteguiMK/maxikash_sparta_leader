@@ -191,7 +191,7 @@ body.dark-mode .pai-hero-mascot-floating {
                     $clsModulo = 'card shadow-none bg-label-primary h-100 panel-admin-modulo-card'
                         . ($panelOperativo ? '' : ' panel-admin-modulo-card--proximamente');
                 ?>
-                <div class="col-lg-4">
+                <div class="col-md-6 col-lg-3">
                     <div class="<?= htmlspecialchars($clsModulo, ENT_QUOTES, 'UTF-8'); ?>">
                         <?php if (!$panelOperativo): ?>
                         <span class="panel-admin-modulo-lazo">Próximamente</span>
@@ -219,7 +219,7 @@ body.dark-mode .pai-hero-mascot-floating {
                     </div>
                 </div>
                 <?php endforeach; ?>
-                <div class="col-lg-4">
+                <div class="col-md-6 col-lg-3">
                     <div class="card shadow-none bg-label-primary h-100 panel-admin-modulo-card panel-admin-modulo-card--proximamente">
                         <span class="panel-admin-modulo-lazo">Próximamente</span>
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
