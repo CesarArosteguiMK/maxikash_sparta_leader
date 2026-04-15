@@ -470,7 +470,7 @@ $ccActHist = ($cc_default_tab === 'historial');
                             data-bs-toggle="tab" data-bs-target="#tab-historial"
                             type="button" role="tab"
                             aria-controls="tab-historial" aria-selected="<?= $ccActHist ? 'true' : 'false' ?>">
-                        <i class="fa-solid fa-clock-rotate-left me-1 text-info"></i>Historial
+                        <i class="fa-solid fa-clock-rotate-left me-1 text-info"></i>Movimientos
                     </button>
                 </li>
                 <?php endif; ?>
@@ -592,7 +592,7 @@ $ccActHist = ($cc_default_tab === 'historial');
             <div class="card-body p-0">
                 <div id="loader-historial" class="text-center py-5 text-muted<?= $ccActHist ? '' : ' d-none' ?>">
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
-                    Cargando historial...
+                    Cargando movimientos...
                 </div>
                 <div id="wrap-historial" class="d-none">
                     <!-- Tabla inyectada por JS -->

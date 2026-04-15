@@ -398,8 +398,8 @@ class CierreCredito extends Model
                     $adjuntos = [];
                     if ($convenio && !empty($convenio['pdf_adjunto'])) {
                         $pdfPath = defined('RAIZ')
-                            ? (RAIZ . '/storage/convenios/' . basename($convenio['pdf_adjunto']))
-                            : (__DIR__ . '/../../storage/convenios/' . basename($convenio['pdf_adjunto']));
+                            ? (dirname(RAIZ) . '/public/uploads/convenios/' . basename($convenio['pdf_adjunto']))
+                            : (__DIR__ . '/../../public/uploads/convenios/' . basename($convenio['pdf_adjunto']));
                         if (is_file($pdfPath) && is_readable($pdfPath)) {
                             $adjuntos[] = $pdfPath;
                         }
@@ -416,7 +416,7 @@ class CierreCredito extends Model
                         if ($compRows) {
                             $uploadsBase = defined('RAIZ')
                                 ? (dirname(RAIZ) . '/public/uploads/comprobantes/')
-                                : (__DIR__ . '/../../../public/uploads/comprobantes/');
+                                : (__DIR__ . '/../../public/uploads/comprobantes/');
                             foreach ($compRows as $cr) {
                                 $compPath = $uploadsBase . basename($cr['comprobante_path']);
                                 if (is_file($compPath) && is_readable($compPath)) {
