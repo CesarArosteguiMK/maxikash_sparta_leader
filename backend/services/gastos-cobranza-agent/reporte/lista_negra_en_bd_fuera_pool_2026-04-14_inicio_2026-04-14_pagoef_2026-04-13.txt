@@ -3,6 +3,12 @@
 # fecha_generacion_cdmx=2026-04-14
 # inicio_semana=2026-04-14
 # filtro_fecha_ultimo_pago_efectivo_principal_QUERY=2026-04-13
+<<<<<<< HEAD
+# total_ids=2
+
+1779568
+1836541
+=======
 # total_ids=51
 
 356579
@@ -56,3 +62,4 @@
 1927994
 1956043
 1958482
+>>>>>>> 04ba48fddcb7ca83011f2dce4c1e171aaf23b5ed
