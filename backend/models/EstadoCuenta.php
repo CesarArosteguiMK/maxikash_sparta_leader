@@ -1011,7 +1011,10 @@ public static function getGastosCobranza($idCredito)
 }
 
 /**
- * Lee Fecha_ultimo_pago_efectivo en tbl_segundometro_semana (misma fuente que insertAclaracionGcVerificacionSemana).
+ * Lee la fecha de último pago efectivo en tbl_segundometro_semana (misma fuente que insertAclaracionGcVerificacionSemana).
+ *
+ * Puede haber **varias filas** por Id_credito (p. ej. histórico por semana). Antes se usaba LIMIT 1 sin ORDER BY,
+ * lo que devolvía una fila arbitraria (a veces una fecha vieja). Se usa MAX para alinear con el último pago real.
  *
  * @return array{ymd: string, datetime_sql: string}|null ymd = Y-m-d (calendario); datetime_sql para columna ultimo_pago_efectivo.
  */
@@ -1023,8 +1026,8 @@ public static function obtenerUltimoPagoEfectivoSegundometroParaCredito(int $idC
     try {
         $dbSm = new DatabaseSegundometro();
         $filaSm = $dbSm->queryOne(
-            'SELECT `Fecha_ultimo_pago_efectivo` AS f FROM `tbl_segundometro_semana` '
-            . 'WHERE `Id_credito` = :id_credito LIMIT 1',
+            'SELECT MAX(s.`Fecha_ultimo_pago_efectivo`) AS f FROM `tbl_segundometro_semana` AS s '
+            . 'WHERE s.`Id_credito` = :id_credito',
             ['id_credito' => $idCredito]
         );
         if (empty($filaSm) || !array_key_exists('f', $filaSm) || $filaSm['f'] === null || $filaSm['f'] === '') {

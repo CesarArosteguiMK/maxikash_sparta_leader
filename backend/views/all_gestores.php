@@ -1019,25 +1019,30 @@
     .kpi-collapsible-inner { overflow:hidden; }
 
     /* ── Fila de 3 celdas ── */
-    .kpi-row-new { display:grid; grid-template-columns:repeat(3,1fr); gap:0.85rem; padding-bottom:0.25rem; }
+    .kpi-row-new { display:grid; grid-template-columns:repeat(3,1fr); gap:0.55rem; padding-bottom:0.2rem; }
 
     /* ── Celda base ── */
     .kpi-cell {
-        background:#fff; border-radius:14px;
+        background:#fff; border-radius:11px;
         border:1px solid rgba(99,102,241,0.12);
-        box-shadow:0 2px 16px rgba(99,102,241,0.08),0 1px 4px rgba(0,0,0,0.04),
-                   inset 4px 0 0 var(--cell-accent);
+        box-shadow:0 2px 12px rgba(99,102,241,0.07),0 1px 3px rgba(0,0,0,0.035),
+                   inset 3px 0 0 var(--cell-accent);
         position:relative; overflow:hidden; cursor:pointer;
-        min-height:190px;
+        min-height:152px;
         transition:transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s, border-color 0.25s;
         opacity:0; transform:translateY(14px);
+    }
+    /* Misma altura base en los 3 modos (Estándar / Donut / Mini-Stat) y columna flexible */
+    .kpi-row-new > .kpi-cell {
+        display: flex;
+        flex-direction: column;
     }
     .kpi-cell.revealed { animation:kpiCellReveal 0.45s cubic-bezier(0.34,1.3,0.64,1) forwards; }
     @keyframes kpiCellReveal {
         from { opacity:0; transform:translateY(14px) scale(0.97); }
         to   { opacity:1; transform:translateY(0) scale(1); }
     }
-    .kpi-cell:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(99,102,241,0.13),0 2px 8px rgba(0,0,0,0.06),inset 4px 0 0 var(--cell-accent); border-color:rgba(99,102,241,0.28); }
+    .kpi-cell:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(99,102,241,0.12),0 2px 6px rgba(0,0,0,0.05),inset 3px 0 0 var(--cell-accent); border-color:rgba(99,102,241,0.28); }
     .kpi-cell::after {
         content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
         border-radius:0 0 14px 14px; background:var(--cell-accent);
@@ -1057,7 +1062,7 @@
     .kpi-cell.tipo-total  { --cell-accent:#f59e0b; --cell-glow:rgba(245,158,11,0.07);  --cell-icon:#f59e0b; --cell-num:#d97706; }
 
     /* ── Elementos comunes ── */
-    .kpi-cell-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.85rem; }
+    .kpi-cell-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.5rem; }
     /* ── kpi-icon-wrap: círculo coloreado, estilo __SPARTA_SECRET_REDACTED__ ── */
     .kpi-icon-wrap {
       border-radius:50%;
@@ -1084,8 +1089,8 @@
     .kpi-cell.tipo-total  .kpi-icon-wrap { background:#fef3c7; border:1px solid #fcd34d; color:#d97706; box-shadow:0 3px 10px rgba(245,158,11,0.28); }
 
     /* Tamaño del icono según modo */
-    .kpi-row-new.mode-default  .kpi-icon-wrap i { font-size:1.25rem !important; display:inline-block !important; }
-    .kpi-row-new.mode-ministat .kpi-icon-wrap i { font-size:1rem   !important; display:inline-block !important; }
+    .kpi-row-new.mode-default  .kpi-icon-wrap i { font-size:1.05rem !important; display:inline-block !important; }
+    .kpi-row-new.mode-ministat .kpi-icon-wrap i { font-size:0.88rem !important; display:inline-block !important; }
 
     /* Hover */
     .kpi-cell.tipo-dep:hover    .kpi-icon-wrap { transform:scale(1.12) rotate(-4deg); box-shadow:0 6px 18px rgba(99,102,241,0.45); }
@@ -1117,10 +1122,147 @@
     body.dark-mode .kpi-cell.tipo-baja-dep    .kpi-icon-wrap i { color:#fdba74 !important; }
     body.dark-mode .kpi-cell.tipo-baja-puesto .kpi-icon-wrap i { color:#c4b5fd !important; }
 
+    /* Indicadores de Bajas: tarjetas más compactas (solo panel bajas; no afecta KPI empleados) */
+    #panelIndicadoresBajas #kpiRowNewB {
+        gap: 0.45rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB .kpi-cell {
+        border-radius: 9px;
+        padding: 0.5rem 0.72rem 0.48rem;
+        box-shadow: 0 1px 10px rgba(99, 102, 241, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04),
+            inset 3px 0 0 var(--cell-accent);
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-default .kpi-cell,
+    #panelIndicadoresBajas #kpiRowNewB.mode-ministat .kpi-cell,
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .kpi-cell {
+        padding: 0.5rem 0.72rem 0.48rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB .kpi-cell-top {
+        margin-bottom: 0.35rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB .kpi-cell-status {
+        font-size: 0.55rem;
+        padding: 0.12rem 0.45rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB .kpi-num {
+        font-size: 1.12rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB .kpi-lbl {
+        font-size: 0.66rem;
+        margin-top: 0.12rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB .kpi-bar-track {
+        margin-top: 0.42rem;
+        height: 2px;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-svg-wrap,
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-svg {
+        width: 56px;
+        height: 56px;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-svg-wrap .donut-center-icon i {
+        font-size: 0.95rem !important;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-ministat .kpi-stat-val {
+        font-size: 1.02rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-ministat .kpi-stat-div {
+        height: 22px;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-ministat .kpi-stats-grid-new {
+        margin-top: 0.32rem;
+    }
+
+    /* Donut (Bajas): métrica izquierda | divisor | círculo + métrica derecha; sin badge duplicado bajo el SVG */
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas {
+        width: 100%;
+        align-self: stretch;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-bajas-body {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 0.32rem;
+        margin-top: 0.12rem;
+        padding-top: 0.32rem;
+        border-top: 1px solid color-mix(in srgb, var(--cell-icon) 14%, transparent);
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-bajas-col-left {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-bajas-div {
+        flex-shrink: 0;
+        width: 1px;
+        height: 32px;
+        align-self: center;
+        background: linear-gradient(
+            180deg,
+            transparent,
+            color-mix(in srgb, var(--cell-icon) 28%, transparent),
+            transparent
+        );
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-bajas-col-right {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.32rem;
+        flex-shrink: 0;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-bajas-col-right .kpi-stat-item {
+        padding: 0 0.1rem;
+        text-align: center;
+        min-width: 0;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .kpi-stat-val {
+        font-size: 1.02rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .kpi-stat-lbl {
+        font-size: 0.52rem;
+        margin-top: 0.08rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-bajas-col-left .kpi-stat-item {
+        padding: 0 0.1rem;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-ctx-line {
+        width: 100%;
+        font-size: 0.54rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-align: center;
+        line-height: 1.25;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        min-height: 1.15em;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-ctx-line i {
+        flex-shrink: 0;
+        color: var(--cell-icon);
+        opacity: 0.9;
+    }
+    #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-ctx-line > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+    body.dark-mode #panelIndicadoresBajas #kpiRowNewB.mode-vision .donut-block-bajas .donut-ctx-line {
+        color: #9ca3af;
+    }
+
     /* ── Icono decorativo esquina superior izquierda ── */
     .kpi-corner-icon {
-        position:absolute; top:6px; left:8px;
-        font-size:4.2rem; line-height:1;
+        position:absolute; top:4px; left:6px;
+        font-size:3rem; line-height:1;
         color:var(--cell-icon); opacity:0.07;
         pointer-events:none; user-select:none; z-index:0;
         transition:opacity 0.4s ease, transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
@@ -1128,17 +1270,17 @@
     .kpi-cell:hover .kpi-corner-icon { opacity:0.13; transform:scale(1.08) rotate(-6deg); }
     .kpi-row-new.mode-vision .kpi-corner-icon { display:none !important; }
     .kpi-cell-status {
-        font-size:0.62rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+        font-size:0.56rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
         color:var(--cell-icon); background:color-mix(in srgb,var(--cell-icon) 10%,transparent);
-        border-radius:20px; padding:0.18rem 0.55rem; opacity:0.85;
+        border-radius:16px; padding:0.14rem 0.45rem; opacity:0.85;
     }
-    .kpi-num { font-size:1.85rem; font-weight:700; line-height:1; color:var(--cell-num); }
-    .kpi-lbl { font-size:0.73rem; font-weight:500; color:#6b7280; margin-top:0.3rem; }
-    .kpi-bar-track { margin-top:0.9rem; height:3px; background:color-mix(in srgb,var(--cell-icon) 12%,transparent); border-radius:99px; overflow:hidden; }
+    .kpi-num { font-size:1.42rem; font-weight:700; line-height:1; color:var(--cell-num); }
+    .kpi-lbl { font-size:0.66rem; font-weight:500; color:#6b7280; margin-top:0.22rem; }
+    .kpi-bar-track { margin-top:0.55rem; height:2px; background:color-mix(in srgb,var(--cell-icon) 12%,transparent); border-radius:99px; overflow:hidden; }
     .kpi-bar-fill  { height:100%; width:0%; background:var(--cell-icon); border-radius:99px; transition:width 1s cubic-bezier(0.4,0,0.2,1) 0.3s; }
 
     /* ════ MODO ESTÁNDAR ════ */
-    .kpi-row-new.mode-default .kpi-cell { padding:1.15rem 1.25rem 1.05rem; }
+    .kpi-row-new.mode-default .kpi-cell { padding:0.8rem 0.95rem 0.72rem; }
     /* Ocultar icono y círculo en modo Estándar */
     .kpi-row-new.mode-default .kpi-icon-wrap { display:none !important; }
     .kpi-row-new.mode-default .kpi-corner-icon { display:none !important; }
@@ -1146,20 +1288,20 @@
     .kpi-row-new.mode-default .kpi-stats-grid-new { display:none !important; }
 
     /* ════ MODO MINI-STAT ════ */
-    .kpi-row-new.mode-ministat .kpi-cell { padding:1.15rem 1.25rem 1.05rem; }
-    .kpi-row-new.mode-ministat .kpi-cell-top { margin-bottom:0.85rem; }
+    .kpi-row-new.mode-ministat .kpi-cell { padding:0.8rem 0.95rem 0.72rem; }
+    .kpi-row-new.mode-ministat .kpi-cell-top { margin-bottom:0.5rem; }
     .kpi-row-new.mode-ministat .kpi-cell-top .kpi-cell-status { display:none; }
     /* Ocultar icono y círculo en modo Mini-Stat */
     .kpi-row-new.mode-ministat .kpi-icon-wrap { display:none !important; }
     .kpi-row-new.mode-ministat .kpi-corner-icon { display:none !important; }
-    .kpi-row-new.mode-ministat .kpi-cell-title { font-size:0.7rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.03em; align-self:center; display:block; margin-bottom:0.2rem; }
+    .kpi-row-new.mode-ministat .kpi-cell-title { font-size:0.62rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.03em; align-self:center; display:block; margin-bottom:0.15rem; }
     .kpi-row-new.mode-ministat .kpi-num      { display:none !important; }
     .kpi-row-new.mode-ministat .kpi-lbl      { display:none !important; }
-    .kpi-row-new.mode-ministat .kpi-bar-track{ display:block !important; margin-top:auto; padding-top:0.55rem; }
+    .kpi-row-new.mode-ministat .kpi-bar-track{ display:block !important; margin-top:auto; padding-top:0.42rem; }
     .kpi-row-new.mode-ministat .donut-block  { display:none !important; }
     .kpi-row-new.mode-ministat .kpi-stats-grid-new { display:grid !important; }
     /* % badge below B-value */
-    .kpi-ms-pct { font-size:0.62rem; font-weight:600; color:#9ca3af; margin-top:0.18rem; line-height:1.2; }
+    .kpi-ms-pct { font-size:0.56rem; font-weight:600; color:#9ca3af; margin-top:0.12rem; line-height:1.2; }
     .kpi-ms-pct.ok     { color:#10b981; }
     .kpi-ms-pct.warn   { color:#f59e0b; }
     .kpi-ms-pct.danger { color:#ef4444; }
@@ -1172,71 +1314,76 @@
     .kpi-stat-item { padding:0 0.5rem; }
     .kpi-stat-item:first-child { padding-left:0; }
     /* Mini-stat empleados: total + ingresos/bajas */
-    .kpi-stats-emp { display:none; align-items:center; gap:0.5rem; }
+    .kpi-stats-emp { display:none; align-items:center; gap:0.35rem; }
     .kpi-row-new.mode-ministat .kpi-stats-emp { display:flex !important; }
     .kpi-emp-total-wrap { display:flex; flex-direction:column; justify-content:center; flex:0 0 auto; }
-    .kpi-emp-total-val { font-size:2rem; font-weight:700; color:var(--cell-num); line-height:1; }
-    .kpi-emp-total-lbl { font-size:0.6rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em; }
-    .kpi-emp-div { width:1px; height:40px; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.18),transparent); flex-shrink:0; }
+    .kpi-emp-total-val { font-size:1.48rem; font-weight:700; color:var(--cell-num); line-height:1; }
+    .kpi-emp-total-lbl { font-size:0.55rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em; }
+    .kpi-emp-div { width:1px; height:30px; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.18),transparent); flex-shrink:0; }
     .kpi-emp-side { display:flex; flex-direction:column; gap:0.3rem; flex:1; padding-left:0.3rem; }
     .kpi-emp-row { display:flex; align-items:center; gap:0.25rem; }
     .kpi-emp-arrow-up   { color:#10b981; font-size:0.95rem; line-height:1; display:flex; }
     .kpi-emp-arrow-down { color:#ef4444; font-size:0.95rem; line-height:1; display:flex; }
-    .kpi-emp-num { font-size:1rem; font-weight:700; color:var(--cell-num); line-height:1; min-width:1.5ch; }
-    .kpi-emp-side-lbl { font-size:0.6rem; color:#6b7280; font-weight:500; }
+    .kpi-emp-num { font-size:0.86rem; font-weight:700; color:var(--cell-num); line-height:1; min-width:1.5ch; }
+    .kpi-emp-side-lbl { font-size:0.54rem; color:#6b7280; font-weight:500; }
     .kpi-stat-ingr { color:#10b981 !important; }
-    .kpi-ingr-arrow { color:#10b981; font-size:0.75rem; vertical-align:middle; display:inline-flex; align-items:center; }
-    .kpi-stat-val { font-size:1.85rem; font-weight:700; color:var(--cell-num); line-height:1; display:flex; align-items:center; gap:0.1rem; }
-    .kpi-stat-lbl { font-size:0.62rem; font-weight:500; color:#6b7280; margin-top:0.2rem; }
-    .kpi-stat-div { width:1px; height:40px; align-self:center; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.15),transparent); }
-    .kpi-stats-grid-new { display:none; grid-template-columns:1fr 1px 1fr; align-items:center; margin-top:0.65rem; }
-    .kpi-arrow-up   { color:#10b981; font-size:1.1rem; line-height:1; display:flex; align-items:center; }
-    .kpi-arrow-down { color:#ef4444; font-size:1.1rem; line-height:1; display:flex; align-items:center; }
+    .kpi-ingr-arrow { color:#10b981; font-size:0.65rem; vertical-align:middle; display:inline-flex; align-items:center; }
+    .kpi-stat-val { font-size:1.32rem; font-weight:700; color:var(--cell-num); line-height:1; display:flex; align-items:center; gap:0.1rem; }
+    .kpi-stat-lbl { font-size:0.56rem; font-weight:500; color:#6b7280; margin-top:0.14rem; }
+    .kpi-stat-div { width:1px; height:30px; align-self:center; background:linear-gradient(180deg,transparent,rgba(99,102,241,0.15),transparent); }
+    .kpi-stats-grid-new { display:none; grid-template-columns:1fr 1px 1fr; align-items:center; margin-top:0.42rem; }
+    .kpi-arrow-up   { color:#10b981; font-size:0.95rem; line-height:1; display:flex; align-items:center; }
+    .kpi-arrow-down { color:#ef4444; font-size:0.95rem; line-height:1; display:flex; align-items:center; }
 
     /* ════ MODO VISIÓN (donut) ════ */
-    .kpi-row-new.mode-vision .kpi-cell { padding:1.1rem 1.25rem 1rem; min-height:unset; }
+    .kpi-row-new.mode-vision .kpi-cell { padding:0.8rem 0.95rem 0.72rem; }
     .kpi-row-new.mode-vision .kpi-cell-top    { display:none !important; }
     .kpi-row-new.mode-vision .kpi-num         { display:none !important; }
     .kpi-row-new.mode-vision .kpi-lbl         { display:none !important; }
     .kpi-row-new.mode-vision .kpi-bar-track   { display:none !important; }
     .kpi-row-new.mode-vision .kpi-stats-grid-new { display:none !important; }
-    .kpi-row-new.mode-vision .donut-block { display:flex !important; flex-direction:column; align-items:center; gap:0.65rem; }
+    .kpi-row-new.mode-vision .donut-block {
+        display:flex !important; flex-direction:column; align-items:center; gap:0.4rem;
+        flex:1; justify-content:center; min-height:0;
+    }
     .donut-block { display:none; }
 
     .donut-header { width:100%; display:flex; align-items:center; justify-content:space-between; }
-    .donut-title  { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:#6b7280; }
+    .donut-title  { font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#6b7280; }
     .donut-svg-wrap {
         position:relative; display:inline-flex; align-items:center; justify-content:center;
-        width:96px; height:96px;
+        width:64px; height:64px;
     }
-    .donut-svg { width:96px; height:96px; transform:rotate(-90deg); overflow:visible; }
-    .donut-track { fill:none; stroke:color-mix(in srgb,var(--cell-icon) 12%,transparent); stroke-width:8; stroke-linecap:round; }
+    .donut-svg { width:64px; height:64px; transform:rotate(-90deg); overflow:visible; }
+    .donut-track { fill:none; stroke:color-mix(in srgb,var(--cell-icon) 12%,transparent); stroke-width:7; stroke-linecap:round; }
     .donut-arc {
-        fill:none; stroke:var(--cell-icon); stroke-width:8; stroke-linecap:round;
+        fill:none; stroke:var(--cell-icon); stroke-width:7; stroke-linecap:round;
         stroke-dasharray:0 226.2;
         transition:stroke-dasharray 1.1s cubic-bezier(0.4,0,0.2,1);
         filter:drop-shadow(0 0 4px color-mix(in srgb,var(--cell-icon) 40%,transparent));
     }
     .kpi-cell:hover .donut-arc {
-        filter:drop-shadow(0 0 8px color-mix(in srgb,var(--cell-icon) 60%,transparent));
-        stroke-width:9;
+        filter:drop-shadow(0 0 6px color-mix(in srgb,var(--cell-icon) 55%,transparent));
+        stroke-width:8;
     }
     .donut-center-icon {
         position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-        font-size:1.35rem; color:var(--cell-icon);
+        font-size:1rem; color:var(--cell-icon);
         transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
     }
     .kpi-cell:hover .donut-center-icon { transform:scale(1.18); }
     .donut-footer { display:flex; align-items:center; justify-content:center; gap:0.35rem; width:100%; }
-    .donut-stats { display:grid; grid-template-columns:1fr 1px 1fr; align-items:center; width:100%; margin-top:0.35rem; padding-top:0.35rem; border-top:1px solid color-mix(in srgb,var(--cell-icon) 12%,transparent); }
+    .donut-stats { display:grid; grid-template-columns:1fr 1px 1fr; align-items:center; width:100%; margin-top:0.25rem; padding-top:0.28rem; border-top:1px solid color-mix(in srgb,var(--cell-icon) 12%,transparent); }
+    .kpi-row-new.mode-vision .donut-stats .kpi-stat-val { font-size: 1.08rem; }
+    .kpi-row-new.mode-vision .donut-stats .kpi-stat-lbl { font-size: 0.52rem; margin-top: 0.1rem; }
     .donut-trend {
-        display:inline-flex; align-items:center; gap:0.2rem;
-        font-size:0.7rem; font-weight:700; padding:0.2rem 0.5rem; border-radius:5px;
+        display:inline-flex; align-items:center; gap:0.15rem;
+        font-size:0.6rem; font-weight:700; padding:0.14rem 0.4rem; border-radius:4px;
     }
     .donut-trend.up     { color:#059669; background:rgba(16,185,129,0.1); }
     .donut-trend.down   { color:#dc2626; background:rgba(239,68,68,0.1); }
     .donut-trend.steady { color:var(--cell-icon); background:color-mix(in srgb,var(--cell-icon) 10%,transparent); }
-    .donut-trend-label  { font-size:0.68rem; color:#6b7280; font-weight:500; }
+    .donut-trend-label  { font-size:0.58rem; color:#6b7280; font-weight:500; }
 
     /* ── Tooltip del donut ── */
     .kpi-donut-tooltip {
@@ -1259,7 +1406,7 @@
     .kpi-cell.mode-swap { animation:kpiModeFade 0.32s ease forwards; }
 
     /* ── Dark mode ── */
-    body.dark-mode .kpi-cell             { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 16px rgba(0,0,0,0.35),0 1px 4px rgba(0,0,0,0.2),inset 4px 0 0 var(--cell-accent); }
+    body.dark-mode .kpi-cell             { background:#1a1d2e; border-color:rgba(99,102,241,0.18); box-shadow:0 2px 14px rgba(0,0,0,0.32),0 1px 3px rgba(0,0,0,0.18),inset 3px 0 0 var(--cell-accent); }
     body.dark-mode .kpi-toggle-btn,
     body.dark-mode .kpi-view-btn         { background:#1a1d2e; }
     body.dark-mode .kpi-donut-tooltip    { background:#e8eaff; color:#0f1117; }
@@ -1285,7 +1432,7 @@
         .kpi-toolbar { gap:0.4rem; }
         .kpi-view-btn { padding:0 0.3rem; font-size:0.65rem; }
         .kpi-view-btn .kpi-btn-text { display:none; } /* Ocultar texto en móvil, solo íconos */
-        .kpi-num { font-size:1.5rem; }
+        .kpi-num { font-size:1.22rem; }
     }
     @media (max-width: 480px) {
         .kpi-row-new { grid-template-columns:1fr; }
@@ -2210,29 +2357,35 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                                     <div class="kpi-stat-div"></div>
                                                     <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-total-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-b-total">—</div><div class="kpi-stat-lbl" id="kpi-ms-b-total-lbl">Este mes</div></div>
                                                 </div>
-                                                <div class="donut-block">
+                                                <div class="donut-block donut-block-bajas">
                                                     <div class="donut-header">
                                                         <span class="donut-title">Total Bajas</span>
                                                         <span class="kpi-cell-status">Total</span>
                                                     </div>
-                                                    <div class="donut-svg-wrap"
-                                                         onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-total').textContent + ' bajas registradas')"
-                                                         onmouseleave="kpiHideTooltipB()"
-                                                         onmousemove="kpiMoveTooltipB(event)">
-                                                        <svg class="donut-svg" viewBox="0 0 88 88">
-                                                            <circle class="donut-track" cx="44" cy="44" r="36"/>
-                                                            <circle class="donut-arc" id="kpi-arc-b-total" cx="44" cy="44" r="36"/>
-                                                        </svg>
-                                                        <div class="donut-center-icon"><i class="bx bx-user-x"></i></div>
-                                                    </div>
-                                                    <div class="donut-footer">
-                                                        <span class="donut-trend down" id="kpi-trend-b-total"><i class="bx bx-trending-down"></i>—</span>
-                                                        <span class="donut-trend-label" id="kpi-trend-b-total-lbl">este mes</span>
-                                                    </div>
-                                                    <div class="donut-stats">
-                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-total-a">0</div><div class="kpi-stat-lbl">Total</div></div>
-                                                        <div class="kpi-stat-div"></div>
-                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-total-b">0</div><div class="kpi-stat-lbl" id="kpi-dv-b-total-lbl">Este mes</div></div>
+                                                    <div class="donut-bajas-body">
+                                                        <div class="donut-bajas-col-left">
+                                                            <div class="kpi-stat-item">
+                                                                <div class="kpi-stat-val" id="kpi-dv-b-total-a">0</div>
+                                                                <div class="kpi-stat-lbl">Total</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="kpi-stat-div donut-bajas-div"></div>
+                                                        <div class="donut-bajas-col-right">
+                                                            <div class="donut-svg-wrap"
+                                                                 onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-total').textContent + ' bajas registradas')"
+                                                                 onmouseleave="kpiHideTooltipB()"
+                                                                 onmousemove="kpiMoveTooltipB(event)">
+                                                                <svg class="donut-svg" viewBox="0 0 88 88">
+                                                                    <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                                                    <circle class="donut-arc" id="kpi-arc-b-total" cx="44" cy="44" r="36"/>
+                                                                </svg>
+                                                                <div class="donut-center-icon"><i class="bx bx-user-x"></i></div>
+                                                            </div>
+                                                            <div class="kpi-stat-item">
+                                                                <div class="kpi-stat-val" id="kpi-dv-b-total-b">0</div>
+                                                                <div class="kpi-stat-lbl" id="kpi-dv-b-total-lbl">Este mes</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2253,29 +2406,36 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                                     <div class="kpi-stat-div"></div>
                                                     <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-dep-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-b-dep">—</div><div class="kpi-stat-lbl">Top bajas</div></div>
                                                 </div>
-                                                <div class="donut-block">
+                                                <div class="donut-block donut-block-bajas">
                                                     <div class="donut-header">
                                                         <span class="donut-title">Departamentos</span>
                                                         <span class="kpi-cell-status">Afectados</span>
                                                     </div>
-                                                    <div class="donut-svg-wrap"
-                                                         onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-dep').textContent + ' departamentos con bajas')"
-                                                         onmouseleave="kpiHideTooltipB()"
-                                                         onmousemove="kpiMoveTooltipB(event)">
-                                                        <svg class="donut-svg" viewBox="0 0 88 88">
-                                                            <circle class="donut-track" cx="44" cy="44" r="36"/>
-                                                            <circle class="donut-arc" id="kpi-arc-b-dep" cx="44" cy="44" r="36"/>
-                                                        </svg>
-                                                        <div class="donut-center-icon"><i class="bx bx-buildings"></i></div>
-                                                    </div>
-                                                    <div class="donut-footer">
-                                                        <span class="donut-trend down" id="kpi-trend-b-dep"><i class="bx bx-buildings"></i>—</span>
-                                                        <span class="donut-trend-label">con más bajas</span>
-                                                    </div>
-                                                    <div class="donut-stats">
-                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-dep-a">0</div><div class="kpi-stat-lbl">Afectados</div></div>
-                                                        <div class="kpi-stat-div"></div>
-                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-dep-b">0</div><div class="kpi-stat-lbl">Top bajas</div></div>
+                                                    <div class="donut-ctx-line" id="kpi-ctx-b-dep"></div>
+                                                    <div class="donut-bajas-body">
+                                                        <div class="donut-bajas-col-left">
+                                                            <div class="kpi-stat-item">
+                                                                <div class="kpi-stat-val" id="kpi-dv-b-dep-a">0</div>
+                                                                <div class="kpi-stat-lbl">Afectados</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="kpi-stat-div donut-bajas-div"></div>
+                                                        <div class="donut-bajas-col-right">
+                                                            <div class="donut-svg-wrap"
+                                                                 onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-dep').textContent + ' departamentos con bajas')"
+                                                                 onmouseleave="kpiHideTooltipB()"
+                                                                 onmousemove="kpiMoveTooltipB(event)">
+                                                                <svg class="donut-svg" viewBox="0 0 88 88">
+                                                                    <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                                                    <circle class="donut-arc" id="kpi-arc-b-dep" cx="44" cy="44" r="36"/>
+                                                                </svg>
+                                                                <div class="donut-center-icon"><i class="bx bx-buildings"></i></div>
+                                                            </div>
+                                                            <div class="kpi-stat-item">
+                                                                <div class="kpi-stat-val" id="kpi-dv-b-dep-b">0</div>
+                                                                <div class="kpi-stat-lbl">Top bajas</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2296,29 +2456,36 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                                     <div class="kpi-stat-div"></div>
                                                     <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-ms-b-puesto-b">0</div><div class="kpi-ms-pct" id="kpi-ms-pct-b-puesto">—</div><div class="kpi-stat-lbl">Top bajas</div></div>
                                                 </div>
-                                                <div class="donut-block">
+                                                <div class="donut-block donut-block-bajas">
                                                     <div class="donut-header">
                                                         <span class="donut-title">Puestos</span>
                                                         <span class="kpi-cell-status">Afectados</span>
                                                     </div>
-                                                    <div class="donut-svg-wrap"
-                                                         onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-puesto').textContent + ' puestos con bajas')"
-                                                         onmouseleave="kpiHideTooltipB()"
-                                                         onmousemove="kpiMoveTooltipB(event)">
-                                                        <svg class="donut-svg" viewBox="0 0 88 88">
-                                                            <circle class="donut-track" cx="44" cy="44" r="36"/>
-                                                            <circle class="donut-arc" id="kpi-arc-b-puesto" cx="44" cy="44" r="36"/>
-                                                        </svg>
-                                                        <div class="donut-center-icon"><i class="bx bx-briefcase"></i></div>
-                                                    </div>
-                                                    <div class="donut-footer">
-                                                        <span class="donut-trend down" id="kpi-trend-b-puesto"><i class="bx bx-briefcase"></i>—</span>
-                                                        <span class="donut-trend-label">con más bajas</span>
-                                                    </div>
-                                                    <div class="donut-stats">
-                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-puesto-a">0</div><div class="kpi-stat-lbl">Afectados</div></div>
-                                                        <div class="kpi-stat-div"></div>
-                                                        <div class="kpi-stat-item"><div class="kpi-stat-val" id="kpi-dv-b-puesto-b">0</div><div class="kpi-stat-lbl">Top bajas</div></div>
+                                                    <div class="donut-ctx-line" id="kpi-ctx-b-puesto"></div>
+                                                    <div class="donut-bajas-body">
+                                                        <div class="donut-bajas-col-left">
+                                                            <div class="kpi-stat-item">
+                                                                <div class="kpi-stat-val" id="kpi-dv-b-puesto-a">0</div>
+                                                                <div class="kpi-stat-lbl">Afectados</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="kpi-stat-div donut-bajas-div"></div>
+                                                        <div class="donut-bajas-col-right">
+                                                            <div class="donut-svg-wrap"
+                                                                 onmouseenter="kpiShowTooltipB(event, document.getElementById('kpi-b-puesto').textContent + ' puestos con bajas')"
+                                                                 onmouseleave="kpiHideTooltipB()"
+                                                                 onmousemove="kpiMoveTooltipB(event)">
+                                                                <svg class="donut-svg" viewBox="0 0 88 88">
+                                                                    <circle class="donut-track" cx="44" cy="44" r="36"/>
+                                                                    <circle class="donut-arc" id="kpi-arc-b-puesto" cx="44" cy="44" r="36"/>
+                                                                </svg>
+                                                                <div class="donut-center-icon"><i class="bx bx-briefcase"></i></div>
+                                                            </div>
+                                                            <div class="kpi-stat-item">
+                                                                <div class="kpi-stat-val" id="kpi-dv-b-puesto-b">0</div>
+                                                                <div class="kpi-stat-lbl">Top bajas</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -7250,22 +7417,18 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
         if (dvPA && data.puesto         !== undefined) dvPA.textContent = data.puesto;
         if (dvPB && data.topPuestoBajas  !== undefined) dvPB.textContent = data.topPuestoBajas;
 
-        // Tendencias en donuts
-        var trendTotal  = document.getElementById('kpi-trend-b-total');
-        var trendTotalL = document.getElementById('kpi-trend-b-total-lbl');
-        var trendDep    = document.getElementById('kpi-trend-b-dep');
-        var trendPuesto = document.getElementById('kpi-trend-b-puesto');
-        if (trendTotal  && data.bajasRef !== undefined) {
-            trendTotal.innerHTML = '<i class="bx bx-trending-down"></i>' + data.bajasRef;
+        // Línea de contexto bajo el encabezado (dep/puesto): nombre con más bajas
+        var ctxDep    = document.getElementById('kpi-ctx-b-dep');
+        var ctxPuesto = document.getElementById('kpi-ctx-b-puesto');
+        if (ctxDep && data.topDepNombre !== undefined) {
+            ctxDep.innerHTML =
+                '<i class="bx bx-buildings"></i><span>' + _trunc(data.topDepNombre, 26) + '</span>';
+            ctxDep.title = data.topDepNombre;
         }
-        if (trendTotalL && data.refLabel !== undefined) trendTotalL.textContent = data.refLabel;
-        if (trendDep    && data.topDepNombre    !== undefined) {
-            trendDep.innerHTML = '<i class="bx bx-buildings"></i>' + _trunc(data.topDepNombre, 16);
-            trendDep.title = data.topDepNombre;
-        }
-        if (trendPuesto && data.topPuestoNombre !== undefined) {
-            trendPuesto.innerHTML = '<i class="bx bx-briefcase"></i>' + _trunc(data.topPuestoNombre, 16);
-            trendPuesto.title = data.topPuestoNombre;
+        if (ctxPuesto && data.topPuestoNombre !== undefined) {
+            ctxPuesto.innerHTML =
+                '<i class="bx bx-briefcase"></i><span>' + _trunc(data.topPuestoNombre, 26) + '</span>';
+            ctxPuesto.title = data.topPuestoNombre;
         }
 
         // Barras

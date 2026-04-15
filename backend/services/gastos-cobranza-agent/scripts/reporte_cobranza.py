@@ -337,16 +337,22 @@ def _relleno_descargo_obs(reg: dict) -> "PatternFill | None":
     return FILL_ROW_NARANJA
 
 
-def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict]) -> list[dict]:
+def merge_descargo_en_reporte(
+    resultados: list[dict],
+    rows_descargo: list[dict],
+    *,
+    fecha_corte: str,
+    lunes: date,
+) -> list[dict]:
     """
     Agrega al listado del reporte las filas del descargo que no estén ya presentes.
 
     Reglas de negocio:
     · id_credito del descargo YA en resultados  → saltar (no modificar la fila del reporte).
     · id_credito del descargo NO en resultados  → insertar nueva fila con campos mapeados:
-        monto_aplicar       → SALDO_APLICABLE_GC
+        monto_aplicar       → SALDO_APLICABLE_GC (solo esta columna)
         tipo_reporte        → STATUS_CREDITO
-        registrado_en_cdmx  → FECHA_ULTIMO_ABONO_EFECTIVO
+        ultimo_pago_efectivo → FECHA_ULTIMO_ABONO_EFECTIVO
         id_credito          → ID_CREDITO
         Id_cliente (si existe en fila descargo) → ID CLIENTE
         nombre              → NOMBRE_CLIENTE
@@ -359,6 +365,8 @@ def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict])
     ids_en_reporte: set[str] = {str(r.get("ID_CREDITO", "")) for r in resultados}
     filas_nuevas  = 0
     filas_saltadas = 0
+    ids_descargo = {str(r.get("id_credito", "") or "").strip() for r in rows_descargo}
+    deuda_gc_bd_por_credito = _obtener_deuda_gc_bd_por_ids(ids_descargo)
 
     for row in rows_descargo:
         id_c = str(row.get("id_credito", "") or "")
@@ -379,7 +387,9 @@ def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict])
             "DEUDA_GC":                     0.0,
             "SALDO_A_FAVOR":                0.0,
             "SALDO_APLICABLE_GC":           0.0,
-            "FECHA_ULTIMO_ABONO_EFECTIVO":  _dt_descargo_a_str(row.get("registrado_en_cdmx")),
+            "FECHA_ULTIMO_ABONO_EFECTIVO":  _dt_descargo_a_str(
+                row.get("ultimo_pago_efectivo") or row.get("registrado_en_cdmx")
+            ),
             "COMENTARIOS":                  "",
             "ERROR":                        "",
         }
@@ -390,8 +400,23 @@ def merge_descargo_en_reporte(resultados: list[dict], rows_descargo: list[dict])
                 reg["SALDO_APLICABLE_GC"] = float(monto_raw)
             except (TypeError, ValueError):
                 pass
-        # Misma magnitud en columna Excel / filtro MIN_SALDO_FAVOR_EXCEL (el descargo no trae SF aparte).
-        reg["SALDO_A_FAVOR"] = float(reg["SALDO_APLICABLE_GC"] or 0)
+        # Para estatus=3: completar métricas con S2; SALDO_APLICABLE_GC se respeta desde monto_aplicar.
+        metricas_s2 = _metricas_descargo_desde_s2(
+            row,
+            fecha_corte,
+            lunes,
+            deuda_gc_bd_fallback=deuda_gc_bd_por_credito.get(id_c, 0.0),
+        )
+        if metricas_s2:
+            idc_s2 = metricas_s2.get("id_cliente")
+            if idc_s2 not in ("", None):
+                reg["ID_CLIENTE"] = idc_s2
+            nombre_s2 = str(metricas_s2.get("nombre_cliente") or "").strip()
+            if nombre_s2:
+                reg["NOMBRE_CLIENTE"] = nombre_s2
+            reg["CUOTA_SEMANAL"] = float(metricas_s2.get("cuota_semanal") or 0)
+            reg["DEUDA_GC"] = float(metricas_s2.get("deuda_gc") or 0)
+            reg["SALDO_A_FAVOR"] = float(metricas_s2.get("saldo_a_favor") or 0)
 
         if obs:
             reg["COMENTARIOS"]    = obs
@@ -532,6 +557,143 @@ def _id_cliente_desde_row(row: dict) -> int | str:
         except (TypeError, ValueError):
             continue
     return ""
+
+
+def _id_cliente_desde_s2(ec: dict) -> int | str:
+    """Id_cliente desde estado de cuenta S2 (si viene en datosCliente)."""
+    cliente = ec.get("datosCliente", {}) or {}
+    for k in ("idCliente", "idcliente", "id_cliente", "Id_cliente", "ID_CLIENTE"):
+        if k not in cliente:
+            continue
+        v = cliente.get(k)
+        if v is None or v == "":
+            continue
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            continue
+    return ""
+
+
+def _obtener_deuda_gc_bd_por_ids(ids_credito: set[str]) -> dict[str, float]:
+    """
+    Fallback para estatus=3: deuda GC pendiente por id_credito desde __SPARTA_SECRET_REDACTED__.gastos_cobranza.
+    """
+    out: dict[str, float] = {}
+    ids_limpios: list[int] = []
+    for x in ids_credito:
+        sx = str(x or "").strip()
+        if not sx:
+            continue
+        try:
+            xi = int(sx)
+        except (TypeError, ValueError):
+            continue
+        if xi > 0:
+            ids_limpios.append(xi)
+    if not ids_limpios:
+        return out
+
+    sql_tpl = """
+SELECT
+    g.`Id_credito` AS id_credito,
+    ROUND(
+        SUM(
+            CASE
+                WHEN g.`estatus_pago` = 2         THEN 0
+                WHEN IFNULL(g.`condonado`, 0) = 1 THEN 0
+                WHEN g.`estatus_pago` = 1
+                    THEN (g.`monto_valor` - IFNULL(g.`condonacion_parcial_monto`, 0))
+                       - IFNULL(g.`monto_parcial_pagado`, 0)
+                ELSE g.`monto_valor` - IFNULL(g.`condonacion_parcial_monto`, 0)
+            END
+        ),
+        2
+    ) AS valor_real
+FROM `gastos_cobranza` AS g
+WHERE g.`Id_credito` IN ({ph})
+  AND IFNULL(g.`condonado`, 0) = 0
+  AND g.`estatus_pago` IN (0, 1)
+GROUP BY g.`Id_credito`
+"""
+    conn = pymysql.connect(**DB_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            chunk = 500
+            ids_sorted = sorted(set(ids_limpios))
+            for i in range(0, len(ids_sorted), chunk):
+                part = ids_sorted[i : i + chunk]
+                ph = ",".join(["%s"] * len(part))
+                cur.execute(sql_tpl.format(ph=ph), tuple(part))
+                for row in cur.fetchall():
+                    cid = str(row.get("id_credito") or "").strip()
+                    if not cid:
+                        continue
+                    try:
+                        out[cid] = float(row.get("valor_real") or 0)
+                    except (TypeError, ValueError):
+                        out[cid] = 0.0
+    finally:
+        conn.close()
+    return out
+
+
+def _metricas_descargo_desde_s2(
+    row_descargo: dict,
+    fecha_corte: str,
+    lunes: date,
+    *,
+    deuda_gc_bd_fallback: float = 0.0,
+) -> dict:
+    """
+    Para filas estatus=3 del descargo, completa columnas igual que procesar_registro:
+    - nombre/status/cuota desde S2
+    - deuda_gc: calcular_gc(ec, FECHA_CORTE_GASTOS); si <=1, fallback BD por id_credito
+    - saldo_a_favor: calcular_saldo_a_favor(ec, lunes)
+    SALDO_APLICABLE_GC no se calcula aquí: viene de monto_aplicar.
+    """
+    id_credito = row_descargo.get("id_credito")
+    try:
+        deuda_gc = float(deuda_gc_bd_fallback or 0)
+    except (TypeError, ValueError):
+        deuda_gc = 0.0
+    if deuda_gc <= 1:
+        try:
+            deuda_gc = float(row_descargo.get("valor_real") or 0)
+        except (TypeError, ValueError):
+            deuda_gc = 0.0
+    if deuda_gc <= 1:
+        deuda_gc = 0.0
+
+    data = consultar_s2(id_credito, fecha_corte)
+    if not data:
+        return {
+            "id_cliente": "",
+            "nombre_cliente": "",
+            "status_credito": "",
+            "cuota_semanal": 0.0,
+            "deuda_gc": deuda_gc,
+            "saldo_a_favor": 0.0,
+        }
+    ec = data.get("estadoCuenta", {}) or {}
+    cliente = ec.get("datosCliente", {}) or {}
+    status = ec.get("statusCredito", "") or ""
+    cuota = float(ec.get("cuota") or 0)
+
+    gc_desde_s2 = float(calcular_gc(ec, FECHA_CORTE_GASTOS) or 0)
+    if gc_desde_s2 > 1:
+        deuda_gc = gc_desde_s2
+
+    saldo_favor = float(calcular_saldo_a_favor(ec, lunes) or 0)
+
+    return {
+        "id_cliente": _id_cliente_desde_s2(ec),
+        "nombre_cliente": str(cliente.get("nombreCliente", "") or ""),
+        "status_credito": str(status),
+        "cuota_semanal": cuota,
+        "deuda_gc": deuda_gc,
+        "saldo_a_favor": saldo_favor,
+    }
 
 
 def fecha_abono_efectivo_para_excel(row: dict, hoy: date) -> str:
@@ -1502,7 +1664,12 @@ def main() -> None:
         print("--- descargo incremental ---", flush=True)
         rows_descargo = obtener_descargo_incremental()
         if rows_descargo:
-            resultados = merge_descargo_en_reporte(resultados, rows_descargo)
+            resultados = merge_descargo_en_reporte(
+                resultados,
+                rows_descargo,
+                fecha_corte=fecha_corte,
+                lunes=lunes,
+            )
             ult = rows_descargo[-1]
             if NO_GUARDAR_GUIA_DESCARGO:
                 log.warning(
