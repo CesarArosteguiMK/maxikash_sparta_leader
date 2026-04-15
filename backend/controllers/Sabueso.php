@@ -633,8 +633,8 @@ class Sabueso extends Controller
     }
 
     /**
-     * Vista Estadísticas: cada usuario ve solo las tarjetas para las que tiene permiso:
-     * por módulo (47 = Sabueso) o por asignación en config_estadisticas_puesto (puesto del usuario).
+     * Vista Analítica sabueso: cada usuario ve solo las tarjetas para las que tiene permiso:
+     * por módulo web (id 47, menú Analítica) o por asignación en config_estadisticas_puesto (puesto del usuario).
      */
     public function estadisticas()
     {
@@ -644,7 +644,7 @@ class Sabueso extends Controller
             'sabueso' => in_array('sabueso', $tiposPorPuesto),
         ];
         if (empty($seccionesEstadisticas['sabueso'])) {
-            self::set('titulo', 'Estadísticas');
+            self::set('titulo', 'Analítica sabueso');
             self::render('estadisticas_sin_asignacion');
             return;
         }
@@ -693,6 +693,30 @@ class Sabueso extends Controller
                 } catch(e2) { return s; }
             }
             return s;
+        }
+        /** Texto principal de las tarjetas de tiempo (semana actual): «X minutos/horas en promedio». */
+        function fmtTiempoCardPromedio(hum) {
+            if (!hum) return '';
+            var s = String(hum).trim();
+            if (s === '—') return s;
+            if (/menos de 1 min/i.test(s)) return 'Menos de 1 minuto en promedio';
+            var minM = s.match(/^(\d+)\s*min$/i);
+            if (minM) {
+                var n = parseInt(minM[1], 10);
+                return n + (n === 1 ? ' minuto' : ' minutos') + ' en promedio';
+            }
+            var hM = s.match(/^([\d.]+)\s*h$/i);
+            if (hM) {
+                var h = parseFloat(hM[1], 10);
+                var hStr = String(Math.round(h * 10) / 10).replace(/\.0$/, '');
+                return hStr + (h === 1 ? ' hora' : ' horas') + ' en promedio';
+            }
+            var sM = s.match(/^(\d+)\s*s$/i);
+            if (sM) {
+                var ns = parseInt(sM[1], 10);
+                return ns + (ns === 1 ? ' segundo' : ' segundos') + ' en promedio';
+            }
+            return s + ' en promedio';
         }
         var estadisticasDatos = null;
         var estadisticasFiltroPeriodo = 'por_dia';
@@ -2389,6 +2413,11 @@ class Sabueso extends Controller
                     }
                     $('#estadisticasSabuesoAlert').addClass('d-none');
                     estadisticasDatos = r.datos || {};
+                    var perSemUi = (estadisticasDatos.semana_actual_periodo_ui != null && estadisticasDatos.semana_actual_periodo_ui !== '')
+                        ? String(estadisticasDatos.semana_actual_periodo_ui)
+                        : '';
+                    $('#statTiempoSabuesoPeriodo').text(perSemUi);
+                    $('#statTiempoGestorPeriodo').text(perSemUi);
                     var t = estadisticasDatos.totales || {};
                     var activos = parseInt(t.tickets_activos, 10) || 0;
                     var enviados = parseInt(t.con_dictamen_enviado, 10) || 0;
@@ -2417,19 +2446,21 @@ class Sabueso extends Controller
                     $('#pctCerrados').text('100%');
                     var ts = estadisticasDatos.tiempos_sabueso_segundos;
                     var tg = estadisticasDatos.tiempos_gestor_segundos;
+                    var subSab = 'Desde primera asignación hasta envío al gestor';
+                    var subGes = 'Desde envío hasta visto por gestor';
                     if (ts && ts.promedio_humano) {
-                        $('#statTiempoSabuesoValor').text(ts.promedio_humano);
-                        $('#statTiempoSabuesoSub').text('Semana actual (lun→hoy): ' + (ts.muestras || 0) + ' envíos · Promedio desde última asignación antes del envío hasta enviar (máx. 7 días por muestra). Cada lunes se reinicia. Los envíos cuentan por fecha de envío del dictamen (pueden ser de tickets levantados en semanas anteriores).');
+                        $('#statTiempoSabuesoValor').text(fmtTiempoCardPromedio(ts.promedio_humano));
+                        $('#statTiempoSabuesoSub').text(subSab);
                     } else {
-                        $('#statTiempoSabuesoValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
-                        $('#statTiempoSabuesoSub').text('Semana actual: aún no hay envíos esta semana, o sin asignación previa registrada.');
+                        $('#statTiempoSabuesoValor').html('<span class="text-muted fs-6 fw-normal">De la semana actual no hay datos para calcular el tiempo hasta enviar el dictamen.</span>');
+                        $('#statTiempoSabuesoSub').text(subSab);
                     }
                     if (tg && tg.promedio_humano) {
-                        $('#statTiempoGestorValor').text(tg.promedio_humano);
-                        $('#statTiempoGestorSub').text('Semana actual (lun→hoy): ' + (tg.muestras || 0) + ' aperturas · Solo envíos de esta semana; desde envío hasta que el gestor abre (máx. 7 días). Cada lunes se reinicia. Las aperturas cuentan por fecha de envío y de vista (pueden ser de tickets levantados en semanas anteriores).');
+                        $('#statTiempoGestorValor').text(fmtTiempoCardPromedio(tg.promedio_humano));
+                        $('#statTiempoGestorSub').text(subGes);
                     } else {
-                        $('#statTiempoGestorValor').html('<span class="text-muted fs-6 fw-normal">Sin datos</span>');
-                        $('#statTiempoGestorSub').text('Semana actual: aún no hay aperturas registradas esta semana.');
+                        $('#statTiempoGestorValor').html('<span class="text-muted fs-6 fw-normal">De la semana actual los gestores no han validado la respuesta de sabueso.</span>');
+                        $('#statTiempoGestorSub').text(subGes);
                     }
                     $('#tileTiempoLectura').text(tg && tg.promedio_humano ? tg.promedio_humano : '—');
                     $('#tileTiempoLecturaSub').text('Muestras: ' + (tg && tg.muestras != null ? tg.muestras : 0) + ' (solo tickets ya vistos)');
@@ -2804,7 +2835,7 @@ class Sabueso extends Controller
         </script>
         SCRIPT;
         $scriptPre = '<script>window.entrarDirectoEstadistica = ' . json_encode($entrarDirectoEstadistica) . ';</script>' . "\n";
-        self::set('titulo', 'Estadísticas | Sabueso');
+        self::set('titulo', 'Analítica sabueso');
         self::set('script', $scriptPre . $script);
         self::render('sabueso_estadisticas');
     }

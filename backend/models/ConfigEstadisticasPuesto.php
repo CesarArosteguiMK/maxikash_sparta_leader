@@ -13,7 +13,7 @@ class ConfigEstadisticasPuesto extends Model
 {
     /** Tipos de estadísticas (clave => label, icon). */
     const TIPOS = [
-        'sabueso' => ['label' => 'Estadísticas Sabueso', 'icon' => 'fa-solid fa-magnifying-glass-chart'],
+        'sabueso' => ['label' => 'Analítica sabueso', 'icon' => 'fa-solid fa-magnifying-glass-chart'],
         // Añadir más cuando existan: 'ventas' => ['label' => 'Estadísticas Ventas', 'icon' => 'fa-solid fa-chart-line'],
     ];
 

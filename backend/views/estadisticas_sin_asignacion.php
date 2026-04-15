@@ -1,9 +1,9 @@
 <?php
 /**
- * Se muestra cuando el usuario tiene el módulo Estadísticas pero no tiene
- * ningún tipo de estadística asignado en Asignación por puestos → Estadísticas por puesto.
+ * Se muestra cuando el usuario tiene el módulo Analítica sabueso pero no tiene
+ * ningún tipo asignado en Asignación por puestos → Estadísticas por puesto.
  */
-$titulo = isset($titulo) ? $titulo : 'Estadísticas';
+$titulo = isset($titulo) ? $titulo : 'Analítica sabueso';
 ?>
 <style>
 #estadisticasSinAsignacionWrap .card { border-left: 4px solid var(--bs-primary); }
@@ -13,9 +13,9 @@ $titulo = isset($titulo) ? $titulo : 'Estadísticas';
     <div class="card-body py-5 px-4">
         <div class="row align-items-center">
             <div class="col-12 col-md-8">
-                <h5 class="text-primary mb-3">Estadísticas</h5>
+                <h5 class="text-primary mb-3"><?= htmlspecialchars((string) $titulo, ENT_QUOTES, 'UTF-8'); ?></h5>
                 <p class="texto-aviso mb-4">
-                    Aún no tiene asignado ningún tipo de estadística para su puesto. Si considera que debería tener acceso, contacte al administrador del sistema.
+                    Aún no tiene asignado el tablero de Analítica sabueso para su puesto. Si considera que debería tener acceso, contacte al administrador del sistema.
                 </p>
             </div>
             <div class="col-12 col-md-4 text-center mt-4 mt-md-0">

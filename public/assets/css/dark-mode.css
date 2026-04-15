@@ -2417,7 +2417,7 @@ body.dark-mode .estad-sabueso-wrap .estad-global-tile .fa-check {
     color: #7c3aed !important;
 }
 
-/* Guía "Cómo leer esto" y Panorama cumplimiento: tintes como modo claro */
+/* Panorama cumplimiento (vista Global): tintes como modo claro */
 body.dark-mode .estad-sabueso-wrap #panelResumenGlobal [style*="rgba(13,110,253,0.06)"],
 body.dark-mode .estad-sabueso-wrap #panelResumenGlobal .rounded-2.border.p-2 {
     background: rgba(13, 110, 253, 0.1) !important;
@@ -3705,6 +3705,40 @@ body.dark-mode #modalDictamen .card-header {
     background-color: #252525 !important;
     border-bottom-color: #3a3a3a !important;
     color: #e0e0e0 !important;
+}
+
+/* Modal Aclaraciones GC: avisos con bg-label-danger / bg-label-success (fondo claro) — texto oscuro legible */
+html.dark-mode #modalAclaracionesGc .bg-label-danger,
+body.dark-mode #modalAclaracionesGc .bg-label-danger {
+    background-color: #ffd6dc !important;
+    border-color: #dc3545 !important;
+    color: #3d1519 !important;
+}
+html.dark-mode #modalAclaracionesGc .bg-label-danger .text-muted,
+body.dark-mode #modalAclaracionesGc .bg-label-danger .text-muted {
+    color: #5c4346 !important;
+}
+html.dark-mode #modalAclaracionesGc .bg-label-danger .text-danger,
+body.dark-mode #modalAclaracionesGc .bg-label-danger .text-danger,
+html.dark-mode #modalAclaracionesGc .bg-label-danger p.small.text-danger,
+body.dark-mode #modalAclaracionesGc .bg-label-danger p.small.text-danger {
+    color: #9b1c2a !important;
+}
+html.dark-mode #modalAclaracionesGc .bg-label-success,
+body.dark-mode #modalAclaracionesGc .bg-label-success {
+    background-color: #d1e9dd !important;
+    border-color: #198754 !important;
+    color: #0f4123 !important;
+}
+html.dark-mode #modalAclaracionesGc .bg-label-success .text-muted,
+body.dark-mode #modalAclaracionesGc .bg-label-success .text-muted {
+    color: #3d5c48 !important;
+}
+html.dark-mode #modalAclaracionesGc .bg-label-success .text-success,
+body.dark-mode #modalAclaracionesGc .bg-label-success .text-success,
+html.dark-mode #modalAclaracionesGc .bg-label-success p.small.text-success,
+body.dark-mode #modalAclaracionesGc .bg-label-success p.small.text-success {
+    color: #146c43 !important;
 }
 
 /* ==========================================

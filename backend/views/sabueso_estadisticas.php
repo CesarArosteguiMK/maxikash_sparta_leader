@@ -1,5 +1,5 @@
 <style>
-    /* Barra título del dashboard (Estadísticas de Sabueso + Volver) — mismo lenguaje visual que las cards */
+    /* Barra título del dashboard (Analítica sabueso + Volver) — mismo lenguaje visual que las cards */
     .estad-sabueso-wrap .estad-titulo-bar {
         background: rgba(255, 255, 255, 0.55);
         backdrop-filter: blur(14px);
@@ -63,6 +63,21 @@
     }
     .estad-sabueso-wrap .estad-num-big {
         font-size: 2.5rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em;
+    }
+    /* Micro-ayuda bajo el título del KPI: no compite con el número */
+    .estad-sabueso-wrap .estad-kpi-hint {
+        font-size: 0.625rem;
+        font-weight: 400;
+        line-height: 1.25;
+        letter-spacing: 0.02em;
+        color: rgba(100, 116, 139, 0.92);
+        margin-top: -0.1rem;
+        margin-bottom: 0.2rem;
+        max-width: 100%;
+    }
+    [data-bs-theme="dark"] .estad-sabueso-wrap .estad-kpi-hint,
+    .dark-style .estad-sabueso-wrap .estad-kpi-hint {
+        color: rgba(148, 163, 184, 0.75);
     }
     .estad-sabueso-wrap .estad-time-icon {
         width: 3rem; height: 3rem; border-radius: 0.85rem;
@@ -681,7 +696,7 @@
         height: min(72vh, 640px);
         min-height: 360px;
     }
-    /* Tickets levantados 40% | Por quien levantó 60% (solo lg+) */
+    /* Tickets levantados 40% | Quien levantó el ticket 60% (solo lg+) */
     .estad-sabueso-wrap .estad-row-split-40-60 {
         --estad-col-left: 40%;
         --estad-col-right: 60%;
@@ -709,7 +724,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                 <div class="card-body">
                     <h5 class="card-title text-primary mb-3">HOLA, <?= htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario'); ?></h5>
                     <p class="mb-6">
-                        Consulta los tableros de estadísticas por módulo. Indicadores, tiempos y métricas actualizadas para seguimiento y análisis.
+                        Consulta los tableros de analítica por módulo. Indicadores, tiempos y métricas actualizadas para seguimiento y análisis.
                     </p>
                 </div>
             </div>
@@ -717,7 +732,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                 <div class="card-body ps-md-2 pe-5 text-end">
                     <img src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop.png"
                          class="img-fluid scaleX-n1-rtl"
-                         alt="Estadísticas">
+                         alt="Analítica sabueso">
                 </div>
             </div>
             <div class="row gy-6 mb-6">
@@ -727,11 +742,11 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                         <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                             <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                 <div class="card-title">
-                                    <h5 class="text-primary mb-2">Estadísticas Sabueso</h5>
+                                    <h5 class="text-primary mb-2">Analítica sabueso</h5>
                                     <p class="text-body w-sm-80 app-academy-xl-100">Indicadores, tiempos de dictamen, tickets levantados y detalle por gestor y por Sabueso.</p>
                                 </div>
                                 <div class="mb-0">
-                                    <button type="button" class="btn btn-primary" id="btnEntrarEstadSabueso">VER ESTADÍSTICAS SABUESO</button>
+                                    <button type="button" class="btn btn-primary" id="btnEntrarEstadSabueso">ABRIR ANALÍTICA SABUESO</button>
                                 </div>
                             </div>
                             <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
@@ -789,7 +804,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
 <!-- Sin spinner aquí: http.request usa showLoader:false para no duplicar con Swal "Procesando..." -->
 <div id="estadisticasSabuesoCargando" class="estad-glass mb-3" style="display: none;">
     <div class="p-4 text-center text-muted">
-        <p class="mb-0">Cargando estadísticas…</p>
+        <p class="mb-0">Cargando analítica…</p>
     </div>
 </div>
 
@@ -798,10 +813,10 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
     <div class="estad-titulo-bar mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
         <span class="estad-titulo-texto d-flex align-items-center gap-2">
             <i class="fa-solid fa-chart-pie estad-titulo-icono" aria-hidden="true"></i>
-            Estadísticas de Sabueso
+            Analítica sabueso
         </span>
         <?php if (!empty($estadisticasMostrarBotonVolver)): ?>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEstadisticasVolver" title="Ver otras áreas de estadísticas">
+        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEstadisticasVolver" title="Volver al selector de tableros">
             <i class="fa-solid fa-arrow-left me-1"></i>Volver
         </button>
         <?php endif; ?>
@@ -815,6 +830,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                         <i class="fa-solid fa-ticket"></i>
                     </div>
                     <div class="text-muted small mb-1">Tickets activos</div>
+                    <div class="estad-kpi-hint">En flujo · no cerrados ni eliminados</div>
                     <div class="estad-num-big text-body" id="statTotalActivos">0</div>
                     <div class="d-flex align-items-center gap-2 mt-3">
                         <div class="progress flex-grow-1 rounded-pill" style="height: 6px;">
@@ -832,6 +848,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                         <i class="fa-solid fa-paper-plane"></i>
                     </div>
                     <div class="text-muted small mb-1">Con dictamen enviado</div>
+                    <div class="estad-kpi-hint">% respecto a activos · ya enviado al gestor</div>
                     <div class="estad-num-big text-body" id="statDictamenEnviado">0</div>
                     <div class="d-flex align-items-center gap-2 mt-3">
                         <div class="progress flex-grow-1 rounded-pill" style="height: 6px;">
@@ -849,6 +866,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                         <i class="fa-solid fa-eye"></i>
                     </div>
                     <div class="text-muted small mb-1">Dictamen ya visto</div>
+                    <div class="estad-kpi-hint">% respecto a activos · gestor ya abrió</div>
                     <div class="estad-num-big text-body" id="statDictamenVisto">0</div>
                     <div class="d-flex align-items-center gap-2 mt-3">
                         <div class="progress flex-grow-1 rounded-pill" style="height: 6px;">
@@ -866,6 +884,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                         <i class="fa-solid fa-clipboard-check"></i>
                     </div>
                     <div class="text-muted small mb-1">Tickets cerrados</div>
+                    <div class="estad-kpi-hint">Histórico acumulado · barra solo referencia</div>
                     <div class="estad-num-big text-body" id="statTicketsCerrados">0</div>
                     <div class="d-flex align-items-center gap-2 mt-3">
                         <div class="progress flex-grow-1 rounded-pill" style="height: 6px;">
@@ -887,6 +906,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                     </button>
                     <div class="flex-grow-1 min-w-0">
                         <div class="text-muted small">Tiempo hasta enviar dictamen (equipo Sabueso) — <span class="fw-semibold text-warning">semana actual</span></div>
+                        <div class="small text-body-secondary mt-1" id="statTiempoSabuesoPeriodo"></div>
                         <div class="estad-time-value text-warning" id="statTiempoSabuesoValor">—</div>
                         <div class="text-muted small mt-1" id="statTiempoSabuesoSub">Desde primera asignación hasta envío al gestor</div>
                         <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 mt-2 text-warning" id="btnHistSabuesoLink">
@@ -904,6 +924,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                     </button>
                     <div class="flex-grow-1 min-w-0">
                         <div class="text-muted small">Tiempo del gestor en abrir el dictamen — <span class="fw-semibold text-success">semana actual</span></div>
+                        <div class="small text-body-secondary mt-1" id="statTiempoGestorPeriodo"></div>
                         <div class="estad-time-value text-success" id="statTiempoGestorValor">—</div>
                         <div class="text-muted small mt-1" id="statTiempoGestorSub">Desde envío hasta visto por gestor</div>
                         <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 mt-2 text-success" id="btnHistGestorLink">
@@ -920,27 +941,27 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
         <div class="col-12 estad-col-40">
             <div class="card border-0 estad-glass h-100 overflow-hidden">
                 <div class="card-header border-0 d-flex flex-wrap justify-content-between align-items-center gap-2 py-3 bg-transparent">
-                    <div>
-                        <div class="fw-semibold"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>Tickets levantados</div>
-                        <div class="text-muted small">Días = semana actual (lun–dom). Semanas / meses / año = histórico por fecha de creación (incluye <strong>tickets cerrados</strong>; no cuenta eliminados). El total por día es creación del ticket, no envío de dictamen.</div>
-                    </div>
-                    <div class="estad-pill-group" id="grpFiltroPeriodo" role="group" aria-label="Agrupar conteos">
-                        <button type="button" class="btn active" data-key="por_dia">Días</button>
-                        <button type="button" class="btn" data-key="por_semana">Semanas</button>
-                        <button type="button" class="btn" data-key="por_mes">Meses</button>
-                        <button type="button" class="btn" data-key="por_anio">Año</button>
+                    <div class="fw-semibold"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>Tickets levantados</div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="text-muted small mb-0">Por:</span>
+                        <div class="estad-pill-group" id="grpFiltroPeriodo" role="group" aria-label="Agrupar conteos por periodo">
+                            <button type="button" class="btn active" data-key="por_dia">días</button>
+                            <button type="button" class="btn" data-key="por_semana">semanas</button>
+                            <button type="button" class="btn" data-key="por_mes">meses</button>
+                            <button type="button" class="btn" data-key="por_anio">año</button>
+                        </div>
                     </div>
                 </div>
                 <div class="px-2 pb-1 small text-muted d-none" id="estadPeriodBreadcrumb"></div>
                 <div class="estad-period-list" id="estadPeriodList"></div>
             </div>
         </div>
-        <!-- Por quien levantó el ticket: 60% ancho (variable --estad-col-right) -->
+        <!-- Quien levantó el ticket: 60% ancho (variable --estad-col-right) -->
         <div class="col-12 estad-col-60">
             <div class="card border-0 estad-glass h-100 overflow-hidden">
                 <div class="card-header border-0 py-3 bg-transparent d-flex flex-wrap justify-content-between align-items-start gap-2">
                     <div>
-                        <div class="fw-semibold"><i class="fa-solid fa-users me-1 text-success"></i>Por quien levantó el ticket</div>
+                        <div class="fw-semibold"><i class="fa-solid fa-users me-1 text-success"></i>Quien levantó el ticket</div>
                     </div>
                     <div class="estad-pill-group estad-pill-gestor flex-wrap" id="grpResumenGestor" role="group">
                         <button type="button" class="btn active" data-tab="global">Global</button>
@@ -949,16 +970,6 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
                     </div>
                 </div>
                 <div class="card-body pt-0" id="panelResumenGlobal">
-                    <!-- Guía solo en vista Global -->
-                    <div class="w-100 mb-3 p-2 rounded-2 border" style="background: rgba(13,110,253,0.06); border-color: rgba(13,110,253,0.15) !important; font-size: 0.8rem;">
-                        <strong class="text-primary"><i class="fa-solid fa-compass me-1"></i>Cómo leer esto (rápido)</strong>
-                        <ul class="mb-0 mt-1 ps-3">
-                            <li><strong>Sin leer / Tasa</strong> en <em>tarjetas</em> abajo = vista <strong>Global</strong> (todos los tickets).</li>
-                            <li><strong>Sin leer / Tasa por persona</strong> = pulse el botón <strong>Por gestor (levantó)</strong> y verá una <em>tabla</em> con una fila por gestor (columnas con esos nombres).</li>
-                            <li><strong>Quién abrió y quién no</strong> = en esa tabla, haga <strong>clic en el nombre</strong>; en el popup, columna <strong>¿Abrió?</strong> (Sí/No).</li>
-                            <li><strong>Resultado visita / pago</strong> = en el mismo popup, columnas <strong>Resultado DS</strong> y <strong>% efect.</strong> (si sale «Sin dictamen sistema», aún no se ha generado el dictamen automático para ese ticket).</li>
-                        </ul>
-                    </div>
                     <div class="row g-2">
                         <div class="col-6">
                             <div class="estad-global-tile bg-primary bg-opacity-10">
@@ -1250,7 +1261,7 @@ $seccionesEstadisticas = isset($seccionesEstadisticas) && is_array($seccionesEst
         <div class="modal-content estad-reporte-semanal-modal-content">
             <div class="modal-header">
                 <h5 class="modal-title mb-0" id="modalReporteSemanalGlobalLabel">
-                    <i class="fa-solid fa-calendar-week me-2 text-primary"></i>Reporte semanal · Por quien levantó
+                    <i class="fa-solid fa-calendar-week me-2 text-primary"></i>Reporte semanal · Quien levantó el ticket
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
