@@ -3757,6 +3757,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $out = [
             'success' => true,
             'mensaje' => 'OK',
+            'semana_actual_periodo_ui' => self::semanaActualPeriodoUiCdmx(),
             'totales' => [
                 'tickets_activos' => 0,
                 'con_dictamen_enviado' => 0,
@@ -5330,6 +5331,21 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     }
 
     /**
+     * Rango de la semana en curso para UI (misma lógica que estadísticas lun→hoy CDMX): dd/mm/aaaa - dd/mm/aaaa.
+     */
+    public static function semanaActualPeriodoUiCdmx(): string
+    {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $lun = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', self::inicioSemanaLunesCdmx(), $tz);
+        $hoy = \DateTimeImmutable::createFromFormat('Y-m-d', self::fechaCdmx(), $tz);
+        if (!$lun instanceof \DateTimeImmutable || !$hoy instanceof \DateTimeImmutable) {
+            return '';
+        }
+
+        return $lun->format('d/m/Y') . ' - ' . $hoy->format('d/m/Y');
+    }
+
+    /**
      * Drill-down Tickets levantados: Año → meses → semanas del mes → 7 días de la semana (lunes dado).
      * tipo: meses | semanas | dias
      */
@@ -5429,7 +5445,7 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     }
 
     /**
-     * Detalle de tickets levantados en una fecha (para modal en Estadísticas Sabueso).
+     * Detalle de tickets levantados en una fecha (para modal en Analítica sabueso).
      * Fecha en YYYY-MM-DD (CDMX). Devuelve filas con: folio, id_credito, gestor, hora levantado,
      * tiempo dictamen enviado, cuando abrieron, tiempo apertura, resultado DS, prórroga, pagaron, cumplimiento.
      */

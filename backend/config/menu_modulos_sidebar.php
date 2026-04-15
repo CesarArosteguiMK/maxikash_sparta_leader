@@ -41,6 +41,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Call Center', 'url' => '/reporteria/callcenter', 'modulos' => [6, 14, 15]],
                     // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/reporteria/layoutlegacy', 'modulos' => [7]],
+                    ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
                 ],
             ],
             'Tickets' => [
@@ -60,11 +61,6 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                         'label' => 'Cerrado/Eliminado Sabueso',
                         'url' => '/sabueso/cerradoEliminado',
                         'modulos' => [48],
-                    ],
-                    [
-                        'label' => 'Estadísticas',
-                        'url' => '/sabueso/estadisticas',
-                        'modulos' => [47],
                     ],
                 ],
             ],

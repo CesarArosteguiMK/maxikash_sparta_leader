@@ -10998,7 +10998,7 @@ public function getMunicipios()
         $mes = (int) date('n');
         $res = \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, 0);
         $datos = ($res['success'] ?? false) ? ($res['datos'] ?? []) : [];
-        self::set('titulo', 'Capital Humano — Estadísticas | ' . CONFIGURACION['EMPRESA']);
+        self::set('titulo', 'Estadística Capital Humano');
         self::set('anioDefault', $anio);
         self::set('mesDefault', $mes);
         self::set('semanaDefault', 0);

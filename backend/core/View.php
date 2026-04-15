@@ -67,7 +67,6 @@ function getMenu(): string
                     : null,
                 ['label' => 'Panel Admin',               'url' => '/sabueso/panelAdminInicio', 'modulos' => [19, 25, 27]],
                 ['label' => 'Cerrado/Eliminado Sabueso', 'url' => '/sabueso/cerradoEliminado', 'modulos' => [48]],
-                ['label' => 'Estadísticas',              'url' => '/sabueso/estadisticas',     'modulos' => [47]],
             ])),
         ],
         'Analítica' => [
@@ -76,6 +75,7 @@ function getMenu(): string
                 ['label' => 'Primeros pagos', 'url' => '/reporteria/PrimerosPagos', 'modulos' => [49]],
                 ['label' => 'Call Center',    'url' => '/reporteria/callcenter',    'modulos' => [6, 14, 15]],
                 ['label' => 'Layout Legacy',  'url' => '/reporteria/layoutlegacy',  'modulos' => [7]],
+                ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
             ],
         ],
         'Organización' => [

@@ -3230,7 +3230,7 @@ HTML;
             \PHPSpreadsheet::DescargaExcel(
                 'Estadisticas_Detalle_Dictamen_' . date('Y-m-d_His'),
                 'Detalle dictamen enviado',
-                'Estadísticas Sabueso',
+                'Analítica sabueso',
                 $columnas,
                 $datosFormateados
             );

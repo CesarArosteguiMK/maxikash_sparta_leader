@@ -133,7 +133,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         <div style="background: linear-gradient(90deg, #1a3a5c 0%, #1a3a5c 65%, #0d5c3a 100%); border-radius: 12px; padding: 20px 24px 18px; margin-bottom: 16px;">
             <div class="row align-items-start g-3">
                 <div class="col-lg-8">
-                    <h4 style="color: #ffffff; font-size: 18px; font-weight: 700; margin: 0 0 4px;">Capital Humano — Panel de Estadísticas</h4>
+                    <h4 style="color: #ffffff; font-size: 18px; font-weight: 700; margin: 0 0 4px;">Estadística Capital Humano</h4>
                     <p id="chEstSubtitulo" style="color: rgba(255,255,255,0.6); font-size: 13px; margin: 0;">—</p>
                     <p id="chEstRangoFechas" style="color: rgba(255,255,255,0.45); font-size: 11px; margin: 6px 0 0;">—</p>
                 </div>
@@ -386,7 +386,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Rotación</span>
                             <span id="chRotRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90;">—</span>
                             <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Indica qué porcentaje de empleados dejó la empresa en el período seleccionado, en relación con la plantilla al cierre (personas sin estatus Baja e ingreso hasta el último día del filtro)."
+                                title="El % mostrado es (bajas del período / plantilla al cierre) × 100. La plantilla al cierre son personas sin estatus Baja con ingreso hasta el último día del filtro. La segunda fórmula (sobre empleados activos al cierre) es referencia; no sustituye al indicador principal."
                                 aria-label="Ayuda: rotación">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
@@ -395,7 +395,10 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     </div>
                     <div class="d-flex flex-column justify-content-center text-center pt-2">
                         <div id="chRotacionPct" style="font-size: 28px; font-weight: 800; color: #2ecc8b;">0%</div>
-                        <div style="font-size: 11px; color: #6b7a90; margin-top: 4px;">(Bajas período / plantilla al cierre) × 100</div>
+                        <div style="font-size: 10px; color: #6b7a90; margin-top: 6px; line-height: 1.45;">
+                            <div>(Bajas período / plantilla al cierre) × 100</div>
+                            <div>(Bajas período / empleados activos) × 100</div>
+                        </div>
                     </div>
                     <div class="mt-3 pt-3" style="border-top: 1px solid #dde3ec;">
                         <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #6b7a90; margin-bottom: 2px; text-align: center;">Indicador de rotación</div>
