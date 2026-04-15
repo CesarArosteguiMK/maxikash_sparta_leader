@@ -136,8 +136,8 @@ body.dark-mode .pai-hero-mascot-floating {
     z-index: 2;
     transform: translateY(0.22rem) rotate(40deg);
     transform-origin: center center;
-    background: linear-gradient(90deg, #6c757d, #495057);
-    color: #fff;
+    background: var(--bs-warning);
+    color: var(--bs-warning-text-emphasis);
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.04em;
