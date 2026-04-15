@@ -213,6 +213,22 @@ body.dark-mode .cc-validacion-box .cc-val-user { color: #fcd34d; }
     transition: opacity .2s, transform .15s;
 }
 .cc-btn-confirmar:hover { opacity: .9; transform: translateY(-1px); }
+.cc-btn-convenio {
+    background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    font-size: .85rem;
+    padding: .45rem 1.4rem;
+    border-radius: 2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    transition: opacity .2s, transform .15s;
+    text-decoration: none;
+}
+.cc-btn-convenio:hover { opacity: .9; transform: translateY(-1px); color: #fff; }
 .cc-btn-confirmar:active { transform: translateY(0); }
 .cc-btn-confirmar:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -367,6 +383,12 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 /* ── Panel de detalle (child row DataTables) ── */
 /* Panel de detalle (child row DataTables) */
 .cc-conv-detail-inner { padding: 1rem 1.25rem; max-height: 520px; overflow-y: auto; }
+
+/* ── Controles DataTables Convenios ── */
+#tablaConveniosTodos_wrapper .dataTables_length { padding-left: .75rem; }
+#tablaConveniosTodos_wrapper .dataTables_filter { padding-right: .75rem; }
+#tablaConveniosTodos_wrapper .dataTables_info   { padding-left: .75rem; }
+#tablaConveniosTodos_wrapper .dataTables_paginate { padding-right: .75rem; }
 </style>
 
 <!-- ══════════════════════════════════════
@@ -452,26 +474,27 @@ $ccActHist = ($cc_default_tab === 'historial');
                     </button>
                 </li>
                 <?php endif; ?>
+                <!-- Barra de búsqueda general -->
+                <li class="ms-auto d-flex align-items-center py-1 pe-2">
+                    <div id="barraGeneral" class="dataTables_filter">
+                        <label style="display:flex;align-items:center;gap:.4rem;margin:0;font-size:.875rem;font-weight:400;color:#566a7f;">
+                            Buscar:
+                            <span style="position:relative;display:inline-flex;align-items:center;">
+                                <input type="text" id="barraGeneral-input"
+                                       class="form-control form-control-sm"
+                                       placeholder=""
+                                       autocomplete="off"
+                                       style="padding-right:1.6rem;">
+                                <button type="button" id="barraGeneral-limpiar"
+                                        title="Limpiar"
+                                        style="display:none;position:absolute;right:.35rem;background:none;border:none;padding:0;line-height:1;color:#a1acb8;cursor:pointer;font-size:.8rem;">
+                                    &#x2715;
+                                </button>
+                            </span>
+                        </label>
+                    </div>
+                </li>
             </ul>
-    </div>
-</div>
-<?php endif; ?>
-
-<?php if (!empty($cc_perm_alguno)): ?>
-<!-- Barra de búsqueda (fuera del card de pestañas) -->
-<div id="cc-search-bar" class="mt-8 d-flex justify-content-end" style="display:none;">
-    <div class="input-group input-group-sm" style="max-width:380px;">
-        <span class="input-group-text bg-transparent border-end-0">
-            <i class="fa-solid fa-magnifying-glass text-muted" style="font-size:.8rem;"></i>
-        </span>
-        <input type="text" id="cc-input-buscar"
-               class="form-control form-control-sm border-start-0"
-               placeholder="Buscar crédito, cliente, producto..."
-               autocomplete="off">
-        <button type="button" class="btn btn-sm btn-outline-secondary border-start-0"
-                id="cc-btn-limpiar-busqueda" title="Limpiar" style="display:none;">
-            <i class="fa-solid fa-times"></i>
-        </button>
     </div>
 </div>
 
@@ -672,9 +695,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             return;
         }
 
-        // Mostrar barra de búsqueda
-        document.getElementById('cc-search-bar').style.display = '';
-
         _pintarCards(rows);
     }
 
@@ -711,7 +731,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     /* ── Filtro en tiempo real (aplica en la pestaña activa) ── */
     function ccFiltrar(termino) {
         const t = termino.trim().toLowerCase();
-        const btnLimpiar = document.getElementById('cc-btn-limpiar-busqueda');
+        const btnLimpiar = document.getElementById('barraGeneral-limpiar');
         btnLimpiar.style.display = t ? '' : 'none';
 
         const tab = _tabActiva();
@@ -747,12 +767,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         ));
     }
 
-    document.getElementById('cc-input-buscar')
+    document.getElementById('barraGeneral-input')
         .addEventListener('input', function () { ccFiltrar(this.value); });
 
-    document.getElementById('cc-btn-limpiar-busqueda')
+    document.getElementById('barraGeneral-limpiar')
         .addEventListener('click', function () {
-            const input = document.getElementById('cc-input-buscar');
+            const input = document.getElementById('barraGeneral-input');
             input.value = '';
             ccFiltrar('');
             input.focus();
@@ -841,6 +861,18 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         <span class="cc-val-user">${esc(validador)}</span>
                     </div>
 
+                    <!-- Descarte previo -->
+                    ${r.ultimo_motivo_descarte ? `
+                    <div style="margin-top:.65rem;background:#fef3c7;border:1px solid #fde68a;border-radius:.45rem;padding:.55rem .8rem;font-size:.78rem;color:#78350f;">
+                        <div style="font-weight:700;margin-bottom:.3rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Descartado</div>
+                        <div><span style="font-weight:600;">Motivo:</span> ${esc(r.ultimo_motivo_descarte)}</div>
+                        ${r.ultimo_comentario_descarte ? `<div style="margin-top:.25rem;"><span style="font-weight:600;">Comentario:</span> ${esc(r.ultimo_comentario_descarte)}</div>` : ''}
+                        <div style="margin-top:.25rem;color:#92400e;">
+                            <i class="fa-solid fa-user-pen me-1"></i>${esc(r.usuario_descarte || '—')}
+                            ${r.fecha_descarte ? `<span class="ms-2"><i class="fa-regular fa-clock me-1"></i>${new Date(r.fecha_descarte).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</span>` : ''}
+                        </div>
+                    </div>` : ''}
+
                     <!-- Documentos adjuntos -->
                     ${(() => {
                         const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
@@ -867,8 +899,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 </div>
             </div>
 
-            <!-- Footer: botón confirmar -->
-            <div class="cc-conv-card-footer">
+<!-- Footer: botones -->
+            <div class="cc-conv-card-footer" style="gap:.5rem;">
+                <a class="cc-btn-convenio" href="/Convenios/consulta?credito=${esc(r.id_credito)}" target="_blank">
+                    <i class="fa-solid fa-handshake"></i>
+                    Ir al convenio
+                </a>
                 <button class="cc-btn-confirmar" onclick="ccConfirmar(${r.id}, '${esc(r.id_credito)}', '${esc(r.nombre_cliente)}')"
                         id="cc-btn-${r.id}">
                     <i class="fa-solid fa-check-circle"></i>
@@ -900,14 +936,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         _allRowsEp = rows;
         document.getElementById('loader-en-proceso').classList.add('d-none');
         document.getElementById('badge-en-proceso').textContent = rows.length;
-        document.getElementById('cc-search-bar').style.display = '';
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-en-proceso').classList.remove('d-none');
             return;
         }
 
-        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
+        const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
         _pintarEnProceso(t ? rows.filter(r =>
             String(r.id_credito      || '').toLowerCase().includes(t) ||
             String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
@@ -1053,9 +1088,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         </div>`;
     }
 
-    /* ══════════════════════════════════
-       RENDER: CARDS CONVENIOS (Tab 0)
-    ══════════════════════════════════ */
+    
     /* ══════════════════════════════════
        RENDER: TABLA CONVENIOS (Tab 0)
     ══════════════════════════════════ */
@@ -1138,10 +1171,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                                `<i class="fa-solid fa-chevron-down" style="font-size:.65rem;"></i> Ver detalle` +
                                `</button>`;
                     }
-                }
-            ],
-            columnDefs: [
-                { targets: 9, data: 'id', visible: false, searchable: false }
+                },
+                { data: 'id', visible: false, searchable: false }
             ],
             pageLength: 15,
             lengthMenu: [10, 15, 25, 50, 100],
@@ -1153,13 +1184,18 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 info:         'Mostrando _START_ a _END_ de _TOTAL_ convenios',
                 infoFiltered: '(filtrado de _MAX_ totales)',
                 lengthMenu:   'Mostrar _MENU_ registros',
+                search:       'Buscar:',
                 zeroRecords:  'Sin resultados para la búsqueda',
                 paginate: { first: '«', last: '»', next: '›', previous: '‹' }
             },
-            dom: '<"row"<"col-sm-12"tr>><"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            dom: '<"row"<"col-sm-12 col-md-6"l>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
             autoWidth: false,
             drawCallback: function() {
                 $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+                $('.dataTables_length select').addClass('form-select form-select-sm');
+                $('.dataTables_filter input').addClass('form-control form-control-sm');
             }
         });
     }
@@ -1168,7 +1204,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         _allRowsConv = rows;
         document.getElementById('loader-convenios').classList.add('d-none');
         document.getElementById('badge-convenios').textContent = rows.length;
-        document.getElementById('cc-search-bar').style.display = '';
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-convenios').classList.remove('d-none');
@@ -1453,96 +1488,126 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
        CARGA DE DATOS
     ══════════════════════════════════ */
 
-    // Convenios — lazy: solo al activar la pestaña
-    let conveniosCargado = false;
+    // ── Funciones de carga (también usadas para refrescar individualmente) ──
     function cargarConvenios() {
-        if (conveniosCargado) return;
-        conveniosCargado = true;
-        document.getElementById('loader-convenios').classList.remove('d-none');
-        fetch('/CierreCredito/getAllConvenios', { method: 'POST' })
+        return fetch('/CierreCredito/getAllConvenios', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderConvenios(res.datos);
-            })
-            .catch(err => {
-                document.getElementById('loader-convenios').innerHTML =
-                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // Enviados Finalizados — carga inicial (pestaña activa)
     function cargarEnviadoFinalizado() {
-        fetch('/CierreCredito/getEnviadoFinalizado', { method: 'POST' })
+        return fetch('/CierreCredito/getEnviadoFinalizado', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderCards(res.datos, res.validador || '—');
-            })
-            .catch(err => {
-                document.getElementById('loader-env-finalizado').innerHTML =
-                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // En Proceso — lazy: solo al activar la pestaña
-    let enProcesoCargado = false;
     function cargarEnProceso() {
-        if (enProcesoCargado) return;
-        enProcesoCargado = true;
-        fetch('/CierreCredito/getEnProceso', { method: 'POST' })
+        return fetch('/CierreCredito/getEnProceso', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderEnProceso(res.datos);
-            })
-            .catch(err => {
-                document.getElementById('loader-en-proceso').innerHTML =
-                    `<div class="alert alert-danger">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // (tab-en-proceso-btn listener is registered after cargarHistorial below)
-
-    /* ══════════════════════════════════
-       HISTORIAL — carga y render
-    ══════════════════════════════════ */
-    let historialCargado = false;
-
     function cargarHistorial() {
-        historialCargado = true;
         document.getElementById('loader-historial').classList.remove('d-none');
         document.getElementById('wrap-historial').classList.add('d-none');
         document.getElementById('empty-historial').classList.add('d-none');
-        fetch('/CierreCredito/getHistorial', { method: 'POST' })
+        return fetch('/CierreCredito/getHistorial', { method: 'POST' })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 renderHistorial(res.datos);
-            })
-            .catch(err => {
-                document.getElementById('loader-historial').innerHTML =
-                    `<div class="alert alert-danger m-3">Error al cargar: ${err.message}</div>`;
             });
     }
 
-    // Refresca silenciosamente solo si la pestaña ya fue visitada
+    // Refresca historial silenciosamente (llamado tras descartar)
     function refrescarHistorial() {
-        if (!historialCargado) return;
-        cargarHistorial();
+        cargarHistorial().catch(() => {});
+    }
+
+    /* ══════════════════════════════════
+       CARGA INICIAL — todas las pestañas en paralelo
+    ══════════════════════════════════ */
+    function cargarTodo() {
+        const hasSwal = typeof Swal !== 'undefined';
+        if (hasSwal) {
+            Swal.fire({
+                title: 'Obteniendo datos...',
+                html: '<span style="font-size:.875rem;color:#64748b;">Cargando todas las pestañas</span>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        const promesas = [];
+        if (CC_P.convenios)  promesas.push(cargarConvenios().catch(() => {}));
+        if (CC_P.validacion) promesas.push(cargarEnviadoFinalizado().catch(() => {}));
+        if (CC_P.en_proceso) promesas.push(cargarEnProceso().catch(() => {}));
+        if (CC_P.historial)  promesas.push(cargarHistorial().catch(() => {}));
+
+        Promise.all(promesas).then(() => { if (hasSwal) Swal.close(); });
+    }
+
+    // Listeners de pestañas — solo re-aplican el filtro activo (datos ya están renderizados)
+    const tabHistorialBtn = document.getElementById('tab-historial-btn');
+    if (tabHistorialBtn) {
+        tabHistorialBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    const tabConveniosBtn = document.getElementById('tab-convenios-btn');
+    if (tabConveniosBtn) {
+        tabConveniosBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    const tabEnProcesoBtn = document.getElementById('tab-en-proceso-btn');
+    if (tabEnProcesoBtn) {
+        tabEnProcesoBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    const tabEnvFinalizadoBtn = document.getElementById('tab-env-finalizado-btn');
+    if (tabEnvFinalizadoBtn) {
+        tabEnvFinalizadoBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) ccFiltrar(t);
+        });
+    }
+
+    // Carga inicial — se difiere a window load para que SweetAlert2 (cargado al final del layout) ya esté disponible
+    if (document.readyState === 'complete') {
+        cargarTodo();
+    } else {
+        window.addEventListener('load', cargarTodo);
     }
 
     function renderHistorial(rows) {
         _allRowsHist = rows;
         document.getElementById('loader-historial').classList.add('d-none');
-        document.getElementById('cc-search-bar').style.display = '';
 
         if (!rows || rows.length === 0) {
             document.getElementById('empty-historial').classList.remove('d-none');
             return;
         }
 
-        const t = document.getElementById('cc-input-buscar').value.trim().toLowerCase();
+        const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
         _pintarHistorial(t ? rows.filter(r =>
             String(r.id_credito     || '').toLowerCase().includes(t) ||
             String(r.nombre_cliente || '').toLowerCase().includes(t)
@@ -1667,22 +1732,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         wrap.classList.remove('d-none');
     }
 
-    const tabHistorialBtn = document.getElementById('tab-historial-btn');
-    if (tabHistorialBtn) {
-        tabHistorialBtn.addEventListener('shown.bs.tab', cargarHistorial);
-    }
-
-    const tabConveniosBtn = document.getElementById('tab-convenios-btn');
-    if (tabConveniosBtn) {
-        tabConveniosBtn.addEventListener('shown.bs.tab', function () {
-            cargarConvenios();
-            if (_allRowsConv.length) {
-                const t = document.getElementById('cc-input-buscar').value;
-                if (t.trim()) ccFiltrar(t);
-            }
-        });
-    }
-
     /* ══════════════════════════════════
        MARCAR LISTO (en_cola → listo_envio)
     ══════════════════════════════════ */
@@ -1757,41 +1806,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             });
         });
     };
-
-    const tabEnProcesoBtn = document.getElementById('tab-en-proceso-btn');
-    if (tabEnProcesoBtn) {
-        tabEnProcesoBtn.addEventListener('shown.bs.tab', function () {
-            cargarEnProceso();
-            if (_allRowsEp.length) {
-                const t = document.getElementById('cc-input-buscar').value;
-                if (t.trim()) ccFiltrar(t);
-            }
-        });
-    }
-
-    const tabEnvFinalBtn = document.getElementById('tab-env-finalizado-btn');
-    if (tabEnvFinalBtn) {
-        tabEnvFinalBtn.addEventListener('shown.bs.tab', function () {
-            if (_allRows.length === 0) {
-                cargarEnviadoFinalizado();
-            } else {
-                const t = document.getElementById('cc-input-buscar').value;
-                if (t.trim()) ccFiltrar(t);
-            }
-        });
-    }
-
-    // Carga inicial según la primera pestaña visible (permisos especiales)
-    const def = CC_P.defaultTab || 'validacion';
-    if (def === 'convenios') {
-        cargarConvenios();
-    } else if (def === 'validacion') {
-        cargarEnviadoFinalizado();
-    } else if (def === 'en_proceso') {
-        cargarEnProceso();
-    } else if (def === 'historial') {
-        cargarHistorial();
-    }
 
     /* ══════════════════════════════════
        CONFIRMAR CIERRE (Tab 1 → crea registro en proceso)
@@ -1921,22 +1935,61 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
        DESCARTAR (Tab 2 → regresa a Tab 1)
     ══════════════════════════════════ */
     window.ccDescartar = function(idRegistro) {
-        Swal.fire({
-            title: '¿Descartar registro?',
-            html: 'El convenio regresará a <strong>Enviados Finalizados</strong>.<br><small class="text-muted">Se podrá confirmar nuevamente desde allí.</small>',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc2626',
-            confirmButtonText: '<i class="fa-solid fa-rotate-left me-1"></i>Sí, descartar',
-            cancelButtonText: 'Cancelar'
-        }).then(result => {
-            if (!result.isConfirmed) return;
+        // Cargar catálogo antes de abrir el Swal
+        fetch('/CierreCredito/getCatalogoDescarte', { method: 'POST' })
+        .then(r => r.json())
+        .then(cat => {
+            const opciones = (cat.datos || []).map(m =>
+                `<option value="${m.id}">${esc(m.motivo)}</option>`
+            ).join('');
 
-            fetch('/CierreCredito/descartar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `id=${idRegistro}`
-            })
+            Swal.fire({
+                title: '¿Descartar registro?',
+                html: `<p class="text-muted mb-3" style="font-size:.85rem;">El convenio regresará a <strong>Validación de Cierre</strong>. Se podrá confirmar nuevamente desde allí.</p>
+<div class="text-start mb-3">
+  <label class="form-label fw-semibold" style="font-size:.83rem;">Motivo de descarte <span class="text-danger">*</span></label>
+  <select id="swal-motivo-descarte" class="form-select form-select-sm">
+    <option value="">— Selecciona un motivo —</option>
+    ${opciones}
+  </select>
+</div>
+<div class="text-start">
+  <label class="form-label fw-semibold" style="font-size:.83rem;">Comentario adicional <span class="text-muted fw-normal">(opcional)</span></label>
+  <textarea id="swal-comentario-descarte" class="form-control form-control-sm" rows="3"
+            maxlength="150"
+            placeholder="Describe el motivo con más detalle… (máx. 150 caracteres)"
+            style="resize:vertical;"></textarea>
+  <div class="text-end mt-1" style="font-size:.72rem;color:#94a3b8;"><span id="swal-coment-count">0</span> / 150</div>
+</div>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                confirmButtonText: '<i class="fa-solid fa-rotate-left me-1"></i>Sí, descartar',
+                cancelButtonText: 'Cancelar',
+                focusConfirm: false,
+                didOpen: () => {
+                    const ta = document.getElementById('swal-comentario-descarte');
+                    const counter = document.getElementById('swal-coment-count');
+                    ta.addEventListener('input', () => { counter.textContent = ta.value.length; });
+                },
+                preConfirm: () => {
+                    const motivoId = document.getElementById('swal-motivo-descarte').value;
+                    const comentario = document.getElementById('swal-comentario-descarte').value.trim();
+                    if (!motivoId) {
+                        Swal.showValidationMessage('Debes seleccionar un motivo de descarte.');
+                        return false;
+                    }
+                    return { motivoId, comentario };
+                }
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                const { motivoId, comentario } = result.value;
+
+                fetch('/CierreCredito/descartar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `id=${idRegistro}&motivo_id=${encodeURIComponent(motivoId)}&comentario=${encodeURIComponent(comentario)}`
+                })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
@@ -1955,8 +2008,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 document.getElementById('wrap-env-finalizado').classList.add('d-none');
                 document.getElementById('empty-env-finalizado').classList.add('d-none');
                 document.getElementById('empty-busqueda').classList.add('d-none');
-                document.getElementById('cc-search-bar').style.display = 'none';
-                document.getElementById('cc-input-buscar').value = '';
+                document.getElementById('barraGeneral-input').value = '';
                 cargarEnviadoFinalizado();
                 refrescarHistorial();
                 Swal.fire({ title: '¡Descartado!', text: 'El convenio regresó a Enviados Finalizados.', icon: 'success', timer: 2000, showConfirmButton: false });
@@ -1964,7 +2016,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             .catch(err => {
                 Swal.fire({ icon: 'error', title: 'Error', text: err.message });
             });
-        });
+        });   // cierra Swal.then(result)
+        });   // cierra fetch outer .then(cat)
     };
 
 })();
