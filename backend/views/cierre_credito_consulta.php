@@ -337,6 +337,50 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
 .cc-filtro-opcion.active { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
 .cc-filtro-opcion[data-filtro="con_docs"].active   { background: #dcfce7; border-color: #16a34a; color: #15803d; }
 .cc-filtro-opcion[data-filtro="devueltos"].active  { background: #fef9c3; border-color: #ca8a04; color: #854d0e; }
+/* Filtros Convenios tab */
+.cc-filtro-conv[data-filtro-conv="con_docs"].active    { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+.cc-filtro-conv[data-filtro-conv="activos"].active     { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+.cc-filtro-conv[data-filtro-conv="cancelados"].active  { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+body.dark-mode .cc-filtro-conv { background: #1e293b; border-color: #334155; color: #94a3b8; }
+body.dark-mode .cc-filtro-conv:hover { background: #334155; border-color: #475569; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="con_docs"].active  { background: rgba(21,128,61,.2); border-color: #16a34a; color: #4ade80; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="activos"].active   { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="cancelados"].active{ background: rgba(220,38,38,.2); border-color: #dc2626; color: #f87171; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="todos"].active     { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
+/* Scroll-to-top button */
+.cc-scroll-top-btn {
+    position: sticky; bottom: 1rem; float: right; margin-right: .5rem; z-index: 10;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: #3b82f6; color: #fff; border: none;
+    box-shadow: 0 2px 8px rgba(59,130,246,.35);
+    cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, box-shadow .15s;
+}
+.cc-scroll-top-btn:hover { background: #2563eb; box-shadow: 0 4px 12px rgba(37,99,235,.4); }
+body.dark-mode .cc-scroll-top-btn { background: #1d4ed8; box-shadow: 0 2px 8px rgba(29,78,216,.4); }
+body.dark-mode .cc-scroll-top-btn:hover { background: #2563eb; }
+/* Filtros Convenios tab */
+.cc-filtro-conv[data-filtro-conv="con_docs"].active    { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+.cc-filtro-conv[data-filtro-conv="activos"].active     { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+.cc-filtro-conv[data-filtro-conv="cancelados"].active  { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+body.dark-mode .cc-filtro-conv { background: #1e293b; border-color: #334155; color: #94a3b8; }
+body.dark-mode .cc-filtro-conv:hover { background: #334155; border-color: #475569; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="con_docs"].active  { background: rgba(21,128,61,.2); border-color: #16a34a; color: #4ade80; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="activos"].active   { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="cancelados"].active{ background: rgba(220,38,38,.2); border-color: #dc2626; color: #f87171; }
+body.dark-mode .cc-filtro-conv[data-filtro-conv="todos"].active     { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
+/* Scroll-to-top button */
+.cc-scroll-top-btn {
+    position: sticky; bottom: 1rem; float: right; margin-right: .5rem; z-index: 10;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: #3b82f6; color: #fff; border: none;
+    box-shadow: 0 2px 8px rgba(59,130,246,.35);
+    cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, box-shadow .15s;
+}
+.cc-scroll-top-btn:hover { background: #2563eb; box-shadow: 0 4px 12px rgba(37,99,235,.4); }
+body.dark-mode .cc-scroll-top-btn { background: #1d4ed8; box-shadow: 0 2px 8px rgba(29,78,216,.4); }
+body.dark-mode .cc-scroll-top-btn:hover { background: #2563eb; }
 .cc-filtro-count { font-size: .78rem; color: #64748b; }
 body.dark-mode .cc-filtros-btn-toggle { background: #1e293b; border-color: #475569; color: #94a3b8; }
 body.dark-mode .cc-filtros-btn-toggle:hover { background: #334155; border-color: #64748b; }
@@ -616,21 +660,42 @@ $ccActHist = ($cc_default_tab === 'historial');
                 </li>
             </ul>
     </div>
-</div>
 
 <!-- ══════════════════════════════════════
      CONTENIDO DE PESTAÑAS
 ══════════════════════════════════════ -->
-<div class="tab-content mt-3" id="ccTabContent">
+<div class="tab-content" id="ccTabContent">
 
     <?php if (!empty($cc_perm_convenios)): ?>
     <!-- ══ PESTAÑA 0: CONVENIOS (TODOS) ══ -->
     <div class="tab-pane fade<?= $ccActConv ? ' show active' : '' ?>" id="tab-convenios" role="tabpanel">
+        <!-- Filtros Convenios -->
+        <div id="cc-filtros-conv" class="cc-filtros-bar d-none">
+            <button id="cc-filtros-conv-toggle" class="cc-filtros-btn-toggle" type="button">
+                <i class="fa-solid fa-filter"></i>Filtros
+                <i class="fa-solid fa-chevron-down cc-filtros-chevron"></i>
+            </button>
+            <div id="cc-filtros-conv-opciones" class="cc-filtros-opciones" style="display:none;">
+                <button class="cc-filtro-opcion cc-filtro-conv active" data-filtro-conv="todos" type="button">
+                    <i class="fa-solid fa-list"></i>Todos
+                </button>
+                <button class="cc-filtro-opcion cc-filtro-conv" data-filtro-conv="con_docs" type="button">
+                    <i class="fa-solid fa-paperclip"></i>Con documentos
+                </button>
+                <button class="cc-filtro-opcion cc-filtro-conv" data-filtro-conv="activos" type="button">
+                    <i class="fa-solid fa-circle-check"></i>Activos
+                </button>
+                <button class="cc-filtro-opcion cc-filtro-conv" data-filtro-conv="cancelados" type="button">
+                    <i class="fa-solid fa-ban"></i>Cancelados
+                </button>
+            </div>
+            <span id="cc-filtro-conv-count" class="cc-filtro-count"></span>
+        </div>
         <div id="loader-convenios" class="text-center py-5 text-muted d-none">
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
             Cargando convenios...
         </div>
-        <div id="wrap-convenios" class="card d-none">
+        <div id="wrap-convenios" class="d-none">
             <div class="card-datatable table-responsive">
                 <table id="tablaConveniosTodos" class="dt-responsive table border-top">
                     <thead>
@@ -697,6 +762,10 @@ $ccActHist = ($cc_default_tab === 'historial');
             <i class="fa-solid fa-search fa-2x mb-2 d-block opacity-50"></i>
             Sin resultados para la búsqueda.
         </div>
+        <!-- Botón scroll to top -->
+        <button type="button" class="cc-scroll-top-btn" id="cc-scroll-top-ef" title="Ir arriba">
+            <i class="fa-solid fa-arrow-up"></i>
+        </button>
     </div>
     <?php endif; ?>
 
@@ -789,6 +858,7 @@ $ccActHist = ($cc_default_tab === 'historial');
     <?php endif; ?>
 
 </div>
+</div>
 <?php endif; ?>
 
 <script>
@@ -863,6 +933,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     let _filtroHist       = 'todos';
     let _allRowsHist      = [];
     let _allRowsConv      = [];
+    let _filtroConv       = 'todos';
     let _validador        = '—';
     let enProcesoCargado  = false;
 
@@ -1014,14 +1085,57 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         this.classList.toggle('open', !isOpen);
     });
 
-    document.querySelectorAll('.cc-filtro-opcion').forEach(function (btn) {
+    document.querySelectorAll('#cc-filtros-ef .cc-filtro-opcion').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            document.querySelectorAll('.cc-filtro-opcion').forEach(function (b) { b.classList.remove('active'); });
+            document.querySelectorAll('#cc-filtros-ef .cc-filtro-opcion').forEach(function (b) { b.classList.remove('active'); });
             this.classList.add('active');
             _filtroEf = this.dataset.filtro;
             const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
             _pintarCards(_getRowsEf(t));
         });
+    });
+
+    /* ── Filtros Convenios ── */
+    function _filtroConvAplicar() {
+        if (!_tablaConv) return;
+        let filtered = _allRowsConv;
+        if (_filtroConv === 'con_docs') {
+            filtered = _allRowsConv.filter(function(r) {
+                return !!(r.pdf_adjunto && r.pdf_adjunto !== '') || (parseInt(r.comprobantes_subidos) || 0) > 0;
+            });
+        } else if (_filtroConv === 'activos') {
+            filtered = _allRowsConv.filter(function(r) {
+                return String(r.estatus || '').toLowerCase() === 'activo';
+            });
+        } else if (_filtroConv === 'cancelados') {
+            filtered = _allRowsConv.filter(function(r) {
+                return String(r.estatus || '').toLowerCase() === 'cancelado';
+            });
+        }
+        _tablaConv.clear().rows.add(filtered).draw();
+        var countEl = document.getElementById('cc-filtro-conv-count');
+        if (countEl) countEl.textContent = _filtroConv !== 'todos' ? filtered.length + ' de ' + _allRowsConv.length : '';
+    }
+
+    document.getElementById('cc-filtros-conv-toggle').addEventListener('click', function () {
+        var opciones = document.getElementById('cc-filtros-conv-opciones');
+        var isOpen   = opciones.style.display !== 'none';
+        opciones.style.display = isOpen ? 'none' : 'flex';
+        this.classList.toggle('open', !isOpen);
+    });
+
+    document.querySelectorAll('.cc-filtro-conv').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.cc-filtro-conv').forEach(function (b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            _filtroConv = this.dataset.filtroConv;
+            _filtroConvAplicar();
+        });
+    });
+
+    /* ── Scroll to top (Validación) ── */
+    document.getElementById('cc-scroll-top-ef').addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     /* ══════════════════════════════════
@@ -1109,8 +1223,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     </div>
 
                     <div class="cc-detail-row">
-                        <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
-                        <span class="cc-val fw-bold" style="color:#dc2626;">${fmt(parseFloat(r.adeudo_total_original) || 0)}</span>
+                        <span class="cc-lbl">Adeudo original</span>
+                        <span class="cc-val fw-bold" style="color:#dc2626;">${fmt(parseFloat(r.adeudo_total_original) || 0)}${r.base_calculo ? ' <span style="font-size:.72rem;color:#0003d1;font-weight:400;">(Calculado sobre ' + (r.base_calculo === 'saldo_total_capital' ? 'Capital' : r.base_calculo === 'adeudo_total' ? 'Total' : r.base_calculo === 'interes' ? 'Interés' : r.base_calculo) + ')</span>' : ''}</span>
                     </div>
 
                     <div class="cc-detail-row">
@@ -1309,8 +1423,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             </span>
                         </div>
                         <div class="cc-detail-row">
-                            <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
-                            <span class="cc-val fw-bold" style="color:#dc2626;">${fmtN(parseFloat(r.adeudo_total_original) || 0)}</span>
+                            <span class="cc-lbl">Adeudo original</span>
+                            <span class="cc-val fw-bold" style="color:#dc2626;">${fmtN(parseFloat(r.adeudo_total_original) || 0)}${r.base_calculo ? ' <span style="font-size:.72rem;color:#6b7a90;font-weight:400;">(Calculado sobre ' + (r.base_calculo === 'saldo_total_capital' ? 'Capital' : r.base_calculo === 'adeudo_total' ? 'Total' : r.base_calculo === 'interes' ? 'Interés' : r.base_calculo) + ')</span>' : ''}</span>
                         </div>
                         <div class="cc-detail-row">
                             <span class="cc-lbl">Total pagado</span>
@@ -1607,9 +1721,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             return;
         }
 
+        document.getElementById('cc-filtros-conv').classList.remove('d-none');
         document.getElementById('wrap-convenios').classList.remove('d-none');
         _initTablaConv();
-        _tablaConv.clear().rows.add(rows).draw();
+        _filtroConvAplicar();
     }
 
     /* kept so ccFiltrar can call it; delegates to DataTables search */
@@ -1686,6 +1801,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Adeudo original</div>
                 <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}</div>
+                ${conv.base_calculo ? '<div style="font-size:.7rem;color:#6b7a90;margin-top:2px;">Calculado sobre: ' + (conv.base_calculo === 'saldo_total_capital' ? 'Capital' : conv.base_calculo === 'adeudo_total' ? 'Total' : conv.base_calculo === 'interes' ? 'Interés' : conv.base_calculo) + '</div>' : ''}
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
@@ -1814,7 +1930,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.75rem;margin-bottom:1rem;">
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Adeudo original</div>
-                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}</div>
+                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}${conv.base_calculo ? ' <span style="font-size:.72rem;color:#6b7a90;font-weight:400;">(Calculado sobre ' + (conv.base_calculo === 'saldo_total_capital' ? 'Capital' : conv.base_calculo === 'adeudo_total' ? 'Total' : conv.base_calculo === 'interes' ? 'Interés' : conv.base_calculo) + ')</span>' : ''}</div>
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
