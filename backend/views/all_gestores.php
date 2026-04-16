@@ -2235,18 +2235,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             <div class="col-12">
                 <div class="card border">
                     <div class="card-body">
-                        <!-- Selector de Fechas Manual -->
+                        <!-- Selector de Fechas Manual (ancho acotado: evita input a todo el ancho de la pantalla) -->
                         <div class="row align-items-end g-3 mb-3">
-                            <div class="col-md-12">
+                            <div class="col-12">
                                 <label class="form-label fw-semibold">
                                     <i class="fa fa-calendar-alt me-2"></i>Rango de Fechas Personalizado
                                 </label>
-                                <input
-                                    type="text"
-                                    id="flatpickr-range-bajas"
-                                    class="form-control"
-                                    placeholder="Selecciona un rango de fechas personalizado"
-                                />
+                                <div class="ch-bajas-fp-rango" style="max-width: 19.5rem; width: 100%;">
+                                    <input
+                                        type="text"
+                                        id="flatpickr-range-bajas"
+                                        class="form-control form-control-sm"
+                                        placeholder="Selecciona un rango de fechas personalizado"
+                                    />
+                                </div>
                             </div>
                         </div>
 
