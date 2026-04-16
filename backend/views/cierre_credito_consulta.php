@@ -1109,8 +1109,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     </div>
 
                     <div class="cc-detail-row">
-                        <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
-                        <span class="cc-val fw-bold" style="color:#dc2626;">${fmt(parseFloat(r.adeudo_total_original) || 0)}</span>
+                        <span class="cc-lbl">Adeudo original</span>
+                        <span class="cc-val fw-bold" style="color:#dc2626;">${fmt(parseFloat(r.adeudo_total_original) || 0)}${r.base_calculo ? ' <span style="font-size:.72rem;color:#0003d1;font-weight:400;">(Calculado sobre ' + (r.base_calculo === 'saldo_total_capital' ? 'Capital' : r.base_calculo === 'adeudo_total' ? 'Total' : r.base_calculo === 'interes' ? 'Interés' : r.base_calculo) + ')</span>' : ''}</span>
                     </div>
 
                     <div class="cc-detail-row">
@@ -1309,8 +1309,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             </span>
                         </div>
                         <div class="cc-detail-row">
-                            <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
-                            <span class="cc-val fw-bold" style="color:#dc2626;">${fmtN(parseFloat(r.adeudo_total_original) || 0)}</span>
+                            <span class="cc-lbl">Adeudo original</span>
+                            <span class="cc-val fw-bold" style="color:#dc2626;">${fmtN(parseFloat(r.adeudo_total_original) || 0)}${r.base_calculo ? ' <span style="font-size:.72rem;color:#6b7a90;font-weight:400;">(Calculado sobre ' + (r.base_calculo === 'saldo_total_capital' ? 'Capital' : r.base_calculo === 'adeudo_total' ? 'Total' : r.base_calculo === 'interes' ? 'Interés' : r.base_calculo) + ')</span>' : ''}</span>
                         </div>
                         <div class="cc-detail-row">
                             <span class="cc-lbl">Total pagado</span>
@@ -1686,6 +1686,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Adeudo original</div>
                 <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}</div>
+                ${conv.base_calculo ? '<div style="font-size:.7rem;color:#6b7a90;margin-top:2px;">Calculado sobre: ' + (conv.base_calculo === 'saldo_total_capital' ? 'Capital' : conv.base_calculo === 'adeudo_total' ? 'Total' : conv.base_calculo === 'interes' ? 'Interés' : conv.base_calculo) + '</div>' : ''}
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
@@ -1814,7 +1815,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.75rem;margin-bottom:1rem;">
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Adeudo original</div>
-                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}</div>
+                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}${conv.base_calculo ? ' <span style="font-size:.72rem;color:#6b7a90;font-weight:400;">(Calculado sobre ' + (conv.base_calculo === 'saldo_total_capital' ? 'Capital' : conv.base_calculo === 'adeudo_total' ? 'Total' : conv.base_calculo === 'interes' ? 'Interés' : conv.base_calculo) + ')</span>' : ''}</div>
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
