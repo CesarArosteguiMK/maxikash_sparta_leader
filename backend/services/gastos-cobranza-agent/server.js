@@ -730,6 +730,34 @@ function reporteChatWebhookUrl() {
   return String(process.env.GASTOS_GC_REPORTE_CHAT_WEBHOOK_URL || '').trim();
 }
 
+function sanitizeTraceId(raw) {
+  const t = String(raw || '').trim();
+  return /^[A-Za-z0-9._:-]{6,80}$/.test(t) ? t : '';
+}
+
+function ecWorkflowWebhookUrl() {
+  return String(process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL || '').trim() || reporteChatWebhookUrl();
+}
+
+function ecWorkflowWebhookEnabled() {
+  return String(process.env.GASTOS_GC_EC_CHAT_ENABLED ?? '1').trim() !== '0';
+}
+
+function notifyEcWorkflowWebhook(evento, traceId, detalleLineas) {
+  if (!ecWorkflowWebhookEnabled()) return Promise.resolve(false);
+  const hook = ecWorkflowWebhookUrl();
+  if (!hook) return Promise.resolve(false);
+  const tr = sanitizeTraceId(traceId);
+  const lines = Array.isArray(detalleLineas) ? detalleLineas.filter((x) => String(x || '').trim() !== '') : [];
+  const text =
+    `GC Worker/Lista negra\n` +
+    `Evento: ${String(evento || 'sin_evento')}` +
+    (tr ? `\nTrace: ${tr}` : '') +
+    (lines.length ? `\n${lines.join('\n')}` : '');
+  appendLog(`[ec-webhook] enviando evento=${evento}${tr ? ` trace=${tr}` : ''}`);
+  return postGoogleChatWebhook(hook, text);
+}
+
 function resolveReporteXlsxPathAfterRun() {
   ensureReporteDir();
   const ymd = fmtCdmxYmdParts(nowForCdmxCalendar());
@@ -1339,6 +1367,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   const column = String(req.body?.column != null ? req.body.column : 'ID CREDITO').trim() || 'ID CREDITO';
   const omitir = Math.max(0, parseInt(String(req.body?.omitir ?? '0'), 10) || 0);
   const soloColumnas = !!req.body?.soloColumnas;
+  const traceId = sanitizeTraceId(req.body?.traceId);
 
   if (!archivoRelRaw || !archivoRelRaw.toLowerCase().endsWith('.xlsx')) {
     return res.status(400).json({
@@ -1443,7 +1472,14 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   }
 
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
-  appendLog(`--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php} ---`);
+  appendLog(`--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php}${traceId ? ` trace=${traceId}` : ''} ---`);
+  if (tipo === 'worker') {
+    void notifyEcWorkflowWebhook('worker_inicio', traceId, [
+      `archivo=${archivoEstado}`,
+      `fecha_corte=${fechaCorte}`,
+      `origen=${origenCarpeta}`,
+    ]);
+  }
 
   const child = spawn(php, args, { cwd, env, windowsHide: true, shell: false });
 
@@ -1456,9 +1492,9 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     respondio = true;
     ecLauncherBusy = false;
     if (payload.codigo_salida !== undefined) {
-      appendLog(`--- ec-launcher cierre ${payload.codigo_salida} ---`);
+      appendLog(`--- ec-launcher cierre ${payload.codigo_salida}${traceId ? ` trace=${traceId}` : ''} ---`);
     } else if (payload.mensaje) {
-      appendLog('--- ec-launcher error: ' + payload.mensaje);
+      appendLog(`--- ec-launcher error${traceId ? ` trace=${traceId}` : ''}: ` + payload.mensaje);
     }
     res.json(payload);
   };
@@ -1480,7 +1516,13 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
     appendLog('[ec-launcher stderr] ' + s.replace(/\r/g, ''));
   });
   child.on('error', (err) => {
-    appendLog('[ec-launcher spawn] ' + (err.message || String(err)));
+    appendLog(`[ec-launcher spawn${traceId ? ` trace=${traceId}` : ''}] ` + (err.message || String(err)));
+    if (tipo === 'worker') {
+      void notifyEcWorkflowWebhook('worker_error', traceId, [
+        `archivo=${archivoEstado}`,
+        `error=${String(err?.message || err)}`,
+      ]);
+    }
     if (marcarEstadoWorkerReporte) {
       setEstadoReporteArchivo(archivoEstado, 'generado');
     }
@@ -1488,6 +1530,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       success: false,
       mensaje: err.message || String(err),
       estado_reporte: marcarEstadoWorkerReporte ? payloadEstadoReporte(archivoEstado, 'generado') : null,
+      traceId: traceId || null,
     });
   });
   child.on('close', (code) => {
@@ -1518,9 +1561,18 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       tipo,
       archivo: archivoEstado,
       estado_reporte: estadoRep,
+      traceId: traceId || null,
     };
     if (erroresReintentoCsv) {
       payload.errores_reintento_csv = erroresReintentoCsv;
+    }
+    if (tipo === 'worker') {
+      void notifyEcWorkflowWebhook('worker_fin', traceId, [
+        `archivo=${archivoEstado}`,
+        `codigo_salida=${code}`,
+        `success=${code === 0 ? '1' : '0'}`,
+        erroresReintentoCsv ? `errores_reintento_csv=${erroresReintentoCsv}` : '',
+      ]);
     }
     enviar(payload);
   });
@@ -1576,6 +1628,7 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   const inicioSemana = String(req.body?.inicioSemana || '').trim();
   const dryRun = !!req.body?.dryRun;
   const megaPhpDefaults = req.body?.megaPhpDefaults !== false;
+  const traceId = sanitizeTraceId(req.body?.traceId);
   let estatus = 2;
   if (req.body?.estatus !== undefined && req.body?.estatus !== null && req.body?.estatus !== '') {
     const n = parseInt(String(req.body.estatus), 10);
@@ -1622,8 +1675,13 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
 
   const cwd = path.dirname(scriptPath);
   appendLog(
-    `--- carga-verificacion-semana archivo=${archivoLog} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'} ---`,
+    `--- carga-verificacion-semana archivo=${archivoLog} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'}${traceId ? ` trace=${traceId}` : ''} ---`,
   );
+  void notifyEcWorkflowWebhook('lista_negra_inicio', traceId, [
+    `archivo=${archivoLog}`,
+    `dry_run=${dryRun ? '1' : '0'}`,
+    `origen=${origenCarpeta}`,
+  ]);
 
   const child = spawn(REPORTE_PYTHON, args, {
     cwd,
@@ -1640,9 +1698,9 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
     if (respondio) return;
     respondio = true;
     if (payload.codigo_salida !== undefined) {
-      appendLog(`--- carga-verificacion-semana cierre ${payload.codigo_salida} ---`);
+      appendLog(`--- carga-verificacion-semana cierre ${payload.codigo_salida}${traceId ? ` trace=${traceId}` : ''} ---`);
     } else if (payload.mensaje) {
-      appendLog('--- carga-verificacion-semana error: ' + payload.mensaje);
+      appendLog(`--- carga-verificacion-semana error${traceId ? ` trace=${traceId}` : ''}: ` + payload.mensaje);
     }
     res.json(payload);
   };
@@ -1658,7 +1716,11 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
     appendLog('[carga-verificacion stderr] ' + s.replace(/\r/g, ''));
   });
   child.on('error', (err) => {
-    appendLog('[carga-verificacion spawn] ' + (err.message || String(err)));
+    appendLog(`[carga-verificacion spawn${traceId ? ` trace=${traceId}` : ''}] ` + (err.message || String(err)));
+    void notifyEcWorkflowWebhook('lista_negra_error', traceId, [
+      `archivo=${archivoLog}`,
+      `error=${String(err?.message || err)}`,
+    ]);
     if (origenCarpeta === 'reporte' && !dryRun) {
       setEstadoReporteArchivo(archivoLog, 'generado');
     }
@@ -1667,6 +1729,7 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
       mensaje: err.message || String(err),
       estado_reporte:
         origenCarpeta === 'reporte' && !dryRun ? payloadEstadoReporte(archivoLog, 'generado') : null,
+      traceId: traceId || null,
     });
   });
   child.on('close', (code) => {
@@ -1687,7 +1750,14 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
       stderr: stderr.slice(-8000),
       archivo: archivoLog,
       estado_reporte: estadoRepPayload,
+      traceId: traceId || null,
     });
+    void notifyEcWorkflowWebhook('lista_negra_fin', traceId, [
+      `archivo=${archivoLog}`,
+      `codigo_salida=${code}`,
+      `success=${code === 0 ? '1' : '0'}`,
+      `dry_run=${dryRun ? '1' : '0'}`,
+    ]);
   });
 });
 

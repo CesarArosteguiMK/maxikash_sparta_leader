@@ -1331,6 +1331,18 @@
         return isNaN(n) ? -1 : n;
     }
 
+    function normalizarTraceIdGc(raw) {
+        var t = String(raw || '').trim();
+        return /^[A-Za-z0-9._:-]{6,80}$/.test(t) ? t : '';
+    }
+
+    function generarTraceIdGc(prefijo) {
+        prefijo = String(prefijo || 'gc');
+        var base = Date.now().toString(36);
+        var rnd = Math.random().toString(36).slice(2, 8);
+        return normalizarTraceIdGc(prefijo + '-' + base + '-' + rnd) || ('gc-' + base + '-' + rnd);
+    }
+
     function gcEcLauncherTieneExcel() {
         try {
             return !!(ecFile && ecFile.files && ecFile.files.length > 0);
@@ -1995,14 +2007,26 @@
         } catch (eCerr) { /* ignorar */ }
     }
 
+    /** Cierra el modal de lista negra al invocar la carga vía agente (todos los orígenes). */
+    function cerrarModalListaNegra() {
+        try {
+            var mEl = document.getElementById('modalGcListaNegra');
+            if (!mEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+            var inst = bootstrap.Modal.getInstance(mEl);
+            if (inst) inst.hide();
+        } catch (eLn) { /* ignorar */ }
+    }
+
     function construirPayloadCargaVerificacion(nombreArchivo, cargaOpts) {
         cargaOpts = cargaOpts || {};
+        var traceId = normalizarTraceIdGc(cargaOpts.traceId) || generarTraceIdGc('ln');
         var payload = {
             archivo: nombreArchivo,
             dryRun: !!(cargaVerifDry && cargaVerifDry.checked),
             estatus: cargaVerifEstatus ? parseInt(cargaVerifEstatus.value, 10) : 2,
             tipoReporteNulo: true,
-            megaPhpDefaults: true
+            megaPhpDefaults: true,
+            traceId: traceId
         };
         if (cargaOpts.origenCarpeta === 'reporte') {
             payload.origenCarpeta = 'reporte';
@@ -2021,6 +2045,11 @@
     }
 
     async function invocarCargaVerificacionAgente(nombreArchivo, cargaOpts) {
+        cerrarModalListaNegra();
+        cargaOpts = cargaOpts || {};
+        if (!normalizarTraceIdGc(cargaOpts.traceId)) {
+            cargaOpts.traceId = generarTraceIdGc('ln');
+        }
         var r2 = await fetch('/gastoscobranza/ejecutarCargaVerificacionSemana', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
@@ -2034,6 +2063,12 @@
      * cargaOpts: {} para archivo en ec-uploads; { origenCarpeta: 'reporte' } para Excel ya en reporte/.
      */
     async function ejecutarPayloadEcYListaNegra(payloadEc, cargaOpts) {
+        cargaOpts = cargaOpts || {};
+        var traceId = normalizarTraceIdGc(payloadEc && payloadEc.traceId) || generarTraceIdGc('wln');
+        if (payloadEc) payloadEc.traceId = traceId;
+        if (!normalizarTraceIdGc(cargaOpts.traceId)) {
+            cargaOpts.traceId = traceId;
+        }
         iniciarOperacionShell(payloadEc.tipo === 'enrich' ? 'enrich' : 'worker');
         comenzarLogRapidoEcWorker();
         cerrarModalEcWorker();
@@ -2351,7 +2386,8 @@
                 fechaCorte: ecFecha.value,
                 column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
                 omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
-                soloColumnas: false
+                soloColumnas: false,
+                traceId: generarTraceIdGc('wln')
             };
             await ejecutarPayloadEcYListaNegra(payloadEc, {});
         } catch (e) {
@@ -2505,12 +2541,6 @@
      * Respeta dry-run, estatus, headerRow y mensaje del formulario en el modal «Lista negra».
      */
     async function ejecutarListaNegraDesdeReporte(nombreArchivo) {
-        try {
-            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                var mLn = document.getElementById('modalGcListaNegra');
-                if (mLn) bootstrap.Modal.getOrCreateInstance(mLn).show();
-            }
-        } catch (eLn) { /* ignorar */ }
         iniciarOperacionShell('lista_negra');
         comenzarLogRapidoEcWorker();
         if (cargaVerifOutWrap) cargaVerifOutWrap.classList.add('d-none');
@@ -2561,7 +2591,8 @@
                 column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
                 omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
                 soloColumnas: false,
-                origenCarpeta: 'reporte'
+                origenCarpeta: 'reporte',
+                traceId: generarTraceIdGc('wln')
             };
             await ejecutarPayloadEcYListaNegra(payloadEcW, { origenCarpeta: 'reporte' });
         } catch (e) {

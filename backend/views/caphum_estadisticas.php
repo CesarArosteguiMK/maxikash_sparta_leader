@@ -853,25 +853,29 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                 stroke: { width: 1, colors: ['#ffffff'] }
             };
         } else if (tipo === 'line') {
-            /** Versión estable: trazo simple + markers.discrete por punto. Evita que Apex deje la línea oculta y mantiene colores distintos en cada punto. */
+            /** Línea garantizada + puntos multicolor: serie line base + overlays scatter por punto (evita fallos de markers.discrete en esta versión de Apex). */
             var markerColors = pieColors.slice(0, series.length);
             while (markerColors.length < series.length) {
                 markerColors.push(CH_DEPTO_COLORS[markerColors.length % CH_DEPTO_COLORS.length]);
             }
-            var markerDiscrete = [];
-            for (var m = 0; m < series.length; m++) {
-                markerDiscrete.push({
-                    seriesIndex: 0,
-                    dataPointIndex: m,
-                    fillColor: markerColors[m],
-                    strokeColor: '#ffffff',
-                    size: 7
-                });
-            }
             var lineStroke = '#5a6a7d';
+            var mixSeries = [{ name: 'Personas', type: 'line', data: series }];
+            var mixColors = [lineStroke];
+            var strokeWidths = [4];
+            var markerSizes = [0];
+            for (var si = 0; si < series.length; si++) {
+                var sData = [];
+                for (var sj = 0; sj < series.length; sj++) {
+                    sData.push(sj === si ? series[sj] : null);
+                }
+                mixSeries.push({ name: 'p' + String(si), type: 'scatter', data: sData });
+                mixColors.push(markerColors[si]);
+                strokeWidths.push(0);
+                markerSizes.push(7);
+            }
             opt = {
                 chart: { type: 'line', height: 290, toolbar: { show: false }, zoom: { enabled: false } },
-                series: [{ name: 'Personas', data: series }],
+                series: mixSeries,
                 xaxis: {
                     categories: labels,
                     labels: {
@@ -881,26 +885,28 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     }
                 },
                 yaxis: { min: 0 },
-                colors: [lineStroke],
+                colors: mixColors,
                 stroke: {
                     curve: 'straight',
-                    width: 4,
+                    width: strokeWidths,
                     lineCap: 'round',
                     lineJoin: 'round'
                 },
                 legend: { show: false },
                 markers: {
-                    size: 7,
+                    size: markerSizes,
                     strokeWidth: 2,
                     strokeColors: '#ffffff',
-                    hover: { size: 9 },
-                    discrete: markerDiscrete
+                    hover: { size: 9 }
                 },
                 dataLabels: { enabled: false },
                 grid: { borderColor: '#eef1f5', padding: { top: 8, right: 12 } },
                 tooltip: {
+                    shared: false,
+                    intersect: true,
                     y: {
                         formatter: function (val, opts) {
+                            if (val == null || val === '') return '';
                             var i = opts.dataPointIndex;
                             return val + ' personas' + (labels[i] != null ? ' · ' + labels[i] : '');
                         }

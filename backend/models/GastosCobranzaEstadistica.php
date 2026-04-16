@@ -16,6 +16,7 @@ use Core\DatabaseSegundometro;
  * KPI «Recuperado»: SUM(monto_parcial_pagado) con fecha de pago en el periodo
  * (misma ventana calendario que el filtro superior), estatus_pago IN (1,2), no condonado.
  * El resto de KPIs siguen usando la fecha de referencia del cargo (created_at / periodo_inicio).
+ * Serie «por día» con filtro Semana: verde usa la misma base (fecha de pago); rojo sigue por fecha del cargo.
  */
 class GastosCobranzaEstadistica
 {
@@ -325,15 +326,33 @@ class GastosCobranzaEstadistica
         }
         $serie = $serieGrupo === 'mes' ? $serieMes : $serieSemana;
 
-        /** Con filtro «Semana»: barras por día (lunes–domingo ISO) dentro de la semana actual. */
+        /**
+         * Con filtro «Semana»: barras por día (lunes–domingo ISO).
+         * - Verde «Pagado»: SUM(monto_parcial_pagado) agrupado por **DATE(fecha_pago)** (misma lógica que el KPI Recuperado).
+         *   Antes se usaba fecha del cargo + monto_valor solo si estatus=2, por eso no coincidía con el total semanal (~186K vs ~12K).
+         * - Rojo «Sin pago» (stack): pendiente + parcial por **fecha del cargo** en la semana ISO (misma base que antes).
+         */
         $serieDias = [];
         if ($periodo === 'semana') {
             try {
-                $sqlSerieDia = "
+                $diaPagoExpr = 'DATE(gc.fecha_pago)';
+                $sqlSerieDiaPagos = "
+                    SELECT
+                        {$diaPagoExpr} AS periodo_key,
+                        {$diaPagoExpr} AS periodo_ini,
+                        COALESCE(SUM(COALESCE(gc.monto_parcial_pagado, 0)), 0) AS monto_pagado
+                    FROM {$tab} gc
+                    WHERE gc.fecha_pago IS NOT NULL
+                      AND {$whereFp}
+                      AND COALESCE(gc.condonado, 0) = 0
+                      AND COALESCE(gc.estatus_pago, 0) IN (1, 2)
+                    GROUP BY {$diaPagoExpr}
+                    ORDER BY periodo_key ASC
+                ";
+                $sqlSerieDiaCargo = "
                     SELECT
                         DATE({$f}) AS periodo_key,
                         DATE({$f}) AS periodo_ini,
-                        COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 2 THEN gc.monto_valor ELSE 0 END), 0) AS monto_pagado,
                         COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 1 THEN gc.monto_valor ELSE 0 END), 0) AS monto_parcial,
                         COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) NOT IN (1, 2) THEN gc.monto_valor ELSE 0 END), 0) AS monto_sin_pago
                     FROM {$tab} gc
@@ -342,11 +361,21 @@ class GastosCobranzaEstadistica
                     GROUP BY DATE({$f})
                     ORDER BY periodo_key ASC
                 ";
-                $byDay = [];
-                foreach ($db->queryAll($sqlSerieDia) as $r) {
+                $byDayPago = [];
+                foreach ($db->queryAll($sqlSerieDiaPagos) as $r) {
                     $key = substr((string) ($r['periodo_ini'] ?? $r['periodo_key'] ?? ''), 0, 10);
                     if ($key !== '') {
-                        $byDay[$key] = $r;
+                        $byDayPago[$key] = (float) ($r['monto_pagado'] ?? 0);
+                    }
+                }
+                $byDayCargo = [];
+                foreach ($db->queryAll($sqlSerieDiaCargo) as $r) {
+                    $key = substr((string) ($r['periodo_ini'] ?? $r['periodo_key'] ?? ''), 0, 10);
+                    if ($key !== '') {
+                        $byDayCargo[$key] = [
+                            'monto_parcial' => (float) ($r['monto_parcial'] ?? 0),
+                            'monto_sin_pago' => (float) ($r['monto_sin_pago'] ?? 0),
+                        ];
                     }
                 }
                 $refIso = new \DateTimeImmutable('today');
@@ -355,24 +384,14 @@ class GastosCobranzaEstadistica
                 $lunes = $refIso->setISODate($isoYear, $isoWeek, 1);
                 for ($i = 0; $i < 7; $i++) {
                     $d = $lunes->modify('+' . $i . ' days')->format('Y-m-d');
-                    if (isset($byDay[$d])) {
-                        $r = $byDay[$d];
-                        $serieDias[] = [
-                            'periodo' => $d,
-                            'periodo_ini' => $d,
-                            'monto_pagado' => round((float) ($r['monto_pagado'] ?? 0), 2),
-                            'monto_parcial' => round((float) ($r['monto_parcial'] ?? 0), 2),
-                            'monto_sin_pago' => round((float) ($r['monto_sin_pago'] ?? 0), 2),
-                        ];
-                    } else {
-                        $serieDias[] = [
-                            'periodo' => $d,
-                            'periodo_ini' => $d,
-                            'monto_pagado' => 0.0,
-                            'monto_parcial' => 0.0,
-                            'monto_sin_pago' => 0.0,
-                        ];
-                    }
+                    $cargo = $byDayCargo[$d] ?? ['monto_parcial' => 0.0, 'monto_sin_pago' => 0.0];
+                    $serieDias[] = [
+                        'periodo' => $d,
+                        'periodo_ini' => $d,
+                        'monto_pagado' => round($byDayPago[$d] ?? 0.0, 2),
+                        'monto_parcial' => round($cargo['monto_parcial'], 2),
+                        'monto_sin_pago' => round($cargo['monto_sin_pago'], 2),
+                    ];
                 }
             } catch (\Throwable $e) {
                 $serieDias = [];

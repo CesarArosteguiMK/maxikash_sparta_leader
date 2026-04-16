@@ -98,7 +98,7 @@
                             <div class="position-relative flex-grow-1" style="min-height: 300px;">
                                 <canvas id="gcChartBar"></canvas>
                             </div>
-                            <p id="gcRecuperacionLunNota" class="small mb-0 mt-1 text-muted d-none" role="note">Lun.: puede incluir cobranza de semanas previas.</p>
+                            <p id="gcRecuperacionLunNota" class="small mb-0 mt-1 text-muted d-none" role="note">Verde: recuperado por <strong>fecha de pago</strong> en la semana (mismo criterio que el KPI). Rojo: pendiente o parcial por <strong>fecha del cargo</strong> en la semana.</p>
                         </div>
                     </div>
                 </div>

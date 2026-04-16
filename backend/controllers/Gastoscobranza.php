@@ -876,6 +876,10 @@ class Gastoscobranza extends Controller
                 'omitir' => max(0, $omitir),
                 'soloColumnas' => $soloColumnas,
             ];
+            $traceId = isset($body['traceId']) ? trim((string)$body['traceId']) : '';
+            if ($traceId !== '' && preg_match('/^[A-Za-z0-9._:-]{6,80}$/', $traceId)) {
+                $payload['traceId'] = $traceId;
+            }
             $origenCarpeta = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
             if ($origenCarpeta === 'reporte') {
                 $payload['origenCarpeta'] = 'reporte';
@@ -961,6 +965,10 @@ class Gastoscobranza extends Controller
                 'megaPhpDefaults' => !isset($body['megaPhpDefaults']) || !empty($body['megaPhpDefaults']),
                 'tipoReporteNulo' => true,
             ];
+            $traceId = isset($body['traceId']) ? trim((string)$body['traceId']) : '';
+            if ($traceId !== '' && preg_match('/^[A-Za-z0-9._:-]{6,80}$/', $traceId)) {
+                $payload['traceId'] = $traceId;
+            }
             if ($origenCarga === 'reporte') {
                 $payload['origenCarpeta'] = 'reporte';
             }
