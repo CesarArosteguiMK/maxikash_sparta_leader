@@ -1123,9 +1123,9 @@ body.dark-mode #migTotalFinal {
                     <div class="d-flex align-items-center gap-2">
                       <label class="fw-semibold mb-0 text-nowrap small">Número de pagos:</label>
                       <input type="number" id="migLibreNumPagos" class="form-control form-control-sm"
-                             style="width:75px;-moz-appearance:textfield;appearance:textfield;" min="2" max="15" value="2"
+                             style="width:75px;-moz-appearance:textfield;appearance:textfield;" min="2" max="15" value=""
                              onkeydown="(function(e){var k=e.key;if(k==='e'||k==='E'||k==='+'||k==='-'||k==='.'||k==='ArrowUp'||k==='ArrowDown'){e.preventDefault();}})(event)"
-                             oninput="(function(el){var v=parseInt(el.value);if(isNaN(v)||v<2){el.value=2;}else if(v>15){el.value=15;}window.migLibreGenerarFilas();})(this)">
+                             oninput="(function(el){var s=el.value;if(s==='')return;var v=parseInt(s);if(isNaN(v)||v<2){el.value=2;window.migLibreGenerarFilas();}else if(v>15){el.value=15;window.migLibreGenerarFilas();}else{window.migLibreGenerarFilas();}})(this)">
                       <small class="text-muted">(máx. 15)</small>
                     </div>
                     <button type="button" class="btn btn-outline-secondary btn-sm"
@@ -2169,6 +2169,33 @@ function congelarModulo(convenio) {
     console.log('Datos completos del convenio:', convenio);
     console.log('Amortización que llegó:', convenio.amortizacion);
 
+    // ── Pre-computar distribución de sobrantes por grupo ─────────
+    var surplusMap = {};
+    Object.keys(gruposConcil).forEach(function (sem) {
+        var entry = gruposConcil[sem];
+        if (!entry.esPrimeroDelGrupo || !entry.semanasDelGrupo || entry.semanasDelGrupo.length < 2) return;
+        var pagos = entry.pagosS2 || [];
+        if (pagos.length === 0) return;
+        var totalPago = parseFloat(pagos[0].montoPago || 0);
+        var sobrante  = totalPago;
+        entry.semanasDelGrupo.forEach(function (numSem) {
+            var filaG = null;
+            for (var i = 0; i < convenio.amortizacion.length; i++) {
+                if (convenio.amortizacion[i].numero_semana == numSem) { filaG = convenio.amortizacion[i]; break; }
+            }
+            if (!filaG) return;
+            var semPago  = parseFloat(filaG.pago_semanal || 0);
+            var aplicado = Math.min(sobrante, semPago);
+            surplusMap[numSem] = {
+                aplicado:         round2(aplicado),
+                totalPago:        totalPago,
+                sobranteSobrante: round2(Math.max(0, sobrante - semPago)),
+                esSobranteParcial: aplicado < semPago - 0.01
+            };
+            sobrante = round2(Math.max(0, sobrante - semPago));
+        });
+    });
+
     var _totalFilasAmort = convenio.amortizacion.length;
     var filasHtml = convenio.amortizacion.map(function (fila, _idxFila) {
         console.log('➡️ ENTRANDO a procesar semana:', fila.numero_semana, 'estatus:', fila.estatus_pago);
@@ -2180,8 +2207,12 @@ function congelarModulo(convenio) {
         var esVencido = fila.estatus_pago === 'vencido';
         var esPendiente = fila.estatus_pago === 'pendiente';
         var esPendienteConciliar = fila.estatus_pago === 'pendiente_conciliar';
+        var surplusEntry      = surplusMap[fila.numero_semana] || null;
+        var esSobranteParcial = !!(surplusEntry && surplusEntry.esSobranteParcial);
 
-        var estatusBadge = esPagado
+        var estatusBadge = (esPagado && esSobranteParcial)
+            ? '<span class="badge bg-warning text-dark"><i class="fas fa-coins me-1"></i>Sobrante parcial</span>'
+            : esPagado
             ? '<span class="badge bg-success">Pagado</span>'
             : esParcial
                 ? '<span class="badge bg-warning text-dark"><i class="fas fa-circle-half-stroke me-1"></i>Parcial</span>'
@@ -2193,9 +2224,9 @@ function congelarModulo(convenio) {
 
         // ── Celda fecha ───────────────────────────────────────
         var celdaFecha = (esPagado || esParcial) && fila.fecha_pago_real
-            ? '<span style="display:block;font-weight:600;color:' + (esParcial ? '#f59e0b' : '#22c55e') + ';">'
+            ? '<span style="display:block;font-weight:600;color:' + (esParcial || esSobranteParcial ? '#f59e0b' : '#22c55e') + ';">'
             + fmtFecha(fila.fecha_pago_real) + '</span>'
-            + '<span style="display:block;color:#888;font-size:0.82em;">' + (esParcial ? 'Parcial' : 'Pagado') + '</span>'
+            + '<span style="display:block;color:#888;font-size:0.82em;">' + (esParcial ? 'Parcial' : esSobranteParcial ? 'Sobrante' : 'Pagado') + '</span>'
             : fmtFechaRango(fila.fecha_pago);
 
         // ── Celda "Pago Realizado" ────────────────────────────
@@ -2264,7 +2295,26 @@ function congelarModulo(convenio) {
                     (esParcial && faltante > 0
                         ? '<span style="display:block;font-size:0.68rem;color:#dc2626;">Falta: ' + fmt2(faltante) + '</span>'
                         : '') +
+                    (esPrimeroGrupo && surplusEntry && surplusEntry.sobranteSobrante > 0.005
+                        ? '<span style="display:block;font-size:0.68rem;color:#b45309;font-weight:600;"><i class="fas fa-arrow-right-arrow-left" style="font-size:0.6rem;"></i> Sobrante: ' + fmt2(surplusEntry.sobranteSobrante) + '</span>'
+                        : '') +
                     '</div>' +
+                    '</div>';
+            }
+
+            // Sobrante parcial — override para semanas cubiertas insuficientemente con sobrante
+            if (esSobranteParcial) {
+                var fmt2ov = function (v) { return '$' + parseFloat(v).toLocaleString('es-MX', { minimumFractionDigits: 2 }); };
+                var _sobAmt  = round2(surplusEntry.aplicado);
+                var _faltAmt = round2(pagoSemanal - _sobAmt);
+                celdaMontoPagado =
+                    '<div style="border-left:3px solid #f59e0b;padding-left:5px;">' +
+                    '<span style="display:block;font-size:0.72rem;color:#92400e;font-weight:600;">' +
+                    '<i class="fas fa-coins" style="font-size:0.65rem;margin-right:3px;"></i>Sobrante aplicado</span>' +
+                    '<span style="display:block;font-size:0.78rem;font-weight:700;color:#b45309;">' + fmt2ov(_sobAmt) + '</span>' +
+                    (_faltAmt > 0.005
+                        ? '<span style="display:block;font-size:0.70rem;color:#dc2626;">Faltan: ' + fmt2ov(_faltAmt) + '</span>'
+                        : '') +
                     '</div>';
             }
         }
@@ -7115,7 +7165,7 @@ window.migResetearFormulario = function () {
     var migLibreFilasBody = document.getElementById('migLibreFilasBody');
     if (migLibreFilasBody) migLibreFilasBody.innerHTML = '';
     var migLibreNumPagos = document.getElementById('migLibreNumPagos');
-    if (migLibreNumPagos) migLibreNumPagos.value = '2';
+    if (migLibreNumPagos) migLibreNumPagos.value = '';
     var migLibreTotalIndicador = document.getElementById('migLibreTotalIndicador');
     if (migLibreTotalIndicador) migLibreTotalIndicador.textContent = 'Asignado: $0.00 / $0.00';
 };
