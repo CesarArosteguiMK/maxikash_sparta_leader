@@ -962,7 +962,7 @@ public static function getGastosCobranza($idCredito)
         } catch (\Exception $e2) {
             return self::resultado(
                 false,
-                'Error al consultar gastos de cobranza',
+                'Error al consultar Gastos Cobranza',
                 [],
                 $e2->getMessage()
             );
@@ -998,12 +998,12 @@ public static function getGastosCobranza($idCredito)
             ];
         }, $r);
 
-        return self::resultado(true, 'Gastos de cobranza', $datos);
+        return self::resultado(true, 'Gastos Cobranza', $datos);
 
     } catch (\Exception $e) {
         return self::resultado(
             false,
-            'Error al consultar gastos de cobranza',
+            'Error al consultar Gastos Cobranza',
             [],
             $e->getMessage()
         );

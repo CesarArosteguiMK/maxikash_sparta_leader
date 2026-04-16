@@ -77,7 +77,7 @@
                                     <span class="sg-tip-btn-face">
                                         <i class="fa fa-rocket" aria-hidden="true"></i>
                                         <span class="sg-btn-label">EC Worker</span>
-                                        <span class="sg-tooltip-icon" data-tip="El Worker es el proceso que actualiza los gastos de cobranza en la base de datos una vez que Cartera ha confirmado que el criterio quedó aplicado en el S2. Cuando el Worker finaliza correctamente, el sistema ejecuta de forma automática la carga a lista negra usando el mismo Excel."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                        <span class="sg-tooltip-icon" data-tip="El Worker es el proceso que actualiza Gastos Cobranza en la base de datos una vez que Cartera ha confirmado que el criterio quedó aplicado en el S2. Cuando el Worker finaliza correctamente, el sistema ejecuta de forma automática la carga a lista negra usando el mismo Excel."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                     </span>
                                 </button>
                             </div>
@@ -147,7 +147,7 @@
                                 <input class="form-check-input" type="checkbox" id="ecLauncherEnrich" autocomplete="off">
                                 <label class="form-check-label small d-inline-flex align-items-center flex-wrap gap-1" for="ecLauncherEnrich">
                                     Excel enriquecido (+ Chat)
-                                    <span class="text-muted" style="cursor: help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" title="Sin marcar: modo Worker (S2, base de datos y Chat). Actualiza gastos de cobranza cuando Cartera confirmó la aplicación en S2; al terminar bien, corre sola la lista negra con este Excel. Marcada: solo flujo «Excel enriquecido» (enrich completo en servidor, misma auditoría que el proceso enrich)."><i class="fa fa-info-circle" aria-hidden="true"></i><span class="visually-hidden"> Ayuda modos Worker / enriquecido</span></span>
+                                    <span class="text-muted" style="cursor: help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false" title="Sin marcar: modo Worker (S2, base de datos y Chat). Actualiza Gastos Cobranza cuando Cartera confirmó la aplicación en S2; al terminar bien, corre sola la lista negra con este Excel. Marcada: solo flujo «Excel enriquecido» (enrich completo en servidor, misma auditoría que el proceso enrich)."><i class="fa fa-info-circle" aria-hidden="true"></i><span class="visually-hidden"> Ayuda modos Worker / enriquecido</span></span>
                                 </label>
                             </div>
                         </div>
@@ -1721,7 +1721,7 @@
             var esRep = esExcelReporteCobranza(nom);
             var btnWorker = !soloDesc && esRep
                 ? '<button type="button" class="btn btn-sm btn-gc-worker-reporte gc-rep-btn-worker ms-1" data-nombre-enc="' +
-                    encodeURIComponent(nom) + '" title="Worker S2: procesa este reporte con el agente (misma lógica que el modal EC Worker). Actualiza gastos de cobranza en BD cuando Cartera confirmó el criterio en S2; si termina bien, la lista negra corre sola con el mismo Excel.">' +
+                    encodeURIComponent(nom) + '" title="Worker S2: procesa este reporte con el agente (misma lógica que el modal EC Worker). Actualiza Gastos Cobranza en BD cuando Cartera confirmó el criterio en S2; si termina bien, la lista negra corre sola con el mismo Excel.">' +
                     '<i class="fa fa-cogs" aria-hidden="true"></i><span class="visually-hidden"> Worker S2</span></button>'
                 : '';
             var btnListaNegra = !soloDesc && esRep

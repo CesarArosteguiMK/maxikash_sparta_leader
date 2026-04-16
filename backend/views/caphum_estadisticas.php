@@ -1,197 +1,110 @@
 <?php
-/** @var string $titulo */
-/** @var int $anioDefault */
-/** @var int $mesDefault */
-/** @var string $datosInicialesJson */
+/**
+ * Estadística Capital Humano — vista con Bootstrap del tema (sin bloque `<style>` propio).
+ * Datos: JSON inicial en vista + `fetch` al panel (lógica de negocio sin cambiar aquí).
+ *
+ * @var string $titulo
+ * @var int $anioDefault
+ * @var int $mesDefault
+ * @var string $datosInicialesJson
+ * @var int $semanaDefault
+ */
 $anioDefault = isset($anioDefault) ? (int) $anioDefault : (int) date('Y');
 $mesDefault = isset($mesDefault) ? (int) $mesDefault : (int) date('n');
 $datosInicialesJson = $datosInicialesJson ?? '{}';
 $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
 ?>
-<style>
-    .ch-est-tip-btn {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        z-index: 2;
-        border: none;
-        background: transparent;
-        padding: 0 2px;
-        margin: 0;
-        line-height: 1;
-        font-size: 11px;
-        color: #8a96a8;
-        cursor: help;
-        opacity: 0.92;
-    }
-    .ch-est-tip-btn:hover,
-    .ch-est-tip-btn:focus {
-        color: #1a3a5c;
-        opacity: 1;
-    }
-    .ch-est-tip-btn:focus {
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(26, 58, 92, 0.2);
-        border-radius: 4px;
-    }
-    .tooltip.ch-est-tip-kpi .tooltip-inner {
-        max-width: min(320px, 92vw);
-        text-align: left;
-        font-size: 12px;
-        line-height: 1.45;
-    }
-    .ch-est-tip-btn.ch-est-tip-inline {
-        position: static;
-        top: auto;
-        right: auto;
-        z-index: auto;
-        flex-shrink: 0;
-        align-self: flex-start;
-        margin-top: 0;
-    }
-    .ch-mov-card {
-        cursor: pointer;
-        border: 2px solid transparent !important;
-        border-radius: 8px;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    }
-    .ch-mov-card:hover {
-        border-color: rgba(26, 58, 92, 0.25) !important;
-        box-shadow: 0 2px 8px rgba(26, 58, 92, 0.08);
-    }
-    .ch-mov-card.ch-mov-card-active {
-        border-color: #2ecc8b !important;
-        box-shadow: 0 0 0 1px rgba(46, 204, 139, 0.35);
-    }
-    .ch-mov-card:focus-visible {
-        outline: 2px solid #2ecc8b;
-        outline-offset: 2px;
-    }
-    .ch-rot-legend-dot {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        margin-right: 4px;
-        vertical-align: middle;
-    }
-    /* KPIs empleados (3) arriba de Movimientos; Dept/Puestos arriba de Rotación */
-    .ch-kpi-strip-empleados {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-    .ch-kpi-strip-empleados > .ch-kpi-mini {
-        position: relative;
-        background: #ffffff;
-        border: 1px solid #dde3ec;
-        border-radius: 10px;
-        padding: 16px 20px;
-        text-align: center;
-        flex: 1 1 0;
-        min-width: 140px;
-    }
-    .ch-kpi-card-depto-puesto {
-        position: relative;
-        background: #ffffff;
-        border: 1px solid #dde3ec;
-        border-radius: 10px;
-        padding: 16px 12px;
-        width: 100%;
-    }
-    @media (max-width: 991.98px) {
-        .ch-kpi-strip-empleados > .ch-kpi-mini {
-            flex: 1 1 calc(50% - 6px);
-            min-width: 120px;
-        }
-    }
-    /* Misma anchura que Movimientos: strip dentro de col-lg-8 */
-    .ch-plantilla-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 12px;
-    }
-    .ch-plantilla-strip > .ch-plantilla-card-wrap {
-        flex: 1 1 0;
-        min-width: 0;
-    }
-    .ch-plantilla-strip > .ch-plantilla-card-wrap .ch-plantilla-card-inner {
-        height: 100%;
-    }
-    @media (max-width: 991.98px) {
-        .ch-plantilla-strip > .ch-plantilla-card-wrap {
-            flex: 1 1 calc(50% - 6px);
-            min-width: 140px;
-        }
-    }
-    /* Cuatro cards en una fila en desktop; más compactas */
-    .ch-plantilla-strip--4col {
-        gap: 8px;
-    }
-    @media (min-width: 992px) {
-        .ch-plantilla-strip--4col {
-            flex-wrap: nowrap;
-        }
-        .ch-plantilla-strip--4col > .ch-plantilla-card-wrap {
-            flex: 1 1 0;
-            min-width: 0;
-        }
-    }
-    .ch-plantilla-strip--4col .ch-plantilla-card-inner {
-        padding: 10px 12px !important;
-        border-radius: 10px !important;
-    }
-    .ch-plantilla-strip--4col .ch-plantilla-kpi-num {
-        font-size: 22px !important;
-        line-height: 1.15;
-    }
-    .ch-plantilla-strip--4col .ch-plantilla-title-sm {
-        font-size: 9px !important;
-        letter-spacing: 0.9px !important;
-    }
-    .ch-plantilla-strip--4col #chPlantillaSedeLista {
-        font-size: 11px !important;
-    }
-    .ch-plantilla-strip--4col #chPlantillaGenH,
-    .ch-plantilla-strip--4col #chPlantillaGenM {
-        font-size: 18px !important;
-    }
-    .ch-plantilla-strip--4col #chPlantillaAntig {
-        font-size: 16px !important;
-        line-height: 1.25;
-    }
-</style>
 <div class="content-wrapper">
     <div class="container-xxl flex-grow-1 container-p-y">
-        <div style="background: #f0f4f8; padding: 20px; border-radius: 12px;">
-        <div style="background: linear-gradient(90deg, #1a3a5c 0%, #1a3a5c 65%, #0d5c3a 100%); border-radius: 12px; padding: 20px 24px 18px; margin-bottom: 16px;">
-            <div class="row align-items-start g-3">
-                <div class="col-lg-8">
-                    <h4 style="color: #ffffff; font-size: 18px; font-weight: 700; margin: 0 0 4px;">Estadística Capital Humano</h4>
-                    <p id="chEstSubtitulo" style="color: rgba(255,255,255,0.6); font-size: 13px; margin: 0;">—</p>
-                    <p id="chEstRangoFechas" style="color: rgba(255,255,255,0.45); font-size: 11px; margin: 6px 0 0;">—</p>
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+            <div>
+                <h4 class="fw-bold mb-1">
+                    <i class="fa-solid fa-users me-2 text-primary"></i>Estadística Capital Humano
+                </h4>
+                <p id="chEstSubtitulo" class="text-muted mb-0 small">—</p>
+                <p id="chEstRangoFechas" class="text-muted mb-0 mt-1 small">—</p>
+            </div>
+            <div class="d-flex flex-wrap align-items-end gap-2">
+                <div>
+                    <label for="chEstAnio" class="form-label small text-muted mb-0">Año</label>
+                    <select id="chEstAnio" class="form-select form-select-sm" style="min-width: 5.5rem;" aria-label="Año"></select>
                 </div>
-                <div class="col-lg-4">
-                    <div class="row g-2 justify-content-lg-end">
-                        <div class="col-4 col-lg-4">
-                            <label for="chEstAnio" style="color: rgba(255,255,255,0.6); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 4px;">Año</label>
-                            <select id="chEstAnio" aria-label="Año" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #ffffff; padding: 6px 10px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;"></select>
+                <div>
+                    <label for="chEstMes" class="form-label small text-muted mb-0">Mes</label>
+                    <select id="chEstMes" class="form-select form-select-sm" style="min-width: 9rem;" aria-label="Mes"></select>
+                </div>
+                <div>
+                    <label for="chEstSemana" class="form-label small text-muted mb-0">Semana</label>
+                    <select id="chEstSemana" class="form-select form-select-sm" style="min-width: 6.5rem;" aria-label="Semana">
+                        <option value="0">Todas</option>
+                        <option value="1">Sem 1</option>
+                        <option value="2">Sem 2</option>
+                        <option value="3">Sem 3</option>
+                        <option value="4">Sem 4</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs: misma cuadrícula y marco que Gastos Cobranza (`gastos_cobranza_estadistica.php`) -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-4 col-xl">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body py-2 d-flex flex-column">
+                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Total empleados en plantilla</span>
+                        <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
+                        <div id="chKpiTotalEmp" class="fs-4 fw-bold text-body">0</div>
+                        <div class="small text-muted mt-1 flex-grow-1" id="chKpiTotalSub">—</div>
+                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiTotalPctBadge">—</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body py-2 d-flex flex-column">
+                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Empleados activos</span>
+                        <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
+                        <div id="chKpiActivos" class="fs-4 fw-bold text-success">0</div>
+                        <div class="small text-muted mt-1" id="chKpiActivosSub">—</div>
+                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-success text-success" id="chKpiActivosPctBadge">—</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body py-2 d-flex flex-column">
+                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Empleados baja</span>
+                        <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
+                        <div id="chKpiInactivos" class="fs-4 fw-bold text-secondary">0</div>
+                        <div class="small text-muted mt-1" id="chKpiBajaSub">—</div>
+                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiBajasPctBadge">—</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body py-2 d-flex flex-column">
+                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Deptos · Puestos</span>
+                        <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
+                        <div class="row g-1 flex-grow-1 align-items-center">
+                            <div class="col-6 text-center border-end">
+                                <div class="small text-muted mb-1">Total departamentos</div>
+                                <div id="chKpiDeptos" class="fs-4 fw-bold text-body">0</div>
+                                <div class="small text-muted mt-1" id="chKpiDeptosSub">—</div>
+                            </div>
+                            <div class="col-6 text-center">
+                                <div class="small text-muted mb-1">Total puestos</div>
+                                <div id="chKpiPuestos" class="fs-4 fw-bold text-body">0</div>
+                                <div class="small text-muted mt-1" id="chKpiPuestosSub">—</div>
+                            </div>
                         </div>
-                        <div class="col-4 col-lg-4">
-                            <label for="chEstMes" style="color: rgba(255,255,255,0.6); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 4px;">Mes</label>
-                            <select id="chEstMes" aria-label="Mes" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #ffffff; padding: 6px 10px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;"></select>
-                        </div>
-                        <div class="col-4 col-lg-4">
-                            <label for="chEstSemana" style="color: rgba(255,255,255,0.6); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 4px;">Semana</label>
-                            <select id="chEstSemana" aria-label="Semana" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #ffffff; padding: 6px 10px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;">
-                                <option value="0" style="color:#1a3a5c;background:#ffffff;">Todas</option>
-                                <option value="1" style="color:#1a3a5c;background:#ffffff;">Sem 1</option>
-                                <option value="2" style="color:#1a3a5c;background:#ffffff;">Sem 2</option>
-                                <option value="3" style="color:#1a3a5c;background:#ffffff;">Sem 3</option>
-                                <option value="4" style="color:#1a3a5c;background:#ffffff;">Sem 4</option>
-                            </select>
+                        <div class="row gx-1 mt-auto pt-2">
+                            <div class="col-6 text-center">
+                                <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiDeptosPctBadge">—</span>
+                            </div>
+                            <div class="col-6 text-center">
+                                <span class="badge rounded-pill bg-label-secondary text-secondary" id="chKpiPuestosPctBadge">—</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -200,95 +113,41 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
 
         <div class="row g-3 mb-4 align-items-start">
             <div class="col-lg-8">
-                <div class="ch-kpi-strip-empleados">
-                    <div class="ch-kpi-mini">
-                        <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                            title="Total de filas en la tabla persona (todos los registros, cualquier estatus)."
-                            aria-label="Ayuda: total empleados en plantilla">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                        <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total empleados en plantilla</div>
-                        <div id="chKpiTotalEmp" style="font-size: 32px; font-weight: 800; color: #1a3a5c; line-height: 1;">0</div>
-                    </div>
-                    <div class="ch-kpi-mini">
-                        <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                            title="Personas cuyo estatus es «Activo» (comparación sin distinguir mayúsculas), contadas en toda la tabla persona."
-                            aria-label="Ayuda: empleados activos">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                        <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Empleados activos</div>
-                        <div id="chKpiActivos" style="font-size: 32px; font-weight: 800; color: #2ecc8b; line-height: 1;">0</div>
-                    </div>
-                    <div class="ch-kpi-mini">
-                        <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                            title="Personas con estatus «Baja» (comparación sin distinguir mayúsculas), contadas en toda la tabla persona."
-                            aria-label="Ayuda: empleados baja">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                        <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Empleados baja</div>
-                        <div id="chKpiInactivos" style="font-size: 32px; font-weight: 800; color: #95a5a6; line-height: 1;">0</div>
-                    </div>
-                </div>
-                <div style="position: relative; background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px;">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2" style="margin-bottom: 10px;">
-                        <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex: 1; min-width: 0;">
-                            <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Movimientos del período</span>
-                            <span id="chMovRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90; letter-spacing: 0.02em;">—</span>
-                        </div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Cada número cuenta eventos entre la primera y la última fecha del filtro (año, mes y semana): ingresos, bajas y reingresos. Al hacer clic en Ingresos, Bajas o Reingresos se abre el panel con la gráfica por departamento; allí puede elegir barras, pastel o línea según el puesto vigente (última asignación en asigna_puesto)."
-                            aria-label="Ayuda: movimientos del período">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div class="d-flex flex-wrap gap-2" style="gap:8px;">
-                        <div class="ch-mov-card" data-ch-mov-tipo="ingresos" role="button" tabindex="0" aria-expanded="false" title="Clic para ver en qué departamento están hoy (puesto vigente)"
-                            style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
-                            <button type="button" class="ch-est-tip-btn ch-mov-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                                onclick="event.stopPropagation();"
-                                title="Personas cuya fecha de ingreso cae dentro del periodo seleccionado (no es la plantilla completa, solo altas en esas fechas)."
-                                aria-label="Ayuda: ingresos">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size: 11px; color: #6b7a90; margin-bottom: 4px; padding-right: 10px;">Ingresos</div>
-                            <div id="chMovIngresos" style="font-size: 22px; font-weight: 700; color: #2ecc8b;">0</div>
-                        </div>
-                        <div class="ch-mov-card" data-ch-mov-tipo="bajas" role="button" tabindex="0" aria-expanded="false" title="Clic para ver departamento según puesto vigente en sistema"
-                            style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
-                            <button type="button" class="ch-est-tip-btn ch-mov-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                                onclick="event.stopPropagation();"
-                                title="Registros en baja_persona cuya fecha de baja está dentro del periodo seleccionado."
-                                aria-label="Ayuda: bajas">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size: 11px; color: #6b7a90; margin-bottom: 4px; padding-right: 10px;">Bajas</div>
-                            <div id="chMovBajas" style="font-size: 22px; font-weight: 700; color: #e74c3c;">0</div>
-                        </div>
-                        <div class="ch-mov-card" data-ch-mov-tipo="reingresos" role="button" tabindex="0" aria-expanded="false" title="Clic para ver desglose por departamento"
-                            style="position: relative; background: #eef1f5; border: 1px solid #dde3ec; border-radius: 8px; padding: 10px 14px; text-align: center; flex: 1; min-width: 100px;">
-                            <button type="button" class="ch-est-tip-btn ch-mov-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                                onclick="event.stopPropagation();"
-                                title="Registros en la tabla reingresos cuya fecha de reingreso cae dentro del periodo seleccionado."
-                                aria-label="Ayuda: reingresos">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size: 11px; color: #6b7a90; margin-bottom: 4px; padding-right: 10px;">Reingresos</div>
-                            <div id="chMovReingresos" style="font-size: 22px; font-weight: 700; color: #3498db;">0</div>
+                <div id="chCardMovimientos" class="card shadow-sm mb-3">
+                    <div class="card-header py-3 d-flex flex-wrap align-items-start gap-2">
+                        <div class="d-flex flex-wrap align-items-baseline gap-2 flex-grow-1" style="min-width: 0;">
+                            <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Movimientos del período</span>
+                            <span id="chMovRangoInline" class="small text-muted">—</span>
                         </div>
                     </div>
-                    <p id="chMovClicAviso" style="font-size: 11px; color: #5a6a7d; margin: 10px 0 0; line-height: 1.45;">Tip: Haz clic en Ingresos, Bajas o Reingresos para abrir la gráfica por departamento.</p>
-                    <div id="chMovResumenBarWrap" style="min-height: 220px; margin-top: 10px;">
+                    <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <div class="ch-mov-card border rounded-3 bg-light user-select-none position-relative flex-fill text-center py-3 px-2" data-ch-mov-tipo="ingresos" role="button" tabindex="0" aria-expanded="false">
+                            <div class="small text-muted mb-1">Ingresos</div>
+                            <div id="chMovIngresos" class="fs-5 fw-bold lh-sm text-success">0</div>
+                        </div>
+                        <div class="ch-mov-card border rounded-3 bg-light user-select-none position-relative flex-fill text-center py-3 px-2" data-ch-mov-tipo="bajas" role="button" tabindex="0" aria-expanded="false">
+                            <div class="small text-muted mb-1">Bajas</div>
+                            <div id="chMovBajas" class="fs-5 fw-bold lh-sm text-danger">0</div>
+                        </div>
+                        <div class="ch-mov-card border rounded-3 bg-light user-select-none position-relative flex-fill text-center py-3 px-2" data-ch-mov-tipo="reingresos" role="button" tabindex="0" aria-expanded="false">
+                            <div class="small text-muted mb-1">Reingresos</div>
+                            <div id="chMovReingresos" class="fs-5 fw-bold lh-sm text-primary">0</div>
+                        </div>
+                    </div>
+                    <p id="chMovClicAviso" class="small text-muted mt-3 mb-0">Tip: Haz clic en Ingresos, Bajas o Reingresos para abrir la gráfica por departamento.</p>
+                    <div id="chMovResumenBarWrap" class="mt-3" style="min-height: 220px;">
                         <div id="chChartMovimientos"></div>
                     </div>
-                    <div id="chMovDetalleWrap" class="d-none" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #dde3ec;">
+                    <div id="chMovDetalleWrap" class="d-none mt-3 pt-3 border-top">
                         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
                             <div>
-                                <div id="chMovDetalleTitulo" style="font-size: 13px; font-weight: 700; color: #1a3a5c;">—</div>
-                                <div id="chMovDetalleSub" style="font-size: 11px; color: #6b7a90; margin-top: 2px; min-height: 0;"></div>
+                                <div id="chMovDetalleTitulo" class="fw-bold text-body">—</div>
+                                <div id="chMovDetalleSub" class="small text-muted mt-1"></div>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="chMovDetalleCerrar">Cerrar</button>
                         </div>
-                        <div id="chMovDetalleChartShell" class="position-relative rounded border bg-white" style="border-color: #dde3ec; min-height: 260px;">
+                        <div id="chMovDetalleChartShell" class="position-relative rounded border bg-white" style="min-height: 260px;">
                             <div class="position-absolute top-0 end-0 p-2 pt-2 pe-2" style="z-index: 2;">
                                 <div class="btn-group" role="group" aria-label="Tipo de gráfica por departamento">
                                     <input type="radio" class="btn-check" name="chMovDetChartTipo" id="chDetTipoPie" value="pie" checked autocomplete="off">
@@ -302,179 +161,153 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <div id="chChartMovDetalle" class="pt-1" style="min-height: 260px;"></div>
                         </div>
                     </div>
+                    </div>
                 </div>
 
-                <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; margin: 20px 0 10px;">Plantilla y Estructura</div>
-                <div class="ch-plantilla-strip ch-plantilla-strip--4col">
-                    <div class="ch-plantilla-card-wrap">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Distribución por Sede</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Top de países/sedes con más personal activo al último día del periodo. El número inferior cuenta cuántas sedes distintas tienen al menos un activo en ese cierre."
-                            aria-label="Ayuda: distribución por sede">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div id="chPlantillaSedeLista" style="font-size: 12px; color: #6b7a90; margin-bottom: 10px; white-space: pre-line;">—</div>
-                    <div style="font-size: 12px; color: #6b7a90;">Total sedes con personal activo</div>
-                    <div id="chPlantillaSedeTotal" class="ch-plantilla-kpi-num" style="font-weight: 700; color: #1a3a5c; margin-top: 4px;">0</div>
+                <h6 class="mb-2 mt-3" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Plantilla y estructura</h6>
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-3 align-items-stretch">
+                    <div class="col d-flex">
+                        <div class="card h-100 shadow-sm position-relative w-100">
+                            <div class="card-body py-3 d-flex flex-column">
+                                <div class="mb-2">
+                                    <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Distribución por sede</span>
+                                </div>
+                                <div id="chPlantillaSedeLista" class="small text-muted mb-2 flex-grow-1" style="white-space: pre-line;">—</div>
+                                <div class="small text-muted">Total sedes con personal activo</div>
+                                <div id="chPlantillaSedeTotal" class="fs-5 fw-bold lh-sm text-body pt-1 mt-auto">0</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="ch-plantilla-card-wrap d-none" id="chWrapCardGenero">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-start gap-1">
-                            <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b;">Distribución por Género</div>
-                            <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Conteo de empleados activos al cierre del periodo según el campo género o sexo en persona (si existe en la base de datos)."
-                                aria-label="Ayuda: distribución por género">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <span id="chBadgeGenPred" style="font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; display: inline-block;">—</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center" style="margin-top: 8px;">
-                        <span style="font-size: 12px; color: #6b7a90;">Hombres</span>
-                        <span id="chPlantillaGenH" style="font-size: 20px; font-weight: 700; color: #1a3a5c;">0</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center" style="margin-top: 6px;">
-                        <span style="font-size: 12px; color: #6b7a90;">Mujeres</span>
-                        <span id="chPlantillaGenM" style="font-size: 20px; font-weight: 700; color: #2ecc8b;">0</span>
-                    </div>
+                    <div class="col d-flex">
+                        <div class="card h-100 shadow-sm position-relative w-100">
+                            <div class="card-body py-3 d-flex flex-column">
+                                <div class="mb-2">
+                                    <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Antigüedad promedio</span>
+                                </div>
+                                <div class="flex-grow-1"></div>
+                                <div id="chPlantillaAntig" class="fs-5 fw-bold lh-sm text-body mt-auto">—</div>
+                                <div class="small text-muted mt-2">Años promedio en la empresa</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="ch-plantilla-card-wrap">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Antigüedad Promedio</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="AVG(DATEDIFF(último día del período, fecha_ingreso)) solo entre empleados Activos con fecha de ingreso no nula y al cierre del período (mismo criterio que plantilla al cierre: ingreso hasta ese día). No incluye el KPI «Total empleados en plantilla» (todas las filas de persona). Debajo del número verás cuántas personas entran en ese promedio."
-                            aria-label="Ayuda: antigüedad promedio">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div id="chPlantillaAntig" class="ch-plantilla-kpi-num" style="font-weight: 800; color: #1a3a5c;">—</div>
-                    <div style="font-size: 12px; color: #6b7a90; margin-top: 8px;">años promedio en la empresa</div>
+                    <div class="col d-flex">
+                        <div class="card h-100 shadow-sm position-relative w-100">
+                            <div class="card-body py-3 d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
+                                    <div class="d-flex align-items-start gap-1 flex-wrap">
+                                        <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Empleados nuevos (&lt; 90 días)</span>
+                                        <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 align-baseline text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
+                                            title="Cuenta empleados con estatus Activo al cierre del período y cuya fecha de ingreso cae en los 90 días calendario que terminan el último día del período filtrado (fecha fin del filtro): desde (ese día − 89 días) hasta ese mismo día inclusive."
+                                            aria-label="Ayuda: empleados nuevos 90 días">
+                                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                    <span id="chBadgeNuevos90" class="badge rounded-pill bg-label-warning text-warning">Recién ingresados</span>
+                                </div>
+                                <div class="flex-grow-1"></div>
+                                <div id="chPlantillaNuevos90" class="fs-5 fw-bold lh-sm text-warning mt-auto">0</div>
+                                <div class="small text-muted mt-2">Al cierre del período filtrado</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="ch-plantilla-card-wrap">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-start gap-1 flex-wrap">
-                            <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b;">Empleados Nuevos (&lt; 90 días)</div>
-                            <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Cuenta empleados con estatus Activo al cierre del período y cuya fecha de ingreso cae en los 90 días calendario que terminan el último día del período filtrado (fecha fin del filtro): desde (ese día − 89 días) hasta ese mismo día inclusive."
-                                aria-label="Ayuda: empleados nuevos 90 días">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <span id="chBadgeNuevos90" style="background: #fef3cd; color: #7a5000; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; display: inline-block;">Recién ingresados</span>
-                    </div>
-                    <div id="chPlantillaNuevos90" class="ch-plantilla-kpi-num" style="font-weight: 800; color: #f0a500; margin-top: 8px;">0</div>
-                    <div style="font-size: 11px; color: #6b7a90; margin-top: 6px;">Al cierre del período filtrado</div>
-                        </div>
-                    </div>
-                    <div class="ch-plantilla-card-wrap">
-                        <div class="ch-plantilla-card-inner" style="background: #f5f7fa; border: 1px solid #dde3ec; height: 100%;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-start gap-1 flex-wrap">
-                            <div class="ch-plantilla-title-sm" style="font-weight: 700; text-transform: uppercase; color: #2ecc8b;">Empleados Bajas (&lt; 90 días)</div>
-                            <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Cuenta registros en baja_persona cuya fecha de baja cae en los 90 días calendario que terminan el último día del período filtrado (fecha fin del filtro): desde (ese día − 89 días) hasta ese mismo día inclusive. Es la misma ventana que «Empleados Nuevos», pero sobre fecha de baja. El texto bajo el número solo indica que el indicador se refiere al cierre del período filtrado; aquí no se listan fechas."
-                                aria-label="Ayuda: empleados bajas 90 días">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <span id="chBadgeBajas90" style="background: #fde8e8; color: #7a1111; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; display: inline-block;">Bajas recientes</span>
-                    </div>
-                    <div id="chPlantillaBajas90" class="ch-plantilla-kpi-num" style="font-weight: 800; color: #e74c3c; margin-top: 8px;">0</div>
-                    <div style="font-size: 11px; color: #6b7a90; margin-top: 6px;">Al cierre del período filtrado</div>
+                    <div class="col d-flex">
+                        <div class="card h-100 shadow-sm position-relative w-100">
+                            <div class="card-body py-3 d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
+                                    <div class="d-flex align-items-start gap-1 flex-wrap">
+                                        <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Empleados bajas (&lt; 90 días)</span>
+                                        <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 align-baseline text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
+                                            title="Cuenta registros en baja_persona cuya fecha de baja cae en los 90 días calendario que terminan el último día del período filtrado (fecha fin del filtro): desde (ese día − 89 días) hasta ese mismo día inclusive. Es la misma ventana que «Empleados Nuevos», pero sobre fecha de baja. El texto bajo el número solo indica que el indicador se refiere al cierre del período filtrado; aquí no se listan fechas."
+                                            aria-label="Ayuda: empleados bajas 90 días">
+                                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                    <span id="chBadgeBajas90" class="badge rounded-pill bg-label-danger text-danger">Bajas recientes</span>
+                                </div>
+                                <div class="flex-grow-1"></div>
+                                <div id="chPlantillaBajas90" class="fs-5 fw-bold lh-sm text-danger mt-auto">0</div>
+                                <div class="small text-muted mt-2">Al cierre del período filtrado</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <div style="background: #ffffff; border: 1px solid #dde3ec; border-radius: 12px; padding: 14px 16px;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 6px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; padding-right: 8px;">Composición de plantilla</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Distribución de empleados activos al cierre del periodo por departamento del puesto vigente (última asignación en asigna_puesto). Clic en un sector lo separa (expand). Si hay muchos departamentos, el resto se agrupa en «Otros»."
-                            aria-label="Ayuda: composición de plantilla por departamento">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div id="chChartPlantilla" style="min-height: 320px;"></div>
+                <div class="row g-3 mb-3 d-none" id="chWrapCardGenero">
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <div class="card h-100 shadow-sm position-relative">
+                            <div class="card-body py-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-start gap-1 flex-wrap">
+                                        <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Distribución por género</span>
+                                        <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 align-baseline text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
+                                            title="Conteo de empleados activos al cierre del periodo según el campo género o sexo en persona (si existe en la base de datos)."
+                                            aria-label="Ayuda: distribución por género">
+                                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                    <span id="chBadgeGenPred" class="badge rounded-pill bg-label-secondary text-secondary">—</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="small text-muted">Hombres</span>
+                                    <span id="chPlantillaGenH" class="fw-bold fs-5 text-body">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <span class="small text-muted">Mujeres</span>
+                                    <span id="chPlantillaGenM" class="fw-bold fs-5 text-success">0</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div style="font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7a90; margin: 20px 0 10px;"></div>
-                <div id="chColTiempoInduccion" class="d-none mb-2" style="max-width: 420px;">
-                    <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px;">
-                    <div class="d-flex justify-content-between align-items-start" style="margin-bottom: 10px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b; padding-right: 8px;">Tiempo Promedio de Inducción</div>
-                        <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                            title="Solo si existe el campo fecha_fin_induccion en persona: promedio de días entre ingreso y fin de inducción, para activos que cerraron inducción con fecha de fin dentro del periodo seleccionado."
-                            aria-label="Ayuda: tiempo promedio de inducción">
-                            <i class="fa fa-info-circle" aria-hidden="true"></i>
-                        </button>
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header py-3 d-flex flex-wrap align-items-start gap-2">
+                        <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Composición de plantilla</span>
                     </div>
-                    <div id="chOnbDiasProm" style="font-size: 24px; font-weight: 700; color: #1a3a5c;">0</div>
-                    <div style="font-size: 12px; color: #6b7a90; margin-top: 8px;">días promedio para completar inducción</div>
+                    <div class="card-body">
+                        <div id="chChartPlantilla" style="min-height: 320px;"></div>
+                    </div>
+                </div>
+                <div id="chColTiempoInduccion" class="d-none mb-3" style="max-width: 420px;">
+                    <div class="card shadow-sm">
+                        <div class="card-body py-3 position-relative">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Tiempo promedio de inducción</span>
+                                <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 align-baseline text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
+                                    title="Solo si existe el campo fecha_fin_induccion en persona: promedio de días entre ingreso y fin de inducción, para activos que cerraron inducción con fecha de fin dentro del periodo seleccionado."
+                                    aria-label="Ayuda: tiempo promedio de inducción">
+                                    <i class="fa fa-info-circle" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div id="chOnbDiasProm" class="fs-4 fw-bold text-body">0</div>
+                            <div class="small text-muted mt-2">Días promedio para completar inducción</div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-4 d-flex flex-column" style="gap: 16px;">
-                <div class="ch-kpi-card-depto-puesto">
-                    <div class="d-flex" style="align-items: stretch;">
-                        <div style="flex: 1 1 50%; text-align: center; padding: 0 8px; border-right: 1px solid #dde3ec;">
-                            <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                                title="Cantidad de departamentos distintos entre los empleados activos con puesto asignado (última asignación) al cierre del periodo."
-                                aria-label="Ayuda: total departamentos">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total departamentos</div>
-                            <div id="chKpiDeptos" style="font-size: 32px; font-weight: 800; color: #1a3a5c; line-height: 1;">0</div>
-                        </div>
-                        <div style="flex: 1 1 50%; text-align: center; padding: 0 8px;">
-                            <button type="button" class="ch-est-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-ch-est-tip="1"
-                                title="Cantidad de puestos distintos (catálogo de puestos) entre los mismos empleados activos con asignación al cierre del periodo."
-                                aria-label="Ayuda: total puestos">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size: 12px; color: #6b7a90; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding-right: 16px;">Total puestos</div>
-                            <div id="chKpiPuestos" style="font-size: 32px; font-weight: 800; color: #1a3a5c; line-height: 1;">0</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 12px; padding: 16px 18px; flex: 1 1 auto;">
-                    <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
-                        <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex: 1; min-width: 0;">
-                            <span style="font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #2ecc8b;">Rotación</span>
-                            <span id="chRotRangoInline" style="font-size: 11px; font-weight: 600; color: #6b7a90;">—</span>
-                            <button type="button" class="ch-est-tip-btn ch-est-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="El % mostrado es (bajas del período / empleados activos) × 100."
-                                aria-label="Ayuda: rotación">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
+            <div class="col-lg-4 d-flex flex-column gap-3">
+                <div id="chCardRotacion" class="card shadow-sm d-flex flex-column">
+                    <div class="card-header py-3 d-flex flex-wrap justify-content-between align-items-start gap-2">
+                        <div class="d-flex flex-wrap align-items-baseline gap-2 flex-grow-1" style="min-width: 0;">
+                            <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Rotación</span>
+                            <span id="chRotRangoInline" class="small text-muted">—</span>
                         </div>
                         <span id="chBadgeRotacion">—</span>
                     </div>
-                    <div class="d-flex flex-column justify-content-center text-center pt-2">
-                        <div id="chRotacionPct" style="font-size: 28px; font-weight: 800; color: #2ecc8b;">0%</div>
-                        <div style="font-size: 10px; color: #6b7a90; margin-top: 6px; line-height: 1.45;">
-                            <div>(Bajas período / empleados activos) × 100</div>
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                    <div class="d-flex flex-column justify-content-center text-center pt-1">
+                        <div id="chRotacionPct" class="fs-2 fw-bold text-success">0%</div>
+                        <div class="small text-muted mt-2">(Bajas período / empleados activos) × 100</div>
+                    </div>
+                    <div class="mt-3 pt-3 border-top d-flex flex-column flex-grow-1 align-items-center">
+                        <div class="text-center mb-2" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Indicador de rotación</div>
+                        <div id="chChartRotacion" style="min-height: 200px; max-width: 280px; margin: 0 auto;"></div>
+                        <div class="d-flex justify-content-center align-items-center flex-wrap gap-3 mt-2 small text-muted">
+                            <span><span class="rounded-circle bg-success d-inline-block align-middle me-1" style="width:8px;height:8px" aria-hidden="true"></span> Bajas período: <strong id="chRotLegendBajas">0</strong></span>
+                            <span><span class="rounded-circle bg-secondary d-inline-block align-middle me-1" style="width:8px;height:8px" aria-hidden="true"></span> Empleados activos: <strong id="chRotLegendPlantilla">0</strong></span>
                         </div>
                     </div>
-                    <div class="mt-3 pt-3" style="border-top: 1px solid #dde3ec;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #6b7a90; margin-bottom: 2px; text-align: center;">Indicador de rotación</div>
-                        <div id="chChartRotacion" style="min-height: 200px; max-width: 280px; margin: 0 auto;"></div>
-                        <div class="d-flex justify-content-center align-items-center flex-wrap gap-3 mt-1" style="font-size: 11px; color: #6b7a90;">
-                            <span><span class="ch-rot-legend-dot" style="background:#2ecc8b;"></span> Bajas período: <strong id="chRotLegendBajas">0</strong></span>
-                            <span><span class="ch-rot-legend-dot" style="background:#bdc3c7;"></span> Empleados activos: <strong id="chRotLegendPlantilla">0</strong></span>
-                        </div>
                     </div>
                 </div>
             </div>
-        </div>
         </div>
     </div>
 </div>
@@ -513,6 +346,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
     var chLoadingOpen = false;
     var chApexLoading = false;
     var chLastDataForCharts = null;
+    var chRotacionSyncResizeT = null;
 
     function mesNombre(m) {
         var n = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -532,7 +366,6 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             var o = document.createElement('option');
             o.value = String(y);
             o.textContent = String(y);
-            o.setAttribute('style', 'color:#1a3a5c;background:#ffffff;');
             if (y === anioSel) o.selected = true;
             sel.appendChild(o);
         }
@@ -551,7 +384,6 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             var o = document.createElement('option');
             o.value = String(m);
             o.textContent = mesNombre(m) + ' ' + y;
-            o.setAttribute('style', 'color:#1a3a5c;background:#ffffff;');
             if (m === mesSel) o.selected = true;
             sel.appendChild(o);
         }
@@ -580,13 +412,11 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         var base = document.createElement('option');
         base.value = '0';
         base.textContent = 'Todas';
-        base.setAttribute('style', 'color:#1a3a5c;background:#ffffff;');
         sel.appendChild(base);
         for (var i = 1; i <= maxSemana; i++) {
             var o = document.createElement('option');
             o.value = String(i);
             o.textContent = 'Sem ' + i;
-            o.setAttribute('style', 'color:#1a3a5c;background:#ffffff;');
             sel.appendChild(o);
         }
         sel.value = String(semanaSel);
@@ -637,6 +467,36 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
     function n(v) {
         var x = parseFloat(String(v == null ? 0 : v).replace(',', '.'));
         return isNaN(x) ? 0 : x;
+    }
+
+    /** Iguala la altura del card Rotación a la del card Movimientos (solo ≥ lg). */
+    function syncChRotacionCardMinHeight() {
+        var mov = document.getElementById('chCardMovimientos');
+        var rot = document.getElementById('chCardRotacion');
+        if (!mov || !rot) return;
+        var lg = typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 992px)').matches;
+        if (!lg) {
+            rot.style.minHeight = '';
+            if (chCharts.rotacion && typeof chCharts.rotacion.resize === 'function') {
+                try { chCharts.rotacion.resize(); } catch (eRz) { /* ignorar */ }
+            }
+            return;
+        }
+        var h = mov.getBoundingClientRect().height;
+        if (h > 0) {
+            rot.style.minHeight = Math.round(h) + 'px';
+        }
+        if (chCharts.rotacion && typeof chCharts.rotacion.resize === 'function') {
+            try { chCharts.rotacion.resize(); } catch (eRz2) { /* ignorar */ }
+        }
+    }
+
+    function scheduleSyncChRotacionCardMinHeight() {
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                syncChRotacionCardMinHeight();
+            });
+        });
     }
 
     function ensureApexReady() {
@@ -813,6 +673,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                 chCharts.rotacion.updateSeries([rotPct], true);
             }
         }
+        scheduleSyncChRotacionCardMinHeight();
     }
 
     function destruirMovDetalleChart() {
@@ -837,10 +698,14 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             if (chCharts.mov && typeof chCharts.mov.resize === 'function') {
                 requestAnimationFrame(function () {
                     try { chCharts.mov.resize(); } catch (eR) { /* ignorar */ }
+                    scheduleSyncChRotacionCardMinHeight();
                 });
+            } else {
+                scheduleSyncChRotacionCardMinHeight();
             }
         } else {
             w.classList.add('d-none');
+            scheduleSyncChRotacionCardMinHeight();
         }
     }
 
@@ -850,21 +715,22 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         var wrap = document.getElementById('chMovDetalleWrap');
         if (wrap) wrap.classList.add('d-none');
         document.querySelectorAll('.ch-mov-card').forEach(function (el) {
-            el.classList.remove('ch-mov-card-active');
+            el.classList.remove('border-success', 'border-2', 'shadow-sm');
             el.setAttribute('aria-expanded', 'false');
         });
         destruirMovDetalleChart();
         setMovResumenBarVisible(true);
+        scheduleSyncChRotacionCardMinHeight();
     }
 
     function actualizarSeleccionMovCards(tipoActivo) {
         document.querySelectorAll('.ch-mov-card').forEach(function (el) {
             var t = el.getAttribute('data-ch-mov-tipo');
             if (t === tipoActivo) {
-                el.classList.add('ch-mov-card-active');
+                el.classList.add('border-success', 'border-2', 'shadow-sm');
                 el.setAttribute('aria-expanded', 'true');
             } else {
-                el.classList.remove('ch-mov-card-active');
+                el.classList.remove('border-success', 'border-2', 'shadow-sm');
                 el.setAttribute('aria-expanded', 'false');
             }
         });
@@ -1028,6 +894,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         chCharts.movDetalle = new ApexCharts(el, opt);
         chCharts.movDetalle.render();
         chMovDetalleListo = true;
+        scheduleSyncChRotacionCardMinHeight();
     }
 
     function solicitarMovDetalle(tipo) {
@@ -1043,6 +910,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         setMovResumenBarVisible(false);
         var wrap = document.getElementById('chMovDetalleWrap');
         if (wrap) wrap.classList.remove('d-none');
+        scheduleSyncChRotacionCardMinHeight();
         syncMovDetalleTipoRadios();
         var titulos = {
             ingresos: 'Ingresos del período — por departamento',
@@ -1120,6 +988,26 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         }
     }
 
+    /** Rango de fechas compacto para badges (misma idea que Gastos Cobranza). */
+    function chPeriodoBadgeText(d) {
+        if (!d || !d.fecha_ini || !d.fecha_fin) return '—';
+        var a = String(d.fecha_ini).replace(/T.*/, '').slice(0, 10);
+        var b = String(d.fecha_fin).replace(/T.*/, '').slice(0, 10);
+        function dmy(s) {
+            var p = s.split('-');
+            if (p.length !== 3) return s;
+            return parseInt(p[2], 10) + '/' + parseInt(p[1], 10) + '/' + p[0];
+        }
+        return dmy(a) + ' – ' + dmy(b);
+    }
+
+    function setChTopKpiPeriodBadges(d) {
+        var t = chPeriodoBadgeText(d);
+        document.querySelectorAll('.ch-kpi-period-badge').forEach(function (el) {
+            el.textContent = t;
+        });
+    }
+
     function pintar(d) {
         if (!d) return;
         cerrarMovDetallePanel();
@@ -1129,11 +1017,35 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         } else {
             setText('chEstRangoFechas', '—');
         }
+        setChTopKpiPeriodBadges(d);
+        var totEmp = n(d.total_empleados);
+        var actEmp = n(d.empleados_activos);
+        var bjEmp = n(d.empleados_baja);
         setText('chKpiTotalEmp', String(d.total_empleados ?? 0));
+        setText('chKpiTotalSub', 'Personas · todos los estatus');
+        var elTotPct = document.getElementById('chKpiTotalPctBadge');
+        if (elTotPct) elTotPct.textContent = totEmp > 0 ? '100%' : '—';
+
         setText('chKpiActivos', String(d.empleados_activos ?? 0));
+        setText('chKpiActivosSub', 'Activos al cierre del periodo');
+        var elActPct = document.getElementById('chKpiActivosPctBadge');
+        if (elActPct) elActPct.textContent = totEmp > 0 ? (Math.round((actEmp / totEmp) * 100) + '%') : '—';
+
         setText('chKpiInactivos', String(d.empleados_baja ?? 0));
+        setText('chKpiBajaSub', 'Estatus baja en persona');
+        var elBjPct = document.getElementById('chKpiBajasPctBadge');
+        if (elBjPct) elBjPct.textContent = totEmp > 0 ? (Math.round((bjEmp / totEmp) * 100) + '%') : '—';
+
         setText('chKpiDeptos', String(d.total_departamentos ?? 0));
         setText('chKpiPuestos', String(d.puestos_unicos ?? 0));
+        setText('chKpiDeptosSub', 'Índice: deptos ÷ activos (×100)');
+        setText('chKpiPuestosSub', 'Índice: puestos ÷ activos (×100)');
+        var nd = n(d.total_departamentos);
+        var np = n(d.puestos_unicos);
+        var elDpb = document.getElementById('chKpiDeptosPctBadge');
+        var elPpb = document.getElementById('chKpiPuestosPctBadge');
+        if (elDpb) elDpb.textContent = actEmp > 0 ? (Math.round((nd / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
+        if (elPpb) elPpb.textContent = actEmp > 0 ? (Math.round((np / actEmp) * 1000) / 10).toFixed(1).replace(/\.0$/, '') + '%' : '—';
         var rangoCorto = (d.fecha_ini && d.fecha_fin) ? (String(d.fecha_ini) + ' → ' + String(d.fecha_fin)) : '—';
         setText('chMovRangoInline', rangoCorto);
         setText('chRotRangoInline', rangoCorto);
@@ -1266,15 +1178,13 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
     });
 
     document.querySelectorAll('.ch-mov-card').forEach(function (card) {
-        card.addEventListener('click', function (e) {
-            if (e.target.closest('.ch-mov-no-abrir')) return;
+        card.addEventListener('click', function () {
             var tipo = card.getAttribute('data-ch-mov-tipo');
             if (tipo) solicitarMovDetalle(tipo);
         });
         card.addEventListener('keydown', function (e) {
             if (e.key !== 'Enter' && e.key !== ' ') return;
             e.preventDefault();
-            if (e.target.closest('.ch-mov-no-abrir')) return;
             var tipo = card.getAttribute('data-ch-mov-tipo');
             if (tipo) solicitarMovDetalle(tipo);
         });
@@ -1292,10 +1202,20 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             }
             el.setAttribute('data-ch-tip-inited', '1');
             try {
-                new bootstrap.Tooltip(el, { customClass: 'ch-est-tip-kpi', container: 'body', trigger: 'hover focus' });
+                new bootstrap.Tooltip(el, { container: 'body', trigger: 'hover focus' });
             } catch (e1) { /* ignorar */ }
         });
     }
     initChEstTooltips();
+
+    window.addEventListener('resize', function () {
+        if (chRotacionSyncResizeT) {
+            clearTimeout(chRotacionSyncResizeT);
+        }
+        chRotacionSyncResizeT = setTimeout(function () {
+            chRotacionSyncResizeT = null;
+            scheduleSyncChRotacionCardMinHeight();
+        }, 120);
+    });
 })();
 </script>
