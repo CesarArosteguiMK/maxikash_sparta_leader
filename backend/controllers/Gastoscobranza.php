@@ -172,18 +172,18 @@ class Gastoscobranza extends Controller
     }
 
     /**
-     * Pantalla «Estadística Gastos Cobranza» — resumen de condonaciones (módulo web 40).
+     * Pantalla «Estadísticas Gastos Cobranza» — resumen de condonaciones (módulo web 40).
      * El detalle por registro está en Condonaciones → Historial condonaciones.
      */
     public function estadisticagc()
     {
-        $this->set('titulo', 'Estadística Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
+        $this->set('titulo', 'Estadísticas Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
         $this->set('script', '');
         self::render('gastos_cobranza_estadistica');
     }
 
     /**
-     * JSON único para el dashboard Estadística Gastos Cobranza (módulo 40).
+     * JSON único para el dashboard Estadísticas Gastos Cobranza (módulo 40).
      * POST JSON: periodo (semana|mes|trimestre|anio), serie_grupo (semana|mes).
      */
     public function getDashboardEstadistica()

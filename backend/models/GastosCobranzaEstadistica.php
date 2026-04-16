@@ -5,7 +5,7 @@ namespace Models;
 use Core\DatabaseSegundometro;
 
 /**
- * Dashboard «Estadística Gastos Cobranza» — KPIs y series sobre `gastos_cobranza` (__SPARTA_SECRET_REDACTED__).
+ * Dashboard «Estadísticas Gastos Cobranza» — KPIs y series sobre `gastos_cobranza` (__SPARTA_SECRET_REDACTED__).
  *
  * Clasificación de filas (coherente con sync / EstadoCuenta):
  * - condonado = 1 → condonado

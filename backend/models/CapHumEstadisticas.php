@@ -340,13 +340,19 @@ class CapHumEstadisticas extends Model
             $rotacionPct = round(100.0 * ($bajas / $denRot), 1);
             if ($rotacionPct <= 5.0) {
                 $rotacionBadge = 'bg-success';
-                $rotacionBadgeText = 'Meta ≤5%';
+                $rotacionBadgeText = 'Controlada';
+                $rotacionAyuda = "Controlada\n\n"
+                    . 'La rotación se mantiene en un nivel bajo y dentro de lo esperado. Las bajas del periodo no representan una alerta relevante, aunque conviene seguir observando su comportamiento para confirmar que la tendencia se conserve estable.';
             } elseif ($rotacionPct <= 15.0) {
                 $rotacionBadge = 'bg-warning text-dark';
-                $rotacionBadgeText = 'Revisar';
+                $rotacionBadgeText = 'Moderada';
+                $rotacionAyuda = "Moderada\n\n"
+                    . 'La rotación presenta un nivel intermedio: ya hay más bajas de las deseadas, pero todavía no se considera un foco crítico. Es recomendable revisar las causas de salida y detectar si el comportamiento se concentra en alguna área, puesto o grupo específico.';
             } else {
                 $rotacionBadge = 'bg-danger';
-                $rotacionBadgeText = 'Sobre meta';
+                $rotacionBadgeText = 'Elevada';
+                $rotacionAyuda = "Elevada\n\n"
+                    . 'La rotación está en un nivel alto y puede reflejar una fuga importante de personal. Conviene analizar de inmediato las causas, identificar áreas con mayor incidencia y definir acciones con Capital Humano o la dirección para contenerla.';
             }
 
             $vacantesAbiertas = self::scalarInt(
@@ -750,6 +756,7 @@ class CapHumEstadisticas extends Model
                 'rotacion_pct' => $rotacionPct,
                 'rotacion_badge_class' => $rotacionBadge,
                 'rotacion_badge_text' => $rotacionBadgeText,
+                'rotacion_ayuda' => $rotacionAyuda,
                 'vacantes_abiertas' => $vacantesAbiertas,
                 'candidatos_activos' => $candidatosActivos,
                 'seleccion_badge_class' => $selBadge,

@@ -77,7 +77,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-file-invoice-dollar',
                 'subItems' => [
                     ['label' => 'Historial condonaciones', 'url' => '/condonaciones/historial', 'modulos' => [15, 39]],
-                    ['label' => 'Estadística Gastos Cobranza', 'url' => '/gastoscobranza/estadisticagc', 'modulos' => [40]],
+                    ['label' => 'Estadísticas', 'url' => '/gastoscobranza/estadisticagc', 'modulos' => [40]],
                 ],
             ],
             'Organización' => [

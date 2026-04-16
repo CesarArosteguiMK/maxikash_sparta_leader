@@ -1,6 +1,6 @@
 <?php
 /**
- * Estadística Gastos Cobranza — mismo patrón que CapHum (`caphum_estadisticas.php`) y Sabueso (`sabueso_estadisticas.php`):
+ * Estadísticas Gastos Cobranza — mismo patrón que CapHum (`caphum_estadisticas.php`) y Sabueso (`sabueso_estadisticas.php`):
  * vista PHP, lógica y gráficas en JavaScript en esta misma vista, datos vía `http.request` al controlador (JSON).
  * Chart.js ya cargado en el layout del tema. Sin React ni JSX.
  *
@@ -12,7 +12,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
             <div>
                 <h4 class="fw-bold mb-1">
-                    <i class="fa-solid fa-chart-column me-2 text-primary"></i>Estadística Gastos Cobranza
+                    <i class="fa-solid fa-chart-column me-2 text-primary"></i>Estadísticas Gastos Cobranza
                 </h4>
                 <p class="text-muted mb-0 small">Indicadores de cargos, recuperación y cartera según el periodo seleccionado.</p>
             </div>
