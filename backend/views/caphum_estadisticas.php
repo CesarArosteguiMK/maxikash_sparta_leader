@@ -8,11 +8,28 @@
  * @var int $mesDefault
  * @var string $datosInicialesJson
  * @var int $semanaDefault
+ * @var string|null $chEstRangoIni Y-m-d (lunes de la semana en curso)
+ * @var string|null $chEstRangoFin Y-m-d (hoy; periodo por defecto = lunes → hoy)
  */
 $anioDefault = isset($anioDefault) ? (int) $anioDefault : (int) date('Y');
 $mesDefault = isset($mesDefault) ? (int) $mesDefault : (int) date('n');
 $datosInicialesJson = $datosInicialesJson ?? '{}';
 $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
+if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_string($chEstRangoFin)
+    && preg_match('/^\d{4}-\d{2}-\d{2}$/', $chEstRangoIni) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $chEstRangoFin)) {
+    // ya fijado en CapHum::estadisticas (lunes → hoy)
+} else {
+    try {
+        $__h = new \DateTimeImmutable('today');
+        $__dow = (int) $__h->format('N');
+        $__lun = $__h->modify('-' . ($__dow - 1) . ' days');
+        $chEstRangoIni = $__lun->format('Y-m-d');
+        $chEstRangoFin = $__h->format('Y-m-d');
+    } catch (\Throwable $e) {
+        $chEstRangoIni = date('Y-m-d');
+        $chEstRangoFin = date('Y-m-d');
+    }
+}
 ?>
 <div class="content-wrapper">
     <div class="container-xxl flex-grow-1 container-p-y">
@@ -21,27 +38,22 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                 <h4 class="fw-bold mb-1">
                     <i class="fa-solid fa-users me-2 text-primary"></i>Estadísticas Capital Humano
                 </h4>
-                <p id="chEstSubtitulo" class="text-muted mb-0 small">—</p>
-                <p id="chEstRangoFechas" class="text-muted mb-0 mt-1 small">—</p>
+                <p id="chEstRangoFechas" class="text-muted mb-0 small">—</p>
             </div>
-            <div class="d-flex flex-wrap align-items-end gap-2">
-                <div>
-                    <label for="chEstAnio" class="form-label small text-muted mb-0">Año</label>
-                    <select id="chEstAnio" class="form-select form-select-sm" style="min-width: 5.5rem;" aria-label="Año"></select>
-                </div>
-                <div>
-                    <label for="chEstMes" class="form-label small text-muted mb-0">Mes</label>
-                    <select id="chEstMes" class="form-select form-select-sm" style="min-width: 9rem;" aria-label="Mes"></select>
-                </div>
-                <div>
-                    <label for="chEstSemana" class="form-label small text-muted mb-0">Semana</label>
-                    <select id="chEstSemana" class="form-select form-select-sm" style="min-width: 6.5rem;" aria-label="Semana">
-                        <option value="0">Todas</option>
-                        <option value="1">Sem 1</option>
-                        <option value="2">Sem 2</option>
-                        <option value="3">Sem 3</option>
-                        <option value="4">Sem 4</option>
-                    </select>
+            <div class="ch-est-fp-rango" style="max-width: 28rem; width: 100%;">
+                <label for="flatpickr-range-ch-est" class="form-label small text-muted mb-0">
+                    <i class="fa fa-calendar-alt me-1" aria-hidden="true"></i>Periodo (rango de fechas)
+                </label>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="text" id="flatpickr-range-ch-est" readonly
+                        class="form-control form-control-sm flex-grow-1 ch-est-fp-input"
+                        style="min-width: 12rem; max-width: 19.5rem; cursor: pointer; user-select: none;"
+                        placeholder="Selecciona inicio y fin" autocomplete="off"
+                        title="No se pueden elegir fechas posteriores a hoy." />
+                    <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="btnChEstRestablecerPeriodo"
+                        title="Volver al periodo por defecto: lunes de esta semana hasta hoy">
+                        Restablecer
+                    </button>
                 </div>
             </div>
         </div>
@@ -319,9 +331,9 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
 
 <script>
 (function () {
-    var anioSel = <?php echo json_encode($anioDefault); ?>;
-    var mesSel = <?php echo json_encode($mesDefault); ?>;
-    var semanaSel = <?php echo json_encode($semanaDefault); ?>;
+    var chEstRangoIniDefault = <?php echo json_encode($chEstRangoIni, JSON_UNESCAPED_UNICODE); ?>;
+    var chEstRangoFinDefault = <?php echo json_encode($chEstRangoFin, JSON_UNESCAPED_UNICODE); ?>;
+    var chEstRango = { inicio: chEstRangoIniDefault, fin: chEstRangoFinDefault };
     var datosIni = <?php echo $datosInicialesJson; ?>;
 
     var ST_BADGE_VERDE = 'background: #d4f5e7; color: #0d5c3a; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; display: inline-block;';
@@ -353,78 +365,149 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
     var chLastDataForCharts = null;
     var chRotacionSyncResizeT = null;
 
-    function mesNombre(m) {
-        var n = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        return n[m] || String(m);
+    function chEstFormatoYmd(fecha) {
+        var y = fecha.getFullYear();
+        var mo = String(fecha.getMonth() + 1).padStart(2, '0');
+        var da = String(fecha.getDate()).padStart(2, '0');
+        return y + '-' + mo + '-' + da;
     }
 
-    function llenarAnios() {
-        var sel = document.getElementById('chEstAnio');
-        if (!sel) return;
-        var now = new Date();
-        var y0 = now.getFullYear();
-        var desde = y0 - 3;
-        var hasta = y0; // no mostrar años futuros
-        if (anioSel > hasta) anioSel = hasta;
-        sel.innerHTML = '';
-        for (var y = desde; y <= hasta; y++) {
-            var o = document.createElement('option');
-            o.value = String(y);
-            o.textContent = String(y);
-            if (y === anioSel) o.selected = true;
-            sel.appendChild(o);
+    function chEstPayloadFiltro() {
+        var p = (chEstRango.inicio || '').split('-');
+        var y = parseInt(p[0], 10);
+        var m = parseInt(p[1], 10);
+        if (isNaN(y)) y = new Date().getFullYear();
+        if (isNaN(m)) m = 1;
+        return {
+            fecha_inicio: chEstRango.inicio,
+            fecha_fin: chEstRango.fin,
+            anio: y,
+            mes: m,
+            semana: 0
+        };
+    }
+
+    function chEstCerrarFlatpickrCalendario(fpInstance) {
+        var fp = fpInstance;
+        if (!fp) {
+            var elFp = document.getElementById('flatpickr-range-ch-est');
+            fp = elFp && elFp._flatpickr ? elFp._flatpickr : null;
+        }
+        if (!fp) return;
+        try {
+            if (typeof fp.close === 'function') {
+                fp.close();
+            }
+        } catch (e1) { /* ignorar */ }
+        var inp = document.getElementById('flatpickr-range-ch-est');
+        if (inp) {
+            try {
+                inp.blur();
+            } catch (e2) { /* ignorar */ }
         }
     }
 
-    function llenarMeses() {
-        var sel = document.getElementById('chEstMes');
-        if (!sel) return;
-        var now = new Date();
-        var y = anioSel;
-        var mesMax = (y === now.getFullYear()) ? (now.getMonth() + 1) : 12;
-        if (mesSel > mesMax) mesSel = mesMax;
-        if (mesSel < 1) mesSel = 1;
-        sel.innerHTML = '';
-        for (var m = 1; m <= mesMax; m++) {
-            var o = document.createElement('option');
-            o.value = String(m);
-            o.textContent = mesNombre(m) + ' ' + y;
-            if (m === mesSel) o.selected = true;
-            sel.appendChild(o);
+    function chEstAplicarRangoYRefrescar(iniYmd, finYmd, fpInstance) {
+        chEstRango.inicio = iniYmd;
+        chEstRango.fin = finYmd;
+        if (fpInstance) {
+            try {
+                var a = new Date(iniYmd + 'T12:00:00');
+                var b = new Date(finYmd + 'T12:00:00');
+                fpInstance.setDate([a, b], false);
+            } catch (eSd) { /* ignorar */ }
         }
+        chEstCerrarFlatpickrCalendario(fpInstance || null);
+        refrescar();
     }
 
-    function semanaDelMesActual(day) {
-        if (day <= 7) return 1;
-        if (day <= 14) return 2;
-        if (day <= 21) return 3;
-        return 4;
+    /** Lunes de la semana calendario local → hoy (misma regla que el servidor). */
+    function chEstRangoLunesHoy() {
+        var hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        var dow = hoy.getDay();
+        var diffToMon = dow === 0 ? -6 : 1 - dow;
+        var lun = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + diffToMon);
+        lun.setHours(0, 0, 0, 0);
+        return { ini: chEstFormatoYmd(lun), fin: chEstFormatoYmd(hoy) };
     }
 
-    function llenarSemanas() {
-        var sel = document.getElementById('chEstSemana');
-        if (!sel) return;
-        var now = new Date();
-        var anioNow = now.getFullYear();
-        var mesNow = now.getMonth() + 1;
-        var maxSemana = 4;
-        if (anioSel === anioNow && mesSel === mesNow) {
-            maxSemana = semanaDelMesActual(now.getDate());
-        }
-        if (semanaSel > maxSemana || semanaSel < 0) semanaSel = 0;
+    function chEstRestaurarPeriodoPorDefecto() {
+        var rh = chEstRangoLunesHoy();
+        var el = document.getElementById('flatpickr-range-ch-est');
+        var fp = el && el._flatpickr ? el._flatpickr : null;
+        chEstAplicarRangoYRefrescar(rh.ini, rh.fin, fp);
+    }
 
-        sel.innerHTML = '';
-        var base = document.createElement('option');
-        base.value = '0';
-        base.textContent = 'Todas';
-        sel.appendChild(base);
-        for (var i = 1; i <= maxSemana; i++) {
-            var o = document.createElement('option');
-            o.value = String(i);
-            o.textContent = 'Sem ' + i;
-            sel.appendChild(o);
+    /**
+     * El HTML de esta vista va en el cuerpo ANTES de los vendor JS del layout; aquí flatpickr
+     * aún no existe cuando corre el IIFE. Se programa la init tras DOMContentLoaded / polling.
+     */
+    function initFlatpickrChEst() {
+        var el = document.getElementById('flatpickr-range-ch-est');
+        if (!el || el._flatpickr || typeof flatpickr === 'undefined') {
+            return;
         }
-        sel.value = String(semanaSel);
+        var hoyMax = new Date();
+        hoyMax.setHours(23, 59, 59, 999);
+        flatpickr(el, {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            clickOpens: true,
+            allowInput: false,
+            maxDate: hoyMax,
+            disableMobile: true,
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+                    longhand: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+                },
+                months: {
+                    shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+                    longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+                },
+                rangeSeparator: ' a '
+            },
+            defaultDate: [chEstRango.inicio, chEstRango.fin],
+            onChange: function (selectedDates, dateStr, instance) {
+                if (selectedDates.length === 2) {
+                    chEstRango.inicio = chEstFormatoYmd(selectedDates[0]);
+                    chEstRango.fin = chEstFormatoYmd(selectedDates[1]);
+                    chEstCerrarFlatpickrCalendario(instance);
+                    /** Deferir refresco: deja que Flatpickr cierre el DOM antes de Swal/fetch (evita calendario “atascado” abierto). */
+                    setTimeout(function () {
+                        chEstCerrarFlatpickrCalendario(null);
+                        refrescar();
+                    }, 0);
+                } else if (selectedDates.length === 0) {
+                    chEstRestaurarPeriodoPorDefecto();
+                }
+            },
+            onClose: function () {
+                chEstCerrarFlatpickrCalendario(null);
+            }
+        });
+    }
+
+    function scheduleInitFlatpickrChEst() {
+        var n = 0;
+        function intentar() {
+            if (typeof flatpickr !== 'undefined') {
+                initFlatpickrChEst();
+                return;
+            }
+            n += 1;
+            if (n > 100) {
+                return;
+            }
+            setTimeout(intentar, 40);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', intentar);
+        } else {
+            intentar();
+        }
     }
 
     function setText(id, txt) {
@@ -553,6 +636,47 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         });
     }
 
+    /** Apex pie: durante updateSeries/updateOptions `globals.series` o `config.series` pueden ser undefined un instante. */
+    function chApexPieLegendValor(opts) {
+        try {
+            if (opts == null || opts.w == null) return '';
+            var idx = typeof opts.seriesIndex === 'number' ? opts.seriesIndex : parseInt(String(opts.seriesIndex), 10);
+            if (!isFinite(idx) || idx < 0) return '';
+            var g = opts.w.globals;
+            if (!g || g.series == null) return '';
+            var ser = g.series;
+            if (!Array.isArray(ser)) return '';
+            var v = ser[idx];
+            if (v !== undefined && v !== null) return v;
+            if (Array.isArray(ser[0])) {
+                var inner = ser[0];
+                return (inner && inner[idx] != null) ? inner[idx] : '';
+            }
+            return '';
+        } catch (eL) {
+            return '';
+        }
+    }
+
+    function chApexPieDataLabelValor(val, opts) {
+        try {
+            if (opts == null || opts.w == null) return val != null && val !== '' ? String(val) : '';
+            var idx = typeof opts.seriesIndex === 'number' ? opts.seriesIndex : parseInt(String(opts.seriesIndex), 10);
+            if (!isFinite(idx) || idx < 0) {
+                return val != null && val !== '' ? String(val) : '';
+            }
+            var cfg = opts.w.config;
+            if (!cfg || cfg.series == null) return val != null && val !== '' ? String(val) : '';
+            var s = cfg.series;
+            if (Array.isArray(s) && s[idx] !== undefined && s[idx] !== null) {
+                return String(s[idx]);
+            }
+            return val != null && val !== '' ? String(val) : '';
+        } catch (eD) {
+            return val != null && val !== '' ? String(val) : '';
+        }
+    }
+
     function ensureApexReady() {
         if (typeof ApexCharts !== 'undefined') return true;
         if (chApexLoading) return false;
@@ -601,11 +725,17 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             grid: { borderColor: '#eef1f5' },
             tooltip: { y: { formatter: function (val) { return val + ' personas'; } } }
         };
-        if (elMov && !chCharts.mov) {
+        if (elMov) {
+            try {
+                if (chCharts.mov) {
+                    chCharts.mov.destroy();
+                    chCharts.mov = null;
+                }
+            } catch (eMovD) {
+                chCharts.mov = null;
+            }
             chCharts.mov = new ApexCharts(elMov, optMovBar);
             chCharts.mov.render();
-        } else if (chCharts.mov) {
-            chCharts.mov.updateSeries([{ name: 'Personas', data: movSeries }], true);
         }
 
         var deptoRows = Array.isArray(d.plantilla_por_departamento) ? d.plantilla_por_departamento : [];
@@ -650,8 +780,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                 onItemClick: { toggleDataSeries: false },
                 onItemHover: { highlightDataSeries: true },
                 formatter: function (seriesName, opts) {
-                    var idx = opts.seriesIndex;
-                    var val = opts.w.globals.series[idx];
+                    var val = chApexPieLegendValor(opts);
                     return seriesName + ': ' + val;
                 }
             },
@@ -663,7 +792,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             dataLabels: {
                 enabled: pieLabels.length <= 14 && !(pieLabels.length === 1 && pieLabels[0] === 'Sin datos'),
                 formatter: function (val, opts) {
-                    return String(opts.w.config.series[opts.seriesIndex]);
+                    return chApexPieDataLabelValor(val, opts);
                 },
                 style: { fontSize: '11px', fontWeight: 600 }
             },
@@ -673,59 +802,68 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             stroke: { width: 1, colors: ['#ffffff'] }
         };
 
-        if (!chCharts.plantilla) {
-            chCharts.plantilla = new ApexCharts(document.querySelector('#chChartPlantilla'), Object.assign({}, pieCommon, {
+        var elPlantilla = document.querySelector('#chChartPlantilla');
+        if (elPlantilla) {
+            try {
+                if (chCharts.plantilla) {
+                    chCharts.plantilla.destroy();
+                    chCharts.plantilla = null;
+                }
+            } catch (ePlD) {
+                chCharts.plantilla = null;
+            }
+            chCharts.plantilla = new ApexCharts(elPlantilla, Object.assign({}, pieCommon, {
                 series: pieSeries
             }));
             chCharts.plantilla.render();
-        } else {
-            chCharts.plantilla.updateOptions(pieCommon, false, true);
-            chCharts.plantilla.updateSeries(pieSeries, true);
         }
 
         var elRot = document.querySelector('#chChartRotacion');
         if (elRot) {
-            if (!chCharts.rotacion) {
-                chCharts.rotacion = new ApexCharts(elRot, {
-                    chart: { type: 'radialBar', height: 200, toolbar: { show: false }, animations: { speed: 400 } },
-                    series: [rotPct],
-                    labels: ['Rotación'],
-                    colors: [rotColor],
-                    plotOptions: {
-                        radialBar: {
-                            hollow: { size: '62%', background: 'transparent' },
-                            track: { background: '#e9ecef', strokeWidth: '100%' },
-                            dataLabels: {
-                                name: {
-                                    show: true,
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    color: '#6b7a90',
-                                    offsetY: 14
-                                },
-                                value: {
-                                    show: true,
-                                    fontSize: '24px',
-                                    fontWeight: 800,
-                                    color: '#1a3a5c',
-                                    offsetY: -10,
-                                    formatter: function (v) {
-                                        var x = parseFloat(String(v).replace(',', '.'));
-                                        if (isNaN(x)) x = 0;
-                                        return Math.round(x) + '%';
-                                    }
-                                },
-                                total: { show: false }
-                            }
-                        }
-                    },
-                    stroke: { lineCap: 'round' }
-                });
-                chCharts.rotacion.render();
-            } else {
-                chCharts.rotacion.updateOptions({ colors: [rotColor] }, false, false);
-                chCharts.rotacion.updateSeries([rotPct], true);
+            try {
+                if (chCharts.rotacion) {
+                    chCharts.rotacion.destroy();
+                    chCharts.rotacion = null;
+                }
+            } catch (eRoD) {
+                chCharts.rotacion = null;
             }
+            chCharts.rotacion = new ApexCharts(elRot, {
+                chart: { type: 'radialBar', height: 200, toolbar: { show: false }, animations: { speed: 400 } },
+                series: [rotPct],
+                labels: ['Rotación'],
+                colors: [rotColor],
+                plotOptions: {
+                    radialBar: {
+                        hollow: { size: '62%', background: 'transparent' },
+                        track: { background: '#e9ecef', strokeWidth: '100%' },
+                        dataLabels: {
+                            name: {
+                                show: true,
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: '#6b7a90',
+                                offsetY: 14
+                            },
+                            value: {
+                                show: true,
+                                fontSize: '24px',
+                                fontWeight: 800,
+                                color: '#1a3a5c',
+                                offsetY: -10,
+                                formatter: function (v) {
+                                    var x = parseFloat(String(v).replace(',', '.'));
+                                    if (isNaN(x)) x = 0;
+                                    return Math.round(x) + '%';
+                                }
+                            },
+                            total: { show: false }
+                        }
+                    }
+                },
+                stroke: { lineCap: 'round' }
+            });
+            chCharts.rotacion.render();
         }
         scheduleSyncChRotacionCardMinHeight();
     }
@@ -837,15 +975,14 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     onItemClick: { toggleDataSeries: false },
                     onItemHover: { highlightDataSeries: true },
                     formatter: function (seriesName, opts) {
-                        var idx = opts.seriesIndex;
-                        return seriesName + ': ' + opts.w.globals.series[idx];
+                        return seriesName + ': ' + chApexPieLegendValor(opts);
                     }
                 },
                 plotOptions: { pie: { expandOnClick: true } },
                 dataLabels: {
                     enabled: labels.length <= 12 && !(labels.length === 1 && labels[0] === 'Sin datos'),
                     formatter: function (val, opts) {
-                        return String(opts.w.config.series[opts.seriesIndex]);
+                        return chApexPieDataLabelValor(val, opts);
                     },
                     style: { fontSize: '11px', fontWeight: 600 }
                 },
@@ -907,7 +1044,10 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     y: {
                         formatter: function (val, opts) {
                             if (val == null || val === '') return '';
-                            var i = opts.dataPointIndex;
+                            var i = opts && opts.dataPointIndex != null ? opts.dataPointIndex : -1;
+                            if (i < 0 || i >= labels.length) {
+                                return String(val) + ' personas';
+                            }
                             return val + ' personas' + (labels[i] != null ? ' · ' + labels[i] : '');
                         }
                     }
@@ -979,16 +1119,14 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         };
         setText('chMovDetalleTitulo', (titulos[tipo] || tipo) + ' (cargando…)');
         setText('chMovDetalleSub', '');
-        var sem = parseInt(document.getElementById('chEstSemana').value, 10);
-        if (isNaN(sem)) sem = 0;
-        var m = parseInt(document.getElementById('chEstMes').value, 10);
-        if (isNaN(m)) m = mesSel;
         var reqId = ++chMovDetalleReqSeq;
+        var filtro = chEstPayloadFiltro();
+        filtro.tipo = tipo;
         fetch('/caphum/getEstadisticasMovimientoDetalle', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
-            body: JSON.stringify({ tipo: tipo, anio: anioSel, mes: m, semana: sem })
+            body: JSON.stringify(filtro)
         })
             .then(function (r) {
                 return r.text().then(function (txt) {
@@ -1038,13 +1176,19 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             });
             return;
         }
-        setText('chEstSubtitulo', 'Cargando datos...');
+        setText('chEstRangoFechas', 'Actualizando estadísticas…');
     }
 
     function hideLoadingAviso() {
+        var swalEstabaAbierto = chLoadingOpen;
         if (chLoadingOpen && typeof Swal !== 'undefined' && Swal && typeof Swal.close === 'function') {
             Swal.close();
             chLoadingOpen = false;
+        }
+        if (swalEstabaAbierto) {
+            setTimeout(function () {
+                chEstCerrarFlatpickrCalendario(null);
+            }, 0);
         }
     }
 
@@ -1068,15 +1212,17 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         });
     }
 
+    /** Una sola línea bajo el título: período consultado (sin duplicar `periodo_label` del servidor). */
+    function chEstLineaRangoConsultado(d) {
+        var t = chPeriodoBadgeText(d);
+        if (t === '—') return 'Rango consultado: —';
+        return 'Rango consultado: ' + t.replace(/\s*–\s*/g, ' → ');
+    }
+
     function pintar(d) {
         if (!d) return;
         cerrarMovDetallePanel();
-        setText('chEstSubtitulo', d.periodo_label || '—');
-        if (d.fecha_ini && d.fecha_fin) {
-            setText('chEstRangoFechas', 'Rango consultado: ' + d.fecha_ini + ' → ' + d.fecha_fin);
-        } else {
-            setText('chEstRangoFechas', '—');
-        }
+        setText('chEstRangoFechas', chEstLineaRangoConsultado(d));
         setChTopKpiPeriodBadges(d);
         var totEmp = n(d.total_empleados);
         var actEmp = n(d.empleados_activos);
@@ -1130,7 +1276,9 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         var topSede = d.plantilla_sede_top || [];
         var sedeLines = [];
         for (var si = 0; si < topSede.length; si++) {
-            sedeLines.push(String(si + 1) + '. ' + (topSede[si].nombre || '—') + ': ' + String(topSede[si].cnt ?? 0));
+            var rowS = topSede[si];
+            if (!rowS) continue;
+            sedeLines.push(String(si + 1) + '. ' + (rowS.nombre || '—') + ': ' + String(rowS.cnt ?? 0));
         }
         setText('chPlantillaSedeLista', sedeLines.length ? sedeLines.join('\n') : 'Sin datos');
         setText('chPlantillaSedeTotal', String(d.plantilla_total_sedes_activas ?? 0));
@@ -1160,80 +1308,108 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         renderCharts(d);
     }
 
+    var chEstRefrescarTimer = null;
+
+    /** Agrupa cambios de fecha (Flatpickr dispara varios eventos seguidos) y evita respuestas cruzadas. */
     function refrescar() {
-        var reqId = ++chReqSeq;
-        var sem = parseInt(document.getElementById('chEstSemana').value, 10);
-        if (isNaN(sem)) sem = 0;
-        semanaSel = sem;
-        var m = parseInt(document.getElementById('chEstMes').value, 10);
-        if (isNaN(m)) m = mesSel;
-        var ay = document.getElementById('chEstAnio');
-        if (ay) {
-            var y = parseInt(ay.value, 10);
-            if (!isNaN(y)) anioSel = y;
+        if (chEstRefrescarTimer !== null) {
+            clearTimeout(chEstRefrescarTimer);
         }
+        chEstRefrescarTimer = setTimeout(function () {
+            chEstRefrescarTimer = null;
+            refrescarEjecutar();
+        }, 400);
+    }
+
+    function refrescarEjecutar() {
+        var reqId = ++chReqSeq;
         showLoadingAviso();
         marcarTextosContextoFiltroPendiente('Actualizando según el filtro…');
+        var bodyJson;
+        try {
+            bodyJson = JSON.stringify(chEstPayloadFiltro());
+        } catch (eBody) {
+            hideLoadingAviso();
+            setText('chEstRangoFechas', 'No se pudo armar la petición del filtro'
+                + ((eBody && eBody.message) ? ' — ' + String(eBody.message) : '') + '.');
+            return;
+        }
         fetch('/caphum/getEstadisticasPanel', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
-            body: JSON.stringify({ anio: anioSel, mes: m, semana: sem })
+            body: bodyJson
         })
             .then(function (r) {
+                if (!r || typeof r.text !== 'function') {
+                    return { ok: false, status: 0, json: null, raw: '' };
+                }
                 return r.text().then(function (txt) {
                     var j = null;
-                    try { j = JSON.parse(txt); } catch (e1) { j = null; }
+                    try {
+                        j = JSON.parse(txt);
+                    } catch (e1) {
+                        j = null;
+                    }
                     return { ok: r.ok, status: r.status, json: j, raw: txt };
                 });
             })
             .then(function (wrap) {
-                if (reqId !== chReqSeq) return;
-                hideLoadingAviso();
+                if (reqId !== chReqSeq) {
+                    return;
+                }
                 var resp = wrap.json;
                 if (!wrap.ok || resp === null) {
-                    setText('chEstSubtitulo', 'El servidor no devolvió JSON (¿sesión o ruta?).');
-                    setText('chEstRangoFechas', 'HTTP ' + String(wrap.status) + (wrap.raw ? ': ' + wrap.raw.slice(0, 280) : ''));
+                    setText('chEstRangoFechas', 'El servidor no devolvió JSON (¿sesión o ruta?). HTTP '
+                        + String(wrap.status) + (wrap.raw ? ': ' + wrap.raw.slice(0, 280) : ''));
                     marcarTextosContextoFiltroPendiente('Sin datos: revise la respuesta del servidor.');
                     return;
                 }
                 if (resp.success && resp.datos != null) {
-                    pintar(resp.datos);
+                    try {
+                        pintar(resp.datos);
+                    } catch (ePintar) {
+                        var det = (ePintar && ePintar.message) ? String(ePintar.message) : String(ePintar);
+                        if (typeof console !== 'undefined' && console.error) {
+                            console.error('[CH estadísticas] pintar:', ePintar);
+                        }
+                        setText('chEstRangoFechas', 'Los datos llegaron pero falló al pintar el panel — ' + det.slice(0, 220));
+                        marcarTextosContextoFiltroPendiente('Error al actualizar gráficas o textos. Revise la consola del navegador (F12).');
+                    }
                     return;
                 }
                 var msg = resp.mensaje ? resp.mensaje : 'No se pudieron cargar las estadísticas.';
-                setText('chEstSubtitulo', msg);
-                setText('chEstRangoFechas', resp.error ? String(resp.error) : '');
+                setText('chEstRangoFechas', msg + (resp.error ? ' — ' + String(resp.error) : ''));
                 marcarTextosContextoFiltroPendiente(msg);
             })
-            .catch(function () {
-                if (reqId !== chReqSeq) return;
-                hideLoadingAviso();
-                setText('chEstSubtitulo', 'Error de red al consultar el panel.');
-                setText('chEstRangoFechas', 'Comprueba la sesión y la ruta /caphum/getEstadisticasPanel');
-                marcarTextosContextoFiltroPendiente('Sin datos: error de red al cambiar el filtro.');
+            .catch(function (err) {
+                if (reqId !== chReqSeq) {
+                    return;
+                }
+                if (typeof console !== 'undefined' && console.error) {
+                    console.error('[CH estadísticas] fetch getEstadisticasPanel:', err);
+                }
+                var det = (err && err.message) ? String(err.message) : String(err);
+                setText('chEstRangoFechas', 'No se pudo contactar al servidor — ' + det.slice(0, 220)
+                    + ' · Revise F12 → Red (timeout, red o http/https distinto a la página).');
+                marcarTextosContextoFiltroPendiente('Sin datos: falló la petición al panel.');
+            })
+            .finally(function () {
+                if (reqId === chReqSeq) {
+                    hideLoadingAviso();
+                }
             });
     }
 
-    llenarAnios();
-    llenarMeses();
-    llenarSemanas();
     pintar(datosIni);
+    scheduleInitFlatpickrChEst();
 
-    document.getElementById('chEstAnio').addEventListener('change', function () {
-        anioSel = parseInt(this.value, 10);
-        if (isNaN(anioSel)) anioSel = new Date().getFullYear();
-        llenarMeses();
-        llenarSemanas();
-        refrescar();
-    });
-    document.getElementById('chEstMes').addEventListener('change', function () {
-        mesSel = parseInt(this.value, 10);
-        if (isNaN(mesSel)) mesSel = 1;
-        llenarSemanas();
-        refrescar();
-    });
-    document.getElementById('chEstSemana').addEventListener('change', refrescar);
+    var btnChEstReset = document.getElementById('btnChEstRestablecerPeriodo');
+    if (btnChEstReset) {
+        btnChEstReset.addEventListener('click', function () {
+            chEstRestaurarPeriodoPorDefecto();
+        });
+    }
 
     document.querySelectorAll('input[name="chMovDetChartTipo"]').forEach(function (radio) {
         radio.addEventListener('change', function () {

@@ -703,8 +703,8 @@ class Convenios extends Controller
             'asignacion' => ($resAsig['success']  ?? false) ? ($resAsig['datos']  ?? []) : [],
         ];
 
-        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Estadística Convenios ' . $emp);
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? trim((string) CONFIGURACION['EMPRESA']) : '';
+        self::set('titulo', 'Estadísticas Convenios' . ($emp !== '' ? ' · ' . $emp : ''));
         self::set('anioDefault', $anio);
         self::set('mesDefault',  $mes);
         self::set('datosInicialesJson', json_encode($datos, JSON_UNESCAPED_UNICODE));

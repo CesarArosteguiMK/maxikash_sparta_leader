@@ -157,21 +157,159 @@ class GastosCobranzaEstadistica
         return self::periodoLabelActual($periodo);
     }
 
-    /** WHERE periodo aplicado a la fecha de pago (alineado a consultas por `fecha_pago`). */
-    private static function sqlWherePeriodoFechaPago(string $tipo): string
+    /** Inicio (inclusive) y fin (exclusivo) del periodo actual en CDMX. */
+    private static function rangoPeriodo(string $periodo): array
     {
-        $fp = 'DATE(gc.fecha_pago)';
-        switch ($tipo) {
-            case 'mes':
-                return "DATE_FORMAT($fp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')";
-            case 'trimestre':
-                return "QUARTER($fp) = QUARTER(CURDATE()) AND YEAR($fp) = YEAR(CURDATE())";
-            case 'anio':
-                return "YEAR($fp) = YEAR(CURDATE())";
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $now = new \DateTimeImmutable('now', $tz);
+
+        switch ($periodo) {
             case 'semana':
+                $isoY = (int) $now->format('o');
+                $isoW = (int) $now->format('W');
+                $inicio = $now->setISODate($isoY, $isoW, 1)->setTime(0, 0, 0);
+                $fin = $inicio->modify('+7 days');
+                break;
+            case 'trimestre':
+                $month = (int) $now->format('n');
+                $q = (int) ceil($month / 3);
+                $startMonth = 3 * $q - 2;
+                $inicio = $now->setDate((int) $now->format('Y'), $startMonth, 1)->setTime(0, 0, 0);
+                $fin = $inicio->modify('+3 months');
+                break;
+            case 'anio':
+                $inicio = $now->setDate((int) $now->format('Y'), 1, 1)->setTime(0, 0, 0);
+                $fin = $inicio->modify('+1 year');
+                break;
+            case 'mes':
             default:
-                return "YEARWEEK($fp, 1) = YEARWEEK(CURDATE(), 1) AND YEAR($fp) = YEAR(CURDATE())";
+                $inicio = $now->modify('first day of this month')->setTime(0, 0, 0);
+                $fin = $inicio->modify('+1 month');
+                break;
         }
+
+        return [
+            'inicio' => $inicio->format('Y-m-d'),
+            'fin' => $fin->format('Y-m-d'),
+        ];
+    }
+
+    private static function normalizarYmd(?string $ymd): ?string
+    {
+        $s = trim((string) $ymd);
+        if ($s === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+            return null;
+        }
+        [$y, $m, $d] = array_map('intval', explode('-', $s));
+        if (!checkdate($m, $d, $y)) {
+            return null;
+        }
+
+        return sprintf('%04d-%02d-%02d', $y, $m, $d);
+    }
+
+    private static function labelRangoCustom(string $inicioYmd, string $finYmd): string
+    {
+        return $inicioYmd . ' → ' . $finYmd;
+    }
+
+    /**
+     * Consulta base diaria aportada por negocio.
+     * El eje principal es fecha_pago, con nacidos por created_at y condonado por fecha_condonacion.
+     */
+    private static function sqlBaseDiaria(): string
+    {
+        $tab = self::TABLA;
+        return "
+            WITH base AS (
+                SELECT
+                    YEAR(gc.fecha_pago) AS anio,
+                    MONTH(gc.fecha_pago) AS mes_num,
+                    ELT(
+                        MONTH(gc.fecha_pago),
+                        'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+                    ) AS mes,
+                    WEEK(gc.fecha_pago, 3) AS semana,
+                    DAY(gc.fecha_pago) AS dia,
+                    DATE(gc.fecha_pago) AS fecha_dia,
+                    MIN(DATE_SUB(DATE(gc.fecha_pago), INTERVAL WEEKDAY(gc.fecha_pago) DAY)) AS semana_fecha_inicio,
+                    MIN(
+                        DATE_ADD(
+                            DATE_SUB(DATE(gc.fecha_pago), INTERVAL WEEKDAY(gc.fecha_pago) DAY),
+                            INTERVAL 6 DAY
+                        )
+                    ) AS semana_fecha_fin,
+                    (
+                        SELECT COUNT(*)
+                        FROM {$tab} sub
+                        WHERE DATE(sub.created_at) = MAX(DATE(gc.fecha_pago))
+                    ) AS registros_nacidos,
+                    (
+                        SELECT COALESCE(SUM(COALESCE(sub.monto_valor, 0)), 0)
+                        FROM {$tab} sub
+                        WHERE DATE(sub.created_at) = MAX(DATE(gc.fecha_pago))
+                    ) AS monto_nacido,
+                    SUM(
+                        CASE
+                            WHEN gc.fecha_pago IS NOT NULL OR COALESCE(gc.estatus_pago, 0) IN (1, 2)
+                                THEN COALESCE(gc.monto_parcial_pagado, 0)
+                            ELSE 0
+                        END
+                    ) AS total_recuperado,
+                    (
+                        SELECT COALESCE(SUM(
+                            CASE
+                                WHEN sub.condonado = 1 AND COALESCE(sub.condonacion_parcial_monto, 0) = 0
+                                    THEN COALESCE(sub.monto_valor, 0)
+                                WHEN sub.condonado = 1 AND COALESCE(sub.condonacion_parcial_monto, 0) > 0
+                                    THEN COALESCE(sub.monto_valor, 0) - COALESCE(sub.monto_parcial_pagado, 0)
+                                WHEN sub.condonado = 0 AND COALESCE(sub.condonacion_parcial_monto, 0) > 0
+                                    THEN COALESCE(sub.condonacion_parcial_monto, 0)
+                                ELSE 0
+                            END
+                        ), 0)
+                        FROM {$tab} sub
+                        WHERE DATE(sub.fecha_condonacion) = MAX(DATE(gc.fecha_pago))
+                    ) AS total_condonado
+                FROM {$tab} gc
+                WHERE gc.fecha_pago >= :fecha_inicio
+                  AND gc.fecha_pago < :fecha_fin
+                  AND gc.fecha_pago IS NOT NULL
+                GROUP BY
+                    YEAR(gc.fecha_pago),
+                    MONTH(gc.fecha_pago),
+                    ELT(
+                        MONTH(gc.fecha_pago),
+                        'Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'
+                    ),
+                    WEEK(gc.fecha_pago, 3),
+                    DAY(gc.fecha_pago),
+                    DATE(gc.fecha_pago)
+            )
+            SELECT
+                anio,
+                mes_num,
+                mes,
+                semana,
+                dia,
+                fecha_dia,
+                DATE_FORMAT(fecha_dia, '%d/%m/%Y') AS fecha_formato,
+                semana_fecha_inicio,
+                semana_fecha_fin,
+                CONCAT(
+                    'Semana ', semana,
+                    ' | ', DATE_FORMAT(semana_fecha_inicio, '%d/%m/%Y'),
+                    ' - ', DATE_FORMAT(semana_fecha_fin, '%d/%m/%Y')
+                ) AS periodo_semana,
+                COALESCE(registros_nacidos, 0) AS registros_nacidos,
+                COALESCE(monto_nacido, 0) AS monto_nacido,
+                COALESCE(total_recuperado, 0) AS total_recuperado,
+                COALESCE(total_condonado, 0) AS total_condonado
+            FROM base
+            ORDER BY anio, mes_num, semana, dia
+        ";
     }
 
     /**
@@ -179,7 +317,7 @@ class GastosCobranzaEstadistica
      * @param string $serieGrupo semana|mes — agrupación de la serie temporal (bloque B)
      * @return array{success: bool, datos?: array<string, mixed>, error?: string}
      */
-    public static function getDashboard(string $periodo, string $serieGrupo): array
+    public static function getDashboard(string $periodo, string $serieGrupo, ?string $fechaInicio = null, ?string $fechaFin = null): array
     {
         $periodo = in_array($periodo, ['semana', 'mes', 'trimestre', 'anio'], true) ? $periodo : 'mes';
         $serieGrupo = ($serieGrupo === 'mes') ? 'mes' : 'semana';
@@ -190,51 +328,133 @@ class GastosCobranzaEstadistica
             return ['success' => false, 'error' => $e->getMessage()];
         }
 
-        $whereP = self::sqlWherePeriodo($periodo);
-        $f = self::sqlFechaRef();
-        $tab = self::TABLA;
-
-        $sqlKpi = "
-            SELECT
-                COUNT(*) AS total_cargos,
-                COALESCE(SUM(gc.monto_valor), 0) AS total_monto,
-                SUM(CASE WHEN COALESCE(gc.condonado, 0) = 1 THEN 1 ELSE 0 END) AS cnt_condonado,
-                COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 1 THEN gc.monto_valor ELSE 0 END), 0) AS monto_condonado,
-                SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 1 THEN 1 ELSE 0 END) AS cnt_parcial,
-                COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 1 THEN gc.monto_valor ELSE 0 END), 0) AS monto_parcial,
-                SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) NOT IN (1, 2) THEN 1 ELSE 0 END) AS cnt_pendiente,
-                COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) NOT IN (1, 2) THEN gc.monto_valor ELSE 0 END), 0) AS monto_pendiente
-            FROM {$tab} gc
-            WHERE {$whereP}
-        ";
-
+        $rango = self::rangoPeriodo($periodo);
+        $inicioSel = self::normalizarYmd($fechaInicio);
+        $finSel = self::normalizarYmd($fechaFin);
+        $usaRangoCustom = false;
+        if ($inicioSel !== null && $finSel !== null && strcmp($inicioSel, $finSel) <= 0) {
+            $usaRangoCustom = true;
+            $inicioDt = new \DateTimeImmutable($inicioSel . ' 00:00:00');
+            $finDtExcl = (new \DateTimeImmutable($finSel . ' 00:00:00'))->modify('+1 day');
+            $rango = [
+                'inicio' => $inicioDt->format('Y-m-d'),
+                'fin' => $finDtExcl->format('Y-m-d'),
+            ];
+        }
+        $rows = [];
         try {
-            $kpi = $db->queryOne($sqlKpi) ?: [];
+            $rows = $db->queryAll(
+                self::sqlBaseDiaria(),
+                ['fecha_inicio' => $rango['inicio'], 'fecha_fin' => $rango['fin']]
+            );
         } catch (\Throwable $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
 
-        $whereFp = self::sqlWherePeriodoFechaPago($periodo);
-        $sqlRec = "
-            SELECT
-                COUNT(*) AS cnt_recuperado,
-                COALESCE(SUM(COALESCE(gc.monto_parcial_pagado, 0)), 0) AS monto_recuperado
-            FROM {$tab} gc
-            WHERE gc.fecha_pago IS NOT NULL
-              AND {$whereFp}
-              AND COALESCE(gc.condonado, 0) = 0
-              AND COALESCE(gc.estatus_pago, 0) IN (1, 2)
-        ";
-        try {
-            $rowRec = $db->queryOne($sqlRec) ?: [];
-            $kpi['cnt_recuperado'] = (int) ($rowRec['cnt_recuperado'] ?? 0);
-            $kpi['monto_recuperado'] = (float) ($rowRec['monto_recuperado'] ?? 0);
-        } catch (\Throwable $e) {
-            $kpi['cnt_recuperado'] = 0;
-            $kpi['monto_recuperado'] = 0.0;
+        $totalRegistrosNacidos = 0;
+        $totalMontoNacido = 0.0;
+        $totalRecuperado = 0.0;
+        $totalCondonado = 0.0;
+        $serieDias = [];
+        $semanaMap = [];
+        $mesMap = [];
+        foreach ($rows as $row) {
+            $fechaDia = (string) ($row['fecha_dia'] ?? '');
+            if ($fechaDia === '') {
+                continue;
+            }
+            $regN = (int) ($row['registros_nacidos'] ?? 0);
+            $mNacido = (float) ($row['monto_nacido'] ?? 0);
+            $mRec = (float) ($row['total_recuperado'] ?? 0);
+            $mCond = (float) ($row['total_condonado'] ?? 0);
+            $mPendiente = max(0.0, $mNacido - $mRec - $mCond);
+
+            $totalRegistrosNacidos += $regN;
+            $totalMontoNacido += $mNacido;
+            $totalRecuperado += $mRec;
+            $totalCondonado += $mCond;
+
+            $serieDias[] = [
+                'periodo' => $fechaDia,
+                'periodo_ini' => $fechaDia,
+                'monto_pagado' => round($mRec, 2),
+                'monto_parcial' => 0.0,
+                'monto_sin_pago' => round($mPendiente, 2),
+            ];
+
+            $semanaKey = sprintf('%04d-W%02d', (int) ($row['anio'] ?? 0), (int) ($row['semana'] ?? 0));
+            if (!isset($semanaMap[$semanaKey])) {
+                $semanaMap[$semanaKey] = [
+                    'periodo' => $semanaKey,
+                    'periodo_ini' => substr((string) ($row['semana_fecha_inicio'] ?? $fechaDia), 0, 10),
+                    'periodo_semana' => (string) ($row['periodo_semana'] ?? ''),
+                    'monto_pagado' => 0.0,
+                    'monto_parcial' => 0.0,
+                    'monto_sin_pago' => 0.0,
+                ];
+            }
+            $semanaMap[$semanaKey]['monto_pagado'] += $mRec;
+            $semanaMap[$semanaKey]['monto_sin_pago'] += $mPendiente;
+
+            $mesKey = sprintf('%04d-%02d', (int) ($row['anio'] ?? 0), (int) ($row['mes_num'] ?? 0));
+            if (!isset($mesMap[$mesKey])) {
+                $mesMap[$mesKey] = [
+                    'periodo' => $mesKey,
+                    'periodo_ini' => substr($fechaDia, 0, 7) . '-01',
+                    'monto_pagado' => 0.0,
+                    'monto_parcial' => 0.0,
+                    'monto_sin_pago' => 0.0,
+                ];
+            }
+            $mesMap[$mesKey]['monto_pagado'] += $mRec;
+            $mesMap[$mesKey]['monto_sin_pago'] += $mPendiente;
         }
 
-        $totalM = (float) ($kpi['total_monto'] ?? 0);
+        ksort($semanaMap);
+        ksort($mesMap);
+        $serieSemana = array_values(array_map(static function (array $r): array {
+            $r['monto_pagado'] = round((float) $r['monto_pagado'], 2);
+            $r['monto_parcial'] = round((float) $r['monto_parcial'], 2);
+            $r['monto_sin_pago'] = round((float) $r['monto_sin_pago'], 2);
+            return $r;
+        }, $semanaMap));
+        $serieMes = array_values(array_map(static function (array $r): array {
+            $r['monto_pagado'] = round((float) $r['monto_pagado'], 2);
+            $r['monto_parcial'] = round((float) $r['monto_parcial'], 2);
+            $r['monto_sin_pago'] = round((float) $r['monto_sin_pago'], 2);
+            return $r;
+        }, $mesMap));
+
+        // En modo por periodo "semana", forzar lunes-domingo aunque no haya registros.
+        if (!$usaRangoCustom && $periodo === 'semana') {
+            $serieDiasMap = [];
+            foreach ($serieDias as $sd) {
+                $serieDiasMap[(string) $sd['periodo_ini']] = $sd;
+            }
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $now = new \DateTimeImmutable('now', $tz);
+            $isoY = (int) $now->format('o');
+            $isoW = (int) $now->format('W');
+            $lunes = $now->setISODate($isoY, $isoW, 1);
+            $serieDiasSem = [];
+            for ($i = 0; $i < 7; $i++) {
+                $d = $lunes->modify('+' . $i . ' days')->format('Y-m-d');
+                $serieDiasSem[] = $serieDiasMap[$d] ?? [
+                    'periodo' => $d,
+                    'periodo_ini' => $d,
+                    'monto_pagado' => 0.0,
+                    'monto_parcial' => 0.0,
+                    'monto_sin_pago' => 0.0,
+                ];
+            }
+            $serieDias = $serieDiasSem;
+        }
+
+        $serie = $serieGrupo === 'mes' ? $serieMes : $serieSemana;
+        $totalM = round($totalMontoNacido, 2);
+        $mRecM = round($totalRecuperado, 2);
+        $mCondM = round($totalCondonado, 2);
+        $mPenResidual = max(0.0, round($totalM - $mRecM - $mCondM, 2));
         $pct = static function (float $m) use ($totalM): float {
             return $totalM > 0 ? round(($m / $totalM) * 100, 2) : 0.0;
         };
@@ -242,163 +462,26 @@ class GastosCobranzaEstadistica
         $kpis = [
             'total_generado' => [
                 'monto' => round($totalM, 2),
-                'count' => (int) ($kpi['total_cargos'] ?? 0),
+                'count' => $totalRegistrosNacidos,
                 'pct' => 100.0,
             ],
             'recuperado' => [
-                'monto' => round((float) ($kpi['monto_recuperado'] ?? 0), 2),
-                'count' => (int) ($kpi['cnt_recuperado'] ?? 0),
-                'pct' => $pct((float) ($kpi['monto_recuperado'] ?? 0)),
-            ],
-            'pago_parcial' => [
-                'monto' => round((float) ($kpi['monto_parcial'] ?? 0), 2),
-                'count' => (int) ($kpi['cnt_parcial'] ?? 0),
-                'pct' => $pct((float) ($kpi['monto_parcial'] ?? 0)),
+                'monto' => $mRecM,
+                'count' => $totalRegistrosNacidos,
+                'pct' => $pct($mRecM),
             ],
             'pendiente' => [
-                'monto' => round((float) ($kpi['monto_pendiente'] ?? 0), 2),
-                'count' => (int) ($kpi['cnt_pendiente'] ?? 0),
-                'pct' => $pct((float) ($kpi['monto_pendiente'] ?? 0)),
+                'monto' => $mPenResidual,
+                'count' => $totalRegistrosNacidos,
+                'pct' => $pct($mPenResidual),
             ],
             'condonado' => [
-                'monto' => round((float) ($kpi['monto_condonado'] ?? 0), 2),
-                'count' => (int) ($kpi['cnt_condonado'] ?? 0),
-                'pct' => $pct((float) ($kpi['monto_condonado'] ?? 0)),
+                'monto' => $mCondM,
+                'count' => $totalRegistrosNacidos,
+                'pct' => $pct($mCondM),
             ],
         ];
 
-        $mRecM = (float) ($kpis['recuperado']['monto'] ?? 0);
-        $mCondM = (float) ($kpis['condonado']['monto'] ?? 0);
-        $mPenResidual = max(0.0, round($totalM - $mRecM - $mCondM, 2));
-        $kpis['pendiente'] = [
-            'monto' => $mPenResidual,
-            'count' => (int) ($kpi['cnt_pendiente'] ?? 0),
-            'pct' => $pct($mPenResidual),
-        ];
-
-        // --- Serie temporal: siempre ambas agrupaciones en una sola respuesta (el toggle Semana/Mes en el front no debe repetir todo el dashboard).
-        $serieSemana = [];
-        $serieMes = [];
-        $mapSerie = static function (array $rows): array {
-            $out = [];
-            foreach ($rows as $r) {
-                $out[] = [
-                    'periodo' => (string) ($r['periodo_key'] ?? ''),
-                    'periodo_ini' => $r['periodo_ini'] ?? null,
-                    'monto_pagado' => round((float) ($r['monto_pagado'] ?? 0), 2),
-                    'monto_parcial' => round((float) ($r['monto_parcial'] ?? 0), 2),
-                    'monto_sin_pago' => round((float) ($r['monto_sin_pago'] ?? 0), 2),
-                ];
-            }
-
-            return $out;
-        };
-        try {
-            $sqlSerieMes = "
-                SELECT
-                    DATE_FORMAT({$f}, '%Y-%m') AS periodo_key,
-                    MIN({$f}) AS periodo_ini,
-                    COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 2 THEN gc.monto_valor ELSE 0 END), 0) AS monto_pagado,
-                    COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 1 THEN gc.monto_valor ELSE 0 END), 0) AS monto_parcial,
-                    COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) NOT IN (1, 2) THEN gc.monto_valor ELSE 0 END), 0) AS monto_sin_pago
-                FROM {$tab} gc
-                WHERE {$f} >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 7 MONTH), '%Y-%m-01')
-                GROUP BY DATE_FORMAT({$f}, '%Y-%m')
-                ORDER BY periodo_key ASC
-            ";
-            $sqlSerieSemana = "
-                SELECT
-                    YEARWEEK({$f}, 1) AS periodo_key,
-                    MIN({$f}) AS periodo_ini,
-                    COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 2 THEN gc.monto_valor ELSE 0 END), 0) AS monto_pagado,
-                    COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 1 THEN gc.monto_valor ELSE 0 END), 0) AS monto_parcial,
-                    COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) NOT IN (1, 2) THEN gc.monto_valor ELSE 0 END), 0) AS monto_sin_pago
-                FROM {$tab} gc
-                WHERE {$f} >= DATE_SUB(CURDATE(), INTERVAL 8 WEEK)
-                GROUP BY YEARWEEK({$f}, 1)
-                ORDER BY periodo_key ASC
-            ";
-            $serieMes = $mapSerie($db->queryAll($sqlSerieMes));
-            $serieSemana = $mapSerie($db->queryAll($sqlSerieSemana));
-        } catch (\Throwable $e) {
-            $serieMes = [];
-            $serieSemana = [];
-        }
-        $serie = $serieGrupo === 'mes' ? $serieMes : $serieSemana;
-
-        /**
-         * Con filtro «Semana»: barras por día (lunes–domingo ISO).
-         * - Verde «Pagado»: SUM(monto_parcial_pagado) agrupado por **DATE(fecha_pago)** (misma lógica que el KPI Recuperado).
-         *   Antes se usaba fecha del cargo + monto_valor solo si estatus=2, por eso no coincidía con el total semanal (~186K vs ~12K).
-         * - Rojo «Sin pago» (stack): pendiente + parcial por **fecha del cargo** en la semana ISO (misma base que antes).
-         */
-        $serieDias = [];
-        if ($periodo === 'semana') {
-            try {
-                $diaPagoExpr = 'DATE(gc.fecha_pago)';
-                $sqlSerieDiaPagos = "
-                    SELECT
-                        {$diaPagoExpr} AS periodo_key,
-                        {$diaPagoExpr} AS periodo_ini,
-                        COALESCE(SUM(COALESCE(gc.monto_parcial_pagado, 0)), 0) AS monto_pagado
-                    FROM {$tab} gc
-                    WHERE gc.fecha_pago IS NOT NULL
-                      AND {$whereFp}
-                      AND COALESCE(gc.condonado, 0) = 0
-                      AND COALESCE(gc.estatus_pago, 0) IN (1, 2)
-                    GROUP BY {$diaPagoExpr}
-                    ORDER BY periodo_key ASC
-                ";
-                $sqlSerieDiaCargo = "
-                    SELECT
-                        DATE({$f}) AS periodo_key,
-                        DATE({$f}) AS periodo_ini,
-                        COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) = 1 THEN gc.monto_valor ELSE 0 END), 0) AS monto_parcial,
-                        COALESCE(SUM(CASE WHEN COALESCE(gc.condonado, 0) = 0 AND COALESCE(gc.estatus_pago, 0) NOT IN (1, 2) THEN gc.monto_valor ELSE 0 END), 0) AS monto_sin_pago
-                    FROM {$tab} gc
-                    WHERE YEARWEEK({$f}, 1) = YEARWEEK(CURDATE(), 1)
-                      AND YEAR({$f}) = YEAR(CURDATE())
-                    GROUP BY DATE({$f})
-                    ORDER BY periodo_key ASC
-                ";
-                $byDayPago = [];
-                foreach ($db->queryAll($sqlSerieDiaPagos) as $r) {
-                    $key = substr((string) ($r['periodo_ini'] ?? $r['periodo_key'] ?? ''), 0, 10);
-                    if ($key !== '') {
-                        $byDayPago[$key] = (float) ($r['monto_pagado'] ?? 0);
-                    }
-                }
-                $byDayCargo = [];
-                foreach ($db->queryAll($sqlSerieDiaCargo) as $r) {
-                    $key = substr((string) ($r['periodo_ini'] ?? $r['periodo_key'] ?? ''), 0, 10);
-                    if ($key !== '') {
-                        $byDayCargo[$key] = [
-                            'monto_parcial' => (float) ($r['monto_parcial'] ?? 0),
-                            'monto_sin_pago' => (float) ($r['monto_sin_pago'] ?? 0),
-                        ];
-                    }
-                }
-                $refIso = new \DateTimeImmutable('today');
-                $isoYear = (int) $refIso->format('o');
-                $isoWeek = (int) $refIso->format('W');
-                $lunes = $refIso->setISODate($isoYear, $isoWeek, 1);
-                for ($i = 0; $i < 7; $i++) {
-                    $d = $lunes->modify('+' . $i . ' days')->format('Y-m-d');
-                    $cargo = $byDayCargo[$d] ?? ['monto_parcial' => 0.0, 'monto_sin_pago' => 0.0];
-                    $serieDias[] = [
-                        'periodo' => $d,
-                        'periodo_ini' => $d,
-                        'monto_pagado' => round($byDayPago[$d] ?? 0.0, 2),
-                        'monto_parcial' => round($cargo['monto_parcial'], 2),
-                        'monto_sin_pago' => round($cargo['monto_sin_pago'], 2),
-                    ];
-                }
-            } catch (\Throwable $e) {
-                $serieDias = [];
-            }
-        }
-
-        // --- Bloque C: generación del día
         $hoy = [
             'cargos_hoy' => 0,
             'creditos_distintos_hoy' => 0,
@@ -406,110 +489,34 @@ class GastosCobranzaEstadistica
             'cargo_base_unitario' => 0.0,
             'creditos_multiples_cargos_mismo_dia' => 0,
         ];
-        try {
-            $rowHoy = $db->queryOne("
-                SELECT
-                    COUNT(*) AS cargos_hoy,
-                    COUNT(DISTINCT gc.Id_credito) AS creditos_distintos,
-                    COALESCE(SUM(gc.monto_valor), 0) AS monto_hoy,
-                    COALESCE(AVG(gc.monto_valor), 0) AS avg_monto
-                FROM {$tab} gc
-                WHERE {$f} = CURDATE()
-            ");
-            if ($rowHoy) {
-                $hoy['cargos_hoy'] = (int) ($rowHoy['cargos_hoy'] ?? 0);
-                $hoy['creditos_distintos_hoy'] = (int) ($rowHoy['creditos_distintos'] ?? 0);
-                $hoy['monto_generado_hoy'] = round((float) ($rowHoy['monto_hoy'] ?? 0), 2);
-                $hoy['cargo_base_unitario'] = round((float) ($rowHoy['avg_monto'] ?? 0), 2);
+        foreach ($rows as $r) {
+            $fh = substr((string) ($r['fecha_dia'] ?? ''), 0, 10);
+            if ($fh === (new \DateTimeImmutable('today', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d')) {
+                $hoy['cargos_hoy'] += (int) ($r['registros_nacidos'] ?? 0);
+                $hoy['monto_generado_hoy'] += (float) ($r['monto_nacido'] ?? 0);
             }
-            $rowMulti = $db->queryOne("
-                SELECT COUNT(*) AS n FROM (
-                    SELECT gc.Id_credito
-                    FROM {$tab} gc
-                    WHERE {$f} = CURDATE()
-                    GROUP BY gc.Id_credito
-                    HAVING COUNT(*) > 1
-                ) x
-            ");
-            $hoy['creditos_multiples_cargos_mismo_dia'] = (int) ($rowMulti['n'] ?? 0);
-        } catch (\Throwable $e) {
-            // deja defaults
         }
+        $hoy['monto_generado_hoy'] = round((float) $hoy['monto_generado_hoy'], 2);
+        $hoy['cargo_base_unitario'] = $hoy['cargos_hoy'] > 0
+            ? round($hoy['monto_generado_hoy'] / $hoy['cargos_hoy'], 2)
+            : 0.0;
 
-        // --- Bloque D: top deuda pendiente
         $top = [];
-        try {
-            $top = $db->queryAll("
-                SELECT
-                    gc.Id_credito AS id_credito,
-                    MAX(gc.Nombre_cliente) AS nombre_cliente,
-                    COUNT(*) AS num_cargos,
-                    COALESCE(SUM(gc.monto_valor - COALESCE(gc.monto_parcial_pagado, 0) - COALESCE(gc.condonacion_parcial_monto, 0)), 0) AS total_deuda
-                FROM {$tab} gc
-                WHERE COALESCE(gc.condonado, 0) = 0
-                  AND COALESCE(gc.estatus_pago, 0) NOT IN (2)
-                GROUP BY gc.Id_credito
-                HAVING total_deuda > 0
-                ORDER BY total_deuda DESC
-                LIMIT 6
-            ");
-            foreach ($top as &$t) {
-                $t['total_deuda'] = round((float) ($t['total_deuda'] ?? 0), 2);
-                $t['id_credito'] = (int) ($t['id_credito'] ?? 0);
-                $t['num_cargos'] = (int) ($t['num_cargos'] ?? 0);
-            }
-            unset($t);
-        } catch (\Throwable $e) {
-            $top = [];
-        }
 
-        // --- Bloque E: indicadores
-        $mCond = (float) ($kpi['monto_condonado'] ?? 0);
-        $mRec = (float) ($kpi['monto_recuperado'] ?? 0);
-        $mPar = (float) ($kpi['monto_parcial'] ?? 0);
-        $tasaCond = $totalM > 0 ? round(($mCond / $totalM) * 100, 2) : 0.0;
-        $pctRecReal = $totalM > 0 ? round(($mRec / $totalM) * 100, 2) : 0.0;
-        $pctRecParcial = $totalM > 0 ? round((($mRec + $mPar) / $totalM) * 100, 2) : 0.0;
-
-        $totalCargosPeriodo = (int) ($kpi['total_cargos'] ?? 0);
-        $clientesDeuda = 0;
-        $moraProm = 0.0;
-        try {
-            $rClMora = $db->queryOne("
-                SELECT
-                    COUNT(DISTINCT gc.Id_credito) AS n,
-                    AVG(CASE WHEN {$f} IS NOT NULL THEN DATEDIFF(CURDATE(), {$f}) ELSE NULL END) AS mora_dias
-                FROM {$tab} gc
-                WHERE {$whereP}
-                  AND COALESCE(gc.condonado, 0) = 0
-                  AND COALESCE(gc.estatus_pago, 0) NOT IN (2)
-            ");
-            $clientesDeuda = (int) ($rClMora['n'] ?? 0);
-            $moraProm = round((float) ($rClMora['mora_dias'] ?? 0), 2);
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        $cargoBase = 0.0;
-        try {
-            $rCb = $db->queryOne("
-                SELECT COALESCE(AVG(gc.monto_valor), 0) AS cb
-                FROM {$tab} gc
-                WHERE {$whereP}
-            ");
-            $cargoBase = round((float) ($rCb['cb'] ?? 0), 2);
-        } catch (\Throwable $e) {
-            $cargoBase = round($totalCargosPeriodo > 0 ? $totalM / max(1, $totalCargosPeriodo) : 0, 2);
-        }
+        $tasaCond = $totalM > 0 ? round(($mCondM / $totalM) * 100, 2) : 0.0;
+        $pctRecReal = $totalM > 0 ? round(($mRecM / $totalM) * 100, 2) : 0.0;
+        $cargoBase = $totalRegistrosNacidos > 0
+            ? round($totalM / max(1, $totalRegistrosNacidos), 2)
+            : 0.0;
 
         $indicadores = [
             'cargo_base_unitario' => $cargoBase,
-            'total_cargos_periodo' => $totalCargosPeriodo,
-            'clientes_con_deuda_activa' => $clientesDeuda,
+            'total_cargos_periodo' => $totalRegistrosNacidos,
+            'clientes_con_deuda_activa' => 0,
             'tasa_condonacion_pct' => $tasaCond,
             'pct_recuperacion_real' => $pctRecReal,
-            'pct_recuperacion_mas_parcial' => $pctRecParcial,
-            'mora_promedio_dias' => $moraProm,
+            'pct_recuperacion_mas_parcial' => $pctRecReal,
+            'mora_promedio_dias' => 0.0,
         ];
 
         $donut = [
@@ -523,8 +530,16 @@ class GastosCobranzaEstadistica
             'success' => true,
             'datos' => [
                 'periodo' => $periodo,
-                'periodo_label' => self::periodoLabelActual($periodo),
-                'periodo_badge' => self::periodoBadgeRango($periodo),
+                'periodo_label' => $usaRangoCustom
+                    ? self::labelRangoCustom($inicioSel, $finSel)
+                    : self::periodoLabelActual($periodo),
+                'periodo_badge' => $usaRangoCustom
+                    ? self::labelRangoCustom($inicioSel, $finSel)
+                    : self::periodoBadgeRango($periodo),
+                'fecha_inicio' => $usaRangoCustom ? $inicioSel : $rango['inicio'],
+                'fecha_fin' => $usaRangoCustom
+                    ? $finSel
+                    : (new \DateTimeImmutable($rango['fin'] . ' 00:00:00'))->modify('-1 day')->format('Y-m-d'),
                 'serie_grupo' => $serieGrupo,
                 'kpis' => $kpis,
                 'serie' => $serie,
