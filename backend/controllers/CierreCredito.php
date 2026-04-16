@@ -335,6 +335,37 @@ class CierreCredito extends Controller
             \PHPSpreadsheet::ColumnaExcel('valor', 'Valor'),
         ];
         $fmtMXN = fn($v) => '$' . number_format((float)$v, 2);
+
+        // ── Datos S2 (Segundometro) ──────────────
+        $s2SemanaStr  = '—';
+        $s2MontoStr   = '—';
+        $s2CuotasStr  = '—';
+        $s2TotalStr   = '—';
+        try {
+            $dbSm  = new \Core\DatabaseSegundometro();
+            $s2Row = $dbSm->queryOne(
+                "SELECT Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total,
+                        Monto_otorgado, Semana_acuerdo, Anio_semana_acuerdo
+                 FROM tbl_segundometro_semana
+                 WHERE Id_credito = :id LIMIT 1",
+                ['id' => (int) $cierre['id_credito']]
+            );
+            if ($s2Row) {
+                $cont = (int) $s2Row['Numero_amortizaciones'];
+                $pag  = (int) $s2Row['Num_cuotas_pagadas'];
+                $tot  = (float) $s2Row['Abonos_total'];
+                $mont = (float) $s2Row['Monto_otorgado'];
+                $sem  = $s2Row['Semana_acuerdo'];
+                $anio = $s2Row['Anio_semana_acuerdo'];
+                $s2SemanaStr = ($sem !== null && $anio !== null) ? "Sem. $sem / $anio" : '—';
+                $s2MontoStr  = '$' . number_format(abs($mont), 2);
+                $s2CuotasStr = "$pag de $cont";
+                $s2TotalStr  = '$' . number_format(abs($tot), 2);
+            }
+        } catch (\Throwable $e) {
+            error_log('descargarExcelCierre S2 error: ' . $e->getMessage());
+        }
+
         $dataResumen = [
             ['campo' => 'Crédito #',            'valor' => $cierre['id_credito']],
             ['campo' => 'Cliente',               'valor' => $cierre['nombre_cliente']],
@@ -351,6 +382,11 @@ class CierreCredito extends Controller
             ['campo' => 'Fecha último pago',     'valor' => $convenio['fecha_ultimo_pago'] ?? '—'],
             ['campo' => 'Registrado por',        'valor' => $cierre['usuario_alta']],
             ['campo' => 'Fecha alta',            'valor' => $cierre['fecha_alta']],
+            ['campo' => '— Datos crédito —',     'valor' => ''],
+            ['campo' => 'Semana del acuerdo',    'valor' => $s2SemanaStr],
+            ['campo' => 'Monto otorgado',        'valor' => $s2MontoStr],
+            ['campo' => 'Cuotas (pagadas/total)','valor' => $s2CuotasStr],
+            ['campo' => 'Total pagado',          'valor' => $s2TotalStr],
         ];
 
         // ── Hoja 2: Tabla de amortización ───────

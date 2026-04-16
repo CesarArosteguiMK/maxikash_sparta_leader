@@ -171,6 +171,11 @@ class CierreCredito extends Model
                      WHERE a.id_convenio_cliente = cc.id
                        AND a.comprobante_path IS NOT NULL
                        AND a.comprobante_path != '')   AS comprobantes_subidos,
+                    (SELECT GROUP_CONCAT(a.comprobante_path ORDER BY a.numero_semana SEPARATOR '|')
+                     FROM convenio_cliente_amortizacion a
+                     WHERE a.id_convenio_cliente = cc.id
+                       AND a.comprobante_path IS NOT NULL
+                       AND a.comprobante_path != '')   AS comprobantes_paths,
                     (SELECT TRIM(CONCAT_WS(' ',
                             per.nombres, per.segundo_nombre,
                             per.apellidop, per.apellidom))
@@ -366,6 +371,7 @@ class CierreCredito extends Model
             $s2CuotasContratadas = null;
             $s2CuotasPagadas     = null;
             $s2TotalPagado       = null;
+            $s2MontoOtorgado     = null;
             $semanaAcuerdo       = null;
             $anioSemanaAcuerdo   = null;
 
@@ -382,7 +388,7 @@ class CierreCredito extends Model
                 try {
                     $dbSm  = new DatabaseSegundometro();
                     $s2Row = $dbSm->queryOne(
-                        "SELECT Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total
+                        "SELECT Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total, Monto_otorgado
                          FROM tbl_segundometro_semana
                          WHERE Id_credito = :id
                          LIMIT 1",
@@ -392,6 +398,7 @@ class CierreCredito extends Model
                         $s2CuotasContratadas = (int)   $s2Row['Numero_amortizaciones'];
                         $s2CuotasPagadas     = (int)   $s2Row['Num_cuotas_pagadas'];
                         $s2TotalPagado       = (float) $s2Row['Abonos_total'];
+                        $s2MontoOtorgado     = (float) $s2Row['Monto_otorgado'];
                     }
                 } catch (\Throwable $smEx) {
                     error_log('CierreCredito::enviarACartera S2 -> ' . $smEx->getMessage());
@@ -440,16 +447,16 @@ class CierreCredito extends Model
                     $s2CuotasContrStr = $s2CuotasContratadas !== null ? (string) $s2CuotasContratadas : '—';
                     $s2CuotasPagStr   = $s2CuotasPagadas     !== null ? (string) $s2CuotasPagadas     : '—';
                     $s2TotalStr       = $s2TotalPagado        !== null
-                        ? '$' . number_format($s2TotalPagado, 2) : '—';
+                        ? '$' . number_format(abs($s2TotalPagado), 2) : '—';
+                    $s2MontoOtorgadoStr = $s2MontoOtorgado !== null
+                        ? '$' . number_format(abs($s2MontoOtorgado), 2) : '—';
                     $semanaStr = ($semanaAcuerdo !== null && $anioSemanaAcuerdo !== null)
                         ? "Sem. {$semanaAcuerdo} / {$anioSemanaAcuerdo}" : '—';
 
                     // Adjuntar PDF del convenio si existe
                     $adjuntos = [];
                     if ($convenio && !empty($convenio['pdf_adjunto'])) {
-                        $pdfPath = defined('RAIZ')
-                            ? (dirname(RAIZ) . '/public/uploads/convenios/' . basename($convenio['pdf_adjunto']))
-                            : (__DIR__ . '/../../public/uploads/convenios/' . basename($convenio['pdf_adjunto']));
+                        $pdfPath = sparta_uploads_join('convenios', basename($convenio['pdf_adjunto']));
                         if (is_file($pdfPath) && is_readable($pdfPath)) {
                             $adjuntos[] = $pdfPath;
                         }
@@ -464,11 +471,8 @@ class CierreCredito extends Model
                             ['id' => (int) $convenio['id_convenio']]
                         );
                         if ($compRows) {
-                            $uploadsBase = defined('RAIZ')
-                                ? (dirname(RAIZ) . '/public/uploads/comprobantes/')
-                                : (__DIR__ . '/../../public/uploads/comprobantes/');
                             foreach ($compRows as $cr) {
-                                $compPath = $uploadsBase . basename($cr['comprobante_path']);
+                                $compPath = sparta_uploads_join('comprobantes', basename($cr['comprobante_path']));
                                 if (is_file($compPath) && is_readable($compPath)) {
                                     $adjuntos[] = $compPath;
                                 }
@@ -496,11 +500,12 @@ class CierreCredito extends Model
                             <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Total a pagar</td><td style="padding:8px;color:#1a52a8;font-weight:bold;">\${$total}</td></tr>
                             <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Semanas</td><td style="padding:8px;">{$semanas}</td></tr>
                             <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Fecha de acuerdo</td><td style="padding:8px;">{$fechaAcuerdo}</td></tr>
-                            <tr><td colspan="2" style="padding:10px 8px 4px;font-size:12px;font-weight:bold;color:#0369a1;background:#f0f9ff;border-top:2px solid #bae6fd;letter-spacing:.04em;text-transform:uppercase;"><i>Datos S2 (Segundometro)</i></td></tr>
-                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Semana del acuerdo (S2)</td><td style="padding:8px;">{$semanaStr}</td></tr>
-                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Cuotas contratadas (S2)</td><td style="padding:8px;">{$s2CuotasContrStr}</td></tr>
-                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Cuotas pagadas (S2)</td><td style="padding:8px;">{$s2CuotasPagStr}</td></tr>
-                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Total pagado (S2)</td><td style="padding:8px;color:#059669;font-weight:bold;">{$s2TotalStr}</td></tr>
+                            <tr><td colspan="2" style="padding:10px 8px 4px;font-size:12px;font-weight:bold;color:#0369a1;background:#f0f9ff;border-top:2px solid #bae6fd;letter-spacing:.04em;text-transform:uppercase;"><i>Datos crédito</i></td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Semana del acuerdo</td><td style="padding:8px;">{$semanaStr}</td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Monto otorgado</td><td style="padding:8px;font-weight:bold;">{$s2MontoOtorgadoStr}</td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Cuotas contratadas</td><td style="padding:8px;">{$s2CuotasContrStr}</td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Cuotas pagadas</td><td style="padding:8px;">{$s2CuotasPagStr}</td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Total pagado</td><td style="padding:8px;color:#059669;font-weight:bold;">{$s2TotalStr}</td></tr>
                           </table>
                           <p style="margin-top:20px;font-size:13px;color:#666;">
                             Este crédito fue validado y está listo para su procesamiento en cartera.
@@ -953,7 +958,7 @@ class CierreCredito extends Model
         try {
             $dbSm   = new DatabaseSegundometro();
             $s2Rows = $dbSm->queryAll(
-                "SELECT Id_credito, Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total
+                "SELECT Id_credito, Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total, Monto_otorgado
                  FROM tbl_segundometro_semana
                  WHERE Id_credito IN ($inSql)",
                 $params
@@ -972,6 +977,7 @@ class CierreCredito extends Model
             $row['s2_cuotas_contratadas'] = $s2 !== null ? (int)   $s2['Numero_amortizaciones'] : null;
             $row['s2_cuotas_pagadas']     = $s2 !== null ? (int)   $s2['Num_cuotas_pagadas']    : null;
             $row['s2_total_pagado']       = $s2 !== null ? (float) $s2['Abonos_total']          : null;
+            $row['s2_monto_otorgado']     = $s2 !== null ? (float) $s2['Monto_otorgado']        : null;
         }
         unset($row);
     }

@@ -1033,17 +1033,21 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         const s2Cont    = (r.s2_cuotas_contratadas != null) ? parseInt(r.s2_cuotas_contratadas) : null;
         const s2Pag     = (r.s2_cuotas_pagadas     != null) ? parseInt(r.s2_cuotas_pagadas)     : null;
         const s2Tot     = (r.s2_total_pagado        != null) ? parseFloat(r.s2_total_pagado)     : null;
+        const s2Monto   = (r.s2_monto_otorgado      != null) ? parseFloat(r.s2_monto_otorgado)   : null;
         const cuotasStr = (s2Pag !== null && s2Cont !== null) ? `${s2Pag} de ${s2Cont}` : '—';
         const totalStr  = s2Tot !== null
-            ? s2Tot.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '—';
+            ? Math.abs(s2Tot).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '—';
+        const montoStr  = s2Monto !== null
+            ? Math.abs(s2Monto).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '—';
         return `<div style="margin-top:.6rem;padding:.45rem .65rem;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:.45rem;font-size:.78rem;">
             <div style="font-weight:700;color:#0369a1;margin-bottom:.3rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
-                <i class="fa-solid fa-chart-line me-1"></i>Datos
+                <i class="fa-solid fa-chart-line me-1"></i>Datos crédito
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem .5rem;">
                 <div><span style="color:#64748b;">Semana acuerdo:</span> <strong style="color:#0f172a;">${semana}</strong></div>
-                <div><span style="color:#64748b;">Cuotas S2:</span> <strong style="color:#0f172a;">${cuotasStr}</strong></div>
-                <div style="grid-column:1/-1;"><span style="color:#64748b;">Total pagado S2:</span> <strong style="color:#059669;">${totalStr}</strong></div>
+                <div><span style="color:#64748b;">Monto otorgado:</span> <strong style="color:#0f172a;">${montoStr}</strong></div>
+                <div><span style="color:#64748b;">Cuotas:</span> <strong style="color:#0f172a;">${cuotasStr}</strong></div>
+                <div><span style="color:#64748b;">Total pagado:</span> <strong style="color:#059669;">${totalStr}</strong></div>
             </div>
         </div>`;
     }
@@ -1145,8 +1149,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     <!-- Documentos adjuntos -->
                     ${(() => {
                         const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
-                        const compSub = parseInt(r.comprobantes_subidos) || 0;
-                        if (!pdfOk && compSub === 0) return '';
+                        const compPaths = (r.comprobantes_paths && r.comprobantes_paths !== '')
+                            ? r.comprobantes_paths.split('|').filter(p => p)
+                            : [];
+                        if (!pdfOk && compPaths.length === 0) return '';
                         let items = '';
                         if (pdfOk)
                             items += `<a href="${esc(r.pdf_adjunto)}" target="_blank"
@@ -1154,11 +1160,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                                          style="font-size:.78rem;">
                                          <i class="fa-solid fa-file-pdf me-1"></i>PDF convenio
                                       </a>`;
-                        if (compSub > 0)
-                            items += `<span class="cc-doc-ok" style="padding:3px 10px;font-size:.78rem;font-weight:700;"
-                                           title="${compSub} comprobante${compSub !== 1 ? 's' : ''} subido${compSub !== 1 ? 's' : ''}">
-                                           <i class="fa-solid fa-receipt me-1"></i>${compSub} comprobante${compSub !== 1 ? 's' : ''}
-                                      </span>`;
+                        if (compPaths.length > 0) {
+                            const links = compPaths.map((p, i) =>
+                                `<a href="${esc(p)}" target="_blank" class="btn btn-sm btn-outline-success" style="font-size:.78rem;"><i class="fa-solid fa-receipt me-1"></i>Comprobante ${i + 1}</a>`
+                            ).join('');
+                            items += links;
+                        }
                         return `<div class="cc-doccheck-wrap mt-2">
                                     <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
                                     <div class="cc-doccheck-items" style="display:flex;gap:.4rem;flex-wrap:wrap;">${items}</div>
@@ -1248,7 +1255,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         const todoListo = pdfOk && compOk;
 
         const pdfBadge = pdfOk
-            ? `<span class="cc-doc-ok"><i class="fa-solid fa-file-pdf me-1"></i>PDF Convenio</span>`
+            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="cc-doc-ok" style="text-decoration:none;cursor:pointer;"><i class="fa-solid fa-file-pdf me-1"></i>PDF Convenio</a>`
             : `<span class="cc-doc-missing"><i class="fa-solid fa-file-pdf me-1"></i>Sin PDF convenio</span>`;
 
         let compBadge;
@@ -1616,21 +1623,21 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     window.ccToggleDetalle = function(id) {
         const btn    = document.getElementById(`cc-acc-btn-${id}`);
         const panel  = document.getElementById(`cc-acc-body-${id}`);
-        const card   = document.getElementById(`cc-ep-card-${id}`);
+        const card   = document.getElementById(`cc-ep-card-${id}`) || document.getElementById(`cc-card-${id}`);
         const loader = document.getElementById(`cc-acc-loader-${id}`);
         const content = document.getElementById(`cc-acc-content-${id}`);
         const isOpen = panel.classList.contains('open');
 
         if (isOpen) {
             panel.classList.remove('open');
-            card.classList.remove('cc-has-panel');
-            btn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver detalle';
+            if (card) card.classList.remove('cc-has-panel');
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver detalle';
             return;
         }
 
         panel.classList.add('open');
-        card.classList.add('cc-has-panel');
-        btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
+        if (card) card.classList.add('cc-has-panel');
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
 
         // Ya cargado previamente
         if (_detalleCache[id]) {
@@ -1697,7 +1704,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     ? `<i class="fa-solid fa-circle-check text-success"></i>`
                     : `<i class="fa-regular fa-clock text-warning"></i>`;
                 const compIcon = a.comprobante_path
-                    ? `<i class="fa-solid fa-paperclip text-success" title="Comprobante subido"></i>`
+                    ? `<a href="${esc(a.comprobante_path)}" target="_blank" style="color:#16a34a;text-decoration:none;font-size:.78rem;white-space:nowrap;"><i class="fa-solid fa-paperclip me-1"></i>Ver Comprobante</a>`
                     : `<i class="fa-solid fa-minus text-muted"></i>`;
                 return `
                 <tr class="${cls}">
