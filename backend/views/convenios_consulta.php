@@ -2290,7 +2290,17 @@ function congelarModulo(convenio) {
                         'title="Ver comprobante">' +
                         '<i class="fas fa-eye"></i>' +
                         '</button>'
-                        : '') +
+                        : '<button class="btn btn-xs btn-outline-warning btn-subir-comprobante mt-1" ' +
+                        'style="font-size:.75rem;padding:3px 8px;" ' +
+                        'data-semana="' + fila.numero_semana + '" ' +
+                        'data-convenio="' + convenio.id + '" ' +
+                        'data-credito="' + convenio.id_credito + '" ' +
+                        'data-pago-semanal="' + fila.pago_semanal + '" ' +
+                        'data-fecha-pago="' + fila.fecha_pago + '" ' +
+                        'data-estatus-pagado="1" ' +
+                        'title="Subir comprobante">' +
+                        '<i class="fas fa-upload"></i>' +
+                        '</button>') +
                     '</div>';
             } else {
                 btnAccion =

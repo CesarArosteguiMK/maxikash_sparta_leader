@@ -241,6 +241,13 @@ body.dark-mode .cc-conv-card { background: #1e293b; border-color: #334155; }
 body.dark-mode .cc-conv-details .cc-detail-row .cc-val { color: #e2e8f0; }
 body.dark-mode .cc-resumen-aplicacion { background: #0f172a; border-color: #334155; }
 body.dark-mode .cc-conv-card-footer { background: #0f172a; border-color: #334155; }
+body.dark-mode .cc-btn-confirmar {
+    background: linear-gradient(135deg, #065f46 0%, #059669 100%);
+    color: #d1fae5;
+    border: 1px solid #059669;
+    box-shadow: 0 0 0 1px rgba(16,185,129,.35);
+}
+body.dark-mode .cc-btn-confirmar:hover { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #fff; }
 
 /* ── Checklist de documentos (tab En Proceso) ── */
 .cc-doccheck-wrap {
@@ -274,6 +281,41 @@ body.dark-mode .cc-doccheck-title { color: #94a3b8; }
 body.dark-mode .cc-doc-ok      { background: rgba(21,128,61,.2);  color: #4ade80; }
 body.dark-mode .cc-doc-missing { background: rgba(185,28,28,.2); color: #f87171; }
 body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24; }
+
+/* ── Badge de porcentaje de descuento ── */
+.cc-pct-badge {
+    display: inline-block;
+    background: #e0edff;
+    color: #1d4ed8;
+    font-size: .75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+body.dark-mode .cc-pct-badge { background: rgba(59,130,246,.18); color: #93c5fd; }
+
+/* ── Estatus badges (tabla convenios) dark mode ── */
+body.dark-mode .cc-estatus-completado { background: rgba(20,83,45,.35)  !important; color: #4ade80 !important; }
+body.dark-mode .cc-estatus-activo     { background: rgba(30,64,175,.35) !important; color: #93c5fd !important; }
+body.dark-mode .cc-estatus-cancelado  { background: rgba(185,28,28,.35) !important; color: #fca5a5 !important; }
+body.dark-mode .cc-estatus-default    { background: rgba(71,85,105,.3)  !important; color: #94a3b8 !important; }
+
+/* ── Estatus badges (tab Historial/Movimientos) dark mode ── */
+.cc-hist-enviado-ok      { background: #dcfce7; color: #15803d; font-size: .78rem; }
+.cc-hist-enviado-warn    { background: #fef9c3; color: #854d0e; font-size: .78rem; }
+.cc-hist-descartado      { background: #ffedd5; color: #9a3412; font-size: .78rem; }
+.cc-hist-en-proceso      { background: #dbeafe; color: #1e40af; font-size: .78rem; }
+body.dark-mode .cc-hist-enviado-ok   { background: rgba(20,83,45,.35)   !important; color: #4ade80 !important; }
+body.dark-mode .cc-hist-enviado-warn { background: rgba(133,77,14,.3)   !important; color: #fbbf24 !important; }
+body.dark-mode .cc-hist-descartado   { background: rgba(154,52,18,.3)   !important; color: #fb923c !important; }
+
+/* ── Banner de descarte previo en cards ── */
+.cc-descarte-banner { background: #fef3c7; border: 1px solid #fde68a; border-radius: .45rem; padding: .55rem .8rem; font-size: .78rem; color: #78350f; }
+.cc-descarte-banner .cc-descarte-meta { color: #92400e; }
+body.dark-mode .cc-descarte-banner { background: rgba(120,53,15,.25) !important; border-color: rgba(253,230,138,.25) !important; color: #fcd34d !important; }
+body.dark-mode .cc-descarte-banner .cc-descarte-meta { color: #fbbf24 !important; }
+body.dark-mode .cc-hist-en-proceso   { background: rgba(30,64,175,.3)   !important; color: #93c5fd !important; }
 
 /* ── Panel lateral derecho (Tab En Proceso) ── */
 .cc-ep-wrapper {
@@ -649,9 +691,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     }
     function fmtFecha(val) {
         if (!val) return '—';
-        const d = new Date(val.replace(' ', 'T'));
+        // Tratar el valor como UTC (servidor almacena en UTC) y mostrar en hora México
+        const iso = val.replace(' ', 'T') + (val.includes('T') || val.endsWith('Z') ? '' : 'Z');
+        const d = new Date(iso);
         if (isNaN(d)) return val;
-        return d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City' });
     }
     function badgeEstatus(estatus) {
         if (estatus === 'en_proceso')
@@ -668,7 +712,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             'cancelado':  { bg: '#fee2e2', color: '#b91c1c', icon: 'fa-ban',            label: 'Cancelado'  },
         };
         const cfg = map[estatus] || { bg: '#f1f5f9', color: '#475569', icon: 'fa-circle', label: esc(estatus || '—') };
-        return `<span class="badge rounded-pill" style="background:${cfg.bg};color:${cfg.color};font-size:.75rem;font-weight:700;">
+        const cls = map[estatus] ? `cc-estatus-${estatus}` : 'cc-estatus-default';
+        return `<span class="badge rounded-pill ${cls}" style="background:${cfg.bg};color:${cfg.color};font-size:.75rem;font-weight:700;">
                     <i class="fa-solid ${cfg.icon} me-1"></i>${cfg.label}
                 </span>`;
     }
@@ -825,8 +870,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     <div class="cc-detail-row">
                         <span class="cc-lbl">Producto elegido</span>
                         <span class="cc-val">${esc(r.nombre_producto)}</span>
-                        <span style="background:#e0edff; color:#1d4ed8; font-size:.75rem; font-weight:700;
-                                      padding:2px 8px; border-radius:20px; margin-left:.35rem; white-space:nowrap;">
+                        <span class="cc-pct-badge" style="margin-left:.35rem;">
                             ${parseFloat(r.porcentaje_descuento) || 0}%
                         </span>
                     </div>
@@ -852,7 +896,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     ${r.fecha_modifica ? `
                     <div class="cc-detail-row" style="margin-top:.35rem;">
                         <span class="cc-lbl">Finalizado el</span>
-                        <span class="cc-val">${new Date(r.fecha_modifica).toLocaleString('es-MX', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}</span>
+                        <span class="cc-val">${new Date(r.fecha_modifica.replace(' ','T') + (r.fecha_modifica.includes('T') || r.fecha_modifica.endsWith('Z') ? '' : 'Z')).toLocaleString('es-MX', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'America/Mexico_City'})}</span>
                     </div>` : ''}
 
                     <!-- Validación: usuario de sesión actual -->
@@ -864,13 +908,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
                     <!-- Descarte previo -->
                     ${r.ultimo_motivo_descarte ? `
-                    <div style="margin-top:.65rem;background:#fef3c7;border:1px solid #fde68a;border-radius:.45rem;padding:.55rem .8rem;font-size:.78rem;color:#78350f;">
+                    <div class="cc-descarte-banner" style="margin-top:.65rem;">
                         <div style="font-weight:700;margin-bottom:.3rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Descartado</div>
                         <div><span style="font-weight:600;">Motivo:</span> ${esc(r.ultimo_motivo_descarte)}</div>
                         ${r.ultimo_comentario_descarte ? `<div style="margin-top:.25rem;"><span style="font-weight:600;">Comentario:</span> ${esc(r.ultimo_comentario_descarte)}</div>` : ''}
-                        <div style="margin-top:.25rem;color:#92400e;">
+                        <div class="cc-descarte-meta" style="margin-top:.25rem;">
                             <i class="fa-solid fa-user-pen me-1"></i>${esc(r.usuario_descarte || '—')}
-                            ${r.fecha_descarte ? `<span class="ms-2"><i class="fa-regular fa-clock me-1"></i>${new Date(r.fecha_descarte).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</span>` : ''}
+                            ${r.fecha_descarte ? `<span class="ms-2"><i class="fa-regular fa-clock me-1"></i>${new Date(r.fecha_descarte.replace(' ','T')+'Z').toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'America/Mexico_City'})}</span>` : ''}
                         </div>
                     </div>` : ''}
 
@@ -1022,8 +1066,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         <div class="cc-detail-row">
                             <span class="cc-lbl">Producto</span>
                             <span class="cc-val">${esc(r.nombre_producto)}</span>
-                            <span style="background:#e0edff;color:#1d4ed8;font-size:.75rem;font-weight:700;
-                                          padding:2px 8px;border-radius:20px;margin-left:.35rem;white-space:nowrap;">
+                            <span class="cc-pct-badge" style="margin-left:.35rem;">
                                 ${parseFloat(r.porcentaje_descuento) || 0}%
                             </span>
                         </div>
@@ -1116,7 +1159,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         if (t === 'filter' || t === 'sort') return String(r.nombre_producto || '');
                         const pct = parseFloat(r.porcentaje_descuento) || 0;
                         return `<span>${esc(r.nombre_producto)}</span><br>` +
-                               `<span style="background:#e0edff;color:#1d4ed8;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:20px;">${pct}%</span>`;
+                               `<span class="cc-pct-badge">${pct}%</span>`;
                     }
                 },
                 {
@@ -1636,18 +1679,18 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
         const etiqueta = (r) => {
             if (r.estatus === 'enviado_cartera' && r.email_destino_cartera) {
-                return `<span class="badge rounded-pill" style="background:#dcfce7;color:#15803d;font-size:.78rem;">
+                return `<span class="badge rounded-pill cc-hist-enviado-ok">
                             <i class="fa-solid fa-circle-check me-1"></i>Enviado — correo notificado
                         </span>`;
             }
             if (r.estatus === 'enviado_cartera') {
-                return `<span class="badge rounded-pill" style="background:#fef9c3;color:#854d0e;font-size:.78rem;">
+                return `<span class="badge rounded-pill cc-hist-enviado-warn">
                             <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
                         </span>`;
             }
             if (r.estatus === 'en_cola') {
                 return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
-                            <span class="badge rounded-pill" style="background:#fef9c3;color:#854d0e;font-size:.78rem;">
+                            <span class="badge rounded-pill cc-hist-enviado-warn">
                                 <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
                             </span>
                             <button onclick="ccMarcarListoEnvio(${r.id})"
@@ -1658,7 +1701,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             }
             if (r.estatus === 'listo_envio') {
                 return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
-                            <span class="badge rounded-pill" style="background:#fef9c3;color:#854d0e;font-size:.78rem;">
+                            <span class="badge rounded-pill cc-hist-enviado-warn">
                                 <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
                             </span>
                             <button onclick="ccReenviarACartera(${r.id})" id="cc-hist-btn-${r.id}"
@@ -1668,12 +1711,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         </div>`;
             }
             if (r.estatus === 'descartado') {
-                return `<span class="badge rounded-pill" style="background:#ffedd5;color:#9a3412;font-size:.78rem;">
+                return `<span class="badge rounded-pill cc-hist-descartado">
                             <i class="fa-solid fa-rotate-left me-1"></i>Devuelto a revisión
                         </span>`;
             }
             // en_proceso u otro
-            return `<span class="badge rounded-pill" style="background:#dbeafe;color:#1e40af;font-size:.78rem;">
+            return `<span class="badge rounded-pill cc-hist-en-proceso">
                         <i class="fa-solid fa-hourglass-half me-1"></i>En Proceso
                     </span>`;
         };
