@@ -76,7 +76,7 @@ function getMenu(): string
                 ['label' => 'Primeros pagos', 'url' => '/reporteria/PrimerosPagos', 'modulos' => [49]],
                 ['label' => 'Call Center',    'url' => '/reporteria/callcenter',    'modulos' => [6, 14, 15]],
                 ['label' => 'Layout Legacy',  'url' => '/reporteria/layoutlegacy',  'modulos' => [7]],
-                ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
+                ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
             ],
         ],
         'Gastos Cobranza' => [
