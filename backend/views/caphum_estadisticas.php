@@ -1,6 +1,6 @@
 <?php
 /**
- * Estadística Capital Humano — vista con Bootstrap del tema (sin bloque `<style>` propio).
+ * Estadísticas Capital Humano — vista con Bootstrap del tema (sin bloque `<style>` propio).
  * Datos: JSON inicial en vista + `fetch` al panel (lógica de negocio sin cambiar aquí).
  *
  * @var string $titulo
@@ -19,7 +19,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
             <div>
                 <h4 class="fw-bold mb-1">
-                    <i class="fa-solid fa-users me-2 text-primary"></i>Estadística Capital Humano
+                    <i class="fa-solid fa-users me-2 text-primary"></i>Estadísticas Capital Humano
                 </h4>
                 <p id="chEstSubtitulo" class="text-muted mb-0 small">—</p>
                 <p id="chEstRangoFechas" class="text-muted mb-0 mt-1 small">—</p>
@@ -84,18 +84,23 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
             <div class="col-6 col-md-4 col-xl">
                 <div class="card h-100 shadow-sm">
                     <div class="card-body py-2 d-flex flex-column">
-                        <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Deptos · Puestos</span>
+                        <div class="d-flex align-items-start gap-1 mb-2">
+                            <span class="badge rounded-pill bg-label-warning text-warning fw-bold py-2 px-2 flex-grow-1 text-center lh-sm min-w-0" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Deptos · Puestos</span>
+                            <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 flex-shrink-0 align-self-center text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
+                                title="Índice deptos: total departamentos ÷ empleados activos (×100). Índice puestos: total puestos únicos ÷ empleados activos (×100)."
+                                aria-label="Ayuda: índices departamentos y puestos">
+                                <i class="fa fa-info-circle" aria-hidden="true"></i>
+                            </button>
+                        </div>
                         <div class="ch-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="row g-1 flex-grow-1 align-items-center">
                             <div class="col-6 text-center border-end">
                                 <div class="small text-muted mb-1">Total departamentos</div>
                                 <div id="chKpiDeptos" class="fs-4 fw-bold text-body">0</div>
-                                <div class="small text-muted mt-1" id="chKpiDeptosSub">—</div>
                             </div>
                             <div class="col-6 text-center">
                                 <div class="small text-muted mb-1">Total puestos</div>
                                 <div id="chKpiPuestos" class="fs-4 fw-bold text-body">0</div>
-                                <div class="small text-muted mt-1" id="chKpiPuestosSub">—</div>
                             </div>
                         </div>
                         <div class="row gx-1 mt-auto pt-2">
@@ -290,7 +295,7 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                             <span class="mb-0" style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Rotación</span>
                             <span id="chRotRangoInline" class="small text-muted">—</span>
                         </div>
-                        <span id="chBadgeRotacion">—</span>
+                        <span id="chBadgeRotacion" class="flex-shrink-0" role="button" tabindex="0" title="Clic para leer el detalle">—</span>
                     </div>
                     <div class="card-body d-flex flex-column flex-grow-1">
                     <div class="d-flex flex-column justify-content-center text-center pt-1">
@@ -447,6 +452,55 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         if (!el) return;
         el.textContent = text;
         el.setAttribute('style', badgeStyleFromClass(cls));
+    }
+
+    function chEscHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function chRotacionSwalIcon(msg) {
+        var head = String(msg).split(/\n\n+/)[0].trim().toLowerCase();
+        if (head === 'controlada') {
+            return 'success';
+        }
+        if (head === 'moderada') {
+            return 'warning';
+        }
+        if (head === 'elevada') {
+            return 'error';
+        }
+        return 'info';
+    }
+
+    function chRotacionAyudaMostrar() {
+        var card = document.getElementById('chCardRotacion');
+        var msg = card && card.getAttribute('data-rotacion-ayuda');
+        if (!msg || !String(msg).trim()) {
+            return;
+        }
+        if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
+            var parts = String(msg).split(/\n\n+/);
+            var htmlBody;
+            if (parts.length >= 2) {
+                htmlBody = '<div class="text-start"><div class="fw-bold text-body mb-2 fs-6">' + chEscHtml(parts[0].trim()) + '</div>'
+                    + '<div class="small text-body" style="line-height:1.5">' + chEscHtml(parts.slice(1).join('\n\n').trim()) + '</div></div>';
+            } else {
+                htmlBody = '<div class="text-start small" style="white-space:pre-wrap;line-height:1.5">' + chEscHtml(msg) + '</div>';
+            }
+            Swal.fire({
+                icon: chRotacionSwalIcon(msg),
+                html: htmlBody,
+                showConfirmButton: true,
+                confirmButtonText: 'Entendido',
+                width: '34rem'
+            });
+        } else {
+            window.alert(String(msg));
+        }
     }
 
     function setRotacionPctStyle(pct) {
@@ -799,25 +853,29 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                 stroke: { width: 1, colors: ['#ffffff'] }
             };
         } else if (tipo === 'line') {
-            /** Versión estable: trazo simple + markers.discrete por punto. Evita que Apex deje la línea oculta y mantiene colores distintos en cada punto. */
+            /** Línea garantizada + puntos multicolor: serie line base + overlays scatter por punto (evita fallos de markers.discrete en esta versión de Apex). */
             var markerColors = pieColors.slice(0, series.length);
             while (markerColors.length < series.length) {
                 markerColors.push(CH_DEPTO_COLORS[markerColors.length % CH_DEPTO_COLORS.length]);
             }
-            var markerDiscrete = [];
-            for (var m = 0; m < series.length; m++) {
-                markerDiscrete.push({
-                    seriesIndex: 0,
-                    dataPointIndex: m,
-                    fillColor: markerColors[m],
-                    strokeColor: '#ffffff',
-                    size: 7
-                });
-            }
             var lineStroke = '#5a6a7d';
+            var mixSeries = [{ name: 'Personas', type: 'line', data: series }];
+            var mixColors = [lineStroke];
+            var strokeWidths = [4];
+            var markerSizes = [0];
+            for (var si = 0; si < series.length; si++) {
+                var sData = [];
+                for (var sj = 0; sj < series.length; sj++) {
+                    sData.push(sj === si ? series[sj] : null);
+                }
+                mixSeries.push({ name: 'p' + String(si), type: 'scatter', data: sData });
+                mixColors.push(markerColors[si]);
+                strokeWidths.push(0);
+                markerSizes.push(7);
+            }
             opt = {
                 chart: { type: 'line', height: 290, toolbar: { show: false }, zoom: { enabled: false } },
-                series: [{ name: 'Personas', data: series }],
+                series: mixSeries,
                 xaxis: {
                     categories: labels,
                     labels: {
@@ -827,26 +885,28 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
                     }
                 },
                 yaxis: { min: 0 },
-                colors: [lineStroke],
+                colors: mixColors,
                 stroke: {
                     curve: 'straight',
-                    width: 4,
+                    width: strokeWidths,
                     lineCap: 'round',
                     lineJoin: 'round'
                 },
                 legend: { show: false },
                 markers: {
-                    size: 7,
+                    size: markerSizes,
                     strokeWidth: 2,
                     strokeColors: '#ffffff',
-                    hover: { size: 9 },
-                    discrete: markerDiscrete
+                    hover: { size: 9 }
                 },
                 dataLabels: { enabled: false },
                 grid: { borderColor: '#eef1f5', padding: { top: 8, right: 12 } },
                 tooltip: {
+                    shared: false,
+                    intersect: true,
                     y: {
                         formatter: function (val, opts) {
+                            if (val == null || val === '') return '';
                             var i = opts.dataPointIndex;
                             return val + ' personas' + (labels[i] != null ? ' · ' + labels[i] : '');
                         }
@@ -1038,8 +1098,6 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
 
         setText('chKpiDeptos', String(d.total_departamentos ?? 0));
         setText('chKpiPuestos', String(d.puestos_unicos ?? 0));
-        setText('chKpiDeptosSub', 'Índice: deptos ÷ activos (×100)');
-        setText('chKpiPuestosSub', 'Índice: puestos ÷ activos (×100)');
         var nd = n(d.total_departamentos);
         var np = n(d.puestos_unicos);
         var elDpb = document.getElementById('chKpiDeptosPctBadge');
@@ -1056,6 +1114,16 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         setText('chRotacionPct', String(d.rotacion_pct ?? 0) + '%');
         setRotacionPctStyle(d.rotacion_pct ?? 0);
         setBadge('chBadgeRotacion', d.rotacion_badge_text || '—', d.rotacion_badge_class || '');
+        var rotCard = document.getElementById('chCardRotacion');
+        if (rotCard) {
+            rotCard.setAttribute('data-rotacion-ayuda', d.rotacion_ayuda != null ? String(d.rotacion_ayuda) : '');
+        }
+        var elBr = document.getElementById('chBadgeRotacion');
+        if (elBr) {
+            var ay = (d.rotacion_ayuda != null && String(d.rotacion_ayuda).trim()) ? String(d.rotacion_ayuda).trim() : '';
+            var baseSt = badgeStyleFromClass(d.rotacion_badge_class || '');
+            elBr.setAttribute('style', baseSt + (ay ? ';cursor:pointer' : ';cursor:default'));
+        }
         setText('chRotLegendBajas', String(d.bajas ?? 0));
         setText('chRotLegendPlantilla', String(d.empleados_activos ?? 0));
 
@@ -1207,6 +1275,23 @@ $semanaDefault = isset($semanaDefault) ? (int) $semanaDefault : 0;
         });
     }
     initChEstTooltips();
+
+    (function bindChRotacionAyuda() {
+        var br = document.getElementById('chBadgeRotacion');
+        if (!br || br.getAttribute('data-ch-rot-ayuda-listener') === '1') {
+            return;
+        }
+        br.setAttribute('data-ch-rot-ayuda-listener', '1');
+        function onActivate(e) {
+            if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') {
+                return;
+            }
+            e.preventDefault();
+            chRotacionAyudaMostrar();
+        }
+        br.addEventListener('click', onActivate);
+        br.addEventListener('keydown', onActivate);
+    })();
 
     window.addEventListener('resize', function () {
         if (chRotacionSyncResizeT) {

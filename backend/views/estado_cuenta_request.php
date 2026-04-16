@@ -3020,7 +3020,7 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                                     <th>Semana</th>
                                     <th>Periodo</th>
                                     <th>Parcialidad</th>
-                                    <th># Cuota</th>
+                                    <th>CUOTA SEMANAL</th>
                                     <th>Monto</th>
                                     <th></th>
                                 </tr>

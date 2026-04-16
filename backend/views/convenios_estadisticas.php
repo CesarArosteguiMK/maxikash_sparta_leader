@@ -138,27 +138,23 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
 
 <div class="content-wrapper">
     <div class="container-xxl flex-grow-1 container-p-y">
-        <div class="cv-est-outer" style="background:#f0f4f8;padding:20px;border-radius:12px;">
-
-            <!-- ── HEADER ──────────────────────────────────── -->
-            <div style="background:linear-gradient(90deg,#1a3a5c 0%,#1a3a5c 65%,#0d5c3a 100%);border-radius:12px;padding:20px 24px 18px;margin-bottom:16px;">
-                <div class="row align-items-start g-3">
-                    <div class="col-lg-8">
-                        <h4 style="color:#ffffff;font-size:18px;font-weight:700;margin:0 0 4px;">Estadística Convenios</h4>
-                        <p id="cvEstSubtitulo" style="color:rgba(255,255,255,0.6);font-size:13px;margin:0;">—</p>
-                        <p id="cvEstRangoFechas" style="color:rgba(255,255,255,0.45);font-size:11px;margin:6px 0 0;">—</p>
+        <div class="cv-est-outer">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                <div>
+                    <h4 class="fw-bold mb-1">
+                        <i class="fa-solid fa-file-signature me-2 text-primary"></i>Estadísticas Convenios
+                    </h4>
+                    <p id="cvEstSubtitulo" class="text-muted mb-0 small">—</p>
+                    <p id="cvEstRangoFechas" class="text-muted mb-0 mt-1 small">—</p>
+                </div>
+                <div class="d-flex flex-wrap align-items-end gap-2">
+                    <div>
+                        <label for="cvEstAnio" class="form-label small text-muted mb-0">Año</label>
+                        <select id="cvEstAnio" class="form-select form-select-sm" style="min-width: 5.5rem;" aria-label="Año"></select>
                     </div>
-                    <div class="col-lg-4">
-                        <div class="row g-2 justify-content-lg-end">
-                            <div class="col-6">
-                                <label for="cvEstAnio" style="color:rgba(255,255,255,0.6);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:4px;">Año</label>
-                                <select id="cvEstAnio" aria-label="Año" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#ffffff;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer;width:100%;"></select>
-                            </div>
-                            <div class="col-6">
-                                <label for="cvEstMes" style="color:rgba(255,255,255,0.6);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;display:block;margin-bottom:4px;">Mes</label>
-                                <select id="cvEstMes" aria-label="Mes" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#ffffff;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer;width:100%;"></select>
-                            </div>
-                        </div>
+                    <div>
+                        <label for="cvEstMes" class="form-label small text-muted mb-0">Mes</label>
+                        <select id="cvEstMes" class="form-select form-select-sm" style="min-width: 9rem;" aria-label="Mes"></select>
                     </div>
                 </div>
             </div>
@@ -169,43 +165,45 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 <!-- ── LEFT COL (col-lg-8) ─────────────────── -->
                 <div class="col-lg-8">
 
-                    <!-- KPI Global strip: Activos / Completados / Cancelados -->
-                    <div class="cv-kpi-strip">
-                        <div class="cv-kpi-mini">
-                            <button type="button" class="cv-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
-                                title="Total de convenios en estatus Activo (todas las fechas, sin filtro de período)."
-                                aria-label="Ayuda: convenios activos">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size:12px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;padding-right:16px;">Activos</div>
-                            <div id="cvKpiActivos" style="font-size:32px;font-weight:800;color:#2ecc8b;line-height:1;">0</div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body py-2 d-flex flex-column">
+                                    <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios activos</span>
+                                    <div class="cv-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
+                                    <div id="cvKpiActivos" class="fs-4 fw-bold text-success">0</div>
+                                    <div class="small text-muted mt-1">Totales en el sistema</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="cv-kpi-mini">
-                            <button type="button" class="cv-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
-                                title="Total de convenios en estatus Completado: el cliente liquidó todas las semanas (todas las fechas)."
-                                aria-label="Ayuda: convenios completados">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size:12px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;padding-right:16px;">Completados</div>
-                            <div id="cvKpiCompletados" style="font-size:32px;font-weight:800;color:#3498db;line-height:1;">0</div>
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body py-2 d-flex flex-column">
+                                    <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios completados</span>
+                                    <div class="cv-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
+                                    <div id="cvKpiCompletados" class="fs-4 fw-bold text-primary">0</div>
+                                    <div class="small text-muted mt-1">Totales en el sistema</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="cv-kpi-mini">
-                            <button type="button" class="cv-tip-btn" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
-                                title="Total de convenios en estatus Cancelado, ya sea por incumplimiento automático o cancelación manual (todas las fechas)."
-                                aria-label="Ayuda: convenios cancelados">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
-                            <div style="font-size:12px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;padding-right:16px;">Cancelados</div>
-                            <div id="cvKpiCancelados" style="font-size:32px;font-weight:800;color:#e74c3c;line-height:1;">0</div>
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body py-2 d-flex flex-column">
+                                    <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios cancelados</span>
+                                    <div class="cv-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
+                                    <div id="cvKpiCancelados" class="fs-4 fw-bold text-danger">0</div>
+                                    <div class="small text-muted mt-1">Totales en el sistema</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Panel: Nuevos del período -->
-                    <div class="cv-panel" style="position:relative;background:#f5f7fa;border:1px solid #dde3ec;border-radius:12px;padding:16px 18px;margin-bottom:16px;">
-                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2" style="margin-bottom:10px;">
+                    <div class="card shadow-sm mb-3 cv-panel">
+                        <div class="card-header py-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
                             <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex:1;min-width:0;">
-                                <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Nuevos convenios del período</span>
-                                <span id="cvNuevosRangoInline" style="font-size:11px;font-weight:600;color:#6b7a90;letter-spacing:0.02em;">—</span>
+                                <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Nuevos convenios del período</span>
+                                <span id="cvNuevosRangoInline" class="small text-muted">—</span>
                             </div>
                             <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
                                 title="Convenios cuya fecha_alta cae dentro del mes y año seleccionados, desglosados por estatus. Haz clic en Activos, Completados o Cancelados para ver el desglose por producto de convenio."
@@ -213,6 +211,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
                         </div>
+                        <div class="card-body">
 
                         <!-- Cards clickeables -->
                         <div class="d-flex flex-wrap gap-2 mb-2">
@@ -276,14 +275,15 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             </div>
                             <div id="cvChartNuevosDetalle" style="min-height:260px;"></div>
                         </div>
+                        </div>
                     </div>
 
                     <!-- Panel: Semanas de pago del período -->
-                    <div class="cv-panel-sem" style="background:#ffffff;border:1px solid #dde3ec;border-radius:12px;padding:16px 18px;">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="card shadow-sm cv-panel-sem">
+                        <div class="card-header py-3 d-flex justify-content-between align-items-start mb-0">
                             <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex:1;min-width:0;">
-                                <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Semanas de pago del período</span>
-                                <span id="cvSemRangoInline" style="font-size:11px;font-weight:600;color:#6b7a90;">—</span>
+                                <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Semanas de pago del período</span>
+                                <span id="cvSemRangoInline" class="small text-muted">—</span>
                             </div>
                             <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
                                 title="Semanas de amortización (convenio_cliente_amortizacion) cuya fecha_pago cae dentro del mes seleccionado, agrupadas por estatus_pago."
@@ -291,6 +291,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
                         </div>
+                        <div class="card-body">
                         <div class="d-flex flex-wrap gap-2">
                             <span class="cv-sem-badge" style="background:#d4f5e7;color:#0d5c3a;">
                                 <i class="fa fa-check-circle fa-sm" aria-hidden="true"></i>
@@ -318,15 +319,16 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         </div>
                         <!-- Gráfica horizontal de semanas -->
                         <div id="cvChartSemanas" style="margin-top:14px;"></div>
+                        </div>
                     </div>
 
                 </div><!-- /col-lg-8 -->
 
                 <!-- ── RIGHT COL (col-lg-4) ──────────────────── -->
-                <div class="col-lg-4 d-flex flex-column" style="gap:16px;">
+                <div class="col-lg-4 d-flex flex-column gap-3">
 
                     <!-- Tarjeta de recuperación (montos + radial) -->
-                    <div class="cv-card-rec" style="background:#ffffff;border:1px solid #dde3ec;border-radius:12px;padding:16px 18px;">
+                    <div class="cv-card-rec card shadow-sm" style="padding:16px 18px;">
                         <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-1">
                                 <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Recuperación</span>
@@ -357,7 +359,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                     </div>
 
                     <!-- Tarjeta de cobertura de convenios -->
-                    <div class="cv-card-pen" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:12px;padding:16px 18px;flex:1 1 auto;">
+                    <div class="cv-card-pen card shadow-sm" style="padding:16px 18px;flex:1 1 auto;">
                         <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
                             <div class="d-flex flex-wrap align-items-baseline gap-1" style="flex:1;min-width:0;">
                                 <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Cobertura de convenios</span>
@@ -395,7 +397,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             </div><!-- /row -->
 
             <!-- ── PANEL DESPACHOS ──────────────────────── -->
-            <div class="cv-panel-desp" style="background:#ffffff;border:1px solid #dde3ec;border-radius:12px;padding:16px 18px;margin-top:0;">
+            <div class="cv-panel-desp card shadow-sm" style="padding:16px 18px;margin-top:0;">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                     <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Gestores de convenios</span>
                     <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
@@ -819,6 +821,26 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         });
     }
 
+    /** Rango compacto para badges de KPIs (misma idea que CapHum / Gastos Cobranza). */
+    function cvPeriodoBadgeText(d) {
+        if (!d || !d.fecha_ini || !d.fecha_fin) return '—';
+        var a = String(d.fecha_ini).replace(/T.*/, '').slice(0, 10);
+        var b = String(d.fecha_fin).replace(/T.*/, '').slice(0, 10);
+        function dmy(s) {
+            var p = s.split('-');
+            if (p.length !== 3) return s;
+            return parseInt(p[2], 10) + '/' + parseInt(p[1], 10) + '/' + p[0];
+        }
+        return dmy(a) + ' – ' + dmy(b);
+    }
+
+    function setCvTopKpiPeriodBadges(d) {
+        var t = cvPeriodoBadgeText(d);
+        document.querySelectorAll('.cv-kpi-period-badge').forEach(function (el) {
+            el.textContent = t;
+        });
+    }
+
     // ─── Pintar: datos de convenios (KPIs + nuevos) ─────────
     function pintarConvenios(d) {
         if (!d) return;
@@ -828,6 +850,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         } else {
             setText('cvEstRangoFechas', '—');
         }
+        setCvTopKpiPeriodBadges(d);
         setText('cvKpiActivos',     String(d.total_activos      ?? 0));
         setText('cvKpiCompletados', String(d.total_completados  ?? 0));
         setText('cvKpiCancelados',  String(d.total_cancelados   ?? 0));
