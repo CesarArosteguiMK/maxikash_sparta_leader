@@ -62,6 +62,58 @@ class CapHumEstadisticas extends Model
         ];
     }
 
+    /**
+     * Rango explícito desde calendario (YYYY-MM-DD), misma idea que el filtro Flatpickr de control de bajas.
+     *
+     * @return array{fecha_ini: string, fecha_fin: string, periodo_label: string}|null
+     */
+    private static function rangoDesdeCalendario(?string $fechaIni, ?string $fechaFin): ?array
+    {
+        if ($fechaIni === null || $fechaFin === null) {
+            return null;
+        }
+        $fechaIni = trim($fechaIni);
+        $fechaFin = trim($fechaFin);
+        if ($fechaIni === '' || $fechaFin === '') {
+            return null;
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaIni) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaFin)) {
+            return null;
+        }
+        try {
+            $d1 = new DateTimeImmutable($fechaIni);
+            $d2 = new DateTimeImmutable($fechaFin);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if ($d2 < $d1) {
+            $tmp = $fechaIni;
+            $fechaIni = $fechaFin;
+            $fechaFin = $tmp;
+            $d1 = new DateTimeImmutable($fechaIni);
+            $d2 = new DateTimeImmutable($fechaFin);
+        }
+        $maxDias = 800;
+        if ($d1->diff($d2)->days > $maxDias) {
+            return null;
+        }
+        $dmy = static function (string $ymd): string {
+            $p = explode('-', $ymd);
+            if (count($p) !== 3) {
+                return $ymd;
+            }
+
+            return (string) ((int) $p[2]) . '/' . (string) ((int) $p[1]) . '/' . $p[0];
+        };
+        $periodo = 'Rango personalizado — ' . $dmy($fechaIni) . ' al ' . $dmy($fechaFin);
+
+        return [
+            'fecha_ini' => $fechaIni,
+            'fecha_fin' => $fechaFin,
+            'periodo_label' => $periodo,
+        ];
+    }
+
     private static function scalarInt(Database $db, string $sql, array $params = []): int
     {
         try {
@@ -213,11 +265,12 @@ class CapHumEstadisticas extends Model
     /**
      * @return array{success: bool, datos?: array<string, mixed>, error?: string}
      */
-    public static function getDatosPanel(int $anio, int $mes, int $semana): array
+    public static function getDatosPanel(int $anio, int $mes, int $semana, ?string $fechaIniCal = null, ?string $fechaFinCal = null): array
     {
         try {
             $db = new Database();
-            $rango = self::rangoMesSemana($anio, $mes, $semana);
+            $rango = self::rangoDesdeCalendario($fechaIniCal, $fechaFinCal)
+                ?? self::rangoMesSemana($anio, $mes, $semana);
             $fi = $rango['fecha_ini'];
             $ff = $rango['fecha_fin'];
             /*
@@ -853,7 +906,7 @@ class CapHumEstadisticas extends Model
      *
      * @return array{success: bool, datos?: array<string, mixed>, error?: string}
      */
-    public static function getMovimientoPorDepartamento(string $tipo, int $anio, int $mes, int $semana): array
+    public static function getMovimientoPorDepartamento(string $tipo, int $anio, int $mes, int $semana, ?string $fechaIniCal = null, ?string $fechaFinCal = null): array
     {
         $tipo = strtolower(trim($tipo));
         if (!in_array($tipo, ['ingresos', 'bajas', 'reingresos'], true)) {
@@ -861,7 +914,8 @@ class CapHumEstadisticas extends Model
         }
         try {
             $db = new Database();
-            $rango = self::rangoMesSemana($anio, $mes, $semana);
+            $rango = self::rangoDesdeCalendario($fechaIniCal, $fechaFinCal)
+                ?? self::rangoMesSemana($anio, $mes, $semana);
             $fi = $rango['fecha_ini'];
             $ff = $rango['fecha_fin'];
             $params = ['fi' => $fi, 'ff' => $ff];

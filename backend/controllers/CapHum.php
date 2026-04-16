@@ -10996,12 +10996,19 @@ public function getMunicipios()
     {
         $anio = (int) date('Y');
         $mes = (int) date('n');
-        $res = \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, 0);
+        $hoy = new \DateTimeImmutable('today');
+        $dow = (int) $hoy->format('N');
+        $lun = $hoy->modify('-' . ($dow - 1) . ' days');
+        $fiSem = $lun->format('Y-m-d');
+        $ffSem = $hoy->format('Y-m-d');
+        $res = \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, 0, $fiSem, $ffSem);
         $datos = ($res['success'] ?? false) ? ($res['datos'] ?? []) : [];
         self::set('titulo', 'Estadísticas Capital Humano');
         self::set('anioDefault', $anio);
         self::set('mesDefault', $mes);
         self::set('semanaDefault', 0);
+        self::set('chEstRangoIni', $fiSem);
+        self::set('chEstRangoFin', $ffSem);
         self::set('datosInicialesJson', json_encode($datos, JSON_UNESCAPED_UNICODE));
         self::render('caphum_estadisticas');
     }
@@ -11009,25 +11016,47 @@ public function getMunicipios()
     public function getEstadisticasPanel()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $raw = file_get_contents('php://input');
-        $body = json_decode($raw ?: '[]', true);
-        if (!is_array($body)) {
-            $body = [];
+        try {
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(180);
+            }
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                $body = [];
+            }
+            $anio = (int) ($body['anio'] ?? date('Y'));
+            $mes = (int) ($body['mes'] ?? date('n'));
+            $semana = (int) ($body['semana'] ?? 0);
+            if ($anio < 2000 || $anio > 2100) {
+                $anio = (int) date('Y');
+            }
+            if ($mes < 1 || $mes > 12) {
+                $mes = (int) date('n');
+            }
+            if ($semana < 0 || $semana > 4) {
+                $semana = 0;
+            }
+            $fiCal = trim((string) ($body['fecha_inicio'] ?? ''));
+            $ffCal = trim((string) ($body['fecha_fin'] ?? ''));
+            $usaCal = ($fiCal !== '' && $ffCal !== ''
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fiCal)
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ffCal));
+            if ($usaCal) {
+                [$fiCal, $ffCal] = self::capFechasEstadisticasChHastaHoy($fiCal, $ffCal);
+            }
+            $res = $usaCal
+                ? \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana, $fiCal, $ffCal)
+                : \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al generar el panel de estadísticas.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
-        $anio = (int) ($body['anio'] ?? date('Y'));
-        $mes = (int) ($body['mes'] ?? date('n'));
-        $semana = (int) ($body['semana'] ?? 0);
-        if ($anio < 2000 || $anio > 2100) {
-            $anio = (int) date('Y');
-        }
-        if ($mes < 1 || $mes > 12) {
-            $mes = (int) date('n');
-        }
-        if ($semana < 0 || $semana > 4) {
-            $semana = 0;
-        }
-        $res = \Models\CapHumEstadisticas::getDatosPanel($anio, $mes, $semana);
-        echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -11035,26 +11064,72 @@ public function getMunicipios()
     public function getEstadisticasMovimientoDetalle()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $raw = file_get_contents('php://input');
-        $body = json_decode($raw ?: '[]', true);
-        if (!is_array($body)) {
-            $body = [];
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                $body = [];
+            }
+            $tipo = (string) ($body['tipo'] ?? '');
+            $anio = (int) ($body['anio'] ?? date('Y'));
+            $mes = (int) ($body['mes'] ?? date('n'));
+            $semana = (int) ($body['semana'] ?? 0);
+            if ($anio < 2000 || $anio > 2100) {
+                $anio = (int) date('Y');
+            }
+            if ($mes < 1 || $mes > 12) {
+                $mes = (int) date('n');
+            }
+            if ($semana < 0 || $semana > 4) {
+                $semana = 0;
+            }
+            $fiCal = trim((string) ($body['fecha_inicio'] ?? ''));
+            $ffCal = trim((string) ($body['fecha_fin'] ?? ''));
+            $usaCal = ($fiCal !== '' && $ffCal !== ''
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fiCal)
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ffCal));
+            if ($usaCal) {
+                [$fiCal, $ffCal] = self::capFechasEstadisticasChHastaHoy($fiCal, $ffCal);
+            }
+            $res = $usaCal
+                ? \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana, $fiCal, $ffCal)
+                : \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'Error al generar el desglose por departamento.',
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
-        $tipo = (string) ($body['tipo'] ?? '');
-        $anio = (int) ($body['anio'] ?? date('Y'));
-        $mes = (int) ($body['mes'] ?? date('n'));
-        $semana = (int) ($body['semana'] ?? 0);
-        if ($anio < 2000 || $anio > 2100) {
-            $anio = (int) date('Y');
-        }
-        if ($mes < 1 || $mes > 12) {
-            $mes = (int) date('n');
-        }
-        if ($semana < 0 || $semana > 4) {
-            $semana = 0;
-        }
-        $res = \Models\CapHumEstadisticas::getMovimientoPorDepartamento($tipo, $anio, $mes, $semana);
-        echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
+    }
+
+    /**
+     * Estadísticas CH: no permitir fechas posteriores a hoy (ni por API ni por desajuste de reloj).
+     *
+     * @return array{0: string, 1: string} [Y-m-d, Y-m-d]
+     */
+    private static function capFechasEstadisticasChHastaHoy(string $fi, string $ff): array
+    {
+        try {
+            $h = new \DateTimeImmutable('today');
+            $dFi = new \DateTimeImmutable($fi);
+            $dFf = new \DateTimeImmutable($ff);
+            if ($dFf > $h) {
+                $dFf = $h;
+            }
+            if ($dFi > $h) {
+                $dFi = $h;
+            }
+            if ($dFf < $dFi) {
+                $dFf = $dFi;
+            }
+
+            return [$dFi->format('Y-m-d'), $dFf->format('Y-m-d')];
+        } catch (\Throwable $e) {
+            return [$fi, $ff];
+        }
     }
 }

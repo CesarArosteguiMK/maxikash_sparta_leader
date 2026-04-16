@@ -14,14 +14,22 @@
                 <h4 class="fw-bold mb-1">
                     <i class="fa-solid fa-chart-column me-2 text-primary"></i>Estadísticas Gastos Cobranza
                 </h4>
-                <p class="text-muted mb-0 small">Indicadores de cargos, recuperación y cartera según el periodo seleccionado.</p>
+                <p id="gcDashRangoFechas" class="text-muted mb-0 small">—</p>
             </div>
-            <div class="d-flex flex-wrap align-items-center gap-2">
-                <div class="btn-group btn-group-sm" role="group" aria-label="Periodo" id="gcDashPeriodo">
-                    <button type="button" class="btn btn-outline-primary" data-periodo="semana">Semana</button>
-                    <button type="button" class="btn btn-outline-primary active" data-periodo="mes">Mes</button>
-                    <button type="button" class="btn btn-outline-primary" data-periodo="trimestre">Trimestre</button>
-                    <button type="button" class="btn btn-outline-primary" data-periodo="anio">Año</button>
+            <div class="gc-est-fp-rango" style="max-width: 28rem; width: 100%;">
+                <label for="flatpickr-range-gc-est" class="form-label small text-muted mb-0">
+                    <i class="fa fa-calendar-alt me-1" aria-hidden="true"></i>Periodo (rango de fechas)
+                </label>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="text" id="flatpickr-range-gc-est" readonly
+                        class="form-control form-control-sm flex-grow-1 gc-est-fp-input"
+                        style="min-width: 12rem; max-width: 19.5rem; cursor: pointer; user-select: none;"
+                        placeholder="Selecciona inicio y fin" autocomplete="off"
+                        title="No se pueden elegir fechas posteriores a hoy." />
+                    <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="btnGcEstRestablecerPeriodo"
+                        title="Volver al periodo por defecto: lunes de esta semana hasta hoy">
+                        Restablecer
+                    </button>
                 </div>
             </div>
         </div>
@@ -87,12 +95,12 @@
                                     <span class="mb-0" style="font-size:.72rem;font-weight:700;letter-spacing:.06em;color:var(--bs-secondary-color)">Recuperación por periodo</span>
                                     <span class="badge rounded-pill bg-label-warning text-warning gc-chart-period-badge small fw-bold text-truncate">—</span>
                                 </div>
-                                <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Agrupación serie" id="gcDashSerieGrupo">
-                                    <button type="button" class="btn btn-outline-secondary active" data-serie-grupo="semana">Semana</button>
-                                    <button type="button" class="btn btn-outline-secondary" id="gcBtnSerieMes" data-serie-grupo="mes">Mes</button>
+                                <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Tipo de gráfica" id="gcDashTipoGrafica">
+                                    <button type="button" class="btn btn-outline-secondary active" data-chart-type="bar">Barras</button>
+                                    <button type="button" class="btn btn-outline-secondary" data-chart-type="line">Línea</button>
                                 </div>
                             </div>
-                            <div class="small text-muted" id="gcRecuperacionSerieHint">Semana</div>
+                            <div class="small text-muted" id="gcRecuperacionSerieHint">Por semana calendario</div>
                         </div>
                         <div class="card-body d-flex flex-column flex-grow-1">
                             <div class="position-relative flex-grow-1" style="min-height: 300px;">
@@ -161,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
-    var gcState = { periodo: 'mes', serie_grupo: 'semana' };
+    var gcState = { periodo: 'mes', serie_grupo: 'semana', fecha_inicio: '', fecha_fin: '', chart_type: 'bar' };
     var gcCharts = { bar: null, donut: null };
 
     /** Acepta `{ success, datos }` o el objeto `datos` plano si el front ya lo desenvuelve. */
@@ -256,51 +264,162 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/"/g, '&quot;');
     }
 
-    function syncPeriodButtons() {
-        document.querySelectorAll('#gcDashPeriodo [data-periodo]').forEach(function (b) {
-            var on = b.getAttribute('data-periodo') === gcState.periodo;
-            b.classList.toggle('active', on);
-            b.classList.toggle('btn-primary', on);
-            b.classList.toggle('btn-outline-primary', !on);
+    function gcFmtYmd(fecha) {
+        var y = fecha.getFullYear();
+        var m = String(fecha.getMonth() + 1).padStart(2, '0');
+        var d = String(fecha.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function gcRangoLunesHoy() {
+        var hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        var dow = hoy.getDay();
+        var diffToMon = dow === 0 ? -6 : 1 - dow;
+        var lun = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + diffToMon);
+        lun.setHours(0, 0, 0, 0);
+        return { ini: gcFmtYmd(lun), fin: gcFmtYmd(hoy) };
+    }
+
+    function gcRangeDays() {
+        if (!gcState.fecha_inicio || !gcState.fecha_fin) return null;
+        var a = new Date(gcState.fecha_inicio + 'T12:00:00');
+        var b = new Date(gcState.fecha_fin + 'T12:00:00');
+        if (isNaN(a.getTime()) || isNaN(b.getTime()) || b < a) return null;
+        var ms = b.getTime() - a.getTime();
+        return Math.floor(ms / 86400000) + 1;
+    }
+
+    /** Modo inteligente: para rangos de 1 a 7 días, la serie se fuerza por día. */
+    function gcUsaSerieDiaria() {
+        var n = gcRangeDays();
+        return n !== null && n <= 7;
+    }
+
+    function gcSetHeaderRangeText(txt) {
+        var el = document.getElementById('gcDashRangoFechas');
+        if (el) el.textContent = txt || '—';
+    }
+
+    function gcCerrarFlatpickrCalendario(fpInstance) {
+        var fp = fpInstance;
+        if (!fp) {
+            var elFp = document.getElementById('flatpickr-range-gc-est');
+            fp = elFp && elFp._flatpickr ? elFp._flatpickr : null;
+        }
+        if (!fp) return;
+        try { if (typeof fp.close === 'function') fp.close(); } catch (e1) {}
+        var inp = document.getElementById('flatpickr-range-gc-est');
+        if (inp) {
+            try { inp.blur(); } catch (e2) {}
+        }
+    }
+
+    function gcAplicarRangoYRefrescar(iniYmd, finYmd, fpInstance) {
+        gcState.fecha_inicio = iniYmd;
+        gcState.fecha_fin = finYmd;
+        gcSetHeaderRangeText(iniYmd + ' a ' + finYmd);
+        if (fpInstance) {
+            try {
+                var a = new Date(iniYmd + 'T12:00:00');
+                var b = new Date(finYmd + 'T12:00:00');
+                fpInstance.setDate([a, b], false);
+            } catch (eSd) {}
+        }
+        gcCerrarFlatpickrCalendario(fpInstance || null);
+        loadDashboard();
+    }
+
+    function gcRestaurarPeriodoPorDefecto() {
+        var rh = gcRangoLunesHoy();
+        var el = document.getElementById('flatpickr-range-gc-est');
+        var fp = el && el._flatpickr ? el._flatpickr : null;
+        gcAplicarRangoYRefrescar(rh.ini, rh.fin, fp);
+    }
+
+    function initFlatpickrGcEst() {
+        var el = document.getElementById('flatpickr-range-gc-est');
+        if (!el || el._flatpickr || typeof flatpickr === 'undefined') {
+            return;
+        }
+        var hoyMax = new Date();
+        hoyMax.setHours(23, 59, 59, 999);
+        flatpickr(el, {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            clickOpens: true,
+            allowInput: false,
+            maxDate: hoyMax,
+            disableMobile: true,
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+                    longhand: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+                },
+                months: {
+                    shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+                    longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+                },
+                rangeSeparator: ' a '
+            },
+            defaultDate: [gcState.fecha_inicio, gcState.fecha_fin],
+            onChange: function (selectedDates, dateStr, instance) {
+                if (selectedDates.length === 2) {
+                    var ini = gcFmtYmd(selectedDates[0]);
+                    var fin = gcFmtYmd(selectedDates[1]);
+                    gcCerrarFlatpickrCalendario(instance);
+                    setTimeout(function () {
+                        gcAplicarRangoYRefrescar(ini, fin, null);
+                    }, 0);
+                } else if (selectedDates.length === 0) {
+                    gcRestaurarPeriodoPorDefecto();
+                }
+            },
+            onClose: function () {
+                gcCerrarFlatpickrCalendario(null);
+            }
         });
     }
 
-    function syncSerieButtons() {
-        document.querySelectorAll('#gcDashSerieGrupo [data-serie-grupo]').forEach(function (b) {
-            if (b.classList.contains('d-none')) return;
-            var on = b.getAttribute('data-serie-grupo') === gcState.serie_grupo;
+    function scheduleInitFlatpickrGcEst() {
+        var n = 0;
+        function intentar() {
+            if (typeof flatpickr !== 'undefined') {
+                initFlatpickrGcEst();
+                return;
+            }
+            n += 1;
+            if (n > 100) return;
+            setTimeout(intentar, 40);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', intentar);
+        } else {
+            intentar();
+        }
+    }
+
+    function syncChartTypeButtons() {
+        document.querySelectorAll('#gcDashTipoGrafica [data-chart-type]').forEach(function (b) {
+            var on = b.getAttribute('data-chart-type') === gcState.chart_type;
             b.classList.toggle('active', on);
             b.classList.toggle('btn-secondary', on);
             b.classList.toggle('btn-outline-secondary', !on);
         });
     }
 
-    /**
-     * Filtro superior «Semana»: solo agrupación semanal en el gráfico (un botón).
-     * Mes / Trimestre / Año: se muestran Semana y Mes para la serie temporal.
-     */
     function updateSerieGrupoUI() {
-        var btnMes = document.getElementById('gcBtnSerieMes');
-        var grpSerie = document.getElementById('gcDashSerieGrupo');
-        var soloSemana = gcState.periodo === 'semana';
-        if (soloSemana) {
-            gcState.serie_grupo = 'semana';
-        }
-        if (btnMes) {
-            btnMes.classList.toggle('d-none', soloSemana);
-        }
-        if (grpSerie) {
-            grpSerie.classList.toggle('d-none', soloSemana);
-        }
+        var soloDias = gcUsaSerieDiaria();
         var hint = document.getElementById('gcRecuperacionSerieHint');
         if (hint) {
-            hint.textContent = soloSemana ? 'Por día' : 'Semana / Mes';
+            hint.textContent = soloDias ? 'Por día' : 'Por semana calendario';
         }
         var lunNota = document.getElementById('gcRecuperacionLunNota');
         if (lunNota) {
-            lunNota.classList.toggle('d-none', !soloSemana);
+            lunNota.classList.add('d-none');
         }
-        syncSerieButtons();
+        syncChartTypeButtons();
     }
 
     function destroyChart(key) {
@@ -344,6 +463,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (mi >= 0 && mi < 12) return meses[mi] + ' ' + m[1];
             }
             return p;
+        }
+        if (serieGrupo === 'semana' && row.periodo_semana) {
+            return String(row.periodo_semana);
         }
         if (row.periodo_ini) {
             var d = String(row.periodo_ini).slice(0, 10);
@@ -407,8 +529,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var total = mRec + mPar + mPen + mCond;
         var rows = [
             { label: 'Recuperado', color: pal.success, m: mRec },
-            { label: 'Pendiente', color: pal.danger, m: mPendienteVis },
-            { label: 'Condonado', color: pal.secondary, m: mCond }
+            { label: 'Condonado', color: pal.secondary, m: mCond },
+            { label: 'Pendiente', color: pal.danger, m: mPendienteVis }
         ];
         ul.innerHTML = rows.map(function (r) {
             var m = r.m;
@@ -439,45 +561,45 @@ document.addEventListener('DOMContentLoaded', function () {
     /** Serie del gráfico: filtro «Semana» → por días; si no, según toggle Semana/Mes. */
     function serieActivaArr(dat) {
         dat = dat || {};
-        if (gcState.periodo === 'semana') {
+        if (gcUsaSerieDiaria()) {
             if (Array.isArray(dat.serie_dias) && dat.serie_dias.length) return dat.serie_dias;
             return [];
         }
-        var sg = gcState.serie_grupo === 'mes' ? 'mes' : 'semana';
-        if (sg === 'mes' && Array.isArray(dat.serie_mes) && dat.serie_mes.length) {
-            return dat.serie_mes;
-        }
-        if (sg === 'semana' && Array.isArray(dat.serie_semana) && dat.serie_semana.length) {
+        if (Array.isArray(dat.serie_semana) && dat.serie_semana.length) {
             return dat.serie_semana;
         }
         return Array.isArray(dat.serie) ? dat.serie : [];
     }
 
     function serieGrupoParaEjes() {
-        if (gcState.periodo === 'semana') return 'dia';
-        return gcState.serie_grupo === 'mes' ? 'mes' : 'semana';
+        if (gcUsaSerieDiaria()) return 'dia';
+        return 'semana';
     }
 
-    function renderCharts(dat) {
+    function renderRecuperacionChart(dat) {
         var pal = chartPalette();
         var serieGrupo = serieGrupoParaEjes();
         var serie = serieActivaArr(dat);
         var labels = serie.map(function (r) { return labelSerieRow(r, serieGrupo); });
         var ds1 = serie.map(function (r) { return parseFloat(r.monto_pagado) || 0; });
-        var dsSinPago = serie.map(function (r) {
-            return (parseFloat(r.monto_parcial) || 0) + (parseFloat(r.monto_sin_pago) || 0);
-        });
 
         destroyChart('bar');
         var ctxB = document.getElementById('gcChartBar');
         if (ctxB) {
             gcCharts.bar = new Chart(ctxB.getContext('2d'), {
-                type: 'bar',
+                type: gcState.chart_type === 'line' ? 'line' : 'bar',
                 data: {
                     labels: labels.length ? labels : ['—'],
                     datasets: [
-                        { label: 'Pagado', data: labels.length ? ds1 : [0], backgroundColor: pal.success },
-                        { label: 'Sin pago', data: labels.length ? dsSinPago : [0], backgroundColor: pal.danger }
+                        {
+                            label: 'Pagado',
+                            data: labels.length ? ds1 : [0],
+                            backgroundColor: pal.success,
+                            borderColor: pal.success,
+                            tension: 0.28,
+                            fill: false,
+                            pointRadius: gcState.chart_type === 'line' ? 3 : 0
+                        }
                     ]
                 },
                 options: {
@@ -495,9 +617,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     },
                     scales: {
-                        x: { stacked: true, ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } },
+                        x: { stacked: false, ticks: { maxRotation: 45, minRotation: 0, font: { size: 10 } } },
                         y: {
-                            stacked: true,
+                            stacked: false,
                             beginAtZero: true,
                             ticks: {
                                 callback: function (val) {
@@ -509,17 +631,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         }
+    }
 
+    function renderCharts(dat) {
+        var pal = chartPalette();
+        renderRecuperacionChart(dat);
         var donut = dat.donut || {};
         var dPar = parseFloat(donut.pago_parcial) || 0;
         var dPen = parseFloat(donut.pendiente) || 0;
         var dVals = [
             parseFloat(donut.recuperado) || 0,
-            dPar + dPen,
-            parseFloat(donut.condonado) || 0
+            parseFloat(donut.condonado) || 0,
+            dPar + dPen
         ];
-        var dLabels = ['Recuperado', 'Pendiente', 'Condonado'];
-        var dColors = [pal.success, pal.danger, pal.secondary];
+        var dLabels = ['Recuperado', 'Condonado', 'Pendiente'];
+        var dColors = [pal.success, pal.secondary, pal.danger];
         if (dVals.reduce(function (a, b) { return a + b; }, 0) === 0) {
             dVals = [1];
             dLabels = ['Sin datos'];
@@ -587,13 +713,17 @@ document.addEventListener('DOMContentLoaded', function () {
             mainEl.classList.add('d-none');
         }
 
-        syncPeriodButtons();
         updateSerieGrupoUI();
 
         http.request({
             endpoint: '/gastoscobranza/getdashboardestadistica',
             metodo: 'POST',
-            data: JSON.stringify({ periodo: gcState.periodo, serie_grupo: gcState.serie_grupo }),
+            data: JSON.stringify({
+                periodo: gcState.periodo,
+                serie_grupo: gcState.serie_grupo,
+                fecha_inicio: gcState.fecha_inicio,
+                fecha_fin: gcState.fecha_fin
+            }),
             contentType: 'application/json; charset=UTF-8',
             processData: false,
             showLoader: true,
@@ -623,30 +753,32 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    document.querySelectorAll('#gcDashPeriodo [data-periodo]').forEach(function (btn) {
+    document.querySelectorAll('#gcDashTipoGrafica [data-chart-type]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            var p = btn.getAttribute('data-periodo');
-            if (p) {
-                gcState.periodo = p;
-                loadDashboard();
-            }
-        });
-    });
-
-    document.querySelectorAll('#gcDashSerieGrupo [data-serie-grupo]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var s = btn.getAttribute('data-serie-grupo');
-            if (!s) return;
-            gcState.serie_grupo = s;
-            syncSerieButtons();
+            var t = btn.getAttribute('data-chart-type');
+            if (!t) return;
+            gcState.chart_type = t;
+            syncChartTypeButtons();
             if (gcLastDatos) {
-                renderCharts(gcLastDatos);
+                renderRecuperacionChart(gcLastDatos);
                 return;
             }
             loadDashboard();
         });
     });
 
+    var btnGcReset = document.getElementById('btnGcEstRestablecerPeriodo');
+    if (btnGcReset) {
+        btnGcReset.addEventListener('click', function () {
+            gcRestaurarPeriodoPorDefecto();
+        });
+    }
+
+    var rDef = gcRangoLunesHoy();
+    gcState.fecha_inicio = rDef.ini;
+    gcState.fecha_fin = rDef.fin;
+    gcSetHeaderRangeText(rDef.ini + ' a ' + rDef.fin);
+    scheduleInitFlatpickrGcEst();
     loadDashboard();
 });
 </script>

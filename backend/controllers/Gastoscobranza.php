@@ -160,7 +160,7 @@ class Gastoscobranza extends Controller
      */
     public function shell()
     {
-        $this->set('titulo', 'Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
+        $this->set('titulo', 'Gastos Cobranza');
         $this->set('tituloShell', 'Gastos Cobranza');
         $this->set('gastosCobranzaAgenteUrl', $this->agenteBaseUrl());
         $this->set('gastosCobranzaAgenteHabilitado', $this->agenteHabilitado());
@@ -177,14 +177,14 @@ class Gastoscobranza extends Controller
      */
     public function estadisticagc()
     {
-        $this->set('titulo', 'Estadísticas Gastos Cobranza | ' . CONFIGURACION['EMPRESA']);
+        $this->set('titulo', 'Estadísticas Gastos Cobranza');
         $this->set('script', '');
         self::render('gastos_cobranza_estadistica');
     }
 
     /**
      * JSON único para el dashboard Estadísticas Gastos Cobranza (módulo 40).
-     * POST JSON: periodo (semana|mes|trimestre|anio), serie_grupo (semana|mes).
+     * POST JSON: serie_grupo (semana|mes), y opcional fecha_inicio/fecha_fin (Y-m-d).
      */
     public function getDashboardEstadistica()
     {
@@ -196,7 +196,9 @@ class Gastoscobranza extends Controller
         }
         $periodo = (string) ($body['periodo'] ?? 'mes');
         $serieGrupo = (string) ($body['serie_grupo'] ?? 'semana');
-        $res = GastosCobranzaEstadistica::getDashboard($periodo, $serieGrupo);
+        $fechaInicio = isset($body['fecha_inicio']) ? (string) $body['fecha_inicio'] : null;
+        $fechaFin = isset($body['fecha_fin']) ? (string) $body['fecha_fin'] : null;
+        $res = GastosCobranzaEstadistica::getDashboard($periodo, $serieGrupo, $fechaInicio, $fechaFin);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
     }
