@@ -2442,20 +2442,116 @@ public static function registrarConvenioGlobo($datos)
         return ($nombres[$mes] ?? 'Mes ' . $mes) . ' ' . $anio;
     }
 
+    private static function _cvNormYmd(?string $s): ?string
+    {
+        if ($s === null) {
+            return null;
+        }
+        $s = trim($s);
+        if ($s === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+            return null;
+        }
+        $d = \DateTimeImmutable::createFromFormat('Y-m-d', $s);
+        return ($d && $d->format('Y-m-d') === $s) ? $s : null;
+    }
+
+    private static function _cvPeriodoLabelRango(string $fi, string $ff): string
+    {
+        try {
+            $a = new \DateTimeImmutable($fi);
+            $b = new \DateTimeImmutable($ff);
+            $meses = ['', 'ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.', 'jul.', 'ago.', 'sep.', 'oct.', 'nov.', 'dic.'];
+            $ma = (int) $a->format('n');
+            $mb = (int) $b->format('n');
+            $ya = (int) $a->format('Y');
+            $yb = (int) $b->format('Y');
+            if ($ya === $yb && $ma === $mb) {
+                return $a->format('j') . ' – ' . $b->format('j') . ' ' . ($meses[$ma] ?? '') . ' ' . $ya;
+            }
+            if ($ya === $yb) {
+                return $a->format('j') . ' ' . ($meses[$ma] ?? '') . ' – ' . $b->format('j') . ' ' . ($meses[$mb] ?? '') . ' ' . $ya;
+            }
+
+            return $a->format('j') . ' ' . ($meses[$ma] ?? '') . ' ' . $ya . ' – ' . $b->format('j') . ' ' . ($meses[$mb] ?? '') . ' ' . $yb;
+        } catch (\Throwable $e) {
+            return $fi . ' → ' . $ff;
+        }
+    }
+
+    /**
+     * Prioriza fecha_inicio + fecha_fin (Y-m-d, fin no posterior a hoy). Si no, usa el mes calendario de anio/mes.
+     *
+     * @return array{ini:string,fin:string,label:string}
+     */
+    private static function _cvResolverRangoFechas(int $anio, ?int $mes, ?string $fechaInicio, ?string $fechaFin): array
+    {
+        $mesN = ($mes === null || $mes < 1 || $mes > 12) ? (int) date('n') : (int) $mes;
+        $anioN = $anio > 0 ? $anio : (int) date('Y');
+
+        $fi = self::_cvNormYmd($fechaInicio);
+        $ff = self::_cvNormYmd($fechaFin);
+        $hoy = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        if ($fi !== null && $ff !== null && strcmp($fi, $ff) <= 0 && strcmp($ff, $hoy) <= 0) {
+            return [
+                'ini' => $fi,
+                'fin' => $ff,
+                'label' => self::_cvPeriodoLabelRango($fi, $ff),
+            ];
+        }
+
+        [$a, $b] = self::_cvRangoMes($anioN, $mesN);
+
+        return [
+            'ini' => $a,
+            'fin' => $b,
+            'label' => self::_cvPeriodoLabel($anioN, $mesN),
+        ];
+    }
+
+    /** Rango por defecto (lunes de la semana actual → hoy), mismo criterio que Gastos Cobranza. */
+    public static function cvRangoLunesHoyEstadisticas(): array
+    {
+        $hoy = new \DateTimeImmutable('today');
+        $dow = (int) $hoy->format('N');
+        $lun = $hoy->modify('-' . ($dow - 1) . ' days');
+
+        return [$lun->format('Y-m-d'), $hoy->format('Y-m-d')];
+    }
+
+    /**
+     * Valida rango Y-m-d para estadísticas (fin no posterior a hoy).
+     *
+     * @return array{ini:string,fin:string}|null
+     */
+    public static function cvParseRangoEstadisticas($fechaInicio, $fechaFin): ?array
+    {
+        $fi = self::_cvNormYmd(is_string($fechaInicio) ? $fechaInicio : null);
+        $ff = self::_cvNormYmd(is_string($fechaFin) ? $fechaFin : null);
+        if ($fi === null || $ff === null || strcmp($fi, $ff) > 0) {
+            return null;
+        }
+        $hoy = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        if (strcmp($ff, $hoy) > 0) {
+            return null;
+        }
+
+        return ['ini' => $fi, 'fin' => $ff];
+    }
+
     // ──────────────────────────────────────────────────────────
     // getEstadisticasConvenios
     // KPIs globales (totales por estatus) + nuevos del período
     // (fecha_alta dentro del mes/año seleccionado).
     // ──────────────────────────────────────────────────────────
 
-    public static function getEstadisticasConvenios(int $anio, ?int $mes): array
+    public static function getEstadisticasConvenios(int $anio, ?int $mes, ?string $fechaInicio = null, ?string $fechaFin = null): array
     {
-        if ($mes === null || $mes < 1 || $mes > 12) {
-            $mes = (int) date('n');
-        }
         try {
             $db = new Database();
-            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+            $rango = self::_cvResolverRangoFechas($anio, $mes, $fechaInicio, $fechaFin);
+            $fechaIni = $rango['ini'];
+            $fechaFin = $rango['fin'];
+            $periodoLabel = $rango['label'];
 
             // ── KPIs globales (sin filtro de fecha) ──
             $kpis = $db->queryOne(
@@ -2481,7 +2577,7 @@ public static function registrarConvenioGlobo($datos)
             ) ?: [];
 
             $datos = [
-                'periodo_label'      => self::_cvPeriodoLabel($anio, $mes),
+                'periodo_label'      => $periodoLabel,
                 'fecha_ini'          => $fechaIni,
                 'fecha_fin'          => $fechaFin,
                 'total_convenios'    => (int) ($kpis['total']             ?? 0),
@@ -2506,18 +2602,18 @@ public static function registrarConvenioGlobo($datos)
     // producto_convenio, filtrado por estatus + fecha_alta.
     // ──────────────────────────────────────────────────────────
 
-    public static function getEstadisticasConveniosDetalle(int $anio, ?int $mes, string $tipo = 'activos'): array
+    public static function getEstadisticasConveniosDetalle(int $anio, ?int $mes, string $tipo = 'activos', ?string $fechaInicio = null, ?string $fechaFin = null): array
     {
-        if ($mes === null || $mes < 1 || $mes > 12) {
-            $mes = (int) date('n');
-        }
         $tiposValidos = ['activos', 'completados', 'cancelados'];
         if (!in_array($tipo, $tiposValidos, true)) {
             $tipo = 'activos';
         }
         try {
             $db = new Database();
-            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+            $rango = self::_cvResolverRangoFechas($anio, $mes, $fechaInicio, $fechaFin);
+            $fechaIni = $rango['ini'];
+            $fechaFin = $rango['fin'];
+            $periodoLabel = $rango['label'];
 
             $estatusMap = ['activos' => 'activo', 'completados' => 'completado', 'cancelados' => 'cancelado'];
             $estatus    = $estatusMap[$tipo];
@@ -2536,11 +2632,12 @@ public static function registrarConvenioGlobo($datos)
             ) ?: [];
 
             $datos = [
-                'tipo'         => $tipo,
-                'fecha_ini'    => $fechaIni,
-                'fecha_fin'    => $fechaFin,
-                'total'        => (int) array_sum(array_column($rows, 'cnt')),
-                'por_producto' => $rows,
+                'tipo'            => $tipo,
+                'periodo_label'   => $periodoLabel,
+                'fecha_ini'       => $fechaIni,
+                'fecha_fin'       => $fechaFin,
+                'total'           => (int) array_sum(array_column($rows, 'cnt')),
+                'por_producto'    => $rows,
             ];
 
             return self::resultado(true, 'OK', $datos);
@@ -2555,14 +2652,13 @@ public static function registrarConvenioGlobo($datos)
     // monto pagado en amortizaciones del período seleccionado.
     // ──────────────────────────────────────────────────────────
 
-    public static function getEstadisticasCierresCredito(int $anio, ?int $mes): array
+    public static function getEstadisticasCierresCredito(int $anio, ?int $mes, ?string $fechaInicio = null, ?string $fechaFin = null): array
     {
-        if ($mes === null || $mes < 1 || $mes > 12) {
-            $mes = (int) date('n');
-        }
         try {
             $db = new Database();
-            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+            $rango = self::_cvResolverRangoFechas($anio, $mes, $fechaInicio, $fechaFin);
+            $fechaIni = $rango['ini'];
+            $fechaFin = $rango['fin'];
 
             // Monto total comprometido (convenios activos + completados, sin filtro de fecha)
             $montos = $db->queryOne(
@@ -2623,14 +2719,13 @@ public static function registrarConvenioGlobo($datos)
     // estatus=1) cruzados con convenio_cliente estatus=activo.
     // ──────────────────────────────────────────────────────────
 
-    public static function getEstadisticasAsignacionCreditos(int $anio, ?int $mes): array
+    public static function getEstadisticasAsignacionCreditos(int $anio, ?int $mes, ?string $fechaInicio = null, ?string $fechaFin = null): array
     {
-        if ($mes === null || $mes < 1 || $mes > 12) {
-            $mes = (int) date('n');
-        }
         try {
             $db = new Database();
-            [$fechaIni, $fechaFin] = self::_cvRangoMes($anio, $mes);
+            $rango = self::_cvResolverRangoFechas($anio, $mes, $fechaInicio, $fechaFin);
+            $fechaIni = $rango['ini'];
+            $fechaFin = $rango['fin'];
 
             // Total créditos activos en despacho
             $despacho = $db->queryOne(
