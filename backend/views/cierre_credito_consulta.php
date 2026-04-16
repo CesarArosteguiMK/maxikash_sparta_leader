@@ -282,6 +282,84 @@ body.dark-mode .cc-doc-ok      { background: rgba(21,128,61,.2);  color: #4ade80
 body.dark-mode .cc-doc-missing { background: rgba(185,28,28,.2); color: #f87171; }
 body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24; }
 
+/* ── Filtros de Validación de Cierre ── */
+.cc-filtros-bar {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .75rem;
+    flex-wrap: wrap;
+}
+.cc-filtros-btn-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .35rem .8rem;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: .4rem;
+    font-size: .82rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+    white-space: nowrap;
+}
+.cc-filtros-btn-toggle:hover { background: #f1f5f9; border-color: #94a3b8; }
+.cc-filtros-btn-toggle.open  { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; }
+.cc-filtros-chevron { font-size: .62rem; transition: transform .2s ease; }
+.cc-filtros-btn-toggle.open .cc-filtros-chevron { transform: rotate(180deg); }
+.cc-filtros-opciones {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+    animation: ccFiltrosSlide .15s ease;
+}
+@keyframes ccFiltrosSlide {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.cc-filtro-opcion, .cc-filtro-hist-opcion {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .3rem .75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: .4rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.cc-filtro-opcion:hover, .cc-filtro-hist-opcion:hover { background: #f1f5f9; border-color: #94a3b8; }
+.cc-filtro-opcion.active { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+.cc-filtro-opcion[data-filtro="con_docs"].active   { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+.cc-filtro-opcion[data-filtro="devueltos"].active  { background: #fef9c3; border-color: #ca8a04; color: #854d0e; }
+.cc-filtro-count { font-size: .78rem; color: #64748b; }
+body.dark-mode .cc-filtros-btn-toggle { background: #1e293b; border-color: #475569; color: #94a3b8; }
+body.dark-mode .cc-filtros-btn-toggle:hover { background: #334155; border-color: #64748b; }
+body.dark-mode .cc-filtros-btn-toggle.open  { border-color: #3b82f6; color: #60a5fa; background: rgba(59,130,246,.12); }
+body.dark-mode .cc-filtro-opcion, body.dark-mode .cc-filtro-hist-opcion { background: #1e293b; border-color: #334155; color: #94a3b8; }
+body.dark-mode .cc-filtro-opcion:hover, body.dark-mode .cc-filtro-hist-opcion:hover { background: #334155; border-color: #475569; }
+body.dark-mode .cc-filtro-opcion.active { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
+body.dark-mode .cc-filtro-opcion[data-filtro="con_docs"].active  { background: rgba(21,128,61,.2); border-color: #16a34a; color: #4ade80; }
+body.dark-mode .cc-filtro-opcion[data-filtro="devueltos"].active { background: rgba(133,77,14,.2); border-color: #ca8a04; color: #fbbf24; }
+body.dark-mode .cc-filtro-count { color: #94a3b8; }
+
+/* Historial filter option active colors */
+.cc-filtro-hist-opcion.active                                          { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+.cc-filtro-hist-opcion[data-filtro-hist="enviado_cartera"].active      { background: #dcfce7; border-color: #16a34a; color: #15803d; }
+.cc-filtro-hist-opcion[data-filtro-hist="en_cola,listo_envio"].active  { background: #fef9c3; border-color: #ca8a04; color: #854d0e; }
+.cc-filtro-hist-opcion[data-filtro-hist="en_proceso"].active           { background: #dbeafe; border-color: #1d4ed8; color: #1e40af; }
+.cc-filtro-hist-opcion[data-filtro-hist="descartado"].active           { background: #ffedd5; border-color: #ea580c; color: #9a3412; }
+body.dark-mode .cc-filtro-hist-opcion.active                                          { background: rgba(59,130,246,.18);  border-color: #3b82f6; color: #93c5fd; }
+body.dark-mode .cc-filtro-hist-opcion[data-filtro-hist="enviado_cartera"].active      { background: rgba(21,128,61,.2);    border-color: #16a34a; color: #4ade80; }
+body.dark-mode .cc-filtro-hist-opcion[data-filtro-hist="en_cola,listo_envio"].active  { background: rgba(133,77,14,.2);    border-color: #ca8a04; color: #fbbf24; }
+body.dark-mode .cc-filtro-hist-opcion[data-filtro-hist="en_proceso"].active           { background: rgba(30,64,175,.2);    border-color: #1d4ed8; color: #93c5fd; }
+body.dark-mode .cc-filtro-hist-opcion[data-filtro-hist="descartado"].active           { background: rgba(154,52,18,.2);    border-color: #ea580c; color: #fb923c; }
+
 /* ── Badge de porcentaje de descuento ── */
 .cc-pct-badge {
     display: inline-block;
@@ -584,6 +662,26 @@ $ccActHist = ($cc_default_tab === 'historial');
     <!-- ══ PESTAÑA 1: ENVIADOS FINALIZADOS ══ -->
     <div class="tab-pane fade<?= $ccActVal ? ' show active' : '' ?>" id="tab-env-finalizado" role="tabpanel">
 
+        <!-- Botón Filtros con opciones desplegables -->
+        <div id="cc-filtros-ef" class="cc-filtros-bar d-none">
+            <button id="cc-filtros-toggle" class="cc-filtros-btn-toggle" type="button">
+                <i class="fa-solid fa-filter"></i>Filtros
+                <i class="fa-solid fa-chevron-down cc-filtros-chevron"></i>
+            </button>
+            <div id="cc-filtros-opciones" class="cc-filtros-opciones" style="display:none;">
+                <button class="cc-filtro-opcion active" data-filtro="todos" type="button">
+                    <i class="fa-solid fa-list"></i>Todos
+                </button>
+                <button class="cc-filtro-opcion" data-filtro="con_docs" type="button">
+                    <i class="fa-solid fa-paperclip"></i>Con documentos
+                </button>
+                <button class="cc-filtro-opcion" data-filtro="devueltos" type="button">
+                    <i class="fa-solid fa-rotate-left"></i>Devueltos
+                </button>
+            </div>
+            <span id="cc-filtro-count" class="cc-filtro-count"></span>
+        </div>
+
         <div id="loader-env-finalizado" class="text-center py-5 text-muted<?= $ccActVal ? '' : ' d-none' ?>">
             <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
             Cargando convenios...
@@ -632,12 +730,50 @@ $ccActHist = ($cc_default_tab === 'historial');
     <div class="tab-pane fade<?= $ccActHist ? ' show active' : '' ?>" id="tab-historial" role="tabpanel">
         <div class="card shadow-sm">
             <div class="card-body p-0">
+
+                <!-- Filtros Movimientos -->
+                <div id="cc-filtros-hist" class="cc-filtros-bar d-none" style="padding:.65rem .75rem;">
+                    <button id="cc-filtros-hist-toggle" class="cc-filtros-btn-toggle" type="button">
+                        <i class="fa-solid fa-filter"></i>Filtros
+                        <i class="fa-solid fa-chevron-down cc-filtros-chevron"></i>
+                    </button>
+                    <div id="cc-filtros-hist-opciones" class="cc-filtros-opciones" style="display:none;">
+                        <button class="cc-filtro-hist-opcion active" data-filtro-hist="todos" type="button">
+                            <i class="fa-solid fa-list"></i>Todos
+                        </button>
+                        <button class="cc-filtro-hist-opcion" data-filtro-hist="enviado_cartera" type="button">
+                            <i class="fa-solid fa-circle-check"></i>Enviados
+                        </button>
+                        <button class="cc-filtro-hist-opcion" data-filtro-hist="en_cola,listo_envio" type="button">
+                            <i class="fa-solid fa-triangle-exclamation"></i>L&iacute;mite de env&iacute;o
+                        </button>
+                        <button class="cc-filtro-hist-opcion" data-filtro-hist="en_proceso" type="button">
+                            <i class="fa-solid fa-hourglass-half"></i>En proceso
+                        </button>
+                        <button class="cc-filtro-hist-opcion" data-filtro-hist="descartado" type="button">
+                            <i class="fa-solid fa-rotate-left"></i>Devueltos
+                        </button>
+                    </div>
+                    <span id="cc-filtro-hist-count" class="cc-filtro-count"></span>
+                </div>
+
                 <div id="loader-historial" class="text-center py-5 text-muted<?= $ccActHist ? '' : ' d-none' ?>">
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
                     Cargando movimientos...
                 </div>
                 <div id="wrap-historial" class="d-none">
-                    <!-- Tabla inyectada por JS -->
+                    <table id="tablaHistorialMovs" class="table table-hover mb-0 cc-table w-100">
+                        <thead>
+                            <tr>
+                                <th class="ps-3">Cr&eacute;dito</th>
+                                <th>Cliente</th>
+                                <th>Estatus</th>
+                                <th>Realizado por</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
                 <div id="empty-historial" class="text-center py-5 text-muted d-none">
                     <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
@@ -723,10 +859,31 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     ══════════════════════════════════ */
     let _allRows          = [];
     let _allRowsEp        = [];
+    let _filtroEf         = 'todos';
+    let _filtroHist       = 'todos';
     let _allRowsHist      = [];
     let _allRowsConv      = [];
     let _validador        = '—';
     let enProcesoCargado  = false;
+
+    function _rowPasaFiltroEf(r) {
+        if (_filtroEf === 'con_docs')
+            return !!(r.pdf_adjunto && r.pdf_adjunto !== '') || (parseInt(r.comprobantes_subidos) || 0) > 0;
+        if (_filtroEf === 'devueltos')
+            return !!r.ultimo_motivo_descarte;
+        return true;
+    }
+
+    function _getRowsEf(t) {
+        let rows = _filtroEf === 'todos' ? _allRows : _allRows.filter(_rowPasaFiltroEf);
+        if (t) rows = rows.filter(r =>
+            String(r.id_credito      || '').toLowerCase().includes(t) ||
+            String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
+            String(r.nombre_producto || '').toLowerCase().includes(t) ||
+            String(r.nombre_despacho || '').toLowerCase().includes(t)
+        );
+        return rows;
+    }
 
     function renderCards(rows, validador) {
         _allRows   = rows;
@@ -741,16 +898,26 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             return;
         }
 
-        _pintarCards(rows);
+        document.getElementById('cc-filtros-ef').classList.remove('d-none');
+        _pintarCards(_getRowsEf(''));
     }
 
     function _pintarCards(rows) {
-        const wrap         = document.getElementById('wrap-env-finalizado');
-        const emptyNormal  = document.getElementById('empty-env-finalizado');
-        const emptySearch  = document.getElementById('empty-busqueda');
+        const wrap        = document.getElementById('wrap-env-finalizado');
+        const emptyNormal = document.getElementById('empty-env-finalizado');
+        const emptySearch = document.getElementById('empty-busqueda');
+        const countEl     = document.getElementById('cc-filtro-count');
 
         emptyNormal.classList.add('d-none');
         emptySearch.classList.add('d-none');
+
+        if (countEl) {
+            const visible = rows.length;
+            const total   = _allRows.length;
+            countEl.textContent = visible < total
+                ? `${visible} de ${total}`
+                : (total ? `${total} total${total !== 1 ? 'es' : ''}` : '');
+        }
 
         if (!rows.length) {
             wrap.classList.add('d-none');
@@ -792,10 +959,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         }
 
         if (tab === 'hist') {
-            _pintarHistorial(!t ? _allRowsHist : _allRowsHist.filter(r =>
-                String(r.id_credito     || '').toLowerCase().includes(t) ||
-                String(r.nombre_cliente || '').toLowerCase().includes(t)
-            ));
+            if (_tablaHist) {
+                // Apply both the estatus filter and the text search
+                if (_filtroHist === 'todos') {
+                    $.fn.dataTable.ext.search.pop(); // remove any previous custom filter
+                } 
+                _tablaHist.search(t).draw();
+            }
             return;
         }
 
@@ -805,12 +975,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         }
 
         // Tab 1: Enviados Finalizados
-        _pintarCards(!t ? _allRows : _allRows.filter(r =>
-            String(r.id_credito      || '').toLowerCase().includes(t) ||
-            String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
-            String(r.nombre_producto || '').toLowerCase().includes(t) ||
-            String(r.nombre_despacho || '').toLowerCase().includes(t)
-        ));
+        _pintarCards(_getRowsEf(t));
     }
 
     document.getElementById('barraGeneral-input')
@@ -823,6 +988,69 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             ccFiltrar('');
             input.focus();
         });
+
+    document.getElementById('cc-filtros-hist-toggle').addEventListener('click', function () {
+        const opciones = document.getElementById('cc-filtros-hist-opciones');
+        const isOpen   = opciones.style.display !== 'none';
+        opciones.style.display = isOpen ? 'none' : 'flex';
+        this.classList.toggle('open', !isOpen);
+    });
+
+    document.querySelectorAll('.cc-filtro-hist-opcion').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.cc-filtro-hist-opcion').forEach(function (b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            _filtroHist = this.dataset.filtroHist;
+            _applyHistFilter();
+            const t = document.getElementById('barraGeneral-input').value.trim();
+            if (t && _tablaHist) _tablaHist.search(t).draw();
+        });
+    });
+
+    document.getElementById('cc-filtros-toggle').addEventListener('click', function () {
+        const opciones = document.getElementById('cc-filtros-opciones');
+        const isOpen   = opciones.style.display !== 'none';
+        opciones.style.display = isOpen ? 'none' : 'flex';
+        this.classList.toggle('open', !isOpen);
+    });
+
+    document.querySelectorAll('.cc-filtro-opcion').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.cc-filtro-opcion').forEach(function (b) { b.classList.remove('active'); });
+            this.classList.add('active');
+            _filtroEf = this.dataset.filtro;
+            const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
+            _pintarCards(_getRowsEf(t));
+        });
+    });
+
+    /* ══════════════════════════════════
+       HELPER: bloque de info S2
+    ══════════════════════════════════ */
+    function _s2InfoHtml(r) {
+        const semana    = (r.semana_acuerdo != null && r.anio_semana_acuerdo != null)
+            ? `Sem. ${r.semana_acuerdo} / ${r.anio_semana_acuerdo}` : '—';
+        const s2Cont    = (r.s2_cuotas_contratadas != null) ? parseInt(r.s2_cuotas_contratadas) : null;
+        const s2Pag     = (r.s2_cuotas_pagadas     != null) ? parseInt(r.s2_cuotas_pagadas)     : null;
+        const s2Tot     = (r.s2_total_pagado        != null) ? parseFloat(r.s2_total_pagado)     : null;
+        const s2Monto   = (r.s2_monto_otorgado      != null) ? parseFloat(r.s2_monto_otorgado)   : null;
+        const cuotasStr = (s2Pag !== null && s2Cont !== null) ? `${s2Pag} de ${s2Cont}` : '—';
+        const totalStr  = s2Tot !== null
+            ? Math.abs(s2Tot).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '—';
+        const montoStr  = s2Monto !== null
+            ? Math.abs(s2Monto).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '—';
+        return `<div style="margin-top:.6rem;padding:.45rem .65rem;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:.45rem;font-size:.78rem;">
+            <div style="font-weight:700;color:#0369a1;margin-bottom:.3rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                <i class="fa-solid fa-chart-line me-1"></i>Datos crédito
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem .5rem;">
+                <div><span style="color:#64748b;">Semana acuerdo:</span> <strong style="color:#0f172a;">${semana}</strong></div>
+                <div><span style="color:#64748b;">Monto otorgado:</span> <strong style="color:#0f172a;">${montoStr}</strong></div>
+                <div><span style="color:#64748b;">Cuotas:</span> <strong style="color:#0f172a;">${cuotasStr}</strong></div>
+                <div><span style="color:#64748b;">Total pagado:</span> <strong style="color:#059669;">${totalStr}</strong></div>
+            </div>
+        </div>`;
+    }
 
     function buildCard(r, validador) {
         const semanas      = parseInt(r.numero_semanas) || 1;
@@ -881,6 +1109,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     </div>
 
                     <div class="cc-detail-row">
+                        <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
+                        <span class="cc-val fw-bold" style="color:#dc2626;">${fmt(parseFloat(r.adeudo_total_original) || 0)}</span>
+                    </div>
+
+                    <div class="cc-detail-row">
                         <span class="cc-lbl">Total final</span>
                         <span class="cc-val fw-bold text-success">${fmt(totalPagar)}</span>
                     </div>
@@ -888,7 +1121,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     ${resumenHtml}
 
                     <div class="cc-detail-row">
-                        <span class="cc-lbl">Despacho a cargo</span>
+                        <span class="cc-lbl">Gestor a cargo</span>
                         <span class="cc-val">${despacho}</span>
                     </div>
 
@@ -921,8 +1154,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     <!-- Documentos adjuntos -->
                     ${(() => {
                         const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
-                        const compSub = parseInt(r.comprobantes_subidos) || 0;
-                        if (!pdfOk && compSub === 0) return '';
+                        const compPaths = (r.comprobantes_paths && r.comprobantes_paths !== '')
+                            ? r.comprobantes_paths.split('|').filter(p => p)
+                            : [];
+                        if (!pdfOk && compPaths.length === 0) return '';
                         let items = '';
                         if (pdfOk)
                             items += `<a href="${esc(r.pdf_adjunto)}" target="_blank"
@@ -930,16 +1165,19 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                                          style="font-size:.78rem;">
                                          <i class="fa-solid fa-file-pdf me-1"></i>PDF convenio
                                       </a>`;
-                        if (compSub > 0)
-                            items += `<span class="cc-doc-ok" style="padding:3px 10px;font-size:.78rem;font-weight:700;"
-                                           title="${compSub} comprobante${compSub !== 1 ? 's' : ''} subido${compSub !== 1 ? 's' : ''}">
-                                           <i class="fa-solid fa-receipt me-1"></i>${compSub} comprobante${compSub !== 1 ? 's' : ''}
-                                      </span>`;
+                        if (compPaths.length > 0) {
+                            const links = compPaths.map((p, i) =>
+                                `<a href="${esc(p)}" target="_blank" class="btn btn-sm btn-outline-success" style="font-size:.78rem;"><i class="fa-solid fa-receipt me-1"></i>Comprobante ${i + 1}</a>`
+                            ).join('');
+                            items += links;
+                        }
                         return `<div class="cc-doccheck-wrap mt-2">
                                     <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
                                     <div class="cc-doccheck-items" style="display:flex;gap:.4rem;flex-wrap:wrap;">${items}</div>
                                 </div>`;
                     })()}
+
+                    ${_s2InfoHtml(r)}
 
                 </div>
             </div>
@@ -1022,7 +1260,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         const todoListo = pdfOk && compOk;
 
         const pdfBadge = pdfOk
-            ? `<span class="cc-doc-ok"><i class="fa-solid fa-file-pdf me-1"></i>PDF Convenio</span>`
+            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="cc-doc-ok" style="text-decoration:none;cursor:pointer;"><i class="fa-solid fa-file-pdf me-1"></i>PDF Convenio</a>`
             : `<span class="cc-doc-missing"><i class="fa-solid fa-file-pdf me-1"></i>Sin PDF convenio</span>`;
 
         let compBadge;
@@ -1071,6 +1309,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             </span>
                         </div>
                         <div class="cc-detail-row">
+                            <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
+                            <span class="cc-val fw-bold" style="color:#dc2626;">${fmtN(parseFloat(r.adeudo_total_original) || 0)}</span>
+                        </div>
+                        <div class="cc-detail-row">
                             <span class="cc-lbl">Total pagado</span>
                             <span class="cc-val fw-bold text-success">${fmtN(r.total_a_pagar)}</span>
                         </div>
@@ -1086,6 +1328,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
                             <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
                         </div>
+                        ${_s2InfoHtml(r)}
                         ${r.fecha_envio_cartera ? `
                         <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#fef9c3;border:1px solid #fde68a;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#854d0e;">
                             <i class="fa-solid fa-triangle-exclamation"></i>
@@ -1137,6 +1380,116 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
        RENDER: TABLA CONVENIOS (Tab 0)
     ══════════════════════════════════ */
     let _tablaConv = null;
+    let _tablaHist = null;
+
+    /* ── Helpers para la DataTable de Historial ── */
+    const _histEtiqueta = (r) => {
+        if (r.estatus === 'enviado_cartera' && r.email_destino_cartera)
+            return `<span class="badge rounded-pill cc-hist-enviado-ok"><i class="fa-solid fa-circle-check me-1"></i>Enviado &mdash; correo notificado</span>`;
+        if (r.estatus === 'enviado_cartera')
+            return `<span class="badge rounded-pill cc-hist-enviado-warn"><i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado &mdash; sin correo notificado</span>`;
+        if (r.estatus === 'en_cola')
+            return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
+                        <span class="badge rounded-pill cc-hist-enviado-warn"><i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado &mdash; sin correo notificado</span>
+                        <button onclick="ccMarcarListoEnvio(${r.id})" style="font-size:.73rem;padding:2px 9px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:6px;white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-check me-1"></i>Marcar listo para reenv&iacute;o</button>
+                    </div>`;
+        if (r.estatus === 'listo_envio')
+            return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
+                        <span class="badge rounded-pill cc-hist-enviado-warn"><i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado &mdash; sin correo notificado</span>
+                        <button onclick="ccReenviarACartera(${r.id})" id="cc-hist-btn-${r.id}" style="font-size:.73rem;padding:2px 9px;background:linear-gradient(135deg,#059669,#10b981);border:none;color:#fff;border-radius:6px;white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera</button>
+                    </div>`;
+        if (r.estatus === 'descartado')
+            return `<span class="badge rounded-pill cc-hist-descartado"><i class="fa-solid fa-rotate-left me-1"></i>Devuelto a revisi&oacute;n</span>`;
+        return `<span class="badge rounded-pill cc-hist-en-proceso"><i class="fa-solid fa-hourglass-half me-1"></i>En Proceso</span>`;
+    };
+
+    const _histQuienMovio = (r) => {
+        if (r.estatus === 'en_proceso') return esc(r.usuario_alta);
+        return esc(r.usuario_actualizacion || r.usuario_alta);
+    };
+
+    const _histFechaSort = (r) => {
+        if (r.estatus === 'enviado_cartera') return r.fecha_envio_cartera || r.fecha_alta || '';
+        if (r.estatus === 'descartado')      return r.fecha_actualizacion || '';
+        if (r.estatus === 'en_cola')         return r.fecha_actualizacion || '';
+        if (r.estatus === 'listo_envio')     return r.fecha_actualizacion || '';
+        return r.fecha_alta || '';
+    };
+
+    const _histFechaDisplay = (r) => {
+        if (r.estatus === 'enviado_cartera') return fmtFecha(r.fecha_envio_cartera);
+        if (r.estatus === 'descartado')      return fmtFecha(r.fecha_actualizacion);
+        if (r.estatus === 'en_cola')         return fmtFecha(r.fecha_actualizacion);
+        if (r.estatus === 'listo_envio')     return fmtFecha(r.fecha_actualizacion);
+        return fmtFecha(r.fecha_alta);
+    };
+
+    function _initTablaHist() {
+        if (_tablaHist) return;
+        _tablaHist = $('#tablaHistorialMovs').DataTable({
+            data: [],
+            columns: [
+                {
+                    data: null,
+                    render: function(d, t, r) {
+                        if (t === 'filter' || t === 'sort') return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
+                        return `<span class="fw-bold ps-1" style="color:#1e293b;white-space:nowrap;">#${esc(r.id_credito)}</span>`;
+                    }
+                },
+                {
+                    data: 'nombre_cliente',
+                    render: function(d, t) {
+                        if (t !== 'display') return d || '';
+                        return `<span style="font-size:.88rem;">${esc(d || '')}</span>`;
+                    }
+                },
+                {
+                    data: 'estatus',
+                    render: function(d, t, r) {
+                        if (t === 'filter' || t === 'sort') return d || '';
+                        return _histEtiqueta(r);
+                    }
+                },
+                {
+                    data: null,
+                    render: function(d, t, r) {
+                        if (t === 'filter' || t === 'sort') return r.usuario_actualizacion || r.usuario_alta || '';
+                        return `<span style="font-size:.83rem;color:#475569;">${_histQuienMovio(r)}</span>`;
+                    }
+                },
+                {
+                    data: null,
+                    render: function(d, t, r) {
+                        if (t === 'sort')   return _histFechaSort(r);
+                        if (t === 'filter') return _histFechaDisplay(r);
+                        return `<span style="font-size:.83rem;color:#475569;white-space:nowrap;">${_histFechaDisplay(r)}</span>`;
+                    }
+                }
+            ],
+            pageLength: 15,
+            lengthMenu: [10, 15, 25, 50, 100],
+            order: [[4, 'desc']],
+            language: {
+                emptyTable:   'Sin movimientos registrados',
+                infoEmpty:    'Sin registros',
+                info:         'Mostrando _START_ a _END_ de _TOTAL_ movimientos',
+                infoFiltered: '(filtrado de _MAX_ totales)',
+                lengthMenu:   'Mostrar _MENU_ registros',
+                search:       'Buscar:',
+                zeroRecords:  'Sin resultados para la b&uacute;squeda',
+                paginate: { first: '&laquo;', last: '&raquo;', next: '&rsaquo;', previous: '&lsaquo;' }
+            },
+            dom: '<"d-flex align-items-center flex-wrap gap-2 px-3 py-2"l>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            autoWidth: false,
+            drawCallback: function() {
+                $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+                $('.dataTables_length select').addClass('form-select form-select-sm');
+                $('.dataTables_filter input').addClass('form-control form-control-sm');
+            }
+        });
+    }
 
     function _initTablaConv() {
         if (_tablaConv) return;
@@ -1279,21 +1632,21 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     window.ccToggleDetalle = function(id) {
         const btn    = document.getElementById(`cc-acc-btn-${id}`);
         const panel  = document.getElementById(`cc-acc-body-${id}`);
-        const card   = document.getElementById(`cc-ep-card-${id}`);
+        const card   = document.getElementById(`cc-ep-card-${id}`) || document.getElementById(`cc-card-${id}`);
         const loader = document.getElementById(`cc-acc-loader-${id}`);
         const content = document.getElementById(`cc-acc-content-${id}`);
         const isOpen = panel.classList.contains('open');
 
         if (isOpen) {
             panel.classList.remove('open');
-            card.classList.remove('cc-has-panel');
-            btn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver detalle';
+            if (card) card.classList.remove('cc-has-panel');
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver detalle';
             return;
         }
 
         panel.classList.add('open');
-        card.classList.add('cc-has-panel');
-        btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
+        if (card) card.classList.add('cc-has-panel');
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
 
         // Ya cargado previamente
         if (_detalleCache[id]) {
@@ -1360,7 +1713,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     ? `<i class="fa-solid fa-circle-check text-success"></i>`
                     : `<i class="fa-regular fa-clock text-warning"></i>`;
                 const compIcon = a.comprobante_path
-                    ? `<i class="fa-solid fa-paperclip text-success" title="Comprobante subido"></i>`
+                    ? `<a href="${esc(a.comprobante_path)}" target="_blank" style="color:#16a34a;text-decoration:none;font-size:.78rem;white-space:nowrap;"><i class="fa-solid fa-paperclip me-1"></i>Ver Comprobante</a>`
                     : `<i class="fa-solid fa-minus text-muted"></i>`;
                 return `
                 <tr class="${cls}">
@@ -1419,8 +1772,9 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         btn.classList.replace('btn-outline-primary', 'btn-primary');
         tr.addClass('shown');
 
+        const rowData = row.data();
         if (_detalleConvCache[id]) {
-            row.child(`<div class="cc-conv-detail-inner">${buildDetalleConvHtml(_detalleConvCache[id])}</div>`).show();
+            row.child(`<div class="cc-conv-detail-inner">${buildDetalleConvHtml(_detalleConvCache[id], rowData)}</div>`).show();
             return;
         }
 
@@ -1435,14 +1789,14 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         .then(res => {
             if (!res.success) throw new Error(res.mensaje);
             _detalleConvCache[id] = res.datos;
-            row.child(`<div class="cc-conv-detail-inner">${buildDetalleConvHtml(res.datos)}</div>`).show();
+            row.child(`<div class="cc-conv-detail-inner">${buildDetalleConvHtml(res.datos, rowData)}</div>`).show();
         })
         .catch(err => {
             row.child(`<div class="alert alert-danger m-2 py-2">Error: ${esc(err.message)}</div>`).show();
         });
     };
 
-    function buildDetalleConvHtml(d) {
+    function buildDetalleConvHtml(d, rowData) {
         const fmtN = (n) => parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
         const conv  = d.convenio     || {};
         const amort = d.amortizacion || [];
@@ -1474,7 +1828,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 <div class="cc-res-title">Pago semanal</div>
                 <div style="font-size:1rem;font-weight:700;color:#475569;">${fmtN(conv.pago_semanal)}</div>
             </div>
-        </div>`;
+        </div>
+        ${rowData ? _s2InfoHtml(rowData) : ''}`;
 
         // ── Tabla de amortización con documentos ──
         let filasAmort = '';
@@ -1656,129 +2011,53 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             return;
         }
 
-        const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
-        _pintarHistorial(t ? rows.filter(r =>
-            String(r.id_credito     || '').toLowerCase().includes(t) ||
-            String(r.nombre_cliente || '').toLowerCase().includes(t)
-        ) : rows);
+        document.getElementById('wrap-historial').classList.remove('d-none');
+        _initTablaHist();
+        const $histBar = $('#cc-filtros-hist').css({'margin-bottom': 0, 'padding': 0}).removeClass('d-none');
+        $('#tablaHistorialMovs_wrapper .dataTables_length').parent().append($histBar);
+        _applyHistFilter();
+        const t = document.getElementById('barraGeneral-input').value.trim();
+        if (t) _tablaHist.search(t).draw();
+    }
+
+    function _applyHistFilter() {
+        if (!_tablaHist) return;
+        // Remove any previously registered custom filter for historial
+        $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(function(fn) {
+            return fn._ccHistFilter !== true;
+        });
+        if (_filtroHist !== 'todos') {
+            const valores = _filtroHist.split(',');
+            const fn = function(settings, data, dataIndex) {
+                if (settings.nTable.id !== 'tablaHistorialMovs') return true;
+                const row = _tablaHist.row(dataIndex).data();
+                return row ? valores.indexOf(row.estatus) !== -1 : false;
+            };
+            fn._ccHistFilter = true;
+            $.fn.dataTable.ext.search.push(fn);
+        }
+        const countEl = document.getElementById('cc-filtro-hist-count');
+        _tablaHist.clear().rows.add(_allRowsHist).draw();
+        if (countEl) {
+            const visible = _tablaHist.rows({ search: 'applied' }).count();
+            const total   = _allRowsHist.length;
+            countEl.textContent = visible < total
+                ? `${visible} de ${total}`
+                : (total ? `${total} total${total !== 1 ? 'es' : ''}` : '');
+        }
     }
 
     function _pintarHistorial(rows) {
-        const wrap        = document.getElementById('wrap-historial');
-        const emptyHist   = document.getElementById('empty-historial');
-        const emptySearch = document.getElementById('empty-busqueda-hist');
+        const wrap      = document.getElementById('wrap-historial');
+        const emptyHist = document.getElementById('empty-historial');
         emptyHist.classList.add('d-none');
-        if (emptySearch) emptySearch.classList.add('d-none');
-
         if (!rows.length) {
             wrap.classList.add('d-none');
-            wrap.innerHTML = '';
-            if (emptySearch) emptySearch.classList.remove('d-none');
             return;
         }
-
-        const etiqueta = (r) => {
-            if (r.estatus === 'enviado_cartera' && r.email_destino_cartera) {
-                return `<span class="badge rounded-pill cc-hist-enviado-ok">
-                            <i class="fa-solid fa-circle-check me-1"></i>Enviado — correo notificado
-                        </span>`;
-            }
-            if (r.estatus === 'enviado_cartera') {
-                return `<span class="badge rounded-pill cc-hist-enviado-warn">
-                            <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
-                        </span>`;
-            }
-            if (r.estatus === 'en_cola') {
-                return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
-                            <span class="badge rounded-pill cc-hist-enviado-warn">
-                                <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
-                            </span>
-                            <button onclick="ccMarcarListoEnvio(${r.id})"
-                                style="font-size:.73rem;padding:2px 9px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:6px;white-space:nowrap;cursor:pointer;">
-                                <i class="fa-solid fa-check me-1"></i>Marcar listo para reenvío
-                            </button>
-                        </div>`;
-            }
-            if (r.estatus === 'listo_envio') {
-                return `<div style="display:inline-flex;flex-direction:column;gap:5px;align-items:flex-start;">
-                            <span class="badge rounded-pill cc-hist-enviado-warn">
-                                <i class="fa-solid fa-triangle-exclamation me-1"></i>Limite de envios rebasado — sin correo notificado
-                            </span>
-                            <button onclick="ccReenviarACartera(${r.id})" id="cc-hist-btn-${r.id}"
-                                style="font-size:.73rem;padding:2px 9px;background:linear-gradient(135deg,#059669,#10b981);border:none;color:#fff;border-radius:6px;white-space:nowrap;cursor:pointer;">
-                                <i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera
-                            </button>
-                        </div>`;
-            }
-            if (r.estatus === 'descartado') {
-                return `<span class="badge rounded-pill cc-hist-descartado">
-                            <i class="fa-solid fa-rotate-left me-1"></i>Devuelto a revisión
-                        </span>`;
-            }
-            // en_proceso u otro
-            return `<span class="badge rounded-pill cc-hist-en-proceso">
-                        <i class="fa-solid fa-hourglass-half me-1"></i>En Proceso
-                    </span>`;
-        };
-
-        const fechaMovimiento = (r) => {
-            if (r.estatus === 'enviado_cartera') return fmtFecha(r.fecha_envio_cartera);
-            if (r.estatus === 'descartado')      return fmtFecha(r.fecha_actualizacion);
-            if (r.estatus === 'en_cola')         return fmtFecha(r.fecha_actualizacion);
-            if (r.estatus === 'listo_envio')     return fmtFecha(r.fecha_actualizacion);
-            return fmtFecha(r.fecha_alta);
-        };
-
-        /* Columna Acción — comentada, disponible para funciones futuras
-        const accionCol = (r) => {
-            if (r.estatus === 'en_cola') {
-                return `<button onclick="ccMarcarListoEnvio(${r.id})"
-                    style="font-size:.75rem;padding:3px 10px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:6px;white-space:nowrap;">
-                    <i class="fa-solid fa-check me-1"></i>Marcar listo
-                </button>`;
-            }
-            if (r.estatus === 'listo_envio') {
-                return `<button onclick="ccReenviarACartera(${r.id})" id="cc-hist-btn-${r.id}"
-                    style="font-size:.75rem;padding:3px 10px;background:linear-gradient(135deg,#059669,#10b981);border:none;color:#fff;border-radius:6px;white-space:nowrap;">
-                    <i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera
-                </button>`;
-            }
-            return '';
-        };
-        */
-
-        const quienMovio = (r) => {
-            if (r.estatus === 'en_proceso') return esc(r.usuario_alta);
-            return esc(r.usuario_actualizacion || r.usuario_alta);
-        };
-
-        const filas = rows.map(r => `
-            <tr>
-                <td class="ps-3" style="font-weight:600;color:#1e293b;white-space:nowrap;">
-                    #${esc(r.id_credito)}
-                </td>
-                <td style="font-size:.88rem;">${esc(r.nombre_cliente)}</td>
-                <td>${etiqueta(r)}</td>
-                <td style="font-size:.83rem;color:#475569;">${quienMovio(r)}</td>
-                <td style="font-size:.83rem;color:#475569;white-space:nowrap;">${fechaMovimiento(r)}</td>
-            </tr>`).join('');
-
-        wrap.innerHTML = `
-        <div class="table-responsive">
-            <table class="table table-hover mb-0 cc-table">
-                <thead>
-                    <tr>
-                        <th class="ps-3">Crédito</th>
-                        <th>Cliente</th>
-                        <th>Estatus</th>
-                        <th>Realizado por</th>
-                        <th>Fecha</th>
-                    </tr>
-                </thead>
-                <tbody>${filas}</tbody>
-            </table>
-        </div>`;
         wrap.classList.remove('d-none');
+        _initTablaHist();
+        _tablaHist.clear().rows.add(rows).draw();
     }
 
     /* ══════════════════════════════════

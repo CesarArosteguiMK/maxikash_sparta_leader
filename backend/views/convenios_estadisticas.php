@@ -213,7 +213,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         <div class="col-6 col-md-4 col-xl">
                             <div class="card h-100 shadow-sm">
                                 <div class="card-body py-2 d-flex flex-column">
-                                    <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios completados</span>
+                                    <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios completos</span>
                                     <div class="cv-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                                     <div id="cvKpiCompletados" class="cv-kpi-val-num fw-bold text-primary">0</div>
                                     <div class="small text-muted mt-1">Totales en el sistema</div>
@@ -239,11 +239,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Nuevos convenios del período</span>
                                 <span id="cvNuevosRangoInline" class="small text-muted">—</span>
                             </div>
-                            <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
-                                title="Convenios cuya fecha_alta cae dentro del mes y año seleccionados, desglosados por estatus. Haz clic en Activos, Completados o Cancelados para ver el desglose por producto de convenio."
-                                aria-label="Ayuda: nuevos del período">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
                         </div>
                         <div class="card-body">
 
@@ -251,7 +246,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         <div class="d-flex flex-wrap gap-2 mb-2 cv-nuevo-cards-row">
                             <div class="cv-nuevo-card" data-cv-nuevo-tipo="activos" role="button" tabindex="0" aria-expanded="false"
                                 title="Clic para ver desglose por producto"
-                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;">
+                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
                                 <button type="button" class="cv-tip-btn cv-nuevo-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
                                     onclick="event.stopPropagation();"
                                     title="Convenios con estatus Activo generados en el período seleccionado (fecha_alta en el mes/año)."
@@ -263,7 +258,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             </div>
                             <div class="cv-nuevo-card" data-cv-nuevo-tipo="completados" role="button" tabindex="0" aria-expanded="false"
                                 title="Clic para ver desglose por producto"
-                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;">
+                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
                                 <button type="button" class="cv-tip-btn cv-nuevo-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
                                     onclick="event.stopPropagation();"
                                     title="Convenios con estatus Completado generados en el período seleccionado."
@@ -275,7 +270,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             </div>
                             <div class="cv-nuevo-card" data-cv-nuevo-tipo="cancelados" role="button" tabindex="0" aria-expanded="false"
                                 title="Clic para ver desglose por producto"
-                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;">
+                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
                                 <button type="button" class="cv-tip-btn cv-nuevo-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
                                     onclick="event.stopPropagation();"
                                     title="Convenios con estatus Cancelado generados en el período seleccionado."
@@ -319,11 +314,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Semanas de pago del período</span>
                                 <span id="cvSemRangoInline" class="small text-muted">—</span>
                             </div>
-                            <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
-                                title="Semanas de amortización (convenio_cliente_amortizacion) cuya fecha_pago cae dentro del mes seleccionado, agrupadas por estatus_pago."
-                                aria-label="Ayuda: semanas de pago">
-                                <i class="fa fa-info-circle" aria-hidden="true"></i>
-                            </button>
                         </div>
                         <div class="card-body">
                         <div class="d-flex flex-wrap gap-2">
@@ -366,16 +356,11 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-1">
                                 <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Recuperación</span>
-                                <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
-                                    title="Monto comprometido = suma de total_a_pagar de convenios activos y completados. Monto recuperado = suma de pago_semanal de amortizaciones con estatus_pago=pagado cuya fecha_pago cae en el período seleccionado."
-                                    aria-label="Ayuda: recuperación">
-                                    <i class="fa fa-info-circle" aria-hidden="true"></i>
-                                </button>
                             </div>
                             <span id="cvBadgeRecuperacion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size:12px;color:#6b7a90;">Dinero calculado</span>
+                            <span style="font-size:12px;color:#6b7a90;">Recuperación Estimada</span>
                             <span id="cvMontoComp" style="font-size:13px;font-weight:700;color:#1a3a5c;">$0.00</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
@@ -397,11 +382,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
                             <div class="d-flex flex-wrap align-items-baseline gap-1" style="flex:1;min-width:0;">
                                 <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Cobertura de convenios</span>
-                                <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
-                                    title="De los créditos activos en despacho (estatus=1 en asigna_creditos_despacho), el porcentaje que tiene convenio activo. Indica cuánta cartera en mora externa ya ha sido captada con convenio."
-                                    aria-label="Ayuda: cobertura de convenios">
-                                    <i class="fa fa-info-circle" aria-hidden="true"></i>
-                                </button>
                             </div>
                             <span id="cvBadgePenetracion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                         </div>
@@ -424,6 +404,17 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 </span>
                             </div>
                         </div>
+                        <!-- Brecha hacia la siguiente meta -->
+                        <div id="cvBrechaWrap" class="mt-3 pt-3 cv-sep" style="border-top:1px solid #dde3ec;">
+                            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;text-align:center;">Brecha hacia siguiente meta</div>
+                            <div style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;">
+                                <div id="cvBrechaTexto" style="font-size:12px;color:#1a3a5c;text-align:center;line-height:1.55;">—</div>
+                                <div style="margin-top:8px;background:#e9ecef;border-radius:6px;height:8px;overflow:hidden;">
+                                    <div id="cvBrechaBar" style="height:100%;width:0%;border-radius:6px;background:#2ecc8b;transition:width 0.5s ease;"></div>
+                                </div>
+                                <div id="cvBrechaSubtexto" style="font-size:10px;color:#6b7a90;text-align:center;margin-top:5px;">—</div>
+                            </div>
+                        </div>
                     </div>
 
                 </div><!-- /col-lg-4 -->
@@ -433,12 +424,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             <!-- ── PANEL DESPACHOS ──────────────────────── -->
             <div class="cv-panel-desp card shadow-sm" style="padding:16px 18px;margin-top:0;">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Gestores de convenios</span>
-                    <button type="button" class="cv-tip-btn cv-tip-inline" data-bs-toggle="tooltip" data-bs-placement="left" data-cv-tip="1"
-                        title="Despachos activos registrados en el sistema, su distribución por célula (Despacho / Agente Call Center) y cuántos tienen al menos un convenio activo."
-                        aria-label="Ayuda: despachos">
-                        <i class="fa fa-info-circle" aria-hidden="true"></i>
-                    </button>
+                    <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Gestores de cobranza por canal (externo / interno)</span>
                 </div>
                 <div class="row g-2">
                     <!-- Totales despacho -->
@@ -472,7 +458,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
                             <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Despachos
+                                <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Externos
                             </div>
                             <div id="cvDespCelulaDesp" class="cv-kpi-val-num" style="color:#3498db;">0</div>
                         </div>
@@ -481,7 +467,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
                             <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-phone fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Agente Call Center
+                                <i class="fa fa-phone fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Internos
                             </div>
                             <div id="cvDespCelulaCC" class="cv-kpi-val-num" style="color:#9b59b6;">0</div>
                         </div>
@@ -932,6 +918,40 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         setText('cvPenConConvenio', String(d.con_convenio_activo ?? 0));
         setText('cvPenSinConvenio', String(d.sin_convenio        ?? 0));
         renderDonutPenetracion(nv(d.con_convenio_activo ?? 0), nv(d.sin_convenio ?? 0));
+
+        // ── Brecha hacia la siguiente meta ─────────────────────
+        (function () {
+            var conC  = nv(d.con_convenio_activo ?? 0);
+            var sinC  = nv(d.sin_convenio ?? 0);
+            var total = conC + sinC;
+            var elTxt  = document.getElementById('cvBrechaTexto');
+            var elSub  = document.getElementById('cvBrechaSubtexto');
+            var elBar  = document.getElementById('cvBrechaBar');
+            if (!elTxt || !elSub || !elBar) return;
+            var pct = total > 0 ? (conC / total) * 100 : 0;
+            // Determinar siguiente umbral
+            var umbrales = [20, 40, 60, 80, 100];
+            var meta = null;
+            for (var i = 0; i < umbrales.length; i++) {
+                if (pct < umbrales[i]) { meta = umbrales[i]; break; }
+            }
+            if (meta === null) {
+                elTxt.textContent = '¡Cobertura máxima alcanzada!';
+                elSub.textContent = '100% de la cartera tiene convenio activo.';
+                elBar.style.width = '100%';
+                elBar.style.background = '#2ecc8b';
+                return;
+            }
+            var metaNombres = { 20: 'cobertura media', 40: 'cobertura alta', 60: '60%', 80: '80%', 100: '100%' };
+            var necesarios = Math.ceil(total * (meta / 100)) - conC;
+            necesarios = Math.max(0, necesarios);
+            var progEnMeta = meta > 0 ? Math.min(100, (pct / meta) * 100) : 0;
+            var barColor = meta <= 20 ? '#e74c3c' : (meta <= 40 ? '#f0a500' : '#2ecc8b');
+            elTxt.innerHTML = 'Faltan <strong style="color:' + barColor + ';font-size:14px;">' + necesarios.toLocaleString('es-MX') + ' convenios</strong><br>para alcanzar ' + (metaNombres[meta] || meta + '%');
+            elSub.textContent = Math.round(progEnMeta) + '% del camino hacia el ' + meta + '% · Actual: ' + Math.round(pct * 10) / 10 + '%';
+            elBar.style.width = progEnMeta + '%';
+            elBar.style.background = barColor;
+        })();
 
         // ── KPIs de entidades de despacho ──────────────────────
         setText('cvDespTotal',       String(d.total_despachos_activos ?? 0));
