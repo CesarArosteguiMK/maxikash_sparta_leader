@@ -32,7 +32,7 @@ class Convenios extends Controller
     {
         $this->set('permisoRegistrarConvenioExistente', $this->usuarioTienePermisoRegistrarConvenioExistente());
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        $this->set('titulo', 'Crear convenio | ' . $emp);
+        $this->set('titulo', 'Crear convenio ' . $emp);
         $this->render('convenios_consulta');
     }
 
@@ -704,7 +704,7 @@ class Convenios extends Controller
         ];
 
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Estadística Convenios | ' . $emp);
+        self::set('titulo', 'Estadística Convenios ' . $emp);
         self::set('anioDefault', $anio);
         self::set('mesDefault',  $mes);
         self::set('datosInicialesJson', json_encode($datos, JSON_UNESCAPED_UNICODE));

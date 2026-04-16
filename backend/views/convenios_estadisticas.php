@@ -308,7 +308,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             <span id="cvBadgeRecuperacion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size:12px;color:#6b7a90;">Dinero calculado</span>
+                            <span style="font-size:12px;color:#6b7a90;">Recuperación Estimada</span>
                             <span id="cvMontoComp" style="font-size:13px;font-weight:700;color:#1a3a5c;">$0.00</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
@@ -372,7 +372,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             <!-- ── PANEL DESPACHOS ──────────────────────── -->
             <div class="cv-panel-desp card shadow-sm" style="padding:16px 18px;margin-top:0;">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Gestores de convenios</span>
+                    <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Gestores de cobranza por canal (externo / interno)</span>
                 </div>
                 <div class="row g-2">
                     <!-- Totales despacho -->
@@ -406,7 +406,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
                             <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Despachos
+                                <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Externos
                             </div>
                             <div id="cvDespCelulaDesp" style="font-size:28px;font-weight:800;color:#3498db;line-height:1;">0</div>
                         </div>
@@ -415,7 +415,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
                             <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-phone fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Agente Call Center
+                                <i class="fa fa-phone fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Internos
                             </div>
                             <div id="cvDespCelulaCC" style="font-size:28px;font-weight:800;color:#9b59b6;line-height:1;">0</div>
                         </div>
