@@ -51,9 +51,11 @@ class CierreCredito extends Model
                         cc.pdf_adjunto,
                         cc.total_a_pagar, cc.porcentaje_descuento,
                         cc.adeudo_total_original, cc.numero_semanas,
-                        cc.fecha_acuerdo
+                        cc.fecha_acuerdo,
+                        pcd.base_calculo
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 LEFT JOIN producto_convenio_detalle pcd ON pcd.id = cc.id_producto_convenio_detalle
                  WHERE cc.id_credito IN ($in) AND cc.estatus = 'completado'
                  ORDER BY cc.fecha_alta DESC",
                 $params
@@ -115,6 +117,7 @@ class CierreCredito extends Model
                 $row['adeudo_total_original'] = $conv['adeudo_total_original'] ?? 0;
                 $row['numero_semanas']        = $conv['numero_semanas']        ?? 0;
                 $row['fecha_acuerdo']         = $conv['fecha_acuerdo']         ?? null;
+                $row['base_calculo']          = $conv['base_calculo']          ?? null;
 
                 $idConv = $row['id_convenio'];
                 $comp   = $idConv ? ($comprobantesMap[$idConv] ?? ['con' => 0, 'total' => 0])
@@ -206,9 +209,11 @@ class CierreCredito extends Model
                      FROM cierre_credito_seguimiento ccs
                      WHERE ccs.id_credito = cc.id_credito
                        AND ccs.estatus = 'descartado'
-                     ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS fecha_descarte
+                     ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS fecha_descarte,
+                    pcd.base_calculo
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 LEFT JOIN producto_convenio_detalle pcd ON pcd.id = cc.id_producto_convenio_detalle
                  WHERE cc.estatus = 'completado'
                    AND NOT EXISTS (
                        SELECT 1 FROM cierre_credito_seguimiento ccs

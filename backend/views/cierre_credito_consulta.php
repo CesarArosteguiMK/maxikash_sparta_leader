@@ -1109,6 +1109,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     </div>
 
                     <div class="cc-detail-row">
+                        <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
+                        <span class="cc-val fw-bold" style="color:#dc2626;">${fmt(parseFloat(r.adeudo_total_original) || 0)}</span>
+                    </div>
+
+                    <div class="cc-detail-row">
                         <span class="cc-lbl">Total final</span>
                         <span class="cc-val fw-bold text-success">${fmt(totalPagar)}</span>
                     </div>
@@ -1302,6 +1307,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             <span class="cc-pct-badge" style="margin-left:.35rem;">
                                 ${parseFloat(r.porcentaje_descuento) || 0}%
                             </span>
+                        </div>
+                        <div class="cc-detail-row">
+                            <span class="cc-lbl">Adeudo original${r.base_calculo === 'saldo_total_capital' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Capital)</span>' : r.base_calculo === 'adeudo_total' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Total)</span>' : r.base_calculo === 'interes' ? ' <span style="font-size:.72rem;color:#6b7a90;">(Interés)</span>' : ''}</span>
+                            <span class="cc-val fw-bold" style="color:#dc2626;">${fmtN(parseFloat(r.adeudo_total_original) || 0)}</span>
                         </div>
                         <div class="cc-detail-row">
                             <span class="cc-lbl">Total pagado</span>
