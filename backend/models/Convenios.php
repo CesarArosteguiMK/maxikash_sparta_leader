@@ -2174,9 +2174,11 @@ public static function subirComprobante($datos, $archivo)
             return self::resultado(false, 'Semana no encontrada.');
         }
 
-        if (!in_array($fila['estatus_pago'], ['vencido', 'parcial', 'pendiente'])) {
-            return self::resultado(false, 'Solo se pueden subir comprobantes de semanas vencidas, parciales o pendientes.');
+        if (!in_array($fila['estatus_pago'], ['vencido', 'parcial', 'pendiente', 'pagado'])) {
+            return self::resultado(false, 'Solo se pueden subir comprobantes de semanas vencidas, parciales, pendientes o pagadas.');
        }
+
+        $esPagado = ($fila['estatus_pago'] === 'pagado');
 
         // Guardar archivo
         if (!$archivo || empty($archivo['tmp_name'])) {
@@ -2214,23 +2216,41 @@ $semanasAplica = isset($datos['semanas_aplica'])
     ? array_map('intval', array_map('trim', explode(',', $datos['semanas_aplica'])))
     : [(int) $datos['numero_semana']];
 
-// Actualizar cada semana → pendiente_conciliar
+// Actualizar cada semana → pendiente_conciliar (o mantener pagado si ya lo estaba)
 foreach ($semanasAplica as $numSem) {
-    $db->CRUD(
-        "UPDATE convenio_cliente_amortizacion SET
-            estatus_pago      = 'pendiente_conciliar',
-            fecha_pago_real   = :fecha,
-            comentario_gestor = :comentario,
-            comprobante_path  = :comprobante
-         WHERE id_convenio_cliente = :id AND numero_semana = :num",
-        [
-            'fecha'       => $datos['fecha_pago_real'],
-            'comentario'  => $datos['comentario'] ?? '',
-            'comprobante' => $rutaRelativa,
-            'id'          => (int) $datos['id_convenio'],
-            'num'         => $numSem,
-        ]
-    );
+    if ($esPagado) {
+        // Semana ya pagada: solo adjuntar el comprobante sin cambiar el estatus
+        $db->CRUD(
+            "UPDATE convenio_cliente_amortizacion SET
+                fecha_pago_real   = COALESCE(fecha_pago_real, :fecha),
+                comentario_gestor = :comentario,
+                comprobante_path  = :comprobante
+             WHERE id_convenio_cliente = :id AND numero_semana = :num",
+            [
+                'fecha'       => $datos['fecha_pago_real'],
+                'comentario'  => $datos['comentario'] ?? '',
+                'comprobante' => $rutaRelativa,
+                'id'          => (int) $datos['id_convenio'],
+                'num'         => $numSem,
+            ]
+        );
+    } else {
+        $db->CRUD(
+            "UPDATE convenio_cliente_amortizacion SET
+                estatus_pago      = 'pendiente_conciliar',
+                fecha_pago_real   = :fecha,
+                comentario_gestor = :comentario,
+                comprobante_path  = :comprobante
+             WHERE id_convenio_cliente = :id AND numero_semana = :num",
+            [
+                'fecha'       => $datos['fecha_pago_real'],
+                'comentario'  => $datos['comentario'] ?? '',
+                'comprobante' => $rutaRelativa,
+                'id'          => (int) $datos['id_convenio'],
+                'num'         => $numSem,
+            ]
+        );
+    }
 }
 
         // Verificar si todas las semanas quedaron pagadas → completar convenio
