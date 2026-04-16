@@ -2696,17 +2696,20 @@ public static function registrarConvenioGlobo($datos)
             $topDespacho = $db->queryOne(
                 "SELECT d.id,
                         CONCAT_WS(' ', per.nombres, per.apellidop) AS nombre_despacho,
-                        COUNT(cc.id) AS total_convenios
-                 FROM despachos d
-                 INNER JOIN asigna_creditos_despacho acd ON acd.id_despacho = d.id AND acd.estatus = 1
-                 INNER JOIN convenio_cliente cc
-                         ON cc.id_credito = acd.id_credito
-                        AND LOWER(cc.estatus) = 'activo'
-                 LEFT JOIN persona per ON per.id = d.id_persona
-                 WHERE d.estatus = 'Activo'
-                 GROUP BY d.id
-                 ORDER BY total_convenios DESC
-                 LIMIT 1",
+                        sub.total_convenios
+                 FROM (
+                     SELECT acd.id_despacho, COUNT(cc.id) AS total_convenios
+                     FROM asigna_creditos_despacho acd
+                     INNER JOIN convenio_cliente cc
+                             ON cc.id_credito = acd.id_credito
+                            AND LOWER(cc.estatus) = 'activo'
+                     WHERE acd.estatus = 1
+                     GROUP BY acd.id_despacho
+                     ORDER BY total_convenios DESC
+                     LIMIT 1
+                 ) sub
+                 INNER JOIN despachos d ON d.id = sub.id_despacho AND d.estatus = 'Activo'
+                 LEFT JOIN persona per ON per.id = d.id_persona",
                 []
             ) ?: [];
 
@@ -2743,19 +2746,22 @@ public static function registrarConvenioGlobo($datos)
             $topGestorPeriodo = $db->queryOne(
                 "SELECT d.id,
                         CONCAT_WS(' ', per.nombres, per.apellidop) AS nombre_gestor,
-                        COUNT(cc.id) AS total_convenios
-                 FROM despachos d
-                 INNER JOIN asigna_creditos_despacho acd ON acd.id_despacho = d.id AND acd.estatus = 1
-                 INNER JOIN convenio_cliente cc
-                         ON cc.id_credito = acd.id_credito
-                        AND LOWER(cc.estatus) = 'activo'
-                        AND cc.fecha_acuerdo BETWEEN ? AND ?
-                 LEFT JOIN persona per ON per.id = d.id_persona
-                 WHERE d.estatus = 'Activo'
-                 GROUP BY d.id
-                 ORDER BY total_convenios DESC
-                 LIMIT 1",
-                [$fechaIni, $fechaFin]
+                        sub.total_convenios
+                 FROM (
+                     SELECT acd.id_despacho, COUNT(cc.id) AS total_convenios
+                     FROM asigna_creditos_despacho acd
+                     INNER JOIN convenio_cliente cc
+                             ON cc.id_credito = acd.id_credito
+                            AND LOWER(cc.estatus) = 'activo'
+                            AND cc.fecha_acuerdo BETWEEN :fi AND :ff
+                     WHERE acd.estatus = 1
+                     GROUP BY acd.id_despacho
+                     ORDER BY total_convenios DESC
+                     LIMIT 1
+                 ) sub
+                 INNER JOIN despachos d ON d.id = sub.id_despacho AND d.estatus = 'Activo'
+                 LEFT JOIN persona per ON per.id = d.id_persona",
+                ['fi' => $fechaIni, 'ff' => $fechaFin]
             ) ?: [];
 
             // % gestores activos y promedio de convenios por gestor (calculados)
