@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\DatabaseSegundometro;
 
 class CierreCredito extends Model
 {
@@ -49,7 +50,8 @@ class CierreCredito extends Model
                         pc.nombre AS nombre_producto,
                         cc.pdf_adjunto,
                         cc.total_a_pagar, cc.porcentaje_descuento,
-                        cc.adeudo_total_original, cc.numero_semanas
+                        cc.adeudo_total_original, cc.numero_semanas,
+                        cc.fecha_acuerdo
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  WHERE cc.id_credito IN ($in) AND cc.estatus = 'completado'
@@ -112,6 +114,7 @@ class CierreCredito extends Model
                 $row['porcentaje_descuento']  = $conv['porcentaje_descuento']  ?? 0;
                 $row['adeudo_total_original'] = $conv['adeudo_total_original'] ?? 0;
                 $row['numero_semanas']        = $conv['numero_semanas']        ?? 0;
+                $row['fecha_acuerdo']         = $conv['fecha_acuerdo']         ?? null;
 
                 $idConv = $row['id_convenio'];
                 $comp   = $idConv ? ($comprobantesMap[$idConv] ?? ['con' => 0, 'total' => 0])
@@ -121,6 +124,7 @@ class CierreCredito extends Model
             }
             unset($row);
 
+            self::_enrichWithS2AndSemana($rows);
             return self::resultado(true, 'Registros en proceso.', $rows);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener registros en proceso.', [], $e->getMessage());
@@ -208,7 +212,9 @@ class CierreCredito extends Model
                    )
                  ORDER BY cc.fecha_alta DESC"
             );
-            return self::resultado(true, 'Convenios saldados.', $rows ?: []);
+            $rows = $rows ?: [];
+            self::_enrichWithS2AndSemana($rows);
+            return self::resultado(true, 'Convenios saldados.', $rows);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener convenios saldados.', [], $e->getMessage());
         }
@@ -356,7 +362,43 @@ class CierreCredito extends Model
                 ['id_credito' => (int) $registro['id_credito']]
             );
 
-            // 3. Leer configuración de email
+            // 3. Obtener datos S2 desde tbl_segundometro_semana (solo Segundometro, sin CROOP)
+            $s2CuotasContratadas = null;
+            $s2CuotasPagadas     = null;
+            $s2TotalPagado       = null;
+            $semanaAcuerdo       = null;
+            $anioSemanaAcuerdo   = null;
+
+            if ($convenio) {
+                $fechaAcuerdoRaw = $convenio['fecha_acuerdo'] ?? null;
+                if ($fechaAcuerdoRaw && preg_match('/^\d{4}-\d{2}-\d{2}/', $fechaAcuerdoRaw)) {
+                    try {
+                        $d = new \DateTime(substr($fechaAcuerdoRaw, 0, 10));
+                        $semanaAcuerdo     = (int) $d->format('W');
+                        $anioSemanaAcuerdo = (int) $d->format('o');
+                    } catch (\Throwable $_) {}
+                }
+
+                try {
+                    $dbSm  = new DatabaseSegundometro();
+                    $s2Row = $dbSm->queryOne(
+                        "SELECT Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total
+                         FROM tbl_segundometro_semana
+                         WHERE Id_credito = :id
+                         LIMIT 1",
+                        ['id' => (int) $registro['id_credito']]
+                    );
+                    if ($s2Row) {
+                        $s2CuotasContratadas = (int)   $s2Row['Numero_amortizaciones'];
+                        $s2CuotasPagadas     = (int)   $s2Row['Num_cuotas_pagadas'];
+                        $s2TotalPagado       = (float) $s2Row['Abonos_total'];
+                    }
+                } catch (\Throwable $smEx) {
+                    error_log('CierreCredito::enviarACartera S2 -> ' . $smEx->getMessage());
+                }
+            }
+
+            // 4. Leer configuración de email (ya renombrado arriba)
             $configPath = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../../config/config.ini');
             $ini        = is_file($configPath) ? @parse_ini_file($configPath, true) : [];
             $mailCfg    = $ini['mail'] ?? [];
@@ -393,6 +435,14 @@ class CierreCredito extends Model
                     $semanas     = $convenio ? (int) $convenio['numero_semanas']                         : '—';
                     $fechaAcuerdo = $convenio ? htmlspecialchars($convenio['fecha_acuerdo'] ?? '', ENT_QUOTES, 'UTF-8') : '—';
                     $fechaEnvio  = date('d/m/Y H:i');
+
+                    // Datos S2
+                    $s2CuotasContrStr = $s2CuotasContratadas !== null ? (string) $s2CuotasContratadas : '—';
+                    $s2CuotasPagStr   = $s2CuotasPagadas     !== null ? (string) $s2CuotasPagadas     : '—';
+                    $s2TotalStr       = $s2TotalPagado        !== null
+                        ? '$' . number_format($s2TotalPagado, 2) : '—';
+                    $semanaStr = ($semanaAcuerdo !== null && $anioSemanaAcuerdo !== null)
+                        ? "Sem. {$semanaAcuerdo} / {$anioSemanaAcuerdo}" : '—';
 
                     // Adjuntar PDF del convenio si existe
                     $adjuntos = [];
@@ -446,6 +496,11 @@ class CierreCredito extends Model
                             <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Total a pagar</td><td style="padding:8px;color:#1a52a8;font-weight:bold;">\${$total}</td></tr>
                             <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Semanas</td><td style="padding:8px;">{$semanas}</td></tr>
                             <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Fecha de acuerdo</td><td style="padding:8px;">{$fechaAcuerdo}</td></tr>
+                            <tr><td colspan="2" style="padding:10px 8px 4px;font-size:12px;font-weight:bold;color:#0369a1;background:#f0f9ff;border-top:2px solid #bae6fd;letter-spacing:.04em;text-transform:uppercase;"><i>Datos S2 (Segundometro)</i></td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Semana del acuerdo (S2)</td><td style="padding:8px;">{$semanaStr}</td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Cuotas contratadas (S2)</td><td style="padding:8px;">{$s2CuotasContrStr}</td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Cuotas pagadas (S2)</td><td style="padding:8px;">{$s2CuotasPagStr}</td></tr>
+                            <tr><td style="padding:8px;background:#f0f9ff;font-weight:bold;">Total pagado (S2)</td><td style="padding:8px;color:#059669;font-weight:bold;">{$s2TotalStr}</td></tr>
                           </table>
                           <p style="margin-top:20px;font-size:13px;color:#666;">
                             Este crédito fue validado y está listo para su procesamiento en cartera.
@@ -783,7 +838,9 @@ class CierreCredito extends Model
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  ORDER BY cc.fecha_alta DESC"
             );
-            return self::resultado(true, 'Convenios.', $rows ?: []);
+            $rows = $rows ?: [];
+            self::_enrichWithS2AndSemana($rows);
+            return self::resultado(true, 'Convenios.', $rows);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener convenios.', [], $e->getMessage());
         }
@@ -833,6 +890,90 @@ class CierreCredito extends Model
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener el detalle.', [], $e->getMessage());
         }
+    }
+
+    /**
+     * Enriquece $rows con datos de S2 (__SPARTA_SECRET_REDACTED__) y la semana ISO del acuerdo.
+     * Sólo usa Segundometro — ignora CROOP.
+     *
+     * Campos añadidos:
+     *   semana_acuerdo        int|null   Semana ISO de fecha_acuerdo
+     *   anio_semana_acuerdo   int|null   Año ISO correspondiente
+     *   s2_cuotas_contratadas int|null   Numero_amortizaciones en S2
+     *   s2_cuotas_pagadas     int|null   Num_cuotas_pagadas en S2
+     *   s2_total_pagado       float|null Abonos_total en S2
+     */
+    private static function _enrichWithS2AndSemana(array &$rows): void
+    {
+        if (empty($rows)) return;
+
+        // 1. Semana ISO del acuerdo (desde fecha_acuerdo)
+        foreach ($rows as &$row) {
+            $fecha = $row['fecha_acuerdo'] ?? null;
+            if ($fecha && preg_match('/^\d{4}-\d{2}-\d{2}/', $fecha)) {
+                try {
+                    $d = new \DateTime(substr($fecha, 0, 10));
+                    $row['semana_acuerdo']      = (int) $d->format('W');
+                    $row['anio_semana_acuerdo'] = (int) $d->format('o');
+                } catch (\Throwable $e) {
+                    $row['semana_acuerdo']      = null;
+                    $row['anio_semana_acuerdo'] = null;
+                }
+            } else {
+                $row['semana_acuerdo']      = null;
+                $row['anio_semana_acuerdo'] = null;
+            }
+        }
+        unset($row);
+
+        // 2. Datos S2 desde tbl_segundometro_semana (__SPARTA_SECRET_REDACTED__)
+        $ids = array_values(array_filter(array_map(
+            fn($r) => (int) ($r['id_credito'] ?? 0), $rows
+        )));
+        if (empty($ids)) {
+            foreach ($rows as &$row) {
+                $row['s2_cuotas_contratadas'] = null;
+                $row['s2_cuotas_pagadas']     = null;
+                $row['s2_total_pagado']       = null;
+            }
+            unset($row);
+            return;
+        }
+
+        $placeholders = [];
+        $params       = [];
+        foreach ($ids as $idx => $id) {
+            $key            = 'sm_' . $idx;
+            $placeholders[] = ':' . $key;
+            $params[$key]   = $id;
+        }
+        $inSql = implode(',', $placeholders);
+
+        $s2Map = [];
+        try {
+            $dbSm   = new DatabaseSegundometro();
+            $s2Rows = $dbSm->queryAll(
+                "SELECT Id_credito, Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total
+                 FROM tbl_segundometro_semana
+                 WHERE Id_credito IN ($inSql)",
+                $params
+            );
+            if ($s2Rows) {
+                foreach ($s2Rows as $sr) {
+                    $s2Map[(int) $sr['Id_credito']] = $sr;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('CierreCredito::_enrichWithS2AndSemana S2 error: ' . $e->getMessage());
+        }
+
+        foreach ($rows as &$row) {
+            $s2 = $s2Map[(int) ($row['id_credito'] ?? 0)] ?? null;
+            $row['s2_cuotas_contratadas'] = $s2 !== null ? (int)   $s2['Numero_amortizaciones'] : null;
+            $row['s2_cuotas_pagadas']     = $s2 !== null ? (int)   $s2['Num_cuotas_pagadas']    : null;
+            $row['s2_total_pagado']       = $s2 !== null ? (float) $s2['Abonos_total']          : null;
+        }
+        unset($row);
     }
 
     public static function getHistorial(): array
