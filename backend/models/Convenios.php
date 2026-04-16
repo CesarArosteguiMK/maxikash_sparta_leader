@@ -2717,6 +2717,27 @@ public static function registrarConvenioGlobo($datos)
             $despConConv       = (int) ($despConConvenio['total']  ?? 0);
             $despSinConv       = max(0, $totalDespActivos - $despConConv);
 
+            // Despacho con menos convenios activos (BOTTOM 1 — solo los que tienen al menos 1)
+            $bottomDespacho = $db->queryOne(
+                "SELECT d.id,
+                        CONCAT_WS(' ', per.nombres, per.apellidop) AS nombre_despacho,
+                        sub.total_convenios
+                 FROM (
+                     SELECT acd.id_despacho, COUNT(cc.id) AS total_convenios
+                     FROM asigna_creditos_despacho acd
+                     INNER JOIN convenio_cliente cc
+                             ON cc.id_credito = acd.id_credito
+                            AND LOWER(cc.estatus) = 'activo'
+                     WHERE acd.estatus = 1
+                     GROUP BY acd.id_despacho
+                     ORDER BY total_convenios ASC
+                     LIMIT 1
+                 ) sub
+                 INNER JOIN despachos d ON d.id = sub.id_despacho AND d.estatus = 'Activo'
+                 LEFT JOIN persona per ON per.id = d.id_persona",
+                []
+            ) ?: [];
+
             // Créditos en gestión (asignados a despacho activo)
             $creditosGestion = $db->queryOne(
                 "SELECT COUNT(DISTINCT acd.id_credito) AS total
@@ -2787,6 +2808,8 @@ public static function registrarConvenioGlobo($datos)
                 'celula_callcenter_cnt'   => $celulaMap[2] ?? 0,
                 'top_despacho_nombre'     => $topDespacho['nombre_despacho']  ?? '—',
                 'top_despacho_convenios'  => (int) ($topDespacho['total_convenios'] ?? 0),
+                'bottom_despacho_nombre'     => $bottomDespacho['nombre_despacho'] ?? '—',
+                'bottom_despacho_convenios'  => (int) ($bottomDespacho['total_convenios'] ?? 0),
                 // ── KPIs adicionales gestores ──
                 'creditos_en_gestion'         => (int) ($creditosGestion['total']     ?? 0),
                 'gestores_en_meta'            => (int) ($gestoresEnMeta['total']      ?? 0),
