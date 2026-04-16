@@ -168,6 +168,25 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     html.dark-mode .cv-tip-btn { color: #475569 !important; }
     html.dark-mode .cv-tip-btn:hover,
     html.dark-mode .cv-tip-btn:focus { color: #94a3b8 !important; }
+    /* Brecha hacia siguiente meta */
+    .cv-brecha-box {
+        background: #f5f7fa;
+        border: 1px solid #dde3ec;
+        border-radius: 8px;
+        padding: 10px 14px;
+    }
+    html.dark-mode .cv-brecha-box {
+        background: #253344 !important;
+        border-color: #334155 !important;
+    }
+    .cv-brecha-titulo { font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;text-align:center; }
+    html.dark-mode .cv-brecha-titulo { color: #94a3b8 !important; }
+    .cv-brecha-texto { font-size:12px;color:#1a3a5c;text-align:center;line-height:1.55; }
+    html.dark-mode .cv-brecha-texto { color: #e2e8f0 !important; }
+    .cv-brecha-track { margin-top:8px;background:#e9ecef;border-radius:6px;height:8px;overflow:hidden; }
+    html.dark-mode .cv-brecha-track { background: #334155 !important; }
+    .cv-brecha-sub { font-size:10px;color:#6b7a90;text-align:center;margin-top:5px; }
+    html.dark-mode .cv-brecha-sub { color: #94a3b8 !important; }
 </style>
 
 
@@ -406,13 +425,13 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         </div>
                         <!-- Brecha hacia la siguiente meta -->
                         <div id="cvBrechaWrap" class="mt-3 pt-3 cv-sep" style="border-top:1px solid #dde3ec;">
-                            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;text-align:center;">Brecha hacia siguiente meta</div>
-                            <div style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;">
-                                <div id="cvBrechaTexto" style="font-size:12px;color:#1a3a5c;text-align:center;line-height:1.55;">—</div>
-                                <div style="margin-top:8px;background:#e9ecef;border-radius:6px;height:8px;overflow:hidden;">
+                            <div class="cv-brecha-titulo">Brecha hacia siguiente meta</div>
+                            <div class="cv-brecha-box">
+                                <div id="cvBrechaTexto" class="cv-brecha-texto">—</div>
+                                <div class="cv-brecha-track">
                                     <div id="cvBrechaBar" style="height:100%;width:0%;border-radius:6px;background:#2ecc8b;transition:width 0.5s ease;"></div>
                                 </div>
-                                <div id="cvBrechaSubtexto" style="font-size:10px;color:#6b7a90;text-align:center;margin-top:5px;">—</div>
+                                <div id="cvBrechaSubtexto" class="cv-brecha-sub">—</div>
                             </div>
                         </div>
                     </div>
