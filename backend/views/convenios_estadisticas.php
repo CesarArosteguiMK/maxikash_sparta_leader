@@ -472,6 +472,15 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             <div id="cvDespCelulaCC" class="cv-kpi-val-num" style="color:#9b59b6;">0</div>
                         </div>
                     </div>
+                    <!-- Créditos en gestión -->
+                    <div class="col-6 col-md-4 col-xl-2">
+                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
+                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <i class="fa fa-file-text fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Créditos en gestión
+                            </div>
+                            <div id="cvDespCreditosGestion" style="font-size:28px;font-weight:800;color:#1a3a5c;line-height:1;">0</div>
+                        </div>
+                    </div>
                     <!-- Top despacho -->
                     <div class="col-12 col-md-8 col-xl-4">
                         <div class="cv-top-desp" style="background:#eafaf3;border:1px solid rgba(46,204,139,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
@@ -493,15 +502,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             <div id="cvDespPctActivos" class="cv-kpi-val-num" style="color:#2ecc8b;">0%</div>
                         </div>
                     </div>
-                    <!-- Créditos en gestión -->
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-file-text fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Créditos en gestión
-                            </div>
-                            <div id="cvDespCreditosGestion" class="cv-kpi-val-num" style="color:#1a3a5c;">0</div>
-                        </div>
-                    </div>
                     <!-- Promedio convenios/gestor -->
                     <div class="col-6 col-md-4 col-xl-2">
                         <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
@@ -521,7 +521,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         </div>
                     </div>
                     <!-- Gestor más activo del período -->
-                    <div class="col-12 col-md-8 col-xl-4">
+                    <div class="col-12 col-md-6 col-xl-4">
                         <div class="cv-top-desp" style="background:#eaf3fb;border:1px solid rgba(52,152,219,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
                             <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
                                 <i class="fa fa-star fa-sm" aria-hidden="true" style="color:#3498db;margin-right:4px;"></i>Gestor más activo del período
@@ -529,6 +529,28 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             <div id="cvTopGestorPeriodoNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
                             <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
                                 Convenios en el período: <strong id="cvTopGestorPeriodoConvenios" style="color:#2471a3;">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Gestores sin convenio -->
+                    <div class="col-12 col-md-6 col-xl-2">
+                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
+                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                <i class="fa fa-user-times fa-sm" aria-hidden="true" style="margin-right:3px;color:#e74c3c;"></i>Sin convenio
+                            </div>
+                            <div id="cvDespSinConvenio" style="font-size:28px;font-weight:800;color:#e74c3c;line-height:1;">0</div>
+                            <div style="font-size:10px;color:#6b7a90;margin-top:4px;">Gestores</div>
+                        </div>
+                    </div>
+                    <!-- Despacho con menos convenios -->
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <div class="cv-top-desp" style="background:#fdf4e7;border:1px solid rgba(243,156,18,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
+                            <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
+                                <i class="fa fa-arrow-down fa-sm" aria-hidden="true" style="color:#e67e22;margin-right:4px;"></i>Despacho con menos convenios
+                            </div>
+                            <div id="cvBottomDespNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
+                            <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
+                                Convenios activos: <strong id="cvBottomDespConvenios" style="color:#e67e22;">0</strong>
                             </div>
                         </div>
                     </div>
@@ -961,6 +983,8 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         setText('cvDespCelulaCC',    String(d.celula_callcenter_cnt    ?? 0));
         setText('cvTopDespNombre',    d.top_despacho_nombre   || '—');
         setText('cvTopDespConvenios', String(d.top_despacho_convenios ?? 0));
+        setText('cvBottomDespNombre',    d.bottom_despacho_nombre   || '—');
+        setText('cvBottomDespConvenios', String(d.bottom_despacho_convenios ?? 0));
         setText('cvDespPctActivos',    (d.pct_gestores_activos ?? 0) + '%');
         setText('cvDespCreditosGestion', String(d.creditos_en_gestion      ?? 0));
         setText('cvDespPromedioConv',    String(d.promedio_convenios_gestor ?? 0));
