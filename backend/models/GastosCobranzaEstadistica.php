@@ -194,6 +194,79 @@ class GastosCobranzaEstadistica
         ];
     }
 
+    /**
+     * Conteo de créditos por estado (universo por created_at en rango).
+     * Lógica basada en id_credito: condonado > recuperado > pendiente.
+     *
+     * @return array{cnt_recuperado: int, cnt_condonado: int, cnt_pendiente: int, cnt_todos: int}|null
+     */
+    private static function fetchKpiCountsPorEstado(DatabaseSegundometro $db, string $inicioYmd, string $finExclusiveYmd): ?array
+    {
+        $tab = self::TABLA;
+        $sql = "
+            SELECT
+                COUNT(*) AS cnt_todos,
+                SUM(CASE WHEN COALESCE(e.es_condonado, 0) = 1 THEN 1 ELSE 0 END) AS cnt_condonado,
+                SUM(
+                    CASE
+                        WHEN COALESCE(e.es_condonado, 0) = 0
+                         AND COALESCE(e.es_recuperado, 0) = 1 THEN 1
+                        ELSE 0
+                    END
+                ) AS cnt_recuperado,
+                SUM(
+                    CASE
+                        WHEN COALESCE(e.es_condonado, 0) = 0
+                         AND COALESCE(e.es_recuperado, 0) = 0 THEN 1
+                        ELSE 0
+                    END
+                ) AS cnt_pendiente
+            FROM (
+                SELECT DISTINCT gc.id_credito
+                FROM `{$tab}` gc
+                WHERE DATE(gc.created_at) >= :inicio
+                  AND DATE(gc.created_at) < :fin
+            ) u
+            LEFT JOIN (
+                SELECT
+                    gc.id_credito,
+                    MAX(
+                        CASE
+                            WHEN gc.condonado = 1
+                              OR COALESCE(gc.condonacion_parcial_monto, 0) > 0
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS es_condonado,
+                    MAX(
+                        CASE
+                            WHEN gc.fecha_pago IS NOT NULL
+                              OR gc.estatus_pago IN (1, 2)
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS es_recuperado
+                FROM `{$tab}` gc
+                GROUP BY gc.id_credito
+            ) e ON e.id_credito = u.id_credito
+        ";
+        try {
+            $row = $db->queryOne($sql, ['inicio' => $inicioYmd, 'fin' => $finExclusiveYmd]);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (!is_array($row)) {
+            return null;
+        }
+
+        return [
+            'cnt_recuperado' => (int) ($row['cnt_recuperado'] ?? 0),
+            'cnt_condonado'  => (int) ($row['cnt_condonado'] ?? 0),
+            'cnt_pendiente'  => (int) ($row['cnt_pendiente'] ?? 0),
+            'cnt_todos'      => (int) ($row['cnt_todos'] ?? 0),
+        ];
+    }
+
     private static function normalizarYmd(?string $ymd): ?string
     {
         $s = trim((string) $ymd);
@@ -481,6 +554,13 @@ class GastosCobranzaEstadistica
                 'pct' => $pct($mCondM),
             ],
         ];
+
+        $cntPorEstado = self::fetchKpiCountsPorEstado($db, $rango['inicio'], $rango['fin']);
+        if ($cntPorEstado !== null) {
+            $kpis['recuperado']['count'] = $cntPorEstado['cnt_recuperado'];
+            $kpis['condonado']['count'] = $cntPorEstado['cnt_condonado'];
+            $kpis['pendiente']['count'] = $cntPorEstado['cnt_pendiente'];
+        }
 
         $hoy = [
             'cargos_hoy' => 0,
