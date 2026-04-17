@@ -9,26 +9,52 @@ use Core\DatabaseSegundometro;
 class CierreCredito extends Model
 {
     // ─────────────────────────────────────────────
+    // HELPER: filtro SQL por célula
+    // ─────────────────────────────────────────────
+
+    /**
+     * Genera un fragmento SQL + parámetros para filtrar por id_celula.
+     * @param  ?array  $celulas  [1], [2], [1,2] o null (sin filtro)
+     * @param  string  $alias    Alias de la tabla que tiene id_celula
+     * @param  array   &$params  Se agregan los parámetros bind
+     * @return string            '' si no hay filtro, o ' AND alias.id_celula IN (:cel_0, :cel_1)'
+     */
+    private static function _celulaWhere(?array $celulas, string $alias, array &$params): string
+    {
+        if ($celulas === null || count($celulas) === 0) return '';
+        $parts = [];
+        foreach ($celulas as $i => $c) {
+            $key = 'cel_' . $i;
+            $parts[] = ':' . $key;
+            $params[$key] = (int) $c;
+        }
+        return " AND {$alias}.id_celula IN (" . implode(',', $parts) . ')';
+    }
+
+    // ─────────────────────────────────────────────
     // LISTADOS POR ESTATUS
     // ─────────────────────────────────────────────
 
     /**
      * Devuelve todos los registros con estatus 'en_proceso'.
      */
-    public static function getEnProceso(): array
+    public static function getEnProceso(?array $celulas = null): array
     {
         try {
             $db = new Database();
 
             // 1. Registros pendientes de validación
+            $params = [];
+            $celulaWhere = self::_celulaWhere($celulas, 'ccs', $params);
             $rows = $db->queryAll(
-                "SELECT id, id_credito, nombre_cliente, estatus,
-                        fecha_alta, usuario_alta,
-                        fecha_actualizacion, usuario_actualizacion,
-                        fecha_envio_cartera
-                 FROM cierre_credito_seguimiento
-                 WHERE estatus = 'en_proceso'
-                 ORDER BY fecha_alta DESC"
+                "SELECT ccs.id, ccs.id_credito, ccs.nombre_cliente, ccs.estatus,
+                        ccs.fecha_alta, ccs.usuario_alta,
+                        ccs.fecha_actualizacion, ccs.usuario_actualizacion,
+                        ccs.fecha_envio_cartera, ccs.id_celula
+                 FROM cierre_credito_seguimiento ccs
+                 WHERE ccs.estatus = 'en_proceso'{$celulaWhere}
+                 ORDER BY ccs.fecha_alta DESC",
+                $params ?: null
             );
 
             if (!$rows) {
@@ -138,10 +164,12 @@ class CierreCredito extends Model
      * Convenios con estatus 'saldado' — fuente principal de Cierre de Crédito.
      * Trae datos del convenio, producto, progreso de amortización y despacho asignado.
      */
-    public static function getEnviadoFinalizado(): array
+    public static function getEnviadoFinalizado(?array $celulas = null): array
     {
         try {
-            $db   = new Database();
+            $db     = new Database();
+            $params = [];
+            $celulaWhere = self::_celulaWhere($celulas, 'cc', $params);
             $rows = $db->queryAll(
                 "SELECT
                     cc.id,
@@ -165,6 +193,7 @@ class CierreCredito extends Model
                     cc.fecha_alta,
                     cc.fecha_modifica,
                     cc.pdf_adjunto,
+                    cc.id_celula,
                     (SELECT COUNT(*)
                      FROM convenio_cliente_amortizacion a
                      WHERE a.id_convenio_cliente = cc.id
@@ -219,8 +248,9 @@ class CierreCredito extends Model
                        SELECT 1 FROM cierre_credito_seguimiento ccs
                        WHERE ccs.id_credito = cc.id_credito
                          AND ccs.estatus IN ('en_proceso', 'enviado_cartera', 'en_cola', 'listo_envio')
-                   )
-                 ORDER BY cc.fecha_alta DESC"
+                   ){$celulaWhere}
+                 ORDER BY cc.fecha_alta DESC",
+                $params ?: null
             );
             $rows = $rows ?: [];
             self::_enrichWithS2AndSemana($rows);
@@ -274,17 +304,27 @@ class CierreCredito extends Model
                 return self::resultado(true, 'Registro actualizado a En Proceso.');
             }
 
+            // Obtener la célula del convenio para propagarla al seguimiento
+            $convCelula = $db->queryOne(
+                "SELECT id_celula FROM convenio_cliente
+                 WHERE id_credito = :id AND id_celula IS NOT NULL
+                 ORDER BY fecha_alta DESC LIMIT 1",
+                ['id' => (int) $datos['id_credito']]
+            );
+            $idCelula = $convCelula ? (int) $convCelula['id_celula'] : null;
+
             $db->CRUD(
                 "INSERT INTO cierre_credito_seguimiento
-                    (id_credito, nombre_cliente, estatus, usuario_alta, usuario_actualizacion)
+                    (id_credito, nombre_cliente, estatus, usuario_alta, usuario_actualizacion, id_celula)
                  VALUES
-                    (:id_credito, :nombre_cliente, :estatus, :usuario_alta, :usuario_actualizacion)",
+                    (:id_credito, :nombre_cliente, :estatus, :usuario_alta, :usuario_actualizacion, :id_celula)",
                 [
                     'id_credito'            => (int) $datos['id_credito'],
                     'nombre_cliente'        => $datos['nombre_cliente'],
                     'estatus'               => $datos['estatus'] ?? 'en_proceso',
                     'usuario_alta'          => $datos['usuario_alta'],
                     'usuario_actualizacion' => $datos['usuario_alta'],
+                    'id_celula'             => $idCelula,
                 ]
             );
             return self::resultado(true, 'Registro creado correctamente.');
@@ -343,7 +383,7 @@ class CierreCredito extends Model
 
             // 1. Obtener el registro
             $registro = $db->queryOne(
-                "SELECT id, id_credito, nombre_cliente, estatus
+                "SELECT id, id_credito, nombre_cliente, estatus, id_celula
                  FROM cierre_credito_seguimiento
                  WHERE id = :id AND estatus = :estatus
                  LIMIT 1",
@@ -363,7 +403,8 @@ class CierreCredito extends Model
                         cc.adeudo_total_original,
                         cc.porcentaje_descuento,
                         cc.numero_semanas,
-                        cc.fecha_acuerdo
+                        cc.fecha_acuerdo,
+                        cc.id_celula
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  WHERE cc.id_credito = :id_credito AND cc.estatus = 'completado'
@@ -410,10 +451,17 @@ class CierreCredito extends Model
                 }
             }
 
-            // 4. Leer configuración de email (ya renombrado arriba)
+            // 4. Leer configuración de email — selecciona sección según célula del crédito
             $configPath = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../../config/config.ini');
             $ini        = is_file($configPath) ? @parse_ini_file($configPath, true) : [];
-            $mailCfg    = $ini['mail'] ?? [];
+            $idCelula   = (int) ($registro['id_celula'] ?? ($convenio['id_celula'] ?? 0));
+            if ($idCelula === 2 && !empty($ini['mail_cierre_callcenter'])) {
+                $mailCfg = $ini['mail_cierre_callcenter'];
+            } elseif (!empty($ini['mail_cierre'])) {
+                $mailCfg = $ini['mail_cierre'];
+            } else {
+                $mailCfg = $ini['mail'] ?? [];
+            }
 
             $mailCartera = trim((string) ($mailCfg['mail_cartera'] ?? ''));
             $smtpHost    = trim((string) ($mailCfg['smtp_host']    ?? ''));
@@ -807,10 +855,12 @@ class CierreCredito extends Model
     /**
      * Devuelve todos los convenios con progreso de pagos y documentos adjuntos.
      */
-    public static function getAllConvenios(): array
+    public static function getAllConvenios(?array $celulas = null): array
     {
         try {
-            $db   = new Database();
+            $db     = new Database();
+            $params = [];
+            $celulaWhere = self::_celulaWhere($celulas, 'cc', $params);
             $rows = $db->queryAll(
                 "SELECT
                     cc.id,
@@ -832,6 +882,7 @@ class CierreCredito extends Model
                     cc.usuario_alta,
                     cc.fecha_alta,
                     cc.fecha_modifica,
+                    cc.id_celula,
                     (SELECT COUNT(*)
                      FROM convenio_cliente_amortizacion a
                      WHERE a.id_convenio_cliente = cc.id
@@ -846,7 +897,9 @@ class CierreCredito extends Model
                        AND a.comprobante_path != '')                          AS comprobantes_subidos
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
-                 ORDER BY cc.fecha_alta DESC"
+                 WHERE 1=1{$celulaWhere}
+                 ORDER BY cc.fecha_alta DESC",
+                $params ?: null
             );
             $rows = $rows ?: [];
             self::_enrichWithS2AndSemana($rows);
@@ -987,18 +1040,23 @@ class CierreCredito extends Model
         unset($row);
     }
 
-    public static function getHistorial(): array
+    public static function getHistorial(?array $celulas = null): array
     {
         try {
-            $db   = new Database();
+            $db     = new Database();
+            $params = [];
+            $celulaWhere = self::_celulaWhere($celulas, 'ccs', $params);
+            $where  = $celulaWhere !== '' ? ('WHERE 1=1' . $celulaWhere) : '';
             $rows = $db->queryAll(
-                "SELECT id, id_credito, nombre_cliente, estatus,
-                        usuario_alta, fecha_alta,
-                        usuario_actualizacion, fecha_actualizacion,
-                        fecha_envio_cartera, email_destino_cartera
-                 FROM cierre_credito_seguimiento
-                 ORDER BY COALESCE(fecha_envio_cartera, fecha_actualizacion, fecha_alta) DESC
-                 LIMIT 300"
+                "SELECT ccs.id, ccs.id_credito, ccs.nombre_cliente, ccs.estatus,
+                        ccs.usuario_alta, ccs.fecha_alta,
+                        ccs.usuario_actualizacion, ccs.fecha_actualizacion,
+                        ccs.fecha_envio_cartera, ccs.email_destino_cartera, ccs.id_celula
+                 FROM cierre_credito_seguimiento ccs
+                 {$where}
+                 ORDER BY COALESCE(ccs.fecha_envio_cartera, ccs.fecha_actualizacion, ccs.fecha_alta) DESC
+                 LIMIT 300",
+                $params ?: null
             );
             return self::resultado(true, 'Historial de movimientos.', $rows ?: []);
         } catch (\Exception $e) {

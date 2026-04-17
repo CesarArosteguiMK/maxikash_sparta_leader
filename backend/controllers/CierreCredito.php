@@ -19,6 +19,25 @@ class CierreCredito extends Controller
 
     private const CC_PESTANA_PERM_HISTORIAL = 55;
 
+    /** Filtro de célula: 58 = solo Despachos (célula 1), 57 = solo Call Center (célula 2). */
+    private const CC_CELULA_DESPACHOS    = 58;
+    private const CC_CELULA_CALL_CENTER  = 57;
+
+    /**
+     * Determina qué célula(s) puede ver el usuario logueado.
+     * Retorna: [1] solo Despachos, [2] solo Call Center, [1,2] ambas/todas, null = sin filtro.
+     */
+    private function cierreGetCelulasPermitidas(): ?array
+    {
+        $tieneDesp = $this->cierreTieneModuloPermisoSesion(self::CC_CELULA_DESPACHOS);
+        $tieneCC   = $this->cierreTieneModuloPermisoSesion(self::CC_CELULA_CALL_CENTER);
+
+        if ($tieneDesp && $tieneCC) return null;   // ambos = sin filtro
+        if ($tieneDesp)             return [1];
+        if ($tieneCC)               return [2];
+        return null; // ninguno = sin filtro (backward compatible)
+    }
+
     private function cierreTieneModuloPermisoSesion(int $moduloId): bool
     {
         $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
@@ -102,6 +121,7 @@ class CierreCredito extends Controller
         $this->set('cc_perm_historial', $ccPermHistorial);
         $this->set('cc_perm_alguno', $ccPermAlguno);
         $this->set('cc_default_tab', $ccDefaultTab);
+        $this->set('cc_celulas_permitidas', $this->cierreGetCelulasPermitidas());
 
         $this->render('cierre_credito_consulta');
     }
@@ -113,7 +133,7 @@ class CierreCredito extends Controller
     public function getEnProceso()
     {
         $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
-        $r = CierreCreditoDAO::getEnProceso();
+        $r = CierreCreditoDAO::getEnProceso($this->cierreGetCelulasPermitidas());
         self::respuestaJSON($r);
     }
 
@@ -124,9 +144,15 @@ class CierreCredito extends Controller
     public function getEnviadoFinalizado()
     {
         $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_VALIDACION);
-        $r = CierreCreditoDAO::getEnviadoFinalizado();
+        $celulas = $this->cierreGetCelulasPermitidas();
+        $r = CierreCreditoDAO::getEnviadoFinalizado($celulas);
         // Añadir el usuario de sesión para mostrarlo en la UI de validación
         $r['validador'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'Sin sesión';
+        // DEBUG TEMPORAL — eliminar después de verificar
+        $r['_debug_celulas'] = $celulas;
+        $r['_debug_modulos_sesion'] = $_SESSION['modulos'] ?? 'NO_HAY';
+        $r['_debug_tiene_56'] = $this->cierreTieneModuloPermisoSesion(self::CC_CELULA_DESPACHOS);
+        $r['_debug_tiene_57'] = $this->cierreTieneModuloPermisoSesion(self::CC_CELULA_CALL_CENTER);
         self::respuestaJSON($r);
     }
 
@@ -236,7 +262,7 @@ class CierreCredito extends Controller
     public function getAllConvenios()
     {
         $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_CONVENIOS);
-        $r = CierreCreditoDAO::getAllConvenios();
+        $r = CierreCreditoDAO::getAllConvenios($this->cierreGetCelulasPermitidas());
         self::respuestaJSON($r);
     }
 
@@ -440,7 +466,7 @@ class CierreCredito extends Controller
     public function getHistorial()
     {
         $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_HISTORIAL);
-        $r = CierreCreditoDAO::getHistorial();
+        $r = CierreCreditoDAO::getHistorial($this->cierreGetCelulasPermitidas());
         self::respuestaJSON($r);
     }
 }
