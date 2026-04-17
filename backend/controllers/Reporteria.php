@@ -4,6 +4,7 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
+use Models\SegundometroComparativaSemanal;
 
 require_once dirname(__DIR__) . '/cronjobs/PrimerosPagosAutoSwitch.php';
 
@@ -462,14 +463,60 @@ class Reporteria extends Controller
     }
 
     /**
-     * Comparativas (Analítica): landing al estilo Call Center.
+     * Comparativas avance semanal (Analítica): landing al estilo Call Center.
      * URL canónica: /reporteria/comparativas
+     * Permiso: modulos_web id 60 (Analítica → Comparativas).
      */
     public function comparativas()
     {
-        self::set('titulo', 'Comparativas');
+        self::set('titulo', 'Comparativas avance semanal');
         self::set('script', '');
         self::render('comparativas');
+    }
+
+    /**
+     * Tablero comparativo segundómetro (cortes del día vs semanas históricas).
+     * URL canónica: /reporteria/comparativasAvanceSemanal
+     */
+    public function comparativasAvanceSemanal()
+    {
+        self::set('titulo', 'Comparativas — Avance por cortes');
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $hoy = new \DateTimeImmutable('today', $tz);
+        $lunes = $hoy->modify('monday this week');
+        self::set('comp_fecha_min', $lunes->format('Y-m-d'));
+        self::set('comp_fecha_max', $hoy->format('Y-m-d'));
+        self::set('comp_error', null);
+        self::set('comp_payload', null);
+        try {
+            $fechaGet = isset($_GET['fecha']) ? (string) $_GET['fecha'] : null;
+            self::set('comp_payload', SegundometroComparativaSemanal::calcular($fechaGet));
+        } catch (\InvalidArgumentException $e) {
+            self::set('comp_error', $e->getMessage());
+        } catch (\Throwable $e) {
+            error_log('Reporteria::comparativasAvanceSemanal -> ' . $e->getMessage());
+            self::set('comp_error', 'No se pudieron cargar los datos. Intente más tarde o use Actualizar.');
+        }
+        self::set('script', '');
+        self::render('comparativas_avance_semanal');
+    }
+
+    /**
+     * JSON para refresco del tablero (misma forma que el antiguo endpoint FastAPI).
+     */
+    public function getComparativasAvanceSemanalJson()
+    {
+        try {
+            $fecha = isset($_GET['fecha']) ? (string) $_GET['fecha'] : null;
+            self::respuestaJSON(SegundometroComparativaSemanal::calcular($fecha));
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400);
+            self::respuestaJSON(['detail' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getComparativasAvanceSemanalJson -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['detail' => 'Error al consultar la base de datos.']);
+        }
     }
 
     /**

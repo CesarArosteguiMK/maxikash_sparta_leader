@@ -1108,6 +1108,8 @@ class CapHum extends Controller
                 '56': 'fa-solid fa-building',
                 57: 'fa-solid fa-headset',
                 '57': 'fa-solid fa-headset',
+                60: 'fa-solid fa-chart-column',
+                '60': 'fa-solid fa-chart-column',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -1139,7 +1141,8 @@ class CapHum extends Controller
                 49: 'fa fa-calendar-week',
                 50: 'fa fa-chart-line',
                 51: 'fa-solid fa-file-circle-check',
-                48: 'fa fa-archive'
+                48: 'fa fa-archive',
+                60: 'fa-solid fa-chart-column'
             };
 
             /* =========================
