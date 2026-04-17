@@ -2500,8 +2500,8 @@ class Reporteria extends Controller
                 ])));
             }
 
-            // CDMX, 24 h (tarde/noche: 16:40, 18:40, 20:40, 23:50 — no formato 12 h en UI)
-            $horarios = ['07:40','09:40','11:40','13:40','14:40','16:40','18:40','20:40','23:50'];
+            // CDMX, 24 h (tarde/noche: 16:45, 18:45, 20:45, 23:50 — no formato 12 h en UI)
+            $horarios = ['07:45','09:45','11:45','13:45','14:45','16:45','18:45','20:45','23:50'];
             $hoy = date('Y-m-d');
             $ahora = date('H:i');
             $transcurridos = array_values(array_filter($horarios, function ($h) use ($ahora) {
@@ -2564,7 +2564,7 @@ class Reporteria extends Controller
             // Rojo solo si hubo intentos automáticos no exitosos; faltantes = cron no corrió o solo manual/--force.
             $estado = !empty($errores) ? 'error' : 'incompleto';
             if ($estado === 'incompleto') {
-                $detalle .= ' No indica fallo de correo si solo usaste envío manual o --force: esas ejecuciones no llenan el slot fijo (07:40, 09:40…).';
+                $detalle .= ' No indica fallo de correo si solo usaste envío manual o --force: esas ejecuciones no llenan el slot fijo (07:45, 09:45…).';
             }
             self::respuestaJSON(self::respuesta(true, 'Con incidencias', array_merge($baseMeta, [
                 'estado' => $estado,

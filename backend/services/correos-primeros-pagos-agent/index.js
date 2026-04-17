@@ -2,7 +2,7 @@
  * Agente: ejecuta periódicamente backend/cronjobs/enviar_primeros_pagos_lunes.php
  * (misma lógica que Programador de tareas; respeta PrimerosPagosAutoSwitch en PHP).
  *
- * Los horarios de envío (slots 07:40, 09:40, … CDMX) los calcula SOLO PHP con
+ * Los horarios de envío (slots 07:45, 09:45, …, 23:50 CDMX) los calcula SOLO PHP con
  * date_default_timezone_set('America/Mexico_City') al arrancar el cron — no usa
  * la zona horaria del sistema operativo del servidor para eso.
  *
@@ -175,7 +175,7 @@ if (HTTP_PORT > 0) {
         script: phpScript,
         intervalMs: INTERVAL_MS,
         cronTimezone:
-          'Los slots (07:40, 09:40, …) usan America/Mexico_City (CDMX) dentro de enviar_primeros_pagos_lunes.php; no depende del huso del servidor.',
+          'Los slots (07:45, 09:45, …, 23:50) usan America/Mexico_City (CDMX) dentro de enviar_primeros_pagos_lunes.php; no depende del huso del servidor.',
         envioCorreosDiasHabiles: 'martes a domingo (CDMX); los lunes no hay envío automático.',
         skippedBecauseMondayCDMX: lastSkippedBecauseMonday,
         autoSwitchEnabled: isAutoEnabled(),
