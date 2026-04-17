@@ -1097,6 +1097,17 @@ body.dark-mode #migTotalFinal {
                              step="0.01" placeholder="16284.33" readonly
                              style="background:#f8f9fa;" title="Calculado automáticamente según el producto seleccionado">
                     </div>
+                    <div id="migBaseSelector" class="d-none" style="margin-top:5px;">
+                      <div class="btn-group btn-group-sm w-100" role="group">
+                        <input type="radio" class="btn-check" name="migBaseTipo" id="migBase_capital" value="saldo_total_capital" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="migBase_capital" style="font-size:.72rem;">Capital</label>
+                        <input type="radio" class="btn-check" name="migBaseTipo" id="migBase_interes" value="interes" autocomplete="off">
+                        <label class="btn btn-outline-warning" for="migBase_interes" style="font-size:.72rem;">Interés</label>
+                        <input type="radio" class="btn-check" name="migBaseTipo" id="migBase_total" value="adeudo_total" autocomplete="off">
+                        <label class="btn btn-outline-success" for="migBase_total" style="font-size:.72rem;">Total</label>
+                      </div>
+                      <small id="migBaseMontos" class="text-muted d-block" style="font-size:.7rem;margin-top:3px;"></small>
+                    </div>
                   </div>
 
                   <!-- Semanas / Bucket — sube antes de Pago Semanal -->
@@ -4016,6 +4027,73 @@ var _migDetalle = null;
 var _migSemanas = 0;
 var _migOfertas = [];  // ofertas del crédito activo en el modal
 
+// ── Selector de base de cálculo (Capital / Interés / Total) ──
+function _migMostrarBaseSelector() {
+    var panel = document.getElementById('migBaseSelector');
+    if (!panel || !_migCredito) return;
+
+    var capital = parseFloat(_migCredito.Saldo_total_capital || 0);
+    var total   = parseFloat(_migCredito.Adeudo_total || 0);
+    var interes = Math.max(total - capital, 0);
+    var fmt = function(v) { return '$' + v.toLocaleString('es-MX', {minimumFractionDigits:2}); };
+
+    var montosEl = document.getElementById('migBaseMontos');
+    if (montosEl) {
+        montosEl.innerHTML = 'Capital: ' + fmt(capital) + ' &nbsp;|&nbsp; Interés: ' + fmt(interes) + ' &nbsp;|&nbsp; Total: ' + fmt(total);
+    }
+
+    panel.classList.remove('d-none');
+
+    // Seleccionar "Total" por defecto
+    var radTotal = document.getElementById('migBase_total');
+    if (radTotal) radTotal.checked = true;
+
+    // Vincular eventos
+    var radios = document.querySelectorAll('input[name="migBaseTipo"]');
+    for (var i = 0; i < radios.length; i++) {
+        radios[i].removeEventListener('change', _migOnBaseChange);
+        radios[i].addEventListener('change', _migOnBaseChange);
+    }
+}
+
+function _migOcultarBaseSelector() {
+    var panel = document.getElementById('migBaseSelector');
+    if (panel) panel.classList.add('d-none');
+}
+
+function _migGetMontoBase(tipo) {
+    if (!_migCredito) return 0;
+    var capital = parseFloat(_migCredito.Saldo_total_capital || 0);
+    var total   = parseFloat(_migCredito.Adeudo_total || 0);
+    var interes = Math.max(total - capital, 0);
+
+    if (tipo === 'saldo_total_capital') return capital;
+    if (tipo === 'interes') return interes;
+    return total; // adeudo_total
+}
+
+function _migGetBaseSeleccionada() {
+    var checked = document.querySelector('input[name="migBaseTipo"]:checked');
+    return checked ? checked.value : 'adeudo_total';
+}
+
+function _migOnBaseChange() {
+    var tipo = _migGetBaseSeleccionada();
+    var monto = _migGetMontoBase(tipo);
+    var migAdeudoEl = document.getElementById('migAdeudo');
+    if (migAdeudoEl) {
+        migAdeudoEl.value = monto.toFixed(2);
+    }
+    // Quitar aviso previo del producto (ya no aplica si el usuario cambió la base)
+    var avisoPrev = document.getElementById('migAdeudoAviso');
+    if (avisoPrev) avisoPrev.remove();
+
+    // Recalcular si existe migCalcular
+    if (typeof migCalcular === 'function') {
+        migCalcular();
+    }
+}
+
 
 
 // ══════════════════════════════════════════════════════
@@ -4345,6 +4423,7 @@ window.migBuscarCredito = function () {
 
                             // ✅ Todo válido
                             _migCredito = credito;
+                            _migMostrarBaseSelector();
 
                             var adeudo = parseFloat(credito.Adeudo_total || 0)
                                 .toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -4377,6 +4456,7 @@ window.migBuscarCredito = function () {
                         onError: function () {
                             // Si falla getConvenioActivo, habilitamos igualmente
                             _migCredito = credito;
+                            _migMostrarBaseSelector();
 
                             info.className = 'alert alert-success';
                             info.innerHTML =
@@ -4443,8 +4523,7 @@ window.migProductoChange = function () {
     };
 
     // ── Auto-ajustar adeudo base según el producto seleccionado ──────
-    // Cada producto puede tener una base diferente (Adeudo Total vs Saldo Capital).
-    // El backend ya calcula monto_base correctamente en getOfertasCredito.
+    // Seleccionar la base del producto en el selector y actualizar el monto.
     if (!esGlobo && _migOfertas.length > 0) {
         var idProdNum = parseInt(_migDetalle.id_producto);
         var ofertaMatch = null;
@@ -4452,26 +4531,23 @@ window.migProductoChange = function () {
             if (_migOfertas[_oi].id_producto === idProdNum) { ofertaMatch = _migOfertas[_oi]; break; }
         }
         if (ofertaMatch) {
+            // Pre-seleccionar el radio según base_calculo del producto
+            var baseProducto = ofertaMatch.base_calculo || 'adeudo_total';
+            var radioId = baseProducto === 'saldo_total_capital' ? 'migBase_capital'
+                        : baseProducto === 'interes' ? 'migBase_interes'
+                        : 'migBase_total';
+            var radioEl = document.getElementById(radioId);
+            if (radioEl) radioEl.checked = true;
+
+            // Usar el monto según la base seleccionada
+            var monto = _migGetMontoBase(_migGetBaseSeleccionada());
             var migAdeudoEl = document.getElementById('migAdeudo');
             if (migAdeudoEl) {
-                migAdeudoEl.value = parseFloat(ofertaMatch.monto_base).toFixed(2);
+                migAdeudoEl.value = monto.toFixed(2);
             }
-            // Badge informativo debajo del campo adeudo
+            // Quitar aviso previo
             var avisoPrevio = document.getElementById('migAdeudoAviso');
             if (avisoPrevio) avisoPrevio.remove();
-            var aviso = document.createElement('small');
-            aviso.id = 'migAdeudoAviso';
-            aviso.style.cssText = 'display:block;margin-top:4px;font-size:0.75rem;';
-            var esAdeudoTotal = parseFloat(ofertaMatch.monto_base).toFixed(2) ===
-                parseFloat(_migCredito ? _migCredito.Adeudo_total || 0 : 0).toFixed(2);
-            aviso.innerHTML = esAdeudoTotal
-                ? '<i class="fas fa-info-circle" style="color:#3b82f6;"></i>' +
-                  ' <span style="color:#3b82f6;">Base: Adeudo Total</span>'
-                : '<i class="fas fa-info-circle" style="color:#f59e0b;"></i>' +
-                  ' <span style="color:#f59e0b;">Base: Saldo Capital (' +
-                  '$' + parseFloat(ofertaMatch.monto_base).toLocaleString('es-MX', {minimumFractionDigits:2}) +
-                  ') — distinto al adeudo total</span>';
-            if (migAdeudoEl) migAdeudoEl.parentNode.appendChild(aviso);
         }
     } else if (esGlobo) {
         // Para globo, restaurar adeudo total del crédito
@@ -5918,6 +5994,7 @@ window.migGuardar = function () {
                 formData.append('id_producto_convenio', _migDetalle.id_producto);
                 formData.append('id_producto_convenio_detalle', _migDetalle.id_detalle);
                 formData.append('adeudo_base', adeudo);
+                formData.append('base_calculo', _migGetBaseSeleccionada());
                 formData.append('monto_adicional', adicional > 0 ? adicional.toFixed(2) : '');
                 formData.append('total_final_con_adicional', totalFinal.toFixed(2));
                 formData.append('porcentaje_descuento', _pctEnvio);
@@ -6023,6 +6100,7 @@ window.migGuardar = function () {
                     id_producto_convenio: _migDetalle.id_producto,
                     id_producto_convenio_detalle: _migDetalle.id_detalle,
                     adeudo_base: adeudo,
+                    base_calculo: _migGetBaseSeleccionada(),
                     porcentaje_descuento: _pctEnvio,
                     pago_semanal: semanal,
                     fecha_inicio: fecha,
@@ -7330,6 +7408,7 @@ window.migResetearFormulario = function () {
     if (migFechaInicio) migFechaInicio.value = '';
     var migAdeudoEl = document.getElementById('migAdeudo');
     if (migAdeudoEl) migAdeudoEl.value = '';
+    _migOcultarBaseSelector();
     var globoPagoInicial = document.getElementById('globoPagoInicial');
     if (globoPagoInicial) globoPagoInicial.value = '';
     var migPagoFinalEl = document.getElementById('migPagoFinal');

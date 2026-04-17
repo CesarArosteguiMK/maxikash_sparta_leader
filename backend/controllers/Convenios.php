@@ -106,6 +106,8 @@ class Convenios extends Controller
 
         $datos['fechas_pagos'] = isset($_POST['fechas_pagos']) ? trim($_POST['fechas_pagos']) : '';
 
+        $datos['base_calculo'] = isset($_POST['base_calculo']) ? $_POST['base_calculo'] : null;
+
         $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
 
         // ── Procesar PDF adjunto si viene en la petición ──

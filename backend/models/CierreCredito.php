@@ -78,7 +78,7 @@ class CierreCredito extends Model
                         cc.total_a_pagar, cc.porcentaje_descuento,
                         cc.adeudo_total_original, cc.numero_semanas,
                         cc.fecha_acuerdo,
-                        pcd.base_calculo
+                        COALESCE(cc.base_calculo, pcd.base_calculo) AS base_calculo
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  LEFT JOIN producto_convenio_detalle pcd ON pcd.id = cc.id_producto_convenio_detalle
@@ -239,7 +239,7 @@ class CierreCredito extends Model
                      WHERE ccs.id_credito = cc.id_credito
                        AND ccs.estatus = 'descartado'
                      ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS fecha_descarte,
-                    pcd.base_calculo
+                    COALESCE(cc.base_calculo, pcd.base_calculo) AS base_calculo
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  LEFT JOIN producto_convenio_detalle pcd ON pcd.id = cc.id_producto_convenio_detalle

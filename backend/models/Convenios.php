@@ -360,6 +360,8 @@ class Convenios extends Model
                 $pagoPromedio    = $semanas > 0 ? round($totalAPagar / $semanas, 2) : $totalAPagar;
 
                 $pdfAdjunto = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
+                $baseCalculo = isset($datos['base_calculo']) && in_array($datos['base_calculo'], ['saldo_total_capital', 'interes', 'adeudo_total'])
+                    ? $datos['base_calculo'] : null;
 
                 $ok = $db->CRUD(
                     "INSERT INTO convenio_cliente (
@@ -368,14 +370,14 @@ class Convenios extends Model
                         adeudo_total_original, porcentaje_descuento, descuento_monto,
                         total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
                         fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago,
-                        tipo_calendario, estatus, usuario_alta, pdf_adjunto
+                        tipo_calendario, estatus, usuario_alta, pdf_adjunto, base_calculo
                     ) VALUES (
                         :id_credito, :id_producto, :id_detalle,
                         :nombre_cliente, :bucket, :dias_mora, :avance_pago,
                         :adeudo_original, :pct_descuento, :descuento_monto,
                         :total_pagar, :monto_adicional, :pago_inicial, :num_semanas, :pago_semanal,
                         :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago,
-                        'libre', 'activo', :usuario, :pdf_adjunto
+                        'libre', 'activo', :usuario, :pdf_adjunto, :base_calculo
                     )",
                     [
                         'id_credito'        => (int) $datos['id_credito'],
@@ -398,6 +400,7 @@ class Convenios extends Model
                         'fecha_ultimo_pago' => $fechaUltimoPago,
                         'usuario'           => $datos['usuario_alta'],
                         'pdf_adjunto'       => $pdfAdjunto,
+                        'base_calculo'      => $baseCalculo,
                     ]
                 );
 
@@ -439,6 +442,8 @@ class Convenios extends Model
 
             // Insertar convenio
             $pdfAdjunto = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
+            $baseCalculo = isset($datos['base_calculo']) && in_array($datos['base_calculo'], ['saldo_total_capital', 'interes', 'adeudo_total'])
+                ? $datos['base_calculo'] : null;
 
         $ok = $db->CRUD(
     "INSERT INTO convenio_cliente (
@@ -446,13 +451,13 @@ class Convenios extends Model
         nombre_cliente, bucket_morosidad_real, dias_mora, avance_pago_plazo,
         adeudo_total_original, porcentaje_descuento, descuento_monto,
         total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
-        fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta, pdf_adjunto
+        fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta, pdf_adjunto, base_calculo
     ) VALUES (
         :id_credito, :id_producto, :id_detalle,
         :nombre_cliente, :bucket, :dias_mora, :avance_pago,
         :adeudo_original, :pct_descuento, :descuento_monto,
         :total_pagar, :monto_adicional, :pago_inicial, :num_semanas, :pago_semanal,
-        :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo', :usuario, :pdf_adjunto
+        :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo', :usuario, :pdf_adjunto, :base_calculo
     )",
     [
         'id_credito'        => (int) $datos['id_credito'],
@@ -475,6 +480,7 @@ class Convenios extends Model
         'fecha_ultimo_pago' => $fechaUltimoPago,
         'usuario'           => $datos['usuario_alta'],
         'pdf_adjunto'       => $pdfAdjunto,
+        'base_calculo'      => $baseCalculo,
     ]
 );
             if (!$ok) {
@@ -1673,6 +1679,10 @@ public static function migrarConvenio($datos)
         $fechaUltimoPago = date('Y-m-d', strtotime($fechaInicio . ' +' . (($semanas - 1) * 7) . ' days'));
 
         // 3. Insertar convenio (ahora con campo pdf_adjunto)
+        $baseCalculo = isset($datos['base_calculo']) && in_array($datos['base_calculo'], ['saldo_total_capital', 'interes', 'adeudo_total'])
+            ? $datos['base_calculo']
+            : null;
+
         $ok = $db->CRUD(
             "INSERT INTO convenio_cliente (
                 id_credito, id_producto_convenio, id_producto_convenio_detalle,
@@ -1680,14 +1690,14 @@ public static function migrarConvenio($datos)
                 adeudo_total_original, porcentaje_descuento, descuento_monto,
                  total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
                  fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus,
-                usuario_alta, pdf_adjunto
+                usuario_alta, pdf_adjunto, base_calculo
             ) VALUES (
                 :id_credito, :id_producto, :id_detalle,
                 :nombre_cliente, :bucket, :dias_mora, :avance_pago,
                 :adeudo_original, :pct_descuento, :descuento_monto,
                  :total_pagar, :monto_adicional, NULL, :num_semanas, :pago_semanal,
                  :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo',
-                :usuario, :pdf_adjunto
+                :usuario, :pdf_adjunto, :base_calculo
             )",
             [
                 'id_credito'       => (int) $datos['id_credito'],
@@ -1709,6 +1719,7 @@ public static function migrarConvenio($datos)
                 'fecha_ultimo_pago'=> $fechaUltimoPago,
                 'usuario'          => $datos['usuario_alta'],
                 'pdf_adjunto'      => $pdfAdjunto,
+                'base_calculo'     => $baseCalculo,
             ]
         );
 
