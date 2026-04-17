@@ -31,6 +31,7 @@ if ($compInitialJson === false) {
     </div>
 
     <div class="card shadow-sm border comp-av-card overflow-hidden">
+        <div id="comp-av-export-root" class="comp-av-export-root bg-body">
         <div class="card-body border-bottom py-3 comp-av-toolbar">
             <div class="d-flex flex-wrap align-items-end justify-content-between gap-3">
                 <div class="comp-av-logo-toolbar">
@@ -151,6 +152,14 @@ if ($compInitialJson === false) {
                 </div>
             </div>
         </div>
+        </div>
+
+        <div class="card-body border-top py-2 py-md-3 text-center bg-body">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="comp-btn-descargar-png"<?= $comp_ok_inicio ? '' : ' disabled'; ?>
+                    title="PNG: logo, chips de semana y tabla. Sin día/Viernes, sin Actualizar ni hora Actualizado">
+                <i class="fa-solid fa-download me-1" aria-hidden="true"></i>Descargar imagen (PNG)
+            </button>
+        </div>
 
         <div class="card-footer d-none comp-av-footer"></div>
     </div>
@@ -180,6 +189,7 @@ if ($compInitialJson === false) {
     line-height: 1.2;
 }
 .comp-av-heading { line-height: 1.25; letter-spacing: -0.02em; }
+.comp-av-export-root { overflow: hidden; }
 /* Bordes de la tabla: mismos tokens que .table / .table-bordered del tema (gris claro) */
 .comp-av-table {
     --bs-table-border-color: var(--bs-gray-200);
@@ -536,11 +546,13 @@ body.dark-mode #comp-sin-servicio {
         const off = document.getElementById('comp-sin-servicio');
         const inp = document.getElementById('comp-fecha-ref');
         const btn = document.getElementById('comp-btn-refresh');
+        const btnPng = document.getElementById('comp-btn-descargar-png');
         if (ok) {
             area.classList.remove('d-none');
             off.classList.add('d-none');
             if (inp) inp.disabled = false;
             if (btn) btn.disabled = false;
+            if (btnPng) btnPng.disabled = false;
             setApiStatus('ok');
             startAutoRefresh();
         } else {
@@ -548,9 +560,71 @@ body.dark-mode #comp-sin-servicio {
             off.classList.remove('d-none');
             if (inp) inp.disabled = true;
             if (btn) btn.disabled = false;
+            if (btnPng) btnPng.disabled = true;
             setApiStatus('err');
             stopAutoRefresh();
         }
+    }
+
+    function loadHtmlToImage(done) {
+        if (window.htmlToImage && typeof window.htmlToImage.toPng === 'function') {
+            done(null);
+            return;
+        }
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
+        s.async = true;
+        s.onload = function () {
+            done((window.htmlToImage && typeof window.htmlToImage.toPng === 'function') ? null : new Error('htmlToImage'));
+        };
+        s.onerror = function () { done(new Error('script')); };
+        document.head.appendChild(s);
+    }
+
+    function descargarPngTablero() {
+        var root = document.getElementById('comp-av-export-root');
+        var btnPng = document.getElementById('comp-btn-descargar-png');
+        if (!root || !btnPng || btnPng.disabled) return;
+        btnPng.disabled = true;
+        loadHtmlToImage(function (errLoad) {
+            if (errLoad || !window.htmlToImage || typeof window.htmlToImage.toPng !== 'function') {
+                btnPng.disabled = false;
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'No se pudo cargar la utilidad de imagen', text: 'Intente de nuevo o revise su conexión.' });
+                } else {
+                    alert('No se pudo cargar la utilidad para generar la imagen.');
+                }
+                return;
+            }
+            var opts = {
+                pixelRatio: 2,
+                cacheBust: true,
+                filter: function (node) {
+                    if (!(node instanceof HTMLElement)) return true;
+                    if (node.classList.contains('comp-av-toolbar-dia')) return false;
+                    if (node.classList.contains('comp-chip-actions')) return false;
+                    return true;
+                }
+            };
+            window.htmlToImage.toPng(root, opts).then(function (dataUrl) {
+                var inp = document.getElementById('comp-fecha-ref');
+                var fv = (inp && inp.value) ? inp.value : 'tablero';
+                var name = 'comparativa-avance-cortes-' + fv + '.png';
+                var a = document.createElement('a');
+                a.download = name;
+                a.href = dataUrl;
+                a.click();
+                btnPng.disabled = false;
+            }).catch(function (e) {
+                console.warn('[comparativas] html-to-image:', e);
+                btnPng.disabled = false;
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Error al generar la imagen', text: (e && e.message) ? e.message : 'Intente de nuevo.' });
+                } else {
+                    alert('Error al generar la imagen.');
+                }
+            });
+        });
     }
 
     function mondayOfWeek(d) {
@@ -686,6 +760,8 @@ body.dark-mode #comp-sin-servicio {
     var compFechaEl = document.getElementById('comp-fecha-ref');
     if (compFechaEl) compFechaEl.addEventListener('change', function () { if (!compFechaEl.disabled) cargar(); });
     document.getElementById('comp-btn-refresh').addEventListener('click', cargar);
+    var btnPng0 = document.getElementById('comp-btn-descargar-png');
+    if (btnPng0) btnPng0.addEventListener('click', descargarPngTablero);
 
     const initFecha = COMP_INITIAL && COMP_INITIAL.fecha_referencia ? COMP_INITIAL.fecha_referencia.slice(0, 10) : '';
     buildDiaCompararOptions(initFecha);
