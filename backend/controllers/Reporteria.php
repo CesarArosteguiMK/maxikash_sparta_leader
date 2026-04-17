@@ -462,6 +462,17 @@ class Reporteria extends Controller
     }
 
     /**
+     * Comparativas (Analítica): landing al estilo Call Center.
+     * URL canónica: /reporteria/comparativas
+     */
+    public function comparativas()
+    {
+        self::set('titulo', 'Comparativas');
+        self::set('script', '');
+        self::render('comparativas');
+    }
+
+    /**
      * Alias antiguo → redirige a callcenter (conserva query string).
      */
     public function resumencallcenter()

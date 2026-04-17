@@ -1922,11 +1922,15 @@ class EstadoCuenta extends Controller
                     }
                     formData.append("modoBusqueda", modo);
 
-                    const response = await fetch("/EstadoCuenta/validarCredito", {
+                    const response = await fetch("/estadocuenta/validarcredito", {
                         method: "POST",
                         body: formData
                     });
 
+                    const ct = (response.headers.get("content-type") || "").toLowerCase();
+                    if (!response.ok || ct.indexOf("application/json") === -1) {
+                        throw new Error("HTTP " + response.status);
+                    }
                     const result = await response.json();
 
                     if (!result.success) {
@@ -1937,6 +1941,14 @@ class EstadoCuenta extends Controller
                                 title: "Crédito de Guatemala",
                                 html: "<div style='text-align:center;'><div style='margin-bottom:12px;'><span class='fi fi-gt fis' style='font-size:2.8rem;'></span></div><p style='margin:0; font-size:14px; color:#666;'>El crédito ingresado pertenece a Guatemala. Consulta este ID en Estado de Cuenta Guatemala.</p></div>",
                                 confirmButtonText: "Entendido"
+                            });
+                        }
+
+                        if (result.tipo === "error_db") {
+                            return Swal.fire({
+                                icon: "error",
+                                title: "Base de datos no disponible",
+                                text: result.mensaje || "No se pudo conectar al servidor de datos para validar el crédito."
                             });
                         }
 
@@ -3036,24 +3048,40 @@ JS;
         // ✅ Solo consultas locales — sin API externa
         $referenciasMx = EmpresasDAO::getConsultaReferenciasEstadoCuenta($idAValidar);
 
-        if (empty($referenciasMx['datos'])) {
-            $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idAValidar);
-            if (!empty($datosGuat['datos'])) {
-                self::respuestaJSON([
-                    'success' => false,
-                    'tipo' => 'credito_guatemala',
-                    'mensaje' => 'El crédito pertenece a Guatemala'
-                ]);
-                return;
-            }
-
-            // No existe en ninguna BD local
-            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito incorrecto']);
+        if (empty($referenciasMx['success']) && !empty($referenciasMx['error'])) {
+            self::respuestaJSON([
+                'success' => false,
+                'tipo' => 'error_db',
+                'mensaje' => 'No se pudo validar el crédito: falló la conexión a la base de datos (México). Verifique red/firewall del servidor o intente más tarde.',
+            ]);
             return;
         }
 
-        // ✅ Existe en MX — listo, sin llamar a s2movil
-        self::respuestaJSON(['success' => true, 'mensaje' => 'ID de crédito válido']);
+        if (!empty($referenciasMx['datos'])) {
+            self::respuestaJSON(['success' => true, 'mensaje' => 'ID de crédito válido']);
+            return;
+        }
+
+        $datosGuat = EmpresasDAO::getGuatemalaEstadoCuenta($idAValidar);
+        if (empty($datosGuat['success']) && !empty($datosGuat['error'])) {
+            self::respuestaJSON([
+                'success' => false,
+                'tipo' => 'error_db',
+                'mensaje' => 'No se pudo validar el crédito: falló la conexión a la base de datos (Guatemala). Verifique red/firewall del servidor o intente más tarde.',
+            ]);
+            return;
+        }
+
+        if (!empty($datosGuat['datos'])) {
+            self::respuestaJSON([
+                'success' => false,
+                'tipo' => 'credito_guatemala',
+                'mensaje' => 'El crédito pertenece a Guatemala'
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito incorrecto']);
     }
     public static function getclientesEstadoCuentaNombre()
     {
@@ -3499,19 +3527,33 @@ JS;
                     });
                     const formDataValidar = new FormData();
                     formDataValidar.append('idCredito', id);
-                    fetch('/EstadoCuenta/validarCredito', {
+                    fetch('/estadocuenta/validarcredito', {
                         method: 'POST',
                         body: formDataValidar
                     })
-                    .then(r => r.json())
+                    .then(function(r) {
+                        const ct = (r.headers.get('content-type') || '').toLowerCase();
+                        if (!r.ok || ct.indexOf('application/json') === -1) {
+                            return Promise.reject(new Error('HTTP ' + r.status));
+                        }
+                        return r.json();
+                    })
                     .then(function(dataValidar) {
                         if (!dataValidar.success) {
                             Swal.close();
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'ID de crédito no válido',
-                                text: dataValidar.mensaje || 'El ID de crédito no existe. Verifica el número.'
-                            });
+                            if (dataValidar.tipo === 'error_db') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Base de datos no disponible',
+                                    text: dataValidar.mensaje || 'No se pudo validar el crédito con el servidor de datos.'
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'ID de crédito no válido',
+                                    text: dataValidar.mensaje || 'El ID de crédito no existe. Verifica el número.'
+                                });
+                            }
                             return null;
                         }
                         limpiarContenedoresDocumento();

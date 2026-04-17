@@ -38,6 +38,13 @@ class DatabaseMaxiProd
                     $e
                 );
             }
+            if (\Core\DatabaseCliSupport::esEstadoCuentaValidarCreditoRequest()) {
+                throw new \RuntimeException(
+                    'No se pudo conectar a MySQL (__SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
+                    0,
+                    $e
+                );
+            }
             $this->baseNoDisponible("{$e->getMessage()}\nDatos de conexión: $cadena");
             $this->db = null;
         }
