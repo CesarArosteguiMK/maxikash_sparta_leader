@@ -3866,8 +3866,11 @@ class Sabueso extends Controller
         $raw = file_get_contents('php://input');
         $datos = json_decode($raw, true) ?: [];
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
-        /** Estado de cuenta embebido: no FAD (evita timeout a API Python) ni tickets; solo datos para mapas/analítica. */
-        $omitirFad = !empty($datos['omitir_fad']);
+        /**
+         * Por rendimiento, por defecto NO ejecutar extracción FAD en esta API.
+         * Si algún flujo necesita forzarlo puede enviar: { "omitir_fad": false }.
+         */
+        $omitirFad = !array_key_exists('omitir_fad', $datos) ? true : !empty($datos['omitir_fad']);
         if ($idCredito < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'datos' => null]);
             return;
@@ -4113,6 +4116,13 @@ class Sabueso extends Controller
 
     /** Rango en metros para considerar un punto de Maxi App "su casa" (igual que geofence cumplimiento gestor). */
     private const RANGO_CASA_M = 100;
+    /** Cache corta para payload de rastreo de ubicaciones. */
+    private const UBICACIONES_CACHE_TTL = 600;
+
+    private function getUbicacionesCachePath(int $idCredito): string
+    {
+        return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . '.json';
+    }
 
     /**
      * API: ubicaciones filtradas por id_credito (idCliente desde segundometro, tabla ubicacion en AWS).
@@ -4123,9 +4133,19 @@ class Sabueso extends Controller
         $raw = file_get_contents('php://input');
         $datos = json_decode($raw, true) ?: [];
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
+        $forceRefresh = !empty($datos['force_refresh']);
         if ($idCredito < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'direcciones_resumen' => [], 'puntos_mapa' => [], 'puntos_geo' => [], 'domicilio_megareporte' => null, 'indice_casa' => null]);
             return;
+        }
+        $cachePath = $this->getUbicacionesCachePath($idCredito);
+        if (!$forceRefresh && is_file($cachePath)) {
+            $rawCache = @file_get_contents($cachePath);
+            $cache = $rawCache !== false ? json_decode($rawCache, true) : null;
+            if (is_array($cache) && isset($cache['expires'], $cache['payload']) && (int) $cache['expires'] >= time() && is_array($cache['payload'])) {
+                self::respuestaJSON($cache['payload']);
+                return;
+            }
         }
         try {
             $resultado = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
@@ -4175,7 +4195,7 @@ class Sabueso extends Controller
                 }
             }
 
-            self::respuestaJSON([
+            $payload = [
                 'success' => $resultado['success'] ?? true,
                 'mensaje' => $resultado['mensaje'] ?? '',
                 'id_cliente' => $resultado['id_cliente'] ?? null,
@@ -4184,7 +4204,16 @@ class Sabueso extends Controller
                 'puntos_geo' => $puntosGeo,
                 'domicilio_megareporte' => $domicilioMegareporte,
                 'indice_casa' => $indiceCasa,
-            ]);
+            ];
+            $cacheDir = dirname($cachePath);
+            if (!is_dir($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+            @file_put_contents($cachePath, json_encode([
+                'expires' => time() + self::UBICACIONES_CACHE_TTL,
+                'payload' => $payload,
+            ], JSON_UNESCAPED_UNICODE));
+            self::respuestaJSON($payload);
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al obtener ubicaciones.', 'direcciones_resumen' => [], 'puntos_mapa' => [], 'puntos_geo' => [], 'domicilio_megareporte' => null, 'indice_casa' => null]);
         }

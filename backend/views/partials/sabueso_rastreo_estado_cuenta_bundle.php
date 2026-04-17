@@ -1633,7 +1633,7 @@ window.actualizarDictamenCamposPorTipo = function() {
                 http.request({
                     endpoint: '/sabueso/getDatosCredito',
                     metodo: 'POST',
-                    data: JSON.stringify({ id_credito: id }),
+                    data: JSON.stringify({ id_credito: id, omitir_fad: true }),
                     contentType: 'application/json',
                     processData: false,
                     onSuccess: function(resp) {
