@@ -19,6 +19,8 @@ class CierreCredito extends Controller
 
     private const CC_PESTANA_PERM_HISTORIAL = 55;
 
+    private const CC_PESTANA_PERM_CARTERA = 59;
+
     /** Filtro de célula: 58 = solo Despachos (célula 1), 57 = solo Call Center (célula 2). */
     private const CC_CELULA_DESPACHOS    = 58;
     private const CC_CELULA_CALL_CENTER  = 57;
@@ -98,7 +100,8 @@ class CierreCredito extends Controller
         $ccPermValidacion = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VALIDACION);
         $ccPermEnProceso = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_EN_PROCESO);
         $ccPermHistorial = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_HISTORIAL);
-        $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermHistorial;
+        $ccPermCartera   = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CARTERA);
+        $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermHistorial || $ccPermCartera;
 
         $ccDefaultTab = null;
         foreach (
@@ -107,6 +110,7 @@ class CierreCredito extends Controller
                 'validacion' => $ccPermValidacion,
                 'en_proceso' => $ccPermEnProceso,
                 'historial' => $ccPermHistorial,
+                'cartera'   => $ccPermCartera,
             ] as $clave => $ok
         ) {
             if ($ok) {
@@ -119,6 +123,7 @@ class CierreCredito extends Controller
         $this->set('cc_perm_validacion', $ccPermValidacion);
         $this->set('cc_perm_en_proceso', $ccPermEnProceso);
         $this->set('cc_perm_historial', $ccPermHistorial);
+        $this->set('cc_perm_cartera',   $ccPermCartera);
         $this->set('cc_perm_alguno', $ccPermAlguno);
         $this->set('cc_default_tab', $ccDefaultTab);
         $this->set('cc_celulas_permitidas', $this->cierreGetCelulasPermitidas());
@@ -331,6 +336,57 @@ class CierreCredito extends Controller
             return;
         }
         $r = CierreCreditoDAO::getDetalleCierre($id);
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: CARTERA — NOTIFICACIONES
+    // ─────────────────────────────────────────────
+
+    public function getCartera()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_CARTERA);
+        $r = CierreCreditoDAO::getCartera($this->cierreGetCelulasPermitidas());
+        self::respuestaJSON($r);
+    }
+
+    public function notificarConvenio()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_CONVENIOS);
+        $id = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID de convenio inválido.'));
+            return;
+        }
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::notificarConvenio($id, $usuario);
+        self::respuestaJSON($r);
+    }
+
+    public function cerrarConvenioCartera()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_CARTERA);
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::cerrarConvenioCartera($id, $usuario);
+        self::respuestaJSON($r);
+    }
+
+    public function devolverPorCartera()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_CARTERA);
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 250);
+        $usuario    = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::devolverPorCartera($id, $usuario, $comentario);
         self::respuestaJSON($r);
     }
 

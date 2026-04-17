@@ -359,6 +359,8 @@ class Convenios extends Model
                 $totalAPagar     = (float) $datos['total_a_pagar'];
                 $pagoPromedio    = $semanas > 0 ? round($totalAPagar / $semanas, 2) : $totalAPagar;
 
+                $pdfAdjunto = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
+
                 $ok = $db->CRUD(
                     "INSERT INTO convenio_cliente (
                         id_credito, id_producto_convenio, id_producto_convenio_detalle,
@@ -366,14 +368,14 @@ class Convenios extends Model
                         adeudo_total_original, porcentaje_descuento, descuento_monto,
                         total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
                         fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago,
-                        tipo_calendario, estatus, usuario_alta
+                        tipo_calendario, estatus, usuario_alta, pdf_adjunto
                     ) VALUES (
                         :id_credito, :id_producto, :id_detalle,
                         :nombre_cliente, :bucket, :dias_mora, :avance_pago,
                         :adeudo_original, :pct_descuento, :descuento_monto,
                         :total_pagar, :monto_adicional, :pago_inicial, :num_semanas, :pago_semanal,
                         :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago,
-                        'libre', 'activo', :usuario
+                        'libre', 'activo', :usuario, :pdf_adjunto
                     )",
                     [
                         'id_credito'        => (int) $datos['id_credito'],
@@ -395,6 +397,7 @@ class Convenios extends Model
                         'fecha_primer_pago' => $fechaPrimerPago,
                         'fecha_ultimo_pago' => $fechaUltimoPago,
                         'usuario'           => $datos['usuario_alta'],
+                        'pdf_adjunto'       => $pdfAdjunto,
                     ]
                 );
 
@@ -435,19 +438,21 @@ class Convenios extends Model
             $fechaUltimoPago = date('Y-m-d', strtotime($fechaPrimerPago . ' +' . (($semanas - 1) * 7) . ' days'));
 
             // Insertar convenio
+            $pdfAdjunto = isset($datos['pdf_adjunto']) ? $datos['pdf_adjunto'] : null;
+
         $ok = $db->CRUD(
     "INSERT INTO convenio_cliente (
         id_credito, id_producto_convenio, id_producto_convenio_detalle,
         nombre_cliente, bucket_morosidad_real, dias_mora, avance_pago_plazo,
         adeudo_total_original, porcentaje_descuento, descuento_monto,
         total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
-        fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta
+        fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta, pdf_adjunto
     ) VALUES (
         :id_credito, :id_producto, :id_detalle,
         :nombre_cliente, :bucket, :dias_mora, :avance_pago,
         :adeudo_original, :pct_descuento, :descuento_monto,
         :total_pagar, :monto_adicional, :pago_inicial, :num_semanas, :pago_semanal,
-        :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo', :usuario
+        :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo', :usuario, :pdf_adjunto
     )",
     [
         'id_credito'        => (int) $datos['id_credito'],
@@ -469,6 +474,7 @@ class Convenios extends Model
         'fecha_primer_pago' => $fechaPrimerPago,
         'fecha_ultimo_pago' => $fechaUltimoPago,
         'usuario'           => $datos['usuario_alta'],
+        'pdf_adjunto'       => $pdfAdjunto,
     ]
 );
             if (!$ok) {
@@ -511,6 +517,25 @@ class Convenios extends Model
     // ─────────────────────────────────────────────
     // CONSULTAS DE CONVENIOS EXISTENTES
     // ─────────────────────────────────────────────
+
+    /**
+     * Actualiza el PDF adjunto de un convenio existente.
+     */
+    public static function actualizarPdfConvenio($idConvenio, $pdfPath)
+    {
+        try {
+            $db = new Database();
+            $ok = $db->CRUD(
+                "UPDATE convenio_cliente SET pdf_adjunto = :pdf WHERE id = :id",
+                ['pdf' => $pdfPath, 'id' => $idConvenio]
+            );
+            return $ok
+                ? self::resultado(true, 'Documento adjuntado correctamente.')
+                : self::resultado(false, 'No se pudo actualizar el convenio.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar.', null, $e->getMessage());
+        }
+    }
 
     /**
      * Devuelve el convenio activo de un crédito (si existe) con su amortización.

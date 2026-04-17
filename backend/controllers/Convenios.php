@@ -108,7 +108,47 @@ class Convenios extends Controller
 
         $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
 
+        // ── Procesar PDF adjunto si viene en la petición ──
+        $datos['pdf_adjunto'] = null;
+        if (!empty($_FILES['pdf_adjunto']['name'])) {
+            $pdfPath = $this->_guardarPdfAdjunto($_FILES['pdf_adjunto'], $datos['id_credito']);
+            if (!$pdfPath) {
+                self::respuestaJSON(self::respuesta(false, 'Error al guardar el PDF adjunto.'));
+                return;
+            }
+            $datos['pdf_adjunto'] = $pdfPath;
+        }
+
         $r = ConveniosDAO::guardarConvenio($datos);
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: ACTUALIZAR PDF ADJUNTO DE CONVENIO
+    // ─────────────────────────────────────────────
+
+    public function actualizarPdfConvenio()
+    {
+        $idConvenio = isset($_POST['id_convenio']) ? (int) $_POST['id_convenio'] : 0;
+        $idCredito  = isset($_POST['id_credito'])  ? (int) $_POST['id_credito']  : 0;
+
+        if ($idConvenio <= 0 || $idCredito <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'IDs inválidos.'));
+            return;
+        }
+
+        if (empty($_FILES['pdf_adjunto']['name'])) {
+            self::respuestaJSON(self::respuesta(false, 'No se recibió ningún archivo.'));
+            return;
+        }
+
+        $pdfPath = $this->_guardarPdfAdjunto($_FILES['pdf_adjunto'], $idCredito);
+        if (!$pdfPath) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar el archivo.'));
+            return;
+        }
+
+        $r = ConveniosDAO::actualizarPdfConvenio($idConvenio, $pdfPath);
         self::respuestaJSON($r);
     }
 
