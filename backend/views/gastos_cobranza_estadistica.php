@@ -56,7 +56,7 @@
                         <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Recuperado</span>
                         <div class="gc-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="fs-4 fw-bold text-success" id="gcKpiRecMonto">—</div>
-                        <div class="small text-muted mt-1"><span id="gcKpiRecCount">—</span> cargos</div>
+                        <div class="small text-muted mt-1"><span id="gcKpiRecCount">—</span> créditos</div>
                         <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-success text-success" id="gcKpiRecPctBadge">—</span></div>
                     </div>
                 </div>
@@ -67,7 +67,7 @@
                         <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Condonado</span>
                         <div class="gc-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="fs-4 fw-bold text-body" id="gcKpiCondMonto">—</div>
-                        <div class="small text-muted mt-1"><span id="gcKpiCondCount">—</span> cargos</div>
+                        <div class="small text-muted mt-1"><span id="gcKpiCondCount">—</span> créditos</div>
                         <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-secondary text-secondary" id="gcKpiCondPctBadge">—</span></div>
                     </div>
                 </div>
@@ -78,7 +78,7 @@
                         <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Pendiente</span>
                         <div class="gc-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="fs-4 fw-bold text-danger" id="gcKpiPenMonto">—</div>
-                        <div class="small text-muted mt-1"><span id="gcKpiPenCount">—</span> cargos</div>
+                        <div class="small text-muted mt-1"><span id="gcKpiPenCount">—</span> créditos</div>
                         <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-danger text-danger" id="gcKpiPenPctBadge">—</span></div>
                     </div>
                 </div>
@@ -511,7 +511,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var tSub = document.getElementById('gcKpiTotalSub');
         if (tM) tM.textContent = fmtMoneyCompact(tot.monto);
         if (tSub) {
-            tSub.textContent = (tot.count != null ? fmtCount(tot.count) : '—') + ' cargos por pagos tardíos';
+            tSub.textContent = (tot.count != null ? fmtCount(tot.count) : '—') + ' créditos por pagos tardíos';
         }
         var tPct = document.getElementById('gcKpiTotalPctBadge');
         if (tPct) {
@@ -552,7 +552,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!ul || !ind) return;
         var rows = [
             { label: 'Cargo base unitario', val: fmtMoney(ind.cargo_base_unitario), cls: 'fw-semibold' },
-            { label: 'Cargos este periodo', val: ind.total_cargos_periodo != null ? fmtCount(ind.total_cargos_periodo) : '—', cls: 'fw-semibold' },
+            { label: 'Créditos este periodo', val: ind.total_cargos_periodo != null ? fmtCount(ind.total_cargos_periodo) : '—', cls: 'fw-semibold' },
             { label: 'Tasa de condonación', val: fmtPct(ind.tasa_condonacion_pct), cls: 'fw-bold text-warning' },
             { label: '% recuperación real total', val: fmtPct(ind.pct_recuperacion_real), cls: 'fw-bold text-success' },
             { label: 'Promedio días de mora', val: ind.mora_promedio_dias != null ? String(ind.mora_promedio_dias) + ' días' : '—', cls: 'fw-bold text-danger' }

@@ -3394,11 +3394,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <div class="tab-content p-4 modal-perfil-gestor-tab-content">
                         <!-- TAB MÓDULOS -->
                         <div class="tab-pane fade show active" id="tabModulos" role="tabpanel">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                                 <div>
                                     <h6 class="mb-1 fw-bold">Módulos del Sistema</h6>
                                     <small class="text-muted">Gestiona los accesos a los diferentes módulos</small>
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-modulos-expandir-todos" onclick="expandirTodosModulosSistema()">
+                                    <i class="fa fa-expand me-1"></i>Expandir todos
+                                </button>
                             </div>
 
                             <div id="modulos-container" style="overflow-y: visible;">

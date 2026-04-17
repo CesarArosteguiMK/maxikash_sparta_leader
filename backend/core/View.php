@@ -77,6 +77,7 @@ function getMenu(): string
                 ['label' => 'Call Center',    'url' => '/reporteria/callcenter',    'modulos' => [6]],
                 ['label' => 'Layout Legacy',  'url' => '/reporteria/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
+                ['label' => 'Comparativas',   'url' => '/reporteria/comparativas',  'modulos' => [6]],
             ],
         ],
         'Gastos Cobranza' => [

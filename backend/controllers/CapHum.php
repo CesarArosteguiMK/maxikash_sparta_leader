@@ -1479,6 +1479,25 @@ class CapHum extends Controller
                     : '<i class="fa fa-expand me-1"></i>Expandir todos';
             }
 
+            function actualizarBotonExpandirModulosSistema() {
+                const form = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
+                const btn = document.getElementById('btn-modulos-expandir-todos');
+                if (!btn) return;
+                if (!form) {
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    return;
+                }
+                const cols = form.querySelectorAll('.modal-perfil-modulo-grupo-collapse');
+                if (cols.length === 0) {
+                    btn.innerHTML = '<i class="fa fa-expand me-1"></i>Expandir todos';
+                    return;
+                }
+                const allExpanded = Array.from(cols).every(c => c.classList.contains('show'));
+                btn.innerHTML = allExpanded
+                    ? '<i class="fa fa-compress me-1"></i>Contraer todos'
+                    : '<i class="fa fa-expand me-1"></i>Expandir todos';
+            }
+
             function expandirTodosPermisosEspeciales() {
                 const form = document.getElementById('modal-edit-perfil-permisos-especiales-form') || document.getElementById('permisos-especiales-form');
                 if (!form) return;
@@ -1511,6 +1530,40 @@ class CapHum extends Controller
                 });
 
                 actualizarBotonExpandirPermisosEspeciales();
+            }
+
+            function expandirTodosModulosSistema() {
+                const form = document.getElementById('modal-edit-perfil-modulos-form') || document.getElementById('modulos-form');
+                if (!form) return;
+                const collapses = form.querySelectorAll('.modal-perfil-modulo-grupo-collapse');
+                if (collapses.length === 0) return;
+
+                const allCollapsed = Array.from(collapses).every(c => !c.classList.contains('show'));
+                const doExpand = allCollapsed;
+
+                collapses.forEach(collapseEl => {
+                    if (typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                        const inst = bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false });
+                        if (doExpand) {
+                            inst.show();
+                        } else {
+                            inst.hide();
+                        }
+                    } else {
+                        collapseEl.classList.toggle('show', doExpand);
+                        const cid = collapseEl.id;
+                        const hdr = form.querySelector('[aria-controls="' + cid + '"]');
+                        if (hdr) {
+                            hdr.setAttribute('aria-expanded', doExpand ? 'true' : 'false');
+                            const ch = hdr.querySelector('.modal-perfil-modulo-grupo-chevron');
+                            if (ch) {
+                                ch.style.transform = doExpand ? 'rotate(0deg)' : 'rotate(-90deg)';
+                            }
+                        }
+                    }
+                });
+
+                actualizarBotonExpandirModulosSistema();
             }
 
             function actualizarBotonExpandirPuestos() {
@@ -1918,7 +1971,7 @@ class CapHum extends Controller
 
             /**
              * Tarjetas agrupadas por menu_grupo (misma UI en «Módulos del sistema» y «Permisos especiales»).
-             * @param {{ masterIdPrefix: string, iconosMap: Object, emptyHtml: string, collapseGrupos?: boolean, collapseIdPrefix?: string, iconosCierreCreditoPorEtiquetaPermisosEsp?: boolean }} opts
+             * @param {{ masterIdPrefix: string, iconosMap: Object, emptyHtml: string, collapseGrupos?: boolean, collapseIdPrefix?: string, iconosCierreCreditoPorEtiquetaPermisosEsp?: boolean, actualizarBotonExpandir?: () => void }} opts
              */
             function renderAgrupadoPorMenuGrupo(perfiles, container, opts) {
                 const masterIdPrefix = opts.masterIdPrefix;
@@ -1927,6 +1980,9 @@ class CapHum extends Controller
                 const useCollapseGrupos = !!opts.collapseGrupos;
                 const collapseIdPrefix = opts.collapseIdPrefix || 'modal-perfil-grupo';
                 const iconosCierreCreditoPorEtiquetaPermisosEsp = !!opts.iconosCierreCreditoPorEtiquetaPermisosEsp;
+                const actualizarBotonExpandirFn = (typeof opts.actualizarBotonExpandir === 'function')
+                    ? opts.actualizarBotonExpandir
+                    : function() {};
                 if (!container) return;
                 container.innerHTML = '';
                 container.classList.add('modal-perfil-modulos-agrupados');
@@ -2045,9 +2101,7 @@ class CapHum extends Controller
                                     header.setAttribute('aria-expanded', open ? 'true' : 'false');
                                     const ch = header.querySelector('.modal-perfil-modulo-grupo-chevron');
                                     if (ch) ch.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
-                                    if (typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
-                                        actualizarBotonExpandirPermisosEspeciales();
-                                    }
+                                    actualizarBotonExpandirFn();
                                 }
                             }
                         });
@@ -2127,15 +2181,11 @@ class CapHum extends Controller
                         };
                         collapse.addEventListener('shown.bs.collapse', () => {
                             syncChevron(true);
-                            if (typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
-                                actualizarBotonExpandirPermisosEspeciales();
-                            }
+                            actualizarBotonExpandirFn();
                         });
                         collapse.addEventListener('hidden.bs.collapse', () => {
                             syncChevron(false);
-                            if (typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
-                                actualizarBotonExpandirPermisosEspeciales();
-                            }
+                            actualizarBotonExpandirFn();
                         });
 
                         syncChevron(true);
@@ -2151,8 +2201,8 @@ class CapHum extends Controller
                     container.appendChild(section);
                 });
 
-                if (useCollapseGrupos && typeof actualizarBotonExpandirPermisosEspeciales === 'function') {
-                    actualizarBotonExpandirPermisosEspeciales();
+                if (useCollapseGrupos) {
+                    actualizarBotonExpandirFn();
                 }
             }
 
@@ -2166,6 +2216,7 @@ class CapHum extends Controller
                     collapseGrupos: true,
                     collapseIdPrefix: 'modal-perfil-perm-esp',
                     iconosCierreCreditoPorEtiquetaPermisosEsp: true,
+                    actualizarBotonExpandir: actualizarBotonExpandirPermisosEspeciales,
                 });
             }
 
@@ -2175,6 +2226,9 @@ class CapHum extends Controller
                     masterIdPrefix: 'modal-perfil-modulo-master-',
                     iconosMap: iconosModulosSistemaPerfil,
                     emptyHtml: '<div class="text-muted small text-center py-4">No hay módulos disponibles</div>',
+                    collapseGrupos: true,
+                    collapseIdPrefix: 'modal-perfil-modulos-tab',
+                    actualizarBotonExpandir: actualizarBotonExpandirModulosSistema,
                 });
             }
 

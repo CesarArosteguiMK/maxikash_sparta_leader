@@ -29,7 +29,7 @@ class Ubicacion
     private const UMBRAL_PUNTO_INTERES = 3;
 
     /** Tope de filas desde AWS por cliente para no procesar decenas de miles en PHP (las más recientes). */
-    private const MAX_UBICACIONES_BRUTAS = 10000;
+    private const MAX_UBICACIONES_BRUTAS = 3000;
 
     /**
      * Obtiene id_cliente a partir de id_credito (desde segundometro).

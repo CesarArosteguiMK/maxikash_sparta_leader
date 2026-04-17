@@ -462,6 +462,17 @@ class Reporteria extends Controller
     }
 
     /**
+     * Comparativas (Analítica): landing al estilo Call Center.
+     * URL canónica: /reporteria/comparativas
+     */
+    public function comparativas()
+    {
+        self::set('titulo', 'Comparativas');
+        self::set('script', '');
+        self::render('comparativas');
+    }
+
+    /**
      * Alias antiguo → redirige a callcenter (conserva query string).
      */
     public function resumencallcenter()
@@ -1309,12 +1320,12 @@ class Reporteria extends Controller
                     elRest.classList.toggle('d-none', !htmlNacRest.trim());
                 }
 
-                /* Distribución de corte: Current al corte = nacieron en Current + los de 1-7d que ya pagaron */
+                /* Distribución de corte: Current al corte = nacieron en Current + los de 1-7d que ya pagaron (bucket_corte_actual=Current). */
                 const totalCurrentNac = nacDist['a) Current'] || 0;
                 const recuperados1a7  = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
                 const currentMasRecuperados = totalCurrentNac + recuperados1a7;
                 const total1a7Nac    = nacDist['b) 1 a 7 dias'] || 0;
-                const pendientes     = total1a7Nac - recuperados1a7;
+                const pendientes     = Math.max(0, total1a7Nac - recuperados1a7);
                 let htmlCorte = '';
                 htmlCorte += `
                 <div class="col">
@@ -2681,8 +2692,7 @@ class Reporteria extends Controller
             if (!is_array($r)) {
                 continue;
             }
-            // PDO / servidor pueden devolver alias en distinto casing; sin bucket_corte_actual el correo
-            // queda como «nacimiento» (666/189 y ~78%/22%) en lugar de la distribución de corte real.
+            // PDO puede devolver distinto casing en alias; normalizamos para matriz (jerarquía / efectividad).
             $lc = array_change_key_case($r, CASE_LOWER);
             $n = trim((string)($lc['bucket_nacio'] ?? ''));
             $c = trim((string)($lc['bucket_corte_actual'] ?? ''));
