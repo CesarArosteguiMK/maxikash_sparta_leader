@@ -2434,14 +2434,6 @@ public static function registrarConvenioGlobo($datos)
         return [$fechaIni, $fechaFin];
     }
 
-    /** Devuelve "Abril 2025" etc. */
-    private static function _cvPeriodoLabel(int $anio, int $mes): string
-    {
-        $nombres = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        return ($nombres[$mes] ?? 'Mes ' . $mes) . ' ' . $anio;
-    }
-
     private static function _cvNormYmd(?string $s): ?string
     {
         if ($s === null) {
@@ -2455,27 +2447,10 @@ public static function registrarConvenioGlobo($datos)
         return ($d && $d->format('Y-m-d') === $s) ? $s : null;
     }
 
+    /** Mismo texto que Gastos Cobranza (`iniYmd + ' a ' + finYmd`). */
     private static function _cvPeriodoLabelRango(string $fi, string $ff): string
     {
-        try {
-            $a = new \DateTimeImmutable($fi);
-            $b = new \DateTimeImmutable($ff);
-            $meses = ['', 'ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.', 'jul.', 'ago.', 'sep.', 'oct.', 'nov.', 'dic.'];
-            $ma = (int) $a->format('n');
-            $mb = (int) $b->format('n');
-            $ya = (int) $a->format('Y');
-            $yb = (int) $b->format('Y');
-            if ($ya === $yb && $ma === $mb) {
-                return $a->format('j') . ' – ' . $b->format('j') . ' ' . ($meses[$ma] ?? '') . ' ' . $ya;
-            }
-            if ($ya === $yb) {
-                return $a->format('j') . ' ' . ($meses[$ma] ?? '') . ' – ' . $b->format('j') . ' ' . ($meses[$mb] ?? '') . ' ' . $ya;
-            }
-
-            return $a->format('j') . ' ' . ($meses[$ma] ?? '') . ' ' . $ya . ' – ' . $b->format('j') . ' ' . ($meses[$mb] ?? '') . ' ' . $yb;
-        } catch (\Throwable $e) {
-            return $fi . ' → ' . $ff;
-        }
+        return $fi . ' a ' . $ff;
     }
 
     /**
@@ -2504,7 +2479,7 @@ public static function registrarConvenioGlobo($datos)
         return [
             'ini' => $a,
             'fin' => $b,
-            'label' => self::_cvPeriodoLabel($anioN, $mesN),
+            'label' => self::_cvPeriodoLabelRango($a, $b),
         ];
     }
 

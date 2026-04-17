@@ -72,6 +72,45 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     .cv-desp-kpi-stack {
         min-height: 118px;
     }
+    .cv-gestores-unificados .cv-gestores-sector {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 220px;
+    }
+    .cv-gestores-unificados .cv-gestores-sector .cv-gestores-fill {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    @media (min-width: 992px) {
+        .cv-gestores-unificados .cv-gestores-sector:not(:last-child) {
+            border-right: 1px solid #dde3ec;
+            padding-right: 1rem;
+        }
+        .cv-gestores-unificados .cv-gestores-sector:not(:first-child) {
+            padding-left: 1rem;
+        }
+    }
+    @media (max-width: 991.98px) {
+        .cv-gestores-unificados .cv-gestores-sector:not(:last-child) {
+            border-bottom: 1px solid #dde3ec;
+            padding-bottom: 1rem;
+            margin-bottom: 0.25rem;
+        }
+    }
+    .cv-gestores-sector-titulo {
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--bs-secondary-color);
+        margin: 0 0 4px 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #dde3ec;
+    }
     /* KPI strip global */
     .cv-kpi-strip {
         display: flex;
@@ -164,6 +203,14 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     html.dark-mode [data-cv-state="neutral"] { background: #1e3a5f !important; color: #93c5fd !important; }
     /* Panel de KPIs de despacho */
     html.dark-mode .cv-panel-desp { background: #1e293b !important; border-color: #334155 !important; }
+    html.dark-mode .cv-gestores-unificados .cv-gestores-sector:not(:last-child) {
+        border-right-color: #334155 !important;
+        border-bottom-color: #334155 !important;
+    }
+    html.dark-mode .cv-gestores-sector-titulo {
+        color: #94a3b8 !important;
+        border-bottom-color: #334155 !important;
+    }
     html.dark-mode .cv-desp-kpi { background: #253344 !important; border-color: #334155 !important; }
     html.dark-mode .cv-desp-kpi *[style*="color:#6b7a90"] { color: #94a3b8 !important; }
     html.dark-mode .cv-desp-kpi *[style*="color:#1a3a5c"] { color: #e2e8f0 !important; }
@@ -407,74 +454,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         </div>
                     </div>
 
-                    <!-- Gestores / despacho (alineado bajo Semanas de pago) -->
-                    <div class="card shadow-sm cv-panel-desp mt-3">
-                        <div class="card-header py-3 d-flex justify-content-between align-items-start mb-0">
-                            <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex:1;min-width:0;">
-                                <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Gestores de cobranza — despacho</span>
-                            </div>
-                        </div>
-                        <div class="card-body pt-0">
-                        <div class="row g-2">
-                            <div class="col-6 col-md-3">
-                                <div class="cv-desp-kpi cv-desp-kpi-inner cv-desp-kpi-stack d-flex flex-column justify-content-between align-items-center" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
-                                    <div style="font-size:11px;color:#6b7a90;text-transform:uppercase;letter-spacing:0.5px;">
-                                        <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Despacho
-                                    </div>
-                                    <div id="cvDespCelulaDesp" class="cv-kpi-val-num d-flex align-items-center justify-content-center flex-grow-1" style="color:#3498db;">0</div>
-                                    <div style="font-size:10px;color:#6b7a90;">Externo</div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="cv-desp-kpi cv-desp-kpi-inner d-flex flex-column justify-content-center cv-desp-kpi-stack" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
-                                    <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                        <i class="fa fa-file-text fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Créditos en gestión
-                                    </div>
-                                    <div id="cvDespCreditosGestion" class="cv-kpi-val-num" style="color:#1a3a5c;line-height:1;">0</div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="cv-top-desp" style="background:#eafaf3;border:1px solid rgba(46,204,139,0.3);border-radius:10px;padding:14px 16px;height:100%;min-height:118px;display:flex;flex-direction:column;justify-content:center;">
-                                    <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
-                                        <i class="fa fa-trophy fa-sm" aria-hidden="true" style="color:#f39c12;margin-right:4px;"></i>Despacho con más convenios
-                                    </div>
-                                    <div id="cvTopDespNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
-                                    <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
-                                        Convenios activos: <strong id="cvTopDespConvenios" style="color:#0d5c3a;">0</strong>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="cv-desp-kpi cv-desp-kpi-inner d-flex flex-column justify-content-center cv-desp-kpi-stack" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
-                                    <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                        <i class="fa fa-bar-chart fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Prom. convenios/gestor
-                                    </div>
-                                    <div id="cvDespPromedioConv" class="cv-kpi-val-num" style="color:#3498db;">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="cv-desp-kpi cv-desp-kpi-inner d-flex flex-column justify-content-center cv-desp-kpi-stack" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
-                                    <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                        <i class="fa fa-check-circle fa-sm" aria-hidden="true" style="margin-right:3px;color:#2ecc8b;"></i>Con meta (≥5 conv.)
-                                    </div>
-                                    <div id="cvDespEnMeta" class="cv-kpi-val-num" style="color:#2ecc8b;">0</div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <div class="cv-top-desp" style="background:#fdf4e7;border:1px solid rgba(243,156,18,0.3);border-radius:10px;padding:14px 16px;height:100%;min-height:118px;display:flex;flex-direction:column;justify-content:center;">
-                                    <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
-                                        <i class="fa fa-arrow-down fa-sm" aria-hidden="true" style="color:#e67e22;margin-right:4px;"></i>Despacho con menos convenios
-                                    </div>
-                                    <div id="cvBottomDespNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
-                                    <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
-                                        Convenios activos: <strong id="cvBottomDespConvenios" style="color:#e67e22;">0</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-                    </div>
-
                 </div><!-- /col-lg-8 -->
 
                 <!-- ── RIGHT COL (col-lg-4) ──────────────────── -->
@@ -557,16 +536,35 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         </div>
                     </div>
 
-                    <!-- Gestores / call center (alineado bajo Cobertura) -->
+                </div><!-- /col-lg-4 -->
+
+            </div><!-- /row -->
+
+            <!-- Gestores de cobranza: un solo card, tres sectores (Créditos | Internos | Externos) -->
+            <div class="row g-3 mt-1">
+                <div class="col-12">
                     <div class="card shadow-sm cv-panel-desp">
                         <div class="card-header py-3 d-flex justify-content-between align-items-start mb-0">
                             <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex:1;min-width:0;">
-                                <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Gestores de cobranza — call center</span>
+                                <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Gestores de cobranza por sector</span>
                             </div>
                         </div>
-                        <div class="card-body pt-0">
-                        <div class="row g-2">
-                            <div class="col-12">
+                        <div class="card-body pt-3">
+                        <div class="row g-3 cv-gestores-unificados">
+                            <div class="col-lg-4 cv-gestores-sector">
+                                <div class="cv-gestores-sector-titulo">Créditos</div>
+                                <div class="cv-gestores-fill">
+                                <div class="cv-desp-kpi cv-desp-kpi-inner d-flex flex-column justify-content-center cv-desp-kpi-stack flex-grow-1" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
+                                    <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                        <i class="fa fa-file-text fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Créditos en gestión
+                                    </div>
+                                    <div id="cvDespCreditosGestion" class="cv-kpi-val-num" style="color:#1a3a5c;line-height:1;">0</div>
+                                </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4 cv-gestores-sector">
+                                <div class="cv-gestores-sector-titulo">Internos</div>
+                                <div class="cv-gestores-fill">
                                 <div class="cv-desp-kpi cv-desp-kpi-inner cv-desp-kpi-stack d-flex flex-column justify-content-between align-items-center" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
                                     <div style="font-size:11px;color:#6b7a90;text-transform:uppercase;letter-spacing:0.5px;">
                                         <i class="fa fa-phone fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Call Center
@@ -574,9 +572,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                     <div id="cvDespCelulaCC" class="cv-kpi-val-num d-flex align-items-center justify-content-center flex-grow-1" style="color:#9b59b6;">0</div>
                                     <div style="font-size:10px;color:#6b7a90;">Internos</div>
                                 </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="cv-top-desp" style="background:#eaf3fb;border:1px solid rgba(52,152,219,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
+                                <div class="cv-top-desp flex-grow-1" style="background:#eaf3fb;border:1px solid rgba(52,152,219,0.3);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;">
                                     <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
                                         <i class="fa fa-star fa-sm" aria-hidden="true" style="color:#3498db;margin-right:4px;"></i>Gestor más activo del período
                                     </div>
@@ -585,23 +581,34 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                         Convenios en el período: <strong id="cvTopGestorPeriodoConvenios" style="color:#2471a3;">0</strong>
                                     </div>
                                 </div>
+                                </div>
                             </div>
-                            <div class="col-12">
-                                <div class="cv-desp-kpi cv-desp-kpi-inner d-flex flex-column justify-content-center cv-desp-kpi-stack" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
-                                    <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                        <i class="fa fa-user-times fa-sm" aria-hidden="true" style="margin-right:3px;color:#e74c3c;"></i>Sin convenio
+                            <div class="col-lg-4 cv-gestores-sector">
+                                <div class="cv-gestores-sector-titulo">Externos</div>
+                                <div class="cv-gestores-fill">
+                                <div class="cv-desp-kpi cv-desp-kpi-inner cv-desp-kpi-stack d-flex flex-column justify-content-between align-items-center" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
+                                    <div style="font-size:11px;color:#6b7a90;text-transform:uppercase;letter-spacing:0.5px;">
+                                        <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Despacho
                                     </div>
-                                    <div id="cvDespSinConvenio" class="cv-kpi-val-num" style="color:#e74c3c;line-height:1;">0</div>
-                                    <div style="font-size:10px;color:#6b7a90;margin-top:4px;">Gestores</div>
+                                    <div id="cvDespCelulaDesp" class="cv-kpi-val-num d-flex align-items-center justify-content-center flex-grow-1" style="color:#3498db;">0</div>
+                                    <div style="font-size:10px;color:#6b7a90;">Externo</div>
+                                </div>
+                                <div class="cv-top-desp flex-grow-1" style="background:#eafaf3;border:1px solid rgba(46,204,139,0.3);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;">
+                                    <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
+                                        <i class="fa fa-trophy fa-sm" aria-hidden="true" style="color:#f39c12;margin-right:4px;"></i>Despacho con más convenios
+                                    </div>
+                                    <div id="cvTopDespNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
+                                    <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
+                                        Convenios activos: <strong id="cvTopDespConvenios" style="color:#0d5c3a;">0</strong>
+                                    </div>
+                                </div>
                                 </div>
                             </div>
                         </div>
                         </div>
                     </div>
-
-                </div><!-- /col-lg-4 -->
-
-            </div><!-- /row -->
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -740,6 +747,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     function cvAplicarRangoYRefrescar(iniYmd, finYmd, fpInstance) {
         cvState.fecha_inicio = iniYmd;
         cvState.fecha_fin = finYmd;
+        setText('cvEstSubtitulo', iniYmd + ' a ' + finYmd);
         if (fpInstance) {
             try {
                 var a = new Date(iniYmd + 'T12:00:00');
@@ -1033,17 +1041,18 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         });
     }
 
-    /** Rango compacto para badges de KPIs (misma idea que CapHum / Gastos Cobranza). */
-    function cvPeriodoBadgeText(d) {
-        if (!d || !d.fecha_ini || !d.fecha_fin) return '—';
+    /** Igual que Gastos Cobranza: `YYYY-MM-DD a YYYY-MM-DD` (flatpickr / encabezado). */
+    function cvFmtRangoIsoDesde(d) {
+        if (!d || !d.fecha_ini || !d.fecha_fin) return '';
         var a = String(d.fecha_ini).replace(/T.*/, '').slice(0, 10);
         var b = String(d.fecha_fin).replace(/T.*/, '').slice(0, 10);
-        function dmy(s) {
-            var p = s.split('-');
-            if (p.length !== 3) return s;
-            return parseInt(p[2], 10) + '/' + parseInt(p[1], 10) + '/' + p[0];
-        }
-        return dmy(a) + ' – ' + dmy(b);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(a) || !/^\d{4}-\d{2}-\d{2}$/.test(b)) return '';
+        return a + ' a ' + b;
+    }
+
+    function cvPeriodoBadgeText(d) {
+        var s = cvFmtRangoIsoDesde(d);
+        return s || '—';
     }
 
     function setCvTopKpiPeriodBadges(d) {
@@ -1056,15 +1065,13 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     // ─── Pintar: datos de convenios (KPIs + nuevos) ─────────
     function pintarConvenios(d) {
         if (!d) return;
-        var subTit = d.periodo_label && String(d.periodo_label).trim()
-            ? String(d.periodo_label).trim()
-            : ((d.fecha_ini && d.fecha_fin) ? ('Rango consultado: ' + d.fecha_ini + ' → ' + d.fecha_fin) : '—');
+        var subTit = cvFmtRangoIsoDesde(d) || (d.periodo_label && String(d.periodo_label).trim()) || '—';
         setText('cvEstSubtitulo', subTit);
         setCvTopKpiPeriodBadges(d);
         setText('cvKpiActivos',     String(d.total_activos      ?? 0));
         setText('cvKpiCompletados', String(d.total_completados  ?? 0));
         setText('cvKpiCancelados',  String(d.total_cancelados   ?? 0));
-        var rango = (d.fecha_ini && d.fecha_fin) ? (d.fecha_ini + ' → ' + d.fecha_fin) : '—';
+        var rango = cvFmtRangoIsoDesde(d) || '—';
         setText('cvNuevosRangoInline', rango);
         setText('cvNuevosActivos',     String(d.nuevos_activos     ?? 0));
         setText('cvNuevosCompletados', String(d.nuevos_completados ?? 0));
@@ -1076,7 +1083,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     // ─── Pintar: cierres / recuperación ─────────────────────
     function pintarCierres(d) {
         if (!d) return;
-        var rango = (d.fecha_ini && d.fecha_fin) ? (d.fecha_ini + ' → ' + d.fecha_fin) : '—';
+        var rango = cvFmtRangoIsoDesde(d) || '—';
         setText('cvSemRangoInline', rango);
         setText('cvSemPagadas',    String(d.semanas_pagadas    ?? 0));
         setText('cvSemVencidas',   String(d.semanas_vencidas   ?? 0));
@@ -1147,16 +1154,11 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         // ── KPIs de entidades de despacho ──────────────────────
         setText('cvDespTotal',       String(d.total_despachos_activos ?? 0));
         setText('cvDespConConvenio', String(d.despachos_con_convenio   ?? 0));
-        setText('cvDespSinConvenio', String(d.despachos_sin_convenio   ?? 0));
         setText('cvDespCelulaDesp',  String(d.celula_despacho_cnt      ?? 0));
         setText('cvDespCelulaCC',    String(d.celula_callcenter_cnt    ?? 0));
         setText('cvTopDespNombre',    d.top_despacho_nombre   || '—');
         setText('cvTopDespConvenios', String(d.top_despacho_convenios ?? 0));
-        setText('cvBottomDespNombre',    d.bottom_despacho_nombre   || '—');
-        setText('cvBottomDespConvenios', String(d.bottom_despacho_convenios ?? 0));
         setText('cvDespCreditosGestion', String(d.creditos_en_gestion      ?? 0));
-        setText('cvDespPromedioConv',    String(d.promedio_convenios_gestor ?? 0));
-        setText('cvDespEnMeta',          String(d.gestores_en_meta          ?? 0));
         setText('cvTopGestorPeriodoNombre',    d.top_gestor_periodo_nombre    || '—');
         setText('cvTopGestorPeriodoConvenios', String(d.top_gestor_periodo_convenios ?? 0));
     }
@@ -1240,7 +1242,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 var dat = resp.datos;
                 var suf = dat.total != null ? ' · Total: ' + dat.total : '';
                 setText('cvNuevosDetalleTitulo', (titulos[tipo] || tipo) + suf);
-                setText('cvNuevosDetalleSub', (dat.fecha_ini && dat.fecha_fin) ? dat.fecha_ini + ' → ' + dat.fecha_fin : '');
+                setText('cvNuevosDetalleSub', cvFmtRangoIsoDesde(dat));
                 renderPieDetalle(dat.por_producto || []);
             })
             .catch(function () {

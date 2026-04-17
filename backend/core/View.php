@@ -56,7 +56,7 @@ function getMenu(): string
                 ['label' => 'Mi Cartera',              'url' => '/Despachos/MiGestion',                  'modulos' => [45]],
                 ['label' => 'Crear Convenio',          'url' => '/convenios/consulta',                   'modulos' => [46]],
                 ['label' => 'Cierre de Crédito',       'url' => '/CierreCredito/consulta',               'modulos' => [51]],
-                ['label' => 'Estadísticas',            'url' => '/convenios/estadisticas',               'modulos' => [46]],
+                ['label' => 'Estadísticas',            'url' => '/convenios/estadisticas',               'modulos' => [45, 46, 56]],
             ],
         ],
         'Tickets' => [
