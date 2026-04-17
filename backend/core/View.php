@@ -56,7 +56,7 @@ function getMenu(): string
                 ['label' => 'Mi Cartera',              'url' => '/Despachos/MiGestion',                  'modulos' => [45]],
                 ['label' => 'Crear Convenio',          'url' => '/convenios/consulta',                   'modulos' => [46]],
                 ['label' => 'Cierre de Crédito',       'url' => '/CierreCredito/consulta',               'modulos' => [51]],
-                ['label' => 'Estadísticas',            'url' => '/convenios/estadisticas',               'modulos' => [45, 46, 56]],
+                ['label' => 'Estadísticas',            'url' => '/convenios/estadisticas',               'modulos' => [56]],
             ],
         ],
         'Tickets' => [
@@ -77,7 +77,7 @@ function getMenu(): string
                 ['label' => 'Call Center',    'url' => '/reporteria/callcenter',    'modulos' => [6]],
                 ['label' => 'Layout Legacy',  'url' => '/reporteria/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
-                ['label' => 'Comparativas',   'url' => '/reporteria/comparativas',  'modulos' => [6]],
+                ['label' => 'Comparativas', 'url' => '/reporteria/comparativas', 'modulos' => [60]],
             ],
         ],
         'Gastos Cobranza' => [
