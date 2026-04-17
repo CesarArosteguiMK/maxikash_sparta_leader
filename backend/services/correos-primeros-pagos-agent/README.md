@@ -1,6 +1,6 @@
 # Agente Node — correos “Primeros pagos — Lunes de cierre”
 
-Sustituye al **Programador de tareas de Windows**: un proceso **Node** queda en marcha y cada **~10 minutos** (por defecto) ejecuta el mismo PHP que el cron (`backend/cronjobs/enviar_primeros_pagos_lunes.php`). Los **horarios de envío** (07:40, 09:40, …) los calcula **solo ese PHP** con **America/Mexico_City (CDMX)**; no usa la hora del sistema operativo del servidor.
+Sustituye al **Programador de tareas de Windows**: un proceso **Node** queda en marcha y cada **~10 minutos** (por defecto) ejecuta el mismo PHP que el cron (`backend/cronjobs/enviar_primeros_pagos_lunes.php`). Los **horarios de envío** (07:45, 09:45, …, 23:50 sin cambio) los calcula **solo ese PHP** con **America/Mexico_City (CDMX)**; no usa la hora del sistema operativo del servidor.
 
 - Respeta el interruptor **“Auto horario”** en la app (archivo `backend/cronjobs/logs/primeros_pagos_auto_switch.json`). Si está apagado, no lanza PHP (ahorra CPU).
 - **No** sustituye a Apache: solo llama a `php.exe` en la misma PC donde corre el agente.

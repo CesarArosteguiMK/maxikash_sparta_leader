@@ -58,7 +58,7 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <?php if ($vlEsUsuarioRoot): ?>
                     <div class="d-flex align-items-center gap-2 flex-wrap me-1"
-                         title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50 en 24 h). Requiere agente Node o bucle PHP en esta máquina. No afecta “Enviar correo” manual.">
+                         title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:45, 09:45, 11:45, 13:45, 14:45, 16:45, 18:45, 20:45, 23:50 en 24 h). Requiere agente Node o bucle PHP en esta máquina. No afecta “Enviar correo” manual.">
                         <div class="form-check form-switch m-0">
                             <input class="form-check-input" type="checkbox" role="switch"
                                    id="switchAutoEnvioPrimerosPagos">
@@ -67,7 +67,7 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                         </div>
                         <div class="d-flex flex-column align-items-end gap-1" style="min-width:0;">
                             <span id="estadoEnvioAuto" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
-                                  title="Estado del envío automático (CDMX, horario 24 h: 07:40, 09:40, 11:40, 13:40, 14:40, 16:40, 18:40, 20:40, 23:50).">
+                                  title="Estado del envío automático (CDMX, horario 24 h: 07:45, 09:45, 11:45, 13:45, 14:45, 16:45, 18:45, 20:45, 23:50).">
                                 <i class="fa fa-clock me-1"></i> Auto correo: pendiente
                             </span>
                             <span id="estadoAgenteCorreos" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"

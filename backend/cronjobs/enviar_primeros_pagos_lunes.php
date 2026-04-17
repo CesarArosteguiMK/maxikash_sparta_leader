@@ -2,10 +2,14 @@
 /**
  * CRONJOB: Envío automático de "Primeros pagos — Lunes de Cierre"
  *
+ * Regla de calendario (CDMX): no se envían correos los **lunes**; el envío automático
+ * opera de **martes a domingo**. El lunes el script termina en silencio (exit 0),
+ * salvo `--force` para pruebas.
+ *
  * Horarios objetivo (America/Mexico_City), siempre en formato 24 h:
- *   Mañana: 07:40, 09:40, 11:40
- *   Tarde/noche: 13:40, 14:40, 16:40, 18:40, 20:40, 23:50
- * (16:40 = 4:40 p. m., 18:40 = 6:40 p. m., 20:40 = 8:40 p. m., 23:50 = 11:50 p. m.)
+ *   Mañana: 07:45, 09:45, 11:45
+ *   Tarde/noche: 13:45, 14:45, 16:45, 18:45, 20:45, 23:50
+ * (16:45 = 4:45 p. m., 18:45 = 6:45 p. m., 20:45 = 8:45 p. m.; 23:50 sin cambio = 11:50 p. m.)
  *
  * Uso manual:
  *   C:\xampp\php\php.exe ...\enviar_primeros_pagos_lunes.php --force
@@ -20,11 +24,11 @@
  *   iniciar-loop-correos-primeros-pagos-oculto.vbs, cerrar-loop-correos-primeros-pagos.bat
  *
  * Ventana por slot: desde HH:MM del slot hasta justo antes del siguiente slot (CDMX).
- * Así, si la tarea corre tarde (ej. 17:03), aún puede enviarse el correo del slot 16:40
- * si ese día no se había registrado éxito para 16:40.
+ * Así, si la tarea corre tarde (ej. 17:03), aún puede enviarse el correo del slot 16:45
+ * si ese día no se había registrado éxito para 16:45.
  */
 
-/** Todos los horarios de slots (07:40, 09:40, …) y date('H:i') son CDMX, no la hora del SO del servidor. */
+/** Todos los horarios de slots (07:45, 09:45, …; 23:50 sin cambio) y date('H:i') son CDMX, no la hora del SO del servidor. */
 date_default_timezone_set('America/Mexico_City');
 
 $projectRoot = dirname(__DIR__);
@@ -89,8 +93,12 @@ if (!$dryRun && !$force && !PrimerosPagosAutoSwitch::isEnabled()) {
     exit(0);
 }
 
+/** ISO 8601 en America/Mexico_City: 1=lunes … 7=domingo */
+$dowCdmx = (int) date('N');
+$esLunesSinForzar = ($dowCdmx === 1 && !$force);
+
 $horariosPermitidos = [
-    '07:40', '09:40', '11:40', '13:40', '14:40', '16:40', '18:40', '20:40', '23:50'
+    '07:45', '09:45', '11:45', '13:45', '14:45', '16:45', '18:45', '20:45', '23:50'
 ];
 
 $ahora = date('H:i');
@@ -134,7 +142,7 @@ try {
 
     // Slot activo: el último horario programado cuya ventana [slot, siguiente_slot) contiene $ahora.
     // Comparación HH:MM en 24h como string es segura entre slots del mismo día.
-    // Ej.: a las 17:03 sigue vigente el slot 16:40 hasta las 18:40 (no solo 4 min después).
+    // Ej.: a las 17:03 sigue vigente el slot 16:45 hasta las 18:45 (no solo unos minutos después).
     $slotObjetivo = null;
     if ($force) {
         $slotObjetivo = $ahora;
@@ -172,10 +180,18 @@ try {
         }
     }
 
+    if ($esLunesSinForzar && !$dryRun) {
+        echo "[INFO] Lunes (America/Mexico_City): no se envían correos automáticos de primeros pagos. Calendario: martes a domingo. (Use --force solo para pruebas.)\n";
+        exit(0);
+    }
+
     if ($dryRun) {
         $swOn = PrimerosPagosAutoSwitch::isEnabled();
         echo "[DRY-RUN] No se envía ningún correo (solo simulación).\n";
         echo "  Zona horaria del cron: America/Mexico_City · Fecha " . date('Y-m-d') . " · Hora {$ahora}\n";
+        if ($esLunesSinForzar) {
+            echo "  Regla: los lunes no hay envío programado (martes–domingo CDMX). --force omite esta regla.\n";
+        }
         echo "  Interruptor Auto horario: " . ($swOn ? 'ACTIVADO' : 'APAGADO') . "\n";
         echo "  Modo --force: " . ($force ? 'sí (slot simulado = hora actual)' : 'no') . "\n";
         echo "  Slot objetivo: " . ($slotObjetivo ?? '(ninguno)') . "\n";
@@ -187,6 +203,8 @@ try {
         $accion = '  → Con un run real ahora: ';
         if (!$swOn) {
             $accion .= 'no enviaría (interruptor apagado; el script sale al inicio).';
+        } elseif ($esLunesSinForzar) {
+            $accion .= 'no enviaría (lunes CDMX: sin correos automáticos; martes–domingo).';
         } elseif ($slotObjetivo === null && !$force) {
             $accion .= 'no enviaría (fuera de ventana de horarios programados).';
         } elseif (!$force && isset($estado['slots'][$slotObjetivo]) && ($estado['slots'][$slotObjetivo]['status'] ?? '') === 'success') {
@@ -206,7 +224,7 @@ try {
     }
 
     $reporteria = new \Controllers\Reporteria();
-    $resultado = $reporteria->enviarCorreoVencimientosLunesProgramado($destinatarios, $asunto);
+    $resultado = $reporteria->enviarCorreoVencimientosLunesProgramado($destinatarios, $asunto, $force);
     if (!empty($resultado['success'])) {
         $n = (int)($resultado['datos']['total_registros'] ?? 0);
         @file_put_contents($stateFile, $slotObjetivo, LOCK_EX);

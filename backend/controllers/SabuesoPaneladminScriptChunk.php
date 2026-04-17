@@ -4,11 +4,14 @@
  * Scope: $panelAdminTitulosPorCatJs, $soloConsultaCreditoJs, $googleMapsKeyJs, $columnsJson, $usuarioId, $personaId, $usuarioNombre.
  * Define: $script (HTML con etiqueta script y merge de evidencias).
  */
+        // TEMP reunión / servidor: ocultar aviso FAD (API :8000) en rastreo. Poner 'false' cuando la API esté estable.
+        $ocultarAvisoFadIngresosJs = 'true';
         $script = <<<SCRIPT
         <script>
         window.panelAdminTitulosPorCat = {$panelAdminTitulosPorCatJs};
         var esAdminTicket = true;
         window.PANEL_ADMIN_SOLO_CONSULTA_CREDITO = {$soloConsultaCreditoJs};
+        window.SABUESO_OCULTAR_AVISO_FAD_INGRESOS = {$ocultarAvisoFadIngresosJs};
         var ticketIdRastreoActual = null;
         var idCreditoRastreoActual = null;
         var rastreoDireccionesParaMapa = [];
@@ -123,7 +126,7 @@ SCRIPT;
         function sabuesoAppendInformacionIngresos(el,d,esc){
             if(!el) return;
             esc=esc||function(s){ var x=String(s).split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;"); return x.split(String.fromCharCode(34)).join("&quot;"); };
-            if(d._fad_debug){
+            if(d._fad_debug && !window.SABUESO_OCULTAR_AVISO_FAD_INGRESOS){
                 var msg='No se pudo cargar información de ingresos (FAD): '+d._fad_debug;
                 if(d._fad_debug_detail) msg+=' — '+esc(d._fad_debug_detail);
                 var hint = '';

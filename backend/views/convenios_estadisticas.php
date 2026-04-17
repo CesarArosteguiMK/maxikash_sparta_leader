@@ -15,36 +15,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
 ?>
 <style>
     /* ─── Prefijo: cv-  (convenios-estadísticas) ───────────── */
-    .cv-tip-btn {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        z-index: 2;
-        border: none;
-        background: transparent;
-        padding: 0 2px;
-        margin: 0;
-        line-height: 1;
-        font-size: 11px;
-        color: #8a96a8;
-        cursor: help;
-        opacity: 0.92;
-    }
-    .cv-tip-btn:hover,
-    .cv-tip-btn:focus { color: #1a3a5c; opacity: 1; }
-    .cv-tip-btn:focus { outline: none; box-shadow: 0 0 0 2px rgba(26,58,92,0.2); border-radius: 4px; }
-    .cv-tip-btn.cv-tip-inline {
-        position: static;
-        flex-shrink: 0;
-        align-self: flex-start;
-        margin-top: 0;
-    }
-    .tooltip.cv-tip-kpi .tooltip-inner {
-        max-width: min(320px, 92vw);
-        text-align: left;
-        font-size: 12px;
-        line-height: 1.45;
-    }
     /* Escala única: mismo tamaño para KPI estándar, mini-stats y donut/radial */
     .cv-est-outer {
         --cv-kpi-num: 1.55rem;
@@ -152,26 +122,12 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     .cv-nuevo-cards-row {
         justify-content: flex-start;
     }
-    /* Semanas badges */
-    .cv-sem-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-    .cv-sem-badge .cv-sem-num { font-size: var(--cv-kpi-num); font-weight: 800; }
 
     /* ─── MODO OSCURO (html.dark-mode) ──────────────────── */
     html.dark-mode .cv-est-outer { background: #0f172a !important; }
     html.dark-mode .cv-kpi-mini { background: #1e293b !important; border-color: #334155 !important; }
     html.dark-mode .cv-panel { background: #1e293b !important; border-color: #334155 !important; }
-    html.dark-mode .cv-panel-sem { background: #1e293b !important; border-color: #334155 !important; }
-    html.dark-mode .cv-card-rec,
-    html.dark-mode .cv-card-pen { background: #1e293b !important; border-color: #334155 !important; }
+    html.dark-mode .cv-card-rec { background: #1e293b !important; border-color: #334155 !important; }
     html.dark-mode .cv-nuevo-card { background: #253344 !important; border-color: #334155 !important; }
     html.dark-mode .cv-nuevo-card:hover { border-color: rgba(46,204,139,0.4) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important; }
     html.dark-mode .cv-nuevo-total { background: #253344 !important; border-color: #334155 !important; }
@@ -181,13 +137,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     html.dark-mode .cv-est-outer *[style*="color:#6b7a90"] { color: #94a3b8 !important; }
     html.dark-mode .cv-est-outer *[style*="color:#5a6a7d"] { color: #94a3b8 !important; }
     html.dark-mode .cv-est-outer *[style*="color:#1a3a5c"] { color: #e2e8f0 !important; }
-    /* Badges de semanas */
-    html.dark-mode .cv-sem-badge[style*="0d5c3a"] { background: rgba(46,204,139,0.15) !important; color: #4ade80 !important; }
-    html.dark-mode .cv-sem-badge[style*="7a1111"]  { background: rgba(231,76,60,0.15) !important; color: #f87171 !important; }
-    html.dark-mode .cv-sem-badge[style*="1a3a5c"]  { background: rgba(148,163,184,0.12) !important; color: #94a3b8 !important; }
-    html.dark-mode .cv-sem-badge[style*="7a5000"]  { background: rgba(240,165,0,0.15) !important; color: #fbbf24 !important; }
-    html.dark-mode .cv-sem-badge[style*="5b2d8e"]  { background: rgba(192,132,252,0.15) !important; color: #c084fc !important; }
-    html.dark-mode .cv-sem-badge[style*="6b7a90"]  { background: rgba(148,163,184,0.1) !important; color: #64748b !important; }
     /* ApexCharts dentro de cv-est-outer */
     html.dark-mode .cv-est-outer .apexcharts-canvas text { fill: #94a3b8 !important; }
     html.dark-mode .cv-est-outer .apexcharts-radialbar-track path { stroke: #334155 !important; }
@@ -195,7 +144,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     html.dark-mode .cv-est-outer .apexcharts-tooltip { background: #1e293b !important; border-color: #334155 !important; color: #f1f5f9 !important; }
     html.dark-mode .cv-est-outer .apexcharts-tooltip-title { background: #334155 !important; border-color: #475569 !important; color: #f1f5f9 !important; }
     html.dark-mode .cv-est-outer .apexcharts-legend-text { color: #94a3b8 !important; }
-    /* Badges dinámicos de recuperación y penetración (data-cv-state) */
+    /* Badges dinámicos de recuperación (data-cv-state) */
     html.dark-mode [data-cv-state="success"] { background: #14532d !important; color: #4ade80 !important; border: 1px solid rgba(74,222,128,0.25) !important; }
     html.dark-mode [data-cv-state="warning"] { background: #451a03 !important; color: #fbbf24 !important; border: 1px solid rgba(251,191,36,0.25) !important; }
     html.dark-mode [data-cv-state="danger"]  { background: #450a0a !important; color: #f87171 !important; border: 1px solid rgba(248,113,113,0.25) !important; }
@@ -221,29 +170,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     /* card gestor período (azul) */
     html.dark-mode .cv-top-desp[style*="eaf3fb"] { background: rgba(52,152,219,0.08) !important; border-color: rgba(52,152,219,0.25) !important; }
     html.dark-mode .cv-top-desp *[style*="color:#2471a3"] { color: #60a5fa !important; }
-    /* Tip buttons */
-    html.dark-mode .cv-tip-btn { color: #475569 !important; }
-    html.dark-mode .cv-tip-btn:hover,
-    html.dark-mode .cv-tip-btn:focus { color: #94a3b8 !important; }
-    /* Brecha hacia siguiente meta */
-    .cv-brecha-box {
-        background: #f5f7fa;
-        border: 1px solid #dde3ec;
-        border-radius: 8px;
-        padding: 10px 14px;
-    }
-    html.dark-mode .cv-brecha-box {
-        background: #253344 !important;
-        border-color: #334155 !important;
-    }
-    .cv-brecha-titulo { font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;text-align:center; }
-    html.dark-mode .cv-brecha-titulo { color: #94a3b8 !important; }
-    .cv-brecha-texto { font-size:12px;color:#1a3a5c;text-align:center;line-height:1.55; }
-    html.dark-mode .cv-brecha-texto { color: #e2e8f0 !important; }
-    .cv-brecha-track { margin-top:8px;background:#e9ecef;border-radius:6px;height:8px;overflow:hidden; }
-    html.dark-mode .cv-brecha-track { background: #334155 !important; }
-    .cv-brecha-sub { font-size:10px;color:#6b7a90;text-align:center;margin-top:5px; }
-    html.dark-mode .cv-brecha-sub { color: #94a3b8 !important; }
     .cv-card-title {
         font-size: .72rem;
         font-weight: 700;
@@ -298,14 +224,12 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 </div>
             </div>
 
-            <!-- ── MAIN ROW ─────────────────────────────────── -->
+            <!-- ── KPIs sistema (ancho completo) + Nuevos | Recuperación ── -->
             <div class="row g-3 mb-4 align-items-stretch">
 
-                <!-- ── LEFT COL (col-lg-8) ─────────────────── -->
-                <div class="col-lg-8">
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-6 col-md-4 col-xl">
+                <div class="col-12">
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4">
                             <div class="card h-100 shadow-sm">
                                 <div class="card-body py-2 d-flex flex-column cv-top-kpi-card">
                                     <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios activos</span>
@@ -316,7 +240,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-4 col-xl">
+                        <div class="col-6 col-md-4">
                             <div class="card h-100 shadow-sm">
                                 <div class="card-body py-2 d-flex flex-column cv-top-kpi-card">
                                     <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios completos</span>
@@ -327,7 +251,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-4 col-xl">
+                        <div class="col-12 col-md-4">
                             <div class="card h-100 shadow-sm">
                                 <div class="card-body py-2 d-flex flex-column cv-top-kpi-card">
                                     <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios cancelados</span>
@@ -339,6 +263,10 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- ── LEFT: Nuevos del período ─────────────────── -->
+                <div class="col-lg-8">
 
                     <!-- Panel: Nuevos del período -->
                     <div class="card shadow-sm mb-3 cv-panel">
@@ -353,39 +281,18 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         <!-- Cards clickeables -->
                         <div class="d-flex flex-wrap gap-2 mb-2 cv-nuevo-cards-row">
                             <div class="cv-nuevo-card" data-cv-nuevo-tipo="activos" role="button" tabindex="0" aria-expanded="false"
-                                title="Clic para ver desglose por producto"
-                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
-                                <button type="button" class="cv-tip-btn cv-nuevo-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
-                                    onclick="event.stopPropagation();"
-                                    title="Convenios con estatus Activo generados en el período seleccionado (fecha_alta en el mes/año)."
-                                    aria-label="Ayuda: nuevos activos">
-                                    <i class="fa fa-info-circle" aria-hidden="true"></i>
-                                </button>
-                                <div style="font-size:11px;color:#6b7a90;margin-bottom:4px;padding-right:10px;">Activos</div>
+                                style="background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
+                                <div style="font-size:11px;color:#6b7a90;margin-bottom:4px;">Activos</div>
                                 <div id="cvNuevosActivos" class="cv-kpi-val-num" style="color:#2ecc8b;">0</div>
                             </div>
                             <div class="cv-nuevo-card" data-cv-nuevo-tipo="completados" role="button" tabindex="0" aria-expanded="false"
-                                title="Clic para ver desglose por producto"
-                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
-                                <button type="button" class="cv-tip-btn cv-nuevo-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
-                                    onclick="event.stopPropagation();"
-                                    title="Convenios con estatus Completado generados en el período seleccionado."
-                                    aria-label="Ayuda: nuevos completados">
-                                    <i class="fa fa-info-circle" aria-hidden="true"></i>
-                                </button>
-                                <div style="font-size:11px;color:#6b7a90;margin-bottom:4px;padding-right:10px;">Completados</div>
+                                style="background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
+                                <div style="font-size:11px;color:#6b7a90;margin-bottom:4px;">Completados</div>
                                 <div id="cvNuevosCompletados" class="cv-kpi-val-num" style="color:#3498db;">0</div>
                             </div>
                             <div class="cv-nuevo-card" data-cv-nuevo-tipo="cancelados" role="button" tabindex="0" aria-expanded="false"
-                                title="Clic para ver desglose por producto"
-                                style="position:relative;background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
-                                <button type="button" class="cv-tip-btn cv-nuevo-no-abrir" data-bs-toggle="tooltip" data-bs-placement="top" data-cv-tip="1"
-                                    onclick="event.stopPropagation();"
-                                    title="Convenios con estatus Cancelado generados en el período seleccionado."
-                                    aria-label="Ayuda: nuevos cancelados">
-                                    <i class="fa fa-info-circle" aria-hidden="true"></i>
-                                </button>
-                                <div style="font-size:11px;color:#6b7a90;margin-bottom:4px;padding-right:10px;">Cancelados</div>
+                                style="background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;padding:10px 14px;text-align:center;flex:1;min-width:100px;">
+                                <div style="font-size:11px;color:#6b7a90;margin-bottom:4px;">Cancelados</div>
                                 <div id="cvNuevosCancelados" class="cv-kpi-val-num" style="color:#e74c3c;">0</div>
                             </div>
                             <div class="cv-nuevo-total" style="background:#eef1f5;border:1px solid #dde3ec;border-radius:8px;">
@@ -415,52 +322,13 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                         </div>
                     </div>
 
-                    <!-- Panel: Semanas de pago del período -->
-                    <div class="card shadow-sm cv-panel-sem">
-                        <div class="card-header py-3 d-flex justify-content-between align-items-start mb-0">
-                            <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex:1;min-width:0;">
-                                <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Semanas de pago del período</span>
-                                <span id="cvSemRangoInline" class="small text-muted">—</span>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                        <div class="d-flex flex-wrap gap-2">
-                            <span class="cv-sem-badge" style="background:#d4f5e7;color:#0d5c3a;">
-                                <i class="fa fa-check-circle fa-sm" aria-hidden="true"></i>
-                                Pagadas <span id="cvSemPagadas" class="cv-sem-num">0</span>
-                            </span>
-                            <span class="cv-sem-badge" style="background:#fde8e8;color:#7a1111;">
-                                <i class="fa fa-exclamation-circle fa-sm" aria-hidden="true"></i>
-                                Vencidas <span id="cvSemVencidas" class="cv-sem-num">0</span>
-                            </span>
-                            <span class="cv-sem-badge" style="background:#eef1f5;color:#1a3a5c;">
-                                <i class="fa fa-clock-o fa-sm" aria-hidden="true"></i>
-                                Pendientes <span id="cvSemPendientes" class="cv-sem-num">0</span>
-                            </span>
-                            <span class="cv-sem-badge" style="background:#fef3cd;color:#7a5000;">
-                                <i class="fa fa-adjust fa-sm" aria-hidden="true"></i>
-                                Parciales <span id="cvSemParciales" class="cv-sem-num">0</span>
-                            </span>
-                            <span class="cv-sem-badge" style="background:#f0ecff;color:#5b2d8e;">
-                                <i class="fa fa-hourglass-half fa-sm" aria-hidden="true"></i>
-                                A conciliar <span id="cvSemConciliar" class="cv-sem-num">0</span>
-                            </span>
-                            <span class="cv-sem-badge" style="background:#f5f7fa;color:#6b7a90;">
-                                Canceladas <span id="cvSemCanceladas" class="cv-sem-num">0</span>
-                            </span>
-                        </div>
-                        <!-- Gráfica horizontal de semanas -->
-                        <div id="cvChartSemanas" style="margin-top:14px;"></div>
-                        </div>
-                    </div>
-
                 </div><!-- /col-lg-8 -->
 
-                <!-- ── RIGHT COL (col-lg-4) ──────────────────── -->
-                <div class="col-lg-4 d-flex flex-column gap-3">
+                <!-- ── RIGHT: Recuperación ─────────────────────── -->
+                <div class="col-lg-4 d-flex flex-column">
 
                     <!-- Tarjeta de recuperación (montos + radial) -->
-                    <div class="cv-card-rec card shadow-sm">
+                    <div class="cv-card-rec card shadow-sm h-100">
                         <div class="card-header py-3">
                             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                                 <div class="d-flex align-items-center gap-2 min-w-0">
@@ -487,50 +355,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             <div class="d-flex justify-content-center flex-wrap gap-3 mt-1" style="font-size:11px;color:#6b7a90;">
                                 <span>Recuperado: <strong id="cvRecupLegendRecup">$0</strong></span>
                                 <span>Comprometido: <strong id="cvRecupLegendComp">$0</strong></span>
-                            </div>
-                        </div>
-                        </div>
-                    </div>
-
-                    <!-- Tarjeta de cobertura de convenios -->
-                    <div class="cv-card-pen card shadow-sm" style="flex:1 1 auto;">
-                        <div class="card-header py-3">
-                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                                <div class="d-flex flex-wrap align-items-baseline gap-1 min-w-0" style="flex:1;">
-                                    <span class="cv-card-title">Cobertura de convenios</span>
-                                </div>
-                                <span id="cvBadgePenetracion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
-                            </div>
-                        </div>
-                        <div class="card-body" style="padding:16px 18px;">
-                        <div class="d-flex flex-column justify-content-center text-center pt-2">
-                            <div id="cvPctPenetracion" class="cv-kpi-val-num" style="color:#2ecc8b;">0%</div>
-                            <div style="font-size:10px;color:#6b7a90;margin-top:6px;line-height:1.45;">
-                                (Con convenio activo / total en despacho) × 100
-                            </div>
-                        </div>
-                        <div class="mt-3 pt-3 cv-sep" style="border-top:1px solid #dde3ec;">
-                            <div id="cvChartPenetracion" class="cv-kpi-chart-slot"></div>
-                            <div class="d-flex justify-content-center flex-wrap gap-3 mt-1" style="font-size:11px;color:#6b7a90;">
-                                <span>
-                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bs-success);margin-right:4px;vertical-align:middle;"></span>
-                                    Con convenio: <strong id="cvPenConConvenio">0</strong>
-                                </span>
-                                <span>
-                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bs-secondary);margin-right:4px;vertical-align:middle;"></span>
-                                    Sin convenio: <strong id="cvPenSinConvenio">0</strong>
-                                </span>
-                            </div>
-                        </div>
-                        <!-- Brecha hacia la siguiente meta -->
-                        <div id="cvBrechaWrap" class="mt-3 pt-3 cv-sep" style="border-top:1px solid #dde3ec;">
-                            <div class="cv-brecha-titulo">Brecha hacia siguiente meta</div>
-                            <div class="cv-brecha-box">
-                                <div id="cvBrechaTexto" class="cv-brecha-texto">—</div>
-                                <div class="cv-brecha-track">
-                                    <div id="cvBrechaBar" style="height:100%;width:0%;border-radius:6px;background:#2ecc8b;transition:width 0.5s ease;"></div>
-                                </div>
-                                <div id="cvBrechaSubtexto" class="cv-brecha-sub">—</div>
                             </div>
                         </div>
                         </div>
@@ -627,7 +451,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     /** Mismo tamaño que `.cv-est-outer { --cv-kpi-chart }` (donut + radial). */
     var CV_KPI_CHART_PX = 220;
 
-    var cvCharts            = { nuevos: null, nuevosDetalle: null, recuperacion: null, penetracion: null, semanas: null };
+    var cvCharts            = { nuevos: null, nuevosDetalle: null, recuperacion: null };
     var cvNuevoTipoAbierto  = null;
     var cvDetalleReqSeq     = 0;
     var cvReqConv           = 0;
@@ -865,46 +689,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         });
     }
 
-    // ─── Render: barra horizontal de semanas ───────────────
-    function renderBarSemanas(d) {
-        var cats   = ['Pagadas', 'Pendientes', 'Vencidas', 'Parciales', 'A conciliar', 'Canceladas'];
-        var series = [
-            nv(d.semanas_pagadas),
-            nv(d.semanas_pendientes),
-            nv(d.semanas_vencidas),
-            nv(d.semanas_parciales),
-            nv(d.semanas_conciliar),
-            nv(d.semanas_canceladas)
-        ];
-        var pal = cvChartPalette();
-        var colors = [pal.success, pal.primary, pal.danger, pal.warning, '#9b59b6', pal.secondary];
-        ensureApex(function () {
-            var dark = isDark();
-            var opts = {
-                chart: { type: 'bar', height: 300, toolbar: { show: false }, animations: { speed: 380 } },
-                series: [{ name: 'Semanas', data: series }],
-                xaxis: { categories: cats, labels: { style: { colors: dark ? '#94a3b8' : pal.muted, fontSize: '11px' } } },
-                yaxis: { labels: { style: { colors: dark ? '#94a3b8' : pal.muted, fontSize: '11px' } } },
-                colors: colors,
-                dataLabels: {
-                    enabled: true,
-                    formatter: function (v) { return v > 0 ? v : ''; },
-                    style: { fontSize: '11px', fontWeight: 700, colors: ['#ffffff'] }
-                },
-                plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '52%', distributed: true } },
-                legend: { show: false },
-                grid: { borderColor: pal.grid, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
-                tooltip: { theme: dark ? 'dark' : 'light', y: { formatter: function (v) { return v + ' semanas'; } } }
-            };
-            if (!cvCharts.semanas) {
-                cvCharts.semanas = new ApexCharts(document.querySelector('#cvChartSemanas'), opts);
-                cvCharts.semanas.render();
-            } else {
-                cvCharts.semanas.updateOptions(opts, true, true);
-            }
-        });
-    }
-
     // ─── Render: barra de nuevos del período ────────────────
     function renderBarNuevos(d) {
         ensureApex(function () {
@@ -974,32 +758,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             } else {
                 cvCharts.recuperacion.updateOptions({ colors: [color] }, false, false);
                 cvCharts.recuperacion.updateSeries([pct], true);
-            }
-        });
-    }
-
-    // ─── Render: donut de penetración ───────────────────────
-    function renderDonutPenetracion(conC, sinC) {
-        var total   = conC + sinC;
-        var series  = total > 0 ? [conC, sinC] : [0, 1];
-        var pal = cvChartPalette();
-        var colors  = total > 0 ? [pal.success, pal.secondary] : ['#dde3ec', '#dde3ec'];
-        ensureApex(function () {
-            if (!cvCharts.penetracion) {
-                cvCharts.penetracion = new ApexCharts(document.querySelector('#cvChartPenetracion'), {
-                    chart: { type: 'donut', height: CV_KPI_CHART_PX, toolbar: { show: false }, animations: { speed: 380 } },
-                    series: series,
-                    labels: ['Con convenio', 'Sin convenio'],
-                    colors: colors,
-                    legend: { show: false },
-                    dataLabels: { enabled: false },
-                    plotOptions: { pie: { donut: { size: '60%' } } },
-                    stroke: { width: 2, colors: [isDark() ? '#1e293b' : '#ffffff'] }
-                });
-                cvCharts.penetracion.render();
-            } else {
-                cvCharts.penetracion.updateOptions({ colors: colors, stroke: { width: 2, colors: [isDark() ? '#1e293b' : '#ffffff'] } }, false, true);
-                cvCharts.penetracion.updateSeries(series, true);
             }
         });
     }
@@ -1083,75 +841,17 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     // ─── Pintar: cierres / recuperación ─────────────────────
     function pintarCierres(d) {
         if (!d) return;
-        var rango = cvFmtRangoIsoDesde(d) || '—';
-        setText('cvSemRangoInline', rango);
-        setText('cvSemPagadas',    String(d.semanas_pagadas    ?? 0));
-        setText('cvSemVencidas',   String(d.semanas_vencidas   ?? 0));
-        setText('cvSemPendientes', String(d.semanas_pendientes ?? 0));
-        setText('cvSemParciales',  String(d.semanas_parciales  ?? 0));
-        setText('cvSemConciliar',  String(d.semanas_conciliar  ?? 0));
-        setText('cvSemCanceladas', String(d.semanas_canceladas ?? 0));
         setText('cvMontoComp',  formatDinero(d.monto_comprometido ?? 0));
         setText('cvMontoRecup', formatDinero(d.monto_recuperado   ?? 0));
         setText('cvRecupLegendRecup', formatDinero(d.monto_recuperado   ?? 0));
         setText('cvRecupLegendComp',  formatDinero(d.monto_comprometido ?? 0));
         setBadge('cvBadgeRecuperacion', d.recuperacion_badge_text || '—', d.recuperacion_badge_class || '');
         renderRadialRecuperacion(Math.min(100, Math.max(0, nv(d.pct_recuperacion ?? 0))));
-        renderBarSemanas(d);
     }
 
-    // ─── Pintar: cobertura de convenios ─────────────────────
+    // ─── Pintar: asignación / KPIs de despacho (sin panel de cobertura) ──
     function pintarAsignacion(d) {
-        console.log('[cvAsignacion] datos recibidos:', JSON.parse(JSON.stringify(d || {})));
-        if (!d) { console.warn('[cvAsignacion] datos vacíos/nulos'); return; }
-        var pct   = Math.min(100, Math.max(0, nv(d.pct_penetracion ?? 0)));
-        var pal = cvChartPalette();
-        var color = pct >= 40 ? pal.success : (pct >= 20 ? pal.warning : pal.danger);
-        var elPct = document.getElementById('cvPctPenetracion');
-        if (elPct) {
-            elPct.textContent = pct + '%';
-            elPct.setAttribute('style', 'color:' + color + ';');
-        }
-        setBadge('cvBadgePenetracion', d.penetracion_badge_text || '—', d.penetracion_badge_class || '');
-        setText('cvPenConConvenio', String(d.con_convenio_activo ?? 0));
-        setText('cvPenSinConvenio', String(d.sin_convenio        ?? 0));
-        renderDonutPenetracion(nv(d.con_convenio_activo ?? 0), nv(d.sin_convenio ?? 0));
-
-        // ── Brecha hacia la siguiente meta ─────────────────────
-        (function () {
-            var conC  = nv(d.con_convenio_activo ?? 0);
-            var sinC  = nv(d.sin_convenio ?? 0);
-            var total = conC + sinC;
-            var elTxt  = document.getElementById('cvBrechaTexto');
-            var elSub  = document.getElementById('cvBrechaSubtexto');
-            var elBar  = document.getElementById('cvBrechaBar');
-            if (!elTxt || !elSub || !elBar) return;
-            var pct = total > 0 ? (conC / total) * 100 : 0;
-            // Determinar siguiente umbral
-            var umbrales = [20, 40, 60, 80, 100];
-            var meta = null;
-            for (var i = 0; i < umbrales.length; i++) {
-                if (pct < umbrales[i]) { meta = umbrales[i]; break; }
-            }
-            if (meta === null) {
-                elTxt.textContent = '¡Cobertura máxima alcanzada!';
-                elSub.textContent = '100% de la cartera tiene convenio activo.';
-                elBar.style.width = '100%';
-                elBar.style.background = pal.success;
-                return;
-            }
-            var metaNombres = { 20: 'cobertura media', 40: 'cobertura alta', 60: '60%', 80: '80%', 100: '100%' };
-            var necesarios = Math.ceil(total * (meta / 100)) - conC;
-            necesarios = Math.max(0, necesarios);
-            var progEnMeta = meta > 0 ? Math.min(100, (pct / meta) * 100) : 0;
-            var barColor = meta <= 20 ? pal.danger : (meta <= 40 ? pal.warning : pal.success);
-            elTxt.innerHTML = 'Faltan <strong style="color:' + barColor + ';font-size:14px;">' + necesarios.toLocaleString('es-MX') + ' convenios</strong><br>para alcanzar ' + (metaNombres[meta] || meta + '%');
-            elSub.textContent = Math.round(progEnMeta) + '% del camino hacia el ' + meta + '% · Actual: ' + Math.round(pct * 10) / 10 + '%';
-            elBar.style.width = progEnMeta + '%';
-            elBar.style.background = barColor;
-        })();
-
-        // ── KPIs de entidades de despacho ──────────────────────
+        if (!d) return;
         setText('cvDespTotal',       String(d.total_despachos_activos ?? 0));
         setText('cvDespConConvenio', String(d.despachos_con_convenio   ?? 0));
         setText('cvDespCelulaDesp',  String(d.celula_despacho_cnt      ?? 0));
@@ -1296,15 +996,10 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             .then(function (wrap) {
                 if (rAsig !== cvReqAsig) return;
                 var resp = wrap.json;
-                console.log('[cvAsignacion] respuesta HTTP ok=' + wrap.ok, resp);
-                if (!wrap.ok)       { console.error('[cvAsignacion] HTTP error', wrap); }
-                else if (!resp)     { console.error('[cvAsignacion] respuesta no es JSON'); }
-                else if (!resp.success) { console.error('[cvAsignacion] success=false msg=', resp.message, 'debug=', resp.debug); }
-                else if (!resp.datos)   { console.error('[cvAsignacion] success=true pero datos vacíos'); }
                 if (wrap.ok && resp && resp.success && resp.datos) pintarAsignacion(resp.datos);
                 checkDone();
             })
-            .catch(function (err) { if (rAsig !== cvReqAsig) return; console.error('[cvAsignacion] catch error', err); checkDone(); });
+            .catch(function () { if (rAsig !== cvReqAsig) return; checkDone(); });
     }
 
     // ─── Inicialización ──────────────────────────────────────
@@ -1321,15 +1016,13 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     }
 
     document.querySelectorAll('.cv-nuevo-card').forEach(function (card) {
-        card.addEventListener('click', function (e) {
-            if (e.target.closest('.cv-nuevo-no-abrir')) return;
+        card.addEventListener('click', function () {
             var tipo = card.getAttribute('data-cv-nuevo-tipo');
             if (tipo) solicitarDetalle(tipo);
         });
         card.addEventListener('keydown', function (e) {
             if (e.key !== 'Enter' && e.key !== ' ') return;
             e.preventDefault();
-            if (e.target.closest('.cv-nuevo-no-abrir')) return;
             var tipo = card.getAttribute('data-cv-nuevo-tipo');
             if (tipo) solicitarDetalle(tipo);
         });
@@ -1338,15 +1031,5 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     var btnCerr = document.getElementById('cvNuevosDetalleCerrar');
     if (btnCerr) btnCerr.addEventListener('click', cerrarDetallePanel);
 
-    // ─── Tooltips Bootstrap 5 ────────────────────────────────
-    function initTooltips() {
-        if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
-        document.querySelectorAll('[data-cv-tip="1"]').forEach(function (el) {
-            if (el.getAttribute('data-cv-tip-inited') === '1') return;
-            el.setAttribute('data-cv-tip-inited', '1');
-            try { new bootstrap.Tooltip(el, { customClass: 'cv-tip-kpi', container: 'body', trigger: 'hover focus' }); } catch (e) {}
-        });
-    }
-    initTooltips();
 })();
 </script>

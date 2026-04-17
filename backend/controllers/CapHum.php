@@ -769,6 +769,19 @@ class CapHum extends Controller
                             });
                             return;
                         }
+                        if (data.cerrar_sesion_inmediata) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Sesión cerrada',
+                                text: data.mensaje || 'Será redirigido al inicio de sesión.',
+                                timer: 1600,
+                                showConfirmButton: false,
+                                customClass: { container: 'swal-sobre-modal-perfil' }
+                            }).then(function() {
+                                window.location.href = (data.redirect && String(data.redirect)) || '/Login';
+                            });
+                            return;
+                        }
                         Swal.fire({
                             icon: 'success',
                             title: 'Cierre solicitado',
@@ -9739,7 +9752,21 @@ class CapHum extends Controller
             return;
         }
 
-        self::respuestaJSON(CapHumDAO::forzarLogoutPersona($idPersona));
+        $idSesion = (int) $_SESSION['usuario_id'];
+        $res = CapHumDAO::forzarLogoutPersona($idPersona);
+
+        if (!empty($res['success']) && $idPersona === $idSesion && $idSesion > 0) {
+            $out = array_merge($res, [
+                'cerrar_sesion_inmediata' => true,
+                'redirect' => '/Login',
+            ]);
+            $_SESSION = [];
+            session_unset();
+            session_destroy();
+            self::respuestaJSON($out);
+        }
+
+        self::respuestaJSON($res);
     }
 
     public function getDepartamento()
