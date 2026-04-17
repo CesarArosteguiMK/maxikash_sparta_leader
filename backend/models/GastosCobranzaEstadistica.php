@@ -557,9 +557,15 @@ class GastosCobranzaEstadistica
 
         $cntPorEstado = self::fetchKpiCountsPorEstado($db, $rango['inicio'], $rango['fin']);
         if ($cntPorEstado !== null) {
-            $kpis['recuperado']['count'] = $cntPorEstado['cnt_recuperado'];
-            $kpis['condonado']['count'] = $cntPorEstado['cnt_condonado'];
-            $kpis['pendiente']['count'] = $cntPorEstado['cnt_pendiente'];
+            $cntTotal = max(0, (int) ($cntPorEstado['cnt_todos'] ?? 0));
+            $cntRec = max(0, (int) ($cntPorEstado['cnt_recuperado'] ?? 0));
+            $cntCond = max(0, (int) ($cntPorEstado['cnt_condonado'] ?? 0));
+            $cntPend = max(0, $cntTotal - $cntRec - $cntCond);
+
+            $kpis['total_generado']['count'] = $cntTotal;
+            $kpis['recuperado']['count'] = $cntRec;
+            $kpis['condonado']['count'] = $cntCond;
+            $kpis['pendiente']['count'] = $cntPend;
         }
 
         $hoy = [
