@@ -1455,6 +1455,8 @@ function seleccionarCredito(idCredito) {
 
     var bannerPrevio = document.getElementById('bannerConvenioActivo');
     if (bannerPrevio) bannerPrevio.remove();
+    var docAdjPrevio = document.getElementById('docAdjuntoConvenio');
+    if (docAdjPrevio) docAdjPrevio.remove();
 
     // Resetear estado S2 y disparar consulta ligera (fire-and-forget)
     _estatusS2 = null;
@@ -1540,6 +1542,8 @@ function seleccionarCredito(idCredito) {
                             document.getElementById('adjuntarArchivoSection').style.display = 'none';
                             document.getElementById('amortSection').style.display = 'none';
                             document.getElementById('alertaIncumplimiento').style.display = 'none';
+                            var _docAdjLimp = document.getElementById('docAdjuntoConvenio');
+                            if (_docAdjLimp) _docAdjLimp.remove();
                             _ofertaActiva = null;
 
                             document.getElementById('convContenido').style.display = 'block';
@@ -1844,6 +1848,8 @@ function renderOfertas(ofertas, productosBloqueados) {
         document.getElementById('sliderSection').style.display = 'none';
         document.getElementById('adjuntarArchivoSection').style.display = 'none';
         document.getElementById('amortSection').style.display = 'none';
+        var _docAdjLimp2 = document.getElementById('docAdjuntoConvenio');
+        if (_docAdjLimp2) _docAdjLimp2.remove();
         verificarSaldado();
         return;
     }
