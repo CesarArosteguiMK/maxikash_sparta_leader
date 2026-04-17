@@ -705,8 +705,9 @@ body.dark-mode #comp-sin-servicio {
         document.getElementById('comp-hdr-dia').textContent = d.es_hoy ? d.dia : (d.dia + ' · ' + fmtFechaISO(d.fecha_referencia));
         document.getElementById('comp-hdr-s1').textContent = s1;
         document.getElementById('comp-hdr-s2').textContent = s2;
-        document.getElementById('comp-hdr-var1').textContent = 'Variación vs ' + s1;
-        document.getElementById('comp-hdr-var2').textContent = 'Variación vs ' + s2;
+        /* Variación: columnas intercambiadas (izq = vs semana más reciente histórica, der = vs más antigua) */
+        document.getElementById('comp-hdr-var1').textContent = 'Variación vs ' + s2;
+        document.getElementById('comp-hdr-var2').textContent = 'Variación vs ' + s1;
         document.getElementById('comp-chip-s2').textContent = s1;
         document.getElementById('comp-chip-s1').textContent = s2;
         document.getElementById('comp-chip-sa').textContent = sa;
@@ -724,8 +725,8 @@ body.dark-mode #comp-sin-servicio {
                 '<td class="text-end">' + fmt(c2) + '</td><td class="text-end comp-sep-r' + cobCls + '">' + cobStr(v2, esNoche) + '</td>' +
                 '<td class="text-end">' + caStr + '</td><td class="text-end comp-sep-r' + cobCls + '">' + vaStr + '</td>' +
                 '<td class="comp-col-time comp-sep-r">' + HORAS_LABEL[i] + (esNoche ? '<br><span class="comp-num-empty" style="font-size:.65rem;font-style:normal">nocturno</span>' : '') + '</td>' +
-                '<td class="comp-col-var text-end">' + dif(ca, c1) + '</td><td class="comp-col-var text-end comp-sep-r">' + pct(ca, c1) + '</td>' +
-                '<td class="comp-col-var text-end">' + dif(ca, c2) + '</td><td class="comp-col-var text-end">' + pct(ca, c2) + '</td></tr>';
+                '<td class="comp-col-var text-end">' + dif(ca, c2) + '</td><td class="comp-col-var text-end comp-sep-r">' + pct(ca, c2) + '</td>' +
+                '<td class="comp-col-var text-end">' + dif(ca, c1) + '</td><td class="comp-col-var text-end">' + pct(ca, c1) + '</td></tr>';
         }).join('');
     }
 
