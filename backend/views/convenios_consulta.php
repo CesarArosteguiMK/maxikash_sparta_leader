@@ -683,13 +683,13 @@ body.dark-mode #migTotalFinal {
                 <div class="d-flex align-items-center gap-3">
                     <div class="flex-grow-1">
                         <label class="form-label fw-bold mb-1" for="convPdfAdjunto">
-                            <i class="fas fa-paperclip me-1" style="color:#764ba2;"></i>Adjuntar archivo
+                            <i class="fas fa-paperclip me-1" style="color:#764ba2;"></i>Adjuntar comprobante (PDF)
                         </label>
                         <input type="file" id="convPdfAdjunto"
                                class="form-control form-control-sm"
-                               accept=".pdf,.xlsx,.xls,.doc,.docx,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                               onchange="window.validarArchivoConvenio(this)">
-                        <small class="text-muted">Opcional: adjunta PDF, Excel o documento (máx. 5 MB)</small>
+                               accept=".pdf,application/pdf"
+                               onchange="window.validarPdfAdjuntoConv(this)">
+                        <small class="text-muted">Opcional: adjunta el PDF del convenio firmado (máx. 5MB)</small>
                     </div>
                     <div id="convPdfPreview" class="text-center" style="min-width:60px;"></div>
                 </div>
@@ -1096,6 +1096,17 @@ body.dark-mode #migTotalFinal {
                       <input type="number" id="migAdeudo" class="form-control"
                              step="0.01" placeholder="16284.33" readonly
                              style="background:#f8f9fa;" title="Calculado automáticamente según el producto seleccionado">
+                    </div>
+                    <div id="migBaseSelector" class="d-none" style="margin-top:5px;">
+                      <div class="btn-group btn-group-sm w-100" role="group">
+                        <input type="radio" class="btn-check" name="migBaseTipo" id="migBase_capital" value="saldo_total_capital" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="migBase_capital" style="font-size:.72rem;">Capital</label>
+                        <input type="radio" class="btn-check" name="migBaseTipo" id="migBase_interes" value="interes" autocomplete="off">
+                        <label class="btn btn-outline-warning" for="migBase_interes" style="font-size:.72rem;">Interés</label>
+                        <input type="radio" class="btn-check" name="migBaseTipo" id="migBase_total" value="adeudo_total" autocomplete="off">
+                        <label class="btn btn-outline-success" for="migBase_total" style="font-size:.72rem;">Total</label>
+                      </div>
+                      <small id="migBaseMontos" class="text-muted d-block" style="font-size:.7rem;margin-top:3px;"></small>
                     </div>
                   </div>
 
@@ -2495,6 +2506,57 @@ function congelarModulo(convenio) {
         '</div>'
     );
 
+    // ── Sección gestión de documento adjunto (subir / reemplazar post-creación) ──
+    var docSectionOld = document.getElementById('docAdjuntoConvenio');
+    if (docSectionOld) docSectionOld.remove();
+
+    var _convId   = convenio.id;
+    var _credId   = convenio.id_credito;
+    var _docHtml  = '<div id="docAdjuntoConvenio" class="mb-3">' +
+        '<div class="p-3 border rounded d-flex align-items-center justify-content-between flex-wrap gap-2" ' +
+        'style="background:#f8f5ff;border-color:#c4b5fd !important;">' +
+        '<div class="fw-bold" style="color:#5b2d8e;font-size:0.9rem;">' +
+        '<i class="fas fa-paperclip me-1"></i>Documento adjunto' +
+        '</div>';
+
+    if (convenio.pdf_adjunto) {
+        _docHtml +=
+            '<div class="d-flex align-items-center gap-2">' +
+            '<a href="' + convenio.pdf_adjunto + '" target="_blank" class="btn btn-sm btn-outline-success">' +
+            '<i class="fas fa-file-pdf me-1" style="color:#dc2626;"></i>Ver documento' +
+            '</a>' +
+            '<button class="btn btn-sm btn-outline-secondary" onclick="window.toggleDocForm()">' +
+            '<i class="fas fa-sync-alt me-1"></i>Reemplazar' +
+            '</button>' +
+            '</div>';
+    } else {
+        _docHtml +=
+            '<button class="btn btn-sm btn-outline-primary" onclick="window.toggleDocForm()">' +
+            '<i class="fas fa-upload me-1"></i>Adjuntar documento' +
+            '</button>';
+    }
+
+    _docHtml +=
+        '</div>' +
+        '<div id="docAdjuntoForm" class="p-3 border-start border-end border-bottom rounded-bottom" ' +
+        'style="display:none;border-color:#c4b5fd !important;background:#fdfaff;">' +
+        '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+        '<input type="file" id="docAdjuntoInput" class="form-control form-control-sm" ' +
+        'accept=".pdf,application/pdf" style="max-width:320px;">' +
+        '<button class="btn btn-sm btn-success" ' +
+        'onclick="window.subirDocConvenio(' + _convId + ',' + _credId + ')">' +
+        '<i class="fas fa-save me-1"></i>Guardar' +
+        '</button>' +
+        '<button class="btn btn-sm btn-secondary" onclick="window.toggleDocForm()">' +
+        'Cancelar' +
+        '</button>' +
+        '</div>' +
+        '<small class="text-muted d-block mt-1">Solo PDF, máximo 5 MB</small>' +
+        '</div>' +
+        '</div>';
+
+    document.getElementById('bannerConvenioActivo').insertAdjacentHTML('afterend', _docHtml);
+
     document.getElementById('amortSection').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -2502,6 +2564,60 @@ function congelarModulo(convenio) {
 function round2(v) {
     return Math.round(parseFloat(v) * 100) / 100;
 }
+
+// ══════════════════════════════════════════════════════
+//  GESTIÓN DOCUMENTO ADJUNTO (post-creación)
+// ══════════════════════════════════════════════════════
+window.toggleDocForm = function () {
+    var form = document.getElementById('docAdjuntoForm');
+    if (!form) return;
+    var visible = form.style.display !== 'none';
+    form.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+        var inp = document.getElementById('docAdjuntoInput');
+        if (inp) inp.value = '';
+    }
+};
+
+window.subirDocConvenio = function (idConvenio, idCredito) {
+    var input = document.getElementById('docAdjuntoInput');
+    if (!input || !input.files || !input.files[0]) {
+        Swal.fire('Selecciona un archivo', 'Debes elegir un PDF para adjuntar.', 'warning');
+        return;
+    }
+    var file = input.files[0];
+    if (file.type !== 'application/pdf') {
+        Swal.fire('Formato incorrecto', 'Solo se permiten archivos PDF.', 'warning');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        Swal.fire('Archivo muy grande', 'El PDF no debe exceder 5 MB.', 'warning');
+        return;
+    }
+    Swal.fire({ title: 'Guardando...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
+    var fd = new FormData();
+    fd.append('id_convenio', idConvenio);
+    fd.append('id_credito',  idCredito);
+    fd.append('pdf_adjunto', file);
+    http.request({
+        endpoint: '/convenios/actualizarPdfConvenio',
+        contentType: false,
+        processData: false,
+        data: fd,
+        onSuccess: function (resp) {
+            if (resp.success) {
+                Swal.fire({ icon: 'success', title: '¡Listo!', text: 'Documento guardado correctamente.', timer: 1500, showConfirmButton: false })
+                    .then(function () {
+                        document.getElementById('inputBusqueda').value = idCredito;
+                        window.buscarCredito();
+                    });
+            } else {
+                Swal.fire('Error', resp.mensaje || 'No se pudo guardar el documento.', 'error');
+            }
+        },
+        onError: function () { Swal.fire('Error', 'Error de conexión.', 'error'); }
+    });
+};
 // ════════════════════════════════════════════════
 // REGISTRAR PAGO DE SEMANA
 // ════════════════════════════════════════════════
@@ -2577,20 +2693,36 @@ window.seleccionarOferta = function (idx) {
     var esLiquidacionRayo = _ofertaActiva.id_producto === 4;
     var esLibre           = _ofertaActiva.tipo_calendario === 'libre';
 
-    // ── Productos de calendario libre solo se registran desde el modal ──
+    // ── Productos de calendario libre: mostrar sección adjunto y aviso de modal ──
     if (esLibre) {
-        document.getElementById('oferta-card-' + idx).classList.remove('seleccionada');
-        Swal.fire({
-            title: 'Convenio Pago Mixto',
-            html: 'Este tipo de convenio se registra usando el botón ' +
-                  '<strong>"Registrar convenio existente"</strong> en la parte superior.',
-            icon: 'info',
-            confirmButtonColor: '#764ba2',
-        });
+        var sliderLibre = document.getElementById('sliderSemanas');
+        sliderLibre.style.display = 'none';
+        document.querySelector('.semanas-labels').style.display = 'none';
+        var btnsRayoLibre = document.getElementById('rayoBtns');
+        if (btnsRayoLibre) btnsRayoLibre.remove();
+        var libreNoticeOld = document.getElementById('libreNotice');
+        if (libreNoticeOld) libreNoticeOld.remove();
+        sliderLibre.insertAdjacentHTML('afterend',
+            '<div id="libreNotice" class="alert alert-info mt-2 mb-0" style="font-size:0.87rem;">' +
+            '<i class="fas fa-calendar-alt me-2"></i>Este plan usa <strong>fechas específicas de pago</strong>. ' +
+            'Configura las fechas con el botón <strong>"Registrar convenio existente"</strong> de arriba.' +
+            '</div>'
+        );
+        document.getElementById('sliderTitulo').textContent = 'Plan: ' + _ofertaActiva.nombre;
+        document.getElementById('sliderSection').style.display = 'block';
+        document.getElementById('adjuntarArchivoSection').style.display = 'block';
+        var _convFileLibre = document.getElementById('convPdfAdjunto');
+        if (_convFileLibre) { _convFileLibre.value = ''; document.getElementById('convPdfPreview').innerHTML = ''; }
+        document.getElementById('amortSection').style.display = 'none';
+        document.getElementById('btnVerAmort').style.display = 'none';
+        document.getElementById('sliderSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
     }
 
     var slider = document.getElementById('sliderSemanas');
+    // Limpiar aviso libre si venía de selección anterior
+    var libreNoticeClean = document.getElementById('libreNotice');
+    if (libreNoticeClean) libreNoticeClean.remove();
     if (esLiquidacionRayo) {
         _rayoModo = null;
         slider.style.display = 'none';
@@ -3895,6 +4027,73 @@ var _migDetalle = null;
 var _migSemanas = 0;
 var _migOfertas = [];  // ofertas del crédito activo en el modal
 
+// ── Selector de base de cálculo (Capital / Interés / Total) ──
+function _migMostrarBaseSelector() {
+    var panel = document.getElementById('migBaseSelector');
+    if (!panel || !_migCredito) return;
+
+    var capital = parseFloat(_migCredito.Saldo_total_capital || 0);
+    var total   = parseFloat(_migCredito.Adeudo_total || 0);
+    var interes = Math.max(total - capital, 0);
+    var fmt = function(v) { return '$' + v.toLocaleString('es-MX', {minimumFractionDigits:2}); };
+
+    var montosEl = document.getElementById('migBaseMontos');
+    if (montosEl) {
+        montosEl.innerHTML = 'Capital: ' + fmt(capital) + ' &nbsp;|&nbsp; Interés: ' + fmt(interes) + ' &nbsp;|&nbsp; Total: ' + fmt(total);
+    }
+
+    panel.classList.remove('d-none');
+
+    // Seleccionar "Total" por defecto
+    var radTotal = document.getElementById('migBase_total');
+    if (radTotal) radTotal.checked = true;
+
+    // Vincular eventos
+    var radios = document.querySelectorAll('input[name="migBaseTipo"]');
+    for (var i = 0; i < radios.length; i++) {
+        radios[i].removeEventListener('change', _migOnBaseChange);
+        radios[i].addEventListener('change', _migOnBaseChange);
+    }
+}
+
+function _migOcultarBaseSelector() {
+    var panel = document.getElementById('migBaseSelector');
+    if (panel) panel.classList.add('d-none');
+}
+
+function _migGetMontoBase(tipo) {
+    if (!_migCredito) return 0;
+    var capital = parseFloat(_migCredito.Saldo_total_capital || 0);
+    var total   = parseFloat(_migCredito.Adeudo_total || 0);
+    var interes = Math.max(total - capital, 0);
+
+    if (tipo === 'saldo_total_capital') return capital;
+    if (tipo === 'interes') return interes;
+    return total; // adeudo_total
+}
+
+function _migGetBaseSeleccionada() {
+    var checked = document.querySelector('input[name="migBaseTipo"]:checked');
+    return checked ? checked.value : 'adeudo_total';
+}
+
+function _migOnBaseChange() {
+    var tipo = _migGetBaseSeleccionada();
+    var monto = _migGetMontoBase(tipo);
+    var migAdeudoEl = document.getElementById('migAdeudo');
+    if (migAdeudoEl) {
+        migAdeudoEl.value = monto.toFixed(2);
+    }
+    // Quitar aviso previo del producto (ya no aplica si el usuario cambió la base)
+    var avisoPrev = document.getElementById('migAdeudoAviso');
+    if (avisoPrev) avisoPrev.remove();
+
+    // Recalcular si existe migCalcular
+    if (typeof migCalcular === 'function') {
+        migCalcular();
+    }
+}
+
 
 
 // ══════════════════════════════════════════════════════
@@ -4224,6 +4423,7 @@ window.migBuscarCredito = function () {
 
                             // ✅ Todo válido
                             _migCredito = credito;
+                            _migMostrarBaseSelector();
 
                             var adeudo = parseFloat(credito.Adeudo_total || 0)
                                 .toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -4256,6 +4456,7 @@ window.migBuscarCredito = function () {
                         onError: function () {
                             // Si falla getConvenioActivo, habilitamos igualmente
                             _migCredito = credito;
+                            _migMostrarBaseSelector();
 
                             info.className = 'alert alert-success';
                             info.innerHTML =
@@ -4322,8 +4523,7 @@ window.migProductoChange = function () {
     };
 
     // ── Auto-ajustar adeudo base según el producto seleccionado ──────
-    // Cada producto puede tener una base diferente (Adeudo Total vs Saldo Capital).
-    // El backend ya calcula monto_base correctamente en getOfertasCredito.
+    // Seleccionar la base del producto en el selector y actualizar el monto.
     if (!esGlobo && _migOfertas.length > 0) {
         var idProdNum = parseInt(_migDetalle.id_producto);
         var ofertaMatch = null;
@@ -4331,26 +4531,23 @@ window.migProductoChange = function () {
             if (_migOfertas[_oi].id_producto === idProdNum) { ofertaMatch = _migOfertas[_oi]; break; }
         }
         if (ofertaMatch) {
+            // Pre-seleccionar el radio según base_calculo del producto
+            var baseProducto = ofertaMatch.base_calculo || 'adeudo_total';
+            var radioId = baseProducto === 'saldo_total_capital' ? 'migBase_capital'
+                        : baseProducto === 'interes' ? 'migBase_interes'
+                        : 'migBase_total';
+            var radioEl = document.getElementById(radioId);
+            if (radioEl) radioEl.checked = true;
+
+            // Usar el monto según la base seleccionada
+            var monto = _migGetMontoBase(_migGetBaseSeleccionada());
             var migAdeudoEl = document.getElementById('migAdeudo');
             if (migAdeudoEl) {
-                migAdeudoEl.value = parseFloat(ofertaMatch.monto_base).toFixed(2);
+                migAdeudoEl.value = monto.toFixed(2);
             }
-            // Badge informativo debajo del campo adeudo
+            // Quitar aviso previo
             var avisoPrevio = document.getElementById('migAdeudoAviso');
             if (avisoPrevio) avisoPrevio.remove();
-            var aviso = document.createElement('small');
-            aviso.id = 'migAdeudoAviso';
-            aviso.style.cssText = 'display:block;margin-top:4px;font-size:0.75rem;';
-            var esAdeudoTotal = parseFloat(ofertaMatch.monto_base).toFixed(2) ===
-                parseFloat(_migCredito ? _migCredito.Adeudo_total || 0 : 0).toFixed(2);
-            aviso.innerHTML = esAdeudoTotal
-                ? '<i class="fas fa-info-circle" style="color:#3b82f6;"></i>' +
-                  ' <span style="color:#3b82f6;">Base: Adeudo Total</span>'
-                : '<i class="fas fa-info-circle" style="color:#f59e0b;"></i>' +
-                  ' <span style="color:#f59e0b;">Base: Saldo Capital (' +
-                  '$' + parseFloat(ofertaMatch.monto_base).toLocaleString('es-MX', {minimumFractionDigits:2}) +
-                  ') — distinto al adeudo total</span>';
-            if (migAdeudoEl) migAdeudoEl.parentNode.appendChild(aviso);
         }
     } else if (esGlobo) {
         // Para globo, restaurar adeudo total del crédito
@@ -5508,32 +5705,21 @@ window.validarPdfAdjunto = function (input) {
     preview.innerHTML = '<i class="fas fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>';
 };
 
-window.validarArchivoConvenio = function (input) {
+window.validarPdfAdjuntoConv = function (input) {
     var preview = document.getElementById('convPdfPreview');
     if (!input.files || !input.files[0]) { preview.innerHTML = ''; return; }
 
     var file = input.files[0];
-    var tiposPermitidos = [
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    if (tiposPermitidos.indexOf(file.type) === -1) {
-        Swal.fire('Formato no permitido', 'Solo se permiten archivos PDF, Excel (.xlsx/.xls) o Word (.doc/.docx)', 'warning');
+    if (file.type !== 'application/pdf') {
+        Swal.fire('Formato incorrecto', 'Solo se permiten archivos PDF', 'warning');
         input.value = ''; preview.innerHTML = ''; return;
     }
     if (file.size > 5 * 1024 * 1024) {
-        Swal.fire('Archivo muy grande', 'El archivo no debe exceder 5 MB', 'warning');
+        Swal.fire('Archivo muy grande', 'El PDF no debe exceder 5MB', 'warning');
         input.value = ''; preview.innerHTML = ''; return;
     }
 
-    var ext = file.name.split('.').pop().toLowerCase();
-    var iconos = { pdf: 'fa-file-pdf', xlsx: 'fa-file-excel', xls: 'fa-file-excel', doc: 'fa-file-word', docx: 'fa-file-word' };
-    var colores = { pdf: '#dc2626', xlsx: '#16a34a', xls: '#16a34a', doc: '#2563eb', docx: '#2563eb' };
-    preview.innerHTML = '<i class="fas ' + (iconos[ext] || 'fa-file') + '" style="font-size:2rem;color:' + (colores[ext] || '#64748b') + ';"></i>' +
-        '<div style="font-size:0.7rem;color:#64748b;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + file.name + '">' + file.name + '</div>';
+    preview.innerHTML = '<i class="fas fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>';
 };
 
 
@@ -5582,7 +5768,8 @@ window.migGuardar = function () {
         var _fechaLibre = _primerFechaEl ? (_primerFechaEl.value || '') : '';
         var _bucketLibre = document.getElementById('migBucket')?.value || '';
         var _totalLibre = parseFloat(document.getElementById('migTotalFinal')?.value) || 0;
-        var _pdfLibre = document.getElementById('migPdfAdjunto')?.files[0];
+        var _pdfLibre = document.getElementById('convPdfAdjunto')?.files[0]
+                     || document.getElementById('migPdfAdjunto')?.files[0];
 
         var filasLibre = [];
         document.querySelectorAll('#migLibreFilasBody tr').forEach(function (tr, idx, arr) {
@@ -5807,6 +5994,7 @@ window.migGuardar = function () {
                 formData.append('id_producto_convenio', _migDetalle.id_producto);
                 formData.append('id_producto_convenio_detalle', _migDetalle.id_detalle);
                 formData.append('adeudo_base', adeudo);
+                formData.append('base_calculo', _migGetBaseSeleccionada());
                 formData.append('monto_adicional', adicional > 0 ? adicional.toFixed(2) : '');
                 formData.append('total_final_con_adicional', totalFinal.toFixed(2));
                 formData.append('porcentaje_descuento', _pctEnvio);
@@ -5912,6 +6100,7 @@ window.migGuardar = function () {
                     id_producto_convenio: _migDetalle.id_producto,
                     id_producto_convenio_detalle: _migDetalle.id_detalle,
                     adeudo_base: adeudo,
+                    base_calculo: _migGetBaseSeleccionada(),
                     porcentaje_descuento: _pctEnvio,
                     pago_semanal: semanal,
                     fecha_inicio: fecha,
@@ -7219,6 +7408,7 @@ window.migResetearFormulario = function () {
     if (migFechaInicio) migFechaInicio.value = '';
     var migAdeudoEl = document.getElementById('migAdeudo');
     if (migAdeudoEl) migAdeudoEl.value = '';
+    _migOcultarBaseSelector();
     var globoPagoInicial = document.getElementById('globoPagoInicial');
     if (globoPagoInicial) globoPagoInicial.value = '';
     var migPagoFinalEl = document.getElementById('migPagoFinal');

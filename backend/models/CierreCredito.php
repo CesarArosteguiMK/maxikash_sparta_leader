@@ -78,7 +78,7 @@ class CierreCredito extends Model
                         cc.total_a_pagar, cc.porcentaje_descuento,
                         cc.adeudo_total_original, cc.numero_semanas,
                         cc.fecha_acuerdo,
-                        pcd.base_calculo
+                        COALESCE(cc.base_calculo, pcd.base_calculo) AS base_calculo
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  LEFT JOIN producto_convenio_detalle pcd ON pcd.id = cc.id_producto_convenio_detalle
@@ -239,7 +239,7 @@ class CierreCredito extends Model
                      WHERE ccs.id_credito = cc.id_credito
                        AND ccs.estatus = 'descartado'
                      ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS fecha_descarte,
-                    pcd.base_calculo
+                    COALESCE(cc.base_calculo, pcd.base_calculo) AS base_calculo
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  LEFT JOIN producto_convenio_detalle pcd ON pcd.id = cc.id_producto_convenio_detalle
@@ -894,10 +894,15 @@ class CierreCredito extends Model
                      FROM convenio_cliente_amortizacion a
                      WHERE a.id_convenio_cliente = cc.id
                        AND a.comprobante_path IS NOT NULL
-                       AND a.comprobante_path != '')                          AS comprobantes_subidos
+                       AND a.comprobante_path != '')                          AS comprobantes_subidos,
+                    (SELECT ccs.estatus
+                     FROM cierre_credito_seguimiento ccs
+                     WHERE ccs.id_credito = cc.id_credito
+                     ORDER BY ccs.fecha_actualizacion DESC, ccs.fecha_alta DESC
+                     LIMIT 1)                                                 AS estatus_seguimiento
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
-                 WHERE 1=1{$celulaWhere}
+                 WHERE cc.estatus IN ('activo', 'cancelado'){$celulaWhere}
                  ORDER BY cc.fecha_alta DESC",
                 $params ?: null
             );
@@ -928,7 +933,22 @@ class CierreCredito extends Model
                         cc.monto_adicional,     cc.pago_inicial_monto,
                         cc.numero_semanas,      cc.pago_semanal,
                         cc.fecha_acuerdo,       cc.fecha_primer_pago,
-                        cc.fecha_ultimo_pago,   cc.usuario_alta
+                        cc.fecha_ultimo_pago,   cc.usuario_alta,
+                        (SELECT ccs.comentario_descarte
+                         FROM cierre_credito_seguimiento ccs
+                         WHERE ccs.id_credito = cc.id_credito
+                           AND ccs.estatus = 'devuelto_cartera'
+                         ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS comentario_devolucion_cartera,
+                        (SELECT ccs.usuario_actualizacion
+                         FROM cierre_credito_seguimiento ccs
+                         WHERE ccs.id_credito = cc.id_credito
+                           AND ccs.estatus = 'devuelto_cartera'
+                         ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS usuario_devolucion_cartera,
+                        (SELECT ccs.fecha_actualizacion
+                         FROM cierre_credito_seguimiento ccs
+                         WHERE ccs.id_credito = cc.id_credito
+                           AND ccs.estatus = 'devuelto_cartera'
+                         ORDER BY ccs.fecha_actualizacion DESC LIMIT 1) AS fecha_devolucion_cartera
                  FROM convenio_cliente cc
                  INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
                  WHERE cc.id = :id LIMIT 1",
@@ -952,6 +972,387 @@ class CierreCredito extends Model
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener el detalle.', [], $e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // CARTERA — NOTIFICACIONES A CARTERA
+    // ─────────────────────────────────────────────
+
+    /**
+     * Notifica a cartera que un despacho creó un convenio.
+     * Crea/actualiza un registro notificado_cartera y envía email con amortización.
+     *
+     * @param int    $idConvenio  PK de convenio_cliente
+     * @param string $usuario     Usuario que notifica
+     */
+    public static function notificarConvenio(int $idConvenio, string $usuario): array
+    {
+        try {
+            $db = new Database();
+
+            // 1. Obtener el convenio
+            $convenio = $db->queryOne(
+                "SELECT cc.id AS id_convenio, cc.id_credito, cc.nombre_cliente,
+                        pc.nombre               AS nombre_producto,
+                        cc.pdf_adjunto,
+                        cc.total_a_pagar,       cc.porcentaje_descuento,
+                        cc.descuento_monto,     cc.adeudo_total_original,
+                        cc.numero_semanas,      cc.pago_semanal,
+                        cc.fecha_acuerdo,       cc.estatus,
+                        cc.id_celula
+                 FROM convenio_cliente cc
+                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE cc.id = :id LIMIT 1",
+                ['id' => $idConvenio]
+            );
+
+            if (!$convenio) {
+                return self::resultado(false, 'Convenio no encontrado.');
+            }
+
+            $idCredito     = (int) $convenio['id_credito'];
+            $nombreCliente = (string) $convenio['nombre_cliente'];
+
+            // 2. Tabla de amortización
+            $amortizacion = $db->queryAll(
+                "SELECT numero_semana, fecha_pago, pago_semanal, saldo_restante, estatus_pago
+                 FROM convenio_cliente_amortizacion
+                 WHERE id_convenio_cliente = :id ORDER BY numero_semana ASC",
+                ['id' => $idConvenio]
+            ) ?: [];
+
+            // 3. Crear o actualizar registro en cierre_credito_seguimiento
+            $existing = $db->queryOne(
+                "SELECT id, estatus FROM cierre_credito_seguimiento
+                 WHERE id_credito = :id ORDER BY fecha_alta DESC LIMIT 1",
+                ['id' => $idCredito]
+            );
+
+            $idCelula = (int) ($convenio['id_celula'] ?? 0) ?: null;
+
+            if ($existing) {
+                $estatusActual = $existing['estatus'];
+                // No interferir con flujo activo de cierre
+                if (in_array($estatusActual, ['en_proceso', 'enviado_cartera', 'en_cola', 'listo_envio'], true)) {
+                    return self::resultado(false, 'Este crédito ya tiene un proceso de cierre activo. No se puede re-notificar.');
+                }
+                // Actualizar a notificado_cartera
+                $db->CRUD(
+                    "UPDATE cierre_credito_seguimiento
+                     SET estatus               = 'notificado_cartera',
+                         nombre_cliente         = :nombre_cliente,
+                         usuario_actualizacion  = :usuario,
+                         fecha_actualizacion    = NOW()
+                     WHERE id = :id",
+                    ['nombre_cliente' => $nombreCliente, 'usuario' => $usuario, 'id' => (int) $existing['id']]
+                );
+            } else {
+                $db->CRUD(
+                    "INSERT INTO cierre_credito_seguimiento
+                        (id_credito, nombre_cliente, estatus, usuario_alta, usuario_actualizacion, id_celula)
+                     VALUES
+                        (:id_credito, :nombre_cliente, 'notificado_cartera', :usuario, :usuario, :id_celula)",
+                    ['id_credito' => $idCredito, 'nombre_cliente' => $nombreCliente,
+                     'usuario' => $usuario, 'id_celula' => $idCelula]
+                );
+            }
+
+            // 4. Enviar email
+            $emailError = null;
+
+            $configPath = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../../config/config.ini');
+            $ini        = is_file($configPath) ? @parse_ini_file($configPath, true) : [];
+            if ($idCelula === 2 && !empty($ini['mail_cierre_callcenter'])) {
+                $mailCfg = $ini['mail_cierre_callcenter'];
+            } elseif (!empty($ini['mail_cierre'])) {
+                $mailCfg = $ini['mail_cierre'];
+            } else {
+                $mailCfg = $ini['mail'] ?? [];
+            }
+
+            $mailCartera = trim((string) ($mailCfg['mail_cartera'] ?? ''));
+            $smtpHost    = trim((string) ($mailCfg['smtp_host']    ?? ''));
+            $smtpUser    = trim((string) ($mailCfg['smtp_user']    ?? ''));
+            $smtpPass    = trim((string) ($mailCfg['smtp_pass']    ?? ''));
+
+            if ($mailCartera !== '' && filter_var($mailCartera, FILTER_VALIDATE_EMAIL)
+                && $smtpHost !== '' && $smtpUser !== '' && $smtpPass !== '') {
+
+                $autoload = defined('RAIZ') ? (dirname(RAIZ) . '/vendor/autoload.php')
+                                             : (__DIR__ . '/../../../vendor/autoload.php');
+
+                if (is_file($autoload)) {
+                    require_once $autoload;
+
+                    $smtpPort   = (int)    ($mailCfg['smtp_port']    ?? 587);
+                    $smtpSecure = strtolower(trim((string) ($mailCfg['smtp_secure'] ?? 'tls')));
+                    $fromName   = trim((string) ($mailCfg['mail_from_name'] ?? 'Sparta Ledger'));
+
+                    $idCredFmt   = (int) $idCredito;
+                    $cliente     = htmlspecialchars($nombreCliente, ENT_QUOTES, 'UTF-8');
+                    $producto    = htmlspecialchars($convenio['nombre_producto'],     ENT_QUOTES, 'UTF-8');
+                    $total       = number_format((float) $convenio['total_a_pagar'],         2);
+                    $adeudo      = number_format((float) $convenio['adeudo_total_original'],  2);
+                    $descuento   = $convenio['porcentaje_descuento'] . '%';
+                    $semanas     = (int) $convenio['numero_semanas'];
+                    $pagoSemanal = number_format((float) $convenio['pago_semanal'], 2);
+                    $fechaAcuerdo = htmlspecialchars($convenio['fecha_acuerdo'] ?? '', ENT_QUOTES, 'UTF-8');
+                    $fechaEnvio  = date('d/m/Y H:i');
+
+                    // Tabla de amortización en HTML
+                    $filasAmort = '';
+                    foreach ($amortizacion as $a) {
+                        $pagada = ($a['estatus_pago'] === 'pagado');
+                        $bg     = $pagada ? '#f0fdf4' : '#fff';
+                        $icono  = $pagada ? '✔' : '⏳';
+                        $filasAmort .= "<tr style=\"background:{$bg};\">
+                            <td style=\"padding:5px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:bold;\">{$a['numero_semana']}</td>
+                            <td style=\"padding:5px 8px;border:1px solid #e2e8f0;\">" . htmlspecialchars($a['fecha_pago'] ?? '—', ENT_QUOTES, 'UTF-8') . "</td>
+                            <td style=\"padding:5px 8px;border:1px solid #e2e8f0;text-align:right;\">\$" . number_format((float) $a['pago_semanal'], 2) . "</td>
+                            <td style=\"padding:5px 8px;border:1px solid #e2e8f0;text-align:right;\">\$" . number_format((float) $a['saldo_restante'], 2) . "</td>
+                            <td style=\"padding:5px 8px;border:1px solid #e2e8f0;text-align:center;\">{$icono} " . ($pagada ? 'Pagado' : 'Pendiente') . "</td>
+                        </tr>";
+                    }
+
+                    $html = <<<HTML
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>Notificación de Convenio a Cartera</title></head>
+<body style="font-family:Arial,sans-serif;color:#333;margin:0;padding:20px;">
+  <div style="max-width:680px;margin:auto;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+    <div style="background:#0f5c8a;color:#fff;padding:20px 24px;">
+      <h2 style="margin:0;font-size:20px;">📋 Nuevo Convenio — Notificación a Cartera</h2>
+      <p style="margin:4px 0 0;font-size:13px;opacity:.85;">Notificado el {$fechaEnvio} por {$usuario}</p>
+    </div>
+    <div style="padding:24px;">
+      <p style="background:#fefce8;border-left:4px solid #fbbf24;padding:10px 14px;font-size:14px;margin:0 0 18px;">
+        El despacho ha creado un convenio de pago para el siguiente crédito. Por favor tome nota e ingrese los datos correspondientes en S2.
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px;">
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;width:45%;">Crédito #</td><td style="padding:8px;">{$idCredFmt}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Cliente</td><td style="padding:8px;">{$cliente}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Producto</td><td style="padding:8px;">{$producto}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Adeudo original</td><td style="padding:8px;">\${$adeudo}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Descuento aplicado</td><td style="padding:8px;">{$descuento}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Total a pagar</td><td style="padding:8px;color:#0f5c8a;font-weight:bold;">\${$total}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Semanas</td><td style="padding:8px;">{$semanas}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Pago semanal</td><td style="padding:8px;">\${$pagoSemanal}</td></tr>
+        <tr><td style="padding:8px;background:#f4f6fb;font-weight:bold;">Fecha de acuerdo</td><td style="padding:8px;">{$fechaAcuerdo}</td></tr>
+      </table>
+      <div style="font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;color:#0f5c8a;margin-bottom:8px;">
+        Tabla de Amortización
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#0f5c8a;color:#fff;">
+            <th style="padding:7px 8px;border:1px solid #0f5c8a;text-align:center;">#</th>
+            <th style="padding:7px 8px;border:1px solid #0f5c8a;">Fecha pago</th>
+            <th style="padding:7px 8px;border:1px solid #0f5c8a;text-align:right;">Pago</th>
+            <th style="padding:7px 8px;border:1px solid #0f5c8a;text-align:right;">Saldo restante</th>
+            <th style="padding:7px 8px;border:1px solid #0f5c8a;text-align:center;">Estatus</th>
+          </tr>
+        </thead>
+        <tbody>{$filasAmort}</tbody>
+      </table>
+    </div>
+    <div style="background:#f4f6fb;padding:12px 24px;font-size:11px;color:#999;text-align:center;">
+      Generado automáticamente por Sparta Ledger — no responder a este correo.
+    </div>
+  </div>
+</body></html>
+HTML;
+
+                    try {
+                        $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+                        $mailer->isSMTP();
+                        $mailer->Host       = $smtpHost;
+                        $mailer->SMTPAuth   = true;
+                        $mailer->Username   = $smtpUser;
+                        $mailer->Password   = $smtpPass;
+                        $mailer->SMTPSecure = $smtpSecure === 'ssl'
+                            ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                            : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                        $mailer->Port = $smtpPort;
+                        $mailer->CharSet = 'UTF-8';
+                        $mailer->setFrom($smtpUser, $fromName);
+                        $mailer->addAddress($mailCartera);
+                        $mailer->Subject = "Nuevo Convenio Crédito #{$idCredFmt} — {$cliente}";
+                        $mailer->isHTML(true);
+                        $mailer->Body    = $html;
+                        $mailer->AltBody = "Nuevo convenio creado para crédito #{$idCredFmt} ({$cliente}). Total: \${$total}.";
+
+                        // Adjuntar PDF del convenio si existe
+                        if (!empty($convenio['pdf_adjunto'])) {
+                            $pdfPath = sparta_uploads_join('convenios', basename($convenio['pdf_adjunto']));
+                            if (is_file($pdfPath) && is_readable($pdfPath)) {
+                                $mailer->addAttachment($pdfPath);
+                            }
+                        }
+
+                        $mailer->send();
+                    } catch (\Throwable $mailEx) {
+                        $emailError = $mailEx->getMessage();
+                        error_log('CierreCredito::notificarConvenio mail -> ' . $emailError);
+                    }
+                }
+            }
+
+            $msg = $emailError === null
+                ? 'Cartera notificada correctamente.' . ($mailCartera ? " Correo enviado a {$mailCartera}." : ' (Correo no configurado.)')
+                : "Notificación registrada, pero el correo no pudo enviarse: {$emailError}";
+
+            $res = self::resultado(true, $msg);
+            if ($emailError !== null) $res['email_error'] = $emailError;
+            return $res;
+
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al notificar a cartera.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Devuelve los registros en estatus notificado_cartera / cerrado / devuelto_cartera
+     * para la pestaña Cartera.
+     */
+    public static function getCartera(?array $celulas = null): array
+    {
+        try {
+            $db     = new Database();
+            $params = [];
+            $celulaWhere = self::_celulaWhere($celulas, 'ccs', $params);
+
+            $rows = $db->queryAll(
+                "SELECT ccs.id AS id_cierre, ccs.id_credito, ccs.nombre_cliente, ccs.estatus,
+                        ccs.fecha_alta, ccs.usuario_alta,
+                        ccs.fecha_actualizacion, ccs.usuario_actualizacion,
+                        ccs.id_celula
+                 FROM cierre_credito_seguimiento ccs
+                 WHERE ccs.estatus IN ('notificado_cartera', 'cerrado', 'devuelto_cartera'){$celulaWhere}
+                 ORDER BY ccs.fecha_actualizacion DESC, ccs.fecha_alta DESC",
+                $params ?: null
+            ) ?: [];
+
+            if (empty($rows)) {
+                return self::resultado(true, 'Sin notificaciones para cartera.', []);
+            }
+
+            // Enriquecer con datos del convenio (el más reciente activo/cancelado del crédito)
+            $placeholders = [];
+            $paramsConv   = [];
+            foreach ($rows as $idx => $row) {
+                $key              = 'id_' . $idx;
+                $placeholders[]   = ':' . $key;
+                $paramsConv[$key] = (int) $row['id_credito'];
+            }
+            $in = implode(',', $placeholders);
+
+            $convenios = $db->queryAll(
+                "SELECT cc.id AS id_convenio, cc.id_credito,
+                        pc.nombre               AS nombre_producto,
+                        cc.pdf_adjunto,
+                        cc.total_a_pagar,       cc.porcentaje_descuento,
+                        cc.descuento_monto,     cc.adeudo_total_original,
+                        cc.numero_semanas,      cc.pago_semanal,
+                        cc.fecha_acuerdo,       cc.estatus AS estatus_convenio,
+                        (SELECT COUNT(*) FROM convenio_cliente_amortizacion a
+                         WHERE a.id_convenio_cliente = cc.id) AS num_semanas_amort,
+                        (SELECT COUNT(*) FROM convenio_cliente_amortizacion a
+                         WHERE a.id_convenio_cliente = cc.id AND a.estatus_pago = 'pagado') AS cuotas_pagadas
+                 FROM convenio_cliente cc
+                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 WHERE cc.id_credito IN ($in)
+                 ORDER BY cc.fecha_alta DESC",
+                $paramsConv
+            ) ?: [];
+
+            // Mapa id_credito → primer convenio
+            $convenioMap = [];
+            foreach ($convenios as $c) {
+                if (!isset($convenioMap[$c['id_credito']])) {
+                    $convenioMap[$c['id_credito']] = $c;
+                }
+            }
+
+            // Mezclar
+            foreach ($rows as &$row) {
+                $conv = $convenioMap[$row['id_credito']] ?? null;
+                $row['id_convenio']         = $conv ? (int) $conv['id_convenio']  : null;
+                $row['nombre_producto']     = $conv ? $conv['nombre_producto']    : null;
+                $row['pdf_adjunto']         = $conv ? $conv['pdf_adjunto']        : null;
+                $row['total_a_pagar']       = $conv ? $conv['total_a_pagar']      : null;
+                $row['porcentaje_descuento']= $conv ? $conv['porcentaje_descuento'] : null;
+                $row['adeudo_total_original']= $conv ? $conv['adeudo_total_original'] : null;
+                $row['numero_semanas']      = $conv ? $conv['numero_semanas']     : null;
+                $row['pago_semanal']        = $conv ? $conv['pago_semanal']       : null;
+                $row['fecha_acuerdo']       = $conv ? $conv['fecha_acuerdo']      : null;
+                $row['estatus_convenio']    = $conv ? $conv['estatus_convenio']   : null;
+                $row['num_semanas_amort']   = $conv ? (int) $conv['num_semanas_amort'] : 0;
+                $row['cuotas_pagadas']      = $conv ? (int) $conv['cuotas_pagadas']    : 0;
+            }
+            unset($row);
+
+            return self::resultado(true, 'Notificaciones cartera.', $rows);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener notificaciones de cartera.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Cierra el convenio desde cartera — estatus → cerrado.
+     */
+    public static function cerrarConvenioCartera(int $id, string $usuario): array
+    {
+        try {
+            $db = new Database();
+            $registro = $db->queryOne(
+                "SELECT id FROM cierre_credito_seguimiento
+                 WHERE id = :id AND estatus = 'notificado_cartera' LIMIT 1",
+                ['id' => $id]
+            );
+            if (!$registro) {
+                return self::resultado(false, 'Registro no encontrado o no está pendiente de revisión.');
+            }
+            $db->CRUD(
+                "UPDATE cierre_credito_seguimiento
+                 SET estatus              = 'cerrado',
+                     usuario_actualizacion = :usuario,
+                     fecha_actualizacion   = NOW()
+                 WHERE id = :id",
+                ['usuario' => $usuario, 'id' => $id]
+            );
+            return self::resultado(true, 'Convenio cerrado correctamente por cartera.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al cerrar convenio.', [], $e->getMessage());
+        }
+    }
+
+    /**
+     * Devuelve el convenio por cartera — estatus → devuelto_cartera.
+     */
+    public static function devolverPorCartera(int $id, string $usuario, string $comentario = ''): array
+    {
+        try {
+            $db = new Database();
+            $registro = $db->queryOne(
+                "SELECT id FROM cierre_credito_seguimiento
+                 WHERE id = :id AND estatus = 'notificado_cartera' LIMIT 1",
+                ['id' => $id]
+            );
+            if (!$registro) {
+                return self::resultado(false, 'Registro no encontrado o no está pendiente de revisión.');
+            }
+            $db->CRUD(
+                "UPDATE cierre_credito_seguimiento
+                 SET estatus              = 'devuelto_cartera',
+                     comentario_descarte   = :comentario,
+                     usuario_actualizacion = :usuario,
+                     fecha_actualizacion   = NOW()
+                 WHERE id = :id",
+                ['usuario' => $usuario, 'comentario' => mb_substr($comentario, 0, 250), 'id' => $id]
+            );
+            return self::resultado(true, 'Convenio devuelto por cartera.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al devolver convenio.', [], $e->getMessage());
         }
     }
 
