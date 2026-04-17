@@ -2,6 +2,10 @@
 /**
  * CRONJOB: Envío automático de "Primeros pagos — Lunes de Cierre"
  *
+ * Regla de calendario (CDMX): no se envían correos los **lunes**; el envío automático
+ * opera de **martes a domingo**. El lunes el script termina en silencio (exit 0),
+ * salvo `--force` para pruebas.
+ *
  * Horarios objetivo (America/Mexico_City), siempre en formato 24 h:
  *   Mañana: 07:40, 09:40, 11:40
  *   Tarde/noche: 13:40, 14:40, 16:40, 18:40, 20:40, 23:50
@@ -89,6 +93,10 @@ if (!$dryRun && !$force && !PrimerosPagosAutoSwitch::isEnabled()) {
     exit(0);
 }
 
+/** ISO 8601 en America/Mexico_City: 1=lunes … 7=domingo */
+$dowCdmx = (int) date('N');
+$esLunesSinForzar = ($dowCdmx === 1 && !$force);
+
 $horariosPermitidos = [
     '07:40', '09:40', '11:40', '13:40', '14:40', '16:40', '18:40', '20:40', '23:50'
 ];
@@ -172,10 +180,18 @@ try {
         }
     }
 
+    if ($esLunesSinForzar && !$dryRun) {
+        echo "[INFO] Lunes (America/Mexico_City): no se envían correos automáticos de primeros pagos. Calendario: martes a domingo. (Use --force solo para pruebas.)\n";
+        exit(0);
+    }
+
     if ($dryRun) {
         $swOn = PrimerosPagosAutoSwitch::isEnabled();
         echo "[DRY-RUN] No se envía ningún correo (solo simulación).\n";
         echo "  Zona horaria del cron: America/Mexico_City · Fecha " . date('Y-m-d') . " · Hora {$ahora}\n";
+        if ($esLunesSinForzar) {
+            echo "  Regla: los lunes no hay envío programado (martes–domingo CDMX). --force omite esta regla.\n";
+        }
         echo "  Interruptor Auto horario: " . ($swOn ? 'ACTIVADO' : 'APAGADO') . "\n";
         echo "  Modo --force: " . ($force ? 'sí (slot simulado = hora actual)' : 'no') . "\n";
         echo "  Slot objetivo: " . ($slotObjetivo ?? '(ninguno)') . "\n";
@@ -187,6 +203,8 @@ try {
         $accion = '  → Con un run real ahora: ';
         if (!$swOn) {
             $accion .= 'no enviaría (interruptor apagado; el script sale al inicio).';
+        } elseif ($esLunesSinForzar) {
+            $accion .= 'no enviaría (lunes CDMX: sin correos automáticos; martes–domingo).';
         } elseif ($slotObjetivo === null && !$force) {
             $accion .= 'no enviaría (fuera de ventana de horarios programados).';
         } elseif (!$force && isset($estado['slots'][$slotObjetivo]) && ($estado['slots'][$slotObjetivo]['status'] ?? '') === 'success') {
@@ -206,7 +224,7 @@ try {
     }
 
     $reporteria = new \Controllers\Reporteria();
-    $resultado = $reporteria->enviarCorreoVencimientosLunesProgramado($destinatarios, $asunto);
+    $resultado = $reporteria->enviarCorreoVencimientosLunesProgramado($destinatarios, $asunto, $force);
     if (!empty($resultado['success'])) {
         $n = (int)($resultado['datos']['total_registros'] ?? 0);
         @file_put_contents($stateFile, $slotObjetivo, LOCK_EX);

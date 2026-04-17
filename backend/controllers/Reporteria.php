@@ -1192,7 +1192,15 @@ class Reporteria extends Controller
             function calcStats(data) {
                 const nacDist = {};
                 BUCKET_ORDER.forEach(b => nacDist[b] = 0);
-                data.forEach(r => { if (nacDist[r.bucket_nacio] !== undefined) nacDist[r.bucket_nacio]++; });
+                const normBucket = (v) => {
+                    if (v === null || v === undefined) return '';
+                    const s = String(v).trim();
+                    return s;
+                };
+                data.forEach(r => {
+                    const bn = normBucket(r.bucket_nacio);
+                    if (bn !== '' && nacDist[bn] !== undefined) nacDist[bn]++;
+                });
 
                 const matriz = {};
                 BUCKET_ORDER.forEach(b => {
@@ -1200,8 +1208,8 @@ class Reporteria extends Controller
                     BUCKET_ORDER.forEach(c => matriz[b][c] = 0);
                 });
                 data.forEach(r => {
-                    const n = r.bucket_nacio;
-                    const c = r.bucket_corte_actual;
+                    const n = normBucket(r.bucket_nacio);
+                    const c = normBucket(r.bucket_corte_actual);
                     if (n && c && matriz[n] !== undefined) {
                         matriz[n][c] = (matriz[n][c] || 0) + 1;
                     }
@@ -2456,6 +2464,9 @@ class Reporteria extends Controller
         if (is_array($p['json'])) {
             $out['agente_correos_interval_ms'] = $p['json']['intervalMs'] ?? null;
             $out['agente_correos_pid'] = $p['json']['pid'] ?? null;
+            if (!empty($p['json']['skippedBecauseMondayCDMX'])) {
+                $out['agente_omitido_lunes_cdmx'] = true;
+            }
         }
         return $out;
     }
@@ -2478,6 +2489,14 @@ class Reporteria extends Controller
                 self::respuestaJSON(self::respuesta(true, 'Envío automático desactivado', array_merge($baseMeta, [
                     'estado' => 'apagado',
                     'detalle' => 'El interruptor está apagado. El cron no enviará correos hasta activarlo (estado guardado en el servidor).',
+                ])));
+            }
+
+            if ((int) date('N') === 1) {
+                self::respuestaJSON(self::respuesta(true, 'Lunes sin envío automático', array_merge($baseMeta, [
+                    'estado' => 'ok',
+                    'detalle' => 'Los lunes no se envían correos de primeros pagos (CDMX). El envío programado opera de martes a domingo.',
+                    'primeros_pagos_pausado_lunes' => true,
                 ])));
             }
 
@@ -2589,10 +2608,23 @@ class Reporteria extends Controller
 
     /**
      * Uso por cron: genera datos frescos y envía correo a una lista.
+     *
+     * @param bool $forzarEjecucionLunes true = ignorar la regla «no lunes» (p. ej. cron con --force).
      */
-    public function enviarCorreoVencimientosLunesProgramado(array $destinatarios, string $asunto = 'Primeros pagos — Lunes de Cierre'): array
+    public function enviarCorreoVencimientosLunesProgramado(array $destinatarios, string $asunto = 'Primeros pagos — Lunes de Cierre', bool $forzarEjecucionLunes = false): array
     {
         try {
+            if (function_exists('date_default_timezone_set')) {
+                @date_default_timezone_set('America/Mexico_City');
+            }
+            // Alineado con cron enviar_primeros_pagos_lunes.php: los lunes no hay envío (martes–domingo).
+            if ((int) date('N') === 1 && !$forzarEjecucionLunes) {
+                return self::respuesta(true, 'Omitido: lunes (CDMX) sin envío automático de primeros pagos (martes–domingo).', [
+                    'omitido_por_lunes' => true,
+                    'total_registros' => 0,
+                ]);
+            }
+
             $destinatariosLimpios = [];
             foreach ($destinatarios as $email) {
                 $email = strtolower(trim((string)$email));
@@ -2644,8 +2676,14 @@ class Reporteria extends Controller
         ];
 
         foreach ($rows as $r) {
-            $n = (string)($r['bucket_nacio'] ?? '');
-            $c = (string)($r['bucket_corte_actual'] ?? '');
+            if (!is_array($r)) {
+                continue;
+            }
+            // PDO / servidor pueden devolver alias en distinto casing; sin bucket_corte_actual el correo
+            // queda como «nacimiento» (666/189 y ~78%/22%) en lugar de la distribución de corte real.
+            $lc = array_change_key_case($r, CASE_LOWER);
+            $n = trim((string)($lc['bucket_nacio'] ?? ''));
+            $c = trim((string)($lc['bucket_corte_actual'] ?? ''));
             if (array_key_exists($n, $bucketNacio)) {
                 $bucketNacio[$n]++;
             }
