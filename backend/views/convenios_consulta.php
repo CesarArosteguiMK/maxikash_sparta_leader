@@ -677,6 +677,25 @@ body.dark-mode #migTotalFinal {
             </div>
         </div>
 
+        <!-- ADJUNTAR ARCHIVO -->
+        <div id="adjuntarArchivoSection" class="mt-3" style="display:none;">
+            <div class="p-3 border rounded" style="background:#f8f5ff;border-color:#c4b5fd !important;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <label class="form-label fw-bold mb-1" for="convPdfAdjunto">
+                            <i class="fas fa-paperclip me-1" style="color:#764ba2;"></i>Adjuntar archivo
+                        </label>
+                        <input type="file" id="convPdfAdjunto"
+                               class="form-control form-control-sm"
+                               accept=".pdf,.xlsx,.xls,.doc,.docx,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                               onchange="window.validarArchivoConvenio(this)">
+                        <small class="text-muted">Opcional: adjunta PDF, Excel o documento (máx. 5 MB)</small>
+                    </div>
+                    <div id="convPdfPreview" class="text-center" style="min-width:60px;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- SECCIÓN FECHAS ESPECÍFICAS (tipo_calendario = libre) -->
         <!-- Este panel vive dentro del modal "Registrar Convenio Existente" -->
 
@@ -1383,6 +1402,7 @@ function verificarSaldado() {
     if (elConv) elConv.innerHTML = _renderConvenioBadge(_estatusConvenio);
 
     document.getElementById('sliderSection').style.display = 'none';
+    document.getElementById('adjuntarArchivoSection').style.display = 'none';
     document.getElementById('btnGuardar').style.display = 'none';
     var _btnRegConv = document.getElementById('btnRegistrarConvenioExistente');
     if (_btnRegConv) _btnRegConv.style.display = 'none';
@@ -1506,6 +1526,7 @@ function seleccionarCredito(idCredito) {
                             _sliderEl.disabled = false;
                             _sliderEl.value = 1;
                             document.getElementById('sliderSection').style.display = 'none';
+                            document.getElementById('adjuntarArchivoSection').style.display = 'none';
                             document.getElementById('amortSection').style.display = 'none';
                             document.getElementById('alertaIncumplimiento').style.display = 'none';
                             _ofertaActiva = null;
@@ -1810,6 +1831,7 @@ function renderOfertas(ofertas, productosBloqueados) {
             htmlBloqueados;
 
         document.getElementById('sliderSection').style.display = 'none';
+        document.getElementById('adjuntarArchivoSection').style.display = 'none';
         document.getElementById('amortSection').style.display = 'none';
         verificarSaldado();
         return;
@@ -2610,6 +2632,9 @@ window.seleccionarOferta = function (idx) {
     }
 
     document.getElementById('sliderSection').style.display = 'block';
+    document.getElementById('adjuntarArchivoSection').style.display = 'block';
+    var _convFileInput = document.getElementById('convPdfAdjunto');
+    if (_convFileInput) { _convFileInput.value = ''; document.getElementById('convPdfPreview').innerHTML = ''; }
     document.getElementById('amortSection').style.display = 'none';
     document.getElementById('btnVerAmort').style.display = 'none';
 
@@ -3378,29 +3403,33 @@ window.guardarConvenio = function () {
         }).then(function (result) {
             if (!result.isConfirmed) return;
 
-            http.request({
+            var _convFileL = document.getElementById('convPdfAdjunto');
+            var _convHasFileL = _convFileL && _convFileL.files && _convFileL.files[0];
+
+            var _payloadLibre = {
+                id_credito:                     _credito.Id_credito,
+                id_producto_convenio:           _ofertaActiva.id_producto,
+                id_producto_convenio_detalle:   _ofertaActiva.id_detalle,
+                nombre_cliente:                 _credito.Nombre_cliente,
+                bucket_morosidad_real:          _credito.Bucket_Morosidad_Real,
+                dias_mora:                      _credito.Dias_mora,
+                avance_pago_plazo:              _credito.Avance_Pago_Plazo,
+                adeudo_total_original:          _credito.Adeudo_total,
+                porcentaje_descuento:           pctDescuento,
+                descuento_monto:                descuentoMonto,
+                total_a_pagar:                  totalLibre,
+                monto_adicional:                '',
+                pago_inicial_monto:             '',
+                numero_semanas:                 numPagos,
+                pago_semanal:                   parseFloat((totalLibre / numPagos).toFixed(2)),
+                fecha_acuerdo:                  hoy,
+                tipo_calendario:                'libre',
+                fechas_pagos:                   JSON.stringify(pagos),
+            };
+
+            var _reqLibre = {
                 endpoint: '/convenios/guardarConvenio',
                 method: 'POST',
-                data: {
-                    id_credito:                     _credito.Id_credito,
-                    id_producto_convenio:           _ofertaActiva.id_producto,
-                    id_producto_convenio_detalle:   _ofertaActiva.id_detalle,
-                    nombre_cliente:                 _credito.Nombre_cliente,
-                    bucket_morosidad_real:          _credito.Bucket_Morosidad_Real,
-                    dias_mora:                      _credito.Dias_mora,
-                    avance_pago_plazo:              _credito.Avance_Pago_Plazo,
-                    adeudo_total_original:          _credito.Adeudo_total,
-                    porcentaje_descuento:           pctDescuento,
-                    descuento_monto:                descuentoMonto,
-                    total_a_pagar:                  totalLibre,
-                    monto_adicional:                null,
-                    pago_inicial_monto:             '',
-                    numero_semanas:                 numPagos,
-                    pago_semanal:                   parseFloat((totalLibre / numPagos).toFixed(2)),
-                    fecha_acuerdo:                  hoy,
-                    tipo_calendario:                'libre',
-                    fechas_pagos:                   JSON.stringify(pagos),
-                },
                 onSuccess: function (resp) {
                     if (resp.success) {
                         Swal.fire({ title: '¡Guardado!', text: 'El convenio fue registrado exitosamente.', icon: 'success', timer: 1500, showConfirmButton: false })
@@ -3410,7 +3439,24 @@ window.guardarConvenio = function () {
                     }
                 },
                 onError: function () { Swal.fire('Error', 'Error de conexión.', 'error'); }
-            });
+            };
+
+            if (_convHasFileL) {
+                var formData = new FormData();
+                Object.keys(_payloadLibre).forEach(function (k) {
+                    if (_payloadLibre[k] !== null && _payloadLibre[k] !== undefined) {
+                        formData.append(k, _payloadLibre[k]);
+                    }
+                });
+                formData.append('pdf_adjunto', _convFileL.files[0]);
+                _reqLibre.data = formData;
+                _reqLibre.contentType = false;
+                _reqLibre.processData = false;
+            } else {
+                _reqLibre.data = _payloadLibre;
+            }
+
+            http.request(_reqLibre);
         });
         return;
     }
@@ -3456,27 +3502,31 @@ window.guardarConvenio = function () {
     }).then(function (result) {
         if (!result.isConfirmed) return;
 
-        http.request({
+        var _convFile = document.getElementById('convPdfAdjunto');
+        var _convHasFile = _convFile && _convFile.files && _convFile.files[0];
+
+        var _payloadData = {
+            id_credito: _credito.Id_credito,
+            id_producto_convenio: _ofertaActiva.id_producto,
+            id_producto_convenio_detalle: _ofertaActiva.id_detalle,
+            nombre_cliente: _credito.Nombre_cliente,
+            bucket_morosidad_real: _credito.Bucket_Morosidad_Real,
+            dias_mora: _credito.Dias_mora,
+            avance_pago_plazo: _credito.Avance_Pago_Plazo,
+            adeudo_total_original: _credito.Adeudo_total,
+            porcentaje_descuento: _pctDescuentoG,
+            descuento_monto: _descuentoMontoG,
+            total_a_pagar: total,
+            monto_adicional: _adicPersonalizado > 0 ? _adicPersonalizado.toFixed(2) : '',
+            pago_inicial_monto: _ofertaActiva.pago_inicial_monto || '',
+            numero_semanas: _numSemanasG,
+            pago_semanal: semanal,
+            fecha_acuerdo: hoy,
+        };
+
+        var _reqOpts = {
             endpoint: '/convenios/guardarConvenio',
             method: 'POST',
-            data: {
-                id_credito: _credito.Id_credito,
-                id_producto_convenio: _ofertaActiva.id_producto,
-                id_producto_convenio_detalle: _ofertaActiva.id_detalle,
-                nombre_cliente: _credito.Nombre_cliente,
-                bucket_morosidad_real: _credito.Bucket_Morosidad_Real,
-                dias_mora: _credito.Dias_mora,
-                avance_pago_plazo: _credito.Avance_Pago_Plazo,
-                adeudo_total_original: _credito.Adeudo_total,
-                porcentaje_descuento: _pctDescuentoG,
-                descuento_monto: _descuentoMontoG,
-                total_a_pagar: total,
-                monto_adicional: _adicPersonalizado > 0 ? _adicPersonalizado.toFixed(2) : null,
-                pago_inicial_monto: _ofertaActiva.pago_inicial_monto || '',
-                numero_semanas: _numSemanasG,
-                pago_semanal: semanal,
-                fecha_acuerdo: hoy,
-            },
             onSuccess: function (resp) {
                 if (resp.success) {
                     Swal.fire({
@@ -3495,7 +3545,24 @@ window.guardarConvenio = function () {
             onError: function () {
                 Swal.fire('Error', 'Error de conexión.', 'error');
             }
-        });
+        };
+
+        if (_convHasFile) {
+            var formData = new FormData();
+            Object.keys(_payloadData).forEach(function (k) {
+                if (_payloadData[k] !== null && _payloadData[k] !== undefined) {
+                    formData.append(k, _payloadData[k]);
+                }
+            });
+            formData.append('pdf_adjunto', _convFile.files[0]);
+            _reqOpts.data = formData;
+            _reqOpts.contentType = false;
+            _reqOpts.processData = false;
+        } else {
+            _reqOpts.data = _payloadData;
+        }
+
+        http.request(_reqOpts);
     });
 };
 
@@ -3961,6 +4028,11 @@ window.abrirModalMigracion = function () {
 
     var globoPdfAdjunto = document.getElementById('globoPdfAdjunto');
     if (globoPdfAdjunto) globoPdfAdjunto.value = '';
+
+    var convPdfAdjunto = document.getElementById('convPdfAdjunto');
+    if (convPdfAdjunto) { convPdfAdjunto.value = ''; }
+    var convPdfPreview = document.getElementById('convPdfPreview');
+    if (convPdfPreview) { convPdfPreview.innerHTML = ''; }
 
     // Resetear preview de pagos
     var globoPagosPreviewBody = document.getElementById('globoPagosPreviewBody');
@@ -5436,6 +5508,33 @@ window.validarPdfAdjunto = function (input) {
     preview.innerHTML = '<i class="fas fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>';
 };
 
+window.validarArchivoConvenio = function (input) {
+    var preview = document.getElementById('convPdfPreview');
+    if (!input.files || !input.files[0]) { preview.innerHTML = ''; return; }
+
+    var file = input.files[0];
+    var tiposPermitidos = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (tiposPermitidos.indexOf(file.type) === -1) {
+        Swal.fire('Formato no permitido', 'Solo se permiten archivos PDF, Excel (.xlsx/.xls) o Word (.doc/.docx)', 'warning');
+        input.value = ''; preview.innerHTML = ''; return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        Swal.fire('Archivo muy grande', 'El archivo no debe exceder 5 MB', 'warning');
+        input.value = ''; preview.innerHTML = ''; return;
+    }
+
+    var ext = file.name.split('.').pop().toLowerCase();
+    var iconos = { pdf: 'fa-file-pdf', xlsx: 'fa-file-excel', xls: 'fa-file-excel', doc: 'fa-file-word', docx: 'fa-file-word' };
+    var colores = { pdf: '#dc2626', xlsx: '#16a34a', xls: '#16a34a', doc: '#2563eb', docx: '#2563eb' };
+    preview.innerHTML = '<i class="fas ' + (iconos[ext] || 'fa-file') + '" style="font-size:2rem;color:' + (colores[ext] || '#64748b') + ';"></i>' +
+        '<div style="font-size:0.7rem;color:#64748b;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + file.name + '">' + file.name + '</div>';
+};
 
 
 // Modificar migGuardar para incluir el PDF
