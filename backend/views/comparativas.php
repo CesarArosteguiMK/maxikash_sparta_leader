@@ -8,17 +8,17 @@
                     <div class="card-body">
                         <h5 class="card-title text-primary mb-3">HOLA, <?= isset($_SESSION['usuario_nombre']) ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8') : 'USUARIO'; ?> <i class="fa-solid fa-chart-column ms-2 text-primary" aria-hidden="true"></i></h5>
                         <p class="mb-6 mb-md-0">
-                            Espacio para reportes y vistas comparativas de analítica. El dictamen de llamadas sigue disponible en <strong>Analítica → Call Center</strong>.
+                            Aquí entras al <strong>comparativo del segundómetro</strong>: mora de <strong>1 a 7 días</strong> por cada corte del día (mañana, tarde y noche), confrontando la <strong>semana en curso</strong> con las <strong>dos semanas históricas</strong> inmediatas anteriores. Puedes elegir <strong>qué día de la semana</strong> analizar (siempre dentro de la semana en curso) para revisar los mismos horarios en distintos días.
                         </p>
                     </div>
                 </div>
 
                 <div class="col-12 col-md-4 d-flex flex-column justify-content-end align-items-center align-items-md-end cc-hero-mascot-col">
-                    <img src="/assets/img/illustrations/call-center-mascota.png"
+                    <img src="/assets/img/illustrations/comparativas-mascota.png"
                          class="cc-hero-mascot-floating img-fluid"
                          width="400"
                          height="400"
-                         alt="Comparativas — ilustración">
+                         alt="Comparativas avance semanal — ilustración">
                 </div>
 
                 <div class="row gy-6 mb-6 gx-0 justify-content-start">
@@ -27,13 +27,18 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Comparativas</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">Aquí se integrarán los reportes comparativos cuando estén definidos (periodos, carteras, indicadores).</p>
+                                        <h5 class="text-primary mb-2">Comparativas avance semanal</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">En el tablero verás <strong>créditos</strong> y <strong>cobrado</strong> por cada corte, las columnas de las dos semanas pasadas, la semana actual y las <strong>variaciones</strong> en cantidad y porcentaje. Los datos salen de la base de reporte del segundómetro.</p>
                                     </div>
-                                    <p class="text-muted small mb-0">Contenido en preparación.</p>
+                                    <div class="mb-0 mt-3">
+                                        <a href="/reporteria/comparativasAvanceSemanal" class="btn btn-primary w-100">
+                                            <i class="fa-solid fa-table-columns me-1"></i>Ver tablero de avance
+                                        </a>
+                                    </div>
+                                    <p class="text-muted small mb-0 mt-2">Desde aquí pasas al detalle; el acceso del menú o del inicio también te trae a esta pantalla.</p>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="comparativas illustration">
+                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="Comparativas avance semanal illustration">
                                 </div>
                             </div>
                         </div>
