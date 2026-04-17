@@ -655,13 +655,30 @@ if (empty($tabla) && !empty($amortRows)) {
         border: 1px solid rgba(0,0,0,.06);
         box-shadow: 0 6px 18px rgba(0,0,0,.08);
         transition: transform .25s ease, box-shadow .25s ease;
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
     .reference-card:hover { transform: translateY(-6px); box-shadow: 0 14px 34px rgba(0,0,0,.18); }
     .reference-header { display: flex; align-items: center; gap: .6rem; font-weight: 600; font-size: .95rem; margin-bottom: .5rem; }
     .reference-divider { border-top: 1px dashed rgba(0,0,0,.15); margin: .6rem 0 .8rem; }
-    .info-line { display: flex; justify-content: space-between; font-size: .82rem; padding: .25rem 0; }
-    .info-line span { color: #6c757d; }
-    .info-line strong { font-weight: 600; color: #212529; }
+    .info-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: .5rem;
+        font-size: .82rem;
+        padding: .25rem 0;
+    }
+    .info-line > span { flex-shrink: 0; color: #6c757d; }
+    .info-line strong {
+        font-weight: 600;
+        color: #212529;
+        min-width: 0;
+        flex: 1 1 0%;
+        text-align: right;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
     .reference-badge { position: absolute; top: 12px; right: 14px; font-size: .65rem; }
 
     /* ==========================
@@ -1783,7 +1800,7 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                 <div class="modal-body">
                     <div class="row g-4">
                         <?php foreach ($referenciasList as $index => $r): ?>
-                            <div class="col-md-<?= 12 / max(count($referenciasList), 1) ?>">
+                            <div class="col-md-<?= 12 / max(count($referenciasList), 1) ?> min-w-0">
                                 <div class="reference-card">
                                     <?php if($index === 0): ?>
                                         <span class="badge bg-success reference-badge"><?= htmlspecialchars($r['tipo']) ?></span>

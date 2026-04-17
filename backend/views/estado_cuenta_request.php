@@ -747,6 +747,8 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
         border: 1px solid rgba(0,0,0,.06);
         box-shadow: 0 6px 18px rgba(0,0,0,.08);
         transition: transform .25s ease, box-shadow .25s ease;
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
 
     .reference-card:hover {
@@ -774,17 +776,25 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
     .info-line {
         display: flex;
         justify-content: space-between;
+        align-items: flex-start;
+        gap: .5rem;
         font-size: .82rem;
         padding: .25rem 0;
     }
 
-    .info-line span {
+    .info-line > span {
+        flex-shrink: 0;
         color: #6c757d;
     }
 
     .info-line strong {
         font-weight: 600;
         color: #212529;
+        min-width: 0;
+        flex: 1 1 0%;
+        text-align: right;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
 
     /* Badge top-right */
@@ -2874,7 +2884,7 @@ $__ecIdComplementos = (int) (($dataEstadoCuenta ?? [])['idCredito'] ?? 0);
                 var colw = Math.max(1, Math.floor(12 / list.length));
                 var html = '';
                 list.forEach(function (r, index) {
-                    html += '<div class="col-md-' + colw + '"><div class="reference-card">';
+                    html += '<div class="col-md-' + colw + ' min-w-0"><div class="reference-card">';
                     if (index === 0) html += '<span class="badge bg-success reference-badge">' + ecEsc(r.tipo) + '</span>';
                     html += '<div class="reference-header"><i class="fa ' + r.icono + '"></i> ' + ecEsc(r.tipo) + '</div>';
                     html += '<div class="reference-divider"></div>';

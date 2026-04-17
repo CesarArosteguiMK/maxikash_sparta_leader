@@ -1309,7 +1309,7 @@ class Reporteria extends Controller
                     elRest.classList.toggle('d-none', !htmlNacRest.trim());
                 }
 
-                /* Distribución de corte: Current | Pendientes primeros pagos */
+                /* Distribución de corte: Current al corte = nacieron en Current + los de 1-7d que ya pagaron */
                 const totalCurrentNac = nacDist['a) Current'] || 0;
                 const recuperados1a7  = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
                 const currentMasRecuperados = totalCurrentNac + recuperados1a7;
@@ -1885,6 +1885,8 @@ class Reporteria extends Controller
                 const total1a7Nac = nacDist['b) 1 a 7 dias'] || 0;
                 const recuperados1a7 = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
                 const pendientes1a7 = Math.max(0, total1a7Nac - recuperados1a7);
+                const corteEnCurrent = totalCurrentNac + recuperados1a7;
+                const corteEn17 = pendientes1a7;
                 const totalGlobal = totalCurrentNac + total1a7Nac;
                 const pctCurrent = totalGlobal ? Math.round(totalCurrentNac / totalGlobal * 100) : 0;
                 const pct17 = 100 - pctCurrent;
@@ -1907,8 +1909,8 @@ class Reporteria extends Controller
                         uno_a_siete: total1a7Nac,
                     },
                     corte: {
-                        current_mas_recuperados: totalCurrentNac + recuperados1a7,
-                        pendientes: pendientes1a7,
+                        current_mas_recuperados: corteEnCurrent,
+                        pendientes: corteEn17,
                     },
                     matriz: {
                         current: {

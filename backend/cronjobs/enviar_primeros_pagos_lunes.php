@@ -108,6 +108,7 @@ $stateDir = __DIR__ . '/logs';
 if (!is_dir($stateDir)) {
     @mkdir($stateDir, 0755, true);
 }
+/** Dedupe entre ejecuciones del mismo día: formato `Y-m-d|HH:MM` (CDMX). Legado sin `|` ya no bloquea otro día. */
 $stateFile = $stateDir . '/primeros_pagos_last_send.txt';
 $stateJson = $stateDir . '/primeros_pagos_estado.json';
 $marcaActual = date('Y-m-d H:i');
@@ -174,9 +175,14 @@ try {
 
     if (!$dryRun && !$force && is_file($stateFile)) {
         $ultima = trim((string)@file_get_contents($stateFile));
-        if ($ultima === $slotObjetivo) {
-            echo "[INFO] Ya se envió en esta ventana CDMX ({$slotObjetivo}).\n";
-            exit(0);
+        if ($ultima !== '' && strpos($ultima, '|') !== false) {
+            $partesUlt = explode('|', $ultima, 2);
+            $fechaUlt = trim((string)($partesUlt[0] ?? ''));
+            $slotUlt = trim((string)($partesUlt[1] ?? ''));
+            if ($fechaUlt === $hoy && $slotUlt === $slotObjetivo) {
+                echo "[INFO] Ya se envió en esta ventana CDMX ({$slotObjetivo}) hoy.\n";
+                exit(0);
+            }
         }
     }
 
@@ -211,8 +217,13 @@ try {
             $accion .= 'no reenviaría (este slot ya figura como enviado hoy).';
         } elseif (!$force && is_file($stateFile)) {
             $ult = trim((string)@file_get_contents($stateFile));
-            if ($ult === $slotObjetivo) {
-                $accion .= 'no reenviaría (archivo de ventana ya marcado para este slot).';
+            $bloquea = false;
+            if ($ult !== '' && strpos($ult, '|') !== false) {
+                $p = explode('|', $ult, 2);
+                $bloquea = (trim((string)($p[0] ?? '')) === $hoy && trim((string)($p[1] ?? '')) === (string)($slotObjetivo ?? ''));
+            }
+            if ($bloquea) {
+                $accion .= 'no reenviaría (archivo de ventana ya marcado para este slot hoy).';
             } else {
                 $accion .= 'SÍ intentaría enviar el correo a la lista de arriba.';
             }
@@ -227,7 +238,9 @@ try {
     $resultado = $reporteria->enviarCorreoVencimientosLunesProgramado($destinatarios, $asunto, $force);
     if (!empty($resultado['success'])) {
         $n = (int)($resultado['datos']['total_registros'] ?? 0);
-        @file_put_contents($stateFile, $slotObjetivo, LOCK_EX);
+        if ($slotObjetivo !== null && $slotObjetivo !== '') {
+            @file_put_contents($stateFile, $hoy . '|' . $slotObjetivo, LOCK_EX);
+        }
         $estado['slots'][$slotObjetivo] = [
             'status' => 'success',
             'sent' => count($destinatarios),
