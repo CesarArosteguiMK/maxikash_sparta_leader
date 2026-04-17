@@ -1091,6 +1091,10 @@ class CapHum extends Controller
                 '54': 'fa-solid fa-list-check',
                 55: 'fa-solid fa-clock-rotate-left',
                 '55': 'fa-solid fa-clock-rotate-left',
+                56: 'fa-solid fa-building',
+                '56': 'fa-solid fa-building',
+                57: 'fa-solid fa-headset',
+                '57': 'fa-solid fa-headset',
             };
 
             /** Mapa base de íconos (pestaña Módulos del sistema y filas agrupadas de permisos especiales). */
@@ -1764,6 +1768,8 @@ class CapHum extends Controller
                 if (lab.includes('validacion') && lab.includes('cierre')) return true;
                 if (lab === 'en proceso') return true;
                 if (lab === 'historial') return true;
+                if (lab.includes('despachos') || lab.includes('celula despachos')) return true;
+                if (lab.includes('call center') || lab.includes('celula call center')) return true;
                 return false;
             }
 
@@ -1774,6 +1780,8 @@ class CapHum extends Controller
                 if (lab.includes('validacion') && lab.includes('cierre')) return 'fa-solid fa-clipboard-check';
                 if (lab === 'en proceso') return 'fa-solid fa-list-check';
                 if (lab === 'historial') return 'fa-solid fa-clock-rotate-left';
+                if (lab.includes('despachos') || lab.includes('celula despachos')) return 'fa-solid fa-building';
+                if (lab.includes('call center') || lab.includes('celula call center')) return 'fa-solid fa-headset';
                 return null;
             }
 
