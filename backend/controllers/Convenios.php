@@ -690,12 +690,13 @@ class Convenios extends Controller
 
     public function estadisticas()
     {
-        $anio = (int) date('Y');
-        $mes  = (int) date('n');
+        [$fechaIniDef, $fechaFinDef] = ConveniosDAO::cvRangoLunesHoyEstadisticas();
+        $y = (int) date('Y');
+        $m = (int) date('n');
 
-        $resConv  = ConveniosDAO::getEstadisticasConvenios($anio, $mes);
-        $resCierr = ConveniosDAO::getEstadisticasCierresCredito($anio, $mes);
-        $resAsig  = ConveniosDAO::getEstadisticasAsignacionCreditos($anio, $mes);
+        $resConv  = ConveniosDAO::getEstadisticasConvenios($y, $m, $fechaIniDef, $fechaFinDef);
+        $resCierr = ConveniosDAO::getEstadisticasCierresCredito($y, $m, $fechaIniDef, $fechaFinDef);
+        $resAsig  = ConveniosDAO::getEstadisticasAsignacionCreditos($y, $m, $fechaIniDef, $fechaFinDef);
 
         $datos = [
             'convenios'  => ($resConv['success']  ?? false) ? ($resConv['datos']  ?? []) : [],
@@ -705,67 +706,93 @@ class Convenios extends Controller
 
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? trim((string) CONFIGURACION['EMPRESA']) : '';
         self::set('titulo', 'Estadísticas Convenios' . ($emp !== '' ? ' · ' . $emp : ''));
-        self::set('anioDefault', $anio);
-        self::set('mesDefault',  $mes);
+        self::set('fechaIniDefault', $fechaIniDef);
+        self::set('fechaFinDefault', $fechaFinDef);
         self::set('datosInicialesJson', json_encode($datos, JSON_UNESCAPED_UNICODE));
         self::render('convenios_estadisticas');
     }
 
+    /**
+     * Lee fecha_inicio/fecha_fin (prioridad) o anio/mes desde POST.
+     *
+     * @return array{parsed:?array{ini:string,fin:string},anio:int,mes:?int}
+     */
+    private function leerPeriodoEstadisticasConveniosRequest(): array
+    {
+        $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
+        $mes = isset($_POST['mes']) && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
+        $fi = isset($_POST['fecha_inicio']) ? trim((string) $_POST['fecha_inicio']) : '';
+        $ff = isset($_POST['fecha_fin']) ? trim((string) $_POST['fecha_fin']) : '';
+
+        return [
+            'parsed' => ConveniosDAO::cvParseRangoEstadisticas($fi, $ff),
+            'anio' => $anio,
+            'mes' => $mes,
+        ];
+    }
 
 public function getEstadisticasConvenios()
 {
-    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
-    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
-
-    if ($anio <= 0) {
-        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+    $p = $this->leerPeriodoEstadisticasConveniosRequest();
+    $y = (int) date('Y');
+    $m = (int) date('n');
+    if ($p['parsed']) {
+        $r = ConveniosDAO::getEstadisticasConvenios($y, $m, $p['parsed']['ini'], $p['parsed']['fin']);
+    } elseif ($p['anio'] > 0) {
+        $r = ConveniosDAO::getEstadisticasConvenios($p['anio'], $p['mes'], null, null);
+    } else {
+        self::respuestaJSON(self::respuesta(false, 'Indique año y mes, o fecha_inicio y fecha_fin (Y-m-d).'));
         return;
     }
-
-    $r = ConveniosDAO::getEstadisticasConvenios($anio, $mes);
     self::respuestaJSON($r);
 }
 
 public function getEstadisticasConveniosDetalle()
 {
-    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
-    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
+    $p = $this->leerPeriodoEstadisticasConveniosRequest();
     $tipo = isset($_POST['tipo']) ? trim($_POST['tipo']) : 'activos';
-
-    if ($anio <= 0) {
-        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+    $y = (int) date('Y');
+    $m = (int) date('n');
+    if ($p['parsed']) {
+        $r = ConveniosDAO::getEstadisticasConveniosDetalle($y, $m, $tipo, $p['parsed']['ini'], $p['parsed']['fin']);
+    } elseif ($p['anio'] > 0) {
+        $r = ConveniosDAO::getEstadisticasConveniosDetalle($p['anio'], $p['mes'], $tipo, null, null);
+    } else {
+        self::respuestaJSON(self::respuesta(false, 'Indique año y mes, o fecha_inicio y fecha_fin (Y-m-d).'));
         return;
     }
-
-    $r = ConveniosDAO::getEstadisticasConveniosDetalle($anio, $mes, $tipo);
     self::respuestaJSON($r);
 }
 
 public function getEstadisticasCierresCredito()
 {
-    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
-    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
-
-    if ($anio <= 0) {
-        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+    $p = $this->leerPeriodoEstadisticasConveniosRequest();
+    $y = (int) date('Y');
+    $m = (int) date('n');
+    if ($p['parsed']) {
+        $r = ConveniosDAO::getEstadisticasCierresCredito($y, $m, $p['parsed']['ini'], $p['parsed']['fin']);
+    } elseif ($p['anio'] > 0) {
+        $r = ConveniosDAO::getEstadisticasCierresCredito($p['anio'], $p['mes'], null, null);
+    } else {
+        self::respuestaJSON(self::respuesta(false, 'Indique año y mes, o fecha_inicio y fecha_fin (Y-m-d).'));
         return;
     }
-
-    $r = ConveniosDAO::getEstadisticasCierresCredito($anio, $mes);
     self::respuestaJSON($r);
 }
 
 public function getEstadisticasAsignacionCreditos()
 {
-    $anio = isset($_POST['anio']) ? (int) $_POST['anio'] : 0;
-    $mes  = isset($_POST['mes'])  && $_POST['mes'] !== '' ? (int) $_POST['mes'] : null;
-
-    if ($anio <= 0) {
-        self::respuestaJSON(self::respuesta(false, 'El parámetro anio es requerido.'));
+    $p = $this->leerPeriodoEstadisticasConveniosRequest();
+    $y = (int) date('Y');
+    $m = (int) date('n');
+    if ($p['parsed']) {
+        $r = ConveniosDAO::getEstadisticasAsignacionCreditos($y, $m, $p['parsed']['ini'], $p['parsed']['fin']);
+    } elseif ($p['anio'] > 0) {
+        $r = ConveniosDAO::getEstadisticasAsignacionCreditos($p['anio'], $p['mes'], null, null);
+    } else {
+        self::respuestaJSON(self::respuesta(false, 'Indique año y mes, o fecha_inicio y fecha_fin (Y-m-d).'));
         return;
     }
-
-    $r = ConveniosDAO::getEstadisticasAsignacionCreditos($anio, $mes);
     self::respuestaJSON($r);
 }
 

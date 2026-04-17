@@ -1,9 +1,16 @@
 <?php
-/** @var int    $anioDefault */
-/** @var int    $mesDefault */
+/** @var string $fechaIniDefault Y-m-d */
+/** @var string $fechaFinDefault Y-m-d */
 /** @var string $datosInicialesJson */
-$anioDefault        = isset($anioDefault)        ? (int) $anioDefault        : (int) date('Y');
-$mesDefault         = isset($mesDefault)         ? (int) $mesDefault         : (int) date('n');
+$hoyCvFp = new \DateTimeImmutable('today');
+$dowCvFp = (int) $hoyCvFp->format('N');
+$lunCvFp = $hoyCvFp->modify('-' . ($dowCvFp - 1) . ' days');
+$fechaIniDefault = isset($fechaIniDefault) && is_string($fechaIniDefault) && $fechaIniDefault !== ''
+    ? $fechaIniDefault
+    : $lunCvFp->format('Y-m-d');
+$fechaFinDefault = isset($fechaFinDefault) && is_string($fechaFinDefault) && $fechaFinDefault !== ''
+    ? $fechaFinDefault
+    : $hoyCvFp->format('Y-m-d');
 $datosInicialesJson = $datosInicialesJson ?? '{}';
 ?>
 <style>
@@ -40,8 +47,8 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     }
     /* Escala única: mismo tamaño para KPI estándar, mini-stats y donut/radial */
     .cv-est-outer {
-        --cv-kpi-num: 1.125rem;
-        --cv-kpi-chart: 118px;
+        --cv-kpi-num: 1.55rem;
+        --cv-kpi-chart: 220px;
     }
     .cv-kpi-val-num {
         font-size: var(--cv-kpi-num) !important;
@@ -61,6 +68,48 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         padding: 10px 12px !important;
         text-align: center;
         height: 100%;
+    }
+    .cv-desp-kpi-stack {
+        min-height: 118px;
+    }
+    .cv-gestores-unificados .cv-gestores-sector {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 220px;
+    }
+    .cv-gestores-unificados .cv-gestores-sector .cv-gestores-fill {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    @media (min-width: 992px) {
+        .cv-gestores-unificados .cv-gestores-sector:not(:last-child) {
+            border-right: 1px solid #dde3ec;
+            padding-right: 1rem;
+        }
+        .cv-gestores-unificados .cv-gestores-sector:not(:first-child) {
+            padding-left: 1rem;
+        }
+    }
+    @media (max-width: 991.98px) {
+        .cv-gestores-unificados .cv-gestores-sector:not(:last-child) {
+            border-bottom: 1px solid #dde3ec;
+            padding-bottom: 1rem;
+            margin-bottom: 0.25rem;
+        }
+    }
+    .cv-gestores-sector-titulo {
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--bs-secondary-color);
+        margin: 0 0 4px 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #dde3ec;
     }
     /* KPI strip global */
     .cv-kpi-strip {
@@ -154,6 +203,14 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     html.dark-mode [data-cv-state="neutral"] { background: #1e3a5f !important; color: #93c5fd !important; }
     /* Panel de KPIs de despacho */
     html.dark-mode .cv-panel-desp { background: #1e293b !important; border-color: #334155 !important; }
+    html.dark-mode .cv-gestores-unificados .cv-gestores-sector:not(:last-child) {
+        border-right-color: #334155 !important;
+        border-bottom-color: #334155 !important;
+    }
+    html.dark-mode .cv-gestores-sector-titulo {
+        color: #94a3b8 !important;
+        border-bottom-color: #334155 !important;
+    }
     html.dark-mode .cv-desp-kpi { background: #253344 !important; border-color: #334155 !important; }
     html.dark-mode .cv-desp-kpi *[style*="color:#6b7a90"] { color: #94a3b8 !important; }
     html.dark-mode .cv-desp-kpi *[style*="color:#1a3a5c"] { color: #e2e8f0 !important; }
@@ -187,6 +244,29 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     html.dark-mode .cv-brecha-track { background: #334155 !important; }
     .cv-brecha-sub { font-size:10px;color:#6b7a90;text-align:center;margin-top:5px; }
     html.dark-mode .cv-brecha-sub { color: #94a3b8 !important; }
+    .cv-card-title {
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .06em;
+        color: var(--bs-secondary-color);
+    }
+    .cv-card-row-label {
+        font-size: 12px;
+        color: #6b7a90;
+    }
+    html.dark-mode .cv-card-row-label {
+        color: #94a3b8;
+    }
+    .cv-top-kpi-card {
+        min-height: 156px;
+    }
+    .cv-top-kpi-sub {
+        flex-grow: 1;
+    }
+    .cv-top-kpi-spacer {
+        height: 1.45rem;
+        margin-top: .5rem;
+    }
 </style>
 
 
@@ -200,14 +280,20 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                     </h4>
                     <p id="cvEstSubtitulo" class="text-muted mb-0 small">—</p>
                 </div>
-                <div class="d-flex flex-wrap align-items-end gap-2">
-                    <div>
-                        <label for="cvEstAnio" class="form-label small text-muted mb-0">Año</label>
-                        <select id="cvEstAnio" class="form-select form-select-sm" style="min-width: 5.5rem;" aria-label="Año"></select>
-                    </div>
-                    <div>
-                        <label for="cvEstMes" class="form-label small text-muted mb-0">Mes</label>
-                        <select id="cvEstMes" class="form-select form-select-sm" style="min-width: 9rem;" aria-label="Mes"></select>
+                <div class="gc-est-fp-rango" style="max-width: 28rem; width: 100%;">
+                    <label for="flatpickr-range-cv-est" class="form-label small text-muted mb-0">
+                        <i class="fa fa-calendar-alt me-1" aria-hidden="true"></i>Periodo (rango de fechas)
+                    </label>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <input type="text" id="flatpickr-range-cv-est" readonly
+                            class="form-control form-control-sm flex-grow-1 gc-est-fp-input"
+                            style="min-width: 12rem; max-width: 19.5rem; cursor: pointer; user-select: none;"
+                            placeholder="Selecciona inicio y fin" autocomplete="off"
+                            title="No se pueden elegir fechas posteriores a hoy." />
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="btnCvEstRestablecerPeriodo"
+                            title="Volver al periodo por defecto: lunes de esta semana hasta hoy">
+                            Restablecer
+                        </button>
                     </div>
                 </div>
             </div>
@@ -221,31 +307,34 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                     <div class="row g-3 mb-3">
                         <div class="col-6 col-md-4 col-xl">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-body py-2 d-flex flex-column">
+                                <div class="card-body py-2 d-flex flex-column cv-top-kpi-card">
                                     <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios activos</span>
                                     <div class="cv-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
-                                    <div id="cvKpiActivos" class="cv-kpi-val-num fw-bold text-success">0</div>
-                                    <div class="small text-muted mt-1">Totales en el sistema</div>
+                                    <div id="cvKpiActivos" class="fs-4 fw-bold text-success">0</div>
+                                    <div class="small text-muted mt-1 cv-top-kpi-sub">Totales en el sistema</div>
+                                    <div class="cv-top-kpi-spacer"></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-6 col-md-4 col-xl">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-body py-2 d-flex flex-column">
+                                <div class="card-body py-2 d-flex flex-column cv-top-kpi-card">
                                     <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios completos</span>
                                     <div class="cv-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
-                                    <div id="cvKpiCompletados" class="cv-kpi-val-num fw-bold text-primary">0</div>
-                                    <div class="small text-muted mt-1">Totales en el sistema</div>
+                                    <div id="cvKpiCompletados" class="fs-4 fw-bold text-primary">0</div>
+                                    <div class="small text-muted mt-1 cv-top-kpi-sub">Totales en el sistema</div>
+                                    <div class="cv-top-kpi-spacer"></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-6 col-md-4 col-xl">
                             <div class="card h-100 shadow-sm">
-                                <div class="card-body py-2 d-flex flex-column">
+                                <div class="card-body py-2 d-flex flex-column cv-top-kpi-card">
                                     <span class="badge rounded-pill bg-label-warning text-warning fw-bold mb-2 py-2 px-2 w-100 text-center lh-sm" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Convenios cancelados</span>
                                     <div class="cv-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
-                                    <div id="cvKpiCancelados" class="cv-kpi-val-num fw-bold text-danger">0</div>
-                                    <div class="small text-muted mt-1">Totales en el sistema</div>
+                                    <div id="cvKpiCancelados" class="fs-4 fw-bold text-danger">0</div>
+                                    <div class="small text-muted mt-1 cv-top-kpi-sub">Totales en el sistema</div>
+                                    <div class="cv-top-kpi-spacer"></div>
                                 </div>
                             </div>
                         </div>
@@ -371,39 +460,49 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 <div class="col-lg-4 d-flex flex-column gap-3">
 
                     <!-- Tarjeta de recuperación (montos + radial) -->
-                    <div class="cv-card-rec card shadow-sm" style="padding:16px 18px;">
-                        <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
-                            <div class="d-flex align-items-center gap-1">
-                                <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Recuperación</span>
+                    <div class="cv-card-rec card shadow-sm">
+                        <div class="card-header py-3">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2 min-w-0">
+                                    <span class="cv-card-title">Recuperación</span>
+                                </div>
+                                <span id="cvBadgeRecuperacion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                             </div>
-                            <span id="cvBadgeRecuperacion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                         </div>
+                        <div class="card-body" style="padding:16px 18px;">
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="d-none"></span>
+                            </div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span style="font-size:12px;color:#6b7a90;">Recuperación Estimada</span>
+                            <span class="cv-card-row-label">Recuperación Estimada</span>
                             <span id="cvMontoComp" style="font-size:13px;font-weight:700;color:#1a3a5c;">$0.00</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <span style="font-size:12px;color:#6b7a90;">Recuperado en período</span>
+                            <span class="cv-card-row-label">Recuperado en período</span>
                             <span id="cvMontoRecup" style="font-size:13px;font-weight:700;color:#2ecc8b;">$0.00</span>
                         </div>
                         <div class="mt-3 pt-3 cv-sep" style="border-top:1px solid #dde3ec;">
-                            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6b7a90;margin-bottom:2px;text-align:center;">% Recuperación del período</div>
+                            <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;text-align:center;">% Recuperación del período</div>
                             <div id="cvChartRecuperacion" class="cv-kpi-chart-slot"></div>
                             <div class="d-flex justify-content-center flex-wrap gap-3 mt-1" style="font-size:11px;color:#6b7a90;">
                                 <span>Recuperado: <strong id="cvRecupLegendRecup">$0</strong></span>
                                 <span>Comprometido: <strong id="cvRecupLegendComp">$0</strong></span>
                             </div>
                         </div>
+                        </div>
                     </div>
 
                     <!-- Tarjeta de cobertura de convenios -->
-                    <div class="cv-card-pen card shadow-sm" style="padding:16px 18px;flex:1 1 auto;">
-                        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
-                            <div class="d-flex flex-wrap align-items-baseline gap-1" style="flex:1;min-width:0;">
-                                <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Cobertura de convenios</span>
+                    <div class="cv-card-pen card shadow-sm" style="flex:1 1 auto;">
+                        <div class="card-header py-3">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                <div class="d-flex flex-wrap align-items-baseline gap-1 min-w-0" style="flex:1;">
+                                    <span class="cv-card-title">Cobertura de convenios</span>
+                                </div>
+                                <span id="cvBadgePenetracion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                             </div>
-                            <span id="cvBadgePenetracion" data-cv-state="" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;">—</span>
                         </div>
+                        <div class="card-body" style="padding:16px 18px;">
                         <div class="d-flex flex-column justify-content-center text-center pt-2">
                             <div id="cvPctPenetracion" class="cv-kpi-val-num" style="color:#2ecc8b;">0%</div>
                             <div style="font-size:10px;color:#6b7a90;margin-top:6px;line-height:1.45;">
@@ -414,11 +513,11 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                             <div id="cvChartPenetracion" class="cv-kpi-chart-slot"></div>
                             <div class="d-flex justify-content-center flex-wrap gap-3 mt-1" style="font-size:11px;color:#6b7a90;">
                                 <span>
-                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2ecc8b;margin-right:4px;vertical-align:middle;"></span>
+                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bs-success);margin-right:4px;vertical-align:middle;"></span>
                                     Con convenio: <strong id="cvPenConConvenio">0</strong>
                                 </span>
                                 <span>
-                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#bdc3c7;margin-right:4px;vertical-align:middle;"></span>
+                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bs-secondary);margin-right:4px;vertical-align:middle;"></span>
                                     Sin convenio: <strong id="cvPenSinConvenio">0</strong>
                                 </span>
                             </div>
@@ -434,164 +533,99 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                                 <div id="cvBrechaSubtexto" class="cv-brecha-sub">—</div>
                             </div>
                         </div>
+                        </div>
                     </div>
 
                 </div><!-- /col-lg-4 -->
 
             </div><!-- /row -->
 
-            <!-- ── PANEL DESPACHOS ──────────────────────── -->
-            <div class="cv-panel-desp card shadow-sm" style="padding:16px 18px;margin-top:0;">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <span style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#2ecc8b;">Gestores de cobranza por canal (externo / interno)</span>
-                </div>
-                <div class="row g-2">
-                    <!-- Totales despacho -->
-                    <!--
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Total despachos</div>
-                            <div id="cvDespTotal" class="cv-kpi-val-num" style="color:#1a3a5c;">0</div>
-                        </div>
-                    </div>
-                    -->
-                    <!-- Con convenio -->
-                    <!--
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Con convenios activos</div>
-                            <div id="cvDespConConvenio" class="cv-kpi-val-num" style="color:#2ecc8b;">0</div>
-                        </div>
-                    </div>
-                    -->
-                    <!-- Sin convenio -->
-                    <!--
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Sin convenios</div>
-                            <div id="cvDespSinConvenio" class="cv-kpi-val-num" style="color:#e74c3c;">0</div>
-                        </div>
-                    </div>
-                    -->
-                    <!-- Célula Despacho -->
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Externos
-                            </div>
-                            <div id="cvDespCelulaDesp" class="cv-kpi-val-num" style="color:#3498db;">0</div>
-                        </div>
-                    </div>
-                    <!-- Célula Call Center -->
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-phone fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Internos
-                            </div>
-                            <div id="cvDespCelulaCC" class="cv-kpi-val-num" style="color:#9b59b6;">0</div>
-                        </div>
-                    </div>
-                    <!-- Créditos en gestión -->
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-file-text fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Créditos en gestión
-                            </div>
-                            <div id="cvDespCreditosGestion" style="font-size:28px;font-weight:800;color:#1a3a5c;line-height:1;">0</div>
-                        </div>
-                    </div>
-                    <!-- Top despacho -->
-                    <div class="col-12 col-md-8 col-xl-4">
-                        <div class="cv-top-desp" style="background:#eafaf3;border:1px solid rgba(46,204,139,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
-                            <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
-                                <i class="fa fa-trophy fa-sm" aria-hidden="true" style="color:#f39c12;margin-right:4px;"></i>Despacho con más convenios
-                            </div>
-                            <div id="cvTopDespNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
-                            <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
-                                Convenios activos: <strong id="cvTopDespConvenios" style="color:#0d5c3a;">0</strong>
+            <!-- Gestores de cobranza: un solo card, tres sectores (Créditos | Internos | Externos) -->
+            <div class="row g-3 mt-1">
+                <div class="col-12">
+                    <div class="card shadow-sm cv-panel-desp">
+                        <div class="card-header py-3 d-flex justify-content-between align-items-start mb-0">
+                            <div class="d-flex flex-wrap align-items-baseline gap-2" style="flex:1;min-width:0;">
+                                <span style="font-size:.7rem;font-weight:600;letter-spacing:.02em;color:var(--bs-secondary-color)">Gestores de cobranza por sector</span>
                             </div>
                         </div>
-                    </div>
-                    <!-- % Gestores activos -->
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-percent fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Gestores activos
+                        <div class="card-body pt-3">
+                        <div class="row g-3 cv-gestores-unificados">
+                            <div class="col-lg-4 cv-gestores-sector">
+                                <div class="cv-gestores-sector-titulo">Créditos</div>
+                                <div class="cv-gestores-fill">
+                                <div class="cv-desp-kpi cv-desp-kpi-inner d-flex flex-column justify-content-center cv-desp-kpi-stack flex-grow-1" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
+                                    <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                        <i class="fa fa-file-text fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Créditos en gestión
+                                    </div>
+                                    <div id="cvDespCreditosGestion" class="cv-kpi-val-num" style="color:#1a3a5c;line-height:1;">0</div>
+                                </div>
+                                </div>
                             </div>
-                            <div id="cvDespPctActivos" class="cv-kpi-val-num" style="color:#2ecc8b;">0%</div>
+                            <div class="col-lg-4 cv-gestores-sector">
+                                <div class="cv-gestores-sector-titulo">Internos</div>
+                                <div class="cv-gestores-fill">
+                                <div class="cv-desp-kpi cv-desp-kpi-inner cv-desp-kpi-stack d-flex flex-column justify-content-between align-items-center" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
+                                    <div style="font-size:11px;color:#6b7a90;text-transform:uppercase;letter-spacing:0.5px;">
+                                        <i class="fa fa-phone fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Call Center
+                                    </div>
+                                    <div id="cvDespCelulaCC" class="cv-kpi-val-num d-flex align-items-center justify-content-center flex-grow-1" style="color:#9b59b6;">0</div>
+                                    <div style="font-size:10px;color:#6b7a90;">Internos</div>
+                                </div>
+                                <div class="cv-top-desp flex-grow-1" style="background:#eaf3fb;border:1px solid rgba(52,152,219,0.3);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;">
+                                    <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
+                                        <i class="fa fa-star fa-sm" aria-hidden="true" style="color:#3498db;margin-right:4px;"></i>Gestor más activo del período
+                                    </div>
+                                    <div id="cvTopGestorPeriodoNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
+                                    <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
+                                        Convenios en el período: <strong id="cvTopGestorPeriodoConvenios" style="color:#2471a3;">0</strong>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4 cv-gestores-sector">
+                                <div class="cv-gestores-sector-titulo">Externos</div>
+                                <div class="cv-gestores-fill">
+                                <div class="cv-desp-kpi cv-desp-kpi-inner cv-desp-kpi-stack d-flex flex-column justify-content-between align-items-center" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;">
+                                    <div style="font-size:11px;color:#6b7a90;text-transform:uppercase;letter-spacing:0.5px;">
+                                        <i class="fa fa-building fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Despacho
+                                    </div>
+                                    <div id="cvDespCelulaDesp" class="cv-kpi-val-num d-flex align-items-center justify-content-center flex-grow-1" style="color:#3498db;">0</div>
+                                    <div style="font-size:10px;color:#6b7a90;">Externo</div>
+                                </div>
+                                <div class="cv-top-desp flex-grow-1" style="background:#eafaf3;border:1px solid rgba(46,204,139,0.3);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;">
+                                    <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
+                                        <i class="fa fa-trophy fa-sm" aria-hidden="true" style="color:#f39c12;margin-right:4px;"></i>Despacho con más convenios
+                                    </div>
+                                    <div id="cvTopDespNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
+                                    <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
+                                        Convenios activos: <strong id="cvTopDespConvenios" style="color:#0d5c3a;">0</strong>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <!-- Promedio convenios/gestor -->
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-bar-chart fa-sm" aria-hidden="true" style="margin-right:3px;"></i>Prom. convenios/gestor
-                            </div>
-                            <div id="cvDespPromedioConv" class="cv-kpi-val-num" style="color:#3498db;">0</div>
-                        </div>
-                    </div>
-                    <!-- Gestores con meta cumplida -->
-                    <div class="col-6 col-md-4 col-xl-2">
-                        <div class="cv-desp-kpi cv-desp-kpi-inner" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-check-circle fa-sm" aria-hidden="true" style="margin-right:3px;color:#2ecc8b;"></i>Con meta (≥5 conv.)
-                            </div>
-                            <div id="cvDespEnMeta" class="cv-kpi-val-num" style="color:#2ecc8b;">0</div>
-                        </div>
-                    </div>
-                    <!-- Gestor más activo del período -->
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="cv-top-desp" style="background:#eaf3fb;border:1px solid rgba(52,152,219,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
-                            <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
-                                <i class="fa fa-star fa-sm" aria-hidden="true" style="color:#3498db;margin-right:4px;"></i>Gestor más activo del período
-                            </div>
-                            <div id="cvTopGestorPeriodoNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
-                            <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
-                                Convenios en el período: <strong id="cvTopGestorPeriodoConvenios" style="color:#2471a3;">0</strong>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Gestores sin convenio -->
-                    <div class="col-12 col-md-6 col-xl-2">
-                        <div class="cv-desp-kpi" style="background:#f5f7fa;border:1px solid #dde3ec;border-radius:10px;padding:14px 16px;text-align:center;height:100%;">
-                            <div style="font-size:11px;color:#6b7a90;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
-                                <i class="fa fa-user-times fa-sm" aria-hidden="true" style="margin-right:3px;color:#e74c3c;"></i>Sin convenio
-                            </div>
-                            <div id="cvDespSinConvenio" style="font-size:28px;font-weight:800;color:#e74c3c;line-height:1;">0</div>
-                            <div style="font-size:10px;color:#6b7a90;margin-top:4px;">Gestores</div>
-                        </div>
-                    </div>
-                    <!-- Despacho con menos convenios -->
-                    <div class="col-12 col-md-6 col-xl-4">
-                        <div class="cv-top-desp" style="background:#fdf4e7;border:1px solid rgba(243,156,18,0.3);border-radius:10px;padding:14px 16px;height:100%;display:flex;flex-direction:column;justify-content:center;">
-                            <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#6b7a90;margin-bottom:8px;">
-                                <i class="fa fa-arrow-down fa-sm" aria-hidden="true" style="color:#e67e22;margin-right:4px;"></i>Despacho con menos convenios
-                            </div>
-                            <div id="cvBottomDespNombre" style="font-size:15px;font-weight:700;color:#1a3a5c;line-height:1.3;word-break:break-word;">—</div>
-                            <div style="margin-top:6px;font-size:12px;color:#6b7a90;">
-                                Convenios activos: <strong id="cvBottomDespConvenios" style="color:#e67e22;">0</strong>
-                            </div>
                         </div>
                     </div>
                 </div>
-            </div><!-- /panel despachos -->
+            </div>
         </div>
     </div>
 </div>
 
 <script>
 (function () {
-    var anioSel  = <?php echo json_encode($anioDefault); ?>;
-    var mesSel   = <?php echo json_encode($mesDefault); ?>;
     var datosIni = <?php echo $datosInicialesJson; ?>;
+    var cvState = {
+        fecha_inicio: <?php echo json_encode($fechaIniDefault ?? ''); ?>,
+        fecha_fin: <?php echo json_encode($fechaFinDefault ?? ''); ?>
+    };
 
     var ST_BADGE_VERDE    = 'background:#d4f5e7;color:#0d5c3a;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;';
     var ST_BADGE_AMARILLO = 'background:#fef3cd;color:#7a5000;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;';
     var ST_BADGE_ROJO     = 'background:#fde8e8;color:#7a1111;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block;';
-
-    var CV_COLORS = ['#1a3a5c','#2ecc8b','#3498db','#e74c3c','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e','#16a085','#27ae60','#2980b9','#8e44ad'];
     /** Mismo tamaño que `.cv-est-outer { --cv-kpi-chart }` (donut + radial). */
-    var CV_KPI_CHART_PX = 118;
+    var CV_KPI_CHART_PX = 220;
 
     var cvCharts            = { nuevos: null, nuevosDetalle: null, recuperacion: null, penetracion: null, semanas: null };
     var cvNuevoTipoAbierto  = null;
@@ -604,11 +638,6 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     var cvLoadingOpen       = false;
 
     // ─── Helpers ────────────────────────────────────────────
-    function mesNombre(m) {
-        var n = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        return n[m] || String(m);
-    }
-
     function nv(v) {
         var x = parseFloat(String(v == null ? 0 : v).replace(',', '.'));
         return isNaN(x) ? 0 : x;
@@ -627,6 +656,30 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     function isDark() {
         return document.documentElement.classList.contains('dark-mode');
     }
+
+    function cssColor(name, fallback) {
+        var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    }
+
+    function cvChartPalette() {
+        return {
+            success: cssColor('--bs-success', '#2ecc8b'),
+            primary: cssColor('--bs-primary', '#3498db'),
+            danger: cssColor('--bs-danger', '#e74c3c'),
+            warning: cssColor('--bs-warning', '#f0a500'),
+            secondary: cssColor('--bs-secondary', '#6b7280'),
+            muted: cssColor('--bs-secondary-color', '#6b7a90'),
+            grid: isDark() ? '#334155' : '#eef1f5',
+            surface: isDark() ? '#1e293b' : '#ffffff'
+        };
+    }
+
+    var CV_COLORS = [
+        cvChartPalette().primary, cvChartPalette().success, cvChartPalette().warning,
+        cvChartPalette().danger, cvChartPalette().secondary, '#1abc9c', '#8e44ad',
+        '#e67e22', '#34495e', '#16a085', '#27ae60', '#2980b9'
+    ];
 
     function badgeStyle(cls) {
         var c = (cls || '').toLowerCase();
@@ -651,37 +704,128 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         el.setAttribute('data-cv-state', state);
     }
 
-    // ─── Año / Mes selects ──────────────────────────────────
-    function llenarAnios() {
-        var sel = document.getElementById('cvEstAnio');
-        if (!sel) return;
-        var now = new Date(); var y0 = now.getFullYear();
-        var desde = y0 - 3; var hasta = y0;
-        if (anioSel > hasta) anioSel = hasta;
-        sel.innerHTML = '';
-        for (var y = desde; y <= hasta; y++) {
-            var o = document.createElement('option');
-            o.value = String(y); o.textContent = String(y);
-            o.setAttribute('style', 'color:#1a3a5c;background:#ffffff;');
-            if (y === anioSel) o.selected = true;
-            sel.appendChild(o);
+    function cvFmtYmd(fecha) {
+        var y = fecha.getFullYear();
+        var m = String(fecha.getMonth() + 1).padStart(2, '0');
+        var d = String(fecha.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function cvRangoLunesHoy() {
+        var hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        var dow = hoy.getDay();
+        var diffToMon = dow === 0 ? -6 : 1 - dow;
+        var lun = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + diffToMon);
+        lun.setHours(0, 0, 0, 0);
+        return { ini: cvFmtYmd(lun), fin: cvFmtYmd(hoy) };
+    }
+
+    function cvParamsPeriodo() {
+        return {
+            fecha_inicio: cvState.fecha_inicio,
+            fecha_fin: cvState.fecha_fin,
+            anio: parseInt(String(cvState.fecha_inicio).slice(0, 4), 10) || new Date().getFullYear(),
+            mes: parseInt(String(cvState.fecha_inicio).slice(5, 7), 10) || new Date().getMonth() + 1
+        };
+    }
+
+    function cvCerrarFlatpickrCalendario(fpInstance) {
+        var fp = fpInstance;
+        if (!fp) {
+            var elFp = document.getElementById('flatpickr-range-cv-est');
+            fp = elFp && elFp._flatpickr ? elFp._flatpickr : null;
+        }
+        if (!fp) return;
+        try { if (typeof fp.close === 'function') fp.close(); } catch (e1) {}
+        var inp = document.getElementById('flatpickr-range-cv-est');
+        if (inp) {
+            try { inp.blur(); } catch (e2) {}
         }
     }
 
-    function llenarMeses() {
-        var sel = document.getElementById('cvEstMes');
-        if (!sel) return;
-        var now = new Date(); var y = anioSel;
-        var mesMax = (y === now.getFullYear()) ? (now.getMonth() + 1) : 12;
-        if (mesSel > mesMax) mesSel = mesMax;
-        if (mesSel < 1) mesSel = 1;
-        sel.innerHTML = '';
-        for (var m = 1; m <= mesMax; m++) {
-            var o = document.createElement('option');
-            o.value = String(m); o.textContent = mesNombre(m) + ' ' + y;
-            o.setAttribute('style', 'color:#1a3a5c;background:#ffffff;');
-            if (m === mesSel) o.selected = true;
-            sel.appendChild(o);
+    function cvAplicarRangoYRefrescar(iniYmd, finYmd, fpInstance) {
+        cvState.fecha_inicio = iniYmd;
+        cvState.fecha_fin = finYmd;
+        setText('cvEstSubtitulo', iniYmd + ' a ' + finYmd);
+        if (fpInstance) {
+            try {
+                var a = new Date(iniYmd + 'T12:00:00');
+                var b = new Date(finYmd + 'T12:00:00');
+                fpInstance.setDate([a, b], false);
+            } catch (eSd) {}
+        }
+        cvCerrarFlatpickrCalendario(fpInstance || null);
+        refrescar();
+    }
+
+    function cvRestaurarPeriodoPorDefecto() {
+        var rh = cvRangoLunesHoy();
+        var el = document.getElementById('flatpickr-range-cv-est');
+        var fp = el && el._flatpickr ? el._flatpickr : null;
+        cvAplicarRangoYRefrescar(rh.ini, rh.fin, fp);
+    }
+
+    function initFlatpickrCvEst() {
+        var el = document.getElementById('flatpickr-range-cv-est');
+        if (!el || el._flatpickr || typeof flatpickr === 'undefined') {
+            return;
+        }
+        var hoyMax = new Date();
+        hoyMax.setHours(23, 59, 59, 999);
+        flatpickr(el, {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            clickOpens: true,
+            allowInput: false,
+            maxDate: hoyMax,
+            disableMobile: true,
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+                    longhand: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+                },
+                months: {
+                    shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+                    longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+                },
+                rangeSeparator: ' a '
+            },
+            defaultDate: [cvState.fecha_inicio, cvState.fecha_fin],
+            onChange: function (selectedDates, dateStr, instance) {
+                if (selectedDates.length === 2) {
+                    var ini = cvFmtYmd(selectedDates[0]);
+                    var fin = cvFmtYmd(selectedDates[1]);
+                    cvCerrarFlatpickrCalendario(instance);
+                    setTimeout(function () {
+                        cvAplicarRangoYRefrescar(ini, fin, null);
+                    }, 0);
+                } else if (selectedDates.length === 0) {
+                    cvRestaurarPeriodoPorDefecto();
+                }
+            },
+            onClose: function () {
+                cvCerrarFlatpickrCalendario(null);
+            }
+        });
+    }
+
+    function scheduleInitFlatpickrCvEst() {
+        var n = 0;
+        function intentar() {
+            if (typeof flatpickr !== 'undefined') {
+                initFlatpickrCvEst();
+                return;
+            }
+            n += 1;
+            if (n > 100) return;
+            setTimeout(intentar, 40);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', intentar);
+        } else {
+            intentar();
         }
     }
 
@@ -732,14 +876,15 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
             nv(d.semanas_conciliar),
             nv(d.semanas_canceladas)
         ];
-        var colors = ['#2ecc8b', '#3498db', '#e74c3c', '#f39c12', '#9b59b6', '#95a5a6'];
+        var pal = cvChartPalette();
+        var colors = [pal.success, pal.primary, pal.danger, pal.warning, '#9b59b6', pal.secondary];
         ensureApex(function () {
             var dark = isDark();
             var opts = {
-                chart: { type: 'bar', height: 220, toolbar: { show: false }, animations: { speed: 380 } },
+                chart: { type: 'bar', height: 300, toolbar: { show: false }, animations: { speed: 380 } },
                 series: [{ name: 'Semanas', data: series }],
-                xaxis: { categories: cats, labels: { style: { colors: dark ? '#94a3b8' : '#6b7a90', fontSize: '11px' } } },
-                yaxis: { labels: { style: { colors: dark ? '#94a3b8' : '#6b7a90', fontSize: '11px' } } },
+                xaxis: { categories: cats, labels: { style: { colors: dark ? '#94a3b8' : pal.muted, fontSize: '11px' } } },
+                yaxis: { labels: { style: { colors: dark ? '#94a3b8' : pal.muted, fontSize: '11px' } } },
                 colors: colors,
                 dataLabels: {
                     enabled: true,
@@ -748,7 +893,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 },
                 plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '52%', distributed: true } },
                 legend: { show: false },
-                grid: { borderColor: dark ? '#334155' : '#eef1f5', xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+                grid: { borderColor: pal.grid, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
                 tooltip: { theme: dark ? 'dark' : 'light', y: { formatter: function (v) { return v + ' semanas'; } } }
             };
             if (!cvCharts.semanas) {
@@ -763,23 +908,33 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     // ─── Render: barra de nuevos del período ────────────────
     function renderBarNuevos(d) {
         ensureApex(function () {
+            var pal = cvChartPalette();
             var series = [nv(d.nuevos_activos), nv(d.nuevos_completados), nv(d.nuevos_cancelados)];
             if (!cvCharts.nuevos) {
                 cvCharts.nuevos = new ApexCharts(document.querySelector('#cvChartNuevos'), {
-                    chart: { type: 'bar', height: 220, toolbar: { show: false } },
+                    chart: { type: 'bar', height: 300, toolbar: { show: false } },
                     series: [{ name: 'Nuevos', data: series }],
-                    xaxis: { categories: ['Activos', 'Completados', 'Cancelados'] },
-                    colors: ['#2ecc8b', '#3498db', '#e74c3c'],
+                    xaxis: {
+                        categories: ['Activos', 'Completados', 'Cancelados'],
+                        labels: { style: { colors: isDark() ? '#94a3b8' : pal.muted, fontSize: '11px' } }
+                    },
+                    yaxis: { labels: { style: { colors: isDark() ? '#94a3b8' : pal.muted, fontSize: '11px' } } },
+                    colors: [pal.success, pal.primary, pal.danger],
                     dataLabels: { enabled: false },
                     plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } },
                     legend: { show: false },
-                    grid: { borderColor: isDark() ? '#334155' : '#eef1f5' }
+                    grid: { borderColor: pal.grid },
+                    tooltip: { theme: isDark() ? 'dark' : 'light', y: { formatter: function (v) { return v + ' convenios'; } } }
                 });
                 cvCharts.nuevos.render();
             } else {
                 cvCharts.nuevos.updateOptions({
-                    xaxis: { categories: ['Activos', 'Completados', 'Cancelados'] },
-                    colors: ['#2ecc8b', '#3498db', '#e74c3c'],
+                    xaxis: {
+                        categories: ['Activos', 'Completados', 'Cancelados'],
+                        labels: { style: { colors: isDark() ? '#94a3b8' : pal.muted, fontSize: '11px' } }
+                    },
+                    yaxis: { labels: { style: { colors: isDark() ? '#94a3b8' : pal.muted, fontSize: '11px' } } },
+                    colors: [pal.success, pal.primary, pal.danger],
                     plotOptions: { bar: { borderRadius: 6, columnWidth: '48%', distributed: true } }
                 }, false, true);
                 cvCharts.nuevos.updateSeries([{ name: 'Nuevos', data: series }], true);
@@ -789,7 +944,8 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
 
     // ─── Render: radial de recuperación ─────────────────────
     function renderRadialRecuperacion(pct) {
-        var color = pct >= 60 ? '#2ecc8b' : (pct >= 30 ? '#f0a500' : '#e74c3c');
+        var pal = cvChartPalette();
+        var color = pct >= 60 ? pal.success : (pct >= 30 ? pal.warning : pal.danger);
         ensureApex(function () {
             var opts = {
                 chart: { type: 'radialBar', height: CV_KPI_CHART_PX, toolbar: { show: false }, animations: { speed: 400 } },
@@ -798,12 +954,12 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 colors: [color],
                 plotOptions: {
                     radialBar: {
-                        hollow: { size: '62%', background: 'transparent' },
-                        track: { background: isDark() ? '#334155' : '#e9ecef', strokeWidth: '100%' },
+                        hollow: { size: '68%', background: 'transparent' },
+                        track: { background: isDark() ? '#334155' : '#e9ecef', strokeWidth: '92%' },
                         dataLabels: {
-                            name: { show: true, fontSize: '10px', fontWeight: 600, color: isDark() ? '#94a3b8' : '#6b7a90', offsetY: 12 },
+                            name: { show: true, fontSize: '11px', fontWeight: 600, color: isDark() ? '#94a3b8' : pal.muted, offsetY: 30 },
                             value: {
-                                show: true, fontSize: '1.125rem', fontWeight: 800, color: isDark() ? '#e2e8f0' : '#1a3a5c', offsetY: -8,
+                                show: true, fontSize: '1.35rem', fontWeight: 800, color: isDark() ? '#e2e8f0' : '#1a3a5c', offsetY: -6,
                                 formatter: function (v) { return Math.round(parseFloat(String(v).replace(',', '.'))) + '%'; }
                             },
                             total: { show: false }
@@ -826,7 +982,8 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     function renderDonutPenetracion(conC, sinC) {
         var total   = conC + sinC;
         var series  = total > 0 ? [conC, sinC] : [0, 1];
-        var colors  = total > 0 ? ['#2ecc8b', '#bdc3c7'] : ['#dde3ec', '#dde3ec'];
+        var pal = cvChartPalette();
+        var colors  = total > 0 ? [pal.success, pal.secondary] : ['#dde3ec', '#dde3ec'];
         ensureApex(function () {
             if (!cvCharts.penetracion) {
                 cvCharts.penetracion = new ApexCharts(document.querySelector('#cvChartPenetracion'), {
@@ -884,17 +1041,18 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         });
     }
 
-    /** Rango compacto para badges de KPIs (misma idea que CapHum / Gastos Cobranza). */
-    function cvPeriodoBadgeText(d) {
-        if (!d || !d.fecha_ini || !d.fecha_fin) return '—';
+    /** Igual que Gastos Cobranza: `YYYY-MM-DD a YYYY-MM-DD` (flatpickr / encabezado). */
+    function cvFmtRangoIsoDesde(d) {
+        if (!d || !d.fecha_ini || !d.fecha_fin) return '';
         var a = String(d.fecha_ini).replace(/T.*/, '').slice(0, 10);
         var b = String(d.fecha_fin).replace(/T.*/, '').slice(0, 10);
-        function dmy(s) {
-            var p = s.split('-');
-            if (p.length !== 3) return s;
-            return parseInt(p[2], 10) + '/' + parseInt(p[1], 10) + '/' + p[0];
-        }
-        return dmy(a) + ' – ' + dmy(b);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(a) || !/^\d{4}-\d{2}-\d{2}$/.test(b)) return '';
+        return a + ' a ' + b;
+    }
+
+    function cvPeriodoBadgeText(d) {
+        var s = cvFmtRangoIsoDesde(d);
+        return s || '—';
     }
 
     function setCvTopKpiPeriodBadges(d) {
@@ -907,15 +1065,13 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     // ─── Pintar: datos de convenios (KPIs + nuevos) ─────────
     function pintarConvenios(d) {
         if (!d) return;
-        var subTit = d.periodo_label && String(d.periodo_label).trim()
-            ? String(d.periodo_label).trim()
-            : ((d.fecha_ini && d.fecha_fin) ? ('Rango consultado: ' + d.fecha_ini + ' → ' + d.fecha_fin) : '—');
+        var subTit = cvFmtRangoIsoDesde(d) || (d.periodo_label && String(d.periodo_label).trim()) || '—';
         setText('cvEstSubtitulo', subTit);
         setCvTopKpiPeriodBadges(d);
         setText('cvKpiActivos',     String(d.total_activos      ?? 0));
         setText('cvKpiCompletados', String(d.total_completados  ?? 0));
         setText('cvKpiCancelados',  String(d.total_cancelados   ?? 0));
-        var rango = (d.fecha_ini && d.fecha_fin) ? (d.fecha_ini + ' → ' + d.fecha_fin) : '—';
+        var rango = cvFmtRangoIsoDesde(d) || '—';
         setText('cvNuevosRangoInline', rango);
         setText('cvNuevosActivos',     String(d.nuevos_activos     ?? 0));
         setText('cvNuevosCompletados', String(d.nuevos_completados ?? 0));
@@ -927,7 +1083,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     // ─── Pintar: cierres / recuperación ─────────────────────
     function pintarCierres(d) {
         if (!d) return;
-        var rango = (d.fecha_ini && d.fecha_fin) ? (d.fecha_ini + ' → ' + d.fecha_fin) : '—';
+        var rango = cvFmtRangoIsoDesde(d) || '—';
         setText('cvSemRangoInline', rango);
         setText('cvSemPagadas',    String(d.semanas_pagadas    ?? 0));
         setText('cvSemVencidas',   String(d.semanas_vencidas   ?? 0));
@@ -949,7 +1105,8 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         console.log('[cvAsignacion] datos recibidos:', JSON.parse(JSON.stringify(d || {})));
         if (!d) { console.warn('[cvAsignacion] datos vacíos/nulos'); return; }
         var pct   = Math.min(100, Math.max(0, nv(d.pct_penetracion ?? 0)));
-        var color = pct >= 40 ? '#2ecc8b' : (pct >= 20 ? '#f0a500' : '#e74c3c');
+        var pal = cvChartPalette();
+        var color = pct >= 40 ? pal.success : (pct >= 20 ? pal.warning : pal.danger);
         var elPct = document.getElementById('cvPctPenetracion');
         if (elPct) {
             elPct.textContent = pct + '%';
@@ -980,14 +1137,14 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 elTxt.textContent = '¡Cobertura máxima alcanzada!';
                 elSub.textContent = '100% de la cartera tiene convenio activo.';
                 elBar.style.width = '100%';
-                elBar.style.background = '#2ecc8b';
+                elBar.style.background = pal.success;
                 return;
             }
             var metaNombres = { 20: 'cobertura media', 40: 'cobertura alta', 60: '60%', 80: '80%', 100: '100%' };
             var necesarios = Math.ceil(total * (meta / 100)) - conC;
             necesarios = Math.max(0, necesarios);
             var progEnMeta = meta > 0 ? Math.min(100, (pct / meta) * 100) : 0;
-            var barColor = meta <= 20 ? '#e74c3c' : (meta <= 40 ? '#f0a500' : '#2ecc8b');
+            var barColor = meta <= 20 ? pal.danger : (meta <= 40 ? pal.warning : pal.success);
             elTxt.innerHTML = 'Faltan <strong style="color:' + barColor + ';font-size:14px;">' + necesarios.toLocaleString('es-MX') + ' convenios</strong><br>para alcanzar ' + (metaNombres[meta] || meta + '%');
             elSub.textContent = Math.round(progEnMeta) + '% del camino hacia el ' + meta + '% · Actual: ' + Math.round(pct * 10) / 10 + '%';
             elBar.style.width = progEnMeta + '%';
@@ -997,17 +1154,11 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         // ── KPIs de entidades de despacho ──────────────────────
         setText('cvDespTotal',       String(d.total_despachos_activos ?? 0));
         setText('cvDespConConvenio', String(d.despachos_con_convenio   ?? 0));
-        setText('cvDespSinConvenio', String(d.despachos_sin_convenio   ?? 0));
         setText('cvDespCelulaDesp',  String(d.celula_despacho_cnt      ?? 0));
         setText('cvDespCelulaCC',    String(d.celula_callcenter_cnt    ?? 0));
         setText('cvTopDespNombre',    d.top_despacho_nombre   || '—');
         setText('cvTopDespConvenios', String(d.top_despacho_convenios ?? 0));
-        setText('cvBottomDespNombre',    d.bottom_despacho_nombre   || '—');
-        setText('cvBottomDespConvenios', String(d.bottom_despacho_convenios ?? 0));
-        setText('cvDespPctActivos',    (d.pct_gestores_activos ?? 0) + '%');
         setText('cvDespCreditosGestion', String(d.creditos_en_gestion      ?? 0));
-        setText('cvDespPromedioConv',    String(d.promedio_convenios_gestor ?? 0));
-        setText('cvDespEnMeta',          String(d.gestores_en_meta          ?? 0));
         setText('cvTopGestorPeriodoNombre',    d.top_gestor_periodo_nombre    || '—');
         setText('cvTopGestorPeriodoConvenios', String(d.top_gestor_periodo_convenios ?? 0));
     }
@@ -1070,10 +1221,15 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
         };
         setText('cvNuevosDetalleTitulo', (titulos[tipo] || tipo) + ' (cargando…)');
         setText('cvNuevosDetalleSub', '');
-        var mes = parseInt(document.getElementById('cvEstMes').value, 10);
-        if (isNaN(mes)) mes = mesSel;
         var reqId = ++cvDetalleReqSeq;
-        postForm('/convenios/getEstadisticasConveniosDetalle', { anio: anioSel, mes: mes, tipo: tipo })
+        var pp = cvParamsPeriodo();
+        postForm('/convenios/getEstadisticasConveniosDetalle', {
+            anio: pp.anio,
+            mes: pp.mes,
+            fecha_inicio: pp.fecha_inicio,
+            fecha_fin: pp.fecha_fin,
+            tipo: tipo
+        })
             .then(function (wrap) {
                 if (reqId !== cvDetalleReqSeq || tipo !== cvNuevoTipoAbierto) return;
                 var resp = wrap.json;
@@ -1086,7 +1242,7 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
                 var dat = resp.datos;
                 var suf = dat.total != null ? ' · Total: ' + dat.total : '';
                 setText('cvNuevosDetalleTitulo', (titulos[tipo] || tipo) + suf);
-                setText('cvNuevosDetalleSub', (dat.fecha_ini && dat.fecha_fin) ? dat.fecha_ini + ' → ' + dat.fecha_fin : '');
+                setText('cvNuevosDetalleSub', cvFmtRangoIsoDesde(dat));
                 renderPieDetalle(dat.por_producto || []);
             })
             .catch(function () {
@@ -1099,14 +1255,10 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
 
     // ─── Refrescar todo el panel ─────────────────────────────
     function refrescar() {
-        var mes = parseInt(document.getElementById('cvEstMes').value, 10);
-        if (isNaN(mes)) mes = mesSel;
-        var ay = document.getElementById('cvEstAnio');
-        if (ay) { var y = parseInt(ay.value, 10); if (!isNaN(y)) anioSel = y; }
         cerrarDetallePanel();
         showLoading();
         setText('cvEstSubtitulo', 'Actualizando…');
-        var params   = { anio: anioSel, mes: mes };
+        var params = cvParamsPeriodo();
         var rConv    = ++cvReqConv;
         var rCierr   = ++cvReqCierr;
         var rAsig    = ++cvReqAsig;
@@ -1156,23 +1308,17 @@ $datosInicialesJson = $datosInicialesJson ?? '{}';
     }
 
     // ─── Inicialización ──────────────────────────────────────
-    llenarAnios();
-    llenarMeses();
     pintarConvenios(datosIni.convenios   || {});
     pintarCierres  (datosIni.cierres     || {});
     pintarAsignacion(datosIni.asignacion || {});
 
-    document.getElementById('cvEstAnio').addEventListener('change', function () {
-        anioSel = parseInt(this.value, 10);
-        if (isNaN(anioSel)) anioSel = new Date().getFullYear();
-        llenarMeses();
-        refrescar();
-    });
-    document.getElementById('cvEstMes').addEventListener('change', function () {
-        mesSel = parseInt(this.value, 10);
-        if (isNaN(mesSel)) mesSel = 1;
-        refrescar();
-    });
+    scheduleInitFlatpickrCvEst();
+    var btnCvFpReset = document.getElementById('btnCvEstRestablecerPeriodo');
+    if (btnCvFpReset) {
+        btnCvFpReset.addEventListener('click', function () {
+            cvRestaurarPeriodoPorDefecto();
+        });
+    }
 
     document.querySelectorAll('.cv-nuevo-card').forEach(function (card) {
         card.addEventListener('click', function (e) {

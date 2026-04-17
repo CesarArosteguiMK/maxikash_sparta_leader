@@ -46,6 +46,7 @@
                         <div class="gc-kpi-period-badge mb-2 text-start align-self-start w-100" style="font-size:.62rem;font-weight:700;letter-spacing:.04em;color:var(--bs-secondary-color);line-height:1.25">—</div>
                         <div class="fs-4 fw-bold text-body" id="gcKpiTotalMonto">—</div>
                         <div class="small text-muted mt-1 flex-grow-1" id="gcKpiTotalSub">—</div>
+                        <div class="mt-auto pt-2"><span class="badge rounded-pill bg-label-secondary text-secondary" id="gcKpiTotalPctBadge">100%</span></div>
                     </div>
                 </div>
             </div>
@@ -511,6 +512,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (tM) tM.textContent = fmtMoneyCompact(tot.monto);
         if (tSub) {
             tSub.textContent = (tot.count != null ? fmtCount(tot.count) : '—') + ' cargos por pagos tardíos';
+        }
+        var tPct = document.getElementById('gcKpiTotalPctBadge');
+        if (tPct) {
+            var pTot = tot.pct != null ? parseFloat(tot.pct) : 100;
+            tPct.textContent = fmtKpiPctBadge(isNaN(pTot) ? 100 : pTot);
         }
         setKpi('gcKpiRec', kpis.recuperado, 'gcKpiRecPctBadge');
         setKpi('gcKpiPen', kpis.pendiente, 'gcKpiPenPctBadge');
