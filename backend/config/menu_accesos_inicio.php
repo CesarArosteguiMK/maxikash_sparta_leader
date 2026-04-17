@@ -15,7 +15,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/caphum/candidatos', 'label' => 'Selección de Personal', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [42]],
             ['url' => '/caphum/bajas', 'label' => 'Control de Bajas', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [13]],
             ['url' => '/caphum/organigrama', 'label' => 'Organigrama Cobranza', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [5]],
-            ['url' => '/reporteria/callcenter', 'label' => 'Call Center', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [6, 14, 15]],
+            ['url' => '/reporteria/callcenter', 'label' => 'Call Center', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [6]],
             ['url' => '/condonaciones/historial', 'label' => 'Historial condonaciones', 'icon' => 'fa-solid fa-file-invoice-dollar', 'bg' => 'bg-orange', 'modulos' => [15, 39]],
             ['url' => '/gastoscobranza/estadisticagc', 'label' => 'Estadísticas Gastos Cobranza', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-orange', 'modulos' => [40]],
             ['url' => '/reporteria/primerospagos', 'label' => 'Primeros pagos', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [49]],
