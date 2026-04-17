@@ -42,6 +42,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/reporteria/layoutlegacy', 'modulos' => [7]],
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
+                    ['label' => 'Comparativas', 'url' => '/reporteria/comparativas', 'modulos' => [6]],
                 ],
             ],
             'Tickets' => [
