@@ -168,6 +168,44 @@
         border-radius: 0.5rem;
     }
 
+    /* Modal permisos: pestañas fijas arriba; solo el bloque de contenido hace scroll */
+    #modalEditPerfil.modal .modal-perfil-gestor-dialog {
+        max-height: min(92vh, 960px);
+        margin: 1rem auto;
+    }
+    #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-content {
+        max-height: inherit;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+    #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-header {
+        flex-shrink: 0;
+    }
+    #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-perfil-gestor-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-perfil-gestor-tabs {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 5;
+        background: #fff;
+    }
+    #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-perfil-gestor-tab-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.dark-mode #modalEditPerfil.modal .modal-perfil-gestor-dialog .modal-perfil-gestor-tabs {
+        background: #252525 !important;
+    }
+
     #offcanvasEditPerfil .tab-content:not(.doc-example-content) {
         padding: .25rem 0;
     }
@@ -3312,7 +3350,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       MODAL - GESTIÓN DE PERMISOS Y PUESTOS
  ======================== -->
     <div class="modal fade" id="modalEditPerfil" tabindex="-1" aria-labelledby="modalEditPerfilLabel" aria-hidden="true" data-bs-backdrop="false" data-bs-keyboard="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-perfil-gestor-dialog">
             <div class="modal-content" style="border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.12);">
                 <div class="modal-header" style="background: #f8f9fa; border-bottom: 2px solid #e9ecef; padding: 1.5rem;">
                     <div class="d-flex align-items-center w-100">
@@ -3328,9 +3366,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </div>
                 </div>
 
-                <div class="modal-body p-0">
-                    <!-- Tabs -->
-                    <ul class="nav nav-tabs nav-tabs-custom px-4 pt-3" role="tablist" style="border-bottom: 2px solid #e9ecef;">
+                <div class="modal-body p-0 modal-perfil-gestor-body">
+                    <!-- Tabs (fijas; el scroll es solo en .modal-perfil-gestor-tab-content) -->
+                    <ul class="nav nav-tabs nav-tabs-custom px-4 pt-3 modal-perfil-gestor-tabs" role="tablist" style="border-bottom: 2px solid #e9ecef;">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="tabModulos-tab" data-bs-toggle="tab" data-bs-target="#tabModulos" type="button" role="tab">
                                 <i class="fa fa-shield-alt me-2" style="color: #6c757d;"></i>Módulos del Sistema
@@ -3353,7 +3391,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         </li>
                     </ul>
 
-                    <div class="tab-content p-4">
+                    <div class="tab-content p-4 modal-perfil-gestor-tab-content">
                         <!-- TAB MÓDULOS -->
                         <div class="tab-pane fade show active" id="tabModulos" role="tabpanel">
                             <div class="d-flex justify-content-between align-items-center mb-4">

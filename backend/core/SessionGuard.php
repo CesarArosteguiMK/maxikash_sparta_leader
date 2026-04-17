@@ -13,11 +13,6 @@ class SessionGuard
             return;
         }
 
-        $ultima = $_SESSION['last_session_check'] ?? 0;
-        if (time() - $ultima < 20) {
-            return;
-        }
-
         $db = new Database();
 
         $sql = <<<SQL
@@ -28,20 +23,25 @@ class SessionGuard
         SQL;
 
         $row = $db->queryOne($sql, [
-            'id' => $_SESSION['usuario_id']
+            'id' => $_SESSION['usuario_id'],
         ]);
 
-        // 🔴 usuario eliminado o forzar logout
-        if (!$row || (int)$row['force_logout'] === 1) {
+        // 🔴 usuario eliminado o forzar logout — siempre consultar (no acotar a los 20 s de session_version)
+        if (!$row || (int) ($row['force_logout'] ?? 0) === 1) {
             self::cerrar();
         }
 
-        // 🔄 permisos actualizados
-        if ((int)$row['session_version'] !== (int)$_SESSION['session_version']) {
+        // 🔄 permisos actualizados (throttle: como mucho cada 20 s)
+        $ultima = $_SESSION['last_session_check'] ?? 0;
+        if (time() - $ultima < 20) {
+            return;
+        }
+
+        if ((int) $row['session_version'] !== (int) $_SESSION['session_version']) {
             $_SESSION['modulos'] = LoginDao::getModulosUsuario(
                 $_SESSION['usuario_id']
             );
-            $_SESSION['session_version'] = (int)$row['session_version'];
+            $_SESSION['session_version'] = (int) $row['session_version'];
         }
 
         $_SESSION['last_session_check'] = time();
