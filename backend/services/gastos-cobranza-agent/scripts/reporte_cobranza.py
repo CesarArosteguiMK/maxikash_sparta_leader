@@ -4,7 +4,8 @@ REPORTE GASTOS DE COBRANZA + SALDO A FAVOR
 Columnas finales:
   ID CREDITO | ID CLIENTE | NOMBRE CLIENTE | STATUS CREDITO | CUOTA SEMANAL |
   DEUDA GC PENDIENTE | SALDO A FAVOR DEL CLIENTE | SALDO APLICABLE A GC |
-  fecha_ultimo_abono_efectivo | MAXI APP (última conexión CDMX + ¿se conectó?) | COMENTARIOS | ERROR
+  fecha_ultimo_abono_efectivo | ultimo_abono_efectivo (Monto_abono_efectivo, tbl_segundometro_semana) |
+  MAXI APP (última conexión CDMX + ¿se conectó?) | COMENTARIOS | ERROR
 
 Flujo:
   1. MySQL trae créditos elegibles (gastos_cobranza + tbl_segundometro_semana, Dias_mora=0,
@@ -20,7 +21,7 @@ Flujo:
   8. Columnas Maxi app (__SPARTA_SECRET_REDACTED__.ubicacion, idCliente = ID CLIENTE): ventana en calendario CDMX —
      vie–dom → lunes de esa semana hasta hoy CDMX; lun–jue → hoy CDMX y 4 días anteriores (5 días en total).
      Última conexión mostrada en hora CDMX (no depender del huso del servidor del script).
-     Las columnas Maxi app van después de fecha_ultimo_abono_efectivo y antes de COMENTARIOS.
+     ultimo_abono_efectivo va después de fecha_ultimo_abono_efectivo y antes de las columnas Maxi app.
 
 En el .xlsx, el fondo de la fila refleja COMENTARIOS: verde si contiene «APLICAR» (día laboral);
 rojo suave si contiene «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (orden de comprobación: CUOTA antes que APLICAR).
@@ -353,6 +354,7 @@ def merge_descargo_en_reporte(
         monto_aplicar       → SALDO_APLICABLE_GC (solo esta columna)
         tipo_reporte        → STATUS_CREDITO
         ultimo_pago_efectivo → FECHA_ULTIMO_ABONO_EFECTIVO
+        Monto_abono_efectivo (tbl_segundometro_semana) → ULTIMO_ABONO_EFECTIVO
         id_credito          → ID_CREDITO
         Id_cliente (si existe en fila descargo) → ID CLIENTE
         nombre              → NOMBRE_CLIENTE
@@ -367,6 +369,7 @@ def merge_descargo_en_reporte(
     filas_saltadas = 0
     ids_descargo = {str(r.get("id_credito", "") or "").strip() for r in rows_descargo}
     deuda_gc_bd_por_credito = _obtener_deuda_gc_bd_por_ids(ids_descargo)
+    monto_abono_por_credito = _obtener_monto_abono_efectivo_por_ids(ids_descargo)
 
     for row in rows_descargo:
         id_c = str(row.get("id_credito", "") or "")
@@ -389,6 +392,9 @@ def merge_descargo_en_reporte(
             "SALDO_APLICABLE_GC":           0.0,
             "FECHA_ULTIMO_ABONO_EFECTIVO":  _dt_descargo_a_str(
                 row.get("ultimo_pago_efectivo") or row.get("registrado_en_cdmx")
+            ),
+            "ULTIMO_ABONO_EFECTIVO":        monto_abono_efectivo_para_excel(
+                monto_abono_por_credito.get(id_c)
             ),
             "COMENTARIOS":                  "",
             "ERROR":                        "",
@@ -447,6 +453,7 @@ SELECT
     MAX(s.`Id_cliente`) AS id_cliente,
     COUNT(*)         AS cuotas,
     MAX(s.`Fecha_ultimo_pago_efectivo`) AS fecha_ultimo_pago_efectivo,
+    MAX(s.`Monto_abono_efectivo`)      AS monto_abono_efectivo,
     ROUND(
         SUM(
             CASE
@@ -638,6 +645,60 @@ GROUP BY g.`Id_credito`
     return out
 
 
+def _obtener_monto_abono_efectivo_por_ids(ids_credito: set[str]) -> dict[str, float | None]:
+    """
+    Monto_abono_efectivo por id_credito desde __SPARTA_SECRET_REDACTED__.tbl_segundometro_semana (Dias_mora=0).
+    """
+    out: dict[str, float | None] = {}
+    ids_limpios: list[int] = []
+    for x in ids_credito:
+        sx = str(x or "").strip()
+        if not sx:
+            continue
+        try:
+            xi = int(sx)
+        except (TypeError, ValueError):
+            continue
+        if xi > 0:
+            ids_limpios.append(xi)
+    if not ids_limpios:
+        return out
+
+    sql_tpl = """
+SELECT
+    s.`Id_credito` AS id_credito,
+    MAX(s.`Monto_abono_efectivo`) AS monto_abono_efectivo
+FROM `tbl_segundometro_semana` AS s
+WHERE s.`Dias_mora` = 0
+  AND s.`Id_credito` IN ({ph})
+GROUP BY s.`Id_credito`
+"""
+    conn = pymysql.connect(**DB_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            chunk = 500
+            ids_sorted = sorted(set(ids_limpios))
+            for i in range(0, len(ids_sorted), chunk):
+                part = ids_sorted[i : i + chunk]
+                ph = ",".join(["%s"] * len(part))
+                cur.execute(sql_tpl.format(ph=ph), tuple(part))
+                for row in cur.fetchall():
+                    cid = str(row.get("id_credito") or "").strip()
+                    if not cid:
+                        continue
+                    raw = row.get("monto_abono_efectivo")
+                    if raw is None:
+                        out[cid] = None
+                        continue
+                    try:
+                        out[cid] = float(raw)
+                    except (TypeError, ValueError):
+                        out[cid] = None
+    finally:
+        conn.close()
+    return out
+
+
 def _metricas_descargo_desde_s2(
     row_descargo: dict,
     fecha_corte: str,
@@ -709,6 +770,21 @@ def fecha_abono_efectivo_para_excel(row: dict, hoy: date) -> str:
         return ""
     nombre = _NOMBRE_DIA_SEMANA_ES[d_pago.weekday()]
     return f"{d_pago.isoformat()} — {nombre}"
+
+
+def monto_abono_efectivo_para_excel(raw) -> float | str:
+    """Monto_abono_efectivo (`tbl_segundometro_semana`, __SPARTA_SECRET_REDACTED__) para columna ultimo_abono_efectivo."""
+    if raw is None:
+        return ""
+    if isinstance(raw, str) and not raw.strip():
+        return ""
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return ""
+    if v != v:  # NaN
+        return ""
+    return round(v, 2)
 
 
 def obtener_ids_mysql(fecha_filtro_pago_efectivo: date) -> list[dict]:
@@ -1117,6 +1193,7 @@ def procesar_registro(row, fecha_corte_str, lunes: date, hoy: date, fecha_coment
         "SALDO_A_FAVOR": 0.0,
         "SALDO_APLICABLE_GC": 0.0,
         "FECHA_ULTIMO_ABONO_EFECTIVO": fecha_abono_efectivo_para_excel(row, hoy),
+        "ULTIMO_ABONO_EFECTIVO": monto_abono_efectivo_para_excel(row.get("monto_abono_efectivo")),
         "COMENTARIOS": "",
         "ERROR": "",
     }
@@ -1179,6 +1256,7 @@ COLUMNAS = [
     ("SALDO_A_FAVOR", "SALDO A FAVOR DEL CLIENTE"),
     ("SALDO_APLICABLE_GC", "SALDO APLICABLE A GC"),
     ("FECHA_ULTIMO_ABONO_EFECTIVO", "fecha_ultimo_abono_efectivo"),
+    ("ULTIMO_ABONO_EFECTIVO", "ultimo_abono_efectivo"),
     ("MAXI_APP_ULTIMA_CDMX", "MAXI APP — ÚLTIMA CONEXIÓN (CDMX)"),
     ("MAXI_APP_CONECTO", "MAXI APP — ¿SE CONECTÓ?"),
     ("COMENTARIOS", "COMENTARIOS"),
@@ -1194,12 +1272,13 @@ ANCHOS = {
     "SALDO_A_FAVOR": 24,
     "SALDO_APLICABLE_GC": 22,
     "FECHA_ULTIMO_ABONO_EFECTIVO": 32,
+    "ULTIMO_ABONO_EFECTIVO": 20,
     "MAXI_APP_ULTIMA_CDMX": 36,
     "MAXI_APP_CONECTO": 22,
     "COMENTARIOS": 52,
     "ERROR": 30,
 }
-MONEY_COLS = {"CUOTA_SEMANAL", "DEUDA_GC", "SALDO_A_FAVOR", "SALDO_APLICABLE_GC"}
+MONEY_COLS = {"CUOTA_SEMANAL", "DEUDA_GC", "SALDO_A_FAVOR", "SALDO_APLICABLE_GC", "ULTIMO_ABONO_EFECTIVO"}
 SF_COLS    = {"SALDO_A_FAVOR", "SALDO_APLICABLE_GC"}
 DEUDA_COLS = {"DEUDA_GC"}
 
@@ -1545,6 +1624,7 @@ def main() -> None:
                         "SALDO_A_FAVOR": 0.0,
                         "SALDO_APLICABLE_GC": 0.0,
                         "FECHA_ULTIMO_ABONO_EFECTIVO": fecha_abono_efectivo_para_excel(row, hoy),
+                        "ULTIMO_ABONO_EFECTIVO": monto_abono_efectivo_para_excel(row.get("monto_abono_efectivo")),
                         "COMENTARIOS": "",
                         "ERROR": f"Excepcion: {e}",
                     }
@@ -1622,6 +1702,7 @@ def main() -> None:
                         "SALDO_A_FAVOR": 0.0,
                         "SALDO_APLICABLE_GC": 0.0,
                         "FECHA_ULTIMO_ABONO_EFECTIVO": fecha_abono_efectivo_para_excel(row, hoy),
+                        "ULTIMO_ABONO_EFECTIVO": monto_abono_efectivo_para_excel(row.get("monto_abono_efectivo")),
                         "COMENTARIOS": "",
                         "ERROR": f"Excepcion (reintento): {e}",
                     }

@@ -174,7 +174,58 @@ def _fmt_semana_iso(anio_val, semana_val) -> str:
     return ""
 
 
-def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[list[str], list[list]]:
+def _ids_credito_desde_rows(rows: list, colnames: list[str]) -> list[int]:
+    """id_credito únicos de las filas del descargo (estatus=3)."""
+    ix = col_index_ci(colnames, "id_credito")
+    out: set[int] = set()
+    for row in rows:
+        try:
+            v = row[ix]
+            if v is None or (isinstance(v, str) and not str(v).strip()):
+                continue
+            out.add(int(v))
+        except (TypeError, ValueError, IndexError):
+            continue
+    return sorted(out)
+
+
+def _fetch_monto_abono_efectivo_por_ids(cur, ids: list[int]) -> dict[int, Optional[float]]:
+    """
+    Monto_abono_efectivo por Id_credito en __SPARTA_SECRET_REDACTED__.tbl_segundometro_semana (Dias_mora=0).
+    """
+    result: dict[int, Optional[float]] = {}
+    if not ids:
+        return result
+    chunk = 500
+    for i in range(0, len(ids), chunk):
+        part = ids[i : i + chunk]
+        ph = ",".join(["%s"] * len(part))
+        sql = (
+            f"SELECT `Id_credito` AS id_credito, MAX(`Monto_abono_efectivo`) AS monto "
+            f"FROM `tbl_segundometro_semana` WHERE `Dias_mora` = 0 AND `Id_credito` IN ({ph}) "
+            f"GROUP BY `Id_credito`"
+        )
+        cur.execute(sql, tuple(part))
+        for r in cur.fetchall():
+            try:
+                ic = int(r[0])
+            except (TypeError, ValueError):
+                continue
+            if r[1] is None:
+                result[ic] = None
+            else:
+                try:
+                    result[ic] = float(r[1])
+                except (TypeError, ValueError):
+                    result[ic] = None
+    return result
+
+
+def construir_tabla_descargo_export(
+    rows: list,
+    colnames: list[str],
+    monto_abono_por_id: Optional[dict[int, Optional[float]]] = None,
+) -> tuple[list[str], list[list]]:
     """
     Encabezados legibles + filas para el Excel (misma salida que antes vía pandas).
     `mensaje` en BD → Observaciones.
@@ -189,8 +240,10 @@ def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[li
         "Semana ISO",
         "registrado_en_cdmx",
         "Último pago efectivo",
+        "ultimo_abono_efectivo",
         "Observaciones",
     ]
+    monto_abono_por_id = monto_abono_por_id or {}
     data: list[list] = []
     for row in rows:
         m = _fila_como_mapa_lc(tuple(row), colnames)
@@ -201,6 +254,17 @@ def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[li
         reg_txt = _datetime_a_iso_cdmx(reg) if _valor_presente(reg) else ""
         upe = m.get("ultimo_pago_efectivo")
         upe_txt = _datetime_a_iso_cdmx(upe) if _valor_presente(upe) else ""
+        monto_ae = None
+        try:
+            ic_raw = m.get("id_credito")
+            if ic_raw is not None and str(ic_raw).strip() != "":
+                ic_int = int(ic_raw)
+                if ic_int in monto_abono_por_id:
+                    mv = monto_abono_por_id[ic_int]
+                    if mv is not None and _valor_presente(mv):
+                        monto_ae = float(mv)
+        except (TypeError, ValueError):
+            monto_ae = None
         fila_out = [
             m.get("id_credito"),
             m.get("nombre"),
@@ -211,6 +275,7 @@ def construir_tabla_descargo_export(rows: list, colnames: list[str]) -> tuple[li
             sem_txt,
             reg_txt,
             upe_txt,
+            monto_ae,
             m.get("mensaje"),
         ]
         data.append(fila_out)
@@ -234,6 +299,7 @@ def escribir_excel_descargo_formateado(encabezados: list[str], data_rows: list[l
     headers = list(encabezados)
     num_cols = len(headers)
     idx_monto = headers.index("Monto a aplicar") + 1 if "Monto a aplicar" in headers else None
+    idx_ult_ab = headers.index("ultimo_abono_efectivo") + 1 if "ultimo_abono_efectivo" in headers else None
     idx_id_cred = headers.index("ID crédito") + 1 if "ID crédito" in headers else None
     idx_est = headers.index("Estatus") + 1 if "Estatus" in headers else None
     idx_usr = headers.index("Id usuario que reportó") + 1 if "Id usuario que reportó" in headers else None
@@ -255,6 +321,13 @@ def escribir_excel_descargo_formateado(encabezados: list[str], data_rows: list[l
             c = ws.cell(row=i, column=j, value=v)
             c.border = cell_border
             if j == idx_monto and v is not None:
+                try:
+                    c.value = float(v)
+                    c.number_format = monto_fmt
+                    c.alignment = align_num
+                except (TypeError, ValueError):
+                    c.alignment = align_top
+            elif j == idx_ult_ab and v is not None:
                 try:
                     c.value = float(v)
                     c.number_format = monto_fmt
@@ -291,6 +364,7 @@ def escribir_excel_descargo_formateado(encabezados: list[str], data_rows: list[l
         "Semana ISO": 14,
         "registrado_en_cdmx": 22,
         "Último pago efectivo": 22,
+        "ultimo_abono_efectivo": 20,
         "Observaciones": 48,
     }
     for j, h in enumerate(headers, start=1):
@@ -409,7 +483,9 @@ def descargo_estatus_3_incremental(
     if rows:
         try:
             datos_dir.mkdir(parents=True, exist_ok=True)
-            hdrs, data_export = construir_tabla_descargo_export(rows, colnames)
+            ids_sm = _ids_credito_desde_rows(rows, colnames)
+            monto_map = _fetch_monto_abono_efectivo_por_ids(cur, ids_sm)
+            hdrs, data_export = construir_tabla_descargo_export(rows, colnames, monto_map)
             escribir_excel_descargo_formateado(hdrs, data_export, xlsx_path)
         except OSError as e:
             print(f"No se pudo escribir el Excel ({xlsx_path}): {e}", file=sys.stderr)
