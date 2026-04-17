@@ -1060,12 +1060,15 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             input.focus();
         });
 
-    document.getElementById('cc-filtros-hist-toggle').addEventListener('click', function () {
-        const opciones = document.getElementById('cc-filtros-hist-opciones');
-        const isOpen   = opciones.style.display !== 'none';
-        opciones.style.display = isOpen ? 'none' : 'flex';
-        this.classList.toggle('open', !isOpen);
-    });
+    const _filtrosHistToggle = document.getElementById('cc-filtros-hist-toggle');
+    if (_filtrosHistToggle) {
+        _filtrosHistToggle.addEventListener('click', function () {
+            const opciones = document.getElementById('cc-filtros-hist-opciones');
+            const isOpen   = opciones.style.display !== 'none';
+            opciones.style.display = isOpen ? 'none' : 'flex';
+            this.classList.toggle('open', !isOpen);
+        });
+    }
 
     document.querySelectorAll('.cc-filtro-hist-opcion').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -1078,12 +1081,15 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         });
     });
 
-    document.getElementById('cc-filtros-toggle').addEventListener('click', function () {
-        const opciones = document.getElementById('cc-filtros-opciones');
-        const isOpen   = opciones.style.display !== 'none';
-        opciones.style.display = isOpen ? 'none' : 'flex';
-        this.classList.toggle('open', !isOpen);
-    });
+    const _filtrosToggle = document.getElementById('cc-filtros-toggle');
+    if (_filtrosToggle) {
+        _filtrosToggle.addEventListener('click', function () {
+            const opciones = document.getElementById('cc-filtros-opciones');
+            const isOpen   = opciones.style.display !== 'none';
+            opciones.style.display = isOpen ? 'none' : 'flex';
+            this.classList.toggle('open', !isOpen);
+        });
+    }
 
     document.querySelectorAll('#cc-filtros-ef .cc-filtro-opcion').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -1117,12 +1123,15 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (countEl) countEl.textContent = _filtroConv !== 'todos' ? filtered.length + ' de ' + _allRowsConv.length : '';
     }
 
-    document.getElementById('cc-filtros-conv-toggle').addEventListener('click', function () {
-        var opciones = document.getElementById('cc-filtros-conv-opciones');
-        var isOpen   = opciones.style.display !== 'none';
-        opciones.style.display = isOpen ? 'none' : 'flex';
-        this.classList.toggle('open', !isOpen);
-    });
+    const _filtrosConvToggle = document.getElementById('cc-filtros-conv-toggle');
+    if (_filtrosConvToggle) {
+        _filtrosConvToggle.addEventListener('click', function () {
+            var opciones = document.getElementById('cc-filtros-conv-opciones');
+            var isOpen   = opciones.style.display !== 'none';
+            opciones.style.display = isOpen ? 'none' : 'flex';
+            this.classList.toggle('open', !isOpen);
+        });
+    }
 
     document.querySelectorAll('.cc-filtro-conv').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -1134,9 +1143,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     });
 
     /* ── Scroll to top (Validación) ── */
-    document.getElementById('cc-scroll-top-ef').addEventListener('click', function () {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    const _scrollTopEf = document.getElementById('cc-scroll-top-ef');
+    if (_scrollTopEf) {
+        _scrollTopEf.addEventListener('click', function () {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
 
     /* ══════════════════════════════════
        HELPER: bloque de info S2
