@@ -22,6 +22,7 @@ Ejemplo:
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import re
@@ -44,6 +45,13 @@ _MEGA_PHP_DEFAULTS: dict = {
 
 CDMX = ZoneInfo("America/Mexico_City")
 TABLE_NAME = "cobranza_gc_verificacion_semana"
+
+
+def print_ec_webhook_lista_negra_resumen(payload: Dict[str, Any]) -> None:
+    """
+    Una línea JSON (prefijo fijo) para que el agente Node envíe a Google Chat métricas claras.
+    """
+    print("[ec-webhook-lista-negra] " + json.dumps(payload, ensure_ascii=False), flush=True)
 
 
 def log_lista_negra_resumen_ids(
@@ -879,6 +887,18 @@ def main() -> None:
                 )
             ids_sim = sorted({i for i, _, _, _ in a_insertar} | set(ids_con_estatus_3))
             log_lista_negra_resumen_ids(excel_path, ids_sim, dry_run=True)
+            print_ec_webhook_lista_negra_resumen(
+                {
+                    "dry_run": True,
+                    "filas_hoja": filas_hoja,
+                    "filas_sin_id_credito": filas_sin_id,
+                    "ids_unicos_validos_en_excel": len(ids),
+                    "duplicados_excel_omitidos": dup_en_excel if dedupe else 0,
+                    "prevision_actualizaciones_3_a_2": len(ids_con_estatus_3),
+                    "prevision_inserts_nuevos": len(a_insertar),
+                    "sin_cambio_en_bd": omitidos_sin_actualizar,
+                }
+            )
             return
 
         if not a_insertar and not ids_con_estatus_3:
@@ -886,6 +906,18 @@ def main() -> None:
                 "Nada que hacer: no hay filas nuevas ni filas en estatus 3 para esta inicio_semana."
             )
             log_lista_negra_resumen_ids(excel_path, [])
+            print_ec_webhook_lista_negra_resumen(
+                {
+                    "dry_run": False,
+                    "filas_hoja": filas_hoja,
+                    "filas_sin_id_credito": filas_sin_id,
+                    "ids_unicos_validos_en_excel": len(ids),
+                    "duplicados_excel_omitidos": dup_en_excel if dedupe else 0,
+                    "filas_actualizadas_3_a_2": 0,
+                    "filas_insertadas_nuevas": 0,
+                    "sin_cambio_en_bd": omitidos_sin_actualizar,
+                }
+            )
             return
 
         tipo_rep = None if args.tipo_reporte_nulo else args.tipo_reporte
@@ -990,6 +1022,18 @@ def main() -> None:
 
         ids_tocados = sorted({i for i, _, _, _ in a_insertar} | set(ids_con_estatus_3))
         log_lista_negra_resumen_ids(excel_path, ids_tocados)
+        print_ec_webhook_lista_negra_resumen(
+            {
+                "dry_run": False,
+                "filas_hoja": filas_hoja,
+                "filas_sin_id_credito": filas_sin_id,
+                "ids_unicos_validos_en_excel": len(ids),
+                "duplicados_excel_omitidos": dup_en_excel if dedupe else 0,
+                "filas_actualizadas_3_a_2": int(filas_up) if up_params else 0,
+                "filas_insertadas_nuevas": int(total_ins),
+                "sin_cambio_en_bd": omitidos_sin_actualizar,
+            }
+        )
 
     finally:
         conn.close()
