@@ -99,7 +99,7 @@ class AsignacionTablero
             'subcols' => $base['subcols'],
             'filas' => [],
             'resumen' => ['total' => 0, 'continuidad' => 0, 'nuevo' => 0, 'huerfano' => 0, 'sin_jefe' => 0],
-            'campanias' => ['actual' => null, 'anterior' => null],
+            'campanias' => ['actual' => [], 'anterior' => []],
         ];
 
         $dbLegacy = new DatabaseLegacy();
@@ -109,11 +109,22 @@ class AsignacionTablero
         if (count($campanias) < 2) {
             return $out;
         }
-        $campActual = $campanias[0];
-        $campAnterior = $campanias[1];
+        $campActual = array_values(array_filter($campanias, static function (array $c): bool {
+            return (int) ($c['semana_rank'] ?? 0) === 1;
+        }));
+        $campAnterior = array_values(array_filter($campanias, static function (array $c): bool {
+            return (int) ($c['semana_rank'] ?? 0) === 2;
+        }));
+        if ($campActual === [] || $campAnterior === []) {
+            return $out;
+        }
         $out['campanias'] = ['actual' => $campActual, 'anterior' => $campAnterior];
 
-        $tareas = self::obtenerTareasCampanias($dbLegacy, [(int) $campActual['campaign_id'], (int) $campAnterior['campaign_id']]);
+        $idsActual = array_values(array_map(static fn(array $c): int => (int) ($c['campaign_id'] ?? 0), $campActual));
+        $idsAnterior = array_values(array_map(static fn(array $c): int => (int) ($c['campaign_id'] ?? 0), $campAnterior));
+        $idsCampanias = array_values(array_unique(array_filter(array_merge($idsActual, $idsAnterior), static fn(int $id): bool => $id > 0)));
+
+        $tareas = self::obtenerTareasCampanias($dbLegacy, $idsCampanias);
         if ($tareas === []) {
             return $out;
         }
@@ -129,9 +140,9 @@ class AsignacionTablero
             if ($credito === '') {
                 continue;
             }
-            if ($campId === (int) $campAnterior['campaign_id']) {
+            if (in_array($campId, $idsAnterior, true) && !isset($creditosAnterior[$credito])) {
                 $creditosAnterior[$credito] = $t;
-            } elseif ($campId === (int) $campActual['campaign_id']) {
+            } elseif (in_array($campId, $idsActual, true) && !isset($creditosActual[$credito])) {
                 $creditosActual[$credito] = $t;
             }
         }
@@ -221,7 +232,17 @@ class AsignacionTablero
         return $out;
     }
 
-    /** @return list<array{campaign_id:int,campaign_name:string,numero_semana:int}> */
+    /**
+     * Obtiene campañas de las últimas 2 semanas (pueden ser 2+ campañas por semana).
+     *
+     * @return list<array{
+     *   campaign_id:int,
+     *   campaign_name:string,
+     *   numero_semana:int,
+     *   semana_iso:int,
+     *   semana_rank:int
+     * }>
+     */
     private static function obtenerDosCampanias(DatabaseLegacy $db): array
     {
         $sql = "
@@ -230,7 +251,8 @@ class AsignacionTablero
                     c.id,
                     c.name,
                     c.start_date,
-                    WEEK(c.start_date, 1) AS numero_semana
+                    WEEK(c.start_date, 1) AS numero_semana,
+                    YEARWEEK(c.start_date, 1) AS semana_iso
                 FROM campaigns c
                 WHERE c.name NOT LIKE '%ESPEJO%'
                   AND c.name NOT LIKE 'ESP_%'
@@ -243,16 +265,20 @@ class AsignacionTablero
                     id,
                     name,
                     numero_semana,
-                    ROW_NUMBER() OVER (ORDER BY start_date DESC, id DESC) AS rn
+                    semana_iso,
+                    DENSE_RANK() OVER (ORDER BY semana_iso DESC) AS semana_rank,
+                    start_date
                 FROM campanias_filtradas
             )
             SELECT
                 id AS campaign_id,
                 name AS campaign_name,
-                numero_semana
+                numero_semana,
+                semana_iso,
+                semana_rank
             FROM ranking
-            WHERE rn <= 2
-            ORDER BY rn ASC
+            WHERE semana_rank <= 2
+            ORDER BY semana_rank ASC, start_date DESC, campaign_id DESC
         ";
         $rows = $db->queryAll($sql);
         return is_array($rows) ? $rows : [];
@@ -267,6 +293,16 @@ class AsignacionTablero
         if (count($ids) < 2) {
             return [];
         }
+        $placeholders = [];
+        $params = [];
+        foreach (array_values($ids) as $i => $id) {
+            $k = 'id' . $i;
+            $placeholders[] = ':' . $k;
+            $params[$k] = (int) $id;
+        }
+        if ($placeholders === []) {
+            return [];
+        }
         $sql = "
             SELECT
                 t.credit_number,
@@ -275,11 +311,12 @@ class AsignacionTablero
                 c.name AS campaign_name
             FROM tasks t
             INNER JOIN campaigns c ON c.id = t.campaign_id
-            WHERE t.campaign_id IN (:id1, :id2)
+            WHERE t.campaign_id IN (" . implode(', ', $placeholders) . ")
               AND t.credit_number IS NOT NULL
               AND t.credit_number <> ''
+            ORDER BY c.start_date DESC, c.id DESC
         ";
-        $rows = $db->queryAll($sql, ['id1' => (int) $ids[0], 'id2' => (int) $ids[1]]);
+        $rows = $db->queryAll($sql, $params);
         return is_array($rows) ? $rows : [];
     }
 
@@ -551,7 +588,7 @@ class AsignacionTablero
 
     /**
      * Límite de filas en tablero/export: 10, 50, 100 o null = todas.
-     * Si $raw viene vacío se usa $defecto ('10' en pantalla, 'todas' en Excel recomendado).
+     * Si $raw viene vacío se usa $defecto (pantalla y Excel: '10' por rendimiento; pasar 'todas' solo para listado/export completo).
      * Valores no reconocidos → 10.
      *
      * @return int|null null = sin límite (todas las filas)

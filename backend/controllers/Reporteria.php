@@ -527,6 +527,7 @@ class Reporteria extends Controller
     /**
      * Excel del tablero Asignación: encabezados con colores (semana pasada / actual / próxima) como en pantalla.
      * URL: /reporteria/descargarAsignacionTableroExcel · Módulo 61.
+     * Siempre exporta el portafolio completo (independiente del «Mostrar» de la vista).
      */
     public function descargarAsignacionTableroExcel()
     {
@@ -535,13 +536,10 @@ class Reporteria extends Controller
         }
 
         try {
-            $mostrar = isset($_GET['mostrar']) ? (string) $_GET['mostrar'] : '';
-            $limite = \Models\AsignacionTablero::parseLimiteMostrar($mostrar !== '' ? $mostrar : null, 'todas');
             $portafolio = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
             $semanas = $portafolio['semanas'];
             $subcols = $portafolio['subcols'];
             $filas = is_array($portafolio['filas'] ?? null) ? $portafolio['filas'] : [];
-            $filas = \Models\AsignacionTablero::aplicarLimiteFilas($filas, $limite);
 
             $fillPorSemana = static function (array $sem): string {
                 $hl = (int) ($sem['hist_level'] ?? 0);
