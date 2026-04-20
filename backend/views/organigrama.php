@@ -396,7 +396,7 @@
  ======================== -->
     <div class="offcanvas offcanvas-end" id="offcanvasEditUser">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title" id="offcanvasEditUserTitle">Editar Gestor</h5>
+            <h5 class="offcanvas-title" id="offcanvasEditUserTitle">Editar Usuario</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
 
@@ -485,7 +485,7 @@
         var btnGuardar = document.getElementById('edit_btn_guardar');
         var form = document.getElementById('editNewUserForm');
         if (rowContrasena) rowContrasena.style.display = '';
-        if (titulo) titulo.textContent = 'Editar Gestor';
+        if (titulo) titulo.textContent = 'Editar Usuario';
         if (btnGuardar) btnGuardar.style.display = '';
         if (form) {
             form.querySelectorAll('input, select').forEach(function(el) { el.disabled = false; });
@@ -497,7 +497,7 @@
         var btnGuardar = document.getElementById('edit_btn_guardar');
         var form = document.getElementById('editNewUserForm');
         if (rowContrasena) rowContrasena.style.display = 'none';
-        if (titulo) titulo.textContent = 'Visualizar Gestor';
+        if (titulo) titulo.textContent = 'Visualizar Usuario';
         if (btnGuardar) btnGuardar.style.display = 'none';
         if (form) {
             form.querySelectorAll('input, select').forEach(function(el) { el.disabled = true; });

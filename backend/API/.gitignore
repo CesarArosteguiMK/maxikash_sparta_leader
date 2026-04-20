@@ -1,3 +1,6 @@
+# Artefactos locales / basura accidental
+*.zip
+
 __pycache__/
 *.py[cod]
 *$py.class

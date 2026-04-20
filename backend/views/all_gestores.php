@@ -1993,25 +1993,25 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
             <div class="row pt-4 g-6">
                 <div class="col-md-3">
-                    <select id="UserRole" class="form-select text-capitalize">
+                    <select id="UserRole" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Departamento</option>
                     </select>
                 </div>
 
                 <div class="col-md-3">
-                    <select id="UserPlan" class="form-select text-capitalize">
+                    <select id="UserPlan" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Puesto</option>
                     </select>
                 </div>
 
                 <div class="col-md-3">
-                    <select id="FilterTransaction" class="form-select text-capitalize">
+                    <select id="FilterTransaction" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Estatus</option>
                     </select>
                 </div>
 
                 <div class="col-md-3">
-                    <select id="FilterMultiplePuestos" class="form-select text-capitalize">
+                    <select id="FilterMultiplePuestos" class="form-select text-capitalize js-select-buscador">
                         <option value="">Todos los usuarios</option>
                         <option value="multiples">Múltiples puestos</option>
                         <option value="unico">Un solo puesto</option>
@@ -2631,7 +2631,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                 <div class="mb-2">
                     <label class="form-label">País (Sede) *</label>
-                    <select id="add_id_pais" class="form-select">
+                    <select id="add_id_pais" class="form-select js-select-buscador">
                         <option value="">Seleccione un país</option>
                         <?php foreach (($paisesActivos ?? []) as $pais): ?>
                             <option value="<?= htmlspecialchars($pais['id']) ?>" data-iso="<?= htmlspecialchars($pais['codigo_iso']) ?>">
@@ -2643,21 +2643,52 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                 <div class="mb-2" id="div_add_estado" style="display:none;">
     <label class="form-label" id="label_add_estado">Estado *</label>
-    <select id="add_id_div_nivel1" class="form-select" disabled>
+    <select id="add_id_div_nivel1" class="form-select js-select-buscador" disabled>
         <option value="">Seleccione un estado</option>
     </select>
 </div>
 
 <div class="mb-2" id="div_add_municipio" style="display:none;">
     <label class="form-label" id="label_add_municipio">Municipio *</label>
-    <select id="add_id_div_nivel2" class="form-select" disabled>
+    <select id="add_id_div_nivel2" class="form-select js-select-buscador" disabled>
         <option value="">Seleccione un municipio</option>
     </select>
 </div>
 
+<div class="mb-2" id="div_add_colonia" style="display:none;">
+    <label class="form-label">Colonia</label>
+    <select id="add_id_div_nivel3" class="form-select js-select-buscador" disabled>
+        <option value="">Seleccione una colonia</option>
+    </select>
+</div>
+<div class="mb-2" id="div_add_calle" style="display:none;">
+    <label class="form-label">Calle</label>
+    <select id="add_id_div_nivel4" class="form-select js-select-buscador" disabled>
+        <option value="">Seleccione una calle</option>
+    </select>
+</div>
+<div class="mb-2" id="div_add_calle_texto" style="display:none;">
+    <label class="form-label">Calle</label>
+    <input type="text" id="add_domicilio_calle_texto" class="form-control" maxlength="180">
+</div>
+<div class="row mb-2" id="div_add_num_extint" style="display:none;">
+    <div class="col-md-6">
+        <label class="form-label">No. exterior (opcional)</label>
+        <input type="text" id="add_domicilio_num_exterior" class="form-control" maxlength="32">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">No. interior (opcional)</label>
+        <input type="text" id="add_domicilio_num_interior" class="form-control" maxlength="32">
+    </div>
+</div>
+<div class="mb-2" id="div_add_cp" style="display:none;">
+    <label class="form-label">Código postal</label>
+    <input type="text" id="add_codigo_postal" class="form-control" maxlength="10" readonly>
+</div>
+
                 <div class="mb-2">
                     <label class="form-label">Departamento *</label>
-                    <select id="add_departamento_id" class="form-select">
+                    <select id="add_departamento_id" class="form-select js-select-buscador">
                         <option value="">Seleccione un departamento</option>
                         <?php foreach ($departamento['datos'] as $dep): ?>
                             <option value="<?= htmlspecialchars($dep['id']) ?>">
@@ -2669,14 +2700,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                 <div class="mb-2">
                     <label class="form-label">Puesto *</label>
-                    <select id="add_id_puesto" class="form-select" disabled>
+                    <select id="add_id_puesto" class="form-select js-select-buscador" disabled>
                         <option value="">Seleccione un puesto</option>
                     </select>
                 </div>
 
                 <div class="mb-6">
                     <label class="form-label">Jefe *</label>
-                    <select id="add_id_jefe" class="form-select" disabled>
+                    <select id="add_id_jefe" class="form-select js-select-buscador" disabled>
                         <option value="">Seleccione un jefe</option>
                     </select>
                 </div>
@@ -2699,7 +2730,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                 <div class="mb-2" id="div_select_legion" style="display: none;">
                     <label class="form-label">Legión *</label>
-                    <select id="add_id_legion" class="form-select">
+                    <select id="add_id_legion" class="form-select js-select-buscador">
                         <option value="">Seleccione una legión</option>
                         <option value="1">Sabueso</option>
                         <option value="2">Heraldo</option>
@@ -3134,7 +3165,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    ======================== -->
     <div class="offcanvas offcanvas-end" id="offcanvasEditUser">
         <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title" id="offcanvasEditUserTitle">Editar Gestor</h5>
+            <h5 class="offcanvas-title" id="offcanvasEditUserTitle">Editar Usuario</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
 
@@ -3178,16 +3209,47 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                 <div class="mb-2" id="div_edit_estado" style="display:none;">
     <label class="form-label" id="label_edit_estado">Estado</label>
-    <select id="edit_id_div_nivel1" class="form-select">
+    <select id="edit_id_div_nivel1" class="form-select js-select-buscador">
         <option value="">Seleccione un estado</option>
     </select>
 </div>
 
 <div class="mb-2" id="div_edit_municipio" style="display:none;">
     <label class="form-label" id="label_edit_municipio">Municipio</label>
-    <select id="edit_id_div_nivel2" class="form-select">
+    <select id="edit_id_div_nivel2" class="form-select js-select-buscador">
         <option value="">Seleccione un municipio</option>
     </select>
+</div>
+
+<div class="mb-2" id="div_edit_colonia" style="display:none;">
+    <label class="form-label">Colonia</label>
+    <select id="edit_id_div_nivel3" class="form-select js-select-buscador" disabled>
+        <option value="">Seleccione una colonia</option>
+    </select>
+</div>
+<div class="mb-2" id="div_edit_calle" style="display:none;">
+    <label class="form-label">Calle</label>
+    <select id="edit_id_div_nivel4" class="form-select js-select-buscador" disabled>
+        <option value="">Seleccione una calle</option>
+    </select>
+</div>
+<div class="mb-2" id="div_edit_calle_texto" style="display:none;">
+    <label class="form-label">Calle</label>
+    <input type="text" id="edit_domicilio_calle_texto" class="form-control" maxlength="180">
+</div>
+<div class="row mb-2" id="div_edit_num_extint" style="display:none;">
+    <div class="col-md-6">
+        <label class="form-label">No. exterior (opcional)</label>
+        <input type="text" id="edit_domicilio_num_exterior" class="form-control" maxlength="32">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">No. interior (opcional)</label>
+        <input type="text" id="edit_domicilio_num_interior" class="form-control" maxlength="32">
+    </div>
+</div>
+<div class="mb-2" id="div_edit_cp" style="display:none;">
+    <label class="form-label">Código postal</label>
+    <input type="text" id="edit_codigo_postal" class="form-control" maxlength="10" readonly>
 </div>
 
                 <!-- Alerta informativa de múltiples puestos -->
@@ -3237,13 +3299,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <div class="row">
                             <div class="col-md-6 mb-2">
                                 <label class="form-label">Departamento</label>
-                                <select id="edit_nuevo_departamento" class="form-select form-select-sm" onchange="cargarPuestosParaAgregar()">
+                                <select id="edit_nuevo_departamento" class="form-select form-select-sm js-select-buscador" onchange="cargarPuestosParaAgregar()">
                                     <option value="">Seleccione un departamento</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-2">
                                 <label class="form-label">Puesto</label>
-                                <select id="edit_nuevo_puesto" class="form-select form-select-sm">
+                                <select id="edit_nuevo_puesto" class="form-select form-select-sm js-select-buscador">
                                     <option value="">Seleccione un puesto</option>
                                 </select>
                             </div>
@@ -3266,13 +3328,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                         <div class="row">
                             <div class="col-md-6 mb-2">
                                 <label class="form-label">Departamento</label>
-                                <select id="edit_editar_departamento" class="form-select form-select-sm" onchange="cargarPuestosParaEditar()">
+                                <select id="edit_editar_departamento" class="form-select form-select-sm js-select-buscador" onchange="cargarPuestosParaEditar()">
                                     <option value="">Seleccione un departamento</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-2">
                                 <label class="form-label">Puesto</label>
-                                <select id="edit_editar_puesto" class="form-select form-select-sm">
+                                <select id="edit_editar_puesto" class="form-select form-select-sm js-select-buscador">
                                     <option value="">Seleccione un puesto</option>
                                 </select>
                             </div>
@@ -3290,21 +3352,21 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                 <div class="mb-2">
                     <label class="form-label">Departamento <span id="edit_label_principal" class="badge bg-primary" style="display: none;">Principal</span></label>
-                    <select id="edit_departamento_id" class="form-select">
+                    <select id="edit_departamento_id" class="form-select js-select-buscador">
                         <option value="">Seleccione un departamento</option>
                     </select>
                 </div>
 
                 <div class="mb-2">
                     <label class="form-label">Puesto <span id="edit_label_puesto_principal" class="badge bg-primary" style="display: none;">Principal</span></label>
-                    <select id="edit_id_puesto" class="form-select">
+                    <select id="edit_id_puesto" class="form-select js-select-buscador">
                         <option value="">Seleccione un puesto</option>
                     </select>
                 </div>
 
                 <div class="mb-6">
                     <label class="form-label">Jefe *</label>
-                    <select id="edit_id_jefe" class="form-select">
+                    <select id="edit_id_jefe" class="form-select js-select-buscador">
                         <option value="">Seleccione un jefe</option>
                     </select>
                 </div>
@@ -3320,7 +3382,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                 <div class="mb-2" id="edit_div_select_legion" style="display: none;">
                     <label class="form-label">Legión *</label>
-                    <select id="edit_id_legion" class="form-select">
+                    <select id="edit_id_legion" class="form-select js-select-buscador">
                         <option value="">Seleccione una legión</option>
                         <option value="1">Sabueso</option>
                         <option value="2">Heraldo</option>
@@ -5331,6 +5393,13 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             aplicarFiltros();
           });
         }
+
+        if (typeof window.refreshSelectBuscador === 'function') {
+          window.refreshSelectBuscador('UserRole');
+          window.refreshSelectBuscador('UserPlan');
+          window.refreshSelectBuscador('FilterTransaction');
+          window.refreshSelectBuscador('FilterMultiplePuestos');
+        }
       },
       onError: (err) => {
         console.error(' Error al cargar datos:', err);
@@ -5451,6 +5520,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
       // Resetear el select
       selectPuesto.value = '';
+      if (typeof window.refreshSelectBuscador === 'function') {
+        window.refreshSelectBuscador('UserPlan');
+      }
       return;
     }
 
@@ -5480,6 +5552,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
     // Resetear el select de puestos
     selectPuesto.value = '';
+    if (typeof window.refreshSelectBuscador === 'function') {
+      window.refreshSelectBuscador('UserPlan');
+    }
   }
 
   /**
@@ -6266,6 +6341,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       option.dataset.nombre = nombre;
       select.appendChild(option);
     });
+    if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_nuevo_departamento');
   }
 
   /**
@@ -6298,6 +6374,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           option.textContent = p.nombre || p.puesto_nombre || '';
           selectPuesto.appendChild(option);
         });
+        if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_nuevo_puesto');
       })
       .catch(() => {
         const departamentoNombre = selectDept.options[selectDept.selectedIndex]?.dataset.nombre;
@@ -6320,6 +6397,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           option.textContent = puesto.nombre;
           selectPuesto.appendChild(option);
         });
+        if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_nuevo_puesto');
       });
   }
 
@@ -6390,6 +6468,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       option.dataset.nombre = nombre;
       select.appendChild(option);
     });
+    if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_editar_departamento');
   }
 
   /**
@@ -6429,6 +6508,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         if (puestoIdToSelect != null && puestoIdToSelect !== '') {
           selectPuesto.value = String(puestoIdToSelect);
         }
+        if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_editar_puesto');
       })
       .catch(() => {
         // Fallback: puestos que aparecen en usuariosData para este departamento
@@ -6455,6 +6535,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         if (puestoIdToSelect != null && puestoIdToSelect !== '') {
           selectPuesto.value = String(puestoIdToSelect);
         }
+        if (window.refreshSelectBuscador) window.refreshSelectBuscador('edit_editar_puesto');
       });
   }
 
@@ -6765,70 +6846,111 @@ const labelsPorPais = {
 
 /**
  * Cargar estados al cambiar país (formulario AGREGAR)
+ * Nota: los selects con Select2 disparan change vía jQuery; addEventListener nativo
+ * no siempre recibe el evento. Usar jQuery.on para la cascada geográfica.
  */
 document.addEventListener('DOMContentLoaded', function () {
-
-    const selectPaisAdd = document.getElementById('add_id_pais');
-    if (selectPaisAdd) {
-        selectPaisAdd.addEventListener('change', function () {
-            const idPais = this.value;
-            resetCascadaAdd();
-
-            if (!idPais) return;
-
-            // Actualizar etiquetas según país
-            actualizarLabels(idPais, 'add');
-
-            // Cargar estados
-            cargarEstados(idPais, 'add_id_div_nivel1', function () {
-                document.getElementById('div_add_estado').style.display = '';
-                document.getElementById('add_id_div_nivel1').disabled = false;
-            });
-        });
+    if (typeof window.jQuery === 'undefined') {
+        return;
     }
+    var $ = window.jQuery;
 
-    const selectEstadoAdd = document.getElementById('add_id_div_nivel1');
-    if (selectEstadoAdd) {
-        selectEstadoAdd.addEventListener('change', function () {
-            const idEstado = this.value;
+    $('#add_id_pais').on('change', function () {
+        var idPais = this.value;
+        resetCascadaAdd();
 
-            // Resetear municipio
-            const selMun = document.getElementById('add_id_div_nivel2');
-            selMun.innerHTML = '<option value="">Seleccione...</option>';
-            selMun.disabled = true;
-            document.getElementById('div_add_municipio').style.display = 'none';
+        if (!idPais) return;
 
-            if (!idEstado) return;
+        actualizarLabels(idPais, 'add');
 
-            cargarMunicipios(idEstado, 'add_id_div_nivel2', function () {
-                document.getElementById('div_add_municipio').style.display = '';
-                document.getElementById('add_id_div_nivel2').disabled = false;
-            });
+        cargarEstados(idPais, 'add_id_div_nivel1', function () {
+            document.getElementById('div_add_estado').style.display = '';
+            document.getElementById('add_id_div_nivel1').disabled = false;
         });
-    }
+    });
+
+    $('#add_id_div_nivel1').on('change', function () {
+        var idEstado = this.value;
+
+        var selMun = document.getElementById('add_id_div_nivel2');
+        selMun.innerHTML = '<option value="">Seleccione...</option>';
+        selMun.disabled = true;
+        document.getElementById('div_add_municipio').style.display = 'none';
+        resetDomicilioNivel3EnAdelante('add');
+
+        if (!idEstado) return;
+
+        cargarMunicipios(idEstado, 'add_id_div_nivel2', function () {
+            document.getElementById('div_add_municipio').style.display = '';
+            document.getElementById('add_id_div_nivel2').disabled = false;
+        });
+    });
+
+    $('#add_id_div_nivel2').on('change', function () {
+        resetDomicilioNivel3EnAdelante('add');
+        var idMun = this.value;
+        if (!idMun) return;
+        cargarColonias(idMun, 'add', function (tiene) {
+            if (!tiene) return;
+            document.getElementById('div_add_colonia').style.display = '';
+            document.getElementById('add_id_div_nivel3').disabled = false;
+        });
+    });
+
+    $('#add_id_div_nivel3').on('change', function () {
+        onColoniaChange('add');
+    });
+
+    $('#add_id_div_nivel4').on('change', function () {
+        var txt = document.getElementById('add_domicilio_calle_texto');
+        var opt = this.options[this.selectedIndex];
+        if (txt && opt && opt.value) {
+            txt.value = (opt.textContent || '').trim();
+        }
+    });
 
     // ===================================
     // EVENTO LISTENER PARA EDITAR USUARIO
     // ===================================
-    const selectEstadoEdit = document.getElementById('edit_id_div_nivel1');
-    if (selectEstadoEdit) {
-        selectEstadoEdit.addEventListener('change', function () {
-            const idEstado = this.value;
+    $('#edit_id_div_nivel1').on('change', function () {
+        var idEstado = this.value;
 
-            // Resetear municipio
-            const selMun = document.getElementById('edit_id_div_nivel2');
-            selMun.innerHTML = '<option value="">Seleccione...</option>';
-            selMun.disabled = true;
-            document.getElementById('div_edit_municipio').style.display = 'none';
+        var selMun = document.getElementById('edit_id_div_nivel2');
+        selMun.innerHTML = '<option value="">Seleccione...</option>';
+        selMun.disabled = true;
+        document.getElementById('div_edit_municipio').style.display = 'none';
+        resetDomicilioNivel3EnAdelante('edit');
 
-            if (!idEstado) return;
+        if (!idEstado) return;
 
-            cargarMunicipios(idEstado, 'edit_id_div_nivel2', function () {
-                document.getElementById('div_edit_municipio').style.display = '';
-                document.getElementById('edit_id_div_nivel2').disabled = false;
-            });
+        cargarMunicipios(idEstado, 'edit_id_div_nivel2', function () {
+            document.getElementById('div_edit_municipio').style.display = '';
+            document.getElementById('edit_id_div_nivel2').disabled = false;
         });
-    }
+    });
+
+    $('#edit_id_div_nivel2').on('change', function () {
+        resetDomicilioNivel3EnAdelante('edit');
+        var idMun = this.value;
+        if (!idMun) return;
+        cargarColonias(idMun, 'edit', function (tiene) {
+            if (!tiene) return;
+            document.getElementById('div_edit_colonia').style.display = '';
+            document.getElementById('edit_id_div_nivel3').disabled = false;
+        });
+    });
+
+    $('#edit_id_div_nivel3').on('change', function () {
+        onColoniaChange('edit');
+    });
+
+    $('#edit_id_div_nivel4').on('change', function () {
+        var txt = document.getElementById('edit_domicilio_calle_texto');
+        var opt = this.options[this.selectedIndex];
+        if (txt && opt && opt.value) {
+            txt.value = (opt.textContent || '').trim();
+        }
+    });
 });
 
 /**
@@ -6845,6 +6967,259 @@ function resetCascadaAdd() {
 
     document.getElementById('div_add_estado').style.display    = 'none';
     document.getElementById('div_add_municipio').style.display = 'none';
+    resetDomicilioNivel3EnAdelante('add');
+}
+
+function ocultarBloquesDomicilio(prefix) {
+    ['colonia', 'calle', 'calle_texto', 'num_extint', 'cp'].forEach(function (k) {
+        const el = document.getElementById('div_' + prefix + '_' + k);
+        if (el) el.style.display = 'none';
+    });
+}
+
+/**
+ * Select2 con búsqueda en selects del offcanvas (domicilio, puesto, jefe, etc.).
+ * jQuery + select2 deben existir (cargan en el layout después de este bloque).
+ */
+(function () {
+    window.getDropdownParentSelectorForSelectId = function (selectId) {
+        if (!selectId) return '#offcanvasEditUser';
+        if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
+        if (selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterTransaction' || selectId === 'FilterMultiplePuestos') {
+            return null;
+        }
+        return '#offcanvasEditUser';
+    };
+
+    window.refreshSelectBuscador = function (selectId) {
+        var el = document.getElementById(selectId);
+        if (!el || !el.classList.contains('js-select-buscador')) return;
+        if (typeof window.jQuery === 'undefined' || !window.jQuery.fn.select2) return;
+        var $ = window.jQuery;
+        var $el = $('#' + selectId);
+        var prev = el.value;
+        if ($el.hasClass('select2-hidden-accessible')) {
+            $el.select2('destroy');
+        }
+        var parentSel = window.getDropdownParentSelectorForSelectId(selectId);
+        var $parent = parentSel ? $(parentSel) : $(document.body);
+        if (parentSel && !$parent.length) {
+            $parent = $(document.body);
+        }
+        $el.select2({
+            width: '100%',
+            dropdownParent: $parent,
+            minimumResultsForSearch: 0,
+            language: {
+                noResults: function () { return 'Sin resultados'; },
+                searching: function () { return 'Buscando...'; }
+            }
+        });
+        if (prev) {
+            $el.val(prev).trigger('change.select2');
+        }
+    };
+
+    window.destruirSelectsBuscadorOffcanvas = function (offcanvasEl) {
+        if (typeof window.jQuery === 'undefined') return;
+        window.jQuery(offcanvasEl).find('select.js-select-buscador').each(function () {
+            var $s = window.jQuery(this);
+            if ($s.hasClass('select2-hidden-accessible')) {
+                $s.select2('destroy');
+            }
+        });
+    };
+
+    window.refrescarSelectsBuscadorOffcanvas = function (offcanvasId) {
+        var root = document.getElementById(offcanvasId);
+        if (!root) return;
+        root.querySelectorAll('select.js-select-buscador').forEach(function (sel) {
+            if (sel.id) {
+                window.refreshSelectBuscador(sel.id);
+            }
+        });
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var editOc = document.getElementById('offcanvasEditUser');
+        var addOc = document.getElementById('offcanvasAddUser');
+        if (editOc) {
+            editOc.addEventListener('shown.bs.offcanvas', function () {
+                if (typeof window.refrescarSelectsBuscadorOffcanvas === 'function') {
+                    window.refrescarSelectsBuscadorOffcanvas('offcanvasEditUser');
+                }
+            });
+            editOc.addEventListener('hidden.bs.offcanvas', function () {
+                if (typeof window.destruirSelectsBuscadorOffcanvas === 'function') {
+                    window.destruirSelectsBuscadorOffcanvas(this);
+                }
+            });
+        }
+        if (addOc) {
+            addOc.addEventListener('shown.bs.offcanvas', function () {
+                if (typeof window.refrescarSelectsBuscadorOffcanvas === 'function') {
+                    window.refrescarSelectsBuscadorOffcanvas('offcanvasAddUser');
+                }
+            });
+            addOc.addEventListener('hidden.bs.offcanvas', function () {
+                if (typeof window.destruirSelectsBuscadorOffcanvas === 'function') {
+                    window.destruirSelectsBuscadorOffcanvas(this);
+                }
+            });
+        }
+    });
+})();
+
+function limpiarCamposDomicilioTexto(prefix) {
+    const cl = document.getElementById(prefix + '_domicilio_calle_texto');
+    const ne = document.getElementById(prefix + '_domicilio_num_exterior');
+    const ni = document.getElementById(prefix + '_domicilio_num_interior');
+    const cp = document.getElementById(prefix + '_codigo_postal');
+    if (cl) cl.value = '';
+    if (ne) ne.value = '';
+    if (ni) ni.value = '';
+    if (cp) cp.value = '';
+}
+
+function resetDomicilioNivel3EnAdelante(prefix) {
+    const sel3 = document.getElementById(prefix + '_id_div_nivel3');
+    const sel4 = document.getElementById(prefix + '_id_div_nivel4');
+    if (sel3) {
+        sel3.innerHTML = '<option value="">Seleccione...</option>';
+        sel3.value = '';
+        sel3.disabled = true;
+    }
+    if (sel4) {
+        sel4.innerHTML = '<option value="">Seleccione...</option>';
+        sel4.value = '';
+        sel4.disabled = true;
+    }
+    if (window.refreshSelectBuscador) {
+        if (sel3 && sel3.id) window.refreshSelectBuscador(sel3.id);
+        if (sel4 && sel4.id) window.refreshSelectBuscador(sel4.id);
+    }
+    ocultarBloquesDomicilio(prefix);
+    limpiarCamposDomicilioTexto(prefix);
+}
+
+function aplicarCpDesdeColoniaSelect(prefix) {
+    const sel = document.getElementById(prefix + '_id_div_nivel3');
+    const cpIn = document.getElementById(prefix + '_codigo_postal');
+    if (!sel || !cpIn) return;
+    const opt = sel.options[sel.selectedIndex];
+    const v = opt && opt.dataset && opt.dataset.codigoPostal ? opt.dataset.codigoPostal : '';
+    cpIn.value = v || '';
+}
+
+function onColoniaChange(prefix) {
+    const sel = document.getElementById(prefix + '_id_div_nivel3');
+    const calleSel = document.getElementById(prefix + '_id_div_nivel4');
+    const calleTxt = document.getElementById(prefix + '_domicilio_calle_texto');
+    if (!sel || !calleSel) return;
+    const idCol = sel.value;
+    calleSel.innerHTML = '<option value="">Seleccione...</option>';
+    calleSel.disabled = true;
+    document.getElementById('div_' + prefix + '_calle').style.display = 'none';
+    document.getElementById('div_' + prefix + '_calle_texto').style.display = 'none';
+    document.getElementById('div_' + prefix + '_num_extint').style.display = 'none';
+    document.getElementById('div_' + prefix + '_cp').style.display = 'none';
+    if (!idCol) {
+        limpiarCamposDomicilioTexto(prefix);
+        return;
+    }
+    aplicarCpDesdeColoniaSelect(prefix);
+    document.getElementById('div_' + prefix + '_cp').style.display = '';
+    document.getElementById('div_' + prefix + '_calle_texto').style.display = '';
+    if (calleTxt && !calleTxt.value) calleTxt.value = '';
+    cargarCalles(idCol, prefix, function (tieneCalles) {
+        document.getElementById('div_' + prefix + '_calle').style.display = tieneCalles ? '' : 'none';
+        calleSel.disabled = !tieneCalles;
+        if (!tieneCalles && calleTxt) {
+            calleTxt.focus();
+        }
+        document.getElementById('div_' + prefix + '_num_extint').style.display = '';
+    });
+}
+
+function cargarColonias(idMunicipio, prefix, onSuccess) {
+    const selectId = prefix + '_id_div_nivel3';
+    const select = document.getElementById(selectId);
+    if (!select) {
+        if (onSuccess) onSuccess(false);
+        return;
+    }
+    select.innerHTML = '<option value="">Cargando...</option>';
+    select.disabled = true;
+
+    fetch('/CapHum/getColonias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_municipio: idMunicipio })
+    })
+    .then(r => r.json())
+    .then(data => {
+        select.innerHTML = '<option value="">Seleccione...</option>';
+        const tiene = data.success && data.datos && data.datos.length > 0;
+        if (tiene) {
+            data.datos.forEach(function (c) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nombre;
+                const cp = (c.codigo_postal || c.codigo_interno || '').toString().trim();
+                if (cp) opt.setAttribute('data-codigo-postal', cp);
+                select.appendChild(opt);
+            });
+        }
+        document.getElementById('div_' + prefix + '_colonia').style.display = tiene ? '' : 'none';
+        select.disabled = !tiene;
+        if (onSuccess) onSuccess(tiene);
+        if (window.refreshSelectBuscador) {
+            window.refreshSelectBuscador(selectId);
+        }
+    })
+    .catch(function () {
+        select.innerHTML = '<option value="">Error al cargar</option>';
+        document.getElementById('div_' + prefix + '_colonia').style.display = 'none';
+        if (onSuccess) onSuccess(false);
+    });
+}
+
+function cargarCalles(idColonia, prefix, onSuccess) {
+    const selectId = prefix + '_id_div_nivel4';
+    const select = document.getElementById(selectId);
+    if (!select) {
+        if (onSuccess) onSuccess(false);
+        return;
+    }
+    select.innerHTML = '<option value="">Cargando...</option>';
+    select.disabled = true;
+
+    fetch('/CapHum/getCalles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_colonia: idColonia })
+    })
+    .then(r => r.json())
+    .then(data => {
+        select.innerHTML = '<option value="">Seleccione...</option>';
+        const tiene = data.success && data.datos && data.datos.length > 0;
+        if (tiene) {
+            data.datos.forEach(function (c) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nombre;
+                select.appendChild(opt);
+            });
+        }
+        if (onSuccess) onSuccess(tiene);
+        if (window.refreshSelectBuscador) {
+            window.refreshSelectBuscador(selectId);
+        }
+    })
+    .catch(function () {
+        select.innerHTML = '<option value="">Error al cargar</option>';
+        if (onSuccess) onSuccess(false);
+    });
 }
 
 /**
@@ -6882,6 +7257,9 @@ function cargarEstados(idPais, selectId, onSuccess) {
             });
         }
         if (onSuccess) onSuccess();
+        if (window.refreshSelectBuscador) {
+            window.refreshSelectBuscador(selectId);
+        }
     })
     .catch(() => {
         select.innerHTML = '<option value="">Error al cargar</option>';
@@ -6912,6 +7290,9 @@ function cargarMunicipios(idEstado, selectId, onSuccess) {
             });
         }
         if (onSuccess) onSuccess();
+        if (window.refreshSelectBuscador) {
+            window.refreshSelectBuscador(selectId);
+        }
     })
     .catch(() => {
         select.innerHTML = '<option value="">Error al cargar</option>';
@@ -6922,28 +7303,93 @@ function cargarMunicipios(idEstado, selectId, onSuccess) {
  * Precargar cascada en el offcanvas EDITAR
  * (llamar desde la función editar() después de poblar el formulario)
  */
-function precargarCascadaEdit(idPais, idEstado, idMunicipio) {
+function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle, calleTexto, numExt, numInt, codigoPostal) {
+    idColonia = (idColonia !== undefined && idColonia !== null && String(idColonia) !== '') ? String(idColonia) : '';
+    idCalle = (idCalle !== undefined && idCalle !== null && String(idCalle) !== '') ? String(idCalle) : '';
+    calleTexto = (calleTexto || '').toString().trim();
+    numExt = numExt || '';
+    numInt = numInt || '';
+    codigoPostal = (codigoPostal || '').toString().trim();
+
     if (!idPais) {
         document.getElementById('div_edit_estado').style.display    = 'none';
         document.getElementById('div_edit_municipio').style.display = 'none';
+        resetDomicilioNivel3EnAdelante('edit');
         return;
     }
 
     actualizarLabels(idPais, 'edit');
+    resetDomicilioNivel3EnAdelante('edit');
 
     cargarEstados(idPais, 'edit_id_div_nivel1', function () {
         document.getElementById('div_edit_estado').style.display = '';
 
-        if (idEstado) {
-            document.getElementById('edit_id_div_nivel1').value = idEstado;
-
-            cargarMunicipios(idEstado, 'edit_id_div_nivel2', function () {
-                document.getElementById('div_edit_municipio').style.display = '';
-                if (idMunicipio) {
-                    document.getElementById('edit_id_div_nivel2').value = idMunicipio;
-                }
-            });
+        if (!idEstado) {
+            return;
         }
+        document.getElementById('edit_id_div_nivel1').value = idEstado;
+
+        cargarMunicipios(idEstado, 'edit_id_div_nivel2', function () {
+            document.getElementById('div_edit_municipio').style.display = '';
+            if (!idMunicipio) {
+                document.getElementById('div_edit_calle_texto').style.display = calleTexto ? '' : 'none';
+                document.getElementById('edit_domicilio_calle_texto').value = calleTexto;
+                document.getElementById('edit_domicilio_num_exterior').value = numExt;
+                document.getElementById('edit_domicilio_num_interior').value = numInt;
+                document.getElementById('edit_codigo_postal').value = codigoPostal;
+                return;
+            }
+            document.getElementById('edit_id_div_nivel2').value = idMunicipio;
+
+            cargarColonias(idMunicipio, 'edit', function (tieneColonias) {
+                if (!tieneColonias) {
+                    document.getElementById('div_edit_calle_texto').style.display = calleTexto ? '' : 'none';
+                    document.getElementById('edit_domicilio_calle_texto').value = calleTexto;
+                    document.getElementById('edit_domicilio_num_exterior').value = numExt;
+                    document.getElementById('edit_domicilio_num_interior').value = numInt;
+                    document.getElementById('edit_codigo_postal').value = codigoPostal;
+                    return;
+                }
+                document.getElementById('div_edit_colonia').style.display = '';
+                document.getElementById('edit_id_div_nivel3').disabled = false;
+                if (idColonia) {
+                    document.getElementById('edit_id_div_nivel3').value = idColonia;
+                }
+                aplicarCpDesdeColoniaSelect('edit');
+                const idColSel = document.getElementById('edit_id_div_nivel3').value;
+                if (!idColSel) {
+                    document.getElementById('div_edit_calle_texto').style.display = calleTexto ? '' : 'none';
+                    document.getElementById('edit_domicilio_calle_texto').value = calleTexto;
+                    document.getElementById('edit_domicilio_num_exterior').value = numExt;
+                    document.getElementById('edit_domicilio_num_interior').value = numInt;
+                    document.getElementById('edit_codigo_postal').value = codigoPostal;
+                    return;
+                }
+                document.getElementById('div_edit_cp').style.display = '';
+                cargarCalles(idColSel, 'edit', function (tieneCalles) {
+                    document.getElementById('div_edit_calle').style.display = tieneCalles ? '' : 'none';
+                    document.getElementById('edit_id_div_nivel4').disabled = !tieneCalles;
+                    if (tieneCalles && idCalle) {
+                        document.getElementById('edit_id_div_nivel4').value = idCalle;
+                        const sel = document.getElementById('edit_id_div_nivel4');
+                        const opt = sel ? sel.options[sel.selectedIndex] : null;
+                        if (opt && opt.value) {
+                            calleTexto = (opt.textContent || '').trim();
+                        }
+                    }
+                    document.getElementById('div_edit_calle_texto').style.display = '';
+                    document.getElementById('edit_domicilio_calle_texto').value = calleTexto;
+                    document.getElementById('div_edit_num_extint').style.display = '';
+                    document.getElementById('edit_domicilio_num_exterior').value = numExt;
+                    document.getElementById('edit_domicilio_num_interior').value = numInt;
+                    if (codigoPostal) {
+                        document.getElementById('edit_codigo_postal').value = codigoPostal;
+                    } else {
+                        aplicarCpDesdeColoniaSelect('edit');
+                    }
+                });
+            });
+        });
     });
 }
 

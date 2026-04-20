@@ -1,5 +1,7 @@
 # Servicios de predicción de localización (3 capas)
 
+En esta carpeta conviven: **clases PHP** del motor de localización/IA (archivos `*.php` en la raíz de `services/`; namespace `Services\` vía Composer), los **agentes Node** en subcarpetas (`segundometro-agent`, `correos-primeros-pagos-agent`, `gastos-cobranza-agent`), el **orquestador** de arranque local en [`servicios-locales/README.md`](servicios-locales/README.md) y la guía operativa del Segundómetro en [`segundometro-agent/README_AGENTE_SEGUNDOMETRO.md`](segundometro-agent/README_AGENTE_SEGUNDOMETRO.md).
+
 Arquitectura del sistema de predicción de localización de acreditados: **determinístico**, **auditable** y **robusto frente a fallos de IA**.
 
 ## Contratos JSON (entrada/salida)

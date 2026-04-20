@@ -74,4 +74,4 @@ Después de instalar, seguir con el paso “Uso normal” usando `iniciar-agente
 
 ## Más detalle técnico (despliegue y URLs)
 
-En el repositorio: `backend/services/README_AGENTE_SEGUNDOMETRO.md`.
+En el repositorio: `README_AGENTE_SEGUNDOMETRO.md` (en esta misma carpeta del agente).

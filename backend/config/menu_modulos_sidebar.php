@@ -305,7 +305,43 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
 
             // Permisos especiales: resolver primero por id/nombre (p. ej. «Convenio» → Cierre de crédito), no por mapa genérico de módulo
             $meta = null;
-            if ($mid > 0 && strcasecmp(trim($pestana), 'Permisos especiales') === 0) {
+            // Cierre de crédito — células / cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): tarjeta «Convenios»; pestaña Permisos especiales en CapHum
+            $nbCierreCel = mb_strtolower(preg_replace('/\s+/u', ' ', trim($nombreRaw)), 'UTF-8');
+            $pareceCierreCelulaPorNombre = $nbCierreCel !== ''
+                && str_contains($nbCierreCel, 'cierre')
+                && (str_contains($nbCierreCel, 'despachos')
+                    || str_contains($nbCierreCel, 'call center')
+                    || str_contains($nbCierreCel, 'cartera'));
+            $cierreCelulaPorId = $mid > 0 && in_array($mid, [56, 57, 59], true);
+            if ($cierreCelulaPorId || $pareceCierreCelulaPorNombre) {
+                $ordenCierreCelula = [56 => 801, 57 => 802, 59 => 803];
+                $orden = $ordenCierreCelula[$mid] ?? 805;
+                if (!$cierreCelulaPorId) {
+                    if (str_contains($nbCierreCel, 'despachos')) {
+                        $orden = 801;
+                    } elseif (str_contains($nbCierreCel, 'call center')) {
+                        $orden = 802;
+                    } elseif (str_contains($nbCierreCel, 'cartera')) {
+                        $orden = 803;
+                    }
+                }
+                $meta = mapMetaDesdeAnclaModuloMenu(
+                    51,
+                    $nombreRaw !== '' ? $nombreRaw : 'Cierre de crédito',
+                    $orden,
+                    false
+                );
+                if ($meta === null) {
+                    $baseConv = getMenuSidebarGrupoBaseMeta('Convenios');
+                    if ($baseConv !== null) {
+                        $meta = array_merge($baseConv, [
+                            'menu_item_label' => $nombreRaw !== '' ? $nombreRaw : 'Cierre de crédito',
+                            'menu_item_orden' => $orden,
+                        ]);
+                    }
+                }
+            }
+            if ($meta === null && $mid > 0 && strcasecmp(trim($pestana), 'Permisos especiales') === 0) {
                 $meta = mapPermisoEspecialToMenuMeta($mid, $pestana, $nombreRaw);
             }
             if ($meta === null && $mid > 0) {
@@ -324,8 +360,21 @@ if (!function_exists('enriquecerPerfilesModulosConMenuSidebar')) {
                         'menu_item_label' => $nombreRaw !== '' ? $nombreRaw : 'Bonos cobranza',
                         'menu_item_orden' => 998,
                     ]);
-                } elseif (str_contains($nbNorm, 'cierre') && str_contains($nbNorm, 'credito')) {
+                } elseif (str_contains($nbNorm, 'cierre')
+                    && (str_contains($nbNorm, 'credito')
+                        || str_contains($nbNorm, 'despachos')
+                        || str_contains($nbNorm, 'call center')
+                        || str_contains($nbNorm, 'cartera'))) {
                     $meta = mapMetaDesdeAnclaModuloMenu(51, $nombreRaw !== '' ? $nombreRaw : 'Cierre de Crédito', 998, false);
+                    if ($meta === null) {
+                        $baseConv2 = getMenuSidebarGrupoBaseMeta('Convenios');
+                        if ($baseConv2 !== null) {
+                            $meta = array_merge($baseConv2, [
+                                'menu_item_label' => $nombreRaw !== '' ? $nombreRaw : 'Cierre de Crédito',
+                                'menu_item_orden' => 998,
+                            ]);
+                        }
+                    }
                 }
             }
             if ($meta !== null) {

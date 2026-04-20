@@ -6,6 +6,7 @@ __pycache__/
 .env.local
 logs/
 scripts/*.log
+reporte/*.txt
 reporte/*.xlsx
 !reporte/reporte_cobranza_EJEMPLO_preview.xlsx
 reporte/ec-uploads/*.xlsx

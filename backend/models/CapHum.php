@@ -1581,6 +1581,16 @@ class CapHum extends Model
         $id_pais = isset($data['id_pais']) && $data['id_pais'] !== '' ? (int) $data['id_pais'] : 1;
         $id_div_nivel1 = isset($data['id_div_nivel1']) && $data['id_div_nivel1'] !== '' ? (int)$data['id_div_nivel1'] : 'NULL';
         $id_div_nivel2 = isset($data['id_div_nivel2']) && $data['id_div_nivel2'] !== '' ? (int)$data['id_div_nivel2'] : 'NULL';
+        $id_div_nivel3 = isset($data['id_div_nivel3']) && $data['id_div_nivel3'] !== '' ? (int)$data['id_div_nivel3'] : 'NULL';
+        $id_div_nivel4 = isset($data['id_div_nivel4']) && $data['id_div_nivel4'] !== '' ? (int)$data['id_div_nivel4'] : 'NULL';
+        $dom_calle = trim((string)($data['domicilio_calle_texto'] ?? ''));
+        $dom_ext = trim((string)($data['domicilio_num_exterior'] ?? ''));
+        $dom_int = trim((string)($data['domicilio_num_interior'] ?? ''));
+        $cp      = trim((string)($data['codigo_postal'] ?? ''));
+        $dom_calle_sql = $dom_calle !== '' ? "'" . addslashes($dom_calle) . "'" : 'NULL';
+        $dom_ext_sql = $dom_ext !== '' ? "'" . addslashes($dom_ext) . "'" : 'NULL';
+        $dom_int_sql = $dom_int !== '' ? "'" . addslashes($dom_int) . "'" : 'NULL';
+        $cp_sql      = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
 
 
         try {
@@ -1594,9 +1604,9 @@ class CapHum extends Model
 
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2)
+            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, id_div_nivel4, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
             VALUES
-            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2)
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $id_div_nivel4, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
         ");
 
 
@@ -1779,6 +1789,16 @@ class CapHum extends Model
         $password        = addslashes($data['contrasena']);
         $id_div_nivel1 = isset($data['id_div_nivel1']) && $data['id_div_nivel1'] !== '' ? (int)$data['id_div_nivel1'] : 'NULL';
         $id_div_nivel2 = isset($data['id_div_nivel2']) && $data['id_div_nivel2'] !== '' ? (int)$data['id_div_nivel2'] : 'NULL';
+        $id_div_nivel3 = isset($data['id_div_nivel3']) && $data['id_div_nivel3'] !== '' ? (int)$data['id_div_nivel3'] : 'NULL';
+        $id_div_nivel4 = isset($data['id_div_nivel4']) && $data['id_div_nivel4'] !== '' ? (int)$data['id_div_nivel4'] : 'NULL';
+        $dom_calle = trim((string)($data['domicilio_calle_texto'] ?? ''));
+        $dom_ext = trim((string)($data['domicilio_num_exterior'] ?? ''));
+        $dom_int = trim((string)($data['domicilio_num_interior'] ?? ''));
+        $cp      = trim((string)($data['codigo_postal'] ?? ''));
+        $dom_calle_sql = $dom_calle !== '' ? "'" . addslashes($dom_calle) . "'" : 'NULL';
+        $dom_ext_sql = $dom_ext !== '' ? "'" . addslashes($dom_ext) . "'" : 'NULL';
+        $dom_int_sql = $dom_int !== '' ? "'" . addslashes($dom_int) . "'" : 'NULL';
+        $cp_sql      = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
 
         try {
             $db = new Database();
@@ -1796,7 +1816,13 @@ class CapHum extends Model
                 user_name     = '$user_name',
                 password      = '$password',
                 id_div_nivel1  = $id_div_nivel1,
-                id_div_nivel2  = $id_div_nivel2
+                id_div_nivel2  = $id_div_nivel2,
+                id_div_nivel3  = $id_div_nivel3,
+                id_div_nivel4  = $id_div_nivel4,
+                domicilio_calle_texto = $dom_calle_sql,
+                domicilio_num_exterior = $dom_ext_sql,
+                domicilio_num_interior = $dom_int_sql,
+                codigo_postal = $cp_sql
             WHERE id = $id_persona
         ");
 
@@ -2528,6 +2554,76 @@ public static function getMunicipiosPorEstado($id_estado)
         return self::resultado(true, 'Municipios encontrados.', $r);
     } catch (\Exception $e) {
         return self::resultado(false, 'Error al obtener municipios.', null, $e->getMessage());
+    }
+}
+
+/**
+ * Colonias (nivel 3) bajo un municipio/alcaldía (nivel 2).
+ * codigo_postal devuelto desde codigo_interno del catálogo cuando aplica.
+ */
+public static function getColoniasPorMunicipio($id_municipio)
+{
+    $id_municipio = (int) $id_municipio;
+    if ($id_municipio <= 0) {
+        return self::resultado(false, 'ID de municipio inválido.', []);
+    }
+
+    $query = <<<SQL
+    SELECT
+        da.id,
+        da.nombre,
+        da.codigo_interno,
+        NULLIF(TRIM(da.codigo_interno), '') AS codigo_postal,
+        dat.nombre  AS tipo_label,
+        dat.codigo  AS tipo_codigo
+    FROM divisiones_administrativas da
+    INNER JOIN division_administrativa_tipos dat ON dat.id = da.id_tipo
+    WHERE da.id_padre = $id_municipio
+      AND da.nivel    = 3
+      AND da.activo   = 1
+    ORDER BY da.nombre ASC
+    SQL;
+
+    try {
+        $db = new Database();
+        $r  = $db->queryAll($query);
+        return self::resultado(true, 'Colonias encontradas.', $r);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener colonias.', null, $e->getMessage());
+    }
+}
+
+/**
+ * Calles (nivel 4) bajo una colonia (nivel 3).
+ */
+public static function getCallesPorColonia($id_colonia)
+{
+    $id_colonia = (int) $id_colonia;
+    if ($id_colonia <= 0) {
+        return self::resultado(false, 'ID de colonia inválido.', []);
+    }
+
+    $query = <<<SQL
+    SELECT
+        da.id,
+        da.nombre,
+        da.codigo_interno,
+        dat.nombre  AS tipo_label,
+        dat.codigo  AS tipo_codigo
+    FROM divisiones_administrativas da
+    INNER JOIN division_administrativa_tipos dat ON dat.id = da.id_tipo
+    WHERE da.id_padre = $id_colonia
+      AND da.nivel    = 4
+      AND da.activo   = 1
+    ORDER BY da.nombre ASC
+    SQL;
+
+    try {
+        $db = new Database();
+        $r  = $db->queryAll($query);
+        return self::resultado(true, 'Calles encontradas.', $r);
+    } catch (\Exception $e) {
+        return self::resultado(false, 'Error al obtener calles.', null, $e->getMessage());
     }
 }
 
