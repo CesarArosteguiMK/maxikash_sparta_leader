@@ -67,7 +67,7 @@ if ($compInitialJson === false) {
                     <div class="text-start">
                         <label for="comp-fecha-ref" class="form-label small text-muted mb-1">Día a comparar</label>
                         <select class="form-select form-select-sm fw-semibold shadow-none" id="comp-fecha-ref" style="min-width: 13.5rem;"
-                                title="Desde el lunes de la semana anterior hasta hoy (calendario Ciudad de México)"<?= $comp_ui_datos ? '' : ' disabled'; ?>>
+                                title="Desde el martes de inicio de la semana operativa anterior hasta hoy (calendario Ciudad de México; semana martes–lunes)"<?= $comp_ui_datos ? '' : ' disabled'; ?>>
                             <option value="">Cargando días…</option>
                         </select>
                     </div>
@@ -545,6 +545,8 @@ body.dark-mode #comp-sin-servicio {
         min: (COMP_INITIAL && COMP_INITIAL.fecha_min) || (COMP_RANGO && COMP_RANGO.min) || '',
         max: (COMP_INITIAL && COMP_INITIAL.fecha_max) || (COMP_RANGO && COMP_RANGO.max) || ''
     };
+    /** Evita aplicar respuestas viejas si el usuario cambió de fecha rápido o hubo varias peticiones. */
+    let cargarSeq = 0;
 
     function sleep(ms) {
         return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -567,18 +569,73 @@ body.dark-mode #comp-sin-servicio {
         }
     }
 
-    function buildComparativaUrl(fv) {
-        var q = ['hoy_mx=' + encodeURIComponent(ymdHoyCiudadMexico())];
-        if (fv) q.push('fecha=' + encodeURIComponent(fv));
-        return FETCH_URL + '?' + q.join('&');
+    function sliceYmd(v) {
+        if (v == null || v === '') return '';
+        var s = String(v).slice(0, 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+    }
+
+    function ymdMax(a, b) {
+        a = sliceYmd(a);
+        b = sliceYmd(b);
+        if (!a) return b;
+        if (!b) return a;
+        return a >= b ? a : b;
+    }
+
+    function ymdMin(a, b) {
+        a = sliceYmd(a);
+        b = sliceYmd(b);
+        if (!a) return b;
+        if (!b) return a;
+        return a <= b ? a : b;
+    }
+
+    function mergeCompRango(minYmd, maxYmd) {
+        var nMin = ymdMin(compRango && compRango.min, minYmd);
+        var nMax = ymdMax(compRango && compRango.max, maxYmd);
+        compRango = { min: nMin || '', max: nMax || '' };
+    }
+
+    /**
+     * hoy_mx: el mayor Y-m-d entre fuentes (Intl, último JSON del servidor, carga inicial, rango).
+     * Evita que un hoy “bajo” (p. ej. 13/04) limite fecha_max y bloquee el lunes actual (20/04) en el combo.
+     */
+    function hoyMxParaPeticion() {
+        var c = [];
+        var a = sliceYmd(ymdHoyCiudadMexico());
+        if (a) c.push(a);
+        if (lastGoodData) {
+            a = sliceYmd(lastGoodData.hoy_calendario_cdmx);
+            if (a) c.push(a);
+        }
+        if (COMP_INITIAL) {
+            a = sliceYmd(COMP_INITIAL.hoy_calendario_cdmx);
+            if (a) c.push(a);
+        }
+        a = sliceYmd(compRango && compRango.max);
+        if (a) c.push(a);
+        if (!c.length) return '';
+        c.sort();
+        return c[c.length - 1];
+    }
+
+    function buildComparativaUrl(fv, hoyForzado) {
+        var q = [];
+        var hoy = ymdMax(sliceYmd(hoyForzado), hoyMxParaPeticion());
+        var fecha = sliceYmd(fv);
+        if (fecha && (!hoy || fecha > hoy)) hoy = fecha;
+        if (hoy) q.push('hoy_mx=' + encodeURIComponent(hoy));
+        if (fecha) q.push('fecha=' + encodeURIComponent(fecha));
+        return FETCH_URL + (q.length ? ('?' + q.join('&')) : '');
     }
 
     /**
      * Reintenta la petición ante fallos de red o 5xx (errores transitorios).
      * @returns {Promise<object>}
      */
-    async function fetchComparativaJson(fv) {
-        const u = buildComparativaUrl(fv);
+    async function fetchComparativaJson(fv, hoyForzado) {
+        const u = buildComparativaUrl(fv, hoyForzado);
         const intentos = 3;
         var lastErr;
         for (var i = 0; i < intentos; i++) {
@@ -725,6 +782,30 @@ body.dark-mode #comp-sin-servicio {
         if (p.length !== 3) return iso;
         return p[2] + '/' + p[1] + '/' + p[0];
     }
+
+    /** ISO N: 1=lunes … 7=domingo (misma regla que PHP format('N') con fecha civil en UTC). */
+    function isoNDesdeYmd(ymd) {
+        var p = (ymd || '').slice(0, 10).split('-').map(Number);
+        if (p.length !== 3 || p.some(isNaN)) return 1;
+        var dt = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+        var wd = dt.getUTCDay();
+        return wd === 0 ? 7 : wd;
+    }
+
+    function ymdAddDays(ymd, delta) {
+        var p = (ymd || '').slice(0, 10).split('-').map(Number);
+        if (p.length !== 3 || p.some(isNaN)) return '';
+        var t = Date.UTC(p[0], p[1] - 1, p[2]) + delta * 86400000;
+        var dt = new Date(t);
+        return dt.getUTCFullYear() + '-' + String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' + String(dt.getUTCDate()).padStart(2, '0');
+    }
+
+    /** Primer martes de la semana operativa mar–lun que contiene ymd (igual que PHP martesInicioSemanaNegocio). */
+    function martesInicioSemanaNegocioDesdeYmd(ymd) {
+        var N = isoNDesdeYmd(ymd);
+        var retro = N === 1 ? 6 : (N - 2);
+        return ymdAddDays(ymd, -retro);
+    }
     /** Días calendario entre minYmd y maxYmd (Y-m-d), mismo criterio que PHP (sin depender de la zona del navegador). */
     function enumerateDiasCalendario(minYmd, maxYmd) {
         const map = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -751,9 +832,36 @@ body.dark-mode #comp-sin-servicio {
         const selectedActual = inp.value || '';
         const selected = options.some(o => o.value === preferIso) ? preferIso
             : (options.some(o => o.value === selectedActual) ? selectedActual : (options.length ? options[options.length - 1].value : ''));
-        inp.innerHTML = options.map(function (o) {
-            return '<option value="' + o.value + '"' + (o.value === selected ? ' selected' : '') + '>' + o.label + '</option>';
-        }).join('');
+        var maxS = sliceYmd(maxY);
+        var martesAct = maxS ? martesInicioSemanaNegocioDesdeYmd(maxS) : '';
+        var hayAnt = martesAct && options.some(function (o) { return o.value < martesAct; });
+        var hayCur = martesAct && options.some(function (o) { return o.value >= martesAct; });
+        var html;
+        if (hayAnt && hayCur) {
+            var martesAnt = ymdAddDays(martesAct, -7);
+            var lunesAnt = ymdAddDays(martesAct, -1);
+            var lunesAct = ymdAddDays(martesAct, 6);
+            var labAnt = 'Semana anterior (mar–lun): ' + fmtFechaISO(martesAnt) + ' – ' + fmtFechaISO(lunesAnt);
+            var labCur = 'Semana en curso (mar–lun): ' + fmtFechaISO(martesAct) + ' – ' + fmtFechaISO(lunesAct);
+            html = '<optgroup label="' + labAnt.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '">';
+            options.forEach(function (o) {
+                if (o.value < martesAct) {
+                    html += '<option value="' + o.value + '"' + (o.value === selected ? ' selected' : '') + '>' + o.label + '</option>';
+                }
+            });
+            html += '</optgroup><optgroup label="' + labCur.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '">';
+            options.forEach(function (o) {
+                if (o.value >= martesAct) {
+                    html += '<option value="' + o.value + '"' + (o.value === selected ? ' selected' : '') + '>' + o.label + '</option>';
+                }
+            });
+            html += '</optgroup>';
+        } else {
+            html = options.map(function (o) {
+                return '<option value="' + o.value + '"' + (o.value === selected ? ' selected' : '') + '>' + o.label + '</option>';
+            }).join('');
+        }
+        inp.innerHTML = html;
         return selected;
     }
 
@@ -791,7 +899,7 @@ body.dark-mode #comp-sin-servicio {
     function render(d) {
         if (!d || !d.semanas || !d.datos) return;
         if (d.fecha_min && d.fecha_max) {
-            compRango = { min: d.fecha_min, max: d.fecha_max };
+            mergeCompRango(d.fecha_min, d.fecha_max);
         }
         const s1 = d.semanas[0], s2 = d.semanas[1], sa = d.semana_actual || 'Actual';
         const disp = (Array.isArray(d.semanas_display) && d.semanas_display.length >= 3)
@@ -837,28 +945,49 @@ body.dark-mode #comp-sin-servicio {
     }
 
     async function cargar() {
+        const seq = ++cargarSeq;
         const btn = document.getElementById('comp-btn-refresh');
         if (btn) { btn.disabled = true; }
         setApiStatus('check');
         try {
             const inp = document.getElementById('comp-fecha-ref');
             const fv = inp && !inp.disabled ? inp.value : '';
-            const d = await fetchComparativaJson(fv);
+            var d;
+            try {
+                d = await fetchComparativaJson(fv);
+            } catch (eTry) {
+                if (seq !== cargarSeq) throw eTry;
+                var fh = lastGoodData && sliceYmd(lastGoodData.hoy_calendario_cdmx);
+                var hMain = hoyMxParaPeticion();
+                if (fh && fh !== hMain) {
+                    if (seq !== cargarSeq) throw eTry;
+                    d = await fetchComparativaJson(fv, fh);
+                } else {
+                    throw eTry;
+                }
+            }
+            if (seq !== cargarSeq) return;
+            if (!d || !d.semanas || !d.datos) {
+                throw new Error('Respuesta incompleta del servidor');
+            }
             render(d);
             lastGoodData = d;
             setServicioDisponible(true);
             const ua = document.getElementById('comp-ultima-act');
             if (ua) ua.textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX');
         } catch (e) {
+            if (seq !== cargarSeq) return;
             console.warn('[comparativas] Error al cargar:', (e && e.message) ? e.message : e);
-            if (lastGoodData) {
+            if (lastGoodData && lastGoodData.semanas && lastGoodData.datos) {
+                render(lastGoodData);
                 setServicioDisponible(true);
                 setApiStatus('degraded');
             } else {
                 setServicioDisponible(false);
             }
+        } finally {
+            if (seq === cargarSeq && btn) { btn.disabled = false; }
         }
-        if (btn) { btn.disabled = false; }
     }
 
     var compFechaEl = document.getElementById('comp-fecha-ref');

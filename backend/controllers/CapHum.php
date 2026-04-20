@@ -365,7 +365,13 @@ class CapHum extends Controller
                          precargarCascadaEdit(
                              persona.id_pais,
                              persona.id_div_nivel1,
-                             persona.id_div_nivel2
+                             persona.id_div_nivel2,
+                             persona.id_div_nivel3,
+                             persona.id_div_nivel4,
+                             persona.domicilio_calle_texto,
+                             persona.domicilio_num_exterior,
+                             persona.domicilio_num_interior,
+                             persona.codigo_postal
                          );
                     }
 
@@ -423,6 +429,19 @@ class CapHum extends Controller
                     divLegion.style.display = checkLegion.checked ? 'block' : 'none';
                     document.getElementById('edit_alerta_multiples_puestos').classList.add('d-none');
                     document.getElementById('edit_contenedor_multiples_puestos').classList.add('d-none');
+                    if (typeof precargarCascadaEdit === 'function') {
+                        precargarCascadaEdit(
+                            persona.id_pais,
+                            persona.id_div_nivel1,
+                            persona.id_div_nivel2,
+                            persona.id_div_nivel3,
+                            persona.id_div_nivel4,
+                            persona.domicilio_calle_texto,
+                            persona.domicilio_num_exterior,
+                            persona.domicilio_num_interior,
+                            persona.codigo_postal
+                        );
+                    }
                     const offcanvas = new bootstrap.Offcanvas(document.getElementById('offcanvasEditUser'));
                     offcanvas.show();
                 })
@@ -663,8 +682,36 @@ class CapHum extends Controller
                     document.getElementById("modalEditPerfil_subtitle").innerHTML = 'Gestión de Permisos y Accesos para <strong>' + esc(nombreCompleto) + ' / ' + esc(nombreDepartamento) + ' / ' + esc(nombrePuesto) + '</strong>';
 
                     renderPuestos(puestos);
-                    renderModulos(perfiles.filter(m => (m.pestana || '') !== 'Permisos especiales'));
-                    renderPermisosEspeciales(perfiles.filter(m => (m.pestana || '') === 'Permisos especiales'));
+                    // Cierre células / Cartera (ids 56–59 y/o nombre «Cierre: Despachos»…): pestaña Permisos especiales, tarjeta Convenios (menu_* vía PHP)
+                    const MODULOS_WEB_CIERRE_CELULA_CARTERA_EC = new Set([56, 57, 59]);
+                    function esNombreModuloCierreCelulaCarteraEc(m) {
+                        const nom = String(m.modulo_nombre || '')
+                            .toLowerCase()
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                        if (!nom.includes('cierre')) return false;
+                        return nom.includes('despachos') || nom.includes('call center') || nom.includes('cartera');
+                    }
+                    function perfilEnPestanaModulosSistema(m) {
+                        const p = String(m.pestana || '').trim();
+                        if (p === 'Permisos especiales') return false;
+                        const id = Number(m.modulo_id);
+                        if (MODULOS_WEB_CIERRE_CELULA_CARTERA_EC.has(id)) return false;
+                        if (esNombreModuloCierreCelulaCarteraEc(m)) return false;
+                        return true;
+                    }
+                    function perfilEnPestanaPermisosEspeciales(m) {
+                        const p = String(m.pestana || '').trim();
+                        if (p === 'Permisos especiales') return true;
+                        const id = Number(m.modulo_id);
+                        if (MODULOS_WEB_CIERRE_CELULA_CARTERA_EC.has(id)) return true;
+                        if (esNombreModuloCierreCelulaCarteraEc(m)) return true;
+                        return false;
+                    }
+                    renderModulos(perfiles.filter(perfilEnPestanaModulosSistema));
+                    renderPermisosEspeciales(perfiles.filter(perfilEnPestanaPermisosEspeciales));
                     actualizarEstadoForceLogoutPanel(persona);
 
                     // Abrir modal en lugar de offcanvas
@@ -1829,6 +1876,16 @@ class CapHum extends Controller
                 return n.includes('cierre') && n.includes('credito');
             }
 
+            /** Células / Cartera bajo tarjeta «Convenios» (id 56–59 o nombre «Cierre: Despachos»…): iconos contextuales. */
+            function esModuloCierreCelulaCarteraEnGrupoConveniosModal(grupoNombre, mod) {
+                if (normalizarTextoPermisoModal(grupoNombre) !== 'convenios') return false;
+                const id = Number(mod?.modulo_id ?? mod?.id ?? 0);
+                if (id === 56 || id === 57 || id === 59) return true;
+                const lab = normalizarTextoPermisoModal(mod?.modulo_nombre || '');
+                if (!lab.includes('cierre')) return false;
+                return lab.includes('despachos') || lab.includes('call center') || lab.includes('cartera');
+            }
+
             /** Las 4 pestañas de Cierre de crédito en permisos especiales (Convenios, Validación, En proceso, Historial). */
             function esFilaCuatroPestanasCierreCredito(displayLabel) {
                 const lab = normalizarTextoPermisoModal(displayLabel);
@@ -1839,6 +1896,7 @@ class CapHum extends Controller
                 if (lab === 'historial') return true;
                 if (lab.includes('despachos') || lab.includes('celula despachos')) return true;
                 if (lab.includes('call center') || lab.includes('celula call center')) return true;
+                if (lab.includes('cartera')) return true;
                 return false;
             }
 
@@ -1851,6 +1909,7 @@ class CapHum extends Controller
                 if (lab === 'historial') return 'fa-solid fa-clock-rotate-left';
                 if (lab.includes('despachos') || lab.includes('celula despachos')) return 'fa-solid fa-building';
                 if (lab.includes('call center') || lab.includes('celula call center')) return 'fa-solid fa-headset';
+                if (lab.includes('cartera')) return 'fa-solid fa-briefcase';
                 return null;
             }
 
@@ -1890,7 +1949,7 @@ class CapHum extends Controller
                 const modId = mod.modulo_id != null ? mod.modulo_id : mod.id;
                 let iconClass = iconosModulos[modId] || iconosModulos[Number(modId)] || 'fa fa-cube';
                 if (iconosCierrePorEtiqueta
-                    && esGrupoCierreDeCreditoModal(grupoNombre)
+                    && (esGrupoCierreDeCreditoModal(grupoNombre) || esModuloCierreCelulaCarteraEnGrupoConveniosModal(grupoNombre, mod))
                     && esFilaCuatroPestanasCierreCredito(displayLabel || mod.modulo_nombre)) {
                     const icEsp = iconoCuadroCierreCreditoPermisoEsp(displayLabel || mod.modulo_nombre);
                     if (icEsp) iconClass = icEsp;
@@ -2734,6 +2793,12 @@ class CapHum extends Controller
                 const idLegion     = document.getElementById("edit_id_legion") ? document.getElementById("edit_id_legion").value : '';
                 const id_div_nivel1 = document.getElementById('edit_id_div_nivel1')?.value || null;
                 const id_div_nivel2 = document.getElementById('edit_id_div_nivel2')?.value || null;
+                const id_div_nivel3 = document.getElementById('edit_id_div_nivel3')?.value || null;
+                const id_div_nivel4 = document.getElementById('edit_id_div_nivel4')?.value || null;
+                const domicilio_calle_texto = document.getElementById('edit_domicilio_calle_texto')?.value?.trim() || null;
+                const domicilio_num_exterior = document.getElementById('edit_domicilio_num_exterior')?.value?.trim() || null;
+                const domicilio_num_interior = document.getElementById('edit_domicilio_num_interior')?.value?.trim() || null;
+                const codigo_postal = document.getElementById('edit_codigo_postal')?.value?.trim() || null;
 
                 //  VALIDACIONES OBLIGATORIAS
                 if (!departamento) {
@@ -2779,7 +2844,13 @@ class CapHum extends Controller
                     contrasena: document.getElementById("edit_contrasena").value,
                     puestos_adicionales: puestosAdicionales,
                     id_div_nivel1: id_div_nivel1 || null,
-                    id_div_nivel2: id_div_nivel2 || null
+                    id_div_nivel2: id_div_nivel2 || null,
+                    id_div_nivel3: id_div_nivel3 || null,
+                    id_div_nivel4: id_div_nivel4 || null,
+                    domicilio_calle_texto: domicilio_calle_texto,
+                    domicilio_num_exterior: domicilio_num_exterior,
+                    domicilio_num_interior: domicilio_num_interior,
+                    codigo_postal: codigo_postal
                 };
 
                 fetch('/CapHum/updateGestorF', {
@@ -3074,7 +3145,12 @@ class CapHum extends Controller
 
                 const id_div_nivel1 = document.getElementById('add_id_div_nivel1')?.value || null;
                 const id_div_nivel2 = document.getElementById('add_id_div_nivel2')?.value || null;
-
+                const id_div_nivel3 = document.getElementById('add_id_div_nivel3')?.value || null;
+                const id_div_nivel4 = document.getElementById('add_id_div_nivel4')?.value || null;
+                const domicilio_calle_texto = document.getElementById('add_domicilio_calle_texto')?.value?.trim() || null;
+                const domicilio_num_exterior = document.getElementById('add_domicilio_num_exterior')?.value?.trim() || null;
+                const domicilio_num_interior = document.getElementById('add_domicilio_num_interior')?.value?.trim() || null;
+                const codigo_postal = document.getElementById('add_codigo_postal')?.value?.trim() || null;
 
                 //  Validaciones obligatorias (todos los campos)
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
@@ -3117,6 +3193,12 @@ class CapHum extends Controller
                         id_pais: id_pais || 1,
                         id_div_nivel1: id_div_nivel1 || null,
                         id_div_nivel2: id_div_nivel2 || null,
+                        id_div_nivel3: id_div_nivel3 || null,
+                        id_div_nivel4: id_div_nivel4 || null,
+                        domicilio_calle_texto: domicilio_calle_texto,
+                        domicilio_num_exterior: domicilio_num_exterior,
+                        domicilio_num_interior: domicilio_num_interior,
+                        codigo_postal: codigo_postal,
                         id_puesto,
                         departamento_id,
                         id_jefe: id_jefe || null,
@@ -3172,6 +3254,9 @@ class CapHum extends Controller
                 if (addAsignarLegion) addAsignarLegion.checked = false;
                 const divLegion = document.getElementById('div_select_legion');
                 if (divLegion) divLegion.style.display = 'none';
+                if (typeof resetCascadaAdd === 'function') {
+                    resetCascadaAdd();
+                }
             }
 
             $(document).ready(() => {
@@ -9868,6 +9953,38 @@ public function getMunicipios()
         \Models\CapHum::getMunicipiosPorEstado($id_estado)
     );
 }
+
+    public function getColonias()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id_municipio = $input['id_municipio'] ?? null;
+
+        if (empty($id_municipio)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de municipio requerido',
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(\Models\CapHum::getColoniasPorMunicipio((int) $id_municipio));
+    }
+
+    public function getCalles()
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id_colonia = $input['id_colonia'] ?? null;
+
+        if (empty($id_colonia)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de colonia requerido',
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(\Models\CapHum::getCallesPorColonia((int) $id_colonia));
+    }
 
     public function PerfilCheckBoxEstado()
     {

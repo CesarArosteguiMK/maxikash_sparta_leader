@@ -6,6 +6,7 @@ use Core\DatabaseSegundometro;
 
 /**
  * Comparativo segundómetro: dos semanas históricas + semana actual por cortes del día.
+ * Semana operativa: martes → lunes (el lunes sigue en la misma “semana” que empezó el martes anterior).
  * Lógica alineada al servicio FastAPI (tbl_segundometro_histo / tbl_segundometro_semana).
  */
 final class SegundometroComparativaSemanal
@@ -45,18 +46,18 @@ final class SegundometroComparativaSemanal
         $fechaRef = $hoy;
         if ($fechaParam !== null && trim($fechaParam) !== '') {
             $raw = substr(trim($fechaParam), 0, 10);
-            $fechaRef = \DateTimeImmutable::createFromFormat('Y-m-d', $raw, $tz);
+            // Forzamos 00:00:00 para comparar solo fecha calendario contra $hoy (también a medianoche).
+            $fechaRef = \DateTimeImmutable::createFromFormat('!Y-m-d', $raw, $tz);
             if ($fechaRef === false || $fechaRef->format('Y-m-d') !== $raw) {
                 throw new \InvalidArgumentException('fecha debe ser YYYY-MM-DD');
             }
         }
 
-        $nHoy = (int) $hoy->format('N');
-        $lunesEsta = $hoy->modify('-' . ($nHoy - 1) . ' days');
-        $lunesMin = $lunesEsta->modify('-7 days');
-        if ($fechaRef < $lunesMin || $fechaRef > $hoy) {
+        $martesEsta = self::martesInicioSemanaNegocio($hoy);
+        $martesMin = $martesEsta->modify('-7 days');
+        if ($fechaRef < $martesMin || $fechaRef > $hoy) {
             throw new \InvalidArgumentException(
-                'La fecha solo puede ser entre el lunes de la semana anterior y hoy (' . $lunesMin->format('Y-m-d') . ' — ' . $hoy->format('Y-m-d') . ').'
+                'La fecha solo puede ser entre el martes de inicio de la semana anterior y hoy (' . $martesMin->format('Y-m-d') . ' — ' . $hoy->format('Y-m-d') . ').'
             );
         }
 
@@ -69,15 +70,22 @@ final class SegundometroComparativaSemanal
 
         $db = new DatabaseSegundometro();
 
-        $s1d = $hoy->modify('-1 week');
-        $s2d = $hoy->modify('-2 weeks');
+        // Las 3 columnas se anclan a la semana del día seleccionado (fechaRef), no siempre a la de "hoy".
+        $tHoy = self::martesInicioSemanaNegocio($hoy);
+        $tActual = self::martesInicioSemanaNegocio($fechaRef);
+        $s1d = $tActual->modify('-7 days');
+        $s2d = $tActual->modify('-14 days');
         $s1 = self::etiquetaSemanaIso($s1d);
         $s2 = self::etiquetaSemanaIso($s2d);
-        $sa = self::etiquetaSemanaIso($hoy);
+        $sa = self::etiquetaSemanaIso($tActual);
 
         $r1 = self::leerHisto($db, $s1, $cols);
         $r2 = self::leerHisto($db, $s2, $cols);
-        $ract = self::leerActual($db, $cols);
+        // Solo usamos la tabla "semana" viva cuando realmente estamos parados en la semana actual de calendario.
+        // Si el usuario navega a semanas anteriores, la columna "Actual" debe salir del histórico de esa semana.
+        $ract = $tActual->format('Y-m-d') === $tHoy->format('Y-m-d')
+            ? self::leerActual($db, $cols)
+            : self::leerHisto($db, $sa, $cols);
 
         $prev1 = $r1[0];
         $c1 = array_slice($r1, 1);
@@ -108,7 +116,7 @@ final class SegundometroComparativaSemanal
         return [
             'dia' => $prefijoRef,
             'fecha_referencia' => $fechaRef->format('Y-m-d'),
-            'fecha_min' => $lunesMin->format('Y-m-d'),
+            'fecha_min' => $martesMin->format('Y-m-d'),
             'fecha_max' => $hoy->format('Y-m-d'),
             'hoy_calendario_cdmx' => $hoy->format('Y-m-d'),
             'es_hoy' => $fechaRef->format('Y-m-d') === $hoy->format('Y-m-d'),
@@ -117,7 +125,7 @@ final class SegundometroComparativaSemanal
             'semanas_display' => [
                 self::etiquetaRangoSemana($s2d),
                 self::etiquetaRangoSemana($s1d),
-                self::etiquetaRangoSemana($hoy),
+                self::etiquetaRangoSemana($tActual),
             ],
             'datos' => $filas,
             'tiene_prev' => true,
@@ -149,14 +157,24 @@ final class SegundometroComparativaSemanal
     }
 
     /**
-     * Rango lunes–domingo (misma convención que monday this week en America/Mexico_City).
+     * Primer día (martes) de la semana operativa martes–lunes que contiene $cualquierDía.
+     * N ISO: 1=lunes … 7=domingo.
      */
+    private static function martesInicioSemanaNegocio(\DateTimeImmutable $cualquierDia): \DateTimeImmutable
+    {
+        $n = (int) $cualquierDia->format('N');
+        $retroceder = $n === 1 ? 6 : ($n - 2);
+
+        return $cualquierDia->modify('-' . $retroceder . ' days');
+    }
+
+    /** Rango martes–lunes (7 días de la semana operativa). */
     private static function etiquetaRangoSemana(\DateTimeImmutable $cualquierDiaDeLaSemana): string
     {
-        $lunes = $cualquierDiaDeLaSemana->modify('monday this week');
-        $domingo = $lunes->modify('+6 days');
+        $martes = self::martesInicioSemanaNegocio($cualquierDiaDeLaSemana);
+        $lunesFin = $martes->modify('+6 days');
 
-        return $lunes->format('d/m/Y') . ' - ' . $domingo->format('d/m/Y');
+        return $martes->format('d/m/Y') . ' - ' . $lunesFin->format('d/m/Y');
     }
 
     /**
