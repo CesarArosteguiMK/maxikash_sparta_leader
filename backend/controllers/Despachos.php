@@ -658,14 +658,29 @@ public function DesasignarCredito()
             $rutaCompleta = sparta_uploads_resolve_relative($relPath);
 
             // [DEBUG TEMPORAL] — eliminar antes de producción final
-            $debugPath = sparta_uploads_root() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
-            error_log('[DEBUG DescargarDocumento] id=' . $idDocumento . ' | ruta_bd=' . $documento['ruta_archivo'] . ' | relPath=' . $relPath . ' | debugPath=' . $debugPath . ' | rutaCompleta=' . ($rutaCompleta ?? 'NULL') . ' | exists=' . (file_exists($debugPath) ? 'SI' : 'NO'));
+            $uploadsRoot   = sparta_uploads_root();
+            $debugPath     = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+            $legacyPath    = __DIR__ . '/../../uploads/' . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+            $legacyPath2   = __DIR__ . '/../../public/uploads/' . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+            $globResults   = glob($uploadsRoot . DIRECTORY_SEPARATOR . 'documentos_despacho' . DIRECTORY_SEPARATOR . '*') ?: [];
+
+            error_log('[DEBUG DescargarDocumento] id=' . $idDocumento . ' | uploadsRoot=' . $uploadsRoot . ' | debugPath=' . $debugPath . ' | exists=' . (file_exists($debugPath) ? 'SI' : 'NO'));
 
             if ($rutaCompleta === null || !file_exists($rutaCompleta)) {
                 echo json_encode([
                     'success' => false,
                     'message' => 'Archivo no encontrado en el servidor',
-                    '_debug' => ['relPath' => $relPath, 'intentado' => $debugPath, 'exists' => file_exists($debugPath)]
+                    '_debug' => [
+                        'uploads_root'   => $uploadsRoot,
+                        'relPath'        => $relPath,
+                        'intentado'      => $debugPath,
+                        'exists'         => file_exists($debugPath),
+                        'legacy_path'    => $legacyPath,
+                        'legacy_exists'  => file_exists($legacyPath),
+                        'legacy2_path'   => $legacyPath2,
+                        'legacy2_exists' => file_exists($legacyPath2),
+                        'archivos_en_carpeta' => array_map('basename', array_slice($globResults, 0, 5)),
+                    ]
                 ]);
                 return;
             }
