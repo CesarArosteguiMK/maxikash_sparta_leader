@@ -481,16 +481,20 @@ class Reporteria extends Controller
     public function comparativasAvanceSemanal()
     {
         self::set('titulo', 'Comparativas — Avance por cortes');
-        $tz = new \DateTimeZone('America/Mexico_City');
-        $hoy = new \DateTimeImmutable('today', $tz);
-        $lunes = $hoy->modify('monday this week');
-        self::set('comp_fecha_min', $lunes->format('Y-m-d'));
-        self::set('comp_fecha_max', $hoy->format('Y-m-d'));
+        $hoyMxGet = isset($_GET['hoy_mx']) ? trim((string) $_GET['hoy_mx']) : '';
+        self::set('comp_placeholder_cdmx', $hoyMxGet === '');
+        self::set('comp_fecha_min', '');
+        self::set('comp_fecha_max', '');
         self::set('comp_error', null);
         self::set('comp_payload', null);
         try {
             $fechaGet = isset($_GET['fecha']) ? (string) $_GET['fecha'] : null;
-            self::set('comp_payload', SegundometroComparativaSemanal::calcular($fechaGet));
+            if ($hoyMxGet !== '') {
+                $payload = SegundometroComparativaSemanal::calcular($fechaGet, $hoyMxGet);
+                self::set('comp_payload', $payload);
+                self::set('comp_fecha_min', $payload['fecha_min'] ?? '');
+                self::set('comp_fecha_max', $payload['fecha_max'] ?? '');
+            }
         } catch (\InvalidArgumentException $e) {
             self::set('comp_error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -508,7 +512,8 @@ class Reporteria extends Controller
     {
         try {
             $fecha = isset($_GET['fecha']) ? (string) $_GET['fecha'] : null;
-            self::respuestaJSON(SegundometroComparativaSemanal::calcular($fecha));
+            $hoyMx = isset($_GET['hoy_mx']) ? trim((string) $_GET['hoy_mx']) : null;
+            self::respuestaJSON(SegundometroComparativaSemanal::calcular($fecha, $hoyMx));
         } catch (\InvalidArgumentException $e) {
             http_response_code(400);
             self::respuestaJSON(['detail' => $e->getMessage()]);

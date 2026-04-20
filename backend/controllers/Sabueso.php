@@ -3932,7 +3932,8 @@ class Sabueso extends Controller
                 }
             }
         }
-        $todo['tickets'] = $omitirFad ? [] : TicketDAO::getTicketsPorIdCredito($idCredito);
+        // Los tickets NO dependen de omitir_fad (solo evita extracción FAD / info ingresos). Antes omitir_fad=true vaciaba tickets y el rastreo mostraba "sin detalle adicional".
+        $todo['tickets'] = TicketDAO::getTicketsPorIdCredito($idCredito);
         self::respuestaJSON(['success' => true, 'mensaje' => 'OK', 'datos' => $todo]);
     }
 

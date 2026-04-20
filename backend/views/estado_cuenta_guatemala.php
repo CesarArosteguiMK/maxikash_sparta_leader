@@ -139,6 +139,7 @@ $dataOtrosDatos = [
     'saldoParaLiquidarV2' => $parseMontoGT($saldoGT['TotalLiquidar']        ?? ''),
     'diasMoraMaximo'      => 0,
     'diasMora'            => 0,
+    'saldoTotalPendienteGastoCobranza' => isset($saldoTotalPendienteGastoCobranza) ? (float) $saldoTotalPendienteGastoCobranza : 0.0,
 ];
 
 $cuotasContratadas = (int)$dataOtrosDatos['cuotasContratadas'];
@@ -148,6 +149,19 @@ $cuotasFaltantes   = $cuotasContratadas - $cuotasPagadas;
 $porcentajeAvance = 0;
 if ($cuotasContratadas > 0) {
     $porcentajeAvance = min(100, round(($cuotasPagadas / $cuotasContratadas) * 100));
+}
+
+// Badge Estatus Crédito: text-bg-* (sólido); bg-label-* depende de color-mix y puede verse gris
+$_ecRawStGt = trim((string) ($dataEstadoCuenta['statusCredito'] ?? ''));
+$_ecRawStGt = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $_ecRawStGt);
+$_ecRawStGt = preg_replace('/\s+/u', ' ', $_ecRawStGt);
+$_ecNormStGt = mb_strtoupper($_ecRawStGt, 'UTF-8');
+if (str_contains($_ecNormStGt, 'SALDADO')) {
+    $ecEstatusCreditoBadgeClass = 'text-bg-success';
+} elseif (str_contains($_ecNormStGt, 'VIGENTE') || $_ecNormStGt === 'ACTIVO') {
+    $ecEstatusCreditoBadgeClass = 'text-bg-primary';
+} else {
+    $ecEstatusCreditoBadgeClass = 'text-bg-secondary';
 }
 
 /* ----------- Construir $tabla desde amortización CROOP (Bandera=401) + pagos reales (Bandera=404) ----------- */
@@ -298,7 +312,7 @@ if (empty($tabla) && !empty($amortRows)) {
     .estado-cuenta-page .sidebar-cliente .user-avatar-section .progress-bar {
         border-radius: 10px !important;
     }
-    .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
+    .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row > div {
         border-radius: 12px !important;
     }
     .estado-cuenta-page .sidebar-cliente .btn-outline-primary {
@@ -446,23 +460,26 @@ if (empty($tabla) && !empty($amortRows)) {
         gap: 0.5rem;
     }
 
-    .sidebar-cliente .d-flex.justify-content-between.my-3 {
+    .sidebar-cliente .ec-sidebar-metricas-row {
         flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-start;
         gap: 0.75rem;
         margin: 1rem 0;
     }
 
-    .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
-        flex: 1 1 calc(50% - 0.75rem);
+    .sidebar-cliente .ec-sidebar-metricas-row > div {
+        flex: 0 1 auto;
         min-width: 0;
+        max-width: 100%;
     }
 
-    .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+    .sidebar-cliente .ec-sidebar-metricas-row h5 {
         font-size: 0.95rem;
         margin-bottom: 0.25rem;
     }
 
-    .sidebar-cliente .d-flex.justify-content-between.my-3 span.small {
+    .sidebar-cliente .ec-sidebar-metricas-row span.small {
         font-size: 0.75rem;
     }
 
@@ -534,7 +551,7 @@ if (empty($tabla) && !empty($amortRows)) {
         .user-avatar-section .h6 { font-size: 0.95rem; }
         .sidebar-cliente .info-compact .info-label span:first-child,
         .sidebar-cliente .info-compact .info-label span:last-child { font-size: 0.8rem; }
-        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 { font-size: 0.9rem; }
+        .sidebar-cliente .ec-sidebar-metricas-row h5 { font-size: 0.9rem; }
     }
 
     @media (max-width: 1400px) {
@@ -546,21 +563,21 @@ if (empty($tabla) && !empty($amortRows)) {
         .sidebar-cliente .info-compact .info-label span:first-child,
         .sidebar-cliente .info-compact .info-label span:last-child { font-size: 0.75rem; }
         .sidebar-cliente .info-compact i.fa-lg { font-size: 0.85rem !important; }
-        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 { font-size: 0.85rem; }
+        .sidebar-cliente .ec-sidebar-metricas-row h5 { font-size: 0.85rem; }
         .sidebar-cliente .btn-outline-primary { font-size: 0.8rem; padding: 0.5rem 1rem !important; }
     }
 
     @media (max-width: 1200px) {
         .badge-container-ids { flex-direction: column; gap: 0.3rem; }
         .badge-container-ids .badge { width: 100%; max-width: 100%; text-align: center; }
-        .sidebar-cliente .d-flex.justify-content-between.my-3 > div { flex: 1 1 100%; }
+        .sidebar-cliente .ec-sidebar-metricas-row > div { flex: 1 1 100%; }
     }
 
     @media (max-width: 768px) {
         .sidebar-cliente .card-body { padding: 0.75rem !important; }
         .badge-container-ids { flex-direction: row; gap: 0.5rem; }
         .badge-container-ids .badge { flex: 1 1 calc(50% - 0.5rem); max-width: calc(50% - 0.5rem); }
-        .sidebar-cliente .d-flex.justify-content-between.my-3 { flex-direction: column; gap: 0.5rem; }
+        .sidebar-cliente .ec-sidebar-metricas-row { flex-direction: column; gap: 0.5rem; }
         .sidebar-cliente .btn-outline-primary { padding: 0.5rem 1rem !important; margin: 0.5rem 0.25rem !important; width: calc(100% - 0.5rem) !important; }
     }
 
@@ -735,7 +752,7 @@ if (empty($tabla) && !empty($amortRows)) {
         .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3,
         .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar { flex-direction: column; align-items: flex-start; margin-bottom: 0.75rem !important; }
         .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5,
-        .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar h5 { font-size: 0.85rem; margin-bottom: 0.5rem; width: 100%; }
+        .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar .ec-toolbar-titulo { font-size: 0.85rem; margin-bottom: 0.5rem; width: 100%; }
         .btn-notas, .btn-condonar, .btn-dictaminar, .btn-aclaraciones, .btn-rastreo-neverpaid { width: 36px !important; height: 36px !important; }
         .btn-notas i, .btn-condonar i, .btn-dictaminar i, .btn-aclaraciones i, .btn-rastreo-neverpaid i { font-size: 0.9rem !important; }
         .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item h5 { font-size: inherit; }
@@ -757,7 +774,7 @@ if (empty($tabla) && !empty($amortRows)) {
     .accordion-button:not(.collapsed) .accordion-arrow { transform: rotate(180deg); color: #0d6efd; }
     .accordion-collapse { border: none !important; }
     .accordion-body { background-color: transparent; padding: 1rem !important; }
-    .accordion-body .d-flex.justify-content-between.my-3 { margin-top: 0.75rem !important; margin-bottom: 1rem !important; }
+    .accordion-body .ec-sidebar-metricas-row { margin-top: 0.75rem !important; margin-bottom: 1rem !important; }
     .accordion-body .info-compact { margin: 0.75rem 0 !important; }
     .accordion-body .btn-outline-primary { margin: 1.25rem 0.75rem 0.75rem 0.75rem !important; padding: 0.65rem 1.5rem !important; width: calc(100% - 1.5rem) !important; }
     .accordion-collapse { transition: all 0.35s ease !important; }
@@ -892,9 +909,9 @@ if (empty($tabla) && !empty($amortRows)) {
 </style>
 <style>
 body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item h5,
-body:not(.dark-mode) .d-flex.justify-content-between.my-3 h5 { color: #212529 !important; }
+body:not(.dark-mode) .ec-sidebar-metricas-row h5 { color: #212529 !important; }
 body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item > div:last-child span,
-body:not(.dark-mode) .d-flex.justify-content-between.my-3 span.small { color: #6c757d !important; }
+body:not(.dark-mode) .ec-sidebar-metricas-row span.small { color: #6c757d !important; }
 body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:first-child { color: #495057 !important; }
 body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:last-child { color: #212529 !important; }
 body:not(.dark-mode) .sidebar-cliente .info-compact i.fa-lg { color: #6c757d !important; }
@@ -917,10 +934,10 @@ html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .
 body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .user-avatar-section .btn-link { color: #0d6efd !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr,
 body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr { border-color: var(--ec-light-border) !important; opacity: 1; }
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5 { color: var(--ec-text) !important; }
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small { color: var(--ec-text-muted) !important; }
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row h5,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row h5 { color: var(--ec-text) !important; }
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row span.small,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row span.small { color: var(--ec-text-muted) !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child,
 body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:first-child { color: #495057 !important; }
 html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .info-compact .info-label span:last-child,
@@ -1101,20 +1118,20 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
 
             <!-- VERSIÓN DESKTOP -->
             <div class="d-none d-lg-block desktop-info">
-                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar">
-                            <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                <span style="font-weight:700;font-size:1.1rem;">Q</span>
+                <div class="d-flex flex-nowrap my-3 gap-2 gap-md-3 ec-sidebar-metricas-row">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <div class="avatar flex-shrink-0">
+                            <div class="avatar-initial bg-label-warning rounded w-px-40 h-px-40">
+                                <i class="fa fa-file-invoice-dollar"></i>
                             </div>
                         </div>
-                        <div class="text-truncate">
-                            <h5 class="mb-0 text-truncate"><?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?></h5>
-                            <span class="small">Estatus Crédito</span>
+                        <div class="text-start text-truncate">
+                            <h5 class="mb-0 text-truncate"><?= format_currency($dataOtrosDatos["saldoTotalPendienteGastoCobranza"] ?? 0) ?></h5>
+                            <span class="small">Saldo GC pendiente</span>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <div class="avatar flex-shrink-0">
                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
                                 <span style="font-weight:700;font-size:1.1rem;">Q</span>
                             </div>
@@ -1258,20 +1275,20 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
                              aria-labelledby="headingInfoCredito"
                              data-bs-parent="#accordionInfoCredito">
                             <div class="accordion-body p-0 pt-3">
-                                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="avatar">
-                                            <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                                <span style="font-weight:700;font-size:1.1rem;">Q</span>
+                                <div class="d-flex flex-nowrap my-3 gap-2 gap-md-3 ec-sidebar-metricas-row">
+                                    <div class="d-flex align-items-center gap-3 min-w-0">
+                                        <div class="avatar flex-shrink-0">
+                                            <div class="avatar-initial bg-label-warning rounded w-px-40 h-px-40">
+                                                <i class="fa fa-file-invoice-dollar"></i>
                                             </div>
                                         </div>
-                                        <div class="text-truncate">
-                                            <h5 class="mb-0 text-truncate"><?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?></h5>
-                                            <span class="small">Estatus Crédito</span>
+                                        <div class="text-start text-truncate">
+                                            <h5 class="mb-0 text-truncate"><?= format_currency($dataOtrosDatos["saldoTotalPendienteGastoCobranza"] ?? 0) ?></h5>
+                                            <span class="small">Saldo GC pendiente</span>
                                         </div>
                                     </div>
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="avatar">
+                                    <div class="d-flex align-items-center gap-3 min-w-0">
+                                        <div class="avatar flex-shrink-0">
                                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
                                                 <span style="font-weight:700;font-size:1.1rem;">Q</span>
                                             </div>
@@ -1370,11 +1387,11 @@ $gradienteBanner = strtolower($paisCodigo) === 'gt'
 
 
         <div class="d-flex flex-column flex-sm-row flex-wrap justify-content-between align-items-start align-items-sm-center gap-2 gap-sm-3 mb-3 ec-resumen-pagos-toolbar">
-            <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                <h5 class="mb-0">Resumen general de pagos del cliente</h5>
-            </div>
+            <h5 class="mb-0 ec-toolbar-titulo">Resumen general de pagos del cliente</h5>
 
-            <div class="d-flex flex-wrap gap-2 align-items-center w-100 w-sm-auto justify-content-start justify-content-sm-end">
+            <div class="d-flex flex-wrap gap-2 align-items-center w-100 w-sm-auto justify-content-start justify-content-sm-end flex-shrink-0">
+                <span class="align-middle rounded-3 px-3 py-2 fw-semibold fs-6 <?= htmlspecialchars($ecEstatusCreditoBadgeClass) ?> shadow-sm text-nowrap me-auto"
+                      title="Estatus del crédito">Estatus Crédito: <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '—') ?></span>
                 <?php if (!empty($tienePermisoRastreoNeverPaid) && !empty($dataEstadoCuenta['idCredito'])): ?>
                     <button type="button"
                             class="btn btn-rastreo-neverpaid position-relative"

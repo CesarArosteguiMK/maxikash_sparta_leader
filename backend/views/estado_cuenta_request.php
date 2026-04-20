@@ -87,6 +87,19 @@ if ($cuotasContratadas > 0) {
 
 $esGestionExternaMx          = !empty($esGestionExternaMx);
 $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) $gestionExternaEtiquetaCelula : '';
+
+// Badge Estatus Crédito (barra principal): utilidades Bootstrap sólidas (text-bg-*) — bg-label-* usa color-mix y a veces se ve “gris”
+$_ecRawSt = trim((string) ($dataEstadoCuenta['statusCredito'] ?? ''));
+$_ecRawSt = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $_ecRawSt);
+$_ecRawSt = preg_replace('/\s+/u', ' ', $_ecRawSt);
+$_ecNormSt = mb_strtoupper($_ecRawSt, 'UTF-8');
+if (str_contains($_ecNormSt, 'SALDADO')) {
+    $ecEstatusCreditoBadgeClass = 'text-bg-success';
+} elseif (str_contains($_ecNormSt, 'VIGENTE') || $_ecNormSt === 'ACTIVO') {
+    $ecEstatusCreditoBadgeClass = 'text-bg-primary';
+} else {
+    $ecEstatusCreditoBadgeClass = 'text-bg-secondary';
+}
 ?>
 
 <style>
@@ -134,7 +147,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
     .estado-cuenta-page .sidebar-cliente .user-avatar-section .progress-bar {
         border-radius: 10px !important;
     }
-    .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
+    .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row > div {
         border-radius: 12px !important;
     }
     .estado-cuenta-page .sidebar-cliente .btn-outline-primary {
@@ -310,24 +323,27 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
         gap: 0.5rem;
     }
 
-    /* 3. MÉTRICAS (flex escalable) */
-    .sidebar-cliente .d-flex.justify-content-between.my-3 {
+    /* 3. MÉTRICAS (flex escalable): saldo vencido + gasto cobranza */
+    .sidebar-cliente .ec-sidebar-metricas-row {
         flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-start;
         gap: 0.75rem;
         margin: 1rem 0;
     }
 
-    .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
-        flex: 1 1 calc(50% - 0.75rem);
+    .sidebar-cliente .ec-sidebar-metricas-row > div {
+        flex: 0 1 auto;
         min-width: 0;
+        max-width: 100%;
     }
 
-    .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+    .sidebar-cliente .ec-sidebar-metricas-row h5 {
         font-size: 0.95rem;
         margin-bottom: 0.25rem;
     }
 
-    .sidebar-cliente .d-flex.justify-content-between.my-3 span.small {
+    .sidebar-cliente .ec-sidebar-metricas-row span.small {
         font-size: 0.75rem;
     }
 
@@ -474,7 +490,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
             font-size: 0.8rem;
         }
 
-        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+        .sidebar-cliente .ec-sidebar-metricas-row h5 {
             font-size: 0.9rem;
         }
     }
@@ -511,7 +527,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
             font-size: 0.85rem !important;
         }
 
-        .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+        .sidebar-cliente .ec-sidebar-metricas-row h5 {
             font-size: 0.85rem;
         }
 
@@ -534,7 +550,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
             text-align: center;
         }
 
-        .sidebar-cliente .d-flex.justify-content-between.my-3 > div {
+        .sidebar-cliente .ec-sidebar-metricas-row > div {
             flex: 1 1 100%;
         }
     }
@@ -558,7 +574,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
             max-width: calc(50% - 0.5rem);
         }
 
-        .sidebar-cliente .d-flex.justify-content-between.my-3 {
+        .sidebar-cliente .ec-sidebar-metricas-row {
             flex-direction: column;
             gap: 0.5rem;
         }
@@ -1099,7 +1115,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
        }
 
        .col-xl-8.col-lg-7 .d-flex.justify-content-between.align-items-center.mb-3 h5,
-       .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar h5 {
+       .col-xl-8.col-lg-7 .ec-resumen-pagos-toolbar .ec-toolbar-titulo {
            font-size: 0.85rem;
            margin-bottom: 0.5rem;
            width: 100%;
@@ -1198,7 +1214,7 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
        padding: 1rem !important; /* MOD: Padding interno */
    }
 
-   .accordion-body .d-flex.justify-content-between.my-3 {
+   .accordion-body .ec-sidebar-metricas-row {
        margin-top: 0.75rem !important;
        margin-bottom: 1rem !important;
    }
@@ -1596,11 +1612,11 @@ $gestionExternaEtiquetaCelula = isset($gestionExternaEtiquetaCelula) ? (string) 
 <style>
 /* Restaurar colores de métricas en modo claro */
 body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item h5,
-body:not(.dark-mode) .d-flex.justify-content-between.my-3 h5 {
+body:not(.dark-mode) .ec-sidebar-metricas-row h5 {
     color: #212529 !important;
 }
 body:not(.dark-mode) .ec-resumen-pagos-metricas-wrap .ec-metrica-pago-item > div:last-child span,
-body:not(.dark-mode) .d-flex.justify-content-between.my-3 span.small {
+body:not(.dark-mode) .ec-sidebar-metricas-row span.small {
     color: #6c757d !important;
 }
 body:not(.dark-mode) .sidebar-cliente .info-compact .info-label span:first-child {
@@ -1652,13 +1668,13 @@ body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente hr {
     border-color: var(--ec-light-border) !important;
     opacity: 1;
 }
-/* Bloque Estatus Crédito y Saldo Total Vencido: texto y etiquetas */
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 h5 {
+/* Saldo Total Vencido (sidebar): texto y etiquetas */
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row h5,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row h5 {
     color: var(--ec-text) !important;
 }
-html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small,
-body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .d-flex.justify-content-between.my-3 span.small {
+html:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row span.small,
+body:not(.dark-mode) .estado-cuenta-page .sidebar-cliente .ec-sidebar-metricas-row span.small {
     color: var(--ec-text-muted) !important;
 }
 /* Iconos de los bloques (Estatus / Saldo): fondo sólido y icono blanco para buen contraste */
@@ -1903,24 +1919,23 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                VERSIÓN DESKTOP (SIN ACORDEÓN)
             ================================ -->
             <div class="d-none d-lg-block desktop-info">
-                <!-- MÉTRICAS -->
-                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar">
-                            <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                <i class="fa fa-dollar"></i>
+                <!-- MÉTRICAS (saldo vencido + pendiente GC; estatus en barra principal) -->
+                <div class="d-flex flex-nowrap my-3 gap-2 gap-md-3 ec-sidebar-metricas-row">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <div class="avatar flex-shrink-0">
+                            <div class="avatar-initial bg-label-warning rounded w-px-40 h-px-40">
+                                <i class="fa fa-file-invoice-dollar"></i>
                             </div>
                         </div>
-                        <div class="text-truncate">
+                        <div class="text-start text-truncate">
                             <h5 class="mb-0 text-truncate">
-                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
+                                <?= format_currency($dataOtrosDatos["saldoTotalPendienteGastoCobranza"] ?? 0) ?>
                             </h5>
-                            <span class="small">Estatus Crédito</span>
+                            <span class="small">Saldo GC pendiente</span>
                         </div>
                     </div>
-
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                        <div class="avatar flex-shrink-0">
                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
                                 <i class="fa fa-dollar"></i>
                             </div>
@@ -2086,24 +2101,23 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
                              data-bs-parent="#accordionInfoCredito">
                             <div class="accordion-body p-0 pt-3">
 
-                                <!-- MÉTRICAS -->
-                                <div class="d-flex justify-content-between flex-nowrap my-3 gap-1 gap-md-1">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="avatar">
-                                            <div class="avatar-initial bg-label-info rounded w-px-40 h-px-40">
-                                                <i class="fa fa-dollar"></i>
+                                <!-- MÉTRICAS (saldo vencido + pendiente GC; estatus en barra principal) -->
+                                <div class="d-flex flex-nowrap my-3 gap-2 gap-md-3 ec-sidebar-metricas-row">
+                                    <div class="d-flex align-items-center gap-3 min-w-0">
+                                        <div class="avatar flex-shrink-0">
+                                            <div class="avatar-initial bg-label-warning rounded w-px-40 h-px-40">
+                                                <i class="fa fa-file-invoice-dollar"></i>
                                             </div>
                                         </div>
-                                        <div class="text-truncate">
+                                        <div class="text-start text-truncate">
                                             <h5 class="mb-0 text-truncate">
-                                                <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '') ?>
+                                                <?= format_currency($dataOtrosDatos["saldoTotalPendienteGastoCobranza"] ?? 0) ?>
                                             </h5>
-                                            <span class="small">Estatus Crédito</span>
+                                            <span class="small">Saldo GC pendiente</span>
                                         </div>
                                     </div>
-
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="avatar">
+                                    <div class="d-flex align-items-center gap-3 min-w-0">
+                                        <div class="avatar flex-shrink-0">
                                             <div class="avatar-initial bg-label-danger rounded w-px-40 h-px-40">
                                                 <i class="fa fa-dollar"></i>
                                             </div>
@@ -2212,9 +2226,11 @@ body.dark-mode .cuotas-table .icono-semana-cuota { color: #5eead4 !important; }
     <!-- CONTENIDO PRINCIPAL -->
     <div class="col-xl-8 col-lg-7 order-0 order-lg-1">
         <div class="d-flex flex-column flex-sm-row flex-wrap justify-content-between align-items-start align-items-sm-center gap-2 gap-sm-3 mb-3 ec-resumen-pagos-toolbar">
-            <h5 class="mb-0 flex-shrink-0">Resumen general de pagos del cliente</h5>
+            <h5 class="mb-0 flex-shrink-0 ec-toolbar-titulo">Resumen general de pagos del cliente</h5>
 
-            <div class="d-flex flex-wrap gap-2 align-items-center w-100 w-sm-auto justify-content-start justify-content-sm-end">
+            <div class="d-flex flex-wrap gap-2 align-items-center w-100 w-sm-auto justify-content-start justify-content-sm-end flex-shrink-0">
+                <span class="align-middle rounded-3 px-3 py-2 fw-semibold fs-6 <?= htmlspecialchars($ecEstatusCreditoBadgeClass) ?> shadow-sm text-nowrap me-auto"
+                      title="Estatus del crédito">Estatus Crédito: <?= htmlspecialchars($dataEstadoCuenta["statusCredito"] ?? '—') ?></span>
                 <?php if (!empty($tienePermisoAclaracionesGc) && !empty($dataEstadoCuenta['idCredito'])): ?>
                 <button type="button"
                         class="btn btn-aclaraciones position-relative"

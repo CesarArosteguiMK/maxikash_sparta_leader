@@ -2139,6 +2139,9 @@ JS;
             $cliente = $resultado['data']['datosCliente'];
             $estadoCuenta = $resultado['data'];
             $otrosDatos = $resultado['data']['datosSaldos'];
+            $otrosDatos['saldoTotalPendienteGastoCobranza'] = EstadoCuentaDAO::getTotalGastosCobranzaPendiente(
+                (int) ($estadoCuenta['idCredito'] ?? 0)
+            );
 
             // ---------------------------------------------------------------
             // 2. Crear estructura base para cada cuota con la información del cargo
@@ -6899,6 +6902,10 @@ public function descargarReporteDictamen()
                         $notasGt = EmpresasDAO::getNotasNum($idCredNotasGt);
                     }
                     self::set('notas', $notasGt);
+                    self::set(
+                        'saldoTotalPendienteGastoCobranza',
+                        EstadoCuentaDAO::getTotalGastosCobranzaPendiente($idCredNotasGt)
+                    );
                     $this->setEcAclaracionesUltimoPagoMetaParaVista($idCredNotasGt);
 
                     self::set("titulo", "Estado de Cuenta - Guatemala");

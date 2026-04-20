@@ -1011,6 +1011,25 @@ public static function getGastosCobranza($idCredito)
 }
 
 /**
+ * Suma del pendiente de gastos de cobranza por crédito (mismo criterio que {@see getGastosCobranza}: condonado, estatus, parciales).
+ */
+public static function getTotalGastosCobranzaPendiente(int $idCredito): float
+{
+    if ($idCredito <= 0) {
+        return 0.0;
+    }
+    $res = self::getGastosCobranza($idCredito);
+    if (empty($res['success']) || !is_array($res['datos'] ?? null)) {
+        return 0.0;
+    }
+    $total = 0.0;
+    foreach ($res['datos'] as $row) {
+        $total += (float) ($row['monto'] ?? 0);
+    }
+    return round($total, 2);
+}
+
+/**
  * Lee la fecha de último pago efectivo en tbl_segundometro_semana (misma fuente que insertAclaracionGcVerificacionSemana).
  *
  * Puede haber **varias filas** por Id_credito (p. ej. histórico por semana). Antes se usaba LIMIT 1 sin ORDER BY,

@@ -735,18 +735,27 @@ function sanitizeTraceId(raw) {
   return /^[A-Za-z0-9._:-]{6,80}$/.test(t) ? t : '';
 }
 
+/** Solo URL dedicada a lista negra / worker EC; no reutiliza el webhook post-reporte (evita mezclar espacios de Chat). */
 function ecWorkflowWebhookUrl() {
-  return String(process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL || '').trim() || reporteChatWebhookUrl();
+  return String(process.env.GASTOS_GC_EC_CHAT_WEBHOOK_URL || '').trim();
 }
 
 function ecWorkflowWebhookEnabled() {
   return String(process.env.GASTOS_GC_EC_CHAT_ENABLED ?? '1').trim() !== '0';
 }
 
+/** Avisos worker_inicio/worker_fin a Chat (0 = solo lista negra resumida; 1 = incluir worker). */
+function ecWorkerChatEventsEnabled() {
+  return String(process.env.GASTOS_GC_EC_CHAT_WORKER_EVENTS ?? '0').trim() === '1';
+}
+
 function notifyEcWorkflowWebhook(evento, traceId, detalleLineas) {
   if (!ecWorkflowWebhookEnabled()) return Promise.resolve(false);
   const hook = ecWorkflowWebhookUrl();
-  if (!hook) return Promise.resolve(false);
+  if (!hook) {
+    appendLog('[ec-webhook] GASTOS_GC_EC_CHAT_WEBHOOK_URL vacía; aviso EC no enviado a Chat.');
+    return Promise.resolve(false);
+  }
   const tr = sanitizeTraceId(traceId);
   const lines = Array.isArray(detalleLineas) ? detalleLineas.filter((x) => String(x || '').trim() !== '') : [];
   const text =
@@ -755,6 +764,78 @@ function notifyEcWorkflowWebhook(evento, traceId, detalleLineas) {
     (tr ? `\nTrace: ${tr}` : '') +
     (lines.length ? `\n${lines.join('\n')}` : '');
   appendLog(`[ec-webhook] enviando evento=${evento}${tr ? ` trace=${tr}` : ''}`);
+  return postGoogleChatWebhook(hook, text);
+}
+
+/** Última línea `[ec-webhook-lista-negra] {...}` emitida por el script Python. */
+function parseListaNegraResumenFromStdout(stdout) {
+  const pref = '[ec-webhook-lista-negra] ';
+  const lines = String(stdout || '').split(/\r?\n/);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const L = String(lines[i] || '').trim();
+    if (!L.startsWith(pref)) continue;
+    try {
+      return JSON.parse(L.slice(pref.length));
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Un solo mensaje legible para Chat (menos ruido que evento + claves técnicas). */
+function notifyListaNegraFinResumenWebhook(traceId, archivo, code, dryRunReq, resumen) {
+  if (!ecWorkflowWebhookEnabled()) return Promise.resolve(false);
+  const hook = ecWorkflowWebhookUrl();
+  if (!hook) {
+    appendLog('[ec-webhook] GASTOS_GC_EC_CHAT_WEBHOOK_URL vacía; resumen lista negra no enviado a Chat.');
+    return Promise.resolve(false);
+  }
+  const tr = sanitizeTraceId(traceId);
+  const ok = code === 0;
+  const sim = !!(dryRunReq || (resumen && resumen.dry_run));
+  const lines = [];
+  lines.push('Lista negra · Gastos cobranza');
+  lines.push(`Archivo: ${archivo}`);
+  if (tr) lines.push(`Traza: ${tr}`);
+  if (resumen && typeof resumen === 'object') {
+    if (resumen.ids_unicos_validos_en_excel != null) {
+      lines.push(`IDs únicos válidos en el Excel: ${resumen.ids_unicos_validos_en_excel}`);
+    }
+    if (sim) {
+      if (resumen.prevision_actualizaciones_3_a_2 != null) {
+        lines.push(`Previsión 3→2 (créditos distintos): ${resumen.prevision_actualizaciones_3_a_2}`);
+      }
+      if (resumen.prevision_inserts_nuevos != null) {
+        lines.push(`Previsión insertados nuevos (créditos distintos): ${resumen.prevision_inserts_nuevos}`);
+      }
+    } else {
+      if (resumen.filas_actualizadas_3_a_2 != null) {
+        lines.push(`Filas actualizadas en BD (estatus 3→2): ${resumen.filas_actualizadas_3_a_2}`);
+      }
+      if (resumen.filas_insertadas_nuevas != null) {
+        lines.push(`Filas insertadas nuevas en BD: ${resumen.filas_insertadas_nuevas}`);
+      }
+    }
+    if (resumen.sin_cambio_en_bd != null) {
+      lines.push(`Sin cambio en BD (misma semana, sin fila en estatus 3): ${resumen.sin_cambio_en_bd}`);
+    }
+    const notas = [];
+    if (Number(resumen.filas_sin_id_credito) > 0) {
+      notas.push(`${resumen.filas_sin_id_credito} fila(s) en Excel sin id de crédito válido`);
+    }
+    if (Number(resumen.duplicados_excel_omitidos) > 0) {
+      notas.push(`${resumen.duplicados_excel_omitidos} id(s) duplicado(s) en Excel omitidos`);
+    }
+    if (notas.length) lines.push(`Nota: ${notas.join(' · ')}`);
+  } else {
+    lines.push('(No hubo línea de resumen parseable; revisar log del agente / salida del script.)');
+  }
+  lines.push(
+    `${ok ? 'Resultado: OK' : 'Resultado: ERROR'} · código salida ${code}${sim ? ' · simulación (dry-run)' : ''}`,
+  );
+  const text = lines.join('\n');
+  appendLog(`[ec-webhook] lista negra fin resumen${tr ? ` trace=${tr}` : ''}`);
   return postGoogleChatWebhook(hook, text);
 }
 
@@ -1473,7 +1554,7 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
 
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
   appendLog(`--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php}${traceId ? ` trace=${traceId}` : ''} ---`);
-  if (tipo === 'worker') {
+  if (tipo === 'worker' && ecWorkerChatEventsEnabled()) {
     void notifyEcWorkflowWebhook('worker_inicio', traceId, [
       `archivo=${archivoEstado}`,
       `fecha_corte=${fechaCorte}`,
@@ -1567,12 +1648,15 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
       payload.errores_reintento_csv = erroresReintentoCsv;
     }
     if (tipo === 'worker') {
-      void notifyEcWorkflowWebhook('worker_fin', traceId, [
-        `archivo=${archivoEstado}`,
-        `codigo_salida=${code}`,
-        `success=${code === 0 ? '1' : '0'}`,
-        erroresReintentoCsv ? `errores_reintento_csv=${erroresReintentoCsv}` : '',
-      ]);
+      const workerFallo = code !== 0;
+      if (workerFallo || ecWorkerChatEventsEnabled()) {
+        void notifyEcWorkflowWebhook('worker_fin', traceId, [
+          `archivo=${archivoEstado}`,
+          `codigo_salida=${code}`,
+          `success=${code === 0 ? '1' : '0'}`,
+          erroresReintentoCsv ? `errores_reintento_csv=${erroresReintentoCsv}` : '',
+        ]);
+      }
     }
     enviar(payload);
   });
@@ -1677,11 +1761,6 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   appendLog(
     `--- carga-verificacion-semana archivo=${archivoLog} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'}${traceId ? ` trace=${traceId}` : ''} ---`,
   );
-  void notifyEcWorkflowWebhook('lista_negra_inicio', traceId, [
-    `archivo=${archivoLog}`,
-    `dry_run=${dryRun ? '1' : '0'}`,
-    `origen=${origenCarpeta}`,
-  ]);
 
   const child = spawn(REPORTE_PYTHON, args, {
     cwd,
@@ -1752,12 +1831,8 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
       estado_reporte: estadoRepPayload,
       traceId: traceId || null,
     });
-    void notifyEcWorkflowWebhook('lista_negra_fin', traceId, [
-      `archivo=${archivoLog}`,
-      `codigo_salida=${code}`,
-      `success=${code === 0 ? '1' : '0'}`,
-      `dry_run=${dryRun ? '1' : '0'}`,
-    ]);
+    const resumenLn = parseListaNegraResumenFromStdout(stdout);
+    void notifyListaNegraFinResumenWebhook(traceId, archivoLog, code, dryRun, resumenLn);
   });
 });
 
