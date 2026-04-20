@@ -1291,6 +1291,9 @@ HTML;
             }
             unset($row);
 
+            // Enriquecer con datos S2 (cuotas contratadas/pagadas, monto otorgado, total pagado, semana acuerdo)
+            self::_enrichWithS2AndSemana($rows);
+
             return self::resultado(true, 'Notificaciones cartera.', $rows);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener notificaciones de cartera.', [], $e->getMessage());

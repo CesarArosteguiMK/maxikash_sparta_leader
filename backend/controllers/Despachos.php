@@ -598,7 +598,7 @@ public function DesasignarCredito()
 
             $nombreArchivo = \Core\SecureUpload::generateSafeFilename($extension);
             $rutaCompleta = sparta_uploads_join('documentos_despacho', $nombreArchivo);
-            $rutaRelativa = 'uploads/documentos_despacho/' . $nombreArchivo;
+            $rutaRelativa = 'documentos_despacho/' . $nombreArchivo;
 
             if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
                 echo json_encode([
@@ -650,9 +650,14 @@ public function DesasignarCredito()
                 return;
             }
 
-            $rutaCompleta = __DIR__ . '/../../' . $documento['ruta_archivo'];
+            $relPath = $documento['ruta_archivo'];
+            // Compatibilidad con registros anteriores que incluyen 'uploads/' como prefijo
+            if (str_starts_with($relPath, 'uploads/')) {
+                $relPath = substr($relPath, 8);
+            }
+            $rutaCompleta = sparta_uploads_resolve_relative($relPath);
 
-            if (!file_exists($rutaCompleta)) {
+            if ($rutaCompleta === null || !file_exists($rutaCompleta)) {
                 echo json_encode([
                     'success' => false,
                     'message' => 'Archivo no encontrado en el servidor'
