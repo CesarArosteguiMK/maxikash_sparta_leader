@@ -35,12 +35,12 @@ final class SegundometroComparativaSemanal
     ];
 
     /**
-     * @return array{dia:string,fecha_referencia:string,es_hoy:bool,semana_actual:string,semanas:list<string>,datos:list<array<string,mixed>>,tiene_prev:bool}
+     * @return array{dia:string,fecha_referencia:string,fecha_min:string,fecha_max:string,hoy_calendario_cdmx:string,es_hoy:bool,semana_actual:string,semanas:list<string>,semanas_display:list<string>,datos:list<array<string,mixed>>,tiene_prev:bool}
      */
-    public static function calcular(?string $fechaParam): array
+    public static function calcular(?string $fechaParam, ?string $hoyCalendarioMxYmd = null): array
     {
         $tz = new \DateTimeZone('America/Mexico_City');
-        $hoy = new \DateTimeImmutable('today', $tz);
+        $hoy = self::resolverHoyCalendarioCdmx($tz, $hoyCalendarioMxYmd);
 
         $fechaRef = $hoy;
         if ($fechaParam !== null && trim($fechaParam) !== '') {
@@ -51,10 +51,12 @@ final class SegundometroComparativaSemanal
             }
         }
 
-        $lunes = $hoy->modify('monday this week');
-        if ($fechaRef < $lunes || $fechaRef > $hoy) {
+        $nHoy = (int) $hoy->format('N');
+        $lunesEsta = $hoy->modify('-' . ($nHoy - 1) . ' days');
+        $lunesMin = $lunesEsta->modify('-7 days');
+        if ($fechaRef < $lunesMin || $fechaRef > $hoy) {
             throw new \InvalidArgumentException(
-                'La fecha solo puede ser entre el lunes de esta semana y hoy (' . $lunes->format('Y-m-d') . ' — ' . $hoy->format('Y-m-d') . ').'
+                'La fecha solo puede ser entre el lunes de la semana anterior y hoy (' . $lunesMin->format('Y-m-d') . ' — ' . $hoy->format('Y-m-d') . ').'
             );
         }
 
@@ -106,17 +108,55 @@ final class SegundometroComparativaSemanal
         return [
             'dia' => $prefijoRef,
             'fecha_referencia' => $fechaRef->format('Y-m-d'),
+            'fecha_min' => $lunesMin->format('Y-m-d'),
+            'fecha_max' => $hoy->format('Y-m-d'),
+            'hoy_calendario_cdmx' => $hoy->format('Y-m-d'),
             'es_hoy' => $fechaRef->format('Y-m-d') === $hoy->format('Y-m-d'),
             'semana_actual' => $sa,
             'semanas' => [$s2, $s1, 'Actual'],
+            'semanas_display' => [
+                self::etiquetaRangoSemana($s2d),
+                self::etiquetaRangoSemana($s1d),
+                self::etiquetaRangoSemana($hoy),
+            ],
             'datos' => $filas,
             'tiene_prev' => true,
         ];
     }
 
+    /**
+     * Día calendario "hoy" en CDMX: preferir Y-m-d enviado por el cliente (Intl + America/Mexico_City)
+     * para no depender del reloj del servidor; si no viene, usar reloj del servidor en esa zona.
+     */
+    private static function resolverHoyCalendarioCdmx(\DateTimeZone $tz, ?string $hoyCalendarioMxYmd): \DateTimeImmutable
+    {
+        if ($hoyCalendarioMxYmd !== null && trim($hoyCalendarioMxYmd) !== '') {
+            $raw = substr(trim($hoyCalendarioMxYmd), 0, 10);
+            $parsed = \DateTimeImmutable::createFromFormat('Y-m-d', $raw, $tz);
+            if ($parsed === false || $parsed->format('Y-m-d') !== $raw) {
+                throw new \InvalidArgumentException('hoy_mx debe ser YYYY-MM-DD (calendario Ciudad de México).');
+            }
+
+            return new \DateTimeImmutable($raw . ' 00:00:00', $tz);
+        }
+
+        return new \DateTimeImmutable('today', $tz);
+    }
+
     private static function etiquetaSemanaIso(\DateTimeImmutable $d): string
     {
         return sprintf('Semana %d-%d', (int) $d->format('W'), (int) $d->format('o'));
+    }
+
+    /**
+     * Rango lunes–domingo (misma convención que monday this week en America/Mexico_City).
+     */
+    private static function etiquetaRangoSemana(\DateTimeImmutable $cualquierDiaDeLaSemana): string
+    {
+        $lunes = $cualquierDiaDeLaSemana->modify('monday this week');
+        $domingo = $lunes->modify('+6 days');
+
+        return $lunes->format('d/m/Y') . ' - ' . $domingo->format('d/m/Y');
     }
 
     /**

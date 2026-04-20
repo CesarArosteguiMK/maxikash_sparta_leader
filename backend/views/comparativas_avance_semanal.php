@@ -3,10 +3,13 @@
 /** @var ?array $comp_payload */
 /** @var string $comp_fecha_min */
 /** @var string $comp_fecha_max */
+/** @var bool $comp_placeholder_cdmx Esperando hoy_mx del navegador (calendario real CDMX). */
 $cErr = isset($comp_error) ? (string) $comp_error : '';
 $cMin = isset($comp_fecha_min) ? htmlspecialchars((string) $comp_fecha_min, ENT_QUOTES, 'UTF-8') : '';
 $cMax = isset($comp_fecha_max) ? htmlspecialchars((string) $comp_fecha_max, ENT_QUOTES, 'UTF-8') : '';
 $comp_ok_inicio = ($cErr === '' && isset($comp_payload) && is_array($comp_payload));
+$comp_placeholder_cdmx = !empty($comp_placeholder_cdmx) && $cErr === '';
+$comp_ui_datos = $comp_ok_inicio || $comp_placeholder_cdmx;
 $compInitialJson = json_encode($comp_payload ?? null, JSON_UNESCAPED_UNICODE);
 if ($compInitialJson === false) {
     $compInitialJson = 'null';
@@ -20,9 +23,25 @@ if ($compInitialJson === false) {
             <span>Comparativas — Avance por cortes</span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
-            <span id="comp-api-status" class="badge <?= $comp_ok_inicio ? 'bg-label-success' : 'bg-label-danger'; ?> align-middle"
-                  title="Estado del endpoint de datos en esta aplicación">
-                <?= $comp_ok_inicio ? 'Servicio: activo' : 'Servicio: no disponible'; ?>
+            <span id="comp-api-status" class="badge <?php
+                if ($comp_ok_inicio) {
+                    echo 'bg-label-success';
+                } elseif ($comp_placeholder_cdmx) {
+                    echo 'bg-label-warning';
+                } else {
+                    echo 'bg-label-danger';
+                }
+            ?> align-middle"
+                  title="<?= $comp_placeholder_cdmx ? 'Obteniendo calendario Ciudad de México desde el navegador' : 'Estado del endpoint de datos en esta aplicación'; ?>">
+                <?php
+                if ($comp_ok_inicio) {
+                    echo 'Servicio: activo';
+                } elseif ($comp_placeholder_cdmx) {
+                    echo 'Calendario CDMX…';
+                } else {
+                    echo 'Servicio: no disponible';
+                }
+                ?>
             </span>
             <a href="/reporteria/comparativas" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-arrow-left me-1"></i>Volver
@@ -48,7 +67,7 @@ if ($compInitialJson === false) {
                     <div class="text-start">
                         <label for="comp-fecha-ref" class="form-label small text-muted mb-1">Día a comparar</label>
                         <select class="form-select form-select-sm fw-semibold shadow-none" id="comp-fecha-ref" style="min-width: 13.5rem;"
-                                title="Seleccione el día (lunes a hoy de la semana actual)"<?= $comp_ok_inicio ? '' : ' disabled'; ?>>
+                                title="Desde el lunes de la semana anterior hasta hoy (calendario Ciudad de México)"<?= $comp_ui_datos ? '' : ' disabled'; ?>>
                             <option value="">Cargando días…</option>
                         </select>
                     </div>
@@ -92,7 +111,7 @@ if ($compInitialJson === false) {
                                 </span>
                             </td>
                             <td colspan="5" class="comp-chip-actions">
-                                <button type="button" class="btn btn-primary btn-sm comp-btn-refresh" id="comp-btn-refresh"<?= $comp_ok_inicio ? '' : ' disabled'; ?>>
+                                <button type="button" class="btn btn-primary btn-sm comp-btn-refresh" id="comp-btn-refresh"<?= $comp_ui_datos ? '' : ' disabled'; ?>>
                                     <i class="fa-solid fa-rotate me-1"></i>Actualizar
                                 </button>
                                 <span class="small fw-semibold comp-av-actualizado ms-2" id="comp-ultima-act">—</span>
@@ -102,12 +121,16 @@ if ($compInitialJson === false) {
                 </table>
             </div>
 
-            <div id="comp-sin-servicio" class="<?= $comp_ok_inicio ? 'd-none' : ''; ?> alert alert-warning rounded-0 border-0 border-bottom mb-0 py-3 text-center small">
+            <div id="comp-sin-servicio" class="<?= $comp_ui_datos ? 'd-none' : ''; ?> alert alert-warning rounded-0 border-0 border-bottom mb-0 py-3 text-center small">
                 <i class="fa-solid fa-plug-circle-xmark me-2"></i>
                 No hay datos: el servicio de reporte no respondió o no está disponible. Cuando la base esté accesible, pulse <strong>Actualizar</strong>.
+                <?php if ($cErr !== ''): ?>
+                <p class="small text-secondary mb-0 mt-2 px-2"><strong>Detalle (carga inicial):</strong> <?= htmlspecialchars($cErr, ENT_QUOTES, 'UTF-8'); ?></p>
+                <?php endif; ?>
+                <p class="small text-muted mb-0 mt-2 px-2">Si el detalle no aclara el fallo, revise el <strong>log de PHP</strong> (líneas <code>Reporteria::comparativasAvanceSemanal</code> o <code>getComparativasAvanceSemanalJson</code>) y en el navegador la pestaña <strong>Red</strong> al pulsar Actualizar (código HTTP y cuerpo de la respuesta).</p>
             </div>
 
-            <div id="comp-table-area" class="<?= $comp_ok_inicio ? '' : 'd-none'; ?>">
+            <div id="comp-table-area" class="<?= $comp_ui_datos ? '' : 'd-none'; ?>">
                 <div class="table-responsive">
                 <table class="table table-sm table-bordered mb-0 comp-av-table" style="font-size:0.78rem;">
                     <colgroup>
@@ -127,7 +150,7 @@ if ($compInitialJson === false) {
                         <tr>
                             <th colspan="2" class="text-center small text-secondary comp-th-hist comp-sep-r" id="comp-hdr-s1">—</th>
                             <th colspan="2" class="text-center small text-secondary comp-th-hist comp-sep-r" id="comp-hdr-s2">—</th>
-                            <th colspan="2" class="text-center small text-success comp-th-act comp-sep-r">Semana actual</th>
+                            <th colspan="2" class="text-center small text-success comp-th-act comp-sep-r" id="comp-hdr-sa">Semana actual</th>
                             <th rowspan="2" class="text-center align-middle small text-primary comp-th-time comp-sep-r" id="comp-hdr-dia">—</th>
                             <th colspan="2" class="text-center small comp-th-var comp-sep-r" id="comp-hdr-var1">Variación vs —</th>
                             <th colspan="2" class="text-center small comp-th-var" id="comp-hdr-var2">Variación vs —</th>
@@ -511,10 +534,75 @@ body.dark-mode #comp-sin-servicio {
 (function () {
     const COMP_OK_INICIO = <?= $comp_ok_inicio ? 'true' : 'false' ?>;
     const COMP_INITIAL = <?= $compInitialJson ?>;
+    const COMP_RANGO = <?= json_encode(['min' => $cMin, 'max' => $cMax], JSON_UNESCAPED_UNICODE) ?>;
     const FETCH_URL = '/reporteria/getComparativasAvanceSemanalJson';
     const HORAS_LABEL = ['07:30 a.m.','09:30 a.m.','11:30 a.m.','01:30 p.m.','02:30 p.m.','04:30 p.m.','06:30 p.m.','08:30 p.m.','11:50 p.m.'];
 
     let refreshTimer = null;
+    /** Último JSON válido (para no ocultar la tabla si falla un refresco puntual). */
+    let lastGoodData = (COMP_OK_INICIO && COMP_INITIAL) ? COMP_INITIAL : null;
+    let compRango = {
+        min: (COMP_INITIAL && COMP_INITIAL.fecha_min) || (COMP_RANGO && COMP_RANGO.min) || '',
+        max: (COMP_INITIAL && COMP_INITIAL.fecha_max) || (COMP_RANGO && COMP_RANGO.max) || ''
+    };
+
+    function sleep(ms) {
+        return new Promise(function (resolve) { setTimeout(resolve, ms); });
+    }
+
+    /** Fecha calendario hoy en Ciudad de México (Intl + America/Mexico_City), sin usar reloj del servidor. */
+    function ymdHoyCiudadMexico() {
+        try {
+            var fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' });
+            var parts = fmt.formatToParts(new Date());
+            var y = '', mo = '', da = '';
+            for (var i = 0; i < parts.length; i++) {
+                if (parts[i].type === 'year') y = parts[i].value;
+                if (parts[i].type === 'month') mo = parts[i].value;
+                if (parts[i].type === 'day') da = parts[i].value;
+            }
+            return (y && mo && da) ? (y + '-' + mo + '-' + da) : '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function buildComparativaUrl(fv) {
+        var q = ['hoy_mx=' + encodeURIComponent(ymdHoyCiudadMexico())];
+        if (fv) q.push('fecha=' + encodeURIComponent(fv));
+        return FETCH_URL + '?' + q.join('&');
+    }
+
+    /**
+     * Reintenta la petición ante fallos de red o 5xx (errores transitorios).
+     * @returns {Promise<object>}
+     */
+    async function fetchComparativaJson(fv) {
+        const u = buildComparativaUrl(fv);
+        const intentos = 3;
+        var lastErr;
+        for (var i = 0; i < intentos; i++) {
+            try {
+                var r = await fetch(u, { credentials: 'same-origin' });
+                var tx = await r.text();
+                var d;
+                try { d = JSON.parse(tx); } catch (e2) { throw new Error('Respuesta no JSON'); }
+                if (!r.ok) {
+                    var det = d && d.detail;
+                    var msg = typeof det === 'string' ? det : (det ? JSON.stringify(det) : ('HTTP ' + r.status));
+                    var err = new Error(msg);
+                    if (r.status >= 400 && r.status < 500) err.noRetry = true;
+                    throw err;
+                }
+                return d;
+            } catch (e) {
+                lastErr = e;
+                if (e && e.noRetry) break;
+                if (i < intentos - 1) await sleep(350 * (i + 1));
+            }
+        }
+        throw lastErr;
+    }
     function startAutoRefresh() {
         if (refreshTimer) return;
         refreshTimer = setInterval(cargar, 5 * 60 * 1000);
@@ -534,6 +622,10 @@ body.dark-mode #comp-sin-servicio {
             el.textContent = 'Servicio: activo';
             el.className = 'badge bg-label-success align-middle';
             el.title = 'El endpoint respondió correctamente';
+        } else if (state === 'degraded') {
+            el.textContent = 'Servicio: sin actualizar';
+            el.className = 'badge bg-label-warning align-middle';
+            el.title = 'No se pudo obtener una lectura nueva; se muestran los últimos datos cargados.';
         } else {
             el.textContent = 'Servicio: no disponible';
             el.className = 'badge bg-label-danger align-middle';
@@ -627,38 +719,35 @@ body.dark-mode #comp-sin-servicio {
         });
     }
 
-    function mondayOfWeek(d) {
-        const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        const day = dt.getDay();
-        const diff = day === 0 ? -6 : 1 - day;
-        dt.setDate(dt.getDate() + diff);
-        return dt;
-    }
-    function toYMD(d) {
-        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    }
     function fmtFechaISO(iso) {
         if (!iso) return '';
         const p = iso.slice(0, 10).split('-');
         if (p.length !== 3) return iso;
         return p[2] + '/' + p[1] + '/' + p[0];
     }
-    function nombreDiaEs(d) {
+    /** Días calendario entre minYmd y maxYmd (Y-m-d), mismo criterio que PHP (sin depender de la zona del navegador). */
+    function enumerateDiasCalendario(minYmd, maxYmd) {
         const map = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        return map[d.getDay()] || '';
+        const ps = (minYmd || '').slice(0, 10).split('-').map(Number);
+        const pe = (maxYmd || '').slice(0, 10).split('-').map(Number);
+        if (ps.length !== 3 || pe.length !== 3 || ps.some(isNaN) || pe.some(isNaN)) return [];
+        let t = Date.UTC(ps[0], ps[1] - 1, ps[2]);
+        const endT = Date.UTC(pe[0], pe[1] - 1, pe[2]);
+        const out = [];
+        while (t <= endT) {
+            const dt = new Date(t);
+            const iso = dt.getUTCFullYear() + '-' + String(dt.getUTCMonth() + 1).padStart(2, '0') + '-' + String(dt.getUTCDate()).padStart(2, '0');
+            out.push({ value: iso, label: (map[dt.getUTCDay()] || '') + ' — ' + fmtFechaISO(iso) });
+            t += 86400000;
+        }
+        return out;
     }
     function buildDiaCompararOptions(preferIso) {
         const inp = document.getElementById('comp-fecha-ref');
         if (!inp) return '';
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-        const mon = mondayOfWeek(hoy);
-        const options = [];
-        for (let d = new Date(mon.getTime()); d <= hoy; d.setDate(d.getDate() + 1)) {
-            const iso = toYMD(d);
-            const nombre = nombreDiaEs(d);
-            options.push({ value: iso, label: nombre + ' — ' + fmtFechaISO(iso) });
-        }
+        const minY = compRango.min || (COMP_RANGO && COMP_RANGO.min) || '';
+        const maxY = compRango.max || (COMP_RANGO && COMP_RANGO.max) || '';
+        const options = enumerateDiasCalendario(minY, maxY);
         const selectedActual = inp.value || '';
         const selected = options.some(o => o.value === preferIso) ? preferIso
             : (options.some(o => o.value === selectedActual) ? selectedActual : (options.length ? options[options.length - 1].value : ''));
@@ -674,6 +763,13 @@ body.dark-mode #comp-sin-servicio {
     function pct(a, r) {
         if (!r) return '<span class="comp-num-empty">—</span>';
         const p = ((a - r) / r * 100).toFixed(1);
+        const cls = p >= 0 ? 'comp-pos' : 'comp-neg';
+        return '<span class="' + cls + ' small">' + (p >= 0 ? '+' : '') + p + '%</span>';
+    }
+    /** % respecto al histórico: (histórico − actual) / histórico (coherente con dif hist−actual en créditos). */
+    function pctHistVsActual(actual, hist) {
+        if (!hist) return '<span class="comp-num-empty">—</span>';
+        const p = ((hist - actual) / hist * 100).toFixed(1);
         const cls = p >= 0 ? 'comp-pos' : 'comp-neg';
         return '<span class="' + cls + ' small">' + (p >= 0 ? '+' : '') + p + '%</span>';
     }
@@ -694,7 +790,14 @@ body.dark-mode #comp-sin-servicio {
 
     function render(d) {
         if (!d || !d.semanas || !d.datos) return;
+        if (d.fecha_min && d.fecha_max) {
+            compRango = { min: d.fecha_min, max: d.fecha_max };
+        }
         const s1 = d.semanas[0], s2 = d.semanas[1], sa = d.semana_actual || 'Actual';
+        const disp = (Array.isArray(d.semanas_display) && d.semanas_display.length >= 3)
+            ? d.semanas_display
+            : [s1, s2, sa];
+        const lblHistAnt = disp[0], lblHistRec = disp[1], lblActualSem = disp[2];
         const fechaSel = d.fecha_referencia ? d.fecha_referencia.slice(0, 10) : '';
         buildDiaCompararOptions(fechaSel);
 
@@ -708,9 +811,12 @@ body.dark-mode #comp-sin-servicio {
         /* Variación: columnas intercambiadas (izq = vs semana más reciente histórica, der = vs más antigua) */
         document.getElementById('comp-hdr-var1').textContent = 'Variación vs ' + s2;
         document.getElementById('comp-hdr-var2').textContent = 'Variación vs ' + s1;
-        document.getElementById('comp-chip-s2').textContent = s1;
-        document.getElementById('comp-chip-s1').textContent = s2;
-        document.getElementById('comp-chip-sa').textContent = sa;
+        /* Chips (Historial / Actual): rango de periodo; tabla: etiquetas Semana ISO. */
+        document.getElementById('comp-chip-s2').textContent = lblHistAnt;
+        document.getElementById('comp-chip-s1').textContent = lblHistRec;
+        document.getElementById('comp-chip-sa').textContent = lblActualSem;
+        var hdrSa = document.getElementById('comp-hdr-sa');
+        if (hdrSa) hdrSa.textContent = sa;
 
         const ck1 = 'creditos_' + s1, cb1 = 'cobrado_' + s1, ck2 = 'creditos_' + s2, cb2 = 'cobrado_' + s2;
         document.getElementById('comp-tbody').innerHTML = d.datos.map(function (row, i) {
@@ -725,8 +831,8 @@ body.dark-mode #comp-sin-servicio {
                 '<td class="text-end">' + fmt(c2) + '</td><td class="text-end comp-sep-r' + cobCls + '">' + cobStr(v2, esNoche) + '</td>' +
                 '<td class="text-end">' + caStr + '</td><td class="text-end comp-sep-r' + cobCls + '">' + vaStr + '</td>' +
                 '<td class="comp-col-time comp-sep-r">' + HORAS_LABEL[i] + (esNoche ? '<br><span class="comp-num-empty" style="font-size:.65rem;font-style:normal">nocturno</span>' : '') + '</td>' +
-                '<td class="comp-col-var text-end">' + dif(ca, c2) + '</td><td class="comp-col-var text-end comp-sep-r">' + pct(ca, c2) + '</td>' +
-                '<td class="comp-col-var text-end">' + dif(ca, c1) + '</td><td class="comp-col-var text-end">' + pct(ca, c1) + '</td></tr>';
+                '<td class="comp-col-var text-end">' + dif(c2, ca) + '</td><td class="comp-col-var text-end comp-sep-r">' + pctHistVsActual(ca, c2) + '</td>' +
+                '<td class="comp-col-var text-end">' + dif(c1, ca) + '</td><td class="comp-col-var text-end">' + pctHistVsActual(ca, c1) + '</td></tr>';
         }).join('');
     }
 
@@ -735,25 +841,22 @@ body.dark-mode #comp-sin-servicio {
         if (btn) { btn.disabled = true; }
         setApiStatus('check');
         try {
-            buildDiaCompararOptions();
             const inp = document.getElementById('comp-fecha-ref');
             const fv = inp && !inp.disabled ? inp.value : '';
-            const u = FETCH_URL + (fv ? ('?fecha=' + encodeURIComponent(fv)) : '');
-            const r = await fetch(u, { credentials: 'same-origin' });
-            const tx = await r.text();
-            let d;
-            try { d = JSON.parse(tx); } catch (e2) { throw new Error(tx.slice(0, 200)); }
-            if (!r.ok) {
-                const det = d && d.detail;
-                throw new Error(typeof det === 'string' ? det : (det ? JSON.stringify(det) : ('HTTP ' + r.status)));
-            }
+            const d = await fetchComparativaJson(fv);
             render(d);
+            lastGoodData = d;
             setServicioDisponible(true);
             const ua = document.getElementById('comp-ultima-act');
             if (ua) ua.textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX');
         } catch (e) {
             console.warn('[comparativas] Error al cargar:', (e && e.message) ? e.message : e);
-            setServicioDisponible(false);
+            if (lastGoodData) {
+                setServicioDisponible(true);
+                setApiStatus('degraded');
+            } else {
+                setServicioDisponible(false);
+            }
         }
         if (btn) { btn.disabled = false; }
     }
@@ -766,15 +869,16 @@ body.dark-mode #comp-sin-servicio {
 
     const initFecha = COMP_INITIAL && COMP_INITIAL.fecha_referencia ? COMP_INITIAL.fecha_referencia.slice(0, 10) : '';
     buildDiaCompararOptions(initFecha);
-    if (COMP_OK_INICIO && COMP_INITIAL) {
+    var mxHoy = ymdHoyCiudadMexico();
+    var hoyEnPayload = COMP_INITIAL && COMP_INITIAL.hoy_calendario_cdmx ? String(COMP_INITIAL.hoy_calendario_cdmx).slice(0, 10) : '';
+    var debeSincronizar = !mxHoy || !COMP_OK_INICIO || !COMP_INITIAL || (hoyEnPayload !== mxHoy);
+    if (!debeSincronizar) {
         render(COMP_INITIAL);
         setServicioDisponible(true);
         var ua0 = document.getElementById('comp-ultima-act');
         if (ua0) ua0.textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX');
-    } else if (COMP_OK_INICIO) {
-        cargar();
     } else {
-        setServicioDisponible(false);
+        cargar();
     }
 })();
 </script>
