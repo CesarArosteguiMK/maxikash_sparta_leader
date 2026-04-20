@@ -598,7 +598,7 @@ public function DesasignarCredito()
 
             $nombreArchivo = \Core\SecureUpload::generateSafeFilename($extension);
             $rutaCompleta = sparta_uploads_join('documentos_despacho', $nombreArchivo);
-            $rutaRelativa = 'uploads/documentos_despacho/' . $nombreArchivo;
+            $rutaRelativa = 'documentos_despacho/' . $nombreArchivo;
 
             if (!move_uploaded_file($archivo['tmp_name'], $rutaCompleta)) {
                 echo json_encode([
@@ -650,12 +650,37 @@ public function DesasignarCredito()
                 return;
             }
 
-            $rutaCompleta = __DIR__ . '/../../' . $documento['ruta_archivo'];
+            $relPath = $documento['ruta_archivo'];
+            // Compatibilidad con registros anteriores que incluyen 'uploads/' como prefijo
+            if (str_starts_with($relPath, 'uploads/')) {
+                $relPath = substr($relPath, 8);
+            }
+            $rutaCompleta = sparta_uploads_resolve_relative($relPath);
 
-            if (!file_exists($rutaCompleta)) {
+            // [DEBUG TEMPORAL] — eliminar antes de producción final
+            $uploadsRoot   = sparta_uploads_root();
+            $debugPath     = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+            $legacyPath    = __DIR__ . '/../../uploads/' . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+            $legacyPath2   = __DIR__ . '/../../public/uploads/' . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+            $globResults   = glob($uploadsRoot . DIRECTORY_SEPARATOR . 'documentos_despacho' . DIRECTORY_SEPARATOR . '*') ?: [];
+
+            error_log('[DEBUG DescargarDocumento] id=' . $idDocumento . ' | uploadsRoot=' . $uploadsRoot . ' | debugPath=' . $debugPath . ' | exists=' . (file_exists($debugPath) ? 'SI' : 'NO'));
+
+            if ($rutaCompleta === null || !file_exists($rutaCompleta)) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Archivo no encontrado en el servidor'
+                    'message' => 'Archivo no encontrado en el servidor',
+                    '_debug' => [
+                        'uploads_root'   => $uploadsRoot,
+                        'relPath'        => $relPath,
+                        'intentado'      => $debugPath,
+                        'exists'         => file_exists($debugPath),
+                        'legacy_path'    => $legacyPath,
+                        'legacy_exists'  => file_exists($legacyPath),
+                        'legacy2_path'   => $legacyPath2,
+                        'legacy2_exists' => file_exists($legacyPath2),
+                        'archivos_en_carpeta' => array_map('basename', array_slice($globResults, 0, 5)),
+                    ]
                 ]);
                 return;
             }

@@ -2573,14 +2573,18 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     render: function(d, t, r) {
                         if (r.estatus !== 'notificado_cartera') return '';
                         const nc2 = esc(r.nombre_cliente || '').replace(/'/g, "\\'");
-                        return `<div style="min-width:120px;">` +
-                            `<button class="btn btn-sm btn-primary d-block w-100 mb-1" style="font-size:.72rem;"` +
-                            ` onclick="ccCerrarConvenio(${r.id_cierre},${r.id_credito},'${nc2}')"` +
-                            ` title="Cerrar convenio"><i class="fa-solid fa-circle-check me-1"></i>Cerrar</button>` +
-                            `<button class="btn btn-sm btn-danger d-block w-100" style="font-size:.72rem;"` +
-                            ` onclick="ccDevolverPorCartera(${r.id_cierre},${r.id_credito},'${nc2}')"` +
-                            ` title="Devolver al despacho"><i class="fa-solid fa-rotate-left me-1"></i>Devolver</button>` +
-                            `</div>`;
+                        const convCompletado = (r.estatus_convenio === 'completado');
+                        let btns = '';
+                        if (convCompletado) {
+                            btns = `<button class="btn btn-sm btn-primary d-block w-100" style="font-size:.72rem;"` +
+                                ` onclick="ccCerrarConvenio(${r.id_cierre},${r.id_credito},'${nc2}')"` +
+                                ` title="Cerrar convenio"><i class="fa-solid fa-circle-check me-1"></i>Cerrar</button>`;
+                        } else {
+                            btns = `<button class="btn btn-sm btn-danger d-block w-100" style="font-size:.72rem;"` +
+                                ` onclick="ccDevolverPorCartera(${r.id_cierre},${r.id_credito},'${nc2}')"` +
+                                ` title="Devolver al despacho"><i class="fa-solid fa-rotate-left me-1"></i>Devolver</button>`;
+                        }
+                        return `<div style="min-width:120px;">${btns}</div>`;
                     }
                 },
                 { data: 'id_cierre', visible: false, searchable: false }

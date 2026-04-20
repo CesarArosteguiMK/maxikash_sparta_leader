@@ -2762,6 +2762,7 @@ async function cargarCatalogoDocumentos() {
 
 // Cargar documentos del despacho seleccionado
 async function cargarDocumentosDespacho(idPersona) {
+    console.log('[Docs] cargarDocumentosDespacho → id_persona:', idPersona);
     try {
         const response = await fetch('/despachos/obtenerDocumentosDespacho', {
             method: 'POST',
@@ -2772,17 +2773,19 @@ async function cargarDocumentosDespacho(idPersona) {
         });
 
         const data = await response.json();
+        console.log('[Docs] obtenerDocumentosDespacho response:', data);
 
         if (data.success) {
             documentosDespacho = data.documentos;
+            console.log('[Docs] documentos cargados:', documentosDespacho.length, documentosDespacho.map(d => ({ id: d.id, nombre: d.nombre_documento, ruta: d.ruta_archivo })));
             renderizarAcordeonDocumentos();
         } else {
-            console.error('Error al cargar documentos:', data.message);
+            console.error('[Docs] Error al cargar documentos:', data.message);
             documentosDespacho = [];
             renderizarAcordeonDocumentos();
         }
     } catch (error) {
-        console.error('Error al cargar documentos del despacho:', error);
+        console.error('[Docs] Excepción al cargar documentos:', error);
         documentosDespacho = [];
         renderizarAcordeonDocumentos();
     }
@@ -2790,6 +2793,7 @@ async function cargarDocumentosDespacho(idPersona) {
 
 // Renderizar acordeón de documentos
 function renderizarAcordeonDocumentos() {
+    console.log('[Docs] renderizarAcordeonDocumentos → despachoSeleccionado:', despachoSeleccionado, '| catálogo:', catalogoDocumentos.length, '| documentos:', documentosDespacho.length);
     const accordion = document.getElementById('accordionDocumentos');
 
     if (!despachoSeleccionado) {
@@ -2944,6 +2948,7 @@ async function subirDocumento(event, idCatalogoDocumento) {
         });
 
         const data = await response.json();
+        console.log('[Docs] subirDocumento response:', data);
 
         if (data.success) {
             Swal.fire('Éxito', 'Documento subido correctamente', 'success');
@@ -2953,7 +2958,7 @@ async function subirDocumento(event, idCatalogoDocumento) {
             Swal.fire('Error', data.message || 'No se pudo subir el documento', 'error');
         }
     } catch (error) {
-        console.error('Error al subir documento:', error);
+        console.error('[Docs] Excepción al subir documento:', error);
         Swal.fire('Error', 'Error al subir el documento', 'error');
     }
 }
@@ -3000,6 +3005,7 @@ function visualizarDocumento(idDocumento, nombreArchivo) {
 
     // Construir URL para visualizar el documento
     const urlDocumento = `/despachos/descargarDocumento/${idDocumento}`;
+    console.log('[Docs] visualizarDocumento → id:', idDocumento, '| archivo:', nombreArchivo, '| url:', urlDocumento);
 
     // Configurar iframe
     iframe.src = urlDocumento;

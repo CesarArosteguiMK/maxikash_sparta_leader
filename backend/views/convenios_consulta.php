@@ -1435,7 +1435,7 @@ window.buscarCredito = function () {
         return;
     }
 
-    seleccionarCredito(parseInt(id));
+    seleccionarCredito(parseInt(id));                      
 };
 
 document.getElementById('inputBusqueda').addEventListener('keydown', function (e) {
