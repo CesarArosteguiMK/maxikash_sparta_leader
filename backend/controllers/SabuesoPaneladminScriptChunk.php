@@ -135,7 +135,7 @@ SCRIPT;
                 } else if (d._fad_debug === 'api_error' && d._fad_debug_detail) {
                     var det = String(d._fad_debug_detail);
                     if (/connect|127\.0\.0\.1|localhost|Couldn't connect|timed?\s*out|Connection refused/i.test(det)) {
-                        hint = '<div class="small text-info mt-1" style="grid-column:1/-1;">Esto lo resuelve la <strong>API Python</strong> (puerto <strong>8000</strong>), no Apache. Sin ventana: <code>backend\\API\\iniciar-agente-oculto.vbs</code>. Con consola (errores): <code>iniciar-agente.bat</code>. O el orquestador <code>backend\\servicios-locales\\iniciar-todos-los-servicios.bat</code>. Luego <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noopener">http://127.0.0.1:8000/docs</a> y vuelva a abrir el crédito.</div>';
+                        hint = '<div class="small text-info mt-1" style="grid-column:1/-1;">Esto lo resuelve la <strong>API Python</strong> (puerto <strong>8000</strong>), no Apache. Sin ventana: <code>backend\\API\\launcher\\iniciar-agente-oculto.vbs</code>. Con consola (errores): <code>launcher\\iniciar-agente.bat</code>. O el orquestador <code>backend\\services\\servicios-locales\\iniciar-todos-los-servicios.bat</code>. Luego <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noopener">http://127.0.0.1:8000/docs</a> y vuelva a abrir el crédito.</div>';
                     }
                 }
                 el.innerHTML+="<div style=\"grid-column:1/-1;margin-top:0.5rem;\"><span class=\"text-muted small d-block\">Aviso</span><div class=\"small text-warning\">"+msg+"</div>"+hint+"</div>";

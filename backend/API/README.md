@@ -11,13 +11,16 @@ En `backend/API/` conviven:
 
 - **Esta API (Python / FastAPI)** — verificación de documentos (p. ej. puerto **8000** según `.env`).
 - **`documentacion-candidato/`** — microservicio **Node.js** para listado rápido de documentación de candidatos (puerto **3001** por defecto). Ver su [README](documentacion-candidato/README.md).
-- **Arranque conjunto** — scripts en [`../servicios-locales/`](../servicios-locales/README.md) para iniciar/detener API Python local o Docker (8000), documentación candidato (3001), Segundómetro (3100) y agente de correos (3110).
+- **Arranque conjunto** — scripts en [`../services/servicios-locales/`](../services/servicios-locales/README.md) para iniciar/detener API Python local o Docker (8000), documentación candidato (3001), Segundómetro (3100) y agente de correos (3110).
+- **Scripts Windows (instalar / arrancar / detener la API en 8000)** — carpeta [`launcher/`](launcher/) (`.bat`, `.ps1`, `.vbs`). Pruebas OCR sueltas: [`scripts/dev/`](scripts/dev/).
 
 ```
 doc-verificacion/
 ├── .cursorrules                    ← Reglas para Cursor AI (LEER PRIMERO)
 ├── .env.example                    ← Variables de entorno (copiar como .env)
 ├── requirements.txt                ← Dependencias Python
+├── launcher/                         ← Scripts Windows: instalar-agente, iniciar/cerrar, Docker
+├── scripts/dev/                      ← Utilidades Python opcionales (OCR, verificar-calidad)
 ├── app/
 │   ├── main.py                     ← FastAPI app + middlewares
 │   ├── api/
@@ -36,8 +39,7 @@ doc-verificacion/
 │   │   └── ml_classifier.py        ← Capa 6: ML (PENDIENTE ⚠️)
 │   └── utils/
 │       └── curp_validator.py       ← Validador CURP oficial
-├── tests/
-│   └── test_verificacion.py
+├── test_verificacion.py            ← Pruebas manuales / smoke (raíz API)
 ├── Dockerfile              ← Imagen autocontenida (Tesseract + RapidOCR + deps)
 ├── docker-compose.yml      ← Solo servicio API (sin Postgres/Redis en compose)
 ```
@@ -85,13 +87,13 @@ Requisitos y un solo comando de instalación: **[REQUISITOS_API_LOCAL.md](REQUIS
 
 ```bat
 cd backend\API
-instalar-agente.bat
-iniciar-agente-oculto.vbs
+launcher\instalar-agente.bat
+launcher\iniciar-agente-oculto.vbs
 ```
 
-Sin ventanas: **`iniciar-agente-oculto.vbs`** (o `.\iniciar-agente-oculto.ps1` desde PowerShell oculto). Con consola para ver errores: **`iniciar-agente.bat`**.
+Sin ventanas: **`launcher\iniciar-agente-oculto.vbs`** (o `.\launcher\iniciar-agente-oculto.ps1` desde PowerShell oculto). Con consola para ver errores: **`launcher\iniciar-agente.bat`**.
 
-Equivalente en PowerShell: `.\instalar-api-consola.ps1` y luego el arranque oculto o `.\iniciar-agente.bat`. La API queda en **http://127.0.0.1:8000** (ajustable en `.env`). Documentación: **http://127.0.0.1:8000/docs**.
+Equivalente en PowerShell: `.\launcher\instalar-api-consola.ps1` y luego el arranque oculto o `.\launcher\iniciar-agente.bat`. La API queda en **http://127.0.0.1:8000** (ajustable en `.env`). Documentación: **http://127.0.0.1:8000/docs**.
 
 Para solo la línea de comandos tras tener el `venv`:
 
@@ -102,7 +104,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### 4. Levantar con Docker (opcional, todo incluido en imagen)
 
-La imagen incluye Tesseract, RapidOCR, libzbar y dependencias del contenedor. En Windows, el atajo del repo es **`Iniciar-API-Verificacion-Docker.bat`**.
+La imagen incluye Tesseract, RapidOCR, libzbar y dependencias del contenedor. En Windows, el atajo del repo es **`launcher\Iniciar-API-Verificacion-Docker.bat`**.
 
 ```bash
 # Desde backend/API

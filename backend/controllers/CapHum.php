@@ -273,7 +273,7 @@ class CapHum extends Controller
                 const btnGuardar = document.getElementById('edit_btn_guardar');
                 const form = document.getElementById('editNewUserForm');
                 if (rowContrasena) rowContrasena.style.display = '';
-                if (titulo) titulo.textContent = 'Editar Gestor';
+                if (titulo) titulo.textContent = 'Editar Usuario';
                 if (btnGuardar) btnGuardar.style.display = '';
                 if (form) {
                     form.querySelectorAll('input, select, button[type="button"]').forEach(el => { el.disabled = false; });
@@ -285,10 +285,14 @@ class CapHum extends Controller
                 const btnGuardar = document.getElementById('edit_btn_guardar');
                 const form = document.getElementById('editNewUserForm');
                 if (rowContrasena) rowContrasena.style.display = 'none';
-                if (titulo) titulo.textContent = 'Visualizar Gestor';
+                if (titulo) titulo.textContent = 'Visualizar Usuario';
                 if (btnGuardar) btnGuardar.style.display = 'none';
                 if (form) {
                     form.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
+                }
+                if (typeof window.destruirSelectsBuscadorOffcanvas === 'function') {
+                    const oc = document.getElementById('offcanvasEditUser');
+                    if (oc) window.destruirSelectsBuscadorOffcanvas(oc);
                 }
             }
             function editar(id) {
@@ -470,6 +474,11 @@ class CapHum extends Controller
             if (checkLegion) checkLegion.checked = false;
             if (selectLegion) selectLegion.value = '';
             if (divLegion) divLegion.style.display = 'none';
+            if (typeof window.refreshSelectBuscador === 'function') {
+                window.refreshSelectBuscador('edit_departamento_id');
+                window.refreshSelectBuscador('edit_id_puesto');
+                window.refreshSelectBuscador('edit_id_jefe');
+            }
         }
 
             function toggleSelectLegionEdit() {
@@ -479,6 +488,9 @@ class CapHum extends Controller
                 if (checkbox && divSelect && selectLegion) {
                     divSelect.style.display = checkbox.checked ? 'block' : 'none';
                     if (!checkbox.checked) selectLegion.value = '';
+                    if (typeof window.refreshSelectBuscador === 'function') {
+                        window.refreshSelectBuscador('edit_id_legion');
+                    }
                 }
             }
 
@@ -510,6 +522,9 @@ class CapHum extends Controller
 
                             select.appendChild(option);
                         });
+                        if (typeof window.refreshSelectBuscador === 'function') {
+                            window.refreshSelectBuscador('edit_departamento_id');
+                        }
                     });
                 }
 
@@ -542,6 +557,9 @@ class CapHum extends Controller
 
                             select.appendChild(option);
                         });
+                        if (typeof window.refreshSelectBuscador === 'function') {
+                            window.refreshSelectBuscador('edit_id_puesto');
+                        }
                     });
                 }
 
@@ -573,7 +591,10 @@ class CapHum extends Controller
                             ));
                         });
 
-                        select.trigger('change'); // 🔥 clave para Select2
+                        select.trigger('change');
+                        if (typeof window.refreshSelectBuscador === 'function') {
+                            window.refreshSelectBuscador('edit_id_jefe');
+                        }
                     });
                 }
 
@@ -2886,6 +2907,10 @@ class CapHum extends Controller
                 selectPuesto.disabled = true;
                 selectJefe.innerHTML = '<option value="">Seleccione un jefe</option>';
                 selectJefe.disabled = true;
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('add_id_puesto');
+                    window.refreshSelectBuscador('add_id_jefe');
+                }
 
                 if (!idDepartamento) return;
 
@@ -2907,6 +2932,9 @@ class CapHum extends Controller
                         selectPuesto.appendChild(option);
                     });
                     selectPuesto.disabled = false;
+                    if (typeof window.refreshSelectBuscador === 'function') {
+                        window.refreshSelectBuscador('add_id_puesto');
+                    }
                     // Cargar jefes del departamento (sin puesto aún: por es_jefe o todas las personas del depto)
                     cargarJefeComboAdd(idDepartamento, null, selectJefe);
                 })
@@ -2928,6 +2956,9 @@ class CapHum extends Controller
                 .then(data => {
                     if (!data.success) {
                         selectJefe.disabled = false;
+                        if (typeof window.refreshSelectBuscador === 'function') {
+                            window.refreshSelectBuscador('add_id_jefe');
+                        }
                         return;
                     }
                     (data.datos || []).forEach(jefe => {
@@ -2937,6 +2968,9 @@ class CapHum extends Controller
                         selectJefe.appendChild(option);
                     });
                     selectJefe.disabled = false;
+                    if (typeof window.refreshSelectBuscador === 'function') {
+                        window.refreshSelectBuscador('add_id_jefe');
+                    }
                 })
                 .catch(() => {
                     selectJefe.disabled = false;
@@ -2963,6 +2997,9 @@ class CapHum extends Controller
                 } else {
                     divSelect.style.display = 'none';
                     selectLegion.value = ''; // Limpiar selección si se desmarca
+                }
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('add_id_legion');
                 }
             }
 

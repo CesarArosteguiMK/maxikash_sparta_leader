@@ -1,6 +1,6 @@
 # API de verificación de documentos — requisitos (sin Docker)
 
-Uso diario recomendado: **Python local (global) + uvicorn** en el puerto **8000**. Docker sigue disponible como alternativa (`Iniciar-API-Verificacion-Docker.bat`).
+Uso diario recomendado: **Python local (global) + uvicorn** en el puerto **8000**. Docker sigue disponible como alternativa (`launcher\Iniciar-API-Verificacion-Docker.bat`).
 
 ## Qué instalar en Windows (manual)
 
@@ -8,7 +8,7 @@ Uso diario recomendado: **Python local (global) + uvicorn** en el puerto **8000*
    - [python.org/downloads](https://www.python.org/downloads/)
    - Al instalar, marcar **“Add python.exe to PATH”**.
    - Con **Python 3.14**, `requirements.txt` usa rangos flexibles (`scikit-image`, `torch`, `pydantic`, etc.) para que pip baje **ruedas**; versiones fijas muy antiguas obligan a **compilar** y fallan si no tienes Visual Studio / Rust.
-   - Si alguna dependencia falla en global, puede reintentar con `venv` usando `instalar-agente.bat /VENV`.
+   - Si alguna dependencia falla en global, puede reintentar con `venv` usando `launcher\instalar-agente.bat /VENV`.
 
 ### ¿Por qué existe la opción `venv`?
 
@@ -27,28 +27,28 @@ Desde la carpeta `backend\API`:
 
 | Método | Comando |
 |--------|---------|
-| **Batch (global, recomendado en este proyecto)** | `instalar-agente.bat` |
-| **Batch global sin pausas** | `instalar-agente.bat /SILENT` |
-| **Batch en venv (opcional)** | `instalar-agente.bat /VENV` |
-| **PowerShell global** | `powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-api-consola.ps1` |
-| **PowerShell en venv (opcional)** | `powershell -NoProfile -ExecutionPolicy Bypass -File .\instalar-api-consola.ps1 -Venv` |
+| **Batch (global, recomendado en este proyecto)** | `launcher\instalar-agente.bat` |
+| **Batch global sin pausas** | `launcher\instalar-agente.bat /SILENT` |
+| **Batch en venv (opcional)** | `launcher\instalar-agente.bat /VENV` |
+| **PowerShell global** | `powershell -NoProfile -ExecutionPolicy Bypass -File .\launcher\instalar-api-consola.ps1` |
+| **PowerShell en venv (opcional)** | `powershell -NoProfile -ExecutionPolicy Bypass -File .\launcher\instalar-api-consola.ps1 -Venv` |
 
 Esto actualiza `pip` y ejecuta `pip install -r requirements.txt` en **global** por defecto. Si no existe `.env` y sí `.env.example`, se copia `.env`.
 
 ## Arranque
 
-- **Sin ninguna ventana (recomendado si no quiere ver consola):** doble clic en `iniciar-agente-oculto.vbs` — llama a `iniciar-agente-oculto.ps1` (uvicorn oculto). Si algo falla, revise `logs\api_oculto_startup.log` o use el `.bat`.
-- Consola visible (mensajes y pausas en error): `iniciar-agente.bat`
+- **Sin ninguna ventana (recomendado si no quiere ver consola):** doble clic en `launcher\iniciar-agente-oculto.vbs` — llama a `launcher\iniciar-agente-oculto.ps1` (uvicorn oculto). Si algo falla, revise `logs\api_oculto_startup.log` o use el `.bat`.
+- Consola visible (mensajes y pausas en error): `launcher\iniciar-agente.bat`
 - Documentación interactiva: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (tras levantar el servicio)
 
 ## Detener
 
-- `cerrar-agente.bat` o `powershell -File .\cerrar-agente.ps1` (libera el puerto **8000**).
+- `launcher\cerrar-agente.bat` o `powershell -File .\launcher\cerrar-agente.ps1` (libera el puerto **8000**).
 
 ## Instalar todo (Node + esta API)
 
-En `backend\servicios-locales\`, **`instalar-todos-deps-node.bat`** hace `npm install` en los agentes Node y, al final, llama a `API\instalar-agente.bat /SILENT` para las dependencias Python.
+En `backend\services\servicios-locales\`, **`instalar-todos-deps-node.bat`** hace `npm install` en los agentes Node y, al final, llama a `API\launcher\instalar-agente.bat /SILENT` para las dependencias Python.
 
 ## Docker (opcional)
 
-Si prefieres contenedores (Tesseract y dependencias dentro de la imagen): `Iniciar-API-Verificacion-Docker.bat` y el flujo `docker compose` descrito en `README.md` de esta carpeta.
+Si prefieres contenedores (Tesseract y dependencias dentro de la imagen): `launcher\Iniciar-API-Verificacion-Docker.bat` y el flujo `docker compose` descrito en `README.md` de esta carpeta.
