@@ -28,6 +28,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/sabueso/cerradoEliminado', 'label' => 'Cerrado/Eliminado', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [48]],
             ['url' => '/sabueso/estadisticas', 'label' => 'Analítica sabueso', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [47]],
             ['url' => '/reporteria/comparativas', 'label' => 'Comparativas avance semanal', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-orange', 'modulos' => [60]],
+            ['url' => '/reporteria/asignacion', 'label' => 'Asignación', 'icon' => 'fa-solid fa-user-check', 'bg' => 'bg-orange', 'modulos' => [61]],
             ['url' => '/Despachos/AsignacionCreditosDespacho', 'label' => 'Despachos', 'icon' => 'fa-solid fa-building-columns', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/Despachos/MiGestion', 'label' => 'Mi Gestión', 'icon' => 'fa-solid fa-chart-gantt', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/convenios/consulta', 'label' => 'Convenios', 'icon' => 'fa-solid fa-handshake', 'bg' => 'bg-purple', 'modulos' => [46]],

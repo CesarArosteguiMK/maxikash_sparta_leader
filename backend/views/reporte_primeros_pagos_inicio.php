@@ -35,7 +35,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     $ppRangoVentanaPrimerosPagos = $ppFmtDia($ppJuevesVentana, true) . ' al ' . $ppFmtDia($ppLunesSiguiente, true);
 }
 ?>
-<div id="pp-landing" class="pp-primeros-pagos-page">
+<div id="pp-landing" class="pp-primeros-pagos-page reporteria-landing-root">
 <div class="card">
     <svg xmlns="http://www.w3.org/2000/svg" class="pp-svg-defs" aria-hidden="true" focusable="false">
         <defs>

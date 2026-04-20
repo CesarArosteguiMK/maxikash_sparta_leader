@@ -1,4 +1,4 @@
-<div id="comp-landing" class="cc-call-center-page reporteria-landing-root">
+<div id="asg-landing" class="cc-call-center-page reporteria-landing-root">
 <div class="card">
     <div class="card">
         <div class="card">
@@ -6,9 +6,9 @@
 
                 <div class="col-12 col-md-8 cc-hero-text">
                     <div class="card-body">
-                        <h5 class="card-title text-primary mb-3">HOLA, <?= isset($_SESSION['usuario_nombre']) ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8') : 'USUARIO'; ?> <i class="fa-solid fa-chart-column ms-2 text-primary" aria-hidden="true"></i></h5>
+                        <h5 class="card-title text-primary mb-3">HOLA, <?= isset($_SESSION['usuario_nombre']) ? htmlspecialchars(strtoupper((string) $_SESSION['usuario_nombre']), ENT_QUOTES, 'UTF-8') : 'USUARIO'; ?> <i class="fa-solid fa-user-check ms-2 text-primary" aria-hidden="true"></i></h5>
                         <p class="mb-6 mb-md-0">
-                            Aquí entras al <strong>comparativo del segundómetro</strong>: mora de <strong>1 a 7 días</strong> por cada corte del día (mañana, tarde y noche), confrontando la <strong>semana en curso</strong> con las <strong>dos semanas históricas</strong> inmediatas anteriores. Puedes elegir <strong>qué día de la semana</strong> analizar (siempre dentro de la semana en curso) para revisar los mismos horarios en distintos días.
+                            Consulta el <strong>tablero de Asignación</strong> con el mismo formato que Comparativas; las columnas muestran métricas propias del proceso de asignación.
                         </p>
                     </div>
                 </div>
@@ -18,7 +18,7 @@
                          class="cc-hero-mascot-floating img-fluid"
                          width="400"
                          height="400"
-                         alt="Comparativas avance semanal — ilustración">
+                         alt="Asignación — ilustración">
                 </div>
 
                 <div class="row gy-6 mb-6 gx-0 justify-content-start">
@@ -27,17 +27,17 @@
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Comparativas avance semanal</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">En el tablero verás <strong>créditos</strong> y <strong>cobrado</strong> por cada corte, las columnas de las dos semanas pasadas, la semana actual y las <strong>variaciones</strong> en cantidad y porcentaje. Los datos salen de la base de reporte del segundómetro.</p>
+                                        <h5 class="text-primary mb-2">Tablero de Asignación</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Tres ventanas: <strong>semana pasada</strong>, <strong>actual</strong> y <strong>próxima</strong> (martes a lunes). En cada una: <strong>External ID</strong>, <strong>Nombre del gestor</strong> y <strong>Puesto</strong>.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
-                                        <a href="/reporteria/comparativasAvanceSemanal" class="btn btn-primary w-100">
-                                            <i class="fa-solid fa-table-columns me-1"></i>Ver tablero de avance
+                                        <a href="/reporteria/asignacionTablero" class="btn btn-primary w-100">
+                                            <i class="fa-solid fa-table-columns me-1"></i>Ver tablero
                                         </a>
                                     </div>
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="Comparativas avance semanal illustration">
+                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="Asignación illustration">
                                 </div>
                             </div>
                         </div>
@@ -49,9 +49,9 @@
     </div>
 </div>
 <style>
-/* Mismo layout hero que Call Center */
+/* Mismo layout hero que Comparativas / Call Center */
 .cc-call-center-page,
-#comp-landing.cc-call-center-page {
+#asg-landing.cc-call-center-page {
     overflow: visible;
 }
 .cc-call-center-page .cc-hero-row {
@@ -152,4 +152,4 @@ body.dark-mode .cc-hero-mascot-floating {
     filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.35));
 }
 </style>
-</div><!-- /#comp-landing -->
+</div><!-- /#asg-landing -->

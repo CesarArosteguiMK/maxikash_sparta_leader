@@ -554,3 +554,21 @@ img.sidebar-logo {
   text-align: center;
   margin-top: 1rem;
 }
+
+/*
+ * Landings Reportería (hero + mascota): evitar scroll interno y barra horizontal
+ * por transforms/overflow del flex del tema (layout-page / content-wrapper).
+ */
+.reporteria-landing-root {
+  overflow-x: clip;
+  max-width: 100%;
+}
+.layout-wrapper:has(.reporteria-landing-root) .layout-page,
+.layout-wrapper:has(.reporteria-landing-root) .content-wrapper {
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+}
+.layout-wrapper:has(.reporteria-landing-root) .content-wrapper > .container-xxl.container-p-y {
+  overflow-x: clip;
+  overflow-y: visible;
+}

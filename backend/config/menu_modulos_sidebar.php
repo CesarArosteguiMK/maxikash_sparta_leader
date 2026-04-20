@@ -43,6 +43,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Layout Legacy', 'url' => '/reporteria/layoutlegacy', 'modulos' => [7]],
                     ['label' => 'Analítica sabueso', 'url' => '/sabueso/estadisticas', 'modulos' => [47]],
                     ['label' => 'Comparativas', 'url' => '/reporteria/comparativas', 'modulos' => [60]],
+                    ['label' => 'Asignación', 'url' => '/reporteria/asignacion', 'modulos' => [61]],
                 ],
             ],
             'Tickets' => [

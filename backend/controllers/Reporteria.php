@@ -475,6 +475,316 @@ class Reporteria extends Controller
     }
 
     /**
+     * Landing Asignación (Analítica), mismo estilo que Comparativas.
+     * URL canónica: /reporteria/asignacion
+     * Permiso: modulos_web id 61 (Analítica → Asignación).
+     */
+    public function asignacion()
+    {
+        self::set('titulo', 'Asignación');
+        self::set('script', '');
+        self::render('asignacion');
+    }
+
+    /**
+     * Tablero Asignación: semana pasada, actual y próxima (martes–lunes).
+     * URL canónica: /reporteria/asignacionTablero
+     * Permiso: modulos_web id 61.
+     */
+    public function asignacionTablero()
+    {
+        self::set('titulo', 'Asignación — Tablero');
+        self::set('script', '');
+        self::render('asignacion_tablero');
+    }
+
+    /**
+     * JSON del portafolio automático de asignación (continuidad, nuevos y huérfanos).
+     * URL: /reporteria/getAsignacionTableroJson
+     */
+    public function getAsignacionTableroJson()
+    {
+        try {
+            $mostrar = isset($_GET['mostrar']) ? (string) $_GET['mostrar'] : '';
+            $limite = \Models\AsignacionTablero::parseLimiteMostrar($mostrar !== '' ? $mostrar : null, '10');
+            $payload = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
+            $filas = is_array($payload['filas'] ?? null) ? $payload['filas'] : [];
+            $total = count($filas);
+            $payload['filas'] = \Models\AsignacionTablero::aplicarLimiteFilas($filas, $limite);
+            $payload['paginacion'] = [
+                'mostrar' => \Models\AsignacionTablero::limiteMostrarAQuery($limite),
+                'total_filas' => $total,
+                'mostradas' => count($payload['filas']),
+            ];
+            self::respuestaJSON($payload);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getAsignacionTableroJson -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['detail' => 'Error al consultar el portafolio automático.']);
+        }
+    }
+
+    /**
+     * Excel del tablero Asignación: encabezados con colores (semana pasada / actual / próxima) como en pantalla.
+     * URL: /reporteria/descargarAsignacionTableroExcel · Módulo 61.
+     */
+    public function descargarAsignacionTableroExcel()
+    {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        try {
+            $mostrar = isset($_GET['mostrar']) ? (string) $_GET['mostrar'] : '';
+            $limite = \Models\AsignacionTablero::parseLimiteMostrar($mostrar !== '' ? $mostrar : null, 'todas');
+            $portafolio = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
+            $semanas = $portafolio['semanas'];
+            $subcols = $portafolio['subcols'];
+            $filas = is_array($portafolio['filas'] ?? null) ? $portafolio['filas'] : [];
+            $filas = \Models\AsignacionTablero::aplicarLimiteFilas($filas, $limite);
+
+            $fillPorSemana = static function (array $sem): string {
+                $hl = (int) ($sem['hist_level'] ?? 0);
+                if ($hl === 3) {
+                    return 'D8DADF';
+                }
+                if ($hl === 2) {
+                    return 'E4E6E9';
+                }
+                if ($hl === 1) {
+                    return 'F0F2F4';
+                }
+                if (($sem['th_class'] ?? '') === 'comp-th-act') {
+                    return 'E8F5E9';
+                }
+
+                return 'E3F2FD';
+            };
+
+            $colorTextoPorSemana = static function (array $sem): string {
+                if (($sem['th_class'] ?? '') === 'comp-th-act') {
+                    return '146C43';
+                }
+                if (($sem['th_class'] ?? '') === 'comp-th-fut') {
+                    return '055160';
+                }
+
+                return '434A54';
+            };
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Asignación');
+
+            $bordeFino = [
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['rgb' => 'DEE2E6'],
+                    ],
+                ],
+            ];
+
+            $sheet->setCellValue('A1', 'Asignación — Tablero (semana pasada · actual · próxima, martes a lunes)');
+            $sheet->mergeCells('A1:J1');
+            $sheet->getStyle('A1')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '696CFF']],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
+            ] + $bordeFino);
+            $sheet->getRowDimension(1)->setRowHeight(28);
+
+            $sheet->setCellValue('A2', 'Generado: ' . date('d/m/Y H:i') . ' · America/Mexico_City');
+            $sheet->mergeCells('A2:J2');
+            $sheet->getStyle('A2')->applyFromArray([
+                'font' => ['size' => 10, 'color' => ['rgb' => '697A8D']],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
+            ] + $bordeFino);
+
+            $rChips = 3;
+            $rSem = 4;
+            $rSub = 5;
+            $rData = 6;
+
+            $sheet->mergeCells("A{$rChips}:A{$rSub}");
+            $sheet->setCellValue("A{$rChips}", 'ID Crédito');
+            $sheet->getStyle("A{$rChips}:A{$rSub}")->applyFromArray([
+                'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => '696CFF']],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'F8F9FC'],
+                ],
+            ] + $bordeFino);
+
+            foreach ($semanas as $si => $sem) {
+                $c0 = $si * 3 + 2;
+                $L0 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0);
+                $L2 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0 + 2);
+                $fill = $fillPorSemana($sem);
+                $txtColor = $colorTextoPorSemana($sem);
+
+                $mergeChips = "{$L0}{$rChips}:{$L2}{$rChips}";
+                $sheet->mergeCells($mergeChips);
+                $sheet->setCellValue("{$L0}{$rChips}", (string) ($sem['chip_text'] ?? ''));
+                $sheet->getStyle($mergeChips)->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 10, 'color' => ['rgb' => $txtColor]],
+                    'alignment' => [
+                        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                        'wrapText' => true,
+                    ],
+                    'fill' => [
+                        'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => $fill],
+                    ],
+                ] + $bordeFino);
+
+                $mergeSem = "{$L0}{$rSem}:{$L2}{$rSem}";
+                $sheet->mergeCells($mergeSem);
+                $sheet->setCellValue("{$L0}{$rSem}", (string) ($sem['label'] ?? ''));
+                $sheet->getStyle($mergeSem)->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => $txtColor]],
+                    'alignment' => [
+                        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    ],
+                    'fill' => [
+                        'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => $fill],
+                    ],
+                ] + $bordeFino);
+
+                foreach ($subcols as $ci => $sub) {
+                    $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0 + $ci);
+                    $cel = $colLet . $rSub;
+                    $sheet->setCellValue($cel, (string) ($sub['text'] ?? ''));
+                    $subFill = $fill;
+                    if (($sem['th_class'] ?? '') === 'comp-th-act') {
+                        $subFill = 'DCF5E4';
+                    } elseif (($sem['th_class'] ?? '') === 'comp-th-fut') {
+                        $subFill = 'D3E8F5';
+                    }
+                    $sheet->getStyle($cel)->applyFromArray([
+                        'font' => ['bold' => true, 'size' => 9, 'color' => ['rgb' => $txtColor]],
+                        'alignment' => [
+                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+                            'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                            'wrapText' => true,
+                        ],
+                        'fill' => [
+                            'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                            'startColor' => ['rgb' => $subFill],
+                        ],
+                    ] + $bordeFino);
+                }
+            }
+
+            $sheet->getRowDimension($rChips)->setRowHeight(42);
+            $sheet->getRowDimension($rSem)->setRowHeight(22);
+            $sheet->getRowDimension($rSub)->setRowHeight(36);
+
+            $sheet->getColumnDimension('A')->setWidth(14);
+            for ($c = 2; $c <= 10; $c++) {
+                $L = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+                $sheet->getColumnDimension($L)->setWidth(18);
+            }
+
+            $filaExcel = $rData;
+            if ($filas === []) {
+                $filas = [[
+                    'id_credito' => '—',
+                    'cells' => [
+                        ['ext' => '—', 'nom' => '—', 'pue' => '—'],
+                        ['ext' => '—', 'nom' => '—', 'pue' => '—'],
+                        ['ext' => '—', 'nom' => '—', 'pue' => '—'],
+                    ],
+                ]];
+            }
+
+            foreach ($filas as $fila) {
+                $idCredito = trim((string) ($fila['id_credito'] ?? ''));
+                $sheet->setCellValue('A' . $filaExcel, $idCredito !== '' ? $idCredito : '—');
+                $sheet->getStyle('A' . $filaExcel)->applyFromArray([
+                    'font' => ['size' => 10, 'color' => ['rgb' => '434A54']],
+                    'alignment' => [
+                        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                        'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    ],
+                    'fill' => [
+                        'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'FFFFFF'],
+                    ],
+                ] + $bordeFino);
+
+                $cells = is_array($fila['cells'] ?? null) ? $fila['cells'] : [];
+                foreach ($semanas as $si => $sem) {
+                    $c0 = $si * 3 + 2;
+                    $fill = $fillPorSemana($sem);
+                    if (($sem['th_class'] ?? '') === 'comp-th-act') {
+                        $fill = 'F1FBF4';
+                    } elseif (($sem['th_class'] ?? '') === 'comp-th-fut') {
+                        $fill = 'F0F8FC';
+                    }
+
+                    $cellSem = is_array($cells[$si] ?? null) ? $cells[$si] : [];
+                    $vals = [
+                        trim((string) ($cellSem['ext'] ?? '')) ?: '—',
+                        trim((string) ($cellSem['nom'] ?? '')) ?: '—',
+                        trim((string) ($cellSem['pue'] ?? '')) ?: '—',
+                    ];
+                    foreach ($vals as $ci => $val) {
+                        $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0 + $ci);
+                        $cel = $colLet . $filaExcel;
+                        $sheet->setCellValue($cel, $val);
+                        $sheet->getStyle($cel)->applyFromArray([
+                            'font' => ['size' => 10, 'color' => ['rgb' => '434A54']],
+                            'alignment' => [
+                                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+                                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                            ],
+                            'fill' => [
+                                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => $fill],
+                            ],
+                        ] + $bordeFino);
+                    }
+                }
+
+                $sheet->getRowDimension($filaExcel)->setRowHeight(22);
+                $filaExcel++;
+            }
+
+            $sheet->freezePane('B' . $rData);
+            $sheet->setSelectedCells('A1');
+
+            $nombre = 'Asignacion_Tablero_' . date('Ymd_His') . '.xlsx';
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment;filename="' . $nombre . '"');
+            header('Cache-Control: max-age=0');
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+            exit;
+        } catch (\Throwable $e) {
+            error_log('Reporteria::descargarAsignacionTableroExcel -> ' . $e->getMessage());
+            header('HTTP/1.0 500 Internal Server Error');
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No se pudo generar el Excel. Intente de nuevo o contacte a sistemas.';
+            exit;
+        }
+    }
+
+    /**
      * Tablero comparativo segundómetro (cortes del día vs semanas históricas).
      * URL canónica: /reporteria/comparativasAvanceSemanal
      */

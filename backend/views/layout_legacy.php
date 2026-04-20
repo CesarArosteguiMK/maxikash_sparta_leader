@@ -1,4 +1,4 @@
-<div id="ll-landing" class="ll-layout-legacy-page">
+<div id="ll-landing" class="ll-layout-legacy-page reporteria-landing-root">
 <div class="card">
     <div>
         <div class="card">

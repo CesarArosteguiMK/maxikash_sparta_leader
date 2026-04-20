@@ -1,4 +1,4 @@
-<div id="cc-landing" class="cc-call-center-page">
+<div id="cc-landing" class="cc-call-center-page reporteria-landing-root">
 <div class="card">
     <div class="card">
         <div class="card">
