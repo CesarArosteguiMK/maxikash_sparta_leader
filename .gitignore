@@ -36,6 +36,7 @@ public/test_geo_ssl.php
 # ========== Subidas públicas (runtime; no versionar contenido) ==========
 public/uploads/**
 !public/uploads/.gitkeep
+!public/uploads/documentos_despacho/.gitkeep
 
 # ========== Medios temporales y logs (RUNTIME: nunca git add de .log) ==========
 # Generan archivos .log: EstadoCuenta (engine→storage/logs), EstadoCuentaTimingLog, Api (location_audit),
