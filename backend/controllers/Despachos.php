@@ -657,10 +657,15 @@ public function DesasignarCredito()
             }
             $rutaCompleta = sparta_uploads_resolve_relative($relPath);
 
+            // [DEBUG TEMPORAL] — eliminar antes de producción final
+            $debugPath = sparta_uploads_root() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+            error_log('[DEBUG DescargarDocumento] id=' . $idDocumento . ' | ruta_bd=' . $documento['ruta_archivo'] . ' | relPath=' . $relPath . ' | debugPath=' . $debugPath . ' | rutaCompleta=' . ($rutaCompleta ?? 'NULL') . ' | exists=' . (file_exists($debugPath) ? 'SI' : 'NO'));
+
             if ($rutaCompleta === null || !file_exists($rutaCompleta)) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Archivo no encontrado en el servidor'
+                    'message' => 'Archivo no encontrado en el servidor',
+                    '_debug' => ['relPath' => $relPath, 'intentado' => $debugPath, 'exists' => file_exists($debugPath)]
                 ]);
                 return;
             }
