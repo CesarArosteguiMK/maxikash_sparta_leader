@@ -31,4 +31,20 @@ final class DatabaseCliSupport
         $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
         return (bool) preg_match('#/estadocuenta/validarcredito$#', $path);
     }
+
+    /**
+     * Histórico de gestiones (POST/GET): varias conexiones MySQL remotas.
+     * Si falla PDO, no debe imprimirse HTML + exit (rompe el flujo); se lanza excepción y el modelo la captura.
+     */
+    public static function esGestionesSeguimientoRequest(): bool
+    {
+        if (isset($_GET['url'])) {
+            $u = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if ($u === 'gestiones/seguimiento') {
+                return true;
+            }
+        }
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        return (bool) preg_match('#/gestiones/seguimiento$#', $path);
+    }
 }

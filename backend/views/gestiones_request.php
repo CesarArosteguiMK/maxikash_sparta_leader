@@ -235,3 +235,4 @@
 
 
 </div>
+<?php require __DIR__ . '/partials/gestiones_db_fallos_console.php'; ?>

@@ -87,14 +87,30 @@ JS;
             $idCredito = isset($_POST['idCredito']) ? trim((string) $_POST['idCredito']) : '';
             $nombre = isset($_POST['nombre']) ? trim((string) $_POST['nombre']) : '';
 
+            GestionesDAO::resetHistoricoDbFalloFlag();
             $GestionesAll = GestionesDAO::getAllGestiones($idCredito, $nombre);
             $detalle = GestionesDAO::getDetalleGestion($idCredito, $nombre);
 
+            $fallosDbConsole = GestionesDAO::getHistoricoDbFallos();
+            if ($fallosDbConsole !== []) {
+                self::set('gestionesDbFallosConsole', $fallosDbConsole);
+            }
+
             if (empty($GestionesAll)) {
                 self::set("titulo", "Sin resultados para solicitud");
-                self::set("errorGestiones", "No se encontraron resultados");
-                $script_completo = $script . "\n" . $script_error;
-                self::set("script", $script_completo);
+                if (GestionesDAO::huboHistoricoDbFallo()) {
+                    self::set(
+                        "errorGestiones",
+                        'No se pudo conectar a una o más bases de datos del histórico (Legacy __SPARTA_SECRET_REDACTED__, __SPARTA_SECRET_REDACTED__ / Sky Logic o Segundómetro). '
+                        . 'En producción suele deberse a que el servidor web no tiene salida al puerto 3306 de esos hosts MySQL, o a credenciales distintas al entorno local. '
+                        . 'Revise firewall, listas blancas en el servidor de BD y el log de PHP (error_log) para el detalle técnico.'
+                    );
+                    self::set("script", $script);
+                } else {
+                    self::set("errorGestiones", "No se encontraron resultados");
+                    $script_completo = $script . "\n" . $script_error;
+                    self::set("script", $script_completo);
+                }
                 return self::render("gestiones_consulta");
             }
 
