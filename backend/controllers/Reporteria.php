@@ -1852,32 +1852,15 @@ class Reporteria extends Controller
                 let html = '';
                 terOrdenados.forEach((ter, idx) => {
 
-                    /* ── Territorial CURRENT: solo informativo ── */
+                    /* ── Sin cartera operativa (sin territorial / Current): aviso ── */
                     if (esCurrent(ter.nombre)) {
                         html += `
                         <div class="card mb-3 border-start border-3 border-secondary">
-                            <div class="card-header d-flex align-items-center justify-content-between py-2"
-                                 style="cursor:pointer;"
-                                 data-bs-toggle="collapse"
-                                 data-bs-target="#ter_${idx}">
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-label-secondary" style="font-size:.65rem;">Sin territorial asignado</span>
-                                    <strong style="font-size:.85rem;">Créditos nacidos en current</strong>
-                                    <span class="badge bg-label-secondary ms-1">${ter.total} créditos</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="text-muted" style="font-size:.75rem;font-style:italic;">Solo informativo — nacieron sin mora</span>
-                                    <i class="fa fa-chevron-down text-muted"></i>
-                                </div>
-                            </div>
-                            <div class="collapse" id="ter_${idx}">
-                                <div class="card-body py-2" style="background:#f8f9fa;">
-                                    <p class="mb-0 text-muted" style="font-size:.78rem;">
-                                        <i class="fa fa-circle-info text-secondary me-1"></i>
-                                        Estos créditos nacieron en bucket <strong>Current</strong> (sin mora).
-                                        No requieren gestión de cobranza y no generan indicador de efectividad.
-                                    </p>
-                                </div>
+                            <div class="card-body py-3">
+                                <p class="mb-0 text-muted" style="font-size:.82rem;">
+                                    <i class="fa fa-circle-info text-secondary me-2"></i>
+                                    El seguimiento de los créditos se podrá visualizar una vez que se asigne la cartera. Consulte disponibilidad con el administrador de asignación de cartera.
+                                </p>
                             </div>
                         </div>`;
                         return;
