@@ -317,10 +317,41 @@ JS;
                 var htmlGeoErr = buildGeoListHtml(rastreoPuntosGeo);
                 $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeoErr + \'<span class="text-muted small">Sin datos de gestiones para el mapa.</span>\');
                 $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
+                rastreoGestionesParaMapa = [];
+                rastreoGestionesCargadas = true;
+                rastreoTotalGestiones = 0;
+                rastreoConUbicacion = 0;
+                maybeInitMapaAlternas();
             } });
         }
+        function cargarPuntosGeoRastreoDiferido() {
+            var idCreditoCargaGeo = idCreditoRastreoActual;
+            if (!idCreditoCargaGeo) return;
+            http.request({
+                endpoint: \'/sabueso/getPuntosGeoCredito\',
+                metodo: \'POST\',
+                data: JSON.stringify({ id_credito: idCreditoCargaGeo }),
+                contentType: \'application/json\',
+                processData: false,
+                onSuccess: function(respGeo) {
+                    if (idCreditoRastreoActual !== idCreditoCargaGeo) return;
+                    rastreoPuntosGeo = (respGeo.puntos_geo && respGeo.puntos_geo.length) ? respGeo.puntos_geo : [];
+                    var htmlGeo = buildGeoListHtml(rastreoPuntosGeo);
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(htmlGeo || \'<span class="text-muted small">Sin direcciones alternas para este crédito.</span>\');
+                    $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
+                    maybeInitMapaAlternas();
+                },
+                onError: function() {
+                    if (idCreditoRastreoActual !== idCreditoCargaGeo) return;
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">No se pudieron cargar las direcciones alternas. Revisa la conexión o intenta de nuevo.</span>\');
+                    $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
+                }
+            });
+        }
         function maybeInitMapaAlternas() {
-            if (!rastreoGestionesCargadas && (!rastreoPuntosGeo || !rastreoPuntosGeo.length)) return;
+            var tieneGeo = !!(rastreoPuntosGeo && rastreoPuntosGeo.length);
+            var tieneMaxi = !!(rastreoDireccionesParaMapa && rastreoDireccionesParaMapa.length);
+            if (!rastreoGestionesCargadas && !tieneGeo && !tieneMaxi) return;
             initMapaRastreoAlternas(rastreoDireccionesParaMapa, rastreoGestionesParaMapa, rastreoPuntosGeo || []);
         }
         function pinGotaIcon(colorHex) {
@@ -1818,15 +1849,13 @@ JS;
                 cargarChatRastreo(); cargarDictamenRastreo(); cargarEvidenciasRastreo(); cargarGestionesRastreo();
                 $(\'#rastreoResumenIAGestionesContenido\').empty().hide();
                 $(\'#rastreoAnalizarIAContenido\').empty();
-                http.request({ endpoint: \'/sabueso/getUbicacionesCredito\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual }), contentType: \'application/json\', processData: false, onSuccess: function(r) {
+                http.request({ endpoint: \'/sabueso/getUbicacionesCredito\', metodo: \'POST\', data: JSON.stringify({ id_credito: idCreditoRastreoActual, modo_rapido: true }), contentType: \'application/json\', processData: false, onSuccess: function(r) {
                     $(\'#rastreoResumenIAContenido\').empty();
                     rastreoDireccionesParaMapa = (r.puntos_mapa && r.puntos_mapa.length) ? r.puntos_mapa : [];
-                    rastreoPuntosGeo = (r.puntos_geo && r.puntos_geo.length) ? r.puntos_geo : [];
+                    rastreoPuntosGeo = [];
                     rastreoDomicilioMegareporte = (r.domicilio_megareporte && r.domicilio_megareporte.lat != null && r.domicilio_megareporte.lng != null) ? r.domicilio_megareporte : null;
                     rastreoIndiceCasa = (r.indice_casa !== undefined && r.indice_casa !== null && Number.isInteger(r.indice_casa)) ? r.indice_casa : null;
-                    var htmlGeo = buildGeoListHtml(rastreoPuntosGeo);
-                    var contenidoAlternas = htmlGeo || \'<span class="text-muted small">Sin direcciones alternas para este crédito.</span>\';
-                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(contenidoAlternas);
+                    $(\'#rastreoDireccionesAlternasContenido\').removeClass(\'rastreo-contenido-cargando\').html(\'<span class="text-muted small">Cargando direcciones alternas...</span>\');
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                     if (r.success && r.direcciones_resumen && r.direcciones_resumen.length) {
                         var dirsRastreo = r.direcciones_resumen;
@@ -1969,9 +1998,10 @@ JS;
                     var ptsMapa = rastreoDireccionesParaMapa;
                     requestAnimationFrame(function() {
                         requestAnimationFrame(function() {
-                            try { initMapaRastreo(ptsMapa); maybeInitMapaAlternas(); } catch (e) { console.warn(\'Rastreo mapas:\', e); }
+                            try { initMapaRastreo(ptsMapa); maybeInitMapaAlternas(); } catch (e) {}
                         });
                     });
+                    cargarPuntosGeoRastreoDiferido();
                 }, onError: function() {
                     rastreoDomicilioMegareporte = null; rastreoIndiceCasa = null;
                     rastreoPuntosGeo = [];
@@ -1981,7 +2011,7 @@ JS;
                     $(\'#rastreoDireccionesAlternas .rastreo-mapa-wrap\').show();
                     requestAnimationFrame(function() {
                         requestAnimationFrame(function() {
-                            try { initMapaRastreo([]); maybeInitMapaAlternas(); } catch (e) { console.warn(\'Rastreo mapas:\', e); }
+                            try { initMapaRastreo([]); maybeInitMapaAlternas(); } catch (e) {}
                         });
                     });
                 } });
