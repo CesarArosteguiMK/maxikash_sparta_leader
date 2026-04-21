@@ -31,7 +31,7 @@ class DatabaseLegacy
                 ]
             );
         } catch (\PDOException $e) {
-            if (DatabaseCliSupport::isCli()) {
+            if (DatabaseCliSupport::isCli() || DatabaseCliSupport::esGestionesSeguimientoRequest()) {
                 throw new \RuntimeException(
                     'No se pudo conectar a MySQL (legacy __SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
                     0,

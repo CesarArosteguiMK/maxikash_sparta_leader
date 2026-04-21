@@ -11,6 +11,12 @@
     <!-- Card principal -->
     <div class="card">
 
+        <?php if (!empty($errorGestiones)): ?>
+        <div class="alert alert-danger m-3 mb-0" role="alert">
+            <?= htmlspecialchars((string) $errorGestiones, ENT_QUOTES, 'UTF-8') ?>
+        </div>
+        <?php endif; ?>
+
         <!-- Filtros -->
         <div class="row justify-content-between m-4">
 
@@ -74,6 +80,7 @@
 
     </div>
 </div>
+<?php require __DIR__ . '/partials/gestiones_db_fallos_console.php'; ?>
 <?= $script ?? '' ?>
 
 <style>

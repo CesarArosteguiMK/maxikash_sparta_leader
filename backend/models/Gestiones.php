@@ -9,6 +9,43 @@ use Core\DatabaseLegacy;
 
 class Gestiones extends Model
 {
+    /** True si en esta petición falló al menos una conexión/consulta de las BDs del histórico. */
+    private static $historicoDbFallo = false;
+
+    /** @var list<array{fuente:string,mensaje:string,tipo:string}> */
+    private static $historicoDbFallos = [];
+
+    public static function resetHistoricoDbFalloFlag(): void
+    {
+        self::$historicoDbFallo = false;
+        self::$historicoDbFallos = [];
+    }
+
+    public static function huboHistoricoDbFallo(): bool
+    {
+        return self::$historicoDbFallo;
+    }
+
+    /**
+     * Detalle de fallos en esta petición (para consola del navegador en depuración).
+     *
+     * @return list<array{fuente:string,mensaje:string,tipo:string}>
+     */
+    public static function getHistoricoDbFallos(): array
+    {
+        return self::$historicoDbFallos;
+    }
+
+    private static function marcarHistoricoDbFallo(string $fuente, \Throwable $e): void
+    {
+        self::$historicoDbFallo = true;
+        self::$historicoDbFallos[] = [
+            'fuente' => $fuente,
+            'mensaje' => $e->getMessage(),
+            'tipo' => \get_class($e),
+        ];
+        error_log('[Gestiones][DB][' . $fuente . '] ' . $e->getMessage());
+    }
 
     public static function getDetalleGestion($credito, $nombre)
     {
@@ -17,16 +54,22 @@ class Gestiones extends Model
             return [];
         }
 
-        $mysqli = new DatabaseSegundometro();
+        try {
+            $mysqli = new DatabaseSegundometro();
 
-        $query = <<<SQL
+            $query = <<<SQL
         SELECT id_credito, Nombre_cliente, Codigo_postal_1, Celular, Referencia_stp, cuota
         FROM tbl_segundometro_histo
         WHERE id_credito = :credito
         LIMIT 1
 SQL;
 
-        return $mysqli->queryAll($query, ['credito' => (int) $credito]);
+            return $mysqli->queryAll($query, ['credito' => (int) $credito]);
+        } catch (\Throwable $e) {
+            self::marcarHistoricoDbFallo('Segundómetro (__SPARTA_SECRET_REDACTED__ → tbl_segundometro_histo)', $e);
+
+            return [];
+        }
     }
     public static function getAllGestionesaa($credito, $nombre)
     {
@@ -132,9 +175,10 @@ SQL;
      */
     public static function getGestionesLegacy($credito, ?int $limit = null)
     {
-        $mysqli = new DatabaseLegacy(); // conexión LEGACY
+        try {
+            $mysqli = new DatabaseLegacy(); // conexión LEGACY
 
-        $query = <<<SQL
+            $query = <<<SQL
         SELECT
         'LEGACY' AS app,
         '' AS id,
@@ -254,6 +298,11 @@ SQL;
         }
 
         return $legacyData;
+        } catch (\Throwable $e) {
+            self::marcarHistoricoDbFallo('Legacy __SPARTA_SECRET_REDACTED__ (DatabaseLegacy → legacy_historico)', $e);
+
+            return [];
+        }
     }
 
     /**
@@ -261,9 +310,10 @@ SQL;
      */
     private static function getSkyLogicComplementData($credito)
     {
-        $db = new Database();
+        try {
+            $db = new Database();
 
-        $query = <<<SQL
+            $query = <<<SQL
     SELECT
         telefono_celular, cp, direccion, cuenta_clabe,
         pago_semanal, pagos_vencidos, deuda_total,
@@ -280,8 +330,14 @@ SQL;
     LIMIT 1
 SQL;
 
-        $result = $db->queryAll($query, ['credito' => $credito]);
-        return !empty($result) ? $result[0] : null;
+            $result = $db->queryAll($query, ['credito' => $credito]);
+
+            return !empty($result) ? $result[0] : null;
+        } catch (\Throwable $e) {
+            self::marcarHistoricoDbFallo('Sky Logic complemento (__SPARTA_SECRET_REDACTED__ → base_clientes, 1 fila)', $e);
+
+            return null;
+        }
     }
 
     /**
@@ -316,9 +372,10 @@ SQL;
      */
     public static function getAllGestionesSkyLogic($credito, $nombre = '', ?int $limit = null)
     {
-        $mysqli = new Database();
+        try {
+            $mysqli = new Database();
 
-        $query = <<<SQL
+            $query = <<<SQL
     SELECT
         'Sky Logic *' as app,
         id, id_team, team_supervisor, id_base, nombre_base, fecha_carga_base,
@@ -354,6 +411,11 @@ SQL;
         }
 
         return $mysqli->queryAll($query, $params);
+        } catch (\Throwable $e) {
+            self::marcarHistoricoDbFallo('Sky Logic listado (__SPARTA_SECRET_REDACTED__ → base_clientes)', $e);
+
+            return [];
+        }
     }
 
     /**

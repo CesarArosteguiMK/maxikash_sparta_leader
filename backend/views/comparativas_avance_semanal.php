@@ -3,17 +3,13 @@
 /** @var ?array $comp_payload */
 /** @var string $comp_fecha_min */
 /** @var string $comp_fecha_max */
-/** @var bool $comp_placeholder_cdmx Esperando hoy_mx del navegador (calendario real CDMX). */
+/** @var bool $comp_placeholder_cdmx GET sin hoy_mx (compat; UI usa comp_esperando_hoy_mx). */
+/** @var bool $comp_ok_inicio */
+/** @var bool $comp_esperando_hoy_mx Calendario CDMX pendiente del navegador y sin error. */
+/** @var bool $comp_ui_datos Tabla/herramientas habilitadas (datos iniciales o placeholder). */
+/** @var string $comp_initial_json Fragmento JSON listo para incrustar en JS (sin comillas extra). */
+/** @var string $comp_rango_json Objeto JSON {min,max} escapado para JS. */
 $cErr = isset($comp_error) ? (string) $comp_error : '';
-$cMin = isset($comp_fecha_min) ? htmlspecialchars((string) $comp_fecha_min, ENT_QUOTES, 'UTF-8') : '';
-$cMax = isset($comp_fecha_max) ? htmlspecialchars((string) $comp_fecha_max, ENT_QUOTES, 'UTF-8') : '';
-$comp_ok_inicio = ($cErr === '' && isset($comp_payload) && is_array($comp_payload));
-$comp_placeholder_cdmx = !empty($comp_placeholder_cdmx) && $cErr === '';
-$comp_ui_datos = $comp_ok_inicio || $comp_placeholder_cdmx;
-$compInitialJson = json_encode($comp_payload ?? null, JSON_UNESCAPED_UNICODE);
-if ($compInitialJson === false) {
-    $compInitialJson = 'null';
-}
 ?>
 <div class="comp-av container-fluid py-3 px-2 px-md-3">
     <!-- Título + Volver: fuera de la tarjeta / tabla -->
@@ -26,17 +22,17 @@ if ($compInitialJson === false) {
             <span id="comp-api-status" class="badge <?php
                 if ($comp_ok_inicio) {
                     echo 'bg-label-success';
-                } elseif ($comp_placeholder_cdmx) {
+                } elseif ($comp_esperando_hoy_mx) {
                     echo 'bg-label-warning';
                 } else {
                     echo 'bg-label-danger';
                 }
             ?> align-middle"
-                  title="<?= $comp_placeholder_cdmx ? 'Obteniendo calendario Ciudad de México desde el navegador' : 'Estado del endpoint de datos en esta aplicación'; ?>">
+                  title="<?= $comp_esperando_hoy_mx ? 'Obteniendo calendario Ciudad de México desde el navegador' : 'Estado del endpoint de datos en esta aplicación'; ?>">
                 <?php
                 if ($comp_ok_inicio) {
                     echo 'Servicio: activo';
-                } elseif ($comp_placeholder_cdmx) {
+                } elseif ($comp_esperando_hoy_mx) {
                     echo 'Calendario CDMX…';
                 } else {
                     echo 'Servicio: no disponible';
@@ -533,8 +529,8 @@ body.dark-mode #comp-sin-servicio {
 <script>
 (function () {
     const COMP_OK_INICIO = <?= $comp_ok_inicio ? 'true' : 'false' ?>;
-    const COMP_INITIAL = <?= $compInitialJson ?>;
-    const COMP_RANGO = <?= json_encode(['min' => $cMin, 'max' => $cMax], JSON_UNESCAPED_UNICODE) ?>;
+    const COMP_INITIAL = <?= $comp_initial_json ?>;
+    const COMP_RANGO = <?= $comp_rango_json ?>;
     const FETCH_URL = '/reporteria/getComparativasAvanceSemanalJson';
     const HORAS_LABEL = ['07:30 a.m.','09:30 a.m.','11:30 a.m.','01:30 p.m.','02:30 p.m.','04:30 p.m.','06:30 p.m.','08:30 p.m.','11:50 p.m.'];
 
