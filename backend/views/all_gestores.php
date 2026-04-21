@@ -6048,28 +6048,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * INICIALIZAR SELECTS CON BÚSQUEDA
    * ==========================================
    */
-  let searchableSelectAddJefe;
-  let searchableSelectEditJefe;
-
-  // Inicializar después de que el DOM esté listo
-  document.addEventListener('DOMContentLoaded', () => {
-    // Esperar un poco para asegurar que los selects están en el DOM
-    setTimeout(() => {
-      // Inicializar select de "Agregar Usuario"
-      const addJefeSelect = document.getElementById('add_id_jefe');
-      if (addJefeSelect) {
-        searchableSelectAddJefe = new SearchableSelect(addJefeSelect);
-
-      }
-
-      // Inicializar select de "Editar Usuario"
-      const editJefeSelect = document.getElementById('edit_id_jefe');
-      if (editJefeSelect) {
-        searchableSelectEditJefe = new SearchableSelect(editJefeSelect);
-
-      }
-    }, 500);
-  });
+  // Nota: Los selects de esta vista usan Select2 vía .js-select-buscador.
+  // Se desactiva la inicialización de SearchableSelect aquí para evitar
+  // renderizado duplicado del combo (doble control visible).
 
   /**
    * ==========================================
@@ -7001,6 +6982,8 @@ function ocultarBloquesDomicilio(prefix) {
         if ($el.hasClass('select2-hidden-accessible')) {
             $el.select2('destroy');
         }
+        // Select2 lee el estado disabled del <select>; forzar sincronía con el DOM nativo.
+        $el.prop('disabled', !!el.disabled);
         var parentSel = window.getDropdownParentSelectorForSelectId(selectId);
         var $parent = parentSel ? $(parentSel) : $(document.body);
         if (parentSel && !$parent.length) {
@@ -7015,6 +6998,7 @@ function ocultarBloquesDomicilio(prefix) {
                 searching: function () { return 'Buscando...'; }
             }
         });
+        $el.prop('disabled', !!el.disabled);
         if (prev) {
             $el.val(prev).trigger('change.select2');
         }
