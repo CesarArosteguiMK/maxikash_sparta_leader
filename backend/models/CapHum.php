@@ -265,7 +265,11 @@ class CapHum extends Model
             ) AS nombre_jefe,
 
             p.estatus,
-            COALESCE(p.user_name, 'Sin usuario') AS usuario
+            COALESCE(p.user_name, 'Sin usuario') AS usuario,
+
+            aus_activa.razon_nombre  AS ausencia_razon,
+            aus_activa.fecha_inicio  AS ausencia_fecha_inicio,
+            aus_activa.fecha_fin     AS ausencia_fecha_fin
 
         FROM persona p
 
@@ -284,6 +288,20 @@ class CapHum extends Model
         ) aj ON aj.id_persona = p.id
 
         LEFT JOIN persona pj ON pj.id = aj.id_jefe
+
+        LEFT JOIN (
+            SELECT a.id_persona, ra.nombre AS razon_nombre, a.fecha_inicio, a.fecha_fin
+            FROM ausencia a
+            INNER JOIN razon_ausencia ra ON ra.id = a.id_razon
+            INNER JOIN (
+                SELECT id_persona, MAX(id) AS max_id
+                FROM ausencia
+                WHERE activo = 1
+                  AND DATE(fecha_inicio) <= CURDATE()
+                  AND DATE(fecha_fin)    >= CURDATE()
+                GROUP BY id_persona
+            ) latest ON latest.id_persona = a.id_persona AND latest.max_id = a.id
+        ) aus_activa ON aus_activa.id_persona = p.id
 
         WHERE {$whereSQL}
 
