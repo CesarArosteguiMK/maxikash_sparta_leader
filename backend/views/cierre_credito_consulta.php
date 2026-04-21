@@ -72,6 +72,11 @@
     font-weight: 700;
     font-size: 1rem;
     letter-spacing: .3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
 }
 .cc-conv-card-header .cc-credito-id small {
     font-weight: 400;
@@ -169,26 +174,10 @@
     color: #1e293b;
 }
 
-/* Validación */
+/* Validación — oculta visualmente en frontend */
 .cc-validacion-box {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    border-radius: .45rem;
-    padding: .4rem .75rem;
-    margin-top: .6rem;
-    font-size: .82rem;
+    display: none !important;
 }
-.cc-validacion-box i { color: #d97706; font-size: .85rem; }
-.cc-validacion-box .cc-val-user { font-weight: 700; color: #92400e; }
-body.dark-mode .cc-validacion-box {
-    background: rgba(180, 83, 9, 0.15);
-    border-color: rgba(217, 119, 6, 0.4);
-}
-body.dark-mode .cc-validacion-box i { color: #fbbf24; }
-body.dark-mode .cc-validacion-box .cc-val-user { color: #fcd34d; }
 
 /* Footer de la card con botón confirmar */
 .cc-conv-card-footer {
@@ -319,6 +308,47 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
     from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
 }
+/* ── Animaciones En Proceso detail panel ── */
+@keyframes epDetailIn {
+    from { opacity: 0; transform: translateX(18px) scale(.98); }
+    to   { opacity: 1; transform: translateX(0)  scale(1); }
+}
+@keyframes epDetailOut {
+    from { opacity: 1; transform: translateX(0)  scale(1); }
+    to   { opacity: 0; transform: translateX(18px) scale(.98); }
+}
+@keyframes epCardDrop {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.ep-detail-enter  { animation: epDetailIn  .25s cubic-bezier(.4,0,.2,1) both; }
+.ep-detail-leave  { animation: epDetailOut .2s  cubic-bezier(.4,0,.2,1) both; }
+.ep-card-drop     { animation: epCardDrop  .22s cubic-bezier(.4,0,.2,1) both; }
+/* ── Selector de vista En Proceso ── */
+.ep-view-toolbar  { display:flex; align-items:center; gap:.35rem; margin-bottom:.85rem; }
+.ep-view-btn {
+    display:inline-flex; align-items:center; gap:.4rem;
+    padding:.28rem .65rem; border:1px solid #e2e8f0; border-radius:.4rem;
+    background:#f8fafc; color:#64748b; font-size:.78rem; font-weight:600;
+    cursor:pointer; transition: background .12s, border-color .12s, color .12s;
+    white-space:nowrap;
+}
+.ep-view-btn:hover  { background:#f1f5f9; border-color:#94a3b8; }
+.ep-view-btn.active { background:#dbeafe; border-color:#3b82f6; color:#1d4ed8; }
+/* ── Lista compacta (vista lista) ── */
+.ep-list-row {
+    display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;
+    background:#fff; border:1px solid #e2e8f0; border-radius:.6rem;
+    padding:.6rem 1rem; transition: box-shadow .15s;
+}
+.ep-list-row:hover { box-shadow: 0 2px 10px rgba(30,58,95,.09); }
+.ep-lr-info  { display:flex; flex-direction:column; gap:.05rem; min-width:0; flex:1 1 200px; }
+.ep-lr-id    { font-weight:700; font-size:.9rem; color:#1e3a5f; letter-spacing:.2px; }
+.ep-lr-name  { font-size:.8rem; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ep-lr-prod  { font-size:.73rem; color:#94a3b8; }
+.ep-lr-meta  { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; flex-shrink:0; }
+.ep-lr-total { font-weight:700; font-size:.83rem; color:#059669; white-space:nowrap; }
+.ep-lr-actions { display:flex; align-items:center; gap:.35rem; flex-shrink:0; flex-wrap:wrap; }
 .cc-filtro-opcion, .cc-filtro-hist-opcion {
     display: inline-flex;
     align-items: center;
@@ -381,6 +411,29 @@ body.dark-mode .cc-filtro-conv[data-filtro-conv="todos"].active     { background
 .cc-scroll-top-btn:hover { background: #2563eb; box-shadow: 0 4px 12px rgba(37,99,235,.4); }
 body.dark-mode .cc-scroll-top-btn { background: #1d4ed8; box-shadow: 0 2px 8px rgba(29,78,216,.4); }
 body.dark-mode .cc-scroll-top-btn:hover { background: #2563eb; }
+/* ── Célula badges (Despachos / Call Center) ── */
+.ep-celula-badge {
+    display: inline-flex; align-items: center; gap: .25rem;
+    padding: .15rem .55rem; border-radius: 100px;
+    font-size: .69rem; font-weight: 700; letter-spacing: .2px; white-space: nowrap;
+}
+.ep-cel-desp { background: rgba(30,58,138,.1); color: #1e3a8a; border: 1px solid rgba(30,58,138,.3); }
+.ep-cel-cc   { background: rgba(22,163,74,.1); color: #15803d; border: 1px solid rgba(22,163,74,.3); }
+.cc-conv-card-header .ep-cel-desp { background: rgba(30,58,138,.35); color: #bfdbfe; border-color: rgba(30,58,138,.6); }
+.cc-conv-card-header .ep-cel-cc   { background: rgba(22,163,74,.3); color: #bbf7d0; border-color: rgba(22,163,74,.55); }
+body.dark-mode .ep-cel-desp { background: rgba(30,58,138,.25); color: #93c5fd; border-color: rgba(30,58,138,.5); }
+body.dark-mode .ep-cel-cc   { background: rgba(22,163,74,.2); color: #4ade80; border-color: rgba(22,163,74,.45); }
+/* ── Paginador de cards (Validación / En Proceso) ── */
+.cc-pager-wrap { margin-top: .5rem; border-top: 1px solid #e2e8f0; padding: .5rem .25rem 0; }
+.cc-pager-info { font-size: .83rem; color: #64748b; padding: .35rem .5rem; }
+.cc-pager-len  { font-size: .83rem; color: #64748b; padding: .35rem .5rem;
+                 display: flex; align-items: center; gap: .35rem; white-space: nowrap; }
+.cc-pager-len select { padding: .2rem .4rem; border: 1px solid #cbd5e1; border-radius: .35rem;
+                       background: #f8fafc; color: #334155; font-size: .8rem; cursor: pointer; }
+body.dark-mode .cc-pager-wrap { border-color: #334155; }
+body.dark-mode .cc-pager-info { color: #94a3b8; }
+body.dark-mode .cc-pager-len  { color: #94a3b8; }
+body.dark-mode .cc-pager-len select { background: #1e293b; border-color: #475569; color: #cbd5e1; }
 .cc-filtro-count { font-size: .78rem; color: #64748b; }
 body.dark-mode .cc-filtros-btn-toggle { background: #1e293b; border-color: #475569; color: #94a3b8; }
 body.dark-mode .cc-filtros-btn-toggle:hover { background: #334155; border-color: #64748b; }
@@ -794,6 +847,7 @@ $ccActCart  = ($cc_default_tab === 'cartera');
         <div id="wrap-env-finalizado" class="d-none">
             <!-- Las cards se inyectan aquí dinámicamente -->
         </div>
+        <div id="pager-ef" class="cc-pager-wrap d-none"></div>
         <div id="empty-env-finalizado" class="text-center py-5 text-muted d-none">
             <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
             Sin convenios saldados por el momento.
@@ -818,9 +872,23 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                     <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
                     Cargando registros...
                 </div>
+                <!-- Selector de vista -->
+                <div id="ep-view-toolbar" class="ep-view-toolbar d-none">
+                    <span style="font-size:.76rem;color:#94a3b8;font-weight:600;margin-right:.15rem;">Vista:</span>
+                    <button class="ep-view-btn active" data-view="3" title="3 columnas">
+                        <i class="fa-solid fa-table-cells-large"></i>3 columnas
+                    </button>
+                    <button class="ep-view-btn" data-view="2" title="2 columnas">
+                        <i class="fa-solid fa-table-columns"></i>2 columnas
+                    </button>
+                    <button class="ep-view-btn" data-view="list" title="Lista compacta">
+                        <i class="fa-solid fa-list"></i>Lista
+                    </button>
+                </div>
                 <div id="wrap-ep-cards" class="d-none">
                     <!-- Cards renderizadas por JS -->
                 </div>
+                <div id="pager-ep" class="cc-pager-wrap d-none"></div>
                 <div id="empty-en-proceso" class="text-center py-5 text-muted d-none">
                     <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
                     Sin registros en proceso de validación.
@@ -953,6 +1021,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     'historial' => !empty($cc_perm_historial),
     'cartera'   => !empty($cc_perm_cartera),
     'defaultTab' => isset($cc_default_tab) ? $cc_default_tab : null,
+    'ambas_celulas' => (isset($cc_celulas_permitidas) ? $cc_celulas_permitidas : null) === null,
 ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
 <script>
@@ -970,10 +1039,14 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         historial: true,
         cartera: true,
         defaultTab: 'validacion',
+        ambas_celulas: false,
     };
     if (!CC_P.alguno) {
         return;
     }
+
+    /** true cuando el usuario tiene acceso a ambas células (Despachos + Call Center) */
+    const CC_AMBAS = CC_P.ambas_celulas === true;
 
     /* ── Helpers ── */
     function fmt(n) {
@@ -996,6 +1069,100 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     function esc(str) {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
+    /** Devuelve un badge de célula (Despachos / Call Center) solo si el usuario ve ambas células. */
+    function _celulaBadge(r) {
+        if (!CC_AMBAS) return '';
+        const cel = parseInt(r.id_celula) || 0;
+        if (cel === 1) return `<span class="ep-celula-badge ep-cel-desp"><i class="fa-solid fa-file-lines me-1"></i>Despachos</span>`;
+        if (cel === 2) return `<span class="ep-celula-badge ep-cel-cc"><i class="fa-solid fa-phone me-1"></i>Call Center</span>`;
+        return '';
+    }
+
+    /**
+     * Renderiza un paginador Bootstrap-DT dentro del elemento `containerId`.
+     * @param {string}   containerId   ID del div destino
+     * @param {number}   page          Página actual (1-based)
+     * @param {number}   total         Total de registros en el conjunto filtrado
+     * @param {number}   pageSize      Registros por página
+     * @param {number[]} pageSizeOpts  Opciones de "Mostrar X"
+     * @param {function} onPage        Callback(newPage)
+     * @param {function} onSize        Callback(newSize)
+     */
+    function _renderPager(containerId, page, total, pageSize, pageSizeOpts, onPage, onSize) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const from  = total === 0 ? 0 : (page - 1) * pageSize + 1;
+        const to    = Math.min(page * pageSize, total);
+
+        // Build page buttons (show up to 5 page numbers around current)
+        let pageButtons = '';
+        const delta = 2;
+        const start = Math.max(1, page - delta);
+        const end   = Math.min(totalPages, page + delta);
+        if (start > 1) pageButtons += `<li class="page-item"><a class="page-link" href="#" data-p="1">1</a></li>`;
+        if (start > 2) pageButtons += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+        for (let p = start; p <= end; p++) {
+            pageButtons += `<li class="page-item${p === page ? ' active' : ''}"><a class="page-link" href="#" data-p="${p}">${p}</a></li>`;
+        }
+        if (end < totalPages - 1) pageButtons += `<li class="page-item disabled"><span class="page-link">&hellip;</span></li>`;
+        if (end < totalPages) pageButtons += `<li class="page-item"><a class="page-link" href="#" data-p="${totalPages}">${totalPages}</a></li>`;
+
+        const sizeOptions = pageSizeOpts.map(v =>
+            `<option value="${v}"${v === pageSize ? ' selected' : ''}>${v}</option>`
+        ).join('');
+
+        el.innerHTML = `
+        <div class="row align-items-center g-0" style="padding:.35rem 0;">
+            <div class="col-sm-12 col-md-5">
+                <div class="cc-pager-len">
+                    Mostrar
+                    <select onchange="(${containerId === 'pager-ef' ? '(sz)=>{_efPage=1;_efPageSize=sz;_pintarCards(_currentEfRows);}' : '(sz)=>{_epPage=1;_pintarEnProceso(_currentEpRows);}'})(+this.value)">
+                        ${sizeOptions}
+                    </select>
+                    registros
+                </div>
+            </div>
+            <div class="col-sm-12 col-md-7 text-md-end">
+                <div class="dataTables_paginate" style="padding:.35rem .5rem;">
+                    <ul class="pagination pagination-sm justify-content-end mb-0">
+                        <li class="page-item${page <= 1 ? ' disabled' : ''}">
+                            <a class="page-link" href="#" data-p="1" title="Primera">&laquo;</a>
+                        </li>
+                        <li class="page-item${page <= 1 ? ' disabled' : ''}">
+                            <a class="page-link" href="#" data-p="${page - 1}" title="Anterior">&lsaquo;</a>
+                        </li>
+                        ${pageButtons}
+                        <li class="page-item${page >= totalPages ? ' disabled' : ''}">
+                            <a class="page-link" href="#" data-p="${page + 1}" title="Siguiente">&rsaquo;</a>
+                        </li>
+                        <li class="page-item${page >= totalPages ? ' disabled' : ''}">
+                            <a class="page-link" href="#" data-p="${totalPages}" title="&Uacute;ltima">&raquo;</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="row g-0">
+            <div class="col-12">
+                <div class="cc-pager-info">
+                    ${total === 0 ? 'Sin registros' : `Mostrando <strong>${from}</strong> a <strong>${to}</strong> de <strong>${total}</strong> registro${total !== 1 ? 's' : ''}`}
+                </div>
+            </div>
+        </div>`;
+
+        // Bind page-link clicks
+        el.querySelectorAll('.page-link[data-p]').forEach(function(a) {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                const newPage = parseInt(this.dataset.p);
+                if (isNaN(newPage) || newPage < 1 || newPage > totalPages) return;
+                onPage(newPage);
+            });
+        });
+        el.classList.remove('d-none');
+    }
+
     function convenioEstatusBadge(estatus) {
         const map = {
             'completado':          { bg: '#bbf7d0', color: '#14532d', icon: 'fa-circle-check',      label: 'Completo'          },
@@ -1046,6 +1213,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     ══════════════════════════════════ */
     let _allRows          = [];
     let _allRowsEp        = [];
+    let _epView            = '3'; // '3' | '2' | 'list'
     let _filtroEf         = 'todos';
     let _filtroHist       = 'todos';
     let _allRowsHist      = [];
@@ -1053,6 +1221,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     let _filtroConv       = 'todos';
     let _validador        = '—';
     let enProcesoCargado  = false;
+    // Paginación Validación de Cierre
+    let _efPage           = 1;
+    let _efPageSize       = 12;
+    let _currentEfRows    = [];
+    // Paginación En Proceso
+    let _epPage           = 1;
+    let _currentEpRows    = [];
 
     function _rowPasaFiltroEf(r) {
         if (_filtroEf === 'con_docs')
@@ -1091,7 +1266,9 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     }
 
     function _pintarCards(rows) {
+        _currentEfRows = rows;
         const wrap        = document.getElementById('wrap-env-finalizado');
+        const pagerEl     = document.getElementById('pager-ef');
         const emptyNormal = document.getElementById('empty-env-finalizado');
         const emptySearch = document.getElementById('empty-busqueda');
         const countEl     = document.getElementById('cc-filtro-count');
@@ -1110,12 +1287,23 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (!rows.length) {
             wrap.classList.add('d-none');
             wrap.innerHTML = '';
+            if (pagerEl) pagerEl.classList.add('d-none');
             emptySearch.classList.remove('d-none');
             return;
         }
 
+        // Clamp page to valid range
+        const totalPages = Math.max(1, Math.ceil(rows.length / _efPageSize));
+        if (_efPage > totalPages) _efPage = totalPages;
+
+        const pageRows = rows.slice((_efPage - 1) * _efPageSize, _efPage * _efPageSize);
         wrap.classList.remove('d-none');
-        wrap.innerHTML = rows.map(r => buildCard(r, _validador)).join('');
+        wrap.innerHTML = pageRows.map(r => buildCard(r, _validador)).join('');
+
+        _renderPager('pager-ef', _efPage, rows.length, _efPageSize, [12, 24, 48],
+            function(p) { _efPage = p; _pintarCards(_currentEfRows); },
+            null
+        );
     }
 
     /* ── Detecta qué pestaña está activa ── */
@@ -1138,6 +1326,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         const tab = _tabActiva();
 
         if (tab === 'ep') {
+            _epPage = 1; // reset pagination on new search
             _pintarEnProceso(!t ? _allRowsEp : _allRowsEp.filter(r =>
                 String(r.id_credito      || '').toLowerCase().includes(t) ||
                 String(r.nombre_cliente  || '').toLowerCase().includes(t) ||
@@ -1163,11 +1352,35 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         }
 
         // Tab 1: Enviados Finalizados
+        _efPage = 1; // reset pagination on new search
         _pintarCards(_getRowsEf(t));
     }
 
     document.getElementById('barraGeneral-input')
         .addEventListener('input', function () { ccFiltrar(this.value); });
+
+    // ── Selector de vista En Proceso ──
+    document.querySelectorAll('.ep-view-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (this.dataset.view === _epView) return;
+            document.querySelectorAll('.ep-view-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            _epPage = 1; // reset pagination on view change
+            _epView = this.dataset.view;
+            // Cerrar cualquier detalle abierto antes de re-renderizar
+            document.querySelectorAll('[id^="ep-chunk-detail-col-"]').forEach(el => {
+                const ci = parseInt(el.id.replace('ep-chunk-detail-col-', ''));
+                _epCloseChunk(ci);
+            });
+            const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
+            _pintarEnProceso(!_allRowsEp.length ? [] : (t
+                ? _allRowsEp.filter(r =>
+                    String(r.id_credito || '').toLowerCase().includes(t) ||
+                    String(r.nombre_cliente || '').toLowerCase().includes(t) ||
+                    String(r.nombre_producto || '').toLowerCase().includes(t))
+                : _allRowsEp));
+        });
+    });
 
     document.getElementById('barraGeneral-limpiar')
         .addEventListener('click', function () {
@@ -1213,6 +1426,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             document.querySelectorAll('#cc-filtros-ef .cc-filtro-opcion').forEach(function (b) { b.classList.remove('active'); });
             this.classList.add('active');
             _filtroEf = this.dataset.filtro;
+            _efPage = 1; // reset pagination on filter change
             const t = document.getElementById('barraGeneral-input').value.trim().toLowerCase();
             _pintarCards(_getRowsEf(t));
         });
@@ -1329,7 +1543,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     Crédito: ${esc(r.id_credito)}
                     <small>${esc(r.nombre_cliente)}</small>
                 </span>
-                <span style="color:#fff; font-size:.82rem; font-weight:600; white-space:nowrap;">
+                <span style="color:#fff; font-size:.82rem; font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:.4rem;">
+                    ${_celulaBadge(r)}
                     ${pagadas} pagos de ${semanas}${pagadas >= semanas ? ' <i class=\'bi bi-check-circle-fill\' style=\'color:#4ade80\'></i>' : ''}
                 </span>
             </div>
@@ -1365,7 +1580,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
                     <div class="cc-detail-row">
                         <span class="cc-lbl">Gestor a cargo</span>
-                        <span class="cc-val">${despacho}</span>
+                        <span class="cc-val" style="display:inline-flex;align-items:center;gap:.45rem;flex-wrap:wrap;">${despacho}${_celulaBadge(r)}</span>
                     </div>
 
                     <!-- Fecha de finalización -->
@@ -1477,21 +1692,131 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     }
 
     function _pintarEnProceso(rows) {
+        _currentEpRows = rows;
         const wrap        = document.getElementById('wrap-ep-cards');
+        const pagerEl     = document.getElementById('pager-ep');
         const emptyNormal = document.getElementById('empty-en-proceso');
         const emptySearch = document.getElementById('empty-busqueda-ep');
+        const toolbar     = document.getElementById('ep-view-toolbar');
         emptyNormal.classList.add('d-none');
         if (emptySearch) emptySearch.classList.add('d-none');
 
         if (!rows.length) {
             wrap.classList.add('d-none');
             wrap.innerHTML = '';
+            if (pagerEl) pagerEl.classList.add('d-none');
+            if (toolbar) toolbar.classList.add('d-none');
             if (emptySearch) emptySearch.classList.remove('d-none');
             return;
         }
 
-        wrap.innerHTML = rows.map(r => buildEnProcesoCard(r)).join('');
+        // Mostrar toolbar de vista
+        if (toolbar) toolbar.classList.remove('d-none');
+
+        // Tamaño de página según vista
+        const epPageSize = _epView === 'list' ? 15 : (_epView === '2' ? 10 : 12);
+
+        // Clamp page to valid range
+        const totalPages = Math.max(1, Math.ceil(rows.length / epPageSize));
+        if (_epPage > totalPages) _epPage = totalPages;
+
+        const pageRows = rows.slice((_epPage - 1) * epPageSize, _epPage * epPageSize);
+
+        const chunkSize = _epView === 'list' ? 1 : (_epView === '2' ? 2 : 3);
+        const colClass  = _epView === 'list' ? 'col-12' :
+                          _epView === '2'    ? 'col-12 col-md-6' : 'col-12 col-md-4';
+
+        let html = '';
+        for (let i = 0; i < pageRows.length; i += chunkSize) {
+            const chunk    = pageRows.slice(i, i + chunkSize);
+            const chunkIdx = Math.floor(i / chunkSize);
+            html += `<div class="row g-3 mb-2 ep-chunk-row" id="ep-chunk-row-${chunkIdx}">`;
+            chunk.forEach((r, idx) => {
+                const cardHtml = _epView === 'list'
+                    ? buildEnProcesoListRow(r)
+                    : buildEnProcesoCard(r);
+                html += `<div class="${colClass}" id="cc-ep-col-${r.id}" data-ep-chunk="${chunkIdx}" data-ep-order="${i + idx}">${cardHtml}</div>`;
+            });
+            html += `</div>`;
+        }
+        wrap.innerHTML = html;
         wrap.classList.remove('d-none');
+
+        const pageSizeOpts = _epView === 'list' ? [15, 30, 50] : (_epView === '2' ? [10, 20, 40] : [12, 24, 48]);
+        _renderPager('pager-ep', _epPage, rows.length, epPageSize, pageSizeOpts,
+            function(p) {
+                // Close any open detail panel before changing page
+                document.querySelectorAll('[id^="ep-chunk-detail-col-"]').forEach(function(el) {
+                    const ci = parseInt(el.id.replace('ep-chunk-detail-col-', ''));
+                    _epCloseChunk(ci);
+                });
+                _epPage = p;
+                _pintarEnProceso(_currentEpRows);
+            },
+            null
+        );
+    }
+
+    // ── Vista Lista: fila compacta horizontal ──
+    function buildEnProcesoListRow(r) {
+        const fmtN   = (n) => parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
+        const numCon = parseInt(r.comprobantes_subidos) || 0;
+        const numTot = parseInt(r.comprobantes_total)   || 0;
+        const compOk = numTot > 0 && numCon === numTot;
+        const todoListo = pdfOk && compOk;
+
+        const estadoBadge = todoListo
+            ? `<span class="badge" style="background:#dcfce7;color:#15803d;font-size:.7rem;"><i class="fa-solid fa-circle-check me-1"></i>Listo</span>`
+            : `<span class="badge" style="background:#fef9c3;color:#854d0e;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs pendientes</span>`;
+
+        const pdfIcon = pdfOk
+            ? `<span style="font-size:.75rem;color:#16a34a;" title="PDF adjunto"><i class="fa-solid fa-file-pdf"></i></span>`
+            : `<span style="font-size:.75rem;color:#dc2626;" title="Sin PDF"><i class="fa-solid fa-file-pdf"></i></span>`;
+
+        const compIcon = numTot === 0
+            ? `<span style="font-size:.75rem;color:#94a3b8;" title="Sin comprobantes"><i class="fa-solid fa-receipt"></i></span>`
+            : compOk
+                ? `<span style="font-size:.75rem;color:#16a34a;" title="Comprobantes ${numCon}/${numTot}"><i class="fa-solid fa-receipt"></i> ${numCon}/${numTot}</span>`
+                : `<span style="font-size:.75rem;color:#d97706;" title="Comprobantes ${numCon}/${numTot}"><i class="fa-solid fa-receipt"></i> ${numCon}/${numTot}</span>`;
+
+        const pdfLink = pdfOk
+            ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;padding:.2rem .5rem;"><i class="fa-solid fa-eye"></i></a>`
+            : '';
+
+        return `
+        <div class="ep-list-row" id="cc-ep-card-${r.id}">
+            <div class="ep-lr-info">
+                <span class="ep-lr-id">#${esc(r.id_credito)}</span>
+                <span class="ep-lr-name">${esc(r.nombre_cliente)}</span>
+                <span class="ep-lr-prod">${esc(r.nombre_producto)}</span>
+            </div>
+            <div class="ep-lr-meta">
+                ${_celulaBadge(r)}
+                ${estadoBadge}
+                <span class="ep-lr-total">${fmtN(r.total_a_pagar)}</span>
+                ${pdfIcon}${compIcon}
+            </div>
+            <div class="ep-lr-actions">
+                ${pdfLink}
+                <button class="btn btn-sm btn-outline-primary" id="cc-acc-btn-${r.id}"
+                        style="font-size:.75rem;padding:.2rem .55rem;" onclick="ccToggleDetalle(${r.id})">
+                    <i class="fa-solid fa-table-list me-1"></i>Ver detalle
+                </button>
+                <a href="/CierreCredito/descargarExcelCierre?id=${r.id}"
+                   class="btn btn-sm btn-outline-success" style="font-size:.75rem;padding:.2rem .5rem;">
+                    <i class="fa-solid fa-file-excel"></i>
+                </a>
+                <button class="cc-btn-confirmar" style="font-size:.75rem;padding:.28rem .65rem;"
+                        onclick="ccEnviarACartera(${r.id})" id="cc-ep-btn-${r.id}">
+                    <i class="fa-solid fa-paper-plane"></i>Enviar
+                </button>
+                <button class="cc-btn-descartar" style="font-size:.75rem;padding:.28rem .55rem;"
+                        onclick="ccDescartar(${r.id})" title="Descartar">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
+        </div>`;
     }
 
     function buildEnProcesoCard(r) {
@@ -1524,21 +1849,22 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             : '';
 
         return `
-        <div class="cc-ep-wrapper" id="cc-ep-wrapper-${r.id}">
-
-            <!-- Card principal -->
-            <div class="cc-conv-card" id="cc-ep-card-${r.id}" style="min-width:300px;width:420px;max-width:100%;">
+        <div class="cc-conv-card h-100" id="cc-ep-card-${r.id}" style="width:100%;">
 
                 <!-- Cabecera -->
-                <div class="cc-conv-card-header">
-                    <span class="cc-credito-id">#${esc(r.id_credito)} <small>${esc(r.nombre_cliente)}</small></span>
-                    <div style="display:flex;align-items:center;gap:.5rem;">
-                        ${estadoBadge}
-                        <button class="cc-btn-descartar" onclick="ccDescartar(${r.id})"
-                                title="Descartar — regresar a Validacion de cierre">
-                            <i class="fa-solid fa-rotate-left"></i>Descartar
-                        </button>
+                <div class="cc-conv-card-header" style="flex-direction:column;align-items:stretch;gap:.3rem;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
+                        <span class="cc-credito-id" style="flex:0 0 auto;">#${esc(r.id_credito)}</span>
+                        <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0;">
+                            ${_celulaBadge(r)}
+                            ${estadoBadge}
+                            <button class="cc-btn-descartar" onclick="ccDescartar(${r.id})"
+                                    title="Descartar — regresar a Validacion de cierre">
+                                <i class="fa-solid fa-rotate-left"></i>Descartar
+                            </button>
+                        </div>
                     </div>
+                    <span style="color:#fff;font-weight:600;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.nombre_cliente)}</span>
                 </div>
 
                 <!-- Resumen rápido -->
@@ -1598,22 +1924,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         Enviar a cartera
                     </button>
                 </div>
-
-            </div>
-
-            <!-- Panel lateral derecho (oculto por defecto) -->
-            <div class="cc-side-panel" id="cc-acc-body-${r.id}">
-                <div class="cc-side-panel-header">
-                    <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
-                    <button class="cc-side-panel-close" onclick="ccToggleDetalle(${r.id})" title="Cerrar panel">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-                <div id="cc-acc-loader-${r.id}" class="text-center py-3 text-muted" style="display:none;">
-                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
-                </div>
-                <div id="cc-acc-content-${r.id}" style="overflow-y:auto;flex:1;"></div>
-            </div>
 
         </div>`;
     }
@@ -1682,7 +1992,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     data: null,
                     render: function(d, t, r) {
                         if (t === 'filter' || t === 'sort') return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
-                        return `<span class="fw-bold ps-1" style="color:#1e293b;white-space:nowrap;">#${esc(r.id_credito)}</span>`;
+                        return `<span class="fw-bold ps-1" style="color:#1e293b;white-space:nowrap;">#${esc(r.id_credito)}</span>` +
+                               (CC_AMBAS ? `<span style="display:inline-block;margin-left:.4rem;">${_celulaBadge(r)}</span>` : '');
                     }
                 },
                 {
@@ -1752,7 +2063,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         if (t === 'filter' || t === 'sort')
                             return String(r.id_credito || '') + ' ' + String(r.nombre_cliente || '');
                         return `<span class="fw-bold" style="color:#3b82f6;display:block;">#${esc(r.id_credito)}</span>` +
-                               `<span class="text-muted" style="font-size:.78rem;">${esc(r.nombre_cliente)}</span>`;
+                               `<span class="text-muted" style="font-size:.78rem;">${esc(r.nombre_cliente)}</span>` +
+                               `<span style="display:block;margin-top:.2rem;">${_celulaBadge(r)}</span>`;
                     }
                 },
                 {
@@ -1897,13 +2209,179 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     const _detalleCache    = {};
     const _detalleConvCache = {};
 
+    // ── Helper: cierra el panel de detalle de un chunk y restaura layout ──
+    function _epCloseChunk(chunkIdx, onDone) {
+        const detailCol   = document.getElementById(`ep-chunk-detail-col-${chunkIdx}`);
+        if (!detailCol || !detailCol.dataset.openId) { if (onDone) onDone(); return; }
+        const openedId  = detailCol.dataset.openId;
+        const prevBtn   = document.getElementById(`cc-acc-btn-${openedId}`);
+        if (prevBtn) prevBtn.innerHTML = '<i class="fa-solid fa-table-list me-1"></i>Ver detalle';
+
+        // Animar salida del panel
+        const innerPanel = detailCol.firstElementChild;
+        if (innerPanel) {
+            innerPanel.classList.remove('ep-detail-enter');
+            innerPanel.classList.add('ep-detail-leave');
+        }
+
+        // Clase base de columna según vista actual
+        const colClass = _epView === 'list' ? 'col-12' :
+                         _epView === '2'    ? 'col-12 col-md-6' : 'col-12 col-md-4';
+
+        const doRestore = () => {
+            const chunkRow    = document.getElementById(`ep-chunk-row-${chunkIdx}`);
+            const overflowRow = document.getElementById(`ep-chunk-overflow-${chunkIdx}`);
+            const allCols = [
+                ...(chunkRow    ? [...chunkRow.querySelectorAll('[data-ep-chunk]')]    : []),
+                ...(overflowRow ? [...overflowRow.querySelectorAll('[data-ep-chunk]')] : [])
+            ].sort((a, b) => parseInt(a.dataset.epOrder) - parseInt(b.dataset.epOrder));
+            allCols.forEach(col => {
+                col.className = `${colClass} ep-card-drop`;
+                if (chunkRow) chunkRow.appendChild(col);
+                col.addEventListener('animationend', () => col.classList.remove('ep-card-drop'), { once: true });
+            });
+            detailCol.remove();
+            if (overflowRow) overflowRow.remove();
+            if (onDone) onDone();
+        };
+
+        if (innerPanel) {
+            innerPanel.addEventListener('animationend', doRestore, { once: true });
+        } else {
+            doRestore();
+        }
+    }
+
     window.ccToggleDetalle = function(id) {
         const btn    = document.getElementById(`cc-acc-btn-${id}`);
+        const colEl  = document.getElementById(`cc-ep-col-${id}`);
+
+        // ── En Proceso tab: panel lateral derecho, 4+8 columnas ──
+        if (colEl) {
+            const chunkIdx  = parseInt(colEl.dataset.epChunk);
+            const chunkRow  = document.getElementById(`ep-chunk-row-${chunkIdx}`);
+            const detailCol = document.getElementById(`ep-chunk-detail-col-${chunkIdx}`);
+            const isOpen    = detailCol && detailCol.dataset.openId === String(id);
+
+            // Cierra cualquier detalle abierto en cualquier chunk
+            // Si hay uno abierto esperamos a que termine su animación antes de abrir el nuevo
+            const openChunks = [...document.querySelectorAll('[id^="ep-chunk-detail-col-"]')];
+            let pendingClose = openChunks.length;
+
+            const doOpen = () => {
+                if (isOpen) return; // estaba abierto → se cerró, listo
+
+                // Abrir: reorganizar chunk row
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
+
+                // Columnas según vista activa
+                const colCard   = _epView === 'list' ? 'col-12'
+                                : _epView === '2'    ? 'col-12 col-md-6'
+                                :                     'col-12 col-md-4';
+                const colDetail = _epView === 'list' ? 'col-12'
+                                : _epView === '2'    ? 'col-12 col-md-6'
+                                :                     'col-12 col-md-8';
+                const colOther  = _epView === '2'    ? 'col-12 col-md-6'
+                                : _epView === 'list' ? 'col-12'
+                                :                     'col-12 col-md-4';
+
+                // Recolectar y ordenar todas las cards del chunk (están todas en chunkRow todavía)
+                const allCols = [...chunkRow.querySelectorAll('[data-ep-chunk]')]
+                    .sort((a, b) => parseInt(a.dataset.epOrder) - parseInt(b.dataset.epOrder));
+                const otherCols = allCols.filter(el => el.id !== `cc-ep-col-${id}`);
+
+                // Limpiar chunk row
+                while (chunkRow.firstChild) chunkRow.removeChild(chunkRow.firstChild);
+
+                // Card expandida
+                colEl.className = colCard;
+                chunkRow.appendChild(colEl);
+
+                // Panel de detalle, con animación de entrada
+                const newDetailCol = document.createElement('div');
+                newDetailCol.id        = `ep-chunk-detail-col-${chunkIdx}`;
+                newDetailCol.className = colDetail;
+                newDetailCol.dataset.openId = String(id);
+                newDetailCol.innerHTML = `
+                    <div class="ep-detail-enter" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:.75rem;padding:1.1rem 1.25rem;height:100%;">
+                        <div class="cc-side-panel-header">
+                            <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
+                            <button class="cc-side-panel-close" onclick="ccToggleDetalle(${id})" title="Cerrar panel">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div id="cc-acc-loader-${id}" class="text-center py-3 text-muted">
+                            <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando detalle...
+                        </div>
+                        <div id="cc-acc-content-${id}" style="overflow-y:auto;"></div>
+                    </div>`;
+                chunkRow.appendChild(newDetailCol);
+
+                // Cards restantes van en fila de desbordamiento debajo con animación
+                if (otherCols.length > 0) {
+                    const overflowRow = document.createElement('div');
+                    overflowRow.id        = `ep-chunk-overflow-${chunkIdx}`;
+                    overflowRow.className = 'row g-3 mt-0 mb-2';
+                    otherCols.forEach((col, i) => {
+                        col.className = `${colOther} ep-card-drop`;
+                        col.style.animationDelay = `${i * 50}ms`;
+                        col.addEventListener('animationend', () => {
+                            col.classList.remove('ep-card-drop');
+                            col.style.animationDelay = '';
+                        }, { once: true });
+                        overflowRow.appendChild(col);
+                    });
+                    chunkRow.insertAdjacentElement('afterend', overflowRow);
+                }
+
+                // Fetch detalle (ahora los nodos ya existen en el DOM)
+                const loader  = document.getElementById(`cc-acc-loader-${id}`);
+                const content = document.getElementById(`cc-acc-content-${id}`);
+
+                if (_detalleCache[id]) {
+                    if (loader) loader.style.display = 'none';
+                    content.innerHTML = buildDetalleHtml(_detalleCache[id]);
+                    return;
+                }
+
+                fetch('/CierreCredito/getDetalleCierre', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `id=${id}`
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (loader) loader.style.display = 'none';
+                    if (!res.success) throw new Error(res.mensaje);
+                    _detalleCache[id] = res.datos;
+                    content.innerHTML = buildDetalleHtml(res.datos);
+                })
+                .catch(err => {
+                    if (loader) loader.style.display = 'none';
+                    content.innerHTML = `<div class="alert alert-danger py-2">Error: ${esc(err.message)}</div>`;
+                });
+            };
+
+            if (openChunks.length === 0) {
+                doOpen();
+            } else {
+                openChunks.forEach(el => {
+                    const ci = parseInt(el.id.replace('ep-chunk-detail-col-', ''));
+                    _epCloseChunk(ci, () => {
+                        pendingClose--;
+                        if (pendingClose === 0) doOpen();
+                    });
+                });
+            }
+            return;
+        }
+
+        // ── Validación tab: original side-panel approach ──
         const panel  = document.getElementById(`cc-acc-body-${id}`);
         const card   = document.getElementById(`cc-ep-card-${id}`) || document.getElementById(`cc-card-${id}`);
         const loader = document.getElementById(`cc-acc-loader-${id}`);
         const content = document.getElementById(`cc-acc-content-${id}`);
-        const isOpen = panel.classList.contains('open');
+        const isOpen = panel && panel.classList.contains('open');
 
         if (isOpen) {
             panel.classList.remove('open');
@@ -1912,11 +2390,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             return;
         }
 
-        panel.classList.add('open');
+        if (panel) panel.classList.add('open');
         if (card) card.classList.add('cc-has-panel');
         if (btn) btn.innerHTML = '<i class="fa-solid fa-xmark me-1"></i>Cerrar';
 
-        // Ya cargado previamente
         if (_detalleCache[id]) {
             content.innerHTML = buildDetalleHtml(_detalleCache[id]);
             return;
@@ -2540,7 +3017,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 },
                 {
                     data: null, render: function(d, t, r) {
-                        return `<strong>${esc(r.id_credito)}</strong><br><small class="text-muted">${esc(r.nombre_cliente)}</small>`;
+                        return `<strong>${esc(r.id_credito)}</strong><br><small class="text-muted">${esc(r.nombre_cliente)}</small>` +
+                               (CC_AMBAS ? `<br>${_celulaBadge(r)}` : '');
                     }
                 },
                 {
@@ -2829,8 +3307,23 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 });
 
                 if (emailOk) {
-                    const wrapper = document.getElementById(`cc-ep-wrapper-${idRegistro}`);
-                    if (wrapper) { wrapper.remove(); }
+                    const colEl = document.getElementById(`cc-ep-col-${idRegistro}`);
+                    if (colEl) {
+                        const chunkIdx    = parseInt(colEl.dataset.epChunk);
+                        // Cerrar detalle si está abierto en este chunk
+                        _epCloseChunk(chunkIdx);
+                        colEl.remove();
+                        const chunkRow    = document.getElementById(`ep-chunk-row-${chunkIdx}`);
+                        const overflowRow = document.getElementById(`ep-chunk-overflow-${chunkIdx}`);
+                        const totalLeft   = [
+                            ...(chunkRow    ? chunkRow.querySelectorAll('[id^="cc-ep-col-"]')    : []),
+                            ...(overflowRow ? overflowRow.querySelectorAll('[id^="cc-ep-col-"]') : [])
+                        ].length;
+                        if (totalLeft === 0) {
+                            if (chunkRow)    chunkRow.remove();
+                            if (overflowRow) overflowRow.remove();
+                        }
+                    }
                     const badge = document.getElementById('badge-en-proceso');
                     if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 1) - 1);
                     // Si no quedan cards, mostrar estado vacío
@@ -2915,8 +3408,23 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             .then(res => {
                 if (!res.success) throw new Error(res.mensaje);
                 // Eliminar card de Tab 2
-                const wrapper = document.getElementById(`cc-ep-wrapper-${idRegistro}`);
-                if (wrapper) { wrapper.remove(); }
+                const colEl = document.getElementById(`cc-ep-col-${idRegistro}`);
+                if (colEl) {
+                    const chunkIdx    = parseInt(colEl.dataset.epChunk);
+                    // Cerrar detalle si está abierto en este chunk
+                    _epCloseChunk(chunkIdx);
+                    colEl.remove();
+                    const chunkRow    = document.getElementById(`ep-chunk-row-${chunkIdx}`);
+                    const overflowRow = document.getElementById(`ep-chunk-overflow-${chunkIdx}`);
+                    const totalLeft   = [
+                        ...(chunkRow    ? chunkRow.querySelectorAll('[id^="cc-ep-col-"]')    : []),
+                        ...(overflowRow ? overflowRow.querySelectorAll('[id^="cc-ep-col-"]') : [])
+                    ].length;
+                    if (totalLeft === 0) {
+                        if (chunkRow)    chunkRow.remove();
+                        if (overflowRow) overflowRow.remove();
+                    }
+                }
                 const badge = document.getElementById('badge-en-proceso');
                 if (badge) badge.textContent = Math.max(0, (parseInt(badge.textContent) || 1) - 1);
                 const wrap2 = document.getElementById('wrap-ep-cards');
