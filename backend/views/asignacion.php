@@ -21,14 +21,14 @@
                          alt="Asignación — ilustración">
                 </div>
 
-                <div class="row gy-6 mb-6 gx-0 justify-content-start">
-                    <div class="col-12 col-lg-4">
+                <div class="row gy-6 mb-6 g-3 g-lg-4 justify-content-start">
+                    <div class="col-12 col-md-6 col-lg-4">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
                                     <div class="card-title">
-                                        <h5 class="text-primary mb-2">Tablero de Asignación</h5>
-                                        <p class="text-body w-sm-80 app-academy-xl-100">Tres ventanas: <strong>semana pasada</strong>, <strong>actual</strong> y <strong>próxima</strong> (martes a lunes). En cada una: <strong>External ID</strong>, <strong>Nombre del gestor</strong> y <strong>Puesto</strong>.</p>
+                                        <h5 class="text-primary mb-2">Tablero Proyección</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Tres ventanas: <strong>semana pasada</strong>, <strong>actual</strong> y <strong>próxima</strong> (martes a lunes). En cada una: <strong>External ID</strong>, <strong>Nombre del gestor</strong> y <strong>Puesto</strong>, más la <strong>proyección de cambios</strong>.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <a href="/reporteria/asignacionTablero" class="btn btn-primary w-100">
@@ -38,6 +38,26 @@
                                 </div>
                                 <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
                                     <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="Asignación illustration">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <div class="card shadow-none bg-label-primary h-100">
+                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                    <div class="card-title">
+                                        <h5 class="text-primary mb-2">Tablero dos ventanas</h5>
+                                        <p class="text-body w-sm-80 app-academy-xl-100">Solo <strong>dos</strong> columnas (martes a lunes): <strong>Semana pasada</strong> muestra la misma asignación que en el tablero de tres aparece como <strong>actual</strong>; <strong>Semana actual</strong> muestra lo que allí es la <strong>próxima</strong> (proyección). Sin columna de cambio proyectado.</p>
+                                    </div>
+                                    <div class="mb-0 mt-3">
+                                        <a href="/reporteria/asignacionTableroDos" class="btn btn-primary w-100">
+                                            <i class="fa-solid fa-table-columns me-1"></i>Ver tablero
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                    <img class="img-fluid scaleX-n1-rtl" src="https://cdn-icons-png.freepik.com/512/11053/11053297.png?ga=GA1.1.191732613.1764875703" alt="Asignación — dos ventanas">
                                 </div>
                             </div>
                         </div>

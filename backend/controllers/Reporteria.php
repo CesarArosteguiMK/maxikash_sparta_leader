@@ -487,14 +487,28 @@ class Reporteria extends Controller
     }
 
     /**
-     * Tablero Asignación: semana pasada, actual y próxima (martes–lunes).
+     * Tablero Asignación — Proyección: semana pasada, actual y próxima (martes–lunes).
      * URL canónica: /reporteria/asignacionTablero
      * Permiso: modulos_web id 61.
      */
     public function asignacionTablero()
     {
-        self::set('titulo', 'Asignación — Tablero');
+        self::set('titulo', 'Asignación — Tablero Proyección');
         self::set('script', '');
+        self::set('asg_tablero_dos', false);
+        self::render('asignacion_tablero');
+    }
+
+    /**
+     * Tablero Asignación — dos ventanas: «semana pasada» = vigente del tablero de tres; «actual» = próxima del de tres.
+     * URL canónica: /reporteria/asignacionTableroDos
+     * Permiso: modulos_web id 61.
+     */
+    public function asignacionTableroDos()
+    {
+        self::set('titulo', 'Asignación — Tablero dos ventanas');
+        self::set('script', '');
+        self::set('asg_tablero_dos', true);
         self::render('asignacion_tablero');
     }
 
@@ -538,21 +552,28 @@ class Reporteria extends Controller
     }
 
     /**
-     * Excel del tablero Asignación: encabezados con colores (semana pasada / actual / próxima) como en pantalla.
-     * URL: /reporteria/descargarAsignacionTableroExcel · Módulo 61.
-     * Siempre exporta el portafolio completo (independiente del «Mostrar» de la vista).
+     * Excel del tablero Asignación (2 o 3 ventanas según $portafolio['semanas']).
+     *
+     * @param array<string,mixed> $portafolio
      */
-    public function descargarAsignacionTableroExcel()
+    private function exportarPortafolioAsignacionExcel(array $portafolio, string $tituloFila1, string $prefijoNombreArchivo): void
     {
         while (ob_get_level()) {
             ob_end_clean();
         }
 
         try {
-            $portafolio = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
-            $semanas = $portafolio['semanas'];
+            $semanas = is_array($portafolio['semanas'] ?? null) ? $portafolio['semanas'] : [];
             $subcols = $portafolio['subcols'];
             $filas = is_array($portafolio['filas'] ?? null) ? $portafolio['filas'] : [];
+            $numSemanas = count($semanas);
+            if ($numSemanas < 1) {
+                throw new \RuntimeException('Portafolio sin semanas para exportar.');
+            }
+            $lastColIdx = 1 + $numSemanas * 3;
+            $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastColIdx);
+            $mergeBanner = 'A1:' . $lastColLetter . '1';
+            $mergeSub = 'A2:' . $lastColLetter . '2';
 
             $fillPorSemana = static function (array $sem): string {
                 $hl = (int) ($sem['hist_level'] ?? 0);
@@ -596,8 +617,8 @@ class Reporteria extends Controller
                 ],
             ];
 
-            $sheet->setCellValue('A1', 'Asignación — Tablero (semana pasada · actual · próxima, martes a lunes)');
-            $sheet->mergeCells('A1:J1');
+            $sheet->setCellValue('A1', $tituloFila1);
+            $sheet->mergeCells($mergeBanner);
             $sheet->getStyle('A1')->applyFromArray([
                 'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '696CFF']],
                 'alignment' => [
@@ -608,7 +629,7 @@ class Reporteria extends Controller
             $sheet->getRowDimension(1)->setRowHeight(28);
 
             $sheet->setCellValue('A2', 'Generado: ' . date('d/m/Y H:i') . ' · America/Mexico_City');
-            $sheet->mergeCells('A2:J2');
+            $sheet->mergeCells($mergeSub);
             $sheet->getStyle('A2')->applyFromArray([
                 'font' => ['size' => 10, 'color' => ['rgb' => '697A8D']],
                 'alignment' => [
@@ -705,20 +726,20 @@ class Reporteria extends Controller
             $sheet->getRowDimension($rSub)->setRowHeight(36);
 
             $sheet->getColumnDimension('A')->setWidth(14);
-            for ($c = 2; $c <= 10; $c++) {
+            for ($c = 2; $c <= $lastColIdx; $c++) {
                 $L = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
                 $sheet->getColumnDimension($L)->setWidth(18);
             }
 
             $filaExcel = $rData;
             if ($filas === []) {
+                $cellsVacias = [];
+                for ($i = 0; $i < $numSemanas; $i++) {
+                    $cellsVacias[] = ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+                }
                 $filas = [[
                     'id_credito' => '—',
-                    'cells' => [
-                        ['ext' => '—', 'nom' => '—', 'pue' => '—'],
-                        ['ext' => '—', 'nom' => '—', 'pue' => '—'],
-                        ['ext' => '—', 'nom' => '—', 'pue' => '—'],
-                    ],
+                    'cells' => $cellsVacias,
                 ]];
             }
 
@@ -778,7 +799,7 @@ class Reporteria extends Controller
             $sheet->freezePane('B' . $rData);
             $sheet->setSelectedCells('A1');
 
-            $nombre = 'Asignacion_Tablero_' . date('Ymd_His') . '.xlsx';
+            $nombre = $prefijoNombreArchivo . date('Ymd_His') . '.xlsx';
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment;filename="' . $nombre . '"');
             header('Cache-Control: max-age=0');
@@ -787,12 +808,43 @@ class Reporteria extends Controller
             $writer->save('php://output');
             exit;
         } catch (\Throwable $e) {
-            error_log('Reporteria::descargarAsignacionTableroExcel -> ' . $e->getMessage());
+            error_log('Reporteria::exportarPortafolioAsignacionExcel -> ' . $e->getMessage());
             header('HTTP/1.0 500 Internal Server Error');
             header('Content-Type: text/plain; charset=utf-8');
             echo 'No se pudo generar el Excel. Intente de nuevo o contacte a sistemas.';
             exit;
         }
+    }
+
+    /**
+     * Excel del tablero Asignación: encabezados con colores (semana pasada / actual / próxima) como en pantalla.
+     * URL: /reporteria/descargarAsignacionTableroExcel · Módulo 61.
+     * Siempre exporta el portafolio completo (independiente del «Mostrar» de la vista).
+     */
+    public function descargarAsignacionTableroExcel()
+    {
+        $portafolio = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
+        $this->exportarPortafolioAsignacionExcel(
+            $portafolio,
+            'Asignación — Tablero Proyección (semana pasada · actual · próxima, martes a lunes)',
+            'Asignacion_Tablero_'
+        );
+    }
+
+    /**
+     * Excel del tablero en dos ventanas (asignación vigente vs proyección próxima).
+     * URL: /reporteria/descargarAsignacionTableroDosExcel · Módulo 61.
+     */
+    public function descargarAsignacionTableroDosExcel()
+    {
+        $portafolio = \Models\AsignacionTablero::portafolioDosVentanasDesdeCompleto(
+            \Models\AsignacionTablero::obtenerPortafolioAutomatico()
+        );
+        $this->exportarPortafolioAsignacionExcel(
+            $portafolio,
+            'Asignación — Tablero dos ventanas (pasada = asignación vigente · actual = proyección, martes a lunes)',
+            'Asignacion_Tablero_DosVentanas_'
+        );
     }
 
     /**

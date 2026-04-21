@@ -74,6 +74,67 @@ class AsignacionTablero
     }
 
     /**
+     * Tablero de dos ventanas mar–lun (misma grilla que el tablero de tres, sin la primera columna histórica):
+     * - «Semana pasada» = datos de la columna que en el tablero completo es la semana actual (asignación vigente).
+     * - «Semana actual» = datos de la columna que en el tablero completo es la semana próxima (proyección).
+     *
+     * @param array $portafolio Resultado de obtenerPortafolioAutomatico()
+     * @return array Portafolio con semanas y cells de longitud 2; resumen y campanías se conservan.
+     */
+    public static function portafolioDosVentanasDesdeCompleto(array $portafolio): array
+    {
+        $semanasFull = is_array($portafolio['semanas'] ?? null) ? $portafolio['semanas'] : [];
+        $filasFull = is_array($portafolio['filas'] ?? null) ? $portafolio['filas'] : [];
+        $subcols = is_array($portafolio['subcols'] ?? null) ? $portafolio['subcols'] : self::SUBCOLS;
+        $resumen = is_array($portafolio['resumen'] ?? null) ? $portafolio['resumen'] : [];
+        $campanias = is_array($portafolio['campanias'] ?? null) ? $portafolio['campanias'] : [];
+
+        if (count($semanasFull) < 3) {
+            return [
+                'semanas' => [],
+                'subcols' => $subcols,
+                'filas' => [],
+                'resumen' => $resumen,
+                'campanias' => $campanias,
+            ];
+        }
+
+        $sAct = $semanasFull[1];
+        $sProx = $semanasFull[2];
+        $sem0 = array_merge($sAct, [
+            'chip_text' => 'Semana pasada: ' . (string) ($sAct['range'] ?? ''),
+            'th_class' => 'comp-th-hist',
+            'hist_level' => 1,
+        ]);
+        $sem1 = array_merge($sProx, [
+            'chip_text' => 'Actual: ' . (string) ($sProx['range'] ?? ''),
+            'th_class' => 'comp-th-act',
+            'hist_level' => 0,
+        ]);
+        $semanas = [$sem0, $sem1];
+
+        $filas = [];
+        foreach ($filasFull as $f) {
+            $cellsFull = is_array($f['cells'] ?? null) ? $f['cells'] : [];
+            $c0 = $cellsFull[1] ?? ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+            $c1 = $cellsFull[2] ?? ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+            $filas[] = [
+                'id_credito' => $f['id_credito'] ?? '',
+                'cells' => [$c0, $c1],
+                'meta' => is_array($f['meta'] ?? null) ? $f['meta'] : [],
+            ];
+        }
+
+        return [
+            'semanas' => $semanas,
+            'subcols' => $subcols,
+            'filas' => $filas,
+            'resumen' => $resumen,
+            'campanias' => $campanias,
+        ];
+    }
+
+    /**
      * Servicio de portafolio automático:
      * - Semana pasada = gestor histórico (campaña anterior)
      * - Semana actual = asignación vigente (no se sustituye automáticamente)
