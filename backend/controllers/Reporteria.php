@@ -542,6 +542,9 @@ class Reporteria extends Controller
     {
         self::set('titulo', 'Asignación');
         self::set('script', '');
+        $cssPath = realpath(__DIR__ . '/../../public/assets/css/reporteria-asignacion-landing.css');
+        $cssV = $cssPath ? (int) filemtime($cssPath) : time();
+        self::set('css', '<link rel="stylesheet" href="/assets/css/reporteria-asignacion-landing.css?v=' . $cssV . '">');
         self::render('asignacion');
     }
 
@@ -553,27 +556,50 @@ class Reporteria extends Controller
     public function asignacionTablero()
     {
         self::set('titulo', 'Asignación — Tablero Proyección');
-        self::set('script', '');
-        self::set('asg_tablero_dos', false);
+        self::set('asg_titulo_tablero', 'Asignación — Tablero Proyección');
+        self::set('asg_excel_path', '/reporteria/descargarAsignacionTableroExcel');
+        $cssPath = realpath(__DIR__ . '/../../public/assets/css/reporteria-asignacion-tablero.css');
+        $cssV = $cssPath ? (int) filemtime($cssPath) : time();
+        self::set('css', '<link rel="stylesheet" href="/assets/css/reporteria-asignacion-tablero.css?v=' . $cssV . '">');
+        $cfgJson = json_encode(
+            [
+                'basePath' => '/reporteria/asignacionTablero',
+                'dosVentanas' => false,
+            ],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        self::set('script', self::htmlScriptBundleAsignacionTablero($cfgJson));
         self::render('asignacion_tablero');
     }
 
     /**
-     * Tablero Asignación — dos ventanas: «semana pasada» = vigente del tablero de tres; «actual» = próxima del de tres.
+     * Tablero Asignación — dos ventanas: mismas columnas 1 y 2 que el tablero de tres (semana pasada real + semana actual; sin columna «próxima»).
      * URL canónica: /reporteria/asignacionTableroDos
      * Permiso: modulos_web id 61.
      */
     public function asignacionTableroDos()
     {
         self::set('titulo', 'Asignación — Tablero dos ventanas');
-        self::set('script', '');
-        self::set('asg_tablero_dos', true);
+        self::set('asg_titulo_tablero', 'Asignación — Tablero dos ventanas');
+        self::set('asg_excel_path', '/reporteria/descargarAsignacionTableroDosExcel');
+        $cssPath = realpath(__DIR__ . '/../../public/assets/css/reporteria-asignacion-tablero.css');
+        $cssV = $cssPath ? (int) filemtime($cssPath) : time();
+        self::set('css', '<link rel="stylesheet" href="/assets/css/reporteria-asignacion-tablero.css?v=' . $cssV . '">');
+        $cfgJson = json_encode(
+            [
+                'basePath' => '/reporteria/asignacionTableroDos',
+                'dosVentanas' => true,
+            ],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+        self::set('script', self::htmlScriptBundleAsignacionTablero($cfgJson));
         self::render('asignacion_tablero');
     }
 
     /**
      * JSON del portafolio automático de asignación (continuidad, nuevos y huérfanos).
      * URL: /reporteria/getAsignacionTableroJson
+     * Columna «semana pasada» (Proyección y dos ventanas): **tbl_segundometro_histo** (Gestor_Asignado + Bucket_Morosidad_Real, SEMANA = label). External ID y puesto se enriquecen desde persona si el nombre coincide. «Actual» y «próxima» siguen por campañas Legacy + tbl_segundometro_semana (bucket).
      * Query opcional: dos_ventanas=1 → misma forma que «Tablero dos ventanas» (2 columnas de semana).
      * Para paginación solo en cliente: mostrar=todas (devuelve todas las filas; la vista tablero ya no pagina en servidor).
      */
@@ -628,13 +654,23 @@ class Reporteria extends Controller
 
         try {
             $semanas = is_array($portafolio['semanas'] ?? null) ? $portafolio['semanas'] : [];
-            $subcols = $portafolio['subcols'];
+            $subcols = is_array($portafolio['subcols'] ?? null) ? $portafolio['subcols'] : \Models\AsignacionTablero::SUBCOLS;
             $filas = is_array($portafolio['filas'] ?? null) ? $portafolio['filas'] : [];
             $numSemanas = count($semanas);
             if ($numSemanas < 1) {
                 throw new \RuntimeException('Portafolio sin semanas para exportar.');
             }
-            $lastColIdx = 1 + $numSemanas * 3;
+            $numSubcols = count($subcols);
+            if ($numSemanas === 2 && $filas !== []) {
+                $probe = $filas[0]['cells'][0] ?? null;
+                if (is_array($probe) && array_key_exists('Bucket_Morosidad_Real', $probe)) {
+                    $numSubcols = 4;
+                    $subcols = array_merge($subcols, [
+                        ['key' => 'Bucket_Morosidad_Real', 'text' => 'Bucket', 'align' => 'text-start'],
+                    ]);
+                }
+            }
+            $lastColIdx = 1 + $numSemanas * $numSubcols;
             $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastColIdx);
             $mergeBanner = 'A1:' . $lastColLetter . '1';
             $mergeSub = 'A2:' . $lastColLetter . '2';
@@ -723,9 +759,9 @@ class Reporteria extends Controller
             ] + $bordeFino);
 
             foreach ($semanas as $si => $sem) {
-                $c0 = $si * 3 + 2;
+                $c0 = $si * $numSubcols + 2;
                 $L0 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0);
-                $L2 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0 + 2);
+                $L2 = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0 + $numSubcols - 1);
                 $fill = $fillPorSemana($sem);
                 $txtColor = $colorTextoPorSemana($sem);
 
@@ -799,7 +835,11 @@ class Reporteria extends Controller
             if ($filas === []) {
                 $cellsVacias = [];
                 for ($i = 0; $i < $numSemanas; $i++) {
-                    $cellsVacias[] = ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+                    $vac = ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+                    if ($numSubcols >= 4) {
+                        $vac['Bucket_Morosidad_Real'] = '—';
+                    }
+                    $cellsVacias[] = $vac;
                 }
                 $filas = [[
                     'id_credito' => '—',
@@ -824,7 +864,7 @@ class Reporteria extends Controller
 
                 $cells = is_array($fila['cells'] ?? null) ? $fila['cells'] : [];
                 foreach ($semanas as $si => $sem) {
-                    $c0 = $si * 3 + 2;
+                    $c0 = $si * $numSubcols + 2;
                     $fill = $fillPorSemana($sem);
                     if (($sem['th_class'] ?? '') === 'comp-th-act') {
                         $fill = 'F1FBF4';
@@ -838,6 +878,9 @@ class Reporteria extends Controller
                         trim((string) ($cellSem['nom'] ?? '')) ?: '—',
                         trim((string) ($cellSem['pue'] ?? '')) ?: '—',
                     ];
+                    if ($numSubcols >= 4) {
+                        $vals[] = trim((string) ($cellSem['Bucket_Morosidad_Real'] ?? '')) ?: '—';
+                    }
                     foreach ($vals as $ci => $val) {
                         $colLet = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c0 + $ci);
                         $cel = $colLet . $filaExcel;
@@ -896,7 +939,7 @@ class Reporteria extends Controller
     }
 
     /**
-     * Excel del tablero en dos ventanas (asignación vigente vs proyección próxima).
+     * Excel del tablero en dos ventanas (semana pasada + semana actual, sin proyección próxima).
      * URL: /reporteria/descargarAsignacionTableroDosExcel · Módulo 61.
      */
     public function descargarAsignacionTableroDosExcel()
@@ -906,7 +949,7 @@ class Reporteria extends Controller
         );
         $this->exportarPortafolioAsignacionExcel(
             $portafolio,
-            'Asignación — Tablero dos ventanas (pasada = asignación vigente · actual = proyección, martes a lunes)',
+            'Asignación — Tablero dos ventanas (semana pasada + actual, martes a lunes)',
             'Asignacion_Tablero_DosVentanas_'
         );
     }
@@ -920,24 +963,52 @@ class Reporteria extends Controller
         self::set('titulo', 'Comparativas — Avance por cortes');
         $hoyMxGet = isset($_GET['hoy_mx']) ? trim((string) $_GET['hoy_mx']) : '';
         self::set('comp_placeholder_cdmx', $hoyMxGet === '');
-        self::set('comp_fecha_min', '');
-        self::set('comp_fecha_max', '');
-        self::set('comp_error', null);
-        self::set('comp_payload', null);
+
+        $compPayload = null;
+        $compError = null;
+        $compFechaMin = '';
+        $compFechaMax = '';
+
         try {
             $fechaGet = isset($_GET['fecha']) ? (string) $_GET['fecha'] : null;
             if ($hoyMxGet !== '') {
-                $payload = SegundometroComparativaSemanal::calcular($fechaGet, $hoyMxGet);
-                self::set('comp_payload', $payload);
-                self::set('comp_fecha_min', $payload['fecha_min'] ?? '');
-                self::set('comp_fecha_max', $payload['fecha_max'] ?? '');
+                $compPayload = SegundometroComparativaSemanal::calcular($fechaGet, $hoyMxGet);
+                $compFechaMin = (string) ($compPayload['fecha_min'] ?? '');
+                $compFechaMax = (string) ($compPayload['fecha_max'] ?? '');
             }
         } catch (\InvalidArgumentException $e) {
-            self::set('comp_error', $e->getMessage());
+            $compError = $e->getMessage();
         } catch (\Throwable $e) {
             error_log('Reporteria::comparativasAvanceSemanal -> ' . $e->getMessage());
-            self::set('comp_error', 'No se pudieron cargar los datos. Intente más tarde o use Actualizar.');
+            $compError = 'No se pudieron cargar los datos. Intente más tarde o use Actualizar.';
         }
+
+        $cErrStr = ($compError !== null && $compError !== '') ? (string) $compError : '';
+        $compOkInicio = ($cErrStr === '' && is_array($compPayload));
+        $compEsperandoHoyMx = ($hoyMxGet === '') && ($cErrStr === '');
+        $compUiDatos = $compOkInicio || $compEsperandoHoyMx;
+
+        $initialJson = json_encode($compPayload, JSON_UNESCAPED_UNICODE);
+        if ($initialJson === false || $compPayload === null) {
+            $initialJson = 'null';
+        }
+
+        $minEsc = htmlspecialchars($compFechaMin, ENT_QUOTES, 'UTF-8');
+        $maxEsc = htmlspecialchars($compFechaMax, ENT_QUOTES, 'UTF-8');
+        $rangoJson = json_encode(['min' => $minEsc, 'max' => $maxEsc], JSON_UNESCAPED_UNICODE);
+        if ($rangoJson === false) {
+            $rangoJson = '{}';
+        }
+
+        self::set('comp_error', $compError);
+        self::set('comp_payload', $compPayload);
+        self::set('comp_fecha_min', $compFechaMin);
+        self::set('comp_fecha_max', $compFechaMax);
+        self::set('comp_ok_inicio', $compOkInicio);
+        self::set('comp_esperando_hoy_mx', $compEsperandoHoyMx);
+        self::set('comp_ui_datos', $compUiDatos);
+        self::set('comp_initial_json', $initialJson);
+        self::set('comp_rango_json', $rangoJson);
         self::set('script', '');
         self::render('comparativas_avance_semanal');
     }
@@ -3768,6 +3839,31 @@ HTML;
             echo json_encode(['error' => 'Error al generar el reporte: ' . $e->getMessage()]);
             exit;
         }
+    }
+
+    /**
+     * Scripts del tablero Asignación (cfg inyectada + ReporteriaAsignacionTablero.frontend.js / .excel.js).
+     */
+    private static function htmlScriptBundleAsignacionTablero(string $cfgJson): string
+    {
+        static $cache = null;
+        if ($cache === null) {
+            $dir = __DIR__;
+            $cache = [
+                'main' => (string) file_get_contents($dir . '/ReporteriaAsignacionTablero.frontend.js'),
+                'excel' => (string) file_get_contents($dir . '/ReporteriaAsignacionTablero.excel.js'),
+            ];
+        }
+
+        return '<script>' . "\n"
+            . '(function () {' . "\n"
+            . '    var cfg = ' . $cfgJson . ";\n"
+            . $cache['main']
+            . '})();' . "\n"
+            . '</script>' . "\n"
+            . '<script>' . "\n"
+            . $cache['excel']
+            . "\n</script>\n";
     }
 
 } // ← ¡ESTA ES LA ÚNICA LLAVE DE CIERRE DE LA CLASE!

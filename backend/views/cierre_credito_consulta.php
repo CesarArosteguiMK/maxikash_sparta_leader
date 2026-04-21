@@ -1491,21 +1491,32 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         const s2Pag     = (r.s2_cuotas_pagadas     != null) ? parseInt(r.s2_cuotas_pagadas)     : null;
         const s2Tot     = (r.s2_total_pagado        != null) ? parseFloat(r.s2_total_pagado)     : null;
         const s2Monto   = (r.s2_monto_otorgado      != null) ? parseFloat(r.s2_monto_otorgado)   : null;
+
+        const s2Disponible = (s2Cont !== null || s2Pag !== null || s2Tot !== null || s2Monto !== null);
+
         const cuotasStr = (s2Pag !== null && s2Cont !== null) ? `${s2Pag} de ${s2Cont}` : '—';
         const totalStr  = s2Tot !== null
             ? Math.abs(s2Tot).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '—';
         const montoStr  = s2Monto !== null
             ? Math.abs(s2Monto).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '—';
-        return `<div style="margin-top:.6rem;padding:.45rem .65rem;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:.45rem;font-size:.78rem;">
-            <div style="font-weight:700;color:#0369a1;margin-bottom:.3rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
-                <i class="fa-solid fa-chart-line me-1"></i>Datos crédito
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem .5rem;">
+
+        const cuerpo = s2Disponible
+            ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem .5rem;">
                 <div><span style="color:#64748b;">Semana acuerdo:</span> <strong style="color:#0f172a;">${semana}</strong></div>
                 <div><span style="color:#64748b;">Monto otorgado:</span> <strong style="color:#0f172a;">${montoStr}</strong></div>
                 <div><span style="color:#64748b;">Cuotas:</span> <strong style="color:#0f172a;">${cuotasStr}</strong></div>
                 <div><span style="color:#64748b;">Total pagado:</span> <strong style="color:#059669;">${totalStr}</strong></div>
+               </div>`
+            : `<div style="display:flex;align-items:center;gap:.4rem;color:#64748b;font-size:.76rem;">
+                <i class="fa-solid fa-clock" style="color:#94a3b8;"></i>
+                <span>Datos aún no disponibles en Segundometro</span>
+               </div>`;
+
+        return `<div style="margin-top:.6rem;padding:.45rem .65rem;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:.45rem;font-size:.78rem;">
+            <div style="font-weight:700;color:#0369a1;margin-bottom:.3rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+                <i class="fa-solid fa-chart-line me-1"></i>Datos crédito
             </div>
+            ${cuerpo}
         </div>`;
     }
 
@@ -1840,10 +1851,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             compBadge = `<span class="cc-doc-partial"><i class="fa-solid fa-receipt me-1"></i>Comprobantes ${numCon}/${numTot}</span>`;
         }
 
-        const estadoBadge = todoListo
-            ? `<span class="badge" style="background:rgba(255,255,255,.2);color:#fff;font-size:.7rem;"><i class="fa-solid fa-circle-check me-1"></i>Listo</span>`
-            : `<span class="badge" style="background:rgba(250,200,0,.3);color:#fff;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs adjuntos</span>`;
-
         const pdfLink = pdfOk
             ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;"><i class="fa-solid fa-eye me-1"></i>Ver PDF</a>`
             : '';
@@ -1857,7 +1864,6 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         <span class="cc-credito-id" style="flex:0 0 auto;">#${esc(r.id_credito)}</span>
                         <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0;">
                             ${_celulaBadge(r)}
-                            ${estadoBadge}
                             <button class="cc-btn-descartar" onclick="ccDescartar(${r.id})"
                                     title="Descartar — regresar a Validacion de cierre">
                                 <i class="fa-solid fa-rotate-left"></i>Descartar

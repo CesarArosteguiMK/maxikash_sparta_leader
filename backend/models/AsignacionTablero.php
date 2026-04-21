@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Database;
 use Core\DatabaseLegacy;
+use Core\DatabaseSegundometro;
 
 /**
  * Datos del tablero Asignación (ventanas mar–lun) compartidos por vista, JSON y Excel.
@@ -74,9 +75,10 @@ class AsignacionTablero
     }
 
     /**
-     * Tablero de dos ventanas mar–lun (misma grilla que el tablero de tres, sin la primera columna histórica):
-     * - «Semana pasada» = datos de la columna que en el tablero completo es la semana actual (asignación vigente).
-     * - «Semana actual» = datos de la columna que en el tablero completo es la semana próxima (proyección).
+     * Tablero de dos ventanas mar–lun: las **dos primeras** columnas del tablero de tres (sin la «próxima»).
+     * - Columna 1 = semana pasada real (histórico de campaña / ventana mar–lun anterior) → `semanas[0]` y `cells[0]`.
+     * - Columna 2 = semana actual (asignación vigente) → `semanas[1]` y `cells[1]`.
+     * (Antes se tomaban [1] y [2], lo que mostraba vigente+próxima en lugar de pasada+actual.)
      *
      * @param array $portafolio Resultado de obtenerPortafolioAutomatico()
      * @return array Portafolio con semanas y cells de longitud 2; resumen y campanías se conservan.
@@ -99,15 +101,15 @@ class AsignacionTablero
             ];
         }
 
+        $sPas = $semanasFull[0];
         $sAct = $semanasFull[1];
-        $sProx = $semanasFull[2];
-        $sem0 = array_merge($sAct, [
-            'chip_text' => 'Semana pasada: ' . (string) ($sAct['range'] ?? ''),
+        $sem0 = array_merge($sPas, [
+            'chip_text' => 'Semana pasada: ' . (string) ($sPas['range'] ?? ''),
             'th_class' => 'comp-th-hist',
             'hist_level' => 1,
         ]);
-        $sem1 = array_merge($sProx, [
-            'chip_text' => 'Actual: ' . (string) ($sProx['range'] ?? ''),
+        $sem1 = array_merge($sAct, [
+            'chip_text' => 'Actual: ' . (string) ($sAct['range'] ?? ''),
             'th_class' => 'comp-th-act',
             'hist_level' => 0,
         ]);
@@ -116,8 +118,9 @@ class AsignacionTablero
         $filas = [];
         foreach ($filasFull as $f) {
             $cellsFull = is_array($f['cells'] ?? null) ? $f['cells'] : [];
-            $c0 = $cellsFull[1] ?? ['ext' => '—', 'nom' => '—', 'pue' => '—'];
-            $c1 = $cellsFull[2] ?? ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+            $defCell = ['ext' => '—', 'nom' => '—', 'pue' => '—', 'Bucket_Morosidad_Real' => ''];
+            $c0 = array_merge($defCell, is_array($cellsFull[0] ?? null) ? $cellsFull[0] : []);
+            $c1 = array_merge($defCell, is_array($cellsFull[1] ?? null) ? $cellsFull[1] : []);
             $filas[] = [
                 'id_credito' => $f['id_credito'] ?? '',
                 'cells' => [$c0, $c1],
@@ -136,8 +139,8 @@ class AsignacionTablero
 
     /**
      * Servicio de portafolio automático:
-     * - Semana pasada = gestor histórico (campaña anterior)
-     * - Semana actual = asignación vigente (no se sustituye automáticamente)
+     * - Semana pasada = **tbl_segundometro_histo** (SEMANA = label de la primera ventana): Gestor_Asignado + bucket; ext/puesto enriquecidos desde persona si el nombre coincide.
+     * - Semana actual = asignación vigente por campaña Legacy + Segundómetro (no se sustituye automáticamente)
      * - Próxima = proyección (sí puede mostrar reasignación por ausencia/baja/incapacidad)
      *
      * @return array{
@@ -145,7 +148,7 @@ class AsignacionTablero
      *   subcols:list<array<string,string>>,
      *   filas:list<array{
      *      id_credito:string,
-     *      cells:list<array{ext:string,nom:string,pue:string}>,
+     *      cells:list<array{ext:string,nom:string,pue:string,Bucket_Morosidad_Real?:string}>,
      *      meta:array<string,mixed>
      *   }>,
      *   resumen:array<string,int>,
@@ -192,6 +195,8 @@ class AsignacionTablero
 
         $usuariosLegacy = self::obtenerUsuariosLegacy($dbLegacy);
         $personas = self::obtenerPersonasSegundometro($dbSeg);
+        $idxPersonaPorNombre = self::indicePersonasPorNombreGestor($personas);
+        $idxLegacyPorNombre = self::indiceUsuariosLegacyPorNombre($usuariosLegacy);
 
         $creditosAnterior = [];
         $creditosActual = [];
@@ -215,6 +220,20 @@ class AsignacionTablero
         usort($listaCreditos, static function (string $a, string $b): int {
             return strnatcmp($a, $b);
         });
+
+        $bucketsPorCreditoSemana = [];
+        $histoSemanaPasadaPorCredito = [];
+        $labelSemanaPasada = trim((string) ($out['semanas'][0]['label'] ?? ''));
+        $rangeSemanaPasada = trim((string) ($out['semanas'][0]['range'] ?? ''));
+        try {
+            $dbMega = new DatabaseSegundometro();
+            $bucketsPorCreditoSemana = self::obtenerBucketsMorosidadPorCreditos($dbMega, $listaCreditos);
+            if ($labelSemanaPasada !== '' || $rangeSemanaPasada !== '') {
+                $histoSemanaPasadaPorCredito = self::obtenerHistoSemanaPasadaPorCreditos($dbMega, $labelSemanaPasada, $rangeSemanaPasada, $listaCreditos);
+            }
+        } catch (\Throwable $e) {
+            error_log('AsignacionTablero::carga_histo_semana_buckets -> ' . $e->getMessage());
+        }
 
         foreach ($listaCreditos as $credito) {
             $rowActual = $creditosActual[$credito];
@@ -272,10 +291,28 @@ class AsignacionTablero
                 $motivoCambio = 'Sin match de gestor en Segundómetro';
             }
 
-            // Semana pasada: sin campaña anterior → indicación NUEVO (External ID); nombre y puesto en —.
-            $celdaPasada = self::toCell($asigPasada, $esNuevo ? ['ext' => 'NUEVO', 'nom' => '—', 'pue' => '—'] : null);
+            $histoPas = $histoSemanaPasadaPorCredito[self::claveIdCredito($credito)] ?? null;
+            $gestorHisto = '';
+            $bvHistoPasada = '';
+            if (is_array($histoPas)) {
+                $gestorHisto = trim((string) ($histoPas['Gestor_Asignado'] ?? $histoPas['gestor_asignado'] ?? ''));
+                $bvHistoPasada = trim((string) ($histoPas['Bucket_Morosidad_Real'] ?? $histoPas['bucket_morosidad_real'] ?? ''));
+            }
+            if ($gestorHisto !== '') {
+                $celdaPasada = self::celdaDesdeHistoGestor($histoPas, $idxPersonaPorNombre, $idxLegacyPorNombre, $asigPasada);
+            } elseif (is_array($histoPas) && $bvHistoPasada !== '') {
+                $celdaPasada = ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+            } elseif ($esNuevo) {
+                $celdaPasada = ['ext' => 'NUEVO', 'nom' => '—', 'pue' => '—'];
+            } else {
+                $celdaPasada = self::toCell($asigPasada, null);
+            }
             $celdaActual = self::toCell($asigActual, null);
             $celdaProxima = self::toCell($asigProxima, null);
+            $bvSemana = trim((string) ($bucketsPorCreditoSemana[self::claveIdCredito($credito)] ?? ''));
+            $celdaPasada['Bucket_Morosidad_Real'] = $bvHistoPasada;
+            $celdaActual['Bucket_Morosidad_Real'] = $bvSemana;
+            $celdaProxima['Bucket_Morosidad_Real'] = $bvSemana;
             $hayCambioProxima = $celdaActual['ext'] !== $celdaProxima['ext'] || $celdaActual['nom'] !== $celdaProxima['nom'] || $celdaActual['pue'] !== $celdaProxima['pue'];
             if (!$hayCambioProxima && $tipo !== 'HUERFANO' && $esNuevo) {
                 $motivoCambio = 'Nuevo ingreso al portafolio';
@@ -315,6 +352,439 @@ class AsignacionTablero
         }
 
         return $out;
+    }
+
+    /**
+     * Bucket de morosidad actual por Id_credito: tbl_segundometro_semana en __SPARTA_SECRET_REDACTED__ (DatabaseSegundometro).
+     *
+     * @param list<string> $idsCreditos Valores de credit_number / Id_credito del portafolio
+     * @return array<string,string> id_credito → Bucket_Morosidad_Real (vacío si no hay fila)
+     */
+    private static function obtenerBucketsMorosidadPorCreditos(DatabaseSegundometro $db, array $idsCreditos): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn($id): string => self::claveIdCredito(trim((string) $id)),
+            $idsCreditos
+        ), static fn(string $id): bool => $id !== '')));
+        if ($ids === []) {
+            return [];
+        }
+        $map = [];
+        foreach (array_chunk($ids, 800) as $chunk) {
+            $placeholders = [];
+            $params = [];
+            foreach ($chunk as $i => $idCred) {
+                $k = 'c' . $i;
+                $placeholders[] = ':' . $k;
+                $params[$k] = $idCred;
+            }
+            $sql = '
+                SELECT Id_credito, Bucket_Morosidad_Real
+                FROM tbl_segundometro_semana
+                WHERE Id_credito IN (' . implode(', ', $placeholders) . ')
+            ';
+            $rows = $db->queryAll($sql, $params);
+            foreach ((array) $rows as $r) {
+                $idc = self::claveIdCredito($r['Id_credito'] ?? $r['id_credito'] ?? '');
+                if ($idc === '') {
+                    continue;
+                }
+                $bmr = $r['Bucket_Morosidad_Real'] ?? $r['bucket_morosidad_real'] ?? '';
+                $map[$idc] = trim((string) $bmr);
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Snapshot por crédito en tbl_segundometro_histo (semana pasada): gestor + **Bucket_Morosidad_Real**.
+     * Prueba variantes de etiqueta SEMANA (martes vs jueves ISO, espacios) y filtro por rango de la ventana.
+     *
+     * @param list<string> $idsCreditos
+     * @return array<string, array{Gestor_Asignado:string, Bucket_Morosidad_Real:string}>
+     */
+    private static function obtenerHistoSemanaPasadaPorCreditos(DatabaseSegundometro $db, string $semanaEtiqueta, string $semanaRange, array $idsCreditos): array
+    {
+        $sem = trim($semanaEtiqueta);
+        $range = self::parseRangeDdMmYyyy($semanaRange);
+        $variantes = self::variantesEtiquetaSemanaHisto($sem, $semanaRange);
+        $ids = array_values(array_unique(array_filter(array_map(
+            static fn($id): string => self::claveIdCredito(trim((string) $id)),
+            $idsCreditos
+        ), static fn(string $id): bool => $id !== '')));
+        if ($ids === []) {
+            return [];
+        }
+        $map = [];
+        foreach (array_chunk($ids, 400) as $chunk) {
+            $placeholders = [];
+            $params = [];
+            foreach ($chunk as $i => $idCred) {
+                $k = 'c' . $i;
+                $placeholders[] = ':' . $k;
+                $params[$k] = $idCred;
+            }
+            if ($variantes === [] && !is_array($range)) {
+                continue;
+            }
+            $paramsQ = $params;
+            $conds = [];
+            if ($variantes !== []) {
+                $semIn = [];
+                foreach ($variantes as $vi => $lab) {
+                    $sk = 'semv' . $vi;
+                    $semIn[] = ':' . $sk;
+                    $paramsQ[$sk] = self::normalizarTextoSemanaHisto((string) $lab);
+                }
+                $conds[] = "LOWER(TRIM(REGEXP_REPLACE(CAST(SEMANA AS CHAR), '[[:space:]]+', ' '))) IN (" . implode(', ', $semIn) . ')';
+            }
+            if (is_array($range)) {
+                $paramsQ['fini'] = $range['inicio'];
+                $paramsQ['ffin'] = $range['fin'];
+                $conds[] = 'DATE(fecha_hora_insert) BETWEEN :fini AND :ffin';
+            }
+            if ($conds === []) {
+                continue;
+            }
+            $sql = '
+                SELECT Id_credito, Gestor_Asignado, Bucket_Morosidad_Real, Bucket_Morosidad, fecha_hora_insert, SEMANA
+                FROM tbl_segundometro_histo
+                WHERE Id_credito IN (' . implode(', ', $placeholders) . ')
+                  AND (' . implode(' OR ', $conds) . ')
+                ORDER BY Id_credito, fecha_hora_insert DESC
+            ';
+            $rows = $db->queryAll($sql, $paramsQ);
+            $agr = [];
+            foreach ((array) $rows as $r) {
+                $idc = self::claveIdCredito($r['Id_credito'] ?? $r['id_credito'] ?? '');
+                if ($idc === '') {
+                    continue;
+                }
+                $agr[$idc][] = $r;
+            }
+            foreach ($agr as $idc => $filas) {
+                $map[$idc] = self::elegirFilaHistoSemanaPasada($filas, $variantes);
+            }
+        }
+
+        return $map;
+    }
+
+    private static function claveIdCredito($id): string
+    {
+        $s = trim((string) $id);
+        if ($s === '') {
+            return '';
+        }
+        if (preg_match('/^\d+$/', $s)) {
+            return (string) (int) $s;
+        }
+        $f = filter_var($s, FILTER_VALIDATE_FLOAT);
+        if (is_float($f) && $f === floor($f) && abs($f) < 1e15) {
+            return (string) (int) $f;
+        }
+
+        return $s;
+    }
+
+    /** Minúsculas y espacios (incl. NBSP) colapsados para comparar `SEMANA` del histórico. */
+    private static function normalizarTextoSemanaHisto(string $s): string
+    {
+        $s = str_replace(["\xc2\xa0", "\xe2\x80\xaf"], ' ', $s);
+        $r = preg_replace('/\s+/u', ' ', trim($s));
+
+        return is_string($r) && $r !== '' ? mb_strtolower($r) : '';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function variantesEtiquetaSemanaHisto(string $label, string $range): array
+    {
+        $set = [];
+        $l = trim($label);
+        if ($l !== '') {
+            $set[mb_strtolower($l)] = $l;
+            $norm = preg_replace('/(Semana)\s+(\d+)\s*-\s*(\d+)/iu', '$1 $2-$3', $l);
+            if (is_string($norm)) {
+                $norm = trim($norm);
+                if ($norm !== '' && $norm !== $l) {
+                    $set[mb_strtolower($norm)] = $norm;
+                }
+            }
+        }
+        $rg = self::parseRangeDdMmYyyy($range);
+        if ($rg !== null) {
+            try {
+                $tz = new \DateTimeZone('America/Mexico_City');
+            } catch (\Exception $e) {
+                $tz = new \DateTimeZone('UTC');
+            }
+            $tue = \DateTimeImmutable::createFromFormat('!Y-m-d', $rg['inicio'], $tz);
+            if ($tue instanceof \DateTimeImmutable) {
+                $labM = sprintf('Semana %d-%d', (int) $tue->format('W'), (int) $tue->format('o'));
+                $set[mb_strtolower($labM)] = $labM;
+                $labMY = sprintf('Semana %d-%d', (int) $tue->format('W'), (int) $tue->format('Y'));
+                $set[mb_strtolower($labMY)] = $labMY;
+                $jue = $tue->modify('+2 days');
+                $labJ = sprintf('Semana %d-%d', (int) $jue->format('W'), (int) $jue->format('o'));
+                $set[mb_strtolower($labJ)] = $labJ;
+                $labJY = sprintf('Semana %d-%d', (int) $jue->format('W'), (int) $jue->format('Y'));
+                $set[mb_strtolower($labJY)] = $labJY;
+            }
+        }
+
+        return array_values($set);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $filas Misma clave Id_credito, orden DESC por fecha_hora_insert
+     * @param list<string> $variantesEtiqueta
+     * @return array{Gestor_Asignado:string, Bucket_Morosidad_Real:string}
+     */
+    private static function elegirFilaHistoSemanaPasada(array $filas, array $variantesEtiqueta): array
+    {
+        if ($filas === []) {
+            return ['Gestor_Asignado' => '', 'Bucket_Morosidad_Real' => ''];
+        }
+        $varsL = [];
+        foreach ($variantesEtiqueta as $ve) {
+            $t = self::normalizarTextoSemanaHisto((string) $ve);
+            if ($t !== '') {
+                $varsL[$t] = true;
+            }
+        }
+        $mejor = null;
+        $mejorP = -1;
+        foreach ($filas as $f) {
+            $semRaw = (string) ($f['SEMANA'] ?? $f['semana'] ?? '');
+            $semL = self::normalizarTextoSemanaHisto($semRaw);
+            $br = trim((string) ($f['Bucket_Morosidad_Real'] ?? $f['bucket_morosidad_real'] ?? ''));
+            $g = trim((string) ($f['Gestor_Asignado'] ?? $f['gestor_asignado'] ?? ''));
+            $coincideSem = false;
+            foreach (array_keys($varsL) as $vl) {
+                if ($semL === $vl) {
+                    $coincideSem = true;
+                    break;
+                }
+            }
+            $ts = strtotime((string) ($f['fecha_hora_insert'] ?? '')) ?: 0;
+            $prio = ($br !== '' ? 1_000_000_000_000 : 0)
+                + ($coincideSem ? 100_000_000_000 : 0)
+                + ($g !== '' ? 10_000_000_000 : 0)
+                + $ts;
+            if ($prio > $mejorP) {
+                $mejorP = $prio;
+                $mejor = $f;
+            }
+        }
+        if (!is_array($mejor)) {
+            return ['Gestor_Asignado' => '', 'Bucket_Morosidad_Real' => ''];
+        }
+
+        return [
+            'Gestor_Asignado' => trim((string) ($mejor['Gestor_Asignado'] ?? $mejor['gestor_asignado'] ?? '')),
+            'Bucket_Morosidad_Real' => trim((string) ($mejor['Bucket_Morosidad_Real'] ?? $mejor['bucket_morosidad_real'] ?? '')),
+        ];
+    }
+
+    /**
+     * @return array{inicio:string,fin:string}|null
+     */
+    private static function parseRangeDdMmYyyy(string $range): ?array
+    {
+        $r = trim($range);
+        if ($r === '') {
+            return null;
+        }
+        $parts = preg_split('/\s*-\s*/', $r);
+        if (!is_array($parts) || count($parts) !== 2) {
+            return null;
+        }
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+        } catch (\Exception $e) {
+            $tz = new \DateTimeZone('UTC');
+        }
+        $ini = \DateTimeImmutable::createFromFormat('d/m/Y', trim((string) $parts[0]), $tz);
+        $fin = \DateTimeImmutable::createFromFormat('d/m/Y', trim((string) $parts[1]), $tz);
+        if ($ini === false || $fin === false) {
+            return null;
+        }
+
+        return ['inicio' => $ini->format('Y-m-d'), 'fin' => $fin->format('Y-m-d')];
+    }
+
+    /**
+     * @param array{by_external:array<string,array<string,mixed>>,by_persona_id:array<int,array<string,mixed>>} $personas
+     * @return array<string, array{external_id:string, puesto:string, nombre:string}>
+     */
+    private static function indicePersonasPorNombreGestor(array $personas): array
+    {
+        $map = [];
+        foreach ($personas['by_persona_id'] ?? [] as $p) {
+            if (!is_array($p)) {
+                continue;
+            }
+            $nomRaw = trim((string) ($p['nombre_gestor'] ?? ''));
+            if ($nomRaw === '') {
+                continue;
+            }
+            $key = self::normalizarNombreParaMatch($nomRaw);
+            if ($key === '' || isset($map[$key])) {
+                continue;
+            }
+            $map[$key] = [
+                'external_id' => self::normalizarExternalId($p['external_id_legacy'] ?? null),
+                'puesto' => trim((string) ($p['puesto_gestor_legacy'] ?? $p['puesto_legacy'] ?? '')),
+                'nombre' => $nomRaw,
+            ];
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param array{by_id:array<int,array<string,mixed>>,by_external:array<string,array<string,mixed>>} $usuariosLegacy
+     * @return array<string, array{external_id:string, puesto:string, nombre:string}>
+     */
+    private static function indiceUsuariosLegacyPorNombre(array $usuariosLegacy): array
+    {
+        $map = [];
+        foreach ($usuariosLegacy['by_id'] ?? [] as $u) {
+            if (!is_array($u)) {
+                continue;
+            }
+            $nomRaw = trim((string) ($u['name'] ?? ''));
+            if ($nomRaw === '') {
+                continue;
+            }
+            $key = self::normalizarNombreParaMatch($nomRaw);
+            if ($key === '' || isset($map[$key])) {
+                continue;
+            }
+            $map[$key] = [
+                'external_id' => self::normalizarExternalId($u['external_id'] ?? null),
+                'puesto' => trim((string) ($u['puesto_segun_jerarquia'] ?? '')),
+                'nombre' => $nomRaw,
+            ];
+        }
+
+        return $map;
+    }
+
+    private static function normalizarNombreParaMatch(string $s): string
+    {
+        $s = trim($s);
+        if ($s === '') {
+            return '';
+        }
+        $s = strtr($s, [
+            'Á' => 'A', 'À' => 'A', 'Â' => 'A', 'Ä' => 'A',
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ä' => 'a',
+            'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'Ó' => 'O', 'Ò' => 'O', 'Ô' => 'O', 'Ö' => 'O',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'ö' => 'o',
+            'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'Ñ' => 'N', 'ñ' => 'n',
+        ]);
+        $s = preg_replace('/[^A-Za-z0-9 ]+/u', ' ', $s) ?? $s;
+        $t = preg_replace('/\s+/u', ' ', $s);
+        $s = is_string($t) ? $t : $s;
+
+        return mb_strtolower($s);
+    }
+
+    /**
+     * @param array<string,mixed> $histoRow Fila mínima con Gestor_Asignado (tbl_segundometro_histo)
+     * @param array<string, array{external_id:string, puesto:string, nombre:string}> $idxNombrePersona
+     * @param array<string, array{external_id:string, puesto:string, nombre:string}> $idxNombreLegacy
+     * @param ?array<string,mixed> $fallbackAsig Asignación campaña anterior (misma cadena que semana actual: users + aplicarPuestoLegacySegundometro)
+     * @return array{ext:string,nom:string,pue:string}
+     */
+    private static function celdaDesdeHistoGestor(array $histoRow, array $idxNombrePersona, array $idxNombreLegacy, ?array $fallbackAsig): array
+    {
+        $gestorTxt = trim((string) ($histoRow['Gestor_Asignado'] ?? $histoRow['gestor_asignado'] ?? ''));
+        $nom = $gestorTxt !== '' ? $gestorTxt : '—';
+        $ext = '—';
+        $pue = '—';
+
+        // Prioridad: mismo criterio que la columna «Actual» (crédito → tasks/users → equivalencia persona/puestos_legacy).
+        // Antes se prefería el match por nombre del texto del histórico contra Legacy (puesto_segun_jerarquia: SUBGERENTE, etc.)
+        // y contra Persona con otro orden, lo que duplicaba puestos distintos para el mismo external_id.
+        if (is_array($fallbackAsig)) {
+            $eFb = trim((string) ($fallbackAsig['external_id'] ?? ''));
+            $puFb = trim((string) ($fallbackAsig['puesto_legacy'] ?? ''));
+            if ($eFb !== '') {
+                $ext = $eFb;
+            }
+            if ($puFb !== '' && $puFb !== '—') {
+                $pue = $puFb;
+            }
+            $nomFb = trim((string) ($fallbackAsig['nombre'] ?? ''));
+            if (($nom === '—' || $nom === '') && $nomFb !== '') {
+                $nom = $nomFb;
+            }
+        }
+
+        if ($gestorTxt !== '') {
+            $key = self::normalizarNombreParaMatch($gestorTxt);
+            if ($ext === '—' || $pue === '—') {
+                if ($key !== '' && isset($idxNombrePersona[$key])) {
+                    $info = $idxNombrePersona[$key];
+                    if ($ext === '—') {
+                        $e = trim((string) ($info['external_id'] ?? ''));
+                        if ($e !== '') {
+                            $ext = $e;
+                        }
+                    }
+                    if ($pue === '—') {
+                        $pu = trim((string) ($info['puesto'] ?? ''));
+                        if ($pu !== '') {
+                            $pue = $pu;
+                        }
+                    }
+                } elseif ($key !== '' && isset($idxNombreLegacy[$key])) {
+                    $info = $idxNombreLegacy[$key];
+                    if ($ext === '—') {
+                        $e = trim((string) ($info['external_id'] ?? ''));
+                        if ($e !== '') {
+                            $ext = $e;
+                        }
+                    }
+                    if ($pue === '—') {
+                        $pu = trim((string) ($info['puesto'] ?? ''));
+                        if ($pu !== '') {
+                            $pue = $pu;
+                        }
+                    }
+                }
+            }
+        } elseif (is_array($fallbackAsig)) {
+            $e = trim((string) ($fallbackAsig['external_id'] ?? ''));
+            if ($e !== '') {
+                $ext = $e;
+            }
+            $pu = trim((string) ($fallbackAsig['puesto_legacy'] ?? ''));
+            if ($pu !== '' && $pu !== '—') {
+                $pue = $pu;
+            }
+            $nomFb = trim((string) ($fallbackAsig['nombre'] ?? ''));
+            if ($nomFb !== '') {
+                $nom = $nomFb;
+            }
+        }
+
+        return [
+            'ext' => $ext,
+            'nom' => $nom,
+            'pue' => $pue,
+        ];
     }
 
     /**

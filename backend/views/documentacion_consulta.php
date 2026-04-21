@@ -1697,7 +1697,7 @@
                     }
 
                     // Crear marcas de agua "SIN VALOR" solo dentro del cuadro de la imagen (INE y EVIDENCIA)
-                    // INE: bajar patrón y cubrir completo; en zoom usar más densidad para que siga cubriendo
+                    // INE: centrar el patrón sobre la credencial (ajuste vertical si el patrón se ve bajo en el recuadro)
                     const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
                     const escalaMarca = winW < 480 ? 0.65 : (winW < 768 ? 0.8 : (winW < 1200 ? 0.9 : 1));
                     const esVertical = effectiveHeight > effectiveWidth;
@@ -1711,14 +1711,14 @@
                     const numCols = Math.ceil((effectiveWidth * multAncho) / textSpacing) + (esVertical ? 14 : 8);
                     const colorAgua = 'rgba(220, 20, 20, 0.55)';
                     const textShadow = '1px 1px 3px rgba(0, 0, 0, 0.4)';
-                    const topOffsetExtraZoom = (isZoom && estaEnModalINE) ? (esVertical ? 1.2 : 1) : null;
-                    const topOffsetExtra = layerSpacing * (topOffsetExtraZoom !== null ? topOffsetExtraZoom : (estaEnModalINE ? (esVertical ? 1.8 : 1.4) : (esVertical ? 2.8 : 2.2)));
-                    const desplazarArribaBase = estaEnModalINE ? (esVertical ? 28 : 20) : (esVertical ? 50 : 38);
-                    const desplazarArriba = Math.round((isZoom && estaEnModalINE ? (esVertical ? 8 : 6) : desplazarArribaBase) * escalaMarca);
-                    const rowStart = (isZoom && estaEnModalINE) ? (esVertical ? -42 : -16) : (esVertical ? -26 : -8);
+                    const topOffsetExtraZoom = (isZoom && estaEnModalINE) ? (esVertical ? 2.75 : 2.1) : null;
+                    const topOffsetExtra = layerSpacing * (topOffsetExtraZoom !== null ? topOffsetExtraZoom : (estaEnModalINE ? (esVertical ? 3.05 : 2.35) : (esVertical ? 2.8 : 2.2)));
+                    const desplazarArribaBase = estaEnModalINE ? (esVertical ? 64 : 48) : (esVertical ? 50 : 38);
+                    const desplazarArriba = Math.round((isZoom && estaEnModalINE ? (esVertical ? 34 : 26) : desplazarArribaBase) * escalaMarca);
+                    const rowStart = (isZoom && estaEnModalINE) ? (esVertical ? -54 : -26) : (esVertical ? -36 : -12);
                     const rowEnd = (isZoom && estaEnModalINE) ? (numRows + (esVertical ? 82 : 40)) : (numRows + (esVertical ? 28 : 10));
                     const extraIzqZoom = (isZoom && estaEnModalINE) ? 170 : 0;
-                    const desplazamientoDiagonal = (isZoom && estaEnModalINE) ? Math.round(550 * escalaMarca) : 0;
+                    const desplazamientoDiagonal = (isZoom && estaEnModalINE) ? Math.round(170 * escalaMarca) : 0;
 
                     for (let row = rowStart; row < rowEnd; row++) {
                         const layer = document.createElement('div');

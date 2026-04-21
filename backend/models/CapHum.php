@@ -1578,6 +1578,33 @@ class CapHum extends Model
         }
     }
 
+    /**
+     * Siguiente número de empleado libre: toma el máximo entre valores puramente numéricos,
+     * suma 1 y avanza hasta encontrar un valor que no exista en persona.numero_empleado.
+     */
+    private static function siguienteNumeroEmpleadoLibre(Database $db): string
+    {
+        $row = $db->queryOne(
+            "SELECT COALESCE(MAX(CAST(numero_empleado AS UNSIGNED)), 0) AS mx
+             FROM __SPARTA_SECRET_REDACTED__.persona
+             WHERE TRIM(numero_empleado) <> ''
+               AND TRIM(numero_empleado) REGEXP '^[0-9]+$'"
+        );
+        $next = isset($row['mx']) ? (int) $row['mx'] + 1 : 1;
+        for ($i = 0; $i < 100000; $i++) {
+            $candidate = (string) $next;
+            $ex = $db->queryOne(
+                'SELECT 1 AS ok FROM __SPARTA_SECRET_REDACTED__.persona WHERE numero_empleado = :n LIMIT 1',
+                ['n' => $candidate]
+            );
+            if (empty($ex)) {
+                return $candidate;
+            }
+            $next++;
+        }
+
+        return 'NEO' . strtoupper(bin2hex(random_bytes(4)));
+    }
 
     public static function insertPersona($data)
     {
@@ -1586,15 +1613,8 @@ class CapHum extends Model
         $segundo_nombre = addslashes((string) ($data['segundo_nombre'] ?? ''));
         $apellidop = addslashes((string) ($data['apellidop'] ?? ''));
         $apellidom = addslashes((string) ($data['apellidom'] ?? ''));
-        // Alta desde Gestión (all_gestores) no envía número de empleado: usar usuario (external_id típico) o valor único.
-        $numero_raw = trim((string) ($data['numero_empleado'] ?? ''));
-        if ($numero_raw === '') {
-            $numero_raw = trim((string) ($data['usuario'] ?? ''));
-        }
-        if ($numero_raw === '') {
-            $numero_raw = 'NEO' . strtoupper(bin2hex(random_bytes(4)));
-        }
-        $numero_empleado = addslashes($numero_raw);
+        // Si no viene número de empleado, se genera en BD (max numérico + 1, sin colisiones).
+        $autoNumeroEmpleado = trim((string) ($data['numero_empleado'] ?? '')) === '';
         $correo = addslashes((string) ($data['correo'] ?? ''));
         $telefono_uno = addslashes((string) ($data['telefono'] ?? $data['telefono_uno'] ?? ''));
         $telefono_dos = addslashes((string) ($data['telefono_dos'] ?? ''));
@@ -1623,6 +1643,13 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+
+            if ($autoNumeroEmpleado) {
+                $numero_raw = self::siguienteNumeroEmpleadoLibre($db);
+            } else {
+                $numero_raw = trim((string) ($data['numero_empleado'] ?? ''));
+            }
+            $numero_empleado = addslashes($numero_raw);
 
             if ($cp === '' && $id_div_nivel3 !== 'NULL') {
                 $crow = $db->queryOne(

@@ -19,6 +19,10 @@
 - NO crear archivos .js separados salvo que ya existan en el proyecto
 - NO mover lógica de JS fuera del heredoc sin pedirlo explícitamente
 
+## MVC por capas (todo el proyecto; agentes y código nuevo)
+- Flujo fijo: request → **controlador** → **modelo** (BD / datos) → controlador → **vista** o JSON. Sin SQL en controlador; sin BD ni reglas de negocio en la vista.
+- Detalle, tablas de responsabilidades y errores comunes: **`.cursor/rules/mvc-backend-php.mdc`** (`alwaysApply: true`). Cumplir siempre al generar o modificar código en `backend/controllers`, `backend/models` y `backend/views`.
+
 ## Reglas de código
 1. Antes de crear una función nueva, busca si ya existe en el proyecto
 2. Antes de agregar una librería, verifica si ya está incluida en el layout

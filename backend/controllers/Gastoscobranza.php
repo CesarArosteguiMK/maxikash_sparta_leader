@@ -545,7 +545,16 @@ class Gastoscobranza extends Controller
                 return;
             }
             $this->liberarSesionParaPeticionLarga();
-            $run = $this->agenteRequest('POST', '/run', new \stdClass(), self::AGENTE_RUN_TIMEOUT_SEC);
+            $regenerar = false;
+            $rawIn = file_get_contents('php://input');
+            if ($rawIn !== false && trim($rawIn) !== '') {
+                $jIn = json_decode($rawIn, true);
+                if (is_array($jIn) && !empty($jIn['regenerar_reporte'])) {
+                    $regenerar = true;
+                }
+            }
+            $runBody = $regenerar ? ['regenerar_reporte' => true] : new \stdClass();
+            $run = $this->agenteRequest('POST', '/run', $runBody, self::AGENTE_RUN_TIMEOUT_SEC);
             if (is_array($run['json'])) {
                 $out = $run['json'];
                 if (!array_key_exists('success', $out)) {
