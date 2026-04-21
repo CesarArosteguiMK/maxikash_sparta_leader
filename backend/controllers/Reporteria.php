@@ -535,6 +535,8 @@ class Reporteria extends Controller
     /**
      * JSON del portafolio automático de asignación (continuidad, nuevos y huérfanos).
      * URL: /reporteria/getAsignacionTableroJson
+     * Query opcional: dos_ventanas=1 → misma forma que «Tablero dos ventanas» (2 columnas de semana).
+     * Para paginación solo en cliente: mostrar=todas (devuelve todas las filas; la vista tablero ya no pagina en servidor).
      */
     public function getAsignacionTableroJson()
     {
@@ -543,6 +545,9 @@ class Reporteria extends Controller
             $limite = \Models\AsignacionTablero::parseLimiteMostrar($mostrar !== '' ? $mostrar : null, '10');
             $paginaRaw = isset($_GET['pagina']) ? (int) $_GET['pagina'] : 1;
             $payload = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
+            if (isset($_GET['dos_ventanas']) && (string) $_GET['dos_ventanas'] === '1') {
+                $payload = \Models\AsignacionTablero::portafolioDosVentanasDesdeCompleto($payload);
+            }
             $filas = is_array($payload['filas'] ?? null) ? $payload['filas'] : [];
             $total = count($filas);
             if ($limite === null) {

@@ -1,88 +1,12 @@
 <?php
 /**
- * Tablero Asignación: columna ID Crédito + semana pasada, actual y próxima (mar–lun); cada semana = External ID, Nombre del gestor, Puesto.
- * Datos de semanas + portafolio automático: Models\AsignacionTablero.
+ * Tablero Asignación (Proyección y dos ventanas): misma vista; al cargar siempre GET
+ * /reporteria/getAsignacionTableroJson?mostrar=todas (+ &dos_ventanas=1 solo en dos ventanas).
+ * Paginación en el navegador; URL canónica sin ?pagina / ?mostrar.
  */
-$asgMostrarRaw = isset($_GET['mostrar']) ? (string) $_GET['mostrar'] : '';
-$asgLimite = \Models\AsignacionTablero::parseLimiteMostrar($asgMostrarRaw !== '' ? $asgMostrarRaw : null, '10');
-$asgMostrarQuery = \Models\AsignacionTablero::limiteMostrarAQuery($asgLimite);
-
 $asgTableroDos = !empty($asg_tablero_dos);
 $asgBasePath = $asgTableroDos ? '/reporteria/asignacionTableroDos' : '/reporteria/asignacionTablero';
 $asgExcelPath = $asgTableroDos ? '/reporteria/descargarAsignacionTableroDosExcel' : '/reporteria/descargarAsignacionTableroExcel';
-
-$tabAsg = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
-if ($asgTableroDos) {
-    $tabAsg = \Models\AsignacionTablero::portafolioDosVentanasDesdeCompleto($tabAsg);
-}
-$asgSemanas = is_array($tabAsg['semanas'] ?? null) ? $tabAsg['semanas'] : [];
-$asgSubcols = is_array($tabAsg['subcols'] ?? null) ? $tabAsg['subcols'] : [];
-$asgFilasCompletas = is_array($tabAsg['filas'] ?? null) ? $tabAsg['filas'] : [];
-$asgTotalFilas = count($asgFilasCompletas);
-$asgPaginaRaw = isset($_GET['pagina']) ? (int) $_GET['pagina'] : 1;
-$asgPaginaTam = $asgLimite === null ? ($asgTotalFilas > 0 ? $asgTotalFilas : 1) : (int) $asgLimite;
-$asgTotalPaginas = $asgPaginaTam > 0 ? max(1, (int) ceil($asgTotalFilas / $asgPaginaTam)) : 1;
-$asgPaginaActual = min(max(1, $asgPaginaRaw), $asgTotalPaginas);
-$asgOffset = ($asgPaginaActual - 1) * $asgPaginaTam;
-$asgFilas = $asgLimite === null ? $asgFilasCompletas : array_slice($asgFilasCompletas, $asgOffset, $asgPaginaTam);
-$asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery, $asgBasePath): string {
-    $pagina = max(1, $pagina);
-    return $asgBasePath . '?mostrar=' . rawurlencode($asgMostrarQuery) . '&pagina=' . $pagina;
-};
-
-if (!function_exists('asg_armar_items_paginacion')) {
-    /**
-     * @return list<array{type:'page'|'gap', num?:int}>
-     */
-    function asg_armar_items_paginacion(int $actual, int $total): array
-    {
-        if ($total < 1) {
-            $total = 1;
-        }
-        if ($actual < 1) {
-            $actual = 1;
-        }
-        if ($actual > $total) {
-            $actual = $total;
-        }
-        if ($total <= 9) {
-            $out = [];
-            for ($i = 1; $i <= $total; $i++) {
-                $out[] = ['type' => 'page', 'num' => $i];
-            }
-            return $out;
-        }
-        $set = [1, $total];
-        if ($actual < 5) {
-            for ($i = 1; $i <= min(5, $total); $i++) {
-                $set[] = $i;
-            }
-        } elseif ($actual > $total - 4) {
-            for ($i = max(1, $total - 4); $i <= $total; $i++) {
-                $set[] = $i;
-            }
-        } else {
-            for ($i = $actual - 2; $i <= $actual + 2; $i++) {
-                if ($i >= 1 && $i <= $total) {
-                    $set[] = $i;
-                }
-            }
-        }
-        $set = array_values(array_unique(array_map('intval', $set)));
-        sort($set, SORT_NUMERIC);
-        $out = [];
-        $prev = 0;
-        foreach ($set as $n) {
-            if ($prev > 0 && $n - $prev > 1) {
-                $out[] = ['type' => 'gap'];
-            }
-            $out[] = ['type' => 'page', 'num' => $n];
-            $prev = $n;
-        }
-        return $out;
-    }
-}
-$asgPaginasItems = asg_armar_items_paginacion($asgPaginaActual, $asgTotalPaginas);
 ?>
 <div class="comp-av container-fluid py-3 px-2 px-md-3">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 comp-av-page-header">
@@ -109,144 +33,16 @@ $asgPaginasItems = asg_armar_items_paginacion($asgPaginaActual, $asgTotalPaginas
 
             <div class="comp-av-table-stack">
                 <div id="asg-table-area">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered mb-0 comp-av-table comp-av-table--asg" style="font-size:0.72rem;">
-                            <colgroup>
-                                <col class="asg-col-id">
-                                <?php for ($asgCi = 0, $asgNcols = count($asgSemanas) * count($asgSubcols); $asgCi < $asgNcols; $asgCi++): ?>
-                                <col class="asg-col-equal">
-                                <?php endfor; ?>
-                                <?php if (!$asgTableroDos): ?>
-                                <col class="asg-col-cambio">
-                                <?php endif; ?>
-                            </colgroup>
-                            <thead class="comp-av-thead">
-                                <tr class="asg-thead-chips">
-                                    <th rowspan="3" scope="col" class="text-center align-middle small asg-th-id-col comp-sep-r">ID Crédito</th>
-                                    <?php foreach ($asgSemanas as $si => $sem): ?>
-                                        <?php
-                                        $hl = (int) ($sem['hist_level'] ?? 0);
-                                        if ($hl >= 1 && $hl <= 3) {
-                                            $chipPill = 'comp-chip-pill-hist asg-chip-hist-' . $hl;
-                                        } elseif ($sem['th_class'] === 'comp-th-act') {
-                                            $chipPill = 'comp-chip-pill-act';
-                                        } else {
-                                            $chipPill = 'comp-chip-pill-fut';
-                                        }
-                                        ?>
-                                    <th colspan="3" scope="colgroup" class="text-center asg-chip-th comp-sep-week asg-sep-week-end">
-                                        <span class="badge rounded-pill comp-chip-pill comp-chip-pill--asg-multiline <?= htmlspecialchars($chipPill, ENT_QUOTES, 'UTF-8'); ?>" title="Ventana martes a lunes: <?= htmlspecialchars($sem['range'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                            <?= htmlspecialchars($sem['chip_text'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
-                                        </span>
-                                        <?php if ($si < count($asgSemanas) - 1): ?>
-                                        <i class="fa-solid fa-chevron-right comp-chip-arrow" aria-hidden="true"></i>
-                                        <?php endif; ?>
-                                    </th>
-                                    <?php endforeach; ?>
-                                    <?php if (!$asgTableroDos): ?>
-                                    <th rowspan="3" scope="col" class="text-center align-middle small text-secondary fw-bold asg-th-cambio-col">Cambio proyectado</th>
-                                    <?php endif; ?>
-                                </tr>
-                                <tr class="asg-thead-semana">
-                                    <?php foreach ($asgSemanas as $sem): ?>
-                                        <?php
-                                        $hl = (int) ($sem['hist_level'] ?? 0);
-                                        $histBg = ($hl >= 1 && $hl <= 3) ? ' asg-hist-bg-' . $hl : '';
-                                        ?>
-                                    <th colspan="3" class="text-center small comp-sep-week asg-sep-week-end<?= htmlspecialchars($histBg, ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars($sem['th_class'], ENT_QUOTES, 'UTF-8'); ?>">
-                                        <?= htmlspecialchars($sem['label'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
-                                    </th>
-                                    <?php endforeach; ?>
-                                </tr>
-                                <tr>
-                                    <?php foreach ($asgSemanas as $sem): ?>
-                                        <?php foreach ($asgSubcols as $ci => $sub): ?>
-                                            <?php
-                                            $thAct = $sem['th_class'] === 'comp-th-act';
-                                            $hl = (int) ($sem['hist_level'] ?? 0);
-                                            $histBg = ($hl >= 1 && $hl <= 3) ? ' asg-hist-bg-' . $hl : '';
-                                            $colKind = $sub['key'] === 'ext' ? 'asg-col-ext' : ($sub['key'] === 'nom' ? 'asg-col-nom' : 'asg-sep-week-end');
-                                            $thCls = 'small comp-subcell ' . $sub['align'] . $histBg . ' ' . $colKind . ($thAct ? ' bg-label-success' : '');
-                                            $thSt = $thAct ? ' style="--bs-bg-opacity:.2"' : '';
-                                            ?>
-                                    <th class="<?= htmlspecialchars($thCls, ENT_QUOTES, 'UTF-8'); ?>"<?= $thSt; ?>><?= htmlspecialchars($sub['text'], ENT_QUOTES, 'UTF-8'); ?></th>
-                                        <?php endforeach; ?>
-                                    <?php endforeach; ?>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if ($asgFilas === []): ?>
-                                <tr>
-                                    <td class="small text-start comp-num-empty asg-td-id-col">—</td>
-                                    <?php foreach ($asgSemanas as $sem): ?>
-                                        <?php foreach ($asgSubcols as $ci => $sub): ?>
-                                            <?php
-                                            $hl = (int) ($sem['hist_level'] ?? 0);
-                                            $histBg = ($hl >= 1 && $hl <= 3) ? ' asg-hist-bg-' . $hl : '';
-                                            $colKind = $sub['key'] === 'ext' ? 'asg-col-ext' : ($sub['key'] === 'nom' ? 'asg-col-nom' : 'asg-sep-week-end');
-                                            $cellBase = 'asg-cell-' . str_replace('comp-th-', '', $sem['th_class']);
-                                            ?>
-                                    <td class="small comp-num-empty <?= htmlspecialchars($sub['align'], ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars($cellBase . $histBg . ' ' . $colKind, ENT_QUOTES, 'UTF-8'); ?>">—</td>
-                                        <?php endforeach; ?>
-                                    <?php endforeach; ?>
-                                    <?php if (!$asgTableroDos): ?>
-                                    <td class="small text-center align-middle comp-num-empty asg-cambio-cell">—</td>
-                                    <?php endif; ?>
-                                </tr>
-                                <?php else: ?>
-                                    <?php foreach ($asgFilas as $fila): ?>
-                                        <?php
-                                        $metaFila = is_array($fila['meta'] ?? null) ? $fila['meta'] : [];
-                                        $hayCambioProxima = !empty($metaFila['hay_cambio_proxima']);
-                                        $motivoCambio = trim((string) ($metaFila['motivo_cambio'] ?? ''));
-                                        if ($motivoCambio === '') {
-                                            $motivoCambio = $hayCambioProxima ? 'Cambio proyectado en próxima semana' : 'Sin cambios';
-                                        }
-                                        $esCambioInformativo = $hayCambioProxima || strcasecmp($motivoCambio, 'Sin cambios') !== 0;
-                                        ?>
-                                <tr>
-                                    <td class="small text-start asg-td-id-col"><?= htmlspecialchars((string) ($fila['id_credito'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></td>
-                                        <?php foreach ($asgSemanas as $si => $sem): ?>
-                                            <?php
-                                            $cellSem = is_array($fila['cells'][$si] ?? null) ? $fila['cells'][$si] : [];
-                                            ?>
-                                            <?php foreach ($asgSubcols as $ci => $sub): ?>
-                                                <?php
-                                                $hl = (int) ($sem['hist_level'] ?? 0);
-                                                $histBg = ($hl >= 1 && $hl <= 3) ? ' asg-hist-bg-' . $hl : '';
-                                                $colKind = $sub['key'] === 'ext' ? 'asg-col-ext' : ($sub['key'] === 'nom' ? 'asg-col-nom' : 'asg-sep-week-end');
-                                                $cellBase = 'asg-cell-' . str_replace('comp-th-', '', $sem['th_class']);
-                                                $value = '—';
-                                                if ($sub['key'] === 'ext') {
-                                                    $value = trim((string) ($cellSem['ext'] ?? '')) ?: '—';
-                                                } elseif ($sub['key'] === 'nom') {
-                                                    $value = trim((string) ($cellSem['nom'] ?? '')) ?: '—';
-                                                } elseif ($sub['key'] === 'pue') {
-                                                    $value = trim((string) ($cellSem['pue'] ?? '')) ?: '—';
-                                                }
-                                                ?>
-                                    <td class="small <?= htmlspecialchars($sub['align'], ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars($cellBase . $histBg . ' ' . $colKind, ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?></td>
-                                            <?php endforeach; ?>
-                                        <?php endforeach; ?>
-                                    <?php if (!$asgTableroDos): ?>
-                                    <td class="small text-center align-middle text-wrap asg-cambio-cell">
-                                        <?php if ($esCambioInformativo): ?>
-                                            <span class="d-inline-flex align-items-center justify-content-center gap-1 text-wrap" title="<?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>">
-                                                <i class="fa-solid fa-arrows-rotate text-primary flex-shrink-0" aria-hidden="true"></i>
-                                                <?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="text-secondary text-wrap d-inline-flex align-items-center justify-content-center gap-1">
-                                                <i class="fa-regular fa-circle-check flex-shrink-0" aria-hidden="true"></i>
-                                                <?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
-                                            </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <?php endif; ?>
-                                </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
+                    <div id="asg-loading" class="text-center py-5 px-3">
+                        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando…</span></div>
+                        <p class="small text-muted mt-2 mb-0">Cargando portafolio…</p>
+                    </div>
+                    <div id="asg-error" class="alert alert-danger mx-3 my-2 d-none" role="alert"></div>
+                    <div class="table-responsive d-none" id="asg-table-scroll">
+                        <table id="asg-table" class="table table-sm table-bordered mb-0 comp-av-table comp-av-table--asg" style="font-size:0.72rem;">
+                            <colgroup id="asg-colgroup"></colgroup>
+                            <thead class="comp-av-thead" id="asg-thead"></thead>
+                            <tbody id="asg-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -258,42 +54,392 @@ $asgPaginasItems = asg_armar_items_paginacion($asgPaginaActual, $asgTotalPaginas
                 <a id="asg-btn-descargar-excel" href="<?= htmlspecialchars($asgExcelPath, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-success btn-sm" title="Descarga el portafolio completo en Excel (puede tardar unos segundos).">
                     <i class="fa-solid fa-file-excel me-1" aria-hidden="true"></i>Descargar Excel (.xlsx)
                 </a>
-                <form method="get" action="<?= htmlspecialchars($asgBasePath, ENT_QUOTES, 'UTF-8'); ?>" class="d-flex flex-wrap align-items-center gap-2 mb-0 asg-form-mostrar">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-0 asg-form-mostrar">
                     <label for="asg-mostrar" class="form-label small text-secondary mb-0">Mostrar</label>
-                    <select class="form-select form-select-sm asg-select-mostrar" id="asg-mostrar" name="mostrar" aria-label="Cantidad de filas a mostrar" onchange="this.form.submit()">
-                        <option value="10"<?= $asgMostrarQuery === '10' ? ' selected' : ''; ?>>10</option>
-                        <option value="50"<?= $asgMostrarQuery === '50' ? ' selected' : ''; ?>>50</option>
-                        <option value="100"<?= $asgMostrarQuery === '100' ? ' selected' : ''; ?>>100</option>
-                        <option value="todas"<?= $asgMostrarQuery === 'todas' ? ' selected' : ''; ?>>Todas</option>
+                    <select class="form-select form-select-sm asg-select-mostrar" id="asg-mostrar" aria-label="Cantidad de filas a mostrar por página">
+                        <option value="10" selected>10</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="todas">Todas</option>
                     </select>
-                </form>
+                </div>
                 <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-end gap-3 w-100 pt-1 asg-footer-pag-wrap">
-                    <nav class="asg-pag-nav" aria-label="Paginación del tablero de asignación">
-                        <?php
-                        $asgPrimera = $asgPaginaActual <= 1;
-                        $asgUltima = $asgPaginaActual >= $asgTotalPaginas;
-                        ?>
-                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgPrimera ? ' is-disabled' : ''; ?>" href="<?= $asgPrimera ? '#' : htmlspecialchars($asgUrlPagina(1), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Primera página"<?= $asgPrimera ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>«</a>
-                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgPrimera ? ' is-disabled' : ''; ?>" href="<?= $asgPrimera ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual - 1), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Página anterior"<?= $asgPrimera ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>‹</a>
-                        <?php foreach ($asgPaginasItems as $asgPi): ?>
-                            <?php if (($asgPi['type'] ?? '') === 'gap'): ?>
-                        <span class="asg-pag-btn asg-pag-btn--ellipsis" aria-hidden="true">…</span>
-                            <?php else: ?>
-                                <?php
-                                $asgNum = (int) ($asgPi['num'] ?? 0);
-                                $asgEsActual = $asgNum === (int) $asgPaginaActual;
-                                ?>
-                        <a class="asg-pag-btn asg-pag-btn--num<?= $asgEsActual ? ' is-active' : ''; ?>" href="<?= htmlspecialchars($asgUrlPagina($asgNum), ENT_QUOTES, 'UTF-8'); ?>"<?= $asgEsActual ? ' aria-current="page"' : ''; ?>><?= (int) $asgNum; ?></a>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgUltima ? ' is-disabled' : ''; ?>" href="<?= $asgUltima ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual + 1), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Página siguiente"<?= $asgUltima ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>›</a>
-                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgUltima ? ' is-disabled' : ''; ?>" href="<?= $asgUltima ? '#' : htmlspecialchars($asgUrlPagina($asgTotalPaginas), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Última página"<?= $asgUltima ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>»</a>
-                    </nav>
+                    <nav class="asg-pag-nav" id="asg-pag-nav" aria-label="Paginación del tablero de asignación"></nav>
                 </div>
             </div>
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var cfg = {
+        basePath: <?= json_encode($asgBasePath, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>,
+        dosVentanas: <?= json_encode(!empty($asg_tablero_dos)); ?>
+    };
+    if (window.history && window.history.replaceState) {
+        try {
+            var u = new URL(window.location.href);
+            if (u.search) {
+                window.history.replaceState(null, '', u.pathname);
+            }
+        } catch (e) { /* noop */ }
+    }
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    function chipPillClass(sem) {
+        var hl = parseInt(sem.hist_level, 10) || 0;
+        if (hl >= 1 && hl <= 3) {
+            return 'comp-chip-pill-hist asg-chip-hist-' + hl;
+        }
+        if (sem.th_class === 'comp-th-act') {
+            return 'comp-chip-pill-act';
+        }
+        return 'comp-chip-pill-fut';
+    }
+    function cellBase(thClass) {
+        return 'asg-cell-' + String(thClass || '').replace(/^comp-th-/, '');
+    }
+    function armarItemsPaginacion(actual, total) {
+        if (total < 1) {
+            total = 1;
+        }
+        if (actual < 1) {
+            actual = 1;
+        }
+        if (actual > total) {
+            actual = total;
+        }
+        if (total <= 9) {
+            var out1 = [];
+            for (var i = 1; i <= total; i++) {
+                out1.push({ type: 'page', num: i });
+            }
+            return out1;
+        }
+        var setArr = [1, total];
+        function addNum(x) {
+            if (x >= 1 && x <= total && setArr.indexOf(x) === -1) {
+                setArr.push(x);
+            }
+        }
+        if (actual < 5) {
+            for (var j = 1; j <= Math.min(5, total); j++) {
+                addNum(j);
+            }
+        } else if (actual > total - 4) {
+            for (var k = Math.max(1, total - 4); k <= total; k++) {
+                addNum(k);
+            }
+        } else {
+            for (var m = actual - 2; m <= actual + 2; m++) {
+                addNum(m);
+            }
+        }
+        setArr.sort(function (a, b) {
+            return a - b;
+        });
+        var out = [];
+        var prev = 0;
+        setArr.forEach(function (n) {
+            if (prev > 0 && n - prev > 1) {
+                out.push({ type: 'gap' });
+            }
+            out.push({ type: 'page', num: n });
+            prev = n;
+        });
+        return out;
+    }
+    var state = {
+        semanas: [],
+        subcols: [],
+        filas: [],
+        tableroDos: cfg.dosVentanas,
+        pagina: 1,
+        limite: 10
+    };
+    function limiteTam() {
+        if (state.limite === 'todas' || state.limite === 0) {
+            return state.filas.length > 0 ? state.filas.length : 1;
+        }
+        return parseInt(state.limite, 10) || 10;
+    }
+    function totalPaginas() {
+        var n = state.filas.length;
+        var tam = limiteTam();
+        if (tam < 1) {
+            return 1;
+        }
+        return Math.max(1, Math.ceil(n / tam));
+    }
+    function sliceFilas() {
+        var tam = limiteTam();
+        var tp = totalPaginas();
+        var p = Math.min(Math.max(1, state.pagina), tp);
+        state.pagina = p;
+        var off = (p - 1) * tam;
+        return state.filas.slice(off, off + tam);
+    }
+    function buildColgroup() {
+        var cg = document.getElementById('asg-colgroup');
+        if (!cg) {
+            return;
+        }
+        var html = '<col class="asg-col-id">';
+        var n = state.semanas.length * state.subcols.length;
+        for (var i = 0; i < n; i++) {
+            html += '<col class="asg-col-equal">';
+        }
+        if (!state.tableroDos) {
+            html += '<col class="asg-col-cambio">';
+        }
+        cg.innerHTML = html;
+    }
+    function renderThead() {
+        var th = document.getElementById('asg-thead');
+        if (!th) {
+            return;
+        }
+        var semanas = state.semanas;
+        var subcols = state.subcols;
+        var dos = state.tableroDos;
+        var h = [];
+        h.push('<tr class="asg-thead-chips">');
+        h.push('<th rowspan="3" scope="col" class="text-center align-middle small asg-th-id-col comp-sep-r">ID Crédito</th>');
+        semanas.forEach(function (sem, si) {
+            h.push('<th colspan="3" scope="colgroup" class="text-center asg-chip-th comp-sep-week asg-sep-week-end">');
+            h.push('<span class="badge rounded-pill comp-chip-pill comp-chip-pill--asg-multiline ' + esc(chipPillClass(sem)) + '" title="Ventana martes a lunes: ' + esc(sem.range || '') + '">');
+            h.push(esc(sem.chip_text || ''));
+            h.push('</span>');
+            if (si < semanas.length - 1) {
+                h.push('<i class="fa-solid fa-chevron-right comp-chip-arrow" aria-hidden="true"></i>');
+            }
+            h.push('</th>');
+        });
+        if (!dos) {
+            h.push('<th rowspan="3" scope="col" class="text-center align-middle small text-secondary fw-bold asg-th-cambio-col">Cambio proyectado</th>');
+        }
+        h.push('</tr><tr class="asg-thead-semana">');
+        semanas.forEach(function (sem) {
+            var hl = parseInt(sem.hist_level, 10) || 0;
+            var histBg = (hl >= 1 && hl <= 3) ? (' asg-hist-bg-' + hl) : '';
+            h.push('<th colspan="3" class="text-center small comp-sep-week asg-sep-week-end' + esc(histBg) + ' ' + esc(sem.th_class || '') + '">');
+            h.push(esc(sem.label || ''));
+            h.push('</th>');
+        });
+        h.push('</tr><tr>');
+        semanas.forEach(function (sem) {
+            subcols.forEach(function (sub) {
+                var thAct = sem.th_class === 'comp-th-act';
+                var hl2 = parseInt(sem.hist_level, 10) || 0;
+                var histBg2 = (hl2 >= 1 && hl2 <= 3) ? (' asg-hist-bg-' + hl2) : '';
+                var colKind = sub.key === 'ext' ? 'asg-col-ext' : (sub.key === 'nom' ? 'asg-col-nom' : 'asg-sep-week-end');
+                var thCls = 'small comp-subcell ' + (sub.align || '') + histBg2 + ' ' + colKind + (thAct ? ' bg-label-success' : '');
+                var thSt = thAct ? ' style="--bs-bg-opacity:.2"' : '';
+                h.push('<th class="' + esc(thCls) + '"' + thSt + '>' + esc(sub.text || '') + '</th>');
+            });
+        });
+        h.push('</tr>');
+        th.innerHTML = h.join('');
+    }
+    function renderTbody() {
+        var tb = document.getElementById('asg-tbody');
+        if (!tb) {
+            return;
+        }
+        var semanas = state.semanas;
+        var subcols = state.subcols;
+        var dos = state.tableroDos;
+        var filas = sliceFilas();
+        if (filas.length === 0) {
+            var empty = ['<tr><td class="small text-start comp-num-empty asg-td-id-col">—</td>'];
+            semanas.forEach(function (sem) {
+                subcols.forEach(function (sub) {
+                    var hl = parseInt(sem.hist_level, 10) || 0;
+                    var histBg = (hl >= 1 && hl <= 3) ? (' asg-hist-bg-' + hl) : '';
+                    var colKind = sub.key === 'ext' ? 'asg-col-ext' : (sub.key === 'nom' ? 'asg-col-nom' : 'asg-sep-week-end');
+                    var cb = cellBase(sem.th_class) + histBg + ' ' + colKind;
+                    empty.push('<td class="small comp-num-empty ' + esc(sub.align || '') + ' ' + esc(cb) + '">—</td>');
+                });
+            });
+            if (!dos) {
+                empty.push('<td class="small text-center align-middle comp-num-empty asg-cambio-cell">—</td>');
+            }
+            empty.push('</tr>');
+            tb.innerHTML = empty.join('');
+            return;
+        }
+        var rows = [];
+        filas.forEach(function (fila) {
+            var meta = (fila.meta && typeof fila.meta === 'object') ? fila.meta : {};
+            var hayCambioProxima = !!meta.hay_cambio_proxima;
+            var motivoCambio = String(meta.motivo_cambio || '').trim();
+            if (!motivoCambio) {
+                motivoCambio = hayCambioProxima ? 'Cambio proyectado en próxima semana' : 'Sin cambios';
+            }
+            var esCambioInformativo = hayCambioProxima || motivoCambio.toLowerCase() !== 'sin cambios';
+            rows.push('<tr>');
+            rows.push('<td class="small text-start asg-td-id-col">' + esc(fila.id_credito != null ? fila.id_credito : '—') + '</td>');
+            semanas.forEach(function (sem, si) {
+                var cellSem = (fila.cells && fila.cells[si]) ? fila.cells[si] : {};
+                subcols.forEach(function (sub) {
+                    var hl = parseInt(sem.hist_level, 10) || 0;
+                    var histBg = (hl >= 1 && hl <= 3) ? (' asg-hist-bg-' + hl) : '';
+                    var colKind = sub.key === 'ext' ? 'asg-col-ext' : (sub.key === 'nom' ? 'asg-col-nom' : 'asg-sep-week-end');
+                    var cb = cellBase(sem.th_class) + histBg + ' ' + colKind;
+                    var value = '—';
+                    if (sub.key === 'ext') {
+                        value = String(cellSem.ext || '').trim() || '—';
+                    } else if (sub.key === 'nom') {
+                        value = String(cellSem.nom || '').trim() || '—';
+                    } else if (sub.key === 'pue') {
+                        value = String(cellSem.pue || '').trim() || '—';
+                    }
+                    rows.push('<td class="small ' + esc(sub.align || '') + ' ' + esc(cb) + '">' + esc(value) + '</td>');
+                });
+            });
+            if (!dos) {
+                rows.push('<td class="small text-center align-middle text-wrap asg-cambio-cell">');
+                if (esCambioInformativo) {
+                    rows.push('<span class="d-inline-flex align-items-center justify-content-center gap-1 text-wrap" title="' + esc(motivoCambio) + '">');
+                    rows.push('<i class="fa-solid fa-arrows-rotate text-primary flex-shrink-0" aria-hidden="true"></i>');
+                    rows.push(esc(motivoCambio));
+                    rows.push('</span>');
+                } else {
+                    rows.push('<span class="text-secondary text-wrap d-inline-flex align-items-center justify-content-center gap-1">');
+                    rows.push('<i class="fa-regular fa-circle-check flex-shrink-0" aria-hidden="true"></i>');
+                    rows.push(esc(motivoCambio));
+                    rows.push('</span>');
+                }
+                rows.push('</td>');
+            }
+            rows.push('</tr>');
+        });
+        tb.innerHTML = rows.join('');
+    }
+    function renderPagNav() {
+        var nav = document.getElementById('asg-pag-nav');
+        if (!nav) {
+            return;
+        }
+        var tp = totalPaginas();
+        var p = state.pagina;
+        var primera = p <= 1;
+        var ultima = p >= tp;
+        var items = armarItemsPaginacion(p, tp);
+        var parts = [];
+        function btn(label, disabled, pageNum, cls, aria) {
+            var c = 'asg-pag-btn' + (cls ? ' ' + cls : '');
+            if (disabled) {
+                c += ' is-disabled';
+            }
+            if (disabled) {
+                parts.push('<button type="button" class="' + c + '" disabled aria-disabled="true" tabindex="-1">' + label + '</button>');
+            } else {
+                parts.push('<button type="button" class="' + c + '" data-asg-page="' + pageNum + '"' + (aria ? ' aria-label="' + esc(aria) + '"' : '') + '>' + label + '</button>');
+            }
+        }
+        btn('«', primera, 1, 'asg-pag-btn--icon', 'Primera página');
+        btn('‹', primera, p - 1, 'asg-pag-btn--icon', 'Página anterior');
+        items.forEach(function (it) {
+            if (it.type === 'gap') {
+                parts.push('<span class="asg-pag-btn asg-pag-btn--ellipsis" aria-hidden="true">…</span>');
+            } else {
+                var n = it.num;
+                var act = n === p;
+                var cl = 'asg-pag-btn asg-pag-btn--num' + (act ? ' is-active' : '');
+                if (act) {
+                    parts.push('<button type="button" class="' + cl + '" aria-current="page" disabled>' + n + '</button>');
+                } else {
+                    parts.push('<button type="button" class="' + cl + '" data-asg-page="' + n + '">' + n + '</button>');
+                }
+            }
+        });
+        btn('›', ultima, p + 1, 'asg-pag-btn--icon', 'Página siguiente');
+        btn('»', ultima, tp, 'asg-pag-btn--icon', 'Última página');
+        nav.innerHTML = parts.join('');
+        nav.querySelectorAll('button[data-asg-page]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var pg = parseInt(b.getAttribute('data-asg-page'), 10);
+                if (!isNaN(pg)) {
+                    state.pagina = pg;
+                    renderTbody();
+                    renderPagNav();
+                }
+            });
+        });
+    }
+    function renderAll() {
+        buildColgroup();
+        renderThead();
+        renderTbody();
+        renderPagNav();
+    }
+    function showError(msg) {
+        var el = document.getElementById('asg-error');
+        var ld = document.getElementById('asg-loading');
+        if (ld) {
+            ld.classList.add('d-none');
+        }
+        if (el) {
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+    }
+    function showTable() {
+        var ld = document.getElementById('asg-loading');
+        var er = document.getElementById('asg-error');
+        var sc = document.getElementById('asg-table-scroll');
+        if (ld) {
+            ld.classList.add('d-none');
+        }
+        if (er) {
+            er.classList.add('d-none');
+        }
+        if (sc) {
+            sc.classList.remove('d-none');
+        }
+    }
+    /* Proyección: sin dos_ventanas (3 semanas). Dos ventanas: &dos_ventanas=1 */
+    var urlJson = '/reporteria/getAsignacionTableroJson?mostrar=todas' + (cfg.dosVentanas ? '&dos_ventanas=1' : '');
+    fetch(urlJson, { credentials: 'same-origin' })
+        .then(function (r) {
+            if (!r.ok) {
+                throw new Error('HTTP ' + r.status);
+            }
+            return r.json();
+        })
+        .then(function (data) {
+            if (data && data.detail && !data.semanas) {
+                throw new Error(String(data.detail));
+            }
+            state.semanas = Array.isArray(data.semanas) ? data.semanas : [];
+            state.subcols = Array.isArray(data.subcols) ? data.subcols : [];
+            state.filas = Array.isArray(data.filas) ? data.filas : [];
+            state.pagina = 1;
+            showTable();
+            renderAll();
+        })
+        .catch(function (e) {
+            showError('No se pudo cargar el portafolio. ' + (e && e.message ? e.message : ''));
+        });
+    var sel = document.getElementById('asg-mostrar');
+    if (sel) {
+        sel.addEventListener('change', function () {
+            var v = sel.value;
+            state.limite = v === 'todas' ? 'todas' : parseInt(v, 10);
+            state.pagina = 1;
+            renderTbody();
+            renderPagNav();
+        });
+    }
+})();
+</script>
+
 
 <style>
 /* Reutiliza tokens visuales del tablero Comparativas (comp-av-*) + Asignación 3×3 (sin columna Corte) */
@@ -380,6 +526,8 @@ $asgPaginasItems = asg_armar_items_paginacion($asgPaginaActual, $asgTotalPaginas
     gap: 0.35rem;
 }
 .asg-pag-btn {
+    cursor: pointer;
+    font-family: inherit;
     display: inline-flex;
     align-items: center;
     justify-content: center;

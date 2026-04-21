@@ -12,7 +12,7 @@ class GeocodingService
 {
     private const CACHE_TTL = 604800; // 7 días
     private const CACHE_PREFIX = 'geocode_megareporte_';
-    private const GEOCODE_TIMEOUT = 5;
+    private const GEOCODE_TIMEOUT = 2;
 
     /** @var string */
     private $cacheDir;
