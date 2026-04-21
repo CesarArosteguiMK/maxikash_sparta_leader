@@ -527,14 +527,27 @@ class Reporteria extends Controller
         try {
             $mostrar = isset($_GET['mostrar']) ? (string) $_GET['mostrar'] : '';
             $limite = \Models\AsignacionTablero::parseLimiteMostrar($mostrar !== '' ? $mostrar : null, '10');
+            $paginaRaw = isset($_GET['pagina']) ? (int) $_GET['pagina'] : 1;
             $payload = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
             $filas = is_array($payload['filas'] ?? null) ? $payload['filas'] : [];
             $total = count($filas);
-            $payload['filas'] = \Models\AsignacionTablero::aplicarLimiteFilas($filas, $limite);
+            if ($limite === null) {
+                $paginaTam = $total > 0 ? $total : 1;
+                $totalPaginas = 1;
+                $pagina = 1;
+            } else {
+                $paginaTam = (int) $limite;
+                $totalPaginas = $paginaTam > 0 ? max(1, (int) ceil($total / $paginaTam)) : 1;
+                $pagina = min(max(1, $paginaRaw), $totalPaginas);
+            }
+            $offset = ($pagina - 1) * $paginaTam;
+            $payload['filas'] = $limite === null ? $filas : array_slice($filas, $offset, $paginaTam);
             $payload['paginacion'] = [
                 'mostrar' => \Models\AsignacionTablero::limiteMostrarAQuery($limite),
                 'total_filas' => $total,
                 'mostradas' => count($payload['filas']),
+                'pagina' => $pagina,
+                'total_paginas' => $totalPaginas,
             ];
             self::respuestaJSON($payload);
         } catch (\Throwable $e) {

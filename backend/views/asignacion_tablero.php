@@ -11,7 +11,19 @@ $tabAsg = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
 $asgSemanas = is_array($tabAsg['semanas'] ?? null) ? $tabAsg['semanas'] : [];
 $asgSubcols = is_array($tabAsg['subcols'] ?? null) ? $tabAsg['subcols'] : [];
 $asgFilasCompletas = is_array($tabAsg['filas'] ?? null) ? $tabAsg['filas'] : [];
-$asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $asgLimite);
+$asgTotalFilas = count($asgFilasCompletas);
+$asgPaginaRaw = isset($_GET['pagina']) ? (int) $_GET['pagina'] : 1;
+$asgPaginaTam = $asgLimite === null ? ($asgTotalFilas > 0 ? $asgTotalFilas : 1) : (int) $asgLimite;
+$asgTotalPaginas = $asgPaginaTam > 0 ? max(1, (int) ceil($asgTotalFilas / $asgPaginaTam)) : 1;
+$asgPaginaActual = min(max(1, $asgPaginaRaw), $asgTotalPaginas);
+$asgOffset = ($asgPaginaActual - 1) * $asgPaginaTam;
+$asgFilas = $asgLimite === null ? $asgFilasCompletas : array_slice($asgFilasCompletas, $asgOffset, $asgPaginaTam);
+$asgDesde = $asgTotalFilas > 0 ? ($asgOffset + 1) : 0;
+$asgHasta = $asgTotalFilas > 0 ? min($asgOffset + count($asgFilas), $asgTotalFilas) : 0;
+$asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
+    $pagina = max(1, $pagina);
+    return '/reporteria/asignacionTablero?mostrar=' . rawurlencode($asgMostrarQuery) . '&pagina=' . $pagina;
+};
 ?>
 <div class="comp-av container-fluid py-3 px-2 px-md-3">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 comp-av-page-header">
@@ -45,6 +57,7 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
                                 <?php for ($asgCi = 0, $asgNcols = count($asgSemanas) * count($asgSubcols); $asgCi < $asgNcols; $asgCi++): ?>
                                 <col class="asg-col-equal">
                                 <?php endfor; ?>
+                                <col class="asg-col-cambio">
                             </colgroup>
                             <thead class="comp-av-thead">
                                 <tr class="asg-thead-chips">
@@ -69,6 +82,7 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
                                         <?php endif; ?>
                                     </th>
                                     <?php endforeach; ?>
+                                    <th rowspan="3" scope="col" class="text-center align-middle small asg-th-cambio-col">Cambio proyectado</th>
                                 </tr>
                                 <tr class="asg-thead-semana">
                                     <?php foreach ($asgSemanas as $sem): ?>
@@ -112,9 +126,19 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
                                     <td class="small comp-num-empty <?= htmlspecialchars($sub['align'], ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars($cellBase . $histBg . ' ' . $colKind, ENT_QUOTES, 'UTF-8'); ?>">—</td>
                                         <?php endforeach; ?>
                                     <?php endforeach; ?>
+                                    <td class="small text-start comp-num-empty asg-cambio-cell">—</td>
                                 </tr>
                                 <?php else: ?>
                                     <?php foreach ($asgFilas as $fila): ?>
+                                        <?php
+                                        $metaFila = is_array($fila['meta'] ?? null) ? $fila['meta'] : [];
+                                        $hayCambioProxima = !empty($metaFila['hay_cambio_proxima']);
+                                        $motivoCambio = trim((string) ($metaFila['motivo_cambio'] ?? ''));
+                                        if ($motivoCambio === '') {
+                                            $motivoCambio = $hayCambioProxima ? 'Cambio proyectado en próxima semana' : 'Sin cambios';
+                                        }
+                                        $esCambioInformativo = $hayCambioProxima || strcasecmp($motivoCambio, 'Sin cambios') !== 0;
+                                        ?>
                                 <tr>
                                     <td class="small text-start asg-td-id-col"><?= htmlspecialchars((string) ($fila['id_credito'] ?? '—'), ENT_QUOTES, 'UTF-8'); ?></td>
                                         <?php foreach ($asgSemanas as $si => $sem): ?>
@@ -139,6 +163,17 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
                                     <td class="small <?= htmlspecialchars($sub['align'], ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars($cellBase . $histBg . ' ' . $colKind, ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?></td>
                                             <?php endforeach; ?>
                                         <?php endforeach; ?>
+                                    <td class="small text-start asg-cambio-cell">
+                                        <?php if ($esCambioInformativo): ?>
+                                            <span class="badge text-bg-warning-subtle border border-warning-subtle text-warning-emphasis asg-badge-cambio">
+                                                <i class="fa-solid fa-rotate me-1" aria-hidden="true"></i><?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-secondary-emphasis">
+                                                <i class="fa-regular fa-circle-check me-1" aria-hidden="true"></i><?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -150,7 +185,7 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
         </div>
 
         <div class="card-body border-top py-2 py-md-3 bg-body asg-footer-actions">
-            <div class="d-flex flex-column align-items-start gap-2">
+            <div class="d-flex flex-column align-items-start gap-2 w-100">
                 <a id="asg-btn-descargar-excel" href="/reporteria/descargarAsignacionTableroExcel" class="btn btn-outline-success btn-sm" title="Descarga el portafolio completo en Excel (puede tardar unos segundos).">
                     <i class="fa-solid fa-file-excel me-1" aria-hidden="true"></i>Descargar Excel (.xlsx)
                 </a>
@@ -163,6 +198,18 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
                         <option value="todas"<?= $asgMostrarQuery === 'todas' ? ' selected' : ''; ?>>Todas</option>
                     </select>
                 </form>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 w-100 pt-1">
+                    <small class="text-secondary">
+                        Mostrando <?= (int) $asgDesde; ?>-<?= (int) $asgHasta; ?> de <?= (int) $asgTotalFilas; ?> · Página <?= (int) $asgPaginaActual; ?> / <?= (int) $asgTotalPaginas; ?>
+                    </small>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Paginación del tablero de asignación">
+                        <a class="btn btn-outline-secondary<?= $asgPaginaActual <= 1 ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual <= 1 ? '#' : htmlspecialchars($asgUrlPagina(1), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual <= 1 ? 'true' : 'false'; ?>">«</a>
+                        <a class="btn btn-outline-secondary<?= $asgPaginaActual <= 1 ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual <= 1 ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual - 1), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual <= 1 ? 'true' : 'false'; ?>">‹</a>
+                        <span class="btn btn-outline-primary disabled"><?= (int) $asgPaginaActual; ?> / <?= (int) $asgTotalPaginas; ?></span>
+                        <a class="btn btn-outline-secondary<?= $asgPaginaActual >= $asgTotalPaginas ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual >= $asgTotalPaginas ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual + 1), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual >= $asgTotalPaginas ? 'true' : 'false'; ?>">›</a>
+                        <a class="btn btn-outline-secondary<?= $asgPaginaActual >= $asgTotalPaginas ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual >= $asgTotalPaginas ? '#' : htmlspecialchars($asgUrlPagina($asgTotalPaginas), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual >= $asgTotalPaginas ? 'true' : 'false'; ?>">»</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -208,10 +255,13 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
     width: 100%;
 }
 .comp-av-table--asg > colgroup > col.asg-col-id {
-    width: 7.5%;
+    width: 7%;
 }
 .comp-av-table--asg > colgroup > col.asg-col-equal {
-    width: 10.27777778%;
+    width: 8.555%;
+}
+.comp-av-table--asg > colgroup > col.asg-col-cambio {
+    width: 16%;
 }
 .comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-id-col,
 .comp-av-table--asg > tbody > tr > td.asg-td-id-col {
@@ -231,6 +281,20 @@ $asgFilas = \Models\AsignacionTablero::aplicarLimiteFilas($asgFilasCompletas, $a
     letter-spacing: 0.02em;
     color: var(--bs-primary);
     border-right: 1px solid var(--bs-gray-300) !important;
+}
+.comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-cambio-col {
+    font-weight: 700;
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--bs-warning-text-emphasis);
+    min-width: 12rem;
+}
+.comp-av-table--asg .asg-cambio-cell {
+    min-width: 12rem;
+}
+.comp-av-table--asg .asg-badge-cambio {
+    white-space: normal;
+    text-align: left;
 }
 .comp-av-table.table-bordered > :not(caption) > * > * {
     border-style: solid !important;

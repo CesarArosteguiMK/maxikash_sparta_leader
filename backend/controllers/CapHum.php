@@ -546,7 +546,8 @@ class CapHum extends Controller
                         select.disabled = false;
                         select.innerHTML = '<option value="">Seleccione un puesto</option>';
 
-                        data.datos.forEach(puesto => {
+                        const listaPuestos = Array.isArray(data.datos) ? data.datos : [];
+                        listaPuestos.forEach(puesto => {
                             const option = document.createElement('option');
                             option.value = puesto.id;
                             option.textContent = puesto.nombre;
@@ -598,31 +599,46 @@ class CapHum extends Controller
                     });
                 }
 
-            document.getElementById('edit_departamento_id').addEventListener('change', function () {
-                const idDepartamento = this.value;
+            function handleEditDepartamentoChange() {
+                const depEl = document.getElementById('edit_departamento_id');
+                const idDepartamento = depEl ? depEl.value : '';
                 const puesto = document.getElementById('edit_id_puesto');
                 const jefe = document.getElementById('edit_id_jefe');
+                if (!puesto || !jefe) return;
 
                 puesto.innerHTML = '<option value="">Seleccione un puesto</option>';
                 puesto.disabled = true;
 
                 jefe.innerHTML = '<option value="">Seleccione un jefe</option>';
                 jefe.disabled = true;
+                if (typeof window.refreshSelectBuscador === 'function') {
+                    window.refreshSelectBuscador('edit_id_puesto');
+                    window.refreshSelectBuscador('edit_id_jefe');
+                }
 
                 if (!idDepartamento) return;
 
                 cargarPuestosCombo(idDepartamento);
                 cargarComboJefeDirecto(idDepartamento, null, null);
-            });
+            }
+            function onEditDepartamentoChangeCompleto() {
+                handleEditDepartamentoChange();
+                if (typeof sincronizarPrincipalConListaPuestos === 'function') {
+                    sincronizarPrincipalConListaPuestos();
+                }
+            }
+            if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+                window.jQuery('#edit_departamento_id').off('change.gestionEditDepto').on('change.gestionEditDepto', onEditDepartamentoChangeCompleto);
+            } else {
+                const depEdit = document.getElementById('edit_departamento_id');
+                if (depEdit) depEdit.addEventListener('change', onEditDepartamentoChangeCompleto);
+            }
 
             document.getElementById('edit_id_puesto').addEventListener('change', function () {
                 const idPuesto = this.value;
                 const idDepartamento = document.getElementById('edit_departamento_id').value;
                 if (!idDepartamento) return;
                 cargarComboJefeDirecto(idDepartamento, null, idPuesto || null);
-                if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
-            });
-            document.getElementById('edit_departamento_id').addEventListener('change', function () {
                 if (typeof sincronizarPrincipalConListaPuestos === 'function') sincronizarPrincipalConListaPuestos();
             });
 
@@ -2897,11 +2913,12 @@ class CapHum extends Controller
             }
 
 
-            document.getElementById('add_departamento_id').addEventListener('change', function () {
-
-                const idDepartamento = this.value;
+            function handleAddDepartamentoChange() {
+                const depEl = document.getElementById('add_departamento_id');
+                const idDepartamento = depEl ? depEl.value : '';
                 const selectPuesto = document.getElementById('add_id_puesto');
                 const selectJefe   = document.getElementById('add_id_jefe');
+                if (!selectPuesto || !selectJefe) return;
                 // Reset
                 selectPuesto.innerHTML = '<option value="">Seleccione un puesto</option>';
                 selectPuesto.disabled = true;
@@ -2925,7 +2942,8 @@ class CapHum extends Controller
                         Swal.fire("Error", data.mensaje, "error");
                         return;
                     }
-                    data.datos.forEach(puesto => {
+                    const lista = Array.isArray(data.datos) ? data.datos : [];
+                    lista.forEach(puesto => {
                         const option = document.createElement('option');
                         option.value = puesto.id;
                         option.textContent = puesto.nombre;
@@ -2941,7 +2959,13 @@ class CapHum extends Controller
                 .catch(() => {
                     Swal.fire("Error", "No se pudieron cargar los puestos", "error");
                 });
-            });
+            }
+            if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+                window.jQuery('#add_departamento_id').off('change.gestionAddDepto').on('change.gestionAddDepto', handleAddDepartamentoChange);
+            } else {
+                const depAdd = document.getElementById('add_departamento_id');
+                if (depAdd) depAdd.addEventListener('change', handleAddDepartamentoChange);
+            }
 
             function cargarJefeComboAdd(idDepartamento, idPuesto, selectJefe) {
                 if (!selectJefe) selectJefe = document.getElementById('add_id_jefe');
@@ -10110,6 +10134,23 @@ public function getMunicipios()
         }
 
         $resultado = CapHumDAO::getConsultaPuestosParaGestor($id, $idPersona);
+        $datosFiltrados = $resultado['datos'] ?? null;
+        $listaVacia = !is_array($datosFiltrados) || count($datosFiltrados) === 0;
+        if (!empty($resultado['success']) && $listaVacia) {
+            // Solo si el departamento está entre los que el usuario puede usar en Gestión
+            // (misma fuente que el combo), devolver todos los puestos del departamento.
+            $depPerm = CapHumDAO::getConsultaDepartamentoGestor($idPersona);
+            $idsPerm = [];
+            foreach ((array) ($depPerm['datos'] ?? []) as $row) {
+                $did = isset($row['id']) ? (int) $row['id'] : 0;
+                if ($did > 0) {
+                    $idsPerm[$did] = true;
+                }
+            }
+            if (isset($idsPerm[(int) $id])) {
+                $resultado = CapHumDAO::getConsultaPuestos($id);
+            }
+        }
         self::respuestaJSON($resultado);
     }
     public function getRazonesAusencia()
