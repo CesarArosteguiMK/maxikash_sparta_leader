@@ -376,6 +376,22 @@ class Reporteria extends Controller
                                      ($u['apellidop'] ?? '') . ' ' .
                                      ($u['apellidom'] ?? ''));
 
+                // Estado actual y motivo de ausencia vigente
+                $razon        = $u['ausencia_razon'] ?? null;
+                $fechaInicio  = $u['ausencia_fecha_inicio'] ?? null;
+                $fechaFin     = $u['ausencia_fecha_fin'] ?? null;
+
+                if ($razon !== null) {
+                    $esVacaciones   = (stripos($razon, 'vacacion') !== false);
+                    $estadoActual   = $esVacaciones ? 'Vacaciones' : 'Ausencia';
+                    $fmtInicio      = $fechaInicio ? date('d-m-Y', strtotime($fechaInicio)) : '';
+                    $fmtFin         = $fechaFin    ? date('d-m-Y', strtotime($fechaFin))    : '';
+                    $motivo         = $razon . ' (del ' . $fmtInicio . ' al ' . $fmtFin . ')';
+                } else {
+                    $estadoActual = '';
+                    $motivo       = '';
+                }
+
                 $data[] = [
                     'numero_empleado' => $u['numero_empleado'] ?? '',
                     'nombre_completo' => $nombreCompleto,
@@ -384,7 +400,9 @@ class Reporteria extends Controller
                     'puesto' => $u['nombre_puesto'] ?? 'N/A',
                     'estatus' => $u['estatus'] ?? 'N/A',
                     'usuario' => $u['usuario'] ?? 'N/A',
-                    'jefe' => $u['nombre_jefe'] ?? 'N/A'
+                    'jefe' => $u['nombre_jefe'] ?? 'N/A',
+                    'estado_actual' => $estadoActual,
+                    'motivo' => $motivo
                 ];
             }
 
@@ -397,7 +415,9 @@ class Reporteria extends Controller
                 \PHPSpreadsheet::ColumnaExcel('puesto', 'PUESTO'),
                 \PHPSpreadsheet::ColumnaExcel('estatus', 'ESTATUS'),
                 \PHPSpreadsheet::ColumnaExcel('usuario', 'USUARIO'),
-                \PHPSpreadsheet::ColumnaExcel('jefe', 'JEFE INMEDIATO')
+                \PHPSpreadsheet::ColumnaExcel('jefe', 'JEFE INMEDIATO'),
+                \PHPSpreadsheet::ColumnaExcel('estado_actual', 'ESTADO ACTUAL'),
+                \PHPSpreadsheet::ColumnaExcel('motivo', 'MOTIVOS')
             ];
 
             // Nombre del archivo
