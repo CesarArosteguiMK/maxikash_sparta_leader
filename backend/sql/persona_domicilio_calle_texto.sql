@@ -1,0 +1,7 @@
+-- Si en tu BD renombraste id_div_nivel4 → domicilio_calle_texto (una sola columna texto),
+-- no ejecutes este ADD: el código ya guarda solo en domicilio_calle_texto.
+--
+-- Si aún tienes id_div_nivel4 numérico y quieres columna aparte para texto libre:
+-- ALTER TABLE __SPARTA_SECRET_REDACTED__.persona
+--     ADD COLUMN domicilio_calle_texto VARCHAR(200) NULL DEFAULT NULL
+--     AFTER id_div_nivel4;

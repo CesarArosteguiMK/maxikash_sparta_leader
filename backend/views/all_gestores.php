@@ -562,6 +562,7 @@
     #add_segundo_nombre,
     #add_apellidop,
     #add_apellidom,
+    #add_curp,
     #add_contrasena {
         font-size: 1rem;
         font-weight: 400;
@@ -2625,6 +2626,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                 </div>
 
                 <div class="mb-2">
+                    <label class="form-label">CURP (opcional)</label>
+                    <input type="text" id="add_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ0-9]/g, '')" onblur="this.value = this.value.trim()">
+                </div>
+
+                <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
                     <input type="text" id="add_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('add_telefono')" maxlength="10">
                 </div>
@@ -2673,7 +2679,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 </div>
 <div class="row mb-2" id="div_add_num_extint" style="display:none;">
     <div class="col-md-6">
-        <label class="form-label">No. exterior (opcional)</label>
+        <label class="form-label">No. exterior *</label>
         <input type="text" id="add_domicilio_num_exterior" class="form-control" maxlength="32">
     </div>
     <div class="col-md-6">
@@ -3203,6 +3209,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                 </div>
 
                 <div class="mb-2">
+                    <label class="form-label">CURP (opcional)</label>
+                    <input type="text" id="edit_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ0-9]/g, '')" onblur="this.value = this.value.trim()">
+                </div>
+
+                <div class="mb-2">
                     <label class="form-label">Teléfono *</label>
                     <input type="text" id="edit_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('edit_telefono')" maxlength="10">
                 </div>
@@ -3239,7 +3250,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 </div>
 <div class="row mb-2" id="div_edit_num_extint" style="display:none;">
     <div class="col-md-6">
-        <label class="form-label">No. exterior (opcional)</label>
+        <label class="form-label">No. exterior *</label>
         <input type="text" id="edit_domicilio_num_exterior" class="form-control" maxlength="32">
     </div>
     <div class="col-md-6">
@@ -7352,17 +7363,28 @@ function precargarCascadaEdit(idPais, idEstado, idMunicipio, idColonia, idCalle,
                 document.getElementById('div_edit_cp').style.display = '';
                 cargarCalles(idColSel, 'edit', function (tieneCalles) {
                     document.getElementById('div_edit_calle').style.display = tieneCalles ? '' : 'none';
-                    document.getElementById('edit_id_div_nivel4').disabled = !tieneCalles;
-                    if (tieneCalles && idCalle) {
-                        document.getElementById('edit_id_div_nivel4').value = idCalle;
-                        const sel = document.getElementById('edit_id_div_nivel4');
-                        const opt = sel ? sel.options[sel.selectedIndex] : null;
-                        if (opt && opt.value) {
-                            calleTexto = (opt.textContent || '').trim();
+                    const selCalle = document.getElementById('edit_id_div_nivel4');
+                    if (selCalle) selCalle.disabled = !tieneCalles;
+                    var textoFinal = calleTexto;
+                    if (tieneCalles && selCalle) {
+                        if (idCalle) {
+                            selCalle.value = idCalle;
+                            const opt = selCalle.options[selCalle.selectedIndex];
+                            if (opt && opt.value) {
+                                textoFinal = (opt.textContent || '').trim();
+                            }
+                        } else if (calleTexto) {
+                            for (var ci = 0; ci < selCalle.options.length; ci++) {
+                                var tn = (selCalle.options[ci].textContent || '').trim();
+                                if (tn === calleTexto || tn.toUpperCase() === calleTexto.toUpperCase()) {
+                                    selCalle.selectedIndex = ci;
+                                    break;
+                                }
+                            }
                         }
                     }
                     document.getElementById('div_edit_calle_texto').style.display = '';
-                    document.getElementById('edit_domicilio_calle_texto').value = calleTexto;
+                    document.getElementById('edit_domicilio_calle_texto').value = textoFinal || calleTexto;
                     document.getElementById('div_edit_num_extint').style.display = '';
                     document.getElementById('edit_domicilio_num_exterior').value = numExt;
                     document.getElementById('edit_domicilio_num_interior').value = numInt;
