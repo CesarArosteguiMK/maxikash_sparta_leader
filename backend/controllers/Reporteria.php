@@ -443,14 +443,53 @@ class Reporteria extends Controller
     $hora = date('His');
     $nombreArchivo .= "_{$fecha}_{$hora}";
 
-            // Descargar Excel
-            \PHPSpreadsheet::DescargaExcel(
-                $nombreArchivo,
+            // Generar workbook y aplicar colores de fila según estado actual
+            $libro = \PHPSpreadsheet::GeneraExcel(
                 "Reporte_Capital_Humano",
                 "Usuarios",
                 $columnas,
                 $data
             );
+
+            // Colorear filas: Ausencia = amarillo claro, Vacaciones = azul claro
+            // Se aplica celda por celda (igual que GeneraExcel internamente) para garantizar
+            // que el color de fondo quede pintado y no sea sobreescrito por estilos previos.
+            $hoja        = $libro->getActiveSheet();
+            $filaInicial = 3; // fila 1 = título, fila 2 = encabezados
+            $totalCols   = count($columnas);
+
+            foreach ($data as $idx => $fila) {
+                $estadoActual = $fila['estado_actual'] ?? '';
+                if ($estadoActual === 'Ausencia') {
+                    $rgb = 'FFFDE7'; // amarillo muy claro
+                } elseif ($estadoActual === 'Vacaciones') {
+                    $rgb = 'E3F2FD'; // azul muy claro
+                } else {
+                    continue;
+                }
+                $noFila    = $filaInicial + $idx;
+                $fillStyle = [
+                    'fill' => [
+                        'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => $rgb],
+                    ],
+                ];
+                for ($colIdx = 1; $colIdx <= $totalCols; $colIdx++) {
+                    $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIdx) . $noFila;
+                    $hoja->getStyle($cellRef)->applyFromArray($fillStyle);
+                }
+            }
+
+            // Descargar Excel
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment;filename="' . $nombreArchivo . '.xlsx"');
+            header('Cache-Control: max-age=0');
+            header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+            header('Pragma: public');
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro);
+            $writer->save('php://output');
 
             exit;
 
