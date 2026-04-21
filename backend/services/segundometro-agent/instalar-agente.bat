@@ -18,10 +18,22 @@ echo   - Cambie package.json o agregue dependencias
 echo ============================================
 echo.
 
-set "NODE_EXE="
-if exist "C:\Program Files\nodejs\node.exe" set "NODE_EXE=C:\Program Files\nodejs\node.exe"
+set "NODE_EXE=%NODE_EXE%"
+if defined NODE_EXE if not exist "%NODE_EXE%" (
+    echo [WARN] NODE_EXE apunta a una ruta invalida: %NODE_EXE%
+    set "NODE_EXE="
+)
+if not defined NODE_EXE if exist "C:\Program Files\nodejs\node.exe" set "NODE_EXE=C:\Program Files\nodejs\node.exe"
 if not defined NODE_EXE if exist "C:\Program Files (x86)\nodejs\node.exe" set "NODE_EXE=C:\Program Files (x86)\nodejs\node.exe"
 if not defined NODE_EXE if exist "%LocalAppData%\Programs\node\node.exe" set "NODE_EXE=%LocalAppData%\Programs\node\node.exe"
+if not defined NODE_EXE if exist "C:\nodejs\node.exe" set "NODE_EXE=C:\nodejs\node.exe"
+if not defined NODE_EXE (
+    for /f "delims=" %%I in ('where node.exe 2^>nul') do (
+        set "NODE_EXE=%%I"
+        goto :node_found
+    )
+)
+:node_found
 
 if not defined NODE_EXE (
     echo [ERROR] No se encontro node.exe
@@ -33,8 +45,29 @@ if not defined NODE_EXE (
 
 set "NPM_CMD=%NODE_EXE:\node.exe=\npm.cmd%"
 if not exist "%NPM_CMD%" set "NPM_CMD=%NODE_EXE:\node.exe=\npm.exe%"
+if not exist "%NPM_CMD%" (
+    for /f "delims=" %%I in ('where npm.cmd 2^>nul') do (
+        set "NPM_CMD=%%I"
+        goto :npm_found
+    )
+)
+if not exist "%NPM_CMD%" (
+    for /f "delims=" %%I in ('where npm.exe 2^>nul') do (
+        set "NPM_CMD=%%I"
+        goto :npm_found
+    )
+)
+:npm_found
+if not exist "%NPM_CMD%" (
+    echo [ERROR] Se encontro Node, pero no npm. Reinstale Node.js LTS desde https://nodejs.org
+    echo.
+    pause
+    exit /b 1
+)
 
 echo [OK] Node: %NODE_EXE%
+for %%D in ("%NODE_EXE%") do set "NODE_DIR=%%~dpD"
+if defined NODE_DIR set "PATH=%NODE_DIR%;%PATH%"
 echo.
 
 if not exist "%AGENT_DIR%\package.json" (

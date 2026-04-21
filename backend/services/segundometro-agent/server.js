@@ -399,6 +399,22 @@ function nombreDestinoPlusOneSeg(nombreArchivo) {
   return 'mega_rpt_' + fecha + '_' + pad2(hi) + '_' + pad2(mini) + '_' + pad2(seg) + '.csv.zip';
 }
 
+/**
+ * Verifica si un ZIP existe en el directorio remoto.
+ * Evita sobreescribir el mismo +1s y re-disparar procesos aguas abajo.
+ */
+async function remoteZipExists(nombreArchivo) {
+  const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
+  const fileEsc = String(nombreArchivo || '').replace(/'/g, "'\\''");
+  const r = await runCommand(`cd '${dirEsc}' && test -e '${fileEsc}' && echo EXISTS || true`, {
+    timeoutMs: 15000,
+    retries: 0,
+    readyTimeoutMs: 8000,
+  });
+  if (!r.success) return { ok: false, exists: false, error: r.error || 'Error SSH' };
+  return { ok: true, exists: String(r.output || '').includes('EXISTS'), error: '' };
+}
+
 /** Ejecuta Copiar +1s automático: opcionalmente corre monitoreo 8s, lista archivos, copia el más reciente +1s. */
 async function runAutoCopyJob(slot, fechaCdmx) {
   const esPrueba = slot === 'PRUEBA';
@@ -481,6 +497,29 @@ async function runAutoCopyJob(slot, fechaCdmx) {
   }
 
   const fileEsc = (s) => s.replace(/'/g, "'\\''");
+  const existsCheck = await remoteZipExists(nombreDestino);
+  if (!existsCheck.ok) {
+    await closeMonitorAfter(1);
+    const result = { success: false, mensaje: 'No se pudo verificar destino: ' + (existsCheck.error || 'Error SSH'), origen: nombreArchivo, destino: nombreDestino, esPrueba };
+    autoCopyConfig.updateLastRun(slot, fechaCdmx, { ...result, fecha: fechaCdmx, hora: slot });
+    return result;
+  }
+  if (existsCheck.exists) {
+    await closeMonitorAfter(1);
+    const result = {
+      success: true,
+      mensaje: 'Destino ya existía; se evita sobreescribir para no re-disparar proceso.',
+      origen: nombreArchivo,
+      destino: nombreDestino,
+      fecha: fechaCdmx,
+      hora: slot,
+      esPrueba,
+      yaExistiaDestino: true,
+    };
+    autoCopyConfig.updateLastRun(slot, fechaCdmx, result);
+    console.log('[auto-copy]', slot, result.mensaje, result.origen, '->', result.destino);
+    return result;
+  }
   const cmd = `cd '${dirEsc}' && sudo cp '${fileEsc(nombreArchivo)}' '${fileEsc(nombreDestino)}'`;
   const copyResult = await runCommand(cmd);
   if (!copyResult.success) {
@@ -1484,6 +1523,17 @@ app.post('/files/copy', async (req, res) => {
 
     const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
     const fileEsc = (s) => s.replace(/'/g, "'\\''");
+    const existsCheck = await remoteZipExists(nombreDestino);
+    if (!existsCheck.ok) {
+      return res.status(500).json({ success: false, mensaje: 'No se pudo verificar destino: ' + (existsCheck.error || 'Error SSH') });
+    }
+    if (existsCheck.exists) {
+      return res.status(409).json({
+        success: false,
+        mensaje: 'El archivo destino ya existe. Se bloquea sobreescritura para evitar reprocesos/duplicados.',
+        datos: { origen: nombreArchivo, destino: nombreDestino, ya_existia_destino: true },
+      });
+    }
     const cmd = `cd '${dirEsc}' && sudo cp '${fileEsc(nombreArchivo)}' '${fileEsc(nombreDestino)}'`;
     const result = await runCommand(cmd);
     if (!result.success) {
@@ -1806,6 +1856,19 @@ async function runCatchUpCopy(nombreArchivo) {
 
   const dirEsc = REMOTE_DIR.replace(/'/g, "'\\''");
   const fileEsc = (s) => s.replace(/'/g, "'\\''");
+  const existsCheck = await remoteZipExists(nombreDestino);
+  if (!existsCheck.ok) {
+    return { success: false, mensaje: 'No se pudo verificar destino: ' + (existsCheck.error || 'Error SSH'), origen: nombreArchivo, destino: nombreDestino };
+  }
+  if (existsCheck.exists) {
+    return {
+      success: true,
+      mensaje: 'Destino ya existía; se omite sobreescritura para evitar reprocesos.',
+      origen: nombreArchivo,
+      destino: nombreDestino,
+      yaExistiaDestino: true,
+    };
+  }
   const cmd = `cd '${dirEsc}' && sudo cp '${fileEsc(nombreArchivo)}' '${fileEsc(nombreDestino)}'`;
   const result = await runCommand(cmd);
   if (!result.success) {
