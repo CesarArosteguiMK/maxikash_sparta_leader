@@ -6,10 +6,22 @@ set "AGENT_DIR=%~dp0"
 if "%AGENT_DIR:~-1%"=="\" set "AGENT_DIR=%AGENT_DIR:~0,-1%"
 cd /d "%AGENT_DIR%"
 
-set "NODE_EXE="
-if exist "C:\Program Files\nodejs\node.exe" set "NODE_EXE=C:\Program Files\nodejs\node.exe"
+set "NODE_EXE=%NODE_EXE%"
+if defined NODE_EXE if not exist "%NODE_EXE%" (
+    echo [WARN] NODE_EXE apunta a una ruta invalida: %NODE_EXE%
+    set "NODE_EXE="
+)
+if not defined NODE_EXE if exist "C:\Program Files\nodejs\node.exe" set "NODE_EXE=C:\Program Files\nodejs\node.exe"
 if not defined NODE_EXE if exist "C:\Program Files (x86)\nodejs\node.exe" set "NODE_EXE=C:\Program Files (x86)\nodejs\node.exe"
 if not defined NODE_EXE if exist "%LocalAppData%\Programs\node\node.exe" set "NODE_EXE=%LocalAppData%\Programs\node\node.exe"
+if not defined NODE_EXE if exist "C:\nodejs\node.exe" set "NODE_EXE=C:\nodejs\node.exe"
+if not defined NODE_EXE (
+    for /f "delims=" %%I in ('where node.exe 2^>nul') do (
+        set "NODE_EXE=%%I"
+        goto :node_found
+    )
+)
+:node_found
 
 if not defined NODE_EXE (
     echo [ERROR] No se encontro node.exe. Instale Node.js LTS desde https://nodejs.org
