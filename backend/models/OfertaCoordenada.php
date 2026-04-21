@@ -10,6 +10,46 @@ use Core\DatabaseGeo;
  */
 class OfertaCoordenada
 {
+    private const CACHE_TTL = 21600; // 6 horas
+
+    private static function getCachePath(int $idCredito): string
+    {
+        return dirname(__DIR__) . '/storage/cache/oferta_coordenada_' . $idCredito . '.json';
+    }
+
+    private static function readCache(int $idCredito): ?array
+    {
+        $cachePath = self::getCachePath($idCredito);
+        if (!is_file($cachePath)) {
+            return null;
+        }
+        $raw = @file_get_contents($cachePath);
+        if ($raw === false) {
+            return null;
+        }
+        $cache = json_decode($raw, true);
+        if (!is_array($cache) || !isset($cache['expires']) || !array_key_exists('payload', $cache)) {
+            return null;
+        }
+        if ((int) $cache['expires'] < time()) {
+            return null;
+        }
+        return is_array($cache['payload']) ? $cache['payload'] : [];
+    }
+
+    private static function writeCache(int $idCredito, array $payload): void
+    {
+        $cachePath = self::getCachePath($idCredito);
+        $cacheDir = dirname($cachePath);
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0755, true);
+        }
+        @file_put_contents($cachePath, json_encode([
+            'expires' => time() + self::CACHE_TTL,
+            'payload' => $payload,
+        ], JSON_UNESCAPED_UNICODE));
+    }
+
     /**
      * Convierte coordenada en formato DMS (ej. 19°40'23.3"N 99°09'53.3"W) a decimal [lat, lng].
      * @param string $dms
@@ -50,11 +90,16 @@ class OfertaCoordenada
         if ($idCredito < 1) {
             return [];
         }
+        $cached = self::readCache($idCredito);
+        if ($cached !== null) {
+            return $cached;
+        }
         try {
             $db = new DatabaseGeo();
             $sql = "SELECT coordenada_fat, direccion_maps, donde_firma FROM oferta_coordenada WHERE fk_oferta = :id ORDER BY idoferta_coordenada ASC";
             $rows = $db->queryAll($sql, ['id' => $idCredito]);
             if (empty($rows)) {
+                self::writeCache($idCredito, []);
                 return [];
             }
             $out = [];
@@ -70,8 +115,14 @@ class OfertaCoordenada
                     'donde_firma' => trim((string) ($row['donde_firma'] ?? '')),
                 ];
             }
+            self::writeCache($idCredito, $out);
             return $out;
         } catch (\Exception $e) {
+            error_log('[OfertaCoordenada] Error al consultar fk_oferta=' . $idCredito . ': ' . $e->getMessage());
+            $stale = self::readCache($idCredito);
+            if ($stale !== null) {
+                return $stale;
+            }
             return [];
         }
     }

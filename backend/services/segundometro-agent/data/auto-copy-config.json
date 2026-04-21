@@ -13,6 +13,10 @@
     "00:05"
   ],
   "lastRunBySlot": {
+<<<<<<< HEAD
+    "fallback_20:40": "2026-04-20",
+    "fallback_00:05": "2026-04-21"
+=======
     "08:27": "2026-04-14",
     "fallback_09:40": "2026-04-17",
     "fallback_11:40": "2026-04-17",
@@ -32,7 +36,9 @@
     "fecha": "2026-04-14",
     "hora": "08:27",
     "esPrueba": false
+>>>>>>> c1054a9b69ee71f4a5e097dcd118e00663f4e343
   },
+  "lastRunResult": null,
   "pruebaEjecutarEn": null,
   "pruebaNoAntesDe": null
 }

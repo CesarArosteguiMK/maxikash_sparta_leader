@@ -4118,11 +4118,12 @@ class Sabueso extends Controller
     /** Rango en metros para considerar un punto de Maxi App "su casa" (igual que geofence cumplimiento gestor). */
     private const RANGO_CASA_M = 100;
     /** Cache corta para payload de rastreo de ubicaciones. */
-    private const UBICACIONES_CACHE_TTL = 600;
+    private const UBICACIONES_CACHE_TTL = 1800;
 
-    private function getUbicacionesCachePath(int $idCredito): string
+    private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
-        return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . '.json';
+        $sufijo = $modoRapido ? '_lite' : '';
+        return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
     /**
@@ -4135,11 +4136,12 @@ class Sabueso extends Controller
         $datos = json_decode($raw, true) ?: [];
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
         $forceRefresh = !empty($datos['force_refresh']);
+        $modoRapido = !empty($datos['modo_rapido']);
         if ($idCredito < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'direcciones_resumen' => [], 'puntos_mapa' => [], 'puntos_geo' => [], 'domicilio_megareporte' => null, 'indice_casa' => null]);
             return;
         }
-        $cachePath = $this->getUbicacionesCachePath($idCredito);
+        $cachePath = $this->getUbicacionesCachePath($idCredito, $modoRapido);
         if (!$forceRefresh && is_file($cachePath)) {
             $rawCache = @file_get_contents($cachePath);
             $cache = $rawCache !== false ? json_decode($rawCache, true) : null;
@@ -4151,46 +4153,48 @@ class Sabueso extends Controller
         try {
             $resultado = UbicacionDAO::getUbicacionesFiltradasPorIdCredito($idCredito);
             $puntosMapa = $resultado['puntos_mapa'] ?? [];
-            $puntosGeo = OfertaCoordenada::getPorIdCredito($idCredito);
+            $puntosGeo = $modoRapido ? [] : OfertaCoordenada::getPorIdCredito($idCredito);
             $domicilioMegareporte = null;
             $indiceCasa = null;
 
-            $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
-            $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
-                ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
-                : '';
-            if ($domicilioCompleto !== '' && !empty($puntosMapa)) {
-                $geocoding = new GeocodingService();
-                $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
-                if (!empty($coordsMegareporte)) {
-                    $domicilioMegareporte = [
-                        'lat' => (float) $coordsMegareporte['lat'],
-                        'lng' => (float) $coordsMegareporte['lng'],
-                    ];
-                    $domicilio = [
-                        'id' => 'megareporte',
-                        'lat' => (float) $coordsMegareporte['lat'],
-                        'lng' => (float) $coordsMegareporte['lng'],
-                        'label' => $coordsMegareporte['label'] ?? 'Domicilio megareporte',
-                    ];
-                    $ubicacionesUsuario = [];
-                    foreach ($puntosMapa as $i => $p) {
-                        $ubicacionesUsuario[] = [
-                            'id' => 'u' . $i,
-                            'lat' => (float) ($p['latitud'] ?? $p['lat'] ?? 0),
-                            'lng' => (float) ($p['longitud'] ?? $p['lng'] ?? 0),
-                            'label' => ($p['punto_de_interes'] ?? false) ? 'Punto de interés' : 'Menos frecuente',
-                            'visitas_count' => (int) ($p['cantidad_registros'] ?? 0),
+            if (!$modoRapido) {
+                $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+                $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
+                    ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
+                    : '';
+                if ($domicilioCompleto !== '' && !empty($puntosMapa)) {
+                    $geocoding = new GeocodingService();
+                    $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
+                    if (!empty($coordsMegareporte)) {
+                        $domicilioMegareporte = [
+                            'lat' => (float) $coordsMegareporte['lat'],
+                            'lng' => (float) $coordsMegareporte['lng'],
                         ];
-                    }
-                    $spatial = new SpatialAnalyticsService();
-                    $distanciasCasa = $spatial->calcularDistanciasCasa($ubicacionesUsuario, $domicilio);
-                    $minDist = null;
-                    foreach ($distanciasCasa as $idx => $row) {
-                        $d = (float) ($row['distancia_m'] ?? 999999);
-                        if ($d <= self::RANGO_CASA_M && ($minDist === null || $d < $minDist)) {
-                            $minDist = $d;
-                            $indiceCasa = $idx;
+                        $domicilio = [
+                            'id' => 'megareporte',
+                            'lat' => (float) $coordsMegareporte['lat'],
+                            'lng' => (float) $coordsMegareporte['lng'],
+                            'label' => $coordsMegareporte['label'] ?? 'Domicilio megareporte',
+                        ];
+                        $ubicacionesUsuario = [];
+                        foreach ($puntosMapa as $i => $p) {
+                            $ubicacionesUsuario[] = [
+                                'id' => 'u' . $i,
+                                'lat' => (float) ($p['latitud'] ?? $p['lat'] ?? 0),
+                                'lng' => (float) ($p['longitud'] ?? $p['lng'] ?? 0),
+                                'label' => ($p['punto_de_interes'] ?? false) ? 'Punto de interés' : 'Menos frecuente',
+                                'visitas_count' => (int) ($p['cantidad_registros'] ?? 0),
+                            ];
+                        }
+                        $spatial = new SpatialAnalyticsService();
+                        $distanciasCasa = $spatial->calcularDistanciasCasa($ubicacionesUsuario, $domicilio);
+                        $minDist = null;
+                        foreach ($distanciasCasa as $idx => $row) {
+                            $d = (float) ($row['distancia_m'] ?? 999999);
+                            if ($d <= self::RANGO_CASA_M && ($minDist === null || $d < $minDist)) {
+                                $minDist = $d;
+                                $indiceCasa = $idx;
+                            }
                         }
                     }
                 }
@@ -4217,6 +4221,35 @@ class Sabueso extends Controller
             self::respuestaJSON($payload);
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'Error al obtener ubicaciones.', 'direcciones_resumen' => [], 'puntos_mapa' => [], 'puntos_geo' => [], 'domicilio_megareporte' => null, 'indice_casa' => null]);
+        }
+    }
+
+    /**
+     * API rápida para cargar direcciones alternas sin bloquear el primer render del mapa.
+     * POST body: { id_credito: number }
+     */
+    public function getPuntosGeoCredito()
+    {
+        $raw = file_get_contents('php://input');
+        $datos = json_decode($raw, true) ?: [];
+        $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int) $datos['id_credito'] : 0;
+        if ($idCredito < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'puntos_geo' => []]);
+            return;
+        }
+        try {
+            $puntosGeo = OfertaCoordenada::getPorIdCredito($idCredito);
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => '',
+                'puntos_geo' => $puntosGeo,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'No se pudieron cargar las direcciones alternas.',
+                'puntos_geo' => [],
+            ]);
         }
     }
 
