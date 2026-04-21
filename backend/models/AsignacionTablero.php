@@ -76,8 +76,8 @@ class AsignacionTablero
     /**
      * Servicio de portafolio automático:
      * - Semana pasada = gestor histórico (campaña anterior)
-     * - Semana actual = continuidad o reasignación a jefe por ausencia/baja/incapacidad
-     * - Próxima = misma asignación proyectada de la actual
+     * - Semana actual = asignación vigente (no se sustituye automáticamente)
+     * - Próxima = proyección (sí puede mostrar reasignación por ausencia/baja/incapacidad)
      *
      * @return array{
      *   semanas:list<array<string,mixed>>,
@@ -165,14 +165,17 @@ class AsignacionTablero
             $tipo = $esNuevo ? 'NUEVO' : 'CONTINUIDAD';
 
             // Regla de oro: match Segundometro ↔ Legacy por external_id del usuario en tasks (users.id → users.external_id → persona.numero_empleado).
-            $asigParaReglas = $esNuevo ? $asigActualBase : $asigPasada;
-            $asigActual = $esNuevo ? $asigActualBase : $asigPasada;
+            // Para disponibilidad se evalúa el gestor vigente de la semana actual.
+            $asigParaReglas = $asigActualBase;
+            $asigActual = $asigActualBase;
+            $asigProxima = $asigActualBase;
             $reasignadoJefe = false;
             $sinJefe = false;
             $validPuestoGestor = true;
             $validPuestoJefe = true;
             $sinMatchSegundometro = false;
             $ausenciaActivaSi = false;
+            $motivoCambio = 'Sin cambios';
 
             if ($asigParaReglas !== null) {
                 $diag = self::evaluarDisponibilidadYJerarquia($asigParaReglas, $personas, $usuariosLegacy);
@@ -182,23 +185,36 @@ class AsignacionTablero
                 if (!empty($diag['no_disponible'])) {
                     $tipo = 'HUERFANO';
                     if (isset($diag['jefe']) && is_array($diag['jefe'])) {
-                        $asigActual = $diag['jefe'];
+                        // Regla solicitada: semana actual no se sustituye; solo se proyecta el cambio a próxima.
+                        $asigProxima = $diag['jefe'];
                         $reasignadoJefe = true;
                         $validPuestoJefe = (bool) ($diag['jefe_puesto_ok'] ?? true);
+                        $motivoCambio = (string) ($diag['motivo_cambio'] ?? 'Reasignación automática');
                     } else {
                         $sinJefe = true;
+                        $motivoCambio = (string) ($diag['motivo_cambio'] ?? 'Gestor no disponible y sin jefe asignado');
                     }
+                }
+                if ($tipo !== 'HUERFANO' && $esNuevo) {
+                    $motivoCambio = 'Nuevo ingreso al portafolio';
                 }
             } else {
                 // Sin fila en __SPARTA_SECRET_REDACTED__.users para current_user_id: no hay external_id ni reglas Segundometro.
                 $sinMatchSegundometro = true;
                 $validPuestoGestor = false;
+                $motivoCambio = 'Sin match de gestor en Segundómetro';
             }
 
             // Semana pasada: sin campaña anterior → indicación NUEVO (External ID); nombre y puesto en —.
             $celdaPasada = self::toCell($asigPasada, $esNuevo ? ['ext' => 'NUEVO', 'nom' => '—', 'pue' => '—'] : null);
             $celdaActual = self::toCell($asigActual, null);
-            $celdaProxima = self::toCell($asigActual, null);
+            $celdaProxima = self::toCell($asigProxima, null);
+            $hayCambioProxima = $celdaActual['ext'] !== $celdaProxima['ext'] || $celdaActual['nom'] !== $celdaProxima['nom'] || $celdaActual['pue'] !== $celdaProxima['pue'];
+            if (!$hayCambioProxima && $tipo !== 'HUERFANO' && $esNuevo) {
+                $motivoCambio = 'Nuevo ingreso al portafolio';
+            } elseif (!$hayCambioProxima && $motivoCambio === '') {
+                $motivoCambio = 'Sin cambios';
+            }
 
             $out['filas'][] = [
                 'id_credito' => $credito,
@@ -213,6 +229,8 @@ class AsignacionTablero
                     'match_primario_segundometro' => $asigParaReglas !== null && !$sinMatchSegundometro,
                     'sin_match_segundometro' => $sinMatchSegundometro,
                     'ausencia_activa' => $ausenciaActivaSi,
+                    'hay_cambio_proxima' => $hayCambioProxima,
+                    'motivo_cambio' => $motivoCambio,
                 ],
             ];
 
@@ -376,6 +394,7 @@ class AsignacionTablero
                 pu.nombre AS puesto_gestor,
                 p.estatus,
                 CASE WHEN a.id IS NOT NULL THEN 'SI' ELSE 'NO' END AS ausencia_activa,
+                ra.nombre AS razon_ausencia,
                 j.id AS id_jefe,
                 j.numero_empleado AS external_id_jefe_legacy,
                 CONCAT_WS(' ', j.nombres, j.segundo_nombre, j.apellidop, j.apellidom) AS nombre_jefe,
@@ -392,6 +411,7 @@ class AsignacionTablero
                 ON a.id_persona = p.id
                AND a.activo = 1
                AND NOW() BETWEEN a.fecha_inicio AND a.fecha_fin
+            LEFT JOIN razon_ausencia ra ON ra.id = a.id_razon
             LEFT JOIN asigna_jefe aj
                 ON aj.id_persona = p.id
                AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
@@ -466,6 +486,7 @@ class AsignacionTablero
      *   jefe_puesto_ok:bool,
      *   sin_match_segundometro:bool,
      *   ausencia_activa:bool,
+     *   motivo_cambio:string,
      *   jefe?:array<string,mixed>
      * }
      */
@@ -477,6 +498,7 @@ class AsignacionTablero
             'jefe_puesto_ok' => true,
             'sin_match_segundometro' => false,
             'ausencia_activa' => false,
+            'motivo_cambio' => 'Sin cambios',
         ];
         if (!is_array($asig)) {
             return $base;
@@ -484,11 +506,11 @@ class AsignacionTablero
 
         $ext = self::normalizarExternalId($asig['external_id'] ?? null);
         if ($ext === '') {
-            return array_merge($base, ['gestor_puesto_ok' => false, 'sin_match_segundometro' => true]);
+            return array_merge($base, ['gestor_puesto_ok' => false, 'sin_match_segundometro' => true, 'motivo_cambio' => 'Sin match de gestor en Segundómetro']);
         }
         $p = $personas['by_external'][$ext] ?? null;
         if (!is_array($p)) {
-            return array_merge($base, ['gestor_puesto_ok' => false, 'sin_match_segundometro' => true]);
+            return array_merge($base, ['gestor_puesto_ok' => false, 'sin_match_segundometro' => true, 'motivo_cambio' => 'Sin match de gestor en Segundómetro']);
         }
 
         $resultado = $base;
@@ -500,6 +522,16 @@ class AsignacionTablero
         $esBaja = str_contains($estatus, 'BAJA');
         $esIncapacidad = str_contains($estatus, 'INCAP');
         $resultado['no_disponible'] = $ausenciaActiva || $esBaja || $esIncapacidad;
+        if ($resultado['no_disponible']) {
+            if ($esBaja) {
+                $resultado['motivo_cambio'] = 'Baja';
+            } elseif ($esIncapacidad) {
+                $resultado['motivo_cambio'] = 'Incapacidad';
+            } elseif ($ausenciaActiva) {
+                $razonAusencia = trim((string) ($p['razon_ausencia'] ?? ''));
+                $resultado['motivo_cambio'] = $razonAusencia !== '' ? $razonAusencia : 'Permiso / Vacaciones';
+            }
+        }
 
         // Segundometro: nombre puesto legacy (equivalencias). Legacy users: puesto_segun_jerarquia (guardado en $asig['puesto_legacy']).
         $puestoLegacyPersona = self::normalizarTextoPuesto((string) ($p['puesto_legacy'] ?? ''));
@@ -588,7 +620,7 @@ class AsignacionTablero
 
     /**
      * Límite de filas en tablero/export: 10, 50, 100 o null = todas.
-     * Si $raw viene vacío se usa $defecto (pantalla y Excel: '10' por rendimiento; pasar 'todas' solo para listado/export completo).
+     * Si $raw viene vacío se usa $defecto (pantalla: '10' por rendimiento; pasar 'todas' para listado completo).
      * Valores no reconocidos → 10.
      *
      * @return int|null null = sin límite (todas las filas)
