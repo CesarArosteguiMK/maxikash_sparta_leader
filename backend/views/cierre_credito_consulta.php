@@ -1918,7 +1918,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         <i class="fa-solid fa-file-excel me-1"></i>Excel
                     </a>
                     <button class="cc-btn-confirmar"
-                            style="background:linear-gradient(135deg,#059669,#10b981);flex:1;min-width:120px;"
+                            style="background:linear-gradient(135deg,#059669,#10b981);flex:1 1 100%;min-width:120px;"
                             onclick="ccEnviarACartera(${r.id})" id="cc-ep-btn-${r.id}">
                         <i class="fa-solid fa-paper-plane"></i>
                         Enviar a cartera
