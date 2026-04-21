@@ -8,6 +8,8 @@
  * REPORTE_COBRANZA_AWS_HOST, _PORT, _USER, _PASSWORD, _DATABASE (ver docstring del .py).
  * Opcionales (solo pruebas locales): REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1 no escribe guia_descargo.json;
  * REPORTE_COBRANZA_SIN_DESCARGO=1 omite descargo; REPORTE_COBRANZA_MODO_PRUEBA_EXCEL=1 → nombre ..._PRUEBA.xlsx.
+ * POST /run JSON { regenerar_reporte: true }: renombra el .xlsx oficial del día (si existe) a *_antes_<timestamp>.xlsx
+ *   y fuerza corrida completa (REPORTE_COBRANZA_REGENERAR=1 en el hijo Python).
  *
  * EC Launcher: POST /ec-launcher/run ejecuta tools/ec-webhook-worker/worker.php o
  * tools/ec-gc-excel-enrich/enrich_gc_excel.php (dentro de este agente; misma lógica que launcher/Lanzar.cmd).
@@ -839,6 +841,42 @@ function notifyListaNegraFinResumenWebhook(traceId, archivo, code, dryRunReq, re
   return postGoogleChatWebhook(hook, text);
 }
 
+/** Ruta absoluta del Excel oficial del día (CDMX), en la raíz de reporte/ (sin _PRUEBA). */
+function pathReporteOficialHoyCdmx() {
+  ensureReporteDir();
+  const ymd = fmtCdmxYmdParts(nowForCdmxCalendar());
+  if (!ymd) return null;
+  const dd = pad2Seg(ymd.d);
+  const mm = pad2Seg(ymd.m);
+  const yyyy = ymd.y;
+  const base = `reporte_cobranza_${dd}-${mm}-${yyyy}.xlsx`;
+  return path.join(REPORTE_DIR, base);
+}
+
+/** Si existe el oficial del día, lo renombra para conservarlo y permitir regeneración completa. */
+function archivarExcelOficialParaRegeneracion() {
+  const abs = pathReporteOficialHoyCdmx();
+  if (!abs) return;
+  try {
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return;
+    const stamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 15);
+    const dest = abs.replace(/\.xlsx$/i, `_antes_${stamp}.xlsx`);
+    if (fs.existsSync(dest)) {
+      appendLog('[run] Regenerar: ya existe copia de respaldo con el mismo sello; no se renombró.');
+      return;
+    }
+    fs.renameSync(abs, dest);
+    appendLog(`[run] Regenerar: Excel previo guardado como ${path.basename(dest)}`);
+    try {
+      migrateEstadoReporteKey(path.basename(abs), path.basename(dest));
+    } catch (_) {
+      /* ignorar migración de estado */
+    }
+  } catch (e) {
+    appendLog(`[run] Regenerar: no se pudo renombrar Excel previo (${e?.message || e}); el script usará REPORTE_COBRANZA_REGENERAR.`);
+  }
+}
+
 function resolveReporteXlsxPathAfterRun() {
   ensureReporteDir();
   const ymd = fmtCdmxYmdParts(nowForCdmxCalendar());
@@ -1000,11 +1038,12 @@ let reporteChild = null;
 /**
  * Ejecuta reporte_cobranza.py (o demo). `res` null = disparo interno (solo log).
  * @param {import('express').Response|null} res
- * @param {{ autoRunMarkYmd?: string }} [opts] Si `autoRunMarkYmd` (YYYY-MM-DD CDMX), solo se escribe estado al terminar con código 0 (no al iniciar).
+ * @param {{ autoRunMarkYmd?: string, regenerar?: boolean }} [opts] Si `autoRunMarkYmd` (YYYY-MM-DD CDMX), solo se escribe estado al terminar con código 0 (no al iniciar).
  * @returns {boolean} true si se inició una corrida (o demo).
  */
 function runReporteCobranza(res, opts = {}) {
   const autoRunMarkYmd = typeof opts.autoRunMarkYmd === 'string' ? opts.autoRunMarkYmd.trim() : '';
+  const regenerar = !!(opts && opts.regenerar);
   if (reporteRunBusy) {
     const msg = 'Ya hay una ejecución del reporte en curso.';
     appendLog('[run] ' + msg);
@@ -1052,13 +1091,22 @@ function runReporteCobranza(res, opts = {}) {
   const args = esPy ? [REPORTE_COBRANZA_SCRIPT] : [];
   const cwd = esPy ? path.dirname(REPORTE_COBRANZA_SCRIPT) : path.dirname(REPORTE_COBRANZA_SCRIPT);
 
+  if (regenerar) {
+    archivarExcelOficialParaRegeneracion();
+  }
+
   reporteRunBusy = true;
   const tag = res ? 'HTTP /run' : 'auto-run CDMX';
-  appendLog(`--- /run inicio (${tag}) ${new Date().toISOString()} ${cmd} ${args.join(' ')} ---`);
+  appendLog(`--- /run inicio (${tag}) ${new Date().toISOString()} ${cmd} ${args.join(' ')}${regenerar ? ' [regenerar]' : ''} ---`);
+
+  const envPy =
+    esPy && regenerar
+      ? { ...ENV_CON_PYTHON_UNBUFFERED, REPORTE_COBRANZA_REGENERAR: '1' }
+      : ENV_CON_PYTHON_UNBUFFERED;
 
   const child = spawn(cmd, args, {
     cwd,
-    env: esPy ? ENV_CON_PYTHON_UNBUFFERED : { ...process.env },
+    env: esPy ? envPy : { ...process.env },
     windowsHide: true,
   });
   reporteChild = child;
@@ -1412,7 +1460,13 @@ app.post('/logs/clear', (req, res) => {
 });
 
 app.post('/run', (req, res) => {
-  runReporteCobranza(res);
+  const b = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+  const regenerar = !!(
+    b.regenerar_reporte === true ||
+    b.regenerar_reporte === 1 ||
+    String(b.regenerar_reporte || '').toLowerCase() === 'true'
+  );
+  runReporteCobranza(res, { regenerar });
 });
 
 /**

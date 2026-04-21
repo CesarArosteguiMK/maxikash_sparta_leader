@@ -1,0 +1,34 @@
+---
+description: MVC estricto en backend PHP (controlador, modelo, vista)
+globs: backend/controllers/**/*.php, backend/models/**/*.php, backend/views/**/*.php
+alwaysApply: true
+---
+
+# MVC — backend PHP (Sparta Ledger)
+
+## Flujo obligatorio
+
+1. El **usuario** hace un request.
+2. El **controlador** recibe la petición (GET/POST/API), valida parámetros mínimos y permisos si aplica.
+3. El **controlador** llama al **modelo** (una o más clases en `backend/models/`).
+4. El **modelo** se conecta a la BD, ejecuta consultas (SELECT/INSERT/UPDATE/DELETE), valida datos de negocio y devuelve arrays/estructuras de datos.
+5. El **controlador** arma la respuesta: JSON (`respuestaJSON`) o variables para la vista (`set` + `render`).
+6. La **vista** solo imprime HTML usando variables recibidas; sin SQL y sin lógica de negocio.
+
+## Responsabilidades
+
+| Capa | Sí | No |
+|------|----|-----|
+| **Modelo** | Conexión/consultas, lógica de datos, validación antes de persistir | HTML, sesiones de UI, redirecciones |
+| **Controlador** | Orquestar, decidir respuesta, códigos HTTP | SQL embebido, armar HTML complejo |
+| **Vista** | Presentación (echo de variables escapadas) | BD, reglas de negocio, `json_encode` de payloads complejos |
+
+## Errores a evitar
+
+- Queries SQL en el controlador.
+- Lógica de negocio o cálculos de dominio en la vista.
+- Acceso a BD desde JavaScript sin pasar por el backend.
+
+## Coexistencia con el proyecto
+
+- Donde el patrón heredado ponga JS en heredoc del controlador, **no expandir** ese patrón a nuevos módulos sin acuerdo; en vistas `.php` nuevas, preferir datos preparados en el controlador.

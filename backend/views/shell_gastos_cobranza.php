@@ -1484,7 +1484,12 @@
             }
             var esperado = nombreArchivoReporteCobranzaHoyCdmx().toLowerCase();
             return data.archivos.some(function (a) {
-                return gcNombreBaseArchivoListado(a.nombre).toLowerCase() === esperado;
+                var nom = String(a.nombre || '').replace(/\\/g, '/');
+                var base = gcNombreBaseArchivoListado(nom).toLowerCase();
+                if (base !== esperado) return false;
+                /* Igual que reporte_cobranza.py: solo bloquea si existe en la raíz de reporte/.
+                   Copias en historico/ u otras subcarpetas no deben impedir regenerar tras borrar el oficial. */
+                return nom.indexOf('/') < 0;
             });
         } catch (e) {
             return false;
@@ -2449,11 +2454,16 @@
         if (!yaExisteArchivoHoy) {
             yaExisteArchivoHoy = await hayReporteCobranzaHoyEnServidor();
         }
+        var regenerarReporte = false;
         if (yaExisteArchivoHoy) {
             var acc = await dialogoReporteYaGeneradoHoy();
             if (acc !== 'forzar') {
                 return;
             }
+            regenerarReporte = true;
+            try {
+                localStorage.removeItem(LS_REPORTE_OK_YMD);
+            } catch (eLs) { /* ignorar */ }
         }
 
         iniciarOperacionShell('reporte');
@@ -2464,7 +2474,11 @@
             try {
                 r = await fetch('/gastoscobranza/ejecutarReporte', {
                     method: 'POST',
-                    headers: { 'Front-Request': 'true' }
+                    headers: {
+                        'Front-Request': 'true',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(regenerarReporte ? { regenerar_reporte: true } : {})
                 });
             } catch (eFetch) {
                 /*

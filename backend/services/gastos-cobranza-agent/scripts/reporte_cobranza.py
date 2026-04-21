@@ -45,6 +45,7 @@ Pruebas / descargo:
 
 Pruebas / Excel sin tocar el reporte oficial del día:
   REPORTE_COBRANZA_MODO_PRUEBA_EXCEL=1 — guarda reporte_cobranza_DD-MM-AAAA_PRUEBA.xlsx (no comprueba ni pisa el .xlsx oficial).
+  REPORTE_COBRANZA_REGENERAR=1 — omite la salida temprana si ya existe el .xlsx del día (p. ej. tras renombrar copia desde el agente).
 
 SALDO A FAVOR: lunes de la semana calendario (lun–dom) de la fecha de negocio.
 
@@ -187,6 +188,7 @@ NO_GUARDAR_GUIA_DESCARGO = str(os.environ.get("REPORTE_COBRANZA_NO_GUARDAR_GUIA_
 SIN_DESCARGO = str(os.environ.get("REPORTE_COBRANZA_SIN_DESCARGO", "")).strip() == "1"
 # Pruebas: 1 = nombre ..._PRUEBA.xlsx; no bloquea si ya existe el Excel oficial del día.
 MODO_PRUEBA_EXCEL = str(os.environ.get("REPORTE_COBRANZA_MODO_PRUEBA_EXCEL", "")).strip() == "1"
+REGENERAR_REPORTE = str(os.environ.get("REPORTE_COBRANZA_REGENERAR", "")).strip().lower() in ("1", "true", "yes", "si", "sí")
 # Textos de negocio en COMENTARIOS (día laboral vs fin de semana / lunes).
 # Color en Excel: CUOTA_CUBIERTA → fila rojiza; APLICAR → fila verde (ver relleno_fila_por_reglas).
 # Importante: CUOTA_CUBIERTA contiene "NO APLICAR"; hay que evaluarla ANTES que "APLICAR in com"
@@ -1472,8 +1474,8 @@ def main() -> None:
     nombre_excel = f"reporte_cobranza_{fecha_generacion_cdmx.strftime('%d-%m-%Y')}{sufijo}.xlsx"
     ruta_excel = os.path.join(REPORTE_DIR, nombre_excel)
 
-    # Si el reporte oficial de hoy ya fue generado, avisar y salir (no aplica en modo prueba: otro nombre de archivo).
-    if not MODO_PRUEBA_EXCEL and os.path.isfile(ruta_excel):
+    # Si el reporte oficial de hoy ya fue generado, avisar y salir (no aplica en modo prueba ni regeneración forzada).
+    if not MODO_PRUEBA_EXCEL and os.path.isfile(ruta_excel) and not REGENERAR_REPORTE:
         aviso = (
             f"\n{'=' * 65}\n"
             f"  AVISO: El reporte del día ya existe\n"

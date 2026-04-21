@@ -1,0 +1,516 @@
+/* Reutiliza tokens visuales del tablero Comparativas (comp-av-*) + Asignación 3×3 (sin columna Corte) */
+.comp-av-page-header { min-width: 0; }
+.comp-av-toolbar-dia { min-width: 0; }
+.asg-footer-actions .asg-select-mostrar {
+    min-width: 7.25rem;
+    max-width: 11rem;
+}
+.comp-av-logo-toolbar {
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 0.1rem;
+}
+.comp-av-toolbar .comp-av-logo {
+    height: 3.35rem;
+    width: auto;
+    max-width: min(320px, 62vw);
+    object-fit: contain;
+    display: block;
+}
+.comp-av-heading { line-height: 1.25; letter-spacing: -0.02em; }
+.comp-av-export-root { overflow: hidden; }
+.comp-av .comp-chip-pill-fut {
+    border-color: var(--bs-info) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bs-info) 35%, var(--bs-white));
+    color: var(--bs-info) !important;
+}
+.comp-av .comp-chip-pill-fut strong { color: var(--bs-info-text-emphasis); }
+
+.comp-av-table {
+    --bs-table-border-color: var(--bs-gray-200);
+    --comp-sep-color: var(--bs-gray-300);
+    border-collapse: collapse;
+    border: 1px solid var(--bs-gray-400) !important;
+}
+.comp-av-table.comp-av-table--asg {
+    table-layout: fixed;
+    width: 100%;
+}
+.comp-av-table--asg > colgroup > col.asg-col-id {
+    width: 7%;
+}
+.comp-av-table--asg > colgroup > col.asg-col-bucket-sub {
+    width: 6.25%;
+}
+.comp-av-table--asg > colgroup > col.asg-col-equal {
+    width: 8.555%;
+}
+.comp-av-table--asg > colgroup > col.asg-col-cambio {
+    width: 18%;
+}
+.comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-id-col,
+.comp-av-table--asg > tbody > tr > td.asg-td-id-col {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background-color: var(--bs-body-bg);
+    box-shadow: 1px 0 0 var(--bs-table-border-color);
+    background-clip: padding-box;
+}
+.comp-av-table--asg > tbody > tr > td.asg-td-id-col {
+    z-index: 2;
+}
+.comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-id-col {
+    font-weight: 700;
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+    color: var(--bs-primary);
+    border-right: 1px solid var(--bs-gray-300) !important;
+}
+.comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-col-pue {
+    font-size: 0.62rem;
+}
+.comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-col-bucket-sub {
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+.comp-av-table--asg > tbody > tr > td.asg-col-pue {
+    font-size: 0.72rem;
+}
+.comp-av-table--asg > tbody > tr > td.asg-col-bucket-sub {
+    font-size: 0.65rem;
+    line-height: 1.25;
+    color: var(--bs-secondary-color);
+    vertical-align: middle;
+}
+.comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-cambio-col {
+    min-width: 11rem;
+}
+.comp-av-table--asg .asg-cambio-cell {
+    min-width: 11rem;
+    max-width: 17rem;
+}
+/* Paginación estilo “pastillas” (como referencia de diseño) */
+.asg-footer-pag-wrap {
+    align-items: center;
+}
+.asg-pag-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+}
+.asg-pag-btn {
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.35rem;
+    height: 2.35rem;
+    padding: 0 0.4rem;
+    border-radius: 0.45rem;
+    border: 1px solid #d8dee6;
+    background: #fff;
+    color: #4b5563;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    line-height: 1;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.asg-pag-btn--icon {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #374151;
+}
+.asg-pag-btn--num {
+    min-width: 2.35rem;
+}
+.asg-pag-btn--ellipsis {
+    border-style: dashed;
+    color: #9ca3af;
+    font-weight: 700;
+    cursor: default;
+    pointer-events: none;
+    background: #fafbfc;
+}
+.asg-pag-btn:hover:not(.is-disabled):not(.is-active):not(.asg-pag-btn--ellipsis) {
+    background: #f3f4f6;
+    border-color: #c5ccd6;
+    color: #111827;
+}
+.asg-pag-btn.is-active {
+    background: linear-gradient(180deg, #1e4a7a 0%, #153a63 100%);
+    color: #fff;
+    border-color: #0f3258;
+    box-shadow: 0 3px 8px rgba(21, 58, 99, 0.35);
+    cursor: default;
+    pointer-events: none;
+}
+.asg-pag-btn.is-disabled {
+    opacity: 0.42;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+.comp-av-table.table-bordered > :not(caption) > * > * {
+    border-style: solid !important;
+    border-width: 1px !important;
+    border-color: var(--bs-table-border-color) !important;
+}
+.comp-av-table > thead.comp-av-thead > tr > th,
+.comp-av-table > tbody > tr > td {
+    border-style: solid !important;
+    border-width: 1px !important;
+    border-color: var(--bs-table-border-color) !important;
+}
+.comp-av-table > :not(caption) > * > * {
+    padding: 0.35rem 0.45rem !important;
+    vertical-align: middle;
+    line-height: 1.25;
+}
+.comp-av-table > tbody > tr > td {
+    min-height: 2.1rem;
+}
+.comp-av-table > thead.comp-av-thead > tr:first-child > th {
+    border-bottom-width: 1px !important;
+}
+.comp-av-table-stack {
+    border: 1px solid var(--bs-gray-400);
+    border-radius: 0.65rem;
+    overflow: hidden;
+    margin: 0.5rem 1rem 1rem;
+}
+.comp-av-table-stack #asg-table-area .table-responsive {
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow-x: auto;
+}
+.comp-av-table--asg thead tr.asg-thead-chips > th.asg-chip-th {
+    background-color: color-mix(in srgb, var(--bs-secondary-bg) 70%, var(--bs-white));
+    font-weight: 400;
+    vertical-align: middle;
+    padding: 0.42rem 0.35rem !important;
+    position: relative;
+}
+.comp-av-table--asg thead tr.asg-thead-chips > th.asg-chip-th .comp-chip-arrow {
+    position: absolute;
+    right: -0.08rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    font-size: 0.65rem;
+    color: var(--bs-primary);
+    opacity: 0.55;
+    line-height: 1;
+    pointer-events: none;
+}
+.comp-av-table--asg thead tr.asg-thead-chips .comp-chip-pill.comp-chip-pill--asg-multiline {
+    white-space: normal;
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.28;
+    padding: 0.38rem 0.42rem;
+    border-radius: 0.65rem;
+    text-align: center;
+    display: inline-block;
+}
+.comp-av-table-stack .comp-av-table > thead.comp-av-thead > tr:first-child > th {
+    border-top-width: 0 !important;
+}
+.comp-av .comp-chip-pill {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    border: 1px solid var(--bs-primary-border-subtle);
+    color: var(--bs-primary);
+    background-color: var(--bs-body-bg);
+}
+.comp-av .comp-chip-pill strong { font-weight: 700; }
+.comp-av .comp-chip-pill-hist strong { color: var(--bs-primary); }
+.comp-av .comp-chip-pill-act {
+    border-color: var(--bs-success) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bs-success) 35%, var(--bs-white));
+}
+.comp-av .comp-chip-pill-act strong { color: var(--bs-success); }
+.comp-av-table > thead.comp-av-thead > tr > th {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    white-space: normal;
+    border-style: solid !important;
+    border-width: 1px !important;
+    border-color: var(--bs-gray-200) !important;
+}
+.comp-av-table--asg > thead.comp-av-thead > tr:nth-child(3) > th {
+    text-transform: none;
+    font-size: 0.6rem;
+    border-top-color: var(--bs-gray-200) !important;
+}
+.comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-semana > th {
+    font-size: 0.62rem;
+    font-weight: 700;
+}
+.comp-av-table tbody td {
+    background-clip: padding-box;
+}
+.comp-av-table > thead.comp-av-thead > tr:first-child > th {
+    border-bottom-color: var(--bs-gray-200) !important;
+}
+/* Bordes: dentro de la semana líneas suaves; cierre de semana mismo grosor/color que el resto de la tabla */
+.comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-col-ext {
+    border-left: 1px solid color-mix(in srgb, var(--bs-gray-400) 28%, var(--bs-white)) !important;
+    border-right: 1px solid color-mix(in srgb, var(--bs-gray-400) 22%, var(--bs-white)) !important;
+}
+.comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-col-nom {
+    border-left: 1px solid color-mix(in srgb, var(--bs-gray-400) 22%, var(--bs-white)) !important;
+    border-right: 1px solid color-mix(in srgb, var(--bs-gray-400) 18%, var(--bs-white)) !important;
+}
+.comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-sep-week-end {
+    border-left: 1px solid color-mix(in srgb, var(--bs-gray-400) 18%, var(--bs-white)) !important;
+    border-right: 1px solid var(--bs-table-border-color) !important;
+}
+.comp-av-table--asg > tbody > tr > td.asg-col-ext {
+    border-right: 1px solid color-mix(in srgb, var(--bs-gray-400) 25%, var(--bs-white)) !important;
+}
+.comp-av-table--asg > tbody > tr > td.asg-col-nom {
+    border-right: 1px solid color-mix(in srgb, var(--bs-gray-400) 18%, var(--bs-white)) !important;
+}
+.comp-av-table--asg > tbody > tr > td.asg-sep-week-end {
+    border-right: 1px solid var(--bs-table-border-color) !important;
+}
+/* Chips y fila «Semana»: sin borde vertical entre bloques (no el borde exterior de la última semana) */
+.comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-chips > th.asg-sep-week-end:not(:last-of-type),
+.comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-semana > th.asg-sep-week-end:not(:last-of-type) {
+    border-right-width: 0 !important;
+    border-right-style: none !important;
+}
+.comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-chips > th.comp-sep-week + th.comp-sep-week,
+.comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-semana > th.comp-sep-week + th.comp-sep-week {
+    border-left-width: 0 !important;
+    border-left-style: none !important;
+}
+/* Semanas pasadas: solo el fondo sube contraste con la antigüedad; el texto sigue color normal */
+.comp-av-table--asg thead .asg-hist-bg-1,
+.comp-av-table--asg tbody td.asg-hist-bg-1 {
+    background-color: color-mix(in srgb, var(--bs-gray-300) 38%, var(--bs-white)) !important;
+    color: var(--bs-emphasis-color) !important;
+}
+.comp-av-table--asg thead .asg-hist-bg-2,
+.comp-av-table--asg tbody td.asg-hist-bg-2 {
+    background-color: color-mix(in srgb, var(--bs-gray-400) 34%, var(--bs-white)) !important;
+    color: var(--bs-emphasis-color) !important;
+}
+.comp-av-table--asg thead .asg-hist-bg-3,
+.comp-av-table--asg tbody td.asg-hist-bg-3 {
+    background-color: color-mix(in srgb, var(--bs-gray-500) 28%, var(--bs-gray-100)) !important;
+    color: var(--bs-emphasis-color) !important;
+}
+.comp-av .asg-chip-hist-1 { background-color: color-mix(in srgb, var(--bs-gray-300) 40%, var(--bs-body-bg)) !important; color: var(--bs-emphasis-color) !important; }
+.comp-av .asg-chip-hist-2 { background-color: color-mix(in srgb, var(--bs-gray-400) 32%, var(--bs-body-bg)) !important; color: var(--bs-emphasis-color) !important; }
+.comp-av .asg-chip-hist-3 { background-color: color-mix(in srgb, var(--bs-gray-500) 26%, var(--bs-body-bg)) !important; color: var(--bs-emphasis-color) !important; }
+
+.comp-av .comp-th-act {
+    background-color: color-mix(in srgb, var(--bs-success) 16%, var(--bs-white)) !important;
+    color: var(--bs-success-text-emphasis) !important;
+}
+.comp-av .comp-th-fut {
+    background-color: color-mix(in srgb, var(--bs-info) 18%, var(--bs-white)) !important;
+    color: var(--bs-info-text-emphasis) !important;
+}
+.comp-av-table tbody td.asg-cell-hist:not([class*="asg-hist-bg"]) {
+    background-color: color-mix(in srgb, var(--bs-secondary-bg) 28%, var(--bs-white));
+}
+.comp-av-table tbody td.asg-cell-act {
+    background-color: color-mix(in srgb, var(--bs-success) 8%, var(--bs-white));
+}
+.comp-av-table tbody td.asg-cell-fut {
+    background-color: color-mix(in srgb, var(--bs-info) 10%, var(--bs-white));
+}
+.comp-num-empty { color: var(--bs-secondary-color) !important; }
+.comp-av-table--asg tbody td[class*="asg-hist-bg-"].comp-num-empty {
+    color: var(--bs-emphasis-color) !important;
+}
+
+body.dark-mode .comp-av-card {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color) !important;
+    color: var(--bs-body-color);
+}
+body.dark-mode .comp-av-toolbar {
+    background-color: var(--bs-body-bg);
+    border-color: var(--bs-border-color) !important;
+}
+body.dark-mode .comp-av-page-header .comp-av-heading { color: var(--bs-heading-color) !important; }
+body.dark-mode .comp-av-page-header .text-primary { color: var(--bs-link-color) !important; }
+body.dark-mode .comp-av-toolbar .comp-av-logo { filter: brightness(1.08); }
+body.dark-mode .comp-av-toolbar .form-label { color: var(--bs-secondary-color) !important; }
+body.dark-mode .comp-av-toolbar .form-select {
+    background-color: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+body.dark-mode .comp-av-table--asg thead tr.asg-thead-chips > th.asg-chip-th {
+    background-color: var(--bs-body-bg) !important;
+}
+body.dark-mode .comp-av-table-stack {
+    border-color: var(--bs-border-color);
+    margin: 0.5rem 1rem 1rem;
+}
+body.dark-mode .comp-av-table-stack #asg-table-area .table-responsive { border: 0 !important; }
+body.dark-mode .comp-av .comp-chip-pill {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+body.dark-mode .comp-av .comp-chip-pill-hist strong { color: var(--bs-body-color); }
+body.dark-mode .comp-av .comp-chip-pill-act {
+    border-color: var(--bs-success) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bs-success) 35%, var(--bs-secondary-bg));
+}
+body.dark-mode .comp-av .comp-chip-pill-act strong { color: var(--bs-success); }
+body.dark-mode .comp-av .comp-chip-pill-fut {
+    border-color: var(--bs-info) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bs-info) 35%, var(--bs-secondary-bg));
+}
+body.dark-mode .comp-av .comp-chip-pill-fut strong { color: var(--bs-info); }
+body.dark-mode .comp-av-table {
+    --bs-table-border-color: var(--bs-gray-500);
+    --comp-sep-color: color-mix(in srgb, var(--bs-gray-300) 68%, var(--bs-white));
+    color: var(--bs-body-color);
+    --bs-table-bg: transparent;
+    border-collapse: collapse;
+    border-color: var(--bs-border-color) !important;
+}
+body.dark-mode .comp-av-table .comp-sep-r {
+    border-right-color: var(--comp-sep-color) !important;
+}
+body.dark-mode .comp-av-table > thead.comp-av-thead > tr > th {
+    border-color: var(--bs-gray-500) !important;
+}
+body.dark-mode .comp-av-table > thead.comp-av-thead .comp-subcell {
+    border-left-color: var(--comp-sep-color) !important;
+    border-right-color: var(--comp-sep-color) !important;
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-col-ext {
+    border-left-color: color-mix(in srgb, var(--bs-gray-500) 55%, var(--bs-border-color)) !important;
+    border-right-color: color-mix(in srgb, var(--bs-gray-500) 42%, var(--bs-border-color)) !important;
+    border-left-width: 1px !important;
+    border-right-width: 1px !important;
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-col-nom {
+    border-left-color: color-mix(in srgb, var(--bs-gray-500) 42%, var(--bs-border-color)) !important;
+    border-right-color: color-mix(in srgb, var(--bs-gray-500) 35%, var(--bs-border-color)) !important;
+    border-left-width: 1px !important;
+    border-right-width: 1px !important;
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-sep-week-end {
+    border-left-color: color-mix(in srgb, var(--bs-gray-500) 35%, var(--bs-border-color)) !important;
+    border-right-color: var(--bs-border-color) !important;
+    border-left-width: 1px !important;
+    border-right-width: 1px !important;
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-chips > th.asg-sep-week-end:not(:last-of-type),
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-semana > th.asg-sep-week-end:not(:last-of-type) {
+    border-right-width: 0 !important;
+    border-right-style: none !important;
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-chips > th.comp-sep-week + th.comp-sep-week,
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead > tr.asg-thead-semana > th.comp-sep-week + th.comp-sep-week {
+    border-left-width: 0 !important;
+    border-left-style: none !important;
+}
+body.dark-mode .comp-av-table--asg > tbody > tr > td.asg-col-ext {
+    border-right-color: color-mix(in srgb, var(--bs-gray-500) 40%, var(--bs-border-color)) !important;
+    border-right-width: 1px !important;
+}
+body.dark-mode .comp-av-table--asg > tbody > tr > td.asg-col-nom {
+    border-right-color: color-mix(in srgb, var(--bs-gray-500) 32%, var(--bs-border-color)) !important;
+    border-right-width: 1px !important;
+}
+body.dark-mode .comp-av-table--asg > tbody > tr > td.asg-sep-week-end {
+    border-right-color: var(--bs-border-color) !important;
+    border-right-width: 1px !important;
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-id-col,
+body.dark-mode .comp-av-table--asg > tbody > tr > td.asg-td-id-col {
+    background-color: var(--bs-body-bg);
+    box-shadow: 1px 0 0 var(--bs-border-color);
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-id-col {
+    border-right-color: var(--bs-gray-500) !important;
+}
+body.dark-mode .comp-av-table--asg > thead.comp-av-thead .comp-subcell.asg-col-bucket-sub {
+    color: var(--bs-secondary-color) !important;
+}
+body.dark-mode .comp-av-table--asg > tbody > tr > td.asg-col-bucket-sub {
+    color: var(--bs-secondary-color) !important;
+}
+body.dark-mode .comp-av .comp-th-act {
+    background-color: var(--bs-secondary-bg) !important;
+    color: var(--bs-success) !important;
+}
+body.dark-mode .comp-av-table--asg thead .asg-hist-bg-1,
+body.dark-mode .comp-av-table--asg tbody td.asg-hist-bg-1 {
+    background-color: color-mix(in srgb, var(--bs-gray-600) 22%, var(--bs-secondary-bg)) !important;
+    color: var(--bs-emphasis-color) !important;
+}
+body.dark-mode .comp-av-table--asg thead .asg-hist-bg-2,
+body.dark-mode .comp-av-table--asg tbody td.asg-hist-bg-2 {
+    background-color: color-mix(in srgb, var(--bs-gray-600) 32%, var(--bs-secondary-bg)) !important;
+    color: var(--bs-emphasis-color) !important;
+}
+body.dark-mode .comp-av-table--asg thead .asg-hist-bg-3,
+body.dark-mode .comp-av-table--asg tbody td.asg-hist-bg-3 {
+    background-color: color-mix(in srgb, var(--bs-gray-700) 28%, var(--bs-body-bg)) !important;
+    color: var(--bs-emphasis-color) !important;
+}
+body.dark-mode .comp-av .comp-th-fut {
+    background-color: color-mix(in srgb, var(--bs-info) 22%, var(--bs-secondary-bg)) !important;
+    color: var(--bs-info) !important;
+}
+body.dark-mode .comp-av-table:not(.comp-av-table--asg) tbody tr:nth-child(odd) td { background-color: var(--bs-secondary-bg); }
+body.dark-mode .comp-av-table:not(.comp-av-table--asg) tbody tr:nth-child(even) td { background-color: var(--bs-body-bg); }
+body.dark-mode .comp-av-table tbody td.asg-cell-hist:not([class*="asg-hist-bg"]) {
+    background-color: color-mix(in srgb, var(--bs-secondary-bg) 88%, var(--bs-body-bg));
+}
+body.dark-mode .comp-av-table tbody td.asg-cell-act {
+    background-color: color-mix(in srgb, var(--bs-success) 12%, var(--bs-secondary-bg));
+}
+body.dark-mode .comp-av-table tbody td.asg-cell-fut {
+    background-color: color-mix(in srgb, var(--bs-info) 14%, var(--bs-secondary-bg));
+}
+body.dark-mode .comp-av .asg-chip-hist-1 { background-color: color-mix(in srgb, var(--bs-gray-600) 24%, var(--bs-secondary-bg)) !important; color: var(--bs-emphasis-color) !important; }
+body.dark-mode .comp-av .asg-chip-hist-2 { background-color: color-mix(in srgb, var(--bs-gray-600) 34%, var(--bs-secondary-bg)) !important; color: var(--bs-emphasis-color) !important; }
+body.dark-mode .comp-av .asg-chip-hist-3 { background-color: color-mix(in srgb, var(--bs-gray-700) 30%, var(--bs-body-bg)) !important; color: var(--bs-emphasis-color) !important; }
+body.dark-mode .comp-av .comp-num-empty { color: var(--bs-secondary-color) !important; }
+body.dark-mode .comp-av-table--asg tbody td[class*="asg-hist-bg-"].comp-num-empty {
+    color: var(--bs-emphasis-color) !important;
+}
+body.dark-mode .asg-pag-btn {
+    background: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+body.dark-mode .asg-pag-btn--icon {
+    color: var(--bs-emphasis-color);
+}
+body.dark-mode .asg-pag-btn--ellipsis {
+    background: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-secondary-color);
+}
+body.dark-mode .asg-pag-btn:hover:not(.is-disabled):not(.is-active):not(.asg-pag-btn--ellipsis) {
+    background: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-emphasis-color);
+}
+body.dark-mode .asg-pag-btn.is-active {
+    background: linear-gradient(180deg, #2563a8 0%, #1a4a7a 100%);
+    border-color: #143a62;
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+}
