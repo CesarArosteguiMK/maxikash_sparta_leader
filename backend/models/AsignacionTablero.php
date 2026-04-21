@@ -74,6 +74,67 @@ class AsignacionTablero
     }
 
     /**
+     * Tablero de dos ventanas mar–lun (misma grilla que el tablero de tres, sin la primera columna histórica):
+     * - «Semana pasada» = datos de la columna que en el tablero completo es la semana actual (asignación vigente).
+     * - «Semana actual» = datos de la columna que en el tablero completo es la semana próxima (proyección).
+     *
+     * @param array $portafolio Resultado de obtenerPortafolioAutomatico()
+     * @return array Portafolio con semanas y cells de longitud 2; resumen y campanías se conservan.
+     */
+    public static function portafolioDosVentanasDesdeCompleto(array $portafolio): array
+    {
+        $semanasFull = is_array($portafolio['semanas'] ?? null) ? $portafolio['semanas'] : [];
+        $filasFull = is_array($portafolio['filas'] ?? null) ? $portafolio['filas'] : [];
+        $subcols = is_array($portafolio['subcols'] ?? null) ? $portafolio['subcols'] : self::SUBCOLS;
+        $resumen = is_array($portafolio['resumen'] ?? null) ? $portafolio['resumen'] : [];
+        $campanias = is_array($portafolio['campanias'] ?? null) ? $portafolio['campanias'] : [];
+
+        if (count($semanasFull) < 3) {
+            return [
+                'semanas' => [],
+                'subcols' => $subcols,
+                'filas' => [],
+                'resumen' => $resumen,
+                'campanias' => $campanias,
+            ];
+        }
+
+        $sAct = $semanasFull[1];
+        $sProx = $semanasFull[2];
+        $sem0 = array_merge($sAct, [
+            'chip_text' => 'Semana pasada: ' . (string) ($sAct['range'] ?? ''),
+            'th_class' => 'comp-th-hist',
+            'hist_level' => 1,
+        ]);
+        $sem1 = array_merge($sProx, [
+            'chip_text' => 'Actual: ' . (string) ($sProx['range'] ?? ''),
+            'th_class' => 'comp-th-act',
+            'hist_level' => 0,
+        ]);
+        $semanas = [$sem0, $sem1];
+
+        $filas = [];
+        foreach ($filasFull as $f) {
+            $cellsFull = is_array($f['cells'] ?? null) ? $f['cells'] : [];
+            $c0 = $cellsFull[1] ?? ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+            $c1 = $cellsFull[2] ?? ['ext' => '—', 'nom' => '—', 'pue' => '—'];
+            $filas[] = [
+                'id_credito' => $f['id_credito'] ?? '',
+                'cells' => [$c0, $c1],
+                'meta' => is_array($f['meta'] ?? null) ? $f['meta'] : [],
+            ];
+        }
+
+        return [
+            'semanas' => $semanas,
+            'subcols' => $subcols,
+            'filas' => $filas,
+            'resumen' => $resumen,
+            'campanias' => $campanias,
+        ];
+    }
+
+    /**
      * Servicio de portafolio automático:
      * - Semana pasada = gestor histórico (campaña anterior)
      * - Semana actual = asignación vigente (no se sustituye automáticamente)
@@ -159,8 +220,14 @@ class AsignacionTablero
             $rowActual = $creditosActual[$credito];
             $rowAnterior = $creditosAnterior[$credito] ?? null;
 
-            $asigPasada = self::resolverAsignacionUsuarioLegacy($rowAnterior, $usuariosLegacy);
-            $asigActualBase = self::resolverAsignacionUsuarioLegacy($rowActual, $usuariosLegacy);
+            $asigPasada = self::aplicarPuestoLegacySegundometro(
+                self::resolverAsignacionUsuarioLegacy($rowAnterior, $usuariosLegacy),
+                $personas
+            );
+            $asigActualBase = self::aplicarPuestoLegacySegundometro(
+                self::resolverAsignacionUsuarioLegacy($rowActual, $usuariosLegacy),
+                $personas
+            );
             $esNuevo = $rowAnterior === null;
             $tipo = $esNuevo ? 'NUEVO' : 'CONTINUIDAD';
 
@@ -392,6 +459,8 @@ class AsignacionTablero
                 p.numero_empleado AS external_id_legacy,
                 CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre_gestor,
                 pu.nombre AS puesto_gestor,
+                pl.nombre AS puesto_gestor_legacy,
+                pl.nombre AS puesto_legacy,
                 p.estatus,
                 CASE WHEN a.id IS NOT NULL THEN 'SI' ELSE 'NO' END AS ausencia_activa,
                 ra.nombre AS razon_ausencia,
@@ -399,14 +468,17 @@ class AsignacionTablero
                 j.numero_empleado AS external_id_jefe_legacy,
                 CONCAT_WS(' ', j.nombres, j.segundo_nombre, j.apellidop, j.apellidom) AS nombre_jefe,
                 puj.nombre AS puesto_jefe,
-                CASE WHEN j.estatus = 'Activo' THEN 'SI' ELSE 'NO' END AS jefe_activo,
-                plg.nombre AS puesto_legacy,
-                plj.nombre AS puesto_jefe_legacy
+                plj.nombre AS puesto_jefe_legacy,
+                CASE WHEN j.estatus = 'Activo' THEN 'SI' ELSE 'NO' END AS jefe_activo
             FROM persona p
-            LEFT JOIN asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
-            LEFT JOIN puesto pu ON pu.id = ap.id_puesto
-            LEFT JOIN equivalencias_legacy_puestos elp ON elp.id_puesto = ap.id_puesto
-            LEFT JOIN puestos_legacy plg ON plg.id = elp.id_puesto_legacy
+            LEFT JOIN asigna_puesto ap
+                ON ap.id_persona = p.id AND ap.activo = 1
+            LEFT JOIN puesto pu
+                ON pu.id = ap.id_puesto
+            LEFT JOIN equivalencias_legacy_puestos elp
+                ON elp.id_puesto = pu.id
+            LEFT JOIN puestos_legacy pl
+                ON pl.id = elp.id_puesto_legacy
             LEFT JOIN ausencia a
                 ON a.id_persona = p.id
                AND a.activo = 1
@@ -415,11 +487,16 @@ class AsignacionTablero
             LEFT JOIN asigna_jefe aj
                 ON aj.id_persona = p.id
                AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
-            LEFT JOIN persona j ON j.id = aj.id_jefe
-            LEFT JOIN asigna_puesto apj ON apj.id_persona = j.id AND apj.activo = 1
-            LEFT JOIN puesto puj ON puj.id = apj.id_puesto
-            LEFT JOIN equivalencias_legacy_puestos elpj ON elpj.id_puesto = apj.id_puesto
-            LEFT JOIN puestos_legacy plj ON plj.id = elpj.id_puesto_legacy
+            LEFT JOIN persona j
+                ON j.id = aj.id_jefe
+            LEFT JOIN asigna_puesto apj
+                ON apj.id_persona = j.id AND apj.activo = 1
+            LEFT JOIN puesto puj
+                ON puj.id = apj.id_puesto
+            LEFT JOIN equivalencias_legacy_puestos elpj
+                ON elpj.id_puesto = puj.id
+            LEFT JOIN puestos_legacy plj
+                ON plj.id = elpj.id_puesto_legacy
         ";
         $rows = $db->queryAll($sql);
 
@@ -534,7 +611,7 @@ class AsignacionTablero
         }
 
         // Segundometro: nombre puesto legacy (equivalencias). Legacy users: puesto_segun_jerarquia (guardado en $asig['puesto_legacy']).
-        $puestoLegacyPersona = self::normalizarTextoPuesto((string) ($p['puesto_legacy'] ?? ''));
+        $puestoLegacyPersona = self::normalizarTextoPuesto((string) ($p['puesto_gestor_legacy'] ?? $p['puesto_legacy'] ?? ''));
         $puestoJerarquiaUser = self::normalizarTextoPuesto((string) ($asig['puesto_legacy'] ?? ''));
         if ($puestoLegacyPersona !== '' && $puestoJerarquiaUser !== '') {
             $resultado['gestor_puesto_ok'] = $puestoLegacyPersona === $puestoJerarquiaUser;
@@ -586,6 +663,38 @@ class AsignacionTablero
         $t = preg_replace('/\s+/u', ' ', $s);
 
         return is_string($t) ? $t : $s;
+    }
+
+    /**
+     * Usa el puesto legacy proveniente de Segundómetro (equivalencias) para la persona match por external_id.
+     * Esto evita mostrar el puesto por jerarquía de Legacy (p. ej. SUPERVISOR) cuando la equivalencia del gestor es otra.
+     *
+     * @param ?array<string,mixed> $asig
+     * @param array{by_external:array<string,array<string,mixed>>,by_persona_id:array<int,array<string,mixed>>} $personas
+     * @return ?array<string,mixed>
+     */
+    private static function aplicarPuestoLegacySegundometro(?array $asig, array $personas): ?array
+    {
+        if (!is_array($asig)) {
+            return $asig;
+        }
+
+        $ext = self::normalizarExternalId($asig['external_id'] ?? null);
+        if ($ext === '') {
+            return $asig;
+        }
+
+        $p = $personas['by_external'][$ext] ?? null;
+        if (!is_array($p)) {
+            return $asig;
+        }
+
+        $puestoSeg = trim((string) ($p['puesto_gestor_legacy'] ?? $p['puesto_legacy'] ?? ''));
+        if ($puestoSeg !== '') {
+            $asig['puesto_legacy'] = $puestoSeg;
+        }
+
+        return $asig;
     }
 
     /**

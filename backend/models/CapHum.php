@@ -1582,37 +1582,61 @@ class CapHum extends Model
     public static function insertPersona($data)
     {
         // 🔹 Escapamos valores
-        $nombres = addslashes($data['nombres']);
-        $segundo_nombre = addslashes($data['segundo_nombre'] ?? '');
-        $apellidop = addslashes($data['apellidop']);
-        $apellidom = addslashes($data['apellidom']);
-        $numero_empleado = addslashes($data['numero_empleado']);
-        $correo = addslashes($data['correo'] ?? '');
-        $telefono_uno = addslashes($data['telefono'] ?? $data['telefono_uno'] ?? '');
-        $telefono_dos = addslashes($data['telefono_dos'] ?? '');
-        $estatus = addslashes($data['estatus'] ?? 'Activo');
-        $id_puesto = addslashes($data['id_puesto']);
-        $id_jefe = addslashes($data['id_jefe']);
-        $user_name = addslashes($data['usuario']);
-        $password = addslashes($data['contrasena']);
+        $nombres = addslashes((string) ($data['nombres'] ?? ''));
+        $segundo_nombre = addslashes((string) ($data['segundo_nombre'] ?? ''));
+        $apellidop = addslashes((string) ($data['apellidop'] ?? ''));
+        $apellidom = addslashes((string) ($data['apellidom'] ?? ''));
+        // Alta desde Gestión (all_gestores) no envía número de empleado: usar usuario (external_id típico) o valor único.
+        $numero_raw = trim((string) ($data['numero_empleado'] ?? ''));
+        if ($numero_raw === '') {
+            $numero_raw = trim((string) ($data['usuario'] ?? ''));
+        }
+        if ($numero_raw === '') {
+            $numero_raw = 'NEO' . strtoupper(bin2hex(random_bytes(4)));
+        }
+        $numero_empleado = addslashes($numero_raw);
+        $correo = addslashes((string) ($data['correo'] ?? ''));
+        $telefono_uno = addslashes((string) ($data['telefono'] ?? $data['telefono_uno'] ?? ''));
+        $telefono_dos = addslashes((string) ($data['telefono_dos'] ?? ''));
+        $estatus = addslashes((string) ($data['estatus'] ?? 'Activo'));
+        $id_puesto = (int) ($data['id_puesto'] ?? 0);
+        $user_name = addslashes((string) ($data['usuario'] ?? ''));
+        $password = addslashes((string) ($data['contrasena'] ?? ''));
         $fecha_ingreso = !empty($data['fecha_ingreso']) ? addslashes($data['fecha_ingreso']) : null;
-        $id_pais = isset($data['id_pais']) && $data['id_pais'] !== '' ? (int) $data['id_pais'] : 1;
-        $id_div_nivel1 = isset($data['id_div_nivel1']) && $data['id_div_nivel1'] !== '' ? (int)$data['id_div_nivel1'] : 'NULL';
-        $id_div_nivel2 = isset($data['id_div_nivel2']) && $data['id_div_nivel2'] !== '' ? (int)$data['id_div_nivel2'] : 'NULL';
-        $id_div_nivel3 = isset($data['id_div_nivel3']) && $data['id_div_nivel3'] !== '' ? (int)$data['id_div_nivel3'] : 'NULL';
-        $id_div_nivel4 = isset($data['id_div_nivel4']) && $data['id_div_nivel4'] !== '' ? (int)$data['id_div_nivel4'] : 'NULL';
-        $dom_calle = trim((string)($data['domicilio_calle_texto'] ?? ''));
-        $dom_ext = trim((string)($data['domicilio_num_exterior'] ?? ''));
-        $dom_int = trim((string)($data['domicilio_num_interior'] ?? ''));
-        $cp      = trim((string)($data['codigo_postal'] ?? ''));
-        $dom_calle_sql = $dom_calle !== '' ? "'" . addslashes($dom_calle) . "'" : 'NULL';
+        $id_pais = (int) ($data['id_pais'] ?? 1);
+        if ($id_pais <= 0) {
+            $id_pais = 1;
+        }
+        // FK a divisiones_administrativas.id por nivel (null/""/0 del JSON → NULL SQL, no 0).
+        $id_div_nivel1 = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel1'] ?? null);
+        $id_div_nivel2 = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel2'] ?? null);
+        $id_div_nivel3 = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel3'] ?? null);
+        $curp_norm = strtoupper(preg_replace('/\s+/', '', (string) ($data['curp'] ?? '')));
+        $curp_norm = mb_substr($curp_norm, 0, 18);
+        $curp_sql = $curp_norm !== '' ? "'" . addslashes($curp_norm) . "'" : 'NULL';
+        $dom_ext = trim((string) ($data['domicilio_num_exterior'] ?? ''));
+        $dom_int = trim((string) ($data['domicilio_num_interior'] ?? ''));
+        $cp = trim((string) ($data['codigo_postal'] ?? ''));
         $dom_ext_sql = $dom_ext !== '' ? "'" . addslashes($dom_ext) . "'" : 'NULL';
         $dom_int_sql = $dom_int !== '' ? "'" . addslashes($dom_int) . "'" : 'NULL';
-        $cp_sql      = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
-
+        $cp_sql = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
 
         try {
             $db = new Database();
+
+            if ($cp === '' && $id_div_nivel3 !== 'NULL') {
+                $crow = $db->queryOne(
+                    'SELECT NULLIF(TRIM(codigo_interno), \'\') AS cp FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
+                    ['id' => (int) $id_div_nivel3]
+                );
+                if (!empty($crow['cp'])) {
+                    $cp = trim((string) $crow['cp']);
+                    $cp_sql = "'" . addslashes($cp) . "'";
+                }
+            }
+
+            $dom_calle = self::domicilioCalleTextoParaGuardar($db, $data);
+            $dom_calle_sql = $dom_calle !== '' ? "'" . addslashes($dom_calle) . "'" : 'NULL';
 
             $fecha_ingreso_sql = $fecha_ingreso !== null ? "'$fecha_ingreso'" : 'NULL';
 
@@ -1622,9 +1646,9 @@ class CapHum extends Model
 
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.persona
-            (nombres, segundo_nombre, apellidop, apellidom, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, id_div_nivel4, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
+            (nombres, segundo_nombre, apellidop, apellidom, curp, numero_empleado, correo, telefono_uno, telefono_dos, estatus, user_name, password, fecha_ingreso, fecha_registro, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior, codigo_postal)
             VALUES
-            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $id_div_nivel4, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
+            ('$nombres', '$segundo_nombre', '$apellidop', '$apellidom', $curp_sql, '$numero_empleado', '$correo', '$telefono_uno', '$telefono_dos', '$estatus', '$user_name', '$password', $fecha_ingreso_sql, '$fechaRegistro', $id_pais, $id_div_nivel1, $id_div_nivel2, $id_div_nivel3, $dom_calle_sql, $dom_ext_sql, $dom_int_sql, $cp_sql)
         ");
 
 
@@ -1805,21 +1829,35 @@ class CapHum extends Model
         $id_puesto       = (int)$data['puesto_id'];
         $user_name       = addslashes($data['usuario']);
         $password        = addslashes($data['contrasena']);
-        $id_div_nivel1 = isset($data['id_div_nivel1']) && $data['id_div_nivel1'] !== '' ? (int)$data['id_div_nivel1'] : 'NULL';
-        $id_div_nivel2 = isset($data['id_div_nivel2']) && $data['id_div_nivel2'] !== '' ? (int)$data['id_div_nivel2'] : 'NULL';
-        $id_div_nivel3 = isset($data['id_div_nivel3']) && $data['id_div_nivel3'] !== '' ? (int)$data['id_div_nivel3'] : 'NULL';
-        $id_div_nivel4 = isset($data['id_div_nivel4']) && $data['id_div_nivel4'] !== '' ? (int)$data['id_div_nivel4'] : 'NULL';
-        $dom_calle = trim((string)($data['domicilio_calle_texto'] ?? ''));
-        $dom_ext = trim((string)($data['domicilio_num_exterior'] ?? ''));
-        $dom_int = trim((string)($data['domicilio_num_interior'] ?? ''));
-        $cp      = trim((string)($data['codigo_postal'] ?? ''));
-        $dom_calle_sql = $dom_calle !== '' ? "'" . addslashes($dom_calle) . "'" : 'NULL';
+        $id_div_nivel1 = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel1'] ?? null);
+        $id_div_nivel2 = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel2'] ?? null);
+        $id_div_nivel3 = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel3'] ?? null);
+        $curp_norm = strtoupper(preg_replace('/\s+/', '', (string) ($data['curp'] ?? '')));
+        $curp_norm = mb_substr($curp_norm, 0, 18);
+        $curp_sql = $curp_norm !== '' ? "'" . addslashes($curp_norm) . "'" : 'NULL';
+        $dom_ext = trim((string) ($data['domicilio_num_exterior'] ?? ''));
+        $dom_int = trim((string) ($data['domicilio_num_interior'] ?? ''));
+        $cp = trim((string) ($data['codigo_postal'] ?? ''));
         $dom_ext_sql = $dom_ext !== '' ? "'" . addslashes($dom_ext) . "'" : 'NULL';
         $dom_int_sql = $dom_int !== '' ? "'" . addslashes($dom_int) . "'" : 'NULL';
-        $cp_sql      = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
+        $cp_sql = $cp !== '' ? "'" . addslashes($cp) . "'" : 'NULL';
 
         try {
             $db = new Database();
+
+            if ($cp === '' && $id_div_nivel3 !== 'NULL') {
+                $crow = $db->queryOne(
+                    'SELECT NULLIF(TRIM(codigo_interno), \'\') AS cp FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
+                    ['id' => (int) $id_div_nivel3]
+                );
+                if (!empty($crow['cp'])) {
+                    $cp = trim((string) $crow['cp']);
+                    $cp_sql = "'" . addslashes($cp) . "'";
+                }
+            }
+
+            $dom_calle = self::domicilioCalleTextoParaGuardar($db, $data);
+            $dom_calle_sql = $dom_calle !== '' ? "'" . addslashes($dom_calle) . "'" : 'NULL';
 
             // 1️⃣ UPDATE PERSONA
             $db->queryOne("
@@ -1829,6 +1867,7 @@ class CapHum extends Model
                 segundo_nombre = '$segundo_nombre',
                 apellidop     = '$apellidop',
                 apellidom     = '$apellidom',
+                curp          = $curp_sql,
                 correo        = '$correo',
                 telefono_uno  = '$telefono_uno',
                 user_name     = '$user_name',
@@ -1836,7 +1875,6 @@ class CapHum extends Model
                 id_div_nivel1  = $id_div_nivel1,
                 id_div_nivel2  = $id_div_nivel2,
                 id_div_nivel3  = $id_div_nivel3,
-                id_div_nivel4  = $id_div_nivel4,
                 domicilio_calle_texto = $dom_calle_sql,
                 domicilio_num_exterior = $dom_ext_sql,
                 domicilio_num_interior = $dom_int_sql,
@@ -2511,6 +2549,47 @@ class CapHum extends Model
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al eliminar persona: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Calle en persona: una sola columna domicilio_calle_texto (texto libre o nombre desde catálogo si el front envía id_div_nivel4).
+     */
+    private static function domicilioCalleTextoParaGuardar(Database $db, array $data): string
+    {
+        $txt = mb_substr(trim((string) ($data['domicilio_calle_texto'] ?? '')), 0, 200);
+        if ($txt !== '') {
+            return $txt;
+        }
+        $idFk = self::sqlIdDivisionAdministrativaFk($data['id_div_nivel4'] ?? null);
+        if ($idFk === 'NULL') {
+            return '';
+        }
+        $nr = $db->queryOne(
+            'SELECT nombre FROM __SPARTA_SECRET_REDACTED__.divisiones_administrativas WHERE id = :id AND activo = 1 LIMIT 1',
+            ['id' => (int) $idFk]
+        );
+
+        return mb_substr(trim((string) ($nr['nombre'] ?? '')), 0, 200);
+    }
+
+    /**
+     * Valor SQL para FK id → divisiones_administrativas.id.
+     * El front puede enviar null, "" o omitir la clave; no debe guardarse 0.
+     */
+    private static function sqlIdDivisionAdministrativaFk($value): string
+    {
+        if ($value === null || $value === false) {
+            return 'NULL';
+        }
+        if (is_string($value) && trim($value) === '') {
+            return 'NULL';
+        }
+        if ($value === '') {
+            return 'NULL';
+        }
+        $i = (int) $value;
+
+        return $i > 0 ? (string) $i : 'NULL';
     }
 
     /**

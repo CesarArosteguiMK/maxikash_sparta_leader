@@ -341,6 +341,8 @@ class CapHum extends Controller
                     document.getElementById("edit_segundo_nombre").value = persona.segundo_nombre ?? '';
                     document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
                     document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
+                    var elCurp = document.getElementById("edit_curp");
+                    if (elCurp) elCurp.value = persona.curp ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
                     document.getElementById("edit_usuario").value = persona.user_name ?? '';
                     document.getElementById("edit_contrasena").value = persona.password ?? '';
@@ -371,7 +373,7 @@ class CapHum extends Controller
                              persona.id_div_nivel1,
                              persona.id_div_nivel2,
                              persona.id_div_nivel3,
-                             persona.id_div_nivel4,
+                             null,
                              persona.domicilio_calle_texto,
                              persona.domicilio_num_exterior,
                              persona.domicilio_num_interior,
@@ -416,6 +418,8 @@ class CapHum extends Controller
                     document.getElementById("edit_segundo_nombre").value = persona.segundo_nombre ?? '';
                     document.getElementById("edit_apellidop").value = persona.apellidop ?? '';
                     document.getElementById("edit_apellidom").value = persona.apellidom ?? '';
+                    var elCurpV = document.getElementById("edit_curp");
+                    if (elCurpV) elCurpV.value = persona.curp ?? '';
                     document.getElementById("edit_telefono").value = persona.telefono ?? '';
                     document.getElementById("edit_usuario").value = persona.user_name ?? '';
                     document.getElementById("edit_contrasena").value = '';
@@ -439,7 +443,7 @@ class CapHum extends Controller
                             persona.id_div_nivel1,
                             persona.id_div_nivel2,
                             persona.id_div_nivel3,
-                            persona.id_div_nivel4,
+                            null,
                             persona.domicilio_calle_texto,
                             persona.domicilio_num_exterior,
                             persona.domicilio_num_interior,
@@ -2821,6 +2825,23 @@ class CapHum extends Controller
                 });
             }
 
+            /** IDs de división (Select2): leer con jQuery.val() para no enviar null si el nativo quedó desincronizado. */
+            function leerValorSelectDivision(selectId) {
+                var el = document.getElementById(selectId);
+                if (!el) return null;
+                if (typeof window.jQuery !== 'undefined') {
+                    var $e = window.jQuery('#' + selectId);
+                    if ($e.length) {
+                        var jv = $e.val();
+                        if (jv !== null && jv !== undefined && String(jv).trim() !== '') {
+                            return String(jv).trim();
+                        }
+                    }
+                }
+                var v = el.value;
+                return (v !== null && v !== undefined && String(v).trim() !== '') ? String(v).trim() : null;
+            }
+
             function UpdateGestor() {
 
                 const departamento = document.getElementById("edit_departamento_id").value;  // <---- esta es la linea 2009
@@ -2828,10 +2849,10 @@ class CapHum extends Controller
                 const jefe         = document.getElementById("edit_id_jefe").value;
                 const asignarLegion = document.getElementById("edit_asignar_legion") && document.getElementById("edit_asignar_legion").checked;
                 const idLegion     = document.getElementById("edit_id_legion") ? document.getElementById("edit_id_legion").value : '';
-                const id_div_nivel1 = document.getElementById('edit_id_div_nivel1')?.value || null;
-                const id_div_nivel2 = document.getElementById('edit_id_div_nivel2')?.value || null;
-                const id_div_nivel3 = document.getElementById('edit_id_div_nivel3')?.value || null;
-                const id_div_nivel4 = document.getElementById('edit_id_div_nivel4')?.value || null;
+                const id_div_nivel1 = leerValorSelectDivision('edit_id_div_nivel1');
+                const id_div_nivel2 = leerValorSelectDivision('edit_id_div_nivel2');
+                const id_div_nivel3 = leerValorSelectDivision('edit_id_div_nivel3');
+                const id_div_nivel4 = leerValorSelectDivision('edit_id_div_nivel4');
                 const domicilio_calle_texto = document.getElementById('edit_domicilio_calle_texto')?.value?.trim() || null;
                 const domicilio_num_exterior = document.getElementById('edit_domicilio_num_exterior')?.value?.trim() || null;
                 const domicilio_num_interior = document.getElementById('edit_domicilio_num_interior')?.value?.trim() || null;
@@ -2858,6 +2879,21 @@ class CapHum extends Controller
                     return;
                 }
 
+                const idColoniaEdit = id_div_nivel3 || '';
+                const cpEdit = document.getElementById('edit_codigo_postal')?.value?.trim() || '';
+                const calleTxtEdit = document.getElementById('edit_domicilio_calle_texto')?.value?.trim() || '';
+                const idCalleEdit = id_div_nivel4 || '';
+                const capturaDomicilioEdit = !!(idColoniaEdit || cpEdit || calleTxtEdit || idCalleEdit);
+                if (capturaDomicilioEdit && !domicilio_num_exterior) {
+                    Swal.fire("Falta información", "El número exterior es obligatorio cuando captura domicilio (colonia, calle o código postal).", "warning");
+                    return;
+                }
+                var selCalleEdit = document.getElementById('edit_id_div_nivel4');
+                if (id_div_nivel3 && selCalleEdit && !selCalleEdit.disabled && selCalleEdit.options && selCalleEdit.options.length > 1 && !id_div_nivel4 && !calleTxtEdit) {
+                    Swal.fire("Falta información", "Indique la calle: elija una del catálogo o escríbala en el campo de texto (nombre o número, p. ej. Calle 10A).", "warning");
+                    return;
+                }
+
                 // 🔹 Obtener puestos adicionales si hay panel de múltiples puestos
                 let puestosAdicionales = [];
                 if (typeof obtenerPuestosParaGuardar === 'function') {
@@ -2871,6 +2907,7 @@ class CapHum extends Controller
                     segundo_nombre: document.getElementById("edit_segundo_nombre").value,
                     apellidop: document.getElementById("edit_apellidop").value,
                     apellidom: document.getElementById("edit_apellidom").value,
+                    curp: document.getElementById("edit_curp")?.value?.trim() || null,
                     telefono: document.getElementById("edit_telefono").value,
                     departamento_id: departamento,
                     puesto_id: puesto,
@@ -3204,10 +3241,10 @@ class CapHum extends Controller
                 const contrasena = document.getElementById('add_contrasena').value.trim();
                 const fecha_ingreso = document.getElementById('add_fecha_ingreso').value.trim() || null;
 
-                const id_div_nivel1 = document.getElementById('add_id_div_nivel1')?.value || null;
-                const id_div_nivel2 = document.getElementById('add_id_div_nivel2')?.value || null;
-                const id_div_nivel3 = document.getElementById('add_id_div_nivel3')?.value || null;
-                const id_div_nivel4 = document.getElementById('add_id_div_nivel4')?.value || null;
+                const id_div_nivel1 = leerValorSelectDivision('add_id_div_nivel1');
+                const id_div_nivel2 = leerValorSelectDivision('add_id_div_nivel2');
+                const id_div_nivel3 = leerValorSelectDivision('add_id_div_nivel3');
+                const id_div_nivel4 = leerValorSelectDivision('add_id_div_nivel4');
                 const domicilio_calle_texto = document.getElementById('add_domicilio_calle_texto')?.value?.trim() || null;
                 const domicilio_num_exterior = document.getElementById('add_domicilio_num_exterior')?.value?.trim() || null;
                 const domicilio_num_interior = document.getElementById('add_domicilio_num_interior')?.value?.trim() || null;
@@ -3237,6 +3274,18 @@ class CapHum extends Controller
                 if (!usuario) return Swal.fire('Error', 'Usuario obligatorio', 'error');
                 if (!contrasena) return Swal.fire('Error', 'Ingresa una contraseña', 'error');
 
+                const idColoniaAdd = id_div_nivel3 || '';
+                const cpAdd = document.getElementById('add_codigo_postal')?.value?.trim() || '';
+                const calleTxtAdd = document.getElementById('add_domicilio_calle_texto')?.value?.trim() || '';
+                const idCalleAdd = id_div_nivel4 || '';
+                const capturaDomicilioAdd = !!(idColoniaAdd || cpAdd || calleTxtAdd || idCalleAdd);
+                if (capturaDomicilioAdd && !domicilio_num_exterior) {
+                    return Swal.fire('Error', 'El número exterior es obligatorio cuando captura domicilio (colonia, calle o código postal).', 'error');
+                }
+                var selCalleAdd = document.getElementById('add_id_div_nivel4');
+                if (id_div_nivel3 && selCalleAdd && !selCalleAdd.disabled && selCalleAdd.options && selCalleAdd.options.length > 1 && !id_div_nivel4 && !calleTxtAdd) {
+                    return Swal.fire('Error', 'Indique la calle: elija una del catálogo o escríbala en el campo de texto (nombre o número, p. ej. Calle 10A).', 'error');
+                }
 
                 fetch('/CapHum/getInsertarGestor', {
                     method: 'POST',
@@ -3249,6 +3298,7 @@ class CapHum extends Controller
                         segundo_nombre,
                         apellidop,
                         apellidom,
+                        curp: document.getElementById('add_curp')?.value?.trim() || null,
                         telefono,
                         fecha_ingreso,
                         id_pais: id_pais || 1,
@@ -3275,7 +3325,12 @@ class CapHum extends Controller
                 })
                 .then(data => {
                     if (!data.success) {
-                        return Swal.fire('Error', data.mensaje, 'error');
+                        return Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.mensaje || 'No se pudo registrar',
+                            footer: data.error ? String(data.error) : undefined
+                        });
                     }
 
                     Swal.fire('Éxito', data.mensaje, 'success')
@@ -3283,13 +3338,13 @@ class CapHum extends Controller
                 })
                 .catch(err => {
                     console.error(err);
-                    Swal.fire('Error', 'No se pudo registrar el gestor', 'error');
+                    Swal.fire('Error', 'No se pudo registrar el usuario', 'error');
                 });
             }
 
             // Limpiar formulario Agregar Usuario al cerrar el offcanvas (Cancelar o X)
             function limpiarFormularioAgregarUsuario() {
-                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_telefono', 'add_usuario', 'add_contrasena', 'add_num_telefono', 'add_id_pais'];
+                const ids = ['add_nombres', 'add_apellidop', 'add_apellidom', 'add_curp', 'add_telefono', 'add_usuario', 'add_contrasena', 'add_num_telefono', 'add_id_pais'];
                 ids.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.value = '';
@@ -10300,6 +10355,20 @@ public function getMunicipios()
             exit; //  CLAVE
         }
 
+        $n3e = trim((string) ($input['id_div_nivel3'] ?? ''));
+        $n4e = trim((string) ($input['id_div_nivel4'] ?? ''));
+        $calleTe = trim((string) ($input['domicilio_calle_texto'] ?? ''));
+        $cpe = trim((string) ($input['codigo_postal'] ?? ''));
+        $numExte = trim((string) ($input['domicilio_num_exterior'] ?? ''));
+        $capturaDome = ($n3e !== '' || $n4e !== '' || $calleTe !== '' || $cpe !== '');
+        if ($capturaDome && $numExte === '') {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'El número exterior es obligatorio cuando captura domicilio (colonia, calle o código postal).',
+            ]);
+            exit;
+        }
+
         $resultado = CapHumDAO::UpdatePersona($input);
 
         echo json_encode($resultado);
@@ -10501,6 +10570,11 @@ public function getMunicipios()
         $inputJSON = file_get_contents('php://input');
         $data = json_decode($inputJSON, true);
 
+        if (!is_array($data)) {
+            echo json_encode(['success' => false, 'mensaje' => 'Solicitud inválida. Envíe un JSON válido.']);
+            return;
+        }
+
         // Validaciones básicas (todos los campos de registro obligatorios; id_jefe puede estar vacío si es máximo rango)
         $requiredFields = ['nombres', 'apellidop', 'apellidom', 'telefono', 'fecha_ingreso', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
         $nombresCampos = [
@@ -10515,7 +10589,7 @@ public function getMunicipios()
             'contrasena' => 'Contraseña'
         ];
         foreach ($requiredFields as $field) {
-            if ($data[$field] === '' || $data[$field] === null || (is_string($data[$field]) && trim($data[$field]) === '')) {
+            if (!array_key_exists($field, $data) || $data[$field] === '' || $data[$field] === null || (is_string($data[$field]) && trim($data[$field]) === '')) {
                 $nombre = $nombresCampos[$field] ?? $field;
                 echo json_encode([
                     'success' => false,
@@ -10541,13 +10615,27 @@ public function getMunicipios()
             return;
         }
 
+        $n3 = trim((string) ($data['id_div_nivel3'] ?? ''));
+        $n4 = trim((string) ($data['id_div_nivel4'] ?? ''));
+        $calleT = trim((string) ($data['domicilio_calle_texto'] ?? ''));
+        $cp = trim((string) ($data['codigo_postal'] ?? ''));
+        $numExt = trim((string) ($data['domicilio_num_exterior'] ?? ''));
+        $capturaDom = ($n3 !== '' || $n4 !== '' || $calleT !== '' || $cp !== '');
+        if ($capturaDom && $numExt === '') {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'El número exterior es obligatorio cuando captura domicilio (colonia, calle o código postal).',
+            ]);
+            return;
+        }
+
         // Llamar al DAO
         $inserted = CapHumDAO::insertPersona($data);
 
         if ($inserted['success']) {
-            echo json_encode(['success' => true, 'mensaje' => 'Gestor insertado correctamente']);
+            echo json_encode(['success' => true, 'mensaje' => 'Usuario registrado correctamente']);
         } else {
-            echo json_encode(['success' => false, 'mensaje' => 'Error al insertar gestor', 'error' => $inserted['error']]);
+            echo json_encode(['success' => false, 'mensaje' => 'Error al registrar el usuario', 'error' => $inserted['error']]);
         }
     }
     public function registrarBaja()

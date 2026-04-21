@@ -7,7 +7,14 @@ $asgMostrarRaw = isset($_GET['mostrar']) ? (string) $_GET['mostrar'] : '';
 $asgLimite = \Models\AsignacionTablero::parseLimiteMostrar($asgMostrarRaw !== '' ? $asgMostrarRaw : null, '10');
 $asgMostrarQuery = \Models\AsignacionTablero::limiteMostrarAQuery($asgLimite);
 
+$asgTableroDos = !empty($asg_tablero_dos);
+$asgBasePath = $asgTableroDos ? '/reporteria/asignacionTableroDos' : '/reporteria/asignacionTablero';
+$asgExcelPath = $asgTableroDos ? '/reporteria/descargarAsignacionTableroDosExcel' : '/reporteria/descargarAsignacionTableroExcel';
+
 $tabAsg = \Models\AsignacionTablero::obtenerPortafolioAutomatico();
+if ($asgTableroDos) {
+    $tabAsg = \Models\AsignacionTablero::portafolioDosVentanasDesdeCompleto($tabAsg);
+}
 $asgSemanas = is_array($tabAsg['semanas'] ?? null) ? $tabAsg['semanas'] : [];
 $asgSubcols = is_array($tabAsg['subcols'] ?? null) ? $tabAsg['subcols'] : [];
 $asgFilasCompletas = is_array($tabAsg['filas'] ?? null) ? $tabAsg['filas'] : [];
@@ -18,18 +25,70 @@ $asgTotalPaginas = $asgPaginaTam > 0 ? max(1, (int) ceil($asgTotalFilas / $asgPa
 $asgPaginaActual = min(max(1, $asgPaginaRaw), $asgTotalPaginas);
 $asgOffset = ($asgPaginaActual - 1) * $asgPaginaTam;
 $asgFilas = $asgLimite === null ? $asgFilasCompletas : array_slice($asgFilasCompletas, $asgOffset, $asgPaginaTam);
-$asgDesde = $asgTotalFilas > 0 ? ($asgOffset + 1) : 0;
-$asgHasta = $asgTotalFilas > 0 ? min($asgOffset + count($asgFilas), $asgTotalFilas) : 0;
-$asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
+$asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery, $asgBasePath): string {
     $pagina = max(1, $pagina);
-    return '/reporteria/asignacionTablero?mostrar=' . rawurlencode($asgMostrarQuery) . '&pagina=' . $pagina;
+    return $asgBasePath . '?mostrar=' . rawurlencode($asgMostrarQuery) . '&pagina=' . $pagina;
 };
+
+if (!function_exists('asg_armar_items_paginacion')) {
+    /**
+     * @return list<array{type:'page'|'gap', num?:int}>
+     */
+    function asg_armar_items_paginacion(int $actual, int $total): array
+    {
+        if ($total < 1) {
+            $total = 1;
+        }
+        if ($actual < 1) {
+            $actual = 1;
+        }
+        if ($actual > $total) {
+            $actual = $total;
+        }
+        if ($total <= 9) {
+            $out = [];
+            for ($i = 1; $i <= $total; $i++) {
+                $out[] = ['type' => 'page', 'num' => $i];
+            }
+            return $out;
+        }
+        $set = [1, $total];
+        if ($actual < 5) {
+            for ($i = 1; $i <= min(5, $total); $i++) {
+                $set[] = $i;
+            }
+        } elseif ($actual > $total - 4) {
+            for ($i = max(1, $total - 4); $i <= $total; $i++) {
+                $set[] = $i;
+            }
+        } else {
+            for ($i = $actual - 2; $i <= $actual + 2; $i++) {
+                if ($i >= 1 && $i <= $total) {
+                    $set[] = $i;
+                }
+            }
+        }
+        $set = array_values(array_unique(array_map('intval', $set)));
+        sort($set, SORT_NUMERIC);
+        $out = [];
+        $prev = 0;
+        foreach ($set as $n) {
+            if ($prev > 0 && $n - $prev > 1) {
+                $out[] = ['type' => 'gap'];
+            }
+            $out[] = ['type' => 'page', 'num' => $n];
+            $prev = $n;
+        }
+        return $out;
+    }
+}
+$asgPaginasItems = asg_armar_items_paginacion($asgPaginaActual, $asgTotalPaginas);
 ?>
 <div class="comp-av container-fluid py-3 px-2 px-md-3">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 comp-av-page-header">
         <h4 class="mb-0 text-primary comp-av-heading d-flex align-items-center flex-wrap">
             <i class="fa-solid fa-user-check me-2" aria-hidden="true"></i>
-            <span>Asignación — Tablero</span>
+            <span><?= $asgTableroDos ? 'Asignación — Tablero dos ventanas' : 'Asignación — Tablero Proyección'; ?></span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
             <a href="/reporteria/asignacion" class="btn btn-outline-secondary btn-sm">
@@ -57,7 +116,9 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
                                 <?php for ($asgCi = 0, $asgNcols = count($asgSemanas) * count($asgSubcols); $asgCi < $asgNcols; $asgCi++): ?>
                                 <col class="asg-col-equal">
                                 <?php endfor; ?>
+                                <?php if (!$asgTableroDos): ?>
                                 <col class="asg-col-cambio">
+                                <?php endif; ?>
                             </colgroup>
                             <thead class="comp-av-thead">
                                 <tr class="asg-thead-chips">
@@ -82,7 +143,9 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
                                         <?php endif; ?>
                                     </th>
                                     <?php endforeach; ?>
-                                    <th rowspan="3" scope="col" class="text-center align-middle small asg-th-cambio-col">Cambio proyectado</th>
+                                    <?php if (!$asgTableroDos): ?>
+                                    <th rowspan="3" scope="col" class="text-center align-middle small text-secondary fw-bold asg-th-cambio-col">Cambio proyectado</th>
+                                    <?php endif; ?>
                                 </tr>
                                 <tr class="asg-thead-semana">
                                     <?php foreach ($asgSemanas as $sem): ?>
@@ -126,7 +189,9 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
                                     <td class="small comp-num-empty <?= htmlspecialchars($sub['align'], ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars($cellBase . $histBg . ' ' . $colKind, ENT_QUOTES, 'UTF-8'); ?>">—</td>
                                         <?php endforeach; ?>
                                     <?php endforeach; ?>
-                                    <td class="small text-start comp-num-empty asg-cambio-cell">—</td>
+                                    <?php if (!$asgTableroDos): ?>
+                                    <td class="small text-center align-middle comp-num-empty asg-cambio-cell">—</td>
+                                    <?php endif; ?>
                                 </tr>
                                 <?php else: ?>
                                     <?php foreach ($asgFilas as $fila): ?>
@@ -163,17 +228,21 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
                                     <td class="small <?= htmlspecialchars($sub['align'], ENT_QUOTES, 'UTF-8'); ?> <?= htmlspecialchars($cellBase . $histBg . ' ' . $colKind, ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?></td>
                                             <?php endforeach; ?>
                                         <?php endforeach; ?>
-                                    <td class="small text-start asg-cambio-cell">
+                                    <?php if (!$asgTableroDos): ?>
+                                    <td class="small text-center align-middle text-wrap asg-cambio-cell">
                                         <?php if ($esCambioInformativo): ?>
-                                            <span class="badge text-bg-warning-subtle border border-warning-subtle text-warning-emphasis asg-badge-cambio">
-                                                <i class="fa-solid fa-rotate me-1" aria-hidden="true"></i><?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
+                                            <span class="d-inline-flex align-items-center justify-content-center gap-1 text-wrap" title="<?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <i class="fa-solid fa-arrows-rotate text-primary flex-shrink-0" aria-hidden="true"></i>
+                                                <?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
                                             </span>
                                         <?php else: ?>
-                                            <span class="text-secondary-emphasis">
-                                                <i class="fa-regular fa-circle-check me-1" aria-hidden="true"></i><?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
+                                            <span class="text-secondary text-wrap d-inline-flex align-items-center justify-content-center gap-1">
+                                                <i class="fa-regular fa-circle-check flex-shrink-0" aria-hidden="true"></i>
+                                                <?= htmlspecialchars($motivoCambio, ENT_QUOTES, 'UTF-8'); ?>
                                             </span>
                                         <?php endif; ?>
                                     </td>
+                                    <?php endif; ?>
                                 </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -186,10 +255,10 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
 
         <div class="card-body border-top py-2 py-md-3 bg-body asg-footer-actions">
             <div class="d-flex flex-column align-items-start gap-2 w-100">
-                <a id="asg-btn-descargar-excel" href="/reporteria/descargarAsignacionTableroExcel" class="btn btn-outline-success btn-sm" title="Descarga el portafolio completo en Excel (puede tardar unos segundos).">
+                <a id="asg-btn-descargar-excel" href="<?= htmlspecialchars($asgExcelPath, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-outline-success btn-sm" title="Descarga el portafolio completo en Excel (puede tardar unos segundos).">
                     <i class="fa-solid fa-file-excel me-1" aria-hidden="true"></i>Descargar Excel (.xlsx)
                 </a>
-                <form method="get" action="/reporteria/asignacionTablero" class="d-flex flex-wrap align-items-center gap-2 mb-0 asg-form-mostrar">
+                <form method="get" action="<?= htmlspecialchars($asgBasePath, ENT_QUOTES, 'UTF-8'); ?>" class="d-flex flex-wrap align-items-center gap-2 mb-0 asg-form-mostrar">
                     <label for="asg-mostrar" class="form-label small text-secondary mb-0">Mostrar</label>
                     <select class="form-select form-select-sm asg-select-mostrar" id="asg-mostrar" name="mostrar" aria-label="Cantidad de filas a mostrar" onchange="this.form.submit()">
                         <option value="10"<?= $asgMostrarQuery === '10' ? ' selected' : ''; ?>>10</option>
@@ -198,17 +267,28 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
                         <option value="todas"<?= $asgMostrarQuery === 'todas' ? ' selected' : ''; ?>>Todas</option>
                     </select>
                 </form>
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 w-100 pt-1">
-                    <small class="text-secondary">
-                        Mostrando <?= (int) $asgDesde; ?>-<?= (int) $asgHasta; ?> de <?= (int) $asgTotalFilas; ?> · Página <?= (int) $asgPaginaActual; ?> / <?= (int) $asgTotalPaginas; ?>
-                    </small>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Paginación del tablero de asignación">
-                        <a class="btn btn-outline-secondary<?= $asgPaginaActual <= 1 ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual <= 1 ? '#' : htmlspecialchars($asgUrlPagina(1), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual <= 1 ? 'true' : 'false'; ?>">«</a>
-                        <a class="btn btn-outline-secondary<?= $asgPaginaActual <= 1 ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual <= 1 ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual - 1), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual <= 1 ? 'true' : 'false'; ?>">‹</a>
-                        <span class="btn btn-outline-primary disabled"><?= (int) $asgPaginaActual; ?> / <?= (int) $asgTotalPaginas; ?></span>
-                        <a class="btn btn-outline-secondary<?= $asgPaginaActual >= $asgTotalPaginas ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual >= $asgTotalPaginas ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual + 1), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual >= $asgTotalPaginas ? 'true' : 'false'; ?>">›</a>
-                        <a class="btn btn-outline-secondary<?= $asgPaginaActual >= $asgTotalPaginas ? ' disabled' : ''; ?>" href="<?= $asgPaginaActual >= $asgTotalPaginas ? '#' : htmlspecialchars($asgUrlPagina($asgTotalPaginas), ENT_QUOTES, 'UTF-8'); ?>" aria-disabled="<?= $asgPaginaActual >= $asgTotalPaginas ? 'true' : 'false'; ?>">»</a>
-                    </div>
+                <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-md-end gap-3 w-100 pt-1 asg-footer-pag-wrap">
+                    <nav class="asg-pag-nav" aria-label="Paginación del tablero de asignación">
+                        <?php
+                        $asgPrimera = $asgPaginaActual <= 1;
+                        $asgUltima = $asgPaginaActual >= $asgTotalPaginas;
+                        ?>
+                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgPrimera ? ' is-disabled' : ''; ?>" href="<?= $asgPrimera ? '#' : htmlspecialchars($asgUrlPagina(1), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Primera página"<?= $asgPrimera ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>«</a>
+                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgPrimera ? ' is-disabled' : ''; ?>" href="<?= $asgPrimera ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual - 1), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Página anterior"<?= $asgPrimera ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>‹</a>
+                        <?php foreach ($asgPaginasItems as $asgPi): ?>
+                            <?php if (($asgPi['type'] ?? '') === 'gap'): ?>
+                        <span class="asg-pag-btn asg-pag-btn--ellipsis" aria-hidden="true">…</span>
+                            <?php else: ?>
+                                <?php
+                                $asgNum = (int) ($asgPi['num'] ?? 0);
+                                $asgEsActual = $asgNum === (int) $asgPaginaActual;
+                                ?>
+                        <a class="asg-pag-btn asg-pag-btn--num<?= $asgEsActual ? ' is-active' : ''; ?>" href="<?= htmlspecialchars($asgUrlPagina($asgNum), ENT_QUOTES, 'UTF-8'); ?>"<?= $asgEsActual ? ' aria-current="page"' : ''; ?>><?= (int) $asgNum; ?></a>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgUltima ? ' is-disabled' : ''; ?>" href="<?= $asgUltima ? '#' : htmlspecialchars($asgUrlPagina($asgPaginaActual + 1), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Página siguiente"<?= $asgUltima ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>›</a>
+                        <a class="asg-pag-btn asg-pag-btn--icon<?= $asgUltima ? ' is-disabled' : ''; ?>" href="<?= $asgUltima ? '#' : htmlspecialchars($asgUrlPagina($asgTotalPaginas), ENT_QUOTES, 'UTF-8'); ?>" aria-label="Última página"<?= $asgUltima ? ' aria-disabled="true" tabindex="-1"' : ''; ?>>»</a>
+                    </nav>
                 </div>
             </div>
         </div>
@@ -261,7 +341,7 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
     width: 8.555%;
 }
 .comp-av-table--asg > colgroup > col.asg-col-cambio {
-    width: 16%;
+    width: 18%;
 }
 .comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-id-col,
 .comp-av-table--asg > tbody > tr > td.asg-td-id-col {
@@ -283,18 +363,72 @@ $asgUrlPagina = static function (int $pagina) use ($asgMostrarQuery): string {
     border-right: 1px solid var(--bs-gray-300) !important;
 }
 .comp-av-table--asg > thead.comp-av-thead > tr > th.asg-th-cambio-col {
-    font-weight: 700;
-    font-size: 0.62rem;
-    letter-spacing: 0.02em;
-    color: var(--bs-warning-text-emphasis);
-    min-width: 12rem;
+    min-width: 11rem;
 }
 .comp-av-table--asg .asg-cambio-cell {
-    min-width: 12rem;
+    min-width: 11rem;
+    max-width: 17rem;
 }
-.comp-av-table--asg .asg-badge-cambio {
-    white-space: normal;
-    text-align: left;
+/* Paginación estilo “pastillas” (como referencia de diseño) */
+.asg-footer-pag-wrap {
+    align-items: center;
+}
+.asg-pag-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+}
+.asg-pag-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.35rem;
+    height: 2.35rem;
+    padding: 0 0.4rem;
+    border-radius: 0.45rem;
+    border: 1px solid #d8dee6;
+    background: #fff;
+    color: #4b5563;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    line-height: 1;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.asg-pag-btn--icon {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #374151;
+}
+.asg-pag-btn--num {
+    min-width: 2.35rem;
+}
+.asg-pag-btn--ellipsis {
+    border-style: dashed;
+    color: #9ca3af;
+    font-weight: 700;
+    cursor: default;
+    pointer-events: none;
+    background: #fafbfc;
+}
+.asg-pag-btn:hover:not(.is-disabled):not(.is-active):not(.asg-pag-btn--ellipsis) {
+    background: #f3f4f6;
+    border-color: #c5ccd6;
+    color: #111827;
+}
+.asg-pag-btn.is-active {
+    background: linear-gradient(180deg, #1e4a7a 0%, #153a63 100%);
+    color: #fff;
+    border-color: #0f3258;
+    box-shadow: 0 3px 8px rgba(21, 58, 99, 0.35);
+    cursor: default;
+    pointer-events: none;
+}
+.asg-pag-btn.is-disabled {
+    opacity: 0.42;
+    pointer-events: none;
+    cursor: not-allowed;
 }
 .comp-av-table.table-bordered > :not(caption) > * > * {
     border-style: solid !important;
@@ -625,6 +759,30 @@ body.dark-mode .comp-av .asg-chip-hist-3 { background-color: color-mix(in srgb, 
 body.dark-mode .comp-av .comp-num-empty { color: var(--bs-secondary-color) !important; }
 body.dark-mode .comp-av-table--asg tbody td[class*="asg-hist-bg-"].comp-num-empty {
     color: var(--bs-emphasis-color) !important;
+}
+body.dark-mode .asg-pag-btn {
+    background: var(--bs-tertiary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+body.dark-mode .asg-pag-btn--icon {
+    color: var(--bs-emphasis-color);
+}
+body.dark-mode .asg-pag-btn--ellipsis {
+    background: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-secondary-color);
+}
+body.dark-mode .asg-pag-btn:hover:not(.is-disabled):not(.is-active):not(.asg-pag-btn--ellipsis) {
+    background: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-emphasis-color);
+}
+body.dark-mode .asg-pag-btn.is-active {
+    background: linear-gradient(180deg, #2563a8 0%, #1a4a7a 100%);
+    border-color: #143a62;
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
 }
 </style>
 <script>
