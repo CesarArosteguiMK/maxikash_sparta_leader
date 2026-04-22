@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -42,9 +43,20 @@ _MEGA_PHP_DEFAULTS: dict = {
 
 TABLE_NAME = "cobranza_gc_verificacion_semana"
 _DATOS_SUBDIR = "cobranza_gc_estatus3_datos"
-_GUIA_DESCARGO_BASENAME = "guia_descargo.json"
 _GUIA_LEGACY_CHECKPOINT = "descargo_checkpoint.json"
 _DESCARGO_XLSX_BASENAME = "descargo_estatus3.xlsx"
+
+
+def _guia_descargo_basename() -> str:
+    """Mismo criterio que reporte_cobranza.py (checkpoint distinto en localhost vs servidor)."""
+    raw = (os.environ.get("REPORTE_COBRANZA_DESCARGO_GUIA_BASENAME") or "").strip()
+    if not raw:
+        return "guia_descargo.json"
+    if "/" in raw or "\\" in raw or ".." in raw or raw.startswith("."):
+        return "guia_descargo.json"
+    if not raw.endswith(".json"):
+        return "guia_descargo.json"
+    return raw
 
 
 def carpeta_datos_descargo(ruta_explicita: Optional[str]) -> Path:
@@ -83,8 +95,8 @@ def leer_guia_desde_archivo(path: Path) -> Optional[GuiaDescargo]:
         with open(path, encoding="utf-8-sig") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
-        print(f"No se pudo leer la guía {path}: {e}", file=sys.stderr)
-        sys.exit(2)
+        print(f"Aviso: no se pudo leer {path} ({e}).", file=sys.stderr)
+        return None
     reg_raw = data.get("ultimo_registrado_en_cdmx")
     if reg_raw is None or not str(reg_raw).strip():
         return None
@@ -101,14 +113,14 @@ def leer_guia_desde_archivo(path: Path) -> Optional[GuiaDescargo]:
         try:
             pk_i = int(pk_raw)
         except (TypeError, ValueError):
-            print(f"ultimo_id_tabla inválido en {path}: {pk_raw!r}", file=sys.stderr)
-            sys.exit(2)
+            print(f"Aviso: ultimo_id_tabla inválido en {path}: {pk_raw!r}", file=sys.stderr)
+            return None
     elif legacy is not None and str(legacy).strip() != "":
         try:
             pk_i = int(legacy)
         except (TypeError, ValueError):
-            print(f"ultimo_id (legado) inválido en {path}: {legacy!r}", file=sys.stderr)
-            sys.exit(2)
+            print(f"Aviso: ultimo_id (legado) inválido en {path}: {legacy!r}", file=sys.stderr)
+            return None
 
     if pk_i is None:
         return None
@@ -118,17 +130,32 @@ def leer_guia_desde_archivo(path: Path) -> Optional[GuiaDescargo]:
         try:
             ic_opt = int(ic_raw)
         except (TypeError, ValueError):
-            print(f"ultimo_id_credito inválido en {path}: {ic_raw!r}", file=sys.stderr)
-            sys.exit(2)
+            print(f"Aviso: ultimo_id_credito inválido en {path}: {ic_raw!r}", file=sys.stderr)
+            return None
 
     return GuiaDescargo(reg, pk_i, ic_opt)
 
 
 def cargar_lectura_guia(datos_dir: Path) -> Optional[GuiaDescargo]:
-    for nombre in (_GUIA_DESCARGO_BASENAME, _GUIA_LEGACY_CHECKPOINT):
-        p = datos_dir / nombre
+    base = _guia_descargo_basename()
+    candidatos = [
+        datos_dir / base,
+        datos_dir / (base + ".bak"),
+        datos_dir / _GUIA_LEGACY_CHECKPOINT,
+    ]
+    vistos: set[Path] = set()
+    for p in candidatos:
+        try:
+            clave = p.resolve()
+        except OSError:
+            clave = p
+        if clave in vistos:
+            continue
+        vistos.add(clave)
         g = leer_guia_desde_archivo(p)
         if g is not None:
+            if p.suffix == ".bak":
+                print(f"Nota: checkpoint leído desde respaldo {p.name}.", file=sys.stderr)
             return g
     return None
 
@@ -405,12 +432,30 @@ def guardar_guia_descargo(
         "ultimo_id_credito es solo informativo. guia_escrita_en_cdmx = cuándo se guardó este JSON en el agente.",
     }
     try:
+        text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+        json.loads(text)
+    except (TypeError, ValueError, json.JSONDecodeError) as e:
+        print(f"No se pudo serializar la guía: {e}", file=sys.stderr)
+        sys.exit(2)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    bak = path.with_suffix(path.suffix + ".bak")
+    try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-            f.write("\n")
+        if path.is_file() and path.stat().st_size > 0:
+            try:
+                shutil.copy2(path, bak)
+            except OSError as e2:
+                print(f"Aviso: no se pudo respaldar guía anterior: {e2}", file=sys.stderr)
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        os.replace(str(tmp), str(path))
     except OSError as e:
         print(f"No se pudo guardar la guía {path}: {e}", file=sys.stderr)
+        try:
+            if tmp.is_file():
+                tmp.unlink()
+        except OSError:
+            pass
         sys.exit(2)
 
 
@@ -422,7 +467,7 @@ def descargo_estatus_3_incremental(
     sin_actualizar_guia: bool = False,
     table: str = TABLE_NAME,
 ) -> None:
-    guia_escritura = datos_dir / _GUIA_DESCARGO_BASENAME
+    guia_escritura = datos_dir / _guia_descargo_basename()
     xlsx_path = datos_dir / _DESCARGO_XLSX_BASENAME
     if sin_actualizar_guia:
         print(
