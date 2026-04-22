@@ -994,6 +994,10 @@ body.dark-mode #migTotalFinal {
 
       </div>
       <div class="modal-footer">
+        <input type="file" id="verCompArchivoReemplazar" accept=".pdf,.jpg,.jpeg,.png" style="display:none;">
+        <button class="btn btn-warning" id="verCompBtnReemplazar" onclick="window.reemplazarComprobante()">
+          <i class="fas fa-rotate me-1"></i>Reemplazar comprobante
+        </button>
         <button class="btn btn-secondary" id="verCompBtnCerrar">Cerrar</button>
       </div>
     </div>
@@ -2376,6 +2380,8 @@ function congelarModulo(convenio) {
                         'style="font-size:.75rem;padding:3px 8px;" ' +
                         'data-path="' + fila.comprobante_path + '" ' +
                         'data-semana="' + fila.numero_semana + '" ' +
+                        'data-convenio="' + convenio.id + '" ' +
+                        'data-credito="' + convenio.id_credito + '" ' +
                         'title="Ver comprobante">' +
                         '<i class="fas fa-eye"></i>' +
                         '</button>'
@@ -2410,6 +2416,8 @@ function congelarModulo(convenio) {
                 'data-pago-semanal="' + fila.pago_semanal + '" ' +
                 'data-fecha-pago-real="' + (fila.fecha_pago_real || '') + '" ' +
                 'data-comentario="' + (fila.comentario_gestor || '') + '" ' +
+                'data-convenio="' + convenio.id + '" ' +
+                'data-credito="' + convenio.id_credito + '" ' +
                 'title="Ver comprobante">' +
                 '<i class="fas fa-eye"></i>' +
                 '</button>'
@@ -6547,7 +6555,9 @@ function bindBotonesVerComprobante() {
                 nuevo.getAttribute('data-fecha-pago'),
                 nuevo.getAttribute('data-pago-semanal'),
                 nuevo.getAttribute('data-fecha-pago-real'),
-                nuevo.getAttribute('data-comentario')
+                nuevo.getAttribute('data-comentario'),
+                nuevo.getAttribute('data-convenio'),
+                nuevo.getAttribute('data-credito')
             );
         });
     });
@@ -6747,8 +6757,15 @@ window.guardarSubirComprobante = function () {
 // ════════════════════════════════════════════════
 // VER COMPROBANTE — semanas pendiente_conciliar / pagadas
 // ════════════════════════════════════════════════
-window.abrirVerComprobante = function (semana, path, fechaPago, pagoSemanal, fechaPagoReal, comentario) {
+window.abrirVerComprobante = function (semana, path, fechaPago, pagoSemanal, fechaPagoReal, comentario, idConvenio, idCredito) {
     document.getElementById('verCompTitulo').textContent = 'Semana ' + semana;
+
+    // Guardar datos en el modal para el reemplazo
+    var modal = document.getElementById('modalVerComprobante');
+    modal.dataset.semana    = semana;
+    modal.dataset.path      = path || '';
+    modal.dataset.idConvenio = idConvenio || '';
+    modal.dataset.idCredito  = idCredito  || '';
 
     var fmtFechaLocal = function (s) {
         if (!s) return '—';
@@ -6824,6 +6841,71 @@ window.abrirVerComprobante = function (semana, path, fechaPago, pagoSemanal, fec
 
     document.getElementById('verCompBtnClose').onclick = cerrar;
     document.getElementById('verCompBtnCerrar').onclick = cerrar;
+};
+
+// ════════════════════════════════════════════════
+// REEMPLAZAR COMPROBANTE
+// ════════════════════════════════════════════════
+window.reemplazarComprobante = function () {
+    var modal      = document.getElementById('modalVerComprobante');
+    var semana     = modal.dataset.semana;
+    var idConvenio = modal.dataset.idConvenio;
+    var idCredito  = modal.dataset.idCredito;
+
+    if (!idConvenio) {
+        Swal.fire('Sin datos', 'No se pudo identificar el convenio.', 'warning');
+        return;
+    }
+
+    var fileInput = document.getElementById('verCompArchivoReemplazar');
+    fileInput.value = '';
+    fileInput.onchange = function () {
+        var archivo = fileInput.files[0];
+        if (!archivo) return;
+
+        var btn = document.getElementById('verCompBtnReemplazar');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Subiendo...';
+
+        var formData = new FormData();
+        formData.append('id_convenio',    idConvenio);
+        formData.append('numero_semana',  semana);
+        formData.append('fecha_pago_real', new Date().toISOString().split('T')[0]);
+        formData.append('comprobante',    archivo);
+
+        fetch('/convenios/subirComprobante', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (resp) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rotate me-1"></i>Reemplazar comprobante';
+
+            if (!resp.success) {
+                Swal.fire('Error', resp.mensaje, 'error');
+                return;
+            }
+
+            Swal.fire({
+                title: '¡Comprobante reemplazado!',
+                html: 'Semana <strong>' + semana + '</strong> actualizada correctamente.',
+                icon: 'success',
+                timer: 1800,
+                showConfirmButton: false
+            }).then(function () {
+                var base = window.location.pathname;
+                window.location.href = base + (idCredito ? '?credito=' + idCredito : '');
+            });
+        })
+        .catch(function () {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rotate me-1"></i>Reemplazar comprobante';
+            Swal.fire('Error', 'Error de conexión al subir el archivo.', 'error');
+        });
+    };
+
+    fileInput.click();
 };
 
 // ═══════════════════════════════════════════════════════════════════════
