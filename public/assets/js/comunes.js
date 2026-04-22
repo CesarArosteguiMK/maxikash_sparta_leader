@@ -113,20 +113,23 @@ const http = (() => {
                             resp = new Blob([resp], { type: ct });
                         }
 
-                        // Si success === false, dar la respuesta al caller para que actualice UI, luego lanzar para manejarError
-                        if (resp?.success === false) {
+                        // success === false: fallo de negocio; no invocar onError (evita que modales
+                        // con onError muestren "error de conexión" encima del mensaje de onSuccess).
+                        if (resp && resp.success === false) {
                             onSuccess(resp);
-                            throw resp;
+                            if (typeof onError !== "function" && typeof showError === "function") {
+                                const msgFallo = resp.mensaje || resp.error || "La operación no se completó.";
+                                showError(msgFallo);
+                            }
+                            return;
                         }
 
                         onSuccess(resp);
 
                     } catch (err) {
-                        // Solo llamar manejarError si realmente hay fallo
-                        if (err?.success === false || err instanceof Error) {
+                        if (err instanceof Error) {
                             manejarError(err, jqXHR);
                         }
-                        // NO llamar onError si success !== false
                     }
                 },
 

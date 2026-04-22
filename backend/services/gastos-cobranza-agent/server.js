@@ -38,6 +38,7 @@
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 try {
   require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -999,7 +1000,94 @@ function spawnPhpEnviarReporteGcMail(xlsxAbs) {
   });
 }
 
-async function runPostReporteEntregas(xlsxAbs) {
+/** Huella estable por contenido del Excel ya cerrado (nombre + tamaño + mtime en seg.). */
+function fingerprintPostReporteXlsx(st, base) {
+  return `${base}:${st.size}:${Math.floor(st.mtimeMs / 1000)}`;
+}
+
+function postReporteDedupeStatePath() {
+  return path.join(LOG_DIR, '.post_reporte_entrega_dedupe.json');
+}
+
+function postReporteDedupeWindowMs() {
+  const h = parseFloat(String(process.env.GASTOS_GC_REPORTE_POST_DEDUPE_HOURS || '48').trim());
+  const hrs = Number.isFinite(h) && h > 0 ? Math.min(h, 168) : 48;
+  return Math.round(hrs * 3600000);
+}
+
+function readPostReporteDedupeRecord() {
+  try {
+    const raw = fs.readFileSync(postReporteDedupeStatePath(), 'utf8');
+    const j = JSON.parse(raw);
+    if (j && typeof j.fp === 'string' && typeof j.t === 'number') return j;
+  } catch (_) {}
+  return null;
+}
+
+function writePostReporteDedupeRecord(fp) {
+  try {
+    ensureLogDir();
+    fs.writeFileSync(postReporteDedupeStatePath(), JSON.stringify({ fp, t: Date.now() }), { encoding: 'utf8' });
+  } catch (_) {}
+}
+
+function postReporteEntregaLockPath(fp) {
+  const h = crypto.createHash('sha256').update(fp).digest('hex').slice(0, 40);
+  return path.join(LOG_DIR, `.post_reporte_entrega_${h}.lock`);
+}
+
+function stalePostReporteLockMs() {
+  const n = parseInt(String(process.env.GASTOS_GC_REPORTE_POST_LOCK_STALE_MS || '600000').trim(), 10);
+  return Number.isFinite(n) && n >= 60000 ? Math.min(n, 3600000) : 600000;
+}
+
+/**
+ * Evita ráfagas duplicadas (varias instancias Node, reintentos, carreras).
+ * @returns {string|null} ruta del .lock si se obtuvo; null si hay que omitir
+ */
+function acquirePostReporteNotifyLock(fp) {
+  ensureLogDir();
+  const lp = postReporteEntregaLockPath(fp);
+  const staleMs = stalePostReporteLockMs();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      fs.writeFileSync(lp, String(process.pid), { encoding: 'utf8', flag: 'wx' });
+      return lp;
+    } catch (e) {
+      if (!e || e.code !== 'EEXIST') {
+        appendLog('[post-reporte] Lock: ' + (e && e.message ? e.message : String(e)));
+        return null;
+      }
+      let mtime = 0;
+      try {
+        mtime = fs.statSync(lp).mtimeMs;
+      } catch (_) {
+        continue;
+      }
+      if (Date.now() - mtime > staleMs) {
+        try {
+          fs.unlinkSync(lp);
+        } catch (_) {}
+        continue;
+      }
+      appendLog('[post-reporte] Omitido: notificación del mismo archivo ya en curso o reciente (lock).');
+      return null;
+    }
+  }
+  return null;
+}
+
+function releasePostReporteNotifyLock(lp) {
+  if (!lp) return;
+  try {
+    fs.unlinkSync(lp);
+  } catch (_) {}
+}
+
+/** Cola: no solapa envíos post-reporte en el mismo proceso. */
+let postReporteEntregaChain = Promise.resolve();
+
+async function runPostReporteEntregasImpl(xlsxAbs) {
   if (!reportePostRunNotifyEnabled()) return;
   if (!xlsxAbs || !fs.existsSync(xlsxAbs)) {
     appendLog('[post-reporte] Sin .xlsx para notificar.');
@@ -1014,20 +1102,43 @@ async function runPostReporteEntregas(xlsxAbs) {
   }
   if (!st.isFile()) return;
   const base = path.basename(xlsxAbs);
-  const kb = Math.max(1, Math.round(st.size / 1024));
-
-  if (reporteMailAfterRunEnabled()) {
-    spawnPhpEnviarReporteGcMail(xlsxAbs);
+  const fp = fingerprintPostReporteXlsx(st, base);
+  const prev = readPostReporteDedupeRecord();
+  const win = postReporteDedupeWindowMs();
+  if (prev && prev.fp === fp && Date.now() - prev.t < win) {
+    appendLog('[post-reporte] Omitido: ya se envió correo/Chat para este mismo archivo (dedupe).');
+    return;
   }
 
-  const hook = reporteChatWebhookUrl();
-  if (hook) {
-    const text =
-      `📊 *Reporte Gastos Cobranza*\n` +
-      `Archivo: \`${base}\` (~${kb} KB)\n` +
-      `El Excel se envió por correo a los destinatarios configurados (PHPMailer).`;
-    await postGoogleChatWebhook(hook, text);
+  const lockPath = acquirePostReporteNotifyLock(fp);
+  if (!lockPath) return;
+
+  try {
+    const kb = Math.max(1, Math.round(st.size / 1024));
+
+    if (reporteMailAfterRunEnabled()) {
+      spawnPhpEnviarReporteGcMail(xlsxAbs);
+    }
+
+    const hook = reporteChatWebhookUrl();
+    if (hook) {
+      const text =
+        `📊 *Reporte Gastos Cobranza*\n` +
+        `Archivo: \`${base}\` (~${kb} KB)\n` +
+        `El Excel se envió por correo a los destinatarios configurados (PHPMailer).`;
+      await postGoogleChatWebhook(hook, text);
+    }
+
+    writePostReporteDedupeRecord(fp);
+  } finally {
+    releasePostReporteNotifyLock(lockPath);
   }
+}
+
+function runPostReporteEntregas(xlsxAbs) {
+  const p = postReporteEntregaChain.then(() => runPostReporteEntregasImpl(xlsxAbs));
+  postReporteEntregaChain = p.catch(() => {});
+  return p;
 }
 
 /** Una sola corrida del reporte a la vez (/run HTTP o auto-run). */

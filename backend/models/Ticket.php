@@ -2158,9 +2158,50 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     // =====================================================================
 
     /**
-     * Guarda snapshot de gestiones al momento de enviar el dictamen al gestor.
+     * Cuenta gestiones del crédito con fecha (dispositivo o registro) <= corte (CDMX).
+     * Sirve para snapshot retroactivo: aproxima el conteo que hubiera al enviar el dictamen.
+     *
+     * @param string $hastaCdmx Fecha/hora límite inclusive (mismo formato que usa el sistema).
      */
-    private static function guardarSnapshotDictamenSistema(int $idTicket, int $idDictamen, string $fechaEnvio, Database $db)
+    private static function contarGestionesCreditoHasta(string $idCredito, string $hastaCdmx): int
+    {
+        $gestiones = Gestiones::getAllGestiones($idCredito, '');
+        if (!is_array($gestiones) || $gestiones === []) {
+            return 0;
+        }
+        $tz = new \DateTimeZone('America/Mexico_City');
+        try {
+            $limite = new \DateTime($hastaCdmx, $tz);
+        } catch (\Exception $e) {
+            return count($gestiones);
+        }
+        $tsLim = $limite->getTimestamp();
+        $n = 0;
+        foreach ($gestiones as $g) {
+            $raw = trim((string)($g['fecha_dispositivo'] ?? ''));
+            if ($raw === '') {
+                $raw = trim((string)($g['fecha_hora'] ?? ''));
+            }
+            if ($raw === '') {
+                $n++;
+                continue;
+            }
+            $t = strtotime($raw);
+            if ($t !== false && $t <= $tsLim) {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * Guarda snapshot de gestiones al momento de enviar el dictamen al gestor.
+     *
+     * @param bool $conteoRetroactivoAlMomentoEnvio Si true, no usa el total actual de la lista sino
+     *                                            gestiones con fecha <= fecha de envío (reparación de filas faltantes).
+     */
+    private static function guardarSnapshotDictamenSistema(int $idTicket, int $idDictamen, string $fechaEnvio, Database $db, bool $conteoRetroactivoAlMomentoEnvio = false)
     {
         $ticketRow = $db->queryOne("SELECT id_credito FROM ticket WHERE id_ticket = :id LIMIT 1", ['id' => $idTicket]);
         $idCredito = $ticketRow ? (int)($ticketRow['id_credito'] ?? 0) : 0;
@@ -2170,7 +2211,11 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $nombreGestor = $idGestor > 0 ? self::getNombrePersona($idGestor) : '';
 
         $gestiones = Gestiones::getAllGestiones((string)$idCredito, '');
-        $totalGestiones = is_array($gestiones) ? count($gestiones) : 0;
+        if ($conteoRetroactivoAlMomentoEnvio) {
+            $totalGestiones = self::contarGestionesCreditoHasta((string)$idCredito, $fechaEnvio);
+        } else {
+            $totalGestiones = is_array($gestiones) ? count($gestiones) : 0;
+        }
 
         $existe = $db->queryOne(
             "SELECT id FROM dictamen_sistema WHERE id_dictamen = :idd LIMIT 1",
@@ -2197,6 +2242,29 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 ]
             );
         }
+    }
+
+    /**
+     * Si falta fila en dictamen_sistema pero ya hay dictamen enviado al gestor (p. ej. envío
+     * previo a activar el snapshot o fallo silencioso en enviarDictamenGestor), crea el snapshot.
+     */
+    private static function intentarCompletarSnapshotDictamenSistema(int $idTicket, Database $db, string $fechaFallback): void
+    {
+        $dictamenEnviado = $db->queryOne(
+            "SELECT id, fecha_actualizacion, fecha_creacion FROM dictamen WHERE id_ticket = :tid AND estado = 'enviado_al_gestor' ORDER BY id DESC LIMIT 1",
+            ['tid' => $idTicket]
+        );
+        if (!$dictamenEnviado || empty($dictamenEnviado['id'])) {
+            return;
+        }
+        $fh = trim((string)($dictamenEnviado['fecha_actualizacion'] ?? ''));
+        if ($fh === '') {
+            $fh = trim((string)($dictamenEnviado['fecha_creacion'] ?? ''));
+        }
+        if ($fh === '') {
+            $fh = $fechaFallback;
+        }
+        self::guardarSnapshotDictamenSistema($idTicket, (int)$dictamenEnviado['id'], $fh, $db, true);
     }
 
     /**
@@ -2234,7 +2302,17 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 ['tid' => $idTicket]
             );
             if (!$ds) {
-                return self::resultado(false, 'No existe registro de dictamen_sistema para este ticket. Es posible que el dictamen se haya enviado antes de activar esta función.');
+                self::intentarCompletarSnapshotDictamenSistema($idTicket, $db, $now);
+                $ds = $db->queryOne(
+                    "SELECT * FROM dictamen_sistema WHERE id_ticket = :tid ORDER BY id DESC LIMIT 1",
+                    ['tid' => $idTicket]
+                );
+            }
+            if (!$ds) {
+                return self::resultado(
+                    false,
+                    'No hay registro de dictamen del sistema para este ticket. Debe existir un dictamen ya enviado al gestor y el ticket debe tener crédito asociado. Si el envío fue antes de activar esta función, vuelva a intentar generar; si el error continúa, revise que el ticket tenga id_credito en base de datos.'
+                );
             }
 
             $idCredito = (int)($ds['id_credito'] ?? 0);
