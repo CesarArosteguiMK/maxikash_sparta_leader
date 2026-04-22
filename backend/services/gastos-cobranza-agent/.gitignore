@@ -11,4 +11,7 @@ reporte/*.xlsx
 !reporte/reporte_cobranza_EJEMPLO_preview.xlsx
 reporte/ec-uploads/*.xlsx
 reporte/descargo_estatus3/*.xlsx
+reporte/descargo_estatus3/*.tmp
+reporte/descargo_estatus3/guia_descargo.local.json
+reporte/descargo_estatus3/guia_descargo.*.bak
 reporte/historico/**/*.xlsx

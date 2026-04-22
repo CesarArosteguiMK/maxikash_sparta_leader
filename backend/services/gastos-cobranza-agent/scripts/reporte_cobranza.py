@@ -10,6 +10,7 @@ Columnas finales:
 Flujo:
   1. MySQL trae créditos elegibles (gastos_cobranza + tbl_segundometro_semana, Dias_mora=0,
      sin despacho, valor_real > 1) y Fecha_ultimo_pago_efectivo = **fecha de negocio** (ayer CDMX).
+     Excluye id_credito con cobranza_gc_verificacion_semana estatus=3 en la misma inicio_semana (semana actual).
   2. Se consulta la lista negra (cobranza_gc_verificacion_semana) en una query aparte.
   3. En Python se descartan los id_credito que ya están en lista negra para esa semana
      (inicio_semana = martes del periodo, s2_exitoso = 1).
@@ -40,6 +41,7 @@ Conexión __SPARTA_SECRET_REDACTED__ (columnas Maxi app / tabla ubicacion); si n
 
 Pruebas / descargo:
   REPORTE_COBRANZA_NO_GUARDAR_GUIA_DESCARGO=1 — fusiona descargo igual pero NO escribe guia_descargo.json
+  REPORTE_COBRANZA_DESCARGO_GUIA_BASENAME=guia_descargo.local.json — otro nombre de guía (p. ej. localhost vs servidor).
     (el checkpoint no avanza; otra corrida puede volver a traer las mismas filas incrementales).
   REPORTE_COBRANZA_SIN_DESCARGO=1 — omite por completo consulta y merge de descargo (no toca la guía).
 
@@ -59,6 +61,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -214,20 +217,49 @@ MIN_SALDO_FAVOR_EXCEL = 200.0
 # ─────────────────────────────────────────────
 # Directorio donde viven guia_descargo.json y descargo_estatus3.xlsx.
 DESCARGO_ESTATUS3_DIR = os.path.normpath(os.path.join(REPORTE_DIR, "descargo_estatus3"))
-_GUIA_DESCARGO_FILE   = "guia_descargo.json"
 TABLE_DESCARGO        = "cobranza_gc_verificacion_semana"
 
 
+def _guia_descargo_basename_sanitized() -> str:
+    """
+    Nombre del JSON de checkpoint (solo basename). Permite otro archivo en localhost
+    vía REPORTE_COBRANZA_DESCARGO_GUIA_BASENAME=guia_descargo.local.json para no pisar el del servidor.
+    """
+    raw = (os.environ.get("REPORTE_COBRANZA_DESCARGO_GUIA_BASENAME") or "").strip()
+    if not raw:
+        return "guia_descargo.json"
+    if "/" in raw or "\\" in raw or ".." in raw or raw.startswith("."):
+        return "guia_descargo.json"
+    if not raw.endswith(".json"):
+        return "guia_descargo.json"
+    return raw
+
+
+def _guia_descargo_path() -> str:
+    return os.path.join(DESCARGO_ESTATUS3_DIR, _guia_descargo_basename_sanitized())
+
+
+def _guia_descargo_backup_path() -> str:
+    return _guia_descargo_path() + ".bak"
+
+
 def _leer_guia_descargo() -> dict | None:
-    p = os.path.join(DESCARGO_ESTATUS3_DIR, _GUIA_DESCARGO_FILE)
-    if not os.path.isfile(p):
-        return None
-    try:
-        with open(p, encoding="utf-8-sig") as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
-        log.warning("No se pudo leer la guía descargo: %s", e)
-        return None
+    orden = (_guia_descargo_path(), _guia_descargo_backup_path())
+    for p in orden:
+        if not os.path.isfile(p):
+            continue
+        try:
+            with open(p, encoding="utf-8-sig") as f:
+                data = json.load(f)
+            if p != _guia_descargo_path():
+                log.warning(
+                    "Guía descargo principal ausente o ilegible; se usó respaldo: %s",
+                    os.path.basename(p),
+                )
+            return data
+        except (OSError, json.JSONDecodeError) as e:
+            log.warning("No se pudo leer %s: %s", os.path.basename(p), e)
+    return None
 
 
 def _guardar_guia_descargo(
@@ -251,14 +283,31 @@ def _guardar_guia_descargo(
             "Escrito por reporte_cobranza.py al fusionar el reporte unificado."
         ),
     }
-    p = os.path.join(DESCARGO_ESTATUS3_DIR, _GUIA_DESCARGO_FILE)
+    p = _guia_descargo_path()
+    tmp = p + ".tmp"
     try:
-        with open(p, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-            f.write("\n")
+        text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+        json.loads(text)
+    except (TypeError, ValueError, json.JSONDecodeError) as e:
+        log.warning("Serialización JSON de guía inválida; no se escribe: %s", e)
+        return
+    try:
+        if os.path.isfile(p) and os.path.getsize(p) > 0:
+            try:
+                shutil.copy2(p, _guia_descargo_backup_path())
+            except OSError as e2:
+                log.warning("No se pudo respaldar guía anterior (.bak): %s", e2)
+        with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        os.replace(tmp, p)
         log.info("Guía descargo actualizada: %s", os.path.basename(p))
     except OSError as e:
         log.warning("No se pudo guardar la guía descargo: %s", e)
+        try:
+            if os.path.isfile(tmp):
+                os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def _dt_descargo_a_str(val) -> str:
@@ -275,15 +324,17 @@ def _dt_descargo_a_str(val) -> str:
     return s
 
 
-def obtener_descargo_incremental() -> list[dict]:
+def obtener_descargo_incremental(inicio_semana: date) -> list[dict]:
     """
     Consulta incrementalmente cobranza_gc_verificacion_semana (estatus=3)
+    **solo** para la semana operativa dada (mismo inicio_semana que lista negra),
     usando la guia_descargo.json como checkpoint.
     Devuelve lista de dicts (pymysql DictCursor).
     """
     guia = _leer_guia_descargo()
-    conds: list[str] = ["`estatus` = 3"]
-    params: list = []
+    ins = inicio_semana.isoformat()
+    conds: list[str] = ["`estatus` = 3", "`inicio_semana` = %s"]
+    params: list = [ins]
 
     if guia is not None:
         reg_raw = guia.get("ultimo_registrado_en_cdmx", "")
@@ -317,7 +368,11 @@ def obtener_descargo_incremental() -> list[dict]:
         with conn.cursor() as cur:
             cur.execute(sql, tuple(params))
             rows = cur.fetchall()
-        log.info("Descargo filas nuevas en esta corrida: %d", len(rows))
+        log.info(
+            "Descargo filas nuevas en esta corrida: %d (inicio_semana=%s)",
+            len(rows),
+            ins,
+        )
         return list(rows)
     finally:
         conn.close()
@@ -446,9 +501,10 @@ def merge_descargo_en_reporte(
 
 # ─── QUERY PRINCIPAL: dinámica — filtro fecha = fecha de negocio (ayer CDMX el día de la corrida)
 
-def sql_query_ids_principal(fecha_filtro: date) -> str:
-    """fecha_filtro debe coincidir con DATE(Fecha_ultimo_pago_efectivo) en BD."""
+def sql_query_ids_principal(fecha_filtro: date, inicio_semana_op: date) -> str:
+    """fecha_filtro = DATE(Fecha_ultimo_pago_efectivo); inicio_semana_op = martes semana operativa (lista negra)."""
     fs = fecha_filtro.isoformat()
+    ins = inicio_semana_op.isoformat()
     return f"""
 SELECT
     g.`Id_credito`  AS id_credito,
@@ -481,6 +537,13 @@ WHERE g.`condonado` = 0
       FROM `__SPARTA_SECRET_REDACTED__`.`asigna_creditos_despacho` AS d
       WHERE d.`id_credito` = g.`Id_credito`
         AND d.`estatus`    = '1'
+  )
+  AND NOT EXISTS (
+      SELECT 1
+      FROM `cobranza_gc_verificacion_semana` AS cgc
+      WHERE cgc.`id_credito` = g.`Id_credito`
+        AND cgc.`estatus` = 3
+        AND cgc.`inicio_semana` = '{ins}'
   )
 GROUP BY g.`Id_credito`
 HAVING valor_real > 1
@@ -789,13 +852,17 @@ def monto_abono_efectivo_para_excel(raw) -> float | str:
     return round(v, 2)
 
 
-def obtener_ids_mysql(fecha_filtro_pago_efectivo: date) -> list[dict]:
-    """Trae TODOS los créditos elegibles desde MySQL (sin filtro lista negra)."""
-    log.info("Conectando a MySQL para créditos (filtro fecha pago efectivo=%s)...", fecha_filtro_pago_efectivo)
+def obtener_ids_mysql(fecha_filtro_pago_efectivo: date, inicio_semana_op: date) -> list[dict]:
+    """Trae créditos elegibles desde MySQL (sin filtro lista negra; excluye estatus 3 misma semana)."""
+    log.info(
+        "Conectando a MySQL para créditos (filtro fecha pago efectivo=%s, excluye GC estatus=3 inicio_semana=%s)...",
+        fecha_filtro_pago_efectivo,
+        inicio_semana_op,
+    )
     conn = pymysql.connect(**DB_CONFIG)
     try:
         with conn.cursor() as cur:
-            cur.execute(sql_query_ids_principal(fecha_filtro_pago_efectivo))
+            cur.execute(sql_query_ids_principal(fecha_filtro_pago_efectivo, inicio_semana_op))
             rows = cur.fetchall()
         log.info(f"  -> {len(rows):,} registros en MySQL")
         return list(rows)
@@ -1387,7 +1454,15 @@ def relleno_fila_por_reglas(reg: dict) -> PatternFill | None:
     return None
 
 
-def generar_excel(registros, lunes: date, hoy: date, ruta_salida: str):
+def generar_excel(
+    registros,
+    lunes: date,
+    fecha_filtro_ultimo_pago: date,
+    ruta_salida: str,
+    *,
+    fecha_generacion_cdmx: date,
+    inicio_semana_operativa: date,
+):
     log.info(f"Construyendo Excel ({len(registros):,} filas)...")
     wb = Workbook()
     ws = wb.active
@@ -1397,10 +1472,14 @@ def generar_excel(registros, lunes: date, hoy: date, ruta_salida: str):
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     ncols  = len(COLUMNAS)
 
+    iy, iw, _iw = fecha_generacion_cdmx.isocalendar()
     ws.merge_cells(f"A1:{get_column_letter(ncols)}1")
     ws["A1"] = (
-        f"Reporte Gastos Cobranza  |  Generado: {hoy}  |  "
-        f"Lunes semana: {lunes}  |  GC desde: {FECHA_CORTE_GASTOS}  |  "
+        f"Reporte Gastos Cobranza  |  Archivo / generación (CDMX): {fecha_generacion_cdmx}  |  "
+        f"ISO {iy}-W{iw:02d}  |  "
+        f"Filtro DATE(último pago efectivo) = {fecha_filtro_ultimo_pago}  |  "
+        f"Semana operativa inicio (martes): {inicio_semana_operativa}  |  "
+        f"Lunes cal. fecha negocio: {lunes}  |  GC desde: {FECHA_CORTE_GASTOS}  |  "
         f"Total registros: {len(registros):,}"
     )
     ws["A1"].font      = Font(name="Arial", size=9, italic=True, color="595959")
@@ -1526,7 +1605,7 @@ def main() -> None:
     )
 
     # PASO 1: traer TODOS los elegibles desde MySQL
-    todos_rows = obtener_ids_mysql(hoy)
+    todos_rows = obtener_ids_mysql(hoy, inicio_semana)
     if not todos_rows:
         log.warning("Sin registros MySQL. Se generará Excel vacío.")
     notificar_google_chat(
@@ -1745,7 +1824,7 @@ def main() -> None:
     else:
         log.info("Consultando descargo incremental (estatus=3)...")
         print("--- descargo incremental ---", flush=True)
-        rows_descargo = obtener_descargo_incremental()
+        rows_descargo = obtener_descargo_incremental(inicio_semana)
         if rows_descargo:
             resultados = merge_descargo_en_reporte(
                 resultados,
@@ -1823,7 +1902,14 @@ def main() -> None:
         )
 
     # PASO 4: generar Excel unificado (siempre, aunque queden 0 registros)
-    generar_excel(resultados, lunes, hoy, ruta_excel)
+    generar_excel(
+        resultados,
+        lunes,
+        hoy,
+        ruta_excel,
+        fecha_generacion_cdmx=fecha_generacion_cdmx,
+        inicio_semana_operativa=inicio_semana,
+    )
 
     elapsed = time.time() - t0
     log.info("=" * 65)
