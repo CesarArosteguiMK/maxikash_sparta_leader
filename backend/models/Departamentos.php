@@ -183,11 +183,22 @@ class Departamentos extends Model
         header('Content-Type: application/json; charset=utf-8');
 
         try {
+            $nombre = trim((string) $nombre);
             $id_departamento = (int) $id_departamento;
+            if ($nombre === '' || $id_departamento <= 0) {
+                echo json_encode([
+                    'success' => false,
+                    'mensaje' => 'Nombre e ID de departamento son obligatorios.',
+                    'datos' => [],
+                ]);
+                exit;
+            }
+
             $db = new Database();
 
+            // Sin columna id: deja que AUTO_INCREMENT asigne (evita fallos con NULL en id en modo estricto).
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.puesto (id, clave, nombre, nivel, activo, departamento_id, es_jefe, descripcion) VALUES (null, :nombre, :nombre2, 0, 1, :id_departamento, 1, NULL)",
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.puesto (clave, nombre, nivel, activo, departamento_id, es_jefe, descripcion) VALUES (:nombre, :nombre2, 0, 1, :id_departamento, 1, NULL)",
                 ['nombre' => $nombre, 'nombre2' => $nombre, 'id_departamento' => $id_departamento]
             );
 
@@ -228,10 +239,10 @@ class Departamentos extends Model
 
         } catch (\Exception $e) {
             echo json_encode([
-                "success" => false,
-                "mensaje" => "Error al procesar la solicitud.",
-                "datos" => [],
-                "error" => $e->getMessage()
+                'success' => false,
+                'mensaje' => 'Error al procesar la solicitud: ' . $e->getMessage(),
+                'datos' => [],
+                'error' => $e->getMessage(),
             ]);
         }
 
