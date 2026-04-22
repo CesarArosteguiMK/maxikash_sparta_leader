@@ -167,9 +167,8 @@ SQL;
     }
 
     /**
-     * Gestiones desde __SPARTA_SECRET_REDACTED__ (Legacy): vista legacy_historico.
-     * dictamen_campo / dictamen_ccc ← dictamen_for (opción de dictamen). comentarios_generales ← texto libre.
-     * promesa_pago ← fecha + hora de promesa; porque_atraso_pago ← porque_se_atraso_en_su_pago.
+     * Gestiones desde __SPARTA_SECRET_REDACTED__ (Legacy / DatabaseLegacy): tasks + dictums + JSON_TABLE(form_response).
+     * Mismos alias de columnas que la consulta anterior (legacy_historico) para vistas y merge con Sky.
      *
      * @param int|null $limit Si se indica, LIMIT en SQL (más recientes primero). null = sin límite.
      */
@@ -177,102 +176,127 @@ SQL;
     {
         try {
             $mysqli = new DatabaseLegacy(); // conexión LEGACY
+            $creditoParam = trim((string) $credito);
 
             $query = <<<SQL
         SELECT
-        'LEGACY' AS app,
-        '' AS id,
-        '' AS id_team,
-        ut.name AS team_supervisor,
-        '' AS id_base,
-        lh.campana AS nombre_base,
-        lh.fecha_dictamen AS fecha_carga_base,
-        '' AS id_registro,
-        '' AS id_key,
-        '' AS estatus,
-        lh.nombre_usuario AS usuario_asignado,
-         lh.nombre_usuario AS nombre_cliente,
-        lh.id_credit AS id_credito,
-        '' AS cuenta_clabe,
-        '' AS nombre_completo_cliente,
-        '' AS pago_semanal,
-        '' AS pagos_vencidos,
-        '' AS deuda_total,
-        '' AS codigo_gestor,
-        lh.nombre_usuario AS usuario,
-        '' AS telefono_celular,
-        '' AS cp,
-        '' AS direccion,
-        '' AS direccion_ine,
-        '' AS direccion_actual,
-        '' AS geolocalizacion,
-        '' AS direccion_geo,
-        '' AS donde_firma,
-        '' AS referencia_personal1,
-        '' AS parentesco1,
-        '' AS telefono_referencia1,
-        '' AS referencia_personal2,
-        '' AS parentesco2,
-        '' AS telefono_referencia2,
-        CASE
-            WHEN lh.contacto = 'telefono' THEN 'telefono'
-            WHEN lh.contacto = 'whatsapp' THEN 'telefono'
-            ELSE                               'campo'
-        END AS contacto,
-        CASE
-            WHEN lh.contacto = 'telefono' THEN 'llamada telefonica'
-            WHEN lh.contacto = 'whatsapp' THEN 'Whatsapp'
-            WHEN lh.contacto = 'campo'    THEN '0'
-            ELSE ''
-        END AS medio_contactacion_ccc,
-        CASE
-            WHEN lh.contacto = 'campo' THEN COALESCE(NULLIF(TRIM(lh.medio_de_contacto_campo), ''), 'domicilio del cliente')
-            ELSE '0'
-        END AS medio_contactacion_campo,
-        CASE
-            WHEN lh.contacto = 'campo' THEN TRIM(COALESCE(lh.dictamen_for, ''))
-            ELSE ''
-        END AS dictamen_campo,
-        CASE
-            WHEN lh.contacto IN ('telefono', 'whatsapp') THEN TRIM(COALESCE(lh.dictamen_for, ''))
-            ELSE ''
-        END AS dictamen_ccc,
-        TRIM(CONCAT_WS(' ', NULLIF(TRIM(lh.fecha_de_promesa_de_pago), ''), NULLIF(TRIM(lh.hora_de_promesa_de_pago), ''))) AS promesa_pago,
-        lh.motivo_de_no_de_pago AS motivo_negativa,
-        TRIM(COALESCE(lh.porque_se_atraso_en_su_pago, '')) AS porque_atraso_pago,
-        '' AS con_quien_mala_experiencia,
-        NOW() AS fecha_hora,
-        '' AS kilometraje,
-        '' AS numero_serie,
-        '' AS marca_modelo,
-        '' AS actualizacion_direccion,
-        '' AS actualizacion_telefono,
-        lh.comentarios_generales AS comentarios_generales,
-        '' AS foto1,
-        '' AS foto2,
-        '' AS foto3,
-        '' AS adjunto,
-        '' AS video,
-        '' AS device_imei,
-        NOW() AS fecha_sistema,
-        lh.fecha_dictamen AS fecha_dispositivo,
-        lh.lat AS latitud,
-        lh.lng AS longitud,
-        CONCAT(lh.lat, ',', lh.lng) AS ubicacion_usuario,
-        '' AS fake_gps,
-        '' AS secure_area,
-        '' AS images
-    FROM legacy_historico lh
-    LEFT JOIN users u ON u.name = lh.nombre_usuario
-    LEFT JOIN users ut ON ut.id =
-        CASE
-            WHEN u.supervisor_id IS NOT NULL THEN u.supervisor_id
-            WHEN u.subgerente_id IS NOT NULL THEN u.subgerente_id
-            WHEN u.gerente_id IS NOT NULL THEN u.gerente_id
-            ELSE u.subdirector_id
-        END
-    WHERE lh.id_credit = :credito
-    ORDER BY lh.fecha_dictamen DESC
+            'LEGACY' AS app,
+            '' AS id,
+            '' AS id_team,
+            ut.name AS team_supervisor,
+            '' AS id_base,
+            c.name AS nombre_base,
+            d.updated_at AS fecha_carga_base,
+            '' AS id_registro,
+            '' AS id_key,
+            '' AS estatus,
+            u.name AS usuario_asignado,
+            u.name AS nombre_cliente,
+            t.credit_number AS id_credito,
+            '' AS cuenta_clabe,
+            '' AS nombre_completo_cliente,
+            '' AS pago_semanal,
+            '' AS pagos_vencidos,
+            '' AS deuda_total,
+            '' AS codigo_gestor,
+            u.name AS usuario,
+            '' AS telefono_celular,
+            '' AS cp,
+            '' AS direccion,
+            '' AS direccion_ine,
+            '' AS direccion_actual,
+            '' AS geolocalizacion,
+            '' AS direccion_geo,
+            '' AS donde_firma,
+            '' AS referencia_personal1,
+            '' AS parentesco1,
+            '' AS telefono_referencia1,
+            '' AS referencia_personal2,
+            '' AS parentesco2,
+            '' AS telefono_referencia2,
+            CASE
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'telefono' THEN 'telefono'
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'whatsapp' THEN 'telefono'
+                ELSE 'campo'
+            END AS contacto,
+            CASE
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'telefono' THEN 'llamada telefonica'
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'whatsapp' THEN 'Whatsapp'
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'campo' THEN '0'
+                ELSE ''
+            END AS medio_contactacion_ccc,
+            CASE
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'campo'
+                THEN COALESCE(NULLIF(TRIM(MAX(CASE WHEN j.name = 'medio_de_contacto_campo' THEN j.value END)), ''), 'domicilio del cliente')
+                ELSE '0'
+            END AS medio_contactacion_campo,
+            CASE
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'campo'
+                THEN TRIM(COALESCE(o.nombre_opcion, ''))
+                ELSE ''
+            END AS dictamen_campo,
+            CASE
+                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) IN ('telefono', 'whatsapp')
+                THEN TRIM(COALESCE(o.nombre_opcion, ''))
+                ELSE ''
+            END AS dictamen_ccc,
+            TRIM(CONCAT_WS(' ',
+                NULLIF(TRIM(MAX(CASE WHEN j.name = 'fecha_de_promesa_de_pago' THEN j.value END)), ''),
+                NULLIF(TRIM(MAX(CASE WHEN j.name = 'hora_de_promesa_de_pago' THEN j.value END)), '')
+            )) AS promesa_pago,
+            MAX(CASE WHEN j.name = 'motivo_de_no_de_pago' THEN j.value END) AS motivo_negativa,
+            TRIM(COALESCE(MAX(CASE WHEN j.name = 'porque_se_atraso_en_su_pago' THEN j.value END), '')) AS porque_atraso_pago,
+            '' AS con_quien_mala_experiencia,
+            NOW() AS fecha_hora,
+            '' AS kilometraje,
+            '' AS numero_serie,
+            '' AS marca_modelo,
+            '' AS actualizacion_direccion,
+            '' AS actualizacion_telefono,
+            JSON_UNQUOTE(JSON_EXTRACT(
+                MAX(CASE WHEN j.name = 'comentarios_generales' THEN j.raw END),
+                '$.value'
+            )) AS comentarios_generales,
+            '' AS foto1,
+            '' AS foto2,
+            '' AS foto3,
+            '' AS adjunto,
+            '' AS video,
+            '' AS device_imei,
+            NOW() AS fecha_sistema,
+            d.updated_at AS fecha_dispositivo,
+            d.lat AS latitud,
+            d.lng AS longitud,
+            CONCAT(d.lat, ',', d.lng) AS ubicacion_usuario,
+            '' AS fake_gps,
+            '' AS secure_area,
+            '' AS images
+        FROM tasks t
+        JOIN dictums d ON d.task_id = t.id
+        JOIN opcionesdictamen o ON d.opciondictamen_id = o.id
+        JOIN campaigns c ON c.id = t.campaign_id
+        JOIN users u ON d.user_id = u.id
+        JOIN JSON_TABLE(
+            JSON_UNQUOTE(d.form_response),
+            '$[*]' COLUMNS (
+                name VARCHAR(255) PATH '$.name',
+                value VARCHAR(255) PATH '$.value',
+                raw JSON PATH '$'
+            )
+        ) j
+        LEFT JOIN users ut ON ut.id = COALESCE(
+            u.supervisor_id,
+            u.subgerente_id,
+            u.gerente_id,
+            u.subdirector_id
+        )
+        WHERE t.credit_number = :credito
+        GROUP BY
+            d.id, d.updated_at, d.lat, d.lng,
+            t.credit_number, o.nombre_opcion,
+            c.name, u.name, ut.name,
+            d.valid_geofencing
+        ORDER BY d.updated_at DESC
 SQL;
         if ($limit !== null) {
             $lim = max(1, min((int) $limit, 500));
@@ -280,7 +304,7 @@ SQL;
         }
         $query .= ';';
 
-        $legacyData = $mysqli->queryAll($query, ['credito' => $credito]);
+        $legacyData = $mysqli->queryAll($query, ['credito' => $creditoParam]);
 
         // Si no hay datos de Legacy, retornar vacío
         if (empty($legacyData)) {
@@ -299,7 +323,7 @@ SQL;
 
         return $legacyData;
         } catch (\Throwable $e) {
-            self::marcarHistoricoDbFallo('Legacy __SPARTA_SECRET_REDACTED__ (DatabaseLegacy → legacy_historico)', $e);
+            self::marcarHistoricoDbFallo('Legacy __SPARTA_SECRET_REDACTED__ (DatabaseLegacy → tasks/dictums)', $e);
 
             return [];
         }
