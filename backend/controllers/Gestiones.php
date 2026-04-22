@@ -94,6 +94,8 @@ JS;
             $fallosDbConsole = GestionesDAO::getHistoricoDbFallos();
             if ($fallosDbConsole !== []) {
                 self::set('gestionesDbFallosConsole', $fallosDbConsole);
+                // Si aun así hay filas, el fallo es solo de una fuente (p. ej. Legacy); la consola lo aclara como aviso.
+                self::set('gestionesDbFallosModoParcial', !empty($GestionesAll));
             }
 
             if (empty($GestionesAll)) {
