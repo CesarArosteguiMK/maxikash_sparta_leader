@@ -370,14 +370,14 @@ class Convenios extends Model
                         adeudo_total_original, porcentaje_descuento, descuento_monto,
                         total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
                         fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago,
-                        tipo_calendario, estatus, usuario_alta, pdf_adjunto, base_calculo
+                        tipo_calendario, estatus, usuario_alta, pdf_adjunto, base_calculo, id_celula
                     ) VALUES (
                         :id_credito, :id_producto, :id_detalle,
                         :nombre_cliente, :bucket, :dias_mora, :avance_pago,
                         :adeudo_original, :pct_descuento, :descuento_monto,
                         :total_pagar, :monto_adicional, :pago_inicial, :num_semanas, :pago_semanal,
                         :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago,
-                        'libre', 'activo', :usuario, :pdf_adjunto, :base_calculo
+                        'libre', 'activo', :usuario, :pdf_adjunto, :base_calculo, :id_celula
                     )",
                     [
                         'id_credito'        => (int) $datos['id_credito'],
@@ -401,6 +401,7 @@ class Convenios extends Model
                         'usuario'           => $datos['usuario_alta'],
                         'pdf_adjunto'       => $pdfAdjunto,
                         'base_calculo'      => $baseCalculo,
+                        'id_celula'         => isset($datos['id_celula']) ? $datos['id_celula'] : null,
                     ]
                 );
 
@@ -451,13 +452,13 @@ class Convenios extends Model
         nombre_cliente, bucket_morosidad_real, dias_mora, avance_pago_plazo,
         adeudo_total_original, porcentaje_descuento, descuento_monto,
         total_a_pagar, monto_adicional, pago_inicial_monto, numero_semanas, pago_semanal,
-        fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta, pdf_adjunto, base_calculo
+        fecha_acuerdo, fecha_primer_pago, fecha_ultimo_pago, estatus, usuario_alta, pdf_adjunto, base_calculo, id_celula
     ) VALUES (
         :id_credito, :id_producto, :id_detalle,
         :nombre_cliente, :bucket, :dias_mora, :avance_pago,
         :adeudo_original, :pct_descuento, :descuento_monto,
         :total_pagar, :monto_adicional, :pago_inicial, :num_semanas, :pago_semanal,
-        :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo', :usuario, :pdf_adjunto, :base_calculo
+        :fecha_acuerdo, :fecha_primer_pago, :fecha_ultimo_pago, 'activo', :usuario, :pdf_adjunto, :base_calculo, :id_celula
     )",
     [
         'id_credito'        => (int) $datos['id_credito'],
@@ -481,6 +482,7 @@ class Convenios extends Model
         'usuario'           => $datos['usuario_alta'],
         'pdf_adjunto'       => $pdfAdjunto,
         'base_calculo'      => $baseCalculo,
+        'id_celula'         => isset($datos['id_celula']) ? $datos['id_celula'] : null,
     ]
 );
             if (!$ok) {

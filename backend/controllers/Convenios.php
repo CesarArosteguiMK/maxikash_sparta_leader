@@ -10,6 +10,25 @@ class Convenios extends Controller
     /** Módulo web 32 — Permisos especiales: Registrar convenio existente */
     private const MODULO_REGISTRAR_CONVENIO_EXISTENTE = 32;
 
+    /** Módulos de célula (mismos que CierreCredito): 58 = Despachos (1), 57 = Call Center (2) */
+    private const MOD_CELULA_DESPACHOS   = 58;
+    private const MOD_CELULA_CALL_CENTER = 57;
+
+    /**
+     * Retorna el id_celula del usuario según sus módulos de sesión.
+     * 1 = Despachos, 2 = Call Center, null = sin célula específica.
+     */
+    private function resolverIdCelulaUsuario(): ?int
+    {
+        $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        $tieneDesp = in_array(self::MOD_CELULA_DESPACHOS,   $mods, true);
+        $tieneCC   = in_array(self::MOD_CELULA_CALL_CENTER, $mods, true);
+
+        if ($tieneDesp && !$tieneCC) return 1;
+        if ($tieneCC  && !$tieneDesp) return 2;
+        return null; // ambas o ninguna = sin restricción de célula
+    }
+
     private function usuarioTienePermisoRegistrarConvenioExistente(): bool
     {
         $mods = $_SESSION['modulos'] ?? [];
@@ -109,6 +128,7 @@ class Convenios extends Controller
         $datos['base_calculo'] = isset($_POST['base_calculo']) ? $_POST['base_calculo'] : null;
 
         $datos['usuario_alta'] = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $datos['id_celula']    = $this->resolverIdCelulaUsuario();
 
         // ── Procesar PDF adjunto si viene en la petición ──
         $datos['pdf_adjunto'] = null;

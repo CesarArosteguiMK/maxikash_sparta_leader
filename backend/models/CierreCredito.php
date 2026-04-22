@@ -208,16 +208,7 @@ class CierreCredito extends Model
                      WHERE a.id_convenio_cliente = cc.id
                        AND a.comprobante_path IS NOT NULL
                        AND a.comprobante_path != '')   AS comprobantes_paths,
-                    (SELECT TRIM(CONCAT_WS(' ',
-                            per.nombres, per.segundo_nombre,
-                            per.apellidop, per.apellidom))
-                     FROM asigna_creditos_despacho acd
-                     INNER JOIN despachos d   ON d.id  = acd.id_despacho
-                     INNER JOIN persona   per ON per.id = d.id_persona
-                     WHERE acd.id_credito = cc.id_credito
-                       AND acd.estatus    = '1'
-                     ORDER BY acd.fecha_alta DESC
-                     LIMIT 1)                          AS nombre_despacho,
+                    cc.usuario_alta                        AS nombre_despacho,
                     (SELECT cat.motivo
                      FROM cierre_credito_seguimiento ccs
                      LEFT JOIN catalogo_cierre_credito_seguimiento cat ON cat.id = ccs.motivo_descarte
