@@ -2381,6 +2381,7 @@ function congelarModulo(convenio) {
                         'data-path="' + fila.comprobante_path + '" ' +
                         'data-semana="' + fila.numero_semana + '" ' +
                         'data-convenio="' + convenio.id + '" ' +
+                        'data-credito="' + convenio.id_credito + '" ' +
                         'title="Ver comprobante">' +
                         '<i class="fas fa-eye"></i>' +
                         '</button>'
@@ -2416,6 +2417,7 @@ function congelarModulo(convenio) {
                 'data-fecha-pago-real="' + (fila.fecha_pago_real || '') + '" ' +
                 'data-comentario="' + (fila.comentario_gestor || '') + '" ' +
                 'data-convenio="' + convenio.id + '" ' +
+                'data-credito="' + convenio.id_credito + '" ' +
                 'title="Ver comprobante">' +
                 '<i class="fas fa-eye"></i>' +
                 '</button>'
@@ -6554,7 +6556,8 @@ function bindBotonesVerComprobante() {
                 nuevo.getAttribute('data-pago-semanal'),
                 nuevo.getAttribute('data-fecha-pago-real'),
                 nuevo.getAttribute('data-comentario'),
-                nuevo.getAttribute('data-convenio')
+                nuevo.getAttribute('data-convenio'),
+                nuevo.getAttribute('data-credito')
             );
         });
     });
@@ -6754,7 +6757,7 @@ window.guardarSubirComprobante = function () {
 // ════════════════════════════════════════════════
 // VER COMPROBANTE — semanas pendiente_conciliar / pagadas
 // ════════════════════════════════════════════════
-window.abrirVerComprobante = function (semana, path, fechaPago, pagoSemanal, fechaPagoReal, comentario, idConvenio) {
+window.abrirVerComprobante = function (semana, path, fechaPago, pagoSemanal, fechaPagoReal, comentario, idConvenio, idCredito) {
     document.getElementById('verCompTitulo').textContent = 'Semana ' + semana;
 
     // Guardar datos en el modal para el reemplazo
@@ -6762,6 +6765,7 @@ window.abrirVerComprobante = function (semana, path, fechaPago, pagoSemanal, fec
     modal.dataset.semana    = semana;
     modal.dataset.path      = path || '';
     modal.dataset.idConvenio = idConvenio || '';
+    modal.dataset.idCredito  = idCredito  || '';
 
     var fmtFechaLocal = function (s) {
         if (!s) return '—';
@@ -6846,6 +6850,7 @@ window.reemplazarComprobante = function () {
     var modal      = document.getElementById('modalVerComprobante');
     var semana     = modal.dataset.semana;
     var idConvenio = modal.dataset.idConvenio;
+    var idCredito  = modal.dataset.idCredito;
 
     if (!idConvenio) {
         Swal.fire('Sin datos', 'No se pudo identificar el convenio.', 'warning');
@@ -6882,28 +6887,15 @@ window.reemplazarComprobante = function () {
                 return;
             }
 
-            // Actualizar visualizador en tiempo real
-            var nuevaRuta = resp.datos && resp.datos.comprobante
-                ? resp.datos.comprobante
-                : URL.createObjectURL(archivo);
-            var ext = archivo.name.split('.').pop().toLowerCase();
-            var vis = '';
-            if (ext === 'pdf') {
-                vis = '<iframe src="' + nuevaRuta + '" width="100%" height="420px" ' +
-                    'style="border:1px solid #e2e8f0;border-radius:.5rem;"></iframe>';
-            } else {
-                vis = '<img src="' + nuevaRuta + '" style="max-width:100%;max-height:420px;' +
-                    'border-radius:.5rem;border:1px solid #e2e8f0;" alt="Comprobante">';
-            }
-            document.getElementById('verCompVisualizador').innerHTML = vis;
-            modal.dataset.path = nuevaRuta;
-
             Swal.fire({
                 title: '¡Comprobante reemplazado!',
                 html: 'Semana <strong>' + semana + '</strong> actualizada correctamente.',
                 icon: 'success',
-                timer: 2000,
+                timer: 1800,
                 showConfirmButton: false
+            }).then(function () {
+                var base = window.location.pathname;
+                window.location.href = base + (idCredito ? '?credito=' + idCredito : '');
             });
         })
         .catch(function () {
