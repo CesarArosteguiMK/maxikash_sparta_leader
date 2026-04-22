@@ -280,7 +280,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-1">
     <h4 class="mb-0">Departamentos Registrados</h4>
-    <button class="btn btn-primary" onclick="abrirModalNuevoDepartamento()">
+    <button type="button" class="btn btn-primary" onclick="abrirModalNuevoDepartamento()">
         <i class="fa fa-plus-circle me-2"></i>Nuevo Departamento
     </button>
 </div>
@@ -326,7 +326,7 @@
                                 placeholder="Ej. Cobranza, Call Center, Ventas..." 
                                 required
                                 maxlength="30"
-                                oninput="this.value = this.value.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
+                                oninput="sanitizarInputNombre(this)"
                                 onblur="this.value = toTitleCase(this.value.trim())">
                         </div>
                         <div class="invalid-feedback" id="errorNombre" style="display: none;"></div>
@@ -363,7 +363,6 @@
                                     contenteditable="false"
                                     data-departamento-id=""
                                     maxlength="30"
-                                    oninput="this.textContent = this.textContent.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')"
                                     onfocus="inicioEdicionTitulo(this)"
                                     onblur="guardarTituloDepartamento(this)">
                                     Call Center
@@ -399,7 +398,7 @@
                                     <h6 class="mb-0 fw-semibold">Listado de puestos</h6>
                                     <p class="mb-0 mt-1 small text-muted fst-italic">Orden jerárquico por nivel de cargo (escala de mando, de mayor a menor rango)</p>
                                 </div>
-                                <button class="btn btn-sm btn-outline-primary"
+                                <button type="button" class="btn btn-sm btn-outline-primary"
                                         onclick="mostrarInputNuevoPuesto()">
                                     <i class="fa fa-plus-circle"> </i>&emsp;Nuevo puesto
                                 </button>
@@ -413,10 +412,10 @@
                                            class="form-control"
                                            placeholder="Nombre del puesto"
                                            maxlength="30"
-                                           oninput="this.value = this.value.replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" 
+                                           oninput="sanitizarInputNombre(this)"
                                            onblur="this.value = toTitleCase(this.value.trim())">
-                                    <button class="btn btn-primary"
-                                            onclick="guardarNuevoPuesto()">
+                                    <button type="button" class="btn btn-primary"
+                                            onclick="guardarNuevoPuesto(); return false;">
                                         <i class="fa fa-save"></i>
                                     </button>
                                 </div>
