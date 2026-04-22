@@ -6703,7 +6703,7 @@ public function descargarReporteDictamen()
 
     public function reporteDictamen()
     {
-        header('Location: /reporteria/callcenter', true, 302);
+        header('Location: /analitica/callcenter', true, 302);
         exit;
     }
 

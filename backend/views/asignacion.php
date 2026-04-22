@@ -31,7 +31,7 @@
                                         <p class="text-body w-sm-80 app-academy-xl-100">Tres ventanas: <strong>semana pasada</strong>, <strong>actual</strong> y <strong>próxima</strong> (martes a lunes). En cada una: <strong>External ID</strong>, <strong>Nombre del gestor</strong> y <strong>Puesto</strong>, más la <strong>proyección de cambios</strong>.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
-                                        <a href="/reporteria/asignacionTablero" class="btn btn-primary w-100">
+                                        <a href="/analitica/asignacionTablero" class="btn btn-primary w-100">
                                             <i class="fa-solid fa-table-columns me-1"></i>Ver tablero
                                         </a>
                                     </div>
@@ -51,7 +51,7 @@
                                         <p class="text-body w-sm-80 app-academy-xl-100">Solo <strong>dos</strong> columnas (martes a lunes): las mismas que en el tablero de tres son <strong>semana pasada</strong> y <strong>semana actual</strong> (sin la columna «próxima» ni cambio proyectado). El bucket de la semana pasada sale del histórico de Segundómetro.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
-                                        <a href="/reporteria/asignacionTableroDos" class="btn btn-primary w-100">
+                                        <a href="/analitica/asignacionTableroDos" class="btn btn-primary w-100">
                                             <i class="fa-solid fa-table-columns me-1"></i>Ver tablero
                                         </a>
                                     </div>

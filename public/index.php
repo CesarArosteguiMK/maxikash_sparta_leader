@@ -242,6 +242,22 @@ if ($solicitaImportExcelDespachosSinSesion) {
     exit;
 }
 
+// Tablero Asignación (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «Unexpected token '<'».
+$solicitaJsonAsignacionTableroSinSesion = !isset($_SESSION['login'])
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
+    && isset($urlSolicitada[0], $urlSolicitada[1])
+    && (strtolower($urlSolicitada[0]) === 'reporteria' || strtolower($urlSolicitada[0]) === 'analitica')
+    && strtolower($urlSolicitada[1]) === 'getasignaciontablerojson';
+if ($solicitaJsonAsignacionTableroSinSesion) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(401);
+    echo json_encode([
+        'detail' => 'Sesión no válida o expirada. Vuelva a iniciar sesión.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
@@ -261,12 +277,14 @@ if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandid
 |--------------------------------------------------------------------------
 */
 $controladorArchivo = $urlSolicitada[0];
+$esAnalitica = strtolower(trim((string) $controladorArchivo)) === 'analitica';
+$controladorFs = $esAnalitica ? 'reporteria' : $controladorArchivo;
 
-if ($controladorArchivo === '' || !file_exists(CONTROLADORES . "/$controladorArchivo.php")) {
+if ($controladorFs === '' || !file_exists(CONTROLADORES . "/$controladorFs.php")) {
     recursoNoDisponible();
 }
 
-$controlador = 'Controllers\\' . ucfirst($controladorArchivo);
+$controlador = 'Controllers\\' . ucfirst($controladorFs);
 unset($urlSolicitada[0]);
 
 if (!class_exists($controlador)) recursoNoDisponible();
@@ -289,9 +307,10 @@ $rutasModulos = [
     'gestiones/seguimiento' => [3],
     'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42],     'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'caphum/estadisticas' => [38], 'caphum/getestadisticaspanel' => [38], 'caphum/getestadisticasmovimientodetalle' => [38],
-    'reporteria/callcenter' => [6], 'reporteria/resumencallcenter' => [6], 'reporteria/comparativas' => [60], 'reporteria/asignacion' => [61], 'reporteria/asignaciontablero' => [61], 'reporteria/asignaciontablerodos' => [61], 'reporteria/getasignaciontablerojson' => [61], 'reporteria/descargarasignaciontableroexcel' => [61], 'reporteria/descargarasignaciontablerodosexcel' => [61], 'reporteria/comparativasavancesemanal' => [60], 'reporteria/getcomparativasavancesemanaljson' => [60], 'reporteria/primerospagos' => [49], 'reporteria/vencimientoslunes' => [49], 'reporteria/vencimientolunessiguientesemana' => [49],
+    'reporteria/callcenter' => [6], 'reporteria/resumencallcenter' => [6], 'reporteria/comparativas' => [60], 'reporteria/asignacion' => [61], 'reporteria/asignaciontablero' => [61], 'reporteria/asignaciontablerodos' => [61], 'reporteria/getasignaciontablerojson' => [61], 'reporteria/descargarasignaciontableroexcel' => [61], 'reporteria/descargarasignaciontablerodosexcel' => [61], 'reporteria/comparativasavancesemanal' => [60], 'reporteria/getcomparativasavancesemanaljson' => [60], 'reporteria/primerospagos' => [49], 'reporteria/primerospagoshistorico' => [49], 'reporteria/vencimientoslunes' => [49], 'reporteria/vencimientolunessiguientesemana' => [49],
     'reporteria/getvencimientoslunes' => [49], 'reporteria/getvencimientoslunessiguientesemana' => [49],
     'reporteria/descargarprimerospagossemanactualexcel' => [49],
+    'reporteria/getprimerospagoshistoricosemanas' => [49], 'reporteria/getprimerospagoshistoricoresumen' => [49],
     'reporteria/sabuesos' => [18, 19, 48], 'reporteria/consultaidcredito' => [18, 19, 29], 'reporteria/consultacreditorastreo' => [18, 19, 29], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19, 48], 'reporteria/descargarReporteSabuesosEstadisticasDetalle' => [47],     'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [34],
     'reporteria/getusuarioscapitalhumano' => [34], 'reporteria/getbajascapitalhumano' => [34],
     'reporteria/descargarbajasexcelcapitalhumano' => [34], 'reporteria/getfiltroscapitalhumano' => [34],
@@ -363,8 +382,12 @@ $controladoresModulos = [
     'segundometro' => [16],
     'gastoscobranza' => [31],
 ];
-$path = strtolower(trim($controladorArchivo)) . '/' . strtolower(trim($metodo));
-$modulosRequeridos = $rutasModulos[$path] ?? $controladoresModulos[strtolower(trim($controladorArchivo))] ?? null;
+$path = strtolower(trim((string) $controladorArchivo)) . '/' . strtolower(trim((string) $metodo));
+$pathParaModulos = $path;
+if (str_starts_with($path, 'analitica/')) {
+    $pathParaModulos = 'reporteria/' . substr($path, strlen('analitica/'));
+}
+$modulosRequeridos = $rutasModulos[$path] ?? $rutasModulos[$pathParaModulos] ?? $controladoresModulos[strtolower(trim((string) $controladorArchivo))] ?? null;
 if (!$esEstadoReportesAgente && $modulosRequeridos !== null) {
     $modulosUsuario = $_SESSION['modulos'] ?? [];
     if (!is_array($modulosUsuario) || !array_intersect($modulosRequeridos, $modulosUsuario)) {

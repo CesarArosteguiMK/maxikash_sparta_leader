@@ -31,7 +31,7 @@
                                         <p class="text-body w-sm-80 app-academy-xl-100">En el tablero verás <strong>créditos</strong> y <strong>cobrado</strong> por cada corte, las columnas de las dos semanas pasadas, la semana actual y las <strong>variaciones</strong> en cantidad y porcentaje. Los datos salen de la base de reporte del segundómetro.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
-                                        <a href="/reporteria/comparativasAvanceSemanal" class="btn btn-primary w-100">
+                                        <a href="/analitica/comparativasAvanceSemanal" class="btn btn-primary w-100">
                                             <i class="fa-solid fa-table-columns me-1"></i>Ver tablero de avance
                                         </a>
                                     </div>

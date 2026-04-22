@@ -32,7 +32,9 @@ class DatabaseSegundometro
                 ]
             );
         } catch (\PDOException $e) {
-            if (DatabaseCliSupport::isCli() || DatabaseCliSupport::esGestionesSeguimientoRequest()) {
+            if (DatabaseCliSupport::isCli()
+                || DatabaseCliSupport::esGestionesSeguimientoRequest()
+                || DatabaseCliSupport::esReporteriaGetAsignacionTableroJsonRequest()) {
                 throw new \RuntimeException(
                     'No se pudo conectar a MySQL (__SPARTA_SECRET_REDACTED__): ' . $e->getMessage(),
                     0,

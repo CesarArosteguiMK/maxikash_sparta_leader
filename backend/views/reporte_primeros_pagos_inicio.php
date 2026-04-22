@@ -84,7 +84,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                             <i class="fa fa-table-columns me-1"></i>Ver cobranza esperada
                                         </button>
                                         <?php else: ?>
-                                        <a href="/reporteria/VencimientosLunes" class="btn btn-primary w-100">
+                                        <a href="/analitica/VencimientosLunes" class="btn btn-primary w-100">
                                             <i class="fa fa-table-columns me-1"></i>Ver cobranza esperada
                                         </a>
                                         <?php endif; ?>
@@ -119,7 +119,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                             <i class="fa fa-calendar-check me-1"></i>Ver corte semana actual
                                         </button>
                                         <?php else: ?>
-                                        <a href="/reporteria/VencimientosLunesSiguienteSemana" class="btn btn-primary w-100">
+                                        <a href="/analitica/VencimientosLunesSiguienteSemana" class="btn btn-primary w-100">
                                             <i class="fa fa-calendar-check me-1"></i>Ver corte semana actual
                                         </a>
                                         <?php endif; ?>
@@ -130,6 +130,32 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <rect x="6" y="8" width="44" height="40" rx="4" ry="4"/>
                                         <path d="M6 22h44M22 8v10M38 8v10"/>
                                         <path d="M52 36l6 6-6 6M58 42H42"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card shadow-none bg-label-secondary h-100" id="pp-card-historico">
+                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                    <div class="card-title">
+                                        <h5 class="text-primary mb-1">Histórico</h5>
+                                        <p class="text-primary mb-0 fw-bold small">Primeros pagos</p>
+                                        <p class="text-body-secondary small mb-1"><strong>Consulta:</strong> últimas 4 semanas cerradas</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Resumen por semana (las 4 más recientes en <code>tbl_segundometro_histo</code>): misma lógica que <strong>Lunes de cierre</strong> (nacimiento, corte y jerarquía).</p>
+                                    </div>
+                                    <div class="mb-0 mt-3">
+                                        <a href="/analitica/PrimerosPagosHistorico" class="btn btn-primary w-100">
+                                            <i class="fa-solid fa-clock-rotate-left me-1"></i>Ver histórico
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                    <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+                                        <circle cx="32" cy="34" r="18"/>
+                                        <path d="M32 22v10l8 5"/>
+                                        <path d="M14 14l8 8M50 14l-8 8"/>
                                     </svg>
                                 </div>
                             </div>
@@ -153,6 +179,9 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 .pp-primeros-pagos-page > .card {
     overflow: visible;
     position: relative;
+}
+#pp-card-historico {
+    scroll-margin-top: 5.5rem;
 }
 .pp-hero-block {
     position: relative;
@@ -299,6 +328,14 @@ body.dark-mode .pp-hero-mascot-floating {
                 }
                 if (window.history && window.history.replaceState) {
                     window.history.replaceState(null, '', window.location.pathname);
+                }
+            }
+            if (window.location.hash === '#pp-card-historico') {
+                var elHist = document.getElementById('pp-card-historico');
+                if (elHist) {
+                    setTimeout(function () {
+                        elHist.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 200);
                 }
             }
         } catch (e1) { /* ignorar */ }

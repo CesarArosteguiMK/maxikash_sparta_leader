@@ -17,7 +17,7 @@
                 <!-- BLOQUE: FILTROS -->
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
-                        <form id="formBuscarReporte" method="POST" action="/Reporteria/BuscarReporte">
+                        <form id="formBuscarReporte" method="POST" action="/analitica/BuscarReporte">
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-4">
                                     <label class="form-label">Fecha de inicio</label>

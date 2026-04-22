@@ -4,12 +4,16 @@ namespace Controllers;
 
 use Core\Controller;
 use Models\Empresa as EmpresasDAO;
+use Models\PrimerosPagosHistoricoSegundometro;
 use Models\SegundometroComparativaSemanal;
 
 require_once dirname(__DIR__) . '/cronjobs/PrimerosPagosAutoSwitch.php';
 
 class Reporteria extends Controller
 {
+    /** URL base pública «Analítica» (controlador PHP Reporteria; históricamente /reporteria/). */
+    private const BASE_PRIMEROS_PAGOS_ANALITICA = '/analitica';
+
     /** Módulo web 33 — Permisos especiales: Enviar correo (reportes de primeros pagos). */
     private const MODULO_ENVIAR_CORREO_PRIMEROS_PAGOS = 33;
 
@@ -272,7 +276,7 @@ class Reporteria extends Controller
 
     /**
      * Obtener filtros dinámicos para Reportes de Personal
-     * GET /Reporteria/getFiltrosCapitalHumano
+     * GET /analitica/getFiltrosCapitalHumano
      */
     public function getFiltrosCapitalHumano()
     {
@@ -330,7 +334,7 @@ class Reporteria extends Controller
 
     /**
      * Descargar Excel de usuarios activos filtrados
-     * GET /Reporteria/descargarUsuariosExcelCapitalHumano
+     * GET /analitica/descargarUsuariosExcelCapitalHumano
      */
     public function descargarUsuariosExcelCapitalHumano()
     {
@@ -507,7 +511,7 @@ class Reporteria extends Controller
 
     /**
      * Call Center: dictamen de llamadas.
-     * URL canónica: /reporteria/callcenter
+     * URL canónica: /analitica/callcenter
      * El historial de condonaciones está en Gastos Cobranza → /condonaciones/historial
      */
     public function callcenter()
@@ -523,7 +527,7 @@ class Reporteria extends Controller
 
     /**
      * Comparativas avance semanal (Analítica): landing al estilo Call Center.
-     * URL canónica: /reporteria/comparativas
+     * URL canónica: /analitica/comparativas
      * Permiso: modulos_web id 60 (Analítica → Comparativas).
      */
     public function comparativas()
@@ -535,7 +539,7 @@ class Reporteria extends Controller
 
     /**
      * Landing Asignación (Analítica), mismo estilo que Comparativas.
-     * URL canónica: /reporteria/asignacion
+     * URL canónica: /analitica/asignacion
      * Permiso: modulos_web id 61 (Analítica → Asignación).
      */
     public function asignacion()
@@ -550,20 +554,20 @@ class Reporteria extends Controller
 
     /**
      * Tablero Asignación — Proyección: semana pasada, actual y próxima (martes–lunes).
-     * URL canónica: /reporteria/asignacionTablero
+     * URL canónica: /analitica/asignacionTablero
      * Permiso: modulos_web id 61.
      */
     public function asignacionTablero()
     {
         self::set('titulo', 'Asignación — Tablero Proyección');
         self::set('asg_titulo_tablero', 'Asignación — Tablero Proyección');
-        self::set('asg_excel_path', '/reporteria/descargarAsignacionTableroExcel');
+        self::set('asg_excel_path', self::BASE_PRIMEROS_PAGOS_ANALITICA . '/descargarAsignacionTableroExcel');
         $cssPath = realpath(__DIR__ . '/../../public/assets/css/reporteria-asignacion-tablero.css');
         $cssV = $cssPath ? (int) filemtime($cssPath) : time();
         self::set('css', '<link rel="stylesheet" href="/assets/css/reporteria-asignacion-tablero.css?v=' . $cssV . '">');
         $cfgJson = json_encode(
             [
-                'basePath' => '/reporteria/asignacionTablero',
+                'basePath' => self::BASE_PRIMEROS_PAGOS_ANALITICA . '/asignacionTablero',
                 'dosVentanas' => false,
             ],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
@@ -574,20 +578,20 @@ class Reporteria extends Controller
 
     /**
      * Tablero Asignación — dos ventanas: mismas columnas 1 y 2 que el tablero de tres (semana pasada real + semana actual; sin columna «próxima»).
-     * URL canónica: /reporteria/asignacionTableroDos
+     * URL canónica: /analitica/asignacionTableroDos
      * Permiso: modulos_web id 61.
      */
     public function asignacionTableroDos()
     {
         self::set('titulo', 'Asignación — Tablero dos ventanas');
         self::set('asg_titulo_tablero', 'Asignación — Tablero dos ventanas');
-        self::set('asg_excel_path', '/reporteria/descargarAsignacionTableroDosExcel');
+        self::set('asg_excel_path', self::BASE_PRIMEROS_PAGOS_ANALITICA . '/descargarAsignacionTableroDosExcel');
         $cssPath = realpath(__DIR__ . '/../../public/assets/css/reporteria-asignacion-tablero.css');
         $cssV = $cssPath ? (int) filemtime($cssPath) : time();
         self::set('css', '<link rel="stylesheet" href="/assets/css/reporteria-asignacion-tablero.css?v=' . $cssV . '">');
         $cfgJson = json_encode(
             [
-                'basePath' => '/reporteria/asignacionTableroDos',
+                'basePath' => self::BASE_PRIMEROS_PAGOS_ANALITICA . '/asignacionTableroDos',
                 'dosVentanas' => true,
             ],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
@@ -598,13 +602,17 @@ class Reporteria extends Controller
 
     /**
      * JSON del portafolio automático de asignación (continuidad, nuevos y huérfanos).
-     * URL: /reporteria/getAsignacionTableroJson
+     * URL: /analitica/getAsignacionTableroJson
      * Columna «semana pasada» (Proyección y dos ventanas): **tbl_segundometro_histo** (Gestor_Asignado + Bucket_Morosidad_Real, SEMANA = label). External ID y puesto se enriquecen desde persona si el nombre coincide. «Actual» y «próxima» siguen por campañas Legacy + tbl_segundometro_semana (bucket).
      * Query opcional: dos_ventanas=1 → misma forma que «Tablero dos ventanas» (2 columnas de semana).
      * Para paginación solo en cliente: mostrar=todas (devuelve todas las filas; la vista tablero ya no pagina en servidor).
      */
     public function getAsignacionTableroJson()
     {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        $prevDisplayErrors = @ini_set('display_errors', '0');
         try {
             $mostrar = isset($_GET['mostrar']) ? (string) $_GET['mostrar'] : '';
             $limite = \Models\AsignacionTablero::parseLimiteMostrar($mostrar !== '' ? $mostrar : null, '10');
@@ -633,11 +641,24 @@ class Reporteria extends Controller
                 'pagina' => $pagina,
                 'total_paginas' => $totalPaginas,
             ];
-            self::respuestaJSON($payload);
+            $json = json_encode(
+                $payload,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+            );
+            if ($json === false) {
+                throw new \RuntimeException('json_encode: ' . json_last_error_msg());
+            }
+            header('Content-Type: application/json; charset=utf-8');
+            echo $json;
+            exit;
         } catch (\Throwable $e) {
             error_log('Reporteria::getAsignacionTableroJson -> ' . $e->getMessage());
             http_response_code(500);
             self::respuestaJSON(['detail' => 'Error al consultar el portafolio automático.']);
+        } finally {
+            if ($prevDisplayErrors !== false) {
+                @ini_set('display_errors', $prevDisplayErrors);
+            }
         }
     }
 
@@ -925,7 +946,7 @@ class Reporteria extends Controller
 
     /**
      * Excel del tablero Asignación: encabezados con colores (semana pasada / actual / próxima) como en pantalla.
-     * URL: /reporteria/descargarAsignacionTableroExcel · Módulo 61.
+     * URL: /analitica/descargarAsignacionTableroExcel · Módulo 61.
      * Siempre exporta el portafolio completo (independiente del «Mostrar» de la vista).
      */
     public function descargarAsignacionTableroExcel()
@@ -940,7 +961,7 @@ class Reporteria extends Controller
 
     /**
      * Excel del tablero en dos ventanas (semana pasada + semana actual, sin proyección próxima).
-     * URL: /reporteria/descargarAsignacionTableroDosExcel · Módulo 61.
+     * URL: /analitica/descargarAsignacionTableroDosExcel · Módulo 61.
      */
     public function descargarAsignacionTableroDosExcel()
     {
@@ -956,7 +977,7 @@ class Reporteria extends Controller
 
     /**
      * Tablero comparativo segundómetro (cortes del día vs semanas históricas).
-     * URL canónica: /reporteria/comparativasAvanceSemanal
+     * URL canónica: /analitica/comparativasAvanceSemanal
      */
     public function comparativasAvanceSemanal()
     {
@@ -1040,7 +1061,7 @@ class Reporteria extends Controller
         $q = isset($_SERVER['QUERY_STRING']) && (string)$_SERVER['QUERY_STRING'] !== ''
             ? '?' . $_SERVER['QUERY_STRING']
             : '';
-        header('Location: /reporteria/callcenter' . $q, true, 302);
+        header('Location: ' . self::BASE_PRIMEROS_PAGOS_ANALITICA . '/callcenter' . $q, true, 302);
         exit;
     }
 
@@ -1205,7 +1226,7 @@ class Reporteria extends Controller
 
         // 2. Si hay error, redirigir en lugar de hacer echo (que corrompe el Excel)
         if (!$r['success'] || empty($r['datos'])) {
-            header('Location: /Reporteria/layoutlegacy?error=' . urlencode('No se pudieron obtener los datos del reporte Legacy.'));
+            header('Location: ' . self::BASE_PRIMEROS_PAGOS_ANALITICA . '/layoutlegacy?error=' . urlencode('No se pudieron obtener los datos del reporte Legacy.'));
             exit;
         }
 
@@ -1674,6 +1695,75 @@ class Reporteria extends Controller
         self::render("reporte_primeros_pagos_inicio");
     }
 
+    /**
+     * Histórico semanal (gráficas) desde `tbl_segundometro_histo` — módulo 49.
+     * URL: /analitica/PrimerosPagosHistorico
+     */
+    public function PrimerosPagosHistorico()
+    {
+        self::set('titulo', 'Primeros pagos — Histórico por semana');
+        self::set('script', '');
+        self::render('reporte_primeros_pagos_historico');
+    }
+
+    /**
+     * JSON: semanas disponibles en histórico (SEMANA distinta + conteo).
+     */
+    public function getPrimerosPagosHistoricoSemanas()
+    {
+        $r = PrimerosPagosHistoricoSegundometro::listarSemanas(4);
+        if (!($r['success'] ?? false)) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => (string) ($r['mensaje'] ?? 'Error'),
+                'error' => isset($r['error']) ? (string) $r['error'] : null,
+                'datos' => [],
+            ]);
+        }
+        self::respuestaJSON([
+            'success' => true,
+            'datos' => $r['datos'] ?? [],
+        ]);
+    }
+
+    /**
+     * JSON: resumen y series para gráficas de una semana (POST JSON { "semana": "..." }).
+     */
+    public function getPrimerosPagosHistoricoResumen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                $body = [];
+            }
+            $sem = trim((string) ($body['semana'] ?? ''));
+            if ($sem === '') {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Indique la semana (campo semana).']);
+
+                return;
+            }
+            $r = PrimerosPagosHistoricoSegundometro::resumenPorSemana($sem);
+            if (!($r['success'] ?? false)) {
+                http_response_code(404);
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => (string) ($r['mensaje'] ?? 'Sin datos'),
+                    'error' => isset($r['error']) ? (string) $r['error'] : null,
+                ]);
+
+                return;
+            }
+            self::respuestaJSON(['success' => true, 'datos' => $r['datos'] ?? []]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getPrimerosPagosHistoricoResumen -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar el resumen.']);
+        }
+    }
+
     private function scriptVencimientosLunes(string $fetchUrl, bool $vistaSimple = false, array $primerosPagosCols = []): string
     {
         $colsJson = json_encode($primerosPagosCols, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -1889,21 +1979,25 @@ class Reporteria extends Controller
                 let htmlCorte = '';
                 htmlCorte += `
                 <div class="col">
-                    <div style="background:#f0f3f7;border-radius:.375rem;padding:.6rem .5rem;text-align:center;height:100%;">
+                    <div class="card text-center h-100 border-0 shadow-sm">
+                        <div class="card-body py-2 px-2">
                             <div class="badge bg-label-success mb-1" style="font-size:.65rem;">
                                 <i class="fa fa-circle-check me-1"></i>Current
                             </div>
-                            <div class="fw-bold" style="font-size:1.5rem;">${currentMasRecuperados}<span class="fw-semibold" style="font-size:1.05rem;margin-left:6px;color:#6c757d;">(${pctOf(currentMasRecuperados)}%)</span></div>
-                            <div style="font-size:.65rem;color:#6c757d;">al corte</div>
+                            <div class="fw-bold text-body" style="font-size:1.5rem;">${currentMasRecuperados}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(currentMasRecuperados)}%)</span></div>
+                            <div class="text-muted" style="font-size:.65rem;">al corte</div>
+                        </div>
                     </div>
                 </div>
                 <div class="col">
-                    <div style="background:#f0f3f7;border-radius:.375rem;padding:.6rem .5rem;text-align:center;height:100%;">
+                    <div class="card text-center h-100 border-0 shadow-sm">
+                        <div class="card-body py-2 px-2">
                             <div class="badge bg-label-warning mb-1" style="font-size:.58rem;white-space:normal;line-height:1.25;max-width:100%;">
                                 <i class="fa fa-clock me-1"></i>Pendientes primeros pagos
                             </div>
-                            <div class="fw-bold" style="font-size:1.5rem;">${pendientes}<span class="fw-semibold" style="font-size:1.05rem;margin-left:6px;color:#6c757d;">(${pctOf(pendientes)}%)</span></div>
-                            <div style="font-size:.65rem;color:#6c757d;">por recuperar</div>
+                            <div class="fw-bold text-body" style="font-size:1.5rem;">${pendientes}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(pendientes)}%)</span></div>
+                            <div class="text-muted" style="font-size:.65rem;">por recuperar</div>
+                        </div>
                     </div>
                 </div>`;
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
@@ -2307,7 +2401,7 @@ class Reporteria extends Controller
                 const swAuto = document.getElementById('switchAutoEnvioPrimerosPagos');
                 if (!badge) return;
                 try {
-                    const r = await fetch('/Reporteria/getEstadoEnvioVencimientosLunesProgramado', { method:'POST' });
+                    const r = await fetch('/analitica/getEstadoEnvioVencimientosLunesProgramado', { method:'POST' });
                     const d = await r.json();
                     if (!d?.success) {
                         badge.className = 'badge bg-label-danger';
@@ -2511,7 +2605,7 @@ class Reporteria extends Controller
                 const fd = new FormData();
                 fd.append('enabled', el.checked ? '1' : '0');
                 try {
-                    const r = await fetch('/Reporteria/setSwitchPrimerosPagosAutoEnvio', { method: 'POST', body: fd });
+                    const r = await fetch('/analitica/setSwitchPrimerosPagosAutoEnvio', { method: 'POST', body: fd });
                     const d = await r.json();
                     if (!d?.success) {
                         el.checked = previous;
@@ -2627,7 +2721,7 @@ class Reporteria extends Controller
                         btn.innerHTML = '<i class="fa fa-spinner fa-spin me-1"></i> Enviando...';
                     }
 
-                    const resp = await fetch('/Reporteria/enviarCorreoVencimientosLunes', {
+                    const resp = await fetch('/analitica/enviarCorreoVencimientosLunes', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
@@ -2679,7 +2773,7 @@ class Reporteria extends Controller
                 if (btnXlsSemana) {
                     btnXlsSemana.addEventListener('click', async function() {
                         if (typeof Swal === 'undefined') {
-                            window.location.href = '/reporteria/descargarPrimerosPagosSemanaActualExcel';
+                            window.location.href = '/analitica/descargarPrimerosPagosSemanaActualExcel';
                             return;
                         }
                         Swal.fire({
@@ -2692,7 +2786,7 @@ class Reporteria extends Controller
                             customClass: { popup: 'shadow-lg' }
                         });
                         try {
-                            const r = await fetch('/reporteria/descargarPrimerosPagosSemanaActualExcel', {
+                            const r = await fetch('/analitica/descargarPrimerosPagosSemanaActualExcel', {
                                 method: 'GET',
                                 credentials: 'same-origin'
                             });
@@ -2768,7 +2862,7 @@ class Reporteria extends Controller
         </script>
     HTML;
 
-        return str_replace(
+        $out = str_replace(
             ['__FETCH_VENCIMIENTOS__', '%%VISTA_SIMPLE%%', '%%PRIMEROS_PAGOS_COLS%%'],
             [
                 $fetchUrl,
@@ -2777,12 +2871,23 @@ class Reporteria extends Controller
             ],
             $script
         );
+        $base = self::BASE_PRIMEROS_PAGOS_ANALITICA;
+        $out = str_replace(['/Reporteria/', '/reporteria/', '/analitica/'], $base . '/', $out);
+
+        return $out;
     }
 
     public function VencimientosLunes()
     {
+        $urlNorm = strtolower(str_replace('\\', '/', trim((string) ($_GET['url'] ?? ''), '/')));
+        // Solo migrar ruta legada «reporteria/...» (minúsculas). No incluir «analitica/...»: urlNorm siempre
+        // está en minúsculas y coincidiría con la URL canónica /analitica/VencimientosLunes → bucle infinito.
+        if ($urlNorm === 'reporteria/vencimientoslunes') {
+            header('Location: ' . self::BASE_PRIMEROS_PAGOS_ANALITICA . '/VencimientosLunes', true, 301);
+            exit;
+        }
         if ($this->esLunesCdmxCarteraSemanaActualCerrada()) {
-            header('Location: /reporteria/PrimerosPagos?pp_cartera_lunes=1', true, 302);
+            header('Location: ' . self::BASE_PRIMEROS_PAGOS_ANALITICA . '/PrimerosPagos?pp_cartera_lunes=1', true, 302);
             exit;
         }
         self::set('titulo', 'Primeros pagos — Lunes de Cierre');
@@ -2790,14 +2895,19 @@ class Reporteria extends Controller
         self::set('vencimientos_vista_simple', false);
         self::set('columnas_primeros_pagos', []);
         self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
-        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunes', false, []));
+        self::set('script', $this->scriptVencimientosLunes(self::BASE_PRIMEROS_PAGOS_ANALITICA . '/getVencimientosLunes', false, []));
         self::render('reporte_vencimientos_lunes');
     }
 
     public function VencimientosLunesSiguienteSemana()
     {
+        $urlNorm = strtolower(str_replace('\\', '/', trim((string) ($_GET['url'] ?? ''), '/')));
+        if ($urlNorm === 'reporteria/vencimientolunessiguientesemana') {
+            header('Location: ' . self::BASE_PRIMEROS_PAGOS_ANALITICA . '/VencimientosLunesSiguienteSemana', true, 301);
+            exit;
+        }
         if ($this->esMartesOMiercolesCdmxPrimerosPagosProximaSemanaCerrada()) {
-            header('Location: /reporteria/PrimerosPagos?pp_proxima_semana_cerrada=1', true, 302);
+            header('Location: ' . self::BASE_PRIMEROS_PAGOS_ANALITICA . '/PrimerosPagos?pp_proxima_semana_cerrada=1', true, 302);
             exit;
         }
         self::set('titulo', 'Primeros pagos — Semana actual');
@@ -2806,7 +2916,7 @@ class Reporteria extends Controller
         $colsMeta = EmpresasDAO::columnasPrimerosPagosMegareporte();
         self::set('columnas_primeros_pagos', $colsMeta);
         self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
-        self::set('script', $this->scriptVencimientosLunes('/Reporteria/getVencimientosLunesSiguienteSemana', true, $colsMeta));
+        self::set('script', $this->scriptVencimientosLunes(self::BASE_PRIMEROS_PAGOS_ANALITICA . '/getVencimientosLunesSiguienteSemana', true, $colsMeta));
         self::render('reporte_vencimientos_lunes');
     }
 

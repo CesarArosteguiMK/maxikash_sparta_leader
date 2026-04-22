@@ -393,7 +393,7 @@ function inicializarDataTableUsuarios() {
 // 2. CARGAR USUARIOS Y CONSTRUIR MAPA DE PUESTOS
 // ============================================
 function cargarUsuariosCapitalHumano() {
-    fetch('/Reporteria/getUsuariosCapitalHumano')
+    fetch('/analitica/getUsuariosCapitalHumano')
         .then(res => res.json())
         .then(data => {
             if (!data.success) {
@@ -612,7 +612,7 @@ function descargarExcelUsuarios() {
     }).then((result) => {
         if (result.isConfirmed) {
             // ✅ USUARIO CONFIRMÓ - INICIAR DESCARGA DIRECTA
-            const url = '/Reporteria/descargarUsuariosExcelCapitalHumano?' + new URLSearchParams({
+            const url = '/analitica/descargarUsuariosExcelCapitalHumano?' + new URLSearchParams({
                 ...(departamento && { departamento }),
                 ...(puesto && { puesto }),
                 ...(estatus && { estatus }),
@@ -803,7 +803,7 @@ function expandirPuestos(userId) {
 // CARGAR USUARIOS - AHORA CON CONSOLIDACIÓN DE PUESTOS
 // ============================================
 function cargarUsuariosCapitalHumano() {
-    fetch('/Reporteria/getUsuariosCapitalHumano')
+    fetch('/analitica/getUsuariosCapitalHumano')
         .then(res => res.json())
         .then(data => {
             if (!data.success) {

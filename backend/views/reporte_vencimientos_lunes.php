@@ -54,42 +54,47 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                     <i class="fa fa-envelope me-1"></i> Enviar correo
                 </button>
                 <?php endif; ?>
-            <?php elseif (empty($vencimientos_vista_simple)): ?>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <?php if ($vlEsUsuarioRoot): ?>
-                    <div class="d-flex align-items-center gap-2 flex-wrap me-1"
-                         title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:45, 09:45, 11:45, 13:45, 14:45, 16:45, 18:45, 20:45, 23:50 en 24 h). Requiere agente Node o bucle PHP en esta máquina. No afecta “Enviar correo” manual.">
-                        <div class="form-check form-switch m-0">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   id="switchAutoEnvioPrimerosPagos">
-                            <label class="form-check-label text-nowrap user-select-none" for="switchAutoEnvioPrimerosPagos"
-                                   style="font-size:.72rem;">Auto horario</label>
-                        </div>
-                        <div class="d-flex flex-column align-items-end gap-1" style="min-width:0;">
-                            <span id="estadoEnvioAuto" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
-                                  title="Estado del envío automático (CDMX, horario 24 h: 07:45, 09:45, 11:45, 13:45, 14:45, 16:45, 18:45, 20:45, 23:50).">
-                                <i class="fa fa-clock me-1"></i> Auto correo: pendiente
-                            </span>
-                            <span id="estadoAgenteCorreos" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
-                                  title="Agente Node que ejecuta el cron de correos (puerto 3110 por defecto).">
-                                <i class="fa fa-robot me-1"></i> Agente: …
-                            </span>
-                        </div>
+                <a href="/analitica/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa fa-arrow-left me-1"></i>Volver
+                </a>
+            <?php else: ?>
+                <?php /* Orden visual (de derecha a izquierda): Volver, Histo, Exportar CSV, Enviar correo, luego auto/badges */ ?>
+                <?php if ($vlEsUsuarioRoot): ?>
+                <div class="d-flex align-items-center gap-2 flex-wrap me-1"
+                     title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:45, 09:45, 11:45, 13:45, 14:45, 16:45, 18:45, 20:45, 23:50 en 24 h). Requiere agente Node o bucle PHP en esta máquina. No afecta “Enviar correo” manual.">
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="switchAutoEnvioPrimerosPagos">
+                        <label class="form-check-label text-nowrap user-select-none" for="switchAutoEnvioPrimerosPagos"
+                               style="font-size:.72rem;">Auto horario</label>
                     </div>
-                    <?php endif; ?>
-                    <?php if (!empty($vencimientos_puede_enviar_correo_primeros_pagos)): ?>
-                    <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
-                        <i class="fa fa-envelope me-1"></i> Enviar correo
-                    </button>
-                    <?php endif; ?>
-                    <button type="button" id="btnExportarCSV" class="btn btn-outline-success btn-sm">
-                        <i class="fa fa-file-csv me-1"></i> Exportar CSV
-                    </button>
+                    <div class="d-flex flex-column align-items-end gap-1" style="min-width:0;">
+                        <span id="estadoEnvioAuto" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
+                              title="Estado del envío automático (CDMX, horario 24 h: 07:45, 09:45, 11:45, 13:45, 14:45, 16:45, 18:45, 20:45, 23:50).">
+                            <i class="fa fa-clock me-1"></i> Auto correo: pendiente
+                        </span>
+                        <span id="estadoAgenteCorreos" class="badge bg-label-secondary text-wrap text-start" style="max-width:min(100vw - 4rem, 320px);"
+                              title="Agente Node que ejecuta el cron de correos (puerto 3110 por defecto).">
+                            <i class="fa fa-robot me-1"></i> Agente: …
+                        </span>
+                    </div>
                 </div>
+                <?php endif; ?>
+                <?php if (!empty($vencimientos_puede_enviar_correo_primeros_pagos)): ?>
+                <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
+                    <i class="fa fa-envelope me-1"></i> Enviar correo
+                </button>
+                <?php endif; ?>
+                <button type="button" id="btnExportarCSV" class="btn btn-outline-success btn-sm">
+                    <i class="fa fa-file-csv me-1"></i> Exportar CSV
+                </button>
+                <a href="/analitica/PrimerosPagosHistorico" class="btn btn-outline-info btn-sm" title="Primeros pagos — Histórico por semana">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i>Histo
+                </a>
+                <a href="/analitica/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa fa-arrow-left me-1"></i>Volver
+                </a>
             <?php endif; ?>
-            <a href="/reporteria/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
-                <i class="fa fa-arrow-left me-1"></i>Volver
-            </a>
         </div>
     </div>
 
@@ -169,18 +174,18 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
             </div>
         </div>
         <div class="col-12 col-md-6">
-            <div class="h-100" style="background:#f0f3f7;border:1px solid #d8dfe7;border-radius:.5rem;overflow:hidden;">
-                <div style="background:#e9edf2;padding:.5rem .75rem;border-bottom:0;">
-                    <span class="fw-semibold d-inline-flex flex-wrap align-items-center gap-1" style="font-size:.78rem;line-height:1.35;">
-                        <i class="fa fa-chart-pie flex-shrink-0" style="color:#000 !important;"></i>
-                        <span style="color:#000 !important;">Distribución de corte:</span>
-                        <span id="distribCorteFecha" class="fw-semibold" style="color:#6b7785;">—</span>
+            <div class="card h-100 mb-0">
+                <div class="card-header py-2 d-flex flex-wrap align-items-center gap-1">
+                    <span class="fw-semibold text-body d-inline-flex flex-wrap align-items-center gap-1" style="font-size:.78rem;line-height:1.35;">
+                        <i class="fa fa-chart-pie text-primary flex-shrink-0 me-1"></i>
+                        <span>Distribución de corte:</span>
+                        <span id="distribCorteFecha" class="fw-semibold text-muted">—</span>
                         <span class="text-muted">·</span>
-                        <span class="text-body">Corte actual:</span>
+                        <span>Corte actual:</span>
                         <code id="distribCorteCorteLbl" class="text-info mb-0" style="font-size:.78rem;">—</code>
                     </span>
                 </div>
-                <div style="background:#f0f3f7;padding:.5rem;">
+                <div class="card-body py-2">
                     <div class="row row-cols-2 g-2" id="statsCorte">
                     </div>
                 </div>
