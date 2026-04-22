@@ -39,7 +39,7 @@ $cErr = isset($comp_error) ? (string) $comp_error : '';
                 }
                 ?>
             </span>
-            <a href="/reporteria/comparativas" class="btn btn-outline-secondary btn-sm">
+            <a href="/analitica/comparativas" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-arrow-left me-1"></i>Volver
             </a>
         </div>
@@ -531,7 +531,7 @@ body.dark-mode #comp-sin-servicio {
     const COMP_OK_INICIO = <?= $comp_ok_inicio ? 'true' : 'false' ?>;
     const COMP_INITIAL = <?= $comp_initial_json ?>;
     const COMP_RANGO = <?= $comp_rango_json ?>;
-    const FETCH_URL = '/reporteria/getComparativasAvanceSemanalJson';
+    const FETCH_URL = '/analitica/getComparativasAvanceSemanalJson';
     const HORAS_LABEL = ['07:30 a.m.','09:30 a.m.','11:30 a.m.','01:30 p.m.','02:30 p.m.','04:30 p.m.','06:30 p.m.','08:30 p.m.','11:50 p.m.'];
 
     let refreshTimer = null;

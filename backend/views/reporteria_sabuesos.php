@@ -143,7 +143,7 @@
                 cancelButtonColor: '#a1acb8'
             }).then(result => {
                 if (result.isConfirmed) {
-                    descargarReporte('/Reporteria/descargarReporteSabuesos1', 'Tickets');
+                    descargarReporte('/analitica/descargarReporteSabuesos1', 'Tickets');
                 }
             });
         });
@@ -170,7 +170,7 @@
                 cancelButtonColor: '#a1acb8'
             }).then(result => {
                 if (result.isConfirmed) {
-                    descargarReporte('/Reporteria/descargarReporteSabuesos2', 'Panel-Admin-Sabueso');
+                    descargarReporte('/analitica/descargarReporteSabuesos2', 'Panel-Admin-Sabueso');
                 }
             });
         });
@@ -197,7 +197,7 @@
                 cancelButtonColor: '#a1acb8'
             }).then(result => {
                 if (result.isConfirmed) {
-                    descargarReporte('/Reporteria/descargarReporteSabuesos3', 'Cerrado-Eliminado-Sabueso');
+                    descargarReporte('/analitica/descargarReporteSabuesos3', 'Cerrado-Eliminado-Sabueso');
                 }
             });
         });

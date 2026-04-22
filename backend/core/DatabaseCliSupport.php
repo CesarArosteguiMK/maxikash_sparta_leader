@@ -47,4 +47,21 @@ final class DatabaseCliSupport
         $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
         return (bool) preg_match('#/gestiones/seguimiento$#', $path);
     }
+
+    /**
+     * Tablero Asignación (fetch/XHR): si falla PDO, no debe imprimirse HTML «Sistema fuera de línea» ni exit;
+     * se lanza excepción y Reporteria::getAsignacionTableroJson responde JSON.
+     */
+    public static function esReporteriaGetAsignacionTableroJsonRequest(): bool
+    {
+        if (isset($_GET['url'])) {
+            $u = strtolower(trim(str_replace('\\', '/', (string) $_GET['url']), '/'));
+            if ($u === 'reporteria/getasignaciontablerojson' || $u === 'analitica/getasignaciontablerojson') {
+                return true;
+            }
+        }
+        $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+
+        return (bool) preg_match('#/(?:reporteria|analitica)/getasignaciontablerojson$#', $path);
+    }
 }

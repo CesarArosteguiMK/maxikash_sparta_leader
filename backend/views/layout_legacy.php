@@ -33,7 +33,7 @@
                                         <h5 class="text-primary mb-2">Disponible para descarga diaria</h5>
                                         <p class="text-body w-sm-80 app-academy-xl-100">Descarga el reporte completo de usuarios de Legacy con toda la información actualizada.</p>
                                     </div>
-                                    <form id="form-descarga" method="GET" action="/Reporteria/ProcesarDescargarLegacy">
+                                    <form id="form-descarga" method="GET" action="/analitica/ProcesarDescargarLegacy">
                                         <input type="hidden" name="columna" id="input-columna" value="">
                                         <button type="submit" id="btn-ultimo-corte" class="btn btn-primary">
                                             <i class="bx bx-download me-2"></i>Descargar Reporte Legacy

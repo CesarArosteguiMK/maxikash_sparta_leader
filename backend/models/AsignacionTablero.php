@@ -407,7 +407,23 @@ class AsignacionTablero
     private static function obtenerHistoSemanaPasadaPorCreditos(DatabaseSegundometro $db, string $semanaEtiqueta, string $semanaRange, array $idsCreditos): array
     {
         $sem = trim($semanaEtiqueta);
-        $range = self::parseRangeDdMmYyyy($semanaRange);
+        $rangeOrig = self::parseRangeDdMmYyyy($semanaRange);
+        // Inserciones a histórico suelen llegar después del cierre mar–lun; ampliar fin evita filas vacías.
+        $rangeQuery = $rangeOrig;
+        if (is_array($rangeOrig)) {
+            try {
+                $tzR = new \DateTimeZone('America/Mexico_City');
+            } catch (\Exception $e) {
+                $tzR = new \DateTimeZone('UTC');
+            }
+            $finO = \DateTimeImmutable::createFromFormat('!Y-m-d', $rangeOrig['fin'], $tzR);
+            if ($finO instanceof \DateTimeImmutable) {
+                $rangeQuery = [
+                    'inicio' => $rangeOrig['inicio'],
+                    'fin' => $finO->modify('+21 days')->format('Y-m-d'),
+                ];
+            }
+        }
         $variantes = self::variantesEtiquetaSemanaHisto($sem, $semanaRange);
         $ids = array_values(array_unique(array_filter(array_map(
             static fn($id): string => self::claveIdCredito(trim((string) $id)),
@@ -425,23 +441,39 @@ class AsignacionTablero
                 $placeholders[] = ':' . $k;
                 $params[$k] = $idCred;
             }
-            if ($variantes === [] && !is_array($range)) {
+            if ($variantes === [] && !is_array($rangeOrig)) {
                 continue;
             }
             $paramsQ = $params;
             $conds = [];
             if ($variantes !== []) {
                 $semIn = [];
-                foreach ($variantes as $vi => $lab) {
-                    $sk = 'semv' . $vi;
-                    $semIn[] = ':' . $sk;
-                    $paramsQ[$sk] = self::normalizarTextoSemanaHisto((string) $lab);
+                $si = 0;
+                $valsSem = [];
+                foreach ($variantes as $lab) {
+                    $s1 = self::normalizarTextoSemanaHisto((string) $lab);
+                    if ($s1 !== '') {
+                        $valsSem[$s1] = true;
+                    }
+                    $s2 = mb_strtolower(trim((string) $lab));
+                    if ($s2 !== '' && $s2 !== $s1) {
+                        $valsSem[$s2] = true;
+                    }
                 }
-                $conds[] = "LOWER(TRIM(REGEXP_REPLACE(CAST(SEMANA AS CHAR), '[[:space:]]+', ' '))) IN (" . implode(', ', $semIn) . ')';
+                foreach (array_keys($valsSem) as $cand) {
+                    $sk = 'semv' . $si;
+                    $semIn[] = ':' . $sk;
+                    $paramsQ[$sk] = $cand;
+                    $si++;
+                }
+                if ($semIn !== []) {
+                    // Sin REGEXP_REPLACE: compatible MySQL 5.7/8; variante compacta «16-2026» y doble binding ayudan.
+                    $conds[] = 'LOWER(TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4))) IN (' . implode(', ', $semIn) . ')';
+                }
             }
-            if (is_array($range)) {
-                $paramsQ['fini'] = $range['inicio'];
-                $paramsQ['ffin'] = $range['fin'];
+            if (is_array($rangeQuery)) {
+                $paramsQ['fini'] = $rangeQuery['inicio'];
+                $paramsQ['ffin'] = $rangeQuery['fin'];
                 $conds[] = 'DATE(fecha_hora_insert) BETWEEN :fini AND :ffin';
             }
             if ($conds === []) {
@@ -513,6 +545,14 @@ class AsignacionTablero
                     $set[mb_strtolower($norm)] = $norm;
                 }
             }
+            // En BD a veces viene sin la palabra «Semana» (p. ej. «16-2026» o «16 - 2026»).
+            if (preg_match('/Semana\s+(\d+)\s*[-–]\s*(\d{4})/iu', $l, $m)) {
+                $w = (int) $m[1];
+                $y = (int) $m[2];
+                $compact = $w . '-' . $y;
+                $set[mb_strtolower($compact)] = $compact;
+                $set[mb_strtolower(sprintf('semana %s', $compact))] = 'Semana ' . $compact;
+            }
         }
         $rg = self::parseRangeDdMmYyyy($range);
         if ($rg !== null) {
@@ -554,13 +594,19 @@ class AsignacionTablero
             if ($t !== '') {
                 $varsL[$t] = true;
             }
+            $t2 = mb_strtolower(trim((string) $ve));
+            if ($t2 !== '' && $t2 !== $t) {
+                $varsL[$t2] = true;
+            }
         }
         $mejor = null;
         $mejorP = -1;
         foreach ($filas as $f) {
             $semRaw = (string) ($f['SEMANA'] ?? $f['semana'] ?? '');
             $semL = self::normalizarTextoSemanaHisto($semRaw);
-            $br = trim((string) ($f['Bucket_Morosidad_Real'] ?? $f['bucket_morosidad_real'] ?? ''));
+            $brReal = trim((string) ($f['Bucket_Morosidad_Real'] ?? $f['bucket_morosidad_real'] ?? ''));
+            $brAlt = trim((string) ($f['Bucket_Morosidad'] ?? $f['bucket_morosidad'] ?? ''));
+            $br = $brReal !== '' ? $brReal : $brAlt;
             $g = trim((string) ($f['Gestor_Asignado'] ?? $f['gestor_asignado'] ?? ''));
             $coincideSem = false;
             foreach (array_keys($varsL) as $vl) {
@@ -570,8 +616,9 @@ class AsignacionTablero
                 }
             }
             $ts = strtotime((string) ($f['fecha_hora_insert'] ?? '')) ?: 0;
-            $prio = ($br !== '' ? 1_000_000_000_000 : 0)
-                + ($coincideSem ? 100_000_000_000 : 0)
+            // Priorizar siempre fila cuyo texto SEMANA coincide con la ventana (evita bucket de otra semana al ampliar fechas).
+            $prio = ($coincideSem ? 5_000_000_000_000 : 0)
+                + ($br !== '' ? 1_000_000_000_000 : 0)
                 + ($g !== '' ? 10_000_000_000 : 0)
                 + $ts;
             if ($prio > $mejorP) {
@@ -583,9 +630,14 @@ class AsignacionTablero
             return ['Gestor_Asignado' => '', 'Bucket_Morosidad_Real' => ''];
         }
 
+        $bucketOut = trim((string) ($mejor['Bucket_Morosidad_Real'] ?? $mejor['bucket_morosidad_real'] ?? ''));
+        if ($bucketOut === '') {
+            $bucketOut = trim((string) ($mejor['Bucket_Morosidad'] ?? $mejor['bucket_morosidad'] ?? ''));
+        }
+
         return [
             'Gestor_Asignado' => trim((string) ($mejor['Gestor_Asignado'] ?? $mejor['gestor_asignado'] ?? '')),
-            'Bucket_Morosidad_Real' => trim((string) ($mejor['Bucket_Morosidad_Real'] ?? $mejor['bucket_morosidad_real'] ?? '')),
+            'Bucket_Morosidad_Real' => $bucketOut,
         ];
     }
 

@@ -1,10 +1,10 @@
 <?php
 /**
  * Tablero Asignación (Proyección / dos ventanas): HTML; rutas, CSS y JS desde Reporteria.
- * JSON: /reporteria/getAsignacionTableroJson?mostrar=todas (+ &dos_ventanas=1 en dos ventanas).
+ * JSON: /analitica/getAsignacionTableroJson?mostrar=todas (+ &dos_ventanas=1 en dos ventanas).
  */
 $tituloTablero = (string) ($asg_titulo_tablero ?? 'Asignación — Tablero');
-$excelPath = (string) ($asg_excel_path ?? '/reporteria/descargarAsignacionTableroExcel');
+$excelPath = (string) ($asg_excel_path ?? '/analitica/descargarAsignacionTableroExcel');
 ?>
 <div class="comp-av container-fluid py-3 px-2 px-md-3">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 comp-av-page-header">
@@ -13,7 +13,7 @@ $excelPath = (string) ($asg_excel_path ?? '/reporteria/descargarAsignacionTabler
             <span><?= htmlspecialchars($tituloTablero, ENT_QUOTES, 'UTF-8'); ?></span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
-            <a href="/reporteria/asignacion" class="btn btn-outline-secondary btn-sm">
+            <a href="/analitica/asignacion" class="btn btn-outline-secondary btn-sm">
                 <i class="fa fa-arrow-left me-1"></i>Volver
             </a>
         </div>

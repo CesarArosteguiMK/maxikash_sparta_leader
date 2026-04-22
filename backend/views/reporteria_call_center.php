@@ -32,7 +32,7 @@
                                         <h5 class="text-primary mb-2">Disponible para descarga diaria</h5>
                                         <p class="text-body w-sm-80 app-academy-xl-100">El Último corte es: <strong id="ultimo-corte-display">Cargando...</strong></p>
                                     </div>
-                                    <form id="form-descarga" method="GET" action="/Reporteria/ProcesarDescargarCorte">
+                                    <form id="form-descarga" method="GET" action="/analitica/ProcesarDescargarCorte">
                                         <input type="hidden" name="columna" id="input-columna" value="">
                                         <button type="submit" id="btn-ultimo-corte" class="btn btn-primary">
                                             Descargar Último Corte
@@ -132,7 +132,7 @@ body.dark-mode .reporteria-call-easter-icon:hover { color: #818cf8; }
 <script>
     // Cargar el último corte disponible al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
-        fetch('/Reporteria/getUltimoCorte', {
+        fetch('/analitica/getUltimoCorte', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'ultimo_corte' })

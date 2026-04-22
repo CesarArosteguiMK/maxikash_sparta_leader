@@ -348,13 +348,28 @@
         }
     }
     /* Proyección: sin dos_ventanas (3 semanas). Dos ventanas: &dos_ventanas=1 */
-    var urlJson = '/reporteria/getAsignacionTableroJson?mostrar=todas' + (cfg.dosVentanas ? '&dos_ventanas=1' : '');
-    fetch(urlJson, { credentials: 'same-origin' })
+    var urlJson = '/analitica/getAsignacionTableroJson?mostrar=todas' + (cfg.dosVentanas ? '&dos_ventanas=1' : '');
+    fetch(urlJson, { credentials: 'same-origin', redirect: 'manual' })
         .then(function (r) {
-            if (!r.ok) {
-                throw new Error('HTTP ' + r.status);
+            if (r.type === 'opaqueredirect' || (r.status >= 301 && r.status <= 308)) {
+                throw new Error('Sesión no válida o caducada. Vuelva a iniciar sesión y abra de nuevo el tablero.');
             }
-            return r.json();
+            return r.text().then(function (text) {
+                var data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (parseErr) {
+                    if (!r.ok) {
+                        throw new Error('HTTP ' + r.status + ' (respuesta no JSON; revise conexión o sesión).');
+                    }
+                    throw new Error('La respuesta no es JSON válido (¿aviso PHP o HTML mezclado?).');
+                }
+                if (!r.ok) {
+                    var det = (data && (data.detail || data.message || data.mensaje)) || ('HTTP ' + r.status);
+                    throw new Error(String(det));
+                }
+                return data;
+            });
         })
         .then(function (data) {
             if (data && data.detail && !data.semanas) {

@@ -6777,7 +6777,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         // Crear formulario para descarga con filtros
         const form = document.createElement('form');
         form.method = 'GET';
-        form.action = '/Reporteria/descargarPlantillaGestores';
+        form.action = '/analitica/descargarPlantillaGestores';
         form.style.display = 'none';
 
         // Agregar filtros como inputs hidden

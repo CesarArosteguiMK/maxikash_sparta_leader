@@ -45,7 +45,7 @@ function getMenu(): string
                 ['label' => 'Control de Bajas',            'url' => '/caphum/bajas',                    'modulos' => [13]],
                 ['label' => 'Selección de Personal',       'url' => '/caphum/candidatos',               'modulos' => [42]],
                 ['label' => 'Curso de Inducción', 'url' => '/onboarding/index',                'modulos' => [44]],
-                ['label' => 'Reportes de Personal',   'url' => '/reporteria/reporteCapitalHumano', 'modulos' => [34]],
+                ['label' => 'Reportes de Personal',   'url' => '/analitica/reporteCapitalHumano', 'modulos' => [34]],
                 ['label' => 'Estadísticas',            'url' => '/caphum/estadisticas',               'modulos' => [38]],
             ],
         ],
@@ -79,12 +79,12 @@ function getMenu(): string
         'Analítica' => [
             'icono'    => 'fa-solid fa-chart-line',
             'subItems' => [
-                ['label' => 'Primeros pagos', 'url' => '/reporteria/PrimerosPagos', 'modulos' => [49]],
-                ['label' => 'Call Center',    'url' => '/reporteria/callcenter',    'modulos' => [6]],
-                ['label' => 'Layout Legacy',  'url' => '/reporteria/layoutlegacy',  'modulos' => [7]],
+                ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49]],
+                ['label' => 'Call Center',    'url' => '/analitica/callcenter',    'modulos' => [6]],
+                ['label' => 'Layout Legacy',  'url' => '/analitica/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],
-                ['label' => 'Comparativas', 'url' => '/reporteria/comparativas', 'modulos' => [60]],
-                ['label' => 'Asignación', 'url' => '/reporteria/asignacion', 'modulos' => [61]],
+                ['label' => 'Comparativas', 'url' => '/analitica/comparativas', 'modulos' => [60]],
+                ['label' => 'Asignación', 'url' => '/analitica/asignacion', 'modulos' => [61]],
             ],
         ],
         'Gastos Cobranza' => [

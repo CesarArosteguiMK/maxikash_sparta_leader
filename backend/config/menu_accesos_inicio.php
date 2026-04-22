@@ -15,20 +15,20 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/caphum/candidatos', 'label' => 'Selección de Personal', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [42]],
             ['url' => '/caphum/bajas', 'label' => 'Control de Bajas', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [13]],
             ['url' => '/caphum/organigrama', 'label' => 'Organigrama Cobranza', 'icon' => 'fa-solid fa-users', 'bg' => 'bg-purple', 'modulos' => [5]],
-            ['url' => '/reporteria/callcenter', 'label' => 'Call Center', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [6]],
+            ['url' => '/analitica/callcenter', 'label' => 'Call Center', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [6]],
             ['url' => '/condonaciones/historial', 'label' => 'Historial condonaciones', 'icon' => 'fa-solid fa-file-invoice-dollar', 'bg' => 'bg-orange', 'modulos' => [15, 39]],
             ['url' => '/gastoscobranza/estadisticagc', 'label' => 'Estadísticas Gastos Cobranza', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-orange', 'modulos' => [40]],
-            ['url' => '/reporteria/primerospagos', 'label' => 'Primeros pagos', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [49]],
-            ['url' => '/reporteria/layoutlegacy', 'label' => 'Layout Legacy', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [7]],
-            ['url' => '/reporteria/reporteCapitalHumano', 'label' => 'Reportes de Personal', 'icon' => 'fa-solid fa-file-lines', 'bg' => 'bg-purple', 'modulos' => [34]],
+            ['url' => '/analitica/primerospagos', 'label' => 'Primeros pagos', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [49]],
+            ['url' => '/analitica/layoutlegacy', 'label' => 'Layout Legacy', 'icon' => 'fa-solid fa-file', 'bg' => 'bg-orange', 'modulos' => [7]],
+            ['url' => '/analitica/reporteCapitalHumano', 'label' => 'Reportes de Personal', 'icon' => 'fa-solid fa-file-lines', 'bg' => 'bg-purple', 'modulos' => [34]],
             ['url' => '/caphum/estadisticas', 'label' => 'Estadísticas Capital Humano', 'icon' => 'fa-solid fa-chart-pie', 'bg' => 'bg-purple', 'modulos' => [38]],
             ['url' => '/ReporteriaBI/FlujoCobranza', 'label' => 'Flujo cobranza', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [50]],
             ['url' => '/sabueso/ticket', 'label' => 'Sabueso - Ticket', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [18]],
             ['url' => '/sabueso/panelAdminInicio', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-table-cells', 'bg' => 'bg-teal', 'modulos' => [19, 25]],
             ['url' => '/sabueso/cerradoEliminado', 'label' => 'Cerrado/Eliminado', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [48]],
             ['url' => '/sabueso/estadisticas', 'label' => 'Analítica sabueso', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [47]],
-            ['url' => '/reporteria/comparativas', 'label' => 'Comparativas avance semanal', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-orange', 'modulos' => [60]],
-            ['url' => '/reporteria/asignacion', 'label' => 'Asignación', 'icon' => 'fa-solid fa-user-check', 'bg' => 'bg-orange', 'modulos' => [61]],
+            ['url' => '/analitica/comparativas', 'label' => 'Comparativas avance semanal', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-orange', 'modulos' => [60]],
+            ['url' => '/analitica/asignacion', 'label' => 'Asignación', 'icon' => 'fa-solid fa-user-check', 'bg' => 'bg-orange', 'modulos' => [61]],
             ['url' => '/Despachos/AsignacionCreditosDespacho', 'label' => 'Despachos', 'icon' => 'fa-solid fa-building-columns', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/Despachos/MiGestion', 'label' => 'Mi Gestión', 'icon' => 'fa-solid fa-chart-gantt', 'bg' => 'bg-yellow', 'modulos' => [20]],
             ['url' => '/convenios/consulta', 'label' => 'Convenios', 'icon' => 'fa-solid fa-handshake', 'bg' => 'bg-purple', 'modulos' => [46]],
@@ -80,6 +80,8 @@ if (!function_exists('getRutasModulos')) {
         $modsRastreoSinTicket = [18, 19, 29];
         $rutas['reporteria/consultaidcredito'] = $modsRastreoSinTicket;
         $rutas['reporteria/consultacreditorastreo'] = $modsRastreoSinTicket;
+        $rutas['analitica/consultaidcredito'] = $modsRastreoSinTicket;
+        $rutas['analitica/consultacreditorastreo'] = $modsRastreoSinTicket;
         $rutas['gastoscobranza/getdashboardestadistica'] = [40];
         return $rutas;
     }
@@ -109,6 +111,12 @@ if (!function_exists('getModulosRequeridos')) {
         $rutas = getRutasModulos();
         if (isset($rutas[$path])) {
             return $rutas[$path];
+        }
+        if (str_starts_with($path, 'analitica/')) {
+            $equiv = 'reporteria/' . substr($path, strlen('analitica/'));
+            if (isset($rutas[$equiv])) {
+                return $rutas[$equiv];
+            }
         }
         $controlador = strtolower(trim($controller));
         $porControlador = getControladoresModulos();

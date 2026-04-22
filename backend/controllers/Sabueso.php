@@ -82,7 +82,7 @@ class Sabueso extends Controller
      * Vista Panel Admin: tabla de todos los tickets con columna Quién levantó. Sin botón Levantar ticket ni buscador.
      */
     /**
-     * @param bool|null $forzarSoloConsultaCredito Solo true cuando se invoca desde Analítica (URL /reporteria/consultaIdCredito).
+     * @param bool|null $forzarSoloConsultaCredito Solo true cuando se invoca desde Analítica (URL /analitica/consultaIdCredito).
      *                             No usar otros valores: rutas tipo /sabueso/paneladmin/extra seguirían siendo parámetros de URL.
      */
     public function paneladmin($forzarSoloConsultaCredito = null)
@@ -95,7 +95,7 @@ class Sabueso extends Controller
             || (isset($_GET['solo_consulta_credito']) && (string)$_GET['solo_consulta_credito'] === '1');
         // URL canónica bajo Analítica (evita /sabueso/paneladmin?solo_consulta_credito=1 en la barra de direcciones).
         if ($soloConsultaCredito && $forzarSoloConsultaCredito !== true && isset($_GET['solo_consulta_credito'])) {
-            header('Location: /reporteria/consultaIdCredito', true, 302);
+            header('Location: /analitica/consultaIdCredito', true, 302);
             exit;
         }
         if ($soloConsultaCredito) {
@@ -139,7 +139,7 @@ class Sabueso extends Controller
         $panelesVis = ConfigPanelUsuarioDAO::getPanelesVisiblesParaPersona($personaId, []);
         if ($soloConsultaCredito) {
             self::set('panel_admin_mostrar_volver', true);
-            self::set('panel_admin_url_inicio', '/reporteria/sabuesos');
+            self::set('panel_admin_url_inicio', '/analitica/sabuesos');
         } else {
             self::set('panel_admin_mostrar_volver', count($panelesVis) > 1);
             self::set('panel_admin_url_inicio', '/sabueso/panelAdminInicio');
@@ -2811,7 +2811,7 @@ class Sabueso extends Controller
                 }).then(function(r) {
                     if (!r.isConfirmed) return;
                     Swal.fire({ title: 'Generando…', allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
-                    fetch('/Reporteria/descargarReporteSabuesosEstadisticasDetalle', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                    fetch('/analitica/descargarReporteSabuesosEstadisticasDetalle', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
                         .then(function(res) { if (!res.ok) throw new Error('Error en la descarga'); return res.blob(); })
                         .then(function(blob) {
                             Swal.close();
