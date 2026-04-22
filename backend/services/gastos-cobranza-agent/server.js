@@ -90,6 +90,18 @@ const EC_UPLOAD_DIR = path.join(REPORTE_DIR, 'ec-uploads');
 const EC_WORKER_DIR = path.join(__dirname, 'tools', 'ec-webhook-worker');
 const EC_ENRICH_DIR = path.join(__dirname, 'tools', 'ec-gc-excel-enrich');
 const DESCARGO_ESTATUS3_DIR = path.join(REPORTE_DIR, 'descargo_estatus3');
+
+/** Mismo basename que reporte_cobranza.py / descargo_cobranza_gc_estatus3.py (guía distinta localhost vs servidor). */
+function descargoGuiaBasename() {
+  const raw = String(process.env.REPORTE_COBRANZA_DESCARGO_GUIA_BASENAME || 'guia_descargo.json').trim();
+  if (!raw || raw.includes('/') || raw.includes('\\') || raw.includes('..') || raw.startsWith('.')) {
+    return 'guia_descargo.json';
+  }
+  if (!raw.toLowerCase().endsWith('.json')) {
+    return 'guia_descargo.json';
+  }
+  return raw;
+}
 const HISTORICO_DIR_NAME = 'historico';
 
 /** Subcarpetas en la raíz de reporte/ que no se recorren al listar (historico/ sí se recorre). */
@@ -2177,8 +2189,12 @@ app.post('/descargo-estatus3/run-and-download', express.json({ limit: '32kb' }),
 app.get('/descargo-estatus3/descargar', (req, res) => {
   ensureReporteDir();
   const tipo = String(req.query.tipo || 'xlsx').toLowerCase();
-  const nombre = tipo === 'guia' ? 'guia_descargo.json' : 'descargo_estatus3.xlsx';
-  if (nombre !== 'descargo_estatus3.xlsx' && nombre !== 'guia_descargo.json') {
+  const guiaNombre = descargoGuiaBasename();
+  const nombre = tipo === 'guia' ? guiaNombre : 'descargo_estatus3.xlsx';
+  if (tipo !== 'guia' && tipo !== 'xlsx') {
+    return res.status(400).json({ success: false, mensaje: 'tipo inválido (use xlsx o guia).' });
+  }
+  if (nombre !== 'descargo_estatus3.xlsx' && nombre !== guiaNombre) {
     return res.status(400).json({ success: false, mensaje: 'tipo inválido (use xlsx o guia).' });
   }
   const p = path.join(DESCARGO_ESTATUS3_DIR, nombre);
