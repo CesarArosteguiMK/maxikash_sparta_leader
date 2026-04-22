@@ -13,13 +13,39 @@ class Departamentos extends Controller
         <script>
         let valorOriginal = '';
 
+        /** Misma regla que antes en oninput (sin reasignar value/textContent a ciegas: eso mandaba el cursor al inicio). */
+        function sanitizarCadenaNombreDepartamento(s) {
+          return String(s)
+            .replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ\s]/g, '')
+            .replace(/^\s+/, '')
+            .replace(/\s{2,}/g, ' ');
+        }
+
+        function sanitizarInputNombre(el) {
+          if (!el || el.tagName !== 'INPUT') return;
+          const raw = el.value;
+          const start = typeof el.selectionStart === 'number' ? el.selectionStart : raw.length;
+          const end = typeof el.selectionEnd === 'number' ? el.selectionEnd : start;
+          const nue = sanitizarCadenaNombreDepartamento(raw);
+          if (nue === raw) return;
+          el.value = nue;
+          const mapPos = (pos) => {
+            const p = Math.max(0, Math.min(pos, raw.length));
+            return Math.min(sanitizarCadenaNombreDepartamento(raw.substring(0, p)).length, nue.length);
+          };
+          try {
+            el.setSelectionRange(mapPos(start), mapPos(end));
+          } catch (e) { /* tipos que no admiten caret */ }
+        }
+
         /* ---------- TÍTULO DEPARTAMENTO ---------- */
         function inicioEdicionTitulo(element) {
           valorOriginal = element.textContent.trim();
         }
 
         function guardarTituloDepartamento(element) {
-          const nuevoValor = element.textContent.trim();
+          const nuevoValor = sanitizarCadenaNombreDepartamento(element.textContent.trim());
+          element.textContent = nuevoValor;
           const idDepartamento = element.dataset.departamentoId;
 
           if (!nuevoValor) {
@@ -97,7 +123,8 @@ class Departamentos extends Controller
         }
 
         function guardarEdicion(element) {
-          const nuevoValor = element.textContent.trim();
+          const nuevoValor = sanitizarCadenaNombreDepartamento(element.textContent.trim());
+          element.textContent = nuevoValor;
 
           if (!nuevoValor) {
             element.textContent = valorOriginal;
@@ -121,25 +148,32 @@ class Departamentos extends Controller
           const input = document.getElementById('inputNuevoPuesto');
           const id_departamento = document.getElementById('id_departamento').value.trim();
           const nombre = input.value.trim();
-          if (!nombre) return;
-
-          const lista = document.getElementById('listaPuestos');
+          if (!nombre) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Nombre requerido', text: 'Escriba el nombre del puesto.' });
+            return;
+          }
+          if (!id_departamento) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Departamento', text: 'No se identificó el departamento. Cierre el modal y vuelva a abrirlo.' });
+            return;
+          }
 
           http.request({
             endpoint: "/departamentos/InsertPuesto",
-            method: "POST",
+            metodo: "POST",
             data: { nombre: nombre, id_departamento: id_departamento },
             onSuccess: (resp) => {
               if (resp.success) {
                 cargarPuestosDepartamento(id_departamento);
                 input.value = '';
                 document.getElementById('nuevoPuestoContainer').classList.add('d-none');
-              } else {
-                console.error('Error al insertar puesto:', resp.mensaje);
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Puesto guardado', timer: 2000, showConfirmButton: false });
               }
+              // success === false: comunes.js llama onSuccess y luego onError (una sola alerta ahí).
             },
             onError: (err) => {
-              console.error('Error al llamar InsertPuesto:', err);
+              const msg = typeof err === 'string' ? err : (err && err.message) ? err.message : 'Error de red o del servidor.';
+              if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'No se guardó', text: msg });
+              else console.error('Error al llamar InsertPuesto:', err);
             }
           });
         }
@@ -516,7 +550,8 @@ class Departamentos extends Controller
         }
 
         function guardarPuesto(element) {
-          const nuevoValor = element.textContent.trim();
+          const nuevoValor = sanitizarCadenaNombreDepartamento(element.textContent.trim());
+          element.textContent = nuevoValor;
           const idPuesto = element.dataset.puestoId;
 
           if (!nuevoValor) {
@@ -691,9 +726,20 @@ class Departamentos extends Controller
 
     public function InsertPuesto()
     {
-        $nombre = $_POST['nombre'] ?? null;
-        $id_departamento = $_POST['id_departamento'] ?? null;
-        self::respuestaJSON(DepartamentosDAO::InsertPuestos($nombre, $id_departamento));
+        $input = [];
+        $ct = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+        if (is_string($ct) && stripos($ct, 'application/json') !== false) {
+            $raw = file_get_contents('php://input');
+            if ($raw !== false && $raw !== '') {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    $input = $decoded;
+                }
+            }
+        }
+        $nombre = $input['nombre'] ?? $_POST['nombre'] ?? null;
+        $id_departamento = $input['id_departamento'] ?? $_POST['id_departamento'] ?? null;
+        DepartamentosDAO::InsertPuestos($nombre, $id_departamento);
     }
 
     public function getPuestosPorDepartamento()
