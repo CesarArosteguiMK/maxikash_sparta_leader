@@ -1746,7 +1746,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 const cardHtml = _epView === 'list'
                     ? buildEnProcesoListRow(r)
                     : buildEnProcesoCard(r);
-                html += `<div class="${colClass}" id="cc-ep-col-${r.id}" data-ep-chunk="${chunkIdx}" data-ep-order="${i + idx}">${cardHtml}</div>`;
+                const rowAttr = _epView === 'list' ? ` data-ep-row="${JSON.stringify(r).replace(/"/g, '&quot;')}"` : '';
+                html += `<div class="${colClass}" id="cc-ep-col-${r.id}" data-ep-chunk="${chunkIdx}" data-ep-order="${i + idx}"${rowAttr}>${cardHtml}</div>`;
             });
             html += `</div>`;
         }
@@ -1766,6 +1767,61 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             },
             null
         );
+    }
+
+    // ── Vista Lista: resumen de detalle (se muestra al abrir "Ver detalle") ──
+    function _buildEpListSummaryHtml(r) {
+        const fmtN = (n) => parseFloat(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+        const pdfOk  = !!(r.pdf_adjunto && r.pdf_adjunto !== '');
+        const numCon = parseInt(r.comprobantes_subidos) || 0;
+        const numTot = parseInt(r.comprobantes_total)   || 0;
+
+        const base      = r.base_calculo;
+        const baseLabel = base === 'saldo_total_capital' ? 'Capital'
+                        : base === 'adeudo_total'         ? 'Total'
+                        : base === 'interes'              ? 'Interés'
+                        : base ? base : null;
+
+        const pdfBadge  = pdfOk
+            ? `<span class="cc-doc-ok"><i class="fa-solid fa-file-pdf me-1"></i>PDF Convenio</span>`
+            : `<span class="cc-doc-missing"><i class="fa-solid fa-file-pdf me-1"></i>Sin PDF convenio</span>`;
+        const compBadge = numTot === 0
+            ? `<span class="cc-doc-missing"><i class="fa-solid fa-receipt me-1"></i>Sin comprobantes</span>`
+            : `<span class="${numCon === numTot ? 'cc-doc-ok' : 'cc-doc-partial'}"><i class="fa-solid fa-receipt me-1"></i>Comprobantes ${numCon}/${numTot}</span>`;
+
+        return `
+        <div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.6rem;">
+            <div class="cc-detail-row">
+                <span class="cc-lbl">Producto</span>
+                <span class="cc-val">${esc(r.nombre_producto)}</span>
+            </div>
+            <div class="cc-detail-row">
+                <span class="cc-lbl">Descuento</span>
+                <span class="cc-val fw-bold text-success">${esc(r.porcentaje_descuento)}%</span>
+            </div>
+            <div class="cc-detail-row">
+                <span class="cc-lbl">Adeudo original</span>
+                <span class="cc-val">${fmtN(r.adeudo_total_original)}${baseLabel ? ` <span style="font-size:.7rem;color:#6b7a90;">(Calculado sobre ${baseLabel})</span>` : ''}</span>
+            </div>
+            <div class="cc-detail-row">
+                <span class="cc-lbl">Total pagado</span>
+                <span class="cc-val fw-bold text-success">${fmtN(r.total_a_pagar)}</span>
+            </div>
+            <div class="cc-detail-row">
+                <span class="cc-lbl">Registrado por</span>
+                <span class="cc-val">${esc(r.usuario_alta)}</span>
+            </div>
+            <div class="cc-detail-row">
+                <span class="cc-lbl">Fecha envío</span>
+                <span class="cc-val">${fmtFecha(r.fecha_alta)}</span>
+            </div>
+            <div class="cc-doccheck-wrap mt-1">
+                <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
+                <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
+            </div>
+            ${_s2InfoHtml(r)}
+        </div>
+        <hr style="border-color:#e2e8f0;margin:.5rem 0 .75rem;">`;
     }
 
     // ── Vista Lista: fila compacta horizontal ──
@@ -2344,9 +2400,27 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 const loader  = document.getElementById(`cc-acc-loader-${id}`);
                 const content = document.getElementById(`cc-acc-content-${id}`);
 
+                // Vista lista: pre-poblar con resumen del registro inmediatamente
+                if (_epView === 'list' && colEl && colEl.dataset.epRow) {
+                    try {
+                        const rowData = JSON.parse(colEl.dataset.epRow);
+                        content.innerHTML = _buildEpListSummaryHtml(rowData)
+                            + `<div id="cc-acc-amort-loading-${id}" class="text-center py-2 text-muted" style="font-size:.8rem;"><i class="fa-solid fa-spinner fa-spin me-1"></i>Cargando amortización...</div>`
+                            + `<div id="cc-acc-amort-wrap-${id}"></div>`;
+                        if (loader) loader.style.display = 'none';
+                    } catch(e) {}
+                }
+
                 if (_detalleCache[id]) {
                     if (loader) loader.style.display = 'none';
-                    content.innerHTML = buildDetalleHtml(_detalleCache[id]);
+                    const amortWrap = document.getElementById(`cc-acc-amort-wrap-${id}`);
+                    if (amortWrap) {
+                        const amortLoading = document.getElementById(`cc-acc-amort-loading-${id}`);
+                        if (amortLoading) amortLoading.remove();
+                        amortWrap.innerHTML = buildDetalleHtml(_detalleCache[id]);
+                    } else {
+                        content.innerHTML = buildDetalleHtml(_detalleCache[id]);
+                    }
                     return;
                 }
 
@@ -2360,7 +2434,14 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     if (loader) loader.style.display = 'none';
                     if (!res.success) throw new Error(res.mensaje);
                     _detalleCache[id] = res.datos;
-                    content.innerHTML = buildDetalleHtml(res.datos);
+                    const amortWrap = document.getElementById(`cc-acc-amort-wrap-${id}`);
+                    if (amortWrap) {
+                        const amortLoading = document.getElementById(`cc-acc-amort-loading-${id}`);
+                        if (amortLoading) amortLoading.remove();
+                        amortWrap.innerHTML = buildDetalleHtml(res.datos);
+                    } else {
+                        content.innerHTML = buildDetalleHtml(res.datos);
+                    }
                 })
                 .catch(err => {
                     if (loader) loader.style.display = 'none';
