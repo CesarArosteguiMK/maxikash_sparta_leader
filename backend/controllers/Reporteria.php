@@ -652,9 +652,34 @@ class Reporteria extends Controller
             echo $json;
             exit;
         } catch (\Throwable $e) {
-            error_log('Reporteria::getAsignacionTableroJson -> ' . $e->getMessage());
-            http_response_code(500);
-            self::respuestaJSON(['detail' => 'Error al consultar el portafolio automático.']);
+            $trace = $e->getTraceAsString();
+            if (strlen($trace) > 4000) {
+                $trace = substr($trace, 0, 4000) . '…';
+            }
+            error_log('Reporteria::getAsignacionTableroJson ' . $e->getFile() . ':' . $e->getLine() . ' -> ' . $e->getMessage() . "\n" . $trace);
+            $detail = 'Error al consultar el portafolio automático.';
+            if (getenv('SPARTA_LEDGER_DEBUG_API') === '1' || (defined('SPARTA_LEDGER_DEBUG_API') && SPARTA_LEDGER_DEBUG_API === true)) {
+                $detail = $e->getMessage();
+            }
+            $limite = \Models\AsignacionTablero::parseLimiteMostrar('todas', '10');
+            $fallback = [
+                'semanas' => [],
+                'subcols' => \Models\AsignacionTablero::SUBCOLS,
+                'filas' => [],
+                'resumen' => ['total' => 0, 'continuidad' => 0, 'nuevo' => 0, 'huerfano' => 0, 'sin_jefe' => 0],
+                'campanias' => ['actual' => [], 'anterior' => []],
+                'paginacion' => [
+                    'mostrar' => \Models\AsignacionTablero::limiteMostrarAQuery($limite),
+                    'total_filas' => 0,
+                    'mostradas' => 0,
+                    'pagina' => 1,
+                    'total_paginas' => 1,
+                ],
+                'warning' => $detail,
+            ];
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode($fallback, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
         } finally {
             if ($prevDisplayErrors !== false) {
                 @ini_set('display_errors', $prevDisplayErrors);
@@ -2160,6 +2185,10 @@ class Reporteria extends Controller
                         return (a.cobrados / Math.max(a.total,1)) - (b.cobrados / Math.max(b.total,1));
                     });
 
+                const tieneCarteraReal = terOrdenados.some(
+                    t => !esCurrent(t.nombre) && (t.total > 0)
+                );
+
                 const barColor = (pct) => pct >= 70 ? '#28a745' : pct >= 40 ? '#fd7e14' : '#dc3545';
                 const pctClass = (pct) => pct >= 70 ? 'text-success' : pct >= 40 ? 'text-warning' : 'text-danger';
                 const borderClass = (pct) => pct >= 70 ? 'border-success' : pct >= 40 ? 'border-warning' : 'border-danger';
@@ -2167,9 +2196,10 @@ class Reporteria extends Controller
                 let html = '';
                 terOrdenados.forEach((ter, idx) => {
 
-                    /* ── Sin cartera operativa (sin territorial / Current): aviso ── */
+                    /* ── Sin cartera operativa: aviso solo si no hay ningún territorial real con créditos ── */
                     if (esCurrent(ter.nombre)) {
-                        html += `
+                        if (!tieneCarteraReal) {
+                            html += `
                         <div class="card mb-3 border-start border-3 border-secondary">
                             <div class="card-body py-3">
                                 <p class="mb-0 text-muted" style="font-size:.82rem;">
@@ -2178,6 +2208,7 @@ class Reporteria extends Controller
                                 </p>
                             </div>
                         </div>`;
+                        }
                         return;
                     }
 

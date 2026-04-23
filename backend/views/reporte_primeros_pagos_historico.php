@@ -4,7 +4,7 @@
  *
  * Vista: comportamiento de **nacimiento vs corte actual** de las últimas 5 semanas cerradas
  * (excluye la semana ISO en curso). Sin selector de periodo.
- * Gráficas de jerarquía y tipos de gráfica solo en esta pantalla.
+ * Tipos de gráfica de comportamiento (apilado / agrupado / líneas) en esta pantalla.
  *
  * @var string $titulo
  */
@@ -58,50 +58,43 @@
             </div>
 
             <div class="card mb-3">
-                <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
-                    <div>
-                        <span class="fw-semibold" style="font-size:.82rem;">
-                            <i class="fa fa-ranking-star text-danger me-1"></i>
-                            Seguimiento por jerarquía
-                        </span>
-                        <div class="text-muted" style="font-size:.72rem;">
-                            Solo en histórico por semana.
-                        </div>
-                    </div>
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                        <label for="pphSemanaJerarquia" class="visually-hidden">Semana del histórico</label>
-                        <select id="pphSemanaJerarquia" class="form-select form-select-sm" style="min-width: 12rem; max-width: 16rem;" title="Semana"></select>
-                        <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Vista de gráfica" id="pphTipoGraficaJerarquia">
-                            <button type="button" class="btn btn-secondary active" data-chart-type="territorial_stack">Territorial</button>
-                            <button type="button" class="btn btn-outline-secondary" data-chart-type="territorial_pct">% Efectividad</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="position-relative w-100" style="min-height:280px;">
-                        <canvas id="pphChartJerarquia"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mb-3">
                 <div class="card-header py-2">
                     <span class="fw-semibold" style="font-size:.82rem;">
                         <i class="fa fa-table text-primary me-1"></i>
                         Resumen por semana
                     </span>
                 </div>
+                <style>
+                    /* Horizontales suaves; sin verticales salvo .pph-tbl-vdiv (solo entre bloques) */
+                    #pphTablaComparativo.table-borderless > thead > tr > th,
+                    #pphTablaComparativo.table-borderless > tbody > tr > td {
+                        border-top-width: 0 !important;
+                        border-right-width: 0 !important;
+                        border-left-width: 0 !important;
+                        border-bottom: 1px solid rgba(33, 33, 33, 0.22) !important;
+                    }
+                    #pphTablaComparativo.table-borderless > thead > tr > th.pph-tbl-vdiv,
+                    #pphTablaComparativo.table-borderless > tbody > tr > td.pph-tbl-vdiv {
+                        border-left: 2px solid rgba(0, 0, 0, 0.48) !important;
+                    }
+                    #pphTablaComparativo .pph-tbl-grupo {
+                        letter-spacing: 0.02em;
+                    }
+                </style>
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0 align-middle" id="pphTablaComparativo">
+                    <table class="table table-sm table-borderless mb-0 align-middle" id="pphTablaComparativo">
                         <thead class="table-light">
                             <tr>
-                                <th style="min-width:11rem;">Semana</th>
-                                <th class="text-end">Créditos</th>
-                                <th class="text-end text-success">Nacieron Current</th>
-                                <th class="text-end text-danger">Nacieron 1–7d</th>
-                                <th class="text-end text-success">Cierre semana</th>
-                                <th class="text-end text-danger">Cierre 1–7d</th>
-                                <th class="text-end">Recuperación 1–7d</th>
+                                <th rowspan="2" class="align-middle" style="min-width:11rem;">Semana</th>
+                                <th rowspan="2" class="text-end align-middle">Créditos</th>
+                                <th colspan="2" class="text-center text-body-secondary fw-semibold small py-2 pph-tbl-grupo pph-tbl-vdiv">Nacimiento</th>
+                                <th colspan="2" class="text-center text-body-secondary fw-semibold small py-2 pph-tbl-grupo pph-tbl-vdiv">Cierre</th>
+                            </tr>
+                            <tr>
+                                <th class="text-center text-success pph-tbl-vdiv">Nacieron Current</th>
+                                <th class="text-center text-danger">Nacieron 1–7d</th>
+                                <th class="text-center text-success pph-tbl-vdiv">Cierre Current</th>
+                                <th class="text-center text-danger">Cierre 1–7d</th>
                             </tr>
                         </thead>
                         <tbody id="pphTablaComparativoBody"></tbody>
@@ -126,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function () {
             line: { borderColor: '#5aad2e', backgroundColor: 'rgba(113, 221, 55, 0.22)', borderDash: [] }
         },
         cierreSem: {
-            label: 'Cierre semanal',
+            label: 'Cierre current',
             bar: { backgroundColor: PPH_COLOR_VERDE, borderColor: PPH_BORDE_VERDE, borderWidth: 1, borderDash: [] },
             line: { borderColor: '#5aad2e', backgroundColor: 'rgba(113, 221, 55, 0.22)', borderDash: [7, 4] }
         },
@@ -183,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function () {
             pointHoverRadius: 5
         };
     }
-    var pphCharts = { comp: null, jer: null };
+    var pphCharts = { comp: null };
     var pphState = { semanas: [] };
     function pphSetTipoGraficaActivo(groupId, value) {
         document.querySelectorAll('#' + groupId + ' [data-chart-type]').forEach(function (btn) {
@@ -196,15 +189,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function pphTipoGraficaComportamiento() {
         var a = document.querySelector('#pphTipoGraficaComportamiento [data-chart-type].active');
         return a ? String(a.getAttribute('data-chart-type') || '') : 'dual_stack';
-    }
-    function pphTipoGraficaJerarquia() {
-        var a = document.querySelector('#pphTipoGraficaJerarquia [data-chart-type].active');
-        var v = a ? String(a.getAttribute('data-chart-type') || '') : 'territorial_stack';
-        if (v === 'gestores_top') {
-            v = 'territorial_stack';
-            pphSetTipoGraficaActivo('pphTipoGraficaJerarquia', 'territorial_stack');
-        }
-        return v;
     }
 
     /** Etiquetas bajo columnas: modo apilado (Nacimiento | Cierre) o agrupado (4 barras con nombre cada una). */
@@ -254,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     /** Orden de datasets: nacimiento current, cierre semana, nacimiento 1–7d, cierre 1–7d */
                     var lineas = [
                         ['Nacimiento', 'Current'],
-                        ['Cierre', 'semanal'],
+                        ['Cierre', 'current'],
                         ['Nacimiento', '1–7d'],
                         ['Cierre', '1–7d']
                     ];
@@ -320,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var yRaw = it0.parsed && it0.parsed.y !== undefined ? it0.parsed.y : it0.raw;
         if (modo === 'grouped') {
             var di = it0.datasetIndex;
-            var titles = ['Nacimiento current', 'Cierre semanal', 'Nacimiento 1–7d', 'Cierre 1–7d'];
+            var titles = ['Nacimiento current', 'Cierre current', 'Nacimiento 1–7d', 'Cierre 1–7d'];
             var tit = titles[di] != null ? titles[di] : (it0.dataset.label || '');
             return tit + ': ' + fmtInt(yRaw);
         }
@@ -394,13 +378,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 html += ''
                     + '<tr class="text-muted">'
                     + '<td><strong>' + (s.semana || '—') + '</strong><div class="small">' + (s.ini || '') + ' → ' + (s.fin || '') + '</div></td>'
-                    + '<td colspan="6" class="text-center">Sin datos (' + (s.mensaje || '—') + ')</td>'
+                    + '<td colspan="5" class="text-center">Sin datos (' + (s.mensaje || '—') + ')</td>'
                     + '</tr>';
                 return;
             }
             var nac = s.nacimiento || {};
             var co = s.corte || {};
-            var rec = s.recuperacion || {};
             var total = parseInt(s.total, 10) || 0;
             html += ''
                 + '<tr>'
@@ -409,14 +392,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     + '<div class="small text-muted">' + (s.ini || '') + ' → ' + (s.fin || '') + '</div>'
                 + '</td>'
                 + '<td class="text-end fw-semibold">' + fmtInt(total) + '</td>'
-                + '<td class="text-end">' + fmtInt(nac.current) + ' <span class="text-muted small">(' + (nac.pct_current || 0) + '%)</span></td>'
-                + '<td class="text-end">' + fmtInt(nac.d1_7) + ' <span class="text-muted small">(' + (nac.pct_1_7 || 0) + '%)</span></td>'
-                + '<td class="text-end">' + fmtInt(co.current_al_corte) + ' <span class="text-muted small">(' + (co.pct_current_al_corte || 0) + '%)</span></td>'
-                + '<td class="text-end">' + fmtInt(co.pendientes_primeros_pagos) + ' <span class="text-muted small">(' + (co.pct_pendientes || 0) + '%)</span></td>'
-                + '<td class="text-end"><span class="badge bg-label-info">' + (rec.pct_sobre_1_7 || 0) + '%</span></td>'
+                + '<td class="text-center pph-tbl-vdiv">' + fmtInt(nac.current) + ' <span class="text-muted small">(' + (nac.pct_current || 0) + '%)</span></td>'
+                + '<td class="text-center">' + fmtInt(nac.d1_7) + ' <span class="text-muted small">(' + (nac.pct_1_7 || 0) + '%)</span></td>'
+                + '<td class="text-center pph-tbl-vdiv">' + fmtInt(co.current_al_corte) + ' <span class="text-muted small">(' + (co.pct_current_al_corte || 0) + '%)</span></td>'
+                + '<td class="text-center">' + fmtInt(co.pendientes_primeros_pagos) + ' <span class="text-muted small">(' + (co.pct_pendientes || 0) + '%)</span></td>'
                 + '</tr>';
         });
-        tb.innerHTML = html || '<tr><td colspan="7" class="text-center text-muted py-3">Sin datos</td></tr>';
+        tb.innerHTML = html || '<tr><td colspan="6" class="text-center text-muted py-3">Sin datos</td></tr>';
     }
 
     function renderChartComportamiento(semanas) {
@@ -502,221 +484,11 @@ document.addEventListener('DOMContentLoaded', function () {
         pphCharts.comp = new Chart(canvas, { type: 'bar', data: { labels: ds.labels, datasets: datasets }, options: opts });
     }
 
-    function esTerritorialPlaceholder(name) {
-        var t = String(name || '').trim();
-        if (!t || t === '(Sin territorial)') return true;
-        return /^current$/i.test(t);
-    }
-    function truncLabel(s, n) {
-        s = String(s || '');
-        if (s.length <= n) return s;
-        return s.substring(0, n - 1) + '…';
-    }
-    function agregarPorCampo(rows, campo) {
-        var m = {};
-        (rows || []).forEach(function (r) {
-            var k = String(r[campo] != null ? r[campo] : '');
-            if (campo === 'Territorial' && esTerritorialPlaceholder(k)) return;
-            if (!k) k = '(Sin dato)';
-            if (!m[k]) m[k] = { total: 0, cobrados: 0 };
-            m[k].total += parseInt(r.total, 10) || 0;
-            m[k].cobrados += parseInt(r.cobrados, 10) || 0;
-        });
-        var list = Object.keys(m).map(function (k) {
-            var t = m[k].total;
-            var c = m[k].cobrados;
-            return {
-                name: k,
-                total: t,
-                cobrados: c,
-                pendientes: Math.max(0, t - c),
-                ratio: t > 0 ? c / t : 0,
-                pct: t > 0 ? Math.round(c / t * 100) : 0
-            };
-        });
-        list.sort(function (a, b) { return a.ratio - b.ratio; });
-        return list;
-    }
-
-    /**
-     * Territorial: se excluyen filas «Current» sin cartera para no distorsionar;
-     * si todas caen ahí pero hay créditos, se agrupan en un solo bucket para que la gráfica no quede vacía.
-     */
-    function agregarTerritorialParaGrafica(rows) {
-        var list = agregarPorCampo(rows, 'Territorial');
-        if (list.length > 0 || !rows || !rows.length) {
-            return list;
-        }
-        var total = 0;
-        var cob = 0;
-        rows.forEach(function (r) {
-            total += parseInt(r.total, 10) || 0;
-            cob += parseInt(r.cobrados, 10) || 0;
-        });
-        if (total < 1) {
-            return list;
-        }
-        return [{
-            name: '(Current / sin territorial operativo)',
-            total: total,
-            cobrados: cob,
-            pendientes: Math.max(0, total - cob),
-            ratio: total > 0 ? cob / total : 0,
-            pct: total > 0 ? Math.round(cob / total * 100) : 0
-        }];
-    }
-
-    function semanaSeleccionadaJerarquia() {
-        var sel = document.getElementById('pphSemanaJerarquia');
-        var v = sel ? String(sel.value || '') : '';
-        var list = pphState.semanas || [];
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].disponible && list[i].semana === v) return list[i];
-        }
-        return null;
-    }
-
-    function poblarSelectJerarquia(semanas) {
-        var sel = document.getElementById('pphSemanaJerarquia');
-        if (!sel) return;
-        var dis = semanas.filter(function (s) { return s.disponible && (s.jerarquia_agregada || []).length; });
-        dis.sort(function (a, b) { return (a.ini || '') < (b.ini || '') ? 1 : -1; });
-        sel.innerHTML = '';
-        if (!dis.length) {
-            sel.innerHTML = '<option value="">(sin datos de jerarquía)</option>';
-            sel.disabled = true;
-            return;
-        }
-        sel.disabled = false;
-        dis.forEach(function (s) {
-            var o = document.createElement('option');
-            o.value = s.semana;
-            o.textContent = s.semana;
-            sel.appendChild(o);
-        });
-        sel.value = dis[0].semana;
-    }
-
-    function renderChartJerarquia() {
-        if (typeof Chart === 'undefined') return;
-        var canvas = document.getElementById('pphChartJerarquia');
-        if (!canvas) return;
-        destroyChart('jer');
-        var tipo = pphTipoGraficaJerarquia();
-        var s = semanaSeleccionadaJerarquia();
-        var rows = (s && s.jerarquia_agregada) ? s.jerarquia_agregada : [];
-        if (!rows.length) {
-            pphCharts.jer = new Chart(canvas, {
-                type: 'bar',
-                data: { labels: ['—'], datasets: [{ label: 'Sin datos', data: [0], backgroundColor: '#dee2e6' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
-            return;
-        }
-
-        var list;
-        var labels;
-        var opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index' } } };
-
-        list = agregarTerritorialParaGrafica(rows);
-        if (tipo === 'territorial_pct') {
-            if (!list.length) {
-                pphCharts.jer = new Chart(canvas, {
-                    type: 'bar',
-                    data: { labels: ['—'], datasets: [{ label: 'Sin datos', data: [0], backgroundColor: '#dee2e6' }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                });
-                return;
-            }
-            labels = list.map(function (x) { return truncLabel(x.name, 20); });
-            opts.indexAxis = 'y';
-            opts.elements = { bar: { borderWidth: 0 } };
-            opts.scales = {
-                x: {
-                    max: 100,
-                    suggestedMax: 100,
-                    beginAtZero: true,
-                    ticks: { callback: function (v) { return v + '%'; } }
-                },
-                y: { offset: true, grid: { display: false } }
-            };
-            var bg = list.map(function (x) {
-                if (x.pct >= 70) return '#28a745';
-                if (x.pct >= 40) return '#fd7e14';
-                return '#dc3545';
-            });
-            pphCharts.jer = new Chart(canvas, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '% efectividad (cobrados / total)',
-                        data: list.map(function (x) { return x.pct; }),
-                        backgroundColor: bg,
-                        borderRadius: 6,
-                        minBarLength: 6
-                    }]
-                },
-                options: opts
-            });
-            return;
-        }
-
-        if (!list.length) {
-            pphCharts.jer = new Chart(canvas, {
-                type: 'bar',
-                data: { labels: ['—'], datasets: [{ label: 'Sin datos', data: [0], backgroundColor: '#dee2e6' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
-            return;
-        }
-        labels = list.map(function (x) { return truncLabel(x.name, 20); });
-        opts.indexAxis = 'y';
-        opts.elements = { bar: { borderWidth: 0 } };
-        opts.scales = {
-            x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
-            y: { stacked: true, offset: true, grid: { display: false } }
-        };
-        pphCharts.jer = new Chart(canvas, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Cobrados',
-                        data: list.map(function (x) { return x.cobrados; }),
-                        backgroundColor: '#28a745',
-                        stack: 't',
-                        borderRadius: { topLeft: 0, topRight: 0, bottomLeft: 6, bottomRight: 6 }
-                    },
-                    {
-                        label: 'Pendientes',
-                        data: list.map(function (x) { return x.pendientes; }),
-                        backgroundColor: '#ffab00',
-                        stack: 't',
-                        borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 }
-                    }
-                ]
-            },
-            options: opts
-        });
-    }
-
     function pphParseFetchJson(r) {
         return r.text().then(function (t) {
             var j = null;
             try { j = JSON.parse(t); } catch (e) { j = null; }
             return { ok: r.ok, json: j };
-        });
-    }
-
-    function fusionarJerarquiasEnSemanas(semanas, mapa) {
-        if (!mapa || typeof mapa !== 'object' || !Array.isArray(semanas)) return;
-        semanas.forEach(function (s) {
-            if (!s.disponible || !s.semana) return;
-            if (Object.prototype.hasOwnProperty.call(mapa, s.semana) && Array.isArray(mapa[s.semana])) {
-                s.jerarquia_agregada = mapa[s.semana];
-            }
         });
     }
 
@@ -731,61 +503,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 renderChartComportamiento(pphState.semanas);
             });
         }
-        var sj = document.getElementById('pphSemanaJerarquia');
-        if (sj && !sj._pphBound) {
-            sj._pphBound = true;
-            sj.addEventListener('change', function () { renderChartJerarquia(); });
-        }
-        var tj = document.getElementById('pphTipoGraficaJerarquia');
-        if (tj && !tj._pphBound) {
-            tj._pphBound = true;
-            tj.addEventListener('click', function (ev) {
-                var btn = ev.target && ev.target.closest ? ev.target.closest('[data-chart-type]') : null;
-                if (!btn) return;
-                pphSetTipoGraficaActivo('pphTipoGraficaJerarquia', String(btn.getAttribute('data-chart-type') || 'territorial_stack'));
-                renderChartJerarquia();
-            });
-        }
-    }
-
-    function marcarJerarquiaCargando() {
-        var sel = document.getElementById('pphSemanaJerarquia');
-        if (!sel) return;
-        sel.disabled = true;
-        sel.innerHTML = '<option value="">Cargando jerarquías…</option>';
-    }
-
-    function cargarJerarquiasEnSegundoPlano(semanasBase) {
-        var semanas = Array.isArray(semanasBase) ? semanasBase : [];
-        var etiquetas = semanas
-            .filter(function (s) { return s && s.disponible && s.semana; })
-            .map(function (s) { return s.semana; });
-        if (!etiquetas.length) {
-            poblarSelectJerarquia(semanas);
-            renderChartJerarquia();
-            return;
-        }
-        fetch('/analitica/getPrimerosPagosHistoricoJerarquias', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
-            body: JSON.stringify({ semanas: etiquetas })
-        })
-            .then(pphParseFetchJson)
-            .then(function (wrap) {
-                if (!wrap.ok || !wrap.json || !wrap.json.success || !wrap.json.datos) {
-                    poblarSelectJerarquia(pphState.semanas);
-                    renderChartJerarquia();
-                    return;
-                }
-                fusionarJerarquiasEnSemanas(pphState.semanas, wrap.json.datos);
-                poblarSelectJerarquia(pphState.semanas);
-                renderChartJerarquia();
-            })
-            .catch(function () {
-                poblarSelectJerarquia(pphState.semanas);
-                renderChartJerarquia();
-            });
     }
 
     function cargarComparativo() {
@@ -811,8 +528,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 renderTabla(semanas);
                 enlazarControlesGraficas();
                 renderChartComportamiento(semanas);
-                marcarJerarquiaCargando();
-                cargarJerarquiasEnSegundoPlano(semanas);
             })
             .catch(function () {
                 showErr('Error de red al consultar el comparativo.');

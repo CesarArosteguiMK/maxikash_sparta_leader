@@ -28,6 +28,8 @@ class Database
                     PDO::ATTR_PERSISTENT => true,            // ← AGREGAR ESTA LÍNEA
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    // Evita cuelgues largos de conexión remota: si la base no responde, falla rápido.
+                    PDO::ATTR_TIMEOUT => 5,
                     // true: permite repetir el mismo nombre de parámetro (:ff) en una sentencia (nativo MySQL no).
                     PDO::ATTR_EMULATE_PREPARES => true
                 ]
@@ -110,6 +112,9 @@ class Database
 
     private function runQuery($sql, $valores = null, &$retorno = null)
     {
+        if ($this->db === null) {
+            throw new \RuntimeException('Conexión no disponible a MySQL (__SPARTA_SECRET_REDACTED__).');
+        }
         try {
             $stmt = $this->db->prepare($sql);
 

@@ -21,6 +21,64 @@ function getMenu(): string
     $modulosUsuario = $_SESSION['modulos'] ?? [];
     if (!is_array($modulosUsuario)) $modulosUsuario = [];
 
+    /** Ruta normalizada (sin query, minúsculas, sin barra final) para comparar con enlaces del menú. */
+    $normalizeMenuPath = static function (string $raw): string {
+        $path = parse_url($raw, PHP_URL_PATH);
+        if (!is_string($path) || $path === '') {
+            $path = $raw;
+            $q = strpos($path, '?');
+            if ($q !== false) {
+                $path = substr($path, 0, $q);
+            }
+        }
+        $path = '/' . ltrim(strtolower($path), '/');
+
+        return rtrim($path, '/') ?: '/';
+    };
+
+    $requestMenuPath = $normalizeMenuPath($_SERVER['REQUEST_URI'] ?? '/');
+
+    /**
+     * Activo si la URL del ítem coincide con la petición, o si la petición es una subpantalla del mismo módulo
+     * (misma entrada de menú; p. ej. Primeros pagos → Lunes de cierre, histórico, etc.).
+     */
+    $menuItemIsActive = static function (string $menuUrl, string $currentPath) use ($normalizeMenuPath): bool {
+        $menuPath = $normalizeMenuPath($menuUrl);
+        if ($menuPath === $currentPath) {
+            return true;
+        }
+        $sameSection = [
+            '/analitica/primerospagos' => [
+                '/analitica/primerospagos',
+                '/analitica/primerospagoshistorico',
+                '/analitica/vencimientoslunes',
+                '/analitica/vencimientolunessiguientesemana',
+            ],
+            '/analitica/comparativas' => [
+                '/analitica/comparativas',
+                '/analitica/comparativasavancesemanal',
+            ],
+            '/analitica/asignacion' => [
+                '/analitica/asignacion',
+                '/analitica/asignaciontablero',
+                '/analitica/asignaciontablerodos',
+            ],
+            '/analitica/callcenter' => [
+                '/analitica/callcenter',
+                '/analitica/resumencallcenter',
+            ],
+        ];
+        foreach ($sameSection as $canonical => $paths) {
+            if ($menuPath !== $canonical) {
+                continue;
+            }
+
+            return in_array($currentPath, $paths, true);
+        }
+
+        return false;
+    };
+
     $personaIdSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
     $resValidacionesOp = $personaIdSesion > 0
         ? \Core\TicketsPanelModuloHelper::resolverEntradaValidacionesOperativa($personaIdSesion)
@@ -123,7 +181,7 @@ function getMenu(): string
                 continue;
             }
 
-            $activo = strtolower($subItem['url']) === strtolower($_SERVER['REQUEST_URI']) ? 'active' : '';
+            $activo = $menuItemIsActive((string) ($subItem['url'] ?? ''), $requestMenuPath) ? 'active' : '';
 
             $submenu .= <<<HTML
                 <li class="menu-item $activo">
