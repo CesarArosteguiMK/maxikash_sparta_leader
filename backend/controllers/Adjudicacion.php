@@ -417,4 +417,42 @@ class Adjudicacion extends Controller
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
+
+    /** POST /Adjudicacion/actualizarTelefono1 — body: { id_persona, numero } */
+    public function actualizarTelefono1()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+        $numero    = trim($body['numero'] ?? '');
+
+        if ($idPersona <= 0 || $numero === '') {
+            echo json_encode(['success' => false, 'message' => 'Datos incompletos.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->actualizarTelefono1($idPersona, $numero));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /** POST /Adjudicacion/actualizarCorreo1 — body: { id_persona, correo } */
+    public function actualizarCorreo1()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+        $correo    = trim($body['correo'] ?? '');
+
+        if ($idPersona <= 0 || $correo === '') {
+            echo json_encode(['success' => false, 'message' => 'Datos incompletos.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->actualizarCorreo1($idPersona, $correo));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
 }

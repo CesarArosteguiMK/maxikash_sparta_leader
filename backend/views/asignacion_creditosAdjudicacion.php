@@ -1004,9 +1004,23 @@ function adjSeleccionarTelefono(numero) {
     const campo = document.getElementById('adj-info-telefono');
     const actual = campo.textContent.trim();
     const aplicar = () => {
-        campo.textContent = numero;
-        bootstrap.Modal.getInstance(document.getElementById('adj-modal-telefonos'))?.hide();
-        Swal.fire({ icon: 'success', title: 'Teléfono aplicado', text: numero, timer: 1800, showConfirmButton: false });
+        fetch('/Adjudicacion/actualizarTelefono1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_persona: adjResponsableSeleccionado, numero })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                campo.textContent = numero;
+                bootstrap.Modal.getInstance(document.getElementById('adj-modal-telefonos'))?.hide();
+                adjCargarListaTelefonos();
+                Swal.fire({ icon: 'success', title: 'Teléfono aplicado', text: numero, timer: 1800, showConfirmButton: false });
+            } else {
+                Swal.fire('Error', data.message || 'No se pudo actualizar.', 'error');
+            }
+        })
+        .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
     };
     if (!actual || actual === '—' || actual === '-') {
         aplicar();
@@ -1027,9 +1041,23 @@ function adjSeleccionarCorreo(correo) {
     const campo = document.getElementById('adj-info-correo');
     const actual = campo.textContent.trim();
     const aplicar = () => {
-        campo.textContent = correo;
-        bootstrap.Modal.getInstance(document.getElementById('adj-modal-correos'))?.hide();
-        Swal.fire({ icon: 'success', title: 'Correo aplicado', text: correo, timer: 1800, showConfirmButton: false });
+        fetch('/Adjudicacion/actualizarCorreo1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_persona: adjResponsableSeleccionado, correo })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                campo.textContent = correo;
+                bootstrap.Modal.getInstance(document.getElementById('adj-modal-correos'))?.hide();
+                adjCargarListaCorreos();
+                Swal.fire({ icon: 'success', title: 'Correo aplicado', text: correo, timer: 1800, showConfirmButton: false });
+            } else {
+                Swal.fire('Error', data.message || 'No se pudo actualizar.', 'error');
+            }
+        })
+        .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
     };
     if (!actual || actual === '—' || actual === '-') {
         aplicar();

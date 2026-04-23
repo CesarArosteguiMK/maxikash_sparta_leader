@@ -622,4 +622,34 @@ class Adjudicacion extends Model
 
         return ['success' => false, 'message' => 'No se pudo registrar el gestor.'];
     }
+
+    /**
+     * Actualiza el campo numero_tel1 en personal_adjudicacion para el gestor dado.
+     */
+    public function actualizarTelefono1(int $idPersona, string $numero): array
+    {
+        $n = $this->db->CRUD(
+            'UPDATE personal_adjudicacion SET numero_tel1 = :numero WHERE id_persona = :idPersona',
+            ['numero' => $numero, 'idPersona' => $idPersona]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Teléfono actualizado.']
+            : ['success' => false, 'message' => 'No se encontró el registro del gestor.'];
+    }
+
+    /**
+     * Actualiza el campo correo_1 en personal_adjudicacion para el gestor dado.
+     */
+    public function actualizarCorreo1(int $idPersona, string $correo): array
+    {
+        $n = $this->db->CRUD(
+            'UPDATE personal_adjudicacion SET correo_1 = :correo WHERE id_persona = :idPersona',
+            ['correo' => $correo, 'idPersona' => $idPersona]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Correo actualizado.']
+            : ['success' => false, 'message' => 'No se encontró el registro del gestor.'];
+    }
 }
