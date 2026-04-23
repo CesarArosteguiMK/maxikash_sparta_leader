@@ -59,6 +59,12 @@ function getMenu(): string
                 ['label' => 'Estadísticas',            'url' => '/convenios/estadisticas',               'modulos' => [56]],
             ],
         ],
+        'Motos Adjudicadas' => [
+            'icono'    => 'fa-solid fa-motorcycle',
+            'subItems' => [
+                ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
+            ],
+        ],
         'Tickets' => [
             'icono'    => 'fa-solid fa-ticket',
             'subItems' => array_values(array_filter([
@@ -112,9 +118,10 @@ function getMenu(): string
         $submenu = '';
 
         foreach ($item['subItems'] as $subItem) {
-            if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $modulosUsuario)) {
-                continue;
-            }
+            // TODO: Descomentar cuando se den los visto buenos de permisos por módulo
+            // if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $modulosUsuario)) {
+            //     continue;
+            // }
 
             $activo = strtolower($subItem['url']) === strtolower($_SERVER['REQUEST_URI']) ? 'active' : '';
 

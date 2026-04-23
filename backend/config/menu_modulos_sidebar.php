@@ -76,6 +76,12 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Estadísticas', 'url' => '/convenios/estadisticas', 'modulos' => [56]],
                 ],
             ],
+            'Adjudicación' => [
+                'icono' => 'fa-solid fa-motorcycle',
+                'subItems' => [
+                    ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
+                ],
+            ],
             'Gastos Cobranza' => [
                 'icono' => 'fa-solid fa-file-invoice-dollar',
                 'subItems' => [
