@@ -293,12 +293,15 @@
     .ops-det-id   { font-size: 1.625rem; font-weight: 900; color: var(--ops-green); line-height: 1; }
     .ops-det-lbl  { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: #64748b; }
 
+    /* ── Viewer row (fixed height — never moves) ───────────────── */
+    .ops-visor-row { height: 420px; }
+    .ops-visor-row > [class*="col"] { height: 100%; }
+
     /* ── Asset Viewer ────────────────────────────────────────────── */
     .ops-asset-viewer {
         background: #0f172a;
         border-radius: .75rem;
         height: 100%;
-        min-height: 200px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -310,7 +313,7 @@
     /* ── Acciones de Tramo ───────────────────────────────────────── */
     .ops-tramo-wrap {
         display: flex; flex-direction: column;
-        height: 100%; min-height: 200px;
+        flex: 1; min-height: 0;
         border: 1px solid #e2e8f0; border-radius: .75rem; overflow: hidden;
     }
     .ops-tramo-hdr {
@@ -320,8 +323,8 @@
     }
     .ops-tramo-hdr i { color: #38bdf8; }
     .ops-tramo-body {
-        flex: 1 1 auto; overflow-y: auto; padding: .5rem .75rem;
-        background: #f8fafc; max-height: 130px; scrollbar-width: thin;
+        flex: 1 1 0; min-height: 0; overflow-y: auto; padding: .5rem .75rem;
+        background: #f8fafc; scrollbar-width: thin;
     }
     .ops-tramo-body::-webkit-scrollbar { width: 4px; }
     .ops-tramo-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -332,6 +335,8 @@
 
     /* ── Bitácora Forense ────────────────────────────────────────── */
     .ops-bitacora-wrap {
+        display: flex; flex-direction: column;
+        flex: 1; min-height: 0;
         border: 1px solid #1e293b; border-radius: .75rem; overflow: hidden;
     }
     .ops-bitacora-hdr {
@@ -342,7 +347,7 @@
     .ops-bitacora-hdr i { font-size: .85rem; }
     .ops-bitacora-body {
         background: #0f172a; padding: .625rem .875rem;
-        max-height: 160px; overflow-y: auto; scrollbar-width: thin;
+        flex: 1 1 0; min-height: 0; overflow-y: auto; scrollbar-width: thin;
     }
     .ops-bitacora-body::-webkit-scrollbar { width: 4px; }
     .ops-bitacora-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
@@ -460,6 +465,154 @@
         text-align: center;
     }
     .ops-empty-col i { font-size: 2rem; opacity: 0.35; }
+
+    /* ===================================================================
+       DARK MODE — Operaciones Pipeline
+       =================================================================== */
+
+    /* Remap CSS vars para dark mode */
+    body.dark-mode {
+        --ops-green-light:  #064e3b;
+        --ops-green-border: #065f46;
+        --ops-green-text:   #a7f3d0;
+    }
+
+    /* ── Kanban board ─────────────────────────────────────────────── */
+    body.dark-mode .ops-pipeline-wrapper::-webkit-scrollbar-track { background: #1e293b; }
+
+    body.dark-mode .ops-column {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-column-header {
+        background: #0f172a;
+        border-bottom-color: var(--ops-green);
+    }
+    body.dark-mode .ops-cards-body::-webkit-scrollbar-thumb { background: #334155; }
+
+    /* ── Kanban cards ─────────────────────────────────────────────── */
+    body.dark-mode .ops-card {
+        background: #0f172a;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-card:hover { box-shadow: 0 4px 14px rgba(16,185,129,.25); }
+    body.dark-mode .ops-card-nombre { color: #e2e8f0; }
+    body.dark-mode .ops-card-credito { color: #94a3b8; }
+
+    body.dark-mode .ops-aging-green  { background: #064e3b; color: #a7f3d0; border-color: #065f46; }
+    body.dark-mode .ops-aging-yellow { background: #422006; color: #fcd34d; border-color: #92400e; }
+    body.dark-mode .ops-aging-red    { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
+
+    body.dark-mode .ops-area-badge { background: #1e293b; border-color: #334155; color: #94a3b8; }
+
+    body.dark-mode .ops-checklist { border-top-color: #334155; }
+    body.dark-mode .ops-chk-item  { color: #64748b; }
+    body.dark-mode .ops-chk-item.done { color: var(--ops-green); }
+
+    body.dark-mode .ops-empty-col { color: #475569; }
+
+    /* ── Modal: Nueva Operación — secciones con inline style ─────── */
+    body.dark-mode #modalNuevaOperacion .modal-body > div {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    body.dark-mode #modalNuevaOperacion .input-group-text {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+        color: #94a3b8 !important;
+    }
+    body.dark-mode #modalNuevaOperacion .form-label { color: #94a3b8; }
+
+    /* ── Search result card ───────────────────────────────────────── */
+    body.dark-mode .ops-search-placeholder { color: #475569; }
+    body.dark-mode .ops-credit-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-credit-card:hover {
+        background: #064e3b;
+        border-color: var(--ops-green-border);
+    }
+    body.dark-mode .ops-credit-card.selected {
+        background: #064e3b;
+        border-color: var(--ops-green);
+    }
+    body.dark-mode .ops-src-name,
+    body.dark-mode .ops-src-amount { color: #e2e8f0; }
+    body.dark-mode .ops-src-meta   { color: #64748b; }
+    body.dark-mode .ops-src-badge-vencido { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
+    body.dark-mode .ops-src-badge-activo  { background: #064e3b; color: #a7f3d0; border-color: #065f46; }
+
+    /* ── Modal detalle: sección genérica ─────────────────────────── */
+    body.dark-mode .ops-detail-section {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-detail-section h6 { color: #a7f3d0; }
+
+    /* ── Modal detalle: footer con inline style ───────────────────── */
+    body.dark-mode #modalDetalleOperacion .modal-footer,
+    body.dark-mode #modalNuevaOperacion .modal-footer {
+        background: #0f172a !important;
+        border-top-color: #334155 !important;
+    }
+
+    /* ── Acciones de Tramo ───────────────────────────────────────── */
+    body.dark-mode .ops-tramo-wrap { border-color: #334155; }
+    body.dark-mode .ops-tramo-body {
+        background: #1e293b;
+        scrollbar-color: #334155 transparent;
+    }
+    body.dark-mode .ops-tramo-body .text-muted { color: #475569 !important; }
+    body.dark-mode .ops-tramo-foot {
+        background: #0f172a;
+        border-top-color: #334155;
+    }
+
+    /* ── Secciones de evidencia ──────────────────────────────────── */
+    body.dark-mode .ops-ev-hdr-orange { background: #431407; border-color: #9a3412; color: #fdba74; }
+    body.dark-mode .ops-ev-hdr-blue   { background: #1e3a5f; border-color: #1e40af; color: #93c5fd; }
+    body.dark-mode .ops-ev-hdr-green  { background: #14532d; border-color: #166534; color: #86efac; }
+    body.dark-mode .ops-ev-hdr-purple { background: #3b0764; border-color: #6b21a8; color: #d8b4fe; }
+
+    body.dark-mode .ops-ev-slots-wrap {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-ev-slots-wrap::-webkit-scrollbar-thumb { background: #334155; }
+
+    body.dark-mode .ops-ev-slot {
+        background: #0f172a;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-ev-slot:hover    { background: #064e3b; border-color: var(--ops-green); }
+    body.dark-mode .ops-ev-slot.has-file { border-color: #334155; }
+    body.dark-mode .ops-ev-slot .slot-icon-ph { color: #475569; }
+
+    body.dark-mode .ops-ev-slot-pdf {
+        background: #0f172a;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-ev-slot-pdf:hover    { background: #064e3b; border-color: var(--ops-green); }
+    body.dark-mode .ops-ev-slot-pdf.has-file { border-color: #334155; }
+    body.dark-mode .ops-ev-slot-pdf .slot-icon-ph { color: #475569; }
+    body.dark-mode .ops-ev-slot-pdf .slot-sublbl  { color: #475569; }
+    body.dark-mode .ops-ev-slot-pdf .slot-fname   { color: #e2e8f0; }
+
+    body.dark-mode .ops-slot-upload-spin { background: rgba(15,23,42,.85); }
+
+    /* ── PDF doc wrapper ─────────────────────────────────────────── */
+    .ops-ev-doc-body {
+        padding: .5rem;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-top: none;
+        border-radius: 0 0 .5rem .5rem;
+    }
+    body.dark-mode .ops-ev-doc-body {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
 </style>
 
 <!-- Título -->
@@ -1159,8 +1312,8 @@
             </div>
         </div>
 
-        <!-- ② VISOR + ACCIONES DE TRAMO -->
-        <div class="row g-3 mb-3" style="align-items:stretch;">
+        <!-- ② VISOR + ACCIONES DE TRAMO + BITÁCORA -->
+        <div class="row g-3 mb-3 ops-visor-row" style="align-items:stretch;">
             <div class="col-12 col-md-6 d-flex flex-column">
                 <div class="ops-asset-viewer">
                     <div class="ops-av-ph" id="ops-av-ph">
@@ -1169,10 +1322,11 @@
                     </div>
                     <img id="ops-av-img" style="display:none" src="" alt="">
                     <video id="ops-av-vid" style="display:none" controls playsinline src=""></video>
+                    <iframe id="ops-av-pdf" style="display:none;width:100%;height:100%;border:none;border-radius:.5rem;" src="" allowfullscreen></iframe>
                     <div class="ops-av-lbl" id="ops-av-lbl"></div>
                 </div>
             </div>
-            <div class="col-12 col-md-6 d-flex flex-column">
+            <div class="col-12 col-md-6 d-flex flex-column gap-2" style="height:100%;">
                 <div class="ops-tramo-wrap">
                     <div class="ops-tramo-hdr">
                         <i class="fa-solid fa-comment-lines"></i>Acciones de Tramo
@@ -1192,16 +1346,14 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- ③ BITÁCORA FORENSE MAXIKASH -->
-        <div class="ops-bitacora-wrap mb-3">
-            <div class="ops-bitacora-hdr">
-                <i class="fa-solid fa-clock-rotate-left"></i>Bitácora Forense Maxikash
-            </div>
-            <div class="ops-bitacora-body" id="det-bitacora">
-                ${opsRenderBitacora(op.bitacora || [])}
+                <div class="ops-bitacora-wrap">
+                    <div class="ops-bitacora-hdr">
+                        <i class="fa-solid fa-clock-rotate-left"></i>Bitácora Forense Maxikash
+                    </div>
+                    <div class="ops-bitacora-body" id="det-bitacora">
+                        ${opsRenderBitacora(op.bitacora || [])}
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1344,16 +1496,17 @@
                      <button class="ops-slot-btn ops-slot-btn-add" style="top:8px;right:8px;pointer-events:none;">+</button>`;
         }
 
-        const clickAttr = hasFile && isImg
+        const clickAttr = hasFile
             ? `onclick="opsSlotView('${doc.slotKey}',${opId})"`
             : `onclick="opsSlotTrigger('${doc.slotKey}')"`;
+
 
         return `
         <div class="ops-ev-section mb-0">
             <div class="ops-ev-hdr ${doc.headerClass}">
                 <i class="fa-solid ${doc.icon}"></i>${opsEsc(doc.label)}
             </div>
-            <div style="padding:.5rem;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 .5rem .5rem;">
+            <div class="ops-ev-doc-body">
                 <div class="ops-ev-slot-pdf ${hasFile ? 'has-file' : ''}" id="slot-${doc.slotKey}" ${clickAttr}>
                     ${inner}
                 </div>
@@ -1379,12 +1532,14 @@
         const ph  = document.getElementById('ops-av-ph');
         const img = document.getElementById('ops-av-img');
         const vid = document.getElementById('ops-av-vid');
+        const pdf = document.getElementById('ops-av-pdf');
         const lbl = document.getElementById('ops-av-lbl');
         if (!ph) return;
 
         ph.style.display  = 'none';
         img.style.display = 'none';
         vid.style.display = 'none';
+        if (pdf) { pdf.style.display = 'none'; pdf.src = ''; }
 
         // Find label
         const allDefs = [...EV_SECTIONS.flatMap(s => s.slots), ...EV_DOCS.map(d => ({ key: d.slotKey, label: d.slotLabel }))];
@@ -1393,14 +1548,18 @@
         if (ev.type === 'video') {
             vid.src = ev.src;
             vid.style.display = 'block';
-        } else if (ev.type === 'image' || !ev.type) {
+        } else if (ev.type === 'pdf' || ev.tipo === 'pdf') {
+            if (pdf) {
+                pdf.src = ev.src;
+                pdf.style.display = 'block';
+            } else {
+                // fallback: open in new tab
+                window.open(ev.src, '_blank');
+                ph.style.display = '';
+            }
+        } else {
             img.src = ev.src;
             img.style.display = 'block';
-        } else {
-            // PDF: can't embed easily — show placeholder message
-            ph.style.display = '';
-            ph.innerHTML = `<i class="fa-solid fa-file-pdf" style="font-size:2.5rem;color:#ef4444;"></i>
-                            <span style="color:#94a3b8;">${opsEsc(ev.label || 'Documento PDF')}</span>`;
         }
 
         if (lbl) {
@@ -1502,9 +1661,7 @@
         } else if (docDef) {
             const isPDF = ev.type === 'pdf';
             slotEl.classList.add('has-file');
-            slotEl.setAttribute('onclick', ev.type === 'image'
-                ? `opsSlotView('${key}',${opId})`
-                : `opsSlotTrigger('${key}')`);
+            slotEl.setAttribute('onclick', `opsSlotView('${key}',${opId})`);
             slotEl.innerHTML = isPDF
                 ? `<i class="fa-solid fa-file-pdf slot-icon-ph" style="color:#ef4444;font-size:1.6rem;"></i>
                    <div class="slot-fname">${opsEsc(ev.label || docDef.slotLabel)}</div>
@@ -1696,9 +1853,10 @@
                 Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#10b981' });
                 return;
             }
-            // Insertar nueva observación al tope
+            // Insertar nueva observación al final
             const lista = document.getElementById('det-obs-list');
             if (lista) {
+                lista.querySelectorAll('p.text-muted').forEach(el => el.remove());
                 const nueva = `<div class="d-flex gap-2 mb-2 align-items-start" style="font-size:.8125rem;">
                     <i class="fa-regular fa-comment mt-1" style="color:var(--ops-green);flex-shrink:0;"></i>
                     <div>
@@ -1706,8 +1864,8 @@
                         <div class="text-muted" style="font-size:.68rem;">${opsEsc(etapa)} · ${opsEsc(data.fecha || '')}</div>
                     </div>
                 </div>`;
-                lista.insertAdjacentHTML('afterbegin', nueva);
-                lista.querySelectorAll('p.text-muted').forEach(el => el.remove());
+                lista.insertAdjacentHTML('beforeend', nueva);
+                lista.scrollTop = lista.scrollHeight;
             }
             // Insertar en bitácora en tiempo real
             const bit = document.getElementById('det-bitacora');
