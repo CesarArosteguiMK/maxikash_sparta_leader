@@ -2027,6 +2027,32 @@ class EstadoCuenta extends Controller
 
         });
 
+            // ── Auto-fill desde módulo Adjudicación ───────────────────────────
+            // Si se llegó desde Adjudicación con el botón "Estado de cuenta",
+            // el crédito fue guardado en sessionStorage con la clave adj_credito_ec.
+            (function() {
+                const adjCreditoEc = sessionStorage.getItem('adj_credito_ec');
+                if (!adjCreditoEc) return;
+                sessionStorage.removeItem('adj_credito_ec');
+
+                const elId  = document.getElementById('idCredito');
+                const modoID = document.getElementById('modoID');
+                if (!elId || !modoID) return;
+
+                modoID.checked = true;
+                // Asegurar que el panel del ID esté visible
+                const divID = document.getElementById('divID');
+                if (divID) divID.style.display = 'block';
+                const divNombre = document.getElementById('divNombre');
+                if (divNombre) divNombre.style.display = 'none';
+
+                elId.value = adjCreditoEc;
+
+                // Lanzar la búsqueda automáticamente
+                const form = document.getElementById('formBusqueda');
+                if (form) form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            })();
+
 
         </script>
 JS;

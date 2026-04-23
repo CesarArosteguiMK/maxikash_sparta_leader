@@ -348,7 +348,7 @@
      style="background:var(--adj-amber-light); border:1px solid var(--adj-amber-border); border-left:4px solid var(--adj-amber);">
     <i class="fa-solid fa-circle-info" style="color:var(--adj-amber); flex-shrink:0;"></i>
     <span style="font-size:0.875rem; color:var(--adj-amber-text);">
-        <strong>Módulo Adjudicación</strong> — Selecciona un responsable, busca créditos y gestiona sus asignaciones de recuperación.
+        <strong>Módulo Adjudicación</strong> — Selecciona un gestor, busca créditos y gestiona sus asignaciones de recuperación.
     </span>
 </div>
 
@@ -359,21 +359,27 @@
             <div class="card-body">
                 <h5 class="card-title mb-4 d-flex align-items-center gap-2">
                     <span class="adj-step-badge">1</span>
-                    <i class="fa-solid fa-user-tie me-1"></i>Responsable
+                    <i class="fa-solid fa-user-tie me-1"></i>Gestor responsable de adjudicación
                 </h5>
 
                 <div class="mb-3">
-                    <label for="adj-select-responsable" class="form-label fw-bold text-muted small">Seleccionar responsable</label>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label for="adj-select-responsable" class="form-label fw-bold text-muted small mb-0">Seleccionar gestor</label>
+                        <button type="button" class="btn btn-sm" onclick="adjAbrirModalRegistrarGestor()"
+                                style="background:var(--adj-amber-light); border:1px solid var(--adj-amber-border); color:var(--adj-amber-text); font-size:0.75rem;">
+                            <i class="fa-solid fa-user-plus me-1"></i>Registrar gestor
+                        </button>
+                    </div>
                     <select id="adj-select-responsable" class="form-select">
                     </select>
                 </div>
 
-                <!-- Información del Responsable — mini-cards en grid -->
+                <!-- Información del Gestor — mini-cards en grid -->
                 <div id="adj-info-responsable-container" style="display: none;">
                     <hr class="my-3">
                     <small style="font-size:0.68rem; text-transform:uppercase; letter-spacing:.5px;
                                   font-weight:600; color:var(--adj-amber-text);">
-                        Información del Responsable
+                        Información del gestor
                     </small>
                     <div class="adj-info-grid mt-2">
 
@@ -395,17 +401,51 @@
 
                         <div class="adj-info-card" id="adj-info-telefono-container">
                             <i class="fa fa-phone"></i>
-                            <div style="min-width:0;">
-                                <div class="adj-info-card-label">Teléfono</div>
-                                <div class="adj-info-card-value" id="adj-info-telefono">—</div>
+                            <div style="min-width:0; flex:1;">
+                                <div class="d-flex align-items-center justify-content-between gap-1">
+                                    <div class="adj-info-card-label" style="margin-bottom:0;">Teléfono</div>
+                                    <div class="d-flex gap-1">
+                                        <button type="button" class="btn btn-xs adj-btn-contacto"
+                                                onclick="adjAbrirGestionTelefonos()"
+                                                title="Registrar / gestionar teléfonos adicionales"
+                                                style="font-size:10px; padding:2px 6px; background:var(--adj-amber-light); border:1px solid var(--adj-amber-border); color:var(--adj-amber-text); border-radius:4px;">
+                                            <i class="fa fa-plus"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-xs adj-btn-contacto"
+                                                onclick="adjAbrirGestionTelefonos()"
+                                                id="adj-btn-ver-telefonos"
+                                                title="Ver todos los teléfonos"
+                                                style="font-size:10px; padding:2px 6px; background:#f0f4ff; border:1px solid #c7d2fe; color:#3730a3; border-radius:4px; display:none;">
+                                            <i class="fa fa-list"></i> <span id="adj-tel-count"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="adj-info-card-value" id="adj-info-telefono" style="margin-top:2px;">—</div>
                             </div>
                         </div>
 
                         <div class="adj-info-card" id="adj-info-correo-container" style="grid-column: 1 / -1;">
                             <i class="fa fa-envelope"></i>
-                            <div style="min-width:0;">
-                                <div class="adj-info-card-label">Correo</div>
-                                <div class="adj-info-card-value" id="adj-info-correo">—</div>
+                            <div style="min-width:0; flex:1;">
+                                <div class="d-flex align-items-center justify-content-between gap-1">
+                                    <div class="adj-info-card-label" style="margin-bottom:0;">Correo</div>
+                                    <div class="d-flex gap-1">
+                                        <button type="button" class="btn btn-xs adj-btn-contacto"
+                                                onclick="adjAbrirGestionCorreos()"
+                                                title="Registrar / gestionar correos adicionales"
+                                                style="font-size:10px; padding:2px 6px; background:var(--adj-amber-light); border:1px solid var(--adj-amber-border); color:var(--adj-amber-text); border-radius:4px;">
+                                            <i class="fa fa-plus"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-xs adj-btn-contacto"
+                                                onclick="adjAbrirGestionCorreos()"
+                                                id="adj-btn-ver-correos"
+                                                title="Ver todos los correos"
+                                                style="font-size:10px; padding:2px 6px; background:#f0f4ff; border:1px solid #c7d2fe; color:#3730a3; border-radius:4px; display:none;">
+                                            <i class="fa fa-list"></i> <span id="adj-correo-count"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="adj-info-card-value" id="adj-info-correo" style="margin-top:2px;">—</div>
                             </div>
                         </div>
 
@@ -602,7 +642,7 @@
 
                 <!-- PANEL 1: Datos Generales -->
                 <div id="adj-hgc-panel-datos">
-                    <div class="row g-3 mb-4">
+                    <div class="row g-3 mb-2">
                         <div class="col-4">
                             <div class="text-center p-3 rounded-2" style="background:#fff3f3; border:0.5px solid #ffc5c5;">
                                 <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">Saldo vencido</div>
@@ -619,6 +659,15 @@
                             <div class="text-center p-3 rounded-2" style="background:#fffbeb; border:0.5px solid #fcd34d;">
                                 <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">Asignaciones</div>
                                 <div style="font-size:20px; font-weight:500; color:#d97706;" id="adj-hgc-total-gestores">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-4">
+                            <div class="text-center p-3 rounded-2" style="background:#f0f4ff; border:0.5px solid #c7d2fe;">
+                                <div class="text-muted mb-1" style="font-size:11px; text-transform:uppercase; letter-spacing:.5px;">Bucket</div>
+                                <div style="font-size:16px; font-weight:500; color:#3730a3;" id="adj-hgc-bucket">—</div>
                             </div>
                         </div>
                     </div>
@@ -731,6 +780,165 @@
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODAL: Registrar nuevo gestor                               -->
+<!-- ============================================================ -->
+<div class="modal fade" id="adj-modalRegistrarGestor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content" style="border:none; border-radius:0.5rem; overflow:hidden;">
+
+            <div class="modal-header" style="background:#f59e0b; border:none; padding:1.25rem 1.5rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,0,0,0.12);
+                                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="fa-solid fa-user-plus" style="color:#1a1a1a;font-size:13px;"></i>
+                    </div>
+                    <div>
+                        <div style="color:#1a1a1a;font-weight:600;font-size:15px;line-height:1.2;">Registrar nuevo gestor</div>
+                        <div style="color:rgba(26,26,26,0.65);font-size:12px;">Agregar al personal de adjudicación</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:brightness(0);"></button>
+            </div>
+
+            <div class="modal-body" style="padding:1.5rem;">
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold" style="font-size:0.85rem;">
+                        <i class="fa fa-user me-1" style="color:#f59e0b;"></i>Persona
+                    </label>
+                    <div id="adj-reg-spinner" class="text-center py-2" style="display:none;">
+                        <span class="spinner-border spinner-border-sm" style="color:#f59e0b;"></span>
+                        <span class="text-muted ms-2" style="font-size:0.85rem;">Cargando personas...</span>
+                    </div>
+                    <select id="adj-reg-persona-select" class="form-select">
+                        <option value="">Seleccione una persona...</option>
+                    </select>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" style="font-size:0.85rem;">
+                            <i class="fa fa-phone me-1" style="color:#f59e0b;"></i>Teléfono de contacto
+                        </label>
+                        <input type="text" id="adj-reg-telefono" class="form-control"
+                               placeholder="Ej: 5512345678" maxlength="20">
+                        <div class="form-text text-muted" style="font-size:0.75rem;">Se pre-llena del expediente; puede editarse.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" style="font-size:0.85rem;">
+                            <i class="fa fa-envelope me-1" style="color:#f59e0b;"></i>Correo electrónico
+                        </label>
+                        <input type="email" id="adj-reg-correo" class="form-control"
+                               placeholder="correo@ejemplo.com" maxlength="120">
+                        <div class="form-text text-muted" style="font-size:0.75rem;">Se pre-llena del expediente; puede editarse.</div>
+                    </div>
+                </div>
+
+                <div class="alert-adj-amber mt-4" style="font-size:0.8rem;">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    El gestor quedará en estatus <strong>Activo</strong> y podrá recibir asignaciones de inmediato.
+                </div>
+            </div>
+
+            <div class="modal-footer" style="background:#fffbeb; border-top:1px solid var(--adj-amber-border); padding:0.875rem 1.5rem;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fa fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-adj-amber btn-sm" id="adj-reg-btn-guardar" onclick="adjRegistrarGestor()">
+                    <i class="fa fa-save me-1"></i>Guardar gestor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- MODAL: Gestionar Teléfonos del Gestor                             -->
+<!-- ================================================================== -->
+<div class="modal fade" id="adj-modal-telefonos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+        <div class="modal-content" style="border:none; border-radius:.5rem; overflow:hidden;">
+            <div class="modal-header" style="background:#f59e0b; border:none; padding:1.1rem 1.5rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:32px;height:32px;border-radius:7px;background:rgba(0,0,0,.12);
+                                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="fa fa-phone" style="color:#1a1a1a;font-size:12px;"></i>
+                    </div>
+                    <div>
+                        <div style="color:#1a1a1a;font-weight:600;font-size:14px;line-height:1.2;">Teléfonos adicionales</div>
+                        <div style="color:rgba(26,26,26,.65);font-size:11px;" id="adj-tel-modal-subtitulo">Gestor seleccionado</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:brightness(0);"></button>
+            </div>
+            <div class="modal-body" style="padding:1.25rem;">
+                <!-- Registro nuevo -->
+                <div class="d-flex gap-2 mb-3">
+                    <input type="text" id="adj-nuevo-telefono" class="form-control form-control-sm"
+                           placeholder="Nuevo número..." maxlength="10"
+                           onkeydown="if(event.key==='Enter') adjGuardarTelefono();">
+                    <button type="button" class="btn btn-adj-amber btn-sm px-3" onclick="adjGuardarTelefono()">
+                        <i class="fa fa-plus"></i>
+                    </button>
+                </div>
+                <!-- Lista -->
+                <div id="adj-lista-telefonos" style="min-height:40px;">
+                    <div class="text-muted text-center py-2" style="font-size:.82rem;">Cargando...</div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#fffbeb; border-top:1px solid var(--adj-amber-border); padding:.75rem 1.25rem;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fa fa-times me-1"></i>Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- MODAL: Gestionar Correos del Gestor                                -->
+<!-- ================================================================== -->
+<div class="modal fade" id="adj-modal-correos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+        <div class="modal-content" style="border:none; border-radius:.5rem; overflow:hidden;">
+            <div class="modal-header" style="background:#f59e0b; border:none; padding:1.1rem 1.5rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:32px;height:32px;border-radius:7px;background:rgba(0,0,0,.12);
+                                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="fa fa-envelope" style="color:#1a1a1a;font-size:12px;"></i>
+                    </div>
+                    <div>
+                        <div style="color:#1a1a1a;font-weight:600;font-size:14px;line-height:1.2;">Correos adicionales</div>
+                        <div style="color:rgba(26,26,26,.65);font-size:11px;" id="adj-correo-modal-subtitulo">Gestor seleccionado</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:brightness(0);"></button>
+            </div>
+            <div class="modal-body" style="padding:1.25rem;">
+                <!-- Registro nuevo -->
+                <div class="d-flex gap-2 mb-3">
+                    <input type="email" id="adj-nuevo-correo" class="form-control form-control-sm"
+                           placeholder="nuevo@correo.com" maxlength="150"
+                           onkeydown="if(event.key==='Enter') adjGuardarCorreo();">
+                    <button type="button" class="btn btn-adj-amber btn-sm px-3" onclick="adjGuardarCorreo()">
+                        <i class="fa fa-plus"></i>
+                    </button>
+                </div>
+                <!-- Lista -->
+                <div id="adj-lista-correos" style="min-height:40px;">
+                    <div class="text-muted text-center py-2" style="font-size:.82rem;">Cargando...</div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#fffbeb; border-top:1px solid var(--adj-amber-border); padding:.75rem 1.25rem;">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fa fa-times me-1"></i>Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // ============================================================================
 // ADJUDICACIÓN — Variables globales
@@ -738,6 +946,239 @@
 let adjResponsableSeleccionado = null;
 let adjCreditosEncontrados = [];
 let adjSearchableSelect;
+
+// Registro de gestores
+let adjPersonasMap    = {};     // id → { nombre_completo, telefono, correo }
+let adjPersonasCargadas   = false;
+let adjRegSelectInstance  = null;
+
+// ============================================================================
+// GESTIÓN DE TELÉFONOS ADICIONALES DEL GESTOR
+// ============================================================================
+function adjAbrirGestionTelefonos() {
+    if (!adjResponsableSeleccionado) return;
+    const nombre = document.getElementById('adj-info-nombre')?.textContent || '';
+    document.getElementById('adj-tel-modal-subtitulo').textContent = nombre || 'Gestor seleccionado';
+    document.getElementById('adj-nuevo-telefono').value = '';
+    const modalEl = document.getElementById('adj-modal-telefonos');
+    let m = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    m.show();
+    adjCargarListaTelefonos();
+}
+
+function adjCargarListaTelefonos() {
+    const lista = document.getElementById('adj-lista-telefonos');
+    lista.innerHTML = '<div class="text-muted text-center py-2" style="font-size:.82rem;">Cargando...</div>';
+    fetch(`/Adjudicacion/obtenerTelefonos/${adjResponsableSeleccionado}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) { lista.innerHTML = '<div class="text-danger" style="font-size:.82rem;">' + (data.message||'Error') + '</div>'; return; }
+            const tels = data.telefonos || [];
+            // Actualizar badge en la tarjeta
+            const btnVer = document.getElementById('adj-btn-ver-telefonos');
+            const countEl = document.getElementById('adj-tel-count');
+            if (tels.length > 0) { btnVer.style.display = ''; countEl.textContent = tels.length; }
+            else { btnVer.style.display = 'none'; }
+            if (tels.length === 0) { lista.innerHTML = '<div class="text-muted text-center py-2" style="font-size:.82rem;">Sin teléfonos adicionales registrados.</div>'; return; }
+            const _telActual = (document.getElementById('adj-info-telefono').textContent || '').trim();
+            lista.innerHTML = tels.map(t => {
+                const esActual = _telActual && _telActual !== '\u2014' && _telActual !== '-' && _telActual === t.numero;
+                return `<div class="d-flex align-items-center justify-content-between py-1 px-2 mb-1 rounded"
+                      style="background:#fffbeb; border:1px solid #fcd34d;">
+                    <span style="font-size:.84rem; cursor:pointer; text-decoration:underline dotted; color:#92400e;"
+                          title="Usar este n\u00famero" onclick="adjSeleccionarTelefono('${t.numero}')">
+                        \uD83D\uDCDE ${t.numero}${esActual ? ' <span style="font-size:.72rem; background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; border-radius:9px; padding:1px 8px; margin-left:5px; font-weight:600;">actual</span>' : ''}
+                    </span>
+                    <button type="button" class="btn btn-sm" title="Eliminar"
+                            style="padding:2px 7px; font-size:11px; background:#fee2e2; border:1px solid #fca5a5; color:#dc2626; border-radius:4px;"
+                            onclick="adjEliminarTelefono(${t.id})">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </div>`;
+            }).join('');
+        })
+        .catch(() => { lista.innerHTML = '<div class="text-danger" style="font-size:.82rem;">Error de conexión.</div>'; });
+}
+
+function adjSeleccionarTelefono(numero) {
+    const campo = document.getElementById('adj-info-telefono');
+    const actual = campo.textContent.trim();
+    const aplicar = () => {
+        campo.textContent = numero;
+        bootstrap.Modal.getInstance(document.getElementById('adj-modal-telefonos'))?.hide();
+        Swal.fire({ icon: 'success', title: 'Teléfono aplicado', text: numero, timer: 1800, showConfirmButton: false });
+    };
+    if (!actual || actual === '—' || actual === '-') {
+        aplicar();
+    } else {
+        Swal.fire({
+            title: '¿Reemplazar teléfono?',
+            html: `El campo ya muestra <strong>${actual}</strong>.<br>¿Lo reemplazamos con <strong>${numero}</strong>?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Reemplazar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#f59e0b',
+        }).then(res => { if (res.isConfirmed) aplicar(); });
+    }
+}
+
+function adjSeleccionarCorreo(correo) {
+    const campo = document.getElementById('adj-info-correo');
+    const actual = campo.textContent.trim();
+    const aplicar = () => {
+        campo.textContent = correo;
+        bootstrap.Modal.getInstance(document.getElementById('adj-modal-correos'))?.hide();
+        Swal.fire({ icon: 'success', title: 'Correo aplicado', text: correo, timer: 1800, showConfirmButton: false });
+    };
+    if (!actual || actual === '—' || actual === '-') {
+        aplicar();
+    } else {
+        Swal.fire({
+            title: '¿Reemplazar correo?',
+            html: `El campo ya muestra <strong>${actual}</strong>.<br>¿Lo reemplazamos con <strong>${correo}</strong>?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Reemplazar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#f59e0b',
+        }).then(res => { if (res.isConfirmed) aplicar(); });
+    }
+}
+
+function adjGuardarTelefono() {
+    const numero = document.getElementById('adj-nuevo-telefono').value.trim();
+    if (!numero) { Swal.fire('Advertencia', 'Ingrese un número de teléfono.', 'warning'); return; }
+    fetch('/Adjudicacion/registrarTelefono', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_persona: adjResponsableSeleccionado, numero })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('adj-nuevo-telefono').value = '';
+            const campTel = document.getElementById('adj-info-telefono');
+            const valTel = campTel.textContent.trim();
+            if (!valTel || valTel === '\u2014' || valTel === '-') campTel.textContent = numero;
+            adjCargarListaTelefonos();
+        } else {
+            Swal.fire('Error', data.message || 'No se pudo guardar.', 'error');
+        }
+    })
+    .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
+}
+
+function adjEliminarTelefono(idTelefono) {
+    Swal.fire({ title: '¿Eliminar teléfono?', icon: 'warning', showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc2626' })
+    .then(res => {
+        if (!res.isConfirmed) return;
+        fetch('/Adjudicacion/eliminarTelefono', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_telefono: idTelefono, id_persona: adjResponsableSeleccionado })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) adjCargarListaTelefonos();
+            else Swal.fire('Error', data.message || 'No se pudo eliminar.', 'error');
+        })
+        .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
+    });
+}
+
+// ============================================================================
+// GESTIÓN DE CORREOS ADICIONALES DEL GESTOR
+// ============================================================================
+function adjAbrirGestionCorreos() {
+    if (!adjResponsableSeleccionado) return;
+    const nombre = document.getElementById('adj-info-nombre')?.textContent || '';
+    document.getElementById('adj-correo-modal-subtitulo').textContent = nombre || 'Gestor seleccionado';
+    document.getElementById('adj-nuevo-correo').value = '';
+    const modalEl = document.getElementById('adj-modal-correos');
+    let m = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    m.show();
+    adjCargarListaCorreos();
+}
+
+function adjCargarListaCorreos() {
+    const lista = document.getElementById('adj-lista-correos');
+    lista.innerHTML = '<div class="text-muted text-center py-2" style="font-size:.82rem;">Cargando...</div>';
+    fetch(`/Adjudicacion/obtenerCorreos/${adjResponsableSeleccionado}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) { lista.innerHTML = '<div class="text-danger" style="font-size:.82rem;">' + (data.message||'Error') + '</div>'; return; }
+            const correos = data.correos || [];
+            // Actualizar badge
+            const btnVer = document.getElementById('adj-btn-ver-correos');
+            const countEl = document.getElementById('adj-correo-count');
+            if (correos.length > 0) { btnVer.style.display = ''; countEl.textContent = correos.length; }
+            else { btnVer.style.display = 'none'; }
+            if (correos.length === 0) { lista.innerHTML = '<div class="text-muted text-center py-2" style="font-size:.82rem;">Sin correos adicionales registrados.</div>'; return; }
+            const _correoActual = (document.getElementById('adj-info-correo').textContent || '').trim();
+            lista.innerHTML = correos.map(c => {
+                const esActual = _correoActual && _correoActual !== '\u2014' && _correoActual !== '-' && _correoActual === c.correo;
+                return `<div class="d-flex align-items-center justify-content-between py-1 px-2 mb-1 rounded"
+                      style="background:#fffbeb; border:1px solid #fcd34d;">
+                    <span style="font-size:.84rem; cursor:pointer; text-decoration:underline dotted; color:#92400e;"
+                          title="Usar este correo" onclick="adjSeleccionarCorreo('${c.correo}')">
+                        \u2709\uFE0F ${c.correo}${esActual ? ' <span style="font-size:.72rem; background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; border-radius:9px; padding:1px 8px; margin-left:5px; font-weight:600;">actual</span>' : ''}
+                    </span>
+                    <button type="button" class="btn btn-sm" title="Eliminar"
+                            style="padding:2px 7px; font-size:11px; background:#fee2e2; border:1px solid #fca5a5; color:#dc2626; border-radius:4px;"
+                            onclick="adjEliminarCorreo(${c.id})">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </div>`;
+            }).join('');
+        })
+        .catch(() => { lista.innerHTML = '<div class="text-danger" style="font-size:.82rem;">Error de conexión.</div>'; });
+}
+
+function adjGuardarCorreo() {
+    const correo = document.getElementById('adj-nuevo-correo').value.trim();
+    if (!correo) { Swal.fire('Advertencia', 'Ingrese un correo electrónico.', 'warning'); return; }
+    fetch('/Adjudicacion/registrarCorreo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_persona: adjResponsableSeleccionado, correo })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('adj-nuevo-correo').value = '';
+            const campCorreo = document.getElementById('adj-info-correo');
+            const valCorreo = campCorreo.textContent.trim();
+            if (!valCorreo || valCorreo === '\u2014' || valCorreo === '-') campCorreo.textContent = correo;
+            adjCargarListaCorreos();
+        } else {
+            Swal.fire('Error', data.message || 'No se pudo guardar.', 'error');
+        }
+    })
+    .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
+}
+
+function adjEliminarCorreo(idCorreo) {
+    Swal.fire({ title: '¿Eliminar correo?', icon: 'warning', showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#dc2626' })
+    .then(res => {
+        if (!res.isConfirmed) return;
+        fetch('/Adjudicacion/eliminarCorreo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_correo: idCorreo, id_persona: adjResponsableSeleccionado })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) adjCargarListaCorreos();
+            else Swal.fire('Error', data.message || 'No se pudo eliminar.', 'error');
+        })
+        .catch(() => Swal.fire('Error', 'Error de conexión.', 'error'));
+    });
+}
 
 // ============================================================================
 // INIT
@@ -800,10 +1241,15 @@ function adjCargarResponsables() {
                 data.responsables.forEach(resp => {
                     const option = document.createElement('option');
                     option.value = resp.id_persona;
-                    option.textContent = resp.nombre_completo + (resp.puesto ? ' — ' + resp.puesto : '');
+                    option.textContent = resp.nombre_completo;
                     select.appendChild(option);
                 });
 
+                // Destruir wrapper previo para evitar duplicados
+                if (adjSearchableSelect && adjSearchableSelect.wrapper) {
+                    adjSearchableSelect.wrapper.remove();
+                    select.style.display = '';
+                }
                 adjSearchableSelect = new AdjSearchableSelect(select);
             }
         })
@@ -823,7 +1269,7 @@ function adjCargarDatosResponsable(idPersona) {
                 const d = data.datos;
 
                 document.getElementById('adj-info-nombre').textContent   = d.nombre_completo || '-';
-                document.getElementById('adj-info-puesto').textContent   = d.puesto          || '-';
+                document.getElementById('adj-info-puesto').textContent   = d.puesto ? d.puesto.split(' - ')[0].trim() : '-';
                 document.getElementById('adj-info-telefono').textContent = d.telefono        || '-';
                 document.getElementById('adj-info-correo').textContent   = d.correo          || '-';
 
@@ -950,7 +1396,8 @@ function adjRenderizarStack() {
                     </div>
                     <div class="mb-1"><strong>Nombre:</strong> ${credito.nombre_cliente || '—'}</div>
                     <div class="mb-1"><strong>Dirección:</strong> <span class="text-muted">${credito.direccion || 'Sin dirección'}</span></div>
-                    <div><strong>Saldo:</strong> <span class="text-danger fw-bold">${adjFormatearMoneda(credito.saldo_actual || 0)}</span></div>
+                    <div class="mb-1"><strong>Saldo:</strong> <span class="text-danger fw-bold">${adjFormatearMoneda(credito.saldo_actual || 0)}</span></div>
+                    ${credito.bucket ? `<div><strong>Bucket:</strong> <span style="color:#3730a3;">${credito.bucket}</span></div>` : ''}
                 </div>
                 <div class="d-flex flex-column gap-2 ms-3">
                     ${!esActivo ? `
@@ -965,6 +1412,10 @@ function adjRenderizarStack() {
                     </button>
                     <button class="btn btn-gradient-danger btn-sm" onclick="adjDescartarCredito('${creditoId}')" title="Quitar de la lista">
                         <i class="fa-solid fa-trash me-1"></i>Quitar
+                    </button>
+                    <button class="btn btn-sm mt-1" onclick="adjIrEstadoCuenta('${creditoId}')" title="Ver estado de cuenta"
+                            style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:0.78rem;">
+                        <i class="fa-solid fa-file-invoice-dollar me-1"></i>Estado de cuenta
                     </button>
                 </div>
             </div>
@@ -1240,6 +1691,7 @@ function adjHgcPoblarDatos(credito, asignacion) {
     document.getElementById('adj-hgc-nombre-cliente').textContent = credito.nombre_cliente  || '—';
     document.getElementById('adj-hgc-curp').textContent            = credito.curp            || '—';
     document.getElementById('adj-hgc-saldo').textContent           = adjFormatearMoneda(credito.saldo_actual || 0);
+    document.getElementById('adj-hgc-bucket').textContent          = credito.bucket          || '—';
     document.getElementById('adj-hgc-mora').textContent            = credito.dias_mora       || '—';
     document.getElementById('adj-hgc-telefono').textContent        = credito.telefono        || '—';
     document.getElementById('adj-hgc-sucursal').textContent        = credito.sucursal        || '—';
@@ -1331,6 +1783,114 @@ function adjHgcRenderizarTimeline(historial) {
         `;
         cont.appendChild(el);
     });
+}
+
+// ============================================================================
+// REGISTRAR GESTOR
+// ============================================================================
+function adjAbrirModalRegistrarGestor() {
+    document.getElementById('adj-reg-telefono').value = '';
+    document.getElementById('adj-reg-correo').value   = '';
+
+    const modalEl = document.getElementById('adj-modalRegistrarGestor');
+    let modal = bootstrap.Modal.getInstance(modalEl);
+    if (!modal) modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    if (!adjPersonasCargadas) {
+        adjCargarTodasPersonas();
+    }
+}
+
+function adjCargarTodasPersonas() {
+    const spinner = document.getElementById('adj-reg-spinner');
+    spinner.style.display = 'block';
+
+    fetch('/Adjudicacion/obtenerTodasPersonas')
+        .then(r => r.json())
+        .then(data => {
+            spinner.style.display = 'none';
+            if (!data.success || !data.personas) return;
+
+            adjPersonasMap = {};
+            const select = document.getElementById('adj-reg-persona-select');
+            select.innerHTML = '<option value="">Seleccione una persona...</option>';
+
+            data.personas.forEach(p => {
+                adjPersonasMap[String(p.id)] = p;
+                const opt = document.createElement('option');
+                opt.value       = p.id;
+                opt.textContent = p.nombre_completo;
+                select.appendChild(opt);
+            });
+
+            // Destruir wrapper previo si existe
+            if (adjRegSelectInstance && adjRegSelectInstance.wrapper) {
+                adjRegSelectInstance.wrapper.remove();
+                select.style.display = '';
+            }
+
+            adjRegSelectInstance = new AdjSearchableSelect(select);
+
+            // Auto-llenar tel y correo al seleccionar
+            select.addEventListener('change', function () {
+                const persona = adjPersonasMap[String(this.value)];
+                document.getElementById('adj-reg-telefono').value = persona ? (persona.telefono || '') : '';
+                document.getElementById('adj-reg-correo').value   = persona ? (persona.correo   || '') : '';
+            });
+
+            adjPersonasCargadas = true;
+        })
+        .catch(() => {
+            spinner.style.display = 'none';
+        });
+}
+
+function adjRegistrarGestor() {
+    const select    = document.getElementById('adj-reg-persona-select');
+    const idPersona = select.value;
+    const telefono  = document.getElementById('adj-reg-telefono').value.trim();
+    const correo    = document.getElementById('adj-reg-correo').value.trim();
+
+    if (!idPersona) {
+        Swal.fire('Advertencia', 'Seleccione una persona', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('adj-reg-btn-guardar');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+
+    fetch('/Adjudicacion/registrarGestor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_persona: idPersona, telefono, correo })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-save me-1"></i>Guardar gestor';
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: '¡Registrado!', text: data.message, timer: 2000, showConfirmButton: false });
+            bootstrap.Modal.getInstance(document.getElementById('adj-modalRegistrarGestor')).hide();
+            adjCargarResponsables();
+        } else {
+            Swal.fire('Error', data.message || 'No se pudo registrar el gestor', 'error');
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-save me-1"></i>Guardar gestor';
+        Swal.fire('Error', 'Error al conectar con el servidor', 'error');
+    });
+}
+
+// ============================================================================
+// ESTADO DE CUENTA — navegar con crédito pre-cargado
+// ============================================================================
+function adjIrEstadoCuenta(idCredito) {
+    sessionStorage.setItem('adj_credito_ec', String(idCredito));
+    window.location.href = '/EstadoCuenta/Consulta';
 }
 
 // ============================================================================

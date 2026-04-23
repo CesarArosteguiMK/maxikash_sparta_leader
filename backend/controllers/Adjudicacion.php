@@ -255,4 +255,166 @@ class Adjudicacion extends Controller
         http_response_code(501);
         echo 'Exportación Excel pendiente de implementación.';
     }
+
+    // =========================================================================
+    // REGISTRO DE NUEVOS GESTORES
+    // =========================================================================
+
+    /**
+     * GET /Adjudicacion/obtenerTodasPersonas
+     * Devuelve todas las personas del catálogo para el desplegable de registro.
+     */
+    public function obtenerTodasPersonas()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $personas = $this->model->obtenerTodasPersonas();
+            echo json_encode(['success' => true, 'personas' => $personas]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /Adjudicacion/registrarGestor
+     * Body JSON: { "id_persona": 1, "telefono": "55...", "correo": "..." }
+     */
+    public function registrarGestor()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+        $telefono  = trim((string) ($body['telefono'] ?? ''));
+        $correo    = trim((string) ($body['correo']   ?? ''));
+
+        if ($idPersona <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Seleccione una persona.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->registrarGestor($idPersona, $telefono, $correo);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    // =========================================================================
+    // TELÉFONOS ADICIONALES DEL GESTOR
+    // =========================================================================
+
+    /** GET /Adjudicacion/obtenerTelefonos/{idPersona} */
+    public function obtenerTelefonos($idPersona = null)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de persona inválido.']);
+            return;
+        }
+        try {
+            $telefonos = $this->model->obtenerTelefonosGestor($idPersona);
+            echo json_encode(['success' => true, 'telefonos' => $telefonos]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /** POST /Adjudicacion/registrarTelefono — body: { id_persona, numero } */
+    public function registrarTelefono()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+        $numero    = trim((string) ($body['numero'] ?? ''));
+
+        if ($idPersona <= 0 || $numero === '') {
+            echo json_encode(['success' => false, 'message' => 'Datos incompletos.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->registrarTelefonoGestor($idPersona, $numero));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /** POST /Adjudicacion/eliminarTelefono — body: { id_telefono, id_persona } */
+    public function eliminarTelefono()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body       = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idTelefono = (int) ($body['id_telefono'] ?? 0);
+        $idPersona  = (int) ($body['id_persona']  ?? 0);
+
+        if ($idTelefono <= 0 || $idPersona <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Datos incompletos.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->eliminarTelefonoGestor($idTelefono, $idPersona));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    // =========================================================================
+    // CORREOS ADICIONALES DEL GESTOR
+    // =========================================================================
+
+    /** GET /Adjudicacion/obtenerCorreos/{idPersona} */
+    public function obtenerCorreos($idPersona = null)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idPersona = (int) $idPersona;
+        if ($idPersona <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de persona inválido.']);
+            return;
+        }
+        try {
+            $correos = $this->model->obtenerCorreosGestor($idPersona);
+            echo json_encode(['success' => true, 'correos' => $correos]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /** POST /Adjudicacion/registrarCorreo — body: { id_persona, correo } */
+    public function registrarCorreo()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+        $correo    = trim((string) ($body['correo'] ?? ''));
+
+        if ($idPersona <= 0 || $correo === '') {
+            echo json_encode(['success' => false, 'message' => 'Datos incompletos.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->registrarCorreoGestor($idPersona, $correo));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /** POST /Adjudicacion/eliminarCorreo — body: { id_correo, id_persona } */
+    public function eliminarCorreo()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCorreo  = (int) ($body['id_correo']  ?? 0);
+        $idPersona = (int) ($body['id_persona'] ?? 0);
+
+        if ($idCorreo <= 0 || $idPersona <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Datos incompletos.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->eliminarCorreoGestor($idCorreo, $idPersona));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
 }
