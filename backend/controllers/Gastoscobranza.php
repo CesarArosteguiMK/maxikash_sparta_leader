@@ -478,7 +478,7 @@ class Gastoscobranza extends Controller
 
     /**
      * Activa o desactiva la generación automática del reporte (timer CDMX en el agente Node).
-     * Persistencia: archivo logs/.auto_run_reporte_runtime.txt en la carpeta del agente (no modifica .env).
+     * Persistencia en el agente Node: `data/auto_run_reporte_runtime.txt` (fallback tmp / logs legacy; no modifica .env).
      */
     public function configurarAutoRunReporte()
     {

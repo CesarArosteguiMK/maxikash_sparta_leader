@@ -5,26 +5,31 @@ namespace Models;
 use Core\DatabaseSegundometro;
 
 /**
- * Histórico semanal de primeros pagos a partir de `tbl_segundometro_histo` (__SPARTA_SECRET_REDACTED__).
+ * Histórico semanal de primeros pagos a partir de `tbl_histo_primeros_pagos` (__SPARTA_SECRET_REDACTED__).
  * Criterio de semana: columna **SEMANA** (misma etiqueta que Segundómetro / comparativa semanal).
  *
  * El resumen por semana replica métricas tipo primeros pagos: prioridad a cartera **martes a domingo**.
  * Si no hay filas en ese rango, se usa **lunes de cierre** (fecha exacta). Nunca se abre a toda la semana por `SEMANA` sola.
- * Nacimiento: misma columna que «Lunes de Cierre» (`Bucket_Morosidad_Real` en `tbl_segundometro_semana` → aquí en histórico).
- * Corte: misma escala que `Empresa::getVencimientosLunes` usando `COALESCE(Dias_mora_Lunes_*)` (primer valor no nulo).
+ * Nacimiento / corte alineados al menú **Primeros pagos — Lunes de cierre** (`Empresa::getVencimientosLunes` sobre
+ * `tbl_segundometro_semana`), pero leyendo **`tbl_histo_primeros_pagos`**: nacimiento = **`Bucket_Morosidad_Real`**
+ * (si no existe, `Bucket_Morosidad`); mora al corte = **la misma columna que `Empresa::getCorteActual()`** si está en
+ * la tabla histórico; si no, `COALESCE` de slots **`Dias_mora_Lunes_*`** (orden Empresa) y al final **`Dias_mora`**.
  */
 final class PrimerosPagosHistoricoSegundometro
 {
+    /** Tabla dedicada al histórico de la cartera primeros pagos (más acotada que `tbl_segundometro_histo`). */
+    private const TABLA_HISTORICO_PRIMEROS_PAGOS = 'tbl_histo_primeros_pagos';
+
     private const SEMANA_MAX_LEN = 160;
 
     /** Solo se ofrecen las últimas N semanas (por fecha de carga en histórico). */
-    private const LISTA_SEMANAS_MAX = 4;
+    private const LISTA_SEMANAS_MAX = 5;
 
     /**
      * Ventana de filas a considerar para armar el ranking de semanas (evita GROUP BY sobre toda la tabla).
      * Con índice por fecha_hora_insert la consulta escala; sin índice sigue acotando filas vs. histórico completo.
      */
-    private const LISTA_SEMANAS_LOOKBACK_DIAS = 30;
+    private const LISTA_SEMANAS_LOOKBACK_DIAS = 60;
 
     /** Misma escala que el reporte en vivo (Reporteria / Empresa). */
     private const BUCKET_ORDER = [
@@ -34,6 +39,12 @@ final class PrimerosPagosHistoricoSegundometro
         'd) 31 a 60 dias',
         'e) 61+ dias',
     ];
+
+    /** @var array<string, true>|null Cache por petición HTTP (evita decenas de lecturas a information_schema). */
+    private static ?array $cacheMapColumnasHisto = null;
+
+    /** @var array<string, mixed>|null Cache por petición de meta mora corte (columna menú + COALESCE). */
+    private static ?array $cacheMetaSqlMoraCorteHisto = null;
 
     /**
      * @return array{success:bool, mensaje?:string, datos?:list<array{semana:string,registros:int,ultimo_insert:string|null,ini:?string,fin:?string}>}
@@ -54,7 +65,7 @@ final class PrimerosPagosHistoricoSegundometro
             $limiteFilasRecientes = 350000;
             $sqlTop = 'SELECT CAST(SEMANA AS CHAR CHARACTER SET utf8mb4) AS semana,
                               fecha_hora_insert AS ultimo_insert
-                       FROM tbl_segundometro_histo
+                       FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
                        WHERE fecha_hora_insert >= DATE_SUB(CURDATE(), INTERVAL ' . (int) self::LISTA_SEMANAS_LOOKBACK_DIAS . ' DAY)
                          AND SEMANA IS NOT NULL
                          AND SEMANA <> \'\'
@@ -63,6 +74,7 @@ final class PrimerosPagosHistoricoSegundometro
             $rows = $db->queryAll($sqlTop, null);
             $candidatas = [];
             $seen = [];
+            $semanaActualIso = self::etiquetaSemanaActualIso();
             foreach ($rows as $r) {
                 $s = trim((string) ($r['semana'] ?? ''));
                 if ($s === '') {
@@ -71,7 +83,8 @@ final class PrimerosPagosHistoricoSegundometro
                 if (isset($seen[$s])) {
                     continue;
                 }
-                if (self::esEtiquetaSemanaActual($s)) {
+                // Excluimos la semana ISO en curso: el histórico solo muestra comportamiento completo de semanas cerradas.
+                if ($semanaActualIso !== null && self::mismaEtiquetaSemanaIso($s, $semanaActualIso)) {
                     continue;
                 }
                 $rango = self::resolverRangoMartesDomingoDesdeEtiquetaSemana($s);
@@ -111,14 +124,14 @@ final class PrimerosPagosHistoricoSegundometro
 
             return ['success' => true, 'datos' => $out];
         } catch (\Throwable $e) {
-            return ['success' => false, 'mensaje' => 'No se pudo leer el histórico (segundómetro).', 'error' => $e->getMessage()];
+            return ['success' => false, 'mensaje' => 'No se pudo leer el histórico de primeros pagos.', 'error' => $e->getMessage()];
         }
     }
 
     /** Misma fuente que `Empresa::getVencimientosLunes` (bucket_nacio). */
     private static function columnaNacimientoComoLunesCierre(DatabaseSegundometro $db): string
     {
-        $sql = "SHOW COLUMNS FROM tbl_segundometro_histo LIKE 'Bucket_Morosidad_Real'";
+        $sql = 'SHOW COLUMNS FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . "` LIKE 'Bucket_Morosidad_Real'";
         $row = $db->queryOne($sql);
         if (is_array($row) && !empty($row)) {
             return 'Bucket_Morosidad_Real';
@@ -128,11 +141,105 @@ final class PrimerosPagosHistoricoSegundometro
     }
 
     /**
-     * Igual que `Empresa::sqlExprMoraSoloLunes()` — mora del lunes ya cargada en histórico.
+     * Expresión SQL de días de mora “base” para nacimiento (columna `Dias_mora` si existe).
      */
-    private static function sqlExprMoraSoloLunes(): string
+    private static function sqlExprNacimientoDiasMora(DatabaseSegundometro $db): ?string
     {
-        $cols = [
+        $m = self::mapColumnasTablaHisto($db);
+
+        return isset($m['Dias_mora']) ? 'CAST(`Dias_mora` AS SIGNED)' : null;
+    }
+
+    /**
+     * @return array{bn: string, ordN: string}
+     */
+    private static function sqlNacimientoBucketYOrd(DatabaseSegundometro $db): array
+    {
+        $m = self::mapColumnasTablaHisto($db);
+        if (isset($m['Bucket_Morosidad_Real'])) {
+            $col = 'Bucket_Morosidad_Real';
+        } elseif (isset($m['Bucket_Morosidad'])) {
+            $col = 'Bucket_Morosidad';
+        } else {
+            $col = null;
+        }
+
+        // Igual que Lunes de Cierre: nacimiento sale de bucket, no de mora al corte.
+        if ($col !== null) {
+            return [
+                'bn' => self::sqlBucketNacimientoCanonExpr($col),
+                'ordN' => self::sqlBucketNacimientoOrdExpr($col),
+            ];
+        }
+
+        // Respaldo solo si no existe bucket en histórico.
+        $moraNac = self::sqlExprNacimientoDiasMora($db);
+        if ($moraNac !== null) {
+            return [
+                'bn' => self::sqlBucketCorteDesdeMoraSqlExpr($moraNac),
+                'ordN' => self::sqlBucketCorteOrdDesdeMoraSqlExpr($moraNac),
+            ];
+        }
+        $colFallback = self::columnaNacimientoComoLunesCierre($db);
+
+        return [
+            'bn' => self::sqlBucketNacimientoCanonExpr($colFallback),
+            'ordN' => self::sqlBucketNacimientoOrdExpr($colFallback),
+        ];
+    }
+
+    /**
+     * Expresión SQL de bucket/orden de nacimiento por semana (histórico), alineada al menú Lunes de cierre.
+     *
+     * @return array{bn:string,ordN:string,col_nacimiento:string}
+     */
+    private static function sqlNacimientoBucketYOrdParaSemana(
+        DatabaseSegundometro $db,
+        string $sem,
+        string $martesIso,
+        string $domingoIso,
+        string $modoFecha,
+        ?string $lunesIsoExacto
+    ): array {
+        $m = self::mapColumnasTablaHisto($db);
+        $hasReal = isset($m['Bucket_Morosidad_Real']);
+        $hasBase = isset($m['Bucket_Morosidad']);
+
+        // Igual que menú Lunes de cierre: si existe `Bucket_Morosidad_Real`, se usa siempre (sin 2 escaneos extra por semana).
+        if ($hasReal && $hasBase) {
+            $col = 'Bucket_Morosidad_Real';
+
+            return [
+                'bn' => self::sqlBucketNacimientoCanonExpr($col),
+                'ordN' => self::sqlBucketNacimientoOrdExpr($col),
+                'col_nacimiento' => $col,
+            ];
+        }
+
+        if ($hasReal || $hasBase) {
+            $col = $hasReal ? 'Bucket_Morosidad_Real' : 'Bucket_Morosidad';
+
+            return [
+                'bn' => self::sqlBucketNacimientoCanonExpr($col),
+                'ordN' => self::sqlBucketNacimientoOrdExpr($col),
+                'col_nacimiento' => $col,
+            ];
+        }
+
+        $fallback = self::sqlNacimientoBucketYOrd($db);
+        $fallback['col_nacimiento'] = 'Dias_mora';
+
+        return $fallback;
+    }
+
+    /**
+     * Slots Lunes de mora (de más tardío a más temprano), mismo orden que `Empresa::sqlExprMoraSoloLunes()`.
+     *
+     * @return list<string>
+     */
+    private static function ordenColumnasMoraSoloLunesEmpresa(): array
+    {
+        return [
             'Dias_mora_Lunes_23_50',
             'Dias_mora_Lunes_20_30',
             'Dias_mora_Lunes_18_30',
@@ -143,12 +250,127 @@ final class PrimerosPagosHistoricoSegundometro
             'Dias_mora_Lunes_09_30',
             'Dias_mora_Lunes_07_30',
         ];
+    }
+
+    /**
+     * Misma regla de columna de corte que el menú Lunes de cierre (`Empresa::getCorteActual()` + `tbl_segundometro_semana`).
+     *
+     * @return array{mora_sql: string, columna_menu: ?string, usa_columna_menu: bool, columnas_fallback_coalesce: list<string>}
+     */
+    private static function metaSqlMoraCorteHisto(DatabaseSegundometro $db): array
+    {
+        if (self::$cacheMetaSqlMoraCorteHisto !== null) {
+            return self::$cacheMetaSqlMoraCorteHisto;
+        }
+        $map = self::mapColumnasTablaHisto($db);
+        $menuCol = Empresa::getCorteActual();
+        if ($menuCol !== null && $menuCol !== '' && !empty($map[$menuCol])) {
+            self::$cacheMetaSqlMoraCorteHisto = [
+                'mora_sql' => 'CAST(`' . $menuCol . '` AS SIGNED)',
+                'columna_menu' => $menuCol,
+                'usa_columna_menu' => true,
+                'columnas_fallback_coalesce' => [],
+            ];
+
+            return self::$cacheMetaSqlMoraCorteHisto;
+        }
         $parts = [];
-        foreach ($cols as $c) {
-            $parts[] = '`' . $c . '`';
+        $fallback = [];
+        foreach (self::ordenColumnasMoraSoloLunesEmpresa() as $c) {
+            if (!empty($map[$c])) {
+                $parts[] = 'CAST(`' . $c . '` AS SIGNED)';
+                $fallback[] = $c;
+            }
+        }
+        if (!empty($map['Dias_mora'])) {
+            $parts[] = 'CAST(`Dias_mora` AS SIGNED)';
+            $fallback[] = 'Dias_mora';
+        }
+        $moraSql = $parts === [] ? 'NULL' : 'COALESCE(' . implode(', ', $parts) . ')';
+
+        self::$cacheMetaSqlMoraCorteHisto = [
+            'mora_sql' => $moraSql,
+            'columna_menu' => $menuCol,
+            'usa_columna_menu' => false,
+            'columnas_fallback_coalesce' => $fallback,
+        ];
+
+        return self::$cacheMetaSqlMoraCorteHisto;
+    }
+
+    /** Expresión SQL de mora al corte (alineada a `Empresa::getVencimientosLunes` / `getCorteActual`). */
+    private static function sqlExprMoraCorteHisto(DatabaseSegundometro $db): string
+    {
+        return self::metaSqlMoraCorteHisto($db)['mora_sql'];
+    }
+
+    /**
+     * Agregados sobre la misma cartera que el resumen (para ver si la BD trae mora/bucket distinto de lo esperado).
+     *
+     * @return array<string, mixed>
+     */
+    private static function queryDiagnosticoResumenSemana(
+        DatabaseSegundometro $db,
+        string $sem,
+        string $martesIso,
+        string $domingoIso,
+        string $modoFecha,
+        ?string $lunesIsoExacto
+    ): array {
+        $map = self::mapColumnasTablaHisto($db);
+        $metaMora = self::metaSqlMoraCorteHisto($db);
+        $moraSql = $metaMora['mora_sql'];
+        [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams($modoFecha, $martesIso, $domingoIso, $lunesIsoExacto);
+        $tabla = self::TABLA_HISTORICO_PRIMEROS_PAGOS;
+        $baseWhere = self::sqlWhereSemanaParam() . $whereFecha;
+        $params = ['sem' => $sem] + $paramsExtra;
+        $dmField = isset($map['Dias_mora']) ? 'CAST(`Dias_mora` AS SIGNED)' : 'NULL';
+        $sqlAgg = 'SELECT MIN(mm) AS mora_corte_min, MAX(mm) AS mora_corte_max,
+                SUM(CASE WHEN mm IS NULL THEN 1 ELSE 0 END) AS filas_mora_null,
+                SUM(CASE WHEN mm IS NOT NULL AND mm < 1 THEN 1 ELSE 0 END) AS filas_mora_lt_1,
+                MIN(dm) AS dias_mora_min, MAX(dm) AS dias_mora_max,
+                SUM(CASE WHEN dm IS NULL THEN 1 ELSE 0 END) AS filas_dias_mora_null
+            FROM (
+                SELECT (' . $moraSql . ') AS mm, (' . $dmField . ') AS dm
+                FROM `' . $tabla . '`
+                WHERE ' . $baseWhere . '
+            ) x';
+        $rowAgg = $db->queryOne($sqlAgg, $params);
+        $colBucket = isset($map['Bucket_Morosidad_Real']) ? 'Bucket_Morosidad_Real' : (isset($map['Bucket_Morosidad']) ? 'Bucket_Morosidad' : null);
+        $topBuckets = [];
+        if ($colBucket !== null) {
+            $sqlB = 'SELECT TRIM(CAST(`' . $colBucket . '` AS CHAR CHARACTER SET utf8mb4)) AS b, COUNT(*) AS n
+                FROM `' . $tabla . '`
+                WHERE ' . $baseWhere . '
+                GROUP BY TRIM(CAST(`' . $colBucket . '` AS CHAR CHARACTER SET utf8mb4))
+                ORDER BY n DESC
+                LIMIT 12';
+            $topBuckets = $db->queryAll($sqlB, $params);
+        }
+        $topLista = [];
+        foreach ((array) $topBuckets as $r) {
+            $topLista[] = [
+                'valor' => (string) ($r['b'] ?? ''),
+                'n' => (int) ($r['n'] ?? 0),
+            ];
         }
 
-        return 'COALESCE(' . implode(', ', $parts) . ')';
+        return [
+            'tabla' => $tabla,
+            'corte_columna_menu_lunes_cierre' => $metaMora['columna_menu'],
+            'corte_usa_misma_columna_que_menu' => $metaMora['usa_columna_menu'],
+            'corte_fallback_coalesce_columnas' => $metaMora['columnas_fallback_coalesce'],
+            'columna_bucket_etiquetas' => $colBucket,
+            'mora_corte_min' => $rowAgg['mora_corte_min'] ?? null,
+            'mora_corte_max' => $rowAgg['mora_corte_max'] ?? null,
+            'filas_expr_mora_null' => (int) ($rowAgg['filas_mora_null'] ?? 0),
+            'filas_expr_mora_menor_1' => (int) ($rowAgg['filas_mora_lt_1'] ?? 0),
+            'dias_mora_min' => $rowAgg['dias_mora_min'] ?? null,
+            'dias_mora_max' => $rowAgg['dias_mora_max'] ?? null,
+            'filas_dias_mora_null' => (int) ($rowAgg['filas_dias_mora_null'] ?? 0),
+            'top_valores_bucket_crudo' => $topLista,
+            'nota' => 'Corte = columna `Empresa::getCorteActual()` si existe en histórico; si no, COALESCE Lunes_* + Dias_mora (como respaldo). Nacimiento = Bucket_Morosidad_Real como tbl_segundometro_semana.',
+        ];
     }
 
     /** Predicado WHERE: etiqueta de semana alineada a `trim()` del listado. */
@@ -179,30 +401,6 @@ final class PrimerosPagosHistoricoSegundometro
             WHEN (' . $moraExpr . ') BETWEEN 8 AND 30 THEN 2
             WHEN (' . $moraExpr . ') BETWEEN 31 AND 60 THEN 3
             ELSE 4 END)';
-    }
-
-    private static function esEtiquetaSemanaActual(string $etiqueta): bool
-    {
-        $semana = null;
-        $anio = null;
-        if (preg_match('/(?:semana\\s*)?(\\d{1,2})\\s*[-_\\/ ]\\s*(\\d{4})/iu', $etiqueta, $m) === 1) {
-            $semana = (int) $m[1];
-            $anio = (int) $m[2];
-        } elseif (preg_match('/(?:semana\\s*)(\\d{1,2})/iu', $etiqueta, $m2) === 1) {
-            $semana = (int) $m2[1];
-        }
-        if ($semana === null || $semana < 1 || $semana > 53) {
-            return false;
-        }
-        if ($anio === null) {
-            $anio = (int) (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('o');
-        }
-
-        $now = new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
-        $weekNow = (int) $now->format('W');
-        $yearNow = (int) $now->format('o');
-
-        return $semana === $weekNow && $anio === $yearNow;
     }
 
     /**
@@ -236,44 +434,226 @@ final class PrimerosPagosHistoricoSegundometro
         }
     }
 
+    /** Etiqueta "Semana NN-AAAA" de la semana ISO en curso (hoy, zona MX), o `null` si no se puede calcular. */
+    private static function etiquetaSemanaActualIso(): ?string
+    {
+        try {
+            $tz = new \DateTimeZone('America/Mexico_City');
+            $hoy = new \DateTimeImmutable('now', $tz);
+            $semana = (int) $hoy->format('W');
+            $anio = (int) $hoy->format('o');
+            if ($semana < 1 || $semana > 53 || $anio < 2000) {
+                return null;
+            }
+
+            return 'Semana ' . str_pad((string) $semana, 2, '0', STR_PAD_LEFT) . '-' . (string) $anio;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** Compara dos etiquetas por (semana ISO, año ISO) ignorando espacios/mayúsculas/separadores. */
+    private static function mismaEtiquetaSemanaIso(string $a, string $b): bool
+    {
+        $na = self::parseSemanaIso($a);
+        $nb = self::parseSemanaIso($b);
+        if ($na === null || $nb === null) {
+            return false;
+        }
+
+        return $na[0] === $nb[0] && $na[1] === $nb[1];
+    }
+
     /**
+     * @return array{0:int,1:int}|null [semana, anio]
+     */
+    private static function parseSemanaIso(string $etiqueta): ?array
+    {
+        if (preg_match('/(?:semana\s*)?(\d{1,2})\s*[-_\/ ]\s*(\d{4})/iu', $etiqueta, $m) !== 1) {
+            return null;
+        }
+        $sem = (int) $m[1];
+        $anio = (int) $m[2];
+        if ($sem < 1 || $sem > 53 || $anio < 2000 || $anio > 2100) {
+            return null;
+        }
+
+        return [$sem, $anio];
+    }
+
+    /**
+     * Comparativo "nacimiento vs corte actual" de las últimas N semanas cerradas (excluye semana ISO en curso).
+     *
      * @return array{success:bool, mensaje?:string, datos?:array<string,mixed>, error?:string}
      */
-    public static function resumenPorSemana(string $semana): array
+    public static function resumenUltimasNSemanas(int $n = 5): array
     {
+        $n = max(1, min($n, self::LISTA_SEMANAS_MAX));
+        try {
+            $listado = self::listarSemanas($n);
+            if (!($listado['success'] ?? false)) {
+                return [
+                    'success' => false,
+                    'mensaje' => (string) ($listado['mensaje'] ?? 'No se pudo listar semanas del histórico.'),
+                    'error' => isset($listado['error']) ? (string) $listado['error'] : null,
+                ];
+            }
+            $semanas = $listado['datos'] ?? [];
+            if ($semanas === []) {
+                return [
+                    'success' => false,
+                    'mensaje' => 'Aún no hay semanas cerradas en el histórico.',
+                ];
+            }
+            $db = new DatabaseSegundometro();
+            $resumen = [];
+            foreach ($semanas as $s) {
+                $sem = (string) ($s['semana'] ?? '');
+                if ($sem === '') {
+                    continue;
+                }
+                $r = self::resumenPorSemanaDesdeDb($db, $sem, [
+                    'diagnostico' => false,
+                    'jerarquia' => false,
+                    'jerarquia_html' => false,
+                ]);
+                if (!($r['success'] ?? false)) {
+                    $resumen[] = [
+                        'semana' => $sem,
+                        'ini' => (string) ($s['ini'] ?? ''),
+                        'fin' => (string) ($s['fin'] ?? ''),
+                        'disponible' => false,
+                        'mensaje' => (string) ($r['mensaje'] ?? 'Sin datos'),
+                    ];
+                    continue;
+                }
+                $d = (array) ($r['datos'] ?? []);
+                $nd = (array) (($d['nacimiento']['nac_dist'] ?? []));
+                $corte = (array) ($d['corte'] ?? []);
+                $total = (int) ($d['total'] ?? 0);
+                $nacCur = (int) ($nd['a) Current'] ?? 0);
+                $nac17 = (int) ($nd['b) 1 a 7 dias'] ?? 0);
+                $nacOtros = max(0, $total - $nacCur - $nac17);
+                $curAlCorte = (int) ($corte['current_al_corte'] ?? 0);
+                $pendPp = (int) ($corte['pendientes_primeros_pagos'] ?? 0);
+                $resumen[] = [
+                    'semana' => $sem,
+                    'ini' => (string) ($d['periodo_martes'] ?? ($s['ini'] ?? '')),
+                    'fin' => (string) ($d['periodo_domingo'] ?? ($s['fin'] ?? '')),
+                    'lunes_primer_vencimiento' => (string) ($d['lunes_primer_vencimiento'] ?? ''),
+                    'criterio_fecha' => (string) ($d['criterio_fecha'] ?? ''),
+                    'total' => $total,
+                    'nacimiento' => [
+                        'current' => $nacCur,
+                        'd1_7' => $nac17,
+                        'otros' => $nacOtros,
+                        'pct_current' => $total > 0 ? (int) round($nacCur * 100 / $total) : 0,
+                        'pct_1_7' => $total > 0 ? (int) round($nac17 * 100 / $total) : 0,
+                        'nac_dist' => $nd,
+                    ],
+                    'corte' => [
+                        'current_al_corte' => $curAlCorte,
+                        'pendientes_primeros_pagos' => $pendPp,
+                        'pct_current_al_corte' => $total > 0 ? (int) round($curAlCorte * 100 / $total) : 0,
+                        'pct_pendientes' => $total > 0 ? (int) round($pendPp * 100 / $total) : 0,
+                    ],
+                    'recuperacion' => [
+                        'pct_sobre_1_7' => $nac17 > 0 ? (int) round(max(0, $curAlCorte - $nacCur) * 100 / $nac17) : 0,
+                    ],
+                    'jerarquia_agregada' => (array) ($d['jerarquia_agregada'] ?? []),
+                    'disponible' => true,
+                ];
+            }
+            if ($resumen === []) {
+                return ['success' => false, 'mensaje' => 'Sin datos para las últimas semanas cerradas.'];
+            }
+
+            return ['success' => true, 'datos' => ['semanas' => $resumen]];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'Error al armar el comparativo.', 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Meta + expresión de nacimiento para una semana con datos (reutilizable para resumen o solo jerarquía).
+     *
+     * @return array{type:string, mensaje?:string, sem?:string, m1?:string, m2?:string, lunesIso?:string, criterio?:string, lunesPv?:string, modoFecha?:string, lunesParam?:?string, total?:int, nacSql?:array}
+     */
+    private static function resolverContextoResumenSemana(DatabaseSegundometro $db, string $sem): array
+    {
+        $rangoPv = self::resolverRangoMartesDomingoDesdeEtiquetaSemana($sem);
+        if ($rangoPv === null) {
+            return ['type' => 'err', 'mensaje' => 'La etiqueta de semana no tiene formato válido (Semana NN-AAAA).'];
+        }
+        $m1 = $rangoPv['martes'];
+        $m2 = $rangoPv['domingo'];
+        $lunesIso = $rangoPv['lunes_iso'];
+
+        $meta = self::queryMetaSemana($db, $sem, $m1, $m2, 'lunes', $lunesIso);
+        $criterio = 'lunes_cierre';
+        if ((int) ($meta['total'] ?? 0) < 1) {
+            $meta = self::queryMetaSemana($db, $sem, $m1, $m2, 'rango', null);
+            $criterio = 'martes_domingo';
+        }
+        $total = (int) ($meta['total'] ?? 0);
+        if ($total < 1) {
+            return ['type' => 'err', 'mensaje' => 'No hay datos para la semana indicada.'];
+        }
+        $lunesPv = $criterio === 'lunes_cierre' ? $lunesIso : $m1;
+        $modoFecha = $criterio === 'lunes_cierre' ? 'lunes' : 'rango';
+        $lunesParam = $criterio === 'lunes_cierre' ? $lunesIso : null;
+        $nacSql = self::sqlNacimientoBucketYOrdParaSemana($db, $sem, $m1, $m2, $modoFecha, $lunesParam);
+
+        return [
+            'type' => 'ok',
+            'sem' => $sem,
+            'm1' => $m1,
+            'm2' => $m2,
+            'lunesIso' => $lunesIso,
+            'criterio' => $criterio,
+            'lunesPv' => $lunesPv,
+            'modoFecha' => $modoFecha,
+            'lunesParam' => $lunesParam,
+            'total' => $total,
+            'nacSql' => $nacSql,
+        ];
+    }
+
+    /**
+     * @param array{diagnostico?:bool,jerarquia?:bool,jerarquia_html?:bool} $opts
+     *
+     * @return array{success:bool, mensaje?:string, datos?:array<string,mixed>, error?:string}
+     */
+    private static function resumenPorSemanaDesdeDb(DatabaseSegundometro $db, string $semana, array $opts = []): array
+    {
+        $opts = array_merge([
+            'diagnostico' => true,
+            'jerarquia' => true,
+            'jerarquia_html' => true,
+        ], $opts);
         $sem = self::normalizarSemanaParam($semana);
         if ($sem === null) {
             return ['success' => false, 'mensaje' => 'Parámetro de semana no válido.'];
         }
         try {
-            $db = new DatabaseSegundometro();
-            $rangoPv = self::resolverRangoMartesDomingoDesdeEtiquetaSemana($sem);
-            if ($rangoPv === null) {
-                return ['success' => false, 'mensaje' => 'La etiqueta de semana no tiene formato válido (Semana NN-AAAA).'];
+            $ctx = self::resolverContextoResumenSemana($db, $sem);
+            if (($ctx['type'] ?? '') !== 'ok') {
+                return ['success' => false, 'mensaje' => (string) ($ctx['mensaje'] ?? 'Sin datos')];
             }
-            $m1 = $rangoPv['martes'];
-            $m2 = $rangoPv['domingo'];
-            $lunesIso = $rangoPv['lunes_iso'];
+            $m1 = (string) $ctx['m1'];
+            $m2 = (string) $ctx['m2'];
+            $lunesIso = (string) $ctx['lunesIso'];
+            $criterio = (string) $ctx['criterio'];
+            $lunesPv = (string) $ctx['lunesPv'];
+            $modoFecha = (string) $ctx['modoFecha'];
+            $lunesParam = $ctx['lunesParam'];
+            $total = (int) $ctx['total'];
+            $nacSql = (array) $ctx['nacSql'];
 
-            // Priorizamos lunes de cierre (volumen esperado de primeros pagos).
-            $meta = self::queryMetaSemana($db, $sem, $m1, $m2, 'lunes', $lunesIso);
-            $criterio = 'lunes_cierre';
-            if ((int) ($meta['total'] ?? 0) < 1) {
-                // Fallback controlado a martes-domingo (sin abrir a toda la semana).
-                $meta = self::queryMetaSemana($db, $sem, $m1, $m2, 'rango', null);
-                $criterio = 'martes_domingo';
-            }
-            $total = (int) ($meta['total'] ?? 0);
-            if ($total < 1) {
-                return ['success' => false, 'mensaje' => 'No hay datos para la semana indicada.'];
-            }
-            $colNacio = self::columnaNacimientoComoLunesCierre($db);
-
-            $lunesPv = $criterio === 'lunes_cierre' ? $lunesIso : $m1;
-            $modoFecha = $criterio === 'lunes_cierre' ? 'lunes' : 'rango';
-            $lunesParam = $criterio === 'lunes_cierre' ? $lunesIso : null;
-            $pares = self::queryDistribNacimientoCorte($db, $sem, $m1, $m2, $colNacio, $modoFecha, $lunesParam);
-            $jerRows = self::queryJerarquiaAgregada($db, $sem, $m1, $m2, $colNacio, $modoFecha, $lunesParam);
+            $pares = self::queryDistribNacimientoCorte($db, $sem, $m1, $m2, $nacSql['bn'], $modoFecha, $lunesParam);
+            $jerRows = ($opts['jerarquia'] ?? true)
+                ? self::queryJerarquiaAgregada($db, $sem, $m1, $m2, $nacSql['ordN'], $modoFecha, $lunesParam)
+                : [];
 
             $nacDist = [];
             foreach (self::BUCKET_ORDER as $b) {
@@ -300,7 +680,6 @@ final class PrimerosPagosHistoricoSegundometro
                 }
             }
 
-            // Misma lógica que `Reporteria` / «Lunes de Cierre»: current al corte = nacidos Current + 1–7d ya en Current al corte.
             $totalCurrentNac = (int) ($nacDist['a) Current'] ?? 0);
             $mat17 = $matriz['b) 1 a 7 dias'] ?? [];
             $recuperados1a7 = (int) ($mat17['a) Current'] ?? 0);
@@ -309,33 +688,112 @@ final class PrimerosPagosHistoricoSegundometro
             $pendientesPp = max(0, $total1a7Nac - $recuperados1a7);
 
             $bar = self::barGlobalCurrentVs17($nacDist);
+            $diag = ($opts['diagnostico'] ?? true)
+                ? self::queryDiagnosticoResumenSemana($db, $sem, $m1, $m2, $modoFecha, $lunesParam)
+                : [];
 
-            return [
-                'success' => true,
-                'datos' => [
-                    'semana' => $sem,
-                    'total' => $total,
-                    'periodo_martes' => $m1,
-                    'periodo_domingo' => $m2,
-                    'rango_cartera_texto' => $criterio === 'lunes_cierre' ? ($lunesIso . ' a ' . $lunesIso) : ($m1 . ' a ' . $m2),
-                    'criterio_fecha' => $criterio,
-                    'lunes_primer_vencimiento' => $lunesPv,
-                    'corte_label' => 'COALESCE(Dias_mora_Lunes_*) — mismo criterio que Lunes de Cierre',
-                    'nacimiento' => [
-                        'nac_dist' => $nacDist,
-                        'bar_current_pct' => $bar['pC'],
-                        'bar_17_pct' => $bar['p7'],
-                        'mostrar_bar_global' => $bar['mostrar'],
-                    ],
-                    'corte' => [
-                        'current_al_corte' => $currentMasRecuperados,
-                        'pendientes_primeros_pagos' => $pendientesPp,
-                    ],
-                    'jerarquia_html' => self::renderJerarquiaHtmlDesdeAgregados($jerRows),
+            $datos = [
+                'semana' => $sem,
+                'total' => $total,
+                'periodo_martes' => $m1,
+                'periodo_domingo' => $m2,
+                'rango_cartera_texto' => $criterio === 'lunes_cierre' ? ($lunesIso . ' a ' . $lunesIso) : ($m1 . ' a ' . $m2),
+                'criterio_fecha' => $criterio,
+                'lunes_primer_vencimiento' => $lunesPv,
+                'corte_label' => 'Misma lógica que menú Lunes de cierre: mora corte = columna `Empresa::getCorteActual()` (si existe en histórico; si no, COALESCE `Dias_mora_Lunes_*` + `Dias_mora`). Nacimiento = `Bucket_Morosidad_Real` (o `Bucket_Morosidad`).',
+                'columna_nacimiento_usada' => $nacSql['col_nacimiento'],
+                'nacimiento' => [
+                    'nac_dist' => $nacDist,
+                    'bar_current_pct' => $bar['pC'],
+                    'bar_17_pct' => $bar['p7'],
+                    'mostrar_bar_global' => $bar['mostrar'],
                 ],
+                'corte' => [
+                    'current_al_corte' => $currentMasRecuperados,
+                    'pendientes_primeros_pagos' => $pendientesPp,
+                ],
+                'jerarquia_agregada' => $jerRows,
             ];
+            if ($opts['diagnostico'] ?? true) {
+                $datos['diagnostico'] = $diag;
+            }
+            if (($opts['jerarquia_html'] ?? true) && ($opts['jerarquia'] ?? true) && $jerRows !== []) {
+                $datos['jerarquia_html'] = self::renderJerarquiaHtmlDesdeAgregados($jerRows);
+            }
+
+            return ['success' => true, 'datos' => $datos];
         } catch (\Throwable $e) {
             return ['success' => false, 'mensaje' => 'Error al armar el resumen de la semana.', 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{success:bool, mensaje?:string, datos?:array<string,mixed>, error?:string}
+     */
+    public static function resumenPorSemana(string $semana): array
+    {
+        try {
+            $db = new DatabaseSegundometro();
+
+            return self::resumenPorSemanaDesdeDb($db, $semana, [
+                'diagnostico' => true,
+                'jerarquia' => true,
+                'jerarquia_html' => true,
+            ]);
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'Error al armar el resumen de la semana.', 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Jerarquías agregadas para varias etiquetas de semana (una conexión; consulta pesada solo aquí).
+     * Máximo 8 etiquetas por petición.
+     *
+     * @param list<string> $semanasEtiqueta
+     *
+     * @return array{success:bool, mensaje?:string, datos?:array<string, list<array<string, mixed>>>, error?:string}
+     */
+    public static function jerarquiasAgregadasPorSemanas(array $semanasEtiqueta): array
+    {
+        $max = 8;
+        $lista = [];
+        foreach ($semanasEtiqueta as $raw) {
+            $s = self::normalizarSemanaParam(trim((string) $raw));
+            if ($s !== null && $s !== '' && !isset($lista[$s])) {
+                $lista[$s] = true;
+            }
+        }
+        $keys = array_keys($lista);
+        if ($keys === []) {
+            return ['success' => false, 'mensaje' => 'Indique al menos una semana válida.'];
+        }
+        if (count($keys) > $max) {
+            $keys = array_slice($keys, 0, $max);
+        }
+        try {
+            $db = new DatabaseSegundometro();
+            $out = [];
+            foreach ($keys as $sem) {
+                $ctx = self::resolverContextoResumenSemana($db, $sem);
+                if (($ctx['type'] ?? '') !== 'ok') {
+                    $out[$sem] = [];
+
+                    continue;
+                }
+                $out[$sem] = self::queryJerarquiaAgregada(
+                    $db,
+                    $sem,
+                    (string) $ctx['m1'],
+                    (string) $ctx['m2'],
+                    (string) (($ctx['nacSql'] ?? [])['ordN'] ?? ''),
+                    (string) $ctx['modoFecha'],
+                    $ctx['lunesParam']
+                );
+            }
+
+            return ['success' => true, 'datos' => $out];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'mensaje' => 'Error al consultar jerarquías.', 'error' => $e->getMessage()];
         }
     }
 
@@ -366,7 +824,7 @@ final class PrimerosPagosHistoricoSegundometro
     {
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams($modoFecha, $martesIso, $domingoIso, $lunesIsoExacto);
         $sql = 'SELECT COUNT(*) AS total
-                FROM tbl_segundometro_histo
+                FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
                 WHERE ' . self::sqlWhereSemanaParam() . $whereFecha;
         $params = ['sem' => $sem] + $paramsExtra;
         $r = $db->queryOne($sql, $params);
@@ -419,6 +877,8 @@ final class PrimerosPagosHistoricoSegundometro
     /**
      * Pares (nacimiento, corte) con conteo — pocas filas vs. leer toda la tabla al cliente.
      *
+     * @param string $sqlBnNacimiento expresión SQL completa del bucket de nacimiento (p. ej. CASE sobre `Dias_mora`)
+     *
      * @return list<array{bucket_nacio:?string,bucket_corte:?string,cnt:int}>
      */
     private static function queryDistribNacimientoCorte(
@@ -426,20 +886,20 @@ final class PrimerosPagosHistoricoSegundometro
         string $sem,
         string $martesIso,
         string $domingoIso,
-        string $colNacimiento,
+        string $sqlBnNacimiento,
         string $modoFecha,
         ?string $lunesIsoExacto
     ): array
     {
-        $sqlBucketNacio = self::sqlBucketNacimientoCanonExpr($colNacimiento);
-        $moraLunes = self::sqlExprMoraSoloLunes();
-        $sqlBucketCorte = self::sqlBucketCorteDesdeMoraSqlExpr($moraLunes);
+        $sqlBucketNacio = $sqlBnNacimiento;
+        $moraCorte = self::sqlExprMoraCorteHisto($db);
+        $sqlBucketCorte = self::sqlBucketCorteDesdeMoraSqlExpr($moraCorte);
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams($modoFecha, $martesIso, $domingoIso, $lunesIsoExacto);
         $sql = 'SELECT bn AS bucket_nacio, bc AS bucket_corte, COUNT(*) AS cnt
                 FROM (
                     SELECT ' . $sqlBucketNacio . ' AS bn,
                            ' . $sqlBucketCorte . ' AS bc
-                    FROM tbl_segundometro_histo
+                    FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
                     WHERE ' . self::sqlWhereSemanaParam() . $whereFecha . '
                 ) t
                 GROUP BY bn, bc';
@@ -466,6 +926,56 @@ final class PrimerosPagosHistoricoSegundometro
     }
 
     /**
+     * @return array<string, true>
+     */
+    private static function mapColumnasTablaHisto(DatabaseSegundometro $db): array
+    {
+        if (self::$cacheMapColumnasHisto !== null) {
+            return self::$cacheMapColumnasHisto;
+        }
+        $tabla = self::TABLA_HISTORICO_PRIMEROS_PAGOS;
+        $rows = $db->queryAll(
+            'SELECT COLUMN_NAME AS c FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tbl',
+            ['tbl' => $tabla]
+        );
+        $m = [];
+        foreach ((array) $rows as $r) {
+            $c = (string) ($r['c'] ?? $r['COLUMN_NAME'] ?? '');
+            if ($c !== '') {
+                $m[$c] = true;
+            }
+        }
+        self::$cacheMapColumnasHisto = $m;
+
+        return self::$cacheMapColumnasHisto;
+    }
+
+    /**
+     * COALESCE de columnas existentes; si ninguna existe, literal SQL (sin columna).
+     *
+     * @param array<string, true> $present
+     * @param list<string>         $preferencia
+     */
+    private static function sqlDimJerarquia(array $present, array $preferencia, string $defecto): string
+    {
+        $chunks = [];
+        foreach ($preferencia as $col) {
+            if (isset($present[$col])) {
+                $chunks[] = 'NULLIF(TRIM(CAST(`' . $col . '` AS CHAR CHARACTER SET utf8mb4)), \'\')';
+            }
+        }
+        $lit = str_replace('\'', '\'\'', $defecto);
+        if ($chunks === []) {
+            return '\'' . $lit . '\'';
+        }
+
+        return 'COALESCE(' . implode(', ', $chunks) . ', \'' . $lit . '\')';
+    }
+
+    /**
+     * @param string $sqlOrdNacimiento expresión SQL completa 0..4 para orden de bucket de nacimiento
+     *
      * @return list<array{Territorial:string,Zonal:string,Jefe_de_Plaza:string,Gestor_Asignado:string,total:int,cobrados:int}>
      */
     private static function queryJerarquiaAgregada(
@@ -473,15 +983,20 @@ final class PrimerosPagosHistoricoSegundometro
         string $sem,
         string $martesIso,
         string $domingoIso,
-        string $colNacimiento,
+        string $sqlOrdNacimiento,
         string $modoFecha,
         ?string $lunesIsoExacto
     ): array
     {
-        $ordN = self::sqlBucketNacimientoOrdExpr($colNacimiento);
-        $moraLunes = self::sqlExprMoraSoloLunes();
-        $ordC = self::sqlBucketCorteOrdDesdeMoraSqlExpr($moraLunes);
+        $ordN = $sqlOrdNacimiento;
+        $moraCorte = self::sqlExprMoraCorteHisto($db);
+        $ordC = self::sqlBucketCorteOrdDesdeMoraSqlExpr($moraCorte);
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams($modoFecha, $martesIso, $domingoIso, $lunesIsoExacto);
+        $present = self::mapColumnasTablaHisto($db);
+        $sqlTer = self::sqlDimJerarquia($present, ['Territorial', 'Estado'], '(Sin territorial)');
+        $sqlZon = self::sqlDimJerarquia($present, ['Zonal', 'Municipio', 'Ciudad'], '(Sin zonal)');
+        $sqlJef = self::sqlDimJerarquia($present, ['Jefe_de_Plaza', 'Sucursal'], '(Sin jefe)');
+        $sqlGest = self::sqlDimJerarquia($present, ['Gestor_Asignado'], '(Sin gestor)');
         $sql = 'SELECT ter AS Territorial, zon AS Zonal, jefe AS Jefe_de_Plaza, gest AS Gestor_Asignado,
                        COUNT(*) AS total,
                        SUM(CASE WHEN ord_n IS NOT NULL AND ord_c IS NOT NULL
@@ -490,13 +1005,13 @@ final class PrimerosPagosHistoricoSegundometro
                                 THEN 1 ELSE 0 END) AS cobrados
                 FROM (
                     SELECT
-                        COALESCE(NULLIF(TRIM(CAST(Territorial AS CHAR CHARACTER SET utf8mb4)), \'\'), \'(Sin territorial)\') AS ter,
-                        COALESCE(NULLIF(TRIM(CAST(Zonal AS CHAR CHARACTER SET utf8mb4)), \'\'), \'(Sin zonal)\') AS zon,
-                        COALESCE(NULLIF(TRIM(CAST(Jefe_de_Plaza AS CHAR CHARACTER SET utf8mb4)), \'\'), \'(Sin jefe)\') AS jefe,
-                        COALESCE(NULLIF(TRIM(CAST(Gestor_Asignado AS CHAR CHARACTER SET utf8mb4)), \'\'), \'(Sin gestor)\') AS gest,
+                        ' . $sqlTer . ' AS ter,
+                        ' . $sqlZon . ' AS zon,
+                        ' . $sqlJef . ' AS jefe,
+                        ' . $sqlGest . ' AS gest,
                         ' . $ordN . ' AS ord_n,
                         ' . $ordC . ' AS ord_c
-                    FROM tbl_segundometro_histo
+                    FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
                     WHERE ' . self::sqlWhereSemanaParam() . $whereFecha . '
                 ) x
                 GROUP BY ter, zon, jefe, gest';
@@ -522,7 +1037,7 @@ final class PrimerosPagosHistoricoSegundometro
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams('rango', $martesIso, $domingoIso, null);
         $r = $db->queryOne(
             'SELECT COUNT(*) AS c
-             FROM tbl_segundometro_histo
+             FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
              WHERE ' . self::sqlWhereSemanaParam() . $whereFecha,
             ['sem' => $sem] + $paramsExtra
         );
@@ -535,7 +1050,7 @@ final class PrimerosPagosHistoricoSegundometro
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams('lunes', $lunesIso, $lunesIso, $lunesIso);
         $r = $db->queryOne(
             'SELECT COUNT(*) AS c
-             FROM tbl_segundometro_histo
+             FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
              WHERE ' . self::sqlWhereSemanaParam() . $whereFecha,
             ['sem' => $sem] + $paramsExtra
         );
@@ -560,7 +1075,7 @@ final class PrimerosPagosHistoricoSegundometro
             $params[$k] = $c['semana'];
         }
         $sql = 'SELECT TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) AS semana, COUNT(*) AS c
-                FROM tbl_segundometro_histo
+                FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
                 WHERE TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) IN (' . implode(',', $placeholders) . ')
                 GROUP BY TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4))';
         $rows = $db->queryAll($sql, $params);
@@ -582,14 +1097,31 @@ final class PrimerosPagosHistoricoSegundometro
     {
         return '(CASE TRIM(CAST(`' . $col . '` AS CHAR CHARACTER SET utf8mb4))
             WHEN \'a) Current\' THEN \'a) Current\'
+            WHEN \'Current\' THEN \'a) Current\'
+            WHEN \'current\' THEN \'a) Current\'
             WHEN \'b) 1 a 7 dias\' THEN \'b) 1 a 7 dias\'
             WHEN \'b) 1 a 7 días\' THEN \'b) 1 a 7 dias\'
             WHEN \'c) 8 a 30 dias\' THEN \'c) 8 a 30 dias\'
             WHEN \'c) 8 a 30 días\' THEN \'c) 8 a 30 dias\'
+            WHEN \'c) 8 a 14 dias\' THEN \'c) 8 a 30 dias\'
+            WHEN \'c) 8 a 14 días\' THEN \'c) 8 a 30 dias\'
+            WHEN \'d) 15 a 21 dias\' THEN \'c) 8 a 30 dias\'
+            WHEN \'d) 15 a 21 días\' THEN \'c) 8 a 30 dias\'
+            WHEN \'e) 22 a 29 dias\' THEN \'c) 8 a 30 dias\'
+            WHEN \'e) 22 a 30 dias\' THEN \'c) 8 a 30 dias\'
+            WHEN \'e) 22 a 30 días\' THEN \'c) 8 a 30 dias\'
             WHEN \'d) 31 a 60 dias\' THEN \'d) 31 a 60 dias\'
             WHEN \'d) 31 a 60 días\' THEN \'d) 31 a 60 dias\'
+            WHEN \'f) 31 a 60 dias\' THEN \'d) 31 a 60 dias\'
+            WHEN \'f) 31 a 60 días\' THEN \'d) 31 a 60 dias\'
             WHEN \'e) 61+ dias\' THEN \'e) 61+ dias\'
             WHEN \'e) 61+ días\' THEN \'e) 61+ dias\'
+            WHEN \'g) 61 a 90 dias\' THEN \'e) 61+ dias\'
+            WHEN \'h) 91 a 120 dias\' THEN \'e) 61+ dias\'
+            WHEN \'i) 121+ dias\' THEN \'e) 61+ dias\'
+            WHEN \'j) First Payment Default\' THEN \'b) 1 a 7 dias\'
+            WHEN \'j) Second Payment Default\' THEN \'c) 8 a 30 dias\'
+            WHEN \'k) Never Paid\' THEN \'e) 61+ dias\'
             ELSE NULL END)';
     }
 
@@ -598,14 +1130,31 @@ final class PrimerosPagosHistoricoSegundometro
     {
         return '(CASE TRIM(CAST(`' . $col . '` AS CHAR CHARACTER SET utf8mb4))
             WHEN \'a) Current\' THEN 0
+            WHEN \'Current\' THEN 0
+            WHEN \'current\' THEN 0
             WHEN \'b) 1 a 7 dias\' THEN 1
             WHEN \'b) 1 a 7 días\' THEN 1
             WHEN \'c) 8 a 30 dias\' THEN 2
             WHEN \'c) 8 a 30 días\' THEN 2
+            WHEN \'c) 8 a 14 dias\' THEN 2
+            WHEN \'c) 8 a 14 días\' THEN 2
+            WHEN \'d) 15 a 21 dias\' THEN 2
+            WHEN \'d) 15 a 21 días\' THEN 2
+            WHEN \'e) 22 a 29 dias\' THEN 2
+            WHEN \'e) 22 a 30 dias\' THEN 2
+            WHEN \'e) 22 a 30 días\' THEN 2
             WHEN \'d) 31 a 60 dias\' THEN 3
             WHEN \'d) 31 a 60 días\' THEN 3
+            WHEN \'f) 31 a 60 dias\' THEN 3
+            WHEN \'f) 31 a 60 días\' THEN 3
             WHEN \'e) 61+ dias\' THEN 4
             WHEN \'e) 61+ días\' THEN 4
+            WHEN \'g) 61 a 90 dias\' THEN 4
+            WHEN \'h) 91 a 120 dias\' THEN 4
+            WHEN \'i) 121+ dias\' THEN 4
+            WHEN \'j) First Payment Default\' THEN 1
+            WHEN \'j) Second Payment Default\' THEN 2
+            WHEN \'k) Never Paid\' THEN 4
             ELSE NULL END)';
     }
 

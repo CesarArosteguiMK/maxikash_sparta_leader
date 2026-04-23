@@ -143,7 +143,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <h5 class="text-primary mb-1">Histórico</h5>
                                         <p class="text-primary mb-0 fw-bold small">Primeros pagos</p>
                                         <p class="text-body-secondary small mb-1"><strong>Consulta:</strong> últimas 4 semanas cerradas</p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Resumen por semana (las 4 más recientes en <code>tbl_segundometro_histo</code>): misma lógica que <strong>Lunes de cierre</strong> (nacimiento, corte y jerarquía).</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Resumen por semana (las 4 más recientes en <code>tbl_histo_primeros_pagos</code>): misma lógica que <strong>Lunes de cierre</strong> (nacimiento, corte y jerarquía).</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <a href="/analitica/PrimerosPagosHistorico" class="btn btn-primary w-100">

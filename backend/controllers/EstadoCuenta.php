@@ -7075,23 +7075,20 @@ public function descargarReporteDictamen()
     public function getHistorialGastosCobranza()
     {
         $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA);
-        $input = json_decode(file_get_contents("php://input"), true);
-        $idCredito = $input['idCredito'] ?? null;
-
-        error_log('HISTORIAL REQUEST idCredito: ' . $idCredito);
-
-        if (empty($idCredito)) {
+        $raw = (string) file_get_contents('php://input');
+        $input = $raw !== '' ? json_decode($raw, true) : [];
+        if (!is_array($input)) {
+            $input = [];
+        }
+        $idCredito = (int) ($input['idCredito'] ?? $input['id_credito'] ?? 0);
+        if ($idCredito <= 0) {
             self::respuestaJSON([
                 'success' => false,
-                'mensaje' => 'Id de crédito requerido'
+                'mensaje' => 'Id de crédito requerido',
             ]);
-            return;
         }
 
         $resultado = EstadoCuentaDAO::getHistorialGastosCobranza($idCredito);
-
-        error_log('HISTORIAL RESULTADO: ' . json_encode($resultado));
-
         self::respuestaJSON($resultado);
     }
 
