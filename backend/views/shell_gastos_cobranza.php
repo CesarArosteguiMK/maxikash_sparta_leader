@@ -1303,7 +1303,7 @@
         }
         var txt = {
             reporte: 'Se está ejecutando el reporte de cobranza…',
-            worker: 'Se está ejecutando el Worker EC (no cierre esta pestaña)…',
+            worker: 'Se está ejecutando el Worker EC…',
             enrich: 'Se está ejecutando el Excel enriquecido…',
             lista_negra: 'Se está ejecutando la carga a lista negra…',
             descargo: 'Se está generando el descargo estatus 3…'
