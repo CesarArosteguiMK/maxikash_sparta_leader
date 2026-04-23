@@ -1,13 +1,13 @@
 <style>
     /* ===================================================================
-       OPERACIONES — Paleta esmeralda #10b981
+       OPERACIONES — Paleta índigo #6366f1
        =================================================================== */
     :root {
-        --ops-green:        #10b981;
-        --ops-green-dark:   #059669;
-        --ops-green-light:  #ecfdf5;
-        --ops-green-border: #6ee7b7;
-        --ops-green-text:   #065f46;
+        --ops-green:        #6366f1;
+        --ops-green-dark:   #4f46e5;
+        --ops-green-light:  #eef2ff;
+        --ops-green-border: #a5b4fc;
+        --ops-green-text:   #3730a3;
     }
 
     /* ── Kanban layout ─────────────────────────────────────────────── */
@@ -98,7 +98,7 @@
     }
 
     .ops-card:hover {
-        box-shadow: 0 4px 14px rgba(16,185,129,0.18);
+        box-shadow: 0 4px 14px rgba(99,102,241,0.18);
         transform: translateY(-2px);
     }
 
@@ -138,7 +138,7 @@
         padding: 0.1rem 0.5rem;
         border: 1px solid transparent;
     }
-    .ops-aging-green  { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+    .ops-aging-green  { background: #e0e7ff; color: #3730a3; border-color: #a5b4fc; }
     .ops-aging-yellow { background: #fef9c3; color: #713f12; border-color: #fcd34d; }
     .ops-aging-red    { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
 
@@ -184,7 +184,7 @@
     .btn-ops-green:hover, .btn-ops-green:focus {
         background: var(--ops-green-dark);
         color: #fff;
-        box-shadow: 0 4px 8px rgba(16,185,129,.35);
+        box-shadow: 0 4px 8px rgba(99,102,241,.35);
         transform: translateY(-1px);
     }
 
@@ -228,7 +228,7 @@
     .ops-credit-card.selected {
         border-color: var(--ops-green);
         background: var(--ops-green-light);
-        box-shadow: 0 0 0 3px rgba(16,185,129,.15);
+        box-shadow: 0 0 0 3px rgba(99,102,241,.15);
     }
     .ops-src-name {
         font-size: .88rem;
@@ -257,7 +257,7 @@
         white-space: nowrap;
     }
     .ops-src-badge-vencido { background:#fee2e2; color:#7f1d1d; border:1px solid #fca5a5; }
-    .ops-src-badge-activo  { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+    .ops-src-badge-activo  { background:#e0e7ff; color:#3730a3; border:1px solid #a5b4fc; }
 
     /* ── Detail modal ──────────────────────────────────────────────── */
     .ops-detail-section {
@@ -278,9 +278,12 @@
 
     /* ── Detail: header bar ──────────────────────────────────────── */
     .ops-det-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        background: #ffffff;
         border-radius: .75rem;
-        color: #fff;
+        color: #1e293b;
+        border: 1px solid #e2e8f0;
+        border-top: 4px solid #6366f1;
+        box-shadow: 0 1px 4px rgba(99,102,241,.08);
     }
     .ops-det-name {
         font-size: 1rem;
@@ -288,10 +291,11 @@
         text-transform: uppercase;
         letter-spacing: .5px;
         line-height: 1.2;
+        color: #1e293b;
     }
-    .ops-det-area { font-size: .72rem; color: #94a3b8; margin-top: 2px; }
+    .ops-det-area { font-size: .72rem; color: #64748b; margin-top: 2px; }
     .ops-det-id   { font-size: 1.625rem; font-weight: 900; color: var(--ops-green); line-height: 1; }
-    .ops-det-lbl  { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: #64748b; }
+    .ops-det-lbl  { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; }
 
     /* ── Viewer row (fixed height — never moves) ───────────────── */
     .ops-visor-row { height: 420px; }
@@ -299,7 +303,7 @@
 
     /* ── Asset Viewer ────────────────────────────────────────────── */
     .ops-asset-viewer {
-        background: #0f172a;
+        background: #f1f5f9;
         border-radius: .75rem;
         height: 100%;
         display: flex;
@@ -307,7 +311,7 @@
         justify-content: center;
         position: relative;
         overflow: hidden;
-        border: 2px solid #1e293b;
+        border: 2px solid #e2e8f0;
     }
 
     /* ── Acciones de Tramo ───────────────────────────────────────── */
@@ -405,7 +409,7 @@
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: .3rem; transition: border-color .15s, background .15s; overflow: hidden;
     }
-    .ops-ev-slot:hover                { border-color: var(--ops-green); background: #f0fdf4; }
+    .ops-ev-slot:hover                { border-color: var(--ops-green); background: #eef2ff; }
     .ops-ev-slot.has-file             { border-style: solid; border-color: #e2e8f0; cursor: default; }
     .ops-ev-slot.uploading            { opacity: .65; pointer-events: none; }
     .ops-ev-slot .slot-icon-ph        { font-size: 1.35rem; color: #94a3b8; pointer-events: none; }
@@ -446,7 +450,7 @@
         gap: .35rem; transition: border-color .15s, background .15s;
         overflow: hidden; padding: .75rem;
     }
-    .ops-ev-slot-pdf:hover            { border-color: var(--ops-green); background: #f0fdf4; }
+    .ops-ev-slot-pdf:hover            { border-color: var(--ops-green); background: #eef2ff; }
     .ops-ev-slot-pdf.has-file         { border-style: solid; border-color: #e2e8f0; }
     .ops-ev-slot-pdf .slot-icon-ph    { font-size: 1.6rem; color: #94a3b8; }
     .ops-ev-slot-pdf .slot-sublbl     { font-size: .65rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; text-align: center; }
@@ -472,9 +476,9 @@
 
     /* Remap CSS vars para dark mode */
     body.dark-mode {
-        --ops-green-light:  #064e3b;
-        --ops-green-border: #065f46;
-        --ops-green-text:   #a7f3d0;
+        --ops-green-light:  #1e1b4b;
+        --ops-green-border: #4338ca;
+        --ops-green-text:   #c7d2fe;
     }
 
     /* ── Kanban board ─────────────────────────────────────────────── */
@@ -495,11 +499,11 @@
         background: #0f172a;
         border-color: #334155;
     }
-    body.dark-mode .ops-card:hover { box-shadow: 0 4px 14px rgba(16,185,129,.25); }
+    body.dark-mode .ops-card:hover { box-shadow: 0 4px 14px rgba(99,102,241,.25); }
     body.dark-mode .ops-card-nombre { color: #e2e8f0; }
     body.dark-mode .ops-card-credito { color: #94a3b8; }
 
-    body.dark-mode .ops-aging-green  { background: #064e3b; color: #a7f3d0; border-color: #065f46; }
+    body.dark-mode .ops-aging-green  { background: #1e1b4b; color: #c7d2fe; border-color: #4338ca; }
     body.dark-mode .ops-aging-yellow { background: #422006; color: #fcd34d; border-color: #92400e; }
     body.dark-mode .ops-aging-red    { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
 
@@ -530,18 +534,18 @@
         border-color: #334155;
     }
     body.dark-mode .ops-credit-card:hover {
-        background: #064e3b;
+        background: #1e1b4b;
         border-color: var(--ops-green-border);
     }
     body.dark-mode .ops-credit-card.selected {
-        background: #064e3b;
+        background: #1e1b4b;
         border-color: var(--ops-green);
     }
     body.dark-mode .ops-src-name,
     body.dark-mode .ops-src-amount { color: #e2e8f0; }
     body.dark-mode .ops-src-meta   { color: #64748b; }
     body.dark-mode .ops-src-badge-vencido { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
-    body.dark-mode .ops-src-badge-activo  { background: #064e3b; color: #a7f3d0; border-color: #065f46; }
+    body.dark-mode .ops-src-badge-activo  { background: #1e1b4b; color: #c7d2fe; border-color: #4338ca; }
 
     /* ── Modal detalle: sección genérica ─────────────────────────── */
     body.dark-mode .ops-detail-section {
@@ -556,6 +560,24 @@
         background: #0f172a !important;
         border-top-color: #334155 !important;
     }
+
+    /* ── Header info bar (dark mode) ─────────────────────────────── */
+    body.dark-mode .ops-det-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border-color: #334155;
+        border-top-color: #6366f1;
+        box-shadow: 0 1px 4px rgba(99,102,241,.18);
+    }
+    body.dark-mode .ops-det-name  { color: #f1f5f9; }
+    body.dark-mode .ops-det-area  { color: #94a3b8; }
+    body.dark-mode .ops-det-lbl   { color: #475569; }
+
+    /* ── Asset Viewer (dark mode) ────────────────────────────────── */
+    body.dark-mode .ops-asset-viewer {
+        background: #0f172a;
+        border-color: #1e293b;
+    }
+    body.dark-mode .ops-av-ph { color: #334155; }
 
     /* ── Acciones de Tramo ───────────────────────────────────────── */
     body.dark-mode .ops-tramo-wrap { border-color: #334155; }
@@ -585,7 +607,7 @@
         background: #0f172a;
         border-color: #334155;
     }
-    body.dark-mode .ops-ev-slot:hover    { background: #064e3b; border-color: var(--ops-green); }
+    body.dark-mode .ops-ev-slot:hover    { background: #1e1b4b; border-color: var(--ops-green); }
     body.dark-mode .ops-ev-slot.has-file { border-color: #334155; }
     body.dark-mode .ops-ev-slot .slot-icon-ph { color: #475569; }
 
@@ -593,7 +615,7 @@
         background: #0f172a;
         border-color: #334155;
     }
-    body.dark-mode .ops-ev-slot-pdf:hover    { background: #064e3b; border-color: var(--ops-green); }
+    body.dark-mode .ops-ev-slot-pdf:hover    { background: #1e1b4b; border-color: var(--ops-green); }
     body.dark-mode .ops-ev-slot-pdf.has-file { border-color: #334155; }
     body.dark-mode .ops-ev-slot-pdf .slot-icon-ph { color: #475569; }
     body.dark-mode .ops-ev-slot-pdf .slot-sublbl  { color: #475569; }
@@ -659,7 +681,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      MODAL: NUEVA OPERACIÓN
      ═══════════════════════════════════════════════════════════════════ -->
-<div class="modal fade" id="modalNuevaOperacion" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalNuevaOperacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header" style="background:var(--ops-green-light); border-bottom:1px solid var(--ops-green-border);">
@@ -677,7 +699,7 @@
                         <span class="ops-step-badge">1</span>Buscar crédito en Adjudicación
                     </h6>
                     <div class="input-group input-group-sm mb-2">
-                        <span class="input-group-text" style="background:#f0fdf4; border-color:#d1fae5;">
+                        <span class="input-group-text" style="background:#eef2ff; border-color:#e0e7ff;">
                             <i class="fa-solid fa-magnifying-glass" style="color:var(--ops-green); font-size:.75rem;"></i>
                         </span>
                         <input type="number" id="ops-input-credito" class="form-control"
@@ -800,7 +822,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════
      MODAL: DETALLE / MOVER ETAPA
      ═══════════════════════════════════════════════════════════════════ -->
-<div class="modal fade" id="modalDetalleOperacion" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalDetalleOperacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"
          style="max-width:96vw;width:96vw;margin:.5rem auto;">
         <div class="modal-content" style="height:94vh;">
@@ -822,6 +844,9 @@
                 </button>
                 <div class="ms-auto d-flex gap-2">
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-outline-warning btn-sm" id="det-btn-regresar" style="display:none;">
+                        <i class="fa-solid fa-arrow-left me-1"></i>Regresar etapa
+                    </button>
                     <button type="button" class="btn btn-ops-green btn-sm" id="det-btn-mover">
                         <i class="fa-solid fa-arrow-right me-1"></i>Avanzar etapa
                     </button>
@@ -944,7 +969,7 @@
                 opsRenderPipeline(_operaciones);
             })
             .catch(err => {
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'No se pudo cargar el pipeline.', confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'No se pudo cargar el pipeline.', confirmButtonColor: '#6366f1' });
             })
             .finally(() => {
                 document.getElementById('ops-loading').style.display = 'none';
@@ -1066,7 +1091,7 @@
     function opsBuscarCredito() {
         const valor = parseInt(document.getElementById('ops-input-credito').value || '0');
         if (!valor || valor <= 0) {
-            Swal.fire({ icon: 'warning', title: 'ID inválido', text: 'Ingresa un ID de crédito válido.', confirmButtonColor: '#10b981' });
+            Swal.fire({ icon: 'warning', title: 'ID inválido', text: 'Ingresa un ID de crédito válido.', confirmButtonColor: '#6366f1' });
             return;
         }
 
@@ -1093,7 +1118,7 @@
                     icon: 'warning',
                     title: 'Crédito no disponible',
                     text: data.message,
-                    confirmButtonColor: '#10b981',
+                    confirmButtonColor: '#6366f1',
                 });
                 return;
             }
@@ -1149,7 +1174,7 @@
             opsSeleccionarCredito();
         })
         .catch(err => {
-            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#10b981' });
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
         })
         .finally(() => {
             btnBuscar.disabled = false;
@@ -1171,7 +1196,7 @@
     function opsCrearOperacion() {
         const idCredito = parseInt(document.getElementById('ops-hid-idcredito').value || '0');
         if (!idCredito) {
-            Swal.fire({ icon: 'warning', title: 'Falta crédito', text: 'Busca y selecciona un crédito válido primero.', confirmButtonColor: '#10b981' });
+            Swal.fire({ icon: 'warning', title: 'Falta crédito', text: 'Busca y selecciona un crédito válido primero.', confirmButtonColor: '#6366f1' });
             return;
         }
 
@@ -1206,7 +1231,7 @@
             Swal.close();
             document.getElementById('ops-btn-guardar').disabled = false;
             if (!data.success) {
-                Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
                 return;
             }
             bootstrap.Modal.getInstance(document.getElementById('modalNuevaOperacion'))?.hide();
@@ -1220,7 +1245,7 @@
         .catch(err => {
             Swal.close();
             document.getElementById('ops-btn-guardar').disabled = false;
-            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#10b981' });
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
         });
     }
 
@@ -1253,16 +1278,25 @@
         _activeOpId = op.id;
         document.getElementById('det-folio').textContent = op.folio;
 
-        // Botón avanzar etapa
-        const stageIdx  = STAGES.indexOf(op.estatus);
-        const siguiente = stageIdx >= 0 && stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null;
-        const btnMover  = document.getElementById('det-btn-mover');
+        // Botones avanzar / regresar etapa
+        const stageIdx   = STAGES.indexOf(op.estatus);
+        const siguiente  = stageIdx >= 0 && stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null;
+        const anterior   = stageIdx > 0 ? STAGES[stageIdx - 1] : null;
+        const btnMover   = document.getElementById('det-btn-mover');
+        const btnRegresar = document.getElementById('det-btn-regresar');
         if (siguiente) {
             btnMover.style.display = '';
             btnMover.onclick = () => opsMoverEstatus(op.id, siguiente);
             btnMover.innerHTML = `<i class="fa-solid fa-arrow-right me-1"></i>Mover a "${siguiente}"`;
         } else {
             btnMover.style.display = 'none';
+        }
+        if (anterior) {
+            btnRegresar.style.display = '';
+            btnRegresar.onclick = () => opsRegresarEstatus(op.id, anterior, op.estatus, op.area_actual || '');
+            btnRegresar.innerHTML = `<i class="fa-solid fa-arrow-left me-1"></i>Regresar a "${anterior}"`;
+        } else {
+            btnRegresar.style.display = 'none';
         }
         document.getElementById('det-btn-eliminar').onclick = () => opsEliminar(op.id);
 
@@ -1582,24 +1616,24 @@
 
         if (slotDef && slotDef.isVideo) {
             if (file.type !== 'video/mp4') {
-                Swal.fire({ icon: 'warning', title: 'Solo MP4', text: 'Este campo solo acepta videos MP4.', confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'warning', title: 'Solo MP4', text: 'Este campo solo acepta videos MP4.', confirmButtonColor: '#6366f1' });
                 input.value = ''; return;
             }
         } else if (docDef) {
             const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
             if (!allowed.includes(file.type)) {
-                Swal.fire({ icon: 'warning', title: 'Tipo no válido', text: 'Solo se aceptan PDF, JPG o PNG.', confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'warning', title: 'Tipo no válido', text: 'Solo se aceptan PDF, JPG o PNG.', confirmButtonColor: '#6366f1' });
                 input.value = ''; return;
             }
         } else {
             if (!['image/jpeg', 'image/png'].includes(file.type)) {
-                Swal.fire({ icon: 'warning', title: 'Solo imágenes', text: 'Solo se aceptan imágenes JPG o PNG.', confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'warning', title: 'Solo imágenes', text: 'Solo se aceptan imágenes JPG o PNG.', confirmButtonColor: '#6366f1' });
                 input.value = ''; return;
             }
         }
 
         if (file.size > 20 * 1024 * 1024) {
-            Swal.fire({ icon: 'warning', title: 'Archivo muy grande', text: 'El límite es 20 MB.', confirmButtonColor: '#10b981' });
+            Swal.fire({ icon: 'warning', title: 'Archivo muy grande', text: 'El límite es 20 MB.', confirmButtonColor: '#6366f1' });
             input.value = ''; return;
         }
 
@@ -1711,12 +1745,12 @@
                     }
                 }
             } else {
-                Swal.fire({ icon: 'error', title: 'Error al subir', text: data.message, confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'error', title: 'Error al subir', text: data.message, confirmButtonColor: '#6366f1' });
                 delete _evState[`${opId}_${key}`];
                 opsResetSlotUI(key);
             }
         } catch (err) {
-            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#10b981' });
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
             delete _evState[`${opId}_${key}`];
             opsResetSlotUI(key);
         }
@@ -1801,7 +1835,7 @@
             showCancelButton: true,
             confirmButtonText: 'Mover',
             cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#10b981',
+            confirmButtonColor: '#6366f1',
         }).then(res => {
             if (!res.isConfirmed) return;
 
@@ -1816,7 +1850,7 @@
             .then(data => {
                 Swal.close();
                 if (!data.success) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#10b981' });
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
                     return;
                 }
                 bootstrap.Modal.getInstance(document.getElementById('modalDetalleOperacion'))?.hide();
@@ -1830,7 +1864,84 @@
             })
             .catch(err => {
                 Swal.close();
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#6366f1' });
+            });
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // REGRESAR ETAPA
+    // ──────────────────────────────────────────────────────────────────
+    function opsRegresarEstatus(id, etapaPrevia, estatusActual, areaActual) {
+        // Fix: Bootstrap 5 traps focus with a 'focusin' listener that blocks SweetAlert2 inputs.
+        // We intercept that event while the Swal is open and stop it from firing.
+        const _swalFocusFix = (e) => { if (e.target.closest?.('.swal2-container')) e.stopImmediatePropagation(); };
+        document.addEventListener('focusin', _swalFocusFix, true);
+
+        Swal.fire({
+            icon: 'warning',
+            title: 'Regresar a etapa anterior',
+            html: `<p class="mb-2" style="font-size:.88rem;">La operación regresará de <strong>${estatusActual}</strong> a <strong>${etapaPrevia}</strong>.</p>
+                   <p class="mb-1" style="font-size:.8rem;color:#64748b;">Especifica el motivo del regreso:</p>`,
+            input: 'textarea',
+            inputPlaceholder: 'Ej. Documentación incompleta, requiere revisión adicional…',
+            inputAttributes: { maxlength: 500, rows: 3, style: 'font-size:.85rem;' },
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-arrow-left me-1"></i>Regresar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#f59e0b',
+            preConfirm: (motivo) => {
+                if (!motivo || !motivo.trim()) {
+                    Swal.showValidationMessage('Debes especificar un motivo para el regreso.');
+                    return false;
+                }
+                return motivo.trim();
+            }
+        }).then(res => {
+            document.removeEventListener('focusin', _swalFocusFix, true);
+            if (!res.isConfirmed) return;
+            const motivo = res.value;
+
+            Swal.fire({ title: 'Regresando etapa…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            fetch('/MotosAdjudicadas/cambiarEstatus', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, estatus: etapaPrevia }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
+                    return Promise.reject('api-error');
+                }
+                return fetch('/MotosAdjudicadas/agregarObservacion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_operacion: id,
+                        etapa: estatusActual,
+                        area: areaActual || '',
+                        texto: `↩ REGRESO A "${etapaPrevia}": ${motivo}`,
+                    }),
+                });
+            })
+            .then(r => r ? r.json() : null)
+            .then(() => {
+                Swal.close();
+                bootstrap.Modal.getInstance(document.getElementById('modalDetalleOperacion'))?.hide();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Etapa regresada',
+                    text: `Movido de regreso a "${etapaPrevia}"`,
+                    timer: 1800, showConfirmButton: false, timerProgressBar: true,
+                });
+                opsCargarPipeline();
+            })
+            .catch(err => {
+                if (err === 'api-error') return;
+                Swal.close();
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
             });
         });
     }
@@ -1850,7 +1961,7 @@
         .then(r => r.json())
         .then(data => {
             if (!data.success) {
-                Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
                 return;
             }
             // Insertar nueva observación al final
@@ -1884,7 +1995,7 @@
             document.getElementById('det-obs-input').value = '';
         })
         .catch(err => {
-            Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#10b981' });
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#6366f1' });
         });
     }
 
@@ -1914,7 +2025,7 @@
             .then(data => {
                 Swal.close();
                 if (!data.success) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#10b981' });
+                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
                     return;
                 }
                 bootstrap.Modal.getInstance(document.getElementById('modalDetalleOperacion'))?.hide();
@@ -1926,7 +2037,7 @@
             })
             .catch(err => {
                 Swal.close();
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#10b981' });
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#6366f1' });
             });
         });
     }
@@ -1966,6 +2077,7 @@
     window.opsCargarPipeline     = opsCargarPipeline;
     window.opsAbrirDetalle       = opsAbrirDetalle;
     window.opsMoverEstatus       = opsMoverEstatus;
+    window.opsRegresarEstatus    = opsRegresarEstatus;
     window.opsAgregarObservacion = opsAgregarObservacion;
     window.opsEliminar           = opsEliminar;
     // Evidence
