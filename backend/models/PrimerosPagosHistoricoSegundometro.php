@@ -14,11 +14,32 @@ use Core\DatabaseSegundometro;
  * `tbl_segundometro_semana`), pero leyendo **`tbl_histo_primeros_pagos`**: nacimiento = **`Bucket_Morosidad_Real`**
  * (si no existe, `Bucket_Morosidad`); mora al corte = **la misma columna que `Empresa::getCorteActual()`** si está en
  * la tabla histórico; si no, `COALESCE` de slots **`Dias_mora_Lunes_*`** (orden Empresa) y al final **`Dias_mora`**.
+ *
+ * Tabla física: por defecto `tbl_histo_primeros_pagos`. Si el ETL guarda ~69k filas/sem pero el reporte solo usa
+ * la cartera de primeros pagos (~1k), conviene una tabla derivada con solo esas filas y definir
+ * `SPARTA_PP_HISTO_TABLA` (nombre alfanumérico + guión bajo, máx. 64) apuntando a esa tabla.
  */
 final class PrimerosPagosHistoricoSegundometro
 {
-    /** Tabla dedicada al histórico de la cartera primeros pagos (más acotada que `tbl_segundometro_histo`). */
-    private const TABLA_HISTORICO_PRIMEROS_PAGOS = 'tbl_histo_primeros_pagos';
+    private const TABLA_HISTORICO_PRIMEROS_PAGOS_DEFAULT = 'tbl_histo_primeros_pagos';
+
+    /** Identificador seguro para usar en SQL (evita inyección vía nombre de tabla). */
+    private static function nombreTablaHistoricoPrimerosPagos(): string
+    {
+        static $memo;
+        if ($memo !== null) {
+            return $memo;
+        }
+        $v = getenv('SPARTA_PP_HISTO_TABLA');
+        if (is_string($v)) {
+            $v = trim($v);
+            if ($v !== '' && strlen($v) <= 64 && preg_match('/^[A-Za-z0-9_]+$/', $v) === 1) {
+                return $memo = $v;
+            }
+        }
+
+        return $memo = self::TABLA_HISTORICO_PRIMEROS_PAGOS_DEFAULT;
+    }
 
     private const SEMANA_MAX_LEN = 160;
 
@@ -60,12 +81,12 @@ final class PrimerosPagosHistoricoSegundometro
         }
         try {
             $db = new DatabaseSegundometro();
-            // Leemos filas recientes ordenadas por inserción y deduplicamos semana en PHP.
-            // Evita GROUP BY costoso sobre cientos de miles de filas.
-            $limiteFilasRecientes = 350000;
+            // Filas recientes por inserción + dedupe en PHP. Límite acotado (no 350k): suficiente para
+            // obtener N etiquetas de semana; con índice por `fecha_hora_insert` escala bien.
+            $limiteFilasRecientes = 20000;
             $sqlTop = 'SELECT CAST(SEMANA AS CHAR CHARACTER SET utf8mb4) AS semana,
                               fecha_hora_insert AS ultimo_insert
-                       FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
+                       FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
                        WHERE fecha_hora_insert >= DATE_SUB(CURDATE(), INTERVAL ' . (int) self::LISTA_SEMANAS_LOOKBACK_DIAS . ' DAY)
                          AND SEMANA IS NOT NULL
                          AND SEMANA <> \'\'
@@ -131,7 +152,7 @@ final class PrimerosPagosHistoricoSegundometro
     /** Misma fuente que `Empresa::getVencimientosLunes` (bucket_nacio). */
     private static function columnaNacimientoComoLunesCierre(DatabaseSegundometro $db): string
     {
-        $sql = 'SHOW COLUMNS FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . "` LIKE 'Bucket_Morosidad_Real'";
+        $sql = 'SHOW COLUMNS FROM `' . self::nombreTablaHistoricoPrimerosPagos() . "` LIKE 'Bucket_Morosidad_Real'";
         $row = $db->queryOne($sql);
         if (is_array($row) && !empty($row)) {
             return 'Bucket_Morosidad_Real';
@@ -321,7 +342,7 @@ final class PrimerosPagosHistoricoSegundometro
         $metaMora = self::metaSqlMoraCorteHisto($db);
         $moraSql = $metaMora['mora_sql'];
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams($modoFecha, $martesIso, $domingoIso, $lunesIsoExacto);
-        $tabla = self::TABLA_HISTORICO_PRIMEROS_PAGOS;
+        $tabla = self::nombreTablaHistoricoPrimerosPagos();
         $baseWhere = self::sqlWhereSemanaParam() . $whereFecha;
         $params = ['sem' => $sem] + $paramsExtra;
         $dmField = isset($map['Dias_mora']) ? 'CAST(`Dias_mora` AS SIGNED)' : 'NULL';
@@ -377,6 +398,28 @@ final class PrimerosPagosHistoricoSegundometro
     private static function sqlWhereSemanaParam(): string
     {
         return 'TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) = :sem';
+    }
+
+    /**
+     * COUNT(*) vía PDO: el alias puede llegar con distinto casing o drivers raros devuelven solo valor escalar.
+     */
+    private static function intDesdeFilaSqlCount(?array $fila): int
+    {
+        if ($fila === null) {
+            return 0;
+        }
+        foreach (['c', 'C', 'cnt', 'total', 'n', 'total_filas'] as $k) {
+            if (array_key_exists($k, $fila) && is_numeric($fila[$k])) {
+                return (int) $fila[$k];
+            }
+        }
+        foreach ($fila as $v) {
+            if (is_numeric($v)) {
+                return (int) $v;
+            }
+        }
+
+        return 0;
     }
 
     /** Bucket de corte desde una expresión SQL de días mora (no solo nombre de columna). */
@@ -797,6 +840,134 @@ final class PrimerosPagosHistoricoSegundometro
         }
     }
 
+    /**
+     * Borra filas que el histórico no usa: misma regla que `resolverContextoResumenSemana` + `whereFechaSqlYParams`.
+     * Use primero `$dryRun = true` (solo cuenta). Con `$dryRun = false` ejecuta DELETE por etiqueta de semana.
+     *
+     * @param array{verbose?:bool} $opciones Si `verbose` es true, añade totales de depuración (sin cambiar el borrado).
+     *
+     * @return array{success:bool, dry_run:bool, eliminadas:int, por_semana:array, omitidas:array, error?:string, total_filas_tabla?:int}
+     */
+    public static function purgarFilasFueraCarteraHistorico(bool $dryRun, ?int $maxEtiquetasSemana = null, array $opciones = []): array
+    {
+        self::$cacheMapColumnasHisto = null;
+        self::$cacheMetaSqlMoraCorteHisto = null;
+        $verbose = (bool) ($opciones['verbose'] ?? false);
+        $tabla = self::nombreTablaHistoricoPrimerosPagos();
+        $porSemana = [];
+        $omitidas = [];
+        $totalElim = 0;
+        $totalFilasTabla = null;
+        try {
+            $db = new DatabaseSegundometro();
+            if ($verbose) {
+                $totalFilasTabla = self::intDesdeFilaSqlCount(
+                    $db->queryOne('SELECT COUNT(*) AS total_filas FROM `' . $tabla . '`')
+                );
+            }
+            $rows = $db->queryAll(
+                'SELECT DISTINCT TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) AS sem
+                 FROM `' . $tabla . '`
+                 WHERE SEMANA IS NOT NULL
+                   AND TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) <> \'\'
+                 ORDER BY sem DESC'
+            );
+            $lista = [];
+            foreach ($rows as $r) {
+                $s = trim((string) ($r['sem'] ?? ''));
+                if ($s !== '') {
+                    $lista[] = $s;
+                }
+            }
+            if ($maxEtiquetasSemana !== null && $maxEtiquetasSemana > 0) {
+                $lista = array_slice($lista, 0, $maxEtiquetasSemana);
+            }
+            foreach ($lista as $sem) {
+                $ctx = self::resolverContextoResumenSemana($db, $sem);
+                if (($ctx['type'] ?? '') !== 'ok') {
+                    $razon = (string) ($ctx['mensaje'] ?? '');
+                    if ($razon !== '' && str_contains($razon, 'No hay datos')) {
+                        $sqlCnt = 'SELECT COUNT(*) AS c FROM `' . $tabla . '` WHERE ' . self::sqlWhereSemanaParam();
+                        $n = self::intDesdeFilaSqlCount($db->queryOne($sqlCnt, ['sem' => $sem]));
+                        $porSemana[] = ['semana' => $sem, 'filas' => $n, 'modo' => 'todas_etiqueta_sin_cartera'];
+                        $totalElim += $n;
+                        if (!$dryRun && $n > 0) {
+                            $db->CRUD('DELETE FROM `' . $tabla . '` WHERE ' . self::sqlWhereSemanaParam(), ['sem' => $sem]);
+                        }
+                    } else {
+                        $omitidas[] = ['semana' => $sem, 'razon' => $razon !== '' ? $razon : 'contexto inválido'];
+                    }
+
+                    continue;
+                }
+                $modoFecha = (string) $ctx['modoFecha'];
+                $m1 = (string) $ctx['m1'];
+                $m2 = (string) $ctx['m2'];
+                $lunesParam = $ctx['lunesParam'];
+                [$wf, $pex] = self::whereFechaSqlYParams($modoFecha, $m1, $m2, $lunesParam);
+                $inner = preg_replace('/^\s*AND\s+/i', '', $wf, 1);
+                if ($inner === '' || $inner === $wf) {
+                    $omitidas[] = ['semana' => $sem, 'razon' => 'whereFecha vacío'];
+
+                    continue;
+                }
+                [$wbTail, $pexBorrar] = self::whereBorrarFueraCarteraSqlYParams($modoFecha, $m1, $m2, $lunesParam);
+                if ($wbTail === '') {
+                    $omitidas[] = ['semana' => $sem, 'razon' => 'whereBorrar vacío'];
+
+                    continue;
+                }
+                $paramsCartera = ['sem' => $sem] + $pex;
+                $params = ['sem' => $sem] + $pexBorrar;
+                $whereBorrar = self::sqlWhereSemanaParam() . $wbTail;
+                $sqlCnt = 'SELECT COUNT(*) AS c FROM `' . $tabla . '` WHERE ' . $whereBorrar;
+                $n = self::intDesdeFilaSqlCount($db->queryOne($sqlCnt, $params));
+                $filaSem = ['semana' => $sem, 'filas' => $n, 'modo' => $modoFecha];
+                if ($verbose) {
+                    $sqlEt = 'SELECT COUNT(*) AS c FROM `' . $tabla . '` WHERE ' . self::sqlWhereSemanaParam();
+                    $sqlCar = 'SELECT COUNT(*) AS c FROM `' . $tabla . '` WHERE ' . self::sqlWhereSemanaParam() . $wf;
+                    $filaSem['filas_etiqueta'] = self::intDesdeFilaSqlCount($db->queryOne($sqlEt, ['sem' => $sem]));
+                    $filaSem['filas_en_cartera'] = self::intDesdeFilaSqlCount($db->queryOne($sqlCar, $paramsCartera));
+                }
+                $porSemana[] = $filaSem;
+                $totalElim += $n;
+                if (!$dryRun && $n > 0) {
+                    $db->CRUD('DELETE FROM `' . $tabla . '` WHERE ' . $whereBorrar, $params);
+                }
+            }
+
+            $out = [
+                'success' => true,
+                'dry_run' => $dryRun,
+                'eliminadas' => $totalElim,
+                'por_semana' => $porSemana,
+                'omitidas' => $omitidas,
+            ];
+            if ($verbose && $totalFilasTabla !== null) {
+                $out['total_filas_tabla'] = $totalFilasTabla;
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            $out = [
+                'success' => false,
+                'dry_run' => $dryRun,
+                'eliminadas' => $totalElim,
+                'por_semana' => $porSemana,
+                'omitidas' => $omitidas,
+                'error' => $e->getMessage(),
+            ];
+            if ($verbose && $totalFilasTabla !== null) {
+                $out['total_filas_tabla'] = $totalFilasTabla;
+            }
+
+            return $out;
+        } finally {
+            self::$cacheMapColumnasHisto = null;
+            self::$cacheMetaSqlMoraCorteHisto = null;
+        }
+    }
+
     private static function normalizarSemanaParam(string $semana): ?string
     {
         $s = trim($semana);
@@ -824,14 +995,65 @@ final class PrimerosPagosHistoricoSegundometro
     {
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams($modoFecha, $martesIso, $domingoIso, $lunesIsoExacto);
         $sql = 'SELECT COUNT(*) AS total
-                FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
+                FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
                 WHERE ' . self::sqlWhereSemanaParam() . $whereFecha;
         $params = ['sem' => $sem] + $paramsExtra;
         $r = $db->queryOne($sql, $params);
 
         return [
-            'total' => (int) ($r['total'] ?? 0),
+            'total' => self::intDesdeFilaSqlCount($r),
         ];
+    }
+
+    /**
+     * Predicado AND … para filas **fuera** de la cartera (equivalente a negar el `whereFecha` de cartera, incluyendo `Fecha_primer_vencimiento` NULL).
+     * Evita `NOT((col = :a OR col = :b))` y también `IS NULL OR (<> … AND <>)` con los mismos binds: con PDO+MySQL (`ATTR_EMULATE_PREPARES = false`) el `COUNT`/`DELETE` podía devolver **0** pese a cientos de miles de filas fuera de cartera. Se usa `<=>` y dos `NOT` independientes.
+     *
+     * @return array{0:string,1:array<string,string>} [fragmento SQL que empieza con " AND (...)", parámetros sin :sem]
+     */
+    private static function whereBorrarFueraCarteraSqlYParams(string $modoFecha, string $martesIso, string $domingoIso, ?string $lunesIsoExacto): array
+    {
+        if ($modoFecha === 'lunes' && $lunesIsoExacto !== null && $lunesIsoExacto !== '') {
+            $dtLunes = \DateTimeImmutable::createFromFormat('Y-m-d', $lunesIsoExacto);
+            $lunesDmy = $dtLunes instanceof \DateTimeImmutable ? $dtLunes->format('d/m/Y') : $lunesIsoExacto;
+
+            // Equivalente a NOT(FPV=:iso OR FPV=:dmy) sin agrupar OR bajo NOT (PDO+MySQL nativo puede devolver 0 filas).
+            // `<=>` trata NULL como distinto de las fechas de cartera → esas filas también se purgan.
+            // `d/m/Y` como literal comparado a DATETIME dispara SQLSTATE 22007 en modo estricto; STR_TO_DATE evita el cast inválido.
+            return [
+                ' AND ((NOT (Fecha_primer_vencimiento <=> :lunes_iso)) AND (NOT (Fecha_primer_vencimiento <=> STR_TO_DATE(:lunes_dmy, \'%d/%m/%Y\'))))',
+                ['lunes_iso' => $lunesIsoExacto, 'lunes_dmy' => $lunesDmy],
+            ];
+        }
+        if ($modoFecha === 'rango') {
+            $fechasIso = [];
+            $fechasDmy = [];
+            $dt = new \DateTimeImmutable($martesIso);
+            $fin = new \DateTimeImmutable($domingoIso);
+            while ($dt <= $fin) {
+                $fechasIso[] = $dt->format('Y-m-d');
+                $fechasDmy[] = $dt->format('d/m/Y');
+                $dt = $dt->modify('+1 day');
+            }
+            $phIso = [];
+            $phDmy = [];
+            $params = [];
+            foreach ($fechasIso as $i => $fIso) {
+                $kIso = 'fi' . $i;
+                $kDmy = 'fd' . $i;
+                $phIso[] = ':' . $kIso;
+                $phDmy[] = 'STR_TO_DATE(:' . $kDmy . ', \'%d/%m/%Y\')';
+                $params[$kIso] = $fIso;
+                $params[$kDmy] = $fechasDmy[$i];
+            }
+
+            return [
+                ' AND (Fecha_primer_vencimiento IS NULL OR ((Fecha_primer_vencimiento NOT IN (' . implode(',', $phIso) . ')) AND (Fecha_primer_vencimiento NOT IN (' . implode(',', $phDmy) . '))))',
+                $params,
+            ];
+        }
+
+        return ['', []];
     }
 
     /**
@@ -857,7 +1079,7 @@ final class PrimerosPagosHistoricoSegundometro
                 $kIso = 'fi' . $i;
                 $kDmy = 'fd' . $i;
                 $phIso[] = ':' . $kIso;
-                $phDmy[] = ':' . $kDmy;
+                $phDmy[] = 'STR_TO_DATE(:' . $kDmy . ', \'%d/%m/%Y\')';
                 $params[$kIso] = $fIso;
                 $params[$kDmy] = $fechasDmy[$i];
             }
@@ -868,7 +1090,11 @@ final class PrimerosPagosHistoricoSegundometro
         if ($modoFecha === 'lunes' && $lunesIsoExacto !== null && $lunesIsoExacto !== '') {
             $dtLunes = \DateTimeImmutable::createFromFormat('Y-m-d', $lunesIsoExacto);
             $lunesDmy = $dtLunes instanceof \DateTimeImmutable ? $dtLunes->format('d/m/Y') : $lunesIsoExacto;
-            return [' AND (Fecha_primer_vencimiento = :lunes_iso OR Fecha_primer_vencimiento = :lunes_dmy)', ['lunes_iso' => $lunesIsoExacto, 'lunes_dmy' => $lunesDmy]];
+
+            return [
+                ' AND (Fecha_primer_vencimiento = :lunes_iso OR Fecha_primer_vencimiento <=> STR_TO_DATE(:lunes_dmy, \'%d/%m/%Y\'))',
+                ['lunes_iso' => $lunesIsoExacto, 'lunes_dmy' => $lunesDmy],
+            ];
         }
 
         return ['', []];
@@ -899,7 +1125,7 @@ final class PrimerosPagosHistoricoSegundometro
                 FROM (
                     SELECT ' . $sqlBucketNacio . ' AS bn,
                            ' . $sqlBucketCorte . ' AS bc
-                    FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
+                    FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
                     WHERE ' . self::sqlWhereSemanaParam() . $whereFecha . '
                 ) t
                 GROUP BY bn, bc';
@@ -933,7 +1159,7 @@ final class PrimerosPagosHistoricoSegundometro
         if (self::$cacheMapColumnasHisto !== null) {
             return self::$cacheMapColumnasHisto;
         }
-        $tabla = self::TABLA_HISTORICO_PRIMEROS_PAGOS;
+        $tabla = self::nombreTablaHistoricoPrimerosPagos();
         $rows = $db->queryAll(
             'SELECT COLUMN_NAME AS c FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tbl',
@@ -1011,7 +1237,7 @@ final class PrimerosPagosHistoricoSegundometro
                         ' . $sqlGest . ' AS gest,
                         ' . $ordN . ' AS ord_n,
                         ' . $ordC . ' AS ord_c
-                    FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
+                    FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
                     WHERE ' . self::sqlWhereSemanaParam() . $whereFecha . '
                 ) x
                 GROUP BY ter, zon, jefe, gest';
@@ -1037,7 +1263,7 @@ final class PrimerosPagosHistoricoSegundometro
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams('rango', $martesIso, $domingoIso, null);
         $r = $db->queryOne(
             'SELECT COUNT(*) AS c
-             FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
+             FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
              WHERE ' . self::sqlWhereSemanaParam() . $whereFecha,
             ['sem' => $sem] + $paramsExtra
         );
@@ -1050,7 +1276,7 @@ final class PrimerosPagosHistoricoSegundometro
         [$whereFecha, $paramsExtra] = self::whereFechaSqlYParams('lunes', $lunesIso, $lunesIso, $lunesIso);
         $r = $db->queryOne(
             'SELECT COUNT(*) AS c
-             FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
+             FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
              WHERE ' . self::sqlWhereSemanaParam() . $whereFecha,
             ['sem' => $sem] + $paramsExtra
         );
@@ -1075,7 +1301,7 @@ final class PrimerosPagosHistoricoSegundometro
             $params[$k] = $c['semana'];
         }
         $sql = 'SELECT TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) AS semana, COUNT(*) AS c
-                FROM `' . self::TABLA_HISTORICO_PRIMEROS_PAGOS . '`
+                FROM `' . self::nombreTablaHistoricoPrimerosPagos() . '`
                 WHERE TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) IN (' . implode(',', $placeholders) . ')
                 GROUP BY TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4))';
         $rows = $db->queryAll($sql, $params);
