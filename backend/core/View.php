@@ -63,6 +63,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-motorcycle',
             'subItems' => [
                 ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
+                ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',       'modulos' => [63]],
             ],
         ],
         'Tickets' => [
@@ -118,10 +119,9 @@ function getMenu(): string
         $submenu = '';
 
         foreach ($item['subItems'] as $subItem) {
-            // TODO: Descomentar cuando se den los visto buenos de permisos por módulo
-            // if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $modulosUsuario)) {
-            //     continue;
-            // }
+            if (!empty($subItem['modulos']) && !array_intersect($subItem['modulos'], $modulosUsuario)) {
+                continue;
+            }
 
             $activo = strtolower($subItem['url']) === strtolower($_SERVER['REQUEST_URI']) ? 'active' : '';
 

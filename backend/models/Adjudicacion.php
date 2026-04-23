@@ -4,14 +4,17 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\DatabaseSegundometro;
 
 class Adjudicacion extends Model
 {
     private $db;
+    private $dbSeg;
 
     public function __construct()
     {
-        $this->db = new Database();
+        $this->db    = new Database();
+        $this->dbSeg = new DatabaseSegundometro();
     }
 
     // =========================================================================
@@ -374,7 +377,25 @@ class Adjudicacion extends Model
             'status_credito'   => $ec['statusCredito']       ?? '',
             'producto'         => $ec['producto']            ?? '',
             'periodicidad'     => $ec['periodicidad']        ?? '',
+            'bucket'           => '',
         ];
+
+        // ── 2b. Bucket de morosidad (tbl_segundometro_semana) ─────────────────
+        try {
+            $rowBucket = $this->dbSeg->queryOne(
+                'SELECT Bucket_Morosidad_Real AS bucket
+                 FROM tbl_segundometro_semana
+                 WHERE Id_credito = :idCredito
+                 LIMIT 1',
+                ['idCredito' => $idCredito]
+            );
+            if ($rowBucket) {
+                $credito['bucket'] = trim((string) ($rowBucket['bucket'] ?? ''));
+            }
+        } catch (\Throwable $e) {
+            // Si la DB de segundometro no responde, continuamos sin bucket
+            $credito['bucket'] = '';
+        }
 
         // ── 3. Asignación activa en adjudicación ──────────────────────────────
         $asignacion = $this->db->queryOne(
@@ -433,5 +454,202 @@ class Adjudicacion extends Model
         );
 
         return $n > 0;
+    }
+
+    // =========================================================================
+    // TELÉFONOS ADICIONALES DEL GESTOR
+    // =========================================================================
+
+    /** Retorna los teléfonos activos registrados para un gestor. */
+    public function obtenerTelefonosGestor(int $idPersona): array
+    {
+        return $this->db->queryAll(
+            'SELECT id, numero FROM asigna_telefono_persona
+             WHERE id_persona = :idPersona AND estatus = 1
+             ORDER BY id',
+            ['idPersona' => $idPersona]
+        ) ?: [];
+    }
+
+    /**
+     * Registra un nuevo teléfono para el gestor (máximo 10 activos).
+     * @return array{success:bool, message:string}
+     */
+    public function registrarTelefonoGestor(int $idPersona, string $numero): array
+    {
+        $total = (int) ($this->db->queryOne(
+            'SELECT COUNT(*) AS cnt FROM asigna_telefono_persona
+             WHERE id_persona = :idPersona AND estatus = 1',
+            ['idPersona' => $idPersona]
+        )['cnt'] ?? 0);
+
+        if ($total >= 10) {
+            return ['success' => false, 'message' => 'Límite de 10 teléfonos alcanzado.'];
+        }
+
+        $n = $this->db->CRUD(
+            'INSERT INTO asigna_telefono_persona (id_persona, numero) VALUES (:idPersona, :numero)',
+            ['idPersona' => $idPersona, 'numero' => $numero]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Teléfono registrado correctamente.']
+            : ['success' => false, 'message' => 'No se pudo guardar el teléfono.'];
+    }
+
+    /** Elimina (desactiva) un teléfono adicional. */
+    public function eliminarTelefonoGestor(int $idTelefono, int $idPersona): array
+    {
+        $n = $this->db->CRUD(
+            'UPDATE asigna_telefono_persona SET estatus = 0
+             WHERE id = :id AND id_persona = :idPersona',
+            ['id' => $idTelefono, 'idPersona' => $idPersona]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Teléfono eliminado.']
+            : ['success' => false, 'message' => 'Teléfono no encontrado.'];
+    }
+
+    // =========================================================================
+    // CORREOS ADICIONALES DEL GESTOR
+    // =========================================================================
+
+    /** Retorna los correos activos registrados para un gestor. */
+    public function obtenerCorreosGestor(int $idPersona): array
+    {
+        return $this->db->queryAll(
+            'SELECT id, correo FROM asigna_correo_persona
+             WHERE id_persona = :idPersona AND estatus = 1
+             ORDER BY id',
+            ['idPersona' => $idPersona]
+        ) ?: [];
+    }
+
+    /**
+     * Registra un nuevo correo para el gestor (máximo 10 activos).
+     * @return array{success:bool, message:string}
+     */
+    public function registrarCorreoGestor(int $idPersona, string $correo): array
+    {
+        $total = (int) ($this->db->queryOne(
+            'SELECT COUNT(*) AS cnt FROM asigna_correo_persona
+             WHERE id_persona = :idPersona AND estatus = 1',
+            ['idPersona' => $idPersona]
+        )['cnt'] ?? 0);
+
+        if ($total >= 10) {
+            return ['success' => false, 'message' => 'Límite de 10 correos alcanzado.'];
+        }
+
+        $n = $this->db->CRUD(
+            'INSERT INTO asigna_correo_persona (id_persona, correo) VALUES (:idPersona, :correo)',
+            ['idPersona' => $idPersona, 'correo' => $correo]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Correo registrado correctamente.']
+            : ['success' => false, 'message' => 'No se pudo guardar el correo.'];
+    }
+
+    /** Elimina (desactiva) un correo adicional. */
+    public function eliminarCorreoGestor(int $idCorreo, int $idPersona): array
+    {
+        $n = $this->db->CRUD(
+            'UPDATE asigna_correo_persona SET estatus = 0
+             WHERE id = :id AND id_persona = :idPersona',
+            ['id' => $idCorreo, 'idPersona' => $idPersona]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Correo eliminado.']
+            : ['success' => false, 'message' => 'Correo no encontrado.'];
+    }
+
+    // =========================================================================
+    // PERSONAS (para registro de nuevos gestores)
+    // =========================================================================
+
+    /**
+     * Todas las personas del catálogo, para el desplegable de registro de gestores.
+     */
+    public function obtenerTodasPersonas(): array
+    {
+        $query = <<<SQL
+        SELECT
+            id,
+            TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom)) AS nombre_completo,
+            telefono_uno AS telefono,
+            correo
+        FROM persona
+        ORDER BY nombres, apellidop, apellidom
+        SQL;
+
+        return $this->db->queryAll($query) ?: [];
+    }
+
+    /**
+     * Registra una persona como gestor de adjudicación.
+     * Devuelve error si ya existe un registro previo (cualquier estatus).
+     *
+     * @return array{success:bool, message:string}
+     */
+    public function registrarGestor(int $idPersona, string $tel1, string $correo1): array
+    {
+        $existe = $this->db->queryOne(
+            'SELECT id FROM personal_adjudicacion WHERE id_persona = :idPersona LIMIT 1',
+            ['idPersona' => $idPersona]
+        );
+
+        if ($existe) {
+            return ['success' => false, 'message' => 'Esta persona ya está registrada como gestor de adjudicación.'];
+        }
+
+        $n = $this->db->CRUD(
+            "INSERT INTO personal_adjudicacion (id_persona, estatus, fecha_alta, numero_tel1, correo_1)
+             VALUES (:idPersona, 'Activo', :fechaAlta, :tel1, :correo1)",
+            [
+                'idPersona' => $idPersona,
+                'fechaAlta' => $this->fechaHoraCdmx(),
+                'tel1'      => $tel1,
+                'correo1'   => $correo1,
+            ]
+        );
+
+        if ($n > 0) {
+            return ['success' => true, 'message' => 'Gestor registrado correctamente.'];
+        }
+
+        return ['success' => false, 'message' => 'No se pudo registrar el gestor.'];
+    }
+
+    /**
+     * Actualiza el campo numero_tel1 en personal_adjudicacion para el gestor dado.
+     */
+    public function actualizarTelefono1(int $idPersona, string $numero): array
+    {
+        $n = $this->db->CRUD(
+            'UPDATE personal_adjudicacion SET numero_tel1 = :numero WHERE id_persona = :idPersona',
+            ['numero' => $numero, 'idPersona' => $idPersona]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Teléfono actualizado.']
+            : ['success' => false, 'message' => 'No se encontró el registro del gestor.'];
+    }
+
+    /**
+     * Actualiza el campo correo_1 en personal_adjudicacion para el gestor dado.
+     */
+    public function actualizarCorreo1(int $idPersona, string $correo): array
+    {
+        $n = $this->db->CRUD(
+            'UPDATE personal_adjudicacion SET correo_1 = :correo WHERE id_persona = :idPersona',
+            ['correo' => $correo, 'idPersona' => $idPersona]
+        );
+
+        return $n > 0
+            ? ['success' => true,  'message' => 'Correo actualizado.']
+            : ['success' => false, 'message' => 'No se encontró el registro del gestor.'];
     }
 }

@@ -80,6 +80,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
                     ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
+                    ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',       'modulos' => [63]],
                 ],
             ],
             'Gastos Cobranza' => [
