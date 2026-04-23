@@ -334,7 +334,7 @@ class MotosAdjudicadas extends Model
 
         $op['observaciones'] = $this->db->queryAll(
             "SELECT id, etapa, area, id_usuario, texto, DATE_FORMAT(fecha, '%Y-%m-%d %H:%i') AS fecha
-             FROM adj_observacion WHERE id_operacion = :id ORDER BY fecha DESC",
+             FROM adj_observacion WHERE id_operacion = :id ORDER BY fecha ASC",
             ['id' => $id]
         ) ?: [];
 

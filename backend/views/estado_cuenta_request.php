@@ -3065,17 +3065,17 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
                             <select id="idMotivoCondonacionCobranza" class="form-select mb-3" autocomplete="off">
                                 <?php
                                 $ecCatMotivos = isset($catalogoMotivosCondonacion) && is_array($catalogoMotivosCondonacion) ? $catalogoMotivosCondonacion : [];
+                                echo '<option value="" selected>Seleccione una opción</option>' . "\n";
                                 foreach ($ecCatMotivos as $cm) {
                                     $oid = (int) ($cm['id'] ?? 0);
                                     if ($oid < 1) {
                                         continue;
                                     }
                                     $otxt = htmlspecialchars((string) ($cm['motivo'] ?? ''), ENT_QUOTES, 'UTF-8');
-                                    $sel = $oid === 1 ? ' selected' : '';
-                                    echo '<option value="' . (int) $oid . '"' . $sel . '>' . $otxt . "</option>\n";
+                                    echo '<option value="' . (int) $oid . '">' . $otxt . "</option>\n";
                                 }
                                 if (count($ecCatMotivos) === 0) {
-                                    echo '<option value="1" selected>Campaña Call Center</option>' . "\n";
+                                    echo '<option value="1">Campaña Call Center</option>' . "\n";
                                 }
                                 ?>
                             </select>
@@ -4274,6 +4274,11 @@ function consultaGastosCondonables(idCredito) {
     idCreditoCondonar = idCredito;
     historialCargado  = false;
 
+    const smOpen = document.getElementById('idMotivoCondonacionCobranza');
+    if (smOpen) smOpen.value = '';
+    const desOpen = document.getElementById('descripcionCondonacion');
+    if (desOpen) desOpen.value = '';
+
     const tabla     = document.getElementById('tablaGastos');
     const countSpan = document.getElementById('countCondonados');
     const montoSpan = document.getElementById('montoCondonar');
@@ -4497,7 +4502,7 @@ function syncVisibilidadResumenCondonacion() {
                 const ta = document.getElementById('descripcionCondonacion');
                 if (ta) ta.value = '';
                 const sm = document.getElementById('idMotivoCondonacionCobranza');
-                if (sm) sm.value = '1';
+                if (sm) sm.value = '';
             }
         }
     }
@@ -4803,11 +4808,21 @@ function syncVisibilidadResumenCondonacion() {
 
         const comentario = document.getElementById('descripcionCondonacion').value.trim();
         const selMot = document.getElementById('idMotivoCondonacionCobranza');
-        const idMotivoCondonacion = selMot ? (parseInt(String(selMot.value), 10) || 1) : 1;
         const checks = document.querySelectorAll('.chk-condona:checked');
 
         if (checks.length === 0) {
             Swal.fire("Atención", "Selecciona al menos un gasto", "warning");
+            return;
+        }
+
+        const rawMot = selMot ? String(selMot.value).trim() : '';
+        if (rawMot === '') {
+            Swal.fire('Atención', 'Seleccione una opción en motivo de la condonación (convenio de pago).', 'warning');
+            return;
+        }
+        const idMotivoCondonacion = parseInt(rawMot, 10);
+        if (!Number.isFinite(idMotivoCondonacion) || idMotivoCondonacion < 1) {
+            Swal.fire('Atención', 'Seleccione un motivo de condonación válido.', 'warning');
             return;
         }
 
@@ -5189,7 +5204,7 @@ document.getElementById('modalCondonar').addEventListener('hidden.bs.modal', fun
     if (tabGastosBtn) tabGastosBtn.click();
     document.getElementById('descripcionCondonacion').value = ''; // Limpiar motivo condonación al cerrar modal
     const smC = document.getElementById('idMotivoCondonacionCobranza');
-    if (smC) smC.value = '1';
+    if (smC) smC.value = '';
 });
 
 // Ajuste dinámico real: baja fuente hasta que el texto quepa (sin puntos suspensivos).

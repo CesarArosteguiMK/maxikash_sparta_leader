@@ -1754,8 +1754,9 @@ class Reporteria extends Controller
     }
 
     /**
-     * JSON: jerarquías agregadas para varias semanas (POST JSON { "semanas": ["Semana 16-2026", ...] }).
-     * Segunda petición tras el comparativo, para no bloquear la carga inicial de la página.
+     * JSON: jerarquías agregadas (POST JSON).
+     * - { "semanas": ["Semana 16-2026", ...] } — lista explícita.
+     * - { "ultimas": true } — mismas últimas semanas cerradas que el comparativo (puede lanzarse en paralelo).
      */
     public function getPrimerosPagosHistoricoJerarquias()
     {
@@ -1770,6 +1771,32 @@ class Reporteria extends Controller
             if (!is_array($semanas)) {
                 http_response_code(400);
                 self::respuestaJSON(['success' => false, 'mensaje' => 'El campo semanas debe ser un arreglo.']);
+
+                return;
+            }
+            if (!empty($body['ultimas'])) {
+                $ls = PrimerosPagosHistoricoSegundometro::listarSemanas(5);
+                if (!($ls['success'] ?? false)) {
+                    http_response_code(404);
+                    self::respuestaJSON([
+                        'success' => false,
+                        'mensaje' => (string) ($ls['mensaje'] ?? 'No se pudo listar semanas para jerarquías.'),
+                        'error' => isset($ls['error']) ? (string) $ls['error'] : null,
+                    ]);
+
+                    return;
+                }
+                $semanas = [];
+                foreach ((array) ($ls['datos'] ?? []) as $row) {
+                    $s = trim((string) ($row['semana'] ?? ''));
+                    if ($s !== '') {
+                        $semanas[] = $s;
+                    }
+                }
+            }
+            if ($semanas === []) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Indique semanas[] o ultimas: true.']);
 
                 return;
             }
@@ -1850,8 +1877,27 @@ class Reporteria extends Controller
             const BUCKET_ORDER  = Object.keys(BUCKET_META);
             const BUCKET_NAC_TOP = ['a) Current', 'b) 1 a 7 dias'];
 
+            /** Alinea textos de bucket desde BD (acentos, alias) a las claves de BUCKET_ORDER. */
+            function canonBucket(v) {
+                if (v === null || v === undefined) return '';
+                let s = String(v).trim();
+                if (!s) return '';
+                s = s.replace(/\s+/g, ' ');
+                const mapa = {
+                    'Current': 'a) Current',
+                    'current': 'a) Current',
+                    'b) 1 a 7 días': 'b) 1 a 7 dias',
+                    'c) 8 a 30 días': 'c) 8 a 30 dias',
+                    'd) 31 a 60 días': 'd) 31 a 60 dias',
+                    'e) 61+ días': 'e) 61+ dias',
+                };
+                if (mapa[s]) return mapa[s];
+                if (BUCKET_ORDER.includes(s)) return s;
+                return s;
+            }
+
             function badgeBucket(val, small = false) {
-                const v = val || '—';
+                const v = canonBucket(val) || val || '—';
                 const m = BUCKET_META[v] ?? { cls:'bg-label-secondary', icon:'fa-question', short: v };
                 const sz = small ? 'font-size:.68rem;' : '';
                 return `<span class="badge ${m.cls}" style="${sz}">
@@ -1861,8 +1907,8 @@ class Reporteria extends Controller
 
             function movimientoHtml(nacio, actual) {
                 if (!nacio || !actual) return '<span class="text-muted">—</span>';
-                const iN = BUCKET_ORDER.indexOf(nacio);
-                const iA = BUCKET_ORDER.indexOf(actual);
+                const iN = BUCKET_ORDER.indexOf(canonBucket(nacio));
+                const iA = BUCKET_ORDER.indexOf(canonBucket(actual));
                 if (iN === iA) return `<span class="text-muted" title="Sin cambio"><i class="fa fa-equals"></i></span>`;
                 if (iA < iN)   return `<span class="text-success" title="Mejoró"><i class="fa fa-arrow-up"></i></span>`;
                 return `<span class="text-danger" title="Empeoró"><i class="fa fa-arrow-down"></i></span>`;
@@ -1920,15 +1966,16 @@ class Reporteria extends Controller
             /* ── Stats ── */
             function calcStats(data) {
                 const nacDist = {};
-                BUCKET_ORDER.forEach(b => nacDist[b] = 0);
-                const normBucket = (v) => {
-                    if (v === null || v === undefined) return '';
-                    const s = String(v).trim();
-                    return s;
-                };
+                const corteDist = {};
+                BUCKET_ORDER.forEach(b => {
+                    nacDist[b] = 0;
+                    corteDist[b] = 0;
+                });
                 data.forEach(r => {
-                    const bn = normBucket(r.bucket_nacio);
+                    const bn = canonBucket(r.bucket_nacio);
                     if (bn !== '' && nacDist[bn] !== undefined) nacDist[bn]++;
+                    const bc = canonBucket(r.bucket_corte_actual);
+                    if (bc !== '' && corteDist[bc] !== undefined) corteDist[bc]++;
                 });
 
                 const matriz = {};
@@ -1937,14 +1984,14 @@ class Reporteria extends Controller
                     BUCKET_ORDER.forEach(c => matriz[b][c] = 0);
                 });
                 data.forEach(r => {
-                    const n = normBucket(r.bucket_nacio);
-                    const c = normBucket(r.bucket_corte_actual);
-                    if (n && c && matriz[n] !== undefined) {
+                    const n = canonBucket(r.bucket_nacio);
+                    const c = canonBucket(r.bucket_corte_actual);
+                    if (n && c && matriz[n] !== undefined && matriz[n][c] !== undefined) {
                         matriz[n][c] = (matriz[n][c] || 0) + 1;
                     }
                 });
 
-                return { nacDist, matriz };
+                return { nacDist, matriz, corteDist };
             }
 
             /** Misma fecha / corte que el encabezado (#lunesFecha, #corteLabel); colores alineados con el título. */
@@ -1973,7 +2020,7 @@ class Reporteria extends Controller
                     return;
                 }
 
-                const { nacDist, matriz } = calcStats(data);
+                const { nacDist, matriz, corteDist } = calcStats(data);
                 const totalRegs = data.length || 0;
                 const pctOf = (n) => (totalRegs ? Math.round((Number(n) / totalRegs) * 100) : 0);
 
@@ -2038,36 +2085,27 @@ class Reporteria extends Controller
                     elRest.classList.toggle('d-none', !htmlNacRest.trim());
                 }
 
-                /* Distribución de corte: Current al corte = nacieron en Current + los de 1-7d que ya pagaron (bucket_corte_actual=Current). */
-                const totalCurrentNac = nacDist['a) Current'] || 0;
-                const recuperados1a7  = (matriz['b) 1 a 7 dias'] && matriz['b) 1 a 7 dias']['a) Current']) ? matriz['b) 1 a 7 dias']['a) Current'] : 0;
-                const currentMasRecuperados = totalCurrentNac + recuperados1a7;
-                const total1a7Nac    = nacDist['b) 1 a 7 dias'] || 0;
-                const pendientes     = Math.max(0, total1a7Nac - recuperados1a7);
-                let htmlCorte = '';
-                htmlCorte += `
-                <div class="col">
-                    <div class="card text-center h-100 border-0 shadow-sm">
-                        <div class="card-body py-2 px-2">
-                            <div class="badge bg-label-success mb-1" style="font-size:.65rem;">
-                                <i class="fa fa-circle-check me-1"></i>Current
+                /* Distribución de corte: buckets reales según mora al corte (bucket_corte_actual), distinto a nacimiento. */
+                const cardCorteBucketHtml = (b) => {
+                    const m = BUCKET_META[b] ?? {};
+                    const cnt = corteDist[b] || 0;
+                    if (!cnt) return '';
+                    return `
+                    <div class="col">
+                        <div class="card text-center h-100 border-0 shadow-sm">
+                            <div class="card-body py-2 px-2">
+                                <div class="badge ${m.cls} mb-1" style="font-size:.65rem;">
+                                    <i class="fa ${m.icon} me-1"></i>${m.short}
+                                </div>
+                                <div class="fw-bold" style="font-size:1.5rem;">${cnt}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="text-muted" style="font-size:.65rem;">al corte</div>
                             </div>
-                            <div class="fw-bold text-body" style="font-size:1.5rem;">${currentMasRecuperados}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(currentMasRecuperados)}%)</span></div>
-                            <div class="text-muted" style="font-size:.65rem;">al corte</div>
                         </div>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="card text-center h-100 border-0 shadow-sm">
-                        <div class="card-body py-2 px-2">
-                            <div class="badge bg-label-warning mb-1" style="font-size:.58rem;white-space:normal;line-height:1.25;max-width:100%;">
-                                <i class="fa fa-clock me-1"></i>Pendientes primeros pagos
-                            </div>
-                            <div class="fw-bold text-body" style="font-size:1.5rem;">${pendientes}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(pendientes)}%)</span></div>
-                            <div class="text-muted" style="font-size:.65rem;">por recuperar</div>
-                        </div>
-                    </div>
-                </div>`;
+                    </div>`;
+                };
+                let htmlCorteBuckets = '';
+                BUCKET_ORDER.forEach(b => { htmlCorteBuckets += cardCorteBucketHtml(b); });
+                const htmlCorte = htmlCorteBuckets || '<div class="col-12"><p class="text-muted small mb-0">Sin buckets de corte reconocidos en los datos.</p></div>';
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
                 actualizarTituloDistribCorte();
 
@@ -2098,8 +2136,8 @@ class Reporteria extends Controller
                     if (!Z.gestores[gest]) Z.gestores[gest] = { total:0, cobrados:0, pendientes:0 };
                     const G = Z.gestores[gest]; G.total++;
 
-                    const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
-                    const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
+                    const iN = BUCKET_ORDER.indexOf(canonBucket(r.bucket_nacio));
+                    const iA = BUCKET_ORDER.indexOf(canonBucket(r.bucket_corte_actual));
                     const cobro = (iA >= 0 && iN >= 0 && iA < iN);
 
                     if (cobro) {
@@ -2363,8 +2401,8 @@ class Reporteria extends Controller
                     movimiento:  document.getElementById('fMovimiento')?.value  || '',
                 };
                 return data.filter(r => {
-                    if (f.bucketNacio && r.bucket_nacio        !== f.bucketNacio) return false;
-                    if (f.bucketCorte && r.bucket_corte_actual !== f.bucketCorte) return false;
+                    if (f.bucketNacio && canonBucket(r.bucket_nacio) !== canonBucket(f.bucketNacio)) return false;
+                    if (f.bucketCorte && canonBucket(r.bucket_corte_actual) !== canonBucket(f.bucketCorte)) return false;
                     if (f.territorial && r.Territorial         !== f.territorial) return false;
                     if (f.zonal       && r.Zonal               !== f.zonal)       return false;
                     if (f.jefe        && r.Jefe_de_Plaza       !== f.jefe)        return false;
@@ -2374,8 +2412,8 @@ class Reporteria extends Controller
                         if (!h.includes(f.busq)) return false;
                     }
                     if (f.movimiento) {
-                        const iN = BUCKET_ORDER.indexOf(r.bucket_nacio);
-                        const iA = BUCKET_ORDER.indexOf(r.bucket_corte_actual);
+                        const iN = BUCKET_ORDER.indexOf(canonBucket(r.bucket_nacio));
+                        const iA = BUCKET_ORDER.indexOf(canonBucket(r.bucket_corte_actual));
                         if (f.movimiento === 'mejoro'   && !(iA < iN))   return false;
                         if (f.movimiento === 'empeoró'  && !(iA > iN))   return false;
                         if (f.movimiento === 'igual'    && !(iA === iN)) return false;
