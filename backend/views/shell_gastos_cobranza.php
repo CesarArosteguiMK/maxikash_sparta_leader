@@ -2742,6 +2742,14 @@
                     }
                 } else {
                     await refrescarEstado({ silencioso: true });
+                    if (d.auto_run_runtime_solo_memoria && typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Reporte automático',
+                            text: 'El cambio quedó guardado solo en memoria del agente Node (no se pudo escribir en disco). Sigue válido hasta reiniciar el agente; para persistencia, permita escritura en gastos-cobranza-agent/data/ o en la carpeta temporal del sistema.',
+                            confirmButtonColor: '#696cff',
+                        });
+                    }
                 }
             } catch (err) {
                 gcAutoRunProgrammatic = true;

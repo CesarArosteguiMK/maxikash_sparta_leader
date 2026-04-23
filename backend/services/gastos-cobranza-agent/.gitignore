@@ -5,6 +5,9 @@ __pycache__/
 # .env de esta carpeta se trackea en Git (ver excepción en raíz .gitignore) para despliegue automático.
 .env.local
 logs/
+# Estado runtime del proceso Node (toggle UI, dedupe correo, último auto-run); no versionar
+data/*
+!data/.gitkeep
 scripts/*.log
 reporte/*.txt
 reporte/*.xlsx

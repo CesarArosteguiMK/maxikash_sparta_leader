@@ -2119,80 +2119,157 @@ public static function actualizarEstatusPagoGasto($idGasto, $estatusPago)
 
 public static function getHistorialGastosCobranza($idCredito)
 {
+    $idCredito = (int) $idCredito;
+    if ($idCredito <= 0) {
+        return self::resultado(false, 'Id de crédito inválido', []);
+    }
+
+    $mapFila = static function (array $row): array {
+        $montoOriginal = (float) ($row['monto_valor'] ?? 0);
+        $condParcial = (float) ($row['condonacion_parcial_monto'] ?? 0);
+        $esCondonadoT = (int) ($row['condonado'] ?? 0) === 1;
+        $motivoParcial = trim((string) ($row['condonacion_parcial_motivo'] ?? ''));
+        $motivoCat = trim((string) ($row['motivo_condonacion_catalogo'] ?? ''));
+        $motivoResumen = '—';
+        if ($esCondonadoT) {
+            $motivoResumen = $motivoCat !== '' ? $motivoCat : 'Campaña Call Center';
+        } elseif ($condParcial > 0) {
+            $motivoResumen = $motivoParcial !== ''
+                ? (mb_strlen($motivoParcial) > 80 ? mb_substr($motivoParcial, 0, 77) . '...' : $motivoParcial)
+                : '—';
+        }
+        $ini = $row['periodo_inicio'] ?? '';
+        $fin = $row['periodo_fin'] ?? '';
+        $periodo = '—';
+        if ($ini !== '' && $fin !== '') {
+            $tsIni = strtotime((string) $ini);
+            $tsFin = strtotime((string) $fin);
+            if ($tsIni !== false && $tsFin !== false) {
+                $periodo = date('d/m/Y', $tsIni) . ' - ' . date('d/m/Y', $tsFin);
+            }
+        }
+
+        return [
+            'id_gasto' => (int) ($row['id_gastos_cobranza'] ?? 0),
+            'semana' => $row['SEMANA'] ?? '',
+            'periodo' => $periodo,
+            'monto_original' => $montoOriginal,
+            'condonacion_parcial_monto' => $condParcial,
+            'monto_condonado' => (int) ($row['condonado'] ?? 0) === 1 ? $montoOriginal : $condParcial,
+            'monto_parcial_pagado' => (float) ($row['monto_parcial_pagado'] ?? 0),
+            'parcialidad' => (int) ($row['parcialidad'] ?? 0),
+            'motivo_resumen' => $motivoResumen,
+            'fecha_condonacion' => !empty($row['fecha_condonacion'])
+                ? date('d/m/Y', strtotime((string) $row['fecha_condonacion']))
+                : (!empty($row['created_at']) ? date('d/m/Y', strtotime((string) $row['created_at'])) : '—'),
+            'fecha_pago' => !empty($row['fecha_pago'])
+                ? date('d/m/Y', strtotime((string) $row['fecha_pago']))
+                : '—',
+            'estatus' => (int) ($row['estatus_pago'] ?? 0),
+            'condonado' => (int) ($row['condonado'] ?? 0),
+        ];
+    };
+
     try {
         $db = new DatabaseSegundometro();
-        // 1. La consulta ahora incluye OR condonado = 1 para traer los perdonados
-        $query = "
+        $params = ['id_credito' => $idCredito];
+
+        $sqlMotivo = "
             SELECT
-        gc.id_gastos_cobranza,
-        gc.SEMANA,
-        gc.periodo_inicio,
-        gc.periodo_fin,
-        gc.monto_valor,
-        gc.condonacion_parcial_monto,
-        gc.condonado,
-        gc.estatus_pago,
-        gc.fecha_condonacion,
-        gc.fecha_pago,
-        gc.created_at,
-        gc.parcialidad,
-        COALESCE(gc.monto_parcial_pagado, 0) AS monto_parcial_pagado,
-        gc.condonacion_parcial_motivo,
-        (
-            SELECT m.motivo
-            FROM condonaciones_cobranza_detalle ccd2
-            INNER JOIN condonaciones_cobranza cc2 ON cc2.id_condonacion = ccd2.id_condonacion
-            LEFT JOIN catalogo_motivos_condonacion m ON m.id = cc2.id_motivo_condonacion
-            WHERE ccd2.id_gastos_cobranza = gc.id_gastos_cobranza
-            ORDER BY cc2.id_condonacion DESC
-            LIMIT 1
-        ) AS motivo_condonacion_catalogo
-    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza gc
-    WHERE gc.Id_credito = :id_credito
-      AND (gc.estatus_pago = 2 OR gc.condonado = 1)
-    ORDER BY gc.periodo_inicio DESC
+                gc.id_gastos_cobranza,
+                gc.SEMANA,
+                gc.periodo_inicio,
+                gc.periodo_fin,
+                gc.monto_valor,
+                gc.condonacion_parcial_monto,
+                gc.condonado,
+                gc.estatus_pago,
+                gc.fecha_condonacion,
+                gc.fecha_pago,
+                gc.created_at,
+                gc.parcialidad,
+                COALESCE(gc.monto_parcial_pagado, 0) AS monto_parcial_pagado,
+                gc.condonacion_parcial_motivo,
+                (
+                    SELECT m.motivo
+                    FROM `__SPARTA_SECRET_REDACTED__`.condonaciones_cobranza_detalle ccd2
+                    INNER JOIN `__SPARTA_SECRET_REDACTED__`.condonaciones_cobranza cc2
+                        ON cc2.id_condonacion = ccd2.id_condonacion
+                    LEFT JOIN `__SPARTA_SECRET_REDACTED__`.catalogo_motivos_condonacion m
+                        ON m.id = cc2.id_motivo_condonacion
+                    WHERE ccd2.id_gastos_cobranza = gc.id_gastos_cobranza
+                    ORDER BY cc2.id_condonacion DESC
+                    LIMIT 1
+                ) AS motivo_condonacion_catalogo
+            FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza gc
+            WHERE gc.Id_credito = :id_credito
+              AND (COALESCE(gc.estatus_pago, 0) = 2 OR COALESCE(gc.condonado, 0) = 1)
+            ORDER BY gc.periodo_inicio DESC
         ";
 
-        $r = $db->queryAll($query, ['id_credito' => $idCredito]);
+        $sqlSinSubquery = "
+            SELECT
+                gc.id_gastos_cobranza,
+                gc.SEMANA,
+                gc.periodo_inicio,
+                gc.periodo_fin,
+                gc.monto_valor,
+                gc.condonacion_parcial_monto,
+                gc.condonado,
+                gc.estatus_pago,
+                gc.fecha_condonacion,
+                gc.fecha_pago,
+                gc.created_at,
+                gc.parcialidad,
+                COALESCE(gc.monto_parcial_pagado, 0) AS monto_parcial_pagado,
+                gc.condonacion_parcial_motivo,
+                CAST(NULL AS CHAR(255) CHARACTER SET utf8mb4) AS motivo_condonacion_catalogo
+            FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza gc
+            WHERE gc.Id_credito = :id_credito
+              AND (COALESCE(gc.estatus_pago, 0) = 2 OR COALESCE(gc.condonado, 0) = 1)
+            ORDER BY gc.periodo_inicio DESC
+        ";
 
-        $datos = array_map(function($row) {
-            $montoOriginal = (float)$row['monto_valor'];
-            $condParcial   = (float)($row['condonacion_parcial_monto'] ?? 0);
-            $esCondonadoT  = (int) ($row['condonado'] ?? 0) === 1;
-            $motivoParcial = trim((string)($row['condonacion_parcial_motivo'] ?? ''));
-            $motivoCat     = trim((string)($row['motivo_condonacion_catalogo'] ?? ''));
-            $motivoResumen = '—';
-            if ($esCondonadoT) {
-                $motivoResumen = $motivoCat !== '' ? $motivoCat : 'Campaña Call Center';
-            } elseif ($condParcial > 0) {
-                $motivoResumen = $motivoParcial !== ''
-                    ? (mb_strlen($motivoParcial) > 80 ? mb_substr($motivoParcial, 0, 77) . '...' : $motivoParcial)
-                    : '—';
+        $sqlMinimo = "
+            SELECT
+                id_gastos_cobranza,
+                SEMANA,
+                periodo_inicio,
+                periodo_fin,
+                monto_valor,
+                COALESCE(condonacion_parcial_monto, 0) AS condonacion_parcial_monto,
+                COALESCE(condonado, 0) AS condonado,
+                COALESCE(estatus_pago, 0) AS estatus_pago,
+                NULL AS fecha_condonacion,
+                NULL AS fecha_pago,
+                NULL AS created_at,
+                COALESCE(parcialidad, 0) AS parcialidad,
+                0 AS monto_parcial_pagado,
+                '' AS condonacion_parcial_motivo,
+                CAST(NULL AS CHAR(1)) AS motivo_condonacion_catalogo
+            FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
+            WHERE Id_credito = :id_credito
+              AND (COALESCE(estatus_pago, 0) = 2 OR COALESCE(condonado, 0) = 1)
+            ORDER BY periodo_inicio DESC
+        ";
+
+        $r = null;
+        try {
+            $r = $db->queryAll($sqlMotivo, $params);
+        } catch (\Throwable) {
+            try {
+                $r = $db->queryAll($sqlSinSubquery, $params);
+            } catch (\Throwable) {
+                $r = $db->queryAll($sqlMinimo, $params);
             }
+        }
 
-           return [
-                'id_gasto'                  => (int)$row['id_gastos_cobranza'],
-                'semana'                    => $row['SEMANA'],
-                'periodo'                   => date('d/m/Y', strtotime($row['periodo_inicio'])) . ' - ' . date('d/m/Y', strtotime($row['periodo_fin'])),
-                'monto_original'            => $montoOriginal,
-                'condonacion_parcial_monto' => $condParcial,
-                'monto_condonado'           => $row['condonado'] == 1 ? $montoOriginal : $condParcial,
-                'monto_parcial_pagado'      => (float)($row['monto_parcial_pagado'] ?? 0), // 👈
-                'parcialidad'               => (int)$row['parcialidad'],                   // 👈
-                'motivo_resumen'            => $motivoResumen,
-                'fecha_condonacion'         => !empty($row['fecha_condonacion'])
-                                                ? date('d/m/Y', strtotime($row['fecha_condonacion']))
-                                                : (!empty($row['created_at']) ? date('d/m/Y', strtotime($row['created_at'])) : '—'),
-                'fecha_pago'                => !empty($row['fecha_pago'])
-                                                ? date('d/m/Y', strtotime($row['fecha_pago']))
-                                                : '—',
-                'estatus'                   => (int)$row['estatus_pago'],
-                'condonado'                 => (int)$row['condonado']
-            ];
-        }, $r ?: []);
+        $datos = array_map(static function (array $row) use ($mapFila) {
+            return $mapFila($row);
+        }, is_array($r) ? $r : []);
 
         return self::resultado(true, 'Historial recuperado', $datos);
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         return self::resultado(false, 'Error al obtener historial', null, $e->getMessage());
     }
 }

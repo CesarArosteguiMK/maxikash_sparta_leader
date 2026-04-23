@@ -1696,7 +1696,7 @@ class Reporteria extends Controller
     }
 
     /**
-     * Histórico semanal (gráficas) desde `tbl_segundometro_histo` — módulo 49.
+     * Histórico semanal (gráficas) desde `tbl_histo_primeros_pagos` — módulo 49.
      * URL: /analitica/PrimerosPagosHistorico
      */
     public function PrimerosPagosHistorico()
@@ -1711,7 +1711,7 @@ class Reporteria extends Controller
      */
     public function getPrimerosPagosHistoricoSemanas()
     {
-        $r = PrimerosPagosHistoricoSegundometro::listarSemanas(4);
+        $r = PrimerosPagosHistoricoSegundometro::listarSemanas(5);
         if (!($r['success'] ?? false)) {
             self::respuestaJSON([
                 'success' => false,
@@ -1724,6 +1724,72 @@ class Reporteria extends Controller
             'success' => true,
             'datos' => $r['datos'] ?? [],
         ]);
+    }
+
+    /**
+     * JSON: comparativo de nacimiento vs corte actual de las últimas 5 semanas cerradas
+     * (excluye la semana ISO en curso).
+     */
+    public function getPrimerosPagosHistoricoComparativo()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $r = PrimerosPagosHistoricoSegundometro::resumenUltimasNSemanas(5);
+            if (!($r['success'] ?? false)) {
+                http_response_code(404);
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => (string) ($r['mensaje'] ?? 'Sin datos'),
+                    'error' => isset($r['error']) ? (string) $r['error'] : null,
+                ]);
+
+                return;
+            }
+            self::respuestaJSON(['success' => true, 'datos' => $r['datos'] ?? []]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getPrimerosPagosHistoricoComparativo -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al armar el comparativo histórico.']);
+        }
+    }
+
+    /**
+     * JSON: jerarquías agregadas para varias semanas (POST JSON { "semanas": ["Semana 16-2026", ...] }).
+     * Segunda petición tras el comparativo, para no bloquear la carga inicial de la página.
+     */
+    public function getPrimerosPagosHistoricoJerarquias()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                $body = [];
+            }
+            $semanas = $body['semanas'] ?? [];
+            if (!is_array($semanas)) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El campo semanas debe ser un arreglo.']);
+
+                return;
+            }
+            $r = PrimerosPagosHistoricoSegundometro::jerarquiasAgregadasPorSemanas($semanas);
+            if (!($r['success'] ?? false)) {
+                http_response_code(400);
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => (string) ($r['mensaje'] ?? 'Error'),
+                    'error' => isset($r['error']) ? (string) $r['error'] : null,
+                ]);
+
+                return;
+            }
+            self::respuestaJSON(['success' => true, 'datos' => $r['datos'] ?? []]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::getPrimerosPagosHistoricoJerarquias -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar jerarquías históricas.']);
+        }
     }
 
     /**
@@ -1841,6 +1907,8 @@ class Reporteria extends Controller
 
                 dtVenc = $('#tablaVencimientos').DataTable({
                     processing: true, responsive: true, scrollX: VISTA_SIMPLE, pageLength: VISTA_SIMPLE ? 10 : 5,
+                    /* Lunes de cierre: sin caja "Buscar..." de DataTables (búsqueda queda en Filtros → fBusq) */
+                    searching: VISTA_SIMPLE,
                     lengthMenu: VISTA_SIMPLE
                         ? [[10, 25, 50, -1], [10, 25, 50, 'Todos']]
                         : [[5, 10, 25, -1], [5, 10, 25, 'Todos']],

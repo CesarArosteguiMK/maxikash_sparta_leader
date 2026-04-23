@@ -37,6 +37,7 @@
  */
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const https = require('https');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
@@ -81,8 +82,14 @@ function demoPermitidoSinScript() {
 
 const LOG_DIR = path.join(__dirname, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'agente-gastos-cobranza.log');
-/** 1/0 escrito por la UI (shell PHP): anula solo en runtime el default de GASTOS_GC_AUTO_RUN_10AM_CDMX en .env */
-const AUTO_RUN_RUNTIME_FILE = path.join(LOG_DIR, '.auto_run_reporte_runtime.txt');
+/** Estado escribible por Node (auto-run, dedupe correo, etc.); fuera de `logs/` por permisos en Windows/XAMPP. */
+const AGENT_DATA_DIR = path.join(__dirname, 'data');
+/** 1/0 — toggle «automático» desde la UI. */
+const AUTO_RUN_RUNTIME_FILE_DATA = path.join(AGENT_DATA_DIR, 'auto_run_reporte_runtime.txt');
+/** Compatibilidad con versiones anteriores (mismo directorio que el .log). */
+const AUTO_RUN_RUNTIME_FILE_LEGACY = path.join(LOG_DIR, '.auto_run_reporte_runtime.txt');
+/** Último recurso si `data/` y `logs/` no son escribibles por el proceso Node. */
+const AUTO_RUN_RUNTIME_FILE_TMP = path.join(os.tmpdir(), 'gastos-cobranza-agent-auto_run_reporte_runtime.txt');
 /** Salida de scripts Python línea a línea hacia el log del agente (evita buffer de stdout sin TTY). */
 const ENV_CON_PYTHON_UNBUFFERED = { ...process.env, PYTHONUNBUFFERED: '1' };
 const REPORTE_DIR = path.join(__dirname, 'reporte');
@@ -477,6 +484,12 @@ function ensureLogDir() {
   } catch (_) {}
 }
 
+function ensureAgentDataDir() {
+  try {
+    if (!fs.existsSync(AGENT_DATA_DIR)) fs.mkdirSync(AGENT_DATA_DIR, { recursive: true });
+  } catch (_) {}
+}
+
 /** Tamaño máximo del archivo de log antes de recortar (0 = sin recorte automático). */
 function logMaxBytes() {
   const n = parseInt(String(process.env.GASTOS_COBRANZA_LOG_MAX_BYTES || '400000'), 10);
@@ -650,22 +663,64 @@ function autoRun10amCdmxEnabled() {
   return String(process.env.GASTOS_GC_AUTO_RUN_10AM_CDMX ?? '1').trim() !== '0';
 }
 
+/** `true`|`false` si no hubo disco escribible (EPERM/EACCES); `undefined` = leer de archivos. */
+let autoRunRuntimeMemory = undefined;
+
+function listAutoRunRuntimeWritePaths() {
+  const envPath = String(process.env.GASTOS_GC_AUTO_RUN_RUNTIME_FILE || '').trim();
+  if (envPath) {
+    return [path.resolve(envPath)];
+  }
+  return [AUTO_RUN_RUNTIME_FILE_DATA, AUTO_RUN_RUNTIME_FILE_TMP, AUTO_RUN_RUNTIME_FILE_LEGACY];
+}
+
+function listAutoRunRuntimeReadPaths() {
+  const envPath = String(process.env.GASTOS_GC_AUTO_RUN_RUNTIME_FILE || '').trim();
+  if (envPath) {
+    return [path.resolve(envPath)];
+  }
+  // Mismo orden que escritura: preferir `data/` y tmp antes que `logs/` (suele fallar en Windows).
+  return [AUTO_RUN_RUNTIME_FILE_DATA, AUTO_RUN_RUNTIME_FILE_TMP, AUTO_RUN_RUNTIME_FILE_LEGACY];
+}
+
 function readAutoRunRuntimeOverride() {
-  ensureLogDir();
-  try {
-    if (!fs.existsSync(AUTO_RUN_RUNTIME_FILE)) return null;
-    const t = fs.readFileSync(AUTO_RUN_RUNTIME_FILE, 'utf8').trim().toLowerCase();
-    if (t === '0' || t === 'false' || t === 'off') return false;
-    if (t === '1' || t === 'true' || t === 'on') return true;
-  } catch (_) {}
+  if (autoRunRuntimeMemory !== undefined) return autoRunRuntimeMemory;
+  for (const p of listAutoRunRuntimeReadPaths()) {
+    try {
+      if (!fs.existsSync(p)) continue;
+      const t = fs.readFileSync(p, 'utf8').trim().toLowerCase();
+      if (t === '0' || t === 'false' || t === 'off') return false;
+      if (t === '1' || t === 'true' || t === 'on') return true;
+    } catch (_) {}
+  }
   return null;
 }
 
 function writeAutoRunRuntimeOverride(enabled) {
-  ensureLogDir();
-  fs.writeFileSync(AUTO_RUN_RUNTIME_FILE, enabled ? '1' : '0', { encoding: 'utf8' });
+  autoRunRuntimeMemory = undefined;
+  const val = enabled ? '1' : '0';
+  let lastErr = null;
+  for (const p of listAutoRunRuntimeWritePaths()) {
+    try {
+      const dir = path.dirname(p);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(p, val, { encoding: 'utf8' });
+      appendLog(`[auto-run] Preferencia runtime (${enabled ? 'activada' : 'desactivada'}) → ${p}`);
+      for (const other of listAutoRunRuntimeReadPaths()) {
+        if (other === p) continue;
+        try {
+          if (fs.existsSync(other)) fs.unlinkSync(other);
+        } catch (_) {}
+      }
+      return;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  autoRunRuntimeMemory = !!enabled;
   appendLog(
-    `[auto-run] Preferencia runtime (${enabled ? 'activada' : 'desactivada'}) → ${AUTO_RUN_RUNTIME_FILE}`,
+    `[auto-run] AVISO: no se pudo escribir estado en disco (${lastErr && lastErr.message ? lastErr.message : lastErr}); ` +
+      `queda ${enabled ? 'activado' : 'desactivado'} solo en memoria hasta reiniciar el agente Node.`,
   );
 }
 
@@ -713,11 +768,11 @@ function autoRunSyncRemoteClockForTick() {
 let lastAutoRunDebugLogMs = 0;
 
 function autoRunStateFilePath() {
-  return path.join(LOG_DIR, '.auto_run_reporte_cdmx_ymd.txt');
+  return path.join(AGENT_DATA_DIR, '.auto_run_reporte_cdmx_ymd.txt');
 }
 
 function readAutoRunLastYmd() {
-  ensureLogDir();
+  ensureAgentDataDir();
   try {
     const p = autoRunStateFilePath();
     if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8').trim();
@@ -726,7 +781,7 @@ function readAutoRunLastYmd() {
 }
 
 function writeAutoRunLastYmd(ymd) {
-  ensureLogDir();
+  ensureAgentDataDir();
   try {
     fs.writeFileSync(autoRunStateFilePath(), String(ymd).trim(), { encoding: 'utf8' });
   } catch (_) {}
@@ -1018,7 +1073,7 @@ function fingerprintPostReporteXlsx(st, base) {
 }
 
 function postReporteDedupeStatePath() {
-  return path.join(LOG_DIR, '.post_reporte_entrega_dedupe.json');
+  return path.join(AGENT_DATA_DIR, '.post_reporte_entrega_dedupe.json');
 }
 
 function postReporteDedupeWindowMs() {
@@ -1028,24 +1083,30 @@ function postReporteDedupeWindowMs() {
 }
 
 function readPostReporteDedupeRecord() {
-  try {
-    const raw = fs.readFileSync(postReporteDedupeStatePath(), 'utf8');
-    const j = JSON.parse(raw);
-    if (j && typeof j.fp === 'string' && typeof j.t === 'number') return j;
-  } catch (_) {}
-  return null;
+  const tryParse = (p) => {
+    try {
+      const raw = fs.readFileSync(p, 'utf8');
+      const j = JSON.parse(raw);
+      if (j && typeof j.fp === 'string' && typeof j.t === 'number') return j;
+    } catch (_) {}
+    return null;
+  };
+  const cur = tryParse(postReporteDedupeStatePath());
+  if (cur) return cur;
+  const legacy = path.join(LOG_DIR, '.post_reporte_entrega_dedupe.json');
+  return tryParse(legacy);
 }
 
 function writePostReporteDedupeRecord(fp) {
   try {
-    ensureLogDir();
+    ensureAgentDataDir();
     fs.writeFileSync(postReporteDedupeStatePath(), JSON.stringify({ fp, t: Date.now() }), { encoding: 'utf8' });
   } catch (_) {}
 }
 
 function postReporteEntregaLockPath(fp) {
   const h = crypto.createHash('sha256').update(fp).digest('hex').slice(0, 40);
-  return path.join(LOG_DIR, `.post_reporte_entrega_${h}.lock`);
+  return path.join(AGENT_DATA_DIR, `.post_reporte_entrega_${h}.lock`);
 }
 
 function stalePostReporteLockMs() {
@@ -1058,7 +1119,7 @@ function stalePostReporteLockMs() {
  * @returns {string|null} ruta del .lock si se obtuvo; null si hay que omitir
  */
 function acquirePostReporteNotifyLock(fp) {
-  ensureLogDir();
+  ensureAgentDataDir();
   const lp = postReporteEntregaLockPath(fp);
   const staleMs = stalePostReporteLockMs();
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -1421,8 +1482,10 @@ app.post('/auto-run-reporte', (req, res) => {
       String(body.enabled).toLowerCase() === 'true';
     writeAutoRunRuntimeOverride(en);
     const ro = readAutoRunRuntimeOverride();
+    const soloMemoria = autoRunRuntimeMemory !== undefined;
     return res.json({
       success: true,
+      auto_run_runtime_solo_memoria: soloMemoria,
       auto_run_cdmx: {
         enabled: autoRun10amCdmxEffective(),
         enabled_env: autoRun10amCdmxEnabled(),
@@ -1474,6 +1537,7 @@ app.get('/health', (req, res) => {
       enabled: autoRun10amCdmxEffective(),
       enabled_env: autoRun10amCdmxEnabled(),
       runtime_override: runtimeOr === null ? null : runtimeOr ? 1 : 0,
+      runtime_solo_memoria: autoRunRuntimeMemory !== undefined,
       hour: autoRunTargetHour(),
       minute: autoRunTargetMinute(),
       window_minutes: autoRunWindowMinutes(),
