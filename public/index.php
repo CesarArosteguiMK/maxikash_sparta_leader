@@ -258,6 +258,23 @@ if ($solicitaJsonAsignacionTableroSinSesion) {
     exit;
 }
 
+// CierreCredito (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «JSON.parse: unexpected character at line 1 column 1».
+$solicitaCierreCreditoAjaxSinSesion = !isset($_SESSION['login'])
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
+    && isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'cierrecredito'
+    && strtolower($urlSolicitada[1]) !== 'index';
+if ($solicitaCierreCreditoAjaxSinSesion) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'mensaje' => 'Sesión no válida o expirada. Vuelva a iniciar sesión.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
