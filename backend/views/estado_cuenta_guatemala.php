@@ -1931,17 +1931,17 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
                     <select id="idMotivoCondonacionCobranza" class="form-select mb-3" autocomplete="off">
                         <?php
                         $ecCatMotivosGt = isset($catalogoMotivosCondonacion) && is_array($catalogoMotivosCondonacion) ? $catalogoMotivosCondonacion : [];
+                        echo '<option value="" selected>Seleccione una opción</option>' . "\n";
                         foreach ($ecCatMotivosGt as $cm) {
                             $oid = (int) ($cm['id'] ?? 0);
                             if ($oid < 1) {
                                 continue;
                             }
                             $otxt = htmlspecialchars((string) ($cm['motivo'] ?? ''), ENT_QUOTES, 'UTF-8');
-                            $sel = $oid === 1 ? ' selected' : '';
-                            echo '<option value="' . (int) $oid . '"' . $sel . '>' . $otxt . "</option>\n";
+                            echo '<option value="' . (int) $oid . '">' . $otxt . "</option>\n";
                         }
                         if (count($ecCatMotivosGt) === 0) {
-                            echo '<option value="1" selected>Campaña Call Center</option>' . "\n";
+                            echo '<option value="1">Campaña Call Center</option>' . "\n";
                         }
                         ?>
                     </select>
@@ -2898,9 +2898,12 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
     function confirmarCondonacion(id_credito) {
         const comentario = document.getElementById('descripcionCondonacion').value.trim();
         const selMot = document.getElementById('idMotivoCondonacionCobranza');
-        const idMotivoCondonacion = selMot ? (parseInt(String(selMot.value), 10) || 1) : 1;
         const checks = document.querySelectorAll('.chk-condona:checked');
         if (checks.length === 0) { Swal.fire("Atención", "Selecciona al menos un gasto", "warning"); return; }
+        const rawMot = selMot ? String(selMot.value).trim() : '';
+        if (rawMot === '') { Swal.fire('Atención', 'Seleccione una opción en motivo de la condonación (convenio de pago).', 'warning'); return; }
+        const idMotivoCondonacion = parseInt(rawMot, 10);
+        if (!Number.isFinite(idMotivoCondonacion) || idMotivoCondonacion < 1) { Swal.fire('Atención', 'Seleccione un motivo de condonación válido.', 'warning'); return; }
         if (!comentario) { Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning"); return; }
         if (comentario.length < 25) { Swal.fire("Atención", "El motivo debe tener al menos 25 caracteres.", "warning"); return; }
         const gastos = [];
