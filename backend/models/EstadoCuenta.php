@@ -1675,6 +1675,50 @@ public static function getGastosTodosConEstatus($idCredito)
         return self::creditoEnGestionExternaRestringida($idCredito);
     }
 
+    /**
+     * Motivos de condonación (tabla catalogo_motivos_condonacion) para UI y validación.
+     * Si el catálogo aún no existe, devuelve el listado por defecto (ids 1–5).
+     *
+     * @return list<array{id:int,motivo:string}>
+     */
+    public static function getCatalogoMotivosCondonacion(): array
+    {
+        $defecto = [
+            ['id' => 1, 'motivo' => 'Campaña Call Center'],
+            ['id' => 2, 'motivo' => 'Crédito liquidado'],
+            ['id' => 3, 'motivo' => 'Convenios'],
+            ['id' => 4, 'motivo' => 'Siniestros'],
+            ['id' => 5, 'motivo' => 'Error de sistema'],
+        ];
+        try {
+            $db = new DatabaseSegundometro();
+            $r = $db->queryAll('SELECT id, motivo FROM catalogo_motivos_condonacion ORDER BY id ASC');
+            if (is_array($r) && count($r) > 0) {
+                return $r;
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return $defecto;
+    }
+
+    /**
+     * Asegura que id_motivo_condonacion esté en el catálogo; si no, 1 (Campaña Call Center).
+     */
+    public static function normalizarIdMotivoCondonacionCobranza($id): int
+    {
+        $id = (int) $id;
+        if ($id < 1) {
+            return 1;
+        }
+        $permitidos = array_map('intval', array_column(self::getCatalogoMotivosCondonacion(), 'id'));
+        if (!in_array($id, $permitidos, true)) {
+            return 1;
+        }
+
+        return $id;
+    }
+
     public static function insertCondonacionCobranza($data)
     {
         // 🔹 Escapamos valores
@@ -1683,6 +1727,7 @@ public static function getGastosTodosConEstatus($idCredito)
         $total      = addslashes($data['total']);
         $id_usuario = addslashes($data['usuario_id'] ?? 0);
         $usuario    = addslashes($data['usuario'] ?? 'Sistema');
+        $id_motivo  = (int) self::normalizarIdMotivoCondonacionCobranza($data['id_motivo_condonacion'] ?? 1);
 
         // Fecha y hora de CDMX para created_at
         $tz = new \DateTimeZone('America/Mexico_City');
@@ -1695,10 +1740,11 @@ public static function getGastosTodosConEstatus($idCredito)
             // 1️⃣ Insertar ticket (con id_usuario, usuario y created_at en hora CDMX)
             $db->queryOne("
             INSERT INTO condonaciones_cobranza
-            (id_condonacion, id_credito, comentario, id_usuario, usuario, total_condonado, created_at)
+            (id_condonacion, id_credito, id_motivo_condonacion, comentario, id_usuario, usuario, total_condonado, created_at)
             VALUES (
                 DEFAULT,
                 $id_credito,
+                $id_motivo,
                 '$comentario',
                 $id_usuario,
                 '$usuario',
@@ -2078,23 +2124,33 @@ public static function getHistorialGastosCobranza($idCredito)
         // 1. La consulta ahora incluye OR condonado = 1 para traer los perdonados
         $query = "
             SELECT
-        id_gastos_cobranza,
-        SEMANA,
-        periodo_inicio,
-        periodo_fin,
-        monto_valor,
-        condonacion_parcial_monto,
-        condonado,
-        estatus_pago,
-        fecha_condonacion,
-        fecha_pago,
-        created_at,
-        parcialidad,
-        COALESCE(monto_parcial_pagado, 0) AS monto_parcial_pagado
-    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza
-    WHERE Id_credito = :id_credito
-      AND (estatus_pago = 2 OR condonado = 1)
-    ORDER BY periodo_inicio DESC
+        gc.id_gastos_cobranza,
+        gc.SEMANA,
+        gc.periodo_inicio,
+        gc.periodo_fin,
+        gc.monto_valor,
+        gc.condonacion_parcial_monto,
+        gc.condonado,
+        gc.estatus_pago,
+        gc.fecha_condonacion,
+        gc.fecha_pago,
+        gc.created_at,
+        gc.parcialidad,
+        COALESCE(gc.monto_parcial_pagado, 0) AS monto_parcial_pagado,
+        gc.condonacion_parcial_motivo,
+        (
+            SELECT m.motivo
+            FROM condonaciones_cobranza_detalle ccd2
+            INNER JOIN condonaciones_cobranza cc2 ON cc2.id_condonacion = ccd2.id_condonacion
+            LEFT JOIN catalogo_motivos_condonacion m ON m.id = cc2.id_motivo_condonacion
+            WHERE ccd2.id_gastos_cobranza = gc.id_gastos_cobranza
+            ORDER BY cc2.id_condonacion DESC
+            LIMIT 1
+        ) AS motivo_condonacion_catalogo
+    FROM `__SPARTA_SECRET_REDACTED__`.gastos_cobranza gc
+    WHERE gc.Id_credito = :id_credito
+      AND (gc.estatus_pago = 2 OR gc.condonado = 1)
+    ORDER BY gc.periodo_inicio DESC
         ";
 
         $r = $db->queryAll($query, ['id_credito' => $idCredito]);
@@ -2102,6 +2158,17 @@ public static function getHistorialGastosCobranza($idCredito)
         $datos = array_map(function($row) {
             $montoOriginal = (float)$row['monto_valor'];
             $condParcial   = (float)($row['condonacion_parcial_monto'] ?? 0);
+            $esCondonadoT  = (int) ($row['condonado'] ?? 0) === 1;
+            $motivoParcial = trim((string)($row['condonacion_parcial_motivo'] ?? ''));
+            $motivoCat     = trim((string)($row['motivo_condonacion_catalogo'] ?? ''));
+            $motivoResumen = '—';
+            if ($esCondonadoT) {
+                $motivoResumen = $motivoCat !== '' ? $motivoCat : 'Campaña Call Center';
+            } elseif ($condParcial > 0) {
+                $motivoResumen = $motivoParcial !== ''
+                    ? (mb_strlen($motivoParcial) > 80 ? mb_substr($motivoParcial, 0, 77) . '...' : $motivoParcial)
+                    : '—';
+            }
 
            return [
                 'id_gasto'                  => (int)$row['id_gastos_cobranza'],
@@ -2112,6 +2179,7 @@ public static function getHistorialGastosCobranza($idCredito)
                 'monto_condonado'           => $row['condonado'] == 1 ? $montoOriginal : $condParcial,
                 'monto_parcial_pagado'      => (float)($row['monto_parcial_pagado'] ?? 0), // 👈
                 'parcialidad'               => (int)$row['parcialidad'],                   // 👈
+                'motivo_resumen'            => $motivoResumen,
                 'fecha_condonacion'         => !empty($row['fecha_condonacion'])
                                                 ? date('d/m/Y', strtotime($row['fecha_condonacion']))
                                                 : (!empty($row['created_at']) ? date('d/m/Y', strtotime($row['created_at'])) : '—'),

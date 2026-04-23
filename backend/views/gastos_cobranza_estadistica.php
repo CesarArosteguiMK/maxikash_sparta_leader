@@ -21,13 +21,16 @@
                     <i class="fa fa-calendar-alt me-1" aria-hidden="true"></i>Periodo (rango de fechas)
                 </label>
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    <input type="text" id="flatpickr-range-gc-est" readonly
-                        class="form-control form-control-sm flex-grow-1 gc-est-fp-input"
-                        style="min-width: 12rem; max-width: 19.5rem; cursor: pointer; user-select: none;"
+                    <div class="flex-grow-1" style="min-width: 12rem; max-width: 19.5rem;">
+                    <input type="text" id="flatpickr-range-gc-est"
+                        class="form-control form-control-sm gc-est-fp-input"
+                        style="cursor: pointer; user-select: none;"
                         placeholder="Selecciona inicio y fin" autocomplete="off"
-                        title="No se pueden elegir fechas posteriores a hoy." />
+                        title="Rango permitido: del 01/03/2026 a hoy." />
+                    <div id="gcEstPeriodoRangoError" class="small text-danger mt-1 d-none" role="alert"></div>
+                    </div>
                     <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" id="btnGcEstRestablecerPeriodo"
-                        title="Volver al periodo por defecto: lunes de esta semana hasta hoy">
+                        title="Volver al periodo por defecto: lunes de esta semana hasta hoy (no antes del 01/03/2026)">
                         Restablecer
                     </button>
                 </div>
@@ -170,8 +173,13 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
+    var GC_EST_YMD_MIN = '2026-03-01';
+    var GC_EST_MSG_MIN = 'No se permiten fechas menores al 01/03/2026';
+
     var gcState = { periodo: 'mes', serie_grupo: 'semana', fecha_inicio: '', fecha_fin: '', chart_type: 'bar' };
     var gcCharts = { bar: null, donut: null };
+    /** Último rango aceptado (evita bucles al restaurar flatpickr). */
+    var gcLastValidRango = { ini: '', fin: '' };
 
     /** Acepta `{ success, datos }` o el objeto `datos` plano si el front ya lo desenvuelve. */
     function gcNormalizeDashboardResp(resp) {
@@ -272,13 +280,51 @@ document.addEventListener('DOMContentLoaded', function () {
         return y + '-' + m + '-' + d;
     }
 
+    function gcFechaHoyYmd() {
+        var t = new Date();
+        t.setHours(0, 0, 0, 0);
+        return gcFmtYmd(t);
+    }
+
+    function gcRangoCumplePolitica(iniYmd, finYmd) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(iniYmd) || !/^\d{4}-\d{2}-\d{2}$/.test(finYmd)) {
+            return { ok: false, msg: GC_EST_MSG_MIN };
+        }
+        if (iniYmd < GC_EST_YMD_MIN || finYmd < GC_EST_YMD_MIN) {
+            return { ok: false, msg: GC_EST_MSG_MIN };
+        }
+        if (finYmd < iniYmd) {
+            return { ok: false, msg: 'La fecha fin debe ser mayor o igual al inicio.' };
+        }
+        var hoyM = gcFechaHoyYmd();
+        if (iniYmd > hoyM || finYmd > hoyM) {
+            return { ok: false, msg: 'No se pueden elegir fechas posteriores a hoy.' };
+        }
+        return { ok: true };
+    }
+
+    function gcSetPeriodoError(visible, msg) {
+        var el = document.getElementById('gcEstPeriodoRangoError');
+        var inp = document.getElementById('flatpickr-range-gc-est');
+        if (el) {
+            el.textContent = visible && msg ? String(msg) : '';
+            el.classList.toggle('d-none', !visible || !msg);
+        }
+        if (inp) inp.classList.toggle('is-invalid', !!visible && !!msg);
+    }
+
     function gcRangoLunesHoy() {
+        var minD = new Date(2026, 2, 1);
+        minD.setHours(0, 0, 0, 0);
         var hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
+        if (hoy < minD) hoy = new Date(minD.getTime());
         var dow = hoy.getDay();
         var diffToMon = dow === 0 ? -6 : 1 - dow;
         var lun = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + diffToMon);
         lun.setHours(0, 0, 0, 0);
+        if (lun < minD) lun = new Date(minD.getTime());
+        if (hoy < lun) hoy = new Date(lun.getTime());
         return { ini: gcFmtYmd(lun), fin: gcFmtYmd(hoy) };
     }
 
@@ -317,8 +363,29 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function gcAplicarRangoYRefrescar(iniYmd, finYmd, fpInstance) {
+        var v = gcRangoCumplePolitica(iniYmd, finYmd);
+        if (!v.ok) {
+            gcSetPeriodoError(true, v.msg);
+            var fpR = fpInstance;
+            if (!fpR) {
+                var elFp = document.getElementById('flatpickr-range-gc-est');
+                fpR = elFp && elFp._flatpickr ? elFp._flatpickr : null;
+            }
+            if (fpR && gcLastValidRango.ini && gcLastValidRango.fin) {
+                try {
+                    fpR.setDate(
+                        [new Date(gcLastValidRango.ini + 'T12:00:00'), new Date(gcLastValidRango.fin + 'T12:00:00')],
+                        false
+                    );
+                } catch (eR) {}
+            }
+            return;
+        }
+        gcSetPeriodoError(false, '');
         gcState.fecha_inicio = iniYmd;
         gcState.fecha_fin = finYmd;
+        gcLastValidRango.ini = iniYmd;
+        gcLastValidRango.fin = finYmd;
         gcSetHeaderRangeText(iniYmd + ' a ' + finYmd);
         if (fpInstance) {
             try {
@@ -345,11 +412,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         var hoyMax = new Date();
         hoyMax.setHours(23, 59, 59, 999);
+        var minD = new Date(2026, 2, 1);
+        minD.setHours(0, 0, 0, 0);
         flatpickr(el, {
             mode: 'range',
             dateFormat: 'Y-m-d',
             clickOpens: true,
-            allowInput: false,
+            allowInput: true,
+            minDate: minD,
             maxDate: hoyMax,
             disableMobile: true,
             locale: {
@@ -377,7 +447,26 @@ document.addEventListener('DOMContentLoaded', function () {
                     gcRestaurarPeriodoPorDefecto();
                 }
             },
-            onClose: function () {
+            onClose: function (selectedDates, dateStr, instance) {
+                if (selectedDates.length === 1) {
+                    return;
+                }
+                if (selectedDates.length === 2) {
+                    var ini = gcFmtYmd(selectedDates[0]);
+                    var fin = gcFmtYmd(selectedDates[1]);
+                    var v = gcRangoCumplePolitica(ini, fin);
+                    if (!v.ok) {
+                        gcSetPeriodoError(true, v.msg);
+                        if (instance && gcLastValidRango.ini && gcLastValidRango.fin) {
+                            try {
+                                instance.setDate(
+                                    [new Date(gcLastValidRango.ini + 'T12:00:00'), new Date(gcLastValidRango.fin + 'T12:00:00')],
+                                    false
+                                );
+                            } catch (e1) {}
+                        }
+                    }
+                }
                 gcCerrarFlatpickrCalendario(null);
             }
         });
@@ -719,6 +808,13 @@ document.addEventListener('DOMContentLoaded', function () {
             mainEl.classList.add('d-none');
         }
 
+        var vr = gcRangoCumplePolitica(gcState.fecha_inicio, gcState.fecha_fin);
+        if (!vr.ok) {
+            gcSetPeriodoError(true, vr.msg);
+            return;
+        }
+        gcSetPeriodoError(false, '');
+
         updateSerieGrupoUI();
 
         http.request({
@@ -735,6 +831,9 @@ document.addEventListener('DOMContentLoaded', function () {
             showLoader: true,
             onSuccess: function (resp) {
                 if (!resp || resp.success === false) {
+                    if (resp && (resp.error || resp.mensaje)) {
+                        gcSetPeriodoError(true, String(resp.error || resp.mensaje));
+                    }
                     return;
                 }
                 var datos = gcNormalizeDashboardResp(resp);
@@ -783,6 +882,8 @@ document.addEventListener('DOMContentLoaded', function () {
     var rDef = gcRangoLunesHoy();
     gcState.fecha_inicio = rDef.ini;
     gcState.fecha_fin = rDef.fin;
+    gcLastValidRango.ini = rDef.ini;
+    gcLastValidRango.fin = rDef.fin;
     gcSetHeaderRangeText(rDef.ini + ' a ' + rDef.fin);
     scheduleInitFlatpickrGcEst();
     loadDashboard();

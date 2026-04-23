@@ -20,6 +20,8 @@ class Condonaciones extends Model
                 SELECT 
                     cc.id_condonacion,
                     cc.id_credito,
+                    cc.id_motivo_condonacion,
+                    COALESCE(MAX(m.motivo), 'Campaña Call Center') AS motivo_condonacion,
                     cc.comentario,
                     cc.total_condonado,
                     cc.created_at as fecha_solicitud,
@@ -31,6 +33,7 @@ class Condonaciones extends Model
                     COUNT(ccd.id) as total_detalles
                 FROM condonaciones_cobranza cc
                 LEFT JOIN condonaciones_cobranza_detalle ccd ON ccd.id_condonacion = cc.id_condonacion
+                LEFT JOIN catalogo_motivos_condonacion m ON m.id = cc.id_motivo_condonacion
                 LEFT JOIN tbl_segundometro_semana ts ON ts.Id_credito = cc.id_credito
                 GROUP BY cc.id_condonacion
                 ORDER BY cc.created_at DESC, cc.id_condonacion DESC
@@ -71,6 +74,8 @@ class Condonaciones extends Model
                 SELECT 
                     cc.id_condonacion,
                     cc.id_credito,
+                    cc.id_motivo_condonacion,
+                    COALESCE(m.motivo, 'Campaña Call Center') AS motivo_condonacion,
                     cc.comentario,
                     cc.total_condonado,
                     cc.created_at as fecha_solicitud,
@@ -84,6 +89,7 @@ class Condonaciones extends Model
                     ts.Dias_mora as dias_mora,
                     ts.saldo_vencido_inicio as saldo_vencido
                 FROM condonaciones_cobranza cc
+                LEFT JOIN catalogo_motivos_condonacion m ON m.id = cc.id_motivo_condonacion
                 LEFT JOIN tbl_segundometro_semana ts ON ts.Id_credito = cc.id_credito
                 WHERE cc.id_condonacion = :id_condonacion
             ", ['id_condonacion' => $id_condonacion]);
@@ -168,13 +174,16 @@ class Condonaciones extends Model
             $id_usuario = $_SESSION['user_id'] ?? 1;
             $nombre_usuario = $_SESSION['nombre'] ?? 'Sistema';
 
+            $id_motivo = \Models\EstadoCuenta::normalizarIdMotivoCondonacionCobranza($datos['id_motivo_condonacion'] ?? 1);
+
             // Insertar condonación principal
             $resultado = $db->execute("
                 INSERT INTO condonaciones_cobranza 
-                (id_credito, comentario, id_usuario, usuario, total_condonado, created_at)
-                VALUES (?, ?, ?, ?, ?, NOW())
+                (id_credito, id_motivo_condonacion, comentario, id_usuario, usuario, total_condonado, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
             ", [
                 $datos['id_credito'],
+                $id_motivo,
                 $datos['comentario'],
                 $id_usuario,
                 $nombre_usuario,

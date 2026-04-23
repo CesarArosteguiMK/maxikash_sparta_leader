@@ -1927,7 +1927,25 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
                     </table>
                 </div>
                 <div class="mt-3" <?= $hideStyle ?>>
-                    <label class="form-label fw-semibold">Motivo de la condonación (convenio de pago) <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold" for="idMotivoCondonacionCobranza">Motivo de la condonación (convenio de pago) <span class="text-danger">*</span></label>
+                    <select id="idMotivoCondonacionCobranza" class="form-select mb-3" autocomplete="off">
+                        <?php
+                        $ecCatMotivosGt = isset($catalogoMotivosCondonacion) && is_array($catalogoMotivosCondonacion) ? $catalogoMotivosCondonacion : [];
+                        foreach ($ecCatMotivosGt as $cm) {
+                            $oid = (int) ($cm['id'] ?? 0);
+                            if ($oid < 1) {
+                                continue;
+                            }
+                            $otxt = htmlspecialchars((string) ($cm['motivo'] ?? ''), ENT_QUOTES, 'UTF-8');
+                            $sel = $oid === 1 ? ' selected' : '';
+                            echo '<option value="' . (int) $oid . '"' . $sel . '>' . $otxt . "</option>\n";
+                        }
+                        if (count($ecCatMotivosGt) === 0) {
+                            echo '<option value="1" selected>Campaña Call Center</option>' . "\n";
+                        }
+                        ?>
+                    </select>
+                    <label class="form-label fw-semibold" for="descripcionCondonacion">Detalle del motivo condonación <span class="text-danger">*</span></label>
                     <textarea id="descripcionCondonacion" class="form-control" rows="3" placeholder="Describe el motivo de la condonación (mínimo 25 caracteres)..."></textarea>
                 </div>
             </div>
@@ -2879,6 +2897,8 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
 
     function confirmarCondonacion(id_credito) {
         const comentario = document.getElementById('descripcionCondonacion').value.trim();
+        const selMot = document.getElementById('idMotivoCondonacionCobranza');
+        const idMotivoCondonacion = selMot ? (parseInt(String(selMot.value), 10) || 1) : 1;
         const checks = document.querySelectorAll('.chk-condona:checked');
         if (checks.length === 0) { Swal.fire("Atención", "Selecciona al menos un gasto", "warning"); return; }
         if (!comentario) { Swal.fire("Atención", "El motivo de la condonación es obligatorio", "warning"); return; }
@@ -2888,7 +2908,7 @@ window.abrirRastreoNeverPaidModalEc = function (idCredito) {
         checks.forEach(chk => { gastos.push({ id_gastos_cobranza: chk.dataset.id, monto: parseFloat(chk.dataset.monto) }); total += parseFloat(chk.dataset.monto); });
         fetch('/EstadoCuenta/confirmarCondonacionGastos', {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({ idCredito: id_credito, comentario, total, gastos })
+            body: JSON.stringify({ idCredito: id_credito, comentario, id_motivo_condonacion: idMotivoCondonacion, total, gastos })
         })
         .then(res => res.json())
         .then(resp => {

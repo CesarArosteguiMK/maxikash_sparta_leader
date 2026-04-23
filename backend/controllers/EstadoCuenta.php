@@ -3043,6 +3043,7 @@ JS;
             $scriptConPermiso = str_replace('TienePermisoFechaCorte_PLACEHOLDER', json_encode($tienePermisoFechaCorte), $scriptConPermiso);
             self::set("script", $this->appendRastreoSabuesoScriptSiAplica($scriptConPermiso, $tienePermisoRastreoNeverPaid));
             self::set("tabla", $tabla);
+            self::set('catalogoMotivosCondonacion', EstadoCuentaDAO::getCatalogoMotivosCondonacion());
             EstadoCuentaTimingLog::finish('render_ok');
             return self::render("__SPARTA_SECRET_REDACTED___request");
 
@@ -5771,6 +5772,19 @@ public function descargar()
     }
 
     /**
+     * Catálogo de motivos de condonación (gastos de cobranza) para el modal o integraciones.
+     * GET/POST: sin cuerpo; la sesión aplica.
+     */
+    public function getCatalogoMotivosCondonacion()
+    {
+        $this->requierePermisoEstadoCuentaModulo(self::EC_PERMISO_CONDONAR_GASTOS_COBRANZA);
+        self::respuestaJSON([
+            'success' => true,
+            'datos'   => EstadoCuentaDAO::getCatalogoMotivosCondonacion(),
+        ]);
+    }
+
+    /**
      * Guarda aclaración GC en __SPARTA_SECRET_REDACTED__.cobranza_gc_verificacion_semana (permiso módulo 30 o usuario 1).
      * POST JSON: id_credito, nombre, tipo_reporte (error|falta_aplicar), monto, mensaje (observaciones).
      * id_usuario_reporte en BD = usuario_id de la sesión (quien guarda; no se toma del cliente).
@@ -6742,6 +6756,7 @@ public function descargarReporteDictamen()
         $comentario = isset($input['comentario']) ? trim((string) $input['comentario']) : '';
         $gastos     = $input['gastos'] ?? [];
         $total      = $input['total'] ?? 0;
+        $idMotivoCondonacion = EstadoCuentaDAO::normalizarIdMotivoCondonacionCobranza($input['id_motivo_condonacion'] ?? 1);
 
         if (empty($idCredito) || $comentario === '' || empty($gastos)) {
             self::respuestaJSON([
@@ -6772,6 +6787,7 @@ public function descargarReporteDictamen()
             'id_credito' => $idCredito,
             'comentario' => $comentario,
             'total'      => $total,
+            'id_motivo_condonacion' => $idMotivoCondonacion,
             'usuario'    => $_SESSION['usuario'] ?? 'Sistema',        // user_name del login
             'usuario_id' => $_SESSION['usuario_id'] ?? 0              // id del login
         ];
@@ -6944,6 +6960,7 @@ public function descargarReporteDictamen()
                     self::set("debugCroop", $debugCroop);
                     $scriptGt = $this->appendRastreoSabuesoScriptSiAplica('', $tienePermisoRastreoNeverPaidGt);
                     self::set('script', $scriptGt);
+                    self::set('catalogoMotivosCondonacion', EstadoCuentaDAO::getCatalogoMotivosCondonacion());
                     return self::render("__SPARTA_SECRET_REDACTED___guatemala");
                 }
 
