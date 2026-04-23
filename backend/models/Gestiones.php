@@ -115,6 +115,7 @@ SQL;
     {
         $legacy = self::getGestionesLegacy($credito);
         $sky    = self::getAllGestionesSkyLogic($credito, $nombre);
+        $cc     = self::getGestionesCallCenter($credito);
 
         if (!is_array($legacy)) {
             $legacy = [];
@@ -122,11 +123,13 @@ SQL;
         if (!is_array($sky)) {
             $sky = [];
         }
+        if (!is_array($cc)) {
+            $cc = [];
+        }
 
-        // LEGACY primero, luego SKY
-        $resultado = array_merge($legacy, $sky);
+        $resultado = array_merge($legacy, $sky, $cc);
 
-        // Ordenar por fecha_dispositivo DESC
+        // Ordenar por fecha_dispositivo DESC (misma mezcla cronológica)
         usort($resultado, function ($a, $b) {
             return strtotime($b['fecha_dispositivo'] ?? 0) <=> strtotime($a['fecha_dispositivo'] ?? 0);
         });
@@ -152,13 +155,17 @@ SQL;
 
         $legacy = self::getGestionesLegacy($credito, $porFuente);
         $sky = self::getAllGestionesSkyLogic($credito, '', $porFuente);
+        $cc = self::getGestionesCallCenter($credito, $porFuente);
         if (!is_array($legacy)) {
             $legacy = [];
         }
         if (!is_array($sky)) {
             $sky = [];
         }
-        $resultado = array_merge($legacy, $sky);
+        if (!is_array($cc)) {
+            $cc = [];
+        }
+        $resultado = array_merge($legacy, $sky, $cc);
         usort($resultado, function ($a, $b) {
             return strtotime($b['fecha_dispositivo'] ?? 0) <=> strtotime($a['fecha_dispositivo'] ?? 0);
         });
@@ -389,6 +396,166 @@ SQL;
         }
 
         return $legacyRow;
+    }
+
+    /**
+     * Gestiones de dictaminar llamada (__SPARTA_SECRET_REDACTED__.dictamen_llamada) homologadas al histórico.
+     * Fuente: CALL CENTER; orden por fecha/hora en SQL; luego se mezclan con Legacy/Sky.
+     *
+     * @param int|null $limit Si se indica, LIMIT en SQL (más recientes primero). null = sin límite.
+     * @return list<array<string, mixed>>
+     */
+    public static function getGestionesCallCenter($credito, ?int $limit = null)
+    {
+        $credito = trim((string) $credito);
+        if ($credito === '' || !ctype_digit($credito)) {
+            return [];
+        }
+        try {
+            $db = new Database();
+            $query = "
+                SELECT
+                    dl.id,
+                    dl.id_credito,
+                    dl.fecha_gestion,
+                    dl.hora_gestion,
+                    CONCAT(DATE(dl.fecha_gestion), ' ', TIME(dl.hora_gestion)) AS fe_ts,
+                    NULLIF(TRIM(dl.llamada_nombre_persona), '') AS llamada_nombre_persona,
+                    TRIM(COALESCE(dl.llamada_telefono, '')) AS llamada_telefono,
+                    tc.nombre AS tipo_contacto,
+                    rc.nombre AS resultado_contacto,
+                    cd.nombre AS dictamen,
+                    cmnp.descripcion AS motivo_no_pago,
+                    dl.comentarios,
+                    dl.agente,
+                    NULLIF(TRIM(CONCAT_WS(' ', u.nombres, u.segundo_nombre, u.apellidop, u.apellidom)), '') AS agente_nombre,
+                    cp.nombre AS plataforma,
+                    NULLIF(TRIM(CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom)), '') AS nombre_titular_persona
+                FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+                LEFT JOIN persona p ON dl.id_credito = p.id
+                LEFT JOIN persona u ON u.id = dl.agente
+                LEFT JOIN cat_tipo_contacto tc ON tc.id = dl.tipo_contacto_id
+                LEFT JOIN cat_resultado_contacto rc ON rc.id = dl.resultado_contacto_id
+                LEFT JOIN cat_dictamen cd ON cd.id = dl.dictamen_id
+                LEFT JOIN cat_motivo_no_pago cmnp ON cmnp.id = dl.motivo_no_pago_id
+                LEFT JOIN cat_motivo_no_pago_tipo cmnpt ON cmnpt.id = cmnp.tipo_id
+                LEFT JOIN cat_plataforma cp ON cp.id = dl.plataforma_id
+                WHERE dl.id_credito = :credito
+                ORDER BY dl.fecha_gestion DESC, dl.hora_gestion DESC
+            ";
+            if ($limit !== null) {
+                $lim = max(1, min((int) $limit, 500));
+                $query .= ' LIMIT ' . $lim;
+            }
+            $rows = $db->queryAll($query, ['credito' => (int) $credito]);
+            if (!is_array($rows) || $rows === []) {
+                return [];
+            }
+            $out = [];
+            foreach ($rows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $nomePersona = trim((string) ($row['llamada_nombre_persona'] ?? ''));
+                if ($nomePersona === '') {
+                    $nomePersona = trim((string) ($row['nombre_titular_persona'] ?? ''));
+                }
+                if ($nomePersona === '') {
+                    $nomePersona = '—';
+                }
+                $agNom = trim((string) ($row['agente_nombre'] ?? ''));
+                if ($agNom === '') {
+                    $agNom = (string) ($row['agente'] ?? '—');
+                }
+                $feDisp = (string) ($row['fe_ts'] ?? '1970-01-01 00:00:00');
+                $tipoC = trim((string) ($row['tipo_contacto'] ?? '—'));
+                if ($tipoC === '') {
+                    $tipoC = '—';
+                }
+                $dict = trim((string) ($row['dictamen'] ?? '—'));
+                if ($dict === '') {
+                    $dict = '—';
+                }
+                $motAtraso = trim((string) ($row['motivo_no_pago'] ?? ''));
+                $coms = (string) ($row['comentarios'] ?? '');
+
+                $out[] = [
+                    'app' => 'CALL CENTER',
+                    'id' => (string) ($row['id'] ?? ''),
+                    'id_team' => '',
+                    'team_supervisor' => '—',
+                    'id_base' => '',
+                    'nombre_base' => 'Call Center',
+                    'fecha_carga_base' => null,
+                    'id_registro' => (string) ($row['id'] ?? ''),
+                    'id_key' => '',
+                    'estatus' => '',
+                    'usuario_asignado' => $agNom,
+                    'nombre_cliente' => $nomePersona,
+                    'id_credito' => (string) ($row['id_credito'] ?? $credito),
+                    'cuenta_clabe' => '',
+                    'nombre_completo_cliente' => '',
+                    'pago_semanal' => '',
+                    'pagos_vencidos' => '',
+                    'deuda_total' => '',
+                    'codigo_gestor' => '',
+                    'usuario' => $agNom,
+                    'telefono_celular' => (string) ($row['llamada_telefono'] ?? ''),
+                    'cp' => '',
+                    'direccion' => '',
+                    'direccion_ine' => '',
+                    'direccion_actual' => '',
+                    'geolocalizacion' => '',
+                    'direccion_geo' => '',
+                    'donde_firma' => '',
+                    'referencia_personal1' => '',
+                    'parentesco1' => '',
+                    'telefono_referencia1' => '',
+                    'referencia_personal2' => '',
+                    'parentesco2' => '',
+                    'telefono_referencia2' => '',
+                    'contacto' => 'TELEFONO',
+                    'medio_contactacion_ccc' => $tipoC,
+                    'medio_contactacion_campo' => '',
+                    'dictamen_campo' => '',
+                    'dictamen_ccc' => $dict,
+                    'promesa_pago' => '',
+                    'motivo_negativa' => '',
+                    'porque_atraso_pago' => $motAtraso,
+                    'con_quien_mala_experiencia' => '',
+                    'cc_resultado_contacto' => trim((string) ($row['resultado_contacto'] ?? '')),
+                    'fecha_hora' => $feDisp,
+                    'kilometraje' => '',
+                    'numero_serie' => '',
+                    'marca_modelo' => '',
+                    'actualizacion_direccion' => '',
+                    'actualizacion_telefono' => '',
+                    'comentarios_generales' => $coms,
+                    'foto1' => '',
+                    'foto2' => '',
+                    'foto3' => '',
+                    'adjunto' => '',
+                    'video' => '',
+                    'device_imei' => '',
+                    'fecha_sistema' => $feDisp,
+                    'fecha_dispositivo' => $feDisp,
+                    'longitud' => '',
+                    'latitud' => '',
+                    'ubicacion_usuario' => '',
+                    'fake_gps' => '',
+                    'secure_area' => '',
+                    'images' => '',
+                    'es_fuente_call_center' => 1,
+                    'cc_plataforma' => trim((string) ($row['plataforma'] ?? '')),
+                ];
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            self::marcarHistoricoDbFallo('Call Center (__SPARTA_SECRET_REDACTED__ → dictamen_llamada + catálogos)', $e);
+
+            return [];
+        }
     }
 
     /**

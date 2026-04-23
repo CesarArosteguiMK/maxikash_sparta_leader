@@ -22,6 +22,9 @@ class GastosCobranzaEstadistica
 {
     private const TABLA = 'gastos_cobranza';
 
+    /** Fecha mínima (inclusiva) del filtro de periodo en el dashboard (CDMX, calendario). */
+    private const FECHA_MIN_DASHBOARD = '2026-03-01';
+
     /** Fecha de referencia para filtros y series. */
     private static function sqlFechaRef(): string
     {
@@ -406,6 +409,12 @@ class GastosCobranzaEstadistica
         $finSel = self::normalizarYmd($fechaFin);
         $usaRangoCustom = false;
         if ($inicioSel !== null && $finSel !== null && strcmp($inicioSel, $finSel) <= 0) {
+            if (strcmp($inicioSel, self::FECHA_MIN_DASHBOARD) < 0 || strcmp($finSel, self::FECHA_MIN_DASHBOARD) < 0) {
+                return [
+                    'success' => false,
+                    'error' => 'No se permiten fechas menores al 01/03/2026',
+                ];
+            }
             $usaRangoCustom = true;
             $inicioDt = new \DateTimeImmutable($inicioSel . ' 00:00:00');
             $finDtExcl = (new \DateTimeImmutable($finSel . ' 00:00:00'))->modify('+1 day');

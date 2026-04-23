@@ -3059,8 +3059,28 @@ $ecCondonarHideStyle = $ecCondonarDept9 ? 'style="display:none;"' : '';
 
                         <!-- Motivo (solo visible si hay monto a condonar > 0; dept. 9 sigue oculto por reglas de negocio) -->
                         <div class="mt-3<?= $ecCondonarDept9 ? '' : ' d-none' ?>" id="wrapMotivoCondonacionTotal" <?= $ecCondonarDept9 ? $ecCondonarHideStyle : '' ?>>
-                            <label class="form-label fw-semibold">
+                            <label class="form-label fw-semibold" for="idMotivoCondonacionCobranza">
                                 Motivo de la condonación (convenio de pago) <span class="text-danger">*</span>
+                            </label>
+                            <select id="idMotivoCondonacionCobranza" class="form-select mb-3" autocomplete="off">
+                                <?php
+                                $ecCatMotivos = isset($catalogoMotivosCondonacion) && is_array($catalogoMotivosCondonacion) ? $catalogoMotivosCondonacion : [];
+                                foreach ($ecCatMotivos as $cm) {
+                                    $oid = (int) ($cm['id'] ?? 0);
+                                    if ($oid < 1) {
+                                        continue;
+                                    }
+                                    $otxt = htmlspecialchars((string) ($cm['motivo'] ?? ''), ENT_QUOTES, 'UTF-8');
+                                    $sel = $oid === 1 ? ' selected' : '';
+                                    echo '<option value="' . (int) $oid . '"' . $sel . '>' . $otxt . "</option>\n";
+                                }
+                                if (count($ecCatMotivos) === 0) {
+                                    echo '<option value="1" selected>Campaña Call Center</option>' . "\n";
+                                }
+                                ?>
+                            </select>
+                            <label class="form-label fw-semibold" for="descripcionCondonacion">
+                                Detalle del motivo condonación <span class="text-danger">*</span>
                             </label>
                             <textarea id="descripcionCondonacion" class="form-control" rows="3"
                                 placeholder="Describe el motivo de la condonación (mínimo 25 caracteres)..."></textarea>
@@ -4476,6 +4496,8 @@ function syncVisibilidadResumenCondonacion() {
             if (!showMot) {
                 const ta = document.getElementById('descripcionCondonacion');
                 if (ta) ta.value = '';
+                const sm = document.getElementById('idMotivoCondonacionCobranza');
+                if (sm) sm.value = '1';
             }
         }
     }
@@ -4780,6 +4802,8 @@ function syncVisibilidadResumenCondonacion() {
     function confirmarCondonacion(id_credito) {
 
         const comentario = document.getElementById('descripcionCondonacion').value.trim();
+        const selMot = document.getElementById('idMotivoCondonacionCobranza');
+        const idMotivoCondonacion = selMot ? (parseInt(String(selMot.value), 10) || 1) : 1;
         const checks = document.querySelectorAll('.chk-condona:checked');
 
         if (checks.length === 0) {
@@ -4820,6 +4844,7 @@ function syncVisibilidadResumenCondonacion() {
             body: JSON.stringify({
                 idCredito: id_credito, // o como lo tengas
                 comentario: comentario,
+                id_motivo_condonacion: idMotivoCondonacion,
                 total: total,
                 gastos: gastos
             })
@@ -5026,6 +5051,7 @@ function _pintarHistorial(datos) {
                     <th class="text-end">Monto Original</th>
                     <th class="text-center">Tipo</th>
                     <th class="text-end">Monto Final</th>
+                    <th>Motivo</th>
                     <th class="text-center">Fecha</th>
                 </tr>
             </thead>
@@ -5038,6 +5064,7 @@ function _pintarHistorial(datos) {
         const montoParcialPagado = parseFloat(g.monto_parcial_pagado || 0);
         const parcialidad        = g.parcialidad || '—';
         const fechaPago          = g.fecha_pago || '—';
+        const motivoCell         = (g.motivo_resumen != null && String(g.motivo_resumen).trim() !== '') ? String(g.motivo_resumen) : '—';
 
         const esPagoParcialCompletado = !esCondonado
             && montoParcialPagado > 0
@@ -5054,6 +5081,7 @@ function _pintarHistorial(datos) {
                         <span class="badge bg-warning text-dark px-2 py-1" style="min-width:80px;">Condonado</span>
                     </td>
                     <td class="text-end"><span class="text-muted">$0.00</span></td>
+                    <td class="small">${motivoCell}</td>
                     <td class="text-center"><small>${g.fecha_condonacion || '—'}</small></td>
                 </tr>`;
 
@@ -5084,6 +5112,7 @@ function _pintarHistorial(datos) {
                         </div>
                     </td>
                     <td class="text-end">${htmlMontoFinalParcial}</td>
+                    <td class="small">${motivoCell}</td>
                     <td class="text-center"><small>${fechaPago}</small></td>
                 </tr>`;
 
@@ -5104,6 +5133,7 @@ function _pintarHistorial(datos) {
                         <span class="badge bg-success px-2 py-1" style="min-width:80px;">Pagado</span>
                     </td>
                     <td class="text-end"><span class="text-success fw-bold">$${montoPagado.toFixed(2)}</span></td>
+                    <td class="small">${motivoCell}</td>
                     <td class="text-center"><small>${fechaPago}</small></td>
                 </tr>`;
         }
@@ -5158,6 +5188,8 @@ document.getElementById('modalCondonar').addEventListener('hidden.bs.modal', fun
     const tabGastosBtn = document.getElementById('tab-gastos-btn');
     if (tabGastosBtn) tabGastosBtn.click();
     document.getElementById('descripcionCondonacion').value = ''; // Limpiar motivo condonación al cerrar modal
+    const smC = document.getElementById('idMotivoCondonacionCobranza');
+    if (smC) smC.value = '1';
 });
 
 // Ajuste dinámico real: baja fuente hasta que el texto quepa (sin puntos suspensivos).

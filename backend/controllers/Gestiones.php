@@ -103,7 +103,7 @@ JS;
                 if (GestionesDAO::huboHistoricoDbFallo()) {
                     self::set(
                         "errorGestiones",
-                        'No se pudo conectar a una o más bases de datos del histórico (Legacy __SPARTA_SECRET_REDACTED__, __SPARTA_SECRET_REDACTED__ / Sky Logic o Segundómetro). '
+                        'No se pudo conectar a una o más bases de datos del histórico (Legacy __SPARTA_SECRET_REDACTED__, __SPARTA_SECRET_REDACTED__ / Sky Logic, Call Center / dictamen_llamada o Segundómetro). '
                         . 'En producción suele deberse a que el servidor web no tiene salida al puerto 3306 de esos hosts MySQL, o a credenciales distintas al entorno local. '
                         . 'Revise firewall, listas blancas en el servidor de BD y el log de PHP (error_log) para el detalle técnico.'
                     );

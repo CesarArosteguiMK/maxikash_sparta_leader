@@ -21,6 +21,12 @@
     .badge-app.legacy {
         background-color: #0047BB;
     }
+
+    /* CALL CENTER → NARANJA */
+    .badge-app.call-center {
+        background-color: #e65100;
+        color: #fff;
+    }
 </style>
 
 
@@ -87,6 +93,9 @@
             <div class="accordion" id="accordionClientes">
 
                 <?php $i = 1; foreach ($gestiones as $g): ?>
+                    <?php
+                    $esCallCenter = !empty($g['es_fuente_call_center']) || (($g['app'] ?? '') === 'CALL CENTER');
+                    ?>
 
                     <div class="accordion-item mb-2 border">
 
@@ -94,11 +103,23 @@
                             <button class="accordion-button collapsed" type="button"
                                     data-bs-toggle="collapse"
                                     data-bs-target="#collapse<?= $i ?>">
+                            <?php if ($esCallCenter) : ?>
+                                <span class="badge-app call-center">CALL CENTER</span>
+                                <span class="me-1" title="Call Center" aria-hidden="true">🎧</span>
+                                <i class="fa fa-headset text-warning me-1" title="Call Center" aria-hidden="true"></i>
+                                <span class="visually-hidden">Call Center</span>
+                                <?= htmlspecialchars((string)($g['nombre_cliente'] ?? '—'), ENT_QUOTES, 'UTF-8') ?> &mdash;
+                                <?= htmlspecialchars((string)($g['medio_contactacion_ccc'] ?: '—'), ENT_QUOTES, 'UTF-8') ?> &mdash;
+                                <?= htmlspecialchars((string)($g['dictamen_ccc'] ?: $g['dictamen_campo'] ?: '—'), ENT_QUOTES, 'UTF-8') ?> &mdash;
+                                <?= htmlspecialchars((string)($g['fecha_dispositivo'] ?? ''), ENT_QUOTES, 'UTF-8') ?> &mdash;
+                                <span class="text-muted">Call Center</span>
+                            <?php else: ?>
                                <?php
                                $esTelefono = (mb_strtoupper((string)($g['contacto'] ?? '')) === 'TELEFONO');
                                $emojiGestion = $esTelefono ? '📞' : '🛵';
+                               $isLegacy = (($g['app'] ?? '') === 'LEGACY');
                                ?>
-                               <span class="badge-app <?= ($g['app'] === 'LEGACY') ? 'legacy' : 'sky-logic' ?>">
+                               <span class="badge-app <?= $isLegacy ? 'legacy' : 'sky-logic' ?>">
                                     <?= $g["app"] ?>
                                 </span>
                                 <span class="me-2" title="<?= $esTelefono ? 'Gestión telefónica' : 'Gestión campo' ?>"><?= $emojiGestion ?></span>
@@ -111,6 +132,7 @@
 
                                 <?= $g["fecha_dispositivo"]?> —
                                 <?= $g["nombre_base"] ?>
+                            <?php endif; ?>
                             </button>
                         </h2>
 
@@ -119,7 +141,75 @@
                              data-bs-parent="#accordionClientes">
 
                             <div class="accordion-body">
-
+                            <?php if ($esCallCenter) : ?>
+                                <h6 class="fw-bold">Identificación</h6>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-striped">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th>Usuario asignado (agente)</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td><?= htmlspecialchars((string)($g['usuario_asignado'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <h6 class="fw-bold">Contactación y dictamen</h6>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-striped">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th>Medio</th>
+                                            <th>Dictamen</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td><?= htmlspecialchars((string)($g['medio_contactacion_ccc'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars((string)($g['dictamen_ccc'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <h6 class="fw-bold">Promesas y comentarios</h6>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-striped">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th>Motivo atraso (motivo no pago)</th>
+                                            <th>Comentarios</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td><?= nl2br(htmlspecialchars((string)($g['porque_atraso_pago'] ?? ''), ENT_QUOTES, 'UTF-8')) ?></td>
+                                            <td><?= nl2br(htmlspecialchars((string)($g['comentarios_generales'] ?? ''), ENT_QUOTES, 'UTF-8')) ?></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <?php
+                                $ccRes = trim((string)($g['cc_resultado_contacto'] ?? ''));
+                                $ccPlat = trim((string)($g['cc_plataforma'] ?? ''));
+                                if ($ccRes !== '' || $ccPlat !== ''): ?>
+                                <h6 class="fw-bold">Detalle adicional</h6>
+                                <div class="table-responsive mb-0">
+                                    <table class="table table-bordered table-striped table-sm">
+                                        <tbody>
+                                        <?php if ($ccRes !== ''): ?>
+                                        <tr><th class="w-25">Resultado contacto</th><td><?= htmlspecialchars($ccRes, ENT_QUOTES, 'UTF-8') ?></td></tr>
+                                        <?php endif; ?>
+                                        <?php if ($ccPlat !== ''): ?>
+                                        <tr><th class="w-25">Plataforma</th><td><?= htmlspecialchars($ccPlat, ENT_QUOTES, 'UTF-8') ?></td></tr>
+                                        <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <?php endif; ?>
+                            <?php else: ?>
                                 <!-- IDENTIFICACIÓN -->
                                 <h6 class="fw-bold">Identificación y asignación</h6>
                                 <div class="table-responsive mb-4">
@@ -220,7 +310,7 @@
                                         </a>
                                     </p>
                                 <?php endif; ?>
-
+                            <?php endif; ?>
                             </div>
                         </div>
 
