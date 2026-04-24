@@ -102,6 +102,24 @@
         transform: translateY(-2px);
     }
 
+    /* Cancelado — borde rojo */
+    .ops-card--cancelado {
+        border-color: #fca5a5 !important;
+        box-shadow: 0 0 0 1px rgba(220,38,38,.15) !important;
+    }
+    .ops-card--cancelado:hover {
+        box-shadow: 0 4px 14px rgba(220,38,38,.22) !important;
+    }
+
+    /* En tránsito — borde azul */
+    .ops-card--en-transito {
+        border-color: #93c5fd !important;
+        box-shadow: 0 0 0 1px rgba(37,99,235,.12) !important;
+    }
+    .ops-card--en-transito:hover {
+        box-shadow: 0 4px 14px rgba(37,99,235,.2) !important;
+    }
+
     .ops-card-folio {
         font-size: 0.7rem;
         font-weight: 700;
@@ -198,67 +216,6 @@
         flex-shrink: 0; line-height: 1;
     }
 
-    /* ── Modal search result card ────────────────────────────────── */
-    .ops-search-placeholder {
-        text-align: center;
-        padding: 1.25rem 1rem;
-        color: #94a3b8;
-        font-size: .78rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: .4rem;
-    }
-    .ops-search-placeholder i { font-size: 1.6rem; opacity: .3; }
-
-    .ops-credit-card {
-        display: none;
-        border: 2px solid #e2e8f0;
-        border-radius: .625rem;
-        padding: .875rem 1rem;
-        cursor: pointer;
-        background: #fff;
-        transition: border-color .15s, background .15s, box-shadow .15s;
-    }
-    .ops-credit-card.show  { display: block; }
-    .ops-credit-card:hover {
-        border-color: var(--ops-green-border);
-        background: var(--ops-green-light);
-    }
-    .ops-credit-card.selected {
-        border-color: var(--ops-green);
-        background: var(--ops-green-light);
-        box-shadow: 0 0 0 3px rgba(99,102,241,.15);
-    }
-    .ops-src-name {
-        font-size: .88rem;
-        font-weight: 800;
-        color: #1e293b;
-        text-transform: uppercase;
-        letter-spacing: .5px;
-    }
-    .ops-src-meta {
-        font-size: .72rem;
-        color: #64748b;
-        margin-top: 2px;
-    }
-    .ops-src-amount {
-        font-size: .88rem;
-        font-weight: 700;
-        color: #1e293b;
-        white-space: nowrap;
-    }
-    .ops-src-badge {
-        font-size: .62rem;
-        font-weight: 700;
-        padding: .15rem .5rem;
-        border-radius: 999px;
-        text-transform: uppercase;
-        white-space: nowrap;
-    }
-    .ops-src-badge-vencido { background:#fee2e2; color:#7f1d1d; border:1px solid #fca5a5; }
-    .ops-src-badge-activo  { background:#e0e7ff; color:#3730a3; border:1px solid #a5b4fc; }
-
     /* ── Detail modal ──────────────────────────────────────────────── */
     .ops-detail-section {
         background: #f8fafc;
@@ -298,8 +255,14 @@
     .ops-det-lbl  { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; }
 
     /* ── Viewer row (fixed height — never moves) ───────────────── */
-    .ops-visor-row { height: 420px; }
+    .ops-visor-row { height: 520px; }
     .ops-visor-row > [class*="col"] { height: 100%; }
+    @media (max-width: 767.98px) {
+        .ops-visor-row { height: auto !important; }
+        .ops-visor-row > [class*="col"] { height: auto !important; }
+        .ops-tramo-body  { min-height: 240px !important; }
+        .ops-bitacora-body { min-height: 120px !important; }
+    }
 
     /* ── Asset Viewer ────────────────────────────────────────────── */
     .ops-asset-viewer {
@@ -317,7 +280,7 @@
     /* ── Acciones de Tramo ───────────────────────────────────────── */
     .ops-tramo-wrap {
         display: flex; flex-direction: column;
-        flex: 1; min-height: 0;
+        flex: 2 1 0; min-height: 0;
         border: 1px solid #e2e8f0; border-radius: .75rem; overflow: hidden;
     }
     .ops-tramo-hdr {
@@ -327,13 +290,13 @@
     }
     .ops-tramo-hdr i { color: #38bdf8; }
     .ops-tramo-body {
-        flex: 1 1 0; min-height: 0; overflow-y: auto; padding: .5rem .75rem;
+        flex: 1 1 0; min-height: 220px; overflow-y: auto; padding: .5rem .75rem;
         background: #f8fafc; scrollbar-width: thin;
     }
     .ops-tramo-body::-webkit-scrollbar { width: 4px; }
     .ops-tramo-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     .ops-tramo-foot {
-        flex-shrink: 0; padding: .5rem .625rem;
+        flex-shrink: 0; padding: .3rem .5rem;
         border-top: 1px solid #e2e8f0; background: #f1f5f9;
     }
 
@@ -515,38 +478,6 @@
 
     body.dark-mode .ops-empty-col { color: #475569; }
 
-    /* ── Modal: Nueva Operación — secciones con inline style ─────── */
-    body.dark-mode #modalNuevaOperacion .modal-body > div {
-        background: #1e293b !important;
-        border-color: #334155 !important;
-    }
-    body.dark-mode #modalNuevaOperacion .input-group-text {
-        background: #0f172a !important;
-        border-color: #334155 !important;
-        color: #94a3b8 !important;
-    }
-    body.dark-mode #modalNuevaOperacion .form-label { color: #94a3b8; }
-
-    /* ── Search result card ───────────────────────────────────────── */
-    body.dark-mode .ops-search-placeholder { color: #475569; }
-    body.dark-mode .ops-credit-card {
-        background: #1e293b;
-        border-color: #334155;
-    }
-    body.dark-mode .ops-credit-card:hover {
-        background: #1e1b4b;
-        border-color: var(--ops-green-border);
-    }
-    body.dark-mode .ops-credit-card.selected {
-        background: #1e1b4b;
-        border-color: var(--ops-green);
-    }
-    body.dark-mode .ops-src-name,
-    body.dark-mode .ops-src-amount { color: #e2e8f0; }
-    body.dark-mode .ops-src-meta   { color: #64748b; }
-    body.dark-mode .ops-src-badge-vencido { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
-    body.dark-mode .ops-src-badge-activo  { background: #1e1b4b; color: #c7d2fe; border-color: #4338ca; }
-
     /* ── Modal detalle: sección genérica ─────────────────────────── */
     body.dark-mode .ops-detail-section {
         background: #1e293b;
@@ -555,8 +486,7 @@
     body.dark-mode .ops-detail-section h6 { color: #a7f3d0; }
 
     /* ── Modal detalle: footer con inline style ───────────────────── */
-    body.dark-mode #modalDetalleOperacion .modal-footer,
-    body.dark-mode #modalNuevaOperacion .modal-footer {
+    body.dark-mode #modalDetalleOperacion .modal-footer {
         background: #0f172a !important;
         border-top-color: #334155 !important;
     }
@@ -655,9 +585,6 @@
 <!-- Toolbar -->
 <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
     <div class="d-flex align-items-center gap-2">
-        <button type="button" class="btn btn-ops-green btn-sm" onclick="opsAbrirModalNueva()">
-            <i class="fa-solid fa-plus me-1"></i>Nueva Operación
-        </button>
         <button type="button" class="btn btn-outline-secondary btn-sm" id="ops-btn-refresh" onclick="opsCargarPipeline()">
             <i class="fa-solid fa-rotate-right me-1"></i>Actualizar
         </button>
@@ -678,146 +605,6 @@
     <p class="mt-2 text-muted small">Cargando pipeline…</p>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     MODAL: NUEVA OPERACIÓN
-     ═══════════════════════════════════════════════════════════════════ -->
-<div class="modal fade" id="modalNuevaOperacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header" style="background:var(--ops-green-light); border-bottom:1px solid var(--ops-green-border);">
-                <h5 class="modal-title" style="color:var(--ops-green-text);">
-                    <i class="fa-solid fa-plus me-2" style="color:var(--ops-green);"></i>
-                    Nueva Operación
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-
-                <!-- Paso 1: Buscar crédito en Adjudicación -->
-                <div class="mb-3 p-3 rounded-2" style="background:#f8fafc; border:1px solid #e2e8f0;">
-                    <h6 class="d-flex align-items-center gap-2 mb-2" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.5px; color:var(--ops-green-text);">
-                        <span class="ops-step-badge">1</span>Buscar crédito en Adjudicación
-                    </h6>
-                    <div class="input-group input-group-sm mb-2">
-                        <span class="input-group-text" style="background:#eef2ff; border-color:#e0e7ff;">
-                            <i class="fa-solid fa-magnifying-glass" style="color:var(--ops-green); font-size:.75rem;"></i>
-                        </span>
-                        <input type="number" id="ops-input-credito" class="form-control"
-                               placeholder="ID de crédito (ej. 1637)" min="1"
-                               onkeydown="if(event.key==='Enter') opsBuscarCredito()">
-                        <button class="btn btn-ops-green fw-bold" type="button" id="ops-btn-buscar"
-                                onclick="opsBuscarCredito()" style="letter-spacing:.5px;">
-                            BUSCAR
-                        </button>
-                    </div>
-                    <!-- Área de resultados -->
-                    <div id="ops-search-area">
-                        <div class="ops-search-placeholder" id="ops-search-placeholder">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <span>Ingresa el ID de un crédito asignado en adjudicación para iniciar el proceso</span>
-                        </div>
-                        <!-- Tarjeta de resultado (columna única) -->
-                        <div class="ops-credit-card" id="ops-credit-card" onclick="opsSeleccionarCredito()">
-                            <div class="d-flex justify-content-between align-items-start gap-2">
-                                <div class="flex-grow-1" style="min-width:0;">
-                                    <div class="ops-src-name" id="ops-cr-nombre"></div>
-                                    <div class="ops-src-meta">
-                                        <i class="fa-solid fa-hashtag" style="opacity:.5; font-size:.65rem;"></i>
-                                        <span id="ops-cr-id" class="me-1"></span>
-                                        <span id="ops-cr-curp-sep" class="mx-1" style="display:none;">•</span>
-                                        <span id="ops-cr-curp"></span>
-                                    </div>
-                                    <div class="ops-src-meta mt-1" id="ops-cr-gestor"
-                                         style="color:var(--ops-green-text); font-size:.69rem;">
-                                    </div>
-                                </div>
-                                <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
-                                    <div class="ops-src-amount" id="ops-cr-saldo"></div>
-                                    <span class="ops-src-badge" id="ops-cr-status"></span>
-                                </div>
-                            </div>
-                            <div class="mt-2 d-none" id="ops-cr-select-hint"
-                                 style="font-size:.69rem; color:var(--ops-green-text); font-weight:600;">
-                                <i class="fa-solid fa-circle-check me-1"></i>Crédito seleccionado — completa los datos abajo
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Campos ocultos -->
-                    <input type="hidden" id="ops-hid-idcredito">
-                    <input type="hidden" id="ops-hid-nombre">
-                    <input type="hidden" id="ops-hid-diasmora">
-                    <input type="hidden" id="ops-hid-saldo">
-                    <input type="hidden" id="ops-hid-adeudo">
-                </div>
-
-                <!-- Paso 2: Datos logísticos -->
-                <div class="mb-3 p-3 rounded-2" style="background:#f8fafc; border:1px solid #e2e8f0;">
-                    <h6 class="d-flex align-items-center gap-2 mb-3" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.5px; color:var(--ops-green-text);">
-                        <span class="ops-step-badge">2</span>Datos logísticos
-                    </h6>
-                    <div class="row g-3">
-                        <div class="col-12 col-sm-6">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">Responsable de entrega</label>
-                            <input type="text" id="ops-f-responsable" class="form-control form-control-sm"
-                                   placeholder="Nombre de quien entrega">
-                        </div>
-                        <div class="col-12 col-sm-6">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">Teléfono de contacto</label>
-                            <input type="tel" id="ops-f-telefono" class="form-control form-control-sm"
-                                   placeholder="10 dígitos" maxlength="20">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">Dirección de recolección</label>
-                            <input type="text" id="ops-f-direccion" class="form-control form-control-sm"
-                                   placeholder="Dirección donde se recolectará la moto">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">Área actual</label>
-                            <input type="text" id="ops-f-area" class="form-control form-control-sm"
-                                   placeholder="Ej. Sucursal Norte">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Paso 3: Datos del vehículo -->
-                <div class="p-3 rounded-2" style="background:#f8fafc; border:1px solid #e2e8f0;">
-                    <h6 class="d-flex align-items-center gap-2 mb-3" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.5px; color:var(--ops-green-text);">
-                        <span class="ops-step-badge">3</span>Datos del vehículo <span class="text-muted fw-normal">(opcional)</span>
-                    </h6>
-                    <div class="row g-3">
-                        <div class="col-6 col-sm-4">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">Marca</label>
-                            <input type="text" id="ops-f-marca" class="form-control form-control-sm" placeholder="Honda">
-                        </div>
-                        <div class="col-6 col-sm-4">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">Modelo</label>
-                            <input type="text" id="ops-f-modelo" class="form-control form-control-sm" placeholder="Tornado">
-                        </div>
-                        <div class="col-6 col-sm-4">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">Placas</label>
-                            <input type="text" id="ops-f-placas" class="form-control form-control-sm" placeholder="AB-1234">
-                        </div>
-                        <div class="col-6 col-sm-6">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">N° Serie</label>
-                            <input type="text" id="ops-f-serie" class="form-control form-control-sm" placeholder="VIN...">
-                        </div>
-                        <div class="col-6 col-sm-6">
-                            <label class="form-label form-label-sm fw-semibold text-muted small">N° Motor</label>
-                            <input type="text" id="ops-f-motor" class="form-control form-control-sm">
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-            <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-ops-green btn-sm" id="ops-btn-guardar" onclick="opsCrearOperacion()">
-                    <i class="fa-solid fa-floppy-disk me-1"></i>Registrar Operación
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
      MODAL: DETALLE / MOVER ETAPA
@@ -857,6 +644,32 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════
+     MODAL: RESUMEN DICTAMEN (sólo lectura — estatus cancelado)
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalOpsDictamenResumen" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%);border-radius:.4rem .4rem 0 0;">
+                <h5 class="modal-title text-white fw-bold">
+                    <i class="fa-solid fa-file-circle-check me-2"></i>Resumen del dictamen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="ops-dictamen-resumen-body">
+                <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            </div>
+            <div class="modal-footer" style="background:#f8fafc;">
+                <button type="button" class="btn fw-bold"
+                        style="background:#e2e8f0;color:#475569;border:none;border-radius:2rem;padding:.45rem 1.4rem;"
+                        data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark me-1"></i>Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
      JAVASCRIPT
      ═══════════════════════════════════════════════════════════════════ -->
 <script>
@@ -866,10 +679,10 @@
     // CONSTANTES
     // ──────────────────────────────────────────────────────────────────
     const STAGES = [
+        'Retenciones',
         'Recibido',
         'Procesando IA',
         'Revisión Recuperaciones',
-        'Retenciones',
         'Cierre Documentado',
         'Recepción',
     ];
@@ -985,9 +798,15 @@
         board.innerHTML = '';
 
         // Agrupar por etapa
+        // en_transito → Recibido  |  cancelado → Retenciones (tarjeta roja)
         const groups = {};
         STAGES.forEach(s => groups[s] = []);
-        ops.forEach(op => { if (groups[op.estatus]) groups[op.estatus].push(op); });
+        ops.forEach(op => {
+            let stage = op.estatus;
+            if (stage === 'en_transito') stage = 'Recibido';
+            else if (stage === 'cancelado') stage = 'Retenciones';
+            if (groups[stage]) groups[stage].push(op);
+        });
 
         // Stats
         const statsEl = document.getElementById('ops-pipeline-stats');
@@ -1042,8 +861,22 @@
             ? `<span class="ops-area-badge">${opsEsc(op.area_actual)}</span>`
             : '';
 
+        // Estilos y comportamiento especiales para cancelado
+        const esCancelado  = op.estatus === 'cancelado';
+        const esTransito   = op.estatus === 'en_transito';
+        const cardExtra    = esCancelado ? ' ops-card--cancelado' : (esTransito ? ' ops-card--en-transito' : '');
+        const clickHandler = esCancelado
+            ? `opsDictamenResumen(${op.id})`
+            : `opsAbrirDetalle(${op.id})`;
+        const transitoBadge = esTransito
+            ? `<div style="margin-top:.3rem;"><span style="background:#dbeafe;color:#1e40af;font-size:.7rem;font-weight:700;border-radius:20px;padding:1px 8px;"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span></div>`
+            : '';
+        const canceladoBadge = esCancelado
+            ? `<div style="margin-top:.3rem;"><span style="background:#fee2e2;color:#b91c1c;font-size:.7rem;font-weight:700;border-radius:20px;padding:1px 8px;"><i class="fa-solid fa-ban me-1"></i>Cancelado</span></div>`
+            : '';
+
         return `
-        <div class="ops-card" onclick="opsAbrirDetalle(${op.id})" title="${opsEsc(op.nombre_cliente)}">
+        <div class="ops-card${cardExtra}" onclick="${clickHandler}" title="${opsEsc(op.nombre_cliente)}">
             <div class="d-flex align-items-center justify-content-between mb-1 gap-1 flex-wrap">
                 <span class="ops-card-folio">${opsEsc(op.folio)}</span>
                 <span class="ops-aging-badge ${agingClass}">${agingLabel}</span>
@@ -1054,6 +887,7 @@
                 ${areaHtml ? '&nbsp;' + areaHtml : ''}
             </div>
             <div class="ops-checklist">${checks}</div>
+            ${canceladoBadge}${transitoBadge}
         </div>`;
     }
 
@@ -1065,192 +899,47 @@
     }
 
     // ──────────────────────────────────────────────────────────────────
-    // MODAL: NUEVA OPERACIÓN
+    // MODAL: RESUMEN DEL DICTAMEN (cancelado — sólo lectura)
     // ──────────────────────────────────────────────────────────────────
-    function opsAbrirModalNueva() {
-        // Limpiar
-        ['ops-input-credito','ops-f-responsable','ops-f-telefono','ops-f-direccion',
-         'ops-f-area','ops-f-marca','ops-f-modelo','ops-f-placas','ops-f-serie','ops-f-motor']
-         .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-        ['ops-hid-idcredito','ops-hid-nombre','ops-hid-diasmora','ops-hid-saldo','ops-hid-adeudo']
-         .forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-        // Resetear área de búsqueda
-        const card = document.getElementById('ops-credit-card');
-        if (card) { card.classList.remove('show', 'selected'); }
-        const hint = document.getElementById('ops-cr-select-hint');
-        if (hint) { hint.classList.add('d-none'); }
-        const placeholder = document.getElementById('ops-search-placeholder');
-        if (placeholder) placeholder.style.display = '';
-        document.getElementById('ops-btn-guardar').disabled = false;
-        new bootstrap.Modal(document.getElementById('modalNuevaOperacion')).show();
-    }
+    function opsDictamenResumen(idOperacion) {
+        const body = document.getElementById('ops-dictamen-resumen-body');
+        body.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>';
+        new bootstrap.Modal(document.getElementById('modalOpsDictamenResumen')).show();
 
-    // ──────────────────────────────────────────────────────────────────
-    // BUSCAR CRÉDITO EN ADJUDICACIÓN
-    // ──────────────────────────────────────────────────────────────────
-    function opsBuscarCredito() {
-        const valor = parseInt(document.getElementById('ops-input-credito').value || '0');
-        if (!valor || valor <= 0) {
-            Swal.fire({ icon: 'warning', title: 'ID inválido', text: 'Ingresa un ID de crédito válido.', confirmButtonColor: '#6366f1' });
-            return;
-        }
+        fetch(`/AtencionClientes/obtenerDictamen?id=${idOperacion}`, { headers: { 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.message || 'No se encontró el dictamen.');
+                const d = data.dictamen;
+                const fila = (lbl, val) => `
+                    <div style="display:flex;align-items:flex-start;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #f1f5f9;">
+                        <span style="color:#64748b;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;min-width:160px;flex-shrink:0;">${opsEsc(lbl)}</span>
+                        <span style="color:#1e293b;font-weight:500;">${val ? opsEsc(String(val)) : '<span style="color:#94a3b8;font-style:italic;">—</span>'}</span>
+                    </div>`;
 
-        // Ocultar tarjeta previa
-        const card = document.getElementById('ops-credit-card');
-        card.classList.remove('show', 'selected');
-        document.getElementById('ops-cr-select-hint').classList.add('d-none');
-        document.getElementById('ops-search-placeholder').style.display = '';
-
-        // Bloquear botón mientras carga
-        const btnBuscar = document.getElementById('ops-btn-buscar');
-        btnBuscar.disabled = true;
-        btnBuscar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
-
-        fetch('/MotosAdjudicadas/buscarCredito', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ valor }),
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (!data.success) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Crédito no disponible',
-                    text: data.message,
-                    confirmButtonColor: '#6366f1',
-                });
-                return;
-            }
-
-            // Poblar tarjeta
-            document.getElementById('ops-cr-nombre').textContent = data.nombre_cliente || '—';
-            document.getElementById('ops-cr-id').textContent     = data.id_credito     || valor;
-
-            const curp   = (data.curp || '').trim();
-            const curpEl = document.getElementById('ops-cr-curp');
-            const sepEl  = document.getElementById('ops-cr-curp-sep');
-            if (curp && curp !== 'Sin CURP') {
-                curpEl.textContent  = curp;
-                sepEl.style.display = '';
-            } else {
-                curpEl.textContent  = '';
-                sepEl.style.display = 'none';
-            }
-
-            document.getElementById('ops-cr-saldo').textContent = opsFormatMXN(data.saldo_actual || 0);
-
-            const statusEl  = document.getElementById('ops-cr-status');
-            const esVencido = (data.status_credito || '').toLowerCase().includes('venci');
-            statusEl.textContent = data.status_credito || 'ACTIVO';
-            statusEl.className   = 'ops-src-badge ' + (esVencido ? 'ops-src-badge-vencido' : 'ops-src-badge-activo');
-
-            const gestor  = (data.gestor_nombre || '').trim();
-            const gestorEl = document.getElementById('ops-cr-gestor');
-            gestorEl.innerHTML = gestor
-                ? `<i class="fa-solid fa-user-tie me-1"></i>Gestor: <strong>${gestor}</strong>`
-                : '';
-
-            // Guardar en hidden fields (no los vacíamos hasta que el usuario seleccione)
-            document.getElementById('ops-hid-idcredito').value = data.id_credito     || '';
-            document.getElementById('ops-hid-nombre').value    = data.nombre_cliente  || '';
-            document.getElementById('ops-hid-diasmora').value  = data.dias_mora       || 0;
-            document.getElementById('ops-hid-saldo').value     = data.saldo_actual    || 0;
-            document.getElementById('ops-hid-adeudo').value    = data.saldo_actual    || 0;
-
-            // Auto-llenar campos de formulario si están vacíos
-            const dirInput = document.getElementById('ops-f-direccion');
-            if (!dirInput.value.trim() && data.direccion && data.direccion !== 'Sin dirección registrada') {
-                dirInput.value = data.direccion;
-            }
-            const telInput = document.getElementById('ops-f-telefono');
-            if (!telInput.value.trim() && data.telefono && data.telefono !== 'Sin teléfono') {
-                telInput.value = data.telefono;
-            }
-
-            // Mostrar tarjeta y marcarla como seleccionada automáticamente
-            document.getElementById('ops-search-placeholder').style.display = 'none';
-            card.classList.add('show');
-            opsSeleccionarCredito();
-        })
-        .catch(err => {
-            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
-        })
-        .finally(() => {
-            btnBuscar.disabled = false;
-            btnBuscar.innerHTML = 'BUSCAR';
-        });
-    }
-
-    // Marcar la tarjeta como seleccionada
-    function opsSeleccionarCredito() {
-        const card = document.getElementById('ops-credit-card');
-        if (!card.classList.contains('show')) return;
-        card.classList.add('selected');
-        document.getElementById('ops-cr-select-hint').classList.remove('d-none');
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // CREAR OPERACIÓN
-    // ──────────────────────────────────────────────────────────────────
-    function opsCrearOperacion() {
-        const idCredito = parseInt(document.getElementById('ops-hid-idcredito').value || '0');
-        if (!idCredito) {
-            Swal.fire({ icon: 'warning', title: 'Falta crédito', text: 'Busca y selecciona un crédito válido primero.', confirmButtonColor: '#6366f1' });
-            return;
-        }
-
-        const payload = {
-            id_credito:            idCredito,
-            nombre_cliente:        document.getElementById('ops-hid-nombre').value.trim(),
-            responsable_entrega:   document.getElementById('ops-f-responsable').value.trim(),
-            telefono_contacto:     document.getElementById('ops-f-telefono').value.trim(),
-            direccion_recoleccion: document.getElementById('ops-f-direccion').value.trim(),
-            area_actual:           document.getElementById('ops-f-area').value.trim(),
-            marca:                 document.getElementById('ops-f-marca').value.trim(),
-            modelo:                document.getElementById('ops-f-modelo').value.trim(),
-            placas:                document.getElementById('ops-f-placas').value.trim(),
-            serie:                 document.getElementById('ops-f-serie').value.trim(),
-            num_motor:             document.getElementById('ops-f-motor').value.trim(),
-            dias_mora:             parseInt(document.getElementById('ops-hid-diasmora').value || '0'),
-            saldo_capital:         parseFloat(document.getElementById('ops-hid-saldo').value || '0'),
-            adeudo_total:          parseFloat(document.getElementById('ops-hid-adeudo').value || '0'),
-        };
-
-        document.getElementById('ops-btn-guardar').disabled = true;
-
-        Swal.fire({ title: 'Registrando…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-        fetch('/MotosAdjudicadas/crearOperacion', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        })
-        .then(r => r.json())
-        .then(data => {
-            Swal.close();
-            document.getElementById('ops-btn-guardar').disabled = false;
-            if (!data.success) {
-                Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
-                return;
-            }
-            bootstrap.Modal.getInstance(document.getElementById('modalNuevaOperacion'))?.hide();
-            Swal.fire({
-                icon: 'success', title: '¡Operación creada!',
-                html: `Folio <strong>${data.folio}</strong> registrado en <em>Recibido</em>.`,
-                timer: 2400, showConfirmButton: false, timerProgressBar: true,
+                body.innerHTML = `
+                    <div style="margin-bottom:.75rem;">
+                        <span style="background:#fee2e2;color:#b91c1c;font-size:.8rem;font-weight:700;border-radius:20px;padding:3px 12px;">
+                            <i class="fa-solid fa-ban me-1"></i>Cancelado — promesa de pago
+                        </span>
+                    </div>
+                    ${fila('Llamada a',          d.llamada_a)}
+                    ${fila('Número',             d.numero)}
+                    ${fila('Persona contactada', d.persona_contactada)}
+                    ${fila('Tipo contacto',      d.tipo_contacto)}
+                    ${fila('Resultado',          d.resultado)}
+                    ${fila('Dictamen',           d.dictamen)}
+                    ${fila('Plataforma',         d.plataforma)}
+                    ${d.comentarios ? fila('Comentarios', d.comentarios) : ''}
+                    ${fila('Registrado',         d.fecha_alta_fmt)}
+                `;
+            })
+            .catch(err => {
+                body.innerHTML = `<div class="alert alert-danger">${opsEsc(err.message)}</div>`;
             });
-            opsCargarPipeline();
-        })
-        .catch(err => {
-            Swal.close();
-            document.getElementById('ops-btn-guardar').disabled = false;
-            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
-        });
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    // MODAL: DETALLE
+
     // ──────────────────────────────────────────────────────────────────
     function opsAbrirDetalle(id) {
         _detalleActual = null;
@@ -1458,6 +1147,10 @@
         ${fileInputs}`;
 
         document.getElementById('det-body').innerHTML = html;
+        requestAnimationFrame(() => {
+            const _obsList = document.getElementById('det-obs-list');
+            if (_obsList) _obsList.scrollTop = _obsList.scrollHeight;
+        });
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -2070,10 +1763,6 @@
     // ──────────────────────────────────────────────────────────────────
     // EXPONER GLOBALES
     // ──────────────────────────────────────────────────────────────────
-    window.opsAbrirModalNueva    = opsAbrirModalNueva;
-    window.opsBuscarCredito      = opsBuscarCredito;
-    window.opsSeleccionarCredito = opsSeleccionarCredito;
-    window.opsCrearOperacion     = opsCrearOperacion;
     window.opsCargarPipeline     = opsCargarPipeline;
     window.opsAbrirDetalle       = opsAbrirDetalle;
     window.opsMoverEstatus       = opsMoverEstatus;

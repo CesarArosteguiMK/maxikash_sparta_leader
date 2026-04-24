@@ -121,8 +121,10 @@ function getMenu(): string
         'Motos Adjudicadas' => [
             'icono'    => 'fa-solid fa-motorcycle',
             'subItems' => [
-                ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
-                ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',       'modulos' => [63]],
+                ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos',          'modulos' => [62]],
+                ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
+                ['label' => 'Mis Adjudicaciones',     'url' => '/MotosAdjudicadas/misAdjudicaciones',       'modulos' => [64]],
+                ['label' => 'Atención a Clientes',    'url' => '/AtencionClientes/consulta',                'modulos' => [65]],
             ],
         ],
         'Tickets' => [

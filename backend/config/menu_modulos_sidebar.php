@@ -81,6 +81,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'subItems' => [
                     ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
                     ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',       'modulos' => [63]],
+                    ['label' => 'Atención a Clientes',    'url' => '/AtencionClientes/consulta',       'modulos' => [65]],
                 ],
             ],
             'Gastos Cobranza' => [

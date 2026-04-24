@@ -295,9 +295,11 @@ class MotosAdjudicadas extends Model
         ORDER BY
             FIELD(o.estatus,
                 'Recibido',
+                'en_transito',
                 'Procesando IA',
                 'Revisión Recuperaciones',
                 'Retenciones',
+                'cancelado',
                 'Cierre Documentado',
                 'Recepción'
             ),
@@ -538,5 +540,137 @@ class MotosAdjudicadas extends Model
 
         $this->db->CRUD("DELETE FROM adj_operacion WHERE id = :id", ['id' => $id]);
         return ['success' => true];
+    }
+
+    // =========================================================================
+    // MIS ADJUDICACIONES — créditos asignados al usuario en sesión
+    // =========================================================================
+
+    /**
+     * Devuelve los créditos activos asignados al usuario en la tabla
+     * asigna_creditos_adjudicacion, enriquecidos con datos del Segundometro
+     * (nombre del cliente, saldo, días de mora, bucket).
+     */
+    public function obtenerMisAdjudicaciones(int $idPersona): array
+    {
+        $adjModel = new AdjudicacionModel();
+        $creditos = $adjModel->obtenerCreditosAsignados($idPersona);
+
+        if (empty($creditos)) {
+            return [];
+        }
+
+        // Enriquecer con Segundometro
+        $ids = array_map('intval', array_column($creditos, 'id_credito'));
+
+        $placeholders = [];
+        $params = [];
+        foreach ($ids as $i => $id) {
+            $key = "id$i";
+            $placeholders[] = ":$key";
+            $params[$key] = $id;
+        }
+        $inStr = implode(',', $placeholders);
+
+        try {
+            $dbS2 = new \Core\DatabaseSegundometro();
+
+            $rows = $dbS2->queryAll(
+                "SELECT Id_credito, Nombre_cliente, Dias_mora, Bucket_Morosidad_Real,
+                        Saldo_total_capital AS saldo
+                 FROM tbl_segundometro_semana
+                 WHERE Id_credito IN ($inStr)",
+                $params
+            ) ?: [];
+
+            $mapa = [];
+            foreach ($rows as $r) {
+                $mapa[(int)$r['Id_credito']] = $r;
+            }
+
+            // Histórico para los no encontrados en semana
+            $faltantes = array_filter($ids, fn($id) => !isset($mapa[$id]));
+            if (!empty($faltantes)) {
+                $ph2 = []; $p2 = [];
+                foreach (array_values($faltantes) as $i => $id) {
+                    $k = "h$i"; $ph2[] = ":$k"; $p2[$k] = $id;
+                }
+                $rowsH = $dbS2->queryAll(
+                    "SELECT Id_credito,
+                            MAX(Nombre_cliente)       AS Nombre_cliente,
+                            MAX(Dias_mora)            AS Dias_mora,
+                            MAX(Bucket_Morosidad_Real) AS Bucket_Morosidad_Real,
+                            MAX(Saldo_total_capital)  AS saldo
+                     FROM tbl_segundometro_histo
+                     WHERE Id_credito IN (" . implode(',', $ph2) . ")
+                     GROUP BY Id_credito",
+                    $p2
+                ) ?: [];
+                foreach ($rowsH as $r) {
+                    $mapa[(int)$r['Id_credito']] = $r;
+                }
+            }
+        } catch (\Exception $e) {
+            $mapa = [];
+        }
+
+        // Fusionar
+        foreach ($creditos as &$c) {
+            $id = (int)$c['id_credito'];
+            $s2 = $mapa[$id] ?? [];
+            $c['nombre_cliente'] = $s2['Nombre_cliente']        ?? 'No disponible';
+            $c['dias_mora']      = $s2['Dias_mora']             ?? 0;
+            $c['bucket']         = $s2['Bucket_Morosidad_Real'] ?? '—';
+            $c['saldo']          = $s2['saldo']                 ?? 0;
+        }
+        unset($c);
+
+        return $creditos;
+    }
+
+    // =========================================================================
+    // EVIDENCIAS POR CRÉDITO (mis_adjudicaciones)
+    // =========================================================================
+
+    /**
+     * Busca la operación más reciente para un id_credito en adj_operacion.
+     * Si no existe ninguna, crea una automáticamente con datos mínimos.
+     *
+     * @return array{success:bool, detalle?:array, creado?:bool, message?:string}
+     */
+    public function obtenerOCrearOperacion(int $idCredito, string $nombreCliente, int $idUsuario = 0): array
+    {
+        $op = $this->db->queryOne(
+            'SELECT id FROM adj_operacion WHERE id_credito = :id ORDER BY id DESC LIMIT 1',
+            ['id' => $idCredito]
+        );
+
+        if ($op) {
+            $detalle = $this->obtenerDetalle((int) $op['id']);
+            return ['success' => true, 'detalle' => $detalle];
+        }
+
+        // No existe → crear con datos mínimos
+        $ahora = $this->fechaHoraCdmx();
+        $folio = $this->generarFolio();
+
+        $campos = [
+            'folio'               => $folio,
+            'id_credito'          => $idCredito,
+            'nombre_cliente'      => $nombreCliente !== '' ? $nombreCliente : "Crédito #{$idCredito}",
+            'estatus'             => 'Retenciones',
+            'id_usuario_alta'     => $idUsuario ?: null,
+            'fecha_alta'          => $ahora,
+            'fecha_actualizacion' => $ahora,
+        ];
+
+        $cols = implode(', ', array_map(fn($k) => "`{$k}`", array_keys($campos)));
+        $ph   = implode(', ', array_map(fn($k) => ":{$k}", array_keys($campos)));
+        $this->db->CRUD("INSERT INTO adj_operacion ({$cols}) VALUES ({$ph})", $campos);
+
+        $newId   = (int) $this->db->lastInsertId();
+        $detalle = $this->obtenerDetalle($newId);
+
+        return ['success' => true, 'detalle' => $detalle, 'creado' => true];
     }
 }
