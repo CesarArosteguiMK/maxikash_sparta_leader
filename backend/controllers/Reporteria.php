@@ -2158,8 +2158,20 @@ class Reporteria extends Controller
                     };
                     const Z = T.zonales[zonKey]; Z.total++;
 
-                    if (!Z.gestores[gest]) Z.gestores[gest] = { total:0, cobrados:0, pendientes:0 };
-                    const G = Z.gestores[gest]; G.total++;
+                    if (!Z.gestores[gest]) Z.gestores[gest] = { total:0, cobrados:0, pendientes:0, idCreditos: [] };
+                    const G = Z.gestores[gest];
+                    G.total++;
+                    const idC = (r.Id_credito != null && r.Id_credito !== '')
+                        ? String(r.Id_credito)
+                        : (r.id_credito != null && r.id_credito !== '' ? String(r.id_credito) : null);
+                    if (idC) {
+                        const nomC = (r.Nombre_cliente != null && String(r.Nombre_cliente).trim() !== '')
+                            ? String(r.Nombre_cliente).trim()
+                            : (r.nombre_cliente != null && String(r.nombre_cliente).trim() !== ''
+                                ? String(r.nombre_cliente).trim()
+                                : '—');
+                        G.idCreditos.push({ id: idC, nombre: nomC });
+                    }
 
                     const iN = BUCKET_ORDER.indexOf(canonBucket(r.bucket_nacio));
                     const iA = BUCKET_ORDER.indexOf(canonBucket(r.bucket_corte_actual));
@@ -2190,8 +2202,34 @@ class Reporteria extends Controller
                 );
 
                 const barColor = (pct) => pct >= 70 ? '#28a745' : pct >= 40 ? '#fd7e14' : '#dc3545';
-                const pctClass = (pct) => pct >= 70 ? 'text-success' : pct >= 40 ? 'text-warning' : 'text-danger';
-                const borderClass = (pct) => pct >= 70 ? 'border-success' : pct >= 40 ? 'border-warning' : 'border-danger';
+                const pphEsc = (s) => String(s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/"/g, '&quot;');
+                const pphSortIdCred = (a, b) => {
+                    const na = parseInt(a, 10);
+                    const nb = parseInt(b, 10);
+                    if (!Number.isNaN(na) && !Number.isNaN(nb) && String(a) === String(na) && String(b) === String(nb)) {
+                        return na - nb;
+                    }
+                    return String(a).localeCompare(String(b), undefined, { numeric: true });
+                };
+                const pphFilasCredUniq = (arr) => {
+                    const m = new Map();
+                    (arr || []).forEach((it) => {
+                        const id = typeof it === 'string' ? it : (it && it.id != null ? String(it.id) : '');
+                        if (!id) return;
+                        const nom = typeof it === 'string'
+                            ? '—'
+                            : (it && it.nombre != null && String(it.nombre).trim() !== '' ? String(it.nombre).trim() : '—');
+                        if (!m.has(id)) m.set(id, nom);
+                    });
+                    return [...m.entries()].sort((a, b) => pphSortIdCred(a[0], b[0]));
+                };
+                const pphZonBrdL = (p) => (p === 0 ? '#E24B4A' : p === 100 ? '#1D9E75' : '#BA7517');
+                const pphDonC = 2 * Math.PI * 16;
+
+                const pphDonOf = (pct) => (pphDonC * (1 - Math.min(100, pct) / 100)).toFixed(2);
 
                 let html = '';
                 terOrdenados.forEach((ter, idx) => {
@@ -2219,105 +2257,99 @@ class Reporteria extends Controller
                         .sort((a,b) => (a.cobrados/Math.max(a.total,1)) - (b.cobrados/Math.max(b.total,1)));
 
                     let htmlZon = '';
-                    zonOrdenados.forEach(zon => {
+                    zonOrdenados.forEach((zon, zix) => {
                         const pZ = zon.total ? Math.round(zon.cobrados / zon.total * 100) : 0;
-
-                        /* Etiqueta de nivel según si zonal y jefe son la misma persona */
-                        const nivelBadge = zon.mismoNombre
-                            ? `<span class="badge bg-label-info me-2" style="font-size:.62rem;">Zonal · Jefe de plaza</span>`
-                            : `<span class="badge bg-label-info me-1" style="font-size:.62rem;">Zonal</span>
-                               <span class="text-muted me-1" style="font-size:.68rem;">${zon.zonNombre}</span>
-                               <span class="badge bg-label-primary me-2" style="font-size:.62rem;">Jefe de plaza</span>`;
-
+                        const nG = Object.keys(zon.gestores).length;
                         const nombreMostrar = zon.mismoNombre ? zon.zonNombre : zon.jefNombre;
+                        const nGestStr = nG + ' gestor' + (nG === 1 ? '' : 'es');
+                        const subZ1 = zon.mismoNombre
+                            ? `${pphEsc(nombreMostrar)} · (sin zonal) · jefe de plaza`
+                            : `${pphEsc(zon.zonNombre)} · jefe: ${pphEsc(zon.jefNombre)}`;
+                        const pphZonCid = `pphZonB_${idx}_${zix}`;
 
                         const gestOrdenados = Object.entries(zon.gestores)
                             .map(([k,v]) => ({ nombre:k, ...v }))
                             .sort((a,b) => (a.cobrados/Math.max(a.total,1)) - (b.cobrados/Math.max(b.total,1)));
 
                         let htmlGest = '';
-                        gestOrdenados.forEach(gest => {
-                            const pG = gest.total ? Math.round(gest.cobrados / gest.total * 100) : 0;
-                            htmlGest += `
-                            <tr>
-                                <td style="padding-left:2.2rem;font-size:.72rem;">
-                                    <i class="fa fa-user text-muted me-1"></i>${gest.nombre}
-                                </td>
-                                <td class="text-center" style="font-size:.72rem;">${gest.total}</td>
-                                <td class="text-center ${gest.cobrados > 0 ? 'text-success' : 'text-muted'}" style="font-size:.72rem;">
-                                    ${gest.cobrados}
-                                </td>
-                                <td class="text-center ${gest.pendientes > 0 ? 'text-warning' : 'text-muted'}" style="font-size:.72rem;">
-                                    ${gest.pendientes}
-                                </td>
-                                <td class="text-center" style="font-size:.72rem;">
-                                    <div class="progress d-inline-flex" style="height:4px;width:50px;vertical-align:middle;">
-                                        <div class="progress-bar" style="width:${pG}%;background:${barColor(pG)};"></div>
-                                    </div>
-                                    <span class="ms-1 ${pctClass(pG)}">${pG}%</span>
-                                </td>
-                            </tr>`;
+                        gestOrdenados.forEach((gest, gix) => {
+                            const crdId = `pphCrd_${idx}_${zix}_${gix}`;
+                            const filasCred = pphFilasCredUniq(gest.idCreditos);
+                            const nIds = filasCred.length;
+                            const idRows = nIds
+                                ? filasCred.map(([idStr, nomStr]) => `<div class="d-flex align-items-center gap-2 border-top px-3 py-1 ps-5 small text-muted">
+                                    <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">${pphEsc(idStr)}</span>
+                                    <span>${pphEsc(nomStr)}</span>
+                                </div>`).join('')
+                                : '<div class="d-flex border-top px-3 py-1 ps-5 small text-muted">Sin ID en dato de cartera</div>';
+                            htmlGest += `<div>
+                                <div class="d-flex align-items-center gap-2 ${gix > 0 ? 'border-top' : ''} px-3 py-1 ps-4">
+                                    <div class="small text-muted flex-grow-1">${pphEsc(gest.nombre)}</div>
+                                    <span class="badge rounded-pill" style="background:#EAF3DE; color:#3B6D11;">Cobr ${gest.cobrados}</span>
+                                    <span class="badge rounded-pill" style="background:#FAEEDA; color:#854F0B;">Pend ${gest.pendientes}</span>
+                                    <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">IDs ${nIds}</span>
+                                    <button type="button" class="btn btn-sm p-0 m-0 align-baseline badge bg-light text-muted border" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false">Acciones</button>
+                                </div>
+                                <div class="collapse bg-white" id="${crdId}">${idRows}</div>
+                            </div>`;
                         });
 
-                        htmlZon += `
-                        <tr class="table-light">
-                            <td style="padding-left:.8rem;font-size:.75rem;">
-                                ${nivelBadge}
-                                <span class="fw-semibold">${nombreMostrar}</span>
-                            </td>
-                            <td class="text-center fw-semibold" style="font-size:.75rem;">${zon.total}</td>
-                            <td class="text-center text-success fw-semibold" style="font-size:.75rem;">${zon.cobrados}</td>
-                            <td class="text-center text-warning fw-semibold" style="font-size:.75rem;">${zon.pendientes}</td>
-                            <td class="text-center" style="font-size:.75rem;">
-                                <div class="progress d-inline-flex" style="height:5px;width:55px;vertical-align:middle;">
-                                    <div class="progress-bar" style="width:${pZ}%;background:${barColor(pZ)};"></div>
+                        htmlZon += `<div>
+                            <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-top border-start border-3 w-100"
+                                 style="border-left-color: ${pphZonBrdL(pZ)} !important; cursor: pointer"
+                                 data-bs-toggle="collapse" data-bs-target="#${pphZonCid}" aria-expanded="true" role="button" tabindex="0">
+                                <span class="badge" style="background:#E6F1FB; color:#185FA5; font-size:0.7rem;">Zonal</span>
+                                <div class="fw-medium small flex-grow-1">${pphEsc(nombreMostrar)}</div>
+                                <div class="d-flex flex-column text-muted" style="font-size:0.7rem; max-width: 40%; line-height: 1.25;">
+                                    <span>${subZ1}</span>
+                                    <span>${nGestStr}</span>
                                 </div>
-                                <span class="ms-1 ${pctClass(pZ)}">${pZ}%</span>
-                            </td>
-                        </tr>${htmlGest}`;
-                    });
-
-                    html += `
-                    <div class="card mb-3 border-start border-3 ${borderClass(pctTer)}">
-                        <div class="card-header d-flex align-items-center justify-content-between py-2"
-                             style="cursor:pointer;"
-                             data-bs-toggle="collapse"
-                             data-bs-target="#ter_${idx}">
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="badge bg-label-secondary" style="font-size:.63rem;">Territorial</span>
-                                <strong style="font-size:.85rem;">${ter.nombre}</strong>
-                                <span class="badge bg-label-secondary">${ter.total} créditos</span>
+                                <span class="text-body-secondary user-select-none d-inline-block" style="transform: rotate(180deg)">▾</span>
                             </div>
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="d-flex flex-column align-items-end" style="font-size:.75rem;">
-                                    <span class="text-success"><i class="fa fa-circle-check me-1"></i>${ter.cobrados} cobrados</span>
-                                    <span class="text-warning"><i class="fa fa-clock me-1"></i>${ter.pendientes} pendientes</span>
-                                </div>
-                                <div class="d-flex flex-column align-items-end gap-1">
-                                    <span class="${pctClass(pctTer)} fw-bold" style="font-size:.85rem;">${pctTer}%</span>
-                                    <div class="progress" style="height:4px;width:60px;">
-                                        <div class="progress-bar" style="width:${pctTer}%;background:${barColor(pctTer)};"></div>
+                            <div class="collapse show border-top bg-white" id="${pphZonCid}">
+                                <div class="d-flex gap-2 px-3 py-2 ps-4 bg-white">
+                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#F1EFE8;">
+                                        <span class="fs-4 fw-medium d-block" style="color:#5F5E5A;">${zon.total}</span>
+                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color:#5F5E5A;">asig</span>
+                                    </div>
+                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#EAF3DE;">
+                                        <span class="fs-4 fw-medium d-block" style="color:#3B6D11;">${zon.cobrados}</span>
+                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color:#3B6D11;">cobr</span>
+                                    </div>
+                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#FAEEDA;">
+                                        <span class="fs-4 fw-medium d-block" style="color:#854F0B;">${zon.pendientes}</span>
+                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color:#854F0B;">pend</span>
+                                    </div>
+                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#E8EBEF;">
+                                        <span class="fs-4 fw-medium d-block" style="color: ${pphZonBrdL(pZ)};">${pZ}%</span>
+                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color: ${pphZonBrdL(pZ)};">efec</span>
                                     </div>
                                 </div>
-                                <i class="fa fa-chevron-down text-muted"></i>
+                                <div class="bg-white">${htmlGest}</div>
                             </div>
-                        </div>
-                        <div class="collapse" id="ter_${idx}">
-                            <div class="card-body p-0">
-                                <table class="table table-sm mb-0 align-middle" style="font-size:.74rem;">
-                                    <thead class="table-dark" style="font-size:.67rem;">
-                                        <tr>
-                                            <th>Nivel y nombre</th>
-                                            <th class="text-center">Total</th>
-                                            <th class="text-center">Cobrados</th>
-                                            <th class="text-center">Pendientes</th>
-                                            <th class="text-center">Efectividad</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>${htmlZon}</tbody>
-                                </table>
+                        </div>`;
+                    });
+
+                    html += `<div class="mb-3 rounded-3 border overflow-hidden">
+                        <div class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 bg-white text-body border-bottom" style="cursor: pointer" data-bs-toggle="collapse" data-bs-target="#ter_${idx}" aria-expanded="false" role="button" tabindex="0">
+                            <span class="small text-muted text-uppercase fw-semibold">Territorial</span>
+                            <span class="fw-medium fs-6 flex-grow-1 text-body">${pphEsc(ter.nombre)}</span>
+                            <span class="badge rounded-pill border text-body fw-medium px-2" style="background: #F4F3EF;">${ter.total} créditos</span>
+                            <div class="d-flex flex-wrap align-items-center gap-2 small text-muted">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #1D9E75;"></span>${ter.cobrados} cobrados
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #BA7517;"></span>${ter.pendientes} pendientes
+                                </span>
                             </div>
+                            <svg class="flex-shrink-0" width="44" height="44" viewBox="0 0 44 44" style="min-width: 44px" aria-hidden="true" focusable="false">
+                                <circle r="16" cx="22" cy="22" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="3"></circle>
+                                <circle r="16" cx="22" cy="22" fill="none" stroke="${barColor(pctTer)}" stroke-width="3" stroke-linecap="round" transform="rotate(-90 22 22)" style="stroke-dasharray: ${pphDonC.toFixed(2)}; stroke-dashoffset: ${pphDonOf(pctTer)};"></circle>
+                            </svg>
+                            <span class="text-muted user-select-none d-inline-block">▾</span>
                         </div>
+                        <div class="collapse" id="ter_${idx}"><div class="p-0 bg-white">${htmlZon}</div></div>
                     </div>`;
                 });
 

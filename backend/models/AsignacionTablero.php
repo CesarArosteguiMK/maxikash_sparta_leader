@@ -241,10 +241,13 @@ class AsignacionTablero
         $histoSemanaPasadaPorCredito = [];
         $labelSemanaPasada = trim((string) ($out['semanas'][0]['label'] ?? ''));
         $rangeSemanaPasada = trim((string) ($out['semanas'][0]['range'] ?? ''));
+        $habilitarHistoSemanaPasada = getenv('ASIGNACION_HISTO_SEMANA_PASADA') === '1';
         try {
             $dbMega = new DatabaseSegundometro();
             $bucketsPorCreditoSemana = self::obtenerBucketsMorosidadPorCreditos($dbMega, $listaCreditos);
-            if ($labelSemanaPasada !== '' || $rangeSemanaPasada !== '') {
+            // El histórico puede volverse muy lento según tamaño/índices de tbl_segundometro_histo.
+            // Para mantener el tablero operativo, queda detrás de flag (por defecto apagado).
+            if ($habilitarHistoSemanaPasada && ($labelSemanaPasada !== '' || $rangeSemanaPasada !== '')) {
                 $histoSemanaPasadaPorCredito = self::obtenerHistoSemanaPasadaPorCreditos($dbMega, $labelSemanaPasada, $rangeSemanaPasada, $listaCreditos);
             }
         } catch (\Throwable $e) {
@@ -427,25 +430,10 @@ class AsignacionTablero
      */
     private static function obtenerHistoSemanaPasadaPorCreditos(DatabaseSegundometro $db, string $semanaEtiqueta, string $semanaRange, array $idsCreditos): array
     {
-        $sem = trim($semanaEtiqueta);
-        $rangeOrig = self::parseRangeDdMmYyyy($semanaRange);
-        // Inserciones a histórico pueden llegar después del cierre mar–lun; ampliar poco evita vacíos sin barrer semanas de más.
-        $rangeQuery = $rangeOrig;
-        if (is_array($rangeOrig)) {
-            try {
-                $tzR = new \DateTimeZone('America/Mexico_City');
-            } catch (\Exception $e) {
-                $tzR = new \DateTimeZone('UTC');
-            }
-            $finO = \DateTimeImmutable::createFromFormat('!Y-m-d', $rangeOrig['fin'], $tzR);
-            if ($finO instanceof \DateTimeImmutable) {
-                $rangeQuery = [
-                    'inicio' => $rangeOrig['inicio'],
-                    'fin' => $finO->modify('+7 days')->format('Y-m-d'),
-                ];
-            }
+        $variantes = self::variantesEtiquetaSemanaHisto(trim($semanaEtiqueta), $semanaRange);
+        if ($variantes === []) {
+            return [];
         }
-        $variantes = self::variantesEtiquetaSemanaHisto($sem, $semanaRange);
         $ids = array_values(array_unique(array_filter(array_map(
             static fn($id): string => self::claveIdCredito(trim((string) $id)),
             $idsCreditos
@@ -462,40 +450,37 @@ class AsignacionTablero
                 $placeholders[] = ':' . $k;
                 $params[$k] = $idCred;
             }
-            if ($variantes === [] && !is_array($rangeOrig)) {
-                continue;
-            }
             $agr = [];
             $semIn = [];
             $semParams = [];
-            if ($variantes !== []) {
-                $si = 0;
-                $valsSem = [];
-                foreach ($variantes as $lab) {
-                    $s1 = self::normalizarTextoSemanaHisto((string) $lab);
-                    if ($s1 !== '') {
-                        $valsSem[$s1] = true;
-                    }
-                    $s2 = mb_strtolower(trim((string) $lab));
-                    if ($s2 !== '' && $s2 !== $s1) {
-                        $valsSem[$s2] = true;
-                    }
+            $si = 0;
+            $valsSem = [];
+            foreach ($variantes as $lab) {
+                $v = trim((string) $lab);
+                if ($v !== '') {
+                    $valsSem[$v] = true;
                 }
-                foreach (array_keys($valsSem) as $cand) {
-                    $sk = 'semv' . $si;
-                    $semIn[] = ':' . $sk;
-                    $semParams[$sk] = $cand;
-                    $si++;
+                $v2 = preg_replace('/\s+/u', ' ', $v);
+                if (is_string($v2)) {
+                    $v2 = trim($v2);
+                    if ($v2 !== '') {
+                        $valsSem[$v2] = true;
+                    }
                 }
             }
+            foreach (array_keys($valsSem) as $cand) {
+                $sk = 'semv' . $si;
+                $semIn[] = ':' . $sk;
+                $semParams[$sk] = $cand;
+                $si++;
+            }
 
-            // 1) Primero SEMANA exacta (rápido y más preciso).
             if ($semIn !== []) {
                 $sqlSem = '
                     SELECT Id_credito, Gestor_Asignado, Bucket_Morosidad_Real, Bucket_Morosidad, fecha_hora_insert, SEMANA
                     FROM tbl_segundometro_histo
                     WHERE Id_credito IN (' . implode(', ', $placeholders) . ')
-                      AND LOWER(TRIM(CAST(`SEMANA` AS CHAR(255)))) IN (' . implode(', ', $semIn) . ')
+                      AND SEMANA IN (' . implode(', ', $semIn) . ')
                     ORDER BY Id_credito, fecha_hora_insert DESC
                 ';
                 $rowsSem = $db->queryAll($sqlSem, array_merge($params, $semParams));
@@ -505,43 +490,6 @@ class AsignacionTablero
                         continue;
                     }
                     $agr[$idc][] = $r;
-                }
-            }
-
-            // 2) Solo para créditos faltantes, fallback por rango de fecha (sin DATE() para permitir uso de índice).
-            if (is_array($rangeQuery)) {
-                $faltantes = [];
-                foreach ($chunk as $idcChunk) {
-                    if (!isset($agr[$idcChunk])) {
-                        $faltantes[] = $idcChunk;
-                    }
-                }
-                if ($faltantes !== []) {
-                    $phF = [];
-                    $prF = [];
-                    foreach ($faltantes as $fi => $idcF) {
-                        $fk = 'f' . $fi;
-                        $phF[] = ':' . $fk;
-                        $prF[$fk] = $idcF;
-                    }
-                    $prF['fini_dt'] = $rangeQuery['inicio'] . ' 00:00:00';
-                    $prF['ffin_dt'] = $rangeQuery['fin'] . ' 23:59:59';
-                    $sqlRango = '
-                        SELECT Id_credito, Gestor_Asignado, Bucket_Morosidad_Real, Bucket_Morosidad, fecha_hora_insert, SEMANA
-                        FROM tbl_segundometro_histo
-                        WHERE Id_credito IN (' . implode(', ', $phF) . ')
-                          AND fecha_hora_insert >= :fini_dt
-                          AND fecha_hora_insert <= :ffin_dt
-                        ORDER BY Id_credito, fecha_hora_insert DESC
-                    ';
-                    $rowsRango = $db->queryAll($sqlRango, $prF);
-                    foreach ((array) $rowsRango as $r) {
-                        $idc = self::claveIdCredito($r['Id_credito'] ?? $r['id_credito'] ?? '');
-                        if ($idc === '') {
-                            continue;
-                        }
-                        $agr[$idc][] = $r;
-                    }
                 }
             }
 
