@@ -37,7 +37,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Analítica' => [
                 'icono' => 'fa-solid fa-chart-line',
                 'subItems' => [
-                    ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49]],
+                    ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49, 65, 66, 67, 68]],
                     ['label' => 'Call Center', 'url' => '/analitica/callcenter', 'modulos' => [6]],
                     // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/analitica/layoutlegacy', 'modulos' => [7]],
@@ -240,6 +240,10 @@ if (!function_exists('mapPermisoEspecialToMenuMeta')) {
             24 => [2, 230],
             // Analítica — Primeros pagos
             33 => [49, 110],
+            65 => [49, 120],
+            66 => [49, 130],
+            67 => [49, 140],
+            68 => [49, 150],
             // Convenios — Crear convenio
             32 => [46, 110],
             // Capital Humano — Gestión

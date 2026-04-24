@@ -1,4 +1,14 @@
 <?php
+/* Permisos por card (Reporteria::PrimerosPagos); si no vienen del controlador, no ocultar nada (p. ej. vista suelta). */
+if (!isset($pp_perm_cobranza) && !isset($pp_perm_cartera) && !isset($pp_perm_proxima) && !isset($pp_perm_historico)) {
+    $pp_perm_cobranza = $pp_perm_cartera = $pp_perm_proxima = $pp_perm_historico = true;
+}
+$pp_perm_cobranza = !empty($pp_perm_cobranza);
+$pp_perm_cartera = !empty($pp_perm_cartera);
+$pp_perm_proxima = !empty($pp_perm_proxima);
+$pp_perm_historico = !empty($pp_perm_historico);
+$pp_cards_visibles = (int) $pp_perm_cobranza + (int) $pp_perm_cartera + (int) $pp_perm_proxima + (int) $pp_perm_historico;
+
 $ppSemanaTz = new DateTimeZone('America/Mexico_City');
 $ppHoy = new DateTimeImmutable('now', $ppSemanaTz);
 $ppDow = (int) $ppHoy->format('N');
@@ -73,18 +83,27 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                          alt="Primeros pagos — ilustración">
                 </div>
 
-                <div class="row gy-6 mb-6 gx-0">
-                    <div class="col-lg-3 col-md-6">
-                        <div class="card shadow-none bg-label-primary h-100">
-                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                <div class="row gy-6 mb-6 gx-0 align-items-stretch">
+                    <?php if ($pp_cards_visibles === 0): ?>
+                    <div class="col-12">
+                        <div class="alert alert-warning mb-0" role="alert">
+                            No tiene permisos para ver tarjetas aquí. Solicite en Capital Humano el acceso que corresponda.
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($pp_perm_cobranza): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-primary h-100 w-100 d-flex flex-column">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-1">Cobranza esperada - semana actual</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoSemana, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de martes a domingo. Resumen ejecutivo del corte de primeros pagos de la semana en curso: buckets de nacimiento, mora al último corte cargado y seguimiento por Territorial, Zonal y gestor asignado.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de martes a domingo. Resumen ejecutivo del corte de primeros pagos de la semana en curso</p>
                                     </div>
-                                    <div class="mb-0 mt-3">
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
                                         <?php if ($ppDow === 1): ?>
                                         <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
                                             La cartera no abre hasta el martes, revise los datos en la sección de <strong>Primeros pagos próxima semana</strong>.
@@ -99,7 +118,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start h-px-150 mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
                                         <rect x="8" y="6" width="48" height="44" rx="4" ry="4"/>
                                         <path d="M8 18h48M20 6v8M44 6v8"/>
@@ -109,23 +128,26 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6">
-                        <div class="card shadow-none bg-label-primary h-100">
-                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                    <?php endif; ?>
+                    <?php if ($pp_perm_cartera): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-primary h-100 w-100 d-flex flex-column">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-1">Cartera</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoCartera, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Cartera completa en segundómetro sin limitar por primer vencimiento. Mora al nacimiento en tramos 1–7, 8–14, 15–21 y 22+ días, corte dinámico vigente y adjudicadas donde Ghost tiene valor distinto de vacío o guión.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Cartera completa de la semana actual</p>
                                     </div>
-                                    <div class="mb-0 mt-3">
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
                                         <a href="/analitica/Cartera" class="btn btn-primary w-100">
                                             <i class="fa fa-briefcase me-1"></i>Ver cartera
                                         </a>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start h-px-150 mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
                                         <rect x="14" y="28" width="36" height="22" rx="2.5" ry="2.5"/>
                                         <path d="M22 28V22h20v6"/>
@@ -136,17 +158,20 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6">
-                        <div class="card shadow-none bg-label-primary h-100">
-                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                    <?php endif; ?>
+                    <?php if ($pp_perm_proxima): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-primary h-100 w-100 d-flex flex-column">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-1">Primeros pagos próxima semana</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemanaSiguiente ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoVentanaPrimerosPagos, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de jueves a lunes; martes y miércoles permanece cerrado el acceso. Anticipa primeros pagos de la semana siguiente según colocaciones cuya primera fecha de vencimiento recae en esa ventana operativa de planificación.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de jueves a lunes. Anticipa primeros pagos de la semana siguiente</p>
                                     </div>
-                                    <div class="mb-0 mt-3">
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
                                         <?php if ($ppBloqueoProximaSemanaMartesMiercoles): ?>
                                         <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
                                             La cartera de próxima semana no está disponible; podrá consultarla a partir del jueves. Mientras tanto revise <strong>Cobranza esperada — semana actual</strong>.
@@ -161,7 +186,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start h-px-150 mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
                                         <rect x="6" y="8" width="44" height="40" rx="4" ry="4"/>
                                         <path d="M6 22h44M22 8v10M38 8v10"/>
@@ -171,23 +196,26 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6">
-                        <div class="card shadow-none bg-label-secondary h-100" id="pp-card-historico">
-                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                    <?php endif; ?>
+                    <?php if ($pp_perm_historico): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-secondary h-100 w-100 d-flex flex-column" id="pp-card-historico">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-1">Histórico</h5>
                                         <p class="text-primary mb-0 fw-bold small">Primeros pagos</p>
-                                        <p class="text-body-secondary small mb-1"><strong>Consulta:</strong> últimas 4 semanas cerradas</p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Consulta hasta cuatro semanas cerradas consecutivas. Replica la lógica del lunes de corte sobre el histórico: nacimiento, mora al cierre, jerarquía y comparativos desde la tabla archivada de primeros pagos del repositorio de reportes.</p>
+                                        <p class="text-body-secondary small mb-1"><strong>Consulta:</strong> últimas 5 semanas cerradas</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Consulta las últimas cinco semanas cerradas de primeros pagos</p>
                                     </div>
-                                    <div class="mb-0 mt-3">
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
                                         <a href="/analitica/PrimerosPagosHistorico" class="btn btn-primary w-100">
                                             <i class="fa-solid fa-clock-rotate-left me-1"></i>Ver histórico
                                         </a>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start h-px-150 mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
                                         <circle cx="32" cy="34" r="18"/>
                                         <path d="M32 22v10l8 5"/>
@@ -197,6 +225,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
 
             </div>
@@ -219,11 +248,19 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 #pp-card-historico {
     scroll-margin-top: 5.5rem;
 }
-/* Cuatro cards: descripciones con longitud parecida + misma altura mínima en lg para alinear bloques. */
-@media (min-width: 992px) {
-    #pp-landing .pp-landing-card-desc {
-        min-height: 6.85rem;
-    }
+/* Fila de cards: misma altura; títulos e iconos alineados; botones al mismo borde inferior */
+#pp-landing .pp-landing-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+#pp-landing .pp-landing-card-text {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+}
+#pp-landing .pp-landing-card-filler {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 .pp-hero-block {
     position: relative;

@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\UsuarioFantasmaReporteria;
 
 class Login extends Model
 {
@@ -60,14 +61,19 @@ class Login extends Model
         }
 
         $query = <<<SQL
-        SELECT modulo_web_id
-        FROM asigna_modulo_web
-        WHERE usuario_id = :idPersona
+        SELECT p.user_name AS user_name, am.modulo_web_id AS modulo_web_id
+        FROM persona p
+        LEFT JOIN asigna_modulo_web am ON am.usuario_id = p.id
+        WHERE p.id = :idPersona
         SQL;
 
         try {
             $db = new Database();
             $rows = $db->queryAll($query, ['idPersona' => $idPersona]);
+            $first = $rows[0] ?? null;
+            if ($first && UsuarioFantasmaReporteria::matchUsername($first['user_name'] ?? $first['USER_NAME'] ?? null)) {
+                return [UsuarioFantasmaReporteria::MODULO_COMPARATIVAS];
+            }
         } catch (\Exception $e) {
             return [];
         }

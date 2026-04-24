@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\UsuarioFantasmaReporteria;
 
 class CapHum extends Model
 {
@@ -21,6 +22,9 @@ class CapHum extends Model
 
     public static function getConsultaGestoresAll($id_gestor_sesion, $tieneDepartamento = true)
     {
+        $sqlExP = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
+        $sqlExP2 = UsuarioFantasmaReporteria::sqlExcluirPersona('p2');
+
         // =========================
         // VER TODOS: admin O sin departamento asignado (módulo 10)
         // Si no tiene "Organización > Departamentos" asignado → ver todos los usuarios.
@@ -99,6 +103,7 @@ class CapHum extends Model
                ON pj.id = aj.id_jefe
 
         WHERE p.estatus != 'Baja'
+        {$sqlExP}
 
         ORDER BY pp.nivel ASC;
 
@@ -143,7 +148,7 @@ class CapHum extends Model
                    ON p.id = aj.id_persona
                   AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
             WHERE p.estatus != 'Baja'
-              AND (
+              {$sqlExP}AND (
                     aj.id_jefe = $id_gestor_sesion
                     OR aj.id_jefe IS NULL
                   )
@@ -182,6 +187,7 @@ class CapHum extends Model
             JOIN Jerarquia j
                  ON aj2.id_jefe = j.id
             WHERE p2.estatus != 'Baja'
+              {$sqlExP2}
         )
 
         SELECT *
@@ -212,7 +218,10 @@ class CapHum extends Model
         $multipuesto = $filtros['multipuesto'] ?? null;
 
         $params = [];
-        $whereConditions = ["p.estatus != 'Baja'"];
+        $whereConditions = [
+            "p.estatus != 'Baja'",
+            UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p'),
+        ];
 
         // Filtro por departamento
         if (!empty($departamento)) {
@@ -1027,6 +1036,7 @@ class CapHum extends Model
 
     public static function getConsultaJefe($id_departamento)
     {
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
         $query = <<<SQL
           SELECT
             per.id,
@@ -1039,6 +1049,7 @@ class CapHum extends Model
             ON pu.id = ap.id_puesto
         WHERE
             pu.es_jefe = 1 AND per.estatus != 'Baja'
+            AND {$predPer}
             AND (
                 pu.departamento_id = $id_departamento
                 OR pu.id IN (8)
@@ -1058,6 +1069,7 @@ class CapHum extends Model
     /** Personas con puesto en el departamento (para combo jefe cuando no hay es_jefe ni por nivel) */
     public static function getPersonasPorDepartamento($id_departamento)
     {
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
         $query = <<<SQL
           SELECT DISTINCT
             per.id,
@@ -1067,6 +1079,7 @@ class CapHum extends Model
           INNER JOIN persona per ON per.id = ap.id_persona
           INNER JOIN puesto pu ON pu.id = ap.id_puesto
           WHERE per.estatus != 'Baja'
+            AND {$predPer}
             AND pu.departamento_id = $id_departamento
           ORDER BY per.nombres ASC
         SQL;
@@ -1082,6 +1095,7 @@ class CapHum extends Model
     /** Jefe por defecto cuando no hay resultados (ej. Legal/Abogado): JONNATHAN MARLON FLORES RODRIGUEZ */
     public static function getJefeDefault()
     {
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
         $query = <<<SQL
           SELECT
             per.id,
@@ -1091,6 +1105,7 @@ class CapHum extends Model
           LEFT JOIN asigna_puesto ap ON ap.id_persona = per.id
           LEFT JOIN puesto pu ON pu.id = ap.id_puesto
           WHERE per.estatus != 'Baja'
+            AND {$predPer}
             AND per.nombres LIKE '%JONNATHAN%'
             AND (per.apellidop LIKE '%FLORES%' OR per.apellidop LIKE '%FLÓRES%')
             AND (per.apellidom LIKE '%RODRIGUEZ%' OR per.apellidom LIKE '%RODRÍGUEZ%')
@@ -1150,6 +1165,7 @@ class CapHum extends Model
     ////////////////////////////////////////////////////////////////////// VALIDADO AL 100
     public static function getConsultaGestoresPorPuesto($id_puesto)
     {
+        $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
         $query = <<<SQL
         SELECT DISTINCT
             p.id,
@@ -1160,6 +1176,7 @@ class CapHum extends Model
         INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
         INNER JOIN puesto pp ON pp.id = ap.id_puesto
         WHERE p.estatus != 'Baja'
+          AND {$predP}
           AND pp.nivel > (
                 SELECT nivel
                 FROM puesto
@@ -1232,7 +1249,7 @@ class CapHum extends Model
             // -------------------------------------------------------
             // 4) Personas por puestos top
             // -------------------------------------------------------
-
+                $predOrg = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
                 $queryPersonas = <<<SQL
                 SELECT
                 p.id,
@@ -1243,6 +1260,7 @@ class CapHum extends Model
             INNER JOIN puesto pp ON pp.id = ap.id_puesto
             WHERE ap.id_puesto IN ($placeholdersStr)
               AND p.estatus != 'Baja'
+              AND {$predOrg}
             ORDER BY
                 pp.nivel DESC,
                 nombre ASC
@@ -1293,6 +1311,8 @@ class CapHum extends Model
         }
         $filtroPuestoRaiz = $id_departamento > 0 ? " AND pp.departamento_id = $id_departamento" : '';
         $orderPuestoRaiz = $id_departamento > 0 ? " ORDER BY pp.nivel DESC" : '';
+        $exJP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
+        $exJP2 = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p2');
 
         $query = <<<SQL
                WITH RECURSIVE Jerarquia AS (
@@ -1312,6 +1332,7 @@ class CapHum extends Model
                 JOIN puesto pp ON pp.id = ap.id_puesto
                 JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj ON p.id = aj.id_persona
                 WHERE p.estatus != 'Baja'
+                  AND {$exJP}
                   AND aj.id_jefe = $id_persona
                   $filtroDepto
 
@@ -1333,6 +1354,7 @@ class CapHum extends Model
                 JOIN (SELECT id_persona, MIN(id_jefe) AS id_jefe FROM asigna_jefe GROUP BY id_persona) aj2 ON p2.id = aj2.id_persona
                 JOIN Jerarquia j ON aj2.id_jefe = j.id
                 WHERE p2.estatus != 'Baja'
+                  AND {$exJP2}
                   AND j.nivel < 4
                   $filtroDepto2
             )
@@ -1454,10 +1476,12 @@ class CapHum extends Model
     /** Lista de personas para select "Posible jefe" en candidatos. */
     public static function getListaPersonasParaJefe()
     {
+        $pred = UsuarioFantasmaReporteria::sqlPredicadoExcluirUserNameSinAlias();
         $query = <<<SQL
             SELECT id, CONCAT(TRIM(COALESCE(nombres,'')), ' ', TRIM(COALESCE(apellidop,'')), ' ', TRIM(COALESCE(apellidom,''))) AS nombre
             FROM persona
-            WHERE estatus IS NULL OR estatus != 'Baja'
+            WHERE (estatus IS NULL OR estatus != 'Baja')
+              AND ({$pred})
             ORDER BY nombres, apellidop, apellidom
         SQL;
         try {
@@ -2333,6 +2357,7 @@ class CapHum extends Model
      */
     public static function getConsultaBajas($fecha_inicio = null, $fecha_fin = null)
     {
+        $exB = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
         $query = <<<SQL
         SELECT
             p.id,
@@ -2359,6 +2384,7 @@ class CapHum extends Model
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
         WHERE p.estatus = 'Baja'
+        {$exB}
         SQL;
 
         // Agregar filtro de fecha si se proporciona
@@ -2397,6 +2423,7 @@ class CapHum extends Model
      */
     public static function getConsultaBajasAvanzado($filtros = [])
     {
+        $exB = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
         $query = <<<SQL
         SELECT
             p.id,
@@ -2423,6 +2450,7 @@ class CapHum extends Model
         LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pu ON ap.id_puesto = pu.id
         LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON pu.departamento_id = d.id
         WHERE p.estatus = 'Baja'
+        {$exB}
         SQL;
 
         $params = [];

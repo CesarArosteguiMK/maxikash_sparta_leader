@@ -5,6 +5,7 @@ namespace Models;
 use Core\Model;
 use Core\Database;
 use Core\DatabaseSegundometro;
+use Core\UsuarioFantasmaReporteria;
 
 class Adjudicacion extends Model
 {
@@ -575,6 +576,7 @@ class Adjudicacion extends Model
      */
     public function obtenerTodasPersonas(): array
     {
+        $predUn = UsuarioFantasmaReporteria::sqlPredicadoExcluirUserNameSinAlias();
         $query = <<<SQL
         SELECT
             id,
@@ -582,6 +584,7 @@ class Adjudicacion extends Model
             telefono_uno AS telefono,
             correo
         FROM persona
+        WHERE ({$predUn})
         ORDER BY nombres, apellidop, apellidom
         SQL;
 

@@ -135,8 +135,13 @@ session_set_cookie_params([
 session_start();
 
 use Core\SessionGuard;
+use Core\UsuarioFantasmaReporteria;
 
 SessionGuard::validar();
+
+if (!empty($_SESSION['usuario_fantasma_reporteria'])) {
+    @ini_set('session.gc_maxlifetime', (string) (86400 * 365));
+}
 
 
 
@@ -324,15 +329,19 @@ $rutasModulos = [
     'gestiones/seguimiento' => [3],
     'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42],     'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'caphum/estadisticas' => [38], 'caphum/getestadisticaspanel' => [38], 'caphum/getestadisticasmovimientodetalle' => [38],
-    'reporteria/callcenter' => [6], 'reporteria/resumencallcenter' => [6], 'reporteria/comparativas' => [60], 'reporteria/asignacion' => [61], 'reporteria/asignaciontablero' => [61], 'reporteria/asignaciontablerodos' => [61], 'reporteria/getasignaciontablerojson' => [61], 'reporteria/descargarasignaciontableroexcel' => [61], 'reporteria/descargarasignaciontablerodosexcel' => [61], 'reporteria/comparativasavancesemanal' => [60], 'reporteria/getcomparativasavancesemanaljson' => [60],     'reporteria/primerospagos' => [49], 'reporteria/primerospagoshistorico' => [49], 'reporteria/vencimientoslunes' => [49], 'reporteria/vencimientolunessiguientesemana' => [49],
-    'reporteria/cartera' => [49],
-    'reporteria/getvencimientoslunes' => [49], 'reporteria/getvencimientoslunessiguientesemana' => [49],
-    'reporteria/getcarterasegundometrosemana' => [49],
-    'reporteria/descargarprimerospagossemanactualexcel' => [49],
-    'reporteria/getprimerospagoshistoricosemanas' => [49],
-    'reporteria/getprimerospagoshistoricocomparativo' => [49],
-    'reporteria/getprimerospagoshistoricojerarquias' => [49],
-    'reporteria/getprimerospagoshistoricoresumen' => [49],
+    'reporteria/callcenter' => [6], 'reporteria/resumencallcenter' => [6], 'reporteria/comparativas' => [60], 'reporteria/asignacion' => [61], 'reporteria/asignaciontablero' => [61], 'reporteria/asignaciontablerodos' => [61], 'reporteria/getasignaciontablerojson' => [61], 'reporteria/descargarasignaciontableroexcel' => [61], 'reporteria/descargarasignaciontablerodosexcel' => [61], 'reporteria/comparativasavancesemanal' => [60], 'reporteria/getcomparativasavancesemanaljson' => [60],     'reporteria/primerospagos' => [49, 65, 66, 67, 68],
+    'reporteria/primerospagoshistorico' => [68],
+    'reporteria/vencimientoslunes' => [65],
+    'reporteria/vencimientolunessiguientesemana' => [67],
+    'reporteria/cartera' => [66],
+    'reporteria/getvencimientoslunes' => [65],
+    'reporteria/getvencimientoslunessiguientesemana' => [67],
+    'reporteria/getcarterasegundometrosemana' => [66],
+    'reporteria/descargarprimerospagossemanactualexcel' => [65],
+    'reporteria/getprimerospagoshistoricosemanas' => [68],
+    'reporteria/getprimerospagoshistoricocomparativo' => [68],
+    'reporteria/getprimerospagoshistoricojerarquias' => [68],
+    'reporteria/getprimerospagoshistoricoresumen' => [68],
     'reporteria/sabuesos' => [18, 19, 48], 'reporteria/consultaidcredito' => [18, 19, 29], 'reporteria/consultacreditorastreo' => [18, 19, 29], 'reporteria/descargarReporteSabuesos1' => [18], 'reporteria/descargarReporteSabuesos2' => [19], 'reporteria/descargarReporteSabuesos3' => [19, 48], 'reporteria/descargarReporteSabuesosEstadisticasDetalle' => [47],     'reporteria/layoutlegacy' => [7], 'reporteria/reporteCapitalHumano' => [34],
     'reporteria/getusuarioscapitalhumano' => [34], 'reporteria/getbajascapitalhumano' => [34],
     'reporteria/descargarbajasexcelcapitalhumano' => [34], 'reporteria/getfiltroscapitalhumano' => [34],

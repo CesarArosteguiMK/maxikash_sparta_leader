@@ -31,6 +31,13 @@ class SessionGuard
             self::cerrar();
         }
 
+        if (UsuarioFantasmaReporteria::es()) {
+            $_SESSION['modulos'] = [UsuarioFantasmaReporteria::MODULO_COMPARATIVAS];
+            $_SESSION['last_session_check'] = time();
+
+            return;
+        }
+
         // 🔄 permisos actualizados (throttle: como mucho cada 20 s)
         $ultima = $_SESSION['last_session_check'] ?? 0;
         if (time() - $ultima < 20) {

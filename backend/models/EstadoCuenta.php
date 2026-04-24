@@ -5,6 +5,7 @@ namespace Models;
 use Core\DatabaseSegundometro;
 use Core\Model;
 use Core\Database;
+use Core\UsuarioFantasmaReporteria;
 use Core\DatabaseAWS;
 use Core\DatabaseMaxiGuat;
 use Models\Empresa as EmpresasDAO;
@@ -20,6 +21,7 @@ class EstadoCuenta extends Model
             FROM persona
             WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) LIKE :nombre
               AND estatus = 'Activo'
+              AND (" . UsuarioFantasmaReporteria::sqlPredicadoExcluirUserNameSinAlias() . ")
             ORDER BY nombres, apellidop
             LIMIT 10
         ";
@@ -152,6 +154,7 @@ class EstadoCuenta extends Model
         }
 
         $nombre = trim($data['nombre']);
+        $predUn = UsuarioFantasmaReporteria::sqlPredicadoExcluirUserNameSinAlias();
 
         $query = <<<SQL
             SELECT
@@ -160,6 +163,7 @@ class EstadoCuenta extends Model
             FROM persona
             WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) LIKE :nombre
               AND estatus = 'Activo'
+              AND ({$predUn})
             ORDER BY nombres, apellidop
             LIMIT 10
         SQL;
@@ -255,6 +259,7 @@ class EstadoCuenta extends Model
 
         try {
             $db = new Database();
+            $predUn = UsuarioFantasmaReporteria::sqlPredicadoExcluirUserNameSinAlias();
             $r = $db->queryAll(
                 "SELECT
                         id,
@@ -262,6 +267,7 @@ class EstadoCuenta extends Model
                     FROM persona
                     WHERE CONCAT_WS(' ', nombres, segundo_nombre, apellidop, apellidom) LIKE '%jona%'
                       AND estatus = 'Activo'
+                      AND ({$predUn})
                     ORDER BY nombres, apellidop
                     LIMIT 10
             ");
@@ -1762,12 +1768,12 @@ public static function getGastosTodosConEstatus($idCredito)
             return self::resultado(true, 'Ticket creado', $result);
 
         } catch (\Exception $e) {
-
+            $det = $e->getMessage();
             return self::resultado(
                 false,
-                'Error al crear ticket',
+                'Error al crear ticket. Si falta la columna id_motivo_condonacion en condonaciones_cobranza (__SPARTA_SECRET_REDACTED__), solicite a DBA agregarla (INT NULL o NOT NULL según esquema).',
                 null,
-                $e->getMessage()
+                $det
             );
         }
     }
