@@ -164,12 +164,16 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
     </div>
     <?php else: ?>
     <?php
-    $ppRowColsDistrib = !empty($vencimientos_modo_cartera) ? 'row-cols-1 row-cols-sm-3' : 'row-cols-2';
+    /* Cartera: 5 buckets en una sola fila (nacimiento y corte); Lunes cierre: 2 cols */
+    $ppRowColsDistrib = !empty($vencimientos_modo_cartera) ? 'row-cols-5' : 'row-cols-2';
     $ppGapDistrib = !empty($vencimientos_modo_cartera) ? 'g-1' : 'g-2';
+    $ppRowDistribFlex = !empty($vencimientos_modo_cartera) ? 'flex-nowrap' : '';
+    $vlCardBodyDistribScroll = !empty($vencimientos_modo_cartera) ? 'overflow-x-auto' : '';
+    $vlColDistribOuter = !empty($vencimientos_modo_cartera) ? 'col-12' : 'col-12 col-md-6';
     ?>
     <!-- ── Nacimiento + distribución de corte (Lunes de cierre) ── -->
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-6">
+        <div class="<?= htmlspecialchars($vlColDistribOuter, ENT_QUOTES, 'UTF-8') ?>">
             <div class="card h-100 mb-0">
                 <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <span class="fw-semibold" style="font-size:.82rem;">
@@ -178,8 +182,8 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                     </span>
                     <span class="badge bg-label-warning"><i class="fa fa-globe me-1"></i>Global</span>
                 </div>
-                <div class="card-body py-2">
-                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?>" id="statsNacimientoTop"></div>
+                <div class="card-body py-2 <?= htmlspecialchars($vlCardBodyDistribScroll, ENT_QUOTES, 'UTF-8') ?>">
+                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppRowDistribFlex, ENT_QUOTES, 'UTF-8') ?>" id="statsNacimientoTop"></div>
                     <div id="nacimientoGlobalResumen" class="mt-3 mb-0" style="display:none;">
                         <div class="d-flex rounded-pill overflow-hidden border" style="height:0.82rem;background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1) !important;" role="group" aria-label="Distribución global Current vs 1-7 días">
                             <div id="nacBarCurrent" class="d-flex align-items-center justify-content-center bg-success text-white fw-semibold flex-shrink-0 overflow-hidden"
@@ -192,11 +196,11 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                             </div>
                         </div>
                     </div>
-                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> mt-2" id="statsNacimientoRest"></div>
+                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppRowDistribFlex, ENT_QUOTES, 'UTF-8') ?> mt-2" id="statsNacimientoRest"></div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6">
+        <div class="<?= htmlspecialchars($vlColDistribOuter, ENT_QUOTES, 'UTF-8') ?>">
             <div class="card h-100 mb-0">
                 <div class="card-header py-2 d-flex flex-wrap align-items-center gap-1">
                     <span class="fw-semibold text-body d-inline-flex flex-wrap align-items-center gap-1" style="font-size:.78rem;line-height:1.35;">
@@ -214,8 +218,8 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                         <?php endif; ?>
                     </span>
                 </div>
-                <div class="card-body py-2">
-                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?>" id="statsCorte">
+                <div class="card-body py-2 <?= htmlspecialchars($vlCardBodyDistribScroll, ENT_QUOTES, 'UTF-8') ?>">
+                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppRowDistribFlex, ENT_QUOTES, 'UTF-8') ?>" id="statsCorte">
                     </div>
                 </div>
             </div>

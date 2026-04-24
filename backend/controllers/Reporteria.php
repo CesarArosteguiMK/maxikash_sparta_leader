@@ -2146,20 +2146,21 @@ class Reporteria extends Controller
 
                 /* Cards nacimiento: Current + 1-7d arriba; barra global debajo; resto de buckets abajo */
                 const fsCard = MODO_CARTERA
-                    ? { bd: '.54rem', num: '1.05rem', pct: '.72rem', ft: '.54rem', pad: 'py-1 px-1', bdgMb: 'mb-0' }
+                    ? { bd: '.58rem', num: '1.08rem', pct: '.78rem', ft: '.58rem', pad: 'py-2 px-2', bdgMb: 'mb-1' }
                     : { bd: '.65rem', num: '1.5rem', pct: '1.05rem', ft: '.65rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
+                const colMinCartera = MODO_CARTERA ? ' style="min-width:9rem"' : '';
                 const cardNacHtml = (b) => {
                     const m   = BUCKET_META[b] ?? {};
                     const cnt = nacDist[b] || 0;
                     if (!cnt) return '';
                     return `
-                    <div class="col">
+                    <div class="col"${colMinCartera}>
                         <div class="card text-center h-100 border-0 shadow-sm">
                             <div class="card-body ${fsCard.pad}">
                                 <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
-                                    <i class="fa ${m.icon} me-1"></i>${m.short}
+                                    <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.short}
                                 </div>
-                                <div class="fw-bold" style="font-size:${fsCard.num};line-height:1.15;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
                                 <div class="text-muted" style="font-size:${fsCard.ft};">nacieron</div>
                             </div>
                         </div>
@@ -2201,13 +2202,13 @@ class Reporteria extends Controller
                     const cnt = corteDist[b] || 0;
                     if (!cnt) return '';
                     return `
-                    <div class="col">
+                    <div class="col"${colMinCartera}>
                         <div class="card text-center h-100 border-0 shadow-sm">
                             <div class="card-body ${fsCard.pad}">
                                 <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
-                                    <i class="fa ${m.icon} me-1"></i>${m.short}
+                                    <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.short}
                                 </div>
-                                <div class="fw-bold" style="font-size:${fsCard.num};line-height:1.15;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
                                 <div class="text-muted" style="font-size:${fsCard.ft};">al corte</div>
                             </div>
                         </div>
@@ -2368,7 +2369,7 @@ class Reporteria extends Controller
                                     <span class="badge rounded-pill" style="background:#EAF3DE; color:#3B6D11;">Cobr ${gest.cobrados}</span>
                                     <span class="badge rounded-pill" style="background:#FAEEDA; color:#854F0B;">Pend ${gest.pendientes}</span>
                                     <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">IDs ${nIds}</span>
-                                    <button type="button" class="btn btn-sm rounded-pill px-2 py-0 fw-semibold shadow-none align-baseline" style="background:#E6F1FB;color:#0d3d6b;border:1px solid #185FA5;line-height:1.35;" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false">Acciones</button>
+                                    <button type="button" class="btn btn-sm rounded-pill px-2 py-0 fw-semibold shadow-none align-baseline" style="background:#E6F1FB;color:#0d3d6b;border:1px solid #185FA5;line-height:1.35;" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false">Ver IDs</button>
                                 </div>
                                 <div class="collapse bg-white" id="${crdId}">${idRows}</div>
                             </div>`;
@@ -3174,8 +3175,8 @@ class Reporteria extends Controller
      */
     public function Cartera()
     {
-        self::set('titulo', 'Cartera');
-        self::set('vencimientos_titulo_card', 'Cartera');
+        self::set('titulo', 'Cartera - semana actual');
+        self::set('vencimientos_titulo_card', 'Cartera - semana actual');
         self::set('vencimientos_vista_simple', false);
         self::set('vencimientos_modo_cartera', true);
         self::set('columnas_primeros_pagos', []);
