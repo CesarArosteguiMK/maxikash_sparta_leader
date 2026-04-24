@@ -262,6 +262,13 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     flex: 1 1 auto;
     min-height: 0;
 }
+/* Altura de título igualada entre cards sin hueco extra: exactamente 2 líneas (2lh), no rem fijo */
+@media (min-width: 768px) {
+    #pp-landing .pp-landing-card-text .card-title > h5.text-primary {
+        line-height: 1.25;
+        min-height: 2lh;
+    }
+}
 .pp-hero-block {
     position: relative;
     z-index: 0;
