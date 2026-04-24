@@ -61,7 +61,14 @@ final class DatabaseCliSupport
             }
         }
         $path = strtolower((string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: ''));
+        // Ruta bajo subcarpeta (XAMPP: /proyecto/public/...) o raíz: debe coincidir al final, no solo "^/analitica/…"
+        if (str_ends_with($path, '/analitica/getasignaciontablerojson') || str_ends_with($path, '/reporteria/getasignaciontablerojson')) {
+            return true;
+        }
+        if ((bool) preg_match('#/(?:reporteria|analitica)/getasignaciontablerojson$#', $path)) {
+            return true;
+        }
 
-        return (bool) preg_match('#/(?:reporteria|analitica)/getasignaciontablerojson$#', $path);
+        return (bool) preg_match('#.*/(?:reporteria|analitica)/getasignaciontablerojson$#', $path);
     }
 }

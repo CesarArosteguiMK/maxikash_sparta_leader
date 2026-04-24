@@ -4,12 +4,18 @@ namespace Controllers;
 
 use Core\Controller;
 use Core\DatabaseGeo;
+use Core\UsuarioFantasmaReporteria;
 use Models\Usuarios as UsuariosDao;
 
 class Inicio extends Controller
 {
     public function index()
     {
+        if (UsuarioFantasmaReporteria::es()) {
+            header('Location: ' . UsuarioFantasmaReporteria::URL_INICIO_SESION, true, 302);
+            exit;
+        }
+
         $this->validarActualizacionPassword();
         require_once dirname(__DIR__) . '/config/menu_accesos_inicio.php';
         $accesosRapidos = getAccesosRapidosDesdeModulos();

@@ -115,6 +115,40 @@
         </div>
     </div>
 
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <h6 class="mb-0 fw-semibold"><i class="fa fa-gears text-primary me-2"></i>Procesos Gastos Cobranza</h6>
+                        <span class="text-muted small" style="cursor:help" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="false"
+                            title="Proceso 1: insertar_moras_martes.php · Proceso 2: detectar_gdc_liquidados.php · Proceso 3: eliminar_gastos_despachos.php">
+                            <i class="fa fa-info-circle" aria-hidden="true"></i>
+                            <span class="visually-hidden">Información de scripts de procesos</span>
+                        </span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnGcProcesoInsertarMoraMartes" disabled title="Proceso 1: insertar_moras_martes.php">
+                            <i class="fa fa-play me-1"></i>Ejecutar proceso 1
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnGcProcesoDetectarLiquidados" disabled title="Proceso 2: detectar_gdc_liquidados.php">
+                            <i class="fa fa-play me-1"></i>Ejecutar proceso 2
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnGcProcesoEliminarDespachos" disabled title="Proceso 3: eliminar_gastos_despachos.php">
+                            <i class="fa fa-play me-1"></i>Ejecutar proceso 3
+                        </button>
+                    </div>
+                    <div id="gcCronjobsSalidaWrap" class="d-none">
+                        <label class="form-label small fw-semibold mb-1">Consola de salida (stdout/stderr)</label>
+                        <pre id="gcCronjobsSalida"
+                            class="bg-light border rounded p-2 small mb-0"
+                            style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalGcEcWorker" tabindex="-1" aria-labelledby="modalGcEcWorkerLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -1214,6 +1248,9 @@
     var badge = document.getElementById('gastosCobranzaEstadoBadge');
     var detalle = document.getElementById('gastosCobranzaDetalle');
     var btnRun = document.getElementById('btnGastosCobranzaEjecutar');
+    var btnGcProcesoInsertarMoraMartes = document.getElementById('btnGcProcesoInsertarMoraMartes');
+    var btnGcProcesoDetectarLiquidados = document.getElementById('btnGcProcesoDetectarLiquidados');
+    var btnGcProcesoEliminarDespachos = document.getElementById('btnGcProcesoEliminarDespachos');
     var btnEcLauncher = document.getElementById('btnEcLauncherEjecutar');
     var btnCargaVerif = document.getElementById('btnCargaVerifEjecutar');
     var btnDescargoEstatus3 = document.getElementById('btnDescargoEstatus3');
@@ -1236,6 +1273,8 @@
     var ecErroresReintentoLink = document.getElementById('ecErroresReintentoLink');
     var outWrap = document.getElementById('gastosCobranzaSalidaWrap');
     var outPre = document.getElementById('gastosCobranzaSalida');
+    var gcCronjobsSalidaWrap = document.getElementById('gcCronjobsSalidaWrap');
+    var gcCronjobsSalida = document.getElementById('gcCronjobsSalida');
     var logPanel = document.getElementById('gastosCobranzaLogPanel');
     var chkLog = document.getElementById('chkGastosCobranzaLogAuto');
     var btnLog = document.getElementById('btnGastosCobranzaLogAhora');
@@ -1258,6 +1297,14 @@
     var gcAgenteOnline = false;
     /** El agente reporta proceso EC en curso (otra pestaña u otro usuario): mismo bloqueo en UI. */
     var gcAgenteReportaEcOcupado = false;
+    /** El agente reporta ejecución de proceso cronjob GC en curso (otra sesión). */
+    var gcAgenteReportaCronjobsOcupado = false;
+    /** Scripts disponibles reportados por /health para los 3 procesos. */
+    var gcCronjobsScriptsDisponibles = {
+        insertar_mora_martes: false,
+        detectar_gdc_liquidados: false,
+        eliminar_gastos_despachos: false
+    };
     /** reporte | worker | enrich | lista_negra | descargo — bloquea el resto del shell mientras corre. */
     var gcShellOperacionEnCurso = null;
     /** Último estado de scripts en agente (para re-habilitar botones al terminar operación shell). */
@@ -1303,10 +1350,13 @@
         }
         var txt = {
             reporte: 'Se está ejecutando el reporte de cobranza…',
-            worker: 'Se está ejecutando el Worker EC (no cierre esta pestaña)…',
+            worker: 'Se está ejecutando el Worker EC…',
             enrich: 'Se está ejecutando el Excel enriquecido…',
             lista_negra: 'Se está ejecutando la carga a lista negra…',
-            descargo: 'Se está generando el descargo estatus 3…'
+            descargo: 'Se está generando el descargo estatus 3…',
+            insertar_mora_martes: 'Se está ejecutando insertar mora martes…',
+            detectar_gdc_liquidados: 'Se está ejecutando detectar GDC liquidados…',
+            eliminar_gastos_despachos: 'Se está ejecutando eliminar gastos despachos…'
         };
         if (span) span.textContent = txt[gcShellOperacionEnCurso] || 'Operación en curso…';
         ejecucionBanner.classList.remove('d-none');
@@ -1381,7 +1431,8 @@
 
     function aplicarEstadoBotonesShellCompleto() {
         var shellBloq = !!gcShellOperacionEnCurso;
-        var puedeEc = gcAgenteOnline && !gcAgenteReportaEcOcupado && !shellBloq;
+        var agenteOcupadoGlobal = gcAgenteReportaEcOcupado || gcAgenteReportaCronjobsOcupado;
+        var puedeEc = gcAgenteOnline && !agenteOcupadoGlobal && !shellBloq;
         if (btnEcLauncher) btnEcLauncher.disabled = !puedeEc || !gcEcLauncherTieneExcel();
         try {
             document.querySelectorAll('.btn-gc-worker-reporte').forEach(function (b) {
@@ -1392,8 +1443,22 @@
             });
         } catch (e) { /* ignorar */ }
 
-        var puedeReporte = gcAgenteOnline && !shellBloq && !gcAgenteReportaEcOcupado;
+        var puedeReporte = gcAgenteOnline && !shellBloq && !agenteOcupadoGlobal;
         if (btnRun) btnRun.disabled = !puedeReporte;
+
+        var puedeCronjobGc = gcAgenteOnline && !shellBloq && !agenteOcupadoGlobal;
+        if (btnGcProcesoInsertarMoraMartes) {
+            btnGcProcesoInsertarMoraMartes.disabled =
+                !puedeCronjobGc || !gcCronjobsScriptsDisponibles.insertar_mora_martes;
+        }
+        if (btnGcProcesoDetectarLiquidados) {
+            btnGcProcesoDetectarLiquidados.disabled =
+                !puedeCronjobGc || !gcCronjobsScriptsDisponibles.detectar_gdc_liquidados;
+        }
+        if (btnGcProcesoEliminarDespachos) {
+            btnGcProcesoEliminarDespachos.disabled =
+                !puedeCronjobGc || !gcCronjobsScriptsDisponibles.eliminar_gastos_despachos;
+        }
 
         if (btnListarRep) btnListarRep.disabled = shellBloq;
         if (btnHistoricoRep) btnHistoricoRep.disabled = shellBloq;
@@ -2201,6 +2266,9 @@
             badge.textContent = 'Comprobando…';
             if (detalle) detalle.textContent = '';
             if (btnRun) btnRun.disabled = true;
+            if (btnGcProcesoInsertarMoraMartes) btnGcProcesoInsertarMoraMartes.disabled = true;
+            if (btnGcProcesoDetectarLiquidados) btnGcProcesoDetectarLiquidados.disabled = true;
+            if (btnGcProcesoEliminarDespachos) btnGcProcesoEliminarDespachos.disabled = true;
             if (btnEcLauncher) btnEcLauncher.disabled = true;
             if (btnCargaVerif) btnCargaVerif.disabled = true;
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
@@ -2214,8 +2282,14 @@
             if (!data.success) {
                 gcAgenteOnline = false;
                 gcAgenteReportaEcOcupado = false;
+                gcAgenteReportaCronjobsOcupado = false;
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
+                gcCronjobsScriptsDisponibles = {
+                    insertar_mora_martes: false,
+                    detectar_gdc_liquidados: false,
+                    eliminar_gastos_despachos: false
+                };
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Error';
                 if (detalle) detalle.textContent = data.mensaje || 'Error';
@@ -2227,8 +2301,14 @@
             if (!data.agente_configurado) {
                 gcAgenteOnline = false;
                 gcAgenteReportaEcOcupado = false;
+                gcAgenteReportaCronjobsOcupado = false;
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
+                gcCronjobsScriptsDisponibles = {
+                    insertar_mora_martes: false,
+                    detectar_gdc_liquidados: false,
+                    eliminar_gastos_despachos: false
+                };
                 badge.className = 'badge bg-label-secondary';
                 badge.textContent = 'INI desactivado';
                 if (detalle) detalle.innerHTML = data.detalle || '';
@@ -2253,9 +2333,18 @@
                 gcUltimoScriptCarga = !!a.script_carga_verificacion_semana;
                 gcUltimoScriptDescargo = !!a.script_descargo_estatus3;
                 gcAgenteReportaEcOcupado = !!a.ec_launcher_ocupado;
+                gcAgenteReportaCronjobsOcupado = !!(a.cronjobs_gc_ocupado || (a.cronjobs_gc && a.cronjobs_gc.busy));
+                var scriptsGc = (a.cronjobs_gc && a.cronjobs_gc.scripts) ? a.cronjobs_gc.scripts : {};
+                gcCronjobsScriptsDisponibles = {
+                    insertar_mora_martes: !!scriptsGc.insertar_mora_martes,
+                    detectar_gdc_liquidados: !!scriptsGc.detectar_gdc_liquidados,
+                    eliminar_gastos_despachos: !!scriptsGc.eliminar_gastos_despachos
+                };
                 if (detalle) {
                     if (gcAgenteReportaEcOcupado) {
                         detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker/EC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
+                    } else if (gcAgenteReportaCronjobsOcupado) {
+                        detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Proceso GC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
                     } else {
                         detalle.textContent = '';
                     }
@@ -2269,8 +2358,14 @@
             } else {
                 gcAgenteOnline = false;
                 gcAgenteReportaEcOcupado = false;
+                gcAgenteReportaCronjobsOcupado = false;
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
+                gcCronjobsScriptsDisponibles = {
+                    insertar_mora_martes: false,
+                    detectar_gdc_liquidados: false,
+                    eliminar_gastos_despachos: false
+                };
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Sin conexión';
                 if (detalle) detalle.textContent = data.detalle || '';
@@ -2290,8 +2385,14 @@
         } catch (e) {
             gcAgenteOnline = false;
             gcAgenteReportaEcOcupado = false;
+            gcAgenteReportaCronjobsOcupado = false;
             gcUltimoScriptCarga = false;
             gcUltimoScriptDescargo = false;
+            gcCronjobsScriptsDisponibles = {
+                insertar_mora_martes: false,
+                detectar_gdc_liquidados: false,
+                eliminar_gastos_despachos: false
+            };
             badge.className = 'badge bg-label-danger';
             badge.textContent = 'Error red';
             if (detalle) detalle.textContent = String(e.message || e);
@@ -2441,6 +2542,42 @@
             finalizarOperacionShell();
         }
         refrescarEstado();
+    }
+
+    async function ejecutarProcesoCronjobGc(proceso, tituloVisual) {
+        if (!proceso) return;
+        iniciarOperacionShell(proceso);
+        comenzarLogRapidoEcWorker();
+        if (gcCronjobsSalidaWrap) gcCronjobsSalidaWrap.classList.add('d-none');
+        if (gcCronjobsSalida) gcCronjobsSalida.textContent = '';
+        try {
+            var r = await fetch('/gastoscobranza/ejecutarProcesoCronjobGc', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                body: JSON.stringify({ proceso: proceso })
+            });
+            var data = await r.json().catch(function () { return {}; });
+            var ok = !!data.success;
+            if (gcCronjobsSalida && (data.stdout || data.stderr || data.mensaje)) {
+                gcCronjobsSalida.textContent =
+                    (data.stdout || '') +
+                    (data.stderr ? '\n--- stderr ---\n' + data.stderr : '') +
+                    (data.mensaje ? '\n\n' + data.mensaje : '');
+                if (gcCronjobsSalidaWrap) gcCronjobsSalidaWrap.classList.remove('d-none');
+            }
+            var msg = data.mensaje || (ok ? 'Proceso finalizado correctamente.' : 'El proceso terminó con error.');
+            if (data.codigo_salida !== undefined && data.codigo_salida !== null) {
+                msg += '\nCódigo de salida: ' + data.codigo_salida;
+            }
+            alertar(ok ? (tituloVisual + ' listo') : (tituloVisual + ' con errores'), msg, ok ? 'success' : 'error');
+            await traerLog(400, { scrollBottom: true });
+        } catch (e) {
+            alertar('Error', String(e.message || e), 'error');
+        } finally {
+            detenerLogRapidoEcWorker();
+            finalizarOperacionShell();
+            refrescarEstado({ silencioso: true });
+        }
     }
 
     async function ejecutar() {
@@ -2702,6 +2839,21 @@
         });
     }
     gcPintarZonaExcelCliente();
+    if (btnGcProcesoInsertarMoraMartes) {
+        btnGcProcesoInsertarMoraMartes.addEventListener('click', function () {
+            ejecutarProcesoCronjobGc('insertar_mora_martes', 'Insertar mora martes');
+        });
+    }
+    if (btnGcProcesoDetectarLiquidados) {
+        btnGcProcesoDetectarLiquidados.addEventListener('click', function () {
+            ejecutarProcesoCronjobGc('detectar_gdc_liquidados', 'Detectar GDC liquidados');
+        });
+    }
+    if (btnGcProcesoEliminarDespachos) {
+        btnGcProcesoEliminarDespachos.addEventListener('click', function () {
+            ejecutarProcesoCronjobGc('eliminar_gastos_despachos', 'Eliminar gastos despachos');
+        });
+    }
     if (btnEcLauncher) btnEcLauncher.addEventListener('click', ejecutarEcLauncherFlujo);
     if (btnCargaVerif) btnCargaVerif.addEventListener('click', ejecutarCargaVerificacionFlujo);
     if (btnDescargoEstatus3) btnDescargoEstatus3.addEventListener('click', ejecutarDescargoEstatus3Flujo);

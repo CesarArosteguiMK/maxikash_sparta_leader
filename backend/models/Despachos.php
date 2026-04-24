@@ -5,6 +5,7 @@ namespace Models;
 use Core\Model;
 use Core\Database;
 use Core\DatabaseSegundometro;
+use Core\UsuarioFantasmaReporteria;
 
 class Despachos extends Model
 {
@@ -343,6 +344,7 @@ SQL;
      */
     public function obtenerDespachos($id_celula = 1)
 {
+    $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
     // Quitamos los comentarios dentro del String SQL para evitar confusiones al parser
     $query = <<<SQL
     SELECT
@@ -365,6 +367,7 @@ SQL;
     LEFT JOIN asigna_puesto ap ON ap.id_persona = d.id_persona AND ap.activo = 1
     LEFT JOIN puesto pu ON pu.id = ap.id_puesto
     WHERE d.id_celula = :id_celula
+      AND ({$predPer})
     ORDER BY d.id
     SQL;
 
@@ -377,6 +380,7 @@ SQL;
      */
     public function obtenerCatalogoDespachosParaImportacionExcel()
     {
+        $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
         $query = <<<SQL
         SELECT
             d.id AS id_despacho,
@@ -385,6 +389,7 @@ SQL;
         FROM despachos d
         LEFT JOIN persona per ON per.id = d.id_persona
         WHERE d.estatus = 'Activo'
+          AND (per.id IS NULL OR ({$predPer}))
         ORDER BY d.id
 SQL;
 

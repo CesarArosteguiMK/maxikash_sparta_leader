@@ -1,4 +1,14 @@
 <?php
+/* Permisos por card (Reporteria::PrimerosPagos); si no vienen del controlador, no ocultar nada (p. ej. vista suelta). */
+if (!isset($pp_perm_cobranza) && !isset($pp_perm_cartera) && !isset($pp_perm_proxima) && !isset($pp_perm_historico)) {
+    $pp_perm_cobranza = $pp_perm_cartera = $pp_perm_proxima = $pp_perm_historico = true;
+}
+$pp_perm_cobranza = !empty($pp_perm_cobranza);
+$pp_perm_cartera = !empty($pp_perm_cartera);
+$pp_perm_proxima = !empty($pp_perm_proxima);
+$pp_perm_historico = !empty($pp_perm_historico);
+$pp_cards_visibles = (int) $pp_perm_cobranza + (int) $pp_perm_cartera + (int) $pp_perm_proxima + (int) $pp_perm_historico;
+
 $ppSemanaTz = new DateTimeZone('America/Mexico_City');
 $ppHoy = new DateTimeImmutable('now', $ppSemanaTz);
 $ppDow = (int) $ppHoy->format('N');
@@ -23,6 +33,15 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
     $ppRangoSemana = $ppFmtDia($ppLunes, false) . ' al ' . $ppFmtDia($ppDomingo, true);
 } else {
     $ppRangoSemana = $ppFmtDia($ppLunes, true) . ' al ' . $ppFmtDia($ppDomingo, true);
+}
+
+/* Cartera: periodo martes (apertura) → lunes siguiente (cierre), misma semana operativa que Cobranza esperada. */
+$ppMartesCartera = $ppLunes->modify('+1 day');
+$ppLunesCierreCartera = $ppLunes->modify('+7 days');
+if ($ppMartesCartera->format('Y') === $ppLunesCierreCartera->format('Y')) {
+    $ppRangoCartera = $ppFmtDia($ppMartesCartera, false) . ' al ' . $ppFmtDia($ppLunesCierreCartera, true);
+} else {
+    $ppRangoCartera = $ppFmtDia($ppMartesCartera, true) . ' al ' . $ppFmtDia($ppLunesCierreCartera, true);
 }
 
 /* Próximo lunes de corte (semana siguiente) y periodo jueves→lunes (alineado a «Disponible de jueves a lunes») */
@@ -64,18 +83,27 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                          alt="Primeros pagos — ilustración">
                 </div>
 
-                <div class="row gy-6 mb-6 gx-0">
-                    <div class="col-lg-4">
-                        <div class="card shadow-none bg-label-primary h-100">
-                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                <div class="row gy-6 mb-6 gx-0 align-items-stretch">
+                    <?php if ($pp_cards_visibles === 0): ?>
+                    <div class="col-12">
+                        <div class="alert alert-warning mb-0" role="alert">
+                            No tiene permisos para ver tarjetas aquí. Solicite en Capital Humano el acceso que corresponda.
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($pp_perm_cobranza): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-primary h-100 w-100 d-flex flex-column">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-1">Cobranza esperada - semana actual</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoSemana, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de martes a domingo. En este espacio podrás consultar el resumen ejecutivo de los primeros pagos con fecha de vencimiento correspondiente a la semana en curso.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de martes a domingo. Resumen ejecutivo del corte de primeros pagos de la semana en curso</p>
                                     </div>
-                                    <div class="mb-0 mt-3">
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
                                         <?php if ($ppDow === 1): ?>
                                         <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
                                             La cartera no abre hasta el martes, revise los datos en la sección de <strong>Primeros pagos próxima semana</strong>.
@@ -90,27 +118,64 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                    <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--cobranza" aria-hidden="true">
+                                    <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                                         <rect x="8" y="6" width="48" height="44" rx="4" ry="4"/>
                                         <path d="M8 18h48M20 6v8M44 6v8"/>
                                         <path d="M22 32l6 6 14-14"/>
                                     </svg>
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-4">
-                        <div class="card shadow-none bg-label-primary h-100">
-                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                    <?php endif; ?>
+                    <?php if ($pp_perm_cartera): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-primary h-100 w-100 d-flex flex-column">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
+                                    <div class="card-title">
+                                        <h5 class="text-primary mb-1">Cartera - semana actual</h5>
+                                        <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
+                                        <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoCartera, ENT_QUOTES, 'UTF-8') ?></p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Cartera completa de la semana actual</p>
+                                    </div>
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
+                                        <a href="/analitica/Cartera" class="btn btn-primary w-100">
+                                            <i class="fa fa-briefcase me-1"></i>Ver cartera
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                    <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--cartera" aria-hidden="true">
+                                    <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                                        <rect x="14" y="28" width="36" height="22" rx="2.5" ry="2.5"/>
+                                        <path d="M22 28V22h20v6"/>
+                                        <path d="M24 22V17h16v5"/>
+                                        <path d="M28 40h8"/>
+                                    </svg>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($pp_perm_proxima): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-primary h-100 w-100 d-flex flex-column">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-1">Primeros pagos próxima semana</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemanaSiguiente ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoVentanaPrimerosPagos, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de jueves a lunes (no disponible martes ni miércoles). En este espacio podrás consultar el resumen ejecutivo de los primeros pagos previstos para la siguiente semana, correspondiente a ventas realizadas en días anteriores cuya primera fecha de vencimiento ocurre en la próxima semana.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de jueves a lunes. Anticipa primeros pagos de la semana siguiente</p>
                                     </div>
-                                    <div class="mb-0 mt-3">
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
                                         <?php if ($ppBloqueoProximaSemanaMartesMiercoles): ?>
                                         <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
                                             La cartera de próxima semana no está disponible; podrá consultarla a partir del jueves. Mientras tanto revise <strong>Cobranza esperada — semana actual</strong>.
@@ -125,42 +190,50 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                    <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--proxima" aria-hidden="true">
+                                    <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                                         <rect x="6" y="8" width="44" height="40" rx="4" ry="4"/>
                                         <path d="M6 22h44M22 8v10M38 8v10"/>
                                         <path d="M52 36l6 6-6 6M58 42H42"/>
                                     </svg>
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-4">
-                        <div class="card shadow-none bg-label-secondary h-100" id="pp-card-historico">
-                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
-                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                    <?php endif; ?>
+                    <?php if ($pp_perm_historico): ?>
+                    <div class="col-lg-3 col-md-6 d-flex">
+                        <div class="card shadow-none bg-label-secondary h-100 w-100 d-flex flex-column" id="pp-card-historico">
+                            <div class="card-body pp-landing-card-body d-flex justify-content-between flex-wrap-reverse align-items-stretch flex-grow-1 py-3 px-3">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column text-center text-sm-start min-w-0 pp-landing-card-text">
                                     <div class="card-title">
                                         <h5 class="text-primary mb-1">Histórico</h5>
                                         <p class="text-primary mb-0 fw-bold small">Primeros pagos</p>
-                                        <p class="text-body-secondary small mb-1"><strong>Consulta:</strong> últimas 4 semanas cerradas</p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Resumen por semana (las 4 más recientes en <code>tbl_histo_primeros_pagos</code>): misma lógica que <strong>Lunes de cierre</strong> (nacimiento, corte y jerarquía).</p>
+                                        <p class="text-body-secondary small mb-1"><strong>Consulta:</strong> últimas 5 semanas cerradas</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Consulta las últimas cinco semanas cerradas de primeros pagos</p>
                                     </div>
-                                    <div class="mb-0 mt-3">
+                                    <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
+                                    <div class="pp-landing-card-actions mt-2">
                                         <a href="/analitica/PrimerosPagosHistorico" class="btn btn-primary w-100">
                                             <i class="fa-solid fa-clock-rotate-left me-1"></i>Ver histórico
                                         </a>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
-                                    <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                    <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--historico" aria-hidden="true">
+                                    <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                                         <circle cx="32" cy="34" r="18"/>
                                         <path d="M32 22v10l8 5"/>
                                         <path d="M14 14l8 8M50 14l-8 8"/>
                                     </svg>
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
                 </div>
 
             </div>
@@ -168,7 +241,43 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     </div>
 </div>
 <style>
-.pp-icon-svg { height: 150px; width: auto; max-width: 100%; stroke: url(#pp-icon-gradient); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pp-icon-svg { stroke: url(#pp-icon-gradient); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* Cuadrado fijo + escala óptica: el trazo no llena igual el viewBox 64×64 en cada SVG */
+#pp-landing .pp-landing-icon-slot {
+    min-height: 7.5rem;
+}
+#pp-landing .pp-landing-icon-frame {
+    width: 7.5rem;
+    height: 7.5rem;
+    min-width: 7.5rem;
+    min-height: 7.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+#pp-landing .pp-landing-icon-frame .pp-icon-svg {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    box-sizing: border-box;
+}
+#pp-landing .pp-landing-icon-frame--cartera .pp-icon-svg {
+    transform: scale(1.46);
+    transform-origin: 50% 52%;
+}
+#pp-landing .pp-landing-icon-frame--historico .pp-icon-svg {
+    transform: scale(1.12);
+    transform-origin: center center;
+}
+#pp-landing .pp-landing-icon-frame--cobranza .pp-icon-svg,
+#pp-landing .pp-landing-icon-frame--proxima .pp-icon-svg {
+    transform: scale(1.02);
+    transform-origin: center center;
+}
 .pp-primeros-pagos-page,
 #pp-landing.pp-primeros-pagos-page {
     overflow: visible;
@@ -182,6 +291,27 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 }
 #pp-card-historico {
     scroll-margin-top: 5.5rem;
+}
+/* Fila de cards: misma altura; títulos e iconos alineados; botones al mismo borde inferior */
+#pp-landing .pp-landing-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+#pp-landing .pp-landing-card-text {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+}
+#pp-landing .pp-landing-card-filler {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+/* Altura de título igualada entre cards sin hueco extra: exactamente 2 líneas (2lh), no rem fijo */
+@media (min-width: 768px) {
+    #pp-landing .pp-landing-card-text .card-title > h5.text-primary {
+        line-height: 1.25;
+        min-height: 2lh;
+    }
 }
 .pp-hero-block {
     position: relative;
@@ -288,15 +418,16 @@ body.dark-mode .pp-hero-mascot-floating {
     var PP_ES_LUNES = <?php echo $ppDow === 1 ? 'true' : 'false'; ?>;
     var PP_ES_MARTES_MIERCOLES = <?php echo $ppBloqueoProximaSemanaMartesMiercoles ? 'true' : 'false'; ?>;
     document.addEventListener('DOMContentLoaded', function () {
+        function ppMostrarMsgCarteraLunes() {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'info', title: 'Cobranza esperada — semana actual', text: PP_MSG_CARTERA_LUNES });
+            } else {
+                alert(PP_MSG_CARTERA_LUNES);
+            }
+        }
         var btn = document.getElementById('ppBtnCobranzaEsperadaLunes');
         if (btn) {
-            btn.addEventListener('click', function () {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'info', title: 'Cobranza esperada — semana actual', text: PP_MSG_CARTERA_LUNES });
-                } else {
-                    alert(PP_MSG_CARTERA_LUNES);
-                }
-            });
+            btn.addEventListener('click', ppMostrarMsgCarteraLunes);
         }
         var btnProx = document.getElementById('ppBtnProximaSemanaBloqueado');
         if (btnProx) {

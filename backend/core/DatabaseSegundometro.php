@@ -28,6 +28,7 @@ class DatabaseSegundometro
                     PDO::ATTR_PERSISTENT => true,
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_TIMEOUT => 5,
                     PDO::ATTR_EMULATE_PREPARES => false
                 ]
             );
@@ -113,6 +114,9 @@ class DatabaseSegundometro
 
     private function runQuery($sql, $valores = null, &$retorno = null)
     {
+        if ($this->db === null) {
+            throw new \RuntimeException('Conexión no disponible a MySQL (__SPARTA_SECRET_REDACTED__).');
+        }
         try {
             $stmt = $this->db->prepare($sql);
 

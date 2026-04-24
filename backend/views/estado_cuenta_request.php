@@ -4868,7 +4868,11 @@ function syncVisibilidadResumenCondonacion() {
             .then(resp => {
 
                 if (!resp.success) {
-                    Swal.fire("Error", resp.mensaje, "error");
+                    var _em = resp.mensaje || 'Error';
+                    if (resp.error) {
+                        _em += ' — ' + resp.error;
+                    }
+                    Swal.fire("Error", _em, "error");
                     return;
                 }
 

@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\UsuarioFantasmaReporteria;
 
 /**
  * Configuración de paneles admin por usuario (persona).
@@ -103,6 +104,7 @@ class ConfigPanelUsuario extends Model
         header('Content-Type: application/json; charset=utf-8');
         try {
             $db = new Database();
+            $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
             $r = $db->queryAll("
                 SELECT p.id,
                        TRIM(CONCAT(IFNULL(p.nombres,''), ' ', IFNULL(p.segundo_nombre,''), ' ', IFNULL(p.apellidop,''), ' ', IFNULL(p.apellidom,''))) AS nombre,
@@ -110,6 +112,7 @@ class ConfigPanelUsuario extends Model
                 FROM persona p
                 WHERE (p.estatus = 'Activo' OR p.estatus IS NULL)
                   AND p.user_name IS NOT NULL AND TRIM(p.user_name) != ''
+                  AND ({$predP})
                 ORDER BY nombre, p.user_name
             ");
             $datos = is_array($r) ? $r : [];

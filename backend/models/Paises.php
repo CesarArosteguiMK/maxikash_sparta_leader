@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\UsuarioFantasmaReporteria;
 
 class Paises extends Model
 {
@@ -73,6 +74,7 @@ class Paises extends Model
 
         try {
             $db = new Database();
+            $predPer = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('per');
             $r = $db->queryAll(
                 "SELECT 
                     p.id,
@@ -82,7 +84,7 @@ class Paises extends Model
                     COUNT(DISTINCT per.id) AS total_personas,
                     COUNT(DISTINCT d.id) AS total_departamentos
                 FROM paises p
-                LEFT JOIN persona per ON per.id_pais = p.id AND per.estatus = 'Activo'
+                LEFT JOIN persona per ON per.id_pais = p.id AND per.estatus = 'Activo' AND ({$predPer})
                 LEFT JOIN departamento d ON d.id_pais = p.id
                 GROUP BY p.id
                 ORDER BY FIELD(p.codigo_iso, 'mx', 'gt', 'co'), p.nombre"

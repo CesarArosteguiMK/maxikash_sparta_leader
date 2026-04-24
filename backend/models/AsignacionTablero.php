@@ -5,6 +5,7 @@ namespace Models;
 use Core\Database;
 use Core\DatabaseLegacy;
 use Core\DatabaseSegundometro;
+use Core\UsuarioFantasmaReporteria;
 
 /**
  * Datos del tablero Asignación (ventanas mar–lun) compartidos por vista, JSON y Excel.
@@ -166,8 +167,9 @@ class AsignacionTablero
             'campanias' => ['actual' => [], 'anterior' => []],
         ];
 
-        $dbLegacy = new DatabaseLegacy();
-        $dbSeg = new Database();
+        try {
+            $dbLegacy = new DatabaseLegacy();
+            $dbSeg = new Database();
 
         $campanias = self::obtenerDosCampanias($dbLegacy);
         if (count($campanias) < 2) {
@@ -194,7 +196,22 @@ class AsignacionTablero
         }
 
         $usuariosLegacy = self::obtenerUsuariosLegacy($dbLegacy);
-        $personas = self::obtenerPersonasSegundometro($dbSeg);
+        $externalsNecesarios = [];
+        foreach ($tareas as $t) {
+            $uid = (int) ($t['current_user_id'] ?? 0);
+            if ($uid < 1) {
+                continue;
+            }
+            $u = $usuariosLegacy['by_id'][$uid] ?? null;
+            if (!is_array($u)) {
+                continue;
+            }
+            $ext = self::normalizarExternalId($u['external_id'] ?? null);
+            if ($ext !== '') {
+                $externalsNecesarios[$ext] = true;
+            }
+        }
+        $personas = self::obtenerPersonasSegundometro($dbSeg, array_keys($externalsNecesarios));
         $idxPersonaPorNombre = self::indicePersonasPorNombreGestor($personas);
         $idxLegacyPorNombre = self::indiceUsuariosLegacyPorNombre($usuariosLegacy);
 
@@ -225,10 +242,13 @@ class AsignacionTablero
         $histoSemanaPasadaPorCredito = [];
         $labelSemanaPasada = trim((string) ($out['semanas'][0]['label'] ?? ''));
         $rangeSemanaPasada = trim((string) ($out['semanas'][0]['range'] ?? ''));
+        $habilitarHistoSemanaPasada = getenv('ASIGNACION_HISTO_SEMANA_PASADA') === '1';
         try {
             $dbMega = new DatabaseSegundometro();
             $bucketsPorCreditoSemana = self::obtenerBucketsMorosidadPorCreditos($dbMega, $listaCreditos);
-            if ($labelSemanaPasada !== '' || $rangeSemanaPasada !== '') {
+            // El histórico puede volverse muy lento según tamaño/índices de tbl_segundometro_histo.
+            // Para mantener el tablero operativo, queda detrás de flag (por defecto apagado).
+            if ($habilitarHistoSemanaPasada && ($labelSemanaPasada !== '' || $rangeSemanaPasada !== '')) {
                 $histoSemanaPasadaPorCredito = self::obtenerHistoSemanaPasadaPorCreditos($dbMega, $labelSemanaPasada, $rangeSemanaPasada, $listaCreditos);
             }
         } catch (\Throwable $e) {
@@ -351,7 +371,12 @@ class AsignacionTablero
             }
         }
 
-        return $out;
+            return $out;
+        } catch (\Throwable $e) {
+            error_log('AsignacionTablero::obtenerPortafolioAutomatico -> ' . $e->getMessage());
+
+            return $out;
+        }
     }
 
     /**
@@ -406,25 +431,10 @@ class AsignacionTablero
      */
     private static function obtenerHistoSemanaPasadaPorCreditos(DatabaseSegundometro $db, string $semanaEtiqueta, string $semanaRange, array $idsCreditos): array
     {
-        $sem = trim($semanaEtiqueta);
-        $rangeOrig = self::parseRangeDdMmYyyy($semanaRange);
-        // Inserciones a histórico suelen llegar después del cierre mar–lun; ampliar fin evita filas vacías.
-        $rangeQuery = $rangeOrig;
-        if (is_array($rangeOrig)) {
-            try {
-                $tzR = new \DateTimeZone('America/Mexico_City');
-            } catch (\Exception $e) {
-                $tzR = new \DateTimeZone('UTC');
-            }
-            $finO = \DateTimeImmutable::createFromFormat('!Y-m-d', $rangeOrig['fin'], $tzR);
-            if ($finO instanceof \DateTimeImmutable) {
-                $rangeQuery = [
-                    'inicio' => $rangeOrig['inicio'],
-                    'fin' => $finO->modify('+21 days')->format('Y-m-d'),
-                ];
-            }
+        $variantes = self::variantesEtiquetaSemanaHisto(trim($semanaEtiqueta), $semanaRange);
+        if ($variantes === []) {
+            return [];
         }
-        $variantes = self::variantesEtiquetaSemanaHisto($sem, $semanaRange);
         $ids = array_values(array_unique(array_filter(array_map(
             static fn($id): string => self::claveIdCredito(trim((string) $id)),
             $idsCreditos
@@ -441,60 +451,49 @@ class AsignacionTablero
                 $placeholders[] = ':' . $k;
                 $params[$k] = $idCred;
             }
-            if ($variantes === [] && !is_array($rangeOrig)) {
-                continue;
-            }
-            $paramsQ = $params;
-            $conds = [];
-            if ($variantes !== []) {
-                $semIn = [];
-                $si = 0;
-                $valsSem = [];
-                foreach ($variantes as $lab) {
-                    $s1 = self::normalizarTextoSemanaHisto((string) $lab);
-                    if ($s1 !== '') {
-                        $valsSem[$s1] = true;
-                    }
-                    $s2 = mb_strtolower(trim((string) $lab));
-                    if ($s2 !== '' && $s2 !== $s1) {
-                        $valsSem[$s2] = true;
-                    }
-                }
-                foreach (array_keys($valsSem) as $cand) {
-                    $sk = 'semv' . $si;
-                    $semIn[] = ':' . $sk;
-                    $paramsQ[$sk] = $cand;
-                    $si++;
-                }
-                if ($semIn !== []) {
-                    // Sin REGEXP_REPLACE: compatible MySQL 5.7/8; variante compacta «16-2026» y doble binding ayudan.
-                    $conds[] = 'LOWER(TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4))) IN (' . implode(', ', $semIn) . ')';
-                }
-            }
-            if (is_array($rangeQuery)) {
-                $paramsQ['fini'] = $rangeQuery['inicio'];
-                $paramsQ['ffin'] = $rangeQuery['fin'];
-                $conds[] = 'DATE(fecha_hora_insert) BETWEEN :fini AND :ffin';
-            }
-            if ($conds === []) {
-                continue;
-            }
-            $sql = '
-                SELECT Id_credito, Gestor_Asignado, Bucket_Morosidad_Real, Bucket_Morosidad, fecha_hora_insert, SEMANA
-                FROM tbl_segundometro_histo
-                WHERE Id_credito IN (' . implode(', ', $placeholders) . ')
-                  AND (' . implode(' OR ', $conds) . ')
-                ORDER BY Id_credito, fecha_hora_insert DESC
-            ';
-            $rows = $db->queryAll($sql, $paramsQ);
             $agr = [];
-            foreach ((array) $rows as $r) {
-                $idc = self::claveIdCredito($r['Id_credito'] ?? $r['id_credito'] ?? '');
-                if ($idc === '') {
-                    continue;
+            $semIn = [];
+            $semParams = [];
+            $si = 0;
+            $valsSem = [];
+            foreach ($variantes as $lab) {
+                $v = trim((string) $lab);
+                if ($v !== '') {
+                    $valsSem[$v] = true;
                 }
-                $agr[$idc][] = $r;
+                $v2 = preg_replace('/\s+/u', ' ', $v);
+                if (is_string($v2)) {
+                    $v2 = trim($v2);
+                    if ($v2 !== '') {
+                        $valsSem[$v2] = true;
+                    }
+                }
             }
+            foreach (array_keys($valsSem) as $cand) {
+                $sk = 'semv' . $si;
+                $semIn[] = ':' . $sk;
+                $semParams[$sk] = $cand;
+                $si++;
+            }
+
+            if ($semIn !== []) {
+                $sqlSem = '
+                    SELECT Id_credito, Gestor_Asignado, Bucket_Morosidad_Real, Bucket_Morosidad, fecha_hora_insert, SEMANA
+                    FROM tbl_segundometro_histo
+                    WHERE Id_credito IN (' . implode(', ', $placeholders) . ')
+                      AND SEMANA IN (' . implode(', ', $semIn) . ')
+                    ORDER BY Id_credito, fecha_hora_insert DESC
+                ';
+                $rowsSem = $db->queryAll($sqlSem, array_merge($params, $semParams));
+                foreach ((array) $rowsSem as $r) {
+                    $idc = self::claveIdCredito($r['Id_credito'] ?? $r['id_credito'] ?? '');
+                    if ($idc === '') {
+                        continue;
+                    }
+                    $agr[$idc][] = $r;
+                }
+            }
+
             foreach ($agr as $idc => $filas) {
                 $map[$idc] = self::elegirFilaHistoSemanaPasada($filas, $variantes);
             }
@@ -852,43 +851,77 @@ class AsignacionTablero
      */
     private static function obtenerDosCampanias(DatabaseLegacy $db): array
     {
-        $sql = "
-            WITH campanias_filtradas AS (
-                SELECT
-                    c.id,
-                    c.name,
-                    c.start_date,
-                    WEEK(c.start_date, 1) AS numero_semana,
-                    YEARWEEK(c.start_date, 1) AS semana_iso
-                FROM campaigns c
-                WHERE c.name NOT LIKE '%ESPEJO%'
+        $whereBase = "c.name NOT LIKE '%ESPEJO%'
                   AND c.name NOT LIKE 'ESP_%'
                   AND c.name NOT LIKE '%SUPERVISORES%'
                   AND c.start_date IS NOT NULL
-                  AND (SELECT COUNT(*) FROM tasks t WHERE t.campaign_id = c.id) >= 100
-            ),
-            ranking AS (
-                SELECT
-                    id,
-                    name,
-                    numero_semana,
-                    semana_iso,
-                    DENSE_RANK() OVER (ORDER BY semana_iso DESC) AS semana_rank,
-                    start_date
-                FROM campanias_filtradas
-            )
-            SELECT
-                id AS campaign_id,
-                name AS campaign_name,
-                numero_semana,
-                semana_iso,
-                semana_rank
-            FROM ranking
-            WHERE semana_rank <= 2
-            ORDER BY semana_rank ASC, start_date DESC, campaign_id DESC
+                  AND (SELECT COUNT(*) FROM tasks t WHERE t.campaign_id = c.id) >= 100";
+        $sqlTopSem = "
+            SELECT DISTINCT YEARWEEK(c.start_date, 1) AS semana_iso
+            FROM campaigns c
+            WHERE {$whereBase}
+            ORDER BY semana_iso DESC
+            LIMIT 2
         ";
-        $rows = $db->queryAll($sql);
-        return is_array($rows) ? $rows : [];
+        $topS = $db->queryAll($sqlTopSem);
+        if (!is_array($topS) || $topS === []) {
+            return [];
+        }
+        $yws = [];
+        foreach ($topS as $tr) {
+            $y = (int) ($tr['semana_iso'] ?? 0);
+            if ($y > 0) {
+                $yws[] = $y;
+            }
+        }
+        if ($yws === []) {
+            return [];
+        }
+        rsort($yws, SORT_NUMERIC);
+        $rankPorIso = [];
+        $rango = 1;
+        foreach ($yws as $y) {
+            if (!isset($rankPorIso[$y])) {
+                $rankPorIso[$y] = $rango++;
+            }
+        }
+        $ph = [];
+        $pr = [];
+        foreach (array_values($yws) as $i => $y) {
+            $k = 'yw' . $i;
+            $ph[] = ':' . $k;
+            $pr[$k] = (int) $y;
+        }
+        $inYw = implode(', ', $ph);
+        $sql = "
+            SELECT
+                c.id AS campaign_id,
+                c.name AS campaign_name,
+                WEEK(c.start_date, 1) AS numero_semana,
+                YEARWEEK(c.start_date, 1) AS semana_iso
+            FROM campaigns c
+            WHERE {$whereBase}
+              AND YEARWEEK(c.start_date, 1) IN ({$inYw})
+            ORDER BY semana_iso ASC, c.start_date DESC, c.id DESC
+        ";
+        $raw = $db->queryAll($sql, $pr);
+        if (!is_array($raw) || $raw === []) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $iso = (int) ($r['semana_iso'] ?? 0);
+            if (!isset($rankPorIso[$iso])) {
+                continue;
+            }
+            $r['semana_rank'] = $rankPorIso[$iso];
+            $out[] = $r;
+        }
+
+        return $out;
     }
 
     /**
@@ -973,8 +1006,29 @@ class AsignacionTablero
      *   by_persona_id:array<int,array<string,mixed>>
      * }
      */
-    private static function obtenerPersonasSegundometro(Database $db): array
+    private static function obtenerPersonasSegundometro(Database $db, array $externalIds = []): array
     {
+        $filtroSql = '';
+        $filtroParams = [];
+        $exts = array_values(array_unique(array_filter(array_map(
+            static fn($v): string => self::normalizarExternalId($v),
+            $externalIds
+        ), static fn(string $s): bool => $s !== '')));
+        if ($exts !== []) {
+            $ph = [];
+            foreach ($exts as $i => $ext) {
+                $k = 'ext' . $i;
+                $ph[] = ':' . $k;
+                $filtroParams[$k] = $ext;
+            }
+            $filtroSql = ' WHERE p.numero_empleado IN (' . implode(', ', $ph) . ')';
+        }
+        $exRep = ' AND ' . UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
+        if ($filtroSql === '') {
+            $filtroSql = ' WHERE 1=1' . $exRep;
+        } else {
+            $filtroSql .= $exRep;
+        }
         $sql = "
             SELECT
                 p.id AS id_persona,
@@ -1019,8 +1073,9 @@ class AsignacionTablero
                 ON elpj.id_puesto = puj.id
             LEFT JOIN puestos_legacy plj
                 ON plj.id = elpj.id_puesto_legacy
+            {$filtroSql}
         ";
-        $rows = $db->queryAll($sql);
+        $rows = $db->queryAll($sql, $filtroParams);
 
         $byExternal = [];
         $byPersona = [];

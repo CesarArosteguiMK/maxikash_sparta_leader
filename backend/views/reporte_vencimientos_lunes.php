@@ -59,7 +59,7 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                 </a>
             <?php else: ?>
                 <?php /* Orden visual (de derecha a izquierda): Volver, Histo, Exportar CSV, Enviar correo, luego auto/badges */ ?>
-                <?php if ($vlEsUsuarioRoot): ?>
+                <?php if ($vlEsUsuarioRoot && empty($vencimientos_modo_cartera)): ?>
                 <div class="d-flex align-items-center gap-2 flex-wrap me-1"
                      title="Guardado en el servidor. Solo envío automático por cron (CDMX: 07:45, 09:45, 11:45, 13:45, 14:45, 16:45, 18:45, 20:45, 23:50 en 24 h). Requiere agente Node o bucle PHP en esta máquina. No afecta “Enviar correo” manual.">
                     <div class="form-check form-switch m-0">
@@ -88,9 +88,11 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                 <button type="button" id="btnExportarCSV" class="btn btn-outline-success btn-sm">
                     <i class="fa fa-file-csv me-1"></i> Exportar CSV
                 </button>
+                <?php if (empty($vencimientos_modo_cartera)): ?>
                 <a href="/analitica/PrimerosPagosHistorico" class="btn btn-outline-info btn-sm" title="Primeros pagos — Histórico por semana">
                     <i class="fa-solid fa-clock-rotate-left me-1"></i>Histo
                 </a>
+                <?php endif; ?>
                 <a href="/analitica/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
                     <i class="fa fa-arrow-left me-1"></i>Volver
                 </a>
@@ -106,6 +108,10 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                 <div class="card-body py-2 px-3">
                     <div class="fw-semibold text-body">Semana <?= (int) $vlSemanaNum ?></div>
                     <p class="text-muted small mb-2"><strong>Periodo del:</strong> <?= htmlspecialchars($vlSemanaRango, ENT_QUOTES, 'UTF-8') ?></p>
+                    <?php if (!empty($vencimientos_modo_cartera)): ?>
+                    <span id="lunesFecha" class="visually-hidden">calculando…</span>
+                    <code id="corteLabel" class="visually-hidden">—</code>
+                    <?php else: ?>
                     <hr class="my-2">
                     <p class="text-muted mb-0" style="font-size:.8rem;">
                         Primer vencimiento:
@@ -114,6 +120,7 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                         Corte actual:
                         <code id="corteLabel" class="text-info">—</code>
                     </p>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -127,6 +134,18 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                 </div>
             </div>
         </div>
+        <?php if (!empty($vencimientos_modo_cartera)): ?>
+        <div class="col-6 col-md-3 col-lg-2">
+            <div class="card text-center h-100 border-info border-opacity-50">
+                <div class="card-body py-2">
+                    <div class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;">
+                        Adjudicadas
+                    </div>
+                    <div class="fw-bold text-info" style="font-size:1.5rem;" id="statAdjudicadas" title="Ghost distinto de vacío y de guion">—</div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
 
@@ -144,19 +163,31 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
         </div>
     </div>
     <?php else: ?>
+    <?php
+    /* Cartera: 5 buckets en una sola fila (nacimiento y corte); Lunes cierre: 2 cols */
+    $ppRowColsDistrib = !empty($vencimientos_modo_cartera) ? 'row-cols-5' : 'row-cols-2';
+    $ppGapDistrib = !empty($vencimientos_modo_cartera) ? 'g-1' : 'g-2';
+    $ppRowDistribFlex = !empty($vencimientos_modo_cartera) ? 'flex-nowrap' : '';
+    $vlCardBodyDistribScroll = !empty($vencimientos_modo_cartera) ? 'overflow-x-auto' : '';
+    $vlColDistribOuter = !empty($vencimientos_modo_cartera) ? 'col-12' : 'col-12 col-md-6';
+    $vlNacHeaderPy = !empty($vencimientos_modo_cartera) ? 'py-1' : 'py-2';
+    $vlNacCardBodyPy = !empty($vencimientos_modo_cartera) ? 'py-1' : 'py-2';
+    ?>
     <!-- ── Nacimiento + distribución de corte (Lunes de cierre) ── -->
     <div class="row g-3 mb-3">
-        <div class="col-12 col-md-6">
+        <div class="<?= htmlspecialchars($vlColDistribOuter, ENT_QUOTES, 'UTF-8') ?>">
             <div class="card h-100 mb-0">
-                <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="card-header <?= htmlspecialchars($vlNacHeaderPy, ENT_QUOTES, 'UTF-8') ?> d-flex flex-wrap align-items-center gap-2 <?= !empty($vencimientos_modo_cartera) ? 'justify-content-start' : 'justify-content-between' ?>">
                     <span class="fw-semibold" style="font-size:.82rem;">
                         <i class="fa fa-egg text-primary me-1"></i>
                         Distribución de nacimiento
                     </span>
+                    <?php if (empty($vencimientos_modo_cartera)): ?>
                     <span class="badge bg-label-warning"><i class="fa fa-globe me-1"></i>Global</span>
+                    <?php endif; ?>
                 </div>
-                <div class="card-body py-2">
-                    <div class="row row-cols-2 g-2" id="statsNacimientoTop"></div>
+                <div class="card-body <?= htmlspecialchars($vlNacCardBodyPy, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($vlCardBodyDistribScroll, ENT_QUOTES, 'UTF-8') ?>">
+                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppRowDistribFlex, ENT_QUOTES, 'UTF-8') ?>" id="statsNacimientoTop"></div>
                     <div id="nacimientoGlobalResumen" class="mt-3 mb-0" style="display:none;">
                         <div class="d-flex rounded-pill overflow-hidden border" style="height:0.82rem;background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1) !important;" role="group" aria-label="Distribución global Current vs 1-7 días">
                             <div id="nacBarCurrent" class="d-flex align-items-center justify-content-center bg-success text-white fw-semibold flex-shrink-0 overflow-hidden"
@@ -169,24 +200,30 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                             </div>
                         </div>
                     </div>
-                    <div class="row row-cols-2 g-2 mt-2" id="statsNacimientoRest"></div>
+                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppRowDistribFlex, ENT_QUOTES, 'UTF-8') ?> mt-2" id="statsNacimientoRest"></div>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6">
+        <div class="<?= htmlspecialchars($vlColDistribOuter, ENT_QUOTES, 'UTF-8') ?>">
             <div class="card h-100 mb-0">
                 <div class="card-header py-2 d-flex flex-wrap align-items-center gap-1">
                     <span class="fw-semibold text-body d-inline-flex flex-wrap align-items-center gap-1" style="font-size:.78rem;line-height:1.35;">
                         <i class="fa fa-chart-pie text-primary flex-shrink-0 me-1"></i>
-                        <span>Distribución de corte:</span>
+                        <span>Distribución de corte</span>
+                        <?php if (empty($vencimientos_modo_cartera)): ?>
+                        <span>:</span>
                         <span id="distribCorteFecha" class="fw-semibold text-muted">—</span>
                         <span class="text-muted">·</span>
                         <span>Corte actual:</span>
                         <code id="distribCorteCorteLbl" class="text-info mb-0" style="font-size:.78rem;">—</code>
+                        <?php else: ?>
+                        <span id="distribCorteFecha" class="d-none" aria-hidden="true">—</span>
+                        <code id="distribCorteCorteLbl" class="d-none" aria-hidden="true">—</code>
+                        <?php endif; ?>
                     </span>
                 </div>
-                <div class="card-body py-2">
-                    <div class="row row-cols-2 g-2" id="statsCorte">
+                <div class="card-body py-2 <?= htmlspecialchars($vlCardBodyDistribScroll, ENT_QUOTES, 'UTF-8') ?>">
+                    <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppRowDistribFlex, ENT_QUOTES, 'UTF-8') ?>" id="statsCorte">
                     </div>
                 </div>
             </div>

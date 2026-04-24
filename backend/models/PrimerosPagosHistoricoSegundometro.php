@@ -1514,11 +1514,20 @@ final class PrimerosPagosHistoricoSegundometro
             return $ra <=> $rb;
         });
 
+        $tieneCarteraReal = false;
+        foreach ($terOrdenados as $t) {
+            if (!self::esCurrentTerritorial((string) ($t['nombre'] ?? '')) && (int) ($t['total'] ?? 0) > 0) {
+                $tieneCarteraReal = true;
+                break;
+            }
+        }
+
         $html = '';
         foreach ($terOrdenados as $idx => $ter) {
             $nombreTer = (string) ($ter['nombre'] ?? '');
             if (self::esCurrentTerritorial($nombreTer)) {
-                $html .= '
+                if (!$tieneCarteraReal) {
+                    $html .= '
                         <div class="card mb-3 border-start border-3 border-secondary">
                             <div class="card-body py-3">
                                 <p class="mb-0 text-muted" style="font-size:.82rem;">
@@ -1527,6 +1536,7 @@ final class PrimerosPagosHistoricoSegundometro
                                 </p>
                             </div>
                         </div>';
+                }
 
                 continue;
             }

@@ -1231,4 +1231,85 @@ class Gastoscobranza extends Controller
         echo $bin;
         exit;
     }
+
+    /**
+     * Ejecuta uno de los 3 cronjobs PHP existentes desde el agente Node (shell Gastos Cobranza).
+     * POST JSON: { proceso: insertar_mora_martes|detectar_gdc_liquidados|eliminar_gastos_despachos }
+     */
+    public function ejecutarProcesoCronjobGc()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $this->extenderTiempoEjecucionParaAgente();
+            if (!$this->agenteHabilitado()) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Active [gastoscobranza_agent] en config.ini.']);
+                return;
+            }
+            $raw = (string) file_get_contents('php://input');
+            $body = json_decode($raw !== '' ? $raw : '{}', true);
+            if (!is_array($body)) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'Cuerpo JSON inválido.']);
+                return;
+            }
+            $proceso = strtolower(trim((string) ($body['proceso'] ?? '')));
+            $permitidos = ['insertar_mora_martes', 'detectar_gdc_liquidados', 'eliminar_gastos_despachos'];
+            if (!in_array($proceso, $permitidos, true)) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' =>
+                        'proceso inválido. Use: insertar_mora_martes, detectar_gdc_liquidados o eliminar_gastos_despachos.',
+                ]);
+                return;
+            }
+            $health = $this->agenteRequest('GET', '/health', null, 10);
+            if (!$health['success'] || !is_array($health['json']) || empty($health['json']['success'])) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El agente Gastos Cobranza no responde.']);
+                return;
+            }
+            $a = is_array($health['json']) ? $health['json'] : [];
+            $scripts = (isset($a['cronjobs_gc']) && is_array($a['cronjobs_gc']) && isset($a['cronjobs_gc']['scripts']) && is_array($a['cronjobs_gc']['scripts']))
+                ? $a['cronjobs_gc']['scripts']
+                : [];
+            if (!empty($scripts) && empty($scripts[$proceso])) {
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => 'En el agente no se encontró el script requerido para este proceso.',
+                ]);
+                return;
+            }
+            $this->liberarSesionParaPeticionLarga();
+            $run = $this->agenteRequest(
+                'POST',
+                '/cronjobs-gc/run',
+                ['proceso' => $proceso],
+                self::AGENTE_RUN_TIMEOUT_SEC
+            );
+            if (is_array($run['json'])) {
+                $out = $run['json'];
+                if (!array_key_exists('success', $out)) {
+                    $code = isset($out['codigo_salida']) ? (int) $out['codigo_salida'] : -1;
+                    $out['success'] = $run['success'] && $code === 0;
+                }
+                self::respuestaJSON($out);
+                return;
+            }
+            $msg = '';
+            if (!empty($run['error'])) {
+                $msg = trim((string) $run['error']);
+            }
+            if ($msg === '') {
+                $msg = substr((string) ($run['raw'] ?? ''), 0, 320);
+            }
+            if ($msg === '') {
+                $msg = 'Error al invocar /cronjobs-gc/run (sin respuesta JSON del agente).';
+            }
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => $msg,
+                'http_status' => $run['status'] ?? 0,
+            ]);
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
 }
