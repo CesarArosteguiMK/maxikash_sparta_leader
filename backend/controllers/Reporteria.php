@@ -2258,6 +2258,9 @@ class Reporteria extends Controller
                     if (!Z.gestores[gest]) Z.gestores[gest] = { total:0, cobrados:0, pendientes:0, idCreditos: [] };
                     const G = Z.gestores[gest];
                     G.total++;
+                    const sN = severidadNac(r.bucket_nacio);
+                    const sA = severidadCorte(r.bucket_corte_actual);
+                    const cobro = (sA >= 0 && sN >= 0 && sA < sN);
                     const idC = (r.Id_credito != null && r.Id_credito !== '')
                         ? String(r.Id_credito)
                         : (r.id_credito != null && r.id_credito !== '' ? String(r.id_credito) : null);
@@ -2267,12 +2270,8 @@ class Reporteria extends Controller
                             : (r.nombre_cliente != null && String(r.nombre_cliente).trim() !== ''
                                 ? String(r.nombre_cliente).trim()
                                 : '—');
-                        G.idCreditos.push({ id: idC, nombre: nomC });
+                        G.idCreditos.push({ id: idC, nombre: nomC, esCobrado: !!cobro });
                     }
-
-                    const sN = severidadNac(r.bucket_nacio);
-                    const sA = severidadCorte(r.bucket_corte_actual);
-                    const cobro = (sA >= 0 && sN >= 0 && sA < sN);
 
                     if (cobro) {
                         G.cobrados++;  Z.cobrados++;  T.cobrados++;
@@ -2323,6 +2322,30 @@ class Reporteria extends Controller
                     });
                     return [...m.entries()].sort((a, b) => pphSortIdCred(a[0], b[0]));
                 };
+                /** Unifica por ID; si un ID aparece con distinto estado, cuenta como cobrado si alguna fila lo fue */
+                const pphAgruparCredsCobPend = (arr) => {
+                    const m = new Map();
+                    (arr || []).forEach((it) => {
+                        if (!it || it.id == null) return;
+                        const id = String(it.id);
+                        if (!id) return;
+                        const nom = (it.nombre != null && String(it.nombre).trim() !== '') ? String(it.nombre).trim() : '—';
+                        const esC = !!it.esCobrado;
+                        if (!m.has(id)) m.set(id, { nombre: nom, esCobrado: esC });
+                        else {
+                            const p = m.get(id);
+                            m.set(id, { nombre: nom, esCobrado: p.esCobrado || esC });
+                        }
+                    });
+                    const orden = [...m.entries()].sort((a, b) => pphSortIdCred(a[0], b[0]));
+                    const cobrados = [];
+                    const pendientes = [];
+                    orden.forEach(([id, v]) => {
+                        if (v.esCobrado) cobrados.push([id, v.nombre]);
+                        else pendientes.push([id, v.nombre]);
+                    });
+                    return { cobrados, pendientes, total: orden.length };
+                };
                 const pphZonBrdL = (p) => (p === 0 ? '#E24B4A' : p === 100 ? '#1D9E75' : '#BA7517');
                 const pphDonC = 2 * Math.PI * 16;
 
@@ -2366,21 +2389,38 @@ class Reporteria extends Controller
                         let htmlGest = '';
                         gestOrdenados.forEach((gest, gix) => {
                             const crdId = `pphCrd_${idx}_${zix}_${gix}`;
-                            const filasCred = pphFilasCredUniq(gest.idCreditos);
-                            const nIds = filasCred.length;
+                            const gList = pphAgruparCredsCobPend(gest.idCreditos);
+                            const nIds = gList.total;
+                            const filaCred = (idStr, nomStr, esCobr) => {
+                                const st = esCobr
+                                    ? { bg: '#E8F5E9', color: '#2E7D32', txt: 'Cobrado' }
+                                    : { bg: '#FFF3E0', color: '#E65100', txt: 'Pendiente' };
+                                const etq = '<span class="badge rounded-pill" style="background:' + st.bg + '; color:' + st.color + '; font-size:.64rem; font-weight:600; padding:0.25em 0.5em;">' + st.txt + '</span>';
+                                return `<div class="d-flex align-items-center flex-wrap gap-2 border-top px-3 py-1 ps-5 small">
+                                <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">${pphEsc(idStr)}</span>
+                                <span class="text-body" style="font-size:.8rem;">${pphEsc(nomStr)}</span>
+                                ${etq}
+                            </div>`;
+                            };
                             const idRows = nIds
-                                ? filasCred.map(([idStr, nomStr]) => `<div class="d-flex align-items-center gap-2 border-top px-3 py-1 ps-5 small text-muted">
-                                    <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">${pphEsc(idStr)}</span>
-                                    <span>${pphEsc(nomStr)}</span>
-                                </div>`).join('')
+                                ? [
+                                    ...gList.cobrados.map(([a, b]) => filaCred(a, b, true)),
+                                    ...gList.pendientes.map(([a, b]) => filaCred(a, b, false)),
+                                ].join('')
                                 : '<div class="d-flex border-top px-3 py-1 ps-5 small text-muted">Sin ID en dato de cartera</div>';
                             htmlGest += `<div>
-                                <div class="d-flex align-items-center gap-2 ${gix > 0 ? 'border-top' : ''} px-3 py-1 ps-4">
-                                    <div class="small text-muted flex-grow-1">${pphEsc(gest.nombre)}</div>
-                                    <span class="badge rounded-pill" style="background:#EAF3DE; color:#3B6D11;">Cobr ${gest.cobrados}</span>
-                                    <span class="badge rounded-pill" style="background:#FAEEDA; color:#854F0B;">Pend ${gest.pendientes}</span>
-                                    <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">IDs ${nIds}</span>
-                                    <button type="button" class="btn btn-sm rounded-pill px-2 py-0 fw-semibold shadow-none align-baseline" style="background:#E6F1FB;color:#0d3d6b;border:1px solid #185FA5;line-height:1.35;" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false">Ver IDs</button>
+                                <div class="d-flex align-items-center flex-wrap gap-2 ${gix > 0 ? 'border-top' : ''} px-3 py-1 ps-4">
+                                    <div class="small text-muted flex-grow-1" style="min-width:6rem;">${pphEsc(gest.nombre)}</div>
+                                    <span class="badge rounded-pill border text-body fw-medium px-2 py-0" style="background:#F4F3EF; font-size:.72rem;">${gest.total} créditos</span>
+                                    <div class="d-flex flex-wrap align-items-center gap-2 small text-body-secondary" style="font-size:.75rem;">
+                                        <span class="d-inline-flex align-items-center gap-1">
+                                            <span class="rounded-circle d-inline-block flex-shrink-0" style="width:6px;height:6px;background-color:#1D9E75;"></span>${gest.cobrados} cobrados
+                                        </span>
+                                        <span class="d-inline-flex align-items-center gap-1">
+                                            <span class="rounded-circle d-inline-block flex-shrink-0" style="width:6px;height:6px;background-color:#BA7517;"></span>${gest.pendientes} pendientes
+                                        </span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-decoration-none fw-semibold align-baseline" style="color:#185FA5; font-size:.75rem; border:0; box-shadow:none;" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false" title="Listado de clientes (IDs)">Ver clientes</button>
                                 </div>
                                 <div class="collapse bg-white" id="${crdId}">${idRows}</div>
                             </div>`;
