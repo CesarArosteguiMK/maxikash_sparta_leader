@@ -828,6 +828,122 @@ class Empresa extends Model
     }
 
     /**
+     * Cartera completa en `tbl_segundometro_semana` (sin filtro por fecha de primer vencimiento).
+     * Nacimiento por días: COALESCE(Dias_mora_ajustado, Dias_mora) → Current, 1–7, 8–14, 15–21, 22+.
+     * Adjudicada: columna Ghost no nula, no vacía y distinta de «-».
+     */
+    public static function getCarteraSegundometroSemana(): array
+    {
+        $corteCol = self::getCorteActual();
+        if (!$corteCol) {
+            return [
+                'success'              => false,
+                'mensaje'              => 'No hay corte disponible.',
+                'datos'                => [],
+                'corte_actual'         => null,
+                'modo_cartera'         => true,
+                'total_en_tabla'       => 0,
+                'adjudicadas_total'    => 0,
+            ];
+        }
+
+        $dmNacio = 'CAST(COALESCE(t.`Dias_mora_ajustado`, t.`Dias_mora`) AS SIGNED)';
+        /* En cartera completa la columna de «corte actual» suele venir vacía en muchas filas; se usa mora nacimiento como respaldo para buckets y para dias_mora_corte. */
+        $moraCorteEfectiva = 'COALESCE(CAST(`' . $corteCol . '` AS SIGNED), ' . $dmNacio . ')';
+        $bucketNacioSql = "
+            CASE
+                WHEN COALESCE(t.`Dias_mora_ajustado`, t.`Dias_mora`) IS NULL THEN NULL
+                WHEN TRIM(CAST(COALESCE(t.`Dias_mora_ajustado`, t.`Dias_mora`) AS CHAR)) = '' THEN NULL
+                WHEN ($dmNacio) < 1 THEN 'a) Current'
+                WHEN ($dmNacio) BETWEEN 1 AND 7 THEN 'b) 1 a 7 dias'
+                WHEN ($dmNacio) BETWEEN 8 AND 14 THEN 'f) 8 a 14 dias'
+                WHEN ($dmNacio) BETWEEN 15 AND 21 THEN 'g) 15 a 21 dias'
+                ELSE 'h) 22+ dias'
+            END
+        ";
+
+        $bucketCorteSQL = "
+            CASE
+                WHEN ($moraCorteEfectiva) IS NULL              THEN NULL
+                WHEN ($moraCorteEfectiva) < 1                  THEN 'a) Current'
+                WHEN ($moraCorteEfectiva) BETWEEN 1  AND 7     THEN 'b) 1 a 7 dias'
+                WHEN ($moraCorteEfectiva) BETWEEN 8  AND 30    THEN 'c) 8 a 30 dias'
+                WHEN ($moraCorteEfectiva) BETWEEN 31 AND 60    THEN 'd) 31 a 60 dias'
+                ELSE                                       'e) 61+ dias'
+            END
+        ";
+
+        $esAdjSql = "
+            CASE
+                WHEN t.`Ghost` IS NULL THEN 0
+                WHEN TRIM(CAST(t.`Ghost` AS CHAR)) = '' THEN 0
+                WHEN TRIM(CAST(t.`Ghost` AS CHAR)) = '-' THEN 0
+                ELSE 1
+            END
+        ";
+
+        $corteLabel = $corteCol;
+        $sql        = "
+            SELECT
+                t.Id_credito,
+                t.Nombre_cliente,
+                ($bucketNacioSql)                AS bucket_nacio,
+                t.Gestor_Asignado,
+                t.Jefe_de_Plaza,
+                t.Zonal,
+                t.Territorial,
+                t.Cuotas_vencidas,
+                t.Saldo_vencido_actualizado,
+                t.Fecha_primer_vencimiento,
+                t.Ghost,
+                ($esAdjSql)                      AS es_adjudicada,
+                ($moraCorteEfectiva)             AS dias_mora_corte,
+                ($bucketCorteSQL)                AS bucket_corte_actual
+            FROM tbl_segundometro_semana t
+            ORDER BY
+                t.Territorial,
+                t.Zonal,
+                t.Jefe_de_Plaza,
+                t.Gestor_Asignado,
+                t.Nombre_cliente
+        ";
+
+        try {
+            $db   = new DatabaseSegundometro();
+            $rows = $db->queryAll($sql, []);
+            $adj  = 0;
+            foreach ($rows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $lc = array_change_key_case($row, CASE_LOWER);
+                if (!empty($lc['es_adjudicada'])) {
+                    $adj++;
+                }
+            }
+
+            return [
+                'success'                          => true,
+                'mensaje'                          => 'Registros obtenidos.',
+                'modo_cartera'                     => true,
+                'corte_actual'                     => $corteLabel,
+                'fecha_primer_vencimiento_display' => 'Toda la cartera',
+                'lunes_pasado'                     => null,
+                'lunes_calendario'                 => null,
+                'usado_fallback_lunes'             => false,
+                'total_en_tabla'                   => count($rows),
+                'adjudicadas_total'                => $adj,
+                'datos'                            => $rows,
+            ];
+        } catch (\Exception $e) {
+            $err = self::resultado(false, 'Error al procesar la solicitud.', null, $e->getMessage());
+            $err['modo_cartera'] = true;
+
+            return $err;
+        }
+    }
+
+    /**
      * Columnas de «Primeros pagos — Semana actual» (mega-reporte): orden de tabla, CSV/JSON y Excel.
      * Para añadir un campo: 1) alias en `sqlPrimerosPagosMegareporte()` en MAYÚSCULAS con guiones bajos (p. ej. `MI_CAMPO`);
      * 2) una entrada aquí con la misma clave en minúsculas (`mi_campo`). El normalizador rellena solo estas claves.

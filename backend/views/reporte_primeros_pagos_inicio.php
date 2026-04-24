@@ -25,6 +25,15 @@ if ($ppLunes->format('Y') === $ppDomingo->format('Y')) {
     $ppRangoSemana = $ppFmtDia($ppLunes, true) . ' al ' . $ppFmtDia($ppDomingo, true);
 }
 
+/* Cartera: periodo martes (apertura) → lunes siguiente (cierre), misma semana operativa que Cobranza esperada. */
+$ppMartesCartera = $ppLunes->modify('+1 day');
+$ppLunesCierreCartera = $ppLunes->modify('+7 days');
+if ($ppMartesCartera->format('Y') === $ppLunesCierreCartera->format('Y')) {
+    $ppRangoCartera = $ppFmtDia($ppMartesCartera, false) . ' al ' . $ppFmtDia($ppLunesCierreCartera, true);
+} else {
+    $ppRangoCartera = $ppFmtDia($ppMartesCartera, true) . ' al ' . $ppFmtDia($ppLunesCierreCartera, true);
+}
+
 /* Próximo lunes de corte (semana siguiente) y periodo jueves→lunes (alineado a «Disponible de jueves a lunes») */
 $ppLunesSiguiente = $ppLunes->modify('+7 days');
 $ppNumSemanaSiguiente = (int) $ppLunesSiguiente->format('W');
@@ -65,7 +74,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                 </div>
 
                 <div class="row gy-6 mb-6 gx-0">
-                    <div class="col-lg-4">
+                    <div class="col-lg-3 col-md-6">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
@@ -73,7 +82,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <h5 class="text-primary mb-1">Cobranza esperada - semana actual</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoSemana, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de martes a domingo. En este espacio podrás consultar el resumen ejecutivo de los primeros pagos con fecha de vencimiento correspondiente a la semana en curso.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de martes a domingo. Resumen ejecutivo del corte de primeros pagos de la semana en curso: buckets de nacimiento, mora al último corte cargado y seguimiento por Territorial, Zonal y gestor asignado.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <?php if ($ppDow === 1): ?>
@@ -100,7 +109,34 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-4">
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card shadow-none bg-label-primary h-100">
+                            <div class="card-body d-flex justify-content-between flex-wrap-reverse">
+                                <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
+                                    <div class="card-title">
+                                        <h5 class="text-primary mb-1">Cartera</h5>
+                                        <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemana ?></p>
+                                        <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoCartera, ENT_QUOTES, 'UTF-8') ?></p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Cartera completa en segundómetro sin limitar por primer vencimiento. Mora al nacimiento en tramos 1–7, 8–14, 15–21 y 22+ días, corte dinámico vigente y adjudicadas donde Ghost tiene valor distinto de vacío o guión.</p>
+                                    </div>
+                                    <div class="mb-0 mt-3">
+                                        <a href="/analitica/Cartera" class="btn btn-primary w-100">
+                                            <i class="fa fa-briefcase me-1"></i>Ver cartera
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end h-px-150 mb-4 mb-sm-0">
+                                    <svg class="pp-icon-svg scaleX-n1-rtl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+                                        <rect x="14" y="28" width="36" height="22" rx="2.5" ry="2.5"/>
+                                        <path d="M22 28V22h20v6"/>
+                                        <path d="M24 22V17h16v5"/>
+                                        <path d="M28 40h8"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
                         <div class="card shadow-none bg-label-primary h-100">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
@@ -108,7 +144,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <h5 class="text-primary mb-1">Primeros pagos próxima semana</h5>
                                         <p class="text-primary mb-0 fw-bold small">Semana <?= (int) $ppNumSemanaSiguiente ?></p>
                                         <p class="text-body-secondary small mb-1"><strong>Periodo del:</strong> <?= htmlspecialchars($ppRangoVentanaPrimerosPagos, ENT_QUOTES, 'UTF-8') ?></p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Disponible de jueves a lunes (no disponible martes ni miércoles). En este espacio podrás consultar el resumen ejecutivo de los primeros pagos previstos para la siguiente semana, correspondiente a ventas realizadas en días anteriores cuya primera fecha de vencimiento ocurre en la próxima semana.</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de jueves a lunes; martes y miércoles permanece cerrado el acceso. Anticipa primeros pagos de la semana siguiente según colocaciones cuya primera fecha de vencimiento recae en esa ventana operativa de planificación.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <?php if ($ppBloqueoProximaSemanaMartesMiercoles): ?>
@@ -135,7 +171,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-4">
+                    <div class="col-lg-3 col-md-6">
                         <div class="card shadow-none bg-label-secondary h-100" id="pp-card-historico">
                             <div class="card-body d-flex justify-content-between flex-wrap-reverse">
                                 <div class="mb-0 w-100 app-academy-sm-60 d-flex flex-column justify-content-between text-center text-sm-start">
@@ -143,7 +179,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <h5 class="text-primary mb-1">Histórico</h5>
                                         <p class="text-primary mb-0 fw-bold small">Primeros pagos</p>
                                         <p class="text-body-secondary small mb-1"><strong>Consulta:</strong> últimas 4 semanas cerradas</p>
-                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0">Resumen por semana (las 4 más recientes en <code>tbl_histo_primeros_pagos</code>): misma lógica que <strong>Lunes de cierre</strong> (nacimiento, corte y jerarquía).</p>
+                                        <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Consulta hasta cuatro semanas cerradas consecutivas. Replica la lógica del lunes de corte sobre el histórico: nacimiento, mora al cierre, jerarquía y comparativos desde la tabla archivada de primeros pagos del repositorio de reportes.</p>
                                     </div>
                                     <div class="mb-0 mt-3">
                                         <a href="/analitica/PrimerosPagosHistorico" class="btn btn-primary w-100">
@@ -182,6 +218,12 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 }
 #pp-card-historico {
     scroll-margin-top: 5.5rem;
+}
+/* Cuatro cards: descripciones con longitud parecida + misma altura mínima en lg para alinear bloques. */
+@media (min-width: 992px) {
+    #pp-landing .pp-landing-card-desc {
+        min-height: 6.85rem;
+    }
 }
 .pp-hero-block {
     position: relative;
@@ -288,15 +330,16 @@ body.dark-mode .pp-hero-mascot-floating {
     var PP_ES_LUNES = <?php echo $ppDow === 1 ? 'true' : 'false'; ?>;
     var PP_ES_MARTES_MIERCOLES = <?php echo $ppBloqueoProximaSemanaMartesMiercoles ? 'true' : 'false'; ?>;
     document.addEventListener('DOMContentLoaded', function () {
+        function ppMostrarMsgCarteraLunes() {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'info', title: 'Cobranza esperada — semana actual', text: PP_MSG_CARTERA_LUNES });
+            } else {
+                alert(PP_MSG_CARTERA_LUNES);
+            }
+        }
         var btn = document.getElementById('ppBtnCobranzaEsperadaLunes');
         if (btn) {
-            btn.addEventListener('click', function () {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'info', title: 'Cobranza esperada — semana actual', text: PP_MSG_CARTERA_LUNES });
-                } else {
-                    alert(PP_MSG_CARTERA_LUNES);
-                }
-            });
+            btn.addEventListener('click', ppMostrarMsgCarteraLunes);
         }
         var btnProx = document.getElementById('ppBtnProximaSemanaBloqueado');
         if (btnProx) {
