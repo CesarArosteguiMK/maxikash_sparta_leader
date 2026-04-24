@@ -57,6 +57,31 @@ const SCRIPT_CARGA_VERIFICACION = path.join(
   'carga_cobranza_gc_verificacion_semana_desde_excel.py'
 );
 const SCRIPT_DESCARGO_ESTATUS3 = path.join(__dirname, 'scripts', 'descargo_cobranza_gc_estatus3.py');
+const BACKEND_ROOT = path.resolve(__dirname, '..', '..');
+const CRONJOBS_DIR = path.join(BACKEND_ROOT, 'cronjobs');
+const SCRIPT_CRON_INSERTAR_MORAS_MARTES = path.join(CRONJOBS_DIR, 'insertar_moras_martes.php');
+const SCRIPT_CRON_DETECTAR_GDC_LIQUIDADOS = path.join(CRONJOBS_DIR, 'detectar_gdc_liquidados.php');
+const SCRIPT_CRON_ELIMINAR_GASTOS_DESPACHOS = path.join(CRONJOBS_DIR, 'eliminar_gastos_despachos.php');
+
+function getCronjobsGcMap() {
+  return {
+    insertar_mora_martes: {
+      key: 'insertar_mora_martes',
+      scriptPath: SCRIPT_CRON_INSERTAR_MORAS_MARTES,
+      titulo: 'Insertar mora martes',
+    },
+    detectar_gdc_liquidados: {
+      key: 'detectar_gdc_liquidados',
+      scriptPath: SCRIPT_CRON_DETECTAR_GDC_LIQUIDADOS,
+      titulo: 'Detectar GDC liquidados',
+    },
+    eliminar_gastos_despachos: {
+      key: 'eliminar_gastos_despachos',
+      scriptPath: SCRIPT_CRON_ELIMINAR_GASTOS_DESPACHOS,
+      titulo: 'Eliminar gastos despachos',
+    },
+  };
+}
 
 function getReporteScriptPath() {
   const fromEnv = (process.env.REPORTE_COBRANZA_SCRIPT || '').trim();
@@ -837,6 +862,39 @@ function notifyEcWorkflowWebhook(evento, traceId, detalleLineas) {
   return postGoogleChatWebhook(hook, text);
 }
 
+/** Webhook de procesos manuales del shell (cronjobs PHP de gastos cobranza). */
+function cronjobsGcWebhookUrl() {
+  const own = String(process.env.GASTOS_GC_CRONJOBS_CHAT_WEBHOOK_URL || '').trim();
+  if (own) return own;
+  // Fallback a webhook EC para no requerir nueva variable al activar la funcionalidad.
+  return ecWorkflowWebhookUrl();
+}
+
+function cronjobsGcWebhookEnabled() {
+  return String(process.env.GASTOS_GC_CRONJOBS_CHAT_ENABLED ?? '1').trim() !== '0';
+}
+
+function notifyCronjobGcWebhook(procesoKey, titulo, ok, codigoSalida, durMs, detalleLineas) {
+  if (!cronjobsGcWebhookEnabled()) return Promise.resolve(false);
+  const hook = cronjobsGcWebhookUrl();
+  if (!hook) {
+    appendLog('[cronjobs-gc webhook] URL vacía; aviso no enviado.');
+    return Promise.resolve(false);
+  }
+  const lines = Array.isArray(detalleLineas) ? detalleLineas.filter((x) => String(x || '').trim() !== '') : [];
+  const secs = Math.max(0, Math.round((Number(durMs) || 0) / 1000));
+  const text =
+    `Gastos Cobranza · Proceso shell\n` +
+    `Proceso: ${titulo || procesoKey}\n` +
+    `Clave: ${procesoKey}\n` +
+    `Resultado: ${ok ? 'OK' : 'ERROR'}\n` +
+    `Código salida: ${codigoSalida}\n` +
+    `Duración: ${secs}s` +
+    (lines.length ? `\n${lines.join('\n')}` : '');
+  appendLog(`[cronjobs-gc webhook] enviando resultado proceso=${procesoKey} ok=${ok ? '1' : '0'}`);
+  return postGoogleChatWebhook(hook, text);
+}
+
 /** Última línea `[ec-webhook-lista-negra] {...}` emitida por el script Python. */
 function parseListaNegraResumenFromStdout(stdout) {
   const pref = '[ec-webhook-lista-negra] ';
@@ -1449,6 +1507,8 @@ app.use(express.json());
 
 /** Un solo proceso EC (worker o enrich) a la vez; evita solapar worker.php en el mismo agente. */
 let ecLauncherBusy = false;
+/** Un solo cronjob manual (insertar mora / detectar liquidados / eliminar despachos) a la vez. */
+let cronjobsGcBusy = false;
 
 function middlewareApiKey(req, res, next) {
   if (!API_KEY) return next();
@@ -1533,6 +1593,15 @@ app.get('/health', (req, res) => {
       getDescargoEstatus3ScriptPath() !== '' && getDescargoEstatus3ScriptPath() === SCRIPT_DESCARGO_ESTATUS3,
     carpeta_descargo_estatus3: DESCARGO_ESTATUS3_DIR,
     ec_launcher_ocupado: ecLauncherBusy,
+    cronjobs_gc_ocupado: cronjobsGcBusy,
+    cronjobs_gc: {
+      busy: cronjobsGcBusy,
+      scripts: {
+        insertar_mora_martes: fs.existsSync(SCRIPT_CRON_INSERTAR_MORAS_MARTES),
+        detectar_gdc_liquidados: fs.existsSync(SCRIPT_CRON_DETECTAR_GDC_LIQUIDADOS),
+        eliminar_gastos_despachos: fs.existsSync(SCRIPT_CRON_ELIMINAR_GASTOS_DESPACHOS),
+      },
+    },
     auto_run_cdmx: {
       enabled: autoRun10amCdmxEffective(),
       enabled_env: autoRun10amCdmxEnabled(),
@@ -1678,6 +1747,110 @@ app.post('/run/cancel', (req, res) => {
     appendLog('[run/cancel] Error: ' + (e?.message || e));
     res.status(500).json({ success: false, mensaje: String(e?.message || e) });
   }
+});
+
+/**
+ * Ejecuta cronjobs PHP existentes de gastos cobranza (sin lógica nueva en Node).
+ * POST /cronjobs-gc/run { proceso: insertar_mora_martes|detectar_gdc_liquidados|eliminar_gastos_despachos }
+ */
+app.post('/cronjobs-gc/run', express.json({ limit: '32kb' }), (req, res) => {
+  const proceso = String(req.body?.proceso || '').trim().toLowerCase();
+  const mapa = getCronjobsGcMap();
+  const meta = mapa[proceso];
+  if (!meta) {
+    return res.status(400).json({
+      success: false,
+      mensaje:
+        'proceso inválido. Use: insertar_mora_martes, detectar_gdc_liquidados o eliminar_gastos_despachos.',
+    });
+  }
+  if (!fs.existsSync(meta.scriptPath) || !fs.statSync(meta.scriptPath).isFile()) {
+    return res.status(500).json({
+      success: false,
+      mensaje: `No existe script: ${meta.scriptPath}`,
+      proceso,
+    });
+  }
+  if (cronjobsGcBusy) {
+    return res.status(409).json({
+      success: false,
+      mensaje: 'Ya hay un proceso de cronjobs GC en ejecución. Espere a que termine.',
+      proceso,
+    });
+  }
+  if (reporteRunBusy || ecLauncherBusy) {
+    return res.status(409).json({
+      success: false,
+      mensaje: 'El agente está ocupado con otro proceso (reporte/EC). Espere a que termine.',
+      proceso,
+    });
+  }
+
+  cronjobsGcBusy = true;
+  const php = resolvePhpExe();
+  const args = ['-d', 'output_buffering=0', '-d', 'implicit_flush=1', meta.scriptPath, '--no-webhook'];
+  const startedAtMs = Date.now();
+  appendLog(`--- cronjobs-gc inicio proceso=${meta.key} php=${php} script=${meta.scriptPath} ---`);
+  const child = spawn(php, args, {
+    cwd: CRONJOBS_DIR,
+    env: { ...process.env },
+    windowsHide: true,
+    shell: false,
+  });
+
+  let stdout = '';
+  let stderr = '';
+  const maxChunk = 1024 * 1024;
+  let respondio = false;
+  const enviar = (payload) => {
+    if (respondio) return;
+    respondio = true;
+    cronjobsGcBusy = false;
+    res.json(payload);
+  };
+
+  child.stdout.on('data', (d) => {
+    const s = d.toString();
+    stdout += s;
+    if (stdout.length > maxChunk) stdout = stdout.slice(-maxChunk);
+    appendLog(s.replace(/\r/g, ''));
+  });
+  child.stderr.on('data', (d) => {
+    const s = d.toString();
+    stderr += s;
+    if (stderr.length > maxChunk) stderr = stderr.slice(-maxChunk);
+    appendLog(`[cronjobs-gc stderr][${meta.key}] ` + s.replace(/\r/g, ''));
+  });
+  child.on('error', (err) => {
+    const durMs = Date.now() - startedAtMs;
+    appendLog(`[cronjobs-gc spawn][${meta.key}] ` + (err?.message || String(err)));
+    void notifyCronjobGcWebhook(meta.key, meta.titulo, false, -1, durMs, [
+      `Error spawn: ${String(err?.message || err)}`,
+    ]);
+    enviar({
+      success: false,
+      mensaje: err?.message || String(err),
+      proceso: meta.key,
+      codigo_salida: -1,
+    });
+  });
+  child.on('close', (code) => {
+    const salida = code == null ? -1 : Number(code);
+    const ok = salida === 0;
+    const durMs = Date.now() - startedAtMs;
+    appendLog(`--- cronjobs-gc cierre proceso=${meta.key} codigo=${salida} dur_ms=${durMs} ---`);
+    void notifyCronjobGcWebhook(meta.key, meta.titulo, ok, salida, durMs, [
+      ok ? 'Ejecución finalizada correctamente.' : 'La ejecución terminó con error.',
+    ]);
+    enviar({
+      success: ok,
+      proceso: meta.key,
+      codigo_salida: salida,
+      stdout: stdout.slice(-12000),
+      stderr: stderr.slice(-12000),
+      duracion_ms: durMs,
+    });
+  });
 });
 
 /** EC launcher: worker.php o enrich_gc_excel.php (paridad con launcher/Lanzar.cmd). */

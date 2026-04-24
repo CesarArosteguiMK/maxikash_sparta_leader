@@ -5,7 +5,7 @@ Columnas finales:
   ID CREDITO | ID CLIENTE | NOMBRE CLIENTE | STATUS CREDITO | CUOTA SEMANAL |
   DEUDA GC PENDIENTE | SALDO A FAVOR DEL CLIENTE | SALDO APLICABLE A GC |
   fecha_ultimo_abono_efectivo | ultimo_abono_efectivo (Monto_abono_efectivo, tbl_segundometro_semana) |
-  MAXI APP (última conexión CDMX + ¿se conectó?) | COMENTARIOS | ERROR
+  MAXI APP (última conexión CDMX + ¿se conectó?)
 
 Flujo:
   1. MySQL trae créditos elegibles (gastos_cobranza + tbl_segundometro_semana, Dias_mora=0,
@@ -16,16 +16,19 @@ Flujo:
      (inicio_semana = martes del periodo, s2_exitoso = 1).
   4. Los que quedan van a S2 → cálculo → Excel.
   5. El Excel se genera siempre (aunque queden 0 registros después de los filtros).
-  6. Solo entran al .xlsx filas con SALDO A FAVOR DEL CLIENTE >= 200 MXN (las demás se omiten).
-  7. No entran al .xlsx filas cuya columna COMENTARIOS incluya «CUOTA SIGUIENTE CUBIERTA - NO APLICAR»
-     (sábado–lunes); sí entran las de «APLICAR» (mar–vie) y el resto sin ese texto.
+  6. Reglas de salida del .xlsx (pipeline final):
+     - No exportar filas con STATUS CREDITO = ERROR.
+     - Conjunto NO (MAXI APP — ¿SE CONECTÓ? = NO): conservar solo SALDO APLICABLE A GC entre 200 y 300 (incluyente).
+     - Reintegrar todas las filas SI + las NO válidas.
+     - Validación interna (no visible en Excel): ABS(ultimo_abono_efectivo) >= SALDO APLICABLE A GC.
+       Si no alcanza, SALDO APLICABLE A GC = ABS(ultimo_abono_efectivo).
+     - Filtro final: SALDO APLICABLE A GC > 200 (sin tope superior).
   8. Columnas Maxi app (__SPARTA_SECRET_REDACTED__.ubicacion, idCliente = ID CLIENTE): ventana en calendario CDMX —
      vie–dom → lunes de esa semana hasta hoy CDMX; lun–jue → hoy CDMX y 4 días anteriores (5 días en total).
      Última conexión mostrada en hora CDMX (no depender del huso del servidor del script).
      ultimo_abono_efectivo va después de fecha_ultimo_abono_efectivo y antes de las columnas Maxi app.
 
-En el .xlsx, el fondo de la fila refleja COMENTARIOS: verde si contiene «APLICAR» (día laboral);
-rojo suave si contiene «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (orden de comprobación: CUOTA antes que APLICAR).
+En el .xlsx, el color de fila se calcula internamente por reglas de negocio.
 
 Salida: reporte/reporte_cobranza_DD-MM-YYYY.xlsx (fecha calendario CDMX al generar; guiones en lugar de /).
 
@@ -1328,8 +1331,6 @@ COLUMNAS = [
     ("ULTIMO_ABONO_EFECTIVO", "ultimo_abono_efectivo"),
     ("MAXI_APP_ULTIMA_CDMX", "MAXI APP — ÚLTIMA CONEXIÓN (CDMX)"),
     ("MAXI_APP_CONECTO", "MAXI APP — ¿SE CONECTÓ?"),
-    ("COMENTARIOS", "COMENTARIOS"),
-    ("ERROR", "ERROR"),
 ]
 ANCHOS = {
     "ID_CREDITO": 14,
@@ -1344,8 +1345,6 @@ ANCHOS = {
     "ULTIMO_ABONO_EFECTIVO": 20,
     "MAXI_APP_ULTIMA_CDMX": 36,
     "MAXI_APP_CONECTO": 22,
-    "COMENTARIOS": 52,
-    "ERROR": 30,
 }
 MONEY_COLS = {"CUOTA_SEMANAL", "DEUDA_GC", "SALDO_A_FAVOR", "SALDO_APLICABLE_GC", "ULTIMO_ABONO_EFECTIVO"}
 SF_COLS    = {"SALDO_A_FAVOR", "SALDO_APLICABLE_GC"}
@@ -1375,6 +1374,114 @@ def _float_reg(reg: dict, key: str) -> float:
 def _fila_excel_excluida_cuota_siguiente_cubierta(reg: dict) -> bool:
     """True = no incluir en .xlsx: comentario base «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (sáb–lun)."""
     return COMENTARIO_CUOTA_CUBIERTA in str(reg.get("COMENTARIOS") or "")
+
+
+def _normalizar_texto_si_no(v: object) -> str:
+    t = str(v or "").strip().lower()
+    if t in {"si", "sí", "s", "yes", "y", "1", "true"}:
+        return "si"
+    if t in {"no", "n", "0", "false"}:
+        return "no"
+    return ""
+
+
+def _es_status_error_excel(reg: dict) -> bool:
+    return str(reg.get("STATUS_CREDITO") or "").strip().lower() == "error"
+
+
+def _extraer_fecha_abono_excel(reg: dict) -> date | None:
+    """
+    Extrae fecha (YYYY-MM-DD) desde FECHA_ULTIMO_ABONO_EFECTIVO.
+    Soporta formatos del script:
+      - "YYYY-MM-DD — martes"
+      - "YYYY-MM-DD HH:MM:SS"
+      - "YYYY-MM-DD"
+    """
+    raw = str(reg.get("FECHA_ULTIMO_ABONO_EFECTIVO") or "").strip()
+    if len(raw) < 10:
+        return None
+    head = raw[:10]
+    if len(head) == 10 and head[4] == "-" and head[7] == "-":
+        try:
+            return date.fromisoformat(head)
+        except ValueError:
+            return None
+    return None
+
+
+def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date) -> tuple[list[dict], dict]:
+    """
+    Reglas de negocio para el Excel final:
+      1) Conservar solo FECHA_ULTIMO_ABONO_EFECTIVO == fecha_permitida (ayer CDMX).
+      2) Excluir STATUS_CREDITO=ERROR solo en salida.
+      3) Sobre MAXI_APP_CONECTO=NO, conservar saldo aplicable en [200,300].
+      4) Reintegrar todos los SI + NO válidos.
+      5) Validación interna ABS(ultimo_abono_efectivo) >= saldo aplicable.
+      6) Si no alcanza, saldo aplicable = ABS(ultimo_abono_efectivo).
+      7) Filtro final saldo aplicable > 200 (sin tope superior).
+    """
+    # Paso 1: fecha de último abono estricta al día de negocio (ayer CDMX).
+    con_fecha_permitida = [
+        r for r in registros if _extraer_fecha_abono_excel(r) == fecha_permitida
+    ]
+    excl_fecha_no_permitida = len(registros) - len(con_fecha_permitida)
+
+    # Paso 2: STATUS=ERROR fuera del Excel final.
+    sin_error = [r for r in con_fecha_permitida if not _es_status_error_excel(r)]
+    excl_status_error = len(con_fecha_permitida) - len(sin_error)
+
+    subset_si: list[dict] = []
+    subset_no: list[dict] = []
+    subset_otros: list[dict] = []
+    for r in sin_error:
+        con = _normalizar_texto_si_no(r.get("MAXI_APP_CONECTO"))
+        if con == "si":
+            subset_si.append(r)
+        elif con == "no":
+            subset_no.append(r)
+        else:
+            subset_otros.append(r)
+
+    # Paso 3: NO con saldo aplicable entre 200 y 300 (incluyente).
+    subset_no_validos = [
+        r for r in subset_no if 200.0 <= _float_reg(r, "SALDO_APLICABLE_GC") <= 300.0
+    ]
+    excl_no_rango = len(subset_no) - len(subset_no_validos)
+
+    # Paso 4: restaurar SI + NO válidos + valores indeterminados (no SI/no NO).
+    restaurado = subset_si + subset_no_validos + subset_otros
+
+    # Paso 5 + 6: validación interna y ajuste saldo aplicable.
+    ajuste_no_alcanza = 0
+    for r in restaurado:
+        saldo_aplicable = _float_reg(r, "SALDO_APLICABLE_GC")
+        ultimo_abono_abs = abs(_float_reg(r, "ULTIMO_ABONO_EFECTIVO"))
+        alcanza = ultimo_abono_abs >= saldo_aplicable
+        r["_ALCANZA_GC_INTERNO"] = "LE ALCANZA" if alcanza else "NO LE ALCANZA"
+        if not alcanza:
+            r["SALDO_APLICABLE_GC"] = round(ultimo_abono_abs, 2)
+            ajuste_no_alcanza += 1
+
+    # Paso 7: filtro final saldo aplicable > 200.
+    filtrado_final = [r for r in restaurado if _float_reg(r, "SALDO_APLICABLE_GC") > 200.0]
+    excl_saldo_final = len(restaurado) - len(filtrado_final)
+
+    stats = {
+        "inicial": len(registros),
+        "con_fecha_permitida": len(con_fecha_permitida),
+        "excl_fecha_no_permitida": excl_fecha_no_permitida,
+        "sin_error": len(sin_error),
+        "excl_status_error": excl_status_error,
+        "si_total": len(subset_si),
+        "no_total": len(subset_no),
+        "no_validos_200_300": len(subset_no_validos),
+        "excl_no_rango": excl_no_rango,
+        "otros_conecto": len(subset_otros),
+        "ajuste_no_alcanza": ajuste_no_alcanza,
+        "excl_saldo_final": excl_saldo_final,
+        "final": len(filtrado_final),
+    }
+    return filtrado_final, stats
 
 
 def etiquetas_reglas_desde_reg(reg: dict) -> list[str]:
@@ -1495,8 +1602,6 @@ def generar_excel(
             c.fill = PatternFill("solid", start_color="1565C0")
         elif key in DEUDA_COLS:
             c.fill = PatternFill("solid", start_color="B71C1C")
-        elif key == "COMENTARIOS":
-            c.fill = PatternFill("solid", start_color="E65100")
         else:
             c.fill = PatternFill("solid", start_color="1F3864")
     ws.row_dimensions[2].height = 30
@@ -1873,32 +1978,32 @@ def main() -> None:
     log.info("  Maxi app: fecha referencia CDMX (ventana) = %s", fecha_ref_maxi_cdmx)
     enriquecer_columnas_maxi_app(resultados, fecha_ref_maxi_cdmx)
 
-    antes_filtro_sf = len(resultados)
-    resultados = [
-        r for r in resultados if _float_reg(r, "SALDO_A_FAVOR") >= MIN_SALDO_FAVOR_EXCEL
-    ]
-    excluidos_sf_excel = antes_filtro_sf - len(resultados)
+    resultados, st_gc_excel = aplicar_pipeline_final_excel_gc(resultados, hoy)
     log.info(
-        "  Excluidos del Excel (SALDO_A_FAVOR < %.0f): %s",
-        MIN_SALDO_FAVOR_EXCEL,
-        f"{excluidos_sf_excel:,}",
+        "  Pipeline Excel GC (fecha permitida=%s): inicial=%s · fecha_ok=%s · sin_status_error=%s · NO_validos_200_300=%s/%s · ajustes_no_le_alcanza=%s · final=%s",
+        hoy.isoformat(),
+        f"{st_gc_excel['inicial']:,}",
+        f"{st_gc_excel['con_fecha_permitida']:,}",
+        f"{st_gc_excel['sin_error']:,}",
+        f"{st_gc_excel['no_validos_200_300']:,}",
+        f"{st_gc_excel['no_total']:,}",
+        f"{st_gc_excel['ajuste_no_alcanza']:,}",
+        f"{st_gc_excel['final']:,}",
     )
-    if excluidos_sf_excel:
+    if (
+        st_gc_excel["excl_fecha_no_permitida"]
+        or st_gc_excel["excl_status_error"]
+        or st_gc_excel["excl_no_rango"]
+        or st_gc_excel["excl_saldo_final"]
+    ):
         notificar_google_chat(
-            f"📎 **Filtro Excel**: omitidas **{excluidos_sf_excel:,}** fila(s) con saldo a favor del cliente < **{MIN_SALDO_FAVOR_EXCEL:.0f}** MXN."
-        )
-
-    antes_filtro_cuota = len(resultados)
-    resultados = [r for r in resultados if not _fila_excel_excluida_cuota_siguiente_cubierta(r)]
-    excl_cuota_excel = antes_filtro_cuota - len(resultados)
-    log.info(
-        "  Excluidas del Excel (CUOTA SIGUIENTE CUBIERTA - NO APLICAR): %s",
-        f"{excl_cuota_excel:,}",
-    )
-    if excl_cuota_excel:
-        notificar_google_chat(
-            f"📎 **Filtro Excel**: omitidas **{excl_cuota_excel:,}** fila(s) con regla "
-            f"«{COMENTARIO_CUOTA_CUBIERTA}» (solo APLICAR y demás van al .xlsx)."
+            "📎 **Filtro Excel GC** aplicado\n"
+            f"- Fecha último abono ≠ `{hoy.isoformat()}`: **{st_gc_excel['excl_fecha_no_permitida']:,}**\n"
+            f"- STATUS=ERROR omitidas: **{st_gc_excel['excl_status_error']:,}**\n"
+            f"- `MAXI APP=NO` fuera de [200,300]: **{st_gc_excel['excl_no_rango']:,}**\n"
+            f"- Ajustadas por `NO LE ALCANZA`: **{st_gc_excel['ajuste_no_alcanza']:,}**\n"
+            f"- Omitidas por saldo final <= 200: **{st_gc_excel['excl_saldo_final']:,}**\n"
+            f"- Filas finales Excel: **{st_gc_excel['final']:,}**"
         )
 
     # PASO 4: generar Excel unificado (siempre, aunque queden 0 registros)

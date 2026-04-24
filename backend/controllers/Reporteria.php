@@ -1882,7 +1882,7 @@ class Reporteria extends Controller
         }
     }
 
-    private function scriptVencimientosLunes(string $fetchUrl, bool $vistaSimple = false, array $primerosPagosCols = []): string
+    private function scriptVencimientosLunes(string $fetchUrl, bool $vistaSimple = false, array $primerosPagosCols = [], bool $modoCartera = false): string
     {
         $colsJson = json_encode($primerosPagosCols, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $script     = <<<'HTML'
@@ -1891,6 +1891,7 @@ class Reporteria extends Controller
 
             const VISTA_SIMPLE = %%VISTA_SIMPLE%%;
             const PRIMEROS_PAGOS_COLS = %%PRIMEROS_PAGOS_COLS%%;
+            const MODO_CARTERA = %%MODO_CARTERA%%;
 
             const BUCKET_META = {
                 'a) Current':      { cls: 'bg-label-success',   icon: 'fa-circle-check',         short: 'Current' },
@@ -1898,11 +1899,18 @@ class Reporteria extends Controller
                 'c) 8 a 30 dias':  { cls: 'bg-label-warning',   icon: 'fa-triangle-exclamation', short: '8-30d'   },
                 'd) 31 a 60 dias': { cls: 'bg-label-danger',    icon: 'fa-fire',                 short: '31-60d'  },
                 'e) 61+ dias':     { cls: 'bg-label-secondary', icon: 'fa-skull-crossbones',     short: '61+d'    },
+                'f) 8 a 14 dias':  { cls: 'bg-label-warning',   icon: 'fa-calendar-week',        short: '8-14d'   },
+                'g) 15 a 21 dias': { cls: 'bg-label-warning',   icon: 'fa-calendar-days',        short: '15-21d'  },
+                'h) 22+ dias':     { cls: 'bg-label-danger',    icon: 'fa-skull-crossbones',     short: '22+d'    },
             };
-            const BUCKET_ORDER  = Object.keys(BUCKET_META);
-            const BUCKET_NAC_TOP = ['a) Current', 'b) 1 a 7 dias'];
+            const BUCKET_ORDER_CORTE = ['a) Current', 'b) 1 a 7 dias', 'c) 8 a 30 dias', 'd) 31 a 60 dias', 'e) 61+ dias'];
+            const BUCKET_ORDER_NAC = MODO_CARTERA
+                ? ['a) Current', 'b) 1 a 7 dias', 'f) 8 a 14 dias', 'g) 15 a 21 dias', 'h) 22+ dias']
+                : BUCKET_ORDER_CORTE;
+            const BUCKET_ORDER  = BUCKET_ORDER_CORTE;
+            const BUCKET_NAC_TOP = MODO_CARTERA ? [...BUCKET_ORDER_NAC] : ['a) Current', 'b) 1 a 7 dias'];
 
-            /** Alinea textos de bucket desde BD (acentos, alias) a las claves de BUCKET_ORDER. */
+            /** Alinea textos de bucket desde BD (acentos, alias) a las claves de BUCKET_META. */
             function canonBucket(v) {
                 if (v === null || v === undefined) return '';
                 let s = String(v).trim();
@@ -1917,8 +1925,23 @@ class Reporteria extends Controller
                     'e) 61+ días': 'e) 61+ dias',
                 };
                 if (mapa[s]) return mapa[s];
-                if (BUCKET_ORDER.includes(s)) return s;
+                if (BUCKET_META[s]) return s;
                 return s;
+            }
+
+            function severidadNac(v) {
+                const k = canonBucket(v);
+                if (MODO_CARTERA) {
+                    const m = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'f) 8 a 14 dias': 2, 'g) 15 a 21 dias': 3, 'h) 22+ dias': 4 };
+                    return m[k] !== undefined ? m[k] : -1;
+                }
+                const m2 = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'c) 8 a 30 dias': 2, 'd) 31 a 60 dias': 3, 'e) 61+ dias': 4 };
+                return m2[k] !== undefined ? m2[k] : -1;
+            }
+            function severidadCorte(v) {
+                const k = canonBucket(v);
+                const m2 = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'c) 8 a 30 dias': 2, 'd) 31 a 60 dias': 3, 'e) 61+ dias': 4 };
+                return m2[k] !== undefined ? m2[k] : -1;
             }
 
             function badgeBucket(val, small = false) {
@@ -1932,10 +1955,11 @@ class Reporteria extends Controller
 
             function movimientoHtml(nacio, actual) {
                 if (!nacio || !actual) return '<span class="text-muted">—</span>';
-                const iN = BUCKET_ORDER.indexOf(canonBucket(nacio));
-                const iA = BUCKET_ORDER.indexOf(canonBucket(actual));
-                if (iN === iA) return `<span class="text-muted" title="Sin cambio"><i class="fa fa-equals"></i></span>`;
-                if (iA < iN)   return `<span class="text-success" title="Mejoró"><i class="fa fa-arrow-up"></i></span>`;
+                const sN = severidadNac(nacio);
+                const sA = severidadCorte(actual);
+                if (sN < 0 || sA < 0) return '<span class="text-muted">—</span>';
+                if (sN === sA) return `<span class="text-muted" title="Sin cambio"><i class="fa fa-equals"></i></span>`;
+                if (sA < sN)   return `<span class="text-success" title="Mejoró"><i class="fa fa-arrow-up"></i></span>`;
                 return `<span class="text-danger" title="Empeoró"><i class="fa fa-arrow-down"></i></span>`;
             }
 
@@ -1992,10 +2016,8 @@ class Reporteria extends Controller
             function calcStats(data) {
                 const nacDist = {};
                 const corteDist = {};
-                BUCKET_ORDER.forEach(b => {
-                    nacDist[b] = 0;
-                    corteDist[b] = 0;
-                });
+                BUCKET_ORDER_NAC.forEach(b => { nacDist[b] = 0; });
+                BUCKET_ORDER_CORTE.forEach(b => { corteDist[b] = 0; });
                 data.forEach(r => {
                     const bn = canonBucket(r.bucket_nacio);
                     if (bn !== '' && nacDist[bn] !== undefined) nacDist[bn]++;
@@ -2004,9 +2026,9 @@ class Reporteria extends Controller
                 });
 
                 const matriz = {};
-                BUCKET_ORDER.forEach(b => {
+                BUCKET_ORDER_NAC.forEach(b => {
                     matriz[b] = {};
-                    BUCKET_ORDER.forEach(c => matriz[b][c] = 0);
+                    BUCKET_ORDER_CORTE.forEach(c => { matriz[b][c] = 0; });
                 });
                 data.forEach(r => {
                     const n = canonBucket(r.bucket_nacio);
@@ -2021,6 +2043,7 @@ class Reporteria extends Controller
 
             /** Misma fecha / corte que el encabezado (#lunesFecha, #corteLabel); colores alineados con el título. */
             function actualizarTituloDistribCorte() {
+                if (MODO_CARTERA) return;
                 const elFe = document.getElementById('distribCorteFecha');
                 const elCo = document.getElementById('distribCorteCorteLbl');
                 if (!elFe && !elCo) return;
@@ -2049,8 +2072,9 @@ class Reporteria extends Controller
                 const totalRegs = data.length || 0;
                 const pctOf = (n) => (totalRegs ? Math.round((Number(n) / totalRegs) * 100) : 0);
 
-                /* Barra global en Distribución de nacimiento: Current vs 1-7d (misma lógica que fila Global de la matriz) */
+                /* Barra global en Distribución de nacimiento: Current vs 1-7d (solo Lunes de cierre) */
                 (function () {
+                    if (MODO_CARTERA) return;
                     const elWrap = document.getElementById('nacimientoGlobalResumen');
                     const elPc = document.getElementById('nacPctCurrent');
                     const elP17 = document.getElementById('nacPct17');
@@ -2078,6 +2102,9 @@ class Reporteria extends Controller
                 })();
 
                 /* Cards nacimiento: Current + 1-7d arriba; barra global debajo; resto de buckets abajo */
+                const fsCard = MODO_CARTERA
+                    ? { bd: '.54rem', num: '1.05rem', pct: '.72rem', ft: '.54rem', pad: 'py-1 px-1', bdgMb: 'mb-0' }
+                    : { bd: '.65rem', num: '1.5rem', pct: '1.05rem', ft: '.65rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
                 const cardNacHtml = (b) => {
                     const m   = BUCKET_META[b] ?? {};
                     const cnt = nacDist[b] || 0;
@@ -2085,29 +2112,44 @@ class Reporteria extends Controller
                     return `
                     <div class="col">
                         <div class="card text-center h-100 border-0 shadow-sm">
-                            <div class="card-body py-2 px-2">
-                                <div class="badge ${m.cls} mb-1" style="font-size:.65rem;">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
                                     <i class="fa ${m.icon} me-1"></i>${m.short}
                                 </div>
-                                <div class="fw-bold" style="font-size:1.5rem;">${cnt}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(cnt)}%)</span></div>
-                                <div class="text-muted" style="font-size:.65rem;">nacieron</div>
+                                <div class="fw-bold" style="font-size:${fsCard.num};line-height:1.15;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">nacieron</div>
                             </div>
                         </div>
                     </div>`;
                 };
                 let htmlNacTop = '';
                 let htmlNacRest = '';
-                BUCKET_NAC_TOP.forEach(b => { htmlNacTop += cardNacHtml(b); });
-                BUCKET_ORDER.forEach(b => {
-                    if (BUCKET_NAC_TOP.includes(b)) return;
-                    htmlNacRest += cardNacHtml(b);
-                });
+                if (MODO_CARTERA) {
+                    BUCKET_ORDER_NAC.forEach(b => { htmlNacTop += cardNacHtml(b); });
+                } else {
+                    BUCKET_NAC_TOP.forEach(b => { htmlNacTop += cardNacHtml(b); });
+                    BUCKET_ORDER_NAC.forEach(b => {
+                        if (BUCKET_NAC_TOP.includes(b)) return;
+                        htmlNacRest += cardNacHtml(b);
+                    });
+                }
                 const elTop = document.getElementById('statsNacimientoTop');
                 const elRest = document.getElementById('statsNacimientoRest');
                 if (elTop) elTop.innerHTML = htmlNacTop;
                 if (elRest) {
                     elRest.innerHTML = htmlNacRest;
-                    elRest.classList.toggle('d-none', !htmlNacRest.trim());
+                    elRest.classList.toggle('d-none', MODO_CARTERA || !htmlNacRest.trim());
+                }
+
+                if (MODO_CARTERA) {
+                    const elAdj = document.getElementById('statAdjudicadas');
+                    if (elAdj) {
+                        let nAdj = 0;
+                        data.forEach(r => {
+                            if (Number(r.es_adjudicada) === 1) nAdj++;
+                        });
+                        elAdj.textContent = nAdj.toLocaleString('es-MX');
+                    }
                 }
 
                 /* Distribución de corte: buckets reales según mora al corte (bucket_corte_actual), distinto a nacimiento. */
@@ -2118,18 +2160,18 @@ class Reporteria extends Controller
                     return `
                     <div class="col">
                         <div class="card text-center h-100 border-0 shadow-sm">
-                            <div class="card-body py-2 px-2">
-                                <div class="badge ${m.cls} mb-1" style="font-size:.65rem;">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
                                     <i class="fa ${m.icon} me-1"></i>${m.short}
                                 </div>
-                                <div class="fw-bold" style="font-size:1.5rem;">${cnt}<span class="text-muted fw-semibold" style="font-size:1.05rem;margin-left:6px;">(${pctOf(cnt)}%)</span></div>
-                                <div class="text-muted" style="font-size:.65rem;">al corte</div>
+                                <div class="fw-bold" style="font-size:${fsCard.num};line-height:1.15;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">al corte</div>
                             </div>
                         </div>
                     </div>`;
                 };
                 let htmlCorteBuckets = '';
-                BUCKET_ORDER.forEach(b => { htmlCorteBuckets += cardCorteBucketHtml(b); });
+                BUCKET_ORDER_CORTE.forEach(b => { htmlCorteBuckets += cardCorteBucketHtml(b); });
                 const htmlCorte = htmlCorteBuckets || '<div class="col-12"><p class="text-muted small mb-0">Sin buckets de corte reconocidos en los datos.</p></div>';
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
                 actualizarTituloDistribCorte();
@@ -2173,9 +2215,9 @@ class Reporteria extends Controller
                         G.idCreditos.push({ id: idC, nombre: nomC });
                     }
 
-                    const iN = BUCKET_ORDER.indexOf(canonBucket(r.bucket_nacio));
-                    const iA = BUCKET_ORDER.indexOf(canonBucket(r.bucket_corte_actual));
-                    const cobro = (iA >= 0 && iN >= 0 && iA < iN);
+                    const sN = severidadNac(r.bucket_nacio);
+                    const sA = severidadCorte(r.bucket_corte_actual);
+                    const cobro = (sA >= 0 && sN >= 0 && sA < sN);
 
                     if (cobro) {
                         G.cobrados++;  Z.cobrados++;  T.cobrados++;
@@ -2259,12 +2301,7 @@ class Reporteria extends Controller
                     let htmlZon = '';
                     zonOrdenados.forEach((zon, zix) => {
                         const pZ = zon.total ? Math.round(zon.cobrados / zon.total * 100) : 0;
-                        const nG = Object.keys(zon.gestores).length;
                         const nombreMostrar = zon.mismoNombre ? zon.zonNombre : zon.jefNombre;
-                        const nGestStr = nG + ' gestor' + (nG === 1 ? '' : 'es');
-                        const subZ1 = zon.mismoNombre
-                            ? `${pphEsc(nombreMostrar)} · (sin zonal) · jefe de plaza`
-                            : `${pphEsc(zon.zonNombre)} · jefe: ${pphEsc(zon.jefNombre)}`;
                         const pphZonCid = `pphZonB_${idx}_${zix}`;
 
                         const gestOrdenados = Object.entries(zon.gestores)
@@ -2288,7 +2325,7 @@ class Reporteria extends Controller
                                     <span class="badge rounded-pill" style="background:#EAF3DE; color:#3B6D11;">Cobr ${gest.cobrados}</span>
                                     <span class="badge rounded-pill" style="background:#FAEEDA; color:#854F0B;">Pend ${gest.pendientes}</span>
                                     <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">IDs ${nIds}</span>
-                                    <button type="button" class="btn btn-sm p-0 m-0 align-baseline badge bg-light text-muted border" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false">Acciones</button>
+                                    <button type="button" class="btn btn-sm rounded-pill px-2 py-0 fw-semibold shadow-none align-baseline" style="background:#E6F1FB;color:#0d3d6b;border:1px solid #185FA5;line-height:1.35;" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false">Acciones</button>
                                 </div>
                                 <div class="collapse bg-white" id="${crdId}">${idRows}</div>
                             </div>`;
@@ -2300,10 +2337,6 @@ class Reporteria extends Controller
                                  data-bs-toggle="collapse" data-bs-target="#${pphZonCid}" aria-expanded="true" role="button" tabindex="0">
                                 <span class="badge" style="background:#E6F1FB; color:#185FA5; font-size:0.7rem;">Zonal</span>
                                 <div class="fw-medium small flex-grow-1">${pphEsc(nombreMostrar)}</div>
-                                <div class="d-flex flex-column text-muted" style="font-size:0.7rem; max-width: 40%; line-height: 1.25;">
-                                    <span>${subZ1}</span>
-                                    <span>${nGestStr}</span>
-                                </div>
                                 <span class="text-body-secondary user-select-none d-inline-block" style="transform: rotate(180deg)">▾</span>
                             </div>
                             <div class="collapse show border-top bg-white" id="${pphZonCid}">
@@ -2406,6 +2439,17 @@ class Reporteria extends Controller
                 const sel = document.getElementById('fBucketCorte');
                 if (!sel) return;
                 const cur = sel.value;
+                if (MODO_CARTERA) {
+                    const vals = [...new Set(data.map(r => r.bucket_corte_actual).filter(Boolean))].sort();
+                    sel.innerHTML = '<option value="">Todos</option>';
+                    vals.forEach(v => {
+                        const o = document.createElement('option');
+                        o.value = v; o.textContent = v;
+                        if (v === cur) o.selected = true;
+                        sel.appendChild(o);
+                    });
+                    return;
+                }
                 if (nacioValue === 'a) Current') {
                     sel.innerHTML = '<option value="a) Current">a) Current</option>';
                     sel.value = 'a) Current';
@@ -2475,11 +2519,11 @@ class Reporteria extends Controller
                         if (!h.includes(f.busq)) return false;
                     }
                     if (f.movimiento) {
-                        const iN = BUCKET_ORDER.indexOf(canonBucket(r.bucket_nacio));
-                        const iA = BUCKET_ORDER.indexOf(canonBucket(r.bucket_corte_actual));
-                        if (f.movimiento === 'mejoro'   && !(iA < iN))   return false;
-                        if (f.movimiento === 'empeoró'  && !(iA > iN))   return false;
-                        if (f.movimiento === 'igual'    && !(iA === iN)) return false;
+                        const sN = severidadNac(r.bucket_nacio);
+                        const sA = severidadCorte(r.bucket_corte_actual);
+                        if (f.movimiento === 'mejoro'   && !(sA < sN))   return false;
+                        if (f.movimiento === 'empeoró'  && !(sA > sN))   return false;
+                        if (f.movimiento === 'igual'    && !(sA === sN)) return false;
                     }
                     return true;
                 });
@@ -2523,7 +2567,7 @@ class Reporteria extends Controller
                         }
                         renderTabla();
                         renderStats(_data);
-                        if (!VISTA_SIMPLE) await cargarEstadoEnvioAutomatico();
+                        if (!VISTA_SIMPLE && !MODO_CARTERA) await cargarEstadoEnvioAutomatico();
                         return;
                     }
 
@@ -2551,7 +2595,7 @@ class Reporteria extends Controller
                     }
                     renderTabla();
                     renderStats(_data);
-                    if (!VISTA_SIMPLE) await cargarEstadoEnvioAutomatico();
+                    if (!VISTA_SIMPLE && !MODO_CARTERA) await cargarEstadoEnvioAutomatico();
                 } catch(e) {
                     console.error(e);
                     const elLunes = document.getElementById('lunesFecha');
@@ -2565,6 +2609,7 @@ class Reporteria extends Controller
             }
 
             async function cargarEstadoEnvioAutomatico() {
+                if (MODO_CARTERA) return;
                 const badge = document.getElementById('estadoEnvioAuto');
                 const badgeAgente = document.getElementById('estadoAgenteCorreos');
                 const swAuto = document.getElementById('switchAutoEnvioPrimerosPagos');
@@ -2670,6 +2715,7 @@ class Reporteria extends Controller
                                     <div class="text-muted" style="font-size:.7rem;">
                                         <i class="fa fa-hashtag fa-xs me-1"></i>${r.Id_credito || ''}
                                     </div>
+                                    ${MODO_CARTERA && Number(r.es_adjudicada) === 1 ? (() => { const gh = String(r.Ghost ?? r.ghost ?? '').replace(/</g,'&lt;').replace(/"/g,'&quot;'); return `<div class="mt-1" style="font-size:.65rem;max-width:15rem;"><span class="badge bg-label-info me-1" style="font-size:.6rem;"><i class="fa fa-gavel me-1"></i>Adjudicada</span><span class="text-muted text-truncate d-inline-block align-bottom" style="max-width:10rem;" title="${gh}">${gh}</span></div>`; })() : ''}
                                 </div>
                             </div>`,
 
@@ -2749,21 +2795,31 @@ class Reporteria extends Controller
             /* ── Exportar CSV ── */
             document.getElementById('btnExportarCSV')?.addEventListener('click', () => {
                 const datos = aplicarFiltros(_data);
-                const headers = [
-                    'Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
-                    'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
-                    'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte'
-                ];
-                const rows = datos.map(r => [
-                    r.Id_credito, r.Nombre_cliente,
-                    r.bucket_nacio, r.bucket_corte_actual,
-                    r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
-                    r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte
-                ]);
+                const headers = MODO_CARTERA
+                    ? ['Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
+                        'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
+                        'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte','Ghost','Es_adjudicada']
+                    : ['Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
+                        'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
+                        'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte'];
+                const rows = MODO_CARTERA
+                    ? datos.map(r => [
+                        r.Id_credito, r.Nombre_cliente,
+                        r.bucket_nacio, r.bucket_corte_actual,
+                        r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
+                        r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte,
+                        r.Ghost ?? r.ghost ?? '', r.es_adjudicada ?? ''
+                    ])
+                    : datos.map(r => [
+                        r.Id_credito, r.Nombre_cliente,
+                        r.bucket_nacio, r.bucket_corte_actual,
+                        r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
+                        r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte
+                    ]);
                 const csv = [headers,...rows].map(r=>r.map(v=>`"${v??''}"`).join(',')).join('\n');
                 const a   = document.createElement('a');
                 a.href    = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-                a.download = 'vencimientos_lunes_' + new Date().toISOString().substring(0,10) + '.csv';
+                a.download = (MODO_CARTERA ? 'cartera_segundometro_' : 'vencimientos_lunes_') + new Date().toISOString().substring(0,10) + '.csv';
                 a.click();
             });
 
@@ -3032,11 +3088,12 @@ class Reporteria extends Controller
     HTML;
 
         $out = str_replace(
-            ['__FETCH_VENCIMIENTOS__', '%%VISTA_SIMPLE%%', '%%PRIMEROS_PAGOS_COLS%%'],
+            ['__FETCH_VENCIMIENTOS__', '%%VISTA_SIMPLE%%', '%%PRIMEROS_PAGOS_COLS%%', '%%MODO_CARTERA%%'],
             [
                 $fetchUrl,
                 $vistaSimple ? 'true' : 'false',
                 $colsJson !== '' ? $colsJson : '[]',
+                $modoCartera ? 'true' : 'false',
             ],
             $script
         );
@@ -3062,9 +3119,30 @@ class Reporteria extends Controller
         self::set('titulo', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Lunes de Cierre');
         self::set('vencimientos_vista_simple', false);
+        self::set('vencimientos_modo_cartera', false);
         self::set('columnas_primeros_pagos', []);
         self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
-        self::set('script', $this->scriptVencimientosLunes(self::BASE_PRIMEROS_PAGOS_ANALITICA . '/getVencimientosLunes', false, []));
+        self::set('script', $this->scriptVencimientosLunes(self::BASE_PRIMEROS_PAGOS_ANALITICA . '/getVencimientosLunes', false, [], false));
+        self::render('reporte_vencimientos_lunes');
+    }
+
+    /**
+     * Cartera completa (tbl_segundometro_semana): sin filtro por primer vencimiento; nacimiento por días; adjudicadas vía Ghost.
+     */
+    public function Cartera()
+    {
+        self::set('titulo', 'Cartera');
+        self::set('vencimientos_titulo_card', 'Cartera');
+        self::set('vencimientos_vista_simple', false);
+        self::set('vencimientos_modo_cartera', true);
+        self::set('columnas_primeros_pagos', []);
+        self::set('vencimientos_puede_enviar_correo_primeros_pagos', false);
+        self::set('script', $this->scriptVencimientosLunes(
+            self::BASE_PRIMEROS_PAGOS_ANALITICA . '/getCarteraSegundometroSemana',
+            false,
+            [],
+            true
+        ));
         self::render('reporte_vencimientos_lunes');
     }
 
@@ -3082,11 +3160,21 @@ class Reporteria extends Controller
         self::set('titulo', 'Primeros pagos — Semana actual');
         self::set('vencimientos_titulo_card', 'Primeros pagos — Semana actual');
         self::set('vencimientos_vista_simple', true);
+        self::set('vencimientos_modo_cartera', false);
         $colsMeta = EmpresasDAO::columnasPrimerosPagosMegareporte();
         self::set('columnas_primeros_pagos', $colsMeta);
         self::set('vencimientos_puede_enviar_correo_primeros_pagos', $this->puedeEnviarCorreoPrimerosPagos());
-        self::set('script', $this->scriptVencimientosLunes(self::BASE_PRIMEROS_PAGOS_ANALITICA . '/getVencimientosLunesSiguienteSemana', true, $colsMeta));
+        self::set('script', $this->scriptVencimientosLunes(self::BASE_PRIMEROS_PAGOS_ANALITICA . '/getVencimientosLunesSiguienteSemana', true, $colsMeta, false));
         self::render('reporte_vencimientos_lunes');
+    }
+
+    public function getCarteraSegundometroSemana()
+    {
+        try {
+            self::respuestaJSON(EmpresasDAO::getCarteraSegundometroSemana());
+        } catch (\Exception $e) {
+            self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
     }
 
     public function getVencimientosLunes()
