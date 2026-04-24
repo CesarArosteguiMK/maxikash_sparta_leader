@@ -262,6 +262,70 @@ class MotosAdjudicadas extends Controller
      * POST /MotosAdjudicadas/eliminarOperacion
      * Body JSON: { "id": 5 }
      */
+    // =========================================================================
+    // MIS ADJUDICACIONES
+    // =========================================================================
+
+    /**
+     * GET /MotosAdjudicadas/misAdjudicaciones
+     */
+    public function misAdjudicaciones()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Mis Adjudicaciones ' . $emp);
+        return self::render('mis_adjudicaciones');
+    }
+
+    /**
+     * POST /MotosAdjudicadas/obtenerEvidenciasCredito
+     * Body JSON: { "id_credito": 12345, "nombre_cliente": "Juan Pérez" }
+     * Obtiene (o crea si no existe) la operación del pipeline asociada al crédito
+     * y devuelve sus evidencias y observaciones para el modal de Mis Adjudicaciones.
+     */
+    public function obtenerEvidenciasCredito()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body          = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito     = (int)  ($body['id_credito']     ?? 0);
+        $nombreCliente = trim(  ($body['nombre_cliente'] ?? ''));
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+
+        try {
+            $result = $this->model->obtenerOCrearOperacion($idCredito, $nombreCliente, $idUsuario);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET/POST /MotosAdjudicadas/obtenerMisAdjudicaciones
+     */
+    public function obtenerMisAdjudicaciones()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $idPersona = $_SESSION['usuario_id'] ?? null;
+        if (!$idPersona) {
+            echo json_encode(['success' => false, 'message' => 'Sesión no identificada.']);
+            return;
+        }
+
+        try {
+            $creditos = $this->model->obtenerMisAdjudicaciones((int) $idPersona);
+            echo json_encode(['success' => true, 'creditos' => $creditos]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     public function eliminarOperacion()
     {
         header('Content-Type: application/json; charset=utf-8');

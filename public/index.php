@@ -409,6 +409,11 @@ $rutasModulos = [
     'cierecredito/getenviadofinalizado' => [50],
     'cierecredito/crear' => [50],
     'cierecredito/cambiarestatus' => [50],
+    'atencionclientes/consulta' => [65],
+    'atencionclientes/obtenerentrantes' => [65],
+    'atencionclientes/obtenerdictaminados' => [65],
+    'atencionclientes/dictaminar' => [65],
+    'atencionclientes/obtenerdictamen' => [65],
 ];
 $controladoresModulos = [
     'segundometro' => [16],
