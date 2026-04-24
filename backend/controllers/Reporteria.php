@@ -18,6 +18,42 @@ class Reporteria extends Controller
     private const MODULO_ENVIAR_CORREO_PRIMEROS_PAGOS = 33;
 
     /**
+     * Permisos especiales (pestaña «Permisos especiales» en modulos_web): cada tarjeta y su vista exigen su id (65–68).
+     * El módulo 49 no sustituye a 65–68: solo sirve para el ítem de menú y entrar al landing vacío hasta asignar cards.
+     */
+    private const MODULO_PP_COBRANZA_ESPERADA = 65;
+    private const MODULO_PP_CARTERA = 66;
+    private const MODULO_PP_PROXIMA_SEMANA = 67;
+    private const MODULO_PP_HISTORICO = 68;
+
+    /** @return list<int> */
+    private function modulosSesionInt(): array
+    {
+        return array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+    }
+
+    /** Cobranza esperada — semana actual: solo módulo 65 en sesión (sin bypass por usuario 1). */
+    private function puedeAccederCobranzaEsperadaSemanaActual(): bool
+    {
+        return in_array(self::MODULO_PP_COBRANZA_ESPERADA, $this->modulosSesionInt(), true);
+    }
+
+    private function puedeAccederCarteraSegundometro(): bool
+    {
+        return in_array(self::MODULO_PP_CARTERA, $this->modulosSesionInt(), true);
+    }
+
+    private function puedeAccederPrimerosPagosProximaSemana(): bool
+    {
+        return in_array(self::MODULO_PP_PROXIMA_SEMANA, $this->modulosSesionInt(), true);
+    }
+
+    private function puedeAccederPrimerosPagosHistorico(): bool
+    {
+        return in_array(self::MODULO_PP_HISTORICO, $this->modulosSesionInt(), true);
+    }
+
+    /**
      * Usuario id 1 o permiso especial modulos_web id 33.
      */
     private function puedeEnviarCorreoPrimerosPagos(): bool
@@ -1715,13 +1751,20 @@ class Reporteria extends Controller
      */
     public function PrimerosPagos()
     {
+        $mods = $this->modulosSesionInt();
+
+        self::set('pp_perm_cobranza', in_array(self::MODULO_PP_COBRANZA_ESPERADA, $mods, true));
+        self::set('pp_perm_cartera', in_array(self::MODULO_PP_CARTERA, $mods, true));
+        self::set('pp_perm_proxima', in_array(self::MODULO_PP_PROXIMA_SEMANA, $mods, true));
+        self::set('pp_perm_historico', in_array(self::MODULO_PP_HISTORICO, $mods, true));
+
         self::set("titulo", "Primeros pagos");
         self::set("script", "");
         self::render("reporte_primeros_pagos_inicio");
     }
 
     /**
-     * Histórico semanal (gráficas) desde `tbl_histo_primeros_pagos` — módulo 49.
+     * Histórico semanal (gráficas) desde `tbl_histo_primeros_pagos` — requiere módulo 68.
      * URL: /analitica/PrimerosPagosHistorico
      */
     public function PrimerosPagosHistorico()
@@ -3663,6 +3706,9 @@ class Reporteria extends Controller
     public function enviarCorreoVencimientosLunes()
     {
         try {
+            if (!$this->puedeAccederCobranzaEsperadaSemanaActual()) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado para enviar correo de esta vista. Se requiere acceso a Cobranza esperada — semana actual.'));
+            }
             if (!$this->puedeEnviarCorreoPrimerosPagos()) {
                 self::respuestaJSON(self::respuesta(false, 'No autorizado para enviar este correo. Se requiere el permiso «Enviar correo» (módulo 33) o usuario administrador.'));
             }

@@ -53,6 +53,7 @@ function getMenu(): string
                 '/analitica/primerospagoshistorico',
                 '/analitica/vencimientoslunes',
                 '/analitica/vencimientolunessiguientesemana',
+                '/analitica/cartera',
             ],
             '/analitica/comparativas' => [
                 '/analitica/comparativas',
@@ -138,7 +139,7 @@ function getMenu(): string
         'Analítica' => [
             'icono'    => 'fa-solid fa-chart-line',
             'subItems' => [
-                ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49]],
+                ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49, 65, 66, 67, 68]],
                 ['label' => 'Call Center',    'url' => '/analitica/callcenter',    'modulos' => [6]],
                 ['label' => 'Layout Legacy',  'url' => '/analitica/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],

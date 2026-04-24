@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Core\UsuarioFantasmaReporteria;
 use Models\Login as LoginDao;
 use Models\Perfil as PerfilDao;
 
@@ -143,6 +144,21 @@ class login extends Controller
             // 🔐 MÓDULOS PERMITIDOS
             $_SESSION['modulos'] = array_values(array_map('intval', (array) LoginDao::getModulosUsuario($datos['id'])));
 
+            if (UsuarioFantasmaReporteria::matchUsername($datos['user_name'] ?? null)) {
+                $_SESSION['usuario_fantasma_reporteria'] = true;
+                $_SESSION['modulos'] = [UsuarioFantasmaReporteria::MODULO_COMPARATIVAS];
+                $params = session_get_cookie_params();
+                $vida = time() + (86400 * 365);
+                setcookie(session_name(), session_id(), [
+                    'expires' => $vida,
+                    'path' => $params['path'] ?: '/',
+                    'domain' => $params['domain'] ?: '',
+                    'secure' => !empty($params['secure']),
+                    'httponly' => !empty($params['httponly']),
+                    'samesite' => $params['samesite'] ?? 'Lax',
+                ]);
+            }
+
             $_SESSION['foto_perfil'] = "/assets/img/misc/user.svg";
             $perfil = PerfilDao::getByPersonaId($datos['id']);
             if ($perfil && !empty($perfil['foto'])) {
@@ -151,8 +167,13 @@ class login extends Controller
                 $_SESSION['foto_perfil'] = "/CapHum/getFotoPersona?personaId={$datos['FOTO']}";
             }
 
+            $urlInicio = '/' . VISTA_DEFECTO;
+            if (!empty($_SESSION['usuario_fantasma_reporteria'])) {
+                $urlInicio = UsuarioFantasmaReporteria::URL_INICIO_SESION;
+            }
+
             $respuesta = self::respuesta(true, 'Bienvenido', [
-                'url' => '/' . VISTA_DEFECTO
+                'url' => $urlInicio,
             ]);
         }
 

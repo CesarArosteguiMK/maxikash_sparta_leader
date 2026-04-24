@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Database;
 use Core\Model;
+use Core\UsuarioFantasmaReporteria;
 use DateTimeImmutable;
 
 /**
@@ -309,11 +310,12 @@ class CapHumEstadisticas extends Model
             $sqlNoBaja = '(p.estatus IS NULL OR LOWER(TRIM(COALESCE(p.estatus,\'\'))) <> \'baja\')';
             $sqlActivo = "LOWER(TRIM(COALESCE(p.estatus,''))) = 'activo'";
             $sqlIngHastaFfHi = '(p.fecha_ingreso IS NULL OR p.fecha_ingreso IN (\'0000-00-00\',\'0000-00-00 00:00:00\') OR DATE(p.fecha_ingreso) <= :ff_hi)';
+            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
 
             $sqlHeadcountBase = '
                 FROM ' . $tp . ' p
                 WHERE ' . $sqlNoBaja . '
-                  AND ' . $sqlIngHastaFfHi;
+                  AND ' . $sqlIngHastaFfHi . $sqlExFantasma;
             // Plantilla al cierre del periodo (excluye baja formal; ingreso hasta último día): usada en tasas por periodo.
             $headcountPlantillaCierre = self::scalarInt(
                 $db,
@@ -323,7 +325,7 @@ class CapHumEstadisticas extends Model
             // KPI superior: totales actuales en tabla persona (sin filtro de fechas del periodo).
             $totalPersonaTabla = self::scalarInt(
                 $db,
-                'SELECT COUNT(*) AS c FROM ' . $tp . ' p',
+                'SELECT COUNT(*) AS c FROM ' . $tp . ' p WHERE 1=1 ' . $sqlExFantasma,
                 []
             );
             $empleadosActivosCierre = self::scalarInt(
@@ -333,13 +335,13 @@ class CapHumEstadisticas extends Model
             );
             $empleadosActivos = self::scalarInt(
                 $db,
-                'SELECT COUNT(*) AS c FROM ' . $tp . ' p WHERE ' . $sqlActivo,
+                'SELECT COUNT(*) AS c FROM ' . $tp . ' p WHERE ' . $sqlActivo . $sqlExFantasma,
                 []
             );
             $empleadosBaja = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c FROM ' . $tp . ' p
-                 WHERE LOWER(TRIM(COALESCE(p.estatus,\'\'))) = \'baja\'',
+                 WHERE LOWER(TRIM(COALESCE(p.estatus,\'\'))) = \'baja\'' . $sqlExFantasma,
                 []
             );
             $totalDepartamentos = self::scalarInt(
@@ -349,7 +351,7 @@ class CapHumEstadisticas extends Model
                  INNER JOIN ' . $tap . ' ap ON ap.id_persona = p.id
                  INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
                  WHERE ' . $sqlActivo . '
-                   AND ' . $sqlIngHastaFfHi,
+                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma,
                 $paramsRango
             );
             $puestosUnicos = self::scalarInt(
@@ -359,7 +361,7 @@ class CapHumEstadisticas extends Model
                  INNER JOIN ' . $tap . ' ap ON ap.id_persona = p.id
                  INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
                  WHERE ' . $sqlActivo . '
-                   AND ' . $sqlIngHastaFfHi,
+                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma,
                 $paramsRango
             );
 
@@ -371,7 +373,7 @@ class CapHumEstadisticas extends Model
                 'SELECT COUNT(*) AS c FROM ' . $tp . ' p
                  WHERE p.fecha_ingreso IS NOT NULL
                    AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
-                   AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff',
+                   AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff' . $sqlExFantasma,
                 $paramsRango
             );
 
@@ -449,7 +451,7 @@ class CapHumEstadisticas extends Model
                  FROM ' . $tmw . ' am
                  INNER JOIN ' . $tp . ' p ON p.id = am.usuario_id
                  WHERE am.modulo_web_id = :mid
-                   AND ' . $sqlActivo . $hcActivoCierre,
+                   AND ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre,
                 array_merge($paramsRango, ['mid' => self::MODULO_ONBOARDING_WEB])
             );
 
@@ -457,7 +459,7 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT COUNT(DISTINCT p.id) AS c
                  FROM ' . $tp . ' p
-                 WHERE ' . $sqlActivo . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . '
                    AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff
                    AND NOT EXISTS (
                        SELECT 1 FROM ' . $tmw . ' am
@@ -482,7 +484,7 @@ class CapHumEstadisticas extends Model
                 'SELECT COALESCE(pa.nombre, \'Sin sede\') AS nombre_sede, COUNT(*) AS cnt
                  FROM ' . $tp . ' p
                  LEFT JOIN ' . $tpa . ' pa ON pa.id = p.id_pais
-                 WHERE ' . $sqlActivo . $hcActivoCierre . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre . '
                  GROUP BY p.id_pais, pa.nombre
                  ORDER BY cnt DESC
                  LIMIT 3',
@@ -496,7 +498,7 @@ class CapHumEstadisticas extends Model
             }
             $plantillaTotalSedes = self::scalarInt(
                 $db,
-                'SELECT COUNT(DISTINCT p.id_pais) AS c FROM ' . $tp . ' p WHERE ' . $sqlActivo . $hcActivoCierre,
+                'SELECT COUNT(DISTINCT p.id_pais) AS c FROM ' . $tp . ' p WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre,
                 $paramsRango
             );
 
@@ -515,7 +517,7 @@ class CapHumEstadisticas extends Model
                 $plantillaGeneroH = self::scalarInt(
                     $db,
                     "SELECT COUNT(*) AS c FROM {$tp} p
-                     WHERE {$sqlActivo}
+                     WHERE {$sqlActivo}{$sqlExFantasma}
                        AND (
                          LOWER(TRIM(p.`{$colGen}`)) IN ('m','masculino','h','hombre','hombre ','male')
                          OR LOWER(TRIM(p.`{$colGen}`)) LIKE 'masc%'
@@ -525,7 +527,7 @@ class CapHumEstadisticas extends Model
                 $plantillaGeneroM = self::scalarInt(
                     $db,
                     "SELECT COUNT(*) AS c FROM {$tp} p
-                     WHERE {$sqlActivo}
+                     WHERE {$sqlActivo}{$sqlExFantasma}
                        AND (
                          LOWER(TRIM(p.`{$colGen}`)) IN ('f','femenino','mujer','female')
                          OR LOWER(TRIM(p.`{$colGen}`)) LIKE 'femen%'
@@ -539,14 +541,14 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT AVG(DATEDIFF(:ff_ant, DATE(p.fecha_ingreso))) AS v
                  FROM ' . $tp . ' p
-                 WHERE ' . $sqlActivo . ' AND p.fecha_ingreso IS NOT NULL' . $hcActivoCierre,
+                 WHERE ' . $sqlActivo . $sqlExFantasma . ' AND p.fecha_ingreso IS NOT NULL' . $hcActivoCierre,
                 $paramsRango
             );
             $plantillaAntigN = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c
                  FROM ' . $tp . ' p
-                 WHERE ' . $sqlActivo . ' AND p.fecha_ingreso IS NOT NULL' . $hcActivoCierre,
+                 WHERE ' . $sqlActivo . $sqlExFantasma . ' AND p.fecha_ingreso IS NOT NULL' . $hcActivoCierre,
                 $paramsRango
             );
             $plantillaAntigLabel = self::antiguedadLabelDesdeDiasPromedio($avgDiasAntig);
@@ -555,7 +557,7 @@ class CapHumEstadisticas extends Model
             $plantillaEmpleadosNuevos90 = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c FROM ' . $tp . ' p
-                 WHERE ' . $sqlActivo . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . '
                    AND p.fecha_ingreso IS NOT NULL
                    AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
                    AND DATE(p.fecha_ingreso) BETWEEN DATE_SUB(:ff_90a, INTERVAL 89 DAY) AND :ff_90b' . $hcActivoCierre,
@@ -572,7 +574,7 @@ class CapHumEstadisticas extends Model
             $onbEnPrueba = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c FROM ' . $tp . ' p
-                 WHERE ' . $sqlActivo . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . '
                    AND p.fecha_ingreso IS NOT NULL
                    AND DATEDIFF(:ff_prb, DATE(p.fecha_ingreso)) < 90' . $hcActivoCierre,
                 $paramsRango
@@ -582,7 +584,7 @@ class CapHumEstadisticas extends Model
             $onbCompletaActivos = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c FROM ' . $tp . ' p
-                 WHERE ' . $sqlActivo . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . '
                    AND NOT EXISTS (
                        SELECT 1 FROM ' . $tmw . ' am
                        WHERE am.usuario_id = p.id AND am.modulo_web_id = :mid
@@ -593,7 +595,7 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT COUNT(*) AS c FROM ' . $tp . ' p
                  INNER JOIN ' . $tmw . ' am ON am.usuario_id = p.id AND am.modulo_web_id = :mid
-                 WHERE ' . $sqlActivo . $hcActivoCierre,
+                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre,
                 array_merge($paramsRango, ['mid' => self::MODULO_ONBOARDING_WEB])
             );
 
@@ -604,7 +606,7 @@ class CapHumEstadisticas extends Model
                     $db,
                     'SELECT AVG(DATEDIFF(DATE(p.fecha_fin_induccion), DATE(p.fecha_ingreso))) AS v
                      FROM ' . $tp . ' p
-                     WHERE ' . $sqlActivo . '
+                     WHERE ' . $sqlActivo . $sqlExFantasma . '
                        AND p.fecha_ingreso IS NOT NULL
                        AND p.fecha_fin_induccion IS NOT NULL
                        AND DATE(p.fecha_fin_induccion) BETWEEN :fi AND :ff' . $hcActivoCierre,
@@ -616,7 +618,7 @@ class CapHumEstadisticas extends Model
             $ingresosInduccionCompletosPeriodo = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c FROM ' . $tp . ' p
-                 WHERE ' . $sqlActivo . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . '
                    AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff
                    AND NOT EXISTS (
                        SELECT 1 FROM ' . $tmw . ' am
@@ -677,7 +679,7 @@ class CapHumEstadisticas extends Model
                     $db,
                     'SELECT COUNT(*) AS c
                      FROM ' . $tp . ' p
-                     WHERE ' . $sqlActivo . '
+                     WHERE ' . $sqlActivo . $sqlExFantasma . '
                        AND NOT EXISTS (
                            SELECT 1 FROM ' . $taus . ' a
                            WHERE a.id_persona = p.id
@@ -710,7 +712,7 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT COUNT(*) AS c
                  FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
-                 WHERE ' . $sqlActivo . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . '
                    AND (
                      LOWER(TRIM(pu.nombre)) = \'agente call center\'
                      OR (
@@ -725,7 +727,7 @@ class CapHumEstadisticas extends Model
                 $db,
                 'SELECT COUNT(*) AS c
                  FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
-                 WHERE ' . $sqlActivo . ' AND IFNULL(pu.es_jefe, 0) = 1' . $hcActivoCierre,
+                 WHERE ' . $sqlActivo . $sqlExFantasma . ' AND IFNULL(pu.es_jefe, 0) = 1' . $hcActivoCierre,
                 $paramsRango
             );
             $opRatioX = ($opSupervisores > 0 && $opAgentesCall > 0)
@@ -742,7 +744,7 @@ class CapHumEstadisticas extends Model
                 'SELECT d.nombre AS nombre_depto, COUNT(*) AS cnt
                  FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
                  INNER JOIN ' . $td . ' d ON d.id = pu.departamento_id
-                 WHERE ' . $sqlActivo . $hcActivoCierre . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre . '
                  GROUP BY d.id, d.nombre
                  ORDER BY cnt DESC
                  LIMIT 1',
@@ -758,7 +760,7 @@ class CapHumEstadisticas extends Model
                 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
                  FROM ' . $tp . ' p' . $sqlApActivoUltimo . '
                  LEFT JOIN ' . $td . ' d ON d.id = pu.departamento_id
-                 WHERE ' . $sqlActivo . $hcActivoCierre . '
+                 WHERE ' . $sqlActivo . $sqlExFantasma . $hcActivoCierre . '
                  GROUP BY d.id, d.nombre
                  ORDER BY cnt DESC',
                 $paramsRango
@@ -926,6 +928,7 @@ class CapHumEstadisticas extends Model
             $td = self::tblBd('departamento');
             $tbp = self::tblBd('baja_persona');
             $trg = self::tblBd('reingresos');
+            $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
 
             $sqlJoinUltPuestoDepto = '
                  LEFT JOIN (
@@ -945,21 +948,21 @@ class CapHumEstadisticas extends Model
                     FROM ' . $tp . ' p' . $sqlJoinUltPuestoDepto . '
                     WHERE p.fecha_ingreso IS NOT NULL
                       AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
-                      AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff
+                      AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff' . $sqlExFantasma . '
                     GROUP BY d.id, d.nombre
                     ORDER BY cnt DESC';
             } elseif ($tipo === 'bajas') {
                 $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
                     FROM ' . $tbp . ' bp
                     INNER JOIN ' . $tp . ' p ON p.id = bp.id_persona' . $sqlJoinUltPuestoDepto . '
-                    WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff
+                    WHERE DATE(bp.fecha_baja) BETWEEN :fi AND :ff' . $sqlExFantasma . '
                     GROUP BY d.id, d.nombre
                     ORDER BY cnt DESC';
             } else {
                 $sql = 'SELECT COALESCE(NULLIF(TRIM(d.nombre), \'\'), \'Sin departamento\') AS nombre, COUNT(*) AS cnt
                     FROM ' . $trg . ' r
                     INNER JOIN ' . $tp . ' p ON p.id = r.id_persona' . $sqlJoinUltPuestoDepto . '
-                    WHERE DATE(r.fecha_reingreso) BETWEEN :fi AND :ff
+                    WHERE DATE(r.fecha_reingreso) BETWEEN :fi AND :ff' . $sqlExFantasma . '
                     GROUP BY d.id, d.nombre
                     ORDER BY cnt DESC';
             }

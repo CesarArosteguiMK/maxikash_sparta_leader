@@ -5,6 +5,7 @@ namespace Controllers;
 use Core\Controller;
 use Core\Database;
 use Core\TicketsPanelModuloHelper;
+use Core\UsuarioFantasmaReporteria;
 use Models\CapHum as CapHumDAO;
 use Models\Ticket as TicketDAO;
 use Models\FormularioValidacionPregunta as PreguntaDAO;
@@ -409,6 +410,7 @@ class Validaciones extends Controller
             }
 
             $sqlGestor = $soloGestoresSinJefatura ? ' AND pu.es_jefe = 0' : '';
+            $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
             $rows = $db->queryAll(
                 "SELECT DISTINCT p.id,
                         CONCAT_WS(' ', p.nombres, p.apellidop, p.apellidom) AS nombre_completo
@@ -416,6 +418,7 @@ class Validaciones extends Controller
                  INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND (ap.activo = 1 OR ap.activo IS NULL)
                  INNER JOIN puesto pu ON pu.id = ap.id_puesto
                  WHERE p.estatus != 'Baja'
+                   AND ({$predP})
                    AND pu.departamento_id = :dep
                    AND p.id IN (" . implode(',', $placeholders) . ")" . $sqlGestor . "
                  ORDER BY nombre_completo ASC",

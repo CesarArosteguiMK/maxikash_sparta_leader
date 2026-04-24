@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\UsuarioFantasmaReporteria;
 
 class Permisos extends Model
 {
@@ -12,6 +13,7 @@ class Permisos extends Model
      */
     public static function listarPersonasConPuestos()
     {
+        $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
         $query = <<<SQL
             SELECT
                 p.id,
@@ -20,6 +22,7 @@ class Permisos extends Model
             FROM persona p
             LEFT JOIN privilegios_departamento pd ON pd.idPersona = p.id
             LEFT JOIN puesto pt ON pt.id = pd.idPuesto
+            WHERE {$predP}
             GROUP BY p.id
             ORDER BY nombre_completo
         SQL;

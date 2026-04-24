@@ -8,11 +8,13 @@ use Core\DatabaseMaxiGuat;
 use Core\DatabaseSegundometro;
 use Core\DatabaseAWS;
 use Core\DatabaseLegacy;
+use Core\UsuarioFantasmaReporteria;
 
 class Empresa extends Model
 {
     public static function getConsultaPersona()
     {
+        $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
         $query = <<<SQL
            SELECT p.id,
                    p.nombres,
@@ -25,6 +27,7 @@ class Empresa extends Model
                   ON p.id = aj.id_persona
                  AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
             WHERE p.estatus != 'Baja'
+              AND {$predP}
             LIMIT 1
         SQL;
 
@@ -472,6 +475,7 @@ class Empresa extends Model
     {
         try {
             $db  = new Database();
+            $predP = UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
             $sql = "
                 WITH RECURSIVE
 
@@ -557,6 +561,7 @@ class Empresa extends Model
                 LEFT JOIN puestos_legacy               pl ON pl.id = el.id_puesto_legacy
                 LEFT JOIN linea_jefes                  lj ON lj.persona_id = p.id
                 WHERE p.estatus <> 'Baja'
+                  AND ({$predP})
                 ORDER BY COALESCE(pp.nivel, 999) ASC
             ";
 

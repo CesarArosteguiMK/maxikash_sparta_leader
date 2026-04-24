@@ -5,6 +5,7 @@ namespace Models;
 use Core\Database;
 use Core\DatabaseLegacy;
 use Core\DatabaseSegundometro;
+use Core\UsuarioFantasmaReporteria;
 
 /**
  * Datos del tablero Asignación (ventanas mar–lun) compartidos por vista, JSON y Excel.
@@ -1021,6 +1022,12 @@ class AsignacionTablero
                 $filtroParams[$k] = $ext;
             }
             $filtroSql = ' WHERE p.numero_empleado IN (' . implode(', ', $ph) . ')';
+        }
+        $exRep = ' AND ' . UsuarioFantasmaReporteria::sqlPredicadoExcluirPersona('p');
+        if ($filtroSql === '') {
+            $filtroSql = ' WHERE 1=1' . $exRep;
+        } else {
+            $filtroSql .= $exRep;
         }
         $sql = "
             SELECT
