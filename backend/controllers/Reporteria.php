@@ -1946,10 +1946,12 @@ class Reporteria extends Controller
                 'g) 15 a 21 dias': { cls: 'bg-label-warning',   icon: 'fa-calendar-days',        short: '15-21d'  },
                 'h) 22+ dias':     { cls: 'bg-label-danger',    icon: 'fa-skull-crossbones',     short: '22+d'    },
             };
-            const BUCKET_ORDER_CORTE = ['a) Current', 'b) 1 a 7 dias', 'c) 8 a 30 dias', 'd) 31 a 60 dias', 'e) 61+ dias'];
+            const BUCKET_ORDER_CORTE_LUNES = ['a) Current', 'b) 1 a 7 dias', 'c) 8 a 30 dias', 'd) 31 a 60 dias', 'e) 61+ dias'];
+            const BUCKET_ORDER_CORTE_CARTERA = ['a) Current', 'b) 1 a 7 dias', 'f) 8 a 14 dias', 'g) 15 a 21 dias', 'h) 22+ dias'];
+            const BUCKET_ORDER_CORTE = MODO_CARTERA ? BUCKET_ORDER_CORTE_CARTERA : BUCKET_ORDER_CORTE_LUNES;
             const BUCKET_ORDER_NAC = MODO_CARTERA
                 ? ['a) Current', 'b) 1 a 7 dias', 'f) 8 a 14 dias', 'g) 15 a 21 dias', 'h) 22+ dias']
-                : BUCKET_ORDER_CORTE;
+                : BUCKET_ORDER_CORTE_LUNES;
             const BUCKET_ORDER  = BUCKET_ORDER_CORTE;
             const BUCKET_NAC_TOP = MODO_CARTERA ? [...BUCKET_ORDER_NAC] : ['a) Current', 'b) 1 a 7 dias'];
 
@@ -1983,6 +1985,10 @@ class Reporteria extends Controller
             }
             function severidadCorte(v) {
                 const k = canonBucket(v);
+                if (MODO_CARTERA) {
+                    const mC = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'f) 8 a 14 dias': 2, 'g) 15 a 21 dias': 3, 'h) 22+ dias': 4 };
+                    return mC[k] !== undefined ? mC[k] : -1;
+                }
                 const m2 = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'c) 8 a 30 dias': 2, 'd) 31 a 60 dias': 3, 'e) 61+ dias': 4 };
                 return m2[k] !== undefined ? m2[k] : -1;
             }
@@ -2148,20 +2154,25 @@ class Reporteria extends Controller
                 const fsCard = MODO_CARTERA
                     ? { bd: '.58rem', num: '1.08rem', pct: '.78rem', ft: '.58rem', pad: 'py-2 px-2', bdgMb: 'mb-1' }
                     : { bd: '.65rem', num: '1.5rem', pct: '1.05rem', ft: '.65rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
-                const colMinCartera = MODO_CARTERA ? ' style="min-width:9rem"' : '';
+                /* Cartera: mini-cards de nacimiento un poco más bajas (más “apastadadas”) que las de corte */
+                const fsCardNac = MODO_CARTERA
+                    ? { bd: '.5rem', num: '1rem', pct: '.7rem', ft: '.5rem', pad: 'py-1 px-1', bdgMb: 'mb-0' }
+                    : fsCard;
+                const colMinCartera = MODO_CARTERA ? ' style="min-width:8.5rem"' : '';
                 const cardNacHtml = (b) => {
                     const m   = BUCKET_META[b] ?? {};
+                    const fsn = fsCardNac;
                     const cnt = nacDist[b] || 0;
                     if (!cnt) return '';
                     return `
                     <div class="col"${colMinCartera}>
                         <div class="card text-center h-100 border-0 shadow-sm">
-                            <div class="card-body ${fsCard.pad}">
-                                <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
+                            <div class="card-body ${fsn.pad}">
+                                <div class="badge ${m.cls} ${fsn.bdgMb}" style="font-size:${fsn.bd};line-height:1.2;padding:.2em .45em;">
                                     <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.short}
                                 </div>
-                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
-                                <div class="text-muted" style="font-size:${fsCard.ft};">nacieron</div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsn.num};line-height:1.1;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsn.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="text-muted" style="font-size:${fsn.ft};line-height:1.1;">nacieron</div>
                             </div>
                         </div>
                     </div>`;

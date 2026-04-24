@@ -867,14 +867,15 @@ class Empresa extends Model
             END
         ";
 
+        /* Mismas ventanas que «nacimiento» en Cartera: 8–14, 15–21, 22+ (etiquetas f/g/h, alineadas con BUCKET_META en Reporteria) */
         $bucketCorteSQL = "
             CASE
-                WHEN ($moraCorteEfectiva) IS NULL              THEN NULL
-                WHEN ($moraCorteEfectiva) < 1                  THEN 'a) Current'
-                WHEN ($moraCorteEfectiva) BETWEEN 1  AND 7     THEN 'b) 1 a 7 dias'
-                WHEN ($moraCorteEfectiva) BETWEEN 8  AND 30    THEN 'c) 8 a 30 dias'
-                WHEN ($moraCorteEfectiva) BETWEEN 31 AND 60    THEN 'd) 31 a 60 dias'
-                ELSE                                       'e) 61+ dias'
+                WHEN ($moraCorteEfectiva) IS NULL            THEN NULL
+                WHEN ($moraCorteEfectiva) < 1                THEN 'a) Current'
+                WHEN ($moraCorteEfectiva) BETWEEN 1  AND 7   THEN 'b) 1 a 7 dias'
+                WHEN ($moraCorteEfectiva) BETWEEN 8  AND 14  THEN 'f) 8 a 14 dias'
+                WHEN ($moraCorteEfectiva) BETWEEN 15 AND 21  THEN 'g) 15 a 21 dias'
+                ELSE 'h) 22+ dias'
             END
         ";
 

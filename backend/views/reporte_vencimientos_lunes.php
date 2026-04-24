@@ -170,19 +170,23 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
     $ppRowDistribFlex = !empty($vencimientos_modo_cartera) ? 'flex-nowrap' : '';
     $vlCardBodyDistribScroll = !empty($vencimientos_modo_cartera) ? 'overflow-x-auto' : '';
     $vlColDistribOuter = !empty($vencimientos_modo_cartera) ? 'col-12' : 'col-12 col-md-6';
+    $vlNacHeaderPy = !empty($vencimientos_modo_cartera) ? 'py-1' : 'py-2';
+    $vlNacCardBodyPy = !empty($vencimientos_modo_cartera) ? 'py-1' : 'py-2';
     ?>
     <!-- ── Nacimiento + distribución de corte (Lunes de cierre) ── -->
     <div class="row g-3 mb-3">
         <div class="<?= htmlspecialchars($vlColDistribOuter, ENT_QUOTES, 'UTF-8') ?>">
             <div class="card h-100 mb-0">
-                <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="card-header <?= htmlspecialchars($vlNacHeaderPy, ENT_QUOTES, 'UTF-8') ?> d-flex flex-wrap align-items-center gap-2 <?= !empty($vencimientos_modo_cartera) ? 'justify-content-start' : 'justify-content-between' ?>">
                     <span class="fw-semibold" style="font-size:.82rem;">
                         <i class="fa fa-egg text-primary me-1"></i>
                         Distribución de nacimiento
                     </span>
+                    <?php if (empty($vencimientos_modo_cartera)): ?>
                     <span class="badge bg-label-warning"><i class="fa fa-globe me-1"></i>Global</span>
+                    <?php endif; ?>
                 </div>
-                <div class="card-body py-2 <?= htmlspecialchars($vlCardBodyDistribScroll, ENT_QUOTES, 'UTF-8') ?>">
+                <div class="card-body <?= htmlspecialchars($vlNacCardBodyPy, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($vlCardBodyDistribScroll, ENT_QUOTES, 'UTF-8') ?>">
                     <div class="row <?= htmlspecialchars($ppRowColsDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppGapDistrib, ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($ppRowDistribFlex, ENT_QUOTES, 'UTF-8') ?>" id="statsNacimientoTop"></div>
                     <div id="nacimientoGlobalResumen" class="mt-3 mb-0" style="display:none;">
                         <div class="d-flex rounded-pill overflow-hidden border" style="height:0.82rem;background:rgba(0,0,0,.06);border-color:rgba(0,0,0,.1) !important;" role="group" aria-label="Distribución global Current vs 1-7 días">
