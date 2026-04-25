@@ -956,6 +956,7 @@ class Empresa extends Model
             ['key' => 'stp', 'titulo' => 'STP', 'excel_tipo' => 'texto'],
             ['key' => 'banco', 'titulo' => 'BANCO', 'excel_tipo' => 'texto'],
             ['key' => 'monto', 'titulo' => 'MONTO', 'excel_tipo' => 'moneda'],
+            ['key' => 'fecha_ultimo_pago_efectivo', 'titulo' => 'FECHA ÚLT. PAGO EFECTIVO', 'excel_tipo' => 'texto'],
             ['key' => 'cuota', 'titulo' => 'CUOTA', 'excel_tipo' => 'moneda'],
             ['key' => 'kt', 'titulo' => 'KT', 'excel_tipo' => 'texto'],
             ['key' => 'inicio', 'titulo' => 'INICIO', 'excel_tipo' => 'texto'],
@@ -987,6 +988,7 @@ SELECT
         ELSE 'OTRO'
     END AS `BANCO`,
     t.`Monto_otorgado` AS `MONTO`,
+    t.`Fecha_ultimo_pago_efectivo` AS `FECHA_ULTIMO_PAGO_EFECTIVO`,
     t.`Cuota` AS `CUOTA`,
     t.`KT` AS `KT`,
     t.`Fecha_inicio` AS `INICIO`,

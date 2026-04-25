@@ -572,6 +572,57 @@ class MotosAdjudicadas extends Model
         }
         $inStr = implode(',', $placeholders);
 
+        // Regla de negocio: sólo mostrar en Mis Adjudicaciones cuando el
+        // crédito ya salió de Atención a Clientes (estatus en_transito o posterior).
+        $ops = $this->db->queryAll(
+            "SELECT ao.id_credito, ao.estatus
+             FROM adj_operacion ao
+             INNER JOIN (
+                SELECT id_credito, MAX(id) AS max_id
+                FROM adj_operacion
+                WHERE id_credito IN ($inStr)
+                GROUP BY id_credito
+             ) ult ON ult.max_id = ao.id",
+            $params
+        ) ?: [];
+
+        $permitidos = array_flip([
+            'en_transito',
+            'Recibido',
+            'Procesando IA',
+            'Revisión Recuperaciones',
+            'Cierre Documentado',
+            'Recepción',
+        ]);
+
+        $idsVisibles = [];
+        foreach ($ops as $op) {
+            $idCredito = (int)($op['id_credito'] ?? 0);
+            $estatus = (string)($op['estatus'] ?? '');
+            if ($idCredito > 0 && isset($permitidos[$estatus])) {
+                $idsVisibles[$idCredito] = true;
+            }
+        }
+
+        $creditos = array_values(array_filter(
+            $creditos,
+            fn($c) => isset($idsVisibles[(int)($c['id_credito'] ?? 0)])
+        ));
+
+        if (empty($creditos)) {
+            return [];
+        }
+
+        $ids = array_map('intval', array_column($creditos, 'id_credito'));
+        $placeholders = [];
+        $params = [];
+        foreach ($ids as $i => $id) {
+            $key = "id$i";
+            $placeholders[] = ":$key";
+            $params[$key] = $id;
+        }
+        $inStr = implode(',', $placeholders);
+
         try {
             $dbS2 = new \Core\DatabaseSegundometro();
 

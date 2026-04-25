@@ -52,6 +52,7 @@ class AtencionClientes
             o.folio,
             o.id_credito,
             o.nombre_cliente,
+            o.telefono_contacto,
             o.estatus,
             o.saldo_capital,
             o.adeudo_total,

@@ -234,37 +234,39 @@
                                 </div>
 
 
-                                <!-- CONTACTACIÓN -->
-                                <?php if (
-                                    $g["medio_contactacion_ccc"] ||
-                                    $g["medio_contactacion_campo"] ||
-                                    $g["dictamen_campo"] ||
-                                    $g["dictamen_ccc"]
-                                ): ?>
-                                    <?php
-                                    $medioContactacion = $g["medio_contactacion_ccc"] ?: $g["medio_contactacion_campo"] ?: '—';
-                                    $dictamen = $g["dictamen_ccc"] ?: $g["dictamen_campo"] ?: '—';
-                                    ?>
-                                    <h6 class="fw-bold">Contactación y dictamen</h6>
+                                <!-- CONTACTACIÓN: siempre visible (Legacy usa '0' como marcador; en PHP empty('0') ocultaba toda la sección). -->
+                                <?php
+                                $rawCcc = trim((string) ($g['medio_contactacion_ccc'] ?? ''));
+                                $rawCampo = trim((string) ($g['medio_contactacion_campo'] ?? ''));
+                                $medioContactacion = $rawCampo !== '' && $rawCampo !== '0'
+                                    ? $rawCampo
+                                    : ($rawCcc !== '' && $rawCcc !== '0' ? $rawCcc : '');
+                                $medioContactacion = $medioContactacion !== '' ? $medioContactacion : '—';
 
-                                    <div class="table-responsive mb-4">
-                                        <table class="table table-bordered table-striped">
-                                            <thead class="table-light">
-                                            <tr>
-                                                <th>MEDIO DE CONTACTACION</th>
-                                                <th>DICTAMEN</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            <tr>
-                                                <td><?= htmlspecialchars($medioContactacion) ?></td>
-                                                <td><?= htmlspecialchars($dictamen) ?></td>
-                                            </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                $dictamenTxt = trim((string) ($g['dictamen_ccc'] ?? ''));
+                                if ($dictamenTxt === '') {
+                                    $dictamenTxt = trim((string) ($g['dictamen_campo'] ?? ''));
+                                }
+                                $dictamenTxt = $dictamenTxt !== '' ? $dictamenTxt : '—';
+                                ?>
+                                <h6 class="fw-bold">Contactación y dictamen</h6>
 
-                                <?php endif; ?>
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-striped">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th>MEDIO DE CONTACTACION</th>
+                                            <th>DICTAMEN</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td><?= htmlspecialchars($medioContactacion, ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars($dictamenTxt, ENT_QUOTES, 'UTF-8') ?></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
 
 
                                 <!-- PROMESAS -->

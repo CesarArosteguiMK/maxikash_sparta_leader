@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Empresa as EmpresasDAO;
 use Models\PrimerosPagosHistoricoSegundometro;
 use Models\SegundometroComparativaSemanal;
@@ -2134,9 +2135,21 @@ class Reporteria extends Controller
                     ? (Array.isArray(PRIMEROS_PAGOS_COLS) ? PRIMEROS_PAGOS_COLS : []).map(c => ({
                         data: c.key,
                         defaultContent: '—',
-                        className: (c.key === 'monto' || c.key === 'cuota') ? 'text-end text-nowrap' : 'text-nowrap',
+                        className: (c.key === 'monto' || c.key === 'cuota')
+                            ? 'text-end text-nowrap'
+                            : (c.key === 'fecha_ultimo_pago_efectivo' ? 'text-center text-nowrap' : 'text-nowrap'),
                         render: function (data) {
                             if (data === null || data === undefined || data === '') return '—';
+                            if (c.key === 'fecha_ultimo_pago_efectivo') {
+                                const s = String(data).trim();
+                                const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                                if (m) {
+                                    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+                                    if (!Number.isNaN(d.getTime())) {
+                                        return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+                                    }
+                                }
+                            }
                             return String(data);
                         },
                     }))
@@ -2214,6 +2227,61 @@ class Reporteria extends Controller
                 if (elCo) elCo.textContent = co;
             }
 
+            function renderPagoPorDiaUltimoEfectivo(data) {
+                const host = document.getElementById('statsPagoPorDia');
+                if (!host || !VISTA_SIMPLE) return;
+                const arr = Array.isArray(data) ? data : [];
+                const total = arr.length || 0;
+                const cnt = { jue: 0, vie: 0, sab: 0, dom: 0, lun: 0 };
+                const parseFechaPago = (raw) => {
+                    if (raw == null || raw === '') return null;
+                    const s = String(raw).trim();
+                    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (!m) {
+                        const d0 = new Date(s);
+                        return Number.isNaN(d0.getTime()) ? null : d0;
+                    }
+                    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+                    return Number.isNaN(d.getTime()) ? null : d;
+                };
+                arr.forEach((r) => {
+                    const d = parseFechaPago(r.fecha_ultimo_pago_efectivo);
+                    if (!d) return;
+                    const dow = d.getDay();
+                    if (dow === 4) cnt.jue++;
+                    else if (dow === 5) cnt.vie++;
+                    else if (dow === 6) cnt.sab++;
+                    else if (dow === 0) cnt.dom++;
+                    else if (dow === 1) cnt.lun++;
+                });
+                const pct = (n) => (total ? Math.round((Number(n) / total) * 100) : 0);
+                const meta = [
+                    { k: 'jue', label: 'Pago Jueves', cls: 'bg-label-info', icon: 'fa-calendar-day' },
+                    { k: 'vie', label: 'Pago Viernes', cls: 'bg-label-primary', icon: 'fa-calendar-day' },
+                    { k: 'sab', label: 'Pago Sábado', cls: 'bg-label-success', icon: 'fa-calendar-day' },
+                    { k: 'dom', label: 'Pago Domingo', cls: 'bg-label-warning', icon: 'fa-calendar-day' },
+                    { k: 'lun', label: 'Pago Lunes', cls: 'bg-label-secondary', icon: 'fa-calendar-day' },
+                ];
+                const fsCard = { bd: '.65rem', num: '1.35rem', pct: '1.02rem', ft: '.6rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
+                host.innerHTML = meta.map((m) => {
+                    const n = cnt[m.k] || 0;
+                    return `
+                    <div class="col">
+                        <div class="card text-center h-100 border-0 shadow-sm">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
+                                    <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.label}
+                                </div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">
+                                    ${fmtInt(n)}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pct(n)}%)</span>
+                                </div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">registros</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
             function renderStats(data) {
                 if (VISTA_SIMPLE) {
                     const totalRegs = Number.isFinite(_totalEnTabla) ? _totalEnTabla : (_data.length || 0);
@@ -2222,6 +2290,7 @@ class Reporteria extends Controller
                         const n = Number(totalRegs);
                         elNac.textContent = Number.isFinite(n) ? n.toLocaleString('es-MX') : '—';
                     }
+                    renderPagoPorDiaUltimoEfectivo(data);
                     const elJer = document.getElementById('statsJerarquia');
                     if (elJer) elJer.innerHTML = '';
                     const elCorte = document.getElementById('statsCorte');
@@ -2516,13 +2585,13 @@ class Reporteria extends Controller
                                 const tGtel = (gFila && Number.isFinite(Number(gFila.telefonicas))) ? Number(gFila.telefonicas) : 0;
                                 const tGcamp = (gFila && Number.isFinite(Number(gFila.campo))) ? Number(gFila.campo) : 0;
                                 const icoFila = MODO_CARTERA
-                                    ? '<span class="cartera-jer-gest-wrap d-inline-flex align-items-center flex-wrap" title="Gestiones en dictamen, semana (lun–dom) actual CDMX">'
+                                    ? '<span class="cartera-jer-gest-wrap d-inline-flex align-items-center flex-wrap" title="Gestiones (Call Center + Legacy + Sky), semana (lun–dom) actual CDMX">'
                                     + '<span class="cartera-jer-gest-metric d-inline-flex align-items-center gap-1">'
-                                    + '<span class="cartera-jer-gest-ico cartera-jer-gest-ico--tel" title="Telefónicas" aria-hidden="true" role="presentation"></span>'
-                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold">' + fmtInt(tGtel) + '</span></span>'
+                                    + '<span class="cartera-jer-gest-emoji" title="Telefónicas" aria-hidden="true">📞</span>'
+                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold" data-gest-id="' + pphEsc(idStr) + '" data-gest-tipo="tel">' + fmtInt(tGtel) + '</span></span>'
                                     + '<span class="cartera-jer-gest-metric d-inline-flex align-items-center gap-1">'
-                                    + '<span class="cartera-jer-gest-ico cartera-jer-gest-ico--camp" title="Campo" aria-hidden="true" role="presentation"></span>'
-                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold">' + fmtInt(tGcamp) + '</span></span>'
+                                    + '<span class="cartera-jer-gest-emoji" title="Campo" aria-hidden="true">🛵</span>'
+                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold" data-gest-id="' + pphEsc(idStr) + '" data-gest-tipo="camp">' + fmtInt(tGcamp) + '</span></span>'
                                     + '</span>'
                                     : '';
                                 return `<div class="d-flex align-items-center flex-wrap gap-2 border-top px-3 py-1 ps-5 small">
@@ -2614,6 +2683,50 @@ class Reporteria extends Controller
                 document.getElementById('statsJerarquia').innerHTML =
                     html || '<p class="text-muted">Sin datos.</p>';
             }
+
+            async function cargarConteosGestionesCollapse(el) {
+                if (!MODO_CARTERA || !el || el.dataset.gestionesLoaded === '1' || el.dataset.gestionesLoading === '1') return;
+                const ids = [...el.querySelectorAll('[data-gest-id]')]
+                    .map(n => parseInt(n.getAttribute('data-gest-id') || '', 10))
+                    .filter(n => Number.isFinite(n) && n > 0);
+                const uniq = [...new Set(ids)];
+                if (!uniq.length) return;
+                el.dataset.gestionesLoading = '1';
+                try {
+                    const res = await fetch('/analitica/getGestionesConteoCreditosSemana', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: uniq })
+                    });
+                    const out = await res.json();
+                    const mapa = (out && out.success && out.datos && typeof out.datos === 'object') ? out.datos : {};
+                    el.querySelectorAll('[data-gest-id][data-gest-tipo]').forEach(span => {
+                        const id = String(span.getAttribute('data-gest-id') || '');
+                        const tipo = span.getAttribute('data-gest-tipo') || '';
+                        const g = mapa[id] || mapa[String(parseInt(id, 10))] || null;
+                        if (!g) return;
+                        const v = tipo === 'tel' ? g.telefonicas : g.campo;
+                        span.textContent = fmtInt(Number.isFinite(Number(v)) ? Number(v) : 0);
+                    });
+                    el.dataset.gestionesLoaded = '1';
+                } catch (e) {
+                    console.warn('No se pudieron cargar conteos de gestiones:', e);
+                } finally {
+                    delete el.dataset.gestionesLoading;
+                }
+            }
+
+            (function bindConteosGestionesJerarquia() {
+                const elJer = document.getElementById('statsJerarquia');
+                if (!elJer || elJer.dataset.gestionesBound === '1') return;
+                elJer.dataset.gestionesBound = '1';
+                elJer.addEventListener('shown.bs.collapse', function (ev) {
+                    const el = ev.target;
+                    if (el && el.id && String(el.id).startsWith('pphCrd_')) {
+                        cargarConteosGestionesCollapse(el);
+                    }
+                });
+            })();
 
             /* ── Acordeón jerarquía en tabla ── */
             function jerarquiaHtml(r, idx) {
@@ -3426,6 +3539,49 @@ class Reporteria extends Controller
             self::respuestaJSON(EmpresasDAO::getCarteraSegundometroSemana());
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    public function getGestionesConteoCreditosSemana()
+    {
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'JSON inválido.']);
+            }
+
+            $ids = $body['ids'] ?? [];
+            if (!is_array($ids)) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El campo ids debe ser un arreglo.']);
+            }
+
+            $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $x) => $x > 0)));
+            if ($ids === []) {
+                self::respuestaJSON(['success' => true, 'datos' => []]);
+            }
+            $ids = array_slice($ids, 0, 300);
+
+            $rows = array_map(static fn (int $id): array => ['Id_credito' => $id, 'Id_cliente' => 0], $ids);
+            $rangoSem = EstadoCuentaDAO::rangoSemanaCalendarioCDMX();
+            $mapa = EstadoCuentaDAO::mapaGestionesDictamenPorIdCreditoSegundometro(
+                $rows,
+                $rangoSem['inicio'],
+                $rangoSem['fin'],
+                true
+            );
+
+            self::respuestaJSON([
+                'success' => true,
+                'datos' => $mapa,
+                'inicio' => $rangoSem['inicio'],
+                'fin' => $rangoSem['fin'],
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar gestiones.']);
         }
     }
 
