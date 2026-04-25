@@ -5997,7 +5997,17 @@ body.dark-mode #statsJerarquia svg circle:first-of-type {
     stroke: rgba(255, 255, 255, 0.12) !important;
 }
 
-/* ── Jerarquía: iconos dictamen teléfono / campo (sprite, modo claro + oscuro) ── */
+/* ── Jerarquía: emoji teléfono / scooter (misma referencia que gestiones detalle) ── */
+#statsJerarquia .cartera-jer-gest-emoji {
+    font-size: 1.05rem;
+    line-height: 1;
+    display: inline-block;
+    flex-shrink: 0;
+    font-style: normal;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+
+/* ── Jerarquía: iconos dictamen teléfono / campo (sprite legacy; se mantiene por si quedara markup antiguo) ── */
 #statsJerarquia .cartera-jer-gest-wrap {
     gap: 0.65rem !important;
     vertical-align: middle;
@@ -6040,3 +6050,4 @@ body.dark-mode #statsJerarquia span[style*="gestion_iconos_tel_campo"] {
     border-radius: 0.3rem;
     filter: saturate(1.2) brightness(1.1) contrast(1.06);
 }
+

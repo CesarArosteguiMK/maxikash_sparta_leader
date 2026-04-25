@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Empresa as EmpresasDAO;
 use Models\PrimerosPagosHistoricoSegundometro;
 use Models\SegundometroComparativaSemanal;
@@ -2516,13 +2517,13 @@ class Reporteria extends Controller
                                 const tGtel = (gFila && Number.isFinite(Number(gFila.telefonicas))) ? Number(gFila.telefonicas) : 0;
                                 const tGcamp = (gFila && Number.isFinite(Number(gFila.campo))) ? Number(gFila.campo) : 0;
                                 const icoFila = MODO_CARTERA
-                                    ? '<span class="cartera-jer-gest-wrap d-inline-flex align-items-center flex-wrap" title="Gestiones en dictamen, semana (lun–dom) actual CDMX">'
+                                    ? '<span class="cartera-jer-gest-wrap d-inline-flex align-items-center flex-wrap" title="Gestiones (Call Center + Legacy + Sky), semana (lun–dom) actual CDMX">'
                                     + '<span class="cartera-jer-gest-metric d-inline-flex align-items-center gap-1">'
-                                    + '<span class="cartera-jer-gest-ico cartera-jer-gest-ico--tel" title="Telefónicas" aria-hidden="true" role="presentation"></span>'
-                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold">' + fmtInt(tGtel) + '</span></span>'
+                                    + '<span class="cartera-jer-gest-emoji" title="Telefónicas" aria-hidden="true">📞</span>'
+                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold" data-gest-id="' + pphEsc(idStr) + '" data-gest-tipo="tel">' + fmtInt(tGtel) + '</span></span>'
                                     + '<span class="cartera-jer-gest-metric d-inline-flex align-items-center gap-1">'
-                                    + '<span class="cartera-jer-gest-ico cartera-jer-gest-ico--camp" title="Campo" aria-hidden="true" role="presentation"></span>'
-                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold">' + fmtInt(tGcamp) + '</span></span>'
+                                    + '<span class="cartera-jer-gest-emoji" title="Campo" aria-hidden="true">🛵</span>'
+                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold" data-gest-id="' + pphEsc(idStr) + '" data-gest-tipo="camp">' + fmtInt(tGcamp) + '</span></span>'
                                     + '</span>'
                                     : '';
                                 return `<div class="d-flex align-items-center flex-wrap gap-2 border-top px-3 py-1 ps-5 small">
@@ -2614,6 +2615,50 @@ class Reporteria extends Controller
                 document.getElementById('statsJerarquia').innerHTML =
                     html || '<p class="text-muted">Sin datos.</p>';
             }
+
+            async function cargarConteosGestionesCollapse(el) {
+                if (!MODO_CARTERA || !el || el.dataset.gestionesLoaded === '1' || el.dataset.gestionesLoading === '1') return;
+                const ids = [...el.querySelectorAll('[data-gest-id]')]
+                    .map(n => parseInt(n.getAttribute('data-gest-id') || '', 10))
+                    .filter(n => Number.isFinite(n) && n > 0);
+                const uniq = [...new Set(ids)];
+                if (!uniq.length) return;
+                el.dataset.gestionesLoading = '1';
+                try {
+                    const res = await fetch('/analitica/getGestionesConteoCreditosSemana', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: uniq })
+                    });
+                    const out = await res.json();
+                    const mapa = (out && out.success && out.datos && typeof out.datos === 'object') ? out.datos : {};
+                    el.querySelectorAll('[data-gest-id][data-gest-tipo]').forEach(span => {
+                        const id = String(span.getAttribute('data-gest-id') || '');
+                        const tipo = span.getAttribute('data-gest-tipo') || '';
+                        const g = mapa[id] || mapa[String(parseInt(id, 10))] || null;
+                        if (!g) return;
+                        const v = tipo === 'tel' ? g.telefonicas : g.campo;
+                        span.textContent = fmtInt(Number.isFinite(Number(v)) ? Number(v) : 0);
+                    });
+                    el.dataset.gestionesLoaded = '1';
+                } catch (e) {
+                    console.warn('No se pudieron cargar conteos de gestiones:', e);
+                } finally {
+                    delete el.dataset.gestionesLoading;
+                }
+            }
+
+            (function bindConteosGestionesJerarquia() {
+                const elJer = document.getElementById('statsJerarquia');
+                if (!elJer || elJer.dataset.gestionesBound === '1') return;
+                elJer.dataset.gestionesBound = '1';
+                elJer.addEventListener('shown.bs.collapse', function (ev) {
+                    const el = ev.target;
+                    if (el && el.id && String(el.id).startsWith('pphCrd_')) {
+                        cargarConteosGestionesCollapse(el);
+                    }
+                });
+            })();
 
             /* ── Acordeón jerarquía en tabla ── */
             function jerarquiaHtml(r, idx) {
@@ -3426,6 +3471,49 @@ class Reporteria extends Controller
             self::respuestaJSON(EmpresasDAO::getCarteraSegundometroSemana());
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    public function getGestionesConteoCreditosSemana()
+    {
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'JSON inválido.']);
+            }
+
+            $ids = $body['ids'] ?? [];
+            if (!is_array($ids)) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El campo ids debe ser un arreglo.']);
+            }
+
+            $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $x) => $x > 0)));
+            if ($ids === []) {
+                self::respuestaJSON(['success' => true, 'datos' => []]);
+            }
+            $ids = array_slice($ids, 0, 300);
+
+            $rows = array_map(static fn (int $id): array => ['Id_credito' => $id, 'Id_cliente' => 0], $ids);
+            $rangoSem = EstadoCuentaDAO::rangoSemanaCalendarioCDMX();
+            $mapa = EstadoCuentaDAO::mapaGestionesDictamenPorIdCreditoSegundometro(
+                $rows,
+                $rangoSem['inicio'],
+                $rangoSem['fin'],
+                true
+            );
+
+            self::respuestaJSON([
+                'success' => true,
+                'datos' => $mapa,
+                'inicio' => $rangoSem['inicio'],
+                'fin' => $rangoSem['fin'],
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar gestiones.']);
         }
     }
 
