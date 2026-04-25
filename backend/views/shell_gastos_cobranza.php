@@ -138,6 +138,7 @@
                             <i class="fa fa-play me-1"></i>Ejecutar proceso 3
                         </button>
                     </div>
+                    <p id="gcProcesosCronjobsHint" class="small text-warning mb-0 mt-2 d-none" role="status" aria-live="polite"></p>
                     <div id="gcCronjobsSalidaWrap" class="d-none">
                         <label class="form-label small fw-semibold mb-1">Consola de salida (stdout/stderr)</label>
                         <pre id="gcCronjobsSalida"
@@ -1313,6 +1314,71 @@
     /** Evita reejecutar el mismo día (CDMX) tras un reporte real exitoso. */
     var LS_REPORTE_OK_YMD = 'gastosCobranza_reporteRealOkYmd';
 
+    function gcOcultarHintProcesosCronjobs() {
+        var el = document.getElementById('gcProcesosCronjobsHint');
+        if (!el) return;
+        el.classList.add('d-none');
+        el.textContent = '';
+    }
+
+    /**
+     * /health puede no incluir cronjobs_gc.scripts (agente antiguo): no dejar los botones bloqueados.
+     * Si los tres vienen en false, el agente no ve los .php (carpeta equivocada); ver GASTOS_GC_CRONJOBS_DIR en .env del agente.
+     */
+    function gcAplicarScriptsCronjobsDesdeAgente(agente) {
+        agente = agente || {};
+        var cg = agente.cronjobs_gc;
+        if (!cg || !Object.prototype.hasOwnProperty.call(cg, 'scripts')) {
+            gcCronjobsScriptsDisponibles = {
+                insertar_mora_martes: true,
+                detectar_gdc_liquidados: true,
+                eliminar_gastos_despachos: true
+            };
+            gcOcultarHintProcesosCronjobs();
+            return;
+        }
+        var rawScripts = cg.scripts;
+        if (rawScripts === null || typeof rawScripts !== 'object') {
+            gcCronjobsScriptsDisponibles = {
+                insertar_mora_martes: true,
+                detectar_gdc_liquidados: true,
+                eliminar_gastos_despachos: true
+            };
+            gcOcultarHintProcesosCronjobs();
+            return;
+        }
+        var s1 = !!rawScripts.insertar_mora_martes;
+        var s2 = !!rawScripts.detectar_gdc_liquidados;
+        var s3 = !!rawScripts.eliminar_gastos_despachos;
+        gcCronjobsScriptsDisponibles = {
+            insertar_mora_martes: s1,
+            detectar_gdc_liquidados: s2,
+            eliminar_gastos_despachos: s3
+        };
+        var keys = Object.keys(rawScripts);
+        var allFalse = !s1 && !s2 && !s3;
+        var el = document.getElementById('gcProcesosCronjobsHint');
+        if (el && allFalse && keys.length > 0) {
+            var dirHint = typeof cg.dir === 'string' && cg.dir ? cg.dir : '';
+            el.textContent =
+                'El agente no localiza los PHP de los procesos 1–3 en su carpeta de cronjobs.' +
+                (dirHint ? ' Carpeta que revisa el agente: ' + dirHint + '.' : '') +
+                ' Defina GASTOS_GC_CRONJOBS_DIR en el .env del agente (ruta absoluta a la carpeta cronjobs del backend) y reinicie Node.';
+            el.classList.remove('d-none');
+        } else {
+            gcOcultarHintProcesosCronjobs();
+        }
+    }
+
+    function gcMarcarCronjobsScriptsNoDisponibles() {
+        gcCronjobsScriptsDisponibles = {
+            insertar_mora_martes: false,
+            detectar_gdc_liquidados: false,
+            eliminar_gastos_despachos: false
+        };
+        gcOcultarHintProcesosCronjobs();
+    }
+
     var ejecucionBanner = document.getElementById('gastosCobranzaEjecucionBanner');
     var switchGcAutoRun = document.getElementById('switchGcAutoRunReporte');
     var txtGcAutoRunEstado = document.getElementById('gcAutoRunEstadoTexto');
@@ -2265,6 +2331,7 @@
             badge.className = 'badge bg-label-warning';
             badge.textContent = 'Comprobando…';
             if (detalle) detalle.textContent = '';
+            gcOcultarHintProcesosCronjobs();
             if (btnRun) btnRun.disabled = true;
             if (btnGcProcesoInsertarMoraMartes) btnGcProcesoInsertarMoraMartes.disabled = true;
             if (btnGcProcesoDetectarLiquidados) btnGcProcesoDetectarLiquidados.disabled = true;
@@ -2285,11 +2352,7 @@
                 gcAgenteReportaCronjobsOcupado = false;
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
-                gcCronjobsScriptsDisponibles = {
-                    insertar_mora_martes: false,
-                    detectar_gdc_liquidados: false,
-                    eliminar_gastos_despachos: false
-                };
+                gcMarcarCronjobsScriptsNoDisponibles();
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Error';
                 if (detalle) detalle.textContent = data.mensaje || 'Error';
@@ -2304,11 +2367,7 @@
                 gcAgenteReportaCronjobsOcupado = false;
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
-                gcCronjobsScriptsDisponibles = {
-                    insertar_mora_martes: false,
-                    detectar_gdc_liquidados: false,
-                    eliminar_gastos_despachos: false
-                };
+                gcMarcarCronjobsScriptsNoDisponibles();
                 badge.className = 'badge bg-label-secondary';
                 badge.textContent = 'INI desactivado';
                 if (detalle) detalle.innerHTML = data.detalle || '';
@@ -2334,12 +2393,7 @@
                 gcUltimoScriptDescargo = !!a.script_descargo_estatus3;
                 gcAgenteReportaEcOcupado = !!a.ec_launcher_ocupado;
                 gcAgenteReportaCronjobsOcupado = !!(a.cronjobs_gc_ocupado || (a.cronjobs_gc && a.cronjobs_gc.busy));
-                var scriptsGc = (a.cronjobs_gc && a.cronjobs_gc.scripts) ? a.cronjobs_gc.scripts : {};
-                gcCronjobsScriptsDisponibles = {
-                    insertar_mora_martes: !!scriptsGc.insertar_mora_martes,
-                    detectar_gdc_liquidados: !!scriptsGc.detectar_gdc_liquidados,
-                    eliminar_gastos_despachos: !!scriptsGc.eliminar_gastos_despachos
-                };
+                gcAplicarScriptsCronjobsDesdeAgente(a);
                 if (detalle) {
                     if (gcAgenteReportaEcOcupado) {
                         detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker/EC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
@@ -2361,11 +2415,7 @@
                 gcAgenteReportaCronjobsOcupado = false;
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
-                gcCronjobsScriptsDisponibles = {
-                    insertar_mora_martes: false,
-                    detectar_gdc_liquidados: false,
-                    eliminar_gastos_despachos: false
-                };
+                gcMarcarCronjobsScriptsNoDisponibles();
                 badge.className = 'badge bg-label-danger';
                 badge.textContent = 'Sin conexión';
                 if (detalle) detalle.textContent = data.detalle || '';
@@ -2388,11 +2438,7 @@
             gcAgenteReportaCronjobsOcupado = false;
             gcUltimoScriptCarga = false;
             gcUltimoScriptDescargo = false;
-            gcCronjobsScriptsDisponibles = {
-                insertar_mora_martes: false,
-                detectar_gdc_liquidados: false,
-                eliminar_gastos_despachos: false
-            };
+            gcMarcarCronjobsScriptsNoDisponibles();
             badge.className = 'badge bg-label-danger';
             badge.textContent = 'Error red';
             if (detalle) detalle.textContent = String(e.message || e);
