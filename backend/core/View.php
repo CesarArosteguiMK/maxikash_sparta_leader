@@ -124,7 +124,7 @@ function getMenu(): string
                 ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos',          'modulos' => [62]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
                 ['label' => 'Mis Adjudicaciones',     'url' => '/MotosAdjudicadas/misAdjudicaciones',       'modulos' => [64]],
-                ['label' => 'Atención a Clientes',    'url' => '/AtencionClientes/consulta',                'modulos' => [65]],
+                ['label' => '1.- Retenciones',    'url' => '/AtencionClientes/consulta',                'modulos' => [64]],
             ],
         ],
         'Tickets' => [

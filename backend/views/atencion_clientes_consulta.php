@@ -217,7 +217,7 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
     <div class="ac-header-gradient d-flex align-items-center gap-3">
         <i class="fa-solid fa-headset fa-2x"></i>
         <div>
-            <h4>Atención a Clientes</h4>
+            <h4>Retenciones</h4>
             <p>Gestión de llamadas y dictámenes para operaciones en retenciones</p>
         </div>
     </div>
@@ -283,24 +283,20 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
 
             <div class="modal-body">
                 <input type="hidden" id="ac-dict-id-operacion">
+                <input type="hidden" id="ac-dict-id-credito">
 
                 <!-- Fila 1 -->
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="ac-modal-label">Llamada a</label>
-                        <select class="ac-modal-input" id="ac-dict-llamada-a">
-                            <option value="">— Seleccione —</option>
-                            <option>Cliente (titular)</option>
-                            <option>Avalista</option>
-                            <option>Referencia 1</option>
-                            <option>Referencia 2</option>
-                            <option>Otro</option>
+                        <select class="ac-modal-input" id="ac-dict-llamada-a" disabled>
+                            <option value="">Cargando contactos…</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="ac-modal-label">Número</label>
                         <input type="text" class="ac-modal-input" id="ac-dict-numero"
-                               placeholder="10 dígitos" maxlength="20">
+                               placeholder="Se llena al elegir contacto" maxlength="20" readonly>
                     </div>
                     <div class="col-md-4">
                         <label class="ac-modal-label">Persona contactada</label>
@@ -324,22 +320,13 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
                     <div class="col-md-4">
                         <label class="ac-modal-label">Resultado</label>
                         <select class="ac-modal-input" id="ac-dict-resultado">
-                            <option value="">— Seleccione —</option>
-                            <option>Contacto efectivo</option>
-                            <option>Buzón de voz</option>
-                            <option>No contesta</option>
-                            <option>Número equivocado</option>
-                            <option>Fuera de servicio</option>
+                            <option value="">— Seleccione tipo primero —</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="ac-modal-label">Dictamen</label>
                         <select class="ac-modal-input" id="ac-dict-dictamen">
-                            <option value="">— Seleccione dictamen —</option>
-                            <option>Autorizado para recolección</option>
-                            <option>Cancelado, promesa de pago</option>
-                            <option>Pendiente de contacto</option>
-                            <option>No localizado</option>
+                            <option value="">— Seleccione resultado primero —</option>
                         </select>
                     </div>
                 </div>
@@ -420,6 +407,12 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
     'use strict';
 
     // ──────────────────────────────────────────────────────────────────
+    // ESTADO LOCAL
+    // ──────────────────────────────────────────────────────────────────
+    let _acEntrMap    = {};   // id → item completo de entrantes
+    let _acItemActual = null; // item del modal abierto
+
+    // ──────────────────────────────────────────────────────────────────
     // HELPERS
     // ──────────────────────────────────────────────────────────────────
     function acEsc(s) {
@@ -480,6 +473,8 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
                     return;
                 }
 
+                _acEntrMap = {};
+                data.datos.forEach(item => { _acEntrMap[item.id] = item; });
                 lista.innerHTML = data.datos.map(acRenderCardEntrante).join('');
             })
             .catch(err => {
@@ -542,14 +537,6 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
             </div>
             <div class="ac-card-body">
                 <div class="ac-detail-row">
-                    <span class="ac-lbl">Adeudo original</span>
-                    <span class="ac-val">${acFmt(item.saldo_capital)}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Total final</span>
-                    <span class="ac-val fw-bold" style="color:#059669;">${acFmt(item.adeudo_total)}</span>
-                </div>
-                <div class="ac-detail-row">
                     <span class="ac-lbl">Gestor a cargo</span>
                     <span class="ac-val">${item.gestor_nombre ? acEsc(item.gestor_nombre) : '<span class="text-muted fst-italic">Sin asignar</span>'}</span>
                 </div>
@@ -600,14 +587,6 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
                     <span class="ac-val">${item.dictamen ? acEsc(item.dictamen) : '<span class="text-muted fst-italic">—</span>'}</span>
                 </div>
                 <div class="ac-detail-row">
-                    <span class="ac-lbl">Adeudo original</span>
-                    <span class="ac-val">${acFmt(item.saldo_capital)}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Total final</span>
-                    <span class="ac-val fw-bold" style="color:#059669;">${acFmt(item.adeudo_total)}</span>
-                </div>
-                <div class="ac-detail-row">
                     <span class="ac-lbl">Gestor a cargo</span>
                     <span class="ac-val">${item.gestor_nombre ? acEsc(item.gestor_nombre) : '<span class="text-muted fst-italic">Sin asignar</span>'}</span>
                 </div>
@@ -627,20 +606,119 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
     // ──────────────────────────────────────────────────────────────────
     // ABRIR MODAL DICTAMINAR
     // ──────────────────────────────────────────────────────────────────
-    window.acAbrirDictaminar = function (idOperacion) {
-        document.getElementById('ac-dict-id-operacion').value = idOperacion;
+    // Opciones de resultado según tipo-contacto
+    const AC_RESULTADO_OPTS = {
+        'Contacto':     ['Contacto efectivo'],
+        'Sin contacto': ['Buzón de voz', 'No contesta', 'Fuera de servicio', 'Número equivocado'],
+    };
 
-        // Limpiar campos
-        ['ac-dict-llamada-a', 'ac-dict-tipo-contacto', 'ac-dict-resultado',
-         'ac-dict-dictamen', 'ac-dict-plataforma'].forEach(id => {
-            document.getElementById(id).value = '';
+    // Opciones de dictamen según resultado
+    const AC_DICTAMEN_OPTS = {
+        'Contacto efectivo':  ['Autorizado para recolección', 'Cancelado, promesa de pago'],
+        'Buzón de voz':       ['Pendiente de contacto', 'No localizado'],
+        'No contesta':        ['Pendiente de contacto', 'No localizado'],
+        'Fuera de servicio':  ['Pendiente de contacto', 'No localizado'],
+        'Número equivocado':  ['Pendiente de contacto', 'No localizado'],
+    };
+
+    function acRebuildSelect(selectId, opciones, placeholder) {
+        const sel = document.getElementById(selectId);
+        sel.innerHTML = `<option value="">${placeholder}</option>`;
+        opciones.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = opt.textContent = o;
+            sel.appendChild(opt);
         });
-        document.getElementById('ac-dict-numero').value              = '';
-        document.getElementById('ac-dict-persona-contactada').value   = '';
-        document.getElementById('ac-dict-comentarios').value          = '';
+        sel.value = '';
+    }
+
+    // Mapa: value → {telefono, nombre} de los contactos cargados dinámicamente
+    let _acContactosMap = {};
+
+    window.acAbrirDictaminar = function (idOperacion) {
+        _acItemActual = _acEntrMap[idOperacion] || null;
+        const idCredito = _acItemActual ? (_acItemActual.id_credito || 0) : 0;
+
+        document.getElementById('ac-dict-id-operacion').value = idOperacion;
+        document.getElementById('ac-dict-id-credito').value   = idCredito;
+
+        // Limpiar
+        const selLlamada = document.getElementById('ac-dict-llamada-a');
+        selLlamada.innerHTML = '<option value="">Cargando contactos…</option>';
+        selLlamada.disabled  = true;
+        document.getElementById('ac-dict-numero').value             = '';
+        document.getElementById('ac-dict-persona-contactada').value = '';
+        document.getElementById('ac-dict-comentarios').value        = '';
+        document.getElementById('ac-dict-tipo-contacto').value      = '';
+        document.getElementById('ac-dict-plataforma').value         = '';
+        acRebuildSelect('ac-dict-resultado', [], '— Seleccione tipo primero —');
+        acRebuildSelect('ac-dict-dictamen',  [], '— Seleccione resultado primero —');
 
         new bootstrap.Modal(document.getElementById('modalAcDictaminar')).show();
+
+        // Cargar contactos desde el mismo endpoint que Estado de Cuenta
+        _acContactosMap = {};
+        fetch('/EstadoCuenta/getOpcionesContactoDictamenLlamada', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_credito: idCredito })
+        })
+            .then(r => r.json())
+            .then(resp => {
+                selLlamada.innerHTML = '<option value="">— Seleccione —</option>';
+                if (resp.success && Array.isArray(resp.datos) && resp.datos.length) {
+                    resp.datos.forEach(op => {
+                        _acContactosMap[op.value] = op;
+                        const opt = document.createElement('option');
+                        opt.value       = op.value;
+                        opt.textContent = op.label + (op.telefono ? ' — ' + op.telefono : '');
+                        selLlamada.appendChild(opt);
+                    });
+                } else {
+                    // Fallback genérico si el endpoint no devuelve datos
+                    [['cliente', 'Cliente (titular)'], ['referencia_1', 'Referencia 1'],
+                     ['referencia_2', 'Referencia 2'], ['otro', 'Otro']].forEach(([v, l]) => {
+                        const o = document.createElement('option');
+                        o.value = v; o.textContent = l;
+                        selLlamada.appendChild(o);
+                    });
+                }
+                selLlamada.disabled = false;
+            })
+            .catch(() => {
+                selLlamada.innerHTML = '<option value="">— No se pudo cargar —</option>';
+                selLlamada.disabled  = false;
+            });
     };
+
+    // ── Auto-fill al seleccionar "Llamada a" ──────────────────────────
+    document.getElementById('ac-dict-llamada-a').addEventListener('change', function () {
+        const contacto = _acContactosMap[this.value];
+        if (contacto) {
+            document.getElementById('ac-dict-numero').value
+                = contacto.telefono || '';
+            document.getElementById('ac-dict-persona-contactada').value
+                = contacto.nombre   || '';
+        } else {
+            document.getElementById('ac-dict-numero').value             = '';
+            document.getElementById('ac-dict-persona-contactada').value = '';
+        }
+    });
+
+    // ── Cascada: Tipo contacto → Resultado ───────────────────────────
+    document.getElementById('ac-dict-tipo-contacto').addEventListener('change', function () {
+        const opciones = AC_RESULTADO_OPTS[this.value] || [];
+        acRebuildSelect('ac-dict-resultado', opciones,
+            opciones.length ? '— Seleccione resultado —' : '— Seleccione tipo primero —');
+        acRebuildSelect('ac-dict-dictamen', [], '— Seleccione resultado primero —');
+    });
+
+    // ── Cascada: Resultado → Dictamen ────────────────────────────────
+    document.getElementById('ac-dict-resultado').addEventListener('change', function () {
+        const opciones = AC_DICTAMEN_OPTS[this.value] || [];
+        acRebuildSelect('ac-dict-dictamen', opciones,
+            opciones.length ? '— Seleccione dictamen —' : '— Seleccione resultado primero —');
+    });
 
     // ──────────────────────────────────────────────────────────────────
     // GUARDAR DICTAMEN
@@ -654,7 +732,10 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
             Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Seleccione un dictamen.', confirmButtonColor: '#2563eb' });
             return;
         }
-        const llamadaA = document.getElementById('ac-dict-llamada-a').value;
+        const selLlamada = document.getElementById('ac-dict-llamada-a');
+        const llamadaA   = selLlamada.value;
+        // Guardar el label visible (ej. "Cliente (titular)"), no el value interno
+        const llamadaALabel = selLlamada.selectedOptions[0]?.textContent?.split(' — ')[0].trim() || llamadaA;
         if (!llamadaA) {
             Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Seleccione a quién se llamó.', confirmButtonColor: '#2563eb' });
             return;
@@ -662,7 +743,7 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
 
         const payload = {
             id_operacion:       idOperacion,
-            llamada_a:          llamadaA,
+            llamada_a:          llamadaALabel,
             numero:             document.getElementById('ac-dict-numero').value,
             persona_contactada: document.getElementById('ac-dict-persona-contactada').value,
             tipo_contacto:      document.getElementById('ac-dict-tipo-contacto').value,
