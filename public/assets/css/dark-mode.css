@@ -5853,3 +5853,190 @@ body.dark-mode .sabueso-donde-detalle-panel .sabueso-donde-valor,
 body.dark-mode #rastreoDondeDetalle .sabueso-donde-valor {
     color: #e2e8f0 !important;
 }
+
+/* ==========================================
+   PRIMEROS PAGOS / CARTERA — Seguimiento por jerarquía (#statsJerarquia)
+   Clases en Reporteria (renderStatsJerarquia) — no depender de [style*=] (el atributo
+   puede normalizarse y dejar de coincidir). html.dark-mode: script temprano solo pone
+   la clase en <html>.
+   Importante: html.dark-mode .card y .card-body (View.php) fuerzan color: #f1f5f9 !important
+   y anulan el color de badges con estilo inline — por eso .badge aquí con !important.
+   ========================================== */
+html.dark-mode .card-body#statsJerarquia .badge,
+html.dark-mode #statsJerarquia .badge.rounded-pill,
+html.dark-mode #statsJerarquia span.badge,
+body.dark-mode .card-body#statsJerarquia .badge,
+body.dark-mode #statsJerarquia .badge {
+    background-color: #334155 !important;
+    color: #7dd3fc !important;
+    border: 1px solid #475569 !important;
+}
+
+html.dark-mode #statsJerarquia,
+body.dark-mode #statsJerarquia {
+    color: #e2e8f0;
+}
+
+html.dark-mode #statsJerarquia .bg-white,
+body.dark-mode #statsJerarquia .bg-white {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark-mode #statsJerarquia .bg-light,
+body.dark-mode #statsJerarquia .bg-light {
+    background-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark-mode #statsJerarquia .text-body,
+body.dark-mode #statsJerarquia .text-body {
+    color: #e2e8f0 !important;
+}
+
+html.dark-mode #statsJerarquia .text-body-secondary,
+body.dark-mode #statsJerarquia .text-body-secondary {
+    color: #94a3b8 !important;
+}
+
+html.dark-mode #statsJerarquia .text-muted,
+body.dark-mode #statsJerarquia .text-muted {
+    color: #94a3b8 !important;
+}
+
+/* Tarjetas KPI — clases fijas (el .fs-4 no lleva color inline: heredaba claro sobre pastel) */
+html.dark-mode #statsJerarquia .cartera-kpi--asig,
+body.dark-mode #statsJerarquia .cartera-kpi--asig {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark-mode #statsJerarquia .cartera-kpi--cobr,
+body.dark-mode #statsJerarquia .cartera-kpi--cobr {
+    background: #14532d !important;
+    border: 1px solid #166534 !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark-mode #statsJerarquia .cartera-kpi--pend,
+body.dark-mode #statsJerarquia .cartera-kpi--pend {
+    background: #713f12 !important;
+    border: 1px solid #92400e !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark-mode #statsJerarquia .cartera-kpi--efic,
+body.dark-mode #statsJerarquia .cartera-kpi--efic {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark-mode #statsJerarquia .cartera-kpi--asig span,
+html.dark-mode #statsJerarquia .cartera-kpi--cobr span,
+html.dark-mode #statsJerarquia .cartera-kpi--pend span,
+html.dark-mode #statsJerarquia .cartera-kpi--efic span,
+html.dark-mode #statsJerarquia .cartera-kpi--asig .fs-4,
+html.dark-mode #statsJerarquia .cartera-kpi--cobr .fs-4,
+html.dark-mode #statsJerarquia .cartera-kpi--pend .fs-4,
+html.dark-mode #statsJerarquia .cartera-kpi--efic .fs-4,
+body.dark-mode #statsJerarquia .cartera-kpi--asig span,
+body.dark-mode #statsJerarquia .cartera-kpi--cobr span,
+body.dark-mode #statsJerarquia .cartera-kpi--pend span,
+body.dark-mode #statsJerarquia .cartera-kpi--efic span,
+body.dark-mode #statsJerarquia .cartera-kpi--asig .fs-4,
+body.dark-mode #statsJerarquia .cartera-kpi--cobr .fs-4,
+body.dark-mode #statsJerarquia .cartera-kpi--pend .fs-4,
+body.dark-mode #statsJerarquia .cartera-kpi--efic .fs-4 {
+    color: #e2e8f0 !important;
+}
+
+/* Badges: id crédito, cinta “Zonal”, y “N créditos” */
+html.dark-mode #statsJerarquia .cartera-jer-id-pill,
+html.dark-mode #statsJerarquia .cartera-jer-zonal-ribbon,
+body.dark-mode #statsJerarquia .cartera-jer-id-pill,
+body.dark-mode #statsJerarquia .cartera-jer-zonal-ribbon {
+    background-color: #1e3a5f !important;
+    color: #7dd3fc !important;
+}
+
+html.dark-mode #statsJerarquia .cartera-jer-cred-pill,
+body.dark-mode #statsJerarquia .cartera-jer-cred-pill {
+    background-color: #334155 !important;
+    color: #e2e8f0 !important;
+    border-color: #475569 !important;
+}
+
+/* Listado “Ver clientes”: Pagado / Pendiente */
+html.dark-mode #statsJerarquia .cartera-jer-etalq--cob,
+body.dark-mode #statsJerarquia .cartera-jer-etalq--cob {
+    background: rgba(46, 125, 50, 0.4) !important;
+    color: #86efac !important;
+    border: 1px solid rgba(74, 222, 128, 0.45) !important;
+}
+
+html.dark-mode #statsJerarquia .cartera-jer-etalq--pend,
+body.dark-mode #statsJerarquia .cartera-jer-etalq--pend {
+    background: rgba(230, 81, 0, 0.28) !important;
+    color: #fdba74 !important;
+    border: 1px solid rgba(251, 146, 60, 0.45) !important;
+}
+
+/* “Ver clientes” (button.btn-link) */
+html.dark-mode #statsJerarquia .btn-link[style*="#185FA5"],
+html.dark-mode #statsJerarquia button.btn-link,
+body.dark-mode #statsJerarquia .btn-link[style*="#185FA5"],
+body.dark-mode #statsJerarquia button.btn-link {
+    color: #7dd3fc !important;
+}
+
+/* Contador circular: anillo gris de fondo legible */
+html.dark-mode #statsJerarquia svg circle:first-of-type,
+body.dark-mode #statsJerarquia svg circle:first-of-type {
+    stroke: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ── Jerarquía: iconos dictamen teléfono / campo (sprite, modo claro + oscuro) ── */
+#statsJerarquia .cartera-jer-gest-wrap {
+    gap: 0.65rem !important;
+    vertical-align: middle;
+}
+#statsJerarquia .cartera-jer-gest-metric {
+    gap: 0.35rem !important;
+}
+#statsJerarquia .cartera-jer-gest-ico {
+    display: inline-block;
+    width: 1.75rem;
+    height: 1.75rem;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
+    flex-shrink: 0;
+    vertical-align: middle;
+    border-radius: 0.3rem;
+    background-image: url("/assets/img/gestion_iconos_tel_campo.png");
+    background-repeat: no-repeat;
+    background-size: 100% 200%;
+    background-color: #e8ecf2;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+#statsJerarquia .cartera-jer-gest-ico--tel {
+    background-position: 0 0;
+}
+#statsJerarquia .cartera-jer-gest-ico--camp {
+    background-position: 0 100%;
+}
+#statsJerarquia .cartera-jer-gest-num {
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+}
+
+html.dark-mode #statsJerarquia .cartera-jer-gest-ico,
+html.dark-mode #statsJerarquia span[style*="gestion_iconos_tel_campo"],
+body.dark-mode #statsJerarquia .cartera-jer-gest-ico,
+body.dark-mode #statsJerarquia span[style*="gestion_iconos_tel_campo"] {
+    background-color: #1e293b !important;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.5) !important;
+    border-radius: 0.3rem;
+    filter: saturate(1.2) brightness(1.1) contrast(1.06);
+}

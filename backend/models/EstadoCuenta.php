@@ -807,6 +807,159 @@ class EstadoCuenta extends Model
         }
     }
 
+    /**
+     * Construye rango lunes–domingo (CDMX) para la semana calendario actual.
+     *
+     * @return array{inicio: string, fin: string, lunes: string, domingo: string}
+     */
+    public static function rangoSemanaCalendarioCDMX(?\DateTimeInterface $ref = null): array
+    {
+        $tz    = new \DateTimeZone('America/Mexico_City');
+        $ahora = $ref
+            ? \DateTimeImmutable::createFromInterface($ref)->setTimezone($tz)
+            : new \DateTimeImmutable('now', $tz);
+        $dow  = (int) $ahora->format('N');
+        $lun  = $ahora->modify('-' . ($dow - 1) . ' days');
+        $dom  = $lun->modify('+6 days');
+        $ini  = $lun->format('Y-m-d');
+        $fin  = $dom->format('Y-m-d');
+
+        return ['inicio' => $ini, 'fin' => $fin, 'lunes' => $ini, 'domingo' => $fin];
+    }
+
+    /**
+     * Cuenta dictámenes por `dictamen_llamada.id_credito` (id de persona / cliente) en rango;
+     * «Campo» si el catálogo de tipo contiene "campo"; el resto cuenta como telefónica.
+     *
+     * @param list<int> $idsPersona
+     * @return array<int, array{telefonicas: int, campo: int, total: int}>
+     */
+    public static function contarGestionesDictamenPorPersonaIdsSemana(array $idsPersona, string $fechaInicio, string $fechaFin): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsPersona), static fn (int $x) => $x > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $out = [];
+        try {
+            $db = new Database();
+            foreach (array_chunk($ids, 450) as $chunk) {
+                $in = implode(',', $chunk);
+                $sql = "
+                SELECT
+                    dl.id_credito AS id_persona,
+                    COUNT(*) AS total,
+                    SUM(
+                        CASE
+                            WHEN LOWER(COALESCE(tc.nombre, '')) LIKE '%campo%'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS n_campo
+                FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+                LEFT JOIN cat_tipo_contacto tc ON tc.id = dl.tipo_contacto_id
+                WHERE DATE(dl.fecha_gestion) BETWEEN :fecha_inicio AND :fecha_fin
+                  AND dl.id_credito IN ({$in})
+                GROUP BY dl.id_credito
+                ";
+                $rows = $db->queryAll($sql, [
+                    'fecha_inicio' => $fechaInicio,
+                    'fecha_fin'    => $fechaFin,
+                ]);
+                if (!is_array($rows)) {
+                    continue;
+                }
+                foreach ($rows as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $idp = (int) ($row['id_persona'] ?? 0);
+                    if ($idp < 1) {
+                        continue;
+                    }
+                    $t   = (int) ($row['total'] ?? 0);
+                    $c   = (int) ($row['n_campo'] ?? 0);
+                    $out[$idp] = [
+                        'telefonicas' => max(0, $t - $c),
+                        'campo'      => $c,
+                        'total'      => $t,
+                    ];
+                }
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            error_log('EstadoCuenta::contarGestionesDictamenPorPersonaIdsSemana: ' . $e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Mapa `Id_crédito` mostrado en el segundómetro → { telefonicas, campo }.
+     * En el dictamen, `id_credito` almacena el id de **persona**; se toma de `Id_cliente` (si falta, se usa el mismo id de crédito de la fila).
+     *
+     * @param list<array<string, mixed>> $rowsSegundometro
+     * @return array<string, array{telefonicas: int, campo: int}>
+     */
+    public static function mapaGestionesDictamenPorIdCreditoSegundometro(
+        array $rowsSegundometro,
+        string $fechaInicio,
+        string $fechaFin
+    ): array {
+        $idsPersona = [];
+        foreach ($rowsSegundometro as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $lc  = array_change_key_case($row, CASE_LOWER);
+            $icS = trim((string) ($lc['id_credito'] ?? ''));
+            if ($icS === '') {
+                continue;
+            }
+            $idc = (int) ($lc['id_cliente'] ?? 0);
+            if ($idc < 1) {
+                $idc = (int) $lc['id_credito'];
+            }
+            if ($idc > 0) {
+                $idsPersona[] = $idc;
+            }
+        }
+        if ($idsPersona === []) {
+            return [];
+        }
+        $conteo = self::contarGestionesDictamenPorPersonaIdsSemana($idsPersona, $fechaInicio, $fechaFin);
+        if (!is_array($conteo)) {
+            $conteo = [];
+        }
+        $out = [];
+        foreach ($rowsSegundometro as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $lc  = array_change_key_case($row, CASE_LOWER);
+            $icS = trim((string) ($lc['id_credito'] ?? ''));
+            if ($icS === '') {
+                continue;
+            }
+            $idc = (int) ($lc['id_cliente'] ?? 0);
+            if ($idc < 1) {
+                $idc = (int) $lc['id_credito'];
+            }
+            $c = $idc > 0 && isset($conteo[$idc]) ? $conteo[$idc] : null;
+            if ($c !== null) {
+                $out[$icS] = [
+                    'telefonicas' => (int) $c['telefonicas'],
+                    'campo'      => (int) $c['campo'],
+                ];
+            } else {
+                $out[$icS] = ['telefonicas' => 0, 'campo' => 0];
+            }
+        }
+
+        return $out;
+    }
+
     public static function obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin)
 {
     try {
