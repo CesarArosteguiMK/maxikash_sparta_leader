@@ -2135,9 +2135,21 @@ class Reporteria extends Controller
                     ? (Array.isArray(PRIMEROS_PAGOS_COLS) ? PRIMEROS_PAGOS_COLS : []).map(c => ({
                         data: c.key,
                         defaultContent: '—',
-                        className: (c.key === 'monto' || c.key === 'cuota') ? 'text-end text-nowrap' : 'text-nowrap',
+                        className: (c.key === 'monto' || c.key === 'cuota')
+                            ? 'text-end text-nowrap'
+                            : (c.key === 'fecha_ultimo_pago_efectivo' ? 'text-center text-nowrap' : 'text-nowrap'),
                         render: function (data) {
                             if (data === null || data === undefined || data === '') return '—';
+                            if (c.key === 'fecha_ultimo_pago_efectivo') {
+                                const s = String(data).trim();
+                                const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                                if (m) {
+                                    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+                                    if (!Number.isNaN(d.getTime())) {
+                                        return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+                                    }
+                                }
+                            }
                             return String(data);
                         },
                     }))
@@ -2215,6 +2227,61 @@ class Reporteria extends Controller
                 if (elCo) elCo.textContent = co;
             }
 
+            function renderPagoPorDiaUltimoEfectivo(data) {
+                const host = document.getElementById('statsPagoPorDia');
+                if (!host || !VISTA_SIMPLE) return;
+                const arr = Array.isArray(data) ? data : [];
+                const total = arr.length || 0;
+                const cnt = { jue: 0, vie: 0, sab: 0, dom: 0, lun: 0 };
+                const parseFechaPago = (raw) => {
+                    if (raw == null || raw === '') return null;
+                    const s = String(raw).trim();
+                    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (!m) {
+                        const d0 = new Date(s);
+                        return Number.isNaN(d0.getTime()) ? null : d0;
+                    }
+                    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+                    return Number.isNaN(d.getTime()) ? null : d;
+                };
+                arr.forEach((r) => {
+                    const d = parseFechaPago(r.fecha_ultimo_pago_efectivo);
+                    if (!d) return;
+                    const dow = d.getDay();
+                    if (dow === 4) cnt.jue++;
+                    else if (dow === 5) cnt.vie++;
+                    else if (dow === 6) cnt.sab++;
+                    else if (dow === 0) cnt.dom++;
+                    else if (dow === 1) cnt.lun++;
+                });
+                const pct = (n) => (total ? Math.round((Number(n) / total) * 100) : 0);
+                const meta = [
+                    { k: 'jue', label: 'Pago Jueves', cls: 'bg-label-info', icon: 'fa-calendar-day' },
+                    { k: 'vie', label: 'Pago Viernes', cls: 'bg-label-primary', icon: 'fa-calendar-day' },
+                    { k: 'sab', label: 'Pago Sábado', cls: 'bg-label-success', icon: 'fa-calendar-day' },
+                    { k: 'dom', label: 'Pago Domingo', cls: 'bg-label-warning', icon: 'fa-calendar-day' },
+                    { k: 'lun', label: 'Pago Lunes', cls: 'bg-label-secondary', icon: 'fa-calendar-day' },
+                ];
+                const fsCard = { bd: '.65rem', num: '1.35rem', pct: '1.02rem', ft: '.6rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
+                host.innerHTML = meta.map((m) => {
+                    const n = cnt[m.k] || 0;
+                    return `
+                    <div class="col">
+                        <div class="card text-center h-100 border-0 shadow-sm">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
+                                    <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.label}
+                                </div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">
+                                    ${fmtInt(n)}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pct(n)}%)</span>
+                                </div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">registros</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
             function renderStats(data) {
                 if (VISTA_SIMPLE) {
                     const totalRegs = Number.isFinite(_totalEnTabla) ? _totalEnTabla : (_data.length || 0);
@@ -2223,6 +2290,7 @@ class Reporteria extends Controller
                         const n = Number(totalRegs);
                         elNac.textContent = Number.isFinite(n) ? n.toLocaleString('es-MX') : '—';
                     }
+                    renderPagoPorDiaUltimoEfectivo(data);
                     const elJer = document.getElementById('statsJerarquia');
                     if (elJer) elJer.innerHTML = '';
                     const elCorte = document.getElementById('statsCorte');

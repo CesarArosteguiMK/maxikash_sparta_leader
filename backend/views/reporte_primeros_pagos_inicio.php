@@ -118,12 +118,12 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start align-self-start mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--cobranza" aria-hidden="true">
                                     <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                                        <rect x="8" y="6" width="48" height="44" rx="4" ry="4"/>
-                                        <path d="M8 18h48M20 6v8M44 6v8"/>
-                                        <path d="M22 32l6 6 14-14"/>
+                                        <rect x="8" y="8" width="48" height="42" rx="4" ry="4"/>
+                                        <path d="M8 20h48M20 8v8M44 8v8"/>
+                                        <path d="M22 33l6 6 14-14"/>
                                     </svg>
                                     </span>
                                 </div>
@@ -149,13 +149,13 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         </a>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start align-self-start mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--cartera" aria-hidden="true">
                                     <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                                        <rect x="14" y="28" width="36" height="22" rx="2.5" ry="2.5"/>
-                                        <path d="M22 28V22h20v6"/>
-                                        <path d="M24 22V17h16v5"/>
-                                        <path d="M28 40h8"/>
+                                        <rect x="8" y="24" width="48" height="26" rx="3" ry="3"/>
+                                        <path d="M18 24v-8h28v8"/>
+                                        <path d="M24 16V8h16v8"/>
+                                        <path d="M27 38h10"/>
                                     </svg>
                                     </span>
                                 </div>
@@ -190,12 +190,12 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start align-self-start mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--proxima" aria-hidden="true">
                                     <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                                        <rect x="6" y="8" width="44" height="40" rx="4" ry="4"/>
-                                        <path d="M6 22h44M22 8v10M38 8v10"/>
-                                        <path d="M52 36l6 6-6 6M58 42H42"/>
+                                        <rect x="6" y="8" width="44" height="42" rx="4" ry="4"/>
+                                        <path d="M6 20h44M22 8v8M38 8v8"/>
+                                        <path d="M52 38l6 6-6 6M58 44H42"/>
                                     </svg>
                                     </span>
                                 </div>
@@ -221,12 +221,12 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         </a>
                                     </div>
                                 </div>
-                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-center mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
+                                <div class="w-100 app-academy-sm-40 d-flex justify-content-center justify-content-sm-end align-items-start align-self-start mb-4 mb-sm-0 flex-shrink-0 pp-landing-icon-slot">
                                     <span class="scaleX-n1-rtl pp-landing-icon-frame pp-landing-icon-frame--historico" aria-hidden="true">
                                     <svg class="pp-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                                        <circle cx="32" cy="34" r="18"/>
-                                        <path d="M32 22v10l8 5"/>
-                                        <path d="M14 14l8 8M50 14l-8 8"/>
+                                        <circle cx="32" cy="30" r="20"/>
+                                        <path d="M32 18v12l9 5"/>
+                                        <path d="M12 8l9 9M52 8l-9 9"/>
                                     </svg>
                                     </span>
                                 </div>
@@ -242,9 +242,17 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 </div>
 <style>
 .pp-icon-svg { stroke: url(#pp-icon-gradient); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-/* Cuadrado fijo + escala óptica: el trazo no llena igual el viewBox 64×64 en cada SVG */
+/*
+ * Iconos: mismo borde superior en todas las tarjetas. No se centran en vertical
+ * porque cada card puede tener distinta altura. Cuadrado fijo + escala unica.
+ */
 #pp-landing .pp-landing-icon-slot {
-    min-height: 7.5rem;
+    min-height: 0;
+}
+@media (min-width: 576px) {
+    #pp-landing .pp-landing-card-body > .pp-landing-icon-slot {
+        padding-top: 0.15rem;
+    }
 }
 #pp-landing .pp-landing-icon-frame {
     width: 7.5rem;
@@ -264,19 +272,12 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     max-height: 100%;
     display: block;
     box-sizing: border-box;
+    transform: scale(1.1);
+    transform-origin: center center;
 }
-#pp-landing .pp-landing-icon-frame--cartera .pp-icon-svg {
-    transform: scale(1.46);
-    transform-origin: 50% 52%;
-}
+#pp-landing .pp-landing-icon-frame--cartera .pp-icon-svg,
 #pp-landing .pp-landing-icon-frame--historico .pp-icon-svg {
-    transform: scale(1.12);
-    transform-origin: center center;
-}
-#pp-landing .pp-landing-icon-frame--cobranza .pp-icon-svg,
-#pp-landing .pp-landing-icon-frame--proxima .pp-icon-svg {
-    transform: scale(1.02);
-    transform-origin: center center;
+    transform: translateY(-0.45rem) scale(1.1);
 }
 .pp-primeros-pagos-page,
 #pp-landing.pp-primeros-pagos-page {
