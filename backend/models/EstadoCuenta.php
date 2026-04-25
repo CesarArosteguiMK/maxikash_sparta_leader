@@ -9,6 +9,7 @@ use Core\UsuarioFantasmaReporteria;
 use Core\DatabaseAWS;
 use Core\DatabaseMaxiGuat;
 use Models\Empresa as EmpresasDAO;
+use Models\Gestiones;
 
 class EstadoCuenta extends Model
 {
@@ -805,6 +806,254 @@ class EstadoCuenta extends Model
             error_log("Error en buscarReporteDictamen: " . $e->getMessage());
             return self::resultado(false, 'Error al obtener reportes', [], $e->getMessage());
         }
+    }
+
+    /**
+     * Construye rango lunes–domingo (CDMX) para la semana calendario actual.
+     *
+     * @return array{inicio: string, fin: string, lunes: string, domingo: string}
+     */
+    public static function rangoSemanaCalendarioCDMX(?\DateTimeInterface $ref = null): array
+    {
+        $tz    = new \DateTimeZone('America/Mexico_City');
+        $ahora = $ref
+            ? \DateTimeImmutable::createFromInterface($ref)->setTimezone($tz)
+            : new \DateTimeImmutable('now', $tz);
+        $dow  = (int) $ahora->format('N');
+        $lun  = $ahora->modify('-' . ($dow - 1) . ' days');
+        $dom  = $lun->modify('+6 days');
+        $ini  = $lun->format('Y-m-d');
+        $fin  = $dom->format('Y-m-d');
+
+        return ['inicio' => $ini, 'fin' => $fin, 'lunes' => $ini, 'domingo' => $fin];
+    }
+
+    /**
+     * Cuenta dictámenes por `dictamen_llamada.id_credito` en rango (el valor guardado puede ser id de persona
+     * o id de crédito/oferta según el flujo que insertó el registro).
+     * «Campo» si tipo de contacto o plataforma contiene "campo"; el resto cuenta como telefónica.
+     *
+     * @param list<int> $idsPersona u otros ids tal cual aparecen en `dictamen_llamada.id_credito`
+     * @return array<int, array{telefonicas: int, campo: int, total: int}>
+     */
+    public static function contarGestionesDictamenPorPersonaIdsSemana(array $idsPersona, string $fechaInicio, string $fechaFin): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsPersona), static fn (int $x) => $x > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $out = [];
+        try {
+            $db = new Database();
+            foreach (array_chunk($ids, 450) as $chunk) {
+                $in = implode(',', $chunk);
+                $sql = "
+                SELECT
+                    dl.id_credito AS id_persona,
+                    COUNT(*) AS total,
+                    SUM(
+                        CASE
+                            WHEN LOWER(COALESCE(tc.nombre, '')) LIKE '%campo%'
+                              OR LOWER(COALESCE(cp.nombre, '')) LIKE '%campo%'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS n_campo
+                FROM __SPARTA_SECRET_REDACTED__.dictamen_llamada dl
+                LEFT JOIN cat_tipo_contacto tc ON tc.id = dl.tipo_contacto_id
+                LEFT JOIN cat_plataforma cp ON cp.id = dl.plataforma_id
+                WHERE DATE(dl.fecha_gestion) BETWEEN :fecha_inicio AND :fecha_fin
+                  AND dl.id_credito IN ({$in})
+                GROUP BY dl.id_credito
+                ";
+                $rows = $db->queryAll($sql, [
+                    'fecha_inicio' => $fechaInicio,
+                    'fecha_fin'    => $fechaFin,
+                ]);
+                if (!is_array($rows)) {
+                    continue;
+                }
+                foreach ($rows as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $idp = (int) ($row['id_persona'] ?? 0);
+                    if ($idp < 1) {
+                        continue;
+                    }
+                    $t   = (int) ($row['total'] ?? 0);
+                    $c   = (int) ($row['n_campo'] ?? 0);
+                    $out[$idp] = [
+                        'telefonicas' => max(0, $t - $c),
+                        'campo'      => $c,
+                        'total'      => $t,
+                    ];
+                }
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            error_log('EstadoCuenta::contarGestionesDictamenPorPersonaIdsSemana: ' . $e->getMessage());
+
+            return [];
+        }
+    }
+
+    /**
+     * Resuelve titular (fk_persona) en __SPARTA_SECRET_REDACTED__ a partir del id de oferta / Id_credito del segundómetro.
+     * El dictamen usa id de persona; Id_credito del segundómetro es id_oferta, no persona.
+     *
+     * @param list<int> $idsOferta
+     * @return array<int, int> id_oferta => fk_persona
+     */
+    private static function mapaFkPersonaPorIdsOferta(array $idsOferta): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsOferta), static fn (int $x) => $x > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $out = [];
+        try {
+            $db = new \core\DatabaseMaxiProd();
+            foreach (array_chunk($ids, 450) as $chunk) {
+                $in  = implode(',', $chunk);
+                $sql = "
+                    SELECT id_oferta, fk_persona
+                    FROM oferta
+                    WHERE id_oferta IN ({$in})
+                      AND fk_persona IS NOT NULL
+                      AND CAST(fk_persona AS SIGNED) > 0
+                ";
+                $rows = $db->queryAll($sql, []);
+                if (!is_array($rows)) {
+                    continue;
+                }
+                foreach ($rows as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $ido = (int) ($row['id_oferta'] ?? 0);
+                    $fkp = (int) ($row['fk_persona'] ?? 0);
+                    if ($ido > 0 && $fkp > 0) {
+                        $out[$ido] = $fkp;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('EstadoCuenta::mapaFkPersonaPorIdsOferta: ' . $e->getMessage());
+        }
+
+        return $out;
+    }
+
+    /**
+     * Mapa `Id_crédito` mostrado en el segundómetro → { telefonicas, campo }.
+     * Fuentes: (1) `dictamen_llamada` (Call Center) por id persona/oferta; (2) Legacy Maxikash (dictums);
+     * (3) Sky `base_clientes`. Misma semana calendario (fechas indicadas). Alineado con el listado «Detalle por cliente».
+     *
+     * @param list<array<string, mixed>> $rowsSegundometro
+     * @return array<string, array{telefonicas: int, campo: int}>
+     */
+    public static function mapaGestionesDictamenPorIdCreditoSegundometro(
+        array $rowsSegundometro,
+        string $fechaInicio,
+        string $fechaFin,
+        bool $incluirHistorico = false
+    ): array {
+        $idsOfertaSinCliente = [];
+        foreach ($rowsSegundometro as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $lc = array_change_key_case($row, CASE_LOWER);
+            $ic = (int) ($lc['id_credito'] ?? 0);
+            if ($ic < 1) {
+                continue;
+            }
+            if ((int) ($lc['id_cliente'] ?? 0) < 1) {
+                $idsOfertaSinCliente[] = $ic;
+            }
+        }
+        $mapOfertaPersona = self::mapaFkPersonaPorIdsOferta($idsOfertaSinCliente);
+
+        $idsParaDictamen = [];
+        foreach ($rowsSegundometro as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $lc    = array_change_key_case($row, CASE_LOWER);
+            $icNum = (int) ($lc['id_credito'] ?? 0);
+            if ($icNum > 0) {
+                $idsParaDictamen[] = $icNum;
+            }
+            $idc = (int) ($lc['id_cliente'] ?? 0);
+            if ($idc > 0) {
+                $idsParaDictamen[] = $idc;
+            } elseif ($icNum > 0) {
+                $fp = (int) ($mapOfertaPersona[$icNum] ?? 0);
+                if ($fp > 0) {
+                    $idsParaDictamen[] = $fp;
+                }
+            }
+        }
+        $conteo = $idsParaDictamen !== []
+            ? self::contarGestionesDictamenPorPersonaIdsSemana($idsParaDictamen, $fechaInicio, $fechaFin)
+            : [];
+        if (!is_array($conteo)) {
+            $conteo = [];
+        }
+        $out = [];
+        foreach ($rowsSegundometro as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $lc  = array_change_key_case($row, CASE_LOWER);
+            $icS = trim((string) ($lc['id_credito'] ?? ''));
+            if ($icS === '') {
+                continue;
+            }
+            $icNum = (int) $lc['id_credito'];
+            $idc   = (int) ($lc['id_cliente'] ?? 0);
+            if ($idc < 1) {
+                $idc = $icNum > 0 ? (int) ($mapOfertaPersona[$icNum] ?? 0) : 0;
+            }
+            $tel = 0;
+            $cam = 0;
+            if ($idc > 0 && isset($conteo[$idc])) {
+                $tel += (int) $conteo[$idc]['telefonicas'];
+                $cam += (int) $conteo[$idc]['campo'];
+            }
+            if ($icNum > 0 && $icNum !== $idc && isset($conteo[$icNum])) {
+                $tel += (int) $conteo[$icNum]['telefonicas'];
+                $cam += (int) $conteo[$icNum]['campo'];
+            }
+            $out[$icS] = ['telefonicas' => $tel, 'campo' => $cam];
+        }
+
+        $idsLoan = [];
+        foreach (array_keys($out) as $k) {
+            $ks = trim((string) $k);
+            if ($ks !== '' && ctype_digit($ks)) {
+                $idsLoan[] = (int) $ks;
+            }
+        }
+        if ($incluirHistorico && $idsLoan !== []) {
+            $mapLeg = Gestiones::contarGestionesLegacyCampoTelPorCreditoRango($idsLoan, $fechaInicio, $fechaFin);
+            $mapSky = Gestiones::contarGestionesSkyCampoTelPorCreditoRango($idsLoan, $fechaInicio, $fechaFin);
+            foreach ($out as $icS => &$fila) {
+                $loan = (int) trim((string) $icS);
+                if ($loan < 1) {
+                    continue;
+                }
+                $fila['telefonicas'] += (int) ($mapLeg[$loan]['telefonicas'] ?? 0)
+                    + (int) ($mapSky[$loan]['telefonicas'] ?? 0);
+                $fila['campo'] += (int) ($mapLeg[$loan]['campo'] ?? 0)
+                    + (int) ($mapSky[$loan]['campo'] ?? 0);
+            }
+            unset($fila);
+        }
+
+        return $out;
     }
 
     public static function obtenerReportesDictamenPorFecha($fechaInicio, $fechaFin)

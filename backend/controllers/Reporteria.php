@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\EstadoCuenta as EstadoCuentaDAO;
 use Models\Empresa as EmpresasDAO;
 use Models\PrimerosPagosHistoricoSegundometro;
 use Models\SegundometroComparativaSemanal;
@@ -1955,7 +1956,10 @@ class Reporteria extends Controller
             const BUCKET_ORDER  = BUCKET_ORDER_CORTE;
             const BUCKET_NAC_TOP = MODO_CARTERA ? [...BUCKET_ORDER_NAC] : ['a) Current', 'b) 1 a 7 dias'];
 
-            /** Alinea textos de bucket desde BD (acentos, alias) a las claves de BUCKET_META. */
+            /**
+             * Alinea textos de bucket desde `Bucket_Morosidad_Real` y `Cierre_Actual` (__SPARTA_SECRET_REDACTED__)
+             * a las claves f/g/h usadas en cards Cartera. El segundómetro a veces usa a–d, e) 22a29/30, etc.
+             */
             function canonBucket(v) {
                 if (v === null || v === undefined) return '';
                 let s = String(v).trim();
@@ -1968,14 +1972,97 @@ class Reporteria extends Controller
                     'c) 8 a 30 días': 'c) 8 a 30 dias',
                     'd) 31 a 60 días': 'd) 31 a 60 dias',
                     'e) 61+ días': 'e) 61+ dias',
+                    /* Indicadores: c) / d) → franjas Cartera f) / g) */
+                    'c) 8 a 14 dias': 'f) 8 a 14 dias',
+                    'c) 8 a 14 días': 'f) 8 a 14 dias',
+                    'd) 15 a 21 dias': 'g) 15 a 21 dias',
+                    'd) 15 a 21 días': 'g) 15 a 21 dias',
+                    'f) 8 a 14 días': 'f) 8 a 14 dias',
+                    'g) 15 a 21 días': 'g) 15 a 21 dias',
+                    /* Cola 22+ en BD con distintas etiquetas → h) 22+ dias (matriz buckets / ETL) */
+                    'e) 22+ dias': 'h) 22+ dias',
+                    'e) 22+ días': 'h) 22+ dias',
+                    'e) 22 a 29 dias': 'h) 22+ dias',
+                    'e) 22 a 29 días': 'h) 22+ dias',
+                    'e) 22 a 30 dias': 'h) 22+ dias',
+                    'e) 22 a 30 días': 'h) 22+ dias',
+                    'h) 22+ días': 'h) 22+ dias',
                 };
                 if (mapa[s]) return mapa[s];
                 if (BUCKET_META[s]) return s;
                 return s;
             }
 
-            function severidadNac(v) {
-                const k = canonBucket(v);
+            /**
+             * Cartera: 5 tramos. Segundómetro trae a veces c)8-30, d)31-60, e)61+ (Lunes) →
+             * van todos a h) 22+ (lunesAnchoCarteraH22). Otras claves f/g no reconocidas →
+             * reclasificar por días (Bucket + dias_mora_* / Cierre_Actual).
+             */
+            function bucketCarteraDesdeDias(d) {
+                const n = Math.max(0, Math.floor(Number(d)));
+                if (n === 0) return 'a) Current';
+                if (n <= 7) return 'b) 1 a 7 dias';
+                if (n <= 14) return 'f) 8 a 14 dias';
+                if (n <= 21) return 'g) 15 a 21 dias';
+                return 'h) 22+ dias';
+            }
+            /**
+             * Tramos «anchos» del esquema Lunes (c/d/e) en Cartera van todos a la card h) 22+,
+             * no a f/g por días de mora.
+             */
+            const BUCKET_LUNES_ANCHO_A_CARTERA_H22 = {
+                'c) 8 a 30 dias': 'h) 22+ dias',
+                'd) 31 a 60 dias': 'h) 22+ dias',
+                'e) 61+ dias': 'h) 22+ dias',
+            };
+            function lunesAnchoCarteraH22(k) {
+                if (!k) return null;
+                return BUCKET_LUNES_ANCHO_A_CARTERA_H22[k] || null;
+            }
+            /** Números enteros con separador de miles (p. ej. 44,452) */
+            function fmtInt(n) {
+                const x = Number(n);
+                return Number.isFinite(x) ? x.toLocaleString('es-MX') : '—';
+            }
+            function getDiasMoraNac(r) {
+                if (!r || typeof r !== 'object') return NaN;
+                const v = r.dias_mora_nacimiento ?? r.Dias_mora_nacimiento
+                    ?? r.dias_mora_ajustado ?? r.Dias_mora_ajustado
+                    ?? r.dias_mora ?? r.Dias_mora;
+                if (v === null || v === undefined || v === '') return NaN;
+                const x = Number(v);
+                return Number.isFinite(x) ? x : NaN;
+            }
+            function getDiasMoraCorte(r) {
+                if (!r || typeof r !== 'object') return NaN;
+                const v = r.dias_mora_corte ?? r.Dias_mora_corte;
+                if (v === null || v === undefined || v === '') return NaN;
+                const x = Number(v);
+                return Number.isFinite(x) ? x : NaN;
+            }
+            function nacKeyCartera(r) {
+                if (!MODO_CARTERA) return canonBucket(r.bucket_nacio);
+                const k0 = canonBucket(r.bucket_nacio);
+                const aH = lunesAnchoCarteraH22(k0);
+                if (aH) return aH;
+                if (k0 && BUCKET_ORDER_NAC.indexOf(k0) >= 0) return k0;
+                const dm = getDiasMoraNac(r);
+                if (Number.isFinite(dm) && dm >= 0) return bucketCarteraDesdeDias(dm);
+                return k0 || '';
+            }
+            function corteKeyCartera(r) {
+                if (!MODO_CARTERA) return canonBucket(r.bucket_corte_actual);
+                const k0 = canonBucket(r.bucket_corte_actual);
+                const aH = lunesAnchoCarteraH22(k0);
+                if (aH) return aH;
+                if (k0 && BUCKET_ORDER_CORTE.indexOf(k0) >= 0) return k0;
+                const dm = getDiasMoraCorte(r);
+                if (Number.isFinite(dm) && dm >= 0) return bucketCarteraDesdeDias(dm);
+                return k0 || '';
+            }
+
+            function severidadNacKey(k) {
+                if (!k) return -1;
                 if (MODO_CARTERA) {
                     const m = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'f) 8 a 14 dias': 2, 'g) 15 a 21 dias': 3, 'h) 22+ dias': 4 };
                     return m[k] !== undefined ? m[k] : -1;
@@ -1983,14 +2070,20 @@ class Reporteria extends Controller
                 const m2 = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'c) 8 a 30 dias': 2, 'd) 31 a 60 dias': 3, 'e) 61+ dias': 4 };
                 return m2[k] !== undefined ? m2[k] : -1;
             }
-            function severidadCorte(v) {
-                const k = canonBucket(v);
+            function severidadCorteKey(k) {
+                if (!k) return -1;
                 if (MODO_CARTERA) {
                     const mC = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'f) 8 a 14 dias': 2, 'g) 15 a 21 dias': 3, 'h) 22+ dias': 4 };
                     return mC[k] !== undefined ? mC[k] : -1;
                 }
                 const m2 = { 'a) Current': 0, 'b) 1 a 7 dias': 1, 'c) 8 a 30 dias': 2, 'd) 31 a 60 dias': 3, 'e) 61+ dias': 4 };
                 return m2[k] !== undefined ? m2[k] : -1;
+            }
+            function severidadNac(v) {
+                return severidadNacKey(canonBucket(v));
+            }
+            function severidadCorte(v) {
+                return severidadCorteKey(canonBucket(v));
             }
 
             function badgeBucket(val, small = false) {
@@ -2026,19 +2119,37 @@ class Reporteria extends Controller
             let dtVenc       = null;
             let _corteActual = '';
             let _totalEnTabla = 0;
+            /** dictamen: telef / campo en la semana (CDMX), clave = Id_crédito segundómetro; solo MODO_CARTERA */
+            let _gestionesPorIdCredito = {};
 
-            /* ── DataTable ── */
+            /* ── DataTable ──
+               Cartera: ~toda la cartera en memoria; no destruir/recrear al filtrar (muy lento)
+               y deferRender: solo se pinta el DOM de la página visible. */
             function initDT() {
-                if ($.fn.DataTable.isDataTable('#tablaVencimientos'))
-                    $('#tablaVencimientos').DataTable().destroy();
+                if ($.fn.DataTable.isDataTable('#tablaVencimientos')) {
+                    dtVenc = $('#tablaVencimientos').DataTable();
+                    return;
+                }
 
                 const cols = VISTA_SIMPLE
                     ? (Array.isArray(PRIMEROS_PAGOS_COLS) ? PRIMEROS_PAGOS_COLS : []).map(c => ({
                         data: c.key,
                         defaultContent: '—',
-                        className: (c.key === 'monto' || c.key === 'cuota') ? 'text-end text-nowrap' : 'text-nowrap',
+                        className: (c.key === 'monto' || c.key === 'cuota')
+                            ? 'text-end text-nowrap'
+                            : (c.key === 'fecha_ultimo_pago_efectivo' ? 'text-center text-nowrap' : 'text-nowrap'),
                         render: function (data) {
                             if (data === null || data === undefined || data === '') return '—';
+                            if (c.key === 'fecha_ultimo_pago_efectivo') {
+                                const s = String(data).trim();
+                                const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                                if (m) {
+                                    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+                                    if (!Number.isNaN(d.getTime())) {
+                                        return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+                                    }
+                                }
+                            }
                             return String(data);
                         },
                     }))
@@ -2049,16 +2160,30 @@ class Reporteria extends Controller
                         { data:'corte',     className:'text-center', width:'160px' },
                     ];
 
-                dtVenc = $('#tablaVencimientos').DataTable({
-                    processing: true, responsive: true, scrollX: VISTA_SIMPLE, pageLength: VISTA_SIMPLE ? 10 : 5,
-                    /* Lunes de cierre: sin caja "Buscar..." de DataTables (búsqueda queda en Filtros → fBusq) */
+                const dtBase = {
+                    processing: true,
+                    deferRender: true,
+                    orderClasses: false,
+                    /* En Cartera ~70k filas, Responsive añade coste sin aportar mucho. */
+                    responsive: VISTA_SIMPLE,
+                    scrollX: VISTA_SIMPLE,
+                    pageLength: VISTA_SIMPLE ? 10 : 5,
                     searching: VISTA_SIMPLE,
                     lengthMenu: VISTA_SIMPLE
                         ? [[10, 25, 50, -1], [10, 25, 50, 'Todos']]
                         : [[5, 10, 25, -1], [5, 10, 25, 'Todos']],
-                    order: [[0,'asc']], language: dtLang,
+                    /* Lunes de cierre: sin caja "Buscar..." de DataTables (búsqueda queda en Filtros → fBusq) */
+                    language: dtLang,
                     columns: cols,
-                });
+                };
+                if (MODO_CARTERA) {
+                    dtBase.ordering = false;
+                    dtBase.order = [];
+                } else {
+                    dtBase.order = [[0, 'asc']];
+                }
+
+                dtVenc = $('#tablaVencimientos').DataTable(dtBase);
             }
 
             /* ── Stats ── */
@@ -2068,9 +2193,9 @@ class Reporteria extends Controller
                 BUCKET_ORDER_NAC.forEach(b => { nacDist[b] = 0; });
                 BUCKET_ORDER_CORTE.forEach(b => { corteDist[b] = 0; });
                 data.forEach(r => {
-                    const bn = canonBucket(r.bucket_nacio);
+                    const bn = nacKeyCartera(r);
                     if (bn !== '' && nacDist[bn] !== undefined) nacDist[bn]++;
-                    const bc = canonBucket(r.bucket_corte_actual);
+                    const bc = corteKeyCartera(r);
                     if (bc !== '' && corteDist[bc] !== undefined) corteDist[bc]++;
                 });
 
@@ -2080,8 +2205,8 @@ class Reporteria extends Controller
                     BUCKET_ORDER_CORTE.forEach(c => { matriz[b][c] = 0; });
                 });
                 data.forEach(r => {
-                    const n = canonBucket(r.bucket_nacio);
-                    const c = canonBucket(r.bucket_corte_actual);
+                    const n = nacKeyCartera(r);
+                    const c = corteKeyCartera(r);
                     if (n && c && matriz[n] !== undefined && matriz[n][c] !== undefined) {
                         matriz[n][c] = (matriz[n][c] || 0) + 1;
                     }
@@ -2102,6 +2227,61 @@ class Reporteria extends Controller
                 if (elCo) elCo.textContent = co;
             }
 
+            function renderPagoPorDiaUltimoEfectivo(data) {
+                const host = document.getElementById('statsPagoPorDia');
+                if (!host || !VISTA_SIMPLE) return;
+                const arr = Array.isArray(data) ? data : [];
+                const total = arr.length || 0;
+                const cnt = { jue: 0, vie: 0, sab: 0, dom: 0, lun: 0 };
+                const parseFechaPago = (raw) => {
+                    if (raw == null || raw === '') return null;
+                    const s = String(raw).trim();
+                    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (!m) {
+                        const d0 = new Date(s);
+                        return Number.isNaN(d0.getTime()) ? null : d0;
+                    }
+                    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+                    return Number.isNaN(d.getTime()) ? null : d;
+                };
+                arr.forEach((r) => {
+                    const d = parseFechaPago(r.fecha_ultimo_pago_efectivo);
+                    if (!d) return;
+                    const dow = d.getDay();
+                    if (dow === 4) cnt.jue++;
+                    else if (dow === 5) cnt.vie++;
+                    else if (dow === 6) cnt.sab++;
+                    else if (dow === 0) cnt.dom++;
+                    else if (dow === 1) cnt.lun++;
+                });
+                const pct = (n) => (total ? Math.round((Number(n) / total) * 100) : 0);
+                const meta = [
+                    { k: 'jue', label: 'Pago Jueves', cls: 'bg-label-info', icon: 'fa-calendar-day' },
+                    { k: 'vie', label: 'Pago Viernes', cls: 'bg-label-primary', icon: 'fa-calendar-day' },
+                    { k: 'sab', label: 'Pago Sábado', cls: 'bg-label-success', icon: 'fa-calendar-day' },
+                    { k: 'dom', label: 'Pago Domingo', cls: 'bg-label-warning', icon: 'fa-calendar-day' },
+                    { k: 'lun', label: 'Pago Lunes', cls: 'bg-label-secondary', icon: 'fa-calendar-day' },
+                ];
+                const fsCard = { bd: '.65rem', num: '1.35rem', pct: '1.02rem', ft: '.6rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
+                host.innerHTML = meta.map((m) => {
+                    const n = cnt[m.k] || 0;
+                    return `
+                    <div class="col">
+                        <div class="card text-center h-100 border-0 shadow-sm">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
+                                    <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.label}
+                                </div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">
+                                    ${fmtInt(n)}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pct(n)}%)</span>
+                                </div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">registros</div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
             function renderStats(data) {
                 if (VISTA_SIMPLE) {
                     const totalRegs = Number.isFinite(_totalEnTabla) ? _totalEnTabla : (_data.length || 0);
@@ -2110,6 +2290,7 @@ class Reporteria extends Controller
                         const n = Number(totalRegs);
                         elNac.textContent = Number.isFinite(n) ? n.toLocaleString('es-MX') : '—';
                     }
+                    renderPagoPorDiaUltimoEfectivo(data);
                     const elJer = document.getElementById('statsJerarquia');
                     if (elJer) elJer.innerHTML = '';
                     const elCorte = document.getElementById('statsCorte');
@@ -2154,25 +2335,20 @@ class Reporteria extends Controller
                 const fsCard = MODO_CARTERA
                     ? { bd: '.58rem', num: '1.08rem', pct: '.78rem', ft: '.58rem', pad: 'py-2 px-2', bdgMb: 'mb-1' }
                     : { bd: '.65rem', num: '1.5rem', pct: '1.05rem', ft: '.65rem', pad: 'py-2 px-2', bdgMb: 'mb-1' };
-                /* Cartera: mini-cards de nacimiento un poco más bajas (más “apastadadas”) que las de corte */
-                const fsCardNac = MODO_CARTERA
-                    ? { bd: '.5rem', num: '1rem', pct: '.7rem', ft: '.5rem', pad: 'py-1 px-1', bdgMb: 'mb-0' }
-                    : fsCard;
                 const colMinCartera = MODO_CARTERA ? ' style="min-width:8.5rem"' : '';
                 const cardNacHtml = (b) => {
                     const m   = BUCKET_META[b] ?? {};
-                    const fsn = fsCardNac;
                     const cnt = nacDist[b] || 0;
-                    if (!cnt) return '';
+                    if (!MODO_CARTERA && !cnt) return '';
                     return `
                     <div class="col"${colMinCartera}>
                         <div class="card text-center h-100 border-0 shadow-sm">
-                            <div class="card-body ${fsn.pad}">
-                                <div class="badge ${m.cls} ${fsn.bdgMb}" style="font-size:${fsn.bd};line-height:1.2;padding:.2em .45em;">
+                            <div class="card-body ${fsCard.pad}">
+                                <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
                                     <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.short}
                                 </div>
-                                <div class="fw-bold text-nowrap" style="font-size:${fsn.num};line-height:1.1;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsn.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
-                                <div class="text-muted" style="font-size:${fsn.ft};line-height:1.1;">nacieron</div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">${fmtInt(cnt)}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="text-muted" style="font-size:${fsCard.ft};">nacieron</div>
                             </div>
                         </div>
                     </div>`;
@@ -2207,11 +2383,11 @@ class Reporteria extends Controller
                     }
                 }
 
-                /* Distribución de corte: buckets reales según mora al corte (bucket_corte_actual), distinto a nacimiento. */
+                /* Distribución de corte: Cierre_Actual (expuesto como bucket_corte_actual), distinto a nacimiento. */
                 const cardCorteBucketHtml = (b) => {
                     const m = BUCKET_META[b] ?? {};
                     const cnt = corteDist[b] || 0;
-                    if (!cnt) return '';
+                    if (!MODO_CARTERA && !cnt) return '';
                     return `
                     <div class="col"${colMinCartera}>
                         <div class="card text-center h-100 border-0 shadow-sm">
@@ -2219,7 +2395,7 @@ class Reporteria extends Controller
                                 <div class="badge ${m.cls} ${fsCard.bdgMb}" style="font-size:${fsCard.bd};">
                                     <i class="fa ${m.icon} fa-fw me-1" aria-hidden="true"></i>${m.short}
                                 </div>
-                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">${cnt}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
+                                <div class="fw-bold text-nowrap" style="font-size:${fsCard.num};line-height:1.2;">${fmtInt(cnt)}<span class="text-muted fw-semibold" style="font-size:${fsCard.pct};margin-left:4px;">(${pctOf(cnt)}%)</span></div>
                                 <div class="text-muted" style="font-size:${fsCard.ft};">al corte</div>
                             </div>
                         </div>
@@ -2231,7 +2407,13 @@ class Reporteria extends Controller
                 document.getElementById('statsCorte').innerHTML = htmlCorte;
                 actualizarTituloDistribCorte();
 
-                renderStatsJerarquia(data);
+                /* Jerarquía: un pase O(n) pesado; diferir al siguiente tick para que pinten
+                   distribuciones y el cierre del modal, y no bloquear con stats+tabla a la vez. */
+                if (MODO_CARTERA) {
+                    setTimeout(function () { renderStatsJerarquia(data); }, 0);
+                } else {
+                    renderStatsJerarquia(data);
+                }
             }
 
             /* ── Ranking jerarquía — rediseñado ── */
@@ -2258,6 +2440,9 @@ class Reporteria extends Controller
                     if (!Z.gestores[gest]) Z.gestores[gest] = { total:0, cobrados:0, pendientes:0, idCreditos: [] };
                     const G = Z.gestores[gest];
                     G.total++;
+                    const sN = severidadNacKey(nacKeyCartera(r));
+                    const sA = severidadCorteKey(corteKeyCartera(r));
+                    const cobro = (sA >= 0 && sN >= 0 && sA < sN);
                     const idC = (r.Id_credito != null && r.Id_credito !== '')
                         ? String(r.Id_credito)
                         : (r.id_credito != null && r.id_credito !== '' ? String(r.id_credito) : null);
@@ -2267,12 +2452,8 @@ class Reporteria extends Controller
                             : (r.nombre_cliente != null && String(r.nombre_cliente).trim() !== ''
                                 ? String(r.nombre_cliente).trim()
                                 : '—');
-                        G.idCreditos.push({ id: idC, nombre: nomC });
+                        G.idCreditos.push({ id: idC, nombre: nomC, esCobrado: !!cobro });
                     }
-
-                    const sN = severidadNac(r.bucket_nacio);
-                    const sA = severidadCorte(r.bucket_corte_actual);
-                    const cobro = (sA >= 0 && sN >= 0 && sA < sN);
 
                     if (cobro) {
                         G.cobrados++;  Z.cobrados++;  T.cobrados++;
@@ -2323,6 +2504,30 @@ class Reporteria extends Controller
                     });
                     return [...m.entries()].sort((a, b) => pphSortIdCred(a[0], b[0]));
                 };
+                /** Unifica por ID; si un ID aparece con distinto estado, cuenta como cobrado si alguna fila lo fue */
+                const pphAgruparCredsCobPend = (arr) => {
+                    const m = new Map();
+                    (arr || []).forEach((it) => {
+                        if (!it || it.id == null) return;
+                        const id = String(it.id);
+                        if (!id) return;
+                        const nom = (it.nombre != null && String(it.nombre).trim() !== '') ? String(it.nombre).trim() : '—';
+                        const esC = !!it.esCobrado;
+                        if (!m.has(id)) m.set(id, { nombre: nom, esCobrado: esC });
+                        else {
+                            const p = m.get(id);
+                            m.set(id, { nombre: nom, esCobrado: p.esCobrado || esC });
+                        }
+                    });
+                    const orden = [...m.entries()].sort((a, b) => pphSortIdCred(a[0], b[0]));
+                    const cobrados = [];
+                    const pendientes = [];
+                    orden.forEach(([id, v]) => {
+                        if (v.esCobrado) cobrados.push([id, v.nombre]);
+                        else pendientes.push([id, v.nombre]);
+                    });
+                    return { cobrados, pendientes, total: orden.length };
+                };
                 const pphZonBrdL = (p) => (p === 0 ? '#E24B4A' : p === 100 ? '#1D9E75' : '#BA7517');
                 const pphDonC = 2 * Math.PI * 16;
 
@@ -2366,21 +2571,55 @@ class Reporteria extends Controller
                         let htmlGest = '';
                         gestOrdenados.forEach((gest, gix) => {
                             const crdId = `pphCrd_${idx}_${zix}_${gix}`;
-                            const filasCred = pphFilasCredUniq(gest.idCreditos);
-                            const nIds = filasCred.length;
+                            const gList = pphAgruparCredsCobPend(gest.idCreditos);
+                            const nIds = gList.total;
+                            const filaCred = (idStr, nomStr, esCobr) => {
+                                const st = esCobr
+                                    ? { bg: '#E8F5E9', color: '#2E7D32', txt: (MODO_CARTERA ? 'Pagado' : 'Cobrado') }
+                                    : { bg: '#FFF3E0', color: '#E65100', txt: 'Pendiente' };
+                                const etqCls = esCobr ? 'cartera-jer-etalq cartera-jer-etalq--cob' : 'cartera-jer-etalq cartera-jer-etalq--pend';
+                                const etq = '<span class="badge rounded-pill ' + etqCls + '" style="background:' + st.bg + '; color:' + st.color + '; font-size:.64rem; font-weight:600; padding:0.25em 0.5em;">' + st.txt + '</span>';
+                                const gFila = (MODO_CARTERA && _gestionesPorIdCredito)
+                                    ? (_gestionesPorIdCredito[idStr] || _gestionesPorIdCredito[String(idStr)] || null)
+                                    : null;
+                                const tGtel = (gFila && Number.isFinite(Number(gFila.telefonicas))) ? Number(gFila.telefonicas) : 0;
+                                const tGcamp = (gFila && Number.isFinite(Number(gFila.campo))) ? Number(gFila.campo) : 0;
+                                const icoFila = MODO_CARTERA
+                                    ? '<span class="cartera-jer-gest-wrap d-inline-flex align-items-center flex-wrap" title="Gestiones (Call Center + Legacy + Sky), semana (lun–dom) actual CDMX">'
+                                    + '<span class="cartera-jer-gest-metric d-inline-flex align-items-center gap-1">'
+                                    + '<span class="cartera-jer-gest-emoji" title="Telefónicas" aria-hidden="true">📞</span>'
+                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold" data-gest-id="' + pphEsc(idStr) + '" data-gest-tipo="tel">' + fmtInt(tGtel) + '</span></span>'
+                                    + '<span class="cartera-jer-gest-metric d-inline-flex align-items-center gap-1">'
+                                    + '<span class="cartera-jer-gest-emoji" title="Campo" aria-hidden="true">🛵</span>'
+                                    + '<span class="cartera-jer-gest-num text-body-secondary fw-semibold" data-gest-id="' + pphEsc(idStr) + '" data-gest-tipo="camp">' + fmtInt(tGcamp) + '</span></span>'
+                                    + '</span>'
+                                    : '';
+                                return `<div class="d-flex align-items-center flex-wrap gap-2 border-top px-3 py-1 ps-5 small">
+                                <span class="cartera-jer-id-pill badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">${pphEsc(idStr)}</span>
+                                <span class="text-body" style="font-size:.8rem;">${pphEsc(nomStr)}</span>
+                                ${etq}
+                                ${icoFila}
+                            </div>`;
+                            };
                             const idRows = nIds
-                                ? filasCred.map(([idStr, nomStr]) => `<div class="d-flex align-items-center gap-2 border-top px-3 py-1 ps-5 small text-muted">
-                                    <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">${pphEsc(idStr)}</span>
-                                    <span>${pphEsc(nomStr)}</span>
-                                </div>`).join('')
+                                ? [
+                                    ...gList.cobrados.map(([a, b]) => filaCred(a, b, true)),
+                                    ...gList.pendientes.map(([a, b]) => filaCred(a, b, false)),
+                                ].join('')
                                 : '<div class="d-flex border-top px-3 py-1 ps-5 small text-muted">Sin ID en dato de cartera</div>';
                             htmlGest += `<div>
-                                <div class="d-flex align-items-center gap-2 ${gix > 0 ? 'border-top' : ''} px-3 py-1 ps-4">
-                                    <div class="small text-muted flex-grow-1">${pphEsc(gest.nombre)}</div>
-                                    <span class="badge rounded-pill" style="background:#EAF3DE; color:#3B6D11;">Cobr ${gest.cobrados}</span>
-                                    <span class="badge rounded-pill" style="background:#FAEEDA; color:#854F0B;">Pend ${gest.pendientes}</span>
-                                    <span class="badge rounded-pill" style="background:#E6F1FB; color:#185FA5;">IDs ${nIds}</span>
-                                    <button type="button" class="btn btn-sm rounded-pill px-2 py-0 fw-semibold shadow-none align-baseline" style="background:#E6F1FB;color:#0d3d6b;border:1px solid #185FA5;line-height:1.35;" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false">Ver IDs</button>
+                                <div class="d-flex align-items-center flex-wrap gap-2 ${gix > 0 ? 'border-top' : ''} px-3 py-1 ps-4">
+                                    <div class="small text-muted flex-grow-1" style="min-width:6rem;">${pphEsc(gest.nombre)}</div>
+                                    <span class="cartera-jer-cred-pill badge rounded-pill border text-body fw-medium px-2 py-0" style="background:#F4F3EF; font-size:.72rem;">${fmtInt(gest.total)} créditos</span>
+                                    <div class="d-flex flex-wrap align-items-center gap-2 small text-body-secondary" style="font-size:.75rem;">
+                                        <span class="d-inline-flex align-items-center gap-1">
+                                            <span class="rounded-circle d-inline-block flex-shrink-0" style="width:6px;height:6px;background-color:#1D9E75;"></span>${fmtInt(gest.cobrados)} ${MODO_CARTERA ? 'pagados' : 'cobrados'}
+                                        </span>
+                                        <span class="d-inline-flex align-items-center gap-1">
+                                            <span class="rounded-circle d-inline-block flex-shrink-0" style="width:6px;height:6px;background-color:#BA7517;"></span>${fmtInt(gest.pendientes)} pendientes
+                                        </span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-decoration-none fw-semibold align-baseline" style="color:#185FA5; font-size:.75rem; border:0; box-shadow:none;" data-bs-toggle="collapse" data-bs-target="#${crdId}" aria-expanded="false" title="Listado de clientes (IDs)">Ver clientes</button>
                                 </div>
                                 <div class="collapse bg-white" id="${crdId}">${idRows}</div>
                             </div>`;
@@ -2390,27 +2629,27 @@ class Reporteria extends Controller
                             <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-top border-start border-3 w-100"
                                  style="border-left-color: ${pphZonBrdL(pZ)} !important; cursor: pointer"
                                  data-bs-toggle="collapse" data-bs-target="#${pphZonCid}" aria-expanded="true" role="button" tabindex="0">
-                                <span class="badge" style="background:#E6F1FB; color:#185FA5; font-size:0.7rem;">Zonal</span>
+                                <span class="cartera-jer-zonal-ribbon badge" style="background:#E6F1FB; color:#185FA5; font-size:0.7rem;">Zonal</span>
                                 <div class="fw-medium small flex-grow-1">${pphEsc(nombreMostrar)}</div>
                                 <span class="text-body-secondary user-select-none d-inline-block" style="transform: rotate(180deg)">▾</span>
                             </div>
                             <div class="collapse show border-top bg-white" id="${pphZonCid}">
                                 <div class="d-flex gap-2 px-3 py-2 ps-4 bg-white">
-                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#F1EFE8;">
-                                        <span class="fs-4 fw-medium d-block" style="color:#5F5E5A;">${zon.total}</span>
-                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color:#5F5E5A;">asig</span>
+                                    <div class="cartera-kpi cartera-kpi--asig flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#F1EFE8;">
+                                        <span class="fs-4 fw-medium d-block" style="color:#5F5E5A;">${fmtInt(zon.total)}</span>
+                                        <span style="font-size:9px; letter-spacing:0.02em; color:#5F5E5A;">Asignados</span>
                                     </div>
-                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#EAF3DE;">
-                                        <span class="fs-4 fw-medium d-block" style="color:#3B6D11;">${zon.cobrados}</span>
-                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color:#3B6D11;">cobr</span>
+                                    <div class="cartera-kpi cartera-kpi--cobr flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#EAF3DE;">
+                                        <span class="fs-4 fw-medium d-block" style="color:#3B6D11;">${fmtInt(zon.cobrados)}</span>
+                                        <span style="font-size:9px; letter-spacing:0.02em; color:#3B6D11;">${MODO_CARTERA ? 'Pagados' : 'Cobrados'}</span>
                                     </div>
-                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#FAEEDA;">
-                                        <span class="fs-4 fw-medium d-block" style="color:#854F0B;">${zon.pendientes}</span>
-                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color:#854F0B;">pend</span>
+                                    <div class="cartera-kpi cartera-kpi--pend flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#FAEEDA;">
+                                        <span class="fs-4 fw-medium d-block" style="color:#854F0B;">${fmtInt(zon.pendientes)}</span>
+                                        <span style="font-size:9px; letter-spacing:0.02em; color:#854F0B;">Pendientes</span>
                                     </div>
-                                    <div class="flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#E8EBEF;">
+                                    <div class="cartera-kpi cartera-kpi--efic flex-fill text-center rounded-2 py-2 px-3" style="min-width:0; background:#E8EBEF;">
                                         <span class="fs-4 fw-medium d-block" style="color: ${pphZonBrdL(pZ)};">${pZ}%</span>
-                                        <span class="text-uppercase" style="font-size:9px; letter-spacing:0.05em; color: ${pphZonBrdL(pZ)};">efec</span>
+                                        <span style="font-size:9px; letter-spacing:0.02em; color: ${pphZonBrdL(pZ)};">Efectividad</span>
                                     </div>
                                 </div>
                                 <div class="bg-white">${htmlGest}</div>
@@ -2422,13 +2661,13 @@ class Reporteria extends Controller
                         <div class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 bg-white text-body border-bottom" style="cursor: pointer" data-bs-toggle="collapse" data-bs-target="#ter_${idx}" aria-expanded="false" role="button" tabindex="0">
                             <span class="small text-muted text-uppercase fw-semibold">Territorial</span>
                             <span class="fw-medium fs-6 flex-grow-1 text-body">${pphEsc(ter.nombre)}</span>
-                            <span class="badge rounded-pill border text-body fw-medium px-2" style="background: #F4F3EF;">${ter.total} créditos</span>
+                            <span class="cartera-jer-cred-pill badge rounded-pill border text-body fw-medium px-2" style="background: #F4F3EF;">${fmtInt(ter.total)} créditos</span>
                             <div class="d-flex flex-wrap align-items-center gap-2 small text-muted">
                                 <span class="d-inline-flex align-items-center gap-1">
-                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #1D9E75;"></span>${ter.cobrados} cobrados
+                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #1D9E75;"></span>${fmtInt(ter.cobrados)} ${MODO_CARTERA ? 'pagados' : 'cobrados'}
                                 </span>
                                 <span class="d-inline-flex align-items-center gap-1">
-                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #BA7517;"></span>${ter.pendientes} pendientes
+                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #BA7517;"></span>${fmtInt(ter.pendientes)} pendientes
                                 </span>
                             </div>
                             <svg class="flex-shrink-0" width="44" height="44" viewBox="0 0 44 44" style="min-width: 44px" aria-hidden="true" focusable="false">
@@ -2444,6 +2683,50 @@ class Reporteria extends Controller
                 document.getElementById('statsJerarquia').innerHTML =
                     html || '<p class="text-muted">Sin datos.</p>';
             }
+
+            async function cargarConteosGestionesCollapse(el) {
+                if (!MODO_CARTERA || !el || el.dataset.gestionesLoaded === '1' || el.dataset.gestionesLoading === '1') return;
+                const ids = [...el.querySelectorAll('[data-gest-id]')]
+                    .map(n => parseInt(n.getAttribute('data-gest-id') || '', 10))
+                    .filter(n => Number.isFinite(n) && n > 0);
+                const uniq = [...new Set(ids)];
+                if (!uniq.length) return;
+                el.dataset.gestionesLoading = '1';
+                try {
+                    const res = await fetch('/analitica/getGestionesConteoCreditosSemana', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: uniq })
+                    });
+                    const out = await res.json();
+                    const mapa = (out && out.success && out.datos && typeof out.datos === 'object') ? out.datos : {};
+                    el.querySelectorAll('[data-gest-id][data-gest-tipo]').forEach(span => {
+                        const id = String(span.getAttribute('data-gest-id') || '');
+                        const tipo = span.getAttribute('data-gest-tipo') || '';
+                        const g = mapa[id] || mapa[String(parseInt(id, 10))] || null;
+                        if (!g) return;
+                        const v = tipo === 'tel' ? g.telefonicas : g.campo;
+                        span.textContent = fmtInt(Number.isFinite(Number(v)) ? Number(v) : 0);
+                    });
+                    el.dataset.gestionesLoaded = '1';
+                } catch (e) {
+                    console.warn('No se pudieron cargar conteos de gestiones:', e);
+                } finally {
+                    delete el.dataset.gestionesLoading;
+                }
+            }
+
+            (function bindConteosGestionesJerarquia() {
+                const elJer = document.getElementById('statsJerarquia');
+                if (!elJer || elJer.dataset.gestionesBound === '1') return;
+                elJer.dataset.gestionesBound = '1';
+                elJer.addEventListener('shown.bs.collapse', function (ev) {
+                    const el = ev.target;
+                    if (el && el.id && String(el.id).startsWith('pphCrd_')) {
+                        cargarConteosGestionesCollapse(el);
+                    }
+                });
+            })();
 
             /* ── Acordeón jerarquía en tabla ── */
             function jerarquiaHtml(r, idx) {
@@ -2563,8 +2846,8 @@ class Reporteria extends Controller
                     movimiento:  document.getElementById('fMovimiento')?.value  || '',
                 };
                 return data.filter(r => {
-                    if (f.bucketNacio && canonBucket(r.bucket_nacio) !== canonBucket(f.bucketNacio)) return false;
-                    if (f.bucketCorte && canonBucket(r.bucket_corte_actual) !== canonBucket(f.bucketCorte)) return false;
+                    if (f.bucketNacio && nacKeyCartera(r) !== canonBucket(f.bucketNacio)) return false;
+                    if (f.bucketCorte && corteKeyCartera(r) !== canonBucket(f.bucketCorte)) return false;
                     if (f.territorial && r.Territorial         !== f.territorial) return false;
                     if (f.zonal       && r.Zonal               !== f.zonal)       return false;
                     if (f.jefe        && r.Jefe_de_Plaza       !== f.jefe)        return false;
@@ -2574,8 +2857,8 @@ class Reporteria extends Controller
                         if (!h.includes(f.busq)) return false;
                     }
                     if (f.movimiento) {
-                        const sN = severidadNac(r.bucket_nacio);
-                        const sA = severidadCorte(r.bucket_corte_actual);
+                        const sN = severidadNacKey(nacKeyCartera(r));
+                        const sA = severidadCorteKey(corteKeyCartera(r));
                         if (f.movimiento === 'mejoro'   && !(sA < sN))   return false;
                         if (f.movimiento === 'empeoró'  && !(sA > sN))   return false;
                         if (f.movimiento === 'igual'    && !(sA === sN)) return false;
@@ -2613,6 +2896,7 @@ class Reporteria extends Controller
                     if (d.success === false) {
                         _data = [];
                         _totalEnTabla = 0;
+                        _gestionesPorIdCredito = {};
                         if (elLunes) elLunes.textContent = '—';
                         const errTxt = [d.mensaje, d.error].filter(Boolean).join(' — ');
                         if (typeof Swal !== 'undefined') {
@@ -2620,14 +2904,19 @@ class Reporteria extends Controller
                         } else {
                             alert(errTxt || 'No se cargaron los datos');
                         }
-                        renderTabla();
                         renderStats(_data);
+                        setTimeout(function () { try { renderTabla(); } catch (e) { console.error(e); } }, 0);
                         if (!VISTA_SIMPLE && !MODO_CARTERA) await cargarEstadoEnvioAutomatico();
                         return;
                     }
 
                     _data        = Array.isArray(d.datos) ? d.datos : [];
                     _corteActual = d.corte_actual || '';
+                    if (MODO_CARTERA && d.gestiones_por_id_credito && typeof d.gestiones_por_id_credito === 'object') {
+                        _gestionesPorIdCredito = d.gestiones_por_id_credito;
+                    } else {
+                        _gestionesPorIdCredito = {};
+                    }
                     const tTab = Number(d.total_en_tabla);
                     _totalEnTabla = Number.isFinite(tTab) ? tTab : (_data.length || 0);
 
@@ -2648,8 +2937,12 @@ class Reporteria extends Controller
                     if (!VISTA_SIMPLE) {
                         poblarFiltros(_data);
                     }
-                    renderTabla();
+                    /* Resumen/estadísticas primero; la tabla (miles de filas) en el siguiente tick
+                       para no bloquear el hilo y permitir cerrar el modal de espera antes del draw pesado. */
                     renderStats(_data);
+                    setTimeout(function () {
+                        try { renderTabla(); } catch (e) { console.error(e); }
+                    }, 0);
                     if (!VISTA_SIMPLE && !MODO_CARTERA) await cargarEstadoEnvioAutomatico();
                 } catch(e) {
                     console.error(e);
@@ -2742,7 +3035,7 @@ class Reporteria extends Controller
             function renderTabla() {
                 const datos = aplicarFiltros(_data);
                 const elStat = document.getElementById('statTotal');
-                if (elStat) elStat.textContent = datos.length;
+                if (elStat) elStat.textContent = fmtInt(datos.length);
                 initDT();
 
                 const fmt = v => '$' + parseFloat(v||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
@@ -2782,7 +3075,24 @@ class Reporteria extends Controller
                     };
                 });
 
-                dtVenc.clear().rows.add(rows).draw();
+                dtVenc.clear();
+                if (MODO_CARTERA && rows.length > 5000) {
+                    const TAM_LOTE = 5000;
+                    var offLote = 0;
+                    function inyectarLoteVenc() {
+                        var lote = rows.slice(offLote, offLote + TAM_LOTE);
+                        if (lote.length) {
+                            dtVenc.rows.add(lote);
+                            offLote += TAM_LOTE;
+                            (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(inyectarLoteVenc, 0);
+                        } else {
+                            dtVenc.draw(false);
+                        }
+                    }
+                    inyectarLoteVenc();
+                } else {
+                    dtVenc.rows.add(rows).draw(false);
+                }
             }
 
             function buildCorreoPayload() {
@@ -3229,6 +3539,49 @@ class Reporteria extends Controller
             self::respuestaJSON(EmpresasDAO::getCarteraSegundometroSemana());
         } catch (\Exception $e) {
             self::respuestaJSON(['success' => false, 'mensaje' => $e->getMessage()]);
+        }
+    }
+
+    public function getGestionesConteoCreditosSemana()
+    {
+        try {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw ?: '[]', true);
+            if (!is_array($body)) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'JSON inválido.']);
+            }
+
+            $ids = $body['ids'] ?? [];
+            if (!is_array($ids)) {
+                http_response_code(400);
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El campo ids debe ser un arreglo.']);
+            }
+
+            $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $x) => $x > 0)));
+            if ($ids === []) {
+                self::respuestaJSON(['success' => true, 'datos' => []]);
+            }
+            $ids = array_slice($ids, 0, 300);
+
+            $rows = array_map(static fn (int $id): array => ['Id_credito' => $id, 'Id_cliente' => 0], $ids);
+            $rangoSem = EstadoCuentaDAO::rangoSemanaCalendarioCDMX();
+            $mapa = EstadoCuentaDAO::mapaGestionesDictamenPorIdCreditoSegundometro(
+                $rows,
+                $rangoSem['inicio'],
+                $rangoSem['fin'],
+                true
+            );
+
+            self::respuestaJSON([
+                'success' => true,
+                'datos' => $mapa,
+                'inicio' => $rangoSem['inicio'],
+                'fin' => $rangoSem['fin'],
+            ]);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al consultar gestiones.']);
         }
     }
 

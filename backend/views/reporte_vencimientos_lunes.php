@@ -162,6 +162,18 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
             </div>
         </div>
     </div>
+    <!-- Distribución por día del último pago efectivo (misma estética que buckets de nacimiento) -->
+    <div class="card mb-3 border-0 shadow-sm">
+        <div class="card-header py-2 d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-semibold" style="font-size:.82rem;">
+                <i class="fa fa-calendar-check text-primary me-1"></i>
+                Último pago efectivo por día
+            </span>
+        </div>
+        <div class="card-body py-2">
+            <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-2" id="statsPagoPorDia"></div>
+        </div>
+    </div>
     <?php else: ?>
     <?php
     /* Cartera: 5 buckets en una sola fila (nacimiento y corte); Lunes cierre: 2 cols */

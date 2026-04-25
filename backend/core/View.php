@@ -271,6 +271,17 @@ html.dark-mode .inicio-mkx .qcard .qt{color:#f1f5f9 !important;}
 html.dark-mode .inicio-mkx .qcard .qd{color:rgba(241,245,249,.85) !important;}
 html.dark-mode .navbar .dropdown .dropdown-toggle,html.dark-mode .navbar h6{color:#f1f5f9 !important;}
 html.dark-mode .navbar .text-muted{color:#94a3b8 !important;}
+/* Cartera: #statsJerarquia — gana a .card/.card-body { color!important } y re-pinta badges/pastel */
+html.dark-mode .card-body#statsJerarquia,html.dark-mode #statsJerarquia{color:#e2e8f0!important;}
+html.dark-mode .card-body#statsJerarquia .badge,html.dark-mode #statsJerarquia .badge{background-color:#334155!important;color:#7dd3fc!important;border-color:#475569!important;}
+html.dark-mode #statsJerarquia .cartera-jer-etalq--cob,html.dark-mode .card-body#statsJerarquia .cartera-jer-etalq--cob{background:rgba(22,101,52,.6)!important;color:#86efac!important;border:1px solid rgba(74,222,128,.5)!important;}
+html.dark-mode #statsJerarquia .cartera-jer-etalq--pend,html.dark-mode .card-body#statsJerarquia .cartera-jer-etalq--pend{background:rgba(154,52,9,.5)!important;color:#fdba74!important;border:1px solid rgba(251,146,60,.5)!important;}
+html.dark-mode #statsJerarquia [class*=cartera-kpi],html.dark-mode .card-body#statsJerarquia [class*=cartera-kpi]{background:#1e293b!important;border:1px solid #334155!important;color:#e2e8f0!important;}
+html.dark-mode #statsJerarquia [class*=cartera-kpi] span,html.dark-mode #statsJerarquia [class*=cartera-kpi] .fs-4{color:#e2e8f0!important;}
+html.dark-mode #statsJerarquia .cartera-jer-id-pill,html.dark-mode #statsJerarquia .cartera-jer-zonal-ribbon{background-color:#1e3a5f!important;color:#7dd3fc!important;}
+html.dark-mode #statsJerarquia .cartera-jer-cred-pill{background-color:#334155!important;color:#e2e8f0!important;border-color:#475569!important;}
+html.dark-mode #statsJerarquia .bg-white{background-color:#1e293b!important;}
+html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 </style>
     <script>(function(){if(localStorage.getItem('darkMode')==='enabled')document.documentElement.classList.add('dark-mode');})();</script>
     <meta charset="utf-8" />

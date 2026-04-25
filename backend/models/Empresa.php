@@ -9,6 +9,7 @@ use Core\DatabaseSegundometro;
 use Core\DatabaseAWS;
 use Core\DatabaseLegacy;
 use Core\UsuarioFantasmaReporteria;
+use Models\EstadoCuenta;
 
 class Empresa extends Model
 {
@@ -834,7 +835,8 @@ class Empresa extends Model
 
     /**
      * Cartera completa en `tbl_segundometro_semana` (sin filtro por fecha de primer vencimiento).
-     * Nacimiento por días: COALESCE(Dias_mora_ajustado, Dias_mora) → Current, 1–7, 8–14, 15–21, 22+.
+     * Nacimiento / corte: `Bucket_Morosidad_Real` y `Cierre_Actual` (misma semántica en gráficos y celdas).
+     * `dias_mora_corte` numérico: columna de corte dinámica (getCorteActual) con respaldo a días de mora.
      * Adjudicada: columna Ghost no nula, no vacía y distinta de «-».
      */
     public static function getCarteraSegundometroSemana(): array
@@ -853,31 +855,7 @@ class Empresa extends Model
         }
 
         $dmNacio = 'CAST(COALESCE(t.`Dias_mora_ajustado`, t.`Dias_mora`) AS SIGNED)';
-        /* En cartera completa la columna de «corte actual» suele venir vacía en muchas filas; se usa mora nacimiento como respaldo para buckets y para dias_mora_corte. */
-        $moraCorteEfectiva = 'COALESCE(CAST(`' . $corteCol . '` AS SIGNED), ' . $dmNacio . ')';
-        $bucketNacioSql = "
-            CASE
-                WHEN COALESCE(t.`Dias_mora_ajustado`, t.`Dias_mora`) IS NULL THEN NULL
-                WHEN TRIM(CAST(COALESCE(t.`Dias_mora_ajustado`, t.`Dias_mora`) AS CHAR)) = '' THEN NULL
-                WHEN ($dmNacio) < 1 THEN 'a) Current'
-                WHEN ($dmNacio) BETWEEN 1 AND 7 THEN 'b) 1 a 7 dias'
-                WHEN ($dmNacio) BETWEEN 8 AND 14 THEN 'f) 8 a 14 dias'
-                WHEN ($dmNacio) BETWEEN 15 AND 21 THEN 'g) 15 a 21 dias'
-                ELSE 'h) 22+ dias'
-            END
-        ";
-
-        /* Mismas ventanas que «nacimiento» en Cartera: 8–14, 15–21, 22+ (etiquetas f/g/h, alineadas con BUCKET_META en Reporteria) */
-        $bucketCorteSQL = "
-            CASE
-                WHEN ($moraCorteEfectiva) IS NULL            THEN NULL
-                WHEN ($moraCorteEfectiva) < 1                THEN 'a) Current'
-                WHEN ($moraCorteEfectiva) BETWEEN 1  AND 7   THEN 'b) 1 a 7 dias'
-                WHEN ($moraCorteEfectiva) BETWEEN 8  AND 14  THEN 'f) 8 a 14 dias'
-                WHEN ($moraCorteEfectiva) BETWEEN 15 AND 21  THEN 'g) 15 a 21 dias'
-                ELSE 'h) 22+ dias'
-            END
-        ";
+        $moraCorteEfectiva = 'COALESCE(CAST(t.`' . $corteCol . '` AS SIGNED), ' . $dmNacio . ')';
 
         $esAdjSql = "
             CASE
@@ -889,11 +867,13 @@ class Empresa extends Model
         ";
 
         $corteLabel = $corteCol;
+        $dmNacExpr  = 'COALESCE(CAST(t.`Dias_mora_ajustado` AS SIGNED), CAST(t.`Dias_mora` AS SIGNED), 0)';
         $sql        = "
             SELECT
                 t.Id_credito,
+                t.Id_cliente,
                 t.Nombre_cliente,
-                ($bucketNacioSql)                AS bucket_nacio,
+                t.Bucket_Morosidad_Real          AS bucket_nacio,
                 t.Gestor_Asignado,
                 t.Jefe_de_Plaza,
                 t.Zonal,
@@ -903,8 +883,9 @@ class Empresa extends Model
                 t.Fecha_primer_vencimiento,
                 t.Ghost,
                 ($esAdjSql)                      AS es_adjudicada,
+                ($dmNacExpr)                     AS dias_mora_nacimiento,
                 ($moraCorteEfectiva)             AS dias_mora_corte,
-                ($bucketCorteSQL)                AS bucket_corte_actual
+                t.Cierre_Actual                  AS bucket_corte_actual
             FROM tbl_segundometro_semana t
             ORDER BY
                 t.Territorial,
@@ -928,6 +909,13 @@ class Empresa extends Model
                 }
             }
 
+            $rangoSem = EstadoCuenta::rangoSemanaCalendarioCDMX();
+            $gestIdMap = EstadoCuenta::mapaGestionesDictamenPorIdCreditoSegundometro(
+                $rows,
+                $rangoSem['inicio'],
+                $rangoSem['fin']
+            );
+
             return [
                 'success'                          => true,
                 'mensaje'                          => 'Registros obtenidos.',
@@ -939,6 +927,9 @@ class Empresa extends Model
                 'usado_fallback_lunes'             => false,
                 'total_en_tabla'                   => count($rows),
                 'adjudicadas_total'                => $adj,
+                'gestiones_semana_inicio'          => $rangoSem['inicio'],
+                'gestiones_semana_fin'             => $rangoSem['fin'],
+                'gestiones_por_id_credito'         => $gestIdMap,
                 'datos'                            => $rows,
             ];
         } catch (\Exception $e) {
@@ -965,6 +956,7 @@ class Empresa extends Model
             ['key' => 'stp', 'titulo' => 'STP', 'excel_tipo' => 'texto'],
             ['key' => 'banco', 'titulo' => 'BANCO', 'excel_tipo' => 'texto'],
             ['key' => 'monto', 'titulo' => 'MONTO', 'excel_tipo' => 'moneda'],
+            ['key' => 'fecha_ultimo_pago_efectivo', 'titulo' => 'FECHA ÚLT. PAGO EFECTIVO', 'excel_tipo' => 'texto'],
             ['key' => 'cuota', 'titulo' => 'CUOTA', 'excel_tipo' => 'moneda'],
             ['key' => 'kt', 'titulo' => 'KT', 'excel_tipo' => 'texto'],
             ['key' => 'inicio', 'titulo' => 'INICIO', 'excel_tipo' => 'texto'],
@@ -996,6 +988,7 @@ SELECT
         ELSE 'OTRO'
     END AS `BANCO`,
     t.`Monto_otorgado` AS `MONTO`,
+    t.`Fecha_ultimo_pago_efectivo` AS `FECHA_ULTIMO_PAGO_EFECTIVO`,
     t.`Cuota` AS `CUOTA`,
     t.`KT` AS `KT`,
     t.`Fecha_inicio` AS `INICIO`,

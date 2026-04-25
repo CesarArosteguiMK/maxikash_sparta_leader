@@ -222,28 +222,27 @@ SQL;
             '' AS parentesco2,
             '' AS telefono_referencia2,
             CASE
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'telefono' THEN 'telefono'
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'whatsapp' THEN 'telefono'
+                WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END))) = 'telefono' THEN 'telefono'
+                WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END))) = 'whatsapp' THEN 'telefono'
                 ELSE 'campo'
             END AS contacto,
             CASE
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'telefono' THEN 'llamada telefonica'
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'whatsapp' THEN 'Whatsapp'
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'campo' THEN '0'
-                ELSE ''
+                WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END))) = 'telefono' THEN 'llamada telefonica'
+                WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END))) = 'whatsapp' THEN 'Whatsapp'
+                ELSE '0'
             END AS medio_contactacion_ccc,
             CASE
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'campo'
-                THEN COALESCE(NULLIF(TRIM(MAX(CASE WHEN j.name = 'medio_de_contacto_campo' THEN j.value END)), ''), 'domicilio del cliente')
-                ELSE '0'
+                WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END))) IN ('telefono', 'whatsapp')
+                THEN '0'
+                ELSE COALESCE(NULLIF(TRIM(MAX(CASE WHEN j.name = 'medio_de_contacto_campo' THEN j.value END)), ''), 'domicilio del cliente')
             END AS medio_contactacion_campo,
             CASE
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) = 'campo'
-                THEN TRIM(COALESCE(o.nombre_opcion, ''))
-                ELSE ''
+                WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END))) IN ('telefono', 'whatsapp')
+                THEN ''
+                ELSE TRIM(COALESCE(o.nombre_opcion, ''))
             END AS dictamen_campo,
             CASE
-                WHEN MAX(CASE WHEN j.name = 'contacto' THEN j.value END) IN ('telefono', 'whatsapp')
+                WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END))) IN ('telefono', 'whatsapp')
                 THEN TRIM(COALESCE(o.nombre_opcion, ''))
                 ELSE ''
             END AS dictamen_ccc,
@@ -396,6 +395,160 @@ SQL;
         }
 
         return $legacyRow;
+    }
+
+    /**
+     * Cuenta gestiones Legacy (tasks/dictums) por crédito en rango de fechas (DATE(updated_at)).
+     * Criterio tel/campo alineado con getGestionesLegacy() (JSON form_response → contacto).
+     *
+     * @param list<int> $idsCredito credit_number / Id_credito segundómetro
+     * @return array<int, array{telefonicas: int, campo: int}>
+     */
+    public static function contarGestionesLegacyCampoTelPorCreditoRango(
+        array $idsCredito,
+        string $fechaInicio,
+        string $fechaFin
+    ): array {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn (int $x) => $x > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $wanted = array_fill_keys($ids, true);
+        $out = [];
+        try {
+            $db = new DatabaseLegacy();
+            $finExclusivo = (new \DateTimeImmutable($fechaFin))->modify('+1 day')->format('Y-m-d');
+            $in = implode(',', $ids);
+            $sql = "
+                SELECT
+                    sub.id_credito,
+                    COALESCE(SUM(sub.es_tel), 0) AS telefonicas,
+                    COALESCE(SUM(sub.es_camp), 0) AS campo
+                FROM (
+                    SELECT
+                        CAST(t.credit_number AS UNSIGNED) AS id_credito,
+                        CASE
+                            WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END)))
+                                 IN ('telefono', 'whatsapp')
+                            THEN 1 ELSE 0
+                        END AS es_tel,
+                        CASE
+                            WHEN LOWER(TRIM(MAX(CASE WHEN j.name = 'contacto' THEN j.value END)))
+                                 IN ('telefono', 'whatsapp')
+                            THEN 0 ELSE 1
+                        END AS es_camp
+                    FROM tasks t
+                    JOIN dictums d ON d.task_id = t.id
+                    JOIN JSON_TABLE(
+                        JSON_UNQUOTE(d.form_response),
+                        '$[*]' COLUMNS (
+                            name VARCHAR(255) PATH '$.name',
+                            value VARCHAR(255) PATH '$.value'
+                        )
+                    ) j
+                    WHERE d.updated_at >= :fecha_inicio_dt
+                      AND d.updated_at < :fecha_fin_dt
+                      AND t.credit_number REGEXP '^[0-9]+$'
+                      AND CAST(t.credit_number AS UNSIGNED) IN ({$in})
+                    GROUP BY d.id, t.credit_number
+                ) sub
+                GROUP BY sub.id_credito
+            ";
+            $rows = $db->queryAll($sql, [
+                'fecha_inicio_dt' => $fechaInicio . ' 00:00:00',
+                'fecha_fin_dt'    => $finExclusivo . ' 00:00:00',
+            ]);
+            if (!is_array($rows)) {
+                return [];
+            }
+            foreach ($rows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $idc = (int) ($row['id_credito'] ?? 0);
+                if ($idc < 1 || !isset($wanted[$idc])) {
+                    continue;
+                }
+                $out[$idc] = [
+                    'telefonicas' => (int) ($row['telefonicas'] ?? 0),
+                    'campo'      => (int) ($row['campo'] ?? 0),
+                ];
+            }
+        } catch (\Throwable $e) {
+            error_log('Gestiones::contarGestionesLegacyCampoTelPorCreditoRango: ' . $e->getMessage());
+        }
+
+        return $out;
+    }
+
+    /**
+     * Cuenta filas Sky Logic (base_clientes) por crédito en rango (fecha_dispositivo / respaldo fecha_hora).
+     *
+     * @param list<int> $idsCredito
+     * @return array<int, array{telefonicas: int, campo: int}>
+     */
+    public static function contarGestionesSkyCampoTelPorCreditoRango(
+        array $idsCredito,
+        string $fechaInicio,
+        string $fechaFin
+    ): array {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn (int $x) => $x > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $wanted = array_fill_keys($ids, true);
+        $out = [];
+        try {
+            $db = new Database();
+            $finExclusivo = (new \DateTimeImmutable($fechaFin))->modify('+1 day')->format('Y-m-d');
+            $in = implode(',', $ids);
+            $sql = "
+                SELECT
+                    CAST(id_credito AS UNSIGNED) AS id_credito,
+                    SUM(
+                        CASE
+                            WHEN LOWER(TRIM(COALESCE(contacto, ''))) IN ('telefono', 'whatsapp')
+                            THEN 1 ELSE 0
+                        END
+                    ) AS telefonicas,
+                    SUM(
+                        CASE
+                            WHEN LOWER(TRIM(COALESCE(contacto, ''))) IN ('telefono', 'whatsapp')
+                            THEN 0 ELSE 1
+                        END
+                    ) AS campo
+                FROM base_clientes
+                WHERE COALESCE(fecha_dispositivo, fecha_hora, fecha_sistema) >= :fecha_inicio_dt
+                  AND COALESCE(fecha_dispositivo, fecha_hora, fecha_sistema) < :fecha_fin_dt
+                  AND id_credito REGEXP '^[0-9]+$'
+                  AND CAST(id_credito AS UNSIGNED) IN ({$in})
+                GROUP BY CAST(id_credito AS UNSIGNED)
+            ";
+            $rows = $db->queryAll($sql, [
+                'fecha_inicio_dt' => $fechaInicio . ' 00:00:00',
+                'fecha_fin_dt'    => $finExclusivo . ' 00:00:00',
+            ]);
+            if (!is_array($rows)) {
+                return [];
+            }
+            foreach ($rows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $idc = (int) ($row['id_credito'] ?? 0);
+                if ($idc < 1 || !isset($wanted[$idc])) {
+                    continue;
+                }
+                $out[$idc] = [
+                    'telefonicas' => (int) ($row['telefonicas'] ?? 0),
+                    'campo'      => (int) ($row['campo'] ?? 0),
+                ];
+            }
+        } catch (\Throwable $e) {
+            error_log('Gestiones::contarGestionesSkyCampoTelPorCreditoRango: ' . $e->getMessage());
+        }
+
+        return $out;
     }
 
     /**

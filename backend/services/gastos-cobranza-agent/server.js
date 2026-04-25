@@ -58,7 +58,15 @@ const SCRIPT_CARGA_VERIFICACION = path.join(
 );
 const SCRIPT_DESCARGO_ESTATUS3 = path.join(__dirname, 'scripts', 'descargo_cobranza_gc_estatus3.py');
 const BACKEND_ROOT = path.resolve(__dirname, '..', '..');
-const CRONJOBS_DIR = path.join(BACKEND_ROOT, 'cronjobs');
+/** Carpeta con insertar_moras_martes.php, etc. Por defecto: <backend>/cronjobs. Override: GASTOS_GC_CRONJOBS_DIR (absoluta o relativa a este server.js). */
+function resolveCronjobsDir() {
+  const fromEnv = String(process.env.GASTOS_GC_CRONJOBS_DIR || '').trim();
+  if (fromEnv) {
+    return path.isAbsolute(fromEnv) ? path.normalize(fromEnv) : path.resolve(__dirname, fromEnv);
+  }
+  return path.join(BACKEND_ROOT, 'cronjobs');
+}
+const CRONJOBS_DIR = resolveCronjobsDir();
 const SCRIPT_CRON_INSERTAR_MORAS_MARTES = path.join(CRONJOBS_DIR, 'insertar_moras_martes.php');
 const SCRIPT_CRON_DETECTAR_GDC_LIQUIDADOS = path.join(CRONJOBS_DIR, 'detectar_gdc_liquidados.php');
 const SCRIPT_CRON_ELIMINAR_GASTOS_DESPACHOS = path.join(CRONJOBS_DIR, 'eliminar_gastos_despachos.php');
@@ -1596,6 +1604,7 @@ app.get('/health', (req, res) => {
     cronjobs_gc_ocupado: cronjobsGcBusy,
     cronjobs_gc: {
       busy: cronjobsGcBusy,
+      dir: CRONJOBS_DIR,
       scripts: {
         insertar_mora_martes: fs.existsSync(SCRIPT_CRON_INSERTAR_MORAS_MARTES),
         detectar_gdc_liquidados: fs.existsSync(SCRIPT_CRON_DETECTAR_GDC_LIQUIDADOS),
