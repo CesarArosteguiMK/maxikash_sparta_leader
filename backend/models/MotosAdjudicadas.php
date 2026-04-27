@@ -10,9 +10,36 @@ class MotosAdjudicadas extends Model
 {
     private $db;
 
+    /** @var null|bool null = aún no comprobado, true = existen val_atn/comentario_atn */
+    private static $adjEvidenciaAtnColumnas = null;
+
     public function __construct()
     {
         $this->db = new Database();
+    }
+
+    /**
+     * true si en adj_evidencia existen val_atn y comentario_atn (migración aplicada).
+     */
+    private function adjEvidenciaTieneColumnasAtn(): bool
+    {
+        if (self::$adjEvidenciaAtnColumnas !== null) {
+            return self::$adjEvidenciaAtnColumnas;
+        }
+        try {
+            $row = $this->db->queryOne(
+                "SELECT 1 AS ok
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'adj_evidencia'
+                   AND COLUMN_NAME = 'val_atn'
+                 LIMIT 1"
+            );
+            self::$adjEvidenciaAtnColumnas = (bool) ($row && (int) ($row['ok'] ?? 0) === 1);
+        } catch (\Exception $e) {
+            self::$adjEvidenciaAtnColumnas = false;
+        }
+        return self::$adjEvidenciaAtnColumnas;
     }
 
     // =========================================================================
@@ -148,11 +175,18 @@ class MotosAdjudicadas extends Model
             }
             $tipo = 'video';
         } elseif (in_array($slot, $docSlots, true)) {
-            $okMimes = ['application/pdf', 'image/jpeg', 'image/png'];
-            if (!in_array($mime, $okMimes, true)) {
-                return ['success' => false, 'message' => 'Solo se aceptan PDF, JPG o PNG.'];
+            if ($slot === 'doc_repuve') {
+                if ($mime !== 'application/pdf' && $ext !== 'pdf') {
+                    return ['success' => false, 'message' => 'Repuve: solo se acepta PDF.'];
+                }
+                $tipo = 'pdf';
+            } else {
+                $okMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+                if (!in_array($mime, $okMimes, true)) {
+                    return ['success' => false, 'message' => 'Solo se aceptan PDF, JPG o PNG.'];
+                }
+                $tipo = ($mime === 'application/pdf') ? 'pdf' : 'image';
             }
-            $tipo = ($mime === 'application/pdf') ? 'pdf' : 'image';
         } else {
             if (!in_array($mime, ['image/jpeg', 'image/png'], true)) {
                 return ['success' => false, 'message' => 'Solo se aceptan imágenes JPG o PNG.'];
@@ -217,7 +251,11 @@ class MotosAdjudicadas extends Model
         $slotLabel = self::SLOT_LABELS[$slot] ?? strtoupper($slot);
         $this->registrarBitacora($idOperacion, 'SUBIÓ EVIDENCIA EN ' . $slotLabel, $idUsuario, $nombreUsuario);
 
-        return ['success' => true, 'url' => $urlRelativa];
+        $urlClient = $urlRelativa;
+        if (function_exists('sparta_url_publica_desde_repositorio')) {
+            $urlClient = sparta_url_publica_desde_repositorio($urlRelativa);
+        }
+        return ['success' => true, 'url' => $urlClient];
     }
 
     // =========================================================================
@@ -335,11 +373,34 @@ class MotosAdjudicadas extends Model
             return null;
         }
 
-        $op['evidencias']    = $this->db->queryAll(
-            "SELECT id, tipo, slot, url, estatus, DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
-             FROM adj_evidencia WHERE id_operacion = :id ORDER BY id ASC",
-            ['id' => $id]
-        ) ?: [];
+        if ($this->adjEvidenciaTieneColumnasAtn()) {
+            $evs = $this->db->queryAll(
+                "SELECT id, tipo, slot, url, estatus, val_atn, comentario_atn,
+                        DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
+                 FROM adj_evidencia WHERE id_operacion = :id ORDER BY id ASC",
+                ['id' => $id]
+            ) ?: [];
+        } else {
+            $evs = $this->db->queryAll(
+                "SELECT id, tipo, slot, url, estatus,
+                        DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
+                 FROM adj_evidencia WHERE id_operacion = :id ORDER BY id ASC",
+                ['id' => $id]
+            ) ?: [];
+        }
+        // aprobada: 0 (legacy) — veredicto en val_atn (1=aceptar, 2=rechazar) si la migración está aplicada
+        foreach ($evs as &$r) {
+            $r['aprobada'] = 0;
+            $va = isset($r['val_atn']) && $r['val_atn'] !== null && $r['val_atn'] !== ''
+                ? (int) $r['val_atn'] : 0;
+            $r['val_atn']         = $va;
+            $r['comentario_atn']  = isset($r['comentario_atn']) ? (string) $r['comentario_atn'] : '';
+            if (!empty($r['url']) && function_exists('sparta_url_publica_desde_repositorio')) {
+                $r['url'] = sparta_url_publica_desde_repositorio((string) $r['url']);
+            }
+        }
+        unset($r);
+        $op['evidencias'] = $evs;
 
         $op['observaciones'] = $this->db->queryAll(
             "SELECT id, etapa, area, id_usuario, texto, DATE_FORMAT(fecha, '%Y-%m-%d %H:%i') AS fecha
@@ -806,5 +867,105 @@ class MotosAdjudicadas extends Model
         $detalle = $this->obtenerDetalle($newId);
 
         return ['success' => true, 'detalle' => $detalle, 'creado' => true];
+    }
+
+    // =========================================================================
+    // VALIDACIÓN EVIDENCIAS (ATENCIÓN A CLIENTES — requiere columnas val_atn / comentario_atn)
+    // =========================================================================
+
+    /**
+     * @return array{success:bool, message?:string}
+     */
+    public function guardarVeredictoEvidenciaAtn(int $idOperacion, int $idEvidencia, int $valAtn, string $comentario, int $idUsuario, string $nombreUsuario = ''): array
+    {
+        if ($idOperacion <= 0 || $idEvidencia <= 0) {
+            return ['success' => false, 'message' => 'Parámetros inválidos.'];
+        }
+        if (!in_array($valAtn, [1, 2], true)) {
+            return ['success' => false, 'message' => 'Veredicto no válido.'];
+        }
+        if (!$this->adjEvidenciaTieneColumnasAtn()) {
+            return [
+                'success' => false,
+                'message' => 'Ejecute en MySQL el script backend/migrations/20260227_adj_evidencia_atencion_val.sql (columna val_atn faltante).',
+            ];
+        }
+        $comentario = mb_substr(trim($comentario), 0, 2000);
+        $row = $this->db->queryOne(
+            'SELECT id FROM adj_evidencia WHERE id = :eid AND id_operacion = :op LIMIT 1',
+            ['eid' => $idEvidencia, 'op' => $idOperacion]
+        );
+        if (!$row) {
+            return ['success' => false, 'message' => 'Evidencia no encontrada.'];
+        }
+        $this->db->CRUD(
+            'UPDATE adj_evidencia SET val_atn = :v, comentario_atn = :c
+             WHERE id = :eid AND id_operacion = :op',
+            [
+                'v'   => $valAtn,
+                'c'   => $comentario,
+                'eid' => $idEvidencia,
+                'op'  => $idOperacion,
+            ]
+        );
+        $etiq = $valAtn === 1 ? 'ACEPTADA' : 'RECHAZADA';
+        $this->registrarBitacora(
+            $idOperacion,
+            'VALIDACIÓN EVIDENCIA ' . $etiq . ' (id evidencia ' . $idEvidencia . ')',
+            $idUsuario,
+            $nombreUsuario
+        );
+        return ['success' => true];
+    }
+
+    /**
+     * Si hay al menos una evidencia con val_atn = 2, mueve la operación a "Revisión Recuperaciones"
+     * (p. ej. cierre del modal de validar evidencias en Atención a clientes).
+     *
+     * @return array{success:bool, message?:string, rechazos?:int, enviado_a_correcciones?:bool}
+     */
+    public function finalizarCierreValidacionEvidenciaAtn(int $idOperacion, int $idUsuario, string $nombreUsuario = ''): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'ID de operación inválido.'];
+        }
+        $op = $this->db->queryOne('SELECT id, estatus FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
+        if (!$op) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+        if (!$this->adjEvidenciaTieneColumnasAtn()) {
+            return [
+                'success'                => true,
+                'rechazos'               => 0,
+                'enviado_a_correcciones' => false,
+            ];
+        }
+        $countRow = $this->db->queryOne(
+            'SELECT COUNT(*) AS c FROM adj_evidencia
+             WHERE id_operacion = :id AND val_atn = 2',
+            ['id' => $idOperacion]
+        );
+        $n = (int) ($countRow['c'] ?? 0);
+        if ($n <= 0) {
+            return [
+                'success'                  => true,
+                'rechazos'                 => 0,
+                'enviado_a_correcciones'  => false,
+            ];
+        }
+        $estatus = (string) ($op['estatus'] ?? '');
+        $enviado  = false;
+        if ($estatus !== 'Revisión Recuperaciones') {
+            $r = $this->cambiarEstatus($idOperacion, 'Revisión Recuperaciones', $idUsuario, $nombreUsuario);
+            if (empty($r['success'])) {
+                return $r;
+            }
+            $enviado = true;
+        }
+        return [
+            'success'                 => true,
+            'rechazos'                => $n,
+            'enviado_a_correcciones' => $enviado,
+        ];
     }
 }

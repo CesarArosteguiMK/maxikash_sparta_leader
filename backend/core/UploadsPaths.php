@@ -77,3 +77,53 @@ if (!function_exists('sparta_uploads_resolve_relative')) {
         return $resolved;
     }
 }
+
+if (!function_exists('sparta_url_publica_desde_repositorio')) {
+    /**
+     * Ajusta rutas guardadas como /uploads/... para usarse en <img src>, <video> o iframes.
+     * En una subcarpeta (p. ej. /sparta___SPARTA_SECRET_REDACTED__/public) la raíz de sitio no es la carpeta pública;
+     * sin este prefijo el navegador pide http://localhost/uploads/... (404) en vez de
+     * .../sparta___SPARTA_SECRET_REDACTED__/public/uploads/...
+     */
+    function sparta_url_publica_desde_repositorio(string $ruta): string
+    {
+        $r = trim($ruta);
+        if ($r === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $r)) {
+            return $r;
+        }
+        $r = str_replace('\\', '/', $r);
+        if ($r[0] !== '/') {
+            $r = '/' . ltrim($r, '/');
+        }
+        if (preg_match('#^/public/uploads/#i', $r)) {
+            $r = substr($r, strlen('/public'));
+        }
+        if (!preg_match('#^/uploads/#i', $r)) {
+            return $r[0] === '/' ? $r : '/' . $r;
+        }
+
+        if (php_sapi_name() === 'cli' || empty($_SERVER['SCRIPT_NAME'])) {
+            return $r;
+        }
+
+        $script = str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']);
+        if ($script === '' || $script[0] !== '/') {
+            $script = '/' . ltrim($script, '/');
+        }
+        $publicBase = rtrim(dirname($script), '/');
+        if ($publicBase === '.' || $publicBase === '') {
+            $publicBase = '';
+        }
+        // Rescate: en algunas peticiones (p. ej. XAMPP) dirname devuelve "/" y se pierde /proyecto/public
+        if ($publicBase === '' && !empty($_SERVER['REQUEST_URI'])) {
+            $ru = (string) $_SERVER['REQUEST_URI'];
+            if (preg_match('#^/([^/]+/public)(?:/|\?|#|$)#', $ru, $m)) {
+                $publicBase = '/' . trim($m[1], '/');
+            }
+        }
+        return ($publicBase === '' ? '' : $publicBase) . $r;
+    }
+}

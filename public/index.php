@@ -414,6 +414,10 @@ $rutasModulos = [
     'atencionclientes/obtenerdictaminados' => [65],
     'atencionclientes/dictaminar' => [65],
     'atencionclientes/obtenerdictamen' => [65],
+    'atencionclientes/evidencias' => [64, 65],
+    'atencionclientes/obtenerrecibidos' => [64, 65],
+    'atencionclientes/obteneraprobadosevidencias' => [64, 65],
+    'atencionclientes/obtenercorreccionesevidencias' => [64, 65],
 ];
 $controladoresModulos = [
     'segundometro' => [16],

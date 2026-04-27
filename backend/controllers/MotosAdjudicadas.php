@@ -382,6 +382,63 @@ class MotosAdjudicadas extends Controller
         }
     }
 
+    /**
+     * POST /MotosAdjudicadas/guardarVeredictoEvidenciaAtn
+     * Body JSON: { "id_operacion", "id_evidencia", "val_atn": 1|2, "comentario" }
+     */
+    public function guardarVeredictoEvidenciaAtn()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body         = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion  = (int) ($body['id_operacion'] ?? 0);
+        $idEvidencia  = (int) ($body['id_evidencia'] ?? 0);
+        $valAtn       = (int) ($body['val_atn'] ?? 0);
+        $comentario   = (string) ($body['comentario'] ?? '');
+        $idUsuario    = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        try {
+            $result = $this->model->guardarVeredictoEvidenciaAtn(
+                $idOperacion,
+                $idEvidencia,
+                $valAtn,
+                $comentario,
+                $idUsuario,
+                $nombreUsuario
+            );
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn
+     * Body JSON: { "id_operacion" } — al cerrar el modal: si hay rechazos, pasa a Revisión Recuperaciones.
+     */
+    public function finalizarCierreValidacionEvidenciaAtn()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body        = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+        $idUsuario   = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de operación inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->finalizarCierreValidacionEvidenciaAtn($idOperacion, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     public function eliminarOperacion()
     {
         header('Content-Type: application/json; charset=utf-8');
