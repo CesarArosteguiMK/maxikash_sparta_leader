@@ -653,7 +653,6 @@
     const STAGES = [
         'Retenciones',
         'Recibido',
-        'Procesando IA',
         'Revisión Recuperaciones',
         'Cierre Documentado',
         'Recepción',
@@ -661,7 +660,6 @@
 
     const STAGE_ICONS = {
         'Recibido':                  'fa-inbox',
-        'Procesando IA':             'fa-robot',
         'Revisión Recuperaciones':   'fa-magnifying-glass',
         'Retenciones':               'fa-hand',
         'Cierre Documentado':        'fa-file-circle-check',

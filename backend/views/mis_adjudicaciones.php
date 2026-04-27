@@ -226,6 +226,8 @@
         -webkit-tap-highlight-color: transparent;
     }
     .madj-mcard-btn:active { transform: scale(.97); background: #d97706; }
+    .madj-mcard-btn.is-sent { background: #2563eb; color: #fff; }
+    .madj-mcard-btn.is-sent:active { background: #1d4ed8; }
 
     /* -- Desktop table visual refresh --------------------------- */
     .madj-table-shell {
@@ -357,6 +359,17 @@
     .madj-btn-ev:active {
         transform: translateY(0);
         box-shadow: 0 2px 5px rgba(245, 158, 11, .28);
+    }
+    .madj-btn-ev.is-sent {
+        background: linear-gradient(180deg, #3b82f6, #2563eb);
+        color: #fff;
+        box-shadow: 0 3px 8px rgba(59, 130, 246, .35);
+    }
+    .madj-btn-ev.is-sent:hover {
+        box-shadow: 0 6px 14px rgba(59, 130, 246, .36);
+    }
+    .madj-btn-ev.is-sent:active {
+        box-shadow: 0 2px 5px rgba(59, 130, 246, .28);
     }
     .madj-accion-wrap {
         display: flex;
@@ -580,15 +593,24 @@
                     <div class="spinner-border" style="color:#f59e0b;"></div>
                 </div>
             </div>
-            <div class="modal-footer bg-light py-2">
-                <button type="button" class="btn btn-sm d-none" id="madj-btn-enviar-evidencias"
-                        onclick="madjEnviarEvidencias()"
-                        style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,.25);">
-                    <i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias
-                </button>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
-                    <i class="fa-solid fa-xmark me-1"></i>Cerrar
-                </button>
+            <div class="modal-footer bg-light py-2 flex-column align-items-stretch gap-2">
+                <div id="madj-ev-sent-notice" class="d-none w-100"
+                     style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:.5rem;padding:.6rem .9rem;">
+                    <p class="mb-0 small" style="color:#1d4ed8;font-weight:600;">
+                        <i class="fa-solid fa-circle-check me-1"></i>
+                        Tus evidencias han sido enviadas y están siendo revisadas, mantente al tanto de cualquier cambio.
+                    </p>
+                </div>
+                <div class="d-flex gap-2 justify-content-end w-100">
+                    <button type="button" class="btn btn-sm d-none" id="madj-btn-enviar-evidencias"
+                            onclick="madjEnviarEvidencias()"
+                            style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,.25);">
+                        <i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                        <i class="fa-solid fa-xmark me-1"></i>Cerrar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -611,6 +633,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
     let _todos = [];    // todos los registros cargados
     let _madjProgresoCreditos = {}; // { [id_credito]: { uploaded:number, total:number } }
+    let _madjSentCreditos = new Set(); // id_creditos donde todas las evidencias son 'recibido'
 
     // --------------------------------------------------------------
     // HELPERS
@@ -803,7 +826,14 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             .then(data => {
                 if (!data || !data.success || !data.resumen) return;
                 Object.keys(data.resumen).forEach(id => {
-                    _madjSetProgressCredito(id, parseInt(data.resumen[id] || 0, 10));
+                    const r = data.resumen[id];
+                    if (r && typeof r === 'object') {
+                        _madjSetProgressCredito(id, r.total || 0);
+                        if (r.all_sent) _madjSentCreditos.add(String(id));
+                        else _madjSentCreditos.delete(String(id));
+                    } else {
+                        _madjSetProgressCredito(id, parseInt(r || 0, 10));
+                    }
                 });
             })
             .catch(() => {});
@@ -900,13 +930,14 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <span class="madj-asignacion-por">${esc(c.asignado_por || 'Sistema')}</span>
                 </div>`;
 
-            const btnAccion = `<button class="madj-btn-ev"
+            const _isSent = _madjSentCreditos.has(String(c.id_credito));
+            const btnAccion = `<button class="madj-btn-ev${_isSent ? ' is-sent' : ''}"
                 data-id="${c.id_credito}"
                 data-nombre="${esc(c.nombre_cliente || '')}"
                 onclick="madjEvidenciasAbrir(+this.dataset.id, this.dataset.nombre)"
-                title="Registrar Evidencias">
-                <i class="fa-solid fa-camera"></i>
-                <span>Registrar Evidencias</span>
+                title="${_isSent ? 'Ver evidencias enviadas' : 'Registrar Evidencias'}">
+                <i class="fa-solid ${_isSent ? 'fa-eye' : 'fa-camera'}"></i>
+                <span>${_isSent ? 'Ver evidencias enviadas' : 'Registrar Evidencias'}</span>
             </button>`;
 
             const accionHtml = `<div class="madj-accion-wrap">${btnAccion}${_madjProgressHtml(c.id_credito)}</div>`;
@@ -1153,17 +1184,26 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     }
 
     function _madjActualizarBotonEnviar() {
-        const btn = document.getElementById('madj-btn-enviar-evidencias');
-        if (!btn) return;
+        const btn    = document.getElementById('madj-btn-enviar-evidencias');
+        const notice = document.getElementById('madj-ev-sent-notice');
         const totalSlots  = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
         const totalFilled = Object.keys(_madjEvState).length;
         const hasPendiente = Object.values(_madjSlotEstatus).some(s => s === 'pendiente_envio');
-        if (totalFilled >= totalSlots && hasPendiente) {
-            btn.classList.remove('d-none');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias';
-        } else {
-            btn.classList.add('d-none');
+        const allSent = totalFilled >= totalSlots && !hasPendiente && totalFilled > 0;
+
+        if (btn) {
+            if (totalFilled >= totalSlots && hasPendiente) {
+                btn.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias';
+            } else {
+                btn.classList.add('d-none');
+            }
+        }
+
+        if (notice) {
+            if (allSent) notice.classList.remove('d-none');
+            else notice.classList.add('d-none');
         }
     }
 
@@ -1205,11 +1245,12 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     ${bucketBadge}
                     <span class="badge ${esActivo ? 'bg-success' : 'bg-secondary'}">${esActivo ? 'Activo' : 'Inactivo'}</span>
                 </div>
-                <button class="madj-mcard-btn"
+                <button class="madj-mcard-btn${_madjSentCreditos.has(String(c.id_credito)) ? ' is-sent' : ''}"
                         data-id="${+c.id_credito}"
                         data-nombre="${esc(c.nombre_cliente || '')}"
                         onclick="madjEvidenciasAbrir(+this.dataset.id, this.dataset.nombre)">
-                    <i class="fa-solid fa-camera"></i> Registrar Evidencias
+                    <i class="fa-solid ${_madjSentCreditos.has(String(c.id_credito)) ? 'fa-eye' : 'fa-camera'}"></i>
+                    ${_madjSentCreditos.has(String(c.id_credito)) ? 'Ver evidencias enviadas' : 'Registrar Evidencias'}
                 </button>
                 ${_madjProgressHtml(c.id_credito)}
             </div>`;
@@ -1448,6 +1489,30 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             }
 
             if (btn) btn.classList.add('d-none');
+
+            // Marcar crédito como "todo enviado" y actualizar botones en tabla/tarjetas
+            if (_madjActiveCreditId) {
+                _madjSentCreditos.add(String(_madjActiveCreditId));
+                document.querySelectorAll(
+                    `button.madj-btn-ev[data-id="${_madjActiveCreditId}"],
+                     button.madj-mcard-btn[data-id="${_madjActiveCreditId}"]`
+                ).forEach(b => {
+                    b.classList.add('is-sent');
+                    b.title = 'Ver evidencias enviadas';
+                    const icon = b.querySelector('i.fa-solid');
+                    if (icon) { icon.classList.remove('fa-camera'); icon.classList.add('fa-eye'); }
+                    const span = b.querySelector('span');
+                    if (span) span.textContent = 'Ver evidencias enviadas';
+                    else if (!b.querySelector('span')) {
+                        b.childNodes.forEach(n => {
+                            if (n.nodeType === Node.TEXT_NODE) n.nodeValue = ' Ver evidencias enviadas';
+                        });
+                    }
+                });
+            }
+
+            // Mostrar aviso en el footer del modal
+            _madjActualizarBotonEnviar();
 
             Swal.fire({
                 icon: 'success',

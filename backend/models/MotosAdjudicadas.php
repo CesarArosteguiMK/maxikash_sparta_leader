@@ -816,7 +816,9 @@ class MotosAdjudicadas extends Model
         $inStr = implode(',', $placeholders);
 
         $rows = $this->db->queryAll(
-            "SELECT ult.id_credito, COALESCE(ev.total, 0) AS total
+            "SELECT ult.id_credito,
+                    COALESCE(ev.total, 0)     AS total,
+                    COALESCE(ev.pendiente, 0) AS pendiente
              FROM (
                 SELECT id_credito, MAX(id) AS max_id
                 FROM adj_operacion
@@ -824,7 +826,9 @@ class MotosAdjudicadas extends Model
                 GROUP BY id_credito
              ) ult
              LEFT JOIN (
-                SELECT id_operacion, COUNT(*) AS total
+                SELECT id_operacion,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN estatus = 'pendiente_envio' THEN 1 ELSE 0 END) AS pendiente
                 FROM adj_evidencia
                 GROUP BY id_operacion
              ) ev ON ev.id_operacion = ult.max_id",
@@ -833,9 +837,14 @@ class MotosAdjudicadas extends Model
 
         $resumen = [];
         foreach ($rows as $r) {
-            $id = (int) ($r['id_credito'] ?? 0);
+            $id       = (int) ($r['id_credito'] ?? 0);
+            $total    = (int) ($r['total']      ?? 0);
+            $pendiente = (int) ($r['pendiente'] ?? 0);
             if ($id > 0) {
-                $resumen[$id] = (int) ($r['total'] ?? 0);
+                $resumen[$id] = [
+                    'total'    => $total,
+                    'all_sent' => $total > 0 && $pendiente === 0,
+                ];
             }
         }
 
