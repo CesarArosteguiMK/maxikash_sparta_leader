@@ -50,6 +50,105 @@ class Adjudicacion extends Model
         return true;
     }
 
+    /**
+     * Genera el siguiente folio para adj_operacion: ADJ-YYYY-NNNN.
+     */
+    private function generarFolioOperacion(): string
+    {
+        $anio = date('Y');
+        $row  = $this->db->queryOne(
+            "SELECT MAX(CAST(SUBSTRING_INDEX(folio, '-', -1) AS UNSIGNED)) AS ultimo
+             FROM adj_operacion
+             WHERE folio LIKE :prefijo",
+            ['prefijo' => "ADJ-{$anio}-%"]
+        );
+
+        $siguiente = (int)($row['ultimo'] ?? 0) + 1;
+        return sprintf('ADJ-%s-%04d', $anio, $siguiente);
+    }
+
+    /**
+     * Crea o fuerza estatus Retenciones en adj_operacion para el crédito asignado.
+     */
+    private function asegurarOperacionEnRetenciones(int $idCredito, int $idUsuario, string $fecha): void
+    {
+        $op = $this->db->queryOne(
+            "SELECT id, estatus FROM adj_operacion WHERE id_credito = :id ORDER BY id DESC LIMIT 1",
+            ['id' => $idCredito]
+        );
+
+        if ($op) {
+            $estatusActual = (string)($op['estatus'] ?? '');
+
+            if ($estatusActual !== 'Retenciones') {
+                $this->db->CRUD(
+                    "UPDATE adj_operacion
+                     SET estatus = 'Retenciones', fecha_actualizacion = :fecha
+                     WHERE id = :id",
+                    ['fecha' => $fecha, 'id' => (int)$op['id']]
+                );
+
+                $this->db->CRUD(
+                    "INSERT INTO adj_historial_estatus
+                        (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
+                     VALUES (:id_op, :anterior, 'Retenciones', :id_usr, :fecha)",
+                    [
+                        'id_op'    => (int)$op['id'],
+                        'anterior' => $estatusActual !== '' ? $estatusActual : 'N/A',
+                        'id_usr'   => $idUsuario ?: null,
+                        'fecha'    => $fecha,
+                    ]
+                );
+            } else {
+                $this->db->CRUD(
+                    "UPDATE adj_operacion SET fecha_actualizacion = :fecha WHERE id = :id",
+                    ['fecha' => $fecha, 'id' => (int)$op['id']]
+                );
+            }
+
+            return;
+        }
+
+        $nombreCliente = "Crédito #{$idCredito}";
+
+        try {
+            $s2 = $this->dbSeg->queryOne(
+                "SELECT Nombre_cliente FROM tbl_segundometro_semana WHERE Id_credito = :id LIMIT 1",
+                ['id' => $idCredito]
+            );
+
+            if (!$s2) {
+                $s2 = $this->dbSeg->queryOne(
+                    "SELECT MAX(Nombre_cliente) AS Nombre_cliente
+                     FROM tbl_segundometro_histo
+                     WHERE Id_credito = :id",
+                    ['id' => $idCredito]
+                );
+            }
+
+            if (!empty($s2['Nombre_cliente'])) {
+                $nombreCliente = trim((string)$s2['Nombre_cliente']);
+            }
+        } catch (\Exception $e) {
+            // Si S2 no responde, se crea con nombre mínimo para no frenar el flujo.
+        }
+
+        $this->db->CRUD(
+            "INSERT INTO adj_operacion
+                (folio, id_credito, nombre_cliente, estatus, id_usuario_alta, fecha_alta, fecha_actualizacion)
+             VALUES
+                (:folio, :id_credito, :nombre_cliente, 'Retenciones', :id_usuario_alta, :fecha_alta, :fecha_actualizacion)",
+            [
+                'folio'              => $this->generarFolioOperacion(),
+                'id_credito'         => $idCredito,
+                'nombre_cliente'     => $nombreCliente,
+                'id_usuario_alta'    => $idUsuario ?: null,
+                'fecha_alta'         => $fecha,
+                'fecha_actualizacion'=> $fecha,
+            ]
+        );
+    }
+
     // =========================================================================
     // LISTA DE RESPONSABLES
     // =========================================================================
@@ -188,6 +287,7 @@ class Adjudicacion extends Model
         );
 
         if ($n > 0) {
+            $this->asegurarOperacionEnRetenciones($idCredito, $usuarioAlta, $fechaAlta);
             return ['success' => true, 'message' => 'Crédito asignado correctamente.'];
         }
 
