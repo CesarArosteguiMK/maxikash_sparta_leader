@@ -597,9 +597,17 @@
 <!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
      JAVASCRIPT
      -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
+<?php
+if (!function_exists('sparta_public_web_base')) {
+    require_once dirname(__DIR__) . '/core/UploadsPaths.php';
+}
+$madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_base() : '';
+?>
 <script>
 (function () {
     'use strict';
+
+    var MADJ_SERVER_PUBLIC_BASE = <?php echo json_encode($madjPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
     let _todos = [];    // todos los registros cargados
     let _madjProgresoCreditos = {}; // { [id_credito]: { uploaded:number, total:number } }
@@ -616,6 +624,118 @@
         const d = document.createElement('div');
         d.textContent = str ?? '';
         return d.innerHTML;
+    }
+
+    function madjInferBaseDesdePathname() {
+        const p = (window.location && window.location.pathname) || '';
+        const segs = p.split('/').filter(function (x) { return x.length; });
+        const k = segs.indexOf('public');
+        if (k >= 0) {
+            return '/' + segs.slice(0, k + 1).join('/');
+        }
+        return '';
+    }
+
+    function madjBasePublic() {
+        if (typeof MADJ_SERVER_PUBLIC_BASE === 'string' && MADJ_SERVER_PUBLIC_BASE.length > 0) {
+            return MADJ_SERVER_PUBLIC_BASE;
+        }
+        if (window._madjBaseCache !== undefined) {
+            return window._madjBaseCache;
+        }
+        const path = (window.location && window.location.pathname) || '';
+        let base = '';
+        const i = path.indexOf('/public/');
+        if (i !== -1) {
+            base = path.substring(0, i + '/public'.length);
+        } else {
+            base = madjInferBaseDesdePathname();
+        }
+        window._madjBaseCache = base;
+        return base;
+    }
+
+    /** Alineado a atencion_clientes_evidencias: evita http://uploads/... (host falso) y añade base pública */
+    function madjUrlForDisplay(u) {
+        if (u == null || u === '') {
+            return '';
+        }
+        let s = String(u).trim().replace(/\\/g, '/');
+        s = s.replace(/^https?:\/\/uploads(?=\/|$)/i, '/uploads');
+        s = s.replace(/^\/{2,}uploads(?=\/|$)/i, '/uploads');
+        s = s.replace(/^\/uploads\/uploads\//i, '/uploads/');
+        if (/^https?:\/\//i.test(s)) {
+            return s;
+        }
+        const b = madjBasePublic();
+        if (b !== '' && (s.indexOf(b + '/') === 0 || s === b)) {
+            return s;
+        }
+        if (s.indexOf('/uploads/') === 0) {
+            return b ? b + s : s;
+        }
+        if (/^uploads\//i.test(s)) {
+            s = '/' + s;
+            return b ? b + s : s;
+        }
+        return s;
+    }
+
+    (function madjInstalarProteccionUploadsFalso() {
+        if (window.__madjUploadsGuardInstalado) return;
+        window.__madjUploadsGuardInstalado = true;
+
+        function fix(v) {
+            return madjUrlForDisplay(v);
+        }
+        function fixHtml(html) {
+            return String(html).replace(/\b(src|href)=([\"'])(https?:\/\/uploads\/[^\"']*|\/\/+uploads\/[^\"']*)\2/gi, function (_, attr, q, url) {
+                return attr + '=' + q + fix(url) + q;
+            });
+        }
+
+        const innerDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+        if (innerDesc && innerDesc.set && innerDesc.get && innerDesc.configurable) {
+            Object.defineProperty(Element.prototype, 'innerHTML', {
+                configurable: true,
+                enumerable: innerDesc.enumerable,
+                get: function () { return innerDesc.get.call(this); },
+                set: function (value) { return innerDesc.set.call(this, fixHtml(value)); }
+            });
+        }
+
+        const origSetAttribute = Element.prototype.setAttribute;
+        Element.prototype.setAttribute = function (name, value) {
+            const n = String(name || '').toLowerCase();
+            if ((n === 'src' || n === 'href') && value != null) {
+                value = fix(value);
+            }
+            return origSetAttribute.call(this, name, value);
+        };
+
+        [HTMLImageElement.prototype, HTMLMediaElement.prototype, HTMLIFrameElement.prototype].forEach(function (proto) {
+            const d = Object.getOwnPropertyDescriptor(proto, 'src');
+            if (!d || !d.set || !d.get || !d.configurable) return;
+            Object.defineProperty(proto, 'src', {
+                configurable: true,
+                enumerable: d.enumerable,
+                get: function () { return d.get.call(this); },
+                set: function (value) { return d.set.call(this, fix(value)); }
+            });
+        });
+    })();
+
+    function madjSanearDomUrls(root) {
+        if (!root || !root.querySelectorAll) return;
+        root.querySelectorAll('[data-madj-src]').forEach(function (el) {
+            const fixed = madjUrlForDisplay(el.getAttribute('data-madj-src') || '');
+            if (fixed) el.setAttribute('src', fixed);
+        });
+        root.querySelectorAll('[src]').forEach(function (el) {
+            const src = el.getAttribute('src');
+            const fixed = madjUrlForDisplay(src || '');
+            if (fixed && fixed !== src) el.setAttribute('src', fixed);
+        });
     }
 
     function _madjTotalSlots() {
@@ -920,7 +1040,7 @@
 
                 // Pre-cargar estado desde evidencias ya subidas
                 (det.evidencias || []).forEach(ev => {
-                    _madjEvState[ev.slot] = { src: ev.url, type: ev.tipo };
+                    _madjEvState[ev.slot] = { src: madjUrlForDisplay(ev.url), type: ev.tipo };
                     _madjCommittedSlots.add(ev.slot);
                     _madjSlotEstatus[ev.slot] = ev.estatus || 'recibido';
                 });
@@ -973,7 +1093,9 @@
             });
         });
 
-        document.getElementById('madj-ev-body').innerHTML = html;
+        const body = document.getElementById('madj-ev-body');
+        body.innerHTML = html;
+        madjSanearDomUrls(body);
         _madjActualizarBotonEnviar();
     }
 
@@ -999,9 +1121,9 @@
                 ? '<span class="madj-ev-status-badge madj-ev-status-pendiente">Por enviar</span>'
                 : '<span class="madj-ev-status-badge madj-ev-status-recibido"><i class="fa-solid fa-check me-1"></i>Enviado</span>';
             const media = sl.isVideo
-                ? `<video class="madj-thumb" src="${esc(st.src)}" muted playsinline></video>
+                ? `<video class="madj-thumb" data-madj-src="${esc(st.src)}" muted playsinline></video>
                    <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>`
-                : `<img class="madj-thumb" src="${esc(st.src)}" alt="${esc(sl.label)}">`;
+                : `<img class="madj-thumb" data-madj-src="${esc(st.src)}" alt="${esc(sl.label)}">`;
             return `
             <div class="madj-ev-slot has-file ${statusCls}" id="madj-slot-${sl.key}">
                 ${media}
@@ -1176,7 +1298,7 @@
                      </button>`;
             } else if (isVideo) {
                 slotEl.innerHTML =
-                    `<video class="madj-thumb" src="${esc(_madjEvState[slotKey].src)}" muted playsinline></video>
+                    `<video class="madj-thumb" data-madj-src="${esc(_madjEvState[slotKey].src)}" muted playsinline></video>
                      <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>
                      <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))} (pendiente)</span>
                      <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
@@ -1185,13 +1307,14 @@
                      </button>`;
             } else {
                 slotEl.innerHTML =
-                    `<img class="madj-thumb" src="${esc(_madjEvState[slotKey].src)}" alt="">
+                    `<img class="madj-thumb" data-madj-src="${esc(_madjEvState[slotKey].src)}" alt="">
                      <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))} (pendiente)</span>
                      <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
                              onclick="madjSlotTrigger('${slotKey}')">
                          <i class="fa-solid fa-arrows-rotate"></i>
                      </button>`;
             }
+            madjSanearDomUrls(slotEl);
         }
 
         _madjActualizarProgreso();
@@ -1227,7 +1350,7 @@
                 const isPdf   = file.type === 'application/pdf';
                 const isVideo = file.type.startsWith('video');
                 _madjEvState[slotKey] = {
-                    src:  data.url,
+                    src:  madjUrlForDisplay(data.url),
                     type: isVideo ? 'video' : (isPdf ? 'pdf' : 'image'),
                 };
                 _madjCommittedSlots.add(slotKey);
@@ -1244,7 +1367,7 @@
                     slotEl.onclick = null;
                     if (isVideo) {
                         slotEl.innerHTML =
-                            `<video class="madj-thumb" src="${esc(data.url)}" muted playsinline></video>
+                            `<video class="madj-thumb" data-madj-src="${esc(madjUrlForDisplay(data.url))}" muted playsinline></video>
                              <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>
                              <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
                              ${statusBadge}
@@ -1254,7 +1377,7 @@
                              </button>`;
                     } else {
                         slotEl.innerHTML =
-                            `<img class="madj-thumb" src="${esc(data.url)}" alt="">
+                            `<img class="madj-thumb" data-madj-src="${esc(madjUrlForDisplay(data.url))}" alt="">
                              <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
                              ${statusBadge}
                              <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
@@ -1262,6 +1385,7 @@
                                  <i class="fa-solid fa-arrows-rotate"></i>
                              </button>`;
                     }
+                    madjSanearDomUrls(slotEl);
                 }
 
                 _madjActualizarProgreso();

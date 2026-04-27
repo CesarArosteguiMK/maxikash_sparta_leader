@@ -395,8 +395,23 @@ class MotosAdjudicadas extends Model
                 ? (int) $r['val_atn'] : 0;
             $r['val_atn']         = $va;
             $r['comentario_atn']  = isset($r['comentario_atn']) ? (string) $r['comentario_atn'] : '';
-            if (!empty($r['url']) && function_exists('sparta_url_publica_desde_repositorio')) {
-                $r['url'] = sparta_url_publica_desde_repositorio((string) $r['url']);
+            if (!empty($r['url'])) {
+                $urlOriginal = (string) $r['url'];
+                $urlLimpia = str_replace('\\', '/', trim($urlOriginal));
+                $urlLimpia = preg_replace('#^https?://uploads(?=/|$)#i', '/uploads', $urlLimpia);
+                $urlLimpia = preg_replace('#^/{2,}uploads(?=/|$)#i', '/uploads', $urlLimpia);
+                $urlLimpia = preg_replace('#^/uploads/uploads/#i', '/uploads/', $urlLimpia);
+
+                if ($urlLimpia !== $urlOriginal && !empty($r['id'])) {
+                    $this->db->CRUD(
+                        'UPDATE adj_evidencia SET url = :url WHERE id = :id',
+                        ['url' => $urlLimpia, 'id' => (int) $r['id']]
+                    );
+                }
+
+                $r['url'] = function_exists('sparta_url_publica_desde_repositorio')
+                    ? sparta_url_publica_desde_repositorio($urlLimpia)
+                    : $urlLimpia;
             }
         }
         unset($r);

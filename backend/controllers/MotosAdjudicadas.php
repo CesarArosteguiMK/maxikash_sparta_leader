@@ -331,6 +331,22 @@ class MotosAdjudicadas extends Controller
 
         try {
             $result = $this->model->obtenerOCrearOperacion($idCredito, $nombreCliente, $idUsuario);
+            if (!empty($result['success']) && !empty($result['detalle']['evidencias']) && is_array($result['detalle']['evidencias'])) {
+                foreach ($result['detalle']['evidencias'] as &$ev) {
+                    if (!is_array($ev) || empty($ev['url'])) {
+                        continue;
+                    }
+                    $u = str_replace('\\', '/', trim((string) $ev['url']));
+                    $u = preg_replace('#^https?://uploads(?=/|$)#i', '/uploads', $u);
+                    $u = preg_replace('#^/{2,}uploads(?=/|$)#i', '/uploads', $u);
+                    $u = preg_replace('#^/uploads/uploads/#i', '/uploads/', $u);
+                    if (function_exists('sparta_url_publica_desde_repositorio')) {
+                        $u = sparta_url_publica_desde_repositorio($u);
+                    }
+                    $ev['url'] = $u;
+                }
+                unset($ev);
+            }
             echo json_encode($result);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);

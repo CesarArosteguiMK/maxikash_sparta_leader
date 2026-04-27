@@ -78,6 +78,73 @@ if (!function_exists('sparta_uploads_resolve_relative')) {
     }
 }
 
+if (!function_exists('sparta_public_web_base')) {
+    /**
+     * Prefijo de ruta URL para la carpeta public (p. ej. "/sparta___SPARTA_SECRET_REDACTED__/public") o "" si el vhost document root es public.
+     * Prioridad: [app] base_url en config.ini → dirname(SCRIPT_NAME) → REQUEST_URI → SCRIPT_FILENAME vs DOCUMENT_ROOT.
+     */
+    function sparta_public_web_base(): string
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        $cached = '';
+
+        if (defined('CONFIGURACION') && is_array(CONFIGURACION)) {
+            $bu = trim((string) (CONFIGURACION['base_url'] ?? ''));
+            if ($bu !== '') {
+                if (preg_match('#^https?://[^/]+(/[^?\#]*?)(?:\?|\#|$)#i', $bu, $m)) {
+                    $p = rtrim((string) ($m[1] ?? ''), '/');
+                    if ($p !== '' && $p !== '/') {
+                        $cached = $p;
+                        return $cached;
+                    }
+                } elseif (isset($bu[0]) && $bu[0] === '/') {
+                    $p = rtrim($bu, '/');
+                    if ($p !== '' && $p !== '/') {
+                        $cached = $p;
+                        return $cached;
+                    }
+                }
+            }
+        }
+
+        $publicBase = '';
+        if (!empty($_SERVER['SCRIPT_NAME'] ?? null)) {
+            $script = str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']);
+            if ($script === '' || ($script[0] ?? '') !== '/') {
+                $script = '/' . ltrim($script, '/');
+            }
+            $dir = dirname($script);
+            if ($dir !== '/' && $dir !== '\\' && $dir !== '.' && $dir !== '') {
+                $publicBase = rtrim($dir, '/');
+            }
+        }
+
+        if ($publicBase === '' && !empty($_SERVER['REQUEST_URI'])) {
+            $ru = (string) $_SERVER['REQUEST_URI'];
+            if (preg_match('#^/(.+?/public)(?:/|\?|\#|$)#', $ru, $m)) {
+                $publicBase = '/' . trim($m[1], '/');
+            }
+        }
+
+        if ($publicBase === '' && !empty($_SERVER['SCRIPT_FILENAME']) && !empty($_SERVER['DOCUMENT_ROOT'])) {
+            $sf = str_replace('\\', '/', (string) $_SERVER['SCRIPT_FILENAME']);
+            $dr = rtrim(str_replace('\\', '/', (string) $_SERVER['DOCUMENT_ROOT']), '/');
+            if ($dr !== '' && strpos($sf, $dr) === 0) {
+                $rel = trim(substr($sf, strlen($dr)), '/');
+                if (preg_match('#^(.+?/public)/index\.php$#i', $rel, $m)) {
+                    $publicBase = '/' . trim(str_replace('\\', '/', $m[1]), '/');
+                }
+            }
+        }
+
+        $cached = $publicBase;
+        return $cached;
+    }
+}
+
 if (!function_exists('sparta_url_publica_desde_repositorio')) {
     /**
      * Ajusta rutas guardadas como /uploads/... para usarse en <img src>, <video> o iframes.
@@ -91,10 +158,25 @@ if (!function_exists('sparta_url_publica_desde_repositorio')) {
         if ($r === '') {
             return '';
         }
-        if (preg_match('#^https?://#i', $r)) {
-            return $r;
-        }
         $r = str_replace('\\', '/', $r);
+        // Normaliza host falso "uploads" (ej. //uploads/... o http://uploads/...)
+        $r = preg_replace('#^https?://uploads(?=/|$)#i', '/uploads', $r);
+        $r = preg_replace('#^/{2,}uploads(?=/|$)#i', '/uploads', $r);
+        $r = preg_replace('#^/uploads/uploads/#i', '/uploads/', $r);
+        if (preg_match('#^https?://#i', $r)) {
+            $parts = @parse_url($r);
+            if (is_array($parts) && isset($parts['host'], $parts['path']) && strcasecmp($parts['host'], 'uploads') === 0) {
+                $pth = (string) $parts['path'];
+                if ($pth === '' || $pth[0] !== '/') {
+                    $pth = '/' . ltrim($pth, '/');
+                }
+                $r = '/uploads' . $pth
+                    . (isset($parts['query']) && $parts['query'] !== '' ? '?' . $parts['query'] : '')
+                    . (isset($parts['fragment']) && $parts['fragment'] !== '' ? '#' . $parts['fragment'] : '');
+            } else {
+                return $r;
+            }
+        }
         if ($r[0] !== '/') {
             $r = '/' . ltrim($r, '/');
         }
@@ -105,25 +187,7 @@ if (!function_exists('sparta_url_publica_desde_repositorio')) {
             return $r[0] === '/' ? $r : '/' . $r;
         }
 
-        if (php_sapi_name() === 'cli' || empty($_SERVER['SCRIPT_NAME'])) {
-            return $r;
-        }
-
-        $script = str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']);
-        if ($script === '' || $script[0] !== '/') {
-            $script = '/' . ltrim($script, '/');
-        }
-        $publicBase = rtrim(dirname($script), '/');
-        if ($publicBase === '.' || $publicBase === '') {
-            $publicBase = '';
-        }
-        // Rescate: en algunas peticiones (p. ej. XAMPP) dirname devuelve "/" y se pierde /proyecto/public
-        if ($publicBase === '' && !empty($_SERVER['REQUEST_URI'])) {
-            $ru = (string) $_SERVER['REQUEST_URI'];
-            if (preg_match('#^/([^/]+/public)(?:/|\?|#|$)#', $ru, $m)) {
-                $publicBase = '/' . trim($m[1], '/');
-            }
-        }
+        $publicBase = function_exists('sparta_public_web_base') ? sparta_public_web_base() : '';
         return ($publicBase === '' ? '' : $publicBase) . $r;
     }
 }

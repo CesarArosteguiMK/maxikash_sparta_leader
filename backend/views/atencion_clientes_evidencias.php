@@ -302,23 +302,10 @@ body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b;
 </div>
 
 <?php
-// Carpeta pública (la del index.php / front) — misma lógica que en BD → URL usable en <img src>
-$aevPublicPath = '';
-if (php_sapi_name() !== 'cli' && !empty($_SERVER['SCRIPT_NAME'])) {
-    $aevSn = str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']);
-    if (isset($aevSn[0]) && $aevSn[0] !== '/') {
-        $aevSn = '/' . $aevSn;
-    }
-    $aevDir = dirname($aevSn);
-    if ($aevDir !== '/' && $aevDir !== '.' && $aevDir !== '') {
-        $aevPublicPath = rtrim($aevDir, '/');
-    }
+if (!function_exists('sparta_public_web_base')) {
+    require_once dirname(__DIR__) . '/core/UploadsPaths.php';
 }
-if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
-    if (preg_match('#^/([^/]+/public)(?:/|\?|#|$)#', (string) $_SERVER['REQUEST_URI'], $mAev)) {
-        $aevPublicPath = '/' . trim($mAev[1], '/');
-    }
-}
+$aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_base() : '';
 ?>
 <script>
 (function () {
@@ -359,11 +346,13 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
         if (u == null || u === '') {
             return '';
         }
-        let s = String(u);
+        let s = String(u).trim().replace(/\\/g, '/');
+        s = s.replace(/^https?:\/\/uploads(?=\/|$)/i, '/uploads');
+        s = s.replace(/^\/{2,}uploads(?=\/|$)/i, '/uploads');
+        s = s.replace(/^\/uploads\/uploads\//i, '/uploads/');
         if (/^https?:\/\//i.test(s)) {
             return s;
         }
-        s = s.replace(/\\/g, '/');
         const b = aevBasePublic();
         if (b !== '' && (s.indexOf(b + '/') === 0 || s === b)) {
             return s;
@@ -377,10 +366,84 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
         }
         return s;
     }
+
+    (function aevInstalarProteccionUploadsFalso() {
+        if (window.__aevUploadsGuardInstalado) return;
+        window.__aevUploadsGuardInstalado = true;
+
+        function fix(v) {
+            return aevUrlForDisplay(v);
+        }
+        function fixHtml(html) {
+            return String(html).replace(/\b(src|href)=([\"'])(https?:\/\/uploads\/[^\"']*|\/\/+uploads\/[^\"']*)\2/gi, function (_, attr, q, url) {
+                return attr + '=' + q + fix(url) + q;
+            });
+        }
+
+        const innerDesc = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+        if (innerDesc && innerDesc.set && innerDesc.get && innerDesc.configurable) {
+            Object.defineProperty(Element.prototype, 'innerHTML', {
+                configurable: true,
+                enumerable: innerDesc.enumerable,
+                get: function () { return innerDesc.get.call(this); },
+                set: function (value) { return innerDesc.set.call(this, fixHtml(value)); }
+            });
+        }
+
+        const origSetAttribute = Element.prototype.setAttribute;
+        Element.prototype.setAttribute = function (name, value) {
+            const n = String(name || '').toLowerCase();
+            if ((n === 'src' || n === 'href') && value != null) {
+                value = fix(value);
+            }
+            return origSetAttribute.call(this, name, value);
+        };
+
+        [HTMLImageElement.prototype, HTMLMediaElement.prototype, HTMLIFrameElement.prototype].forEach(function (proto) {
+            const d = Object.getOwnPropertyDescriptor(proto, 'src');
+            if (!d || !d.set || !d.get || !d.configurable) return;
+            Object.defineProperty(proto, 'src', {
+                configurable: true,
+                enumerable: d.enumerable,
+                get: function () { return d.get.call(this); },
+                set: function (value) { return d.set.call(this, fix(value)); }
+            });
+        });
+    })();
+
     function aevNormalizarUrlsDetalle(det) {
         if (!det || !Array.isArray(det.evidencias)) return;
         det.evidencias.forEach(function (e) {
             if (e && e.url) e.url = aevUrlForDisplay(e.url);
+        });
+    }
+    function aevSanearDomUrls(root) {
+        if (!root || !root.querySelectorAll) return;
+        root.querySelectorAll('[data-aev-src]').forEach(function (el) {
+            const raw = el.getAttribute('data-aev-src');
+            const fixed = aevUrlForDisplay(raw || '');
+            if (fixed) {
+                el.setAttribute('src', fixed);
+            }
+        });
+        root.querySelectorAll('[data-aev-href]').forEach(function (el) {
+            const raw = el.getAttribute('data-aev-href');
+            const fixed = aevUrlForDisplay(raw || '');
+            if (fixed) {
+                el.setAttribute('href', fixed);
+            }
+        });
+        root.querySelectorAll('[src],[href]').forEach(function (el) {
+            const src = el.getAttribute('src');
+            if (src) {
+                const nsrc = aevUrlForDisplay(src);
+                if (nsrc && nsrc !== src) el.setAttribute('src', nsrc);
+            }
+            const href = el.getAttribute('href');
+            if (href) {
+                const nhref = aevUrlForDisplay(href);
+                if (nhref && nhref !== href) el.setAttribute('href', nhref);
+            }
         });
     }
     function aevAsegurarOverlayDentroModal() {
@@ -554,12 +617,13 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
             || (row.tipo && String(row.tipo).toLowerCase().indexOf('pdf') !== -1)
             || /\.pdf(\?|#|$)/i.test(urlRaw);
         if (esPdf) {
-            box.innerHTML = '<iframe src="' + urlE + '" title="Documento" class="aev-iframe-pdf"></iframe>';
+            box.innerHTML = '<iframe data-aev-src="' + urlE + '" title="Documento" class="aev-iframe-pdf"></iframe>';
         } else if (esVideo) {
-            box.innerHTML = '<video controls playsinline src="' + urlE + '"></video>';
+            box.innerHTML = '<video controls playsinline data-aev-src="' + urlE + '"></video>';
         } else {
-            box.innerHTML = '<img src="' + urlE + '" alt="Evidencia">';
+            box.innerHTML = '<img data-aev-src="' + urlE + '" alt="Evidencia">';
         }
+        aevSanearDomUrls(box);
         _aevVistaCtx.slot  = slot;
         _aevVistaCtx.label = label || '';
         ovl.classList.remove('d-none');
@@ -573,7 +637,10 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
     function aevRefrescarCuerpoModal() {
         if (!_aevStore.det) return;
         const body = document.getElementById('aev-body');
-        if (body) body.innerHTML = aevRenderCuerpoModalValidar(_aevStore.det);
+        if (body) {
+            body.innerHTML = aevRenderCuerpoModalValidar(_aevStore.det);
+            aevSanearDomUrls(body);
+        }
         aevSincroBtnEnviar();
     }
 
@@ -603,8 +670,8 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
         const es360 = (sl.key === 'fis_360');
         const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || es360;
         const media = esVideo
-            ? '<video class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" src="' + uEsc + '" muted playsinline></video><div class="aev-aev-mute-play" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);pointer-events:none;"><i class="fa-solid fa-play" style="color:#fff;font-size:1.4rem;"></i></div>'
-            : '<img class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" src="' + uEsc + '" alt="">';
+            ? '<video class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" muted playsinline></video><div class="aev-aev-mute-play" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);pointer-events:none;"><i class="fa-solid fa-play" style="color:#fff;font-size:1.4rem;"></i></div>'
+            : '<img class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" alt="">';
         const dataAttr = ' data-aev-ver="' + aeEsc(sl.key) + '" data-aev-lbl="' + aeEsc(sl.label) + '" ';
         if (st === 'acep') {
             return `
@@ -654,7 +721,7 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
         if (st === 'rec') {
             return `
             <div class="aev-doc-zone aev-doc-zone--rech aev-doc-zone--click"` + dAttr + ` style="border-style:solid;">
-                <a href="` + urlE + `" target="_blank" rel="noopener" class="small" onclick="event.stopPropagation()">Abrir en pestaña</a>
+                <a href="#" data-aev-href="` + urlE + `" target="_blank" rel="noopener" class="small" onclick="event.stopPropagation()">Abrir en pestaña</a>
                 <div class="fw-bold small text-danger">${aeEsc(tit)}</div>
                 <span class="aev-badge-na" style="position:static;transform:none;display:inline-block;">RECHAZADA</span>
             </div>`;
@@ -662,7 +729,7 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
         return `
         <div class="aev-doc-zone aev-doc-zone--click"` + dAttr + ` style="border-color:#f59e0b;border-style:solid;">
             <i class="fa-solid fa-file-pdf fa-2x text-warning"></i>
-            <a href="` + urlE + `" target="_blank" rel="noopener" class="small" onclick="event.stopPropagation()">Vista previa (nueva pestaña)</a>
+            <a href="#" data-aev-href="` + urlE + `" target="_blank" rel="noopener" class="small" onclick="event.stopPropagation()">Vista previa (nueva pestaña)</a>
             <div class="fw-bold small">Tocar el bloque para validar</div>
             <span class="aev-badge-ok" style="position:static;transform:none;background:#f59e0b;">Pendiente</span>
         </div>`;
@@ -902,7 +969,10 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
                 if (tit) {
                     tit.textContent = nom || (det && det.folio ? 'Folio ' + det.folio : 'Crédito');
                 }
-                if (body) body.innerHTML = aevRenderCuerpoModalValidar(det);
+                if (body) {
+                    body.innerHTML = aevRenderCuerpoModalValidar(det);
+                    aevSanearDomUrls(body);
+                }
                 aevSincroBtnEnviar();
             })
             .catch(function () {
@@ -1052,7 +1122,10 @@ if ($aevPublicPath === '' && !empty($_SERVER['REQUEST_URI'])) {
                         aevNormalizarUrlsDetalle(j.detalle);
                         aevReiniciarStore(j.detalle, _aevStore.idCredito);
                         const body2 = document.getElementById('aev-body');
-                        if (body2) body2.innerHTML = aevRenderCuerpoModalValidar(_aevStore.det);
+                        if (body2) {
+                            body2.innerHTML = aevRenderCuerpoModalValidar(_aevStore.det);
+                            aevSanearDomUrls(body2);
+                        }
                         aevSincroBtnEnviar();
                     })
                     .catch(function () {
