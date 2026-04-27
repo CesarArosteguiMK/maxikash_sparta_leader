@@ -136,6 +136,10 @@ class MotosAdjudicadas extends Controller
                 echo json_encode(['success' => false, 'message' => 'Operación no encontrada.']);
                 return;
             }
+            // Pipeline solo muestra evidencias confirmadas por el gestor
+            $detalle['evidencias'] = array_values(
+                array_filter($detalle['evidencias'] ?? [], fn($e) => ($e['estatus'] ?? 'recibido') === 'recibido')
+            );
             echo json_encode(['success' => true, 'detalle' => $detalle]);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -265,6 +269,34 @@ class MotosAdjudicadas extends Controller
     // =========================================================================
     // MIS ADJUDICACIONES
     // =========================================================================
+
+    /**
+     * POST /MotosAdjudicadas/enviarEvidencias
+     * Body JSON: { "id_operacion": 5 }
+     * Cambia todas las evidencias 'pendiente_envio' de la operación a 'recibido'.
+     */
+    public function enviarEvidencias()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body        = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
+            return;
+        }
+
+        $idUsuario     = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        try {
+            $result = $this->model->enviarEvidencias($idOperacion, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
 
     /**
      * GET /MotosAdjudicadas/misAdjudicaciones

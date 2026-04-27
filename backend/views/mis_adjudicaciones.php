@@ -1,6 +1,6 @@
 <style>
     /* ===================================================================
-       MIS ADJUDICACIONES — Paleta ámbar (hereda de Adjudicación)
+       MIS ADJUDICACIONES -" Paleta ámbar (hereda de Adjudicación)
        =================================================================== */
     :root {
         --madj-color:        #f59e0b;
@@ -10,7 +10,7 @@
         --madj-text:         #92400e;
     }
 
-    /* ── KPI Cards ─────────────────────────────────────────────────── */
+    /* -- KPI Cards --------------------------------------------------- */
     .madj-kpi-wrapper {
         display: flex;
         justify-content: flex-start;
@@ -83,7 +83,7 @@
         color: var(--kpi-c1);
     }
 
-    /* ── Banner / alert ─────────────────────────────────────────── */
+    /* -- Banner / alert ------------------------------------------- */
     .madj-alert {
         background: var(--madj-light);
         border: 1px solid var(--madj-border);
@@ -95,7 +95,7 @@
     }
     .madj-alert i { color: var(--madj-color); }
 
-    /* ── Filtro bar ─────────────────────────────────────────────── */
+    /* -- Filtro bar ----------------------------------------------- */
     .madj-filter-bar {
         background: #f8f9fa;
         border-radius: 0.5rem;
@@ -104,17 +104,17 @@
         margin-bottom: 1.25rem;
     }
 
-    /* ── Empty state ────────────────────────────────────────────── */
+    /* -- Empty state ---------------------------------------------- */
     #madj-empty-state { display: none; }
 
-    /* ── Animaciones ─────────────────────────────────────────────── */
+    /* -- Animaciones ----------------------------------------------- */
     @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(10px); }
         to   { opacity: 1; transform: translateY(0); }
     }
     .madj-animate { animation: fadeInUp 0.3s ease-out both; }
 
-    /* ── Evidencias — Secciones ─────────────────────────────────────── */
+    /* -- Evidencias -" Secciones --------------------------------------- */
     .madj-ev-section  { margin-bottom: 1rem; }
     .madj-ev-hdr {
         display: flex; align-items: center; gap: .5rem;
@@ -160,6 +160,18 @@
     }
     .madj-slot-btn-add { background: #f59e0b; color: #fff; pointer-events: none; }
     .madj-slot-btn-rep { background: #f97316; color: #fff; }
+    /* -- Status badges on evidence slots ------------------------- */
+    .madj-ev-status-badge {
+        position: absolute; bottom: 22px; left: 50%;
+        transform: translateX(-50%);
+        font-size: .58rem; font-weight: 800;
+        border-radius: 999px; padding: 1px 7px;
+        white-space: nowrap; pointer-events: none; z-index: 2;
+    }
+    .madj-ev-status-pendiente { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .madj-ev-status-recibido  { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .madj-ev-slot.has-file.status-pendiente { border-color: #fcd34d !important; border-style: solid !important; }
+    .madj-ev-slot.has-file.status-recibido  { border-color: #86efac !important; border-style: solid !important; }
     .madj-ev-slot img.madj-thumb,
     .madj-ev-slot video.madj-thumb    { width: 100%; height: 100%; object-fit: cover; display: block; }
     .madj-slot-vid-ov {
@@ -185,13 +197,13 @@
     .madj-ev-slot-pdf .slot-icon-ph    { font-size: 1.6rem; color: #94a3b8; }
     .madj-ev-slot-pdf .slot-sublbl     { font-size: .65rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; text-align: center; }
     .madj-ev-slot-pdf .slot-fname      { font-size: .7rem; color: #1e293b; font-weight: 600; max-width: 100%; word-break: break-all; text-align: center; }
-    /* ── Mobile: KPI 2×2 grid ─────────────────────────────────── */
+    /* -- Mobile: KPI 2--2 grid ----------------------------------- */
     @media (max-width: 575.98px) {
         .madj-kpi-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: .625rem; }
         .madj-kpi-item    { flex: none; max-width: none; min-width: 0; }
         .madj-kpi-num     { font-size: 1.15rem; }
     }
-    /* ── Mobile cards (visible solo en < md) ─────────────────── */
+    /* -- Mobile cards (visible solo en < md) ------------------- */
     .madj-mcard {
         background: #fff;
         border-radius: .75rem;
@@ -215,7 +227,7 @@
     }
     .madj-mcard-btn:active { transform: scale(.97); background: #d97706; }
 
-    /* ── Desktop table visual refresh ─────────────────────────── */
+    /* -- Desktop table visual refresh --------------------------- */
     .madj-table-shell {
         border-radius: .9rem;
         border: 1px solid #e5e7eb;
@@ -393,7 +405,7 @@
         text-transform: uppercase;
         letter-spacing: .25px;
     }
-    /* ── Modal evidencias: barra de progreso ─────────────────── */
+    /* -- Modal evidencias: barra de progreso ------------------- */
     .madj-ev-progress-wrap { margin-bottom: 1rem; }
     .madj-ev-progress-bg   { background: #e2e8f0; border-radius: .5rem; height: 8px; overflow: hidden; }
     .madj-ev-progress-fill {
@@ -404,7 +416,7 @@
         min-width: 0;
     }
     .madj-ev-progress-lbl  { font-size: .68rem; font-weight: 700; color: #64748b; text-align: right; margin-top: .2rem; }
-    /* ── Mobile modal adjustments ────────────────────────────── */
+    /* -- Mobile modal adjustments ------------------------------ */
     @media (max-width: 575.98px) {
         #modalEvidenciasMadj .modal-header { padding: .625rem 1rem; }
         #modalEvidenciasMadj .modal-body   { padding: .625rem .75rem; }
@@ -413,9 +425,9 @@
     }
 </style>
 
-<!-- ═══════════════════════════════════════════════════════════════
+<!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
      ENCABEZADO
-     ═══════════════════════════════════════════════════════════════ -->
+     -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h4 class="mb-0">
@@ -436,24 +448,24 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
+<!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
      ALERT CONTEXTUAL
-     ═══════════════════════════════════════════════════════════════ -->
+     -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
 <div class="madj-alert mb-4">
     <i class="fa-solid fa-circle-info me-2"></i>
     <strong>Módulo personal.</strong>
     Solo podrás ver los créditos adjudicados que te han sido asignados actualmente.
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
+<!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
      KPIs
-     ═══════════════════════════════════════════════════════════════ -->
+     -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
 <div class="madj-kpi-wrapper" id="madj-kpi-container">
     <div class="madj-kpi-item">
         <div class="card madj-kpi-card kpi-total">
             <div class="card-body">
                 <i class="fa-solid fa-list madj-kpi-icon"></i>
-                <div class="madj-kpi-num" id="madj-kpi-total">—</div>
+                <div class="madj-kpi-num" id="madj-kpi-total">-"</div>
                 <p class="madj-kpi-lbl">Total Asignados</p>
             </div>
         </div>
@@ -462,7 +474,7 @@
         <div class="card madj-kpi-card kpi-activos">
             <div class="card-body">
                 <i class="fa-solid fa-circle-check madj-kpi-icon"></i>
-                <div class="madj-kpi-num" id="madj-kpi-activos">—</div>
+                <div class="madj-kpi-num" id="madj-kpi-activos">-"</div>
                 <p class="madj-kpi-lbl">Activos</p>
             </div>
         </div>
@@ -471,7 +483,7 @@
         <div class="card madj-kpi-card kpi-saldo">
             <div class="card-body">
                 <i class="fa-solid fa-peso-sign madj-kpi-icon"></i>
-                <div class="madj-kpi-num" id="madj-kpi-saldo" style="font-size:1.1rem;">—</div>
+                <div class="madj-kpi-num" id="madj-kpi-saldo" style="font-size:1.1rem;">-"</div>
                 <p class="madj-kpi-lbl">Saldo Total</p>
             </div>
         </div>
@@ -480,16 +492,16 @@
         <div class="card madj-kpi-card kpi-mora">
             <div class="card-body">
                 <i class="fa-solid fa-clock madj-kpi-icon"></i>
-                <div class="madj-kpi-num" id="madj-kpi-mora">—</div>
+                <div class="madj-kpi-num" id="madj-kpi-mora">-"</div>
                 <p class="madj-kpi-lbl">Días Mora Prom.</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
+<!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
      FILTROS
-     ═══════════════════════════════════════════════════════════════ -->
+     -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
 <div class="madj-filter-bar d-flex align-items-center gap-3 flex-wrap">
     <span class="small fw-semibold text-muted">Filtrar por estado:</span>
     <div class="d-flex gap-2">
@@ -508,12 +520,12 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
+<!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
      TABLA
-     ═══════════════════════════════════════════════════════════════ -->
+     -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
 <div id="madj-loading" class="text-center py-3">
     <div class="spinner-border spinner-border-sm" style="color:var(--madj-color);"></div>
-    <span class="ms-2 text-muted small">Cargando adjudicaciones…</span>
+    <span class="ms-2 text-muted small">Cargando adjudicaciones--</span>
 </div>
 <div class="d-none d-md-block">
 <div class="card shadow-sm border-0 madj-animate madj-table-shell">
@@ -546,9 +558,9 @@
     <p class="small mb-0">No tienes créditos adjudicados activos asignados a tu cuenta.</p>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     MODAL — REGISTRAR EVIDENCIAS
-     ═══════════════════════════════════════════════════════════════ -->
+<!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
+     MODAL -" REGISTRAR EVIDENCIAS
+     -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
 <div class="modal fade" id="modalEvidenciasMadj" tabindex="-1"
      data-bs-backdrop="static" data-bs-keyboard="false"
      aria-labelledby="madj-ev-title-lbl" aria-modal="true" role="dialog">
@@ -569,9 +581,10 @@
                 </div>
             </div>
             <div class="modal-footer bg-light py-2">
-                <button type="button" class="btn btn-success btn-sm" id="madj-btn-guardar-evidencias" disabled
-                        onclick="madjGuardarEvidenciasPendientes()">
-                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Evidencias
+                <button type="button" class="btn btn-sm d-none" id="madj-btn-enviar-evidencias"
+                        onclick="madjEnviarEvidencias()"
+                        style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(22,163,74,.25);">
+                    <i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
                     <i class="fa-solid fa-xmark me-1"></i>Cerrar
@@ -581,9 +594,9 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
+<!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
      JAVASCRIPT
-     ═══════════════════════════════════════════════════════════════ -->
+     -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.- -->
 <script>
 (function () {
     'use strict';
@@ -591,9 +604,9 @@
     let _todos = [];    // todos los registros cargados
     let _madjProgresoCreditos = {}; // { [id_credito]: { uploaded:number, total:number } }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // HELPERS
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function moneda(n) {
         const v = parseFloat(n || 0);
         return v.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 });
@@ -676,9 +689,9 @@
             .catch(() => {});
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // CARGA PRINCIPAL
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function madjCargar() {
         const btn  = document.getElementById('madj-btn-refresh');
         const icon = btn.querySelector('i');
@@ -713,9 +726,9 @@
             });
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // KPIs
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function madjActualizarKPIs(creditos) {
         const activos = creditos.filter(c => c.estado === 'Activo');
         const saldoTotal = creditos.reduce((acc, c) => acc + parseFloat(c.saldo || 0), 0);
@@ -730,9 +743,9 @@
         document.getElementById('madj-kpi-mora').textContent     = promMora + 'd';
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // TABLA
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function madjRenderizarTabla(creditos) {
         if (!creditos || creditos.length === 0) {
             madjMostrarEmpty();
@@ -757,13 +770,13 @@
                 ? `<div class="madj-cliente-wrap"><span class="madj-cliente-main">${esc(c.nombre_cliente)}</span><span class="madj-cliente-sub">ID #${esc(String(c.id_credito))}</span></div>`
                 : '<span class="text-muted fst-italic">No disponible</span>';
 
-            const bucket = c.bucket && c.bucket !== '—'
+            const bucket = c.bucket && c.bucket !== '-"'
                 ? `<span class="badge bg-secondary-subtle text-secondary border" style="font-size:.68rem;">${esc(c.bucket)}</span>`
-                : '<span class="text-muted">—</span>';
+                : '<span class="text-muted">-"</span>';
 
             const asignacionHtml = `
                 <div class="madj-asignacion-wrap">
-                    <span class="madj-asignacion-fecha">${esc(c.fecha_asignacion || '—')}</span>
+                    <span class="madj-asignacion-fecha">${esc(c.fecha_asignacion || '-"')}</span>
                     <span class="madj-asignacion-por">${esc(c.asignado_por || 'Sistema')}</span>
                 </div>`;
 
@@ -830,14 +843,15 @@
         if (_mc) _mc.innerHTML = '';
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // EVIDENCIAS — ESTADO Y CONSTANTES
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
+    // EVIDENCIAS -" ESTADO Y CONSTANTES
+    // --------------------------------------------------------------
     let _madjEvState    = {};   // { slotKey: { src, type } }
     let _madjActiveOpId = null; // id_operacion activo en el modal
     let _madjActiveCreditId = null; // id_credito activo en el modal
-    let _madjPendingFiles = {}; // { slotKey: File }
+    let _madjPendingFiles = {}; // { slotKey: File } -" ya no se usa para staging, se conserva por compatibilidad
     let _madjCommittedSlots = new Set();
+    let _madjSlotEstatus = {}; // { slotKey: 'pendiente_envio' | 'recibido' }
 
     const MADJ_EV_SECTIONS = [
         { key: 'recoleccion', label: 'Evidencia de Recolección (Final)', headerClass: 'madj-ev-hdr-orange', icon: 'fa-camera-retro',
@@ -869,15 +883,16 @@
         return key;
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // ABRIR MODAL
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function madjEvidenciasAbrir(idCredito, nombreCliente) {
         _madjEvState    = {};
         _madjActiveOpId = null;
         _madjActiveCreditId = idCredito;
         _madjPendingFiles = {};
         _madjCommittedSlots = new Set();
+        _madjSlotEstatus = {};
 
         document.getElementById('madj-ev-titulo').textContent =
             nombreCliente || ('Crédito #' + idCredito);
@@ -907,12 +922,13 @@
                 (det.evidencias || []).forEach(ev => {
                     _madjEvState[ev.slot] = { src: ev.url, type: ev.tipo };
                     _madjCommittedSlots.add(ev.slot);
+                    _madjSlotEstatus[ev.slot] = ev.estatus || 'recibido';
                 });
 
                 _madjSetProgressCredito(idCredito, _madjContarEvidencias());
 
                 _madjRenderEvModalBody(det);
-                _madjActualizarBotonGuardar();
+                _madjActualizarBotonEnviar();
             })
             .catch(() => {
                 document.getElementById('madj-ev-body').innerHTML =
@@ -920,9 +936,9 @@
             });
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // RENDER BODY DEL MODAL
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function _madjRenderEvModalBody(det) {
         const _totalSlots = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
         const _uploaded   = Object.keys(_madjEvState).length;
@@ -947,7 +963,7 @@
 
         MADJ_EV_SECTIONS.forEach(sec => { html += _madjRenderEvSection(sec); });
 
-        // Hidden file inputs — image/video slots (capture abre cámara directamente en móvil)
+        // Hidden file inputs -" image/video slots (capture abre cámara directamente en móvil)
         MADJ_EV_SECTIONS.forEach(sec => {
             sec.slots.forEach(sl => {
                 const capAttr = sl.isVideo ? 'capture="camcorder"' : 'capture="environment"';
@@ -958,7 +974,7 @@
         });
 
         document.getElementById('madj-ev-body').innerHTML = html;
-        _madjActualizarBotonGuardar();
+        _madjActualizarBotonEnviar();
     }
 
     function _madjRenderEvSection(sec) {
@@ -976,14 +992,21 @@
     function _madjRenderSlot(sl) {
         const st = _madjEvState[sl.key];
         if (st && st.src) {
+            const es = _madjSlotEstatus[sl.key];
+            const isPendiente = es === 'pendiente_envio';
+            const statusCls   = isPendiente ? 'status-pendiente' : 'status-recibido';
+            const statusBadge = isPendiente
+                ? '<span class="madj-ev-status-badge madj-ev-status-pendiente">Por enviar</span>'
+                : '<span class="madj-ev-status-badge madj-ev-status-recibido"><i class="fa-solid fa-check me-1"></i>Enviado</span>';
             const media = sl.isVideo
                 ? `<video class="madj-thumb" src="${esc(st.src)}" muted playsinline></video>
                    <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>`
                 : `<img class="madj-thumb" src="${esc(st.src)}" alt="${esc(sl.label)}">`;
             return `
-            <div class="madj-ev-slot has-file" id="madj-slot-${sl.key}">
+            <div class="madj-ev-slot has-file ${statusCls}" id="madj-slot-${sl.key}">
                 ${media}
                 <span class="slot-lbl">${esc(sl.label)}</span>
+                ${statusBadge}
                 <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
                         onclick="madjSlotTrigger('${sl.key}')">
                     <i class="fa-solid fa-arrows-rotate"></i>
@@ -1000,19 +1023,26 @@
         </div>`;
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // PROGRESO DE EVIDENCIAS
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function _madjContarEvidencias() {
         return Object.keys(_madjEvState).length;
     }
 
-    function _madjActualizarBotonGuardar() {
-        const btn = document.getElementById('madj-btn-guardar-evidencias');
+    function _madjActualizarBotonEnviar() {
+        const btn = document.getElementById('madj-btn-enviar-evidencias');
         if (!btn) return;
-        const pendientes = Object.keys(_madjPendingFiles).length;
-        btn.disabled = pendientes === 0;
-        btn.innerHTML = `<i class="fa-solid fa-floppy-disk me-1"></i>Guardar Evidencias${pendientes ? ` (${pendientes})` : ''}`;
+        const totalSlots  = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
+        const totalFilled = Object.keys(_madjEvState).length;
+        const hasPendiente = Object.values(_madjSlotEstatus).some(s => s === 'pendiente_envio');
+        if (totalFilled >= totalSlots && hasPendiente) {
+            btn.classList.remove('d-none');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias';
+        } else {
+            btn.classList.add('d-none');
+        }
     }
 
     function _madjActualizarProgreso() {
@@ -1025,9 +1055,9 @@
         if (lbl)  lbl.textContent  = count + ' / ' + total;
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // TARJETAS MÓVILES
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
+    // TARJETAS M-"VILES
+    // --------------------------------------------------------------
     function _madjRenderCards(creditos) {
         const container = document.getElementById('madj-cards-mobile');
         if (!container) return;
@@ -1040,7 +1070,7 @@
             const nombre    = c.nombre_cliente && c.nombre_cliente !== 'No disponible'
                 ? esc(c.nombre_cliente)
                 : '<em class="text-muted">No disponible</em>';
-            const bucketBadge = c.bucket && c.bucket !== '—'
+            const bucketBadge = c.bucket && c.bucket !== '-"'
                 ? `<span class="badge bg-secondary-subtle text-secondary border" style="font-size:.65rem;">${esc(c.bucket)}</span>`
                 : '';
             return `
@@ -1064,9 +1094,9 @@
         }).join('');
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // TRIGGER / CHANGE — FILE INPUTS
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
+    // TRIGGER / CHANGE -" FILE INPUTS
+    // --------------------------------------------------------------
     function madjSlotTrigger(key) {
         document.getElementById('madj-finput-' + key)?.click();
     }
@@ -1077,15 +1107,49 @@
     function madjSlotChange(key, input) {
         const file = input.files[0];
         if (!file) return;
-        _madjUpload(key, file, false);
         input.value = '';
+
+        if (!_madjActiveOpId) {
+            Swal.fire('Error', 'No hay una operaci-n activa.', 'error');
+            return;
+        }
+
+        // Mostrar estado "subiendo" inmediatamente
+        const slotEl = document.getElementById('madj-slot-' + key);
+        if (slotEl) {
+            slotEl.classList.add('uploading', 'has-file');
+            slotEl.onclick = null;
+            slotEl.innerHTML =
+                '<div class="madj-slot-upload-spin"><div class="spinner-border spinner-border-sm" style="color:#22c55e;"></div></div>' +
+                '<span class="slot-lbl">' + esc(_madjSlotLabel(key)) + '</span>';
+        }
+
+        _madjSubirPendiente(key, file).catch(err => {
+            // Restaurar slot vac-o en caso de error
+            if (slotEl) {
+                slotEl.classList.remove('uploading', 'has-file', 'status-pendiente', 'status-recibido');
+                slotEl.onclick = () => madjSlotTrigger(key);
+                const sl = (() => {
+                    for (const sec of MADJ_EV_SECTIONS) {
+                        const found = sec.slots.find(s => s.key === key);
+                        if (found) return found;
+                    }
+                    return null;
+                })();
+                slotEl.innerHTML =
+                    '<button class="madj-slot-btn madj-slot-btn-add" tabindex="-1"><i class="fa-solid fa-plus"></i></button>' +
+                    '<i class="slot-icon-ph fa-solid ' + (sl ? sl.icon : 'fa-camera') + '"></i>' +
+                    '<span class="slot-lbl">' + esc(_madjSlotLabel(key)) + '</span>';
+            }
+            Swal.fire('Error al subir', err.message || 'No se pudo guardar la evidencia.', 'error');
+        });
     }
 
     function madjDocChange(key, input) {}
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // STAGE / GUARDAR EVIDENCIAS
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function _madjUpload(slotKey, file, isDoc) {
         const slotEl = document.getElementById('madj-slot-' + slotKey);
         const isPdf   = file.type === 'application/pdf';
@@ -1131,7 +1195,7 @@
         }
 
         _madjActualizarProgreso();
-        _madjActualizarBotonGuardar();
+        _madjActualizarBotonEnviar();
     }
 
     function _madjSubirPendiente(slotKey, file) {
@@ -1168,17 +1232,22 @@
                 };
                 _madjCommittedSlots.add(slotKey);
                 delete _madjPendingFiles[slotKey];
+                _madjSlotEstatus[slotKey] = 'pendiente_envio';
+
+                const statusBadge = '<span class="madj-ev-status-badge madj-ev-status-pendiente">Por enviar</span>';
 
                 if (slotEl) {
                     slotEl.classList.remove('uploading');
                     slotEl.querySelector('.madj-slot-upload-spin')?.remove();
-                    slotEl.classList.add('has-file');
+                    slotEl.classList.add('has-file', 'status-pendiente');
+                    slotEl.classList.remove('status-recibido');
                     slotEl.onclick = null;
                     if (isVideo) {
                         slotEl.innerHTML =
                             `<video class="madj-thumb" src="${esc(data.url)}" muted playsinline></video>
                              <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>
                              <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
+                             ${statusBadge}
                              <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
                                      onclick="madjSlotTrigger('${slotKey}')">
                                  <i class="fa-solid fa-arrows-rotate"></i>
@@ -1187,6 +1256,7 @@
                         slotEl.innerHTML =
                             `<img class="madj-thumb" src="${esc(data.url)}" alt="">
                              <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
+                             ${statusBadge}
                              <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
                                      onclick="madjSlotTrigger('${slotKey}')">
                                  <i class="fa-solid fa-arrows-rotate"></i>
@@ -1195,7 +1265,10 @@
                 }
 
                 _madjActualizarProgreso();
-                _madjActualizarBotonGuardar();
+                _madjActualizarBotonEnviar();
+                if (_madjActiveCreditId) {
+                    _madjSetProgressCredito(_madjActiveCreditId, _madjCommittedSlots.size);
+                }
             })
             .catch(err => {
                 if (slotEl) {
@@ -1206,67 +1279,71 @@
             });
     }
 
-    async function madjGuardarEvidenciasPendientes() {
-        const pendientes = Object.entries(_madjPendingFiles);
-        if (!pendientes.length) {
-            Swal.fire('Sin cambios', 'No hay evidencias pendientes por guardar.', 'info');
-            return;
-        }
-
+    async function madjEnviarEvidencias() {
         const confirm = await Swal.fire({
-            title: '¿Guardar evidencias?'
-            ,text: `Se guardarán ${pendientes.length} evidencia(s) en la base de datos.`
-            ,icon: 'question'
-            ,showCancelButton: true
-            ,confirmButtonText: 'Sí, guardar'
-            ,cancelButtonText: 'Cancelar'
-            ,confirmButtonColor: '#16a34a'
+            title: '¿Enviar evidencias?',
+            html: '<p>Al enviar, las evidencias estarán disponibles para revisión en el pipeline.</p>' +
+                  '<p class="text-muted small mb-0">Las evidencias <strong>"Por enviar"</strong> pasarán a <strong>"Enviado"</strong>.</p>',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, enviar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#16a34a',
         });
-
         if (!confirm.isConfirmed) return;
 
-        const btn = document.getElementById('madj-btn-guardar-evidencias');
-        const prevHtml = btn ? btn.innerHTML : '';
+        const btn = document.getElementById('madj-btn-enviar-evidencias');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
         }
 
-        let errores = 0;
-        for (const [slotKey, file] of pendientes) {
-            try {
-                // Subida secuencial para simplificar control de estado por slot.
-                await _madjSubirPendiente(slotKey, file);
-            } catch (e) {
-                errores++;
+        try {
+            const resp = await fetch('/MotosAdjudicadas/enviarEvidencias', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id_operacion: _madjActiveOpId }),
+            }).then(r => r.json());
+
+            if (!resp.success) throw new Error(resp.message || 'Error al enviar.');
+
+            for (const key of Object.keys(_madjSlotEstatus)) {
+                if (_madjSlotEstatus[key] === 'pendiente_envio') {
+                    _madjSlotEstatus[key] = 'recibido';
+                    const slotEl = document.getElementById('madj-slot-' + key);
+                    if (slotEl) {
+                        slotEl.classList.remove('status-pendiente');
+                        slotEl.classList.add('status-recibido');
+                        const badge = slotEl.querySelector('.madj-ev-status-badge');
+                        if (badge) {
+                            badge.className = 'madj-ev-status-badge madj-ev-status-recibido';
+                            badge.innerHTML = '<i class="fa-solid fa-check me-1"></i>Enviado';
+                        }
+                    }
+                }
             }
-        }
 
-        if (_madjActiveCreditId) {
-            _madjSetProgressCredito(_madjActiveCreditId, _madjCommittedSlots.size);
-        }
+            if (btn) btn.classList.add('d-none');
 
-        if (btn) {
-            btn.innerHTML = prevHtml;
-        }
-        _madjActualizarBotonGuardar();
-
-        if (errores === 0) {
             Swal.fire({
                 icon: 'success',
-                title: 'Guardado',
-                text: 'Todas las evidencias fueron guardadas correctamente.',
-                timer: 1700,
+                title: 'Enviadas',
+                text: 'Las evidencias fueron enviadas al pipeline.',
+                timer: 2000,
                 showConfirmButton: false,
             });
-        } else {
-            Swal.fire('Atención', `Se guardaron evidencias con ${errores} error(es).`, 'warning');
+        } catch (err) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias';
+            }
+            Swal.fire('Error', err.message || 'No se pudieron enviar las evidencias.', 'error');
         }
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     // EXPORTAR EXCEL
-    // ──────────────────────────────────────────────────────────────
+    // --------------------------------------------------------------
     function madjExportar() {
         if (!_todos.length) {
             Swal.fire('Sin datos', 'No hay registros para exportar.', 'warning');
@@ -1299,9 +1376,9 @@
         }
     }
 
-    // ──────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------------------------------------------------
     // GLOBALES
-    // ──────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------------------------------------------------
     window.madjCargar            = madjCargar;
     window.madjAplicarFiltro     = madjAplicarFiltro;
     window.madjExportar          = madjExportar;
@@ -1310,10 +1387,11 @@
     window.madjDocTrigger        = madjDocTrigger;
     window.madjSlotChange        = madjSlotChange;
     window.madjDocChange         = madjDocChange;
-    window.madjGuardarEvidenciasPendientes = madjGuardarEvidenciasPendientes;
+    window.madjEnviarEvidencias  = madjEnviarEvidencias;
 
     // INIT
     document.addEventListener('DOMContentLoaded', madjCargar);
     if (document.readyState !== 'loading') madjCargar();
 })();
 </script>
+

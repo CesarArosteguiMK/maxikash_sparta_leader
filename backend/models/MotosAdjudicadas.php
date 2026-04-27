@@ -199,16 +199,16 @@ class MotosAdjudicadas extends Model
         // 8. INSERT o UPDATE en adj_evidencia
         if ($old) {
             $this->db->CRUD(
-                'UPDATE adj_evidencia
-                    SET tipo = :tipo, url = :url, fecha_alta = :fecha
-                  WHERE id_operacion = :id AND slot = :slot',
+                "UPDATE adj_evidencia
+                    SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'pendiente_envio'
+                  WHERE id_operacion = :id AND slot = :slot",
                 ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora,
                  'id'   => $idOperacion, 'slot' => $slot]
             );
         } else {
             $this->db->CRUD(
-                'INSERT INTO adj_evidencia (id_operacion, tipo, slot, url, fecha_alta, alta)
-                 VALUES (:id, :tipo, :slot, :url, :fecha, :alta)',
+                "INSERT INTO adj_evidencia (id_operacion, tipo, slot, url, fecha_alta, alta, estatus)
+                 VALUES (:id, :tipo, :slot, :url, :fecha, :alta, 'pendiente_envio')",
                 ['id'   => $idOperacion, 'tipo' => $tipo, 'slot' => $slot,
                  'url'  => $urlRelativa, 'fecha' => $ahora, 'alta' => $idUsuario]
             );
@@ -336,7 +336,7 @@ class MotosAdjudicadas extends Model
         }
 
         $op['evidencias']    = $this->db->queryAll(
-            "SELECT id, tipo, slot, url, DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
+            "SELECT id, tipo, slot, url, estatus, DATE_FORMAT(fecha_alta, '%Y-%m-%d %H:%i') AS fecha_alta
              FROM adj_evidencia WHERE id_operacion = :id ORDER BY id ASC",
             ['id' => $id]
         ) ?: [];
@@ -356,6 +356,32 @@ class MotosAdjudicadas extends Model
         $op['bitacora'] = $this->obtenerBitacora($id);
 
         return $op;
+    }
+
+    // =========================================================================
+    // ENVIAR EVIDENCIAS (pendiente_envio → recibido)
+    // =========================================================================
+
+    /**
+     * Cambia todas las evidencias en estado 'pendiente_envio' de una operación a 'recibido'.
+     * @return array{success:bool, actualizadas?:int, message?:string}
+     */
+    public function enviarEvidencias(int $idOperacion, int $idUsuario = 0, string $nombreUsuario = ''): array
+    {
+        $op = $this->db->queryOne('SELECT id FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
+        if (!$op) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+
+        $this->db->CRUD(
+            "UPDATE adj_evidencia SET estatus = 'recibido'
+              WHERE id_operacion = :id AND estatus = 'pendiente_envio'",
+            ['id' => $idOperacion]
+        );
+
+        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario);
+
+        return ['success' => true];
     }
 
     // =========================================================================
