@@ -2626,8 +2626,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                 </div>
 
                 <div class="mb-2">
-                    <label class="form-label">CURP (opcional)</label>
-                    <input type="text" id="add_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ0-9]/g, '')" onblur="this.value = this.value.trim()">
+                    <label class="form-label">CURP *</label>
+                    <input type="text" id="add_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" required style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ0-9]/g, '')" onblur="this.value = this.value.trim()">
                 </div>
 
                 <div class="mb-2">

@@ -53,6 +53,9 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 } else {
     $ppRangoVentanaPrimerosPagos = $ppFmtDia($ppJuevesVentana, true) . ' al ' . $ppFmtDia($ppLunesSiguiente, true);
 }
+/** Aviso bajo el botón (posición absoluta): no altera el flujo del flex de la tarjeta. */
+$pp_row_aviso_bajo_btn = ($pp_perm_cobranza && $ppDow === 1)
+    || ($pp_perm_proxima && $ppBloqueoProximaSemanaMartesMiercoles);
 ?>
 <div id="pp-landing" class="pp-primeros-pagos-page reporteria-landing-root">
 <div class="card">
@@ -83,7 +86,7 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                          alt="Primeros pagos — ilustración">
                 </div>
 
-                <div class="row gy-6 mb-6 gx-0 align-items-stretch">
+                <div class="row gy-6 mb-6 gx-0 align-items-stretch<?= $pp_row_aviso_bajo_btn ? ' pp-landing-row--aviso-bajo-btn' : '' ?>">
                     <?php if ($pp_cards_visibles === 0): ?>
                     <div class="col-12">
                         <div class="alert alert-warning mb-0" role="alert">
@@ -103,14 +106,14 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de martes a domingo. Resumen ejecutivo del corte de primeros pagos de la semana en curso</p>
                                     </div>
                                     <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
-                                    <div class="pp-landing-card-actions mt-2">
+                                    <div class="pp-landing-card-actions mt-2<?= $ppDow === 1 ? ' pp-landing-actions-anchor' : '' ?>">
                                         <?php if ($ppDow === 1): ?>
-                                        <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
-                                            La cartera no abre hasta el martes, revise los datos en la sección de <strong>Primeros pagos próxima semana</strong>.
-                                        </div>
                                         <button type="button" class="btn btn-secondary w-100" id="ppBtnCobranzaEsperadaLunes">
                                             <i class="fa fa-table-columns me-1"></i>Ver cobranza esperada
                                         </button>
+                                        <div class="pp-landing-below-btn-alert alert alert-warning py-2 px-2 small text-start mb-0" role="alert">
+                                            La cartera no abre hasta el martes, revise los datos en la sección de <strong>Primeros pagos próxima semana</strong>.
+                                        </div>
                                         <?php else: ?>
                                         <a href="/analitica/VencimientosLunes" class="btn btn-primary w-100">
                                             <i class="fa fa-table-columns me-1"></i>Ver cobranza esperada
@@ -175,14 +178,14 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
                                         <p class="text-body small w-sm-80 app-academy-xl-100 mb-0 pp-landing-card-desc">Disponible de jueves a lunes. Anticipa primeros pagos de la semana siguiente</p>
                                     </div>
                                     <div class="pp-landing-card-filler flex-grow-1 w-100" aria-hidden="true"></div>
-                                    <div class="pp-landing-card-actions mt-2">
+                                    <div class="pp-landing-card-actions mt-2<?= $ppBloqueoProximaSemanaMartesMiercoles ? ' pp-landing-actions-anchor' : '' ?>">
                                         <?php if ($ppBloqueoProximaSemanaMartesMiercoles): ?>
-                                        <div class="alert alert-warning py-2 px-2 small text-start mb-2" role="alert">
-                                            La cartera de próxima semana no está disponible; podrá consultarla a partir del jueves. Mientras tanto revise <strong>Cobranza esperada — semana actual</strong>.
-                                        </div>
                                         <button type="button" class="btn btn-secondary w-100" id="ppBtnProximaSemanaBloqueado">
                                             <i class="fa fa-calendar-check me-1"></i>Ver corte semana actual
                                         </button>
+                                        <div class="pp-landing-below-btn-alert alert alert-warning py-2 px-2 small text-start mb-0" role="alert">
+                                            La cartera de próxima semana no está disponible; podrá consultarla a partir del jueves. Mientras tanto revise <strong>Cobranza esperada — semana actual</strong>.
+                                        </div>
                                         <?php else: ?>
                                         <a href="/analitica/VencimientosLunesSiguienteSemana" class="btn btn-primary w-100">
                                             <i class="fa fa-calendar-check me-1"></i>Ver corte semana actual
@@ -275,10 +278,6 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
     transform: scale(1.1);
     transform-origin: center center;
 }
-#pp-landing .pp-landing-icon-frame--cartera .pp-icon-svg,
-#pp-landing .pp-landing-icon-frame--historico .pp-icon-svg {
-    transform: translateY(-0.45rem) scale(1.1);
-}
 .pp-primeros-pagos-page,
 #pp-landing.pp-primeros-pagos-page {
     overflow: visible;
@@ -296,16 +295,48 @@ if ($ppJuevesVentana->format('Y') === $ppLunesSiguiente->format('Y')) {
 /* Fila de cards: misma altura; títulos e iconos alineados; botones al mismo borde inferior */
 #pp-landing .pp-landing-card-body {
     flex: 1 1 auto;
+    flex-direction: column-reverse;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
     min-height: 0;
 }
 #pp-landing .pp-landing-card-text {
     flex: 1 1 auto;
     min-height: 0;
     min-width: 0;
+    width: 100% !important;
+}
+#pp-landing .pp-landing-icon-slot {
+    width: 100% !important;
+    height: 7.5rem;
+    flex: 0 0 7.5rem;
+    align-self: stretch !important;
+    justify-content: center !important;
+    margin-bottom: 1rem !important;
 }
 #pp-landing .pp-landing-card-filler {
     flex: 1 1 auto;
     min-height: 0;
+}
+/* Aviso debajo del botón sin reflow: ancla al bloque de acciones; el botón y el icono no se desplazan. */
+#pp-landing .pp-landing-actions-anchor {
+    position: relative;
+}
+#pp-landing .pp-landing-below-btn-alert {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 0.35rem;
+    z-index: 2;
+}
+#pp-landing .pp-landing-row--aviso-bajo-btn {
+    padding-bottom: 7rem;
+}
+@media (min-width: 992px) {
+    #pp-landing .pp-landing-row--aviso-bajo-btn {
+        padding-bottom: 5.75rem;
+    }
 }
 /* Altura de título igualada entre cards sin hueco extra: exactamente 2 líneas (2lh), no rem fijo */
 @media (min-width: 768px) {

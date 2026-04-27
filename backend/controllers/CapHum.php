@@ -3240,6 +3240,7 @@ class CapHum extends Controller
                 const usuario = document.getElementById('add_usuario').value.trim();
                 const contrasena = document.getElementById('add_contrasena').value.trim();
                 const fecha_ingreso = document.getElementById('add_fecha_ingreso').value.trim() || null;
+                const curp = (document.getElementById('add_curp')?.value || '').trim().toUpperCase();
 
                 const id_div_nivel1 = leerValorSelectDivision('add_id_div_nivel1');
                 const id_div_nivel2 = leerValorSelectDivision('add_id_div_nivel2');
@@ -3254,6 +3255,10 @@ class CapHum extends Controller
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
                 if (!apellidop) return Swal.fire('Error', 'El apellido paterno es obligatorio', 'error');
                 if (!apellidom) return Swal.fire('Error', 'El apellido materno es obligatorio', 'error');
+                if (!curp) return Swal.fire('Error', 'El CURP es obligatorio', 'error');
+                if (!/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/.test(curp)) {
+                    return Swal.fire('Error', 'El CURP debe tener 18 caracteres con formato válido.', 'error');
+                }
                 if (!telefono) return Swal.fire('Error', 'El teléfono es obligatorio', 'error');
                 if (!fecha_ingreso) return Swal.fire('Error', 'La fecha de ingreso es obligatoria', 'error');
 
@@ -3298,7 +3303,7 @@ class CapHum extends Controller
                         segundo_nombre,
                         apellidop,
                         apellidom,
-                        curp: document.getElementById('add_curp')?.value?.trim() || null,
+                        curp,
                         telefono,
                         fecha_ingreso,
                         id_pais: id_pais || 1,
@@ -10576,11 +10581,12 @@ public function getMunicipios()
         }
 
         // Validaciones básicas (todos los campos de registro obligatorios; id_jefe puede estar vacío si es máximo rango)
-        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'telefono', 'fecha_ingreso', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
+        $requiredFields = ['nombres', 'apellidop', 'apellidom', 'curp', 'telefono', 'fecha_ingreso', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
         $nombresCampos = [
             'nombres' => 'Nombres',
             'apellidop' => 'Apellido paterno',
             'apellidom' => 'Apellido materno',
+            'curp' => 'CURP',
             'telefono' => 'Teléfono',
             'fecha_ingreso' => 'Fecha de ingreso',
             'id_puesto' => 'Puesto',
@@ -10598,6 +10604,16 @@ public function getMunicipios()
                 return;
             }
         }
+
+        $curpNorm = strtoupper(preg_replace('/\s+/', '', (string) ($data['curp'] ?? '')));
+        if (!OcrIdentidad::validarFormatoCURP($curpNorm)) {
+            echo json_encode([
+                'success' => false,
+                'mensaje' => 'El CURP no tiene un formato válido (18 caracteres estándar).',
+            ]);
+            return;
+        }
+        $data['curp'] = $curpNorm;
 
         // Preparar datos
         $data['contrasena'] = $data['contrasena'];
