@@ -683,7 +683,7 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                             data-bs-toggle="tab" data-bs-target="#tab-convenios"
                             type="button" role="tab"
                             aria-controls="tab-convenios" aria-selected="<?= $ccActConv ? 'true' : 'false' ?>">
-                        <i class="fa-solid fa-handshake me-1 text-primary"></i>Convenios
+                        <i class="fa-solid fa-handshake me-1 text-primary"></i>Convenios Activos
                         <span class="badge bg-secondary ms-1" id="badge-convenios">0</span>
                     </button>
                 </li>
