@@ -170,26 +170,31 @@
         color: #475569;
     }
 
-    /* Checklist mini */
-    .ops-checklist {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
+    /* Evidence mini progress bar on kanban cards */
+    .ops-ev-progress {
         margin-top: 0.4rem;
         border-top: 1px dashed #e2e8f0;
         padding-top: 0.4rem;
     }
-
-    .ops-chk-item {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        font-size: 0.68rem;
-        color: #64748b;
+    .ops-ev-progress-track {
+        height: 5px;
+        background: #e2e8f0;
+        border-radius: 999px;
+        overflow: hidden;
+        margin-bottom: 3px;
     }
-
-    .ops-chk-item.done { color: var(--ops-green); }
-    .ops-chk-item i { font-size: 0.65rem; flex-shrink: 0; width: 0.7rem; text-align: center; }
+    .ops-ev-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #6366f1, #818cf8);
+        transition: width .4s ease;
+    }
+    .ops-ev-progress-lbl {
+        font-size: 0.65rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .ops-ev-progress-lbl.complete { color: #16a34a; }
 
     /* ── Buttons ───────────────────────────────────────────────────── */
     .btn-ops-green {
@@ -280,7 +285,7 @@
     /* ── Acciones de Tramo ───────────────────────────────────────── */
     .ops-tramo-wrap {
         display: flex; flex-direction: column;
-        flex: 2 1 0; min-height: 0;
+        flex: 1 1 0; min-height: 0; height: 100%;
         border: 1px solid #e2e8f0; border-radius: .75rem; overflow: hidden;
     }
     .ops-tramo-hdr {
@@ -290,7 +295,7 @@
     }
     .ops-tramo-hdr i { color: #38bdf8; }
     .ops-tramo-body {
-        flex: 1 1 0; min-height: 220px; overflow-y: auto; padding: .5rem .75rem;
+        flex: 1 1 0; min-height: 0; overflow-y: auto; padding: .5rem .75rem;
         background: #f8fafc; scrollbar-width: thin;
     }
     .ops-tramo-body::-webkit-scrollbar { width: 4px; }
@@ -472,9 +477,9 @@
 
     body.dark-mode .ops-area-badge { background: #1e293b; border-color: #334155; color: #94a3b8; }
 
-    body.dark-mode .ops-checklist { border-top-color: #334155; }
-    body.dark-mode .ops-chk-item  { color: #64748b; }
-    body.dark-mode .ops-chk-item.done { color: var(--ops-green); }
+    body.dark-mode .ops-ev-progress { border-top-color: #334155; }
+    body.dark-mode .ops-ev-progress-track { background: #334155; }
+    body.dark-mode .ops-ev-progress-lbl { color: #94a3b8; }
 
     body.dark-mode .ops-empty-col { color: #475569; }
 
@@ -626,48 +631,15 @@
                 </div>
             </div>
             <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
-                <button type="button" class="btn btn-outline-danger btn-sm" id="det-btn-eliminar">
-                    <i class="fa-solid fa-trash me-1"></i>Eliminar
-                </button>
-                <div class="ms-auto d-flex gap-2">
+                <div class="ms-auto">
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="button" class="btn btn-outline-warning btn-sm" id="det-btn-regresar" style="display:none;">
-                        <i class="fa-solid fa-arrow-left me-1"></i>Regresar etapa
-                    </button>
-                    <button type="button" class="btn btn-ops-green btn-sm" id="det-btn-mover">
-                        <i class="fa-solid fa-arrow-right me-1"></i>Avanzar etapa
-                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════
-     MODAL: RESUMEN DICTAMEN (sólo lectura — estatus cancelado)
-     ═══════════════════════════════════════════════════════════════════ -->
-<div class="modal fade" id="modalOpsDictamenResumen" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-md modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header" style="background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%);border-radius:.4rem .4rem 0 0;">
-                <h5 class="modal-title text-white fw-bold">
-                    <i class="fa-solid fa-file-circle-check me-2"></i>Resumen del dictamen
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="ops-dictamen-resumen-body">
-                <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
-            </div>
-            <div class="modal-footer" style="background:#f8fafc;">
-                <button type="button" class="btn fw-bold"
-                        style="background:#e2e8f0;color:#475569;border:none;border-radius:2rem;padding:.45rem 1.4rem;"
-                        data-bs-dismiss="modal">
-                    <i class="fa-solid fa-xmark me-1"></i>Cerrar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- ═══════════════════════════════════════════════════════════════════
      JAVASCRIPT
@@ -696,15 +668,9 @@
         'Recepción':                 'fa-flag-checkered',
     };
 
-    // Checklist items por etapa (los que se muestran en la mini-card)
-    const STAGE_CHECKLIST = {
-        'Recibido':                  ['Datos logísticos completos', 'Vehículo identificado'],
-        'Procesando IA':             ['Validación IA pendiente', 'Score asignado'],
-        'Revisión Recuperaciones':   ['Revisión equipo', 'Observaciones registradas'],
-        'Retenciones':               ['Trámite retención', 'Docs firmados'],
-        'Cierre Documentado':        ['Factura validada', 'Expediente completo'],
-        'Recepción':                 ['Entrega física', 'Cierre en sistema'],
-    };
+    // Total evidence slots (4 recolección + 5 física + 2 docs = 11… but canonical slots = 9 images/video + 2 PDF = 11)
+    // We use 11 as total (4 rec + 5 fis + 1 repuve + 1 factura)
+    const EV_TOTAL_SLOTS = 11;
 
     // Estado global
     let _operaciones  = [];
@@ -849,25 +815,20 @@
         if (dias > 5)      { agingClass = 'ops-aging-red';    }
         else if (dias > 2) { agingClass = 'ops-aging-yellow'; }
 
-        const checks = (STAGE_CHECKLIST[op.estatus] || []).map((item, i) => {
-            const done = i === 0 && opsCardCheckDone(op, i);
-            return `<div class="ops-chk-item ${done ? 'done' : ''}">
-                <i class="fa-solid ${done ? 'fa-circle-check' : 'fa-circle'}" style="${done ? '' : 'opacity:.35;'}"></i>
-                ${item}
-            </div>`;
-        }).join('');
+        const evCount   = parseInt(op.evidencias_count || 0);
+        const evTotal   = EV_TOTAL_SLOTS;
+        const evPct     = evTotal > 0 ? Math.round((evCount / evTotal) * 100) : 0;
+        const evComplete = evCount >= evTotal;
 
         const areaHtml = op.area_actual
             ? `<span class="ops-area-badge">${opsEsc(op.area_actual)}</span>`
             : '';
 
-        // Estilos y comportamiento especiales para cancelado
+        // Estilos y comportamiento especiales según estatus
         const esCancelado  = op.estatus === 'cancelado';
         const esTransito   = op.estatus === 'en_transito';
         const cardExtra    = esCancelado ? ' ops-card--cancelado' : (esTransito ? ' ops-card--en-transito' : '');
-        const clickHandler = esCancelado
-            ? `opsDictamenResumen(${op.id})`
-            : `opsAbrirDetalle(${op.id})`;
+        const clickHandler = `opsAbrirDetalle(${op.id})`;
         const transitoBadge = esTransito
             ? `<div style="margin-top:.3rem;"><span style="background:#dbeafe;color:#1e40af;font-size:.7rem;font-weight:700;border-radius:20px;padding:1px 8px;"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span></div>`
             : '';
@@ -886,58 +847,20 @@
                 <i class="fa-solid fa-hashtag me-1" style="opacity:.5;"></i>Crédito ${opsEsc(String(op.id_credito))}
                 ${areaHtml ? '&nbsp;' + areaHtml : ''}
             </div>
-            <div class="ops-checklist">${checks}</div>
+            <div class="ops-ev-progress">
+                <div class="ops-ev-progress-track">
+                    <div class="ops-ev-progress-fill" style="width:${evPct}%;"></div>
+                </div>
+                <div class="ops-ev-progress-lbl ${evComplete ? 'complete' : ''}">
+                    ${evComplete
+                        ? '<i class="fa-solid fa-circle-check me-1"></i>Evidencias completas'
+                        : `<i class="fa-solid fa-image me-1"></i>${evCount}/${evTotal} evidencias`}
+                </div>
+            </div>
             ${canceladoBadge}${transitoBadge}
         </div>`;
     }
 
-    // Lógica mínima de "completado" para el primer ítem del checklist por etapa
-    function opsCardCheckDone(op, idx) {
-        if (op.estatus === 'Recibido'    && idx === 0) return !!(op.responsable_entrega);
-        if (op.estatus === 'Procesando IA' && idx === 1) return op.score_ia > 0;
-        return false;
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // MODAL: RESUMEN DEL DICTAMEN (cancelado — sólo lectura)
-    // ──────────────────────────────────────────────────────────────────
-    function opsDictamenResumen(idOperacion) {
-        const body = document.getElementById('ops-dictamen-resumen-body');
-        body.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>';
-        new bootstrap.Modal(document.getElementById('modalOpsDictamenResumen')).show();
-
-        fetch(`/AtencionClientes/obtenerDictamen?id=${idOperacion}`, { headers: { 'Accept': 'application/json' } })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) throw new Error(data.message || 'No se encontró el dictamen.');
-                const d = data.dictamen;
-                const fila = (lbl, val) => `
-                    <div style="display:flex;align-items:flex-start;gap:.5rem;padding:.35rem 0;border-bottom:1px solid #f1f5f9;">
-                        <span style="color:#64748b;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;min-width:160px;flex-shrink:0;">${opsEsc(lbl)}</span>
-                        <span style="color:#1e293b;font-weight:500;">${val ? opsEsc(String(val)) : '<span style="color:#94a3b8;font-style:italic;">—</span>'}</span>
-                    </div>`;
-
-                body.innerHTML = `
-                    <div style="margin-bottom:.75rem;">
-                        <span style="background:#fee2e2;color:#b91c1c;font-size:.8rem;font-weight:700;border-radius:20px;padding:3px 12px;">
-                            <i class="fa-solid fa-ban me-1"></i>Cancelado — promesa de pago
-                        </span>
-                    </div>
-                    ${fila('Llamada a',          d.llamada_a)}
-                    ${fila('Número',             d.numero)}
-                    ${fila('Persona contactada', d.persona_contactada)}
-                    ${fila('Tipo contacto',      d.tipo_contacto)}
-                    ${fila('Resultado',          d.resultado)}
-                    ${fila('Dictamen',           d.dictamen)}
-                    ${fila('Plataforma',         d.plataforma)}
-                    ${d.comentarios ? fila('Comentarios', d.comentarios) : ''}
-                    ${fila('Registrado',         d.fecha_alta_fmt)}
-                `;
-            })
-            .catch(err => {
-                body.innerHTML = `<div class="alert alert-danger">${opsEsc(err.message)}</div>`;
-            });
-    }
 
 
     // ──────────────────────────────────────────────────────────────────
@@ -950,12 +873,15 @@
             </div>`;
         new bootstrap.Modal(document.getElementById('modalDetalleOperacion')).show();
 
-        fetch(`/MotosAdjudicadas/obtenerDetalle/${id}`, { headers: { 'Accept': 'application/json' } })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) throw new Error(data.message);
-                _detalleActual = data.detalle;
-                opsRenderDetalle(data.detalle);
+        const fetchDetalle  = fetch(`/MotosAdjudicadas/obtenerDetalle/${id}`, { headers: { 'Accept': 'application/json' } }).then(r => r.json());
+        const fetchDictamen = fetch(`/AtencionClientes/obtenerDictamen?id=${id}`, { headers: { 'Accept': 'application/json' } }).then(r => r.json()).catch(() => null);
+
+        Promise.all([fetchDetalle, fetchDictamen])
+            .then(([detalleResp, dictamenResp]) => {
+                if (!detalleResp.success) throw new Error(detalleResp.message);
+                _detalleActual = detalleResp.detalle;
+                const dictamen = (dictamenResp && dictamenResp.success) ? dictamenResp.dictamen : null;
+                opsRenderDetalle(detalleResp.detalle, dictamen);
             })
             .catch(err => {
                 document.getElementById('det-body').innerHTML = `
@@ -963,31 +889,10 @@
             });
     }
 
-    function opsRenderDetalle(op) {
+    function opsRenderDetalle(op, dictamen) {
+        dictamen = dictamen || null;
         _activeOpId = op.id;
         document.getElementById('det-folio').textContent = op.folio;
-
-        // Botones avanzar / regresar etapa
-        const stageIdx   = STAGES.indexOf(op.estatus);
-        const siguiente  = stageIdx >= 0 && stageIdx < STAGES.length - 1 ? STAGES[stageIdx + 1] : null;
-        const anterior   = stageIdx > 0 ? STAGES[stageIdx - 1] : null;
-        const btnMover   = document.getElementById('det-btn-mover');
-        const btnRegresar = document.getElementById('det-btn-regresar');
-        if (siguiente) {
-            btnMover.style.display = '';
-            btnMover.onclick = () => opsMoverEstatus(op.id, siguiente);
-            btnMover.innerHTML = `<i class="fa-solid fa-arrow-right me-1"></i>Mover a "${siguiente}"`;
-        } else {
-            btnMover.style.display = 'none';
-        }
-        if (anterior) {
-            btnRegresar.style.display = '';
-            btnRegresar.onclick = () => opsRegresarEstatus(op.id, anterior, op.estatus, op.area_actual || '');
-            btnRegresar.innerHTML = `<i class="fa-solid fa-arrow-left me-1"></i>Regresar a "${anterior}"`;
-        } else {
-            btnRegresar.style.display = 'none';
-        }
-        document.getElementById('det-btn-eliminar').onclick = () => opsEliminar(op.id);
 
         // Aging
         const dias = parseInt(op.dias_en_pipeline || 0);
@@ -1002,17 +907,6 @@
                 _evState[k] = { src: ev.url, type: ev.tipo, label: ev.slot, uploaded: true };
             }
         });
-
-        // Build all slots for hidden inputs
-        const allSlotDefs = [
-            ...EV_SECTIONS.flatMap(s => s.slots),
-            ...EV_DOCS.map(d => ({ key: d.slotKey, accept: d.accept, isPDF: true })),
-        ];
-
-        const fileInputs = allSlotDefs.map(s =>
-            `<input type="file" id="inp-${s.key}" style="display:none" accept="${s.accept || 'image/jpeg,image/png'}"
-                    onchange="opsSlotChange('${s.key}',${op.id},this)">`
-        ).join('');
 
         const html = `
         <!-- ① INFO BAR -->
@@ -1034,8 +928,9 @@
                 <div style="font-size:.78rem;color:#94a3b8;font-weight:600;">${opsEsc(op.folio)}</div>
             </div>
         </div>
+        ${op.estatus === 'Retenciones' ? opsRenderDatosExpediente(op, dictamen) : ''}
 
-        <!-- ② VISOR + ACCIONES DE TRAMO + BITÁCORA -->
+        <!-- ② VISOR + ACCIONES DE TRAMO -->
         <div class="row g-3 mb-3 ops-visor-row" style="align-items:stretch;">
             <div class="col-12 col-md-6 d-flex flex-column">
                 <div class="ops-asset-viewer">
@@ -1069,14 +964,6 @@
                         </div>
                     </div>
                 </div>
-                <div class="ops-bitacora-wrap">
-                    <div class="ops-bitacora-hdr">
-                        <i class="fa-solid fa-clock-rotate-left"></i>Bitácora Forense Maxikash
-                    </div>
-                    <div class="ops-bitacora-body" id="det-bitacora">
-                        ${opsRenderBitacora(op.bitacora || [])}
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -1092,59 +979,13 @@
             <div class="col-12 col-sm-6">${opsRenderEvDoc(op.id, EV_DOCS[1])}</div>
         </div>
 
-        <!-- ⑥ DATOS DEL EXPEDIENTE (acordeón) -->
-        <div class="accordion accordion-flush mb-3">
-            <div class="accordion-item" style="border:1px solid #e2e8f0;border-radius:.5rem;overflow:hidden;">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed py-2" type="button"
-                            data-bs-toggle="collapse" data-bs-target="#det-acc-datos"
-                            style="font-size:.78rem;font-weight:700;color:var(--ops-green-text);background:var(--ops-green-light);">
-                        <i class="fa-solid fa-circle-info me-2"></i>Datos del expediente
-                    </button>
-                </h2>
-                <div id="det-acc-datos" class="accordion-collapse collapse">
-                    <div class="accordion-body py-2 px-3">
-                        <div class="row g-2">
-                            <div class="col-12 col-sm-6">
-                                <div class="ops-detail-section mb-2">
-                                    <h6><i class="fa-solid fa-motorcycle me-1"></i>Vehículo</h6>
-                                    ${opsDatoPar('Marca / Modelo', [op.marca, op.modelo].filter(Boolean).join(' ') || '—')}
-                                    ${opsDatoPar('N° Serie',  op.serie     || '—')}
-                                    ${opsDatoPar('N° Motor', op.num_motor || '—')}
-                                    ${opsDatoPar('Placas',   op.placas    || '—')}
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-6">
-                                <div class="ops-detail-section mb-2">
-                                    <h6><i class="fa-solid fa-truck me-1"></i>Logística</h6>
-                                    ${opsDatoPar('Responsable', op.responsable_entrega   || '—')}
-                                    ${opsDatoPar('Teléfono',    op.telefono_contacto     || '—')}
-                                    ${opsDatoPar('Dirección',   op.direccion_recoleccion || '—')}
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="ops-detail-section mb-0">
-                                    <h6><i class="fa-solid fa-dollar-sign me-1"></i>Financiero</h6>
-                                    <div class="row g-1">
-                                        <div class="col-4">${opsDatoPar('Días mora',    (op.dias_mora || 0) + 'd')}</div>
-                                        <div class="col-4">${opsDatoPar('Saldo capital', opsFormatMXN(op.saldo_capital || 0))}</div>
-                                        <div class="col-4">${opsDatoPar('Adeudo total',  opsFormatMXN(op.adeudo_total  || 0))}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        ${op.estatus !== 'Retenciones' ? opsRenderDatosExpediente(op, dictamen) : ''}
 
         <!-- ⑦ HISTORIAL -->
         <div class="ops-detail-section mb-0">
             <h6><i class="fa-solid fa-clock-rotate-left me-1"></i>Historial de etapas</h6>
             ${opsRenderHistorial(op.historial || [])}
-        </div>
-
-        ${fileInputs}`;
+        </div>`;
 
         document.getElementById('det-body').innerHTML = html;
         requestAnimationFrame(() => {
@@ -1169,18 +1010,13 @@
                            <div class="ops-slot-vid-ov"><i class="fa-solid fa-play"></i></div>`
                         : `<img class="ops-thumb" src="${opsEsc(ev.src)}" alt="">`}
                     <div class="slot-lbl">${opsEsc(slot.label)}</div>
-                    <button class="ops-slot-btn ops-slot-btn-rep"
-                            onclick="event.stopPropagation();opsSlotTrigger('${slot.key}')">
-                        <i class="fa-solid fa-rotate"></i>
-                    </button>
+                    <!-- Botón de reemplazo oculto temporalmente en frontend -->
                 </div>`;
             }
             return `
-            <div class="ops-ev-slot" id="slot-${slot.key}"
-                 onclick="opsSlotTrigger('${slot.key}')">
+            <div class="ops-ev-slot" id="slot-${slot.key}" style="cursor:default;opacity:.55;">
                 <i class="fa-solid ${slot.icon} slot-icon-ph"></i>
                 <div class="slot-lbl">${opsEsc(slot.label)}</div>
-                <button class="ops-slot-btn ops-slot-btn-add">+</button>
             </div>`;
         }).join('');
 
@@ -1207,25 +1043,18 @@
             inner = isPDF
                 ? `<i class="fa-solid fa-file-pdf slot-icon-ph" style="color:#ef4444;font-size:1.6rem;"></i>
                    <div class="slot-fname">${opsEsc(ev.label || doc.slotLabel)}</div>
-                   <button class="ops-slot-btn ops-slot-btn-rep" style="top:8px;right:8px;"
-                           onclick="event.stopPropagation();opsSlotTrigger('${doc.slotKey}')">
-                       <i class="fa-solid fa-rotate"></i>
-                   </button>`
+                   <!-- Botón de reemplazo oculto temporalmente en frontend -->`
                 : `<img style="max-height:60px;max-width:100%;object-fit:contain;border-radius:.375rem;"
                         src="${opsEsc(ev.src)}" alt="">
-                   <button class="ops-slot-btn ops-slot-btn-rep" style="top:8px;right:8px;"
-                           onclick="event.stopPropagation();opsSlotTrigger('${doc.slotKey}')">
-                       <i class="fa-solid fa-rotate"></i>
-                   </button>`;
+                   <!-- Botón de reemplazo oculto temporalmente en frontend -->`;
         } else {
-            inner = `<i class="fa-solid fa-cloud-arrow-up" style="font-size:1.6rem;color:#94a3b8;"></i>
-                     <div class="slot-sublbl">${opsEsc(doc.slotLabel)}</div>
-                     <button class="ops-slot-btn ops-slot-btn-add" style="top:8px;right:8px;pointer-events:none;">+</button>`;
+            inner = `<i class="fa-solid fa-file-circle-xmark" style="font-size:1.6rem;color:#cbd5e1;"></i>
+                     <div class="slot-sublbl" style="color:#94a3b8;">${opsEsc(doc.slotLabel)}</div>`;
         }
 
         const clickAttr = hasFile
             ? `onclick="opsSlotView('${doc.slotKey}',${opId})"`
-            : `onclick="opsSlotTrigger('${doc.slotKey}')"`;
+            : '';
 
 
         return `
@@ -1239,14 +1068,6 @@
                 </div>
             </div>
         </div>`;
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // EVIDENCE: trigger file input
-    // ──────────────────────────────────────────────────────────────────
-    function opsSlotTrigger(key) {
-        const inp = document.getElementById('inp-' + key);
-        if (inp) inp.click();
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -1295,186 +1116,76 @@
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    // EVIDENCE: file selected → preview + upload
-    // ──────────────────────────────────────────────────────────────────
-    function opsSlotChange(key, opId, input) {
-        const file = input.files[0];
-        if (!file) return;
-
-        // Validate by slot type
-        const allSlots  = EV_SECTIONS.flatMap(s => s.slots);
-        const slotDef   = allSlots.find(s => s.key === key);
-        const docDef    = EV_DOCS.find(d => d.slotKey === key);
-
-        if (slotDef && slotDef.isVideo) {
-            if (file.type !== 'video/mp4') {
-                Swal.fire({ icon: 'warning', title: 'Solo MP4', text: 'Este campo solo acepta videos MP4.', confirmButtonColor: '#6366f1' });
-                input.value = ''; return;
-            }
-        } else if (docDef) {
-            const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
-            if (!allowed.includes(file.type)) {
-                Swal.fire({ icon: 'warning', title: 'Tipo no válido', text: 'Solo se aceptan PDF, JPG o PNG.', confirmButtonColor: '#6366f1' });
-                input.value = ''; return;
-            }
-        } else {
-            if (!['image/jpeg', 'image/png'].includes(file.type)) {
-                Swal.fire({ icon: 'warning', title: 'Solo imágenes', text: 'Solo se aceptan imágenes JPG o PNG.', confirmButtonColor: '#6366f1' });
-                input.value = ''; return;
-            }
-        }
-
-        if (file.size > 20 * 1024 * 1024) {
-            Swal.fire({ icon: 'warning', title: 'Archivo muy grande', text: 'El límite es 20 MB.', confirmButtonColor: '#6366f1' });
-            input.value = ''; return;
-        }
-
-        const mediaType = file.type.startsWith('video/') ? 'video'
-                        : file.type === 'application/pdf'  ? 'pdf'
-                        : 'image';
-
-        const slotEl = document.getElementById('slot-' + key);
-        if (slotEl) slotEl.classList.add('uploading');
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            _evState[`${opId}_${key}`] = {
-                src: e.target.result, type: mediaType,
-                label: file.name, uploaded: false,
-            };
-            opsUpdateSlotUI(key, opId);
-            opsSlotView(key, opId);
-            input.value = '';
-            opsUploadEvidencia(key, opId, file);
-        };
-        reader.readAsDataURL(file);
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // EVIDENCE: rebuild single slot HTML
-    // ──────────────────────────────────────────────────────────────────
-    function opsUpdateSlotUI(key, opId) {
-        const ev     = _evState[`${opId}_${key}`];
-        const slotEl = document.getElementById('slot-' + key);
-        if (!ev || !slotEl) return;
-
-        slotEl.classList.remove('uploading');
-
-        const spinner = ev.uploaded ? '' :
-            `<div class="ops-slot-upload-spin">
-                <div class="spinner-border spinner-border-sm" style="color:var(--ops-green);"></div>
-             </div>`;
-
-        const allSlots = EV_SECTIONS.flatMap(s => s.slots);
-        const slotDef  = allSlots.find(s => s.key === key);
-        const docDef   = EV_DOCS.find(d => d.slotKey === key);
-
-        if (slotDef) {
-            const isVideo = ev.type === 'video';
-            slotEl.classList.add('has-file');
-            slotEl.setAttribute('onclick', `opsSlotView('${key}',${opId})`);
-            slotEl.innerHTML = `
-                ${isVideo
-                    ? `<video class="ops-thumb" src="${opsEsc(ev.src)}" muted></video>
-                       <div class="ops-slot-vid-ov"><i class="fa-solid fa-play"></i></div>`
-                    : `<img class="ops-thumb" src="${opsEsc(ev.src)}" alt="">`}
-                <div class="slot-lbl">${opsEsc(slotDef.label)}</div>
-                <button class="ops-slot-btn ops-slot-btn-rep"
-                        onclick="event.stopPropagation();opsSlotTrigger('${key}')">
-                    <i class="fa-solid fa-rotate"></i>
-                </button>
-                ${spinner}`;
-        } else if (docDef) {
-            const isPDF = ev.type === 'pdf';
-            slotEl.classList.add('has-file');
-            slotEl.setAttribute('onclick', `opsSlotView('${key}',${opId})`);
-            slotEl.innerHTML = isPDF
-                ? `<i class="fa-solid fa-file-pdf slot-icon-ph" style="color:#ef4444;font-size:1.6rem;"></i>
-                   <div class="slot-fname">${opsEsc(ev.label || docDef.slotLabel)}</div>
-                   <button class="ops-slot-btn ops-slot-btn-rep" style="top:8px;right:8px;"
-                           onclick="event.stopPropagation();opsSlotTrigger('${key}')">
-                       <i class="fa-solid fa-rotate"></i>
-                   </button>${spinner}`
-                : `<img style="max-height:60px;max-width:100%;object-fit:contain;border-radius:.375rem;"
-                        src="${opsEsc(ev.src)}" alt="">
-                   <button class="ops-slot-btn ops-slot-btn-rep" style="top:8px;right:8px;"
-                           onclick="event.stopPropagation();opsSlotTrigger('${key}')">
-                       <i class="fa-solid fa-rotate"></i>
-                   </button>${spinner}`;
-        }
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // EVIDENCE: upload to server
-    // ──────────────────────────────────────────────────────────────────
-    async function opsUploadEvidencia(key, opId, file) {
-        const formData = new FormData();
-        formData.append('id_operacion', opId);
-        formData.append('slot', key);
-        formData.append('archivo', file);
-
-        try {
-            const r    = await fetch('/MotosAdjudicadas/subirEvidencia', { method: 'POST', body: formData });
-            const data = await r.json();
-            if (data.success) {
-                const st = _evState[`${opId}_${key}`];
-                if (st) { st.uploaded = true; st.src = data.url; }
-                opsUpdateSlotUI(key, opId);
-                // Agregar a bitácora en tiempo real
-                if (data.bitacora_entry) {
-                    const bit = document.getElementById('det-bitacora');
-                    if (bit) {
-                        const { nombre_usuario, accion, fecha_alta } = data.bitacora_entry;
-                        const html = `<div class="ops-bitacora-entry">
-                            <span class="bit-name">${opsEsc((nombre_usuario||'').toUpperCase())}</span>
-                            <span class="bit-sep" style="color:#334155;margin:0 .4rem;">----</span>
-                            <span class="bit-accion">${opsEsc((accion||'').toUpperCase())}</span>
-                            <span class="bit-sep" style="color:#334155;margin:0 .4rem;">----</span>
-                            <span class="bit-fecha">${opsEsc(fecha_alta||'')}</span>
-                        </div>`;
-                        bit.insertAdjacentHTML('afterbegin', html);
-                        bit.querySelectorAll('.ops-bitacora-empty').forEach(el => el.remove());
-                    }
-                }
-            } else {
-                Swal.fire({ icon: 'error', title: 'Error al subir', text: data.message, confirmButtonColor: '#6366f1' });
-                delete _evState[`${opId}_${key}`];
-                opsResetSlotUI(key);
-            }
-        } catch (err) {
-            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
-            delete _evState[`${opId}_${key}`];
-            opsResetSlotUI(key);
-        }
-    }
-
-    function opsResetSlotUI(key) {
-        const slotEl = document.getElementById('slot-' + key);
-        if (!slotEl) return;
-        const allSlots = EV_SECTIONS.flatMap(s => s.slots);
-        const slotDef  = allSlots.find(s => s.key === key);
-        const docDef   = EV_DOCS.find(d => d.slotKey === key);
-        if (slotDef) {
-            slotEl.classList.remove('has-file', 'uploading');
-            slotEl.setAttribute('onclick', `opsSlotTrigger('${key}')`);
-            slotEl.innerHTML = `<i class="fa-solid ${slotDef.icon} slot-icon-ph"></i>
-                                <div class="slot-lbl">${opsEsc(slotDef.label)}</div>
-                                <button class="ops-slot-btn ops-slot-btn-add">+</button>`;
-        } else if (docDef) {
-            slotEl.classList.remove('has-file', 'uploading');
-            slotEl.setAttribute('onclick', `opsSlotTrigger('${key}')`);
-            slotEl.innerHTML = `<i class="fa-solid fa-cloud-arrow-up" style="font-size:1.6rem;color:#94a3b8;"></i>
-                                <div class="slot-sublbl">${opsEsc(docDef.slotLabel)}</div>
-                                <button class="ops-slot-btn ops-slot-btn-add" style="top:8px;right:8px;pointer-events:none;">+</button>`;
-        }
-    }
-
     function opsDatoPar(label, value) {
         return `<div class="mb-1" style="font-size:.8125rem;">
             <span class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;">${opsEsc(label)}: </span>
             <span class="fw-semibold">${opsEsc(String(value))}</span>
         </div>`;
+    }
+
+    function opsRenderDatosExpediente(op, d) {
+        const esRetencion = op.estatus === 'Retenciones';
+        const gestor = (d && d.gestor_nombre) ? d.gestor_nombre : (op.gestor_nombre || null);
+        let estatusBadge;
+        if (!d) {
+            estatusBadge = '<span style="background:#fef9c3;color:#713f12;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-clock me-1"></i>Pendiente de gestión</span>';
+        } else if (op.estatus === 'cancelado') {
+            estatusBadge = '<span style="background:#fee2e2;color:#b91c1c;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-ban me-1"></i>Cancelado</span>';
+        } else {
+            estatusBadge = '<span style="background:#dbeafe;color:#1e40af;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>';
+        }
+        const fila = (lbl, val) =>
+            '<div style="display:flex;align-items:flex-start;gap:.5rem;padding:.32rem 0;border-bottom:1px solid #f1f5f9;font-size:.875rem;">' +
+            '<span style="color:#64748b;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;min-width:155px;flex-shrink:0;">' + opsEsc(lbl) + '</span>' +
+            '<span style="color:#1e293b;font-weight:500;">' + ((val !== null && val !== undefined && val !== '') ? val : '<span style="color:#94a3b8;font-style:italic;">—</span>') + '</span>' +
+            '</div>';
+        const btnClass = 'accordion-button' + (esRetencion ? '' : ' collapsed');
+        const colClass  = 'accordion-collapse' + (esRetencion ? ' collapse show' : ' collapse');
+        return (
+            '<div class="accordion accordion-flush mb-3">' +
+            '<div class="accordion-item" style="border:1px solid #e2e8f0;border-radius:.5rem;overflow:hidden;">' +
+            '<h2 class="accordion-header">' +
+            '<button class="' + btnClass + ' py-2" type="button"' +
+            ' data-bs-toggle="collapse" data-bs-target="#det-acc-datos"' +
+            ' style="font-size:.78rem;font-weight:700;color:var(--ops-green-text);background:var(--ops-green-light);">' +
+            '<i class="fa-solid fa-circle-info me-2"></i>Datos del expediente' +
+            '</button></h2>' +
+            '<div id="det-acc-datos" class="' + colClass + '">' +
+            '<div class="accordion-body py-2 px-3">' +
+            '<div class="ops-detail-section mb-2" style="border-left:3px solid #2563eb;">' +
+            '<h6><i class="fa-solid fa-headset me-1"></i>Retenciones — Atención a Clientes</h6>' +
+            fila('Crédito', '<strong>Crédito ' + opsEsc(String(op.id_credito)) + '</strong> ' + opsEsc(op.nombre_cliente)) +
+            fila('Folio ADJ', opsEsc(op.folio)) +
+            fila('Estatus dictamen', estatusBadge) +
+            fila('Dictamen',       d && d.dictamen       ? opsEsc(d.dictamen)       : null) +
+            fila('Gestor a cargo', gestor                ? opsEsc(gestor)            : null) +
+            fila('Fecha dictamen', d && d.fecha_alta_fmt ? opsEsc(d.fecha_alta_fmt)  : null) +
+            fila('Comentarios',    d && d.comentarios    ? '<span style="white-space:pre-line;">' + opsEsc(d.comentarios) + '</span>' : null) +
+            '</div>' +
+            '<div class="row g-2">' +
+            '<div class="col-12 col-sm-6"><div class="ops-detail-section mb-2">' +
+            '<h6><i class="fa-solid fa-motorcycle me-1"></i>Vehículo</h6>' +
+            opsDatoPar('Marca / Modelo', [op.marca, op.modelo].filter(Boolean).join(' ') || '—') +
+            opsDatoPar('N° Serie',  op.serie     || '—') +
+            opsDatoPar('N° Motor', op.num_motor || '—') +
+            opsDatoPar('Placas',   op.placas    || '—') +
+            '</div></div>' +
+            '<div class="col-12 col-sm-6"><div class="ops-detail-section mb-2">' +
+            '<h6><i class="fa-solid fa-truck me-1"></i>Logística</h6>' +
+            opsDatoPar('Responsable', op.responsable_entrega   || '—') +
+            opsDatoPar('Teléfono',    op.telefono_contacto     || '—') +
+            opsDatoPar('Dirección',   op.direccion_recoleccion || '—') +
+            '</div></div>' +
+            '<div class="col-12"><div class="ops-detail-section mb-0">' +
+            '<h6><i class="fa-solid fa-dollar-sign me-1"></i>Financiero</h6>' +
+            '<div class="row g-1">' +
+            '<div class="col-4">' + opsDatoPar('Días mora',    (op.dias_mora || 0) + 'd') + '</div>' +
+            '<div class="col-4">' + opsDatoPar('Saldo capital', opsFormatMXN(op.saldo_capital || 0)) + '</div>' +
+            '<div class="col-4">' + opsDatoPar('Adeudo total',  opsFormatMXN(op.adeudo_total  || 0)) + '</div>' +
+            '</div></div></div>' +
+            '</div>' +
+            '</div></div></div></div>'
+        );
     }
 
     function opsRenderObservaciones(obs) {
@@ -1489,24 +1200,6 @@
             </div>`).join('');
     }
 
-    function opsRenderBitacora(entries) {
-        if (!entries || !entries.length) {
-            return '<div class="ops-bitacora-empty">Sin registros aún.</div>';
-        }
-        return entries.map(e => {
-            const nombre = opsEsc((e.nombre_usuario || '').toUpperCase());
-            const accion = opsEsc((e.accion || '').toUpperCase());
-            const fecha  = opsEsc(e.fecha_alta || '');
-            return `<div class="ops-bitacora-entry">
-                <span class="bit-name">${nombre}</span>
-                <span class="bit-sep" style="color:#334155;margin:0 .4rem;">----</span>
-                <span class="bit-accion">${accion}</span>
-                <span class="bit-sep" style="color:#334155;margin:0 .4rem;">----</span>
-                <span class="bit-fecha">${fecha}</span>
-            </div>`;
-        }).join('');
-    }
-
     function opsRenderHistorial(hist) {
         if (!hist.length) return '<p class="text-muted small mb-0">Sin historial.</p>';
         return hist.map(h => `
@@ -1515,128 +1208,6 @@
                 <span class="text-muted">${opsEsc(h.fecha)}</span>
                 <span>${opsEsc(h.estatus_anterior || 'Inicio')} → <strong>${opsEsc(h.estatus_nuevo)}</strong></span>
             </div>`).join('');
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // MOVER ETAPA
-    // ──────────────────────────────────────────────────────────────────
-    function opsMoverEstatus(id, nuevoEstatus) {
-        Swal.fire({
-            icon: 'question',
-            title: '¿Mover operación?',
-            html: `Se moverá a la etapa <strong>${nuevoEstatus}</strong>.`,
-            showCancelButton: true,
-            confirmButtonText: 'Mover',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#6366f1',
-        }).then(res => {
-            if (!res.isConfirmed) return;
-
-            Swal.fire({ title: 'Moviendo…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-            fetch('/MotosAdjudicadas/cambiarEstatus', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, estatus: nuevoEstatus }),
-            })
-            .then(r => r.json())
-            .then(data => {
-                Swal.close();
-                if (!data.success) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
-                    return;
-                }
-                bootstrap.Modal.getInstance(document.getElementById('modalDetalleOperacion'))?.hide();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Etapa actualizada',
-                    text: `Movido a "${nuevoEstatus}"`,
-                    timer: 1800, showConfirmButton: false, timerProgressBar: true,
-                });
-                opsCargarPipeline();
-            })
-            .catch(err => {
-                Swal.close();
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#6366f1' });
-            });
-        });
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // REGRESAR ETAPA
-    // ──────────────────────────────────────────────────────────────────
-    function opsRegresarEstatus(id, etapaPrevia, estatusActual, areaActual) {
-        // Fix: Bootstrap 5 traps focus with a 'focusin' listener that blocks SweetAlert2 inputs.
-        // We intercept that event while the Swal is open and stop it from firing.
-        const _swalFocusFix = (e) => { if (e.target.closest?.('.swal2-container')) e.stopImmediatePropagation(); };
-        document.addEventListener('focusin', _swalFocusFix, true);
-
-        Swal.fire({
-            icon: 'warning',
-            title: 'Regresar a etapa anterior',
-            html: `<p class="mb-2" style="font-size:.88rem;">La operación regresará de <strong>${estatusActual}</strong> a <strong>${etapaPrevia}</strong>.</p>
-                   <p class="mb-1" style="font-size:.8rem;color:#64748b;">Especifica el motivo del regreso:</p>`,
-            input: 'textarea',
-            inputPlaceholder: 'Ej. Documentación incompleta, requiere revisión adicional…',
-            inputAttributes: { maxlength: 500, rows: 3, style: 'font-size:.85rem;' },
-            showCancelButton: true,
-            confirmButtonText: '<i class="fa-solid fa-arrow-left me-1"></i>Regresar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#f59e0b',
-            preConfirm: (motivo) => {
-                if (!motivo || !motivo.trim()) {
-                    Swal.showValidationMessage('Debes especificar un motivo para el regreso.');
-                    return false;
-                }
-                return motivo.trim();
-            }
-        }).then(res => {
-            document.removeEventListener('focusin', _swalFocusFix, true);
-            if (!res.isConfirmed) return;
-            const motivo = res.value;
-
-            Swal.fire({ title: 'Regresando etapa…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-            fetch('/MotosAdjudicadas/cambiarEstatus', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, estatus: etapaPrevia }),
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
-                    return Promise.reject('api-error');
-                }
-                return fetch('/MotosAdjudicadas/agregarObservacion', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id_operacion: id,
-                        etapa: estatusActual,
-                        area: areaActual || '',
-                        texto: `↩ REGRESO A "${etapaPrevia}": ${motivo}`,
-                    }),
-                });
-            })
-            .then(r => r ? r.json() : null)
-            .then(() => {
-                Swal.close();
-                bootstrap.Modal.getInstance(document.getElementById('modalDetalleOperacion'))?.hide();
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Etapa regresada',
-                    text: `Movido de regreso a "${etapaPrevia}"`,
-                    timer: 1800, showConfirmButton: false, timerProgressBar: true,
-                });
-                opsCargarPipeline();
-            })
-            .catch(err => {
-                if (err === 'api-error') return;
-                Swal.close();
-                Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message, confirmButtonColor: '#6366f1' });
-            });
-        });
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -1671,67 +1242,10 @@
                 lista.insertAdjacentHTML('beforeend', nueva);
                 lista.scrollTop = lista.scrollHeight;
             }
-            // Insertar en bitácora en tiempo real
-            const bit = document.getElementById('det-bitacora');
-            if (bit && data.bitacora_entry) {
-                const { nombre_usuario, accion, fecha_alta } = data.bitacora_entry;
-                const html = `<div class="ops-bitacora-entry">
-                    <span class="bit-name">${opsEsc((nombre_usuario||'').toUpperCase())}</span>
-                    <span class="bit-sep" style="color:#334155;margin:0 .4rem;">----</span>
-                    <span class="bit-accion">${opsEsc((accion||'').toUpperCase())}</span>
-                    <span class="bit-sep" style="color:#334155;margin:0 .4rem;">----</span>
-                    <span class="bit-fecha">${opsEsc(fecha_alta||'')}</span>
-                </div>`;
-                bit.insertAdjacentHTML('afterbegin', html);
-                bit.querySelectorAll('.ops-bitacora-empty').forEach(el => el.remove());
-            }
             document.getElementById('det-obs-input').value = '';
         })
         .catch(err => {
             Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#6366f1' });
-        });
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // ELIMINAR OPERACIÓN
-    // ──────────────────────────────────────────────────────────────────
-    function opsEliminar(id) {
-        Swal.fire({
-            icon: 'warning',
-            title: '¿Eliminar operación?',
-            text: 'Esta acción no se puede deshacer. Se eliminarán evidencias, observaciones e historial.',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#ef4444',
-        }).then(res => {
-            if (!res.isConfirmed) return;
-
-            Swal.fire({ title: 'Eliminando…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-            fetch('/MotosAdjudicadas/eliminarOperacion', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
-            })
-            .then(r => r.json())
-            .then(data => {
-                Swal.close();
-                if (!data.success) {
-                    Swal.fire({ icon: 'error', title: 'Error', text: data.message, confirmButtonColor: '#6366f1' });
-                    return;
-                }
-                bootstrap.Modal.getInstance(document.getElementById('modalDetalleOperacion'))?.hide();
-                Swal.fire({
-                    icon: 'success', title: 'Operación eliminada',
-                    timer: 1800, showConfirmButton: false, timerProgressBar: true,
-                });
-                opsCargarPipeline();
-            })
-            .catch(err => {
-                Swal.close();
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#6366f1' });
-            });
         });
     }
 
@@ -1765,14 +1279,9 @@
     // ──────────────────────────────────────────────────────────────────
     window.opsCargarPipeline     = opsCargarPipeline;
     window.opsAbrirDetalle       = opsAbrirDetalle;
-    window.opsMoverEstatus       = opsMoverEstatus;
-    window.opsRegresarEstatus    = opsRegresarEstatus;
     window.opsAgregarObservacion = opsAgregarObservacion;
-    window.opsEliminar           = opsEliminar;
-    // Evidence
-    window.opsSlotTrigger        = opsSlotTrigger;
+    // Evidence viewer
     window.opsSlotView           = opsSlotView;
-    window.opsSlotChange         = opsSlotChange;
 
     // INIT al cargar DOM
     document.addEventListener('DOMContentLoaded', opsPipelineInit);

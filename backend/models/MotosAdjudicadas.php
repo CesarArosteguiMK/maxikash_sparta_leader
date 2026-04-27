@@ -290,7 +290,14 @@ class MotosAdjudicadas extends Model
             o.id_usuario_alta,
             DATE_FORMAT(o.fecha_alta,          '%Y-%m-%d %H:%i') AS fecha_alta,
             DATE_FORMAT(o.fecha_actualizacion, '%Y-%m-%d %H:%i') AS fecha_actualizacion,
-            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline
+            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            (SELECT TRIM(CONCAT_WS(' ', per2.nombres, per2.segundo_nombre, per2.apellidop, per2.apellidom))
+               FROM asigna_creditos_adjudicacion aca2
+               INNER JOIN personal_adjudicacion pa2 ON pa2.id = aca2.id_personal_adj
+               INNER JOIN persona per2              ON per2.id = pa2.id_persona
+              WHERE aca2.id_credito = o.id_credito AND aca2.estatus = '1'
+              LIMIT 1) AS gestor_nombre
         FROM adj_operacion o
         ORDER BY
             FIELD(o.estatus,
@@ -682,6 +689,56 @@ class MotosAdjudicadas extends Model
     // =========================================================================
     // EVIDENCIAS POR CRÉDITO (mis_adjudicaciones)
     // =========================================================================
+
+    /**
+     * Devuelve el total de evidencias cargadas por cada crédito solicitado,
+     * tomando la operación más reciente por id_credito.
+     *
+     * @param int[] $idsCreditos
+     * @return array<int,int> [id_credito => total_evidencias]
+     */
+    public function obtenerResumenEvidenciasPorCreditos(array $idsCreditos): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCreditos), fn($v) => $v > 0)));
+        if (empty($ids)) {
+            return [];
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($ids as $i => $id) {
+            $k = 'id' . $i;
+            $placeholders[] = ':' . $k;
+            $params[$k] = $id;
+        }
+        $inStr = implode(',', $placeholders);
+
+        $rows = $this->db->queryAll(
+            "SELECT ult.id_credito, COALESCE(ev.total, 0) AS total
+             FROM (
+                SELECT id_credito, MAX(id) AS max_id
+                FROM adj_operacion
+                WHERE id_credito IN ($inStr)
+                GROUP BY id_credito
+             ) ult
+             LEFT JOIN (
+                SELECT id_operacion, COUNT(*) AS total
+                FROM adj_evidencia
+                GROUP BY id_operacion
+             ) ev ON ev.id_operacion = ult.max_id",
+            $params
+        ) ?: [];
+
+        $resumen = [];
+        foreach ($rows as $r) {
+            $id = (int) ($r['id_credito'] ?? 0);
+            if ($id > 0) {
+                $resumen[$id] = (int) ($r['total'] ?? 0);
+            }
+        }
+
+        return $resumen;
+    }
 
     /**
      * Busca la operación más reciente para un id_credito en adj_operacion.

@@ -207,11 +207,26 @@ class AtencionClientes
     public function obtenerDictamen(int $idOperacion): ?array
     {
         return $this->db->queryOne(
-            "SELECT *,
-                    DATE_FORMAT(fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt
-             FROM adj_dictamen
-             WHERE id_operacion = :id
-             ORDER BY fecha_alta DESC
+            "SELECT d.*,
+                    DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    o.id_credito,
+                    o.folio,
+                    o.nombre_cliente,
+                    o.estatus AS op_estatus,
+                    TRIM(CONCAT_WS(' ',
+                        per.nombres,
+                        per.segundo_nombre,
+                        per.apellidop,
+                        per.apellidom
+                    )) AS gestor_nombre
+             FROM adj_dictamen d
+             JOIN adj_operacion o ON o.id = d.id_operacion
+             LEFT JOIN asigna_creditos_adjudicacion aca
+                    ON aca.id_credito = o.id_credito AND aca.estatus = '1'
+             LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+             LEFT JOIN persona per              ON per.id = pa.id_persona
+             WHERE d.id_operacion = :id
+             ORDER BY d.fecha_alta DESC
              LIMIT 1",
             ['id' => $idOperacion]
         );

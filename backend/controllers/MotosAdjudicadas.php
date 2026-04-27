@@ -306,6 +306,30 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/obtenerResumenEvidenciasCreditos
+     * Body JSON: { "ids_credito": [123, 456] }
+     */
+    public function obtenerResumenEvidenciasCreditos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $ids  = $body['ids_credito'] ?? $body['ids'] ?? [];
+
+        if (!is_array($ids) || empty($ids)) {
+            echo json_encode(['success' => true, 'resumen' => []]);
+            return;
+        }
+
+        try {
+            $resumen = $this->model->obtenerResumenEvidenciasPorCreditos($ids);
+            echo json_encode(['success' => true, 'resumen' => $resumen]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * GET/POST /MotosAdjudicadas/obtenerMisAdjudicaciones
      */
     public function obtenerMisAdjudicaciones()

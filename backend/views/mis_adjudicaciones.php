@@ -214,12 +214,191 @@
         -webkit-tap-highlight-color: transparent;
     }
     .madj-mcard-btn:active { transform: scale(.97); background: #d97706; }
+
+    /* ── Desktop table visual refresh ─────────────────────────── */
+    .madj-table-shell {
+        border-radius: .9rem;
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, .06);
+    }
+    .madj-table thead th {
+        font-size: .68rem;
+        font-weight: 800;
+        letter-spacing: .45px;
+        text-transform: uppercase;
+        color: #475569;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .madj-table tbody td {
+        vertical-align: middle;
+        border-color: #eef2f7;
+        padding-top: .72rem;
+        padding-bottom: .72rem;
+    }
+    .madj-table tbody tr:hover {
+        background: #fffdf7;
+    }
+    .madj-cell-id {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .madj-cell-id::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: #f59e0b;
+    }
+    .madj-cliente-wrap {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+        min-width: 220px;
+    }
+    .madj-cliente-main {
+        font-size: .82rem;
+        font-weight: 800;
+        color: #1e293b;
+        text-transform: uppercase;
+    }
+    .madj-cliente-sub {
+        font-size: .66rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: .2px;
+    }
+    .madj-saldo-pill {
+        display: inline-flex;
+        align-items: center;
+        background: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+        border-radius: 999px;
+        padding: .2rem .55rem;
+        font-size: .74rem;
+        font-weight: 800;
+    }
+    .madj-mora-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .28rem;
+        border-radius: 999px;
+        padding: .2rem .48rem;
+        font-size: .68rem;
+        font-weight: 800;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+    .madj-mora-pill.is-high { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
+    .madj-mora-pill.is-mid  { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+    .madj-mora-pill.is-low  { background: #dbeafe; border-color: #bfdbfe; color: #1e40af; }
+    .madj-state-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: .2rem .55rem;
+        font-size: .68rem;
+        font-weight: 800;
+        border: 1px solid transparent;
+    }
+    .madj-state-pill.is-active   { background: #dcfce7; border-color: #bbf7d0; color: #166534; }
+    .madj-state-pill.is-inactive { background: #e2e8f0; border-color: #cbd5e1; color: #334155; }
+    .madj-asignado-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #e2e8f0;
+        padding: .2rem .55rem;
+        font-size: .66rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .25px;
+    }
+    .madj-btn-ev {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .45rem;
+        border: none;
+        border-radius: .55rem;
+        background: linear-gradient(180deg, #f59e0b, #ea8a04);
+        color: #1a1a1a;
+        font-size: .78rem;
+        font-weight: 800;
+        padding: .45rem .72rem;
+        box-shadow: 0 3px 8px rgba(245, 158, 11, .35);
+        transition: transform .12s ease, box-shadow .15s ease, filter .15s ease;
+    }
+    .madj-btn-ev:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+        box-shadow: 0 6px 14px rgba(245, 158, 11, .36);
+    }
+    .madj-btn-ev:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 5px rgba(245, 158, 11, .28);
+    }
+    .madj-accion-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: .42rem;
+        min-width: 180px;
+    }
+    .madj-mini-progress { width: 100%; }
+    .madj-mini-progress-bg {
+        height: 6px;
+        background: #dcfce7;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .madj-mini-progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+        border-radius: 999px;
+        transition: width .35s ease;
+    }
+    .madj-mini-progress-lbl {
+        margin-top: .15rem;
+        font-size: .62rem;
+        font-weight: 800;
+        color: #166534;
+        text-align: right;
+        letter-spacing: .15px;
+    }
+    .madj-asignacion-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+        min-width: 170px;
+    }
+    .madj-asignacion-fecha {
+        font-size: .73rem;
+        font-weight: 800;
+        color: #1e293b;
+    }
+    .madj-asignacion-por {
+        font-size: .65rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: .25px;
+    }
     /* ── Modal evidencias: barra de progreso ─────────────────── */
     .madj-ev-progress-wrap { margin-bottom: 1rem; }
     .madj-ev-progress-bg   { background: #e2e8f0; border-radius: .5rem; height: 8px; overflow: hidden; }
     .madj-ev-progress-fill {
         height: 100%;
-        background: linear-gradient(90deg, #f59e0b, #22c55e);
+        background: linear-gradient(90deg, #22c55e, #16a34a);
         border-radius: .5rem;
         transition: width .4s cubic-bezier(.4,0,.2,1);
         min-width: 0;
@@ -337,19 +516,17 @@
     <span class="ms-2 text-muted small">Cargando adjudicaciones…</span>
 </div>
 <div class="d-none d-md-block">
-<div class="card shadow-sm border-0 madj-animate">
+<div class="card shadow-sm border-0 madj-animate madj-table-shell">
     <div class="card-body p-0">
-        <table id="madj-tabla" class="table table-hover mb-0" style="width:100%">
+        <table id="madj-tabla" class="table table-hover mb-0 madj-table" style="width:100%">
             <thead class="table-light">
                 <tr>
                     <th>ID Crédito</th>
                     <th>Cliente</th>
                     <th>Saldo</th>
-                    <th>Días Mora</th>
                     <th>Bucket</th>
                     <th>Estado</th>
-                    <th>Fecha Asignación</th>
-                    <th>Asignado Por</th>
+                    <th>Asignación</th>
                     <th class="text-center">Acciones</th>
                 </tr>
             </thead>
@@ -392,6 +569,10 @@
                 </div>
             </div>
             <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-success btn-sm" id="madj-btn-guardar-evidencias" disabled
+                        onclick="madjGuardarEvidenciasPendientes()">
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar Evidencias
+                </button>
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
                     <i class="fa-solid fa-xmark me-1"></i>Cerrar
                 </button>
@@ -408,6 +589,7 @@
     'use strict';
 
     let _todos = [];    // todos los registros cargados
+    let _madjProgresoCreditos = {}; // { [id_credito]: { uploaded:number, total:number } }
 
     // ──────────────────────────────────────────────────────────────
     // HELPERS
@@ -421,6 +603,77 @@
         const d = document.createElement('div');
         d.textContent = str ?? '';
         return d.innerHTML;
+    }
+
+    function _madjTotalSlots() {
+        return MADJ_EV_SECTIONS.reduce((acc, sec) => acc + sec.slots.length, 0);
+    }
+
+    function _madjSetProgressCredito(idCredito, uploaded) {
+        const id = String(idCredito || '');
+        if (!id) return;
+        _madjProgresoCreditos[id] = {
+            uploaded: Math.max(0, parseInt(uploaded || 0, 10)),
+            total: _madjTotalSlots(),
+        };
+        _madjActualizarMiniProgresoTabla(id);
+    }
+
+    function _madjGetProgressCredito(idCredito) {
+        const id = String(idCredito || '');
+        return _madjProgresoCreditos[id] || { uploaded: 0, total: _madjTotalSlots() };
+    }
+
+    function _madjProgressHtml(idCredito) {
+        const p = _madjGetProgressCredito(idCredito);
+        const pct = p.total ? Math.round((p.uploaded / p.total) * 100) : 0;
+        return `
+            <div class="madj-mini-progress" data-credito="${esc(String(idCredito))}">
+                <div class="madj-mini-progress-bg">
+                    <div class="madj-mini-progress-fill" style="width:${pct}%;"></div>
+                </div>
+                <div class="madj-mini-progress-lbl">${p.uploaded}/${p.total}</div>
+            </div>`;
+    }
+
+    function _madjActualizarMiniProgresoTabla(idCredito) {
+        const p = _madjGetProgressCredito(idCredito);
+        const pct = p.total ? Math.round((p.uploaded / p.total) * 100) : 0;
+        const roots = document.querySelectorAll(`.madj-mini-progress[data-credito="${String(idCredito)}"]`);
+        if (!roots.length) return;
+        roots.forEach(root => {
+            const fill = root.querySelector('.madj-mini-progress-fill');
+            const lbl  = root.querySelector('.madj-mini-progress-lbl');
+            if (fill) fill.style.width = pct + '%';
+            if (lbl) lbl.textContent = p.uploaded + '/' + p.total;
+        });
+    }
+
+    function _madjPrecargarProgreso(creditos) {
+        const ids = (creditos || []).map(c => +c.id_credito).filter(n => Number.isFinite(n) && n > 0);
+        _madjProgresoCreditos = {};
+
+        ids.forEach(id => {
+            _madjProgresoCreditos[String(id)] = { uploaded: 0, total: _madjTotalSlots() };
+        });
+
+        if (!ids.length) {
+            return Promise.resolve();
+        }
+
+        return fetch('/MotosAdjudicadas/obtenerResumenEvidenciasCreditos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids_credito: ids }),
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (!data || !data.success || !data.resumen) return;
+                Object.keys(data.resumen).forEach(id => {
+                    _madjSetProgressCredito(id, parseInt(data.resumen[id] || 0, 10));
+                });
+            })
+            .catch(() => {});
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -440,9 +693,13 @@
                 if (data.success && Array.isArray(data.creditos)) {
                     _todos = data.creditos;
                     madjActualizarKPIs(_todos);
-                    madjRenderizarTabla(_todos);
+                    _madjPrecargarProgreso(_todos)
+                        .finally(() => {
+                            madjRenderizarTabla(_todos);
+                        });
                 } else {
                     _todos = [];
+                    _madjProgresoCreditos = {};
                     madjMostrarEmpty();
                 }
             })
@@ -492,42 +749,43 @@
 
         const filas = filtrados.map(c => {
             const esActivo  = c.estado === 'Activo';
-            const estadoBadge = esActivo
-                ? '<span class="badge bg-success">Activo</span>'
-                : '<span class="badge bg-secondary">Inactivo</span>';
+            const estadoBadge = `<span class="madj-state-pill ${esActivo ? 'is-active' : 'is-inactive'}">${esActivo ? 'Activo' : 'Inactivo'}</span>`;
 
-            const dias      = parseInt(c.dias_mora || 0);
-            const moraColor = dias > 90 ? 'bg-danger' : dias > 30 ? 'bg-warning text-dark' : 'bg-info text-dark';
-            const moraHtml  = `<span class="badge ${moraColor}">${dias}</span>`;
-
-            const saldoHtml = `<span class="text-danger fw-semibold">${moneda(c.saldo)}</span>`;
+            const saldoHtml = `<span class="madj-saldo-pill">${moneda(c.saldo)}</span>`;
 
             const nombre = c.nombre_cliente && c.nombre_cliente !== 'No disponible'
-                ? esc(c.nombre_cliente)
+                ? `<div class="madj-cliente-wrap"><span class="madj-cliente-main">${esc(c.nombre_cliente)}</span><span class="madj-cliente-sub">ID #${esc(String(c.id_credito))}</span></div>`
                 : '<span class="text-muted fst-italic">No disponible</span>';
 
             const bucket = c.bucket && c.bucket !== '—'
                 ? `<span class="badge bg-secondary-subtle text-secondary border" style="font-size:.68rem;">${esc(c.bucket)}</span>`
                 : '<span class="text-muted">—</span>';
 
-            const btnAccion = `<button class="btn btn-warning btn-sm"
+            const asignacionHtml = `
+                <div class="madj-asignacion-wrap">
+                    <span class="madj-asignacion-fecha">${esc(c.fecha_asignacion || '—')}</span>
+                    <span class="madj-asignacion-por">${esc(c.asignado_por || 'Sistema')}</span>
+                </div>`;
+
+            const btnAccion = `<button class="madj-btn-ev"
                 data-id="${c.id_credito}"
                 data-nombre="${esc(c.nombre_cliente || '')}"
                 onclick="madjEvidenciasAbrir(+this.dataset.id, this.dataset.nombre)"
                 title="Registrar Evidencias">
                 <i class="fa-solid fa-camera"></i>
-                <span class="d-none d-sm-inline ms-1">Reg. Evidencias</span>
+                <span>Registrar Evidencias</span>
             </button>`;
+
+            const accionHtml = `<div class="madj-accion-wrap">${btnAccion}${_madjProgressHtml(c.id_credito)}</div>`;
+
             return [
-                `<strong>#${esc(String(c.id_credito))}</strong>`,
+                `<span class="madj-cell-id">#${esc(String(c.id_credito))}</span>`,
                 nombre,
                 saldoHtml,
-                moraHtml,
                 bucket,
                 estadoBadge,
-                esc(c.fecha_asignacion || '—'),
-                esc(c.asignado_por || 'Sistema'),
-                btnAccion,
+                asignacionHtml,
+                accionHtml,
             ];
         });
 
@@ -540,12 +798,10 @@
                     { data: 0, title: 'ID Crédito' },
                     { data: 1, title: 'Cliente' },
                     { data: 2, title: 'Saldo' },
-                    { data: 3, title: 'Días Mora' },
-                    { data: 4, title: 'Bucket' },
-                    { data: 5, title: 'Estado' },
-                    { data: 6, title: 'Fecha Asignación' },
-                    { data: 7, title: 'Asignado Por' },
-                    { data: 8, title: 'Acciones', orderable: false, searchable: false, className: 'text-center' },
+                    { data: 3, title: 'Bucket' },
+                    { data: 4, title: 'Estado' },
+                    { data: 5, title: 'Asignación' },
+                    { data: 6, title: 'Acciones', orderable: false, searchable: false, className: 'text-center' },
                 ]
             });
             actualizaDatosTabla('#madj-tabla', filas, false);
@@ -564,7 +820,7 @@
             actualizaDatosTabla('#madj-tabla', [], false);
         } else {
             document.getElementById('madj-tbody').innerHTML = `
-                <tr><td colspan="9" class="text-center py-4 text-muted fst-italic">
+                <tr><td colspan="7" class="text-center py-4 text-muted fst-italic">
                     Sin adjudicaciones asignadas.
                 </td></tr>`;
         }
@@ -579,6 +835,9 @@
     // ──────────────────────────────────────────────────────────────
     let _madjEvState    = {};   // { slotKey: { src, type } }
     let _madjActiveOpId = null; // id_operacion activo en el modal
+    let _madjActiveCreditId = null; // id_credito activo en el modal
+    let _madjPendingFiles = {}; // { slotKey: File }
+    let _madjCommittedSlots = new Set();
 
     const MADJ_EV_SECTIONS = [
         { key: 'recoleccion', label: 'Evidencia de Recolección (Final)', headerClass: 'madj-ev-hdr-orange', icon: 'fa-camera-retro',
@@ -616,6 +875,9 @@
     function madjEvidenciasAbrir(idCredito, nombreCliente) {
         _madjEvState    = {};
         _madjActiveOpId = null;
+        _madjActiveCreditId = idCredito;
+        _madjPendingFiles = {};
+        _madjCommittedSlots = new Set();
 
         document.getElementById('madj-ev-titulo').textContent =
             nombreCliente || ('Crédito #' + idCredito);
@@ -644,9 +906,13 @@
                 // Pre-cargar estado desde evidencias ya subidas
                 (det.evidencias || []).forEach(ev => {
                     _madjEvState[ev.slot] = { src: ev.url, type: ev.tipo };
+                    _madjCommittedSlots.add(ev.slot);
                 });
 
+                _madjSetProgressCredito(idCredito, _madjContarEvidencias());
+
                 _madjRenderEvModalBody(det);
+                _madjActualizarBotonGuardar();
             })
             .catch(() => {
                 document.getElementById('madj-ev-body').innerHTML =
@@ -661,6 +927,10 @@
         const _totalSlots = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
         const _uploaded   = Object.keys(_madjEvState).length;
         const _pct        = _totalSlots ? Math.round((_uploaded / _totalSlots) * 100) : 0;
+
+        if (_madjActiveCreditId) {
+            _madjSetProgressCredito(_madjActiveCreditId, _uploaded);
+        }
 
         let html = `
         <div class="madj-ev-progress-wrap">
@@ -688,6 +958,7 @@
         });
 
         document.getElementById('madj-ev-body').innerHTML = html;
+        _madjActualizarBotonGuardar();
     }
 
     function _madjRenderEvSection(sec) {
@@ -736,6 +1007,14 @@
         return Object.keys(_madjEvState).length;
     }
 
+    function _madjActualizarBotonGuardar() {
+        const btn = document.getElementById('madj-btn-guardar-evidencias');
+        if (!btn) return;
+        const pendientes = Object.keys(_madjPendingFiles).length;
+        btn.disabled = pendientes === 0;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk me-1"></i>Guardar Evidencias${pendientes ? ` (${pendientes})` : ''}`;
+    }
+
     function _madjActualizarProgreso() {
         const total  = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
         const count  = _madjContarEvidencias();
@@ -780,6 +1059,7 @@
                         onclick="madjEvidenciasAbrir(+this.dataset.id, this.dataset.nombre)">
                     <i class="fa-solid fa-camera"></i> Registrar Evidencias
                 </button>
+                ${_madjProgressHtml(c.id_credito)}
             </div>`;
         }).join('');
     }
@@ -804,17 +1084,67 @@
     function madjDocChange(key, input) {}
 
     // ──────────────────────────────────────────────────────────────
-    // UPLOAD
+    // STAGE / GUARDAR EVIDENCIAS
     // ──────────────────────────────────────────────────────────────
     function _madjUpload(slotKey, file, isDoc) {
-        if (!_madjActiveOpId) return;
+        const slotEl = document.getElementById('madj-slot-' + slotKey);
+        const isPdf   = file.type === 'application/pdf';
+        const isVideo = file.type.startsWith('video');
+
+        _madjPendingFiles[slotKey] = file;
+        _madjEvState[slotKey] = {
+            src: URL.createObjectURL(file),
+            type: isVideo ? 'video' : (isPdf ? 'pdf' : 'image'),
+            pending: true,
+        };
+
+        if (slotEl) {
+            slotEl.classList.add('has-file');
+            slotEl.classList.remove('uploading');
+            slotEl.onclick = null;
+            if (isDoc) {
+                slotEl.innerHTML =
+                    `<i class="slot-icon-ph fa-solid fa-file-check" style="font-size:1.6rem;color:#22c55e;"></i>
+                     <span class="slot-sublbl">Archivo seleccionado</span>
+                     <button class="madj-slot-btn madj-slot-btn-rep" style="top:5px;right:5px;" title="Reemplazar"
+                             onclick="madjDocTrigger('${slotKey}')">
+                         <i class="fa-solid fa-arrows-rotate"></i>
+                     </button>`;
+            } else if (isVideo) {
+                slotEl.innerHTML =
+                    `<video class="madj-thumb" src="${esc(_madjEvState[slotKey].src)}" muted playsinline></video>
+                     <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>
+                     <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))} (pendiente)</span>
+                     <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
+                             onclick="madjSlotTrigger('${slotKey}')">
+                         <i class="fa-solid fa-arrows-rotate"></i>
+                     </button>`;
+            } else {
+                slotEl.innerHTML =
+                    `<img class="madj-thumb" src="${esc(_madjEvState[slotKey].src)}" alt="">
+                     <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))} (pendiente)</span>
+                     <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
+                             onclick="madjSlotTrigger('${slotKey}')">
+                         <i class="fa-solid fa-arrows-rotate"></i>
+                     </button>`;
+            }
+        }
+
+        _madjActualizarProgreso();
+        _madjActualizarBotonGuardar();
+    }
+
+    function _madjSubirPendiente(slotKey, file) {
+        if (!_madjActiveOpId) {
+            return Promise.reject(new Error('Operación inválida.'));
+        }
 
         const slotEl = document.getElementById('madj-slot-' + slotKey);
         if (slotEl) {
             slotEl.classList.add('uploading');
             const spin = document.createElement('div');
             spin.className = 'madj-slot-upload-spin';
-            spin.innerHTML = '<div class="spinner-border spinner-border-sm" style="color:#f59e0b;"></div>';
+            spin.innerHTML = '<div class="spinner-border spinner-border-sm" style="color:#22c55e;"></div>';
             slotEl.appendChild(spin);
         }
 
@@ -823,74 +1153,115 @@
         fd.append('slot', slotKey);
         fd.append('archivo', file);
 
-        fetch('/MotosAdjudicadas/subirEvidencia', { method: 'POST', body: fd })
+        return fetch('/MotosAdjudicadas/subirEvidencia', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(data => {
-                if (data.success) {
-                    const isPdf   = file.type === 'application/pdf';
-                    const isVideo = file.type.startsWith('video');
-                    _madjEvState[slotKey] = {
-                        src:  data.url,
-                        type: isVideo ? 'video' : (isPdf ? 'pdf' : 'image'),
-                    };
-                    _madjActualizarProgreso();
-
-                    if (slotEl) {
-                        if (isDoc) {
-                            slotEl.classList.add('has-file');
-                            slotEl.classList.remove('uploading');
-                            slotEl.onclick = null;
-                            slotEl.innerHTML =
-                                `<i class="slot-icon-ph fa-solid fa-file-check" style="font-size:1.6rem;color:#22c55e;"></i>
-                                 <span class="slot-sublbl">Archivo cargado</span>
-                                 <button class="madj-slot-btn madj-slot-btn-rep" style="top:5px;right:5px;" title="Reemplazar"
-                                         onclick="madjDocTrigger('${slotKey}')">
-                                     <i class="fa-solid fa-arrows-rotate"></i>
-                                 </button>`;
-                        } else if (isVideo) {
-                            slotEl.classList.add('has-file');
-                            slotEl.classList.remove('uploading');
-                            slotEl.onclick = null;
-                            slotEl.innerHTML =
-                                `<video class="madj-thumb" src="${esc(data.url)}" muted playsinline></video>
-                                 <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>
-                                 <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
-                                 <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
-                                         onclick="madjSlotTrigger('${slotKey}')">
-                                     <i class="fa-solid fa-arrows-rotate"></i>
-                                 </button>`;
-                        } else {
-                            // Imagen — preview local inmediato
-                            const objUrl = URL.createObjectURL(file);
-                            slotEl.classList.add('has-file');
-                            slotEl.classList.remove('uploading');
-                            slotEl.onclick = null;
-                            slotEl.innerHTML =
-                                `<img class="madj-thumb" src="${objUrl}" alt="">
-                                 <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
-                                 <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
-                                         onclick="madjSlotTrigger('${slotKey}')">
-                                     <i class="fa-solid fa-arrows-rotate"></i>
-                                 </button>`;
-                        }
-                    }
-                    Swal.fire({ icon: 'success', title: 'Guardado', text: 'Evidencia subida correctamente.',
-                                timer: 1500, showConfirmButton: false });
-                } else {
-                    if (slotEl) {
-                        slotEl.classList.remove('uploading');
-                        slotEl.querySelector('.madj-slot-upload-spin')?.remove();
-                    }
-                    Swal.fire('Error', data.message || 'No se pudo subir la evidencia.', 'error');
+                if (!data.success) {
+                    throw new Error(data.message || 'No se pudo subir la evidencia.');
                 }
+
+                const isPdf   = file.type === 'application/pdf';
+                const isVideo = file.type.startsWith('video');
+                _madjEvState[slotKey] = {
+                    src:  data.url,
+                    type: isVideo ? 'video' : (isPdf ? 'pdf' : 'image'),
+                };
+                _madjCommittedSlots.add(slotKey);
+                delete _madjPendingFiles[slotKey];
+
+                if (slotEl) {
+                    slotEl.classList.remove('uploading');
+                    slotEl.querySelector('.madj-slot-upload-spin')?.remove();
+                    slotEl.classList.add('has-file');
+                    slotEl.onclick = null;
+                    if (isVideo) {
+                        slotEl.innerHTML =
+                            `<video class="madj-thumb" src="${esc(data.url)}" muted playsinline></video>
+                             <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>
+                             <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
+                             <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
+                                     onclick="madjSlotTrigger('${slotKey}')">
+                                 <i class="fa-solid fa-arrows-rotate"></i>
+                             </button>`;
+                    } else {
+                        slotEl.innerHTML =
+                            `<img class="madj-thumb" src="${esc(data.url)}" alt="">
+                             <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
+                             <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
+                                     onclick="madjSlotTrigger('${slotKey}')">
+                                 <i class="fa-solid fa-arrows-rotate"></i>
+                             </button>`;
+                    }
+                }
+
+                _madjActualizarProgreso();
+                _madjActualizarBotonGuardar();
             })
-            .catch(() => {
+            .catch(err => {
                 if (slotEl) {
                     slotEl.classList.remove('uploading');
                     slotEl.querySelector('.madj-slot-upload-spin')?.remove();
                 }
-                Swal.fire('Error', 'Error de red al subir la evidencia.', 'error');
+                throw err;
             });
+    }
+
+    async function madjGuardarEvidenciasPendientes() {
+        const pendientes = Object.entries(_madjPendingFiles);
+        if (!pendientes.length) {
+            Swal.fire('Sin cambios', 'No hay evidencias pendientes por guardar.', 'info');
+            return;
+        }
+
+        const confirm = await Swal.fire({
+            title: '¿Guardar evidencias?'
+            ,text: `Se guardarán ${pendientes.length} evidencia(s) en la base de datos.`
+            ,icon: 'question'
+            ,showCancelButton: true
+            ,confirmButtonText: 'Sí, guardar'
+            ,cancelButtonText: 'Cancelar'
+            ,confirmButtonColor: '#16a34a'
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        const btn = document.getElementById('madj-btn-guardar-evidencias');
+        const prevHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+        }
+
+        let errores = 0;
+        for (const [slotKey, file] of pendientes) {
+            try {
+                // Subida secuencial para simplificar control de estado por slot.
+                await _madjSubirPendiente(slotKey, file);
+            } catch (e) {
+                errores++;
+            }
+        }
+
+        if (_madjActiveCreditId) {
+            _madjSetProgressCredito(_madjActiveCreditId, _madjCommittedSlots.size);
+        }
+
+        if (btn) {
+            btn.innerHTML = prevHtml;
+        }
+        _madjActualizarBotonGuardar();
+
+        if (errores === 0) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Guardado',
+                text: 'Todas las evidencias fueron guardadas correctamente.',
+                timer: 1700,
+                showConfirmButton: false,
+            });
+        } else {
+            Swal.fire('Atención', `Se guardaron evidencias con ${errores} error(es).`, 'warning');
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -939,6 +1310,7 @@
     window.madjDocTrigger        = madjDocTrigger;
     window.madjSlotChange        = madjSlotChange;
     window.madjDocChange         = madjDocChange;
+    window.madjGuardarEvidenciasPendientes = madjGuardarEvidenciasPendientes;
 
     // INIT
     document.addEventListener('DOMContentLoaded', madjCargar);
