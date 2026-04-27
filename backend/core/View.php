@@ -125,6 +125,7 @@ function getMenu(): string
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
                 ['label' => 'Mis Adjudicaciones',     'url' => '/MotosAdjudicadas/misAdjudicaciones',       'modulos' => [64]],
                 ['label' => '1.- Retenciones',    'url' => '/AtencionClientes/consulta',                'modulos' => [64]],
+                ['label' => '2.- Evidencias',     'url' => '/AtencionClientes/evidencias',             'modulos' => [64]],
             ],
         ],
         'Tickets' => [

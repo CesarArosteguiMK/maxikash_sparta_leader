@@ -77,6 +77,98 @@ class AtencionClientes
     }
 
     // =========================================================================
+    // 2.- EVIDENCIAS — listas por estatus de pipeline
+    // =========================================================================
+
+    /**
+     * Consulta base para las tres pestañas (mismo shape que el pipeline de operaciones).
+     */
+    private function listarOperacionesEvidenciaPorEstatus(string $estatus): array
+    {
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.telefono_contacto,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre,
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+        FROM adj_operacion o
+        LEFT JOIN asigna_creditos_adjudicacion aca
+               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
+        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+        LEFT JOIN persona per              ON per.id = pa.id_persona
+        WHERE o.estatus = :estatus
+        ORDER BY o.fecha_alta ASC
+        SQL;
+
+        return $this->db->queryAll($sql, ['estatus' => $estatus]) ?: [];
+    }
+
+    /**
+     * Pestaña Bandeja de entrada — mismo criterio que la columna «Recibido» en Operaciones (pipeline):
+     * en pantalla se agrupa `en_transito` bajo Recibido (ver operaciones_pipeline.php), no solo el literal Recibido.
+     */
+    public function obtenerRecibidos(): array
+    {
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.telefono_contacto,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre,
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+        FROM adj_operacion o
+        LEFT JOIN asigna_creditos_adjudicacion aca
+               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
+        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+        LEFT JOIN persona per              ON per.id = pa.id_persona
+        WHERE o.estatus IN ('Recibido', 'en_transito')
+        ORDER BY o.fecha_alta ASC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
+    }
+
+    /** Pestaña Aprobados — etapa Procesando IA (avance posterior a Recibido en el pipeline). */
+    public function obtenerEvidenciasAprobadas(): array
+    {
+        return $this->listarOperacionesEvidenciaPorEstatus('Procesando IA');
+    }
+
+    /**
+     * Pestaña Correcciones — operaciones en etapa Revisión Recuperaciones.
+     * (Cuando exista adj_evidencia.aprobada, se podrá filtrar por “al menos una aprobada”.)
+     */
+    public function obtenerEvidenciasCorrecciones(): array
+    {
+        return $this->listarOperacionesEvidenciaPorEstatus('Revisión Recuperaciones');
+    }
+
+    // =========================================================================
     // DICTAMINADOS  (estatus = 'en_transito' o 'cancelado')
     // =========================================================================
 

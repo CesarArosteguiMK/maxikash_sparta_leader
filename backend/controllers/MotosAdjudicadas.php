@@ -136,6 +136,10 @@ class MotosAdjudicadas extends Controller
                 echo json_encode(['success' => false, 'message' => 'Operación no encontrada.']);
                 return;
             }
+            // Pipeline solo muestra evidencias confirmadas por el gestor
+            $detalle['evidencias'] = array_values(
+                array_filter($detalle['evidencias'] ?? [], fn($e) => ($e['estatus'] ?? 'recibido') === 'recibido')
+            );
             echo json_encode(['success' => true, 'detalle' => $detalle]);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -267,6 +271,34 @@ class MotosAdjudicadas extends Controller
     // =========================================================================
 
     /**
+     * POST /MotosAdjudicadas/enviarEvidencias
+     * Body JSON: { "id_operacion": 5 }
+     * Cambia todas las evidencias 'pendiente_envio' de la operación a 'recibido'.
+     */
+    public function enviarEvidencias()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body        = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Parámetros inválidos.']);
+            return;
+        }
+
+        $idUsuario     = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        try {
+            $result = $this->model->enviarEvidencias($idOperacion, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * GET /MotosAdjudicadas/misAdjudicaciones
      */
     public function misAdjudicaciones()
@@ -299,6 +331,22 @@ class MotosAdjudicadas extends Controller
 
         try {
             $result = $this->model->obtenerOCrearOperacion($idCredito, $nombreCliente, $idUsuario);
+            if (!empty($result['success']) && !empty($result['detalle']['evidencias']) && is_array($result['detalle']['evidencias'])) {
+                foreach ($result['detalle']['evidencias'] as &$ev) {
+                    if (!is_array($ev) || empty($ev['url'])) {
+                        continue;
+                    }
+                    $u = str_replace('\\', '/', trim((string) $ev['url']));
+                    $u = preg_replace('#^https?://uploads(?=/|$)#i', '/uploads', $u);
+                    $u = preg_replace('#^/{2,}uploads(?=/|$)#i', '/uploads', $u);
+                    $u = preg_replace('#^/uploads/uploads/#i', '/uploads/', $u);
+                    if (function_exists('sparta_url_publica_desde_repositorio')) {
+                        $u = sparta_url_publica_desde_repositorio($u);
+                    }
+                    $ev['url'] = $u;
+                }
+                unset($ev);
+            }
             echo json_encode($result);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -345,6 +393,63 @@ class MotosAdjudicadas extends Controller
         try {
             $creditos = $this->model->obtenerMisAdjudicaciones((int) $idPersona);
             echo json_encode(['success' => true, 'creditos' => $creditos]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/guardarVeredictoEvidenciaAtn
+     * Body JSON: { "id_operacion", "id_evidencia", "val_atn": 1|2, "comentario" }
+     */
+    public function guardarVeredictoEvidenciaAtn()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body         = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion  = (int) ($body['id_operacion'] ?? 0);
+        $idEvidencia  = (int) ($body['id_evidencia'] ?? 0);
+        $valAtn       = (int) ($body['val_atn'] ?? 0);
+        $comentario   = (string) ($body['comentario'] ?? '');
+        $idUsuario    = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        try {
+            $result = $this->model->guardarVeredictoEvidenciaAtn(
+                $idOperacion,
+                $idEvidencia,
+                $valAtn,
+                $comentario,
+                $idUsuario,
+                $nombreUsuario
+            );
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn
+     * Body JSON: { "id_operacion" } — al cerrar el modal: si hay rechazos, pasa a Revisión Recuperaciones.
+     */
+    public function finalizarCierreValidacionEvidenciaAtn()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body        = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+        $idUsuario   = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de operación inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->finalizarCierreValidacionEvidenciaAtn($idOperacion, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }

@@ -23,6 +23,15 @@ class AtencionClientes extends Controller
         $this->render('atencion_clientes_consulta');
     }
 
+    /**
+     * GET /AtencionClientes/evidencias
+     * 2.- Evidencias (mismo controlador que 1.- Retenciones).
+     */
+    public function evidencias(): void
+    {
+        $this->render('atencion_clientes_evidencias');
+    }
+
     // =========================================================================
     // API: ENTRANTES
     // =========================================================================
@@ -32,6 +41,46 @@ class AtencionClientes extends Controller
         header('Content-Type: application/json; charset=utf-8');
         try {
             $datos = $this->model->obtenerEntrantes();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    // =========================================================================
+    // API: 2.- EVIDENCIAS (listas por estatus; mismo modelo)
+    // =========================================================================
+
+    public function obtenerRecibidos(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerRecibidos();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function obtenerAprobadosEvidencias(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerEvidenciasAprobadas();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function obtenerCorreccionesEvidencias(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerEvidenciasCorrecciones();
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             http_response_code(500);
