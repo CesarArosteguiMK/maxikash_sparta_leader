@@ -306,7 +306,7 @@ class CierreCredito extends Controller
     {
         $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
         $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
-        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 500);
+        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 150);
 
         if ($id <= 0) {
             self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
@@ -316,19 +316,18 @@ class CierreCredito extends Controller
             self::respuestaJSON(self::respuesta(false, 'El comentario es obligatorio.'));
             return;
         }
-        if (!isset($_FILES['archivo'])) {
-            self::respuestaJSON(self::respuesta(false, 'Debe adjuntar un archivo PDF o imagen.'));
-            return;
-        }
-
-        $subida = $this->cierreSubirArchivoVoBo($_FILES['archivo']);
-        if (empty($subida['success'])) {
-            self::respuestaJSON(self::respuesta(false, $subida['mensaje'] ?? 'No se pudo subir el archivo.'));
-            return;
+        $rutaArchivo = '';
+        if (isset($_FILES['archivo']) && $_FILES['archivo']['error'] !== UPLOAD_ERR_NO_FILE) {
+            $subida = $this->cierreSubirArchivoVoBo($_FILES['archivo']);
+            if (empty($subida['success'])) {
+                self::respuestaJSON(self::respuesta(false, $subida['mensaje'] ?? 'No se pudo subir el archivo.'));
+                return;
+            }
+            $rutaArchivo = (string) ($subida['url'] ?? '');
         }
 
         $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
-        $r = CierreCreditoDAO::enviarAVoBo($id, $usuario, $comentario, (string) ($subida['url'] ?? ''));
+        $r = CierreCreditoDAO::enviarAVoBo($id, $usuario, $comentario, $rutaArchivo);
         self::respuestaJSON($r);
     }
 

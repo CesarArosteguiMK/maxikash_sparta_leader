@@ -1073,13 +1073,16 @@ $ccActCart  = ($cc_default_tab === 'cartera');
             <div class="modal-body">
                 <input type="hidden" id="cc-vobo-id" value="">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Archivo (PDF o imagen)</label>
+                    <label class="form-label fw-semibold">Archivo (PDF o imagen) <span class="text-muted fw-normal">(opcional)</span></label>
                     <input type="file" id="cc-vobo-archivo" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp">
                     <small class="text-muted">Máximo 8 MB.</small>
                 </div>
                 <div class="mb-0">
                     <label class="form-label fw-semibold">Comentario <span class="text-danger">*</span></label>
-                    <textarea id="cc-vobo-comentario" class="form-control" rows="4" maxlength="500" placeholder="Describe el motivo del envío a Dirección de Cobranza..."></textarea>
+                    <textarea id="cc-vobo-comentario" class="form-control" rows="3" maxlength="150" placeholder="Describe el motivo del envío a Dirección de Cobranza..."></textarea>
+                    <div class="d-flex justify-content-end">
+                        <small class="text-muted"><span id="cc-vobo-contador">0</span>/150</small>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1970,7 +1973,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     <i class="fa-solid fa-file-excel"></i>
                 </a>
                 ${parseInt(r.vobo_validado_direccion || 0) !== 1 ? `
-                <button class="cc-btn-confirmar" style="font-size:.75rem;padding:.28rem .65rem;background:linear-gradient(135deg,#2563eb,#3b82f6);"
+                <button class="cc-btn-confirmar" style="font-size:.62rem;padding:.18rem .42rem;background:linear-gradient(135deg,#2563eb,#3b82f6);"
                         onclick="ccAbrirModalVoBo(${r.id})">
                     <i class="fa-solid fa-stamp me-1"></i>Vo.Bo
                 </button>` : ''}
@@ -2086,7 +2089,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     </a>
                     ${parseInt(r.vobo_validado_direccion || 0) !== 1 ? `
                     <button class="cc-btn-confirmar"
-                            style="background:linear-gradient(135deg,#2563eb,#3b82f6);flex:1 1 45%;min-width:100px;"
+                            style="background:linear-gradient(135deg,#2563eb,#3b82f6);font-size:.62rem;padding:.18rem .42rem;flex:0 0 auto;min-width:unset;"
                             onclick="ccAbrirModalVoBo(${r.id})">
                         <i class="fa-solid fa-stamp me-1"></i>Vo.Bo
                     </button>` : ''}
@@ -3027,7 +3030,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     render: function(d, t, r) {
                         return `<div style="display:flex;gap:.35rem;min-width:170px;">
                             <button class="btn btn-sm btn-success" style="font-size:.72rem;" onclick="ccAprobarVoBo(${r.id})">
-                                <i class="fa-solid fa-check me-1"></i>Enviar a procesar envío
+                                <i class="fa-solid fa-check me-1"></i>Aprobar
                             </button>
                             <button class="btn btn-sm btn-danger" style="font-size:.72rem;" onclick="ccRechazarVoBo(${r.id})">
                                 <i class="fa-solid fa-xmark me-1"></i>Rechazar
@@ -3605,6 +3608,9 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         idEl.value = String(idRegistro || '');
         fileEl.value = '';
         comentEl.value = '';
+        const contadorEl = document.getElementById('cc-vobo-contador');
+        if (contadorEl) contadorEl.textContent = '0';
+        comentEl.oninput = function() { if (contadorEl) contadorEl.textContent = comentEl.value.length; };
 
         const modalEl = document.getElementById('ccModalVoBo');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -3622,12 +3628,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 Swal.fire({ icon: 'error', title: 'Error', text: 'ID inválido para envío a Vo.Bo.' });
                 return;
             }
-            if (!archivo) {
-                Swal.fire({ icon: 'warning', title: 'Archivo requerido', text: 'Debe adjuntar un archivo PDF o imagen.' });
-                return;
-            }
             if (!comentario) {
                 Swal.fire({ icon: 'warning', title: 'Comentario requerido', text: 'Debe capturar un comentario para Vo.Bo.' });
+                return;
+            }
+            if (comentario.length > 150) {
+                Swal.fire({ icon: 'warning', title: 'Comentario muy largo', text: 'El comentario no puede exceder 150 caracteres.' });
                 return;
             }
 
@@ -3668,13 +3674,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
     window.ccAprobarVoBo = function(idRegistro) {
         Swal.fire({
-            title: '¿Enviar a procesar envío?',
-            html: 'Este registro regresará a <strong>En Proceso</strong> como <strong>validado por dirección de cobranza</strong>.',
+            title: '¿Confirmas visto bueno?',
+            html: 'Este registro será marcado como <strong>validado por dirección de cobranza</strong>.',
             icon: 'question',
             input: 'textarea',
             inputPlaceholder: 'Comentario opcional de validación...',
             showCancelButton: true,
-            confirmButtonText: '<i class="fa-solid fa-check me-1"></i>Aprobar',
+            confirmButtonText: '<i class="fa-solid fa-check me-1"></i>Sí, confirmo',
             cancelButtonText: 'Cancelar',
             confirmButtonColor: '#16a34a'
         }).then(result => {
