@@ -375,6 +375,53 @@ SQL;
     }
 
     /**
+     * 4.- Cierre documentación — Dictaminado:
+     * muestra tanto operaciones aún en "Cierre Documentado" como las ya enviadas a "Recepción".
+     */
+    public function obtenerDictaminadosCierreDocumentacionLista(): array
+    {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            d.llamada_a,
+            d.numero,
+            d.persona_contactada,
+            d.tipo_contacto,
+            d.resultado,
+            d.dictamen,
+            d.plataforma,
+            d.comentarios,
+            DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre
+        FROM adj_operacion o
+        INNER JOIN adj_dictamen d ON d.id = (
+            SELECT d2.id
+            FROM adj_dictamen d2
+            WHERE d2.id_operacion = o.id
+            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            LIMIT 1
+        )
+        {$joinAsig}
+        WHERE o.estatus IN ('Cierre Documentado', 'Recepción')
+        ORDER BY o.fecha_actualizacion DESC, o.fecha_alta DESC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
+    }
+
+    /**
      * 3.- Recuperación — Pestaña Dictaminado: operaciones en tránsito o ya enviadas a Cartera (Cierre documentado).
      * Incluye las que aún no tienen fila en adj_dictamen (LEFT JOIN al último dictamen si existe).
      */
@@ -414,7 +461,7 @@ SQL;
             LIMIT 1
         )
         {$joinAsig}
-        WHERE o.estatus IN ('en_transito', 'Cierre Documentado')
+        WHERE o.estatus = 'Cierre Documentado'
         ORDER BY o.fecha_alta DESC
         SQL;
 
