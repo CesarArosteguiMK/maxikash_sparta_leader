@@ -201,7 +201,7 @@ class MotosAdjudicadas extends Model
         $allowed = [
             'rec_tacometro', 'rec_serie',     'rec_frontal', 'rec_lateral',
             'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
-            'doc_repuve',    'doc_factura',
+            'doc_repuve',    'doc_factura',   'doc_cierre_s2',
         ];
         if (!in_array($slot, $allowed, true)) {
             return ['success' => false, 'message' => 'Slot de evidencia no reconocido.'];
@@ -217,7 +217,7 @@ class MotosAdjudicadas extends Model
         $mime      = $fileInfo['type'] ?? '';
         $ext       = strtolower(pathinfo($fileInfo['name'] ?? '', PATHINFO_EXTENSION));
         $videoSlots = ['fis_360'];
-        $docSlots   = ['doc_repuve', 'doc_factura'];
+        $docSlots   = ['doc_repuve', 'doc_factura', 'doc_cierre_s2'];
 
         if (in_array($slot, $videoSlots, true)) {
             if ($mime !== 'video/mp4' || $ext !== 'mp4') {
@@ -231,6 +231,7 @@ class MotosAdjudicadas extends Model
                 }
                 $tipo = 'pdf';
             } else {
+                // doc_factura, doc_cierre_s2: PDF o imagen
                 $okMimes = ['application/pdf', 'image/jpeg', 'image/png'];
                 if (!in_array($mime, $okMimes, true)) {
                     return ['success' => false, 'message' => 'Solo se aceptan PDF, JPG o PNG.'];
@@ -343,9 +344,10 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * Vista 4 Cartera: registra que el usuario confirma haber dado de alta el cierre en S2.
+     * Vista 4 Cartera: registra que el usuario confirma haber dado de alta el cierre en S2
+     * y envía la operación a la etapa Recepción (bandeja de entrada de la vista 5).
      *
-     * @return array{success:bool, message?:string}
+     * @return array{success:bool, message?:string, estatus_nuevo?:string}
      */
     public function confirmarCierreDocumentacionEnS2(int $idOperacion, int $idUsuario, string $nombreUsuario): array
     {
@@ -363,6 +365,7 @@ class MotosAdjudicadas extends Model
         if ($est !== 'Cierre Documentado') {
             return ['success' => false, 'message' => 'La operación no está en etapa Cierre documentado.'];
         }
+
         $this->registrarBitacora(
             $idOperacion,
             'CONFIRMACIÓN: Cierre documentado registrado en S2',
@@ -370,7 +373,12 @@ class MotosAdjudicadas extends Model
             $nombreUsuario
         );
 
-        return ['success' => true];
+        $mov = $this->cambiarEstatus($idOperacion, 'Recepción', $idUsuario, $nombreUsuario);
+        if (empty($mov['success'])) {
+            return $mov;
+        }
+
+        return ['success' => true, 'estatus_nuevo' => 'Recepción'];
     }
 
     /**
@@ -671,6 +679,7 @@ class MotosAdjudicadas extends Model
         'fis_360'       => 'INSPECCIÓN 360°',
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
+        'doc_cierre_s2' => 'CONFIRMACIÓN CIERRE S2',
     ];
 
     /** Fotos/video que sí se dictaminan (aceptar/rechazar) en Atención a clientes. */

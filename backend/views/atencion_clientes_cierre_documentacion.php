@@ -211,6 +211,31 @@ body.dark-mode #modalAcdCierreDocumentacion .acd-cierre-banner {
     color: #eef2ff;
 }
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e293b; color: #e2e8f0; }
+
+/* Bloque evidencia S2 (modal vista 4) */
+#acdEvidenciaCard {
+    border: 2px solid #fed7aa;
+    border-radius: 0.75rem;
+    background: #fffbeb;
+    padding: 1rem 1.15rem 1.1rem;
+    margin-bottom: 1rem;
+}
+#acdEvidenciaTitulo {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #9a3412;
+    margin: 0 0 0.75rem 0;
+}
+#acdEvidenciaTitulo.acd-ev-ok {
+    color: #15803d;
+}
+body.dark-mode #acdEvidenciaCard {
+    background: #292524;
+    border-color: #78350f;
+}
+body.dark-mode #acdEvidenciaTitulo { color: #fdba74; }
+body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
 </style>
 
 <div class="container-fluid py-4">
@@ -265,11 +290,13 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
 <div class="modal fade" id="modalAcdCierreDocumentacion" tabindex="-1" aria-labelledby="modalAcdCierreDocumentacionLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
+            <div class="modal-header py-2 border-bottom">
+                <h5 class="modal-title mb-0" id="modalAcdCierreDocumentacionLabel">
+                    <i class="fa-solid fa-file-circle-check me-2 text-warning"></i>Cierre documentación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
             <div class="modal-body pt-4 pb-3">
-                <div class="acd-cierre-banner" role="status">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span>Cartera — Cierre documentado.</span>
-                </div>
                 <p class="text-muted small mb-3" id="acdCierreSubtitulo"></p>
                 <div id="acdCierreLoader" class="text-center py-4 text-muted" style="display:none;">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente…
@@ -287,12 +314,37 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
                                 CONFIRMA AQUÍ QUE EL CIERRE FUE REGISTRADO EN S2 DE FORMA EXITOSA
                             </p>
                             <div class="form-check mx-auto mt-3" style="max-width:22rem;">
-                                <input class="form-check-input" type="checkbox" id="acdChkConfirmoS2" autocomplete="off">
+                                <input class="form-check-input" type="checkbox" id="acdChkConfirmoS2" autocomplete="off" disabled>
                                 <label class="form-check-label small fw-semibold" for="acdChkConfirmoS2">
                                     Confirmo que el cierre quedó registrado correctamente en S2.
                                 </label>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div id="acdEvidenciaCard" class="mt-4">
+                    <h2 class="h6" id="acdEvidenciaTitulo">Evidencia de cierre en S2</h2>
+                    <div id="acdEvidenciaFormulario">
+                        <p class="small text-muted mb-2">Adjunta una imagen (o PDF) y comentarios opcionales antes de confirmar el registro en S2.</p>
+                        <div class="mb-2">
+                            <input type="file" class="form-control form-control-sm" id="acdEvidenciaArchivo"
+                                   accept="image/jpeg,image/png,application/pdf">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1" for="acdEvidenciaComentarios">Comentarios</label>
+                            <textarea class="form-control form-control-sm" id="acdEvidenciaComentarios" rows="3"
+                                      placeholder="Detalle relevante para expediente…"></textarea>
+                        </div>
+                        <button type="button" class="btn btn-warning btn-sm rounded-pill fw-bold" id="acdBtnSubirEvidenciaCierre">
+                            <i class="fa-solid fa-cloud-arrow-up me-1"></i>Subir evidencia
+                        </button>
+                    </div>
+                    <div id="acdEvidenciaExito" style="display:none;" class="text-center py-2">
+                        <p class="small text-muted mb-2 mb-md-3">Puedes verificar el archivo antes de marcar la confirmación en S2.</p>
+                        <button type="button" class="btn btn-outline-success btn-sm rounded-pill fw-bold" id="acdBtnVerEvidenciaCierre">
+                            <i class="fa-regular fa-eye me-1"></i>Ver
+                        </button>
                     </div>
                 </div>
             </div>
@@ -345,6 +397,7 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
 
     let _acdCierreIdOp = 0;
     let _acdCierreBuckets = { atencion: [], validacion: [], recuperacion: [] };
+    let _acdEvidenciaUrl = '';
 
     const ACD_CIERRE_ETAPA_META = [
         { key: 'atencion', tituloModal: 'Atención a clientes — bitácora', textoFila: 'ATENCION A CLIENTES OK' },
@@ -410,14 +463,31 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
 
     function acdModalCierreDocLimpiarFormulario() {
         _acdCierreBuckets = { atencion: [], validacion: [], recuperacion: [] };
+        _acdEvidenciaUrl = '';
         const chk = document.getElementById('acdChkConfirmoS2');
         const btn = document.getElementById('acdBtnRegistrarConfirmacionS2');
         const filas = document.getElementById('acdCierreEtapasFilas');
         const sub = document.getElementById('acdCierreSubtitulo');
-        if (chk) chk.checked = false;
+        const titEv = document.getElementById('acdEvidenciaTitulo');
+        const formEv = document.getElementById('acdEvidenciaFormulario');
+        const okEv = document.getElementById('acdEvidenciaExito');
+        const inpF = document.getElementById('acdEvidenciaArchivo');
+        const txC = document.getElementById('acdEvidenciaComentarios');
+        if (chk) {
+            chk.checked = false;
+            chk.disabled = true;
+        }
         if (btn) btn.disabled = true;
         if (filas) filas.innerHTML = '';
         if (sub) sub.textContent = '';
+        if (titEv) {
+            titEv.textContent = 'Evidencia de cierre en S2';
+            titEv.classList.remove('acd-ev-ok');
+        }
+        if (formEv) formEv.style.display = '';
+        if (okEv) okEv.style.display = 'none';
+        if (inpF) inpF.value = '';
+        if (txC) txC.value = '';
     }
 
     window.acdModalCierreDocAbrir = function (idOperacion, idCredito, nombreCliente) {
@@ -666,6 +736,73 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
             });
         }
 
+        const btnSubEv = document.getElementById('acdBtnSubirEvidenciaCierre');
+        const btnVerEv = document.getElementById('acdBtnVerEvidenciaCierre');
+        if (btnSubEv) {
+            btnSubEv.addEventListener('click', function () {
+                const idOp = _acdCierreIdOp;
+                const input = document.getElementById('acdEvidenciaArchivo');
+                if (!idOp || !input || !input.files || !input.files[0]) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'warning', text: 'Selecciona una imagen o PDF.' });
+                    }
+                    return;
+                }
+                btnSubEv.disabled = true;
+                const fd = new FormData();
+                fd.append('id_operacion', String(idOp));
+                fd.append('slot', 'doc_cierre_s2');
+                fd.append('archivo', input.files[0]);
+                fetch('/MotosAdjudicadas/subirEvidencia', { method: 'POST', body: fd, credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (!data.success || !data.url) {
+                            throw new Error(data.message || 'No se pudo subir la evidencia.');
+                        }
+                        _acdEvidenciaUrl = String(data.url);
+                        const com = (document.getElementById('acdEvidenciaComentarios') || {}).value || '';
+                        const titEv = document.getElementById('acdEvidenciaTitulo');
+                        const formEv = document.getElementById('acdEvidenciaFormulario');
+                        const okEv = document.getElementById('acdEvidenciaExito');
+                        if (titEv) {
+                            titEv.textContent = 'EVIDENCIA CARGADA CON EXITO';
+                            titEv.classList.add('acd-ev-ok');
+                        }
+                        if (formEv) formEv.style.display = 'none';
+                        if (okEv) okEv.style.display = '';
+                        if (chkS2) chkS2.disabled = false;
+                        if (String(com).trim() !== '') {
+                            return fetch('/MotosAdjudicadas/agregarObservacion', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                                credentials: 'same-origin',
+                                body: JSON.stringify({
+                                    id_operacion: idOp,
+                                    etapa: 'Cierre Documentado',
+                                    area: 'Cierre documentación',
+                                    texto: 'Comentarios evidencia cierre S2: ' + String(com).trim(),
+                                }),
+                            }).then(function (r) { return r.json(); });
+                        }
+                    })
+                    .catch(function (err) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'error', text: err.message || 'Error' });
+                        }
+                    })
+                    .finally(function () {
+                        btnSubEv.disabled = false;
+                    });
+            });
+        }
+        if (btnVerEv) {
+            btnVerEv.addEventListener('click', function () {
+                if (_acdEvidenciaUrl) {
+                    window.open(_acdEvidenciaUrl, '_blank', 'noopener,noreferrer');
+                }
+            });
+        }
+
         const filasEtapas = document.getElementById('acdCierreEtapasFilas');
         if (filasEtapas) {
             filasEtapas.addEventListener('click', function (e) {
@@ -692,8 +829,8 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Listo',
-                                text: 'Confirmación registrada en bitácora.',
-                                timer: 2200,
+                                text: 'Confirmación registrada. La operación pasó a la bandeja de Recepción (vista 5).',
+                                timer: 2800,
                                 showConfirmButton: false,
                             });
                         }

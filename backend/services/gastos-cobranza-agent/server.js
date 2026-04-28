@@ -49,7 +49,14 @@ const express = require('express');
 
 const PORT = process.env.PORT || 3120;
 const API_KEY = process.env.API_KEY || '';
-const REPORTE_PYTHON = (process.env.REPORTE_PYTHON || 'python').trim();
+function resolveReportePython() {
+  const fromEnv = String(process.env.REPORTE_PYTHON || '').trim();
+  if (fromEnv) return fromEnv;
+  const winDefault = 'C:\\Program Files\\Python314\\python.exe';
+  if (process.platform === 'win32' && fs.existsSync(winDefault)) return winDefault;
+  return 'python';
+}
+const REPORTE_PYTHON = resolveReportePython();
 const SCRIPT_BUNDLED = path.join(__dirname, 'scripts', 'reporte_cobranza.py');
 const SCRIPT_CARGA_VERIFICACION = path.join(
   __dirname,
@@ -76,7 +83,7 @@ function getCronjobsGcMap() {
     insertar_mora_martes: {
       key: 'insertar_mora_martes',
       scriptPath: SCRIPT_CRON_INSERTAR_MORAS_MARTES,
-      titulo: 'Insertar mora martes',
+      titulo: 'Insertar moras martes',
     },
     detectar_gdc_liquidados: {
       key: 'detectar_gdc_liquidados',
@@ -117,14 +124,22 @@ const LOG_DIR = path.join(__dirname, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'agente-gastos-cobranza.log');
 /** Estado escribible por Node (auto-run, dedupe correo, etc.); fuera de `logs/` por permisos en Windows/XAMPP. */
 const AGENT_DATA_DIR = path.join(__dirname, 'data');
+/** Dependencias Python locales del agente (evita depender del perfil del usuario del servicio). */
+const PY_DEPS_DIR = path.join(__dirname, 'pydeps');
 /** 1/0 — toggle «automático» desde la UI. */
 const AUTO_RUN_RUNTIME_FILE_DATA = path.join(AGENT_DATA_DIR, 'auto_run_reporte_runtime.txt');
 /** Compatibilidad con versiones anteriores (mismo directorio que el .log). */
 const AUTO_RUN_RUNTIME_FILE_LEGACY = path.join(LOG_DIR, '.auto_run_reporte_runtime.txt');
 /** Último recurso si `data/` y `logs/` no son escribibles por el proceso Node. */
 const AUTO_RUN_RUNTIME_FILE_TMP = path.join(os.tmpdir(), 'gastos-cobranza-agent-auto_run_reporte_runtime.txt');
-/** Salida de scripts Python línea a línea hacia el log del agente (evita buffer de stdout sin TTY). */
-const ENV_CON_PYTHON_UNBUFFERED = { ...process.env, PYTHONUNBUFFERED: '1' };
+/** Salida de scripts Python línea a línea + PYTHONPATH local (pydeps). */
+const ENV_CON_PYTHON_UNBUFFERED = {
+  ...process.env,
+  PYTHONUNBUFFERED: '1',
+  PYTHONPATH: process.env.PYTHONPATH
+    ? `${PY_DEPS_DIR}${path.delimiter}${process.env.PYTHONPATH}`
+    : PY_DEPS_DIR,
+};
 const REPORTE_DIR = path.join(__dirname, 'reporte');
 const EC_UPLOAD_DIR = path.join(REPORTE_DIR, 'ec-uploads');
 const EC_WORKER_DIR = path.join(__dirname, 'tools', 'ec-webhook-worker');
@@ -1797,7 +1812,7 @@ app.post('/cronjobs-gc/run', express.json({ limit: '32kb' }), (req, res) => {
 
   cronjobsGcBusy = true;
   const php = resolvePhpExe();
-  const args = ['-d', 'output_buffering=0', '-d', 'implicit_flush=1', meta.scriptPath, '--no-webhook'];
+  const args = ['-d', 'output_buffering=0', '-d', 'implicit_flush=1', meta.scriptPath];
   const startedAtMs = Date.now();
   appendLog(`--- cronjobs-gc inicio proceso=${meta.key} php=${php} script=${meta.scriptPath} ---`);
   const child = spawn(php, args, {

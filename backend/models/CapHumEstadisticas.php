@@ -310,6 +310,9 @@ class CapHumEstadisticas extends Model
             $sqlNoBaja = '(p.estatus IS NULL OR LOWER(TRIM(COALESCE(p.estatus,\'\'))) <> \'baja\')';
             $sqlActivo = "LOWER(TRIM(COALESCE(p.estatus,''))) = 'activo'";
             $sqlIngHastaFfHi = '(p.fecha_ingreso IS NULL OR p.fecha_ingreso IN (\'0000-00-00\',\'0000-00-00 00:00:00\') OR DATE(p.fecha_ingreso) <= :ff_hi)';
+            $sqlIngEnRango = '(p.fecha_ingreso IS NOT NULL
+                AND p.fecha_ingreso NOT IN (\'0000-00-00\',\'0000-00-00 00:00:00\')
+                AND DATE(p.fecha_ingreso) BETWEEN :fi AND :ff)';
             $sqlExFantasma = UsuarioFantasmaReporteria::sqlExcluirPersona('p');
 
             $sqlHeadcountBase = '
@@ -322,27 +325,10 @@ class CapHumEstadisticas extends Model
                 'SELECT COUNT(*) AS c ' . $sqlHeadcountBase,
                 $paramsRango
             );
-            // KPI superior: totales actuales en tabla persona (sin filtro de fechas del periodo).
-            $totalPersonaTabla = self::scalarInt(
-                $db,
-                'SELECT COUNT(*) AS c FROM ' . $tp . ' p WHERE 1=1 ' . $sqlExFantasma,
-                []
-            );
             $empleadosActivosCierre = self::scalarInt(
                 $db,
                 'SELECT COUNT(*) AS c ' . $sqlHeadcountBase . ' AND ' . $sqlActivo,
                 $paramsRango
-            );
-            $empleadosActivos = self::scalarInt(
-                $db,
-                'SELECT COUNT(*) AS c FROM ' . $tp . ' p WHERE ' . $sqlActivo . $sqlExFantasma,
-                []
-            );
-            $empleadosBaja = self::scalarInt(
-                $db,
-                'SELECT COUNT(*) AS c FROM ' . $tp . ' p
-                 WHERE LOWER(TRIM(COALESCE(p.estatus,\'\'))) = \'baja\'' . $sqlExFantasma,
-                []
             );
             $totalDepartamentos = self::scalarInt(
                 $db,
@@ -351,7 +337,7 @@ class CapHumEstadisticas extends Model
                  INNER JOIN ' . $tap . ' ap ON ap.id_persona = p.id
                  INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
                  WHERE ' . $sqlActivo . '
-                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma,
+                   AND ' . $sqlIngEnRango . $sqlExFantasma,
                 $paramsRango
             );
             $puestosUnicos = self::scalarInt(
@@ -361,7 +347,7 @@ class CapHumEstadisticas extends Model
                  INNER JOIN ' . $tap . ' ap ON ap.id_persona = p.id
                  INNER JOIN ' . $tpu . ' pu ON pu.id = ap.id_puesto
                  WHERE ' . $sqlActivo . '
-                   AND ' . $sqlIngHastaFfHi . $sqlExFantasma,
+                   AND ' . $sqlIngEnRango . $sqlExFantasma,
                 $paramsRango
             );
 
@@ -391,7 +377,7 @@ class CapHumEstadisticas extends Model
                 $paramsRango
             );
 
-            $denRot = $empleadosActivos > 0 ? $empleadosActivos : 1;
+            $denRot = $empleadosActivosCierre > 0 ? $empleadosActivosCierre : 1;
             $rotacionPct = round(100.0 * ($bajas / $denRot), 1);
             if ($rotacionPct <= 5.0) {
                 $rotacionBadge = 'bg-success';
@@ -798,10 +784,11 @@ class CapHumEstadisticas extends Model
                 'periodo_label' => $rango['periodo_label'],
                 'fecha_ini' => $fi,
                 'fecha_fin' => $ff,
-                'total_empleados' => $totalPersonaTabla,
+                // KPIs superiores alineados al rango filtrado.
+                'total_empleados' => $headcountPlantillaCierre,
                 'plantilla_cierre_total' => $headcountPlantillaCierre,
-                'empleados_activos' => $empleadosActivos,
-                'empleados_baja' => $empleadosBaja,
+                'empleados_activos' => $empleadosActivosCierre,
+                'empleados_baja' => $bajas,
                 'total_departamentos' => $totalDepartamentos,
                 'puestos_unicos' => $puestosUnicos,
                 'ingresos' => $ingresos,

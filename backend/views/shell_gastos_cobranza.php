@@ -129,13 +129,13 @@
                     </div>
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         <button type="button" class="btn btn-sm btn-outline-primary" id="btnGcProcesoInsertarMoraMartes" disabled title="Proceso 1: insertar_moras_martes.php">
-                            <i class="fa fa-play me-1"></i>Ejecutar proceso 1
+                            <i class="fa fa-play me-1"></i>Insertar moras martes
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="btnGcProcesoDetectarLiquidados" disabled title="Proceso 2: detectar_gdc_liquidados.php">
-                            <i class="fa fa-play me-1"></i>Ejecutar proceso 2
+                            <i class="fa fa-play me-1"></i>Detectar GC liquidados
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="btnGcProcesoEliminarDespachos" disabled title="Proceso 3: eliminar_gastos_despachos.php">
-                            <i class="fa fa-play me-1"></i>Ejecutar proceso 3
+                            <i class="fa fa-play me-1"></i>Eliminar gastos despachos
                         </button>
                     </div>
                     <p id="gcProcesosCronjobsHint" class="small text-warning mb-0 mt-2 d-none" role="status" aria-live="polite"></p>
@@ -1420,7 +1420,7 @@
             enrich: 'Se está ejecutando el Excel enriquecido…',
             lista_negra: 'Se está ejecutando la carga a lista negra…',
             descargo: 'Se está generando el descargo estatus 3…',
-            insertar_mora_martes: 'Se está ejecutando insertar mora martes…',
+            insertar_mora_martes: 'Se está ejecutando insertar moras martes…',
             detectar_gdc_liquidados: 'Se está ejecutando detectar GDC liquidados…',
             eliminar_gastos_despachos: 'Se está ejecutando eliminar gastos despachos…'
         };
@@ -2887,7 +2887,7 @@
     gcPintarZonaExcelCliente();
     if (btnGcProcesoInsertarMoraMartes) {
         btnGcProcesoInsertarMoraMartes.addEventListener('click', function () {
-            ejecutarProcesoCronjobGc('insertar_mora_martes', 'Insertar mora martes');
+            ejecutarProcesoCronjobGc('insertar_mora_martes', 'Insertar moras martes');
         });
     }
     if (btnGcProcesoDetectarLiquidados) {
