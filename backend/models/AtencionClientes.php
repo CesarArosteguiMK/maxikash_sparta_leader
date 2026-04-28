@@ -363,7 +363,10 @@ SQL;
             SELECT d2.id
             FROM adj_dictamen d2
             WHERE d2.id_operacion = o.id
-            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
             LIMIT 1
         )
         {$joinAsig}
@@ -376,7 +379,8 @@ SQL;
 
     /**
      * 4.- Cierre documentación — Dictaminado:
-     * muestra tanto operaciones aún en "Cierre Documentado" como las ya enviadas a "Recepción".
+     * operaciones con dictamen en esta etapa: las que siguen en “Cierre Documentado”
+     * y las que ya avanzaron a “Recepción” tras confirmar cierre en S2 (misma operación).
      */
     public function obtenerDictaminadosCierreDocumentacionLista(): array
     {
@@ -410,7 +414,10 @@ SQL;
             SELECT d2.id
             FROM adj_dictamen d2
             WHERE d2.id_operacion = o.id
-            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
             LIMIT 1
         )
         {$joinAsig}
@@ -457,7 +464,10 @@ SQL;
             SELECT d2.id
             FROM adj_dictamen d2
             WHERE d2.id_operacion = o.id
-            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
             LIMIT 1
         )
         {$joinAsig}
