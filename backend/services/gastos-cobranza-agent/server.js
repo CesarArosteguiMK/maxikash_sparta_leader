@@ -124,14 +124,22 @@ const LOG_DIR = path.join(__dirname, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'agente-gastos-cobranza.log');
 /** Estado escribible por Node (auto-run, dedupe correo, etc.); fuera de `logs/` por permisos en Windows/XAMPP. */
 const AGENT_DATA_DIR = path.join(__dirname, 'data');
+/** Dependencias Python locales del agente (evita depender del perfil del usuario del servicio). */
+const PY_DEPS_DIR = path.join(__dirname, 'pydeps');
 /** 1/0 — toggle «automático» desde la UI. */
 const AUTO_RUN_RUNTIME_FILE_DATA = path.join(AGENT_DATA_DIR, 'auto_run_reporte_runtime.txt');
 /** Compatibilidad con versiones anteriores (mismo directorio que el .log). */
 const AUTO_RUN_RUNTIME_FILE_LEGACY = path.join(LOG_DIR, '.auto_run_reporte_runtime.txt');
 /** Último recurso si `data/` y `logs/` no son escribibles por el proceso Node. */
 const AUTO_RUN_RUNTIME_FILE_TMP = path.join(os.tmpdir(), 'gastos-cobranza-agent-auto_run_reporte_runtime.txt');
-/** Salida de scripts Python línea a línea hacia el log del agente (evita buffer de stdout sin TTY). */
-const ENV_CON_PYTHON_UNBUFFERED = { ...process.env, PYTHONUNBUFFERED: '1' };
+/** Salida de scripts Python línea a línea + PYTHONPATH local (pydeps). */
+const ENV_CON_PYTHON_UNBUFFERED = {
+  ...process.env,
+  PYTHONUNBUFFERED: '1',
+  PYTHONPATH: process.env.PYTHONPATH
+    ? `${PY_DEPS_DIR}${path.delimiter}${process.env.PYTHONPATH}`
+    : PY_DEPS_DIR,
+};
 const REPORTE_DIR = path.join(__dirname, 'reporte');
 const EC_UPLOAD_DIR = path.join(REPORTE_DIR, 'ec-uploads');
 const EC_WORKER_DIR = path.join(__dirname, 'tools', 'ec-webhook-worker');
