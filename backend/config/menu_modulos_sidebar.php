@@ -76,12 +76,17 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     ['label' => 'Estadísticas', 'url' => '/convenios/estadisticas', 'modulos' => [56]],
                 ],
             ],
-            'Adjudicación' => [
+            'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
                     ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
-                    ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',       'modulos' => [63]],
-                    ['label' => 'Atención a Clientes',    'url' => '/AtencionClientes/consulta',       'modulos' => [65]],
+                    ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
+                    ['label' => 'Mis Adjudicaciones', 'url' => '/MotosAdjudicadas/misAdjudicaciones', 'modulos' => [64]],
+                    ['label' => '1.- Retenciones', 'url' => '/AtencionClientes/consulta', 'modulos' => [69]],
+                    ['label' => '2.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
+                    ['label' => '3.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],
+                    ['label' => '4.- Cierre Documentación', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
+                    ['label' => '5.- Recepción', 'url' => '/AtencionClientes/recepcion', 'modulos' => [73]],
                 ],
             ],
             'Gastos Cobranza' => [

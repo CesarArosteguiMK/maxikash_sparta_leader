@@ -20,6 +20,8 @@ class AtencionClientes extends Controller
 
     public function consulta(): void
     {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $this->set('titulo', '1.- Retenciones · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_consulta');
     }
 
@@ -29,6 +31,8 @@ class AtencionClientes extends Controller
      */
     public function evidencias(): void
     {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $this->set('titulo', '2.- Evidencias · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_evidencias');
     }
 
@@ -38,6 +42,8 @@ class AtencionClientes extends Controller
      */
     public function recuperacion(): void
     {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $this->set('titulo', '3.- Recuperación · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_recuperacion');
     }
 
@@ -47,6 +53,8 @@ class AtencionClientes extends Controller
      */
     public function cierreDocumentacion(): void
     {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $this->set('titulo', '4.- Cierre documentación · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_cierre_documentacion');
     }
 
@@ -56,6 +64,8 @@ class AtencionClientes extends Controller
      */
     public function recepcion(): void
     {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        $this->set('titulo', '5.- Recepción · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_recepcion');
     }
 

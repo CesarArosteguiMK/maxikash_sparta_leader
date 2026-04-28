@@ -11,6 +11,7 @@
  *   php gdc_parcialidad_worker.php --limit=20 --verbose
  *   php gdc_parcialidad_worker.php --apply --limit=0
  *   php gdc_parcialidad_worker.php --apply --skip-backup --limit=0
+ *   php gdc_parcialidad_worker.php --apply --skip-backup --limit=0 --omitir-primeros=6457
  */
 
 declare(strict_types=1);
@@ -34,6 +35,7 @@ $opts = getopt('', [
     'limit:',
     'out:',
     'delay-ms:',
+    'omitir-primeros:',
     'verbose',
     'apply',
     'skip-backup',
@@ -70,6 +72,7 @@ $limit = isset($opts['limit'])
     ? max(0, (int) $opts['limit'])
     : ($apply ? 0 : 50);
 $delayMs = isset($opts['delay-ms']) ? max(0, (int) $opts['delay-ms']) : 300;
+$omitirPrimeros = isset($opts['omitir-primeros']) ? max(0, (int) $opts['omitir-primeros']) : 0;
 $verbose = array_key_exists('verbose', $opts);
 
 $ids = [];
@@ -99,6 +102,16 @@ try {
         }
     } elseif ($limit > 0) {
         $ids = array_slice($ids, 0, $limit);
+    }
+
+    $totalOriginal = count($ids);
+    if ($omitirPrimeros > 0) {
+        if ($omitirPrimeros >= $totalOriginal) {
+            fwrite(STDERR, "--omitir-primeros ({$omitirPrimeros}) es mayor o igual al total de creditos ({$totalOriginal}).\n");
+            exit(1);
+        }
+        $ids = array_values(array_slice($ids, $omitirPrimeros));
+        echo "[gdc-parcialidad] Reanudacion: omitidos {$omitirPrimeros} credito(s); restantes " . count($ids) . ".\n";
     }
 
     $backupTable = null;
@@ -236,7 +249,7 @@ try {
 
 function imprimirUso(): void
 {
-    fwrite(STDERR, "Uso: php gdc_parcialidad_worker.php [--apply] [--skip-backup] [--id-credito=ID[,ID]] [--file=creditos.txt] [--fecha-corte=YYYY-MM-DD] [--limit=N] [--out=reporte.csv] [--delay-ms=N] [--verbose]\n");
+    fwrite(STDERR, "Uso: php gdc_parcialidad_worker.php [--apply] [--skip-backup] [--omitir-primeros=N] [--id-credito=ID[,ID]] [--file=creditos.txt] [--fecha-corte=YYYY-MM-DD] [--limit=N] [--out=reporte.csv] [--delay-ms=N] [--verbose]\n");
 }
 
 function loadEnvFile(string $path): void
