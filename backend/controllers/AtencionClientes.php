@@ -32,6 +32,33 @@ class AtencionClientes extends Controller
         $this->render('atencion_clientes_evidencias');
     }
 
+    /**
+     * GET /AtencionClientes/recuperacion
+     * 3.- Recuperación (seguimiento por etapa de pipeline).
+     */
+    public function recuperacion(): void
+    {
+        $this->render('atencion_clientes_recuperacion');
+    }
+
+    /**
+     * GET /AtencionClientes/cierreDocumentacion
+     * 4.- Cierre Documentación.
+     */
+    public function cierreDocumentacion(): void
+    {
+        $this->render('atencion_clientes_cierre_documentacion');
+    }
+
+    /**
+     * GET /AtencionClientes/recepcion
+     * 5.- Recepción.
+     */
+    public function recepcion(): void
+    {
+        $this->render('atencion_clientes_recepcion');
+    }
+
     // =========================================================================
     // API: ENTRANTES
     // =========================================================================
@@ -81,6 +108,46 @@ class AtencionClientes extends Controller
         header('Content-Type: application/json; charset=utf-8');
         try {
             $datos = $this->model->obtenerEvidenciasCorrecciones();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    // =========================================================================
+    // API: 3.- RECUPERACIÓN (listas por estatus de pipeline)
+    // =========================================================================
+
+    public function obtenerRecuperacionCierreDocumentado(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerRecuperacionCierreDocumentado();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function obtenerRecuperacionRecepcion(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerRecuperacionRecepcion();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function obtenerRecuperacionEnTransito(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerRecuperacionEnTransito();
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             http_response_code(500);

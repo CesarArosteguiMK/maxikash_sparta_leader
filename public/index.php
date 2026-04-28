@@ -418,6 +418,12 @@ $rutasModulos = [
     'atencionclientes/obtenerrecibidos' => [64, 65],
     'atencionclientes/obteneraprobadosevidencias' => [64, 65],
     'atencionclientes/obtenercorreccionesevidencias' => [64, 65],
+    'atencionclientes/recuperacion' => [64, 65],
+    'atencionclientes/obtenerrecuperacioncierredocumentado' => [64, 65],
+    'atencionclientes/obtenerrecuperacionrecepcion' => [64, 65],
+    'atencionclientes/obtenerrecuperacionentransito' => [64, 65],
+    'atencionclientes/cierredocumentacion' => [64, 65],
+    'atencionclientes/recepcion' => [64, 65],
 ];
 $controladoresModulos = [
     'segundometro' => [16],

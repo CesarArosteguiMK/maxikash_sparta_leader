@@ -126,6 +126,9 @@ function getMenu(): string
                 ['label' => 'Mis Adjudicaciones',     'url' => '/MotosAdjudicadas/misAdjudicaciones',       'modulos' => [64]],
                 ['label' => '1.- Retenciones',    'url' => '/AtencionClientes/consulta',                'modulos' => [64]],
                 ['label' => '2.- Evidencias',     'url' => '/AtencionClientes/evidencias',             'modulos' => [64]],
+                ['label' => '3.- Recuperación',   'url' => '/AtencionClientes/recuperacion',           'modulos' => [64]],
+                ['label' => '4.- Cierre Documentación', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [64]],
+                ['label' => '5.- Recepción',      'url' => '/AtencionClientes/recepcion',             'modulos' => [64]],
             ],
         ],
         'Tickets' => [

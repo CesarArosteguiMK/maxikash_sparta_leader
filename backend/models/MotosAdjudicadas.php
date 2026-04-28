@@ -48,6 +48,33 @@ class MotosAdjudicadas extends Model
     }
 
     /**
+     * Ya envió evidencias validadas desde Atención (flag o bitácora).
+     * No debe pasarse a Correcciones solo por tener val_atn rechazados en pantalla.
+     */
+    private function operacionTieneEnvioAtencionMarcado(int $idOperacion): bool
+    {
+        if ($this->adjOperacionTieneColumnaEnvioAtencion()) {
+            $f = $this->db->queryOne(
+                'SELECT atencion_envio_validado AS v FROM adj_operacion WHERE id = :id LIMIT 1',
+                ['id' => $idOperacion]
+            );
+            if ((int) ($f['v'] ?? 0) === 1) {
+                return true;
+            }
+        }
+        $b = $this->db->queryOne(
+            "SELECT 1 AS ok
+             FROM adj_bitacora
+             WHERE id_operacion = :id
+               AND accion LIKE :a
+             LIMIT 1",
+            ['id' => $idOperacion, 'a' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']
+        );
+
+        return (bool) ($b && (int) ($b['ok'] ?? 0) === 1);
+    }
+
+    /**
      * true si existe adj_operacion.atencion_envio_validado (migración 20260427_adj_operacion_atencion_envio.sql).
      * Se prueba con SELECT directo: information_schema a veces no está permitido para el usuario MySQL.
      */
@@ -1113,7 +1140,9 @@ class MotosAdjudicadas extends Model
 
         if ($n > 0) {
             $enviado = false;
-            if (!$this->esEstatusRevisionRecuperaciones($estatus)) {
+            // Si ya estaba en Procesando IA por envío desde Atención, no bajar a Correcciones por rechazos en UI.
+            $noForzarCorrecciones = ($estatus === 'Procesando IA' && $this->operacionTieneEnvioAtencionMarcado($idOperacion));
+            if (!$noForzarCorrecciones && !$this->esEstatusRevisionRecuperaciones($estatus)) {
                 $r = $this->cambiarEstatus($idOperacion, 'Revisión Recuperaciones', $idUsuario, $nombreUsuario);
                 if (empty($r['success'])) {
                     return $r;

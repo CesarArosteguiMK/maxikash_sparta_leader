@@ -40,12 +40,33 @@ class AtencionClientes
         return $dt->format('Y-m-d H:i:s');
     }
 
+    /**
+     * Evita duplicar filas si hay más de un registro activo en asigna_creditos_adjudicacion por crédito.
+     */
+    private function sqlJoinUnaAsignacionActivaPorCredito(): string
+    {
+        return <<<'SQL'
+LEFT JOIN asigna_creditos_adjudicacion aca
+       ON aca.id = (
+            SELECT a2.id
+            FROM asigna_creditos_adjudicacion a2
+            WHERE a2.id_credito = o.id_credito
+              AND a2.estatus = '1'
+            ORDER BY a2.id DESC
+            LIMIT 1
+        )
+LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+LEFT JOIN persona per              ON per.id = pa.id_persona
+SQL;
+    }
+
     // =========================================================================
     // ENTRANTES  (estatus = 'Retenciones')
     // =========================================================================
 
     public function obtenerEntrantes(): array
     {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $sql = <<<SQL
         SELECT
             o.id,
@@ -65,10 +86,7 @@ class AtencionClientes
             )) AS gestor_nombre,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
-        LEFT JOIN asigna_creditos_adjudicacion aca
-               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
-        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
-        LEFT JOIN persona per              ON per.id = pa.id_persona
+        {$joinAsig}
         WHERE o.estatus = 'Retenciones'
         ORDER BY o.fecha_alta ASC
         SQL;
@@ -81,10 +99,11 @@ class AtencionClientes
     // =========================================================================
 
     /**
-     * Consulta base para las tres pestañas (mismo shape que el pipeline de operaciones).
+     * Lista operaciones por estatus de pipeline (shape uniforme para evidencias y recuperación).
      */
-    private function listarOperacionesEvidenciaPorEstatus(string $estatus): array
+    private function listarOperacionesAdjPorEstatus(string $estatus): array
     {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $sql = <<<SQL
         SELECT
             o.id,
@@ -105,10 +124,7 @@ class AtencionClientes
             )) AS gestor_nombre,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
-        LEFT JOIN asigna_creditos_adjudicacion aca
-               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
-        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
-        LEFT JOIN persona per              ON per.id = pa.id_persona
+        {$joinAsig}
         WHERE o.estatus = :estatus
         ORDER BY o.fecha_alta ASC
         SQL;
@@ -134,6 +150,7 @@ class AtencionClientes
                       AND b.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
                 )))";
 
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $sql = <<<SQL
         SELECT
             o.id,
@@ -154,10 +171,7 @@ class AtencionClientes
             )) AS gestor_nombre,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
-        LEFT JOIN asigna_creditos_adjudicacion aca
-               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
-        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
-        LEFT JOIN persona per              ON per.id = pa.id_persona
+        {$joinAsig}
         WHERE {$where}
         ORDER BY o.fecha_alta ASC
         SQL;
@@ -172,6 +186,7 @@ class AtencionClientes
     public function obtenerEvidenciasAprobadas(): array
     {
         $ma = new MotosAdjudicadas();
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         if (!$ma->adjOperacionTieneColumnaEnvioAtencion()) {
             $sql = <<<SQL
             SELECT
@@ -193,10 +208,7 @@ class AtencionClientes
                 )) AS gestor_nombre,
                 DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
             FROM adj_operacion o
-            LEFT JOIN asigna_creditos_adjudicacion aca
-                   ON aca.id_credito = o.id_credito AND aca.estatus = '1'
-            LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
-            LEFT JOIN persona per              ON per.id = pa.id_persona
+            {$joinAsig}
             WHERE o.estatus = 'Procesando IA'
               AND EXISTS (
                     SELECT 1
@@ -228,10 +240,7 @@ class AtencionClientes
             )) AS gestor_nombre,
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
-        LEFT JOIN asigna_creditos_adjudicacion aca
-               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
-        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
-        LEFT JOIN persona per              ON per.id = pa.id_persona
+        {$joinAsig}
         WHERE o.estatus = 'Procesando IA'
           AND IFNULL(o.atencion_envio_validado, 0) = 1
         ORDER BY o.fecha_alta ASC
@@ -245,7 +254,25 @@ class AtencionClientes
      */
     public function obtenerEvidenciasCorrecciones(): array
     {
-        return $this->listarOperacionesEvidenciaPorEstatus('Revisión Recuperaciones');
+        return $this->listarOperacionesAdjPorEstatus('Revisión Recuperaciones');
+    }
+
+    /**
+     * 3.- Recuperación — etapas posteriores a la validación de evidencias en pipeline.
+     */
+    public function obtenerRecuperacionCierreDocumentado(): array
+    {
+        return $this->listarOperacionesAdjPorEstatus('Cierre Documentado');
+    }
+
+    public function obtenerRecuperacionRecepcion(): array
+    {
+        return $this->listarOperacionesAdjPorEstatus('Recepción');
+    }
+
+    public function obtenerRecuperacionEnTransito(): array
+    {
+        return $this->listarOperacionesAdjPorEstatus('en_transito');
     }
 
     // =========================================================================
@@ -254,6 +281,7 @@ class AtencionClientes
 
     public function obtenerDictaminados(): array
     {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $sql = <<<SQL
         SELECT
             o.id,
@@ -280,10 +308,7 @@ class AtencionClientes
             )) AS gestor_nombre
         FROM adj_operacion o
         LEFT JOIN adj_dictamen d ON d.id_operacion = o.id
-        LEFT JOIN asigna_creditos_adjudicacion aca
-               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
-        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
-        LEFT JOIN persona per              ON per.id = pa.id_persona
+        {$joinAsig}
         WHERE o.estatus IN ('en_transito', 'cancelado')
         ORDER BY o.fecha_alta DESC
         SQL;
@@ -378,6 +403,7 @@ class AtencionClientes
 
     public function obtenerDictamen(int $idOperacion): ?array
     {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         return $this->db->queryOne(
             "SELECT d.*,
                     DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
@@ -393,10 +419,7 @@ class AtencionClientes
                     )) AS gestor_nombre
              FROM adj_dictamen d
              JOIN adj_operacion o ON o.id = d.id_operacion
-             LEFT JOIN asigna_creditos_adjudicacion aca
-                    ON aca.id_credito = o.id_credito AND aca.estatus = '1'
-             LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
-             LEFT JOIN persona per              ON per.id = pa.id_persona
+             {$joinAsig}
              WHERE d.id_operacion = :id
              ORDER BY d.fecha_alta DESC
              LIMIT 1",
