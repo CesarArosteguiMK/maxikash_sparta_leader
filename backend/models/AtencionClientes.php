@@ -180,10 +180,10 @@ SQL;
     }
 
     /**
-     * Pestaña Aprobados — solo operaciones enviadas con «Enviar evidencias validadas».
-     * Si la columna atencion_envio_validado no existe, usa bitácora como respaldo.
+     * Misma lista que Evidencias → Aprobados: Procesando IA tras «Enviar evidencias validadas».
+     * Usada también por 3.- Recuperación → Bandeja de entrada.
      */
-    public function obtenerEvidenciasAprobadas(): array
+    private function listarOperacionesAprobadasEvidenciasAtencion(): array
     {
         $ma = new MotosAdjudicadas();
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
@@ -218,6 +218,7 @@ SQL;
               )
             ORDER BY o.fecha_alta ASC
             SQL;
+
             return $this->db->queryAll($sql) ?: [];
         }
         $sql = <<<SQL
@@ -250,6 +251,15 @@ SQL;
     }
 
     /**
+     * Pestaña Aprobados — solo operaciones enviadas con «Enviar evidencias validadas».
+     * Si la columna atencion_envio_validado no existe, usa bitácora como respaldo.
+     */
+    public function obtenerEvidenciasAprobadas(): array
+    {
+        return $this->listarOperacionesAprobadasEvidenciasAtencion();
+    }
+
+    /**
      * Pestaña Correcciones — operaciones en etapa Revisión Recuperaciones.
      */
     public function obtenerEvidenciasCorrecciones(): array
@@ -270,9 +280,106 @@ SQL;
         return $this->listarOperacionesAdjPorEstatus('Recepción');
     }
 
+    /**
+     * 3.- Recuperación — Bandeja de entrada: mismas operaciones que Evidencias → Aprobados
+     * (Procesando IA con envío validado desde Atención), no solo estatus en_transito.
+     */
     public function obtenerRecuperacionEnTransito(): array
     {
-        return $this->listarOperacionesAdjPorEstatus('en_transito');
+        return $this->listarOperacionesAprobadasEvidenciasAtencion();
+    }
+
+    /**
+     * Pestaña Dictaminado en vistas 3–5: operaciones en la etapa indicada con último registro en adj_dictamen.
+     */
+    public function obtenerOperacionesDictamenPorEstatusPipeline(string $estatus): array
+    {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            d.llamada_a,
+            d.numero,
+            d.persona_contactada,
+            d.tipo_contacto,
+            d.resultado,
+            d.dictamen,
+            d.plataforma,
+            d.comentarios,
+            DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre
+        FROM adj_operacion o
+        INNER JOIN adj_dictamen d ON d.id = (
+            SELECT d2.id
+            FROM adj_dictamen d2
+            WHERE d2.id_operacion = o.id
+            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            LIMIT 1
+        )
+        {$joinAsig}
+        WHERE o.estatus = :estatus
+        ORDER BY o.fecha_alta DESC
+        SQL;
+
+        return $this->db->queryAll($sql, ['estatus' => $estatus]) ?: [];
+    }
+
+    /**
+     * 3.- Recuperación — Pestaña Dictaminado: operaciones en tránsito o ya enviadas a Cartera (Cierre documentado).
+     * Incluye las que aún no tienen fila en adj_dictamen (LEFT JOIN al último dictamen si existe).
+     */
+    public function obtenerDictaminadosRecuperacionLista(): array
+    {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            d.llamada_a,
+            d.numero,
+            d.persona_contactada,
+            d.tipo_contacto,
+            d.resultado,
+            d.dictamen,
+            d.plataforma,
+            d.comentarios,
+            DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre
+        FROM adj_operacion o
+        LEFT JOIN adj_dictamen d ON d.id = (
+            SELECT d2.id
+            FROM adj_dictamen d2
+            WHERE d2.id_operacion = o.id
+            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            LIMIT 1
+        )
+        {$joinAsig}
+        WHERE o.estatus IN ('en_transito', 'Cierre Documentado')
+        ORDER BY o.fecha_alta DESC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
     }
 
     // =========================================================================

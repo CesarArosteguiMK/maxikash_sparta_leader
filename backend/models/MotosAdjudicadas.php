@@ -342,6 +342,83 @@ class MotosAdjudicadas extends Model
         ) ?: [];
     }
 
+    /**
+     * Vista 4 Cartera: registra que el usuario confirma haber dado de alta el cierre en S2.
+     *
+     * @return array{success:bool, message?:string}
+     */
+    public function confirmarCierreDocumentacionEnS2(int $idOperacion, int $idUsuario, string $nombreUsuario): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'Identificador de operación inválido.'];
+        }
+        $row = $this->db->queryOne(
+            'SELECT id, estatus FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$row) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+        $est = trim((string) ($row['estatus'] ?? ''));
+        if ($est !== 'Cierre Documentado') {
+            return ['success' => false, 'message' => 'La operación no está en etapa Cierre documentado.'];
+        }
+        $this->registrarBitacora(
+            $idOperacion,
+            'CONFIRMACIÓN: Cierre documentado registrado en S2',
+            $idUsuario,
+            $nombreUsuario
+        );
+
+        return ['success' => true];
+    }
+
+    /**
+     * Recuperación (momento 3): con factura cargada, envía la operación a Cartera — estatus Cierre documentado.
+     * Los comentarios son opcionales; si hay texto se guardan en adj_observacion.
+     *
+     * @return array{success:bool, message?:string}
+     */
+    public function enviarRecuperacionACartera(int $idOperacion, string $comentarios, int $idUsuario, string $nombreUsuario): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'Identificador de operación inválido.'];
+        }
+        $comentarios = trim($comentarios);
+
+        $op = $this->db->queryOne(
+            'SELECT id, estatus FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$op) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+        $est = trim((string) ($op['estatus'] ?? ''));
+        if ($est !== 'Procesando IA') {
+            return ['success' => false, 'message' => 'La operación no está en etapa Procesando IA.'];
+        }
+
+        $fact = $this->db->queryOne(
+            "SELECT id FROM adj_evidencia
+             WHERE id_operacion = :id AND slot = 'doc_factura'
+               AND url IS NOT NULL AND TRIM(url) <> ''
+             LIMIT 1",
+            ['id' => $idOperacion]
+        );
+        if (!$fact) {
+            return ['success' => false, 'message' => 'Debe cargar la factura (momento 3) antes de enviar a cartera.'];
+        }
+
+        if ($comentarios !== '') {
+            $obs = $this->agregarObservacion($idOperacion, 'Recuperación', 'Cartera', $idUsuario, $comentarios, $nombreUsuario);
+            if (empty($obs['success'])) {
+                return $obs;
+            }
+        }
+
+        return $this->cambiarEstatus($idOperacion, 'Cierre Documentado', $idUsuario, $nombreUsuario);
+    }
+
     // =========================================================================
     // PIPELINE / LECTURA
     // =========================================================================

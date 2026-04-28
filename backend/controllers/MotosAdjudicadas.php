@@ -486,6 +486,59 @@ class MotosAdjudicadas extends Controller
         }
     }
 
+    /**
+     * POST /MotosAdjudicadas/confirmarCierreDocumentacionEnS2
+     * Body JSON: { "id_operacion": 12 } — vista 4 Cartera confirma alta del cierre en S2.
+     */
+    public function confirmarCierreDocumentacionEnS2()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body        = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion = (int) ($body['id_operacion'] ?? 0);
+        $idUsuario   = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de operación inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->confirmarCierreDocumentacionEnS2($idOperacion, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/enviarRecuperacionACartera
+     * Body JSON: { "id_operacion": 12, "comentarios": "..." } — Recuperación → Cartera (Cierre documentado).
+     */
+    public function enviarRecuperacionACartera()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body          = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion   = (int) ($body['id_operacion'] ?? 0);
+        $comentarios   = trim((string) ($body['comentarios'] ?? ''));
+        $idUsuario     = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de operación inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->enviarRecuperacionACartera($idOperacion, $comentarios, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     public function eliminarOperacion()
     {
         header('Content-Type: application/json; charset=utf-8');

@@ -1,29 +1,30 @@
 @echo off
-:: ============================================================
-::  Sparta Ledger - Arranque automático tras reinicio
-::  Ejecutado por Task Scheduler al inicio del sistema
-:: ============================================================
-
 set LOG=C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\services\servicios-locales\arranque-auto.log
 set BASEDIR=C:\xampp\htdocs\sparta___SPARTA_SECRET_REDACTED__\backend\services\servicios-locales
+
+:: Archivo temporal único para esta ejecución
+set ENTERFILE=%TEMP%\sparta_enter_%RANDOM%.txt
+echo. > "%ENTERFILE%"
 
 echo. >> "%LOG%"
 echo ======================================== >> "%LOG%"
 echo [%DATE% %TIME%] Reinicio detectado - iniciando secuencia >> "%LOG%"
 
-:: --- 1) Esperar a que el sistema estabilice ---
-echo [%DATE% %TIME%] Esperando 30s... >> "%LOG%"
-timeout /t 30 /nobreak > nul
+echo [%DATE% %TIME%] Esperando 45s para que el sistema estabilice... >> "%LOG%"
+timeout /t 45 /nobreak > nul
 
-:: --- 2) Cierre preventivo de servicios anteriores ---
+:: Cierre preventivo
 echo [%DATE% %TIME%] Ejecutando cierre preventivo... >> "%LOG%"
-call "%BASEDIR%\cerrar-todos-los-servicios.bat" >> "%LOG%" 2>&1
+call "%BASEDIR%\cerrar-todos-los-servicios.bat" < "%ENTERFILE%" >> "%LOG%" 2>&1
 
 timeout /t 5 /nobreak > nul
 
-:: --- 3) Arranque de servicios ---
+:: Arranque de servicios
 echo [%DATE% %TIME%] Ejecutando arranque de servicios... >> "%LOG%"
-call "%BASEDIR%\iniciar-todos-los-servicios.bat" >> "%LOG%" 2>&1
+call "%BASEDIR%\iniciar-todos-los-servicios.bat" < "%ENTERFILE%" >> "%LOG%" 2>&1
+
+:: Limpiar temporal
+del "%ENTERFILE%" >nul 2>&1
 
 echo [%DATE% %TIME%] Secuencia completada. >> "%LOG%"
 exit /b 0
