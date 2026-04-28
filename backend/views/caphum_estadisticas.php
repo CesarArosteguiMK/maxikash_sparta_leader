@@ -99,7 +99,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
                         <div class="d-flex align-items-start gap-1 mb-2">
                             <span class="badge rounded-pill bg-label-warning text-warning fw-bold py-2 px-2 flex-grow-1 text-center lh-sm min-w-0" style="font-size:.88rem;letter-spacing:.06em;line-height:1.25;white-space:normal">Deptos · Puestos</span>
                             <button type="button" class="btn btn-link btn-sm text-muted p-0 lh-1 flex-shrink-0 align-self-center text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="left" data-ch-est-tip="1"
-                                title="Índice deptos: total departamentos ÷ empleados activos (×100). Índice puestos: total puestos únicos ÷ empleados activos (×100)."
+                                title="Conteos influenciados por el rango: se toman empleados activos con fecha de ingreso dentro del período seleccionado. Índice deptos: total departamentos ÷ empleados activos (×100). Índice puestos: total puestos únicos ÷ empleados activos (×100)."
                                 aria-label="Ayuda: índices departamentos y puestos">
                                 <i class="fa fa-info-circle" aria-hidden="true"></i>
                             </button>
@@ -1228,7 +1228,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
         var actEmp = n(d.empleados_activos);
         var bjEmp = n(d.empleados_baja);
         setText('chKpiTotalEmp', String(d.total_empleados ?? 0));
-        setText('chKpiTotalSub', 'Personas · todos los estatus');
+        setText('chKpiTotalSub', 'Plantilla al cierre del periodo');
         var elTotPct = document.getElementById('chKpiTotalPctBadge');
         if (elTotPct) elTotPct.textContent = totEmp > 0 ? '100%' : '—';
 
@@ -1238,7 +1238,7 @@ if (isset($chEstRangoIni, $chEstRangoFin) && is_string($chEstRangoIni) && is_str
         if (elActPct) elActPct.textContent = totEmp > 0 ? (Math.round((actEmp / totEmp) * 100) + '%') : '—';
 
         setText('chKpiInactivos', String(d.empleados_baja ?? 0));
-        setText('chKpiBajaSub', 'Estatus baja en persona');
+        setText('chKpiBajaSub', 'Bajas registradas en el periodo');
         var elBjPct = document.getElementById('chKpiBajasPctBadge');
         if (elBjPct) elBjPct.textContent = totEmp > 0 ? (Math.round((bjEmp / totEmp) * 100) + '%') : '—';
 

@@ -514,6 +514,47 @@ class CronMorosidad
         return $map;
     }
 
+    /**
+     * Parcialidad = numero de cuota del credito (no contador de registros GDC).
+     *
+     * Regla principal:
+     *   Num_cuotas_pagadas + 1
+     * Con tope opcional:
+     *   Numero_amortizaciones
+     *
+     * @param array<string,mixed> $credito fila de tbl_segundometro_semana
+     * @param int $fallbackSecuencial fallback historico (COUNT(*) + 1) solo si faltan datos S2
+     */
+    private function calcularParcialidadNumeroCuota(array $credito, int $fallbackSecuencial): int
+    {
+        $pagadas = null;
+        foreach (['Num_cuotas_pagadas', 'num_cuotas_pagadas', 'Cuotas_pagadas', 'cuotas_pagadas'] as $kPag) {
+            if (isset($credito[$kPag]) && $credito[$kPag] !== '' && $credito[$kPag] !== null && is_numeric($credito[$kPag])) {
+                $pagadas = (int) $credito[$kPag];
+                break;
+            }
+        }
+
+        $totalAmort = null;
+        foreach (['Numero_amortizaciones', 'numero_amortizaciones'] as $kTot) {
+            if (isset($credito[$kTot]) && $credito[$kTot] !== '' && $credito[$kTot] !== null && is_numeric($credito[$kTot])) {
+                $totalAmort = (int) $credito[$kTot];
+                break;
+            }
+        }
+
+        if ($pagadas !== null) {
+            $cuotaNumero = max(1, $pagadas + 1);
+            if ($totalAmort !== null && $totalAmort > 0) {
+                $cuotaNumero = min($cuotaNumero, $totalAmort);
+            }
+            return $cuotaNumero;
+        }
+
+        // Fallback defensivo para no romper la insercion si faltan columnas S2.
+        return max(1, $fallbackSecuencial);
+    }
+
     private function insertarGastosCobranza($creditos)
     {
         $this->logger->info("PASO 2: Insertando registros en gastos_cobranza (MODO LOTES)");
@@ -614,7 +655,7 @@ class CronMorosidad
                     $duplicadosSet[(int) $idDup] = true;
                 }
 
-                // Parcialidad: contar GC existentes por crédito → el nuevo será el siguiente secuencial
+                // Fallback secuencial historico (solo se usa si faltan datos S2 para calcular numero de cuota)
                 $paramsIds = array_diff_key($paramsVerificar, ['semana' => null]);
                 $sqlParcialidad = "SELECT Id_credito, COUNT(*) AS total_gastos
                                    FROM gastos_cobranza
@@ -656,6 +697,11 @@ class CronMorosidad
                     $valoresInsert[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
                     // Agregar parámetros en el orden correcto
+                    $fallbackSecuencial = ($parcialidadMap[$idCredito] ?? 0) + 1;
+                    $parcialidadNumeroCuota = $this->calcularParcialidadNumeroCuota($credito, $fallbackSecuencial);
+                    if ($parcialidadNumeroCuota === $fallbackSecuencial && !isset($credito['Num_cuotas_pagadas']) && !isset($credito['num_cuotas_pagadas'])) {
+                        $this->logger->warning("Crédito {$idCredito}: no vino Num_cuotas_pagadas en S2; parcialidad usa fallback secuencial={$fallbackSecuencial}");
+                    }
                     array_push($parametrosInsert,
                         $idCredito,
                         $credito['Id_cliente'] ?? null,
@@ -664,7 +710,7 @@ class CronMorosidad
                         $semanaTexto,
                         $periodoInicio,  // Calculado (lunes de la semana)
                         $periodoFin,     // Calculado (domingo de la semana)
-                        ($parcialidadMap[$idCredito] ?? 0) + 1,  // parcialidad: Nth GC de este crédito (secuencial)
+                        $parcialidadNumeroCuota, // parcialidad = numero de cuota (S2)
                         250,  // monto_valor (siempre 250)
                         $credito['Fecha_primer_vencimiento'] ?? null,
                         $credito['Cuota'] ?? 0,  // cuota
