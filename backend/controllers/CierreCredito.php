@@ -17,6 +17,8 @@ class CierreCredito extends Controller
 
     private const CC_PESTANA_PERM_EN_PROCESO = 54;
 
+    private const CC_PESTANA_PERM_VOBO = 54;
+
     private const CC_PESTANA_PERM_HISTORIAL = 55;
 
     private const CC_PESTANA_PERM_CARTERA = 59;
@@ -87,6 +89,62 @@ class CierreCredito extends Controller
         ]);
     }
 
+    /**
+     * Guarda archivo de Vo.Bo en public/uploads/cierre_credito_vobo y devuelve su URL pública.
+     */
+    private function cierreSubirArchivoVoBo(array $file): array
+    {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return ['success' => false, 'mensaje' => 'Error al subir el archivo de Vo.Bo.'];
+        }
+
+        $tmp = (string) ($file['tmp_name'] ?? '');
+        if ($tmp === '' || !is_uploaded_file($tmp)) {
+            return ['success' => false, 'mensaje' => 'Archivo de Vo.Bo inválido.'];
+        }
+
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > (8 * 1024 * 1024)) {
+            return ['success' => false, 'mensaje' => 'El archivo de Vo.Bo debe ser menor a 8 MB.'];
+        }
+
+        $mime = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mime = (string) finfo_file($finfo, $tmp);
+                finfo_close($finfo);
+            }
+        }
+
+        $permitidos = [
+            'application/pdf' => 'pdf',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+        ];
+        if (!isset($permitidos[$mime])) {
+            return ['success' => false, 'mensaje' => 'Tipo de archivo no permitido. Solo PDF, JPG, PNG o WEBP.'];
+        }
+
+        $ext = $permitidos[$mime];
+        $dir = sparta_uploads_join('cierre_credito_vobo');
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+            return ['success' => false, 'mensaje' => 'No se pudo crear el directorio de Vo.Bo.'];
+        }
+
+        $nombre = 'vobo_' . date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+        $destino = sparta_uploads_join('cierre_credito_vobo', $nombre);
+        if (!@move_uploaded_file($tmp, $destino)) {
+            return ['success' => false, 'mensaje' => 'No se pudo guardar el archivo de Vo.Bo.'];
+        }
+
+        return [
+            'success' => true,
+            'url' => sparta_url_publica_desde_repositorio('/uploads/cierre_credito_vobo/' . $nombre),
+        ];
+    }
+
     // ─────────────────────────────────────────────
     // VISTA PRINCIPAL
     // ─────────────────────────────────────────────
@@ -99,9 +157,10 @@ class CierreCredito extends Controller
         $ccPermConvenios = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CONVENIOS);
         $ccPermValidacion = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VALIDACION);
         $ccPermEnProceso = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_EN_PROCESO);
+        $ccPermVoBo = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_VOBO);
         $ccPermHistorial = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_HISTORIAL);
         $ccPermCartera   = $this->cierreTieneModuloPermisoSesion(self::CC_PESTANA_PERM_CARTERA);
-        $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermHistorial || $ccPermCartera;
+        $ccPermAlguno = $ccPermConvenios || $ccPermValidacion || $ccPermEnProceso || $ccPermVoBo || $ccPermHistorial || $ccPermCartera;
 
         $ccDefaultTab = null;
         foreach (
@@ -109,6 +168,7 @@ class CierreCredito extends Controller
                 'convenios' => $ccPermConvenios,
                 'validacion' => $ccPermValidacion,
                 'en_proceso' => $ccPermEnProceso,
+                'vobo' => $ccPermVoBo,
                 'historial' => $ccPermHistorial,
                 'cartera'   => $ccPermCartera,
             ] as $clave => $ok
@@ -122,6 +182,7 @@ class CierreCredito extends Controller
         $this->set('cc_perm_convenios', $ccPermConvenios);
         $this->set('cc_perm_validacion', $ccPermValidacion);
         $this->set('cc_perm_en_proceso', $ccPermEnProceso);
+        $this->set('cc_perm_vobo', $ccPermVoBo);
         $this->set('cc_perm_historial', $ccPermHistorial);
         $this->set('cc_perm_cartera',   $ccPermCartera);
         $this->set('cc_perm_alguno', $ccPermAlguno);
@@ -139,6 +200,17 @@ class CierreCredito extends Controller
     {
         $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
         $r = CierreCreditoDAO::getEnProceso($this->cierreGetCelulasPermitidas());
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: LISTADO VO.BO
+    // ─────────────────────────────────────────────
+
+    public function getVoBo()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_VOBO);
+        $r = CierreCreditoDAO::getVoBo($this->cierreGetCelulasPermitidas());
         self::respuestaJSON($r);
     }
 
@@ -223,6 +295,76 @@ class CierreCredito extends Controller
 
         $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
         $r = CierreCreditoDAO::enviarACartera($id, $usuario);
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: ENVIAR A VO.BO
+    // ─────────────────────────────────────────────
+
+    public function enviarAVoBo()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_EN_PROCESO);
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 500);
+
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        if ($comentario === '') {
+            self::respuestaJSON(self::respuesta(false, 'El comentario es obligatorio.'));
+            return;
+        }
+        if (!isset($_FILES['archivo'])) {
+            self::respuestaJSON(self::respuesta(false, 'Debe adjuntar un archivo PDF o imagen.'));
+            return;
+        }
+
+        $subida = $this->cierreSubirArchivoVoBo($_FILES['archivo']);
+        if (empty($subida['success'])) {
+            self::respuestaJSON(self::respuesta(false, $subida['mensaje'] ?? 'No se pudo subir el archivo.'));
+            return;
+        }
+
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::enviarAVoBo($id, $usuario, $comentario, (string) ($subida['url'] ?? ''));
+        self::respuestaJSON($r);
+    }
+
+    // ─────────────────────────────────────────────
+    // API: APROBAR/RECHAZAR VO.BO
+    // ─────────────────────────────────────────────
+
+    public function aprobarVoBo()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_VOBO);
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 500);
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::aprobarVoBo($id, $usuario, $comentario);
+        self::respuestaJSON($r);
+    }
+
+    public function rechazarVoBo()
+    {
+        $this->cierreRequiereModuloPermiso(self::CC_PESTANA_PERM_VOBO);
+        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
+        $comentario = mb_substr(trim(strip_tags($_POST['comentario'] ?? '')), 0, 500);
+        if ($id <= 0) {
+            self::respuestaJSON(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        if ($comentario === '') {
+            self::respuestaJSON(self::respuesta(false, 'Debe capturar el motivo del rechazo.'));
+            return;
+        }
+        $usuario = $_SESSION['usuario_nombre'] ?? $_SESSION['usuario'] ?? 'sistema';
+        $r = CierreCreditoDAO::rechazarVoBo($id, $usuario, $comentario);
         self::respuestaJSON($r);
     }
 

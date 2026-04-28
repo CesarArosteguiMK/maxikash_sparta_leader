@@ -563,7 +563,7 @@
                     <th>ID Crédito</th>
                     <th>Estado</th>
                     <th>Fecha Asignación</th>
-                    <th>Fecha Desasignación</th>
+                    <th>Nombre Cliente</th>
                     <th>Asignado Por</th>
                     <th>Acciones</th>
                 </tr>
@@ -1355,27 +1355,6 @@ function adjBuscarCredito() {
             adjCreditosEncontrados.push({ credito: data.credito, asignacion: data.asignacion });
             adjRenderizarStack();
             document.getElementById('adj-idCredito').value = '';
-        } else if (data.credito_regla) {
-            // Crédito vigente/al corriente — no apto para adjudicación
-            Swal.fire({
-                icon: 'info',
-                title: 'Crédito en regla',
-                html: `
-                    <div class="text-start" style="font-size:0.9rem;">
-                        <p class="mb-2">Este crédito <strong>no puede asignarse a adjudicación</strong>.</p>
-                        <div class="d-flex align-items-center gap-2 p-2 rounded"
-                             style="background:#d1fae5; border:1px solid #6ee7b7;">
-                            <i class="fa-solid fa-circle-check" style="color:#059669; font-size:1.1rem;"></i>
-                            <div>
-                                <div style="font-size:0.75rem; color:#065f46; font-weight:600; text-transform:uppercase; letter-spacing:.3px;">Estatus del crédito</div>
-                                <div style="font-size:1rem; font-weight:700; color:#065f46;">${data.status_credito}</div>
-                            </div>
-                        </div>
-                        <p class="mt-2 mb-0 text-muted" style="font-size:0.8rem;">Solo los créditos con estatus <strong>"Vencido"</strong> pueden adjudicarse.</p>
-                    </div>`,
-                confirmButtonText: 'Entendido',
-                confirmButtonColor: '#f59e0b',
-            });
         } else {
             Swal.fire('No encontrado', data.message || 'Crédito no encontrado', 'warning');
         }
@@ -1433,7 +1412,7 @@ function adjRenderizarStack() {
                         <i class="fa-solid fa-check me-1"></i>Asignar
                     </button>` : `
                     <button class="btn btn-outline-danger btn-sm" onclick="adjDesasignarCredito('${creditoId}')" title="Desasignar crédito">
-                        <i class="fa-solid fa-xmark me-1"></i>Liberar
+                        <i class="fa-solid fa-xmark me-1"></i>Desasignar
                     </button>`}
                     <button class="btn btn-outline-secondary btn-sm" onclick="adjVerHistorial('${creditoId}')" title="Ver historial">
                         <i class="fa-solid fa-clock-rotate-left me-1"></i>Historial
@@ -1618,14 +1597,44 @@ function adjCargarCreditosAsignados(idPersona) {
                             { data: 0, title: 'ID Crédito' },
                             { data: 1, title: 'Estado' },
                             { data: 2, title: 'Fecha Asignación' },
-                            { data: 3, title: 'Fecha Desasignación' },
+                            { data: 3, title: 'Nombre Cliente' },
                             { data: 4, title: 'Asignado Por' },
                             { data: 5, title: 'Acciones', orderable: false }
                         ]
                     });
                 }
 
-                actualizaDatosTabla('#adj-tabla-creditos', data.creditos);
+                const datosFormateados = data.creditos.map(credito => {
+                    const estadoBadge = `<span class="badge bg-success">Activo</span>`;
+                    const accionesHTML = `
+                        <div class="d-flex justify-content-center align-items-center">
+                            <button class="btn btn-outline-primary btn-sm adj-btn-seguimiento"
+                                    title="Ver historial" data-credito="${credito.id_credito}">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>`;
+
+                    return [
+                        `<strong>${credito.id_credito}</strong>`,
+                        estadoBadge,
+                        credito.fecha_asignacion || '—',
+                        credito.nombre_cliente || '—',
+                        credito.asignado_por || 'Sistema',
+                        accionesHTML,
+                    ];
+                });
+
+                actualizaDatosTabla('#adj-tabla-creditos', datosFormateados, true);
+
+                setTimeout(() => {
+                    document.querySelectorAll('.adj-btn-seguimiento').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const idCredito = this.getAttribute('data-credito');
+                            adjVerHistorial(idCredito);
+                        });
+                    });
+                }, 100);
+
                 document.getElementById('adj-seccion-tabla-creditos').style.display = 'block';
             }
         })
