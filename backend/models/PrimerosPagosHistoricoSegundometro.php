@@ -23,6 +23,12 @@ final class PrimerosPagosHistoricoSegundometro
 {
     private const TABLA_HISTORICO_PRIMEROS_PAGOS_DEFAULT = 'tbl_histo_primeros_pagos';
 
+    /** Origen de copia (solo `SELECT`; nunca se modifica). */
+    private const TABLA_SEGUNDOMETRO_HISTO = 'tbl_segundometro_histo';
+
+    /** Máximo de etiquetas `SEMANA` por una sola corrida (evita IN enorme). */
+    private const COPIA_DESDE_HISTO_SEMANAS_MAX = 24;
+
     /** Identificador seguro para usar en SQL (evita inyección vía nombre de tabla). */
     private static function nombreTablaHistoricoPrimerosPagos(): string
     {
@@ -966,6 +972,403 @@ final class PrimerosPagosHistoricoSegundometro
             self::$cacheMapColumnasHisto = null;
             self::$cacheMetaSqlMoraCorteHisto = null;
         }
+    }
+
+    /**
+     * Borra **todas** las filas cuya columna `SEMANA` (tras `trim`) coincide con la etiqueta.
+     *
+     * Útil para **reemplazar** una semana ya cargada (p. ej. nuevo ETL desde `tbl_segundometro_histo`):
+     * `purgarFilasFueraCarteraHistorico` solo elimina filas **fuera** de la ventana de cartera (fechas de
+     * primer vencimiento), no sustituye filas que siguen siendo “válidas” para el reporte.
+     *
+     * @return array{success:bool, dry_run:bool, tabla?:string, semana?:string, filas?:int, mensaje?:string, error?:string}
+     */
+    public static function borrarTodasLasFilasPorEtiquetaSemana(string $semanaEtiqueta, bool $dryRun): array
+    {
+        $sem = self::normalizarSemanaParam(trim($semanaEtiqueta));
+        if ($sem === null) {
+            return [
+                'success' => false,
+                'dry_run' => $dryRun,
+                'mensaje' => 'Etiqueta de semana no válida (vacía, demasiado larga o caracteres no permitidos).',
+            ];
+        }
+        $tabla = self::nombreTablaHistoricoPrimerosPagos();
+        try {
+            $db = new DatabaseSegundometro();
+            $sqlCnt = 'SELECT COUNT(*) AS c FROM `' . $tabla . '` WHERE ' . self::sqlWhereSemanaParam();
+            $n = self::intDesdeFilaSqlCount($db->queryOne($sqlCnt, ['sem' => $sem]));
+            if (!$dryRun && $n > 0) {
+                $db->CRUD('DELETE FROM `' . $tabla . '` WHERE ' . self::sqlWhereSemanaParam(), ['sem' => $sem]);
+            }
+
+            return [
+                'success' => true,
+                'dry_run' => $dryRun,
+                'tabla' => $tabla,
+                'semana' => $sem,
+                'filas' => $n,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'dry_run' => $dryRun,
+                'tabla' => $tabla,
+                'semana' => $sem,
+                'filas' => 0,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Copia filas desde `tbl_segundometro_histo` hacia el histórico de primeros pagos (solo `INSERT` en destino).
+     * No altera la tabla fuente. Mapeo y columnas alineados al SQL operativo del negocio (fechas con REGEXP + STR_TO_DATE).
+     *
+     * Flujo típico: (1) este método con las semanas deseadas; (2) `purgarFilasFueraCarteraHistorico` para dejar solo cartera.
+     *
+     * @param list<string> $semanasEtiqueta Etiquetas `SEMANA` (p. ej. «Semana 16-2026»), deduplicadas y validadas.
+     * @param array{replace_dest?:bool} $opciones Si `replace_dest` es true, borra antes en **destino** las mismas etiquetas (no toca `tbl_segundometro_histo`).
+     *
+     * @return array{
+     *   success:bool,
+     *   dry_run:bool,
+     *   mensaje?:string,
+     *   error?:string,
+     *   tabla_destino?:string,
+     *   tabla_origen?:string,
+     *   semanas?:list<string>,
+     *   filas_en_origen?:int,
+     *   por_semana?:list<array{semana:string,cnt:int}>,
+     *   filas_destino_antes?:int,
+     *   filas_eliminadas_destino?:int,
+     *   filas_insertadas?:int
+     * }
+     */
+    public static function copiarDesdeSegundometroHistoHaciaPrimerosPagos(array $semanasEtiqueta, bool $dryRun, array $opciones = []): array
+    {
+        $replaceDest = (bool) ($opciones['replace_dest'] ?? false);
+        $tablaDst = self::nombreTablaHistoricoPrimerosPagos();
+        $tablaSrc = self::TABLA_SEGUNDOMETRO_HISTO;
+
+        $lista = [];
+        foreach ($semanasEtiqueta as $raw) {
+            $s = self::normalizarSemanaParam(trim((string) $raw));
+            if ($s !== null && $s !== '' && !isset($lista[$s])) {
+                $lista[$s] = true;
+            }
+        }
+        $semanas = array_keys($lista);
+        if ($semanas === []) {
+            return [
+                'success' => false,
+                'dry_run' => $dryRun,
+                'mensaje' => 'Indique al menos una etiqueta SEMANA válida.',
+            ];
+        }
+        if (count($semanas) > self::COPIA_DESDE_HISTO_SEMANAS_MAX) {
+            return [
+                'success' => false,
+                'dry_run' => $dryRun,
+                'mensaje' => 'Demasiadas semanas en una sola corrida (máx. ' . (string) self::COPIA_DESDE_HISTO_SEMANAS_MAX . ').',
+            ];
+        }
+
+        $whereSemIn = [];
+        $paramsIn = [];
+        foreach ($semanas as $i => $sem) {
+            $k = 'sem' . $i;
+            $whereSemIn[] = ':' . $k;
+            $paramsIn[$k] = $sem;
+        }
+        $inSql = implode(',', $whereSemIn);
+        $whereTrimSrc = 'TRIM(CAST(s.SEMANA AS CHAR CHARACTER SET utf8mb4)) IN (' . $inSql . ')';
+
+        try {
+            $db = new DatabaseSegundometro();
+            $sqlAgg = 'SELECT TRIM(CAST(s.SEMANA AS CHAR CHARACTER SET utf8mb4)) AS sem, COUNT(*) AS c
+                FROM `' . $tablaSrc . '` s
+                WHERE ' . $whereTrimSrc . '
+                GROUP BY TRIM(CAST(s.SEMANA AS CHAR CHARACTER SET utf8mb4))';
+            $aggRows = $db->queryAll($sqlAgg, $paramsIn);
+            $porSemana = [];
+            $totalOrigen = 0;
+            foreach ($aggRows as $r) {
+                $sem = trim((string) ($r['sem'] ?? ''));
+                $c = (int) ($r['c'] ?? 0);
+                if ($sem !== '') {
+                    $porSemana[] = ['semana' => $sem, 'cnt' => $c];
+                    $totalOrigen += $c;
+                }
+            }
+            $sqlCntDest = 'SELECT COUNT(*) AS c FROM `' . $tablaDst . '` WHERE TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) IN (' . $inSql . ')';
+            $filasDestAntes = self::intDesdeFilaSqlCount($db->queryOne($sqlCntDest, $paramsIn));
+
+            if (!$dryRun && !$replaceDest && $filasDestAntes > 0) {
+                return [
+                    'success' => false,
+                    'dry_run' => false,
+                    'mensaje' => 'Ya existen filas en destino para alguna de esas semanas. Use replace_dest en opciones o borre esas semanas en `tbl_histo_primeros_pagos` antes de copiar.',
+                    'tabla_destino' => $tablaDst,
+                    'tabla_origen' => $tablaSrc,
+                    'semanas' => $semanas,
+                    'filas_en_origen' => $totalOrigen,
+                    'por_semana' => $porSemana,
+                    'filas_destino_antes' => $filasDestAntes,
+                ];
+            }
+
+            if ($dryRun) {
+                return [
+                    'success' => true,
+                    'dry_run' => true,
+                    'tabla_destino' => $tablaDst,
+                    'tabla_origen' => $tablaSrc,
+                    'semanas' => $semanas,
+                    'filas_en_origen' => $totalOrigen,
+                    'por_semana' => $porSemana,
+                    'filas_destino_antes' => $filasDestAntes,
+                ];
+            }
+
+            $eliminadas = 0;
+            if ($totalOrigen < 1) {
+                return [
+                    'success' => true,
+                    'dry_run' => false,
+                    'tabla_destino' => $tablaDst,
+                    'tabla_origen' => $tablaSrc,
+                    'semanas' => $semanas,
+                    'filas_en_origen' => 0,
+                    'por_semana' => $porSemana,
+                    'filas_destino_antes' => $filasDestAntes,
+                    'filas_eliminadas_destino' => 0,
+                    'filas_insertadas' => 0,
+                    'mensaje' => 'Sin filas en `tbl_segundometro_histo` para las semanas indicadas; no se insertó nada.',
+                ];
+            }
+
+            $db->beginTransaction();
+            if ($replaceDest && $filasDestAntes > 0) {
+                $sqlDel = 'DELETE FROM `' . $tablaDst . '` WHERE TRIM(CAST(SEMANA AS CHAR CHARACTER SET utf8mb4)) IN (' . $inSql . ')';
+                $eliminadas = $db->CRUD($sqlDel, $paramsIn);
+            }
+
+            $sqlInsert = self::sqlInsertPrimerosPagosDesdeSegundometroHisto($tablaDst, $tablaSrc, $whereTrimSrc);
+            $insertadas = $db->CRUD($sqlInsert, $paramsIn);
+            $db->commit();
+
+            return [
+                'success' => true,
+                'dry_run' => false,
+                'tabla_destino' => $tablaDst,
+                'tabla_origen' => $tablaSrc,
+                'semanas' => $semanas,
+                'filas_en_origen' => $totalOrigen,
+                'por_semana' => $porSemana,
+                'filas_destino_antes' => $filasDestAntes,
+                'filas_eliminadas_destino' => $eliminadas,
+                'filas_insertadas' => $insertadas,
+            ];
+        } catch (\Throwable $e) {
+            if (isset($db) && $db->inTransaction()) {
+                try {
+                    $db->rollback();
+                } catch (\Throwable $e2) {
+                }
+            }
+
+            return [
+                'success' => false,
+                'dry_run' => $dryRun,
+                'tabla_destino' => $tablaDst,
+                'tabla_origen' => $tablaSrc,
+                'semanas' => $semanas,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * INSERT…SELECT fijo (negocio): `tbl_segundometro_histo` → histórico primeros pagos.
+     *
+     * @param string $whereTrimSrc Debe ser `TRIM(CAST(s.SEMANA …)) IN (:sem0,…)` con binds ya definidos.
+     */
+    private static function sqlInsertPrimerosPagosDesdeSegundometroHisto(string $tablaDst, string $tablaSrc, string $whereTrimSrc): string
+    {
+        return 'INSERT INTO `' . $tablaDst . '` (
+            KT,
+            Id_credito,
+            Id_cliente,
+            Nombre_cliente,
+            Fecha_nacimiento,
+            Curp,
+            Rfc,
+            Email,
+            Celular,
+            Telefono_casa,
+            Sucursal,
+            Status_credito,
+            Plazo,
+            Numero_amortizaciones,
+            Capital,
+            Monto_otorgado,
+            Cuota,
+            Fecha_inicio,
+            Fecha_primer_vencimiento,
+            Fecha_ultimo_vencimiento,
+            Referencia_stp,
+            Dias_mora,
+            Dias_mora_max,
+            Saldo_total_vencido,
+            Saldo_total_capital,
+            Saldo_total_vigente,
+            Abonos_capital,
+            Abonos_interes,
+            Abonos_gasto_admin,
+            Abonos_moratorios,
+            Abonos_extemporaneos,
+            Abonos_seguro_vida,
+            Abonos_seguro_resguardo,
+            Abonos_seguro_bienes,
+            Abonos_total,
+            Efectivo_total,
+            Codigo_postal,
+            Colonia,
+            Estado,
+            Ciudad,
+            Municipio,
+            Calle,
+            Num_exterior,
+            Num_interior,
+            Telefono_referencia_01,
+            Tipo_referencia_01,
+            Nombre_referencia_02,
+            Telefono_referencia_02,
+            Tipo_referencia_02,
+            Num_cuotas_restantes,
+            Num_cuotas_pagadas,
+            Saldo_vencido_inicio,
+            Saldo_para_liquidar_hoy,
+            Codigo_postal_1,
+            Estado_1,
+            Avance_Pago_Plazo,
+            Avance_Pago_Capital,
+            Rango_Avance_Capital,
+            Monto_otorgado_2,
+            Cuotas_devengadas,
+            Bucket_Morosidad,
+            Dias_mora_ajustado,
+            Dias_mora_ajustado_2,
+            Bucket_Morosidad_Real,
+            Bucket_Morosidad_Final,
+            Ajuste,
+            Referencia_stp_limpia,
+            Tipo_Referencia,
+            Domicilio_Completo,
+            Dias_mora_Jueves_07_30,
+            SEMANA,
+            fecha_hora_insert
+        )
+        SELECT
+            s.KT,
+            s.Id_credito,
+            s.Id_cliente,
+            s.Nombre_cliente,
+            CASE
+                WHEN s.Fecha_nacimiento REGEXP \'^[0-9]{4}-[0-9]{2}-[0-9]{2}$\'
+                    THEN STR_TO_DATE(s.Fecha_nacimiento, \'%Y-%m-%d\')
+                WHEN s.Fecha_nacimiento REGEXP \'^[0-9]{2}/[0-9]{2}/[0-9]{4}$\'
+                    THEN STR_TO_DATE(s.Fecha_nacimiento, \'%d/%m/%Y\')
+                ELSE NULL
+            END,
+            NULL,
+            NULL,
+            NULL,
+            s.Celular,
+            NULL,
+            s.Sucursal,
+            s.Status_credito,
+            NULL,
+            s.Numero_amortizaciones,
+            NULL,
+            s.Monto_otorgado,
+            s.Cuota,
+            CASE
+                WHEN s.Fecha_inicio REGEXP \'^[0-9]{4}-[0-9]{2}-[0-9]{2}$\'
+                    THEN STR_TO_DATE(s.Fecha_inicio, \'%Y-%m-%d\')
+                WHEN s.Fecha_inicio REGEXP \'^[0-9]{2}/[0-9]{2}/[0-9]{4}$\'
+                    THEN STR_TO_DATE(s.Fecha_inicio, \'%d/%m/%Y\')
+                ELSE NULL
+            END,
+            CASE
+                WHEN s.Fecha_primer_vencimiento REGEXP \'^[0-9]{4}-[0-9]{2}-[0-9]{2}$\'
+                    THEN STR_TO_DATE(s.Fecha_primer_vencimiento, \'%Y-%m-%d\')
+                WHEN s.Fecha_primer_vencimiento REGEXP \'^[0-9]{2}/[0-9]{2}/[0-9]{4}$\'
+                    THEN STR_TO_DATE(s.Fecha_primer_vencimiento, \'%d/%m/%Y\')
+                ELSE NULL
+            END,
+            CASE
+                WHEN s.Fecha_ultimo_vencimiento REGEXP \'^[0-9]{4}-[0-9]{2}-[0-9]{2}$\'
+                    THEN STR_TO_DATE(s.Fecha_ultimo_vencimiento, \'%Y-%m-%d\')
+                WHEN s.Fecha_ultimo_vencimiento REGEXP \'^[0-9]{2}/[0-9]{2}/[0-9]{4}$\'
+                    THEN STR_TO_DATE(s.Fecha_ultimo_vencimiento, \'%d/%m/%Y\')
+                ELSE NULL
+            END,
+            s.Referencia_stp,
+            s.Dias_mora,
+            s.Dias_mora_max,
+            NULL,
+            s.Saldo_total_capital,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            s.Abonos_total,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            s.Num_cuotas_pagadas,
+            s.Saldo_vencido_inicio,
+            s.Saldo_para_liquidar_hoy,
+            s.Codigo_postal_1,
+            s.Estado_1,
+            s.Avance_Pago_Plazo,
+            NULL,
+            NULL,
+            s.Monto_otorgado_2,
+            s.Cuotas_devengadas,
+            s.Bucket_Morosidad,
+            s.Dias_mora_ajustado,
+            s.Dias_mora_ajustado_2,
+            s.Bucket_Morosidad_Real,
+            s.Bucket_Morosidad_Final,
+            s.Ajuste,
+            NULL,
+            NULL,
+            s.Domicilio_Completo,
+            s.Dias_mora_Jueves_07_30,
+            s.SEMANA,
+            NOW()
+        FROM `' . $tablaSrc . '` s
+        WHERE ' . $whereTrimSrc;
     }
 
     private static function normalizarSemanaParam(string $semana): ?string

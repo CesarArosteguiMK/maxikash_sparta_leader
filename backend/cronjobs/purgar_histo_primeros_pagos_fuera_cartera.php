@@ -11,6 +11,12 @@
  *   php purgar_histo_primeros_pagos_fuera_cartera.php --execute --max=30
  * Depuración (totales por etiqueta vs cartera, sin borrar):
  *   php purgar_histo_primeros_pagos_fuera_cartera.php --verbose
+ *
+ * **No copia** desde `tbl_segundometro_histo`. Para traer solo las semanas necesarias (INSERT…SELECT
+ * en destino, sin modificar la tabla histórico segundómetro), use antes:
+ * `copiar_segundometro_histo_a_primeros_pagos.php` o el pipeline `copiar_y_purgar_primeros_pagos_histo.php`.
+ *
+ * Para **vaciar una semana entera** en destino: `borrar_semana_histo_primeros_pagos.php`.
  */
 $projectRoot = dirname(__DIR__);
 if (!defined('RAIZ')) {

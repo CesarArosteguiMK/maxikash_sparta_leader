@@ -7,6 +7,7 @@
  * Tipos de gráfica de comportamiento (apilado / agrupado / líneas) en esta pantalla.
  *
  * @var string $titulo
+ * @var bool   $pph_btn_pipeline_histo Mostrar botón sincronización (solo usuario autorizado en Reporteria).
  */
 ?>
 <div class="content-wrapper">
@@ -20,7 +21,14 @@
                     Últimas 5 semanas cerradas — nacimiento vs corte actual
                 </p>
             </div>
-            <div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <?php if (!empty($pph_btn_pipeline_histo)): ?>
+                <button type="button" class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#pphModalPipeline"
+                        title="Copiar desde tbl_segundometro_histo y purgar fuera de cartera">
+                    <i class="fa fa-database me-1"></i>Sincronizar histórico
+                </button>
+                <?php endif; ?>
                 <a href="/analitica/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
                     <i class="fa fa-arrow-left me-1"></i>Volver
                 </a>
@@ -104,6 +112,35 @@
         </div>
     </div>
 </div>
+
+<?php if (!empty($pph_btn_pipeline_histo)): ?>
+<div class="modal fade" id="pphModalPipeline" tabindex="-1" aria-labelledby="pphModalPipelineLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title fs-6" id="pphModalPipelineLabel">Sincronizar histórico primeros pagos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">
+                    Copia desde <code>tbl_segundometro_histo</code> (solo lectura) y luego elimina en destino las filas fuera de cartera.
+                </p>
+                <label class="form-label small fw-semibold mb-1" for="pphPipelineSemanas">Etiquetas SEMANA</label>
+                <textarea class="form-control form-control-sm font-monospace" id="pphPipelineSemanas" rows="3"
+                          placeholder="Ej.:&#10;Semana 18-2026&#10;Semana 17-2026"></textarea>
+                <div class="form-check mt-2 mb-0">
+                    <input class="form-check-input" type="checkbox" id="pphPipelineReplaceDest">
+                    <label class="form-check-label small" for="pphPipelineReplaceDest">Reemplazar en destino las mismas semanas (borra solo en <code>tbl_histo_primeros_pagos</code>)</label>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary" id="pphBtnEjecutarPipeline">Ejecutar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -538,6 +575,111 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
     }
+
+<?php if (!empty($pph_btn_pipeline_histo)): ?>
+    (function pphInitPipeline() {
+        var btnGo = document.getElementById('pphBtnEjecutarPipeline');
+        if (!btnGo) {
+            return;
+        }
+        btnGo.addEventListener('click', function () {
+            var ta = document.getElementById('pphPipelineSemanas');
+            var raw = (ta && ta.value ? ta.value : '').split(/[\r\n,]+/);
+            var semanas = [];
+            raw.forEach(function (s) {
+                s = (s || '').trim();
+                if (s) {
+                    semanas.push(s);
+                }
+            });
+            if (semanas.length === 0) {
+                if (typeof Swal !== 'undefined' && Swal.fire) {
+                    Swal.fire({ icon: 'warning', title: 'Faltan semanas', text: 'Indique al menos una etiqueta (ej. Semana 18-2026).' });
+                } else {
+                    alert('Indique al menos una semana.');
+                }
+                return;
+            }
+            var replaceDest = !!(document.getElementById('pphPipelineReplaceDest') && document.getElementById('pphPipelineReplaceDest').checked);
+            btnGo.disabled = true;
+            if (typeof Swal !== 'undefined' && Swal.fire) {
+                Swal.fire({
+                    title: 'Procesando…',
+                    text: 'Puede tardar varios minutos. No cierre la ventana.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: function () {
+                        Swal.showLoading();
+                    }
+                });
+            }
+            fetch('/analitica/postPrimerosPagosHistoricoPipeline', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                body: JSON.stringify({ semanas: semanas, replace_dest: replaceDest })
+            })
+                .then(function (r) {
+                    return r.text().then(function (t) {
+                        var j = null;
+                        try {
+                            j = JSON.parse(t);
+                        } catch (e1) {
+                            j = null;
+                        }
+                        return { ok: r.ok, json: j };
+                    });
+                })
+                .then(function (wc) {
+                    btnGo.disabled = false;
+                    if (typeof Swal !== 'undefined' && Swal.close) {
+                        try {
+                            Swal.close();
+                        } catch (eSw) {}
+                    }
+                    var resp = wc.json;
+                    if (!wc.ok || !resp || !resp.success) {
+                        var msg = (resp && resp.mensaje) ? resp.mensaje : 'Error en el proceso.';
+                        if (typeof Swal !== 'undefined' && Swal.fire) {
+                            Swal.fire({ icon: 'error', title: 'Error', text: msg });
+                        } else {
+                            alert(msg);
+                        }
+                        return;
+                    }
+                    var modalEl = document.getElementById('pphModalPipeline');
+                    if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                        var inst = bootstrap.Modal.getInstance(modalEl);
+                        if (inst) {
+                            inst.hide();
+                        }
+                    }
+                    if (typeof Swal !== 'undefined' && Swal.fire) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Listo',
+                            text: resp.mensaje || 'Copia y purga completadas.',
+                            timer: 2600,
+                            showConfirmButton: true
+                        });
+                    }
+                    cargarComparativo();
+                })
+                .catch(function () {
+                    btnGo.disabled = false;
+                    if (typeof Swal !== 'undefined' && Swal.close) {
+                        try {
+                            Swal.close();
+                        } catch (eSw2) {}
+                    }
+                    if (typeof Swal !== 'undefined' && Swal.fire) {
+                        Swal.fire({ icon: 'error', title: 'Red', text: 'No se pudo completar la petición.' });
+                    }
+                });
+        });
+    })();
+<?php endif; ?>
 
     if (typeof showWait === 'function') {
         showWait();
