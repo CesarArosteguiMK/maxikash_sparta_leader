@@ -436,6 +436,195 @@
         .madj-ev-slots-wrap { display: grid !important; grid-template-columns: repeat(2, 1fr); overflow-x: visible; }
         .madj-ev-slot       { width: 100% !important; height: 140px !important; }
     }
+
+    /* ===================================================================
+       MIS ADJUDICACIONES — DARK MODE
+       Selector: body.dark-mode  (alineado con el sistema del proyecto)
+       =================================================================== */
+
+    /* -- KPI Cards --------------------------------------------------- */
+    body.dark-mode .madj-kpi-card {
+        background: rgba(30, 41, 59, 0.88) !important;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,.3), 0 2px 4px -1px rgba(0,0,0,.2) !important;
+    }
+    body.dark-mode .madj-kpi-lbl { color: #94a3b8 !important; }
+
+    /* -- Alert contextual -------------------------------------------- */
+    body.dark-mode .madj-alert {
+        background: rgba(30, 41, 59, 0.7) !important;
+        border-color: #475569 !important;
+        border-left-color: var(--madj-color) !important;
+        color: #fbbf24 !important;
+    }
+
+    /* -- Filtro bar -------------------------------------------------- */
+    body.dark-mode .madj-filter-bar {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    body.dark-mode .madj-filter-bar .text-muted  { color: #94a3b8 !important; }
+    body.dark-mode .madj-filter-bar .form-check-label { color: #e2e8f0 !important; }
+    body.dark-mode .madj-filter-bar .form-check-input {
+        background-color: #0f172a !important;
+        border-color: #475569 !important;
+    }
+
+    /* -- Tabla Desktop ---------------------------------------------- */
+    body.dark-mode .madj-table-shell {
+        border-color: #334155 !important;
+        box-shadow: 0 8px 22px rgba(0,0,0,.3) !important;
+    }
+    body.dark-mode .madj-table thead th {
+        background: #1e293b !important;
+        color: #94a3b8 !important;
+        border-bottom-color: #334155 !important;
+    }
+    body.dark-mode .madj-table tbody td { border-color: #334155 !important; }
+    body.dark-mode .madj-table tbody tr:hover { background: rgba(30,41,59,.6) !important; }
+
+    body.dark-mode .madj-cell-id    { color: #f1f5f9 !important; }
+    body.dark-mode .madj-cliente-main { color: #f1f5f9 !important; }
+    body.dark-mode .madj-cliente-sub  { color: #94a3b8 !important; }
+    body.dark-mode .madj-asignacion-fecha { color: #f1f5f9 !important; }
+    body.dark-mode .madj-asignacion-por   { color: #94a3b8 !important; }
+
+    /* -- Pills / Badges ---------------------------------------------- */
+    body.dark-mode .madj-state-pill.is-active {
+        background: #166534 !important;
+        border-color: #15803d !important;
+        color: #bbf7d0 !important;
+    }
+    body.dark-mode .madj-state-pill.is-inactive {
+        background: #334155 !important;
+        border-color: #475569 !important;
+        color: #94a3b8 !important;
+    }
+    body.dark-mode .madj-btn-ev {
+        background: linear-gradient(180deg, #f59e0b, #d97706) !important;
+        color: #1c1917 !important;
+        box-shadow: 0 3px 8px rgba(245,158,11,.45) !important;
+    }
+    body.dark-mode .madj-btn-ev.is-sent {
+        background: linear-gradient(180deg, #3b82f6, #2563eb) !important;
+        color: #fff !important;
+    }
+    body.dark-mode .madj-asignado-chip {
+        background: #334155 !important;
+        border-color: #475569 !important;
+        color: #cbd5e1 !important;
+    }
+    /* Bootstrap bg-secondary-subtle badge (bucket) */
+    body.dark-mode .badge.bg-secondary-subtle {
+        background: #334155 !important;
+        color: #94a3b8 !important;
+        border-color: #475569 !important;
+    }
+    /* Mora badges en mobile cards */
+    body.dark-mode .badge.bg-success  { background: #166534 !important; color: #dcfce7 !important; }
+    body.dark-mode .badge.bg-secondary { background: #475569 !important; color: #e2e8f0 !important; }
+
+    /* -- Mini-progreso en tabla -------------------------------------- */
+    body.dark-mode .madj-mini-progress-bg  { background: #334155 !important; }
+    body.dark-mode .madj-mini-progress-lbl { color: #4ade80 !important; }
+
+    /* -- Tarjetas móviles ------------------------------------------- */
+    body.dark-mode .madj-mcard {
+        background: #1e293b !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,.3) !important;
+    }
+    body.dark-mode .madj-mcard-nombre { color: #f1f5f9 !important; }
+    body.dark-mode .madj-mcard-id     { color: #94a3b8 !important; }
+
+    /* -- Modal Evidencias — contenedor ------------------------------ */
+    body.dark-mode #modalEvidenciasMadj .modal-content {
+        background: #1e293b !important;
+        border-color: #334155 !important;
+    }
+    body.dark-mode #modalEvidenciasMadj .modal-body {
+        background: #1e293b !important;
+        color: #f1f5f9 !important;
+    }
+    body.dark-mode #modalEvidenciasMadj .modal-footer.bg-light {
+        background: #0f172a !important;
+        border-top-color: #334155 !important;
+    }
+
+    /* -- Modal Evidencias — badges de estado de slot --------------- */
+    body.dark-mode .madj-ev-status-pendiente {
+        background: #78350f !important;
+        border-color: #92400e !important;
+        color: #fde68a !important;
+    }
+    body.dark-mode .madj-ev-status-recibido {
+        background: #14532d !important;
+        border-color: #166534 !important;
+        color: #bbf7d0 !important;
+    }
+
+    /* -- Modal Evidencias — cabeceras de sección -------------------- */
+    body.dark-mode .madj-ev-hdr-orange {
+        background: rgba(154,52,18,.18) !important;
+        border-color: rgba(253,186,116,.25) !important;
+        color: #fdba74 !important;
+    }
+    body.dark-mode .madj-ev-hdr-blue {
+        background: rgba(30,64,175,.2) !important;
+        border-color: rgba(147,197,253,.25) !important;
+        color: #93c5fd !important;
+    }
+    body.dark-mode .madj-ev-hdr-green {
+        background: rgba(22,101,52,.2) !important;
+        border-color: rgba(134,239,172,.25) !important;
+        color: #86efac !important;
+    }
+
+    /* -- Modal Evidencias — slots de subida ------------------------- */
+    body.dark-mode .madj-ev-slots-wrap {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+    }
+    body.dark-mode .madj-ev-slot {
+        background: #1e293b !important;
+        border-color: #475569 !important;
+    }
+    body.dark-mode .madj-ev-slot:hover {
+        border-color: #f59e0b !important;
+        background: rgba(245,158,11,.08) !important;
+    }
+    body.dark-mode .madj-ev-slot .slot-icon-ph { color: #64748b !important; }
+
+    body.dark-mode .madj-ev-slot-pdf {
+        background: #1e293b !important;
+        border-color: #475569 !important;
+    }
+    body.dark-mode .madj-ev-slot-pdf:hover {
+        border-color: #f59e0b !important;
+        background: rgba(245,158,11,.08) !important;
+    }
+    body.dark-mode .madj-ev-slot-pdf .slot-icon-ph  { color: #64748b !important; }
+    body.dark-mode .madj-ev-slot-pdf .slot-sublbl   { color: #94a3b8 !important; }
+    body.dark-mode .madj-ev-slot-pdf .slot-fname    { color: #e2e8f0 !important; }
+
+    /* Slot con archivo cargado: mantener borde de estado pero bg oscuro */
+    body.dark-mode .madj-ev-slot.has-file         { background: #1e293b !important; }
+    body.dark-mode .madj-ev-slot.has-file.status-pendiente { border-color: #fcd34d !important; }
+    body.dark-mode .madj-ev-slot.has-file.status-recibido  { border-color: #4ade80 !important; }
+
+    /* -- Modal Evidencias — barra de progreso ----------------------- */
+    body.dark-mode .madj-ev-progress-bg  { background: #334155 !important; }
+    body.dark-mode .madj-ev-progress-lbl { color: #94a3b8 !important; }
+
+    /* -- Aviso "enviadas" en el footer del modal ------------------- */
+    body.dark-mode #madj-ev-sent-notice {
+        background: rgba(30,64,175,.2) !important;
+        border-color: rgba(59,130,246,.35) !important;
+    }
+    body.dark-mode #madj-ev-sent-notice p { color: #93c5fd !important; }
+
+    /* -- Spinner / empty state textos ------------------------------- */
+    body.dark-mode #madj-empty-state { color: #64748b !important; }
+    body.dark-mode #madj-empty-state h5,
+    body.dark-mode #madj-empty-state p  { color: #64748b !important; }
 </style>
 
 <!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
@@ -492,24 +681,7 @@
             </div>
         </div>
     </div>
-    <div class="madj-kpi-item">
-        <div class="card madj-kpi-card kpi-saldo">
-            <div class="card-body">
-                <i class="fa-solid fa-peso-sign madj-kpi-icon"></i>
-                <div class="madj-kpi-num" id="madj-kpi-saldo" style="font-size:1.1rem;">-"</div>
-                <p class="madj-kpi-lbl">Saldo Total</p>
-            </div>
-        </div>
-    </div>
-    <div class="madj-kpi-item">
-        <div class="card madj-kpi-card kpi-mora">
-            <div class="card-body">
-                <i class="fa-solid fa-clock madj-kpi-icon"></i>
-                <div class="madj-kpi-num" id="madj-kpi-mora">-"</div>
-                <p class="madj-kpi-lbl">Días Mora Prom.</p>
-            </div>
-        </div>
-    </div>
+
 </div>
 
 <!-- -.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.--.-
@@ -548,7 +720,6 @@
                 <tr>
                     <th>ID Crédito</th>
                     <th>Cliente</th>
-                    <th>Saldo</th>
                     <th>Bucket</th>
                     <th>Estado</th>
                     <th>Asignación</th>
@@ -805,6 +976,39 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         });
     }
 
+    function _madjMarcarCreditoSent(idCredito, isSent) {
+        const id = String(idCredito || '');
+        if (!id) return;
+
+        if (isSent) _madjSentCreditos.add(id);
+        else _madjSentCreditos.delete(id);
+
+        document.querySelectorAll(
+            `button.madj-btn-ev[data-id="${id}"], button.madj-mcard-btn[data-id="${id}"]`
+        ).forEach(b => {
+            const icon = b.querySelector('i.fa-solid');
+            const span = b.querySelector('span');
+
+            b.classList.toggle('is-sent', !!isSent);
+            b.title = isSent ? 'Ver evidencias enviadas' : 'Registrar Evidencias';
+
+            if (icon) {
+                icon.classList.toggle('fa-eye', !!isSent);
+                icon.classList.toggle('fa-camera', !isSent);
+            }
+
+            if (span) {
+                span.textContent = isSent ? 'Ver evidencias enviadas' : 'Registrar Evidencias';
+            } else {
+                b.childNodes.forEach(n => {
+                    if (n.nodeType === Node.TEXT_NODE) {
+                        n.nodeValue = isSent ? ' Ver evidencias enviadas' : ' Registrar Evidencias';
+                    }
+                });
+            }
+        });
+    }
+
     function _madjPrecargarProgreso(creditos) {
         const ids = (creditos || []).map(c => +c.id_credito).filter(n => Number.isFinite(n) && n > 0);
         _madjProgresoCreditos = {};
@@ -828,11 +1032,13 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 Object.keys(data.resumen).forEach(id => {
                     const r = data.resumen[id];
                     if (r && typeof r === 'object') {
-                        _madjSetProgressCredito(id, r.total || 0);
-                        if (r.all_sent) _madjSentCreditos.add(String(id));
-                        else _madjSentCreditos.delete(String(id));
+                        const total = Math.min(_madjTotalSlots(), Math.max(0, parseInt(r.total || 0, 10)));
+                        _madjSetProgressCredito(id, total);
+                        _madjMarcarCreditoSent(id, !!r.all_sent);
                     } else {
-                        _madjSetProgressCredito(id, parseInt(r || 0, 10));
+                        const total = Math.min(_madjTotalSlots(), Math.max(0, parseInt(r || 0, 10)));
+                        _madjSetProgressCredito(id, total);
+                        _madjMarcarCreditoSent(id, total >= _madjTotalSlots());
                     }
                 });
             })
@@ -881,16 +1087,9 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // --------------------------------------------------------------
     function madjActualizarKPIs(creditos) {
         const activos = creditos.filter(c => c.estado === 'Activo');
-        const saldoTotal = creditos.reduce((acc, c) => acc + parseFloat(c.saldo || 0), 0);
-        const diasMoras  = creditos.map(c => parseInt(c.dias_mora || 0));
-        const promMora   = diasMoras.length
-            ? Math.round(diasMoras.reduce((a, b) => a + b, 0) / diasMoras.length)
-            : 0;
 
         document.getElementById('madj-kpi-total').textContent   = creditos.length;
         document.getElementById('madj-kpi-activos').textContent  = activos.length;
-        document.getElementById('madj-kpi-saldo').textContent    = moneda(saldoTotal);
-        document.getElementById('madj-kpi-mora').textContent     = promMora + 'd';
     }
 
     // --------------------------------------------------------------
@@ -945,7 +1144,6 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             return [
                 `<span class="madj-cell-id">#${esc(String(c.id_credito))}</span>`,
                 nombre,
-                saldoHtml,
                 bucket,
                 estadoBadge,
                 asignacionHtml,
@@ -961,11 +1159,10 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 columns: [
                     { data: 0, title: 'ID Crédito' },
                     { data: 1, title: 'Cliente' },
-                    { data: 2, title: 'Saldo' },
-                    { data: 3, title: 'Bucket' },
-                    { data: 4, title: 'Estado' },
-                    { data: 5, title: 'Asignación' },
-                    { data: 6, title: 'Acciones', orderable: false, searchable: false, className: 'text-center' },
+                    { data: 2, title: 'Bucket' },
+                    { data: 3, title: 'Estado' },
+                    { data: 4, title: 'Asignación' },
+                    { data: 5, title: 'Acciones', orderable: false, searchable: false, className: 'text-center' },
                 ]
             });
             actualizaDatosTabla('#madj-tabla', filas, false);
@@ -984,11 +1181,11 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             actualizaDatosTabla('#madj-tabla', [], false);
         } else {
             document.getElementById('madj-tbody').innerHTML = `
-                <tr><td colspan="7" class="text-center py-4 text-muted fst-italic">
+                <tr><td colspan="6" class="text-center py-4 text-muted fst-italic">
                     Sin adjudicaciones asignadas.
                 </td></tr>`;
         }
-        ['madj-kpi-total','madj-kpi-activos','madj-kpi-saldo','madj-kpi-mora']
+        ['madj-kpi-total','madj-kpi-activos']
             .forEach(id => document.getElementById(id).textContent = '0');
         const _mc = document.getElementById('madj-cards-mobile');
         if (_mc) _mc.innerHTML = '';
@@ -1023,6 +1220,15 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     ];
 
     const MADJ_EV_DOCS = [];
+    const MADJ_EV_ALLOWED_SLOTS = new Set(
+        MADJ_EV_SECTIONS.flatMap(sec => sec.slots.map(sl => sl.key))
+    );
+    const MADJ_EV_VALID_ESTATUS = new Set(['pendiente_envio', 'recibido']);
+
+    function _madjNormalizarEstatus(estatus) {
+        const v = String(estatus || 'recibido').trim().toLowerCase();
+        return MADJ_EV_VALID_ESTATUS.has(v) ? v : null;
+    }
 
     // Busca la etiqueta de un slot a partir de su key
     function _madjSlotLabel(key) {
@@ -1069,11 +1275,15 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 const det = data.detalle;
                 _madjActiveOpId = det.id;
 
-                // Pre-cargar estado desde evidencias ya subidas
+                // Pre-cargar solo slots/estatus válidos para esta vista (9 evidencias)
                 (det.evidencias || []).forEach(ev => {
-                    _madjEvState[ev.slot] = { src: madjUrlForDisplay(ev.url), type: ev.tipo };
-                    _madjCommittedSlots.add(ev.slot);
-                    _madjSlotEstatus[ev.slot] = ev.estatus || 'recibido';
+                    const slotKey = String(ev.slot || '').trim();
+                    const estatus = _madjNormalizarEstatus(ev.estatus);
+                    if (!slotKey || !MADJ_EV_ALLOWED_SLOTS.has(slotKey) || !estatus || !ev.url) return;
+
+                    _madjEvState[slotKey] = { src: madjUrlForDisplay(ev.url), type: ev.tipo };
+                    _madjCommittedSlots.add(slotKey);
+                    _madjSlotEstatus[slotKey] = estatus;
                 });
 
                 _madjSetProgressCredito(idCredito, _madjContarEvidencias());
@@ -1180,16 +1390,20 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // PROGRESO DE EVIDENCIAS
     // --------------------------------------------------------------
     function _madjContarEvidencias() {
-        return Object.keys(_madjEvState).length;
+        return Object.keys(_madjEvState).filter(key => MADJ_EV_ALLOWED_SLOTS.has(key)).length;
     }
 
     function _madjActualizarBotonEnviar() {
         const btn    = document.getElementById('madj-btn-enviar-evidencias');
         const notice = document.getElementById('madj-ev-sent-notice');
         const totalSlots  = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
-        const totalFilled = Object.keys(_madjEvState).length;
+        const totalFilled = _madjContarEvidencias();
         const hasPendiente = Object.values(_madjSlotEstatus).some(s => s === 'pendiente_envio');
         const allSent = totalFilled >= totalSlots && !hasPendiente && totalFilled > 0;
+
+        if (_madjActiveCreditId) {
+            _madjMarcarCreditoSent(_madjActiveCreditId, allSent);
+        }
 
         if (btn) {
             if (totalFilled >= totalSlots && hasPendiente) {
@@ -1240,7 +1454,6 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 <div class="madj-mcard-nombre">${nombre}</div>
                 <div class="madj-mcard-id">#${esc(String(c.id_credito))} &bull; ${esc(c.asignado_por || 'Sistema')}</div>
                 <div class="madj-mcard-meta">
-                    <span class="madj-mcard-saldo">${moneda(c.saldo)}</span>
                     <span class="badge ${moraColor}">${dias}d mora</span>
                     ${bucketBadge}
                     <span class="badge ${esActivo ? 'bg-success' : 'bg-secondary'}">${esActivo ? 'Activo' : 'Inactivo'}</span>
@@ -1492,23 +1705,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
             // Marcar crédito como "todo enviado" y actualizar botones en tabla/tarjetas
             if (_madjActiveCreditId) {
-                _madjSentCreditos.add(String(_madjActiveCreditId));
-                document.querySelectorAll(
-                    `button.madj-btn-ev[data-id="${_madjActiveCreditId}"],
-                     button.madj-mcard-btn[data-id="${_madjActiveCreditId}"]`
-                ).forEach(b => {
-                    b.classList.add('is-sent');
-                    b.title = 'Ver evidencias enviadas';
-                    const icon = b.querySelector('i.fa-solid');
-                    if (icon) { icon.classList.remove('fa-camera'); icon.classList.add('fa-eye'); }
-                    const span = b.querySelector('span');
-                    if (span) span.textContent = 'Ver evidencias enviadas';
-                    else if (!b.querySelector('span')) {
-                        b.childNodes.forEach(n => {
-                            if (n.nodeType === Node.TEXT_NODE) n.nodeValue = ' Ver evidencias enviadas';
-                        });
-                    }
-                });
+                _madjMarcarCreditoSent(_madjActiveCreditId, true);
             }
 
             // Mostrar aviso en el footer del modal

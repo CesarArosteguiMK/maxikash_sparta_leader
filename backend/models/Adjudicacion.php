@@ -347,11 +347,21 @@ class Adjudicacion extends Model
             IF(aca.estatus = '1', 'Activo', 'Inactivo')            AS estado,
             DATE_FORMAT(aca.fecha_alta, '%Y-%m-%d %H:%i')          AS fecha_asignacion,
             DATE_FORMAT(aca.fecha_baja, '%Y-%m-%d %H:%i')          AS fecha_desasignacion,
+            COALESCE(op.nombre_cliente, '—')                       AS nombre_cliente,
             TRIM(CONCAT_WS(' ', per_alta.nombres, per_alta.apellidop)) AS asignado_por,
             aca.id                                                  AS id_asignacion
         FROM asigna_creditos_adjudicacion aca
         INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
         LEFT JOIN persona per_alta ON per_alta.id = aca.alta
+        LEFT JOIN (
+            SELECT ao1.id_credito, ao1.nombre_cliente
+            FROM adj_operacion ao1
+            INNER JOIN (
+                SELECT id_credito, MAX(id) AS id_max
+                FROM adj_operacion
+                GROUP BY id_credito
+            ) aom ON aom.id_max = ao1.id
+        ) op ON op.id_credito = aca.id_credito
         WHERE pa.id_persona = :idPersona
           AND aca.estatus = '1'
         ORDER BY aca.fecha_alta DESC

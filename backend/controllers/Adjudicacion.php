@@ -90,21 +90,6 @@ class Adjudicacion extends Controller
         }
         try {
             $result = $this->model->buscarCreditoPorId($valor);
-
-            // Solo créditos con statusCredito = "Vencido" pueden asignarse a adjudicación
-            if ($result['success'] && isset($result['status_credito'])) {
-                $status = trim($result['status_credito']);
-                if (strcasecmp($status, 'Vencido') !== 0) {
-                    echo json_encode([
-                        'success'        => false,
-                        'credito_regla'  => true,
-                        'status_credito' => $status,
-                        'message'        => "El crédito está en regla (estatus: {$status}). Solo se pueden adjudicar créditos con estatus \"Vencido\".",
-                    ]);
-                    return;
-                }
-            }
-
             echo json_encode($result);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);

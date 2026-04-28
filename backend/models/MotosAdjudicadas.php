@@ -943,6 +943,12 @@ class MotosAdjudicadas extends Model
             return [];
         }
 
+        // Slots válidos de Mis Adjudicaciones (9 evidencias requeridas en esta vista)
+        $slotsPermitidos = [
+            'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+            'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        ];
+
         $placeholders = [];
         $params = [];
         foreach ($ids as $i => $id) {
@@ -951,6 +957,14 @@ class MotosAdjudicadas extends Model
             $params[$k] = $id;
         }
         $inStr = implode(',', $placeholders);
+
+        $slotPh = [];
+        foreach ($slotsPermitidos as $i => $slot) {
+            $k = 'slot' . $i;
+            $slotPh[] = ':' . $k;
+            $params[$k] = $slot;
+        }
+        $slotIn = implode(',', $slotPh);
 
         $rows = $this->db->queryAll(
             "SELECT ult.id_credito,
@@ -964,8 +978,14 @@ class MotosAdjudicadas extends Model
              ) ult
              LEFT JOIN (
                 SELECT id_operacion,
-                       COUNT(*) AS total,
-                       SUM(CASE WHEN estatus = 'pendiente_envio' THEN 1 ELSE 0 END) AS pendiente
+                       COUNT(DISTINCT CASE
+                           WHEN slot IN ($slotIn) AND estatus IN ('pendiente_envio', 'recibido')
+                           THEN slot ELSE NULL END
+                       ) AS total,
+                       COUNT(DISTINCT CASE
+                           WHEN slot IN ($slotIn) AND estatus = 'pendiente_envio'
+                           THEN slot ELSE NULL END
+                       ) AS pendiente
                 FROM adj_evidencia
                 GROUP BY id_operacion
              ) ev ON ev.id_operacion = ult.max_id",
@@ -978,9 +998,10 @@ class MotosAdjudicadas extends Model
             $total    = (int) ($r['total']      ?? 0);
             $pendiente = (int) ($r['pendiente'] ?? 0);
             if ($id > 0) {
+                $totalSlotsVista = count($slotsPermitidos);
                 $resumen[$id] = [
                     'total'    => $total,
-                    'all_sent' => $total > 0 && $pendiente === 0,
+                    'all_sent' => $total >= $totalSlotsVista && $pendiente === 0,
                 ];
             }
         }
