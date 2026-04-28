@@ -117,11 +117,23 @@ class AtencionClientes
     }
 
     /**
-     * Pestaña Bandeja de entrada — mismo criterio que la columna «Recibido» en Operaciones (pipeline):
-     * en pantalla se agrupa `en_transito` bajo Recibido (ver operaciones_pipeline.php), no solo el literal Recibido.
+     * Pestaña Bandeja de entrada — operaciones aún no enviadas desde Atención.
+     * Si la columna atencion_envio_validado no existe, usa bitácora como respaldo.
      */
     public function obtenerRecibidos(): array
     {
+        $ma = new MotosAdjudicadas();
+        $tieneEnvio = $ma->adjOperacionTieneColumnaEnvioAtencion();
+
+        $where = $tieneEnvio
+            ? "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND IFNULL(o.atencion_envio_validado, 0) = 0))"
+            : "(o.estatus IN ('Recibido', 'en_transito') OR (o.estatus = 'Procesando IA' AND NOT EXISTS (
+                    SELECT 1
+                    FROM adj_bitacora b
+                    WHERE b.id_operacion = o.id
+                      AND b.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+                )))";
+
         $sql = <<<SQL
         SELECT
             o.id,
@@ -146,22 +158,90 @@ class AtencionClientes
                ON aca.id_credito = o.id_credito AND aca.estatus = '1'
         LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
         LEFT JOIN persona per              ON per.id = pa.id_persona
-        WHERE o.estatus IN ('Recibido', 'en_transito')
+        WHERE {$where}
         ORDER BY o.fecha_alta ASC
         SQL;
 
         return $this->db->queryAll($sql) ?: [];
     }
 
-    /** Pestaña Aprobados — etapa Procesando IA (avance posterior a Recibido en el pipeline). */
+    /**
+     * Pestaña Aprobados — solo operaciones enviadas con «Enviar evidencias validadas».
+     * Si la columna atencion_envio_validado no existe, usa bitácora como respaldo.
+     */
     public function obtenerEvidenciasAprobadas(): array
     {
-        return $this->listarOperacionesEvidenciaPorEstatus('Procesando IA');
+        $ma = new MotosAdjudicadas();
+        if (!$ma->adjOperacionTieneColumnaEnvioAtencion()) {
+            $sql = <<<SQL
+            SELECT
+                o.id,
+                o.folio,
+                o.id_credito,
+                o.nombre_cliente,
+                o.telefono_contacto,
+                o.estatus,
+                o.saldo_capital,
+                o.adeudo_total,
+                DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+                (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+                TRIM(CONCAT_WS(' ',
+                    per.nombres,
+                    per.segundo_nombre,
+                    per.apellidop,
+                    per.apellidom
+                )) AS gestor_nombre,
+                DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+            FROM adj_operacion o
+            LEFT JOIN asigna_creditos_adjudicacion aca
+                   ON aca.id_credito = o.id_credito AND aca.estatus = '1'
+            LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+            LEFT JOIN persona per              ON per.id = pa.id_persona
+            WHERE o.estatus = 'Procesando IA'
+              AND EXISTS (
+                    SELECT 1
+                    FROM adj_bitacora b
+                    WHERE b.id_operacion = o.id
+                      AND b.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+              )
+            ORDER BY o.fecha_alta ASC
+            SQL;
+            return $this->db->queryAll($sql) ?: [];
+        }
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.telefono_contacto,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre,
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+        FROM adj_operacion o
+        LEFT JOIN asigna_creditos_adjudicacion aca
+               ON aca.id_credito = o.id_credito AND aca.estatus = '1'
+        LEFT JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+        LEFT JOIN persona per              ON per.id = pa.id_persona
+        WHERE o.estatus = 'Procesando IA'
+          AND IFNULL(o.atencion_envio_validado, 0) = 1
+        ORDER BY o.fecha_alta ASC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
     }
 
     /**
      * Pestaña Correcciones — operaciones en etapa Revisión Recuperaciones.
-     * (Cuando exista adj_evidencia.aprobada, se podrá filtrar por “al menos una aprobada”.)
      */
     public function obtenerEvidenciasCorrecciones(): array
     {

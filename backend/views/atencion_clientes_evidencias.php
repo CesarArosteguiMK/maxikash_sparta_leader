@@ -124,6 +124,7 @@ body.dark-mode .ac-card              { background: #1e293b; border-color: #33415
 body.dark-mode .ac-detail-row .ac-lbl { color: #94a3b8; }
 body.dark-mode .ac-detail-row .ac-val { color: #e2e8f0; }
 body.dark-mode .ac-card-footer       { background: #0f172a; border-color: #334155; }
+body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 
 /* ── Modal validar evidencias (patrón Mis adjudicaciones + mock validación) ── */
 #modalAevValidarEvidencias .modal-header {
@@ -131,6 +132,19 @@ body.dark-mode .ac-card-footer       { background: #0f172a; border-color: #33415
     color: #fff; padding: .75rem 1.15rem; border: none;
 }
 #modalAevValidarEvidencias .btn-close { filter: brightness(0) invert(1); }
+/* Una línea de ayuda; sin cajas ni párrafos largos */
+.aev-ev-hint {
+    font-size: .72rem;
+    color: #64748b;
+    margin: 0 0 .45rem;
+    line-height: 1.35;
+}
+/* Recarga de tarjetas: mantiene contenido anterior visível (evita parpadeo en blanco) */
+.ae-lista-updating {
+    opacity: 0.5;
+    transition: opacity 0.12s ease;
+    pointer-events: none;
+}
 .aev-ev-progress-wrap { margin-bottom: 1rem; }
 .aev-ev-progress-lbl  { font-size: .8rem; font-weight: 700; color: #14532d; }
 .aev-ev-progress-bg   { height: 8px; background: #e2e8f0; border-radius: 6px; overflow: hidden; }
@@ -285,17 +299,27 @@ body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b;
                 </button>
             </div>
             <div class="aev-vista-mediabox" id="aev-vista-mediabox"></div>
-            <div class="mb-3">
-                <label for="aev-vista-comentario" class="form-label small fw-bold mb-1">Comentario</label>
-                <textarea class="form-control" id="aev-vista-comentario" name="aev_vista_comentario" rows="3" placeholder="" autocomplete="off"></textarea>
+            <div id="aev-vista-solo-aceptada" class="alert alert-success py-2 px-3 mb-3 d-none" role="status">
+                <p class="mb-1 fw-bold"><i class="fa-solid fa-circle-check me-1"></i>Evidencia aceptada</p>
+                <p class="small mb-0 text-dark" id="aev-vista-comentario-leido"></p>
             </div>
-            <div class="d-flex flex-wrap gap-2 justify-content-end">
-                <button type="button" class="btn btn-success" id="aev-vista-aceptar">
-                    <i class="fa-solid fa-check me-1"></i>Aceptar
-                </button>
-                <button type="button" class="btn btn-danger" id="aev-vista-rechazar">
-                    <i class="fa-solid fa-xmark me-1"></i>Rechazar
-                </button>
+            <div id="aev-vista-solo-rechazada" class="alert alert-danger py-2 px-3 mb-3 d-none" role="status">
+                <p class="mb-1 fw-bold"><i class="fa-solid fa-circle-xmark me-1"></i>Evidencia rechazada</p>
+                <p class="small mb-0 text-dark" id="aev-vista-comentario-rechazo"></p>
+            </div>
+            <div id="aev-vista-panel-dictamen" class="mb-0">
+                <div class="mb-3">
+                    <label for="aev-vista-comentario" class="form-label small fw-bold mb-1">Comentario</label>
+                    <textarea class="form-control" id="aev-vista-comentario" name="aev_vista_comentario" rows="3" placeholder="" autocomplete="off"></textarea>
+                </div>
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                    <button type="button" class="btn btn-success" id="aev-vista-aceptar">
+                        <i class="fa-solid fa-check me-1"></i>Aceptar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="aev-vista-rechazar">
+                        <i class="fa-solid fa-xmark me-1"></i>Rechazar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -472,7 +496,13 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
 
     const AE_BADGE_TAB = { bandeja: 'ae-badge-bandeja', aprobados: 'ae-badge-aprobados', correcciones: 'ae-badge-correcciones' };
 
+    /** Tooltip en miniaturas (corto) */
+    const AEV_TITLE_DICTAMEN_SLOT = 'Clic para abrir y dictaminar';
+
     let _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+
+    /** Evita varios POST finalizar + recargas seguidas al guardar veredictos rápido */
+    let _aeFinalizarDebounceTimer = null;
 
     // Definición de slots (alineada a operaciones / Mis adjudicaciones) — sin tocar esos archivos: copia local.
     const AEV_EV_SECTIONS = [
@@ -505,7 +535,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
 
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
     let _aevStore  = { det: null, idCredito: 0, v: {}, c: {} };
-    let _aevVistaCtx = { slot: '', label: '', evidId: 0 };
+    let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
 
     function aevReiniciarStore(det, idC) {
         _aevStore.det     = det;
@@ -515,6 +545,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (det && Array.isArray(det.evidencias)) {
             det.evidencias.forEach(function (e) {
                 if (!e || !e.slot) return;
+                if (e.slot === 'doc_repuve') return;
                 const va = parseInt(e.val_atn, 10) || 0;
                 if (va === 1) _aevStore.v[e.slot] = 'acep';
                 if (va === 2) _aevStore.v[e.slot] = 'rec';
@@ -527,16 +558,16 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         return _aevStore.v[slot] || null;
     }
 
-    /** vac | pend | acep | rec */
+    /** vac | pend | acep | rec — Repuve (doc_repuve) no usa dictamen en Atención */
     function aevEstadoEvidencia(row, slot) {
         if (!row || !row.url) return 'vac';
+        if (slot === 'doc_repuve') return row.url ? 'subido' : 'vac';
         const vr = aevVeredictoEfectivo(slot);
         if (vr === 'acep') return 'acep';
         if (vr === 'rec')  return 'rec';
         const va = row && row.val_atn != null && row.val_atn !== '' ? parseInt(row.val_atn, 10) : 0;
-        if (va === 1) return 'acep';
         if (va === 2) return 'rec';
-        if (Number(row.aprobada) === 1) return 'acep';
+        if (va === 1) return 'acep';
         return 'pend';
     }
 
@@ -551,20 +582,12 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
 
     function aevCuentaValidadosPdf(evList) {
         const m = aevMapaPorSlot(evList);
-        let n   = 0;
-        AEV_PDF_KEYS.forEach(function (k) {
-            if (aevEstadoEvidencia(m[k], k) === 'acep') n++;
-        });
-        return n;
+        const rep = m.doc_repuve;
+        return rep && rep.url ? 1 : 0;
     }
 
     function aevCuentaValidadosTot(evList) {
-        const m = aevMapaPorSlot(evList);
-        let n   = 0;
-        AEV_KEYS_10.forEach(function (k) {
-            if (aevEstadoEvidencia(m[k], k) === 'acep') n++;
-        });
-        return n;
+        return aevCuentaValidadosImagen(evList) + aevCuentaValidadosPdf(evList);
     }
 
     function aevMapaPorSlot(evList) {
@@ -589,16 +612,35 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (ovl) ovl.classList.add('d-none');
         const ta = document.getElementById('aev-vista-comentario');
         if (ta)  ta.value = '';
+        const solo = document.getElementById('aev-vista-solo-aceptada');
+        const rech = document.getElementById('aev-vista-solo-rechazada');
+        const panel = document.getElementById('aev-vista-panel-dictamen');
+        const cleido = document.getElementById('aev-vista-comentario-leido');
+        const cleRech = document.getElementById('aev-vista-comentario-rechazo');
+        if (solo) solo.classList.add('d-none');
+        if (rech) rech.classList.add('d-none');
+        if (panel) panel.classList.remove('d-none');
+        if (cleido) { cleido.textContent = ''; cleido.style.display = ''; }
+        if (cleRech) { cleRech.textContent = ''; cleRech.style.display = ''; }
         _aevVistaCtx.slot   = '';
         _aevVistaCtx.label  = '';
         _aevVistaCtx.evidId = 0;
+        _aevVistaCtx.soloAceptada = false;
+        _aevVistaCtx.soloRechazada = false;
     }
 
     function aevAbrirVistaEvidencia(slot, label) {
         if (!_aevStore.det) return;
+        if (slot === 'doc_repuve') return;
         const evMap = aevMapaPorSlot(_aevStore.det.evidencias);
         const row   = evMap[slot];
         if (!row || !row.url) return;
+        const st = aevEstadoEvidencia(row, slot);
+        const soloAceptada = (st === 'acep');
+        const soloRechazada = (st === 'rec');
+        const modoSoloLectura = soloAceptada || soloRechazada;
+        _aevVistaCtx.soloAceptada = soloAceptada;
+        _aevVistaCtx.soloRechazada = soloRechazada;
         aevAsegurarOverlayDentroModal();
         const modalAev = document.getElementById('modalAevValidarEvidencias');
         if (modalAev) modalAev.classList.add('aev-ev-vista-abierta');
@@ -607,9 +649,43 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const tEl  = document.getElementById('aev-vista-titulo');
         const box  = document.getElementById('aev-vista-mediabox');
         const cmt  = document.getElementById('aev-vista-comentario');
+        const soloEl = document.getElementById('aev-vista-solo-aceptada');
+        const rechEl = document.getElementById('aev-vista-solo-rechazada');
+        const panelDict = document.getElementById('aev-vista-panel-dictamen');
+        const cleido = document.getElementById('aev-vista-comentario-leido');
+        const cleRech = document.getElementById('aev-vista-comentario-rechazo');
         if (!ovl || !box) return;
-        if (tEl) tEl.textContent = label || slot;
-        if (cmt) cmt.value = _aevStore.c[slot] || '';
+        if (tEl) {
+            if (soloAceptada) {
+                tEl.textContent = (label || slot) + ' — validada';
+            } else if (soloRechazada) {
+                tEl.textContent = (label || slot) + ' — rechazada';
+            } else {
+                tEl.textContent = label || slot;
+            }
+        }
+        if (soloEl) soloEl.classList.toggle('d-none', !soloAceptada);
+        if (rechEl) rechEl.classList.toggle('d-none', !soloRechazada);
+        if (panelDict) panelDict.classList.toggle('d-none', modoSoloLectura);
+        if (soloAceptada) {
+            const txtCom = (row.comentario_atn || _aevStore.c[slot] || '').trim();
+            if (cleido) {
+                cleido.textContent = txtCom ? ('Comentario: ' + txtCom) : '';
+                cleido.style.display = txtCom ? '' : 'none';
+            }
+            if (cmt) cmt.value = '';
+        } else if (soloRechazada) {
+            const txtRech = (row.comentario_atn || _aevStore.c[slot] || '').trim();
+            if (cleRech) {
+                cleRech.textContent = txtRech ? ('Comentario: ' + txtRech) : 'Sin comentario registrado.';
+                cleRech.classList.toggle('text-muted', !txtRech);
+            }
+            if (cmt) cmt.value = '';
+        } else {
+            if (cmt) cmt.value = _aevStore.c[slot] || '';
+            if (cleido) { cleido.textContent = ''; cleido.style.display = ''; }
+            if (cleRech) { cleRech.textContent = ''; cleRech.style.display = ''; }
+        }
         const urlE = aeEsc(urlRaw);
         const es360 = (slot === 'fis_360');
         const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || es360;
@@ -628,18 +704,24 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         _aevVistaCtx.label = label || '';
         ovl.classList.remove('d-none');
         _aevVistaCtx.evidId = row && row.id ? parseInt(row.id, 10) : 0;
-        setTimeout(function () {
-            const tx = document.getElementById('aev-vista-comentario');
-            if (tx) tx.focus();
-        }, 10);
+        if (!modoSoloLectura) {
+            setTimeout(function () {
+                const tx = document.getElementById('aev-vista-comentario');
+                if (tx) tx.focus();
+            }, 10);
+        }
     }
 
     function aevRefrescarCuerpoModal() {
         if (!_aevStore.det) return;
         const body = document.getElementById('aev-body');
         if (body) {
-            body.innerHTML = aevRenderCuerpoModalValidar(_aevStore.det);
-            aevSanearDomUrls(body);
+            requestAnimationFrame(function () {
+                body.innerHTML = aevRenderCuerpoModalValidar(_aevStore.det);
+                aevSanearDomUrls(body);
+                aevSincroBtnEnviar();
+            });
+            return;
         }
         aevSincroBtnEnviar();
     }
@@ -673,9 +755,10 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             ? '<video class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" muted playsinline></video><div class="aev-aev-mute-play" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);pointer-events:none;"><i class="fa-solid fa-play" style="color:#fff;font-size:1.4rem;"></i></div>'
             : '<img class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" alt="">';
         const dataAttr = ' data-aev-ver="' + aeEsc(sl.key) + '" data-aev-lbl="' + aeEsc(sl.label) + '" ';
+        const titleAttr = ' title="' + aeEsc(AEV_TITLE_DICTAMEN_SLOT) + '" ';
         if (st === 'acep') {
             return `
-            <div class="aev-ev-slot aev-ev-slot--acept aev-ev-slot--click" style="position:relative;"` + dataAttr + `>
+            <div class="aev-ev-slot aev-ev-slot--acept aev-ev-slot--click" style="position:relative;"` + dataAttr + titleAttr + `>
                 ${media}
                 <span class="aev-txt-lbl">${aeEsc(sl.label)}</span>
                 <span class="aev-badge-ok">ACEPTADA</span>
@@ -683,14 +766,14 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         }
         if (st === 'rec') {
             return `
-            <div class="aev-ev-slot aev-ev-slot--rech aev-ev-slot--click" style="position:relative;"` + dataAttr + `>
+            <div class="aev-ev-slot aev-ev-slot--rech aev-ev-slot--click" style="position:relative;"` + dataAttr + titleAttr + `>
                 ${media}
                 <span class="aev-txt-lbl">${aeEsc(sl.label)}</span>
                 <span class="aev-badge-na">RECHAZADA</span>
             </div>`;
         }
         return `
-        <div class="aev-ev-slot aev-ev-slot--pend aev-ev-slot--click" style="position:relative;"` + dataAttr + `>
+        <div class="aev-ev-slot aev-ev-slot--pend aev-ev-slot--click" style="position:relative;"` + dataAttr + titleAttr + `>
             ${media}
             <span class="aev-txt-lbl">${aeEsc(sl.label)}</span>
         </div>`;
@@ -698,7 +781,6 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
 
     function aevRenderBloqueDoc(doc, map) {
         const ev  = map[doc.slotKey];
-        const st  = aevEstadoEvidencia(ev, doc.slotKey);
         if (!ev || !ev.url) {
             return `
             <div class="aev-doc-zone" data-aev-subir="doc_repuve" role="button" tabindex="0" style="cursor:pointer;" title="Solo PDF">
@@ -708,30 +790,14 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             </div>`;
         }
         const tit  = 'Repuve';
-        const dAttr = ' data-aev-ver="' + aeEsc(doc.slotKey) + '" data-aev-lbl="' + aeEsc(tit) + '" ';
         const urlE = aeEsc(aevUrlForDisplay(ev.url));
-        if (st === 'acep') {
-            return `
-            <div class="aev-doc-zone aev-doc-zone--acept aev-doc-zone--click"` + dAttr + ` style="border-style:solid;">
-                <i class="fa-solid fa-file-pdf fa-2x text-success"></i>
-                <div class="fw-bold small" style="color:#14532d;">${aeEsc(tit)}</div>
-                <span class="aev-badge-ok" style="position:static;transform:none;display:inline-block;">ACEPTADA</span>
-            </div>`;
-        }
-        if (st === 'rec') {
-            return `
-            <div class="aev-doc-zone aev-doc-zone--rech aev-doc-zone--click"` + dAttr + ` style="border-style:solid;">
-                <a href="#" data-aev-href="` + urlE + `" target="_blank" rel="noopener" class="small" onclick="event.stopPropagation()">Abrir en pestaña</a>
-                <div class="fw-bold small text-danger">${aeEsc(tit)}</div>
-                <span class="aev-badge-na" style="position:static;transform:none;display:inline-block;">RECHAZADA</span>
-            </div>`;
-        }
         return `
-        <div class="aev-doc-zone aev-doc-zone--click"` + dAttr + ` style="border-color:#f59e0b;border-style:solid;">
-            <i class="fa-solid fa-file-pdf fa-2x text-warning"></i>
-            <a href="#" data-aev-href="` + urlE + `" target="_blank" rel="noopener" class="small" onclick="event.stopPropagation()">Vista previa (nueva pestaña)</a>
-            <div class="fw-bold small">Tocar el bloque para validar</div>
-            <span class="aev-badge-ok" style="position:static;transform:none;background:#f59e0b;">Pendiente</span>
+        <div class="aev-doc-zone aev-doc-zone--acept" data-aev-subir="doc_repuve" role="button" tabindex="0" style="border-style:solid;border-color:#22c55a;background:#f0fdf4;cursor:pointer;">
+            <i class="fa-solid fa-file-pdf fa-2x text-success"></i>
+            <a href="#" data-aev-href="` + urlE + `" target="_blank" rel="noopener" class="small d-block mt-1" onclick="event.stopPropagation()">Abrir PDF en nueva pestaña</a>
+            <div class="fw-bold small mt-1" style="color:#14532d;">${aeEsc(tit)}</div>
+            <div class="small text-muted">PDF en expediente (gestor). Toca para reemplazar.</div>
+            <span class="aev-badge-ok mt-1" style="position:static;transform:none;display:inline-block;background:#15803d;">En expediente</span>
         </div>`;
     }
 
@@ -745,12 +811,14 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const mostrarDoc = aevNueveTodasAceptadas(evl);
 
         let html = '';
+        html += '<p class="aev-ev-hint" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
+
         html += '<div class="aev-ev-progress-wrap">';
         html += '<div class="d-flex justify-content-between align-items-end mb-1 flex-wrap gap-1">';
         html += '<span style="font-size:.75rem;font-weight:700;color:#0f172a;">Progreso de evidencias <span class="text-success">validadas</span> (fotos / video etapas 1–2)</span>';
         html += '<span class="aev-ev-progress-lbl" id="aev-lbl-9">' + vi + ' / ' + AEV_TOTAL_IMAGEN + '</span>';
         html += '</div><div class="aev-ev-progress-bg"><div class="aev-ev-progress-fill" id="aev-fill-9" style="width:' + pct9 + '%;"></div></div>';
-        html += '<p class="small text-muted mt-1 mb-0">PDF Repuve validado: <strong>' + vpdf + ' / 1</strong> · <strong>Total aceptado: ' + vall + ' / ' + AEV_MODAL_TOTAL + '</strong></p>';
+        html += '<p class="small text-muted mt-1 mb-0">PDF Repuve en expediente: <strong>' + vpdf + ' / 1</strong> · <strong>Avance en pantalla: ' + vall + ' / ' + AEV_MODAL_TOTAL + '</strong></p>';
         html += '</div>';
 
         AEV_EV_SECTIONS.forEach(function (sec) { html += aevRenderSeccionValidar(sec, m); });
@@ -780,15 +848,9 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const m = aevMapaPorSlot(_aevStore.det.evidencias);
         const rep = m.doc_repuve;
         if (!rep || !rep.url) return;
-        const stR = aevEstadoEvidencia(rep, 'doc_repuve');
-        if (stR === 'rec') return;
         btn.classList.remove('d-none');
-        if (stR === 'acep') {
-            btn.disabled = false;
-        } else {
-            btn.disabled    = true;
-            btn.setAttribute('title', 'Revisa y acepta el PDF de Repuve para habilitar el envío.');
-        }
+        btn.disabled = false;
+        btn.removeAttribute('title');
     }
 
     function aevSetRowValAtnEnDetalle(slot, valAtn, comentario) {
@@ -802,6 +864,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     }
 
     function aevAplicarVeredictoDesdeVista(ver) {
+        if (_aevVistaCtx.soloAceptada || _aevVistaCtx.soloRechazada) return;
         const s = _aevVistaCtx.slot;
         if (!s) return;
         if (ver === 'acep') { _aevStore.v[s] = 'acep'; }
@@ -829,6 +892,8 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 .then(data => {
                     if (data.success) {
                         aevSetRowValAtnEnDetalle(s, val, coment);
+                        // Recalcula estatus tras cada veredicto para evitar carreras al cerrar rápido el modal.
+                        aevRecalcularDespuesDeVeredicto(opId);
                     } else if (typeof Swal !== 'undefined') {
                         Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: data.message || 'Intenta de nuevo o revisa el servidor (¿migración adj_evidencia?)' });
                     } else {
@@ -852,7 +917,35 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         if (b2 && b2.classList.contains('active')) { aeCargarSeccion('correcciones', true); }
     }
 
+    /**
+     * Tras «Enviar evidencias validadas»: refresca datos sin cambiar la pestaña activa.
+     * Evita brincos automáticos de Bandeja a Aprobados.
+     */
+    function aePostEnviarEvidenciasValidadas() {
+        _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+        aevRecargarPestanaEvidenciasActiva();
+    }
+
+    function aevAplicarRespuestaFinalizar(data) {
+        if (!data || !data.success) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No se actualizó la etapa',
+                    text: (data && data.message) ? String(data.message) : 'Respuesta inválida del servidor.'
+                });
+            }
+            return;
+        }
+        _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+        aevRecargarPestanaEvidenciasActiva();
+    }
+
     function aevOnModalCerrarValidar() {
+        if (_aeFinalizarDebounceTimer) {
+            clearTimeout(_aeFinalizarDebounceTimer);
+            _aeFinalizarDebounceTimer = null;
+        }
         const d = _aevStore.det;
         if (!d || !d.id) { return; }
         const opId = parseInt(d.id, 10);
@@ -860,14 +953,30 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         fetch('/MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body:    JSON.stringify({ id_operacion: opId })
+            body:    JSON.stringify({ id_operacion: opId }),
+            credentials: 'same-origin'
         })
             .then(r => r.json())
-            .then(data => {
-                if (!data.success) { return; }
-                _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
-                aevRecargarPestanaEvidenciasActiva();
-            });
+            .then(data => { aevAplicarRespuestaFinalizar(data); });
+    }
+
+    function aevRecalcularDespuesDeVeredicto(opId) {
+        const id = parseInt(opId, 10);
+        if (id <= 0) return;
+        if (_aeFinalizarDebounceTimer) {
+            clearTimeout(_aeFinalizarDebounceTimer);
+        }
+        _aeFinalizarDebounceTimer = setTimeout(function () {
+            _aeFinalizarDebounceTimer = null;
+            fetch('/MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body:    JSON.stringify({ id_operacion: id }),
+                credentials: 'same-origin'
+            })
+                .then(r => r.json())
+                .then(data => { aevAplicarRespuestaFinalizar(data); });
+        }, 350);
     }
 
     function aeEsc(s) {
@@ -1011,10 +1120,14 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const lista  = document.getElementById(listaId);
         if (!loader || !lista) return;
 
-        loader.style.display = 'block';
-        lista.innerHTML      = '';
+        const primeraCarga = lista.children.length === 0;
+        if (primeraCarga) {
+            loader.style.display = 'block';
+        } else {
+            lista.classList.add('ae-lista-updating');
+        }
 
-        fetch(cfg.url, { headers: { 'Accept': 'application/json' } })
+        fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
@@ -1046,7 +1159,10 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 }
                 aeSetBadgeTab(key, 0);
             })
-            .finally(() => { loader.style.display = 'none'; });
+            .finally(() => {
+                loader.style.display = 'none';
+                lista.classList.remove('ae-lista-updating');
+            });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -1066,7 +1182,13 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const aevBody = document.getElementById('aev-body');
         if (aevBody) {
             aevBody.addEventListener('click', function (ev) {
-                if (ev.target.tagName === 'A') return;
+                const verEl = ev.target.closest('[data-aev-ver]');
+                if (verEl) {
+                    const slot = verEl.getAttribute('data-aev-ver');
+                    const lbl  = verEl.getAttribute('data-aev-lbl') || slot;
+                    aevAbrirVistaEvidencia(slot, lbl);
+                    return;
+                }
                 const sub = ev.target.closest('[data-aev-subir]');
                 if (sub) {
                     const sk = sub.getAttribute('data-aev-subir');
@@ -1074,13 +1196,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                         const inp = document.getElementById('aev-inp-repuve');
                         if (inp) { inp.value = ''; inp.click(); }
                     }
-                    return;
                 }
-                const t = ev.target.closest('[data-aev-ver]');
-                if (!t) return;
-                const slot = t.getAttribute('data-aev-ver');
-                const lbl  = t.getAttribute('data-aev-lbl') || slot;
-                aevAbrirVistaEvidencia(slot, lbl);
             });
         }
         const aevInpRepuve = document.getElementById('aev-inp-repuve');
@@ -1089,8 +1205,6 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 const f = ev.target && ev.target.files && ev.target.files[0];
                 if (ev.target) { ev.target.value = ''; }
                 if (!f || !_aevStore.det || !_aevStore.det.id) return;
-                const m = aevMapaPorSlot(_aevStore.det.evidencias);
-                if (m.doc_repuve && m.doc_repuve.url) return;
                 if (f.type && f.type !== 'application/pdf' && !/\.pdf$/i.test(f.name)) {
                     if (typeof Swal !== 'undefined') {
                         Swal.fire({ icon: 'warning', text: 'Repuve: solo se acepta PDF.' });
@@ -1114,7 +1228,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                             } else { window.alert(data.message || 'Error al subir'); }
                             return;
                         }
-                        return fetch('/MotosAdjudicadas/obtenerDetalle/' + parseInt(_aevStore.det.id, 10), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+                        return fetch('/MotosAdjudicadas/obtenerDetalle/' + parseInt(_aevStore.det.id, 10) + '?incluir_todas=1', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
                             .then(r2 => r2.json());
                     })
                     .then(function (j) {
@@ -1163,9 +1277,48 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const btnEnviar = document.getElementById('aev-btn-enviar');
         if (btnEnviar) {
             btnEnviar.addEventListener('click', function () {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'info', title: 'Enviar evidencias', text: 'El cierre con backend se conectará en un siguiente paso.', confirmButtonColor: '#16a34a' });
-                }
+                if (!_aevStore.det || !_aevStore.det.id) return;
+                const opId = parseInt(_aevStore.det.id, 10);
+                if (opId <= 0) return;
+                btnEnviar.disabled = true;
+                fetch('/MotosAdjudicadas/enviarEvidenciasValidadasAtencion', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body:    JSON.stringify({ id_operacion: opId }),
+                    credentials: 'same-origin'
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        btnEnviar.disabled = false;
+                        if (!data.success) {
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({ icon: 'warning', title: 'No se pudo enviar', text: data.message || 'Revisa que todo esté validado.' });
+                            } else {
+                                window.alert(data.message || 'No se pudo enviar.');
+                            }
+                            return;
+                        }
+                        aePostEnviarEvidenciasValidadas();
+                        const mEl = document.getElementById('modalAevValidarEvidencias');
+                        if (mEl && window.bootstrap) {
+                            const inst = bootstrap.Modal.getInstance(mEl);
+                            if (inst) inst.hide();
+                        }
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Enviado',
+                                text: 'Evidencias enviadas correctamente.',
+                                confirmButtonColor: '#16a34a'
+                            });
+                        }
+                    })
+                    .catch(function () {
+                        btnEnviar.disabled = false;
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo enviar.' });
+                        }
+                    });
             });
         }
     });

@@ -120,7 +120,7 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
-     * GET /MotosAdjudicadas/obtenerDetalle/{id}
+     * GET /MotosAdjudicadas/obtenerDetalle/{id}?incluir_todas=1
      */
     public function obtenerDetalle($id = null)
     {
@@ -136,10 +136,15 @@ class MotosAdjudicadas extends Controller
                 echo json_encode(['success' => false, 'message' => 'Operación no encontrada.']);
                 return;
             }
-            // Pipeline solo muestra evidencias confirmadas por el gestor
-            $detalle['evidencias'] = array_values(
-                array_filter($detalle['evidencias'] ?? [], fn($e) => ($e['estatus'] ?? 'recibido') === 'recibido')
-            );
+            // Pipeline / Kanban: solo filas ya enviadas al pipeline (recibido).
+            // incluir_todas=1 (Atención a clientes, refresco tras subir Repuve): incluye pendiente_envio.
+            $incluirTodas = isset($_GET['incluir_todas'])
+                && ($_GET['incluir_todas'] === '1' || $_GET['incluir_todas'] === 'true');
+            if (!$incluirTodas) {
+                $detalle['evidencias'] = array_values(
+                    array_filter($detalle['evidencias'] ?? [], fn($e) => ($e['estatus'] ?? 'recibido') === 'recibido')
+                );
+            }
             echo json_encode(['success' => true, 'detalle' => $detalle]);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -431,7 +436,7 @@ class MotosAdjudicadas extends Controller
 
     /**
      * POST /MotosAdjudicadas/finalizarCierreValidacionEvidenciaAtn
-     * Body JSON: { "id_operacion" } — al cerrar el modal: si hay rechazos, pasa a Revisión Recuperaciones.
+     * Body JSON: { "id_operacion" } — al cerrar el modal: si hay rechazos en medios, pasa a Revisión Recuperaciones (no avanza a Procesando IA).
      */
     public function finalizarCierreValidacionEvidenciaAtn()
     {
@@ -449,6 +454,32 @@ class MotosAdjudicadas extends Controller
 
         try {
             $result = $this->model->finalizarCierreValidacionEvidenciaAtn($idOperacion, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/enviarEvidenciasValidadasAtencion
+     * Body JSON: { "id_operacion" } — único paso a Procesando IA (pestaña Aprobados).
+     */
+    public function enviarEvidenciasValidadasAtencion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body            = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOperacion     = (int) ($body['id_operacion'] ?? 0);
+        $idUsuario       = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario   = trim($_SESSION['usuario_nombre'] ?? 'SISTEMA');
+
+        if ($idOperacion <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de operación inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->enviarEvidenciasValidadasAtencion($idOperacion, $idUsuario, $nombreUsuario);
             echo json_encode($result);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);

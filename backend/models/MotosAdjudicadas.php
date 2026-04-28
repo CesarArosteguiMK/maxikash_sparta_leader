@@ -13,6 +13,9 @@ class MotosAdjudicadas extends Model
     /** @var null|bool null = aún no comprobado, true = existen val_atn/comentario_atn */
     private static $adjEvidenciaAtnColumnas = null;
 
+    /** @var null|bool columna adj_operacion.atencion_envio_validado */
+    private static $adjOperacionEnvioAtencionCol = null;
+
     public function __construct()
     {
         $this->db = new Database();
@@ -20,6 +23,7 @@ class MotosAdjudicadas extends Model
 
     /**
      * true si en adj_evidencia existen val_atn y comentario_atn (migración aplicada).
+     * Prueba con SELECT directo: information_schema a veces no está permitido para el usuario MySQL.
      */
     private function adjEvidenciaTieneColumnasAtn(): bool
     {
@@ -27,19 +31,38 @@ class MotosAdjudicadas extends Model
             return self::$adjEvidenciaAtnColumnas;
         }
         try {
-            $row = $this->db->queryOne(
-                "SELECT 1 AS ok
-                 FROM information_schema.COLUMNS
-                 WHERE TABLE_SCHEMA = DATABASE()
-                   AND TABLE_NAME = 'adj_evidencia'
-                   AND COLUMN_NAME = 'val_atn'
-                 LIMIT 1"
-            );
-            self::$adjEvidenciaAtnColumnas = (bool) ($row && (int) ($row['ok'] ?? 0) === 1);
-        } catch (\Exception $e) {
+            $this->db->queryOne('SELECT val_atn, comentario_atn FROM adj_evidencia LIMIT 1');
+            self::$adjEvidenciaAtnColumnas = true;
+        } catch (\Throwable $e) {
             self::$adjEvidenciaAtnColumnas = false;
         }
         return self::$adjEvidenciaAtnColumnas;
+    }
+
+    /** Etapa «Correcciones» en evidencias (pipeline). */
+    private function esEstatusRevisionRecuperaciones(string $estatus): bool
+    {
+        $e = trim($estatus);
+
+        return $e === 'Revisión Recuperaciones';
+    }
+
+    /**
+     * true si existe adj_operacion.atencion_envio_validado (migración 20260427_adj_operacion_atencion_envio.sql).
+     * Se prueba con SELECT directo: information_schema a veces no está permitido para el usuario MySQL.
+     */
+    public function adjOperacionTieneColumnaEnvioAtencion(): bool
+    {
+        if (self::$adjOperacionEnvioAtencionCol !== null) {
+            return self::$adjOperacionEnvioAtencionCol;
+        }
+        try {
+            $this->db->queryOne('SELECT atencion_envio_validado FROM adj_operacion LIMIT 1');
+            self::$adjOperacionEnvioAtencionCol = true;
+        } catch (\Throwable $e) {
+            self::$adjOperacionEnvioAtencionCol = false;
+        }
+        return self::$adjOperacionEnvioAtencionCol;
     }
 
     // =========================================================================
@@ -546,8 +569,18 @@ class MotosAdjudicadas extends Model
         'doc_factura'   => 'FACTURA',
     ];
 
+    /** Fotos/video que sí se dictaminan (aceptar/rechazar) en Atención a clientes. */
+    private const SLOTS_VALIDACION_ATENCION_MEDIA = [
+        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+    ];
+
+    /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atención. */
+    private const SLOT_REPVE_ATENCION = 'doc_repuve';
+
     private const ESTATUS_VALIDOS = [
         'Recibido',
+        'en_transito',
         'Procesando IA',
         'Revisión Recuperaciones',
         'Retenciones',
@@ -916,11 +949,14 @@ class MotosAdjudicadas extends Model
         }
         $comentario = mb_substr(trim($comentario), 0, 2000);
         $row = $this->db->queryOne(
-            'SELECT id FROM adj_evidencia WHERE id = :eid AND id_operacion = :op LIMIT 1',
+            'SELECT id, slot FROM adj_evidencia WHERE id = :eid AND id_operacion = :op LIMIT 1',
             ['eid' => $idEvidencia, 'op' => $idOperacion]
         );
         if (!$row) {
             return ['success' => false, 'message' => 'Evidencia no encontrada.'];
+        }
+        if (($row['slot'] ?? '') === self::SLOT_REPVE_ATENCION) {
+            return ['success' => false, 'message' => 'Repuve no se valida con aceptar/rechazar en Atención (solo subir PDF).'];
         }
         $this->db->CRUD(
             'UPDATE adj_evidencia SET val_atn = :v, comentario_atn = :c
@@ -943,10 +979,115 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * Si hay al menos una evidencia con val_atn = 2, mueve la operación a "Revisión Recuperaciones"
-     * (p. ej. cierre del modal de validar evidencias en Atención a clientes).
+     * Listo para enviar a Procesando IA: 9 evidencias media con val_atn = 1 y Repuve con archivo en expediente (no dictamina Repuve).
+     */
+    public function operacionTieneValidacionAtencionCompleta(int $idOperacion): bool
+    {
+        if (!$this->adjEvidenciaTieneColumnasAtn()) {
+            return false;
+        }
+        $rows = $this->db->queryAll(
+            'SELECT slot, val_atn, url FROM adj_evidencia WHERE id_operacion = :id',
+            ['id' => $idOperacion]
+        ) ?: [];
+        $bySlot = [];
+        foreach ($rows as $r) {
+            $sk = (string) ($r['slot'] ?? '');
+            if ($sk !== '') {
+                $bySlot[$sk] = $r;
+            }
+        }
+        foreach (self::SLOTS_VALIDACION_ATENCION_MEDIA as $slot) {
+            if (!isset($bySlot[$slot])) {
+                return false;
+            }
+            $url = trim((string) ($bySlot[$slot]['url'] ?? ''));
+            if ($url === '') {
+                return false;
+            }
+            $va = (int) ($bySlot[$slot]['val_atn'] ?? 0);
+            if ($va !== 1) {
+                return false;
+            }
+        }
+        if (!isset($bySlot[self::SLOT_REPVE_ATENCION])) {
+            return false;
+        }
+        $urlRep = trim((string) ($bySlot[self::SLOT_REPVE_ATENCION]['url'] ?? ''));
+
+        return $urlRep !== '';
+    }
+
+    /**
+     * Atención a clientes: botón "Enviar evidencias validadas" → Procesando IA (pestaña Aprobados).
+     * No se llama automáticamente al cerrar el modal ni al guardar veredictos.
      *
-     * @return array{success:bool, message?:string, rechazos?:int, enviado_a_correcciones?:bool}
+     * @return array{success:bool, message?:string}
+     */
+    public function enviarEvidenciasValidadasAtencion(int $idOperacion, int $idUsuario, string $nombreUsuario = ''): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'ID de operación inválido.'];
+        }
+        if (!$this->operacionTieneValidacionAtencionCompleta($idOperacion)) {
+            return ['success' => false, 'message' => 'Faltan fotos/video por validar o el PDF de Repuve en expediente.'];
+        }
+        $op = $this->db->queryOne('SELECT id, estatus FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
+        if (!$op) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+        $est = (string) ($op['estatus'] ?? '');
+
+        $yaEnviado = false;
+        if ($this->adjOperacionTieneColumnaEnvioAtencion()) {
+            $f = $this->db->queryOne(
+                'SELECT atencion_envio_validado AS v FROM adj_operacion WHERE id = :id LIMIT 1',
+                ['id' => $idOperacion]
+            );
+            $yaEnviado = ((int) ($f['v'] ?? 0) === 1);
+        }
+        if (!$yaEnviado) {
+            $b = $this->db->queryOne(
+                "SELECT 1 AS ok
+                 FROM adj_bitacora
+                 WHERE id_operacion = :id
+                   AND accion LIKE :a
+                 LIMIT 1",
+                ['id' => $idOperacion, 'a' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']
+            );
+            $yaEnviado = (bool) ($b && (int) ($b['ok'] ?? 0) === 1);
+        }
+        if ($yaEnviado) {
+            return ['success' => false, 'message' => 'Esta operación ya fue enviada.'];
+        }
+
+        $previos = ['Recibido', 'en_transito', 'Revisión Recuperaciones', 'Procesando IA'];
+        if (!in_array($est, $previos, true)) {
+            return ['success' => false, 'message' => 'Esta operación no está en etapa para este paso.'];
+        }
+        if ($est !== 'Procesando IA') {
+            $r = $this->cambiarEstatus($idOperacion, 'Procesando IA', $idUsuario, $nombreUsuario);
+            if (empty($r['success'])) {
+                return $r;
+            }
+        }
+        if ($this->adjOperacionTieneColumnaEnvioAtencion()) {
+            $this->db->CRUD(
+                'UPDATE adj_operacion SET atencion_envio_validado = 1 WHERE id = :id',
+                ['id' => $idOperacion]
+            );
+        }
+        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS VALIDADAS (PROCESANDO IA)', $idUsuario, $nombreUsuario);
+
+        return ['success' => true];
+    }
+
+    /**
+     * Si hay al menos una evidencia con val_atn = 2, mueve la operación a "Revisión Recuperaciones".
+     * Si ya no hay rechazos y estaba en "Revisión Recuperaciones", regresa a bandeja (Recibido/en_transito),
+     * salvo que ya esté enviada desde Atención, caso en el que vuelve a "Procesando IA".
+     *
+     * @return array{success:bool, message?:string, rechazos?:int, enviado_a_correcciones?:bool, regresado_de_correcciones?:bool}
      */
     public function finalizarCierreValidacionEvidenciaAtn(int $idOperacion, int $idUsuario, string $nombreUsuario = ''): array
     {
@@ -957,39 +1098,92 @@ class MotosAdjudicadas extends Model
         if (!$op) {
             return ['success' => false, 'message' => 'Operación no encontrada.'];
         }
-        if (!$this->adjEvidenciaTieneColumnasAtn()) {
+        $estatus = trim((string) ($op['estatus'] ?? ''));
+
+        $n = 0;
+        if ($this->adjEvidenciaTieneColumnasAtn()) {
+            $countRow = $this->db->queryOne(
+                'SELECT COUNT(*) AS c FROM adj_evidencia
+                 WHERE id_operacion = :id AND val_atn = 2
+                   AND IFNULL(slot, \'\') <> :slot_rep',
+                ['id' => $idOperacion, 'slot_rep' => self::SLOT_REPVE_ATENCION]
+            );
+            $n = (int) ($countRow['c'] ?? 0);
+        }
+
+        if ($n > 0) {
+            $enviado = false;
+            if (!$this->esEstatusRevisionRecuperaciones($estatus)) {
+                $r = $this->cambiarEstatus($idOperacion, 'Revisión Recuperaciones', $idUsuario, $nombreUsuario);
+                if (empty($r['success'])) {
+                    return $r;
+                }
+                $enviado = true;
+            }
             return [
-                'success'                => true,
-                'rechazos'               => 0,
-                'enviado_a_correcciones' => false,
+                'success'                 => true,
+                'rechazos'                => $n,
+                'enviado_a_correcciones' => $enviado,
             ];
         }
-        $countRow = $this->db->queryOne(
-            'SELECT COUNT(*) AS c FROM adj_evidencia
-             WHERE id_operacion = :id AND val_atn = 2',
-            ['id' => $idOperacion]
-        );
-        $n = (int) ($countRow['c'] ?? 0);
-        if ($n <= 0) {
-            return [
-                'success'                  => true,
-                'rechazos'                 => 0,
-                'enviado_a_correcciones'  => false,
-            ];
-        }
-        $estatus = (string) ($op['estatus'] ?? '');
-        $enviado  = false;
-        if ($estatus !== 'Revisión Recuperaciones') {
-            $r = $this->cambiarEstatus($idOperacion, 'Revisión Recuperaciones', $idUsuario, $nombreUsuario);
+
+        $regresado = false;
+        if ($this->esEstatusRevisionRecuperaciones($estatus)) {
+            $destino = 'Recibido';
+            $yaEnviadoAtencion = false;
+
+            if ($this->adjOperacionTieneColumnaEnvioAtencion()) {
+                $f = $this->db->queryOne(
+                    'SELECT atencion_envio_validado AS v FROM adj_operacion WHERE id = :id LIMIT 1',
+                    ['id' => $idOperacion]
+                );
+                $yaEnviadoAtencion = ((int) ($f['v'] ?? 0) === 1);
+            }
+            if (!$yaEnviadoAtencion) {
+                $b = $this->db->queryOne(
+                    "SELECT 1 AS ok
+                     FROM adj_bitacora
+                     WHERE id_operacion = :id
+                       AND accion LIKE :a
+                     LIMIT 1",
+                    ['id' => $idOperacion, 'a' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']
+                );
+                $yaEnviadoAtencion = (bool) ($b && (int) ($b['ok'] ?? 0) === 1);
+            }
+
+            if ($yaEnviadoAtencion) {
+                $destino = 'Procesando IA';
+            } else {
+                $prev = $this->db->queryOne(
+                    "SELECT estatus_anterior
+                     FROM adj_historial_estatus
+                     WHERE id_operacion = :id
+                       AND estatus_nuevo = 'Revisión Recuperaciones'
+                     ORDER BY id DESC
+                     LIMIT 1",
+                    ['id' => $idOperacion]
+                );
+                $estPrevio = trim((string) ($prev['estatus_anterior'] ?? ''));
+                if (in_array($estPrevio, ['Recibido', 'en_transito'], true)) {
+                    $destino = $estPrevio;
+                } elseif ($estPrevio === 'Procesando IA') {
+                    // Kanban u otro flujo: volver a bandeja (no Procesando IA sin envío desde Atención).
+                    $destino = 'Recibido';
+                }
+            }
+
+            $r = $this->cambiarEstatus($idOperacion, $destino, $idUsuario, $nombreUsuario);
             if (empty($r['success'])) {
                 return $r;
             }
-            $enviado = true;
+            $regresado = true;
         }
+
         return [
-            'success'                 => true,
-            'rechazos'                => $n,
-            'enviado_a_correcciones' => $enviado,
+            'success'                   => true,
+            'rechazos'                  => 0,
+            'enviado_a_correcciones'    => false,
+            'regresado_de_correcciones' => $regresado,
         ];
     }
 }
