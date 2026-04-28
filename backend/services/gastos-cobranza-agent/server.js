@@ -49,7 +49,14 @@ const express = require('express');
 
 const PORT = process.env.PORT || 3120;
 const API_KEY = process.env.API_KEY || '';
-const REPORTE_PYTHON = (process.env.REPORTE_PYTHON || 'python').trim();
+function resolveReportePython() {
+  const fromEnv = String(process.env.REPORTE_PYTHON || '').trim();
+  if (fromEnv) return fromEnv;
+  const winDefault = 'C:\\Program Files\\Python314\\python.exe';
+  if (process.platform === 'win32' && fs.existsSync(winDefault)) return winDefault;
+  return 'python';
+}
+const REPORTE_PYTHON = resolveReportePython();
 const SCRIPT_BUNDLED = path.join(__dirname, 'scripts', 'reporte_cobranza.py');
 const SCRIPT_CARGA_VERIFICACION = path.join(
   __dirname,
@@ -76,7 +83,7 @@ function getCronjobsGcMap() {
     insertar_mora_martes: {
       key: 'insertar_mora_martes',
       scriptPath: SCRIPT_CRON_INSERTAR_MORAS_MARTES,
-      titulo: 'Insertar mora martes',
+      titulo: 'Insertar moras martes',
     },
     detectar_gdc_liquidados: {
       key: 'detectar_gdc_liquidados',
@@ -1797,7 +1804,7 @@ app.post('/cronjobs-gc/run', express.json({ limit: '32kb' }), (req, res) => {
 
   cronjobsGcBusy = true;
   const php = resolvePhpExe();
-  const args = ['-d', 'output_buffering=0', '-d', 'implicit_flush=1', meta.scriptPath, '--no-webhook'];
+  const args = ['-d', 'output_buffering=0', '-d', 'implicit_flush=1', meta.scriptPath];
   const startedAtMs = Date.now();
   appendLog(`--- cronjobs-gc inicio proceso=${meta.key} php=${php} script=${meta.scriptPath} ---`);
   const child = spawn(php, args, {
