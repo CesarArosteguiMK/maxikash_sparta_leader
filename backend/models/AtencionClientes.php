@@ -275,9 +275,48 @@ SQL;
         return $this->listarOperacionesAdjPorEstatus('Cierre Documentado');
     }
 
+    /**
+     * 5.- Recepción — bandeja: operaciones ya en etapa Recepción y también las que siguen en
+     * Cierre documentado pero ya tienen dictamen (mismas que Dictaminado en vista 4), para gestionar
+     * ingreso a almacén antes del cierre formal en S2 si aplica.
+     */
     public function obtenerRecuperacionRecepcion(): array
     {
-        return $this->listarOperacionesAdjPorEstatus('Recepción');
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.telefono_contacto,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre,
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+        FROM adj_operacion o
+        {$joinAsig}
+        WHERE (
+            o.estatus = 'Recepción'
+            OR (
+                o.estatus = 'Cierre Documentado'
+                AND EXISTS (
+                    SELECT 1 FROM adj_dictamen d WHERE d.id_operacion = o.id
+                )
+            )
+        )
+        ORDER BY o.fecha_alta ASC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
     }
 
     /**

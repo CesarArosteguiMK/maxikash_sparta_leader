@@ -488,7 +488,7 @@ class MotosAdjudicadas extends Controller
 
     /**
      * POST /MotosAdjudicadas/confirmarCierreDocumentacionEnS2
-     * Body JSON: { "id_operacion": 12 } — vista 4 Cartera confirma alta del cierre en S2.
+     * Body JSON: { "id_operacion": 12 } — vista 4: confirma cierre en S2 y envía la operación a Recepción (vista 5).
      */
     public function confirmarCierreDocumentacionEnS2()
     {
