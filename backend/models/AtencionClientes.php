@@ -133,8 +133,9 @@ SQL;
     }
 
     /**
-     * Pestaña Bandeja de entrada — operaciones aún no enviadas desde Atención.
-     * Si la columna atencion_envio_validado no existe, usa bitácora como respaldo.
+     * Pestaña Bandeja de entrada (Evidencias): solo operaciones que ya pasaron por
+     * «Enviar evidencias» en Mis adjudicaciones (bitácora ENVIÓ EVIDENCIAS AL PIPELINE).
+     * Hasta entonces no deben aparecer aquí aunque estén en Recibido / en tránsito / etc.
      */
     public function obtenerRecibidos(): array
     {
@@ -173,6 +174,12 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE {$where}
+          AND EXISTS (
+              SELECT 1
+              FROM adj_bitacora b
+              WHERE b.id_operacion = o.id
+                AND b.accion LIKE '%AL PIPELINE%'
+          )
         ORDER BY o.fecha_alta ASC
         SQL;
 

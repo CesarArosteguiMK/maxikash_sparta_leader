@@ -27,6 +27,9 @@ class Reporteria extends Controller
     private const MODULO_PP_PROXIMA_SEMANA = 67;
     private const MODULO_PP_HISTORICO = 68;
 
+    /** Usuario que puede ejecutar copia + purga histórico primeros pagos desde la UI (solo este id). */
+    private const USUARIO_PIPELINE_HISTO_PRIMEROS_DESDE_SEGUNDOMETRO = 878;
+
     /** @return list<int> */
     private function modulosSesionInt(): array
     {
@@ -52,6 +55,11 @@ class Reporteria extends Controller
     private function puedeAccederPrimerosPagosHistorico(): bool
     {
         return in_array(self::MODULO_PP_HISTORICO, $this->modulosSesionInt(), true);
+    }
+
+    private function puedeMostrarBotonPipelineHistoPrimerosDesdeSegundometro(): bool
+    {
+        return (int) ($_SESSION['usuario_id'] ?? 0) === self::USUARIO_PIPELINE_HISTO_PRIMEROS_DESDE_SEGUNDOMETRO;
     }
 
     /**
@@ -1772,7 +1780,109 @@ class Reporteria extends Controller
     {
         self::set('titulo', 'Primeros pagos — Histórico por semana');
         self::set('script', '');
+        self::set('pph_btn_pipeline_histo', $this->puedeMostrarBotonPipelineHistoPrimerosDesdeSegundometro());
         self::render('reporte_primeros_pagos_historico');
+    }
+
+    /**
+     * POST JSON: copia desde `tbl_segundometro_histo` → `tbl_histo_primeros_pagos` y purga fuera de cartera.
+     * Solo usuario {@see USUARIO_PIPELINE_HISTO_PRIMEROS_DESDE_SEGUNDOMETRO}; requiere módulo histórico (68).
+     *
+     * Body: { "semanas": ["Semana 18-2026", ...] } o { "semana": "Semana 18-2026", "replace_dest": true }
+     */
+    public function postPrimerosPagosHistoricoPipeline()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if (!isset($_SESSION['login'])) {
+            http_response_code(401);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Sesión no válida.']);
+
+            return;
+        }
+        if (!$this->puedeMostrarBotonPipelineHistoPrimerosDesdeSegundometro()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'No autorizado.']);
+
+            return;
+        }
+        if (!$this->puedeAccederPrimerosPagosHistorico()) {
+            http_response_code(403);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Sin acceso al histórico de primeros pagos.']);
+
+            return;
+        }
+
+        $raw = file_get_contents('php://input');
+        $body = json_decode((string) $raw, true);
+        if (!is_array($body)) {
+            $body = [];
+        }
+        $semanas = $body['semanas'] ?? null;
+        if (!is_array($semanas)) {
+            $una = trim((string) ($body['semana'] ?? ''));
+            $semanas = $una !== '' ? [$una] : [];
+        }
+        $limpio = [];
+        foreach ($semanas as $s) {
+            $t = trim((string) $s);
+            if ($t !== '' && !isset($limpio[$t])) {
+                $limpio[$t] = true;
+            }
+        }
+        $semanas = array_keys($limpio);
+        if ($semanas === []) {
+            http_response_code(400);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Indique al menos una etiqueta SEMANA (ej. Semana 18-2026).']);
+
+            return;
+        }
+
+        $replaceDest = !empty($body['replace_dest']);
+
+        try {
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(600);
+            }
+            @ini_set('max_execution_time', '600');
+
+            $copia = PrimerosPagosHistoricoSegundometro::copiarDesdeSegundometroHistoHaciaPrimerosPagos($semanas, false, [
+                'replace_dest' => $replaceDest,
+            ]);
+            if (!($copia['success'] ?? false)) {
+                http_response_code(422);
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => (string) ($copia['mensaje'] ?? $copia['error'] ?? 'Error en la copia.'),
+                    'copia' => $copia,
+                ]);
+
+                return;
+            }
+
+            $purga = PrimerosPagosHistoricoSegundometro::purgarFilasFueraCarteraHistorico(false, null, []);
+            if (!($purga['success'] ?? false)) {
+                http_response_code(500);
+                self::respuestaJSON([
+                    'success' => false,
+                    'mensaje' => (string) ($purga['error'] ?? 'Error en la purga.'),
+                    'copia' => $copia,
+                    'purga' => $purga,
+                ]);
+
+                return;
+            }
+
+            self::respuestaJSON([
+                'success' => true,
+                'mensaje' => 'Copia y purga completadas.',
+                'copia' => $copia,
+                'purga' => $purga,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Reporteria::postPrimerosPagosHistoricoPipeline -> ' . $e->getMessage());
+            http_response_code(500);
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Error al ejecutar el proceso.']);
+        }
     }
 
     /**

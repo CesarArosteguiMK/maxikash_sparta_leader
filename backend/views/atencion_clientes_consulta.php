@@ -72,7 +72,72 @@
 }
 
 .ac-card-body {
-    padding: .72rem 1rem .62rem;
+    padding: .62rem .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+}
+.ae-list-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(210px, 1fr) minmax(320px, 1.35fr) minmax(210px, 1fr);
+    gap: .25rem 1rem;
+}
+.ae-list-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+}
+.ae-list-cell .ac-lbl {
+    color: #6b7280;
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    line-height: 1.1;
+}
+.ae-list-cell .ac-val {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: .82rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ae-estatus-dict .ac-val {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+}
+.ae-main-meta {
+    display: flex;
+    flex-direction: column;
+    gap: .28rem;
+}
+.ae-main-folio {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #b45309;
+}
+.ae-main-credito {
+    font-size: .84rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+.ae-list-nombre .ac-val { text-transform: uppercase; }
+.ae-list-muted {
+    color: #9ca3af;
+    font-style: italic;
+    font-weight: 500;
+}
+.ae-list-action {
+    min-width: 142px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .ac-detail-row {
     display: flex;
@@ -196,6 +261,30 @@ body.dark-mode .ac-resumen-lbl        { color: #94a3b8; }
 body.dark-mode .ac-resumen-val        { color: #e2e8f0; }
 body.dark-mode .ac-badge-transito     { background: rgba(30,64,175,.35); color: #93c5fd; }
 body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: #fca5a5; }
+body.dark-mode .ae-list-cell .ac-lbl { color: #94a3b8; }
+body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
+body.dark-mode .ae-list-muted { color: #64748b; }
+body.dark-mode .ae-main-folio { color: #fcd34d; }
+body.dark-mode .ae-main-credito { color: #e2e8f0; }
+
+@media (max-width: 991.98px) {
+    .ae-list-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+@media (max-width: 767.98px) {
+    .ac-card-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ae-list-grid {
+        grid-template-columns: 1fr;
+    }
+    .ae-list-action {
+        justify-content: flex-end;
+        margin-top: .2rem;
+    }
+}
 </style>
 
 <div class="container-fluid py-4">
@@ -217,7 +306,7 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
                     <button class="nav-link active" id="tab-entrantes-btn"
                             data-bs-toggle="tab" data-bs-target="#tabEntrantes"
                             type="button" role="tab">
-                        <i class="fa-solid fa-inbox me-1"></i>Entrantes
+                        <i class="fa-solid fa-inbox me-1"></i>Bandeja de entrada
                         <span class="badge bg-label-primary ms-1" id="ac-badge-entrantes" style="display:none;"></span>
                     </button>
                 </li>
@@ -510,33 +599,45 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
     // RENDER CARD — ENTRANTE
     // ──────────────────────────────────────────────────────────────────
     function acRenderCardEntrante(item) {
+        const g  = item.gestor_nombre
+            ? acEsc(item.gestor_nombre)
+            : '<span class="ae-list-muted">Sin asignar</span>';
+        const fa = item.fecha_asignacion
+            ? acEsc(item.fecha_asignacion)
+            : '<span class="ae-list-muted">—</span>';
+        const nombreCliente = item.nombre_cliente
+            ? acEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? acEsc(item.folio) : '—';
+        const idOp = parseInt(item.id, 10) || 0;
+
         return `
         <div class="ac-card">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${acEsc(String(item.id_credito))}
-                    <small>${acEsc(item.nombre_cliente)}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">
-                    ${acEsc(item.folio)}
-                </span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${item.gestor_nombre ? acEsc(item.gestor_nombre) : '<span class="text-muted fst-italic">Sin asignar</span>'}</span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${acEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Asignación realizada</span>
+                        <span class="ac-val">${fa}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Asignación realizada</span>
-                    <span class="ac-val">${item.fecha_asignacion ? acEsc(item.fecha_asignacion) : '<span class="text-muted fst-italic">—</span>'}</span>
+                <div class="ae-list-action">
+                    <button type="button" class="ac-btn-dictaminar"
+                            onclick="acAbrirDictaminar(${idOp})" ${idOp ? '' : 'disabled'}>
+                        <i class="fa-solid fa-phone-volume me-1"></i>Dictaminar
+                    </button>
                 </div>
-            </div>
-            <div class="ac-card-footer">
-                <button type="button" class="ac-btn-dictaminar"
-                        onclick="acAbrirDictaminar(${item.id})">
-                    <i class="fa-solid fa-phone-volume me-1"></i>Dictaminar
-                </button>
             </div>
         </div>`;
     }
@@ -552,40 +653,54 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
             ? `<span class="ac-badge-transito"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>`
             : `<span class="ac-badge-cancelado"><i class="fa-solid fa-ban me-1"></i>Cancelado</span>`;
 
+        const dictTxt = item.dictamen
+            ? acEsc(item.dictamen)
+            : '<span class="ae-list-muted">—</span>';
+        const fechaD = item.fecha_dictamen
+            ? acEsc(item.fecha_dictamen)
+            : '<span class="ae-list-muted">—</span>';
+        const g = item.gestor_nombre
+            ? acEsc(item.gestor_nombre)
+            : '<span class="ae-list-muted">Sin asignar</span>';
+        const nombreCliente = item.nombre_cliente
+            ? acEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? acEsc(item.folio) : '—';
+
         return `
         <div class="ac-card ${extraClass}">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${acEsc(String(item.id_credito))}
-                    <small>${acEsc(item.nombre_cliente)}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">
-                    ${acEsc(item.folio)}
-                </span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Estatus dictamen</span>
-                    <span class="ac-val">${badgeHtml}</span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${acEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Fecha dictamen</span>
+                        <span class="ac-val">${fechaD}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-estatus-dict">
+                        <span class="ac-lbl">Estatus dictamen</span>
+                        <span class="ac-val">${badgeHtml}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Dictamen</span>
+                        <span class="ac-val">${dictTxt}</span>
+                    </div>
+                    ${item.comentarios ? `
+                    <div class="ae-list-cell" style="grid-column: 1 / -1;">
+                        <span class="ac-lbl">Comentarios</span>
+                        <span class="ac-val" style="white-space:pre-line;">${acEsc(item.comentarios)}</span>
+                    </div>` : ''}
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Dictamen</span>
-                    <span class="ac-val">${item.dictamen ? acEsc(item.dictamen) : '<span class="text-muted fst-italic">—</span>'}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${item.gestor_nombre ? acEsc(item.gestor_nombre) : '<span class="text-muted fst-italic">Sin asignar</span>'}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Fecha dictamen</span>
-                    <span class="ac-val">${item.fecha_dictamen ? acEsc(item.fecha_dictamen) : '<span class="text-muted fst-italic">—</span>'}</span>
-                </div>
-                ${item.comentarios ? `
-                <div class="ac-detail-row" style="align-items:flex-start;">
-                    <span class="ac-lbl">Comentarios</span>
-                    <span class="ac-val" style="white-space:pre-line;">${acEsc(item.comentarios)}</span>
-                </div>` : ''}
             </div>
         </div>`;
     }
