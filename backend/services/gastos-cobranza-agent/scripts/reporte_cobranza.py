@@ -65,11 +65,20 @@ import logging
 import os
 import re
 import shutil
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
+
+# Blindaje de dependencias locales: permite importar paquetes instalados en
+# <raiz-del-agente>/pydeps aunque el servicio corra con otro usuario/perfil.
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_AGENT_ROOT = os.path.normpath(os.path.join(_SCRIPT_DIR, ".."))
+_PYDEPS_DIR = os.path.join(_AGENT_ROOT, "pydeps")
+if os.path.isdir(_PYDEPS_DIR) and _PYDEPS_DIR not in sys.path:
+    sys.path.insert(0, _PYDEPS_DIR)
 
 import pymysql
 import requests
@@ -77,7 +86,6 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Carpeta compartida con el agente Node: excel semanales y log de ejecuciones Python.
 REPORTE_DIR = os.path.normpath(os.path.join(_SCRIPT_DIR, "..", "reporte"))
 os.makedirs(REPORTE_DIR, exist_ok=True)
