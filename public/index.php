@@ -424,6 +424,11 @@ $rutasModulos = [
     'atencionclientes/obtenerrecuperacionentransito' => [64, 65],
     'atencionclientes/cierredocumentacion' => [64, 65],
     'atencionclientes/recepcion' => [64, 65],
+    'atencionclientes/obtenerdictaminadosrecuperacion' => [64, 65],
+    'atencionclientes/obtenerdictaminadoscierredocumentacion' => [64, 65],
+    'atencionclientes/obtenerdictaminadosrecepcion' => [64, 65],
+    'motosadjudicadas/confirmarcierredocumentacionens2' => [64, 65],
+    'motosadjudicadas/enviarrecuperacionacartera' => [64, 65],
 ];
 $controladoresModulos = [
     'segundometro' => [16],

@@ -155,6 +155,42 @@ class AtencionClientes extends Controller
         }
     }
 
+    public function obtenerDictaminadosRecuperacion(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerDictaminadosRecuperacionLista();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function obtenerDictaminadosCierreDocumentacion(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerOperacionesDictamenPorEstatusPipeline('Cierre Documentado');
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function obtenerDictaminadosRecepcion(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerOperacionesDictamenPorEstatusPipeline('Recepción');
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     // =========================================================================
     // API: DICTAMINADOS
     // =========================================================================
