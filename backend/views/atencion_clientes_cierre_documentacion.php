@@ -290,11 +290,13 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
 <div class="modal fade" id="modalAcdCierreDocumentacion" tabindex="-1" aria-labelledby="modalAcdCierreDocumentacionLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
+            <div class="modal-header py-2 border-bottom">
+                <h5 class="modal-title mb-0" id="modalAcdCierreDocumentacionLabel">
+                    <i class="fa-solid fa-file-circle-check me-2 text-warning"></i>Cierre documentación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
             <div class="modal-body pt-4 pb-3">
-                <div class="acd-cierre-banner" role="status">
-                    <i class="fa-solid fa-circle-info"></i>
-                    <span>Cartera — Cierre documentado.</span>
-                </div>
                 <p class="text-muted small mb-3" id="acdCierreSubtitulo"></p>
                 <div id="acdCierreLoader" class="text-center py-4 text-muted" style="display:none;">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente…

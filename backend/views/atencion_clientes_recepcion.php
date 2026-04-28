@@ -132,25 +132,24 @@ body.dark-mode .ac-card-footer       { background: #1e1b4b; border-color: #33415
 }
 
 /* Vista expediente almacén (referencia UX jefe) */
-#acr-wrap-principal { transition: opacity .15s ease; }
-#acr-vista-almacen.acr-rcpt-page {
+#modalAcrRecepcionAlmacen .acr-rcpt-page {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size: 15px;
     color: #1a1a1a;
-    background: #f0eeea;
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    margin-top: 0.5rem;
+    background: #fff;
+    border-radius: 0;
+    padding: 1rem;
+    margin-top: 0;
 }
-body.dark-mode #acr-vista-almacen.acr-rcpt-page {
+body.dark-mode #modalAcrRecepcionAlmacen .acr-rcpt-page {
     background: #1e293b;
     color: #e2e8f0;
 }
 .acr-rcpt-page .acr-rcpt-header {
-    background: #1a1a1a;
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
     color: #fff;
     padding: 1rem 1.25rem;
-    border-radius: 10px 10px 0 0;
+    border-radius: .75rem .75rem 0 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -170,7 +169,7 @@ body.dark-mode #acr-vista-almacen.acr-rcpt-page {
     font-family: ui-monospace, monospace;
 }
 .acr-rcpt-badge-rec {
-    background: #c47a00;
+    background: rgba(255,255,255,.16);
     color: #fff;
     font-size: 11px;
     padding: 4px 10px;
@@ -181,9 +180,9 @@ body.dark-mode #acr-vista-almacen.acr-rcpt-page {
 }
 .acr-rcpt-steps {
     display: flex;
-    background: #e8e6e0;
-    border-left: 1px solid rgba(0,0,0,.1);
-    border-right: 1px solid rgba(0,0,0,.1);
+    background: #faf5ff;
+    border-left: 1px solid #e9d5ff;
+    border-right: 1px solid #e9d5ff;
 }
 body.dark-mode .acr-rcpt-steps { background: #334155; }
 .acr-rcpt-step {
@@ -191,17 +190,17 @@ body.dark-mode .acr-rcpt-steps { background: #334155; }
     padding: 10px 6px;
     text-align: center;
     font-size: 11px;
-    color: #888;
-    border-right: 1px solid rgba(0,0,0,.08);
+    color: #64748b;
+    border-right: 1px solid #e9d5ff;
 }
 .acr-rcpt-step:last-child { border-right: none; }
-.acr-rcpt-step.done { color: #2d6a1f; background: #eaf3de; font-weight: 600; }
-.acr-rcpt-step.active { color: #c47a00; background: #fdf3dc; font-weight: 600; }
+.acr-rcpt-step.done { color: #6d28d9; background: #f3e8ff; font-weight: 600; }
+.acr-rcpt-step.active { color: #6d28d9; background: #ede9fe; font-weight: 700; }
 body.dark-mode .acr-rcpt-step.done { background: #14532d; color: #bbf7d0; }
 body.dark-mode .acr-rcpt-step.active { background: #78350f; color: #fde68a; }
 .acr-rcpt-step-num { display: block; font-size: 15px; margin-bottom: 2px; }
 .acr-rcpt-section {
-    border: 1px solid rgba(0,0,0,.1);
+    border: 1px solid #e2e8f0;
     border-top: none;
     background: #fff;
 }
@@ -209,11 +208,11 @@ body.dark-mode .acr-rcpt-section { background: #0f172a; border-color: #334155; }
 .acr-rcpt-section:last-child { border-radius: 0 0 10px 10px; }
 .acr-rcpt-sec-head {
     padding: 12px 1rem;
-    border-bottom: 1px solid rgba(0,0,0,.08);
+    border-bottom: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     gap: 10px;
-    background: #f5f4f1;
+    background: #faf5ff;
 }
 body.dark-mode .acr-rcpt-sec-head { background: #1e293b; }
 .acr-rcpt-sec-title { font-size: 14px; font-weight: 600; margin: 0; }
@@ -222,7 +221,7 @@ body.dark-mode .acr-rcpt-sec-head { background: #1e293b; }
 .acr-rcpt-arrival-btn {
     width: 100%;
     padding: 0.85rem;
-    background: #1a1a1a;
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -233,8 +232,8 @@ body.dark-mode .acr-rcpt-sec-head { background: #1e293b; }
     justify-content: center;
     gap: 8px;
 }
-.acr-rcpt-arrival-btn:hover { background: #2a2a2a; color: #fff; }
-.acr-rcpt-arrival-btn.arrived { background: #2d6a1f; cursor: default; }
+.acr-rcpt-arrival-btn:hover { background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); color: #fff; }
+.acr-rcpt-arrival-btn.arrived { background: #16a34a; cursor: default; }
 .acr-rcpt-ts {
     margin-top: 10px;
     background: #eaf3de;
@@ -267,7 +266,7 @@ body.dark-mode .acr-rcpt-sec-head { background: #1e293b; }
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    background: #f5f4f1;
+    background: #fafafa;
     padding: 6px;
     text-align: center;
 }
@@ -275,8 +274,8 @@ body.dark-mode .acr-rcpt-ev-cell { background: #1e293b; }
 .acr-rcpt-ev-cell:hover { border-color: #c47a00; background: #fdf3dc; }
 body.dark-mode .acr-rcpt-ev-cell:hover { background: #431407; }
 .acr-rcpt-ev-cell.uploaded {
-    border: 2px solid #639922;
-    background: #eaf3de;
+    border: 2px solid #16a34a;
+    background: #f0fdf4;
 }
 .acr-rcpt-ev-label { font-size: 11px; color: #64748b; line-height: 1.25; }
 .acr-rcpt-ev-cell.uploaded .acr-rcpt-ev-label { color: #2d6a1f; font-weight: 600; }
@@ -309,9 +308,9 @@ body.dark-mode .acr-rcpt-ev-cell:hover { background: #431407; }
     padding: 10px 14px;
     border-radius: 6px;
     font-size: 13px;
-    background: #fdf3dc;
-    color: #6b4200;
-    border: 1px solid #e8a820;
+    background: #fffbeb;
+    color: #7c2d12;
+    border: 1px solid #fed7aa;
     margin-bottom: 12px;
 }
 .acr-rcpt-edc-grid {
@@ -321,7 +320,7 @@ body.dark-mode .acr-rcpt-ev-cell:hover { background: #431407; }
     margin-bottom: 12px;
 }
 .acr-rcpt-edc-card {
-    background: #f5f4f1;
+    background: #faf5ff;
     border-radius: 8px;
     padding: 12px;
     border: 1px solid rgba(0,0,0,.08);
@@ -335,7 +334,7 @@ body.dark-mode .acr-rcpt-edc-val { color: #e2e8f0; }
 .acr-rcpt-edc-val.bad { color: #a32d2d; }
 .acr-rcpt-cuotas { width: 100%; border-collapse: collapse; font-size: 13px; }
 .acr-rcpt-cuotas th {
-    background: #f5f4f1;
+    background: #faf5ff;
     padding: 8px 10px;
     text-align: left;
     font-size: 11px;
@@ -354,7 +353,7 @@ body.dark-mode .acr-rcpt-edc-val { color: #e2e8f0; }
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: #f5f4f1;
+    background: #faf5ff;
     border-bottom: 1px solid rgba(0,0,0,.08);
     gap: 8px;
     flex-wrap: wrap;
@@ -365,14 +364,14 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     width: 100%;
     margin-top: 12px;
     padding: 12px;
-    background: #c47a00;
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
     color: #fff;
     border: none;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
 }
-.acr-rcpt-confirm-btn:hover { background: #b36e00; color: #fff; }
+.acr-rcpt-confirm-btn:hover { background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); color: #fff; }
 .acr-rcpt-success-msg {
     display: none;
     margin-top: 10px;
@@ -385,16 +384,17 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     color: #2d6a1f;
 }
 .acr-btn-almacen {
-    background: rgba(255,255,255,.2);
-    border: 1px solid rgba(255,255,255,.35);
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+    border: 1px solid #6d28d9;
     color: #fff;
     font-weight: 700;
     font-size: .8rem;
     padding: .35rem 1rem;
     border-radius: 2rem;
     cursor: pointer;
+    box-shadow: 0 2px 8px rgba(109, 40, 217, 0.25);
 }
-.acr-btn-almacen:hover { background: rgba(255,255,255,.3); color: #fff; }
+.acr-btn-almacen:hover { background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); color: #fff; }
 </style>
 
 <div class="container-fluid py-4">
@@ -446,11 +446,15 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     </div>
     </div><!-- #acr-wrap-principal -->
 
-    <div id="acr-vista-almacen" class="acr-rcpt-page" style="display:none;" aria-hidden="true">
-        <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="acr-btn-volver-almacen">
-            <i class="fa-solid fa-arrow-left me-1"></i>Volver a la bandeja
-        </button>
-
+    <div class="modal fade" id="modalAcrRecepcionAlmacen" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fa-solid fa-warehouse me-2"></i>Recepción en almacén</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="acr-rcpt-page">
         <div class="acr-rcpt-header">
             <div>
                 <h1 class="text-white">Recepción de Moto — Almacén</h1>
@@ -659,6 +663,13 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                 </button>
                 <div class="acr-rcpt-success-msg" id="acr-rcpt-successMsg">
                     <i class="fa-solid fa-check me-1"></i>Recepción registrada (vista demo). Conectar backend cuando defina reglas.
+                </div>
+            </div>
+        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -1002,9 +1013,8 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     }
 
     function acrRcptMostrarVista(btn) {
-        var wrap = document.getElementById('acr-wrap-principal');
-        var vista = document.getElementById('acr-vista-almacen');
-        if (!wrap || !vista) return;
+        var modalEl = document.getElementById('modalAcrRecepcionAlmacen');
+        if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
         var nombre = '';
         var folio = '';
         var gestor = '';
@@ -1036,20 +1046,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         if (sc) sc.textContent = acrFmtMoney(saldo);
         if (ad) ad.textContent = acrFmtMoney(adeudo);
         acrRcptResetVistaDemo();
-        wrap.style.display = 'none';
-        vista.style.display = 'block';
-        vista.setAttribute('aria-hidden', 'false');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function acrRcptOcultarVista() {
-        var wrap = document.getElementById('acr-wrap-principal');
-        var vista = document.getElementById('acr-vista-almacen');
-        if (wrap) wrap.style.display = '';
-        if (vista) {
-            vista.style.display = 'none';
-            vista.setAttribute('aria-hidden', 'true');
-        }
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -1064,15 +1061,19 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
             bd.addEventListener('shown.bs.tab', function () { acrCargarSeccion('dictaminado', false); });
         }
 
-        var btnVol = document.getElementById('acr-btn-volver-almacen');
-        if (btnVol) btnVol.addEventListener('click', acrRcptOcultarVista);
-
         var listaB = document.getElementById('acr-lista-bandeja');
         if (listaB) {
             listaB.addEventListener('click', function (ev) {
                 var b = ev.target.closest('.acr-abrir-almacen');
                 if (!b) return;
                 acrRcptMostrarVista(b);
+            });
+        }
+
+        var modalAlmacen = document.getElementById('modalAcrRecepcionAlmacen');
+        if (modalAlmacen) {
+            modalAlmacen.addEventListener('hidden.bs.modal', function () {
+                acrRcptResetVistaDemo();
             });
         }
 
