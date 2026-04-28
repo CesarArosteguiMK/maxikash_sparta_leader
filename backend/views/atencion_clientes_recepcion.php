@@ -10,20 +10,6 @@
 .acr-header-gradient p  { margin: 0; font-size: 0.9rem; opacity: 0.9; color: #fff; }
 .acr-header-gradient i  { color: #fff; }
 
-.ac-nav-tabs .nav-link {
-    font-weight: 600;
-    color: #475569;
-    border-radius: 0.5rem 0.5rem 0 0;
-    padding: 0.6rem 1.4rem;
-}
-.ac-nav-tabs .nav-link.active {
-    color: #6d28d9;
-    border-bottom-color: #fff !important;
-}
-.ac-nav-tabs .nav-link:hover:not(.active) {
-    color: #6d28d9;
-    background: #faf5ff;
-}
 
 .ac-card {
     border: 1px solid #e2e8f0;
@@ -36,23 +22,24 @@
 }
 .ac-card:hover { box-shadow: 0 4px 18px rgba(124,58,237,.14); }
 .ac-card.acr-card-dict {
-    border-color: #e9d5ff;
-    background: #faf5ff;
+    border-color: #e5e7eb;
+    background: #fff;
 }
 
 .ac-card-header {
-    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
-    padding: 0.75rem 1.25rem;
+    background: #fff;
+    border-bottom: 1px solid #eef2f7;
+    padding: .62rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .75rem;
 }
 .ac-card-header .ac-credito-id {
-    color: #fff;
+    color: #1f2937;
     font-weight: 700;
-    font-size: 1rem;
-    letter-spacing: .3px;
+    font-size: .92rem;
+    letter-spacing: .1px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -60,46 +47,110 @@
     flex: 1;
 }
 .ac-card-header .ac-credito-id small {
-    font-weight: 400;
-    font-size: .75rem;
-    opacity: .9;
+    font-weight: 600;
+    font-size: .7rem;
+    color: #6b7280;
+    opacity: 1;
     margin-left: .35rem;
 }
 
-.ac-card-body { padding: 1.1rem 1.25rem; }
+.ac-card-body {
+    padding: .62rem .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+}
+.ae-list-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(210px, 1fr) minmax(320px, 1.35fr) minmax(210px, 1fr);
+    gap: .25rem 1rem;
+}
+.ae-list-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+}
+.ae-list-cell .ac-lbl {
+    color: #6b7280;
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    line-height: 1.1;
+}
+.ae-list-cell .ac-val {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: .82rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ae-main-meta {
+    display: flex;
+    flex-direction: column;
+    gap: .28rem;
+}
+.ae-main-folio {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #b45309;
+}
+.ae-main-credito {
+    font-size: .84rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+.ae-list-nombre .ac-val { text-transform: uppercase; }
+.ae-list-ev .ac-val { font-weight: 700; }
+.ae-list-muted {
+    color: #9ca3af;
+    font-style: italic;
+    font-weight: 500;
+}
+.ae-list-action {
+    min-width: 142px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .ac-detail-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: .5rem;
-    margin-bottom: .45rem;
-    font-size: .875rem;
+    margin-bottom: .2rem;
+    font-size: .82rem;
 }
 .ac-detail-row:last-child { margin-bottom: 0; }
 .ac-detail-row .ac-lbl {
-    color: #64748b;
-    font-size: .78rem;
+    color: #6b7280;
+    font-size: .7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
     white-space: nowrap;
-    min-width: 140px;
+    min-width: 128px;
 }
 .ac-detail-row .ac-val {
-    color: #1e293b;
-    font-weight: 500;
+    color: #1f2937;
+    font-weight: 600;
 }
 
 .ac-card-footer {
-    border-top: 1px solid #e2e8f0;
-    padding: .75rem 1.25rem;
+    border-top: 1px solid #eef2f7;
+    padding: .55rem .85rem;
     display: flex;
     justify-content: flex-end;
-    background: #faf5ff;
+    background: #fff;
     gap: .5rem;
 }
 
 .acr-btn-pipeline {
-    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);
+    background: #2563eb;
     border: none;
     color: #fff;
     font-weight: 700;
@@ -113,17 +164,55 @@
     text-decoration: none;
     transition: opacity .2s, transform .15s;
 }
-.acr-btn-pipeline:hover  { opacity: .92; transform: translateY(-1px); color: #fff; }
+.acr-btn-pipeline:hover  { opacity: .9; transform: translateY(-1px); color: #fff; }
 .acr-btn-pipeline:active { transform: translateY(0); }
 
-body.dark-mode .ac-nav-tabs .nav-link        { color: #94a3b8; }
-body.dark-mode .ac-nav-tabs .nav-link.active { color: #c4b5fd; border-bottom-color: #1e293b !important; }
-body.dark-mode .ac-nav-tabs .nav-link:hover:not(.active) { background: #3b0764; color: #c4b5fd; }
-body.dark-mode .ac-card              { background: #1e293b; border-color: #334155; }
-body.dark-mode .ac-card.acr-card-dict { background: #1e1b4b; }
+/* Forzar tono de tabs al color propio de Recepción */
+#acrTabNav .nav-link {
+    color: #0f172a;
+}
+#acrTabNav .nav-link.active {
+    background-color: #7c3aed !important;
+    border-color: #7c3aed !important;
+    color: #fff !important;
+}
+#acrTabNav .nav-link:hover:not(.active),
+#acrTabNav .nav-link:focus:not(.active) {
+    color: #7c3aed;
+}
+
+body.dark-mode .ac-card              { background: #111827; border-color: #1f2937; }
+body.dark-mode .ac-card.acr-card-dict { background: #111827; }
 body.dark-mode .ac-detail-row .ac-lbl { color: #94a3b8; }
 body.dark-mode .ac-detail-row .ac-val { color: #e2e8f0; }
-body.dark-mode .ac-card-footer       { background: #1e1b4b; border-color: #334155; }
+body.dark-mode .ac-card-header       { background: #111827; border-color: #1f2937; }
+body.dark-mode .ac-card-header .ac-credito-id { color: #e2e8f0; }
+body.dark-mode .ac-card-header .ac-credito-id small { color: #94a3b8; }
+body.dark-mode .ac-card-footer       { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-list-cell .ac-lbl { color: #94a3b8; }
+body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
+body.dark-mode .ae-list-muted { color: #64748b; }
+body.dark-mode .ae-main-folio { color: #fcd34d; }
+body.dark-mode .ae-main-credito { color: #e2e8f0; }
+
+@media (max-width: 991.98px) {
+    .ae-list-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+@media (max-width: 767.98px) {
+    .ac-card-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ae-list-grid {
+        grid-template-columns: 1fr;
+    }
+    .ae-list-action {
+        justify-content: flex-end;
+        margin-top: .2rem;
+    }
+}
 
 .acr-lista-updating {
     opacity: 0.5;
@@ -410,7 +499,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     <div id="acr-wrap-principal">
     <div class="card shadow-sm">
         <div class="card-body pb-0">
-            <ul class="nav nav-tabs ac-nav-tabs border-0 mb-0" id="acrTabNav" role="tablist">
+            <ul class="nav nav-pills flex-column flex-md-row mb-3 gap-md-0 gap-2 border-0" id="acrTabNav" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="acr-tab-bandeja-btn" type="button" role="tab"
                             data-bs-toggle="tab" data-bs-target="#acrTabBandeja">
@@ -680,7 +769,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
 (function () {
     'use strict';
 
-    const ACR_EV_TOTAL = 10;
+    const ACR_EV_TOTAL = 12;
 
     const ACR_CONFIG = {
         bandeja: {
@@ -717,106 +806,118 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         const ev = parseInt(item.evidencias_count, 10) || 0;
         const g  = item.gestor_nombre
             ? acrEsc(item.gestor_nombre)
-            : '<span class="text-muted fst-italic">Sin asignar</span>';
+            : '<span class="ae-list-muted">Sin asignar</span>';
         const fa = item.fecha_asignacion
             ? acrEsc(item.fecha_asignacion)
-            : '<span class="text-muted fst-italic">—</span>';
-        const est = item.estatus ? acrEsc(item.estatus) : '—';
+            : '<span class="ae-list-muted">—</span>';
+        const est = item.estatus ? acrEsc(item.estatus) : '<span class="ae-list-muted">—</span>';
         const dias = item.dias_en_pipeline != null && item.dias_en_pipeline !== ''
             ? acrEsc(String(item.dias_en_pipeline))
-            : '—';
+            : '<span class="ae-list-muted">—</span>';
+        const nombreCliente = item.nombre_cliente
+            ? acrEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? acrEsc(item.folio) : '—';
 
         return `
         <div class="ac-card">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${acrEsc(String(item.id_credito))}
-                    <small>${acrEsc(item.nombre_cliente || '')}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">${acrEsc(item.folio || '—')}</span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Estatus pipeline</span>
-                    <span class="ac-val">${est}</span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${acrEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Asignación realizada</span>
+                        <span class="ac-val">${fa}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-ev">
+                        <span class="ac-lbl">Evidencias en expediente</span>
+                        <span class="ac-val">${ev} / ${ACR_EV_TOTAL}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Estatus flujo</span>
+                        <span class="ac-val">${est}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Días en flujo</span>
+                        <span class="ac-val">${dias}</span>
+                    </div>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${g}</span>
+                <div class="ae-list-action">
+                    <button type="button" class="acr-btn-almacen acr-abrir-almacen"
+                        data-acr-id-op="${Number(item.id)}"
+                        data-acr-id-credito="${Number(item.id_credito)}"
+                        data-acr-folio="${encodeURIComponent(String(item.folio || ''))}"
+                        data-acr-nombre="${encodeURIComponent(String(item.nombre_cliente || ''))}"
+                        data-acr-gestor="${encodeURIComponent(String(item.gestor_nombre || ''))}"
+                        data-acr-saldo-cap="${encodeURIComponent(String(item.saldo_capital ?? ''))}"
+                        data-acr-adeudo="${encodeURIComponent(String(item.adeudo_total ?? ''))}">
+                        <i class="fa-solid fa-warehouse me-1"></i>Recepción en almacén
+                    </button>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Asignación realizada</span>
-                    <span class="ac-val">${fa}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Evidencias en expediente</span>
-                    <span class="ac-val">${ev} / ${ACR_EV_TOTAL}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Días en pipeline</span>
-                    <span class="ac-val">${dias}</span>
-                </div>
-            </div>
-            <div class="ac-card-footer justify-content-end flex-wrap">
-                <button type="button" class="acr-btn-almacen acr-abrir-almacen"
-                    data-acr-id-op="${Number(item.id)}"
-                    data-acr-id-credito="${Number(item.id_credito)}"
-                    data-acr-folio="${encodeURIComponent(String(item.folio || ''))}"
-                    data-acr-nombre="${encodeURIComponent(String(item.nombre_cliente || ''))}"
-                    data-acr-gestor="${encodeURIComponent(String(item.gestor_nombre || ''))}"
-                    data-acr-saldo-cap="${encodeURIComponent(String(item.saldo_capital ?? ''))}"
-                    data-acr-adeudo="${encodeURIComponent(String(item.adeudo_total ?? ''))}">
-                    <i class="fa-solid fa-warehouse me-1"></i>Recepción en almacén
-                </button>
             </div>
         </div>`;
     }
 
     function acrRenderCardDictaminado(item) {
-        const estPipeline = item.estatus ? acrEsc(item.estatus) : '—';
+        const estPipeline = item.estatus ? acrEsc(item.estatus) : '<span class="ae-list-muted">—</span>';
         const dictTxt = item.dictamen
             ? acrEsc(item.dictamen)
-            : '<span class="text-muted fst-italic">—</span>';
+            : '<span class="ae-list-muted">—</span>';
         const fechaD = item.fecha_dictamen
             ? acrEsc(item.fecha_dictamen)
-            : '<span class="text-muted fst-italic">—</span>';
+            : '<span class="ae-list-muted">—</span>';
         const g = item.gestor_nombre
             ? acrEsc(item.gestor_nombre)
-            : '<span class="text-muted fst-italic">Sin asignar</span>';
+            : '<span class="ae-list-muted">Sin asignar</span>';
+        const nombreCliente = item.nombre_cliente
+            ? acrEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? acrEsc(item.folio) : '—';
 
         return `
         <div class="ac-card acr-card-dict">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${acrEsc(String(item.id_credito))}
-                    <small>${acrEsc(item.nombre_cliente || '')}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">${acrEsc(item.folio || '—')}</span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Estatus pipeline</span>
-                    <span class="ac-val"><span class="badge bg-secondary">${estPipeline}</span></span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${acrEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Fecha dictamen</span>
+                        <span class="ac-val">${fechaD}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-ev">
+                        <span class="ac-lbl">Estatus flujo</span>
+                        <span class="ac-val">${estPipeline}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Dictamen</span>
+                        <span class="ac-val">${dictTxt}</span>
+                    </div>
+                    ${item.comentarios ? `
+                    <div class="ae-list-cell" style="grid-column: 1 / -1;">
+                        <span class="ac-lbl">Comentarios</span>
+                        <span class="ac-val" style="white-space:pre-line;">${acrEsc(item.comentarios)}</span>
+                    </div>` : ''}
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Dictamen</span>
-                    <span class="ac-val">${dictTxt}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${g}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Fecha dictamen</span>
-                    <span class="ac-val">${fechaD}</span>
-                </div>
-                ${item.comentarios ? `
-                <div class="ac-detail-row" style="align-items:flex-start;">
-                    <span class="ac-lbl">Comentarios</span>
-                    <span class="ac-val" style="white-space:pre-line;">${acrEsc(item.comentarios)}</span>
-                </div>` : ''}
             </div>
         </div>`;
     }

@@ -58,6 +58,7 @@ class Perfil extends Controller
         $perfil = $idPersona > 0 ? PerfilDao::getByPersonaId($idPersona) : null;
         $persona = $idPersona > 0 ? PerfilDao::getPersonaById($idPersona) : null;
         $datos = self::mergePerfilPersona($perfil, $persona);
+        $this->set('titulo', 'Ajustes | ' . CONFIGURACION['EMPRESA']);
         $this->set('perfil', $perfil);
         $this->set('datos', $datos);
         self::render('perfil_contenido', false);

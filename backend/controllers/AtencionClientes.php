@@ -181,7 +181,7 @@ class AtencionClientes extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            $datos = $this->model->obtenerOperacionesDictamenPorEstatusPipeline('Cierre Documentado');
+            $datos = $this->model->obtenerDictaminadosCierreDocumentacionLista();
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             http_response_code(500);

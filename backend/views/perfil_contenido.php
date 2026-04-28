@@ -18,15 +18,26 @@ $usernameVal = $datos['username'] ?? '';
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
 <style>
 .pf-mkx .card{border-radius:14px;border:1px solid var(--bs-border-color-translucent, #e2e8f0);}
-.pf-mkx .pf-photo-wrap .pf-preview-circle{width:88px;height:88px;border-radius:50%;overflow:hidden;flex-shrink:0;border:3px solid var(--bs-border-color-translucent);background:#f1f5f9;}
+.pf-mkx .pf-photo-wrap .pf-preview-circle{width:96px;height:96px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid rgba(99,102,241,.24);background:#eef2ff;}
 .pf-mkx .pf-photo-wrap .pf-preview-circle img{width:100%;height:100%;object-fit:cover;display:block;}
 .pf-mkx .pf-photo-wrap .pf-preview-circle{cursor:pointer;}
 .pf-mkx .pf-photo-wrap .pf-preview-circle:hover{opacity:0.9;}
+.pf-mkx .pf-photo-panel-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.pf-mkx .pf-upload-btn{background:#6366f1;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-weight:700;font-size:16px;line-height:1;cursor:pointer;}
+.pf-mkx .pf-upload-btn:hover{background:#5852ec;color:#fff;}
+.pf-mkx .pf-reset-btn{background:#e5e7eb;color:#6b7280;border:none;border-radius:8px;padding:10px 22px;font-weight:700;font-size:16px;line-height:1;cursor:pointer;}
+.pf-mkx .pf-reset-btn:hover{background:#dfe3e8;color:#4b5563;}
+.pf-mkx .pf-file-hint{margin-top:10px;color:#6b7280;font-size:14px;}
 .pf-mkx .pf-field label{font-size:12px;font-weight:600;color:var(--bs-secondary-color);margin-bottom:6px;}
 .pf-mkx .pf-btn{background:#1A52A8;color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:13.5px;font-weight:600;cursor:pointer;}
 .pf-mkx .pf-btn:hover{background:#2563C4;color:#fff;}
 .pf-mkx .pf-flash{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:12px 16px;border-radius:9px;margin-bottom:20px;font-size:13px;}
 body.dark-mode .pf-mkx .pf-flash{background:#14532d;border-color:#166534;color:#86efac;}
+body.dark-mode .pf-mkx .pf-upload-btn{background:#818cf8;}
+body.dark-mode .pf-mkx .pf-upload-btn:hover{background:#6366f1;}
+body.dark-mode .pf-mkx .pf-reset-btn{background:#334155;color:#cbd5e1;}
+body.dark-mode .pf-mkx .pf-reset-btn:hover{background:#475569;color:#e2e8f0;}
+body.dark-mode .pf-mkx .pf-file-hint{color:#94a3b8;}
 .pf-crop-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
 .pf-crop-modal .pf-crop-box{background:var(--bs-body-bg,#fff);border-radius:14px;padding:20px;max-width:520px;width:100%;}
 .pf-crop-modal .pf-crop-container{height:420px;background:#111;}
@@ -58,16 +69,12 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
             <img id="previewFoto" src="<?= htmlspecialchars($fotoPerfil) ?>" alt="Foto de perfil" />
           </div>
           <div class="pf-photo-actions">
-            <label class="form-label mb-1 small fw-semibold">Cambiar foto de perfil</label>
-            <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" id="inputFoto" class="form-control form-control-sm" style="max-width:240px;" />
-            <small class="text-muted d-block mb-2">Podrás elegir el encuadre en círculo antes de guardar.</small>
-            <?php if ($tieneFotoPersonalizada): ?>
-            <form action="/perfil/eliminarFoto" method="post" class="d-inline" onsubmit="return confirm('¿Quieres quitar tu foto de perfil? Se usará la imagen por defecto.');">
-              <button type="submit" class="btn btn-outline-danger btn-sm">
-                <i class="fa-solid fa-trash-can fa-fw me-1"></i>Eliminar foto
-              </button>
-            </form>
-            <?php endif; ?>
+            <div class="pf-photo-panel-actions">
+              <button type="button" class="pf-upload-btn" id="btnSelectFoto">Subir nueva foto</button>
+              <button type="button" class="pf-reset-btn" id="btnResetFoto">Restablecer</button>
+            </div>
+            <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" id="inputFoto" class="d-none" />
+            <div class="pf-file-hint">Permitido JPG, GIF o PNG. Tamaño máximo 800 KB.</div>
           </div>
         </div>
         <div class="row g-3 mb-3">
@@ -159,15 +166,19 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script>
 (function(){
+  document.title = 'Ajustes | <?= addslashes((string) (CONFIGURACION["EMPRESA"] ?? "Sparta Ledger")) ?>';
   var inputFoto = document.getElementById('inputFoto');
   var previewFoto = document.getElementById('previewFoto');
   var cropModal = document.getElementById('cropModal');
   var cropImage = document.getElementById('cropImage');
   var cropCancel = document.getElementById('cropCancel');
   var cropApply = document.getElementById('cropApply');
+  var btnSelectFoto = document.getElementById('btnSelectFoto');
+  var btnResetFoto = document.getElementById('btnResetFoto');
   var fotoBase64 = document.getElementById('fotoBase64');
   var formPerfil = document.getElementById('formPerfil');
   var cropper = null;
+  var originalFoto = previewFoto ? previewFoto.src : '';
 
   function toCircleCanvas(sourceCanvas) {
     var size = Math.min(sourceCanvas.width, sourceCanvas.height);
@@ -186,6 +197,28 @@ body.dark-mode .pf-mkx .pf-readonly.form-control{border-bottom-color:rgba(255,25
   }
 
   if (inputFoto && previewFoto && cropModal && cropImage) {
+    if (btnSelectFoto) {
+      btnSelectFoto.addEventListener('click', function(){
+        inputFoto.click();
+      });
+    }
+    if (btnResetFoto) {
+      btnResetFoto.addEventListener('click', function(){
+        var teniaCambioTemporal = !!fotoBase64.value;
+        var tieneFotoPersonalizada = <?= $tieneFotoPersonalizada ? 'true' : 'false' ?>;
+        fotoBase64.value = '';
+        inputFoto.value = '';
+        previewFoto.src = originalFoto;
+        if (!teniaCambioTemporal && tieneFotoPersonalizada) {
+          var confirmar = window.confirm('¿Quieres quitar tu foto de perfil y volver a la imagen por defecto?');
+          if (confirmar) {
+            formPerfil.action = '/perfil/eliminarFoto';
+            formPerfil.method = 'post';
+            formPerfil.submit();
+          }
+        }
+      });
+    }
     inputFoto.addEventListener('change', function(){
       var f = this.files && this.files[0];
       if (!f || !f.type.match(/^image\//)) return;

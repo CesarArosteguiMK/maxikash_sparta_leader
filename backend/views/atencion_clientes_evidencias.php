@@ -13,101 +13,124 @@
 .ac-header-gradient p  { margin: 0; font-size: 0.9rem; opacity: 0.85; color: #fff; }
 .ac-header-gradient i  { color: #fff; }
 
-/* ── Pestañas (misma base que atencion_clientes_consulta) ── */
-.ac-nav-tabs .nav-link {
-    font-weight: 600;
-    color: #475569;
-    border-radius: 0.5rem 0.5rem 0 0;
-    padding: 0.6rem 1.4rem;
-}
-.ac-nav-tabs .nav-link.active {
-    color: #1d4ed8;
-    border-bottom-color: #fff !important;
-}
-.ac-nav-tabs .nav-link:hover:not(.active) {
-    color: #1d4ed8;
-    background: #eff6ff;
-}
 
 /* ── Cards (misma base que 1.- Retenciones) ── */
 .ac-card {
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.6rem;
     background: #fff;
-    margin-bottom: 1.25rem;
+    margin-bottom: .85rem;
     overflow: hidden;
-    box-shadow: 0 1px 6px rgba(0,0,0,.06);
-    transition: box-shadow .2s;
+    box-shadow: none;
+    transition: background-color .15s ease, border-color .15s ease;
 }
-.ac-card:hover { box-shadow: 0 4px 18px rgba(30,58,95,.12); }
+.ac-card:hover { background: #fcfcfd; border-color: #dbe2ea; }
 
-.ac-card-header {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-    padding: 0.75rem 1.25rem;
+.ac-card-body {
+    padding: .62rem .9rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: .75rem;
+    gap: .8rem;
 }
-.ac-card-header .ac-credito-id {
-    color: #fff;
-    font-weight: 700;
-    font-size: 1rem;
-    letter-spacing: .3px;
+.ae-list-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(210px, 1fr) minmax(320px, 1.35fr) minmax(210px, 1fr);
+    gap: .25rem 1rem;
+}
+.ae-list-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+}
+.ae-list-cell .ac-lbl {
+    color: #6b7280;
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    line-height: 1.1;
+}
+.ae-list-cell .ac-val {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: .82rem;
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
-    flex: 1;
 }
-.ac-card-header .ac-credito-id small {
-    font-weight: 400;
-    font-size: .75rem;
-    opacity: .9;
-    margin-left: .35rem;
+.ae-list-credito .ac-val { font-weight: 700; }
+.ae-list-nombre .ac-val { text-transform: uppercase; }
+.ae-list-ev .ac-val { font-weight: 700; }
+.ae-main-meta {
+    display: flex;
+    flex-direction: column;
+    gap: .28rem;
 }
-
-.ac-card-body { padding: 1.1rem 1.25rem; }
+.ae-main-folio {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #b45309;
+}
+.ae-main-credito {
+    font-size: .84rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+.ae-list-muted {
+    color: #9ca3af;
+    font-style: italic;
+    font-weight: 500;
+}
 .ac-detail-row {
     display: flex;
-    align-items: baseline;
-    gap: .5rem;
-    margin-bottom: .45rem;
-    font-size: .875rem;
+    align-items: center;
+    gap: .45rem;
+    margin-bottom: .08rem;
+    font-size: .82rem;
 }
 .ac-detail-row:last-child { margin-bottom: 0; }
 .ac-detail-row .ac-lbl {
-    color: #64748b;
-    font-size: .78rem;
+    color: #6b7280;
+    font-size: .7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
     white-space: nowrap;
-    min-width: 140px;
+    min-width: 128px;
 }
 .ac-detail-row .ac-val {
-    color: #1e293b;
-    font-weight: 500;
+    color: #1f2937;
+    font-weight: 600;
 }
 
 .ac-card-footer {
-    border-top: 1px solid #e2e8f0;
-    padding: .75rem 1.25rem;
+    border-top: 1px solid #eef2f7;
+    padding: .55rem .85rem;
     display: flex;
     justify-content: flex-end;
-    background: #f8fafc;
+    background: #fff;
     gap: .5rem;
+}
+.ae-list-action {
+    min-width: 142px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Mismo botón en píldora que «Dictaminar» en Retenciones */
 .ac-btn-dictaminar {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    background: #2563eb;
     border: none;
     color: #fff;
     font-weight: 700;
-    font-size: .85rem;
-    padding: .45rem 1.4rem;
-    border-radius: 2rem;
+    font-size: .76rem;
+    padding: .38rem .9rem;
+    border-radius: 999px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -117,14 +140,35 @@
 .ac-btn-dictaminar:hover  { opacity: .9; transform: translateY(-1px); }
 .ac-btn-dictaminar:active { transform: translateY(0); }
 
-body.dark-mode .ac-nav-tabs .nav-link        { color: #94a3b8; }
-body.dark-mode .ac-nav-tabs .nav-link.active { color: #60a5fa; border-bottom-color: #1e293b !important; }
-body.dark-mode .ac-nav-tabs .nav-link:hover:not(.active) { background: #1e3a5f; color: #60a5fa; }
-body.dark-mode .ac-card              { background: #1e293b; border-color: #334155; }
+body.dark-mode .ac-card              { background: #111827; border-color: #1f2937; }
 body.dark-mode .ac-detail-row .ac-lbl { color: #94a3b8; }
 body.dark-mode .ac-detail-row .ac-val { color: #e2e8f0; }
-body.dark-mode .ac-card-footer       { background: #0f172a; border-color: #334155; }
+body.dark-mode .ac-card-footer       { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-list-cell .ac-lbl { color: #94a3b8; }
+body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
+body.dark-mode .ae-list-muted { color: #64748b; }
+body.dark-mode .ae-main-folio { color: #fcd34d; }
+body.dark-mode .ae-main-credito { color: #e2e8f0; }
 body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
+
+@media (max-width: 991.98px) {
+    .ae-list-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+@media (max-width: 767.98px) {
+    .ac-card-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ae-list-grid {
+        grid-template-columns: 1fr;
+    }
+    .ae-list-action {
+        justify-content: flex-end;
+        margin-top: .2rem;
+    }
+}
 
 /* ── Modal validar evidencias (patrón Mis adjudicaciones + mock validación) ── */
 #modalAevValidarEvidencias .modal-header {
@@ -210,7 +254,7 @@ body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b;
 
     <div class="card shadow-sm">
         <div class="card-body pb-0">
-            <ul class="nav nav-tabs ac-nav-tabs border-0 mb-0" id="aeTabNav" role="tablist">
+            <ul class="nav nav-pills flex-column flex-md-row mb-3 gap-md-0 gap-2 border-0" id="aeTabNav" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="ae-tab-bandeja-btn" type="button" role="tab"
                             data-bs-toggle="tab" data-bs-target="#aeTabBandeja">
@@ -1001,42 +1045,46 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
      */
     function aeRenderCard(item) {
         const ev = parseInt(item.evidencias_count, 10) || 0;
-        const g  = item.gestor_nombre
-            ? aeEsc(item.gestor_nombre)
-            : '<span class="text-muted fst-italic">Sin asignar</span>';
+        const g  = item.gestor_nombre ? aeEsc(item.gestor_nombre) : '<span class="ae-list-muted">Sin asignar</span>';
         const fa = item.fecha_asignacion
             ? aeEsc(item.fecha_asignacion)
-            : '<span class="text-muted fst-italic">—</span>';
+            : '<span class="ae-list-muted">—</span>';
+        const nombreCliente = item.nombre_cliente
+            ? aeEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? aeEsc(item.folio) : '—';
 
         return `
         <div class="ac-card">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${aeEsc(String(item.id_credito))}
-                    <small>${aeEsc(item.nombre_cliente || '')}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">${aeEsc(item.folio || '—')}</span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${g}</span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${aeEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Asignación realizada</span>
+                        <span class="ac-val">${fa}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-ev">
+                        <span class="ac-lbl">Evidencias cargadas</span>
+                        <span class="ac-val">${ev} / ${AE_EV_TOTAL}</span>
+                    </div>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Asignación realizada</span>
-                    <span class="ac-val">${fa}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Evidencias cargadas</span>
-                    <span class="ac-val">${ev} / ${AE_EV_TOTAL}</span>
-                </div>
-            </div>
-            <div class="ac-card-footer">
+                <div class="ae-list-action">
                 <button type="button" class="ac-btn-dictaminar"
                         onclick="aevValidarAbrir(${+item.id_credito})">
                     <i class="fa-solid fa-clipboard-check me-1"></i>Validar evidencias
                 </button>
+                </div>
             </div>
         </div>`;
     }

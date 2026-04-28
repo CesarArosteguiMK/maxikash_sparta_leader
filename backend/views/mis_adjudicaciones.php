@@ -202,6 +202,19 @@
         .madj-kpi-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: .625rem; }
         .madj-kpi-item    { flex: none; max-width: none; min-width: 0; }
         .madj-kpi-num     { font-size: 1.15rem; }
+        #madj-tabla_wrapper .dataTables_length,
+        #madj-tabla_wrapper .dataTables_filter { text-align: left; }
+        #madj-tabla_wrapper .dataTables_filter input {
+            width: 100%;
+            margin-left: 0;
+        }
+        #madj-tabla_wrapper .dt-layout-row:first-child,
+        #madj-tabla_wrapper .dt-layout-row:last-child,
+        #madj-tabla_wrapper .row:first-child,
+        #madj-tabla_wrapper .row:last-child {
+            padding-left: .55rem;
+            padding-right: .55rem;
+        }
     }
     /* -- Mobile cards (visible solo en < md) ------------------- */
     .madj-mcard {
@@ -254,6 +267,78 @@
     }
     .madj-table tbody tr:hover {
         background: #fffdf7;
+    }
+    /* -- Controles DataTable (igual Gestión de Usuario) ---------- */
+    #madj-tabla_wrapper .dataTables_length { margin-bottom: 1rem; }
+    #madj-tabla_wrapper .dataTables_length select {
+        margin: 0 .5rem;
+        padding: .375rem 1.75rem .375rem .75rem;
+        min-width: 74px;
+        border: 1px solid #d9dee3;
+        border-radius: .375rem;
+        background: #fff;
+        color: #374151 !important;
+    }
+    #madj-tabla_wrapper .dataTables_length select option { color: #111827; }
+    #madj-tabla_wrapper .dataTables_filter {
+        margin-bottom: 1rem;
+        text-align: right;
+    }
+    #madj-tabla_wrapper .dataTables_filter input {
+        margin-left: .5rem;
+        padding: .375rem .75rem;
+        border: 1px solid #d9dee3;
+        border-radius: .375rem;
+        background: #fff;
+        color: #374151;
+    }
+    #madj-tabla_wrapper .dataTables_filter input:focus,
+    #madj-tabla_wrapper .dataTables_length select:focus {
+        border-color: #0d6efd;
+        outline: none;
+        box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .15);
+    }
+    #madj-tabla_wrapper .dt-layout-row:first-child,
+    #madj-tabla_wrapper .row:first-child {
+        padding-left: .9rem;
+        padding-right: .9rem;
+        padding-top: .55rem;
+    }
+    #madj-tabla_wrapper .dt-layout-row:last-child,
+    #madj-tabla_wrapper .row:last-child {
+        padding-left: .9rem;
+        padding-right: .9rem;
+        padding-bottom: .65rem;
+        border-top: 1px solid #eef2f7;
+        margin-top: .25rem;
+    }
+    #madj-tabla_wrapper .dataTables_info {
+        font-size: .82rem;
+        color: #6b7280;
+        padding-top: .55rem;
+    }
+    #madj-tabla_wrapper .dataTables_paginate { padding-top: .35rem; }
+    #madj-tabla_wrapper .paginate_button {
+        border-radius: .5rem !important;
+        border: 1px solid #e5e7eb !important;
+        background: #fff !important;
+        color: #64748b !important;
+        min-width: 32px;
+        height: 32px;
+        line-height: 30px;
+        padding: 0 .45rem !important;
+        margin-left: .2rem !important;
+    }
+    #madj-tabla_wrapper .paginate_button.current,
+    #madj-tabla_wrapper .paginate_button.current:hover {
+        background: linear-gradient(180deg, #3b82f6, #2563eb) !important;
+        color: #fff !important;
+        border-color: #1d4ed8 !important;
+        box-shadow: 0 3px 8px rgba(37, 99, 235, .28);
+    }
+    #madj-tabla_wrapper .paginate_button:hover {
+        background: #f8fafc !important;
+        color: #0f172a !important;
     }
     .madj-cell-id {
         display: inline-flex;
@@ -1095,6 +1180,22 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // --------------------------------------------------------------
     // TABLA
     // --------------------------------------------------------------
+    function madjEstilizarControlesTabla() {
+        const $w = $('#madj-tabla_wrapper');
+        if (!$w.length) return;
+        const $len = $w.find('.dataTables_length select');
+        $len.addClass('form-select form-select-sm');
+        $w.find('.dataTables_filter input')
+            .addClass('form-control form-control-sm')
+            .attr('placeholder', 'Buscar...');
+        if (!$w.data('madjLenInit')) {
+            if ($len.find('option[value="10"]').length) {
+                $len.val('10').trigger('change');
+            }
+            $w.data('madjLenInit', 1);
+        }
+    }
+
     function madjRenderizarTabla(creditos) {
         if (!creditos || creditos.length === 0) {
             madjMostrarEmpty();
@@ -1153,9 +1254,10 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
         if ($.fn.DataTable.isDataTable('#madj-tabla')) {
             actualizaDatosTabla('#madj-tabla', filas, false);
+            madjEstilizarControlesTabla();
         } else {
             configuraTabla('#madj-tabla', {
-                registrosPorPagina: 15,
+                registrosPorPagina: 10,
                 columns: [
                     { data: 0, title: 'ID Crédito' },
                     { data: 1, title: 'Cliente' },
@@ -1166,6 +1268,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 ]
             });
             actualizaDatosTabla('#madj-tabla', filas, false);
+            madjEstilizarControlesTabla();
         }
 
         _madjRenderCards(filtrados);
@@ -1660,7 +1763,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     async function madjEnviarEvidencias() {
         const confirm = await Swal.fire({
             title: '¿Enviar evidencias?',
-            html: '<p>Al enviar, las evidencias estarán disponibles para revisión en el pipeline.</p>' +
+            html: '<p>Al enviar, las evidencias estarán disponibles para revisión.</p>' +
                   '<p class="text-muted small mb-0">Las evidencias <strong>"Por enviar"</strong> pasarán a <strong>"Enviado"</strong>.</p>',
             icon: 'question',
             showCancelButton: true,
@@ -1714,7 +1817,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             Swal.fire({
                 icon: 'success',
                 title: 'Enviadas',
-                text: 'Las evidencias fueron enviadas al pipeline.',
+                text: 'Las evidencias fueron enviadas para revisión.',
                 timer: 2000,
                 showConfirmButton: false,
             });

@@ -575,7 +575,7 @@
 <!-- Título -->
 <h4 class="mb-2">
     <i class="fa-solid fa-diagram-project me-2" style="color: var(--ops-green);"></i>
-    Pipeline de Operaciones
+    Flujo de Operaciones
 </h4>
 
 <!-- Banner contextual -->
@@ -583,7 +583,7 @@
      style="background:var(--ops-green-light); border:1px solid var(--ops-green-border); border-left:4px solid var(--ops-green);">
     <i class="fa-solid fa-circle-info" style="color:var(--ops-green); flex-shrink:0;"></i>
     <span style="font-size:0.875rem; color:var(--ops-green-text);">
-        <strong>Módulo Operaciones</strong> — Seguimiento del proceso de recuperación de motos adjudicadas en cada etapa del pipeline.
+        <strong>Módulo Operaciones</strong> — Seguimiento del proceso de recuperación de motos adjudicadas en cada etapa del flujo.
     </span>
 </div>
 
@@ -607,7 +607,7 @@
 <!-- Spinner de carga inicial -->
 <div id="ops-loading" class="text-center py-5">
     <div class="spinner-border" style="color:var(--ops-green);"></div>
-    <p class="mt-2 text-muted small">Cargando pipeline…</p>
+    <p class="mt-2 text-muted small">Cargando flujo…</p>
 </div>
 
 
@@ -741,12 +741,12 @@
         fetch('/MotosAdjudicadas/obtenerOperaciones', { method: 'GET', headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(data => {
-                if (!data.success) throw new Error(data.message || 'Error al cargar el pipeline.');
+                if (!data.success) throw new Error(data.message || 'Error al cargar el flujo.');
                 _operaciones = data.operaciones || [];
                 opsRenderPipeline(_operaciones);
             })
             .catch(err => {
-                Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'No se pudo cargar el pipeline.', confirmButtonColor: '#6366f1' });
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'No se pudo cargar el flujo.', confirmButtonColor: '#6366f1' });
             })
             .finally(() => {
                 document.getElementById('ops-loading').style.display = 'none';
@@ -915,7 +915,7 @@
                     <i class="fa-solid fa-location-dot me-1"></i>${opsEsc(op.area_actual || 'Sin área')}
                 </div>
                 <div class="mt-1 d-flex gap-2 flex-wrap">
-                    <span class="ops-aging-badge ${agingClass}">${dias}d en pipeline</span>
+                    <span class="ops-aging-badge ${agingClass}">${dias}d en flujo</span>
                     <span class="badge" style="background:var(--ops-green);color:#fff;border-radius:999px;font-size:.68rem;padding:.2rem .55rem;">${opsEsc(op.estatus)}</span>
                 </div>
             </div>

@@ -373,6 +373,33 @@ class MotosAdjudicadas extends Model
             $nombreUsuario
         );
 
+        /**
+         * Registro explícito en adj_dictamen para que las vistas posteriores puedan mostrar
+         * la línea de dictamen sin mantener la operación “colgada” en filtros por estatus antiguos.
+         */
+        $ahora = $this->fechaHoraCdmx();
+        $this->db->CRUD(
+            "INSERT INTO adj_dictamen
+                (id_operacion, llamada_a, numero, persona_contactada, tipo_contacto,
+                 resultado, dictamen, plataforma, comentarios, id_usuario, fecha_alta)
+             VALUES
+                (:id_operacion, :llamada_a, :numero, :persona_contactada, :tipo_contacto,
+                 :resultado, :dictamen, :plataforma, :comentarios, :id_usuario, :fecha_alta)",
+            [
+                'id_operacion'       => $idOperacion,
+                'llamada_a'          => 'Cierre S2',
+                'numero'             => '',
+                'persona_contactada' => $nombreUsuario !== '' ? $nombreUsuario : 'Usuario',
+                'tipo_contacto'      => 'Cierre documentación',
+                'resultado'          => 'Confirmado en S2',
+                'dictamen'           => 'Cierre documentado confirmado en S2',
+                'plataforma'         => 'S2',
+                'comentarios'        => null,
+                'id_usuario'         => $idUsuario ?: null,
+                'fecha_alta'         => $ahora,
+            ]
+        );
+
         $mov = $this->cambiarEstatus($idOperacion, 'Recepción', $idUsuario, $nombreUsuario);
         if (empty($mov['success'])) {
             return $mov;

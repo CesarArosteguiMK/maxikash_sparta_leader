@@ -363,7 +363,10 @@ SQL;
             SELECT d2.id
             FROM adj_dictamen d2
             WHERE d2.id_operacion = o.id
-            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
             LIMIT 1
         )
         {$joinAsig}
@@ -372,6 +375,57 @@ SQL;
         SQL;
 
         return $this->db->queryAll($sql, ['estatus' => $estatus]) ?: [];
+    }
+
+    /**
+     * 4.- Cierre documentación — Dictaminado:
+     * operaciones con dictamen en esta etapa: las que siguen en “Cierre Documentado”
+     * y las que ya avanzaron a “Recepción” tras confirmar cierre en S2 (misma operación).
+     */
+    public function obtenerDictaminadosCierreDocumentacionLista(): array
+    {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            d.llamada_a,
+            d.numero,
+            d.persona_contactada,
+            d.tipo_contacto,
+            d.resultado,
+            d.dictamen,
+            d.plataforma,
+            d.comentarios,
+            DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_dictamen,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre
+        FROM adj_operacion o
+        INNER JOIN adj_dictamen d ON d.id = (
+            SELECT d2.id
+            FROM adj_dictamen d2
+            WHERE d2.id_operacion = o.id
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
+            LIMIT 1
+        )
+        {$joinAsig}
+        WHERE o.estatus IN ('Cierre Documentado', 'Recepción')
+        ORDER BY o.fecha_actualizacion DESC, o.fecha_alta DESC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
     }
 
     /**
@@ -410,11 +464,14 @@ SQL;
             SELECT d2.id
             FROM adj_dictamen d2
             WHERE d2.id_operacion = o.id
-            ORDER BY d2.fecha_alta DESC, d2.id DESC
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
             LIMIT 1
         )
         {$joinAsig}
-        WHERE o.estatus IN ('en_transito', 'Cierre Documentado')
+        WHERE o.estatus = 'Cierre Documentado'
         ORDER BY o.fecha_alta DESC
         SQL;
 

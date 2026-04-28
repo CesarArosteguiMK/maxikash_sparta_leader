@@ -626,7 +626,7 @@ function escribirFilaDiagnostico($fp, array $gasto, array $diag): void
         (string) (int) ($gasto['id_gastos_cobranza'] ?? 0),
         (string) (int) ($gasto['Id_credito'] ?? 0),
         (string) (int) ($gasto['parcialidad'] ?? 0),
-        $diag['parcialidad_calculada'] !== null ? (string) (int) $diag['parcialidad_calculada'] : '',
+        (($diag['parcialidad_calculada'] ?? null) !== null) ? (string) (int) $diag['parcialidad_calculada'] : '',
         (string) ($diag['estatus'] ?? ''),
         (string) ($diag['detalle'] ?? ''),
         (string) ($gasto['SEMANA'] ?? ''),

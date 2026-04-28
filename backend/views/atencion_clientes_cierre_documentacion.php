@@ -10,20 +10,6 @@
 .acd-header-gradient p  { margin: 0; font-size: 0.9rem; opacity: 0.9; color: #fff; }
 .acd-header-gradient i  { color: #fff; }
 
-.ac-nav-tabs .nav-link {
-    font-weight: 600;
-    color: #475569;
-    border-radius: 0.5rem 0.5rem 0 0;
-    padding: 0.6rem 1.4rem;
-}
-.ac-nav-tabs .nav-link.active {
-    color: #c2410c;
-    border-bottom-color: #fff !important;
-}
-.ac-nav-tabs .nav-link:hover:not(.active) {
-    color: #c2410c;
-    background: #fff7ed;
-}
 
 .ac-card {
     border: 1px solid #e2e8f0;
@@ -36,23 +22,24 @@
 }
 .ac-card:hover { box-shadow: 0 4px 18px rgba(234,88,12,.14); }
 .ac-card.acd-card-dict {
-    border-color: #fed7aa;
-    background: #fffbeb;
+    border-color: #e5e7eb;
+    background: #fff;
 }
 
 .ac-card-header {
-    background: linear-gradient(135deg, #9a3412 0%, #ea580c 100%);
-    padding: 0.75rem 1.25rem;
+    background: #fff;
+    border-bottom: 1px solid #eef2f7;
+    padding: .62rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .75rem;
 }
 .ac-card-header .ac-credito-id {
-    color: #fff;
+    color: #1f2937;
     font-weight: 700;
-    font-size: 1rem;
-    letter-spacing: .3px;
+    font-size: .92rem;
+    letter-spacing: .1px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -60,41 +47,105 @@
     flex: 1;
 }
 .ac-card-header .ac-credito-id small {
-    font-weight: 400;
-    font-size: .75rem;
-    opacity: .9;
+    font-weight: 600;
+    font-size: .7rem;
+    color: #6b7280;
+    opacity: 1;
     margin-left: .35rem;
 }
 
-.ac-card-body { padding: 1.1rem 1.25rem; }
+.ac-card-body {
+    padding: .62rem .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+}
+.ae-list-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(210px, 1fr) minmax(320px, 1.35fr) minmax(210px, 1fr);
+    gap: .25rem 1rem;
+}
+.ae-list-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+}
+.ae-list-cell .ac-lbl {
+    color: #6b7280;
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    line-height: 1.1;
+}
+.ae-list-cell .ac-val {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: .82rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ae-main-meta {
+    display: flex;
+    flex-direction: column;
+    gap: .28rem;
+}
+.ae-main-folio {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #b45309;
+}
+.ae-main-credito {
+    font-size: .84rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+.ae-list-nombre .ac-val { text-transform: uppercase; }
+.ae-list-ev .ac-val { font-weight: 700; }
+.ae-list-muted {
+    color: #9ca3af;
+    font-style: italic;
+    font-weight: 500;
+}
+.ae-list-action {
+    min-width: 142px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .ac-detail-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: .5rem;
-    margin-bottom: .45rem;
-    font-size: .875rem;
+    margin-bottom: .2rem;
+    font-size: .82rem;
 }
 .ac-detail-row:last-child { margin-bottom: 0; }
 .ac-detail-row .ac-lbl {
-    color: #64748b;
-    font-size: .78rem;
+    color: #6b7280;
+    font-size: .7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
     white-space: nowrap;
-    min-width: 140px;
+    min-width: 128px;
 }
 .ac-detail-row .ac-val {
-    color: #1e293b;
-    font-weight: 500;
+    color: #1f2937;
+    font-weight: 600;
 }
 
 .ac-card-footer {
-    border-top: 1px solid #e2e8f0;
-    padding: .75rem 1.25rem;
+    border-top: 1px solid #eef2f7;
+    padding: .55rem .85rem;
     display: flex;
     justify-content: flex-end;
-    background: #fffbeb;
+    background: #fff;
     gap: .5rem;
 }
 
@@ -113,17 +164,55 @@
     text-decoration: none;
     transition: opacity .2s, transform .15s;
 }
-.acd-btn-pipeline:hover  { opacity: .92; transform: translateY(-1px); color: #fff; }
+.acd-btn-pipeline:hover  { opacity: .9; transform: translateY(-1px); color: #fff; }
 .acd-btn-pipeline:active { transform: translateY(0); }
 
-body.dark-mode .ac-nav-tabs .nav-link        { color: #94a3b8; }
-body.dark-mode .ac-nav-tabs .nav-link.active { color: #fdba74; border-bottom-color: #1e293b !important; }
-body.dark-mode .ac-nav-tabs .nav-link:hover:not(.active) { background: #431407; color: #fdba74; }
-body.dark-mode .ac-card              { background: #1e293b; border-color: #334155; }
-body.dark-mode .ac-card.acd-card-dict { background: #292524; }
+/* Forzar tono de tabs al color propio de Cierre Documentación */
+#acdTabNav .nav-link {
+    color: #0f172a;
+}
+#acdTabNav .nav-link.active {
+    background-color: #ea580c !important;
+    border-color: #ea580c !important;
+    color: #fff !important;
+}
+#acdTabNav .nav-link:hover:not(.active),
+#acdTabNav .nav-link:focus:not(.active) {
+    color: #ea580c;
+}
+
+body.dark-mode .ac-card              { background: #111827; border-color: #1f2937; }
+body.dark-mode .ac-card.acd-card-dict { background: #111827; }
 body.dark-mode .ac-detail-row .ac-lbl { color: #94a3b8; }
 body.dark-mode .ac-detail-row .ac-val { color: #e2e8f0; }
-body.dark-mode .ac-card-footer       { background: #292524; border-color: #334155; }
+body.dark-mode .ac-card-header       { background: #111827; border-color: #1f2937; }
+body.dark-mode .ac-card-header .ac-credito-id { color: #e2e8f0; }
+body.dark-mode .ac-card-header .ac-credito-id small { color: #94a3b8; }
+body.dark-mode .ac-card-footer       { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-list-cell .ac-lbl { color: #94a3b8; }
+body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
+body.dark-mode .ae-list-muted { color: #64748b; }
+body.dark-mode .ae-main-folio { color: #fcd34d; }
+body.dark-mode .ae-main-credito { color: #e2e8f0; }
+
+@media (max-width: 991.98px) {
+    .ae-list-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+@media (max-width: 767.98px) {
+    .ac-card-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ae-list-grid {
+        grid-template-columns: 1fr;
+    }
+    .ae-list-action {
+        justify-content: flex-end;
+        margin-top: .2rem;
+    }
+}
 
 .acd-lista-updating {
     opacity: 0.5;
@@ -145,6 +234,15 @@ body.dark-mode .ac-card-footer       { background: #292524; border-color: #33415
     font-size: 0.95rem;
 }
 #modalAcdCierreDocumentacion .acd-cierre-banner i { font-size: 1.25rem; opacity: 0.9; }
+#acdCierreContenido {
+    align-items: stretch;
+}
+#acdCierreContenido > [class*="col-"] {
+    display: flex;
+}
+#acdCierreContenido > [class*="col-"] > * {
+    width: 100%;
+}
 
 .acd-cierre-etapas-box {
     border: 2px solid #22c55e;
@@ -187,7 +285,10 @@ body.dark-mode .ac-card-footer       { background: #292524; border-color: #33415
     border-radius: 0.75rem;
     padding: 1.25rem;
     background: #f0fdf4;
-    min-height: 280px;
+    min-height: 150px;
+    max-width: none;
+    margin: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -219,6 +320,10 @@ body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e2
     background: #fffbeb;
     padding: 1rem 1.15rem 1.1rem;
     margin-bottom: 1rem;
+    min-height: 280px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 #acdEvidenciaTitulo {
     font-size: 1rem;
@@ -250,7 +355,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
 
     <div class="card shadow-sm">
         <div class="card-body pb-0">
-            <ul class="nav nav-tabs ac-nav-tabs border-0 mb-0" id="acdTabNav" role="tablist">
+            <ul class="nav nav-pills flex-column flex-md-row mb-3 gap-md-0 gap-2 border-0" id="acdTabNav" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="acd-tab-bandeja-btn" type="button" role="tab"
                             data-bs-toggle="tab" data-bs-target="#acdTabBandeja">
@@ -301,7 +406,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                 <div id="acdCierreLoader" class="text-center py-4 text-muted" style="display:none;">
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando expediente…
                 </div>
-                <div id="acdCierreContenido" class="row g-3">
+                <div id="acdCierreContenido" class="row g-3 mt-1">
                     <div class="col-lg-5">
                         <div class="acd-cierre-etapas-box">
                             <span class="acd-cierre-etapas-lbl">ETAPAS</span>
@@ -309,6 +414,32 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                         </div>
                     </div>
                     <div class="col-lg-7">
+                        <div id="acdEvidenciaCard">
+                            <h2 class="h6" id="acdEvidenciaTitulo">Evidencia de cierre en S2</h2>
+                            <div id="acdEvidenciaFormulario">
+                                <p class="small text-muted mb-2">Adjunta una imagen (o PDF) y comentarios opcionales antes de confirmar el registro en S2.</p>
+                                <div class="mb-2">
+                                    <input type="file" class="form-control form-control-sm" id="acdEvidenciaArchivo"
+                                           accept="image/jpeg,image/png,application/pdf">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1" for="acdEvidenciaComentarios">Comentarios</label>
+                                    <textarea class="form-control form-control-sm" id="acdEvidenciaComentarios" rows="3"
+                                              placeholder="Detalle relevante para expediente…"></textarea>
+                                </div>
+                                <button type="button" class="btn btn-warning btn-sm rounded-pill fw-bold" id="acdBtnSubirEvidenciaCierre">
+                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i>Subir evidencia
+                                </button>
+                            </div>
+                            <div id="acdEvidenciaExito" style="display:none;" class="text-center py-2">
+                                <p class="small text-muted mb-2 mb-md-3">Puedes verificar el archivo antes de marcar la confirmación en S2.</p>
+                                <button type="button" class="btn btn-outline-success btn-sm rounded-pill fw-bold" id="acdBtnVerEvidenciaCierre">
+                                    <i class="fa-regular fa-eye me-1"></i>Ver
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12">
                         <div class="acd-cierre-s2-box">
                             <p class="acd-cierre-s2-text mb-0">
                                 CONFIRMA AQUÍ QUE EL CIERRE FUE REGISTRADO EN S2 DE FORMA EXITOSA
@@ -320,31 +451,6 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                                 </label>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div id="acdEvidenciaCard" class="mt-4">
-                    <h2 class="h6" id="acdEvidenciaTitulo">Evidencia de cierre en S2</h2>
-                    <div id="acdEvidenciaFormulario">
-                        <p class="small text-muted mb-2">Adjunta una imagen (o PDF) y comentarios opcionales antes de confirmar el registro en S2.</p>
-                        <div class="mb-2">
-                            <input type="file" class="form-control form-control-sm" id="acdEvidenciaArchivo"
-                                   accept="image/jpeg,image/png,application/pdf">
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label small mb-1" for="acdEvidenciaComentarios">Comentarios</label>
-                            <textarea class="form-control form-control-sm" id="acdEvidenciaComentarios" rows="3"
-                                      placeholder="Detalle relevante para expediente…"></textarea>
-                        </div>
-                        <button type="button" class="btn btn-warning btn-sm rounded-pill fw-bold" id="acdBtnSubirEvidenciaCierre">
-                            <i class="fa-solid fa-cloud-arrow-up me-1"></i>Subir evidencia
-                        </button>
-                    </div>
-                    <div id="acdEvidenciaExito" style="display:none;" class="text-center py-2">
-                        <p class="small text-muted mb-2 mb-md-3">Puedes verificar el archivo antes de marcar la confirmación en S2.</p>
-                        <button type="button" class="btn btn-outline-success btn-sm rounded-pill fw-bold" id="acdBtnVerEvidenciaCierre">
-                            <i class="fa-regular fa-eye me-1"></i>Ver
-                        </button>
                     </div>
                 </div>
             </div>
@@ -378,7 +484,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
 (function () {
     'use strict';
 
-    const ACD_EV_TOTAL = 10;
+    const ACD_EV_TOTAL = 11;
 
     const ACD_CONFIG = {
         bandeja: {
@@ -555,102 +661,114 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const ev = parseInt(item.evidencias_count, 10) || 0;
         const g  = item.gestor_nombre
             ? acdEsc(item.gestor_nombre)
-            : '<span class="text-muted fst-italic">Sin asignar</span>';
+            : '<span class="ae-list-muted">Sin asignar</span>';
         const fa = item.fecha_asignacion
             ? acdEsc(item.fecha_asignacion)
-            : '<span class="text-muted fst-italic">—</span>';
-        const est = item.estatus ? acdEsc(item.estatus) : '—';
+            : '<span class="ae-list-muted">—</span>';
+        const est = item.estatus ? acdEsc(item.estatus) : '<span class="ae-list-muted">—</span>';
         const dias = item.dias_en_pipeline != null && item.dias_en_pipeline !== ''
             ? acdEsc(String(item.dias_en_pipeline))
-            : '—';
+            : '<span class="ae-list-muted">—</span>';
+        const nombreCliente = item.nombre_cliente
+            ? acdEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? acdEsc(item.folio) : '—';
 
         return `
         <div class="ac-card">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${acdEsc(String(item.id_credito))}
-                    <small>${acdEsc(item.nombre_cliente || '')}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">${acdEsc(item.folio || '—')}</span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Estatus pipeline</span>
-                    <span class="ac-val">${est}</span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${acdEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Asignación realizada</span>
+                        <span class="ac-val">${fa}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-ev">
+                        <span class="ac-lbl">Evidencias en expediente</span>
+                        <span class="ac-val">${ev} / ${ACD_EV_TOTAL}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Estatus flujo</span>
+                        <span class="ac-val">${est}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Días en flujo</span>
+                        <span class="ac-val">${dias}</span>
+                    </div>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${g}</span>
+                <div class="ae-list-action">
+                    <button type="button" class="acd-btn-pipeline acd-abrir-modal-cierre-doc" title="Cierre documentado en S2"
+                        data-acd-id-operacion="${Number(item.id)}"
+                        data-acd-id-credito="${Number(item.id_credito)}"
+                        data-acd-nombre="${encodeURIComponent(String(item.nombre_cliente || ''))}">
+                        <i class="fa-solid fa-file-circle-check me-1"></i>Cierre documentado
+                    </button>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Asignación realizada</span>
-                    <span class="ac-val">${fa}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Evidencias en expediente</span>
-                    <span class="ac-val">${ev} / ${ACD_EV_TOTAL}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Días en pipeline</span>
-                    <span class="ac-val">${dias}</span>
-                </div>
-            </div>
-            <div class="ac-card-footer">
-                <button type="button" class="acd-btn-pipeline acd-abrir-modal-cierre-doc" title="Cierre documentado en S2"
-                    data-acd-id-operacion="${Number(item.id)}"
-                    data-acd-id-credito="${Number(item.id_credito)}"
-                    data-acd-nombre="${encodeURIComponent(String(item.nombre_cliente || ''))}">
-                    <i class="fa-solid fa-file-circle-check me-1"></i>Cierre documentado
-                </button>
             </div>
         </div>`;
     }
 
     function acdRenderCardDictaminado(item) {
-        const estPipeline = item.estatus ? acdEsc(item.estatus) : '—';
+        const estPipeline = item.estatus ? acdEsc(item.estatus) : '<span class="ae-list-muted">—</span>';
         const dictTxt = item.dictamen
             ? acdEsc(item.dictamen)
-            : '<span class="text-muted fst-italic">—</span>';
+            : '<span class="ae-list-muted">—</span>';
         const fechaD = item.fecha_dictamen
             ? acdEsc(item.fecha_dictamen)
-            : '<span class="text-muted fst-italic">—</span>';
+            : '<span class="ae-list-muted">—</span>';
         const g = item.gestor_nombre
             ? acdEsc(item.gestor_nombre)
-            : '<span class="text-muted fst-italic">Sin asignar</span>';
+            : '<span class="ae-list-muted">Sin asignar</span>';
+        const nombreCliente = item.nombre_cliente
+            ? acdEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? acdEsc(item.folio) : '—';
 
         return `
         <div class="ac-card acd-card-dict">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${acdEsc(String(item.id_credito))}
-                    <small>${acdEsc(item.nombre_cliente || '')}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">${acdEsc(item.folio || '—')}</span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Estatus pipeline</span>
-                    <span class="ac-val"><span class="badge bg-secondary">${estPipeline}</span></span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${acdEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Fecha dictamen</span>
+                        <span class="ac-val">${fechaD}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-ev">
+                        <span class="ac-lbl">Estatus flujo</span>
+                        <span class="ac-val">${estPipeline}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Dictamen</span>
+                        <span class="ac-val">${dictTxt}</span>
+                    </div>
+                    ${item.comentarios ? `
+                    <div class="ae-list-cell" style="grid-column: 1 / -1;">
+                        <span class="ac-lbl">Comentarios</span>
+                        <span class="ac-val" style="white-space:pre-line;">${acdEsc(item.comentarios)}</span>
+                    </div>` : ''}
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Dictamen</span>
-                    <span class="ac-val">${dictTxt}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${g}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Fecha dictamen</span>
-                    <span class="ac-val">${fechaD}</span>
-                </div>
-                ${item.comentarios ? `
-                <div class="ac-detail-row" style="align-items:flex-start;">
-                    <span class="ac-lbl">Comentarios</span>
-                    <span class="ac-val" style="white-space:pre-line;">${acdEsc(item.comentarios)}</span>
-                </div>` : ''}
             </div>
         </div>`;
     }

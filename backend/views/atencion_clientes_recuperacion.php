@@ -10,20 +10,6 @@
 .ar-header-gradient p  { margin: 0; font-size: 0.9rem; opacity: 0.88; color: #fff; }
 .ar-header-gradient i  { color: #fff; }
 
-.ac-nav-tabs .nav-link {
-    font-weight: 600;
-    color: #475569;
-    border-radius: 0.5rem 0.5rem 0 0;
-    padding: 0.6rem 1.4rem;
-}
-.ac-nav-tabs .nav-link.active {
-    color: #0d9488;
-    border-bottom-color: #fff !important;
-}
-.ac-nav-tabs .nav-link:hover:not(.active) {
-    color: #0d9488;
-    background: #f0fdfa;
-}
 
 .ac-card {
     border: 1px solid #e2e8f0;
@@ -36,23 +22,24 @@
 }
 .ac-card:hover { box-shadow: 0 4px 18px rgba(15,118,110,.12); }
 .ac-card.ar-card-dict {
-    border-color: #cbd5e1;
-    background: #fafafa;
+    border-color: #e5e7eb;
+    background: #fff;
 }
 
 .ac-card-header {
-    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
-    padding: 0.75rem 1.25rem;
+    background: #fff;
+    border-bottom: 1px solid #eef2f7;
+    padding: .62rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .75rem;
 }
 .ac-card-header .ac-credito-id {
-    color: #fff;
+    color: #1f2937;
     font-weight: 700;
-    font-size: 1rem;
-    letter-spacing: .3px;
+    font-size: .92rem;
+    letter-spacing: .1px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -60,46 +47,110 @@
     flex: 1;
 }
 .ac-card-header .ac-credito-id small {
-    font-weight: 400;
-    font-size: .75rem;
-    opacity: .9;
+    font-weight: 600;
+    font-size: .7rem;
+    color: #6b7280;
+    opacity: 1;
     margin-left: .35rem;
 }
 
-.ac-card-body { padding: 1.1rem 1.25rem; }
+.ac-card-body {
+    padding: .62rem .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .8rem;
+}
+.ae-list-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(210px, 1fr) minmax(320px, 1.35fr) minmax(210px, 1fr);
+    gap: .25rem 1rem;
+}
+.ae-list-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+}
+.ae-list-cell .ac-lbl {
+    color: #6b7280;
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    line-height: 1.1;
+}
+.ae-list-cell .ac-val {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: .82rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ae-main-meta {
+    display: flex;
+    flex-direction: column;
+    gap: .28rem;
+}
+.ae-main-folio {
+    font-size: .78rem;
+    font-weight: 700;
+    color: #b45309;
+}
+.ae-main-credito {
+    font-size: .84rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+.ae-list-nombre .ac-val { text-transform: uppercase; }
+.ae-list-ev .ac-val { font-weight: 700; }
+.ae-list-muted {
+    color: #9ca3af;
+    font-style: italic;
+    font-weight: 500;
+}
+.ae-list-action {
+    min-width: 142px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .ac-detail-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: .5rem;
-    margin-bottom: .45rem;
-    font-size: .875rem;
+    margin-bottom: .2rem;
+    font-size: .82rem;
 }
 .ac-detail-row:last-child { margin-bottom: 0; }
 .ac-detail-row .ac-lbl {
-    color: #64748b;
-    font-size: .78rem;
+    color: #6b7280;
+    font-size: .7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
     white-space: nowrap;
-    min-width: 140px;
+    min-width: 128px;
 }
 .ac-detail-row .ac-val {
-    color: #1e293b;
-    font-weight: 500;
+    color: #1f2937;
+    font-weight: 600;
 }
 
 .ac-card-footer {
-    border-top: 1px solid #e2e8f0;
-    padding: .75rem 1.25rem;
+    border-top: 1px solid #eef2f7;
+    padding: .55rem .85rem;
     display: flex;
     justify-content: flex-end;
-    background: #f8fafc;
+    background: #fff;
     gap: .5rem;
 }
 
 .ar-btn-pipeline {
-    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+    background: #2563eb;
     border: none;
     color: #fff;
     font-weight: 700;
@@ -113,19 +164,38 @@
     text-decoration: none;
     transition: opacity .2s, transform .15s;
 }
-.ar-btn-pipeline:hover  { opacity: .92; transform: translateY(-1px); color: #fff; }
+.ar-btn-pipeline:hover  { opacity: .9; transform: translateY(-1px); color: #fff; }
 .ar-btn-pipeline:active { transform: translateY(0); }
 
 .ar-btn-evidencias {
-    background: linear-gradient(135deg, #115e59 0%, #0d9488 100%);
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
     border: none;
     color: #fff !important;
     font-weight: 700;
-    font-size: .85rem;
-    padding: .45rem 1.25rem;
-    border-radius: 2rem;
+    font-size: .76rem;
+    padding: .38rem .9rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    transition: opacity .2s, transform .15s;
 }
-.ar-btn-evidencias:hover { opacity: .92; color: #fff !important; }
+.ar-btn-evidencias:hover  { opacity: .92; color: #fff !important; transform: translateY(-1px); }
+.ar-btn-evidencias:active { transform: translateY(0); }
+
+/* Forzar tono de tabs al color propio de Recuperación */
+#arTabNav .nav-link {
+    color: #0f172a;
+}
+#arTabNav .nav-link.active {
+    background-color: #0d9488 !important;
+    border-color: #0d9488 !important;
+    color: #fff !important;
+}
+#arTabNav .nav-link:hover:not(.active),
+#arTabNav .nav-link:focus:not(.active) {
+    color: #0d9488;
+}
 
 /* ── Modal evidencias (Recuperación) ── */
 /* dark-mode.css fuerza .modal-header a fondo blanco (!important); sin esto el título text-white no se ve */
@@ -275,17 +345,41 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
     color: #64748b; margin-bottom: .5rem;
 }
 
-body.dark-mode .ac-nav-tabs .nav-link        { color: #94a3b8; }
-body.dark-mode .ac-nav-tabs .nav-link.active { color: #5eead4; border-bottom-color: #1e293b !important; }
-body.dark-mode .ac-nav-tabs .nav-link:hover:not(.active) { background: #134e4a; color: #5eead4; }
-body.dark-mode .ac-card              { background: #1e293b; border-color: #334155; }
-body.dark-mode .ac-card.ar-card-dict { background: #0f172a; }
+body.dark-mode .ac-card              { background: #111827; border-color: #1f2937; }
+body.dark-mode .ac-card.ar-card-dict { background: #111827; }
 body.dark-mode .ac-detail-row .ac-lbl { color: #94a3b8; }
 body.dark-mode .ac-detail-row .ac-val { color: #e2e8f0; }
-body.dark-mode .ac-card-footer       { background: #0f172a; border-color: #334155; }
+body.dark-mode .ac-card-header       { background: #111827; border-color: #1f2937; }
+body.dark-mode .ac-card-header .ac-credito-id { color: #e2e8f0; }
+body.dark-mode .ac-card-header .ac-credito-id small { color: #94a3b8; }
+body.dark-mode .ac-card-footer       { background: #111827; border-color: #1f2937; }
+body.dark-mode .ae-list-cell .ac-lbl { color: #94a3b8; }
+body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
+body.dark-mode .ae-list-muted { color: #64748b; }
+body.dark-mode .ae-main-folio { color: #fcd34d; }
+body.dark-mode .ae-main-credito { color: #e2e8f0; }
 body.dark-mode .ar-ev-slots-wrap { background: #0f172a; border-color: #334155; }
 body.dark-mode .ar-ev-slot { background: #1e293b; border-color: #475569; }
 body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; }
+
+@media (max-width: 991.98px) {
+    .ae-list-grid {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+    }
+}
+@media (max-width: 767.98px) {
+    .ac-card-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ae-list-grid {
+        grid-template-columns: 1fr;
+    }
+    .ae-list-action {
+        justify-content: flex-end;
+        margin-top: .2rem;
+    }
+}
 
 .ar-lista-updating {
     opacity: 0.5;
@@ -306,7 +400,9 @@ body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; 
 
     <div class="card shadow-sm">
         <div class="card-body pb-0">
-            <ul class="nav nav-tabs ac-nav-tabs border-0 mb-0" id="arTabNav" role="tablist">
+            <ul class="nav nav-pills flex-column flex-md-row mb-3 gap-md-0 gap-2 border-0"
+                id="arTabNav" role="tablist"
+                style="--bs-nav-pills-link-active-bg: #0d9488; --bs-nav-pills-link-active-color: #fff;">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="ar-tab-bandeja-btn" type="button" role="tab"
                             data-bs-toggle="tab" data-bs-target="#arTabBandeja">
@@ -390,7 +486,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
 
     var AR_SERVER_PUBLIC_BASE = <?php echo json_encode($arPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
-    const AR_EV_TOTAL_LISTA = 10;
+    const AR_EV_TOTAL_LISTA = 11;
     const AR_IMG_KEYS = [
         'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
         'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360'
@@ -966,101 +1062,113 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const ev = parseInt(item.evidencias_count, 10) || 0;
         const g  = item.gestor_nombre
             ? arEsc(item.gestor_nombre)
-            : '<span class="text-muted fst-italic">Sin asignar</span>';
+            : '<span class="ae-list-muted">Sin asignar</span>';
         const fa = item.fecha_asignacion
             ? arEsc(item.fecha_asignacion)
-            : '<span class="text-muted fst-italic">—</span>';
-        const est = item.estatus ? arEsc(item.estatus) : '—';
+            : '<span class="ae-list-muted">—</span>';
+        const nombreCliente = item.nombre_cliente
+            ? arEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const est = item.estatus ? arEsc(item.estatus) : '<span class="ae-list-muted">—</span>';
         const dias = item.dias_en_pipeline != null && item.dias_en_pipeline !== ''
             ? arEsc(String(item.dias_en_pipeline))
-            : '—';
+            : '<span class="ae-list-muted">—</span>';
+        const folio = item.folio ? arEsc(item.folio) : '—';
         const idOp = parseInt(item.id, 10) || 0;
 
         return `
         <div class="ac-card">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${arEsc(String(item.id_credito))}
-                    <small>${arEsc(item.nombre_cliente || '')}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">${arEsc(item.folio || '—')}</span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Estatus pipeline</span>
-                    <span class="ac-val">${est}</span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${arEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Asignación realizada</span>
+                        <span class="ac-val">${fa}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-ev">
+                        <span class="ac-lbl">Evidencias cargadas</span>
+                        <span class="ac-val">${ev} / ${AR_EV_TOTAL_LISTA}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Estatus flujo</span>
+                        <span class="ac-val">${est}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Días en flujo</span>
+                        <span class="ac-val">${dias}</span>
+                    </div>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${g}</span>
+                <div class="ae-list-action">
+                    <button type="button" class="btn btn-sm ar-btn-evidencias"
+                            onclick="arEvModalAbrir(${idOp})" ${idOp ? '' : 'disabled'}>
+                        <i class="fa-solid fa-images me-1"></i>Evidencias
+                    </button>
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Asignación realizada</span>
-                    <span class="ac-val">${fa}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Evidencias en expediente</span>
-                    <span class="ac-val">${ev} / ${AR_EV_TOTAL_LISTA}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Días en pipeline</span>
-                    <span class="ac-val">${dias}</span>
-                </div>
-            </div>
-            <div class="ac-card-footer d-flex flex-wrap justify-content-end gap-2 align-items-center">
-                <button type="button" class="btn btn-sm ar-btn-evidencias"
-                        onclick="arEvModalAbrir(${idOp})" ${idOp ? '' : 'disabled'}>
-                    <i class="fa-solid fa-images me-1"></i>Evidencias
-                </button>
             </div>
         </div>`;
     }
 
     function arRenderCardDictaminado(item) {
-        const estPipeline = item.estatus ? arEsc(item.estatus) : '—';
+        const estPipeline = item.estatus ? arEsc(item.estatus) : '<span class="ae-list-muted">—</span>';
         const dictTxt = item.dictamen
             ? arEsc(item.dictamen)
-            : '<span class="text-muted fst-italic">—</span>';
+            : '<span class="ae-list-muted">—</span>';
         const fechaD = item.fecha_dictamen
             ? arEsc(item.fecha_dictamen)
-            : '<span class="text-muted fst-italic">—</span>';
+            : '<span class="ae-list-muted">—</span>';
         const g = item.gestor_nombre
             ? arEsc(item.gestor_nombre)
-            : '<span class="text-muted fst-italic">Sin asignar</span>';
+            : '<span class="ae-list-muted">Sin asignar</span>';
+        const nombreCliente = item.nombre_cliente
+            ? arEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio = item.folio ? arEsc(item.folio) : '—';
 
         return `
         <div class="ac-card ar-card-dict">
-            <div class="ac-card-header">
-                <span class="ac-credito-id">
-                    <i class="fa-solid fa-hashtag me-1" style="opacity:.7;"></i>
-                    Crédito ${arEsc(String(item.id_credito))}
-                    <small>${arEsc(item.nombre_cliente || '')}</small>
-                </span>
-                <span class="badge" style="background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;">${arEsc(item.folio || '—')}</span>
-            </div>
             <div class="ac-card-body">
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Estatus pipeline</span>
-                    <span class="ac-val"><span class="badge bg-secondary">${estPipeline}</span></span>
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${arEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Fecha dictamen</span>
+                        <span class="ac-val">${fechaD}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-ev">
+                        <span class="ac-lbl">Estatus flujo</span>
+                        <span class="ac-val">${estPipeline}</span>
+                    </div>
+                    <div class="ae-list-cell">
+                        <span class="ac-lbl">Dictamen</span>
+                        <span class="ac-val">${dictTxt}</span>
+                    </div>
+                    ${item.comentarios ? `
+                    <div class="ae-list-cell" style="grid-column: 1 / -1;">
+                        <span class="ac-lbl">Comentarios</span>
+                        <span class="ac-val" style="white-space:pre-line;">${arEsc(item.comentarios)}</span>
+                    </div>` : ''}
                 </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Dictamen</span>
-                    <span class="ac-val">${dictTxt}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Gestor a cargo</span>
-                    <span class="ac-val">${g}</span>
-                </div>
-                <div class="ac-detail-row">
-                    <span class="ac-lbl">Fecha dictamen</span>
-                    <span class="ac-val">${fechaD}</span>
-                </div>
-                ${item.comentarios ? `
-                <div class="ac-detail-row" style="align-items:flex-start;">
-                    <span class="ac-lbl">Comentarios</span>
-                    <span class="ac-val" style="white-space:pre-line;">${arEsc(item.comentarios)}</span>
-                </div>` : ''}
             </div>
         </div>`;
     }
@@ -1132,10 +1240,14 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const bb = document.getElementById('ar-tab-bandeja-btn');
         const bd = document.getElementById('ar-tab-dictaminado-btn');
         if (bb) {
-            bb.addEventListener('shown.bs.tab', function () { arCargarSeccion('bandeja', false); });
+            bb.addEventListener('shown.bs.tab', function () {
+                arCargarSeccion('bandeja', false);
+            });
         }
         if (bd) {
-            bd.addEventListener('shown.bs.tab', function () { arCargarSeccion('dictaminado', false); });
+            bd.addEventListener('shown.bs.tab', function () {
+                arCargarSeccion('dictaminado', false);
+            });
         }
 
         const btnEnviarCartera = document.getElementById('ar-ev-btn-enviar-cartera');

@@ -13,21 +13,6 @@
 .ac-header-gradient p  { margin: 0; font-size: 0.9rem; opacity: 0.85; color: #fff; }
 .ac-header-gradient i  { color: #fff; }
 
-/* ── Pestañas ── */
-.ac-nav-tabs .nav-link {
-    font-weight: 600;
-    color: #475569;
-    border-radius: 0.5rem 0.5rem 0 0;
-    padding: 0.6rem 1.4rem;
-}
-.ac-nav-tabs .nav-link.active {
-    color: #1d4ed8;
-    border-bottom-color: #fff !important;
-}
-.ac-nav-tabs .nav-link:hover:not(.active) {
-    color: #1d4ed8;
-    background: #eff6ff;
-}
 
 /* ── Cards ── */
 .ac-card {
@@ -42,35 +27,36 @@
 .ac-card:hover { box-shadow: 0 4px 18px rgba(30,58,95,.12); }
 
 .ac-card--cancelado {
-    border-color: #fca5a5;
+    border-color: #e5e7eb;
     box-shadow: 0 0 0 1px rgba(220,38,38,.15), 0 2px 8px rgba(220,38,38,.1);
 }
 .ac-card--cancelado:hover { box-shadow: 0 4px 18px rgba(220,38,38,.18); }
 
 .ac-card--en-transito {
-    border-color: #93c5fd;
+    border-color: #e5e7eb;
     box-shadow: 0 0 0 1px rgba(37,99,235,.12), 0 2px 8px rgba(37,99,235,.08);
 }
 
 .ac-card-header {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-    padding: 0.75rem 1.25rem;
+    background: #fff;
+    border-bottom: 1px solid #eef2f7;
+    padding: .62rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .75rem;
 }
 .ac-card--cancelado .ac-card-header {
-    background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+    background: #fff;
 }
 .ac-card--en-transito .ac-card-header {
-    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    background: #fff;
 }
 .ac-card-header .ac-credito-id {
-    color: #fff;
+    color: #1f2937;
     font-weight: 700;
-    font-size: 1rem;
-    letter-spacing: .3px;
+    font-size: .92rem;
+    letter-spacing: .1px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -78,48 +64,49 @@
     flex: 1;
 }
 .ac-card-header .ac-credito-id small {
-    font-weight: 400;
-    font-size: .75rem;
-    opacity: .8;
+    font-weight: 600;
+    font-size: .7rem;
+    color: #6b7280;
+    opacity: 1;
     margin-left: .35rem;
 }
 
 .ac-card-body {
-    padding: 1.1rem 1.25rem;
+    padding: .72rem 1rem .62rem;
 }
 .ac-detail-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: .5rem;
-    margin-bottom: .45rem;
-    font-size: .875rem;
+    margin-bottom: .2rem;
+    font-size: .82rem;
 }
 .ac-detail-row .ac-lbl {
-    color: #64748b;
-    font-size: .78rem;
+    color: #6b7280;
+    font-size: .7rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .03em;
     white-space: nowrap;
-    min-width: 140px;
+    min-width: 128px;
 }
 .ac-detail-row .ac-val {
-    color: #1e293b;
-    font-weight: 500;
+    color: #1f2937;
+    font-weight: 600;
 }
 
 .ac-card-footer {
-    border-top: 1px solid #e2e8f0;
-    padding: .75rem 1.25rem;
+    border-top: 1px solid #eef2f7;
+    padding: .55rem .85rem;
     display: flex;
     justify-content: flex-end;
-    background: #f8fafc;
+    background: #fff;
     gap: .5rem;
 }
 
 /* ── Botón Dictaminar ── */
 .ac-btn-dictaminar {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    background: #2563eb;
     border: none;
     color: #fff;
     font-weight: 700;
@@ -193,14 +180,14 @@ textarea.ac-modal-input { resize: vertical; min-height: 80px; }
 .ac-resumen-val { color: #1e293b; font-weight: 500; }
 
 /* ── Dark mode ── */
-body.dark-mode .ac-nav-tabs .nav-link        { color: #94a3b8; }
-body.dark-mode .ac-nav-tabs .nav-link.active { color: #60a5fa; border-bottom-color: #1e293b !important; }
-body.dark-mode .ac-nav-tabs .nav-link:hover:not(.active) { background: #1e3a5f; color: #60a5fa; }
-body.dark-mode .ac-card               { background: #1e293b; border-color: #334155; }
+body.dark-mode .ac-card               { background: #111827; border-color: #1f2937; }
 body.dark-mode .ac-card--cancelado    { border-color: #f87171; box-shadow: 0 0 0 1px rgba(248,113,113,.2); }
 body.dark-mode .ac-card--en-transito  { border-color: #60a5fa; box-shadow: 0 0 0 1px rgba(96,165,250,.2); }
 body.dark-mode .ac-detail-row .ac-val { color: #e2e8f0; }
-body.dark-mode .ac-card-footer        { background: #0f172a; border-color: #334155; }
+body.dark-mode .ac-card-header        { background: #111827; border-color: #1f2937; }
+body.dark-mode .ac-card-header .ac-credito-id { color: #e2e8f0; }
+body.dark-mode .ac-card-header .ac-credito-id small { color: #94a3b8; }
+body.dark-mode .ac-card-footer        { background: #111827; border-color: #1f2937; }
 body.dark-mode .ac-modal-input        { background: #1e293b; border-color: #475569; color: #e2e8f0; }
 body.dark-mode .ac-modal-input:focus  { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
 body.dark-mode .ac-modal-label        { color: #94a3b8; }
@@ -225,7 +212,7 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
     <!-- Tabs -->
     <div class="card shadow-sm">
         <div class="card-body pb-0">
-            <ul class="nav nav-tabs ac-nav-tabs border-0 mb-0" id="acTabNav" role="tablist">
+            <ul class="nav nav-pills flex-column flex-md-row mb-3 gap-md-0 gap-2 border-0" id="acTabNav" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="tab-entrantes-btn"
                             data-bs-toggle="tab" data-bs-target="#tabEntrantes"
@@ -770,7 +757,7 @@ body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: 
 
                 let mensajeExtra = '';
                 if (data.estatus_nuevo === 'en_transito') {
-                    mensajeExtra = 'La operación fue trasladada al pipeline en <strong>Recibido</strong>.';
+                    mensajeExtra = 'La operación fue trasladada a <strong>Recibido</strong>.';
                 } else if (data.estatus_nuevo === 'cancelado') {
                     mensajeExtra = 'La operación quedó marcada como <strong>Cancelado</strong> en Retenciones.';
                 }
