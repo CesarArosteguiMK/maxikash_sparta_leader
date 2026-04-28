@@ -50,7 +50,9 @@ class CierreCredito extends Model
                 "SELECT ccs.id, ccs.id_credito, ccs.nombre_cliente, ccs.estatus,
                         ccs.fecha_alta, ccs.usuario_alta,
                         ccs.fecha_actualizacion, ccs.usuario_actualizacion,
-                        ccs.fecha_envio_cartera, ccs.id_celula
+                    ccs.fecha_envio_cartera, ccs.id_celula,
+                    ccs.vobo_validado_direccion, ccs.vobo_fecha_validacion,
+                    ccs.vobo_comentario, ccs.vobo_archivo
                  FROM cierre_credito_seguimiento ccs
                  WHERE ccs.estatus = 'en_proceso'{$celulaWhere}
                  ORDER BY ccs.fecha_alta DESC",
@@ -161,6 +163,88 @@ class CierreCredito extends Model
     }
 
     /**
+     * Registros enviados a Vo.Bo (Dirección de cobranza).
+     */
+    public static function getVoBo(?array $celulas = null): array
+    {
+        try {
+            $db = new Database();
+
+            $params = [];
+            $celulaWhere = self::_celulaWhere($celulas, 'ccs', $params);
+            $rows = $db->queryAll(
+                "SELECT ccs.id, ccs.id_credito, ccs.nombre_cliente, ccs.estatus,
+                        ccs.fecha_alta, ccs.usuario_alta,
+                        ccs.fecha_actualizacion, ccs.usuario_actualizacion,
+                        ccs.id_celula,
+                        ccs.vobo_comentario, ccs.vobo_archivo,
+                        ccs.vobo_validado_direccion, ccs.vobo_fecha_validacion
+                 FROM cierre_credito_seguimiento ccs
+                 WHERE ccs.estatus = 'envio_cobranza'{$celulaWhere}
+                 ORDER BY ccs.fecha_actualizacion DESC, ccs.fecha_alta DESC",
+                $params ?: null
+            );
+
+            if (!$rows) {
+                return self::resultado(true, 'Registros en Vo.Bo.', []);
+            }
+
+            $placeholders = [];
+            $paramsConv   = [];
+            foreach ($rows as $idx => $row) {
+                $key = 'id_' . $idx;
+                $placeholders[] = ':' . $key;
+                $paramsConv[$key] = (int) $row['id_credito'];
+            }
+            $in = implode(',', $placeholders);
+
+            $convenios = $db->queryAll(
+                "SELECT cc.id AS id_convenio, cc.id_credito,
+                        pc.nombre AS nombre_producto,
+                        cc.pdf_adjunto,
+                        cc.total_a_pagar, cc.porcentaje_descuento,
+                        cc.adeudo_total_original, cc.numero_semanas,
+                        cc.fecha_acuerdo,
+                        COALESCE(cc.base_calculo, pcd.base_calculo) AS base_calculo
+                 FROM convenio_cliente cc
+                 INNER JOIN producto_convenio pc ON pc.id = cc.id_producto_convenio
+                 LEFT JOIN producto_convenio_detalle pcd ON pcd.id = cc.id_producto_convenio_detalle
+                 WHERE cc.id_credito IN ($in) AND cc.estatus = 'completado'
+                 ORDER BY cc.fecha_alta DESC",
+                $paramsConv
+            );
+
+            $convenioMap = [];
+            if ($convenios) {
+                foreach ($convenios as $c) {
+                    if (!isset($convenioMap[$c['id_credito']])) {
+                        $convenioMap[$c['id_credito']] = $c;
+                    }
+                }
+            }
+
+            foreach ($rows as &$row) {
+                $conv = $convenioMap[$row['id_credito']] ?? null;
+                $row['id_convenio']           = $conv ? (int) $conv['id_convenio'] : null;
+                $row['nombre_producto']       = $conv['nombre_producto']       ?? '—';
+                $row['pdf_adjunto']           = $conv['pdf_adjunto']           ?? null;
+                $row['total_a_pagar']         = $conv['total_a_pagar']         ?? 0;
+                $row['porcentaje_descuento']  = $conv['porcentaje_descuento']  ?? 0;
+                $row['adeudo_total_original'] = $conv['adeudo_total_original'] ?? 0;
+                $row['numero_semanas']        = $conv['numero_semanas']        ?? 0;
+                $row['fecha_acuerdo']         = $conv['fecha_acuerdo']         ?? null;
+                $row['base_calculo']          = $conv['base_calculo']          ?? null;
+            }
+            unset($row);
+
+            self::_enrichWithS2AndSemana($rows);
+            return self::resultado(true, 'Registros en Vo.Bo.', $rows);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al obtener registros en Vo.Bo.', [], $e->getMessage());
+        }
+    }
+
+    /**
      * Convenios con estatus 'saldado' — fuente principal de Cierre de Crédito.
      * Trae datos del convenio, producto, progreso de amortización y despacho asignado.
      */
@@ -238,7 +322,7 @@ class CierreCredito extends Model
                    AND NOT EXISTS (
                        SELECT 1 FROM cierre_credito_seguimiento ccs
                        WHERE ccs.id_credito = cc.id_credito
-                         AND ccs.estatus IN ('en_proceso', 'enviado_cartera', 'en_cola', 'listo_envio')
+                                                 AND ccs.estatus IN ('en_proceso', 'envio_cobranza', 'enviado_cartera', 'en_cola', 'listo_envio')
                    ){$celulaWhere}
                  ORDER BY cc.fecha_alta DESC",
                 $params ?: null
@@ -283,6 +367,10 @@ class CierreCredito extends Model
                     "UPDATE cierre_credito_seguimiento
                      SET estatus                = 'en_proceso',
                          nombre_cliente         = :nombre_cliente,
+                         vobo_validado_direccion= 0,
+                         vobo_fecha_validacion  = NULL,
+                         vobo_comentario        = NULL,
+                         vobo_archivo           = NULL,
                          usuario_actualizacion  = :usuario,
                          fecha_actualizacion    = NOW()
                      WHERE id = :id",
@@ -337,7 +425,7 @@ class CierreCredito extends Model
      */
     public static function cambiarEstatus(int $id, string $estatus, string $usuario): array
     {
-        $permitidos = ['en_proceso', 'enviado_finalizado', 'enviado_cartera'];
+        $permitidos = ['en_proceso', 'envio_cobranza', 'vo_bo_rechazado', 'enviado_finalizado', 'enviado_cartera'];
         if (!in_array($estatus, $permitidos, true)) {
             return self::resultado(false, 'Estatus no válido.');
         }
@@ -353,6 +441,122 @@ class CierreCredito extends Model
             return self::resultado(true, 'Estatus actualizado correctamente.');
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al actualizar el estatus.', [], $e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // VO.BO (Dirección de cobranza)
+    // ─────────────────────────────────────────────
+
+    public static function enviarAVoBo(int $id, string $usuario, string $comentario, ?string $archivoUrl = null): array
+    {
+        try {
+            $db = new Database();
+            $registro = $db->queryOne(
+                "SELECT id FROM cierre_credito_seguimiento
+                 WHERE id = :id AND estatus = 'en_proceso'
+                 LIMIT 1",
+                ['id' => $id]
+            );
+
+            if (!$registro) {
+                return self::resultado(false, 'Registro no encontrado o no está en En Proceso.');
+            }
+
+            $db->CRUD(
+                "UPDATE cierre_credito_seguimiento
+                 SET estatus                 = 'envio_cobranza',
+                     vobo_comentario         = :comentario,
+                     vobo_archivo            = :archivo,
+                     vobo_validado_direccion = 0,
+                     vobo_fecha_validacion   = NULL,
+                     usuario_actualizacion   = :usuario,
+                     fecha_actualizacion     = NOW()
+                 WHERE id = :id",
+                [
+                    'id' => $id,
+                    'usuario' => $usuario,
+                    'comentario' => mb_substr(trim($comentario), 0, 500),
+                    'archivo' => $archivoUrl,
+                ]
+            );
+
+            return self::resultado(true, 'Registro enviado a Vo.Bo de Dirección de Cobranza.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al enviar a Vo.Bo.', [], $e->getMessage());
+        }
+    }
+
+    public static function aprobarVoBo(int $id, string $usuario, string $comentario = ''): array
+    {
+        try {
+            $db = new Database();
+            $registro = $db->queryOne(
+                "SELECT id FROM cierre_credito_seguimiento
+                 WHERE id = :id AND estatus = 'envio_cobranza'
+                 LIMIT 1",
+                ['id' => $id]
+            );
+
+            if (!$registro) {
+                return self::resultado(false, 'Registro no encontrado o no está en Vo.Bo.');
+            }
+
+            $db->CRUD(
+                "UPDATE cierre_credito_seguimiento
+                 SET estatus                 = 'en_proceso',
+                     vobo_validado_direccion = 1,
+                     vobo_fecha_validacion   = NOW(),
+                     vobo_comentario         = :comentario,
+                     usuario_actualizacion   = :usuario,
+                     fecha_actualizacion     = NOW()
+                 WHERE id = :id",
+                [
+                    'id' => $id,
+                    'usuario' => $usuario,
+                    'comentario' => mb_substr(trim($comentario), 0, 500),
+                ]
+            );
+
+            return self::resultado(true, 'Vo.Bo aprobado. Regresó a En Proceso como validado por Dirección de Cobranza.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al aprobar Vo.Bo.', [], $e->getMessage());
+        }
+    }
+
+    public static function rechazarVoBo(int $id, string $usuario, string $comentario): array
+    {
+        try {
+            $db = new Database();
+            $registro = $db->queryOne(
+                "SELECT id FROM cierre_credito_seguimiento
+                 WHERE id = :id AND estatus = 'envio_cobranza'
+                 LIMIT 1",
+                ['id' => $id]
+            );
+
+            if (!$registro) {
+                return self::resultado(false, 'Registro no encontrado o no está en Vo.Bo.');
+            }
+
+            $db->CRUD(
+                "UPDATE cierre_credito_seguimiento
+                 SET estatus                 = 'vo_bo_rechazado',
+                     vobo_validado_direccion = 0,
+                     comentario_descarte     = :comentario,
+                     usuario_actualizacion   = :usuario,
+                     fecha_actualizacion     = NOW()
+                 WHERE id = :id",
+                [
+                    'id' => $id,
+                    'usuario' => $usuario,
+                    'comentario' => mb_substr(trim($comentario), 0, 500),
+                ]
+            );
+
+            return self::resultado(true, 'Vo.Bo rechazado. El registro quedó en estatus vo_bo_rechazado para re-trabajo.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al rechazar Vo.Bo.', [], $e->getMessage());
         }
     }
 

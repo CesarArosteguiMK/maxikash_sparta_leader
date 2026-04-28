@@ -654,6 +654,7 @@ if (!isset($cc_perm_alguno)) {
     $cc_perm_convenios = false;
     $cc_perm_validacion = false;
     $cc_perm_en_proceso = false;
+    $cc_perm_vobo = false;
     $cc_perm_historial = false;
     $cc_perm_cartera   = false;
     $cc_perm_alguno = false;
@@ -662,6 +663,7 @@ if (!isset($cc_perm_alguno)) {
 $ccActConv  = ($cc_default_tab === 'convenios');
 $ccActVal   = ($cc_default_tab === 'validacion');
 $ccActEp    = ($cc_default_tab === 'en_proceso');
+$ccActVoBo  = ($cc_default_tab === 'vobo');
 $ccActHist  = ($cc_default_tab === 'historial');
 $ccActCart  = ($cc_default_tab === 'cartera');
 ?>
@@ -707,6 +709,17 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                             aria-controls="tab-en-proceso" aria-selected="<?= $ccActEp ? 'true' : 'false' ?>">
                         <i class="fa-solid fa-hourglass-half me-1 text-warning"></i>En Proceso
                         <span class="badge bg-warning text-dark ms-1" id="badge-en-proceso">0</span>
+                    </button>
+                </li>
+                <?php endif; ?>
+                <?php if (!empty($cc_perm_vobo)): ?>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link<?= $ccActVoBo ? ' active' : '' ?>" id="tab-vobo-btn"
+                            data-bs-toggle="tab" data-bs-target="#tab-vobo"
+                            type="button" role="tab"
+                            aria-controls="tab-vobo" aria-selected="<?= $ccActVoBo ? 'true' : 'false' ?>">
+                        <i class="fa-solid fa-stamp me-1" style="color:#2563eb;"></i>Vo.Bo
+                        <span class="badge ms-1" id="badge-vobo" style="background:#2563eb;color:#fff;">0</span>
                     </button>
                 </li>
                 <?php endif; ?>
@@ -812,6 +825,38 @@ $ccActCart  = ($cc_default_tab === 'cartera');
         <div id="empty-convenios" class="text-center py-5 text-muted d-none">
             <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
             Sin convenios registrados.
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($cc_perm_vobo)): ?>
+    <!-- ══ PESTAÑA VO.BO ══ -->
+    <div class="tab-pane fade<?= $ccActVoBo ? ' show active' : '' ?>" id="tab-vobo" role="tabpanel">
+        <div id="loader-vobo" class="text-center py-5 text-muted<?= $ccActVoBo ? '' : ' d-none' ?>">
+            <i class="fa-solid fa-spinner fa-spin fa-2x mb-2 d-block"></i>
+            Cargando envíos a dirección de cobranza...
+        </div>
+        <div id="wrap-vobo" class="d-none">
+            <div class="card-datatable table-responsive">
+                <table id="tablaVoBo" class="dt-responsive table border-top">
+                    <thead>
+                        <tr>
+                            <th>Crédito</th>
+                            <th>Cliente</th>
+                            <th>Comentario</th>
+                            <th>Archivo</th>
+                            <th>Enviado por</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="empty-vobo" class="text-center py-5 text-muted d-none">
+            <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+            Sin registros pendientes en Vo.Bo.
         </div>
     </div>
     <?php endif; ?>
@@ -927,6 +972,12 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                         <button class="cc-filtro-hist-opcion" data-filtro-hist="en_proceso" type="button">
                             <i class="fa-solid fa-hourglass-half"></i>En proceso
                         </button>
+                        <button class="cc-filtro-hist-opcion" data-filtro-hist="envio_cobranza" type="button">
+                            <i class="fa-solid fa-stamp"></i>En Vo.Bo
+                        </button>
+                        <button class="cc-filtro-hist-opcion" data-filtro-hist="vo_bo_rechazado" type="button">
+                            <i class="fa-solid fa-xmark"></i>Vo.Bo rechazado
+                        </button>
                         <button class="cc-filtro-hist-opcion" data-filtro-hist="descartado" type="button">
                             <i class="fa-solid fa-rotate-left"></i>Devueltos
                         </button>
@@ -1012,12 +1063,42 @@ $ccActCart  = ($cc_default_tab === 'cartera');
 </div>
 <?php endif; ?>
 
+<div class="modal fade" id="ccModalVoBo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-stamp me-2 text-primary"></i>Enviar a Vo.Bo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cc-vobo-id" value="">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Archivo (PDF o imagen)</label>
+                    <input type="file" id="cc-vobo-archivo" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                    <small class="text-muted">Máximo 8 MB.</small>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label fw-semibold">Comentario <span class="text-danger">*</span></label>
+                    <textarea id="cc-vobo-comentario" class="form-control" rows="4" maxlength="500" placeholder="Describe el motivo del envío a Dirección de Cobranza..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="cc-vobo-enviar-btn">
+                    <i class="fa-solid fa-paper-plane me-1"></i>Enviar a dirección de cobranza
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 window.__CC_PESTANAS_PERM__ = <?= json_encode([
     'alguno' => !empty($cc_perm_alguno),
     'convenios' => !empty($cc_perm_convenios),
     'validacion' => !empty($cc_perm_validacion),
     'en_proceso' => !empty($cc_perm_en_proceso),
+    'vobo'      => !empty($cc_perm_vobo),
     'historial' => !empty($cc_perm_historial),
     'cartera'   => !empty($cc_perm_cartera),
     'defaultTab' => isset($cc_default_tab) ? $cc_default_tab : null,
@@ -1036,6 +1117,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         convenios: true,
         validacion: true,
         en_proceso: true,
+        vobo: true,
         historial: true,
         cartera: true,
         defaultTab: 'validacion',
@@ -1213,6 +1295,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     ══════════════════════════════════ */
     let _allRows          = [];
     let _allRowsEp        = [];
+    let _allRowsVoBo      = [];
     let _epView            = '3'; // '3' | '2' | 'list'
     let _filtroEf         = 'todos';
     let _filtroHist       = 'todos';
@@ -1312,6 +1395,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (elConv && elConv.classList.contains('show')) return 'conv';
         const elEp = document.getElementById('tab-en-proceso');
         if (elEp && elEp.classList.contains('show')) return 'ep';
+        const elVoBo = document.getElementById('tab-vobo');
+        if (elVoBo && elVoBo.classList.contains('show')) return 'vobo';
         const elHist = document.getElementById('tab-historial');
         if (elHist && elHist.classList.contains('show')) return 'hist';
         return 'ef';
@@ -1348,6 +1433,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
         if (tab === 'conv') {
             if (_tablaConv) { _tablaConv.search(t).draw(); }
+            return;
+        }
+
+        if (tab === 'vobo') {
+            if (_tablaVoBo) { _tablaVoBo.search(t).draw(); }
             return;
         }
 
@@ -1820,6 +1910,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
             </div>
             ${_s2InfoHtml(r)}
+            ${parseInt(r.vobo_validado_direccion || 0) === 1 ? `
+            <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#dcfce7;border:1px solid #86efac;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#166534;">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Validado por dirección de cobranza${r.vobo_fecha_validacion ? ' · ' + fmtFecha(r.vobo_fecha_validacion) : ''}</span>
+            </div>` : ''}
         </div>
         <hr style="border-color:#e2e8f0;margin:.5rem 0 .75rem;">`;
     }
@@ -1874,9 +1969,14 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                    class="btn btn-sm btn-outline-success" style="font-size:.75rem;padding:.2rem .5rem;">
                     <i class="fa-solid fa-file-excel"></i>
                 </a>
-                <button class="cc-btn-confirmar" style="font-size:.75rem;padding:.28rem .65rem;"
+                ${parseInt(r.vobo_validado_direccion || 0) !== 1 ? `
+                <button class="cc-btn-confirmar" style="font-size:.75rem;padding:.28rem .65rem;background:linear-gradient(135deg,#2563eb,#3b82f6);"
+                        onclick="ccAbrirModalVoBo(${r.id})">
+                    <i class="fa-solid fa-stamp me-1"></i>Vo.Bo
+                </button>` : ''}
+                <button class="cc-btn-confirmar" style="font-size:.75rem;padding:.28rem .65rem;background:linear-gradient(135deg,#059669,#10b981);"
                         onclick="ccEnviarACartera(${r.id})" id="cc-ep-btn-${r.id}">
-                    <i class="fa-solid fa-paper-plane"></i>Enviar
+                    <i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera
                 </button>
                 <button class="cc-btn-descartar" style="font-size:.75rem;padding:.28rem .55rem;"
                         onclick="ccDescartar(${r.id})" title="Descartar">
@@ -1960,6 +2060,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
                         </div>
                         ${_s2InfoHtml(r)}
+                        ${parseInt(r.vobo_validado_direccion || 0) === 1 ? `
+                        <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#dcfce7;border:1px solid #86efac;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#166534;">
+                            <i class="fa-solid fa-badge-check"></i>
+                            <span>Validado por dirección de cobranza${r.vobo_fecha_validacion ? ' · ' + fmtFecha(r.vobo_fecha_validacion) : ''}</span>
+                        </div>` : ''}
                         ${r.fecha_envio_cartera ? `
                         <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#fef9c3;border:1px solid #fde68a;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#854d0e;">
                             <i class="fa-solid fa-triangle-exclamation"></i>
@@ -1979,11 +2084,16 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                        class="btn btn-sm btn-outline-success" style="font-size:.78rem;">
                         <i class="fa-solid fa-file-excel me-1"></i>Excel
                     </a>
+                    ${parseInt(r.vobo_validado_direccion || 0) !== 1 ? `
                     <button class="cc-btn-confirmar"
-                            style="background:linear-gradient(135deg,#059669,#10b981);flex:1 1 100%;min-width:120px;"
+                            style="background:linear-gradient(135deg,#2563eb,#3b82f6);flex:1 1 45%;min-width:100px;"
+                            onclick="ccAbrirModalVoBo(${r.id})">
+                        <i class="fa-solid fa-stamp me-1"></i>Vo.Bo
+                    </button>` : ''}
+                    <button class="cc-btn-confirmar"
+                            style="background:linear-gradient(135deg,#059669,#10b981);flex:1 1 45%;min-width:100px;"
                             onclick="ccEnviarACartera(${r.id})" id="cc-ep-btn-${r.id}">
-                        <i class="fa-solid fa-paper-plane"></i>
-                        Enviar a cartera
+                        <i class="fa-solid fa-paper-plane me-1"></i>Enviar a cartera
                     </button>
                 </div>
 
@@ -1996,6 +2106,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     ══════════════════════════════════ */
     let _tablaConv = null;
     let _tablaHist = null;
+    let _tablaVoBo = null;
 
     /* ── Helpers para la DataTable de Historial ── */
     const _histEtiqueta = (r) => {
@@ -2021,6 +2132,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             return `<span class="badge rounded-pill cc-hist-cerrado"><i class="fa-solid fa-circle-check me-1"></i>Cerrado</span>`;
         if (r.estatus === 'devuelto_cartera')
             return `<span class="badge rounded-pill cc-hist-devuelto-cart"><i class="fa-solid fa-rotate-left me-1"></i>Devuelto por cartera</span>`;
+        if (r.estatus === 'envio_cobranza')
+            return `<span class="badge rounded-pill cc-hist-notificado"><i class="fa-solid fa-stamp me-1"></i>En Vo.Bo</span>`;
+        if (r.estatus === 'vo_bo_rechazado')
+            return `<span class="badge rounded-pill cc-hist-descartado"><i class="fa-solid fa-xmark me-1"></i>Vo.Bo rechazado</span>`;
         return `<span class="badge rounded-pill cc-hist-en-proceso"><i class="fa-solid fa-hourglass-half me-1"></i>En Proceso</span>`;
     };
 
@@ -2034,6 +2149,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (r.estatus === 'descartado')      return r.fecha_actualizacion || '';
         if (r.estatus === 'en_cola')         return r.fecha_actualizacion || '';
         if (r.estatus === 'listo_envio')     return r.fecha_actualizacion || '';
+        if (r.estatus === 'envio_cobranza')  return r.fecha_actualizacion || '';
+        if (r.estatus === 'vo_bo_rechazado') return r.fecha_actualizacion || '';
         return r.fecha_alta || '';
     };
 
@@ -2042,6 +2159,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (r.estatus === 'descartado')      return fmtFecha(r.fecha_actualizacion);
         if (r.estatus === 'en_cola')         return fmtFecha(r.fecha_actualizacion);
         if (r.estatus === 'listo_envio')     return fmtFecha(r.fecha_actualizacion);
+        if (r.estatus === 'envio_cobranza')  return fmtFecha(r.fecha_actualizacion);
+        if (r.estatus === 'vo_bo_rechazado') return fmtFecha(r.fecha_actualizacion);
         return fmtFecha(r.fecha_alta);
     };
 
@@ -2792,7 +2911,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 <div style="font-size:1rem;font-weight:700;color:#475569;">${fmtN(conv.pago_semanal)}</div>
             </div>
         </div>
-        ${rowData ? _s2InfoHtml(rowData) : ''}`;
+        ${rowData ? _s2InfoHtml(rowData) : ''}
+        ${rowData && parseInt(rowData.vobo_validado_direccion || 0) === 1 ? `
+        <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#dcfce7;border:1px solid #86efac;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#166534;">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Validado por dirección de cobranza${rowData.vobo_fecha_validacion ? ' · ' + fmtFecha(rowData.vobo_fecha_validacion) : ''}</span>
+        </div>` : ''}`;
 
         // ── Tabla de amortización con documentos ──
         let filasAmort = '';
@@ -2864,6 +2988,101 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     }
 
     /* ══════════════════════════════════
+       PESTAÑA VO.BO
+    ══════════════════════════════════ */
+    function _initTablaVoBo() {
+        if (_tablaVoBo) return;
+        _tablaVoBo = $('#tablaVoBo').DataTable({
+            data: [],
+            columns: [
+                {
+                    data: 'id_credito',
+                    render: function(d, t, r) {
+                        if (t !== 'display') return d || '';
+                        return `<strong>#${esc(d)}</strong>${CC_AMBAS ? `<div style="margin-top:.2rem;">${_celulaBadge(r)}</div>` : ''}`;
+                    }
+                },
+                { data: 'nombre_cliente', render: function(d) { return esc(d || '—'); } },
+                { data: 'vobo_comentario', render: function(d) { return `<span style="font-size:.83rem;">${esc(d || '—')}</span>`; } },
+                {
+                    data: 'vobo_archivo',
+                    orderable: false,
+                    render: function(d) {
+                        if (!d) return '<span class="text-muted">—</span>';
+                        return `<a href="${esc(d)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;"><i class="fa-solid fa-paperclip me-1"></i>Ver</a>`;
+                    }
+                },
+                { data: 'usuario_actualizacion', render: function(d) { return esc(d || '—'); } },
+                {
+                    data: 'fecha_actualizacion',
+                    render: function(d, t) {
+                        if (t === 'sort') return d || '';
+                        return fmtFecha(d);
+                    }
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    searchable: false,
+                    render: function(d, t, r) {
+                        return `<div style="display:flex;gap:.35rem;min-width:170px;">
+                            <button class="btn btn-sm btn-success" style="font-size:.72rem;" onclick="ccAprobarVoBo(${r.id})">
+                                <i class="fa-solid fa-check me-1"></i>Enviar a procesar envío
+                            </button>
+                            <button class="btn btn-sm btn-danger" style="font-size:.72rem;" onclick="ccRechazarVoBo(${r.id})">
+                                <i class="fa-solid fa-xmark me-1"></i>Rechazar
+                            </button>
+                        </div>`;
+                    }
+                }
+            ],
+            pageLength: 15,
+            lengthMenu: [10, 15, 25, 50],
+            order: [[5, 'desc']],
+            language: {
+                emptyTable:   'Sin registros en Vo.Bo',
+                infoEmpty:    'Sin registros',
+                info:         'Mostrando _START_ a _END_ de _TOTAL_ registros',
+                infoFiltered: '(filtrado de _MAX_ totales)',
+                lengthMenu:   'Mostrar _MENU_ registros',
+                search:       'Buscar:',
+                zeroRecords:  'Sin resultados para la búsqueda',
+                paginate: { first: '«', last: '»', next: '›', previous: '‹' }
+            },
+            dom: '<"row"<"col-sm-12 col-md-6"l>>' +
+                 '<"row"<"col-sm-12"tr>>' +
+                 '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            autoWidth: false,
+            drawCallback: function() {
+                $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+            }
+        });
+    }
+
+    function renderVoBo(rows) {
+        _allRowsVoBo = rows || [];
+        const loader = document.getElementById('loader-vobo');
+        const wrap   = document.getElementById('wrap-vobo');
+        const empty  = document.getElementById('empty-vobo');
+        const badge  = document.getElementById('badge-vobo');
+        if (loader) loader.classList.add('d-none');
+        if (badge) badge.textContent = String(_allRowsVoBo.length);
+
+        if (!_allRowsVoBo.length) {
+            if (wrap) wrap.classList.add('d-none');
+            if (empty) empty.classList.remove('d-none');
+            return;
+        }
+
+        if (empty) empty.classList.add('d-none');
+        if (wrap) wrap.classList.remove('d-none');
+        _initTablaVoBo();
+        _tablaVoBo.clear().rows.add(_allRowsVoBo).draw();
+        const t = document.getElementById('barraGeneral-input').value.trim();
+        if (t) _tablaVoBo.search(t).draw();
+    }
+
+    /* ══════════════════════════════════
        CARGA DE DATOS
     ══════════════════════════════════ */
 
@@ -2893,6 +3112,21 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 if (!res.success) throw new Error(res.mensaje);
                 renderEnProceso(res.datos);
                 enProcesoCargado = true;
+            });
+    }
+
+    function cargarVoBo() {
+        const loader = document.getElementById('loader-vobo');
+        const wrap   = document.getElementById('wrap-vobo');
+        const empty  = document.getElementById('empty-vobo');
+        if (loader) loader.classList.remove('d-none');
+        if (wrap) wrap.classList.add('d-none');
+        if (empty) empty.classList.add('d-none');
+        return fetch('/CierreCredito/getVoBo', { method: 'POST' })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                renderVoBo(res.datos);
             });
     }
 
@@ -2948,6 +3182,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (CC_P.convenios)  promesas.push(cargarConvenios().catch(() => {}));
         if (CC_P.validacion) promesas.push(cargarEnviadoFinalizado().catch(() => {}));
         if (CC_P.en_proceso) promesas.push(cargarEnProceso().catch(() => {}));
+        if (CC_P.vobo)       promesas.push(cargarVoBo().catch(() => {}));
         if (CC_P.historial)  promesas.push(cargarHistorial().catch(() => {}));
         if (CC_P.cartera)    promesas.push(cargarCartera().catch(() => {}));
 
@@ -2996,6 +3231,14 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         tabCarteraBtn.addEventListener('shown.bs.tab', function () {
             const t = document.getElementById('barraGeneral-input').value;
             if (t.trim()) { if (_tablaCart) _tablaCart.search(t).draw(); }
+        });
+    }
+
+    const tabVoBoBtn = document.getElementById('tab-vobo-btn');
+    if (tabVoBoBtn) {
+        tabVoBoBtn.addEventListener('shown.bs.tab', function () {
+            const t = document.getElementById('barraGeneral-input').value;
+            if (t.trim()) { if (_tablaVoBo) _tablaVoBo.search(t).draw(); }
         });
     }
 
@@ -3348,6 +3591,148 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Confirmar cierre'; }
                 Swal.fire({ icon: 'error', title: 'Error', text: err.message });
             });
+        });
+    };
+
+    /* ══════════════════════════════════
+       VO.BO: abrir modal y enviar
+    ══════════════════════════════════ */
+    window.ccAbrirModalVoBo = function(idRegistro) {
+        const idEl = document.getElementById('cc-vobo-id');
+        const fileEl = document.getElementById('cc-vobo-archivo');
+        const comentEl = document.getElementById('cc-vobo-comentario');
+        if (!idEl || !fileEl || !comentEl) return;
+        idEl.value = String(idRegistro || '');
+        fileEl.value = '';
+        comentEl.value = '';
+
+        const modalEl = document.getElementById('ccModalVoBo');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    };
+
+    const _btnEnviarVoBo = document.getElementById('cc-vobo-enviar-btn');
+    if (_btnEnviarVoBo) {
+        _btnEnviarVoBo.addEventListener('click', function() {
+            const id = parseInt(document.getElementById('cc-vobo-id').value || '0', 10);
+            const archivo = document.getElementById('cc-vobo-archivo').files[0] || null;
+            const comentario = (document.getElementById('cc-vobo-comentario').value || '').trim();
+
+            if (!id) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'ID inválido para envío a Vo.Bo.' });
+                return;
+            }
+            if (!archivo) {
+                Swal.fire({ icon: 'warning', title: 'Archivo requerido', text: 'Debe adjuntar un archivo PDF o imagen.' });
+                return;
+            }
+            if (!comentario) {
+                Swal.fire({ icon: 'warning', title: 'Comentario requerido', text: 'Debe capturar un comentario para Vo.Bo.' });
+                return;
+            }
+
+            const fd = new FormData();
+            fd.append('id', String(id));
+            fd.append('comentario', comentario);
+            fd.append('archivo', archivo);
+
+            _btnEnviarVoBo.disabled = true;
+            _btnEnviarVoBo.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>Enviando...';
+
+            fetch('/CierreCredito/enviarAVoBo', {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje || 'No se pudo enviar a Vo.Bo.');
+
+                const modalEl = document.getElementById('ccModalVoBo');
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.hide();
+
+                Swal.fire({ icon: 'success', title: 'Enviado', text: res.mensaje || 'Registro enviado a Vo.Bo.', timer: 2000, showConfirmButton: false });
+                if (CC_P.en_proceso) cargarEnProceso().catch(() => {});
+                if (CC_P.vobo)       cargarVoBo().catch(() => {});
+                if (CC_P.historial)  cargarHistorial().catch(() => {});
+            })
+            .catch(err => {
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+            })
+            .finally(() => {
+                _btnEnviarVoBo.disabled = false;
+                _btnEnviarVoBo.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar a dirección de cobranza';
+            });
+        });
+    }
+
+    window.ccAprobarVoBo = function(idRegistro) {
+        Swal.fire({
+            title: '¿Enviar a procesar envío?',
+            html: 'Este registro regresará a <strong>En Proceso</strong> como <strong>validado por dirección de cobranza</strong>.',
+            icon: 'question',
+            input: 'textarea',
+            inputPlaceholder: 'Comentario opcional de validación...',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-check me-1"></i>Aprobar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#16a34a'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            const comentario = (result.value || '').trim();
+            const params = new URLSearchParams({ id: String(idRegistro), comentario });
+            fetch('/CierreCredito/aprobarVoBo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                Swal.fire({ icon: 'success', title: 'Aprobado', text: res.mensaje, timer: 2000, showConfirmButton: false });
+                if (CC_P.en_proceso) cargarEnProceso().catch(() => {});
+                if (CC_P.vobo)       cargarVoBo().catch(() => {});
+                if (CC_P.historial)  cargarHistorial().catch(() => {});
+            })
+            .catch(err => Swal.fire({ icon: 'error', title: 'Error', text: err.message }));
+        });
+    };
+
+    window.ccRechazarVoBo = function(idRegistro) {
+        Swal.fire({
+            title: 'Rechazar Vo.Bo',
+            input: 'textarea',
+            inputLabel: 'Motivo del rechazo',
+            inputPlaceholder: 'Escribe el motivo...',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '<i class="fa-solid fa-xmark me-1"></i>Rechazar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#dc2626',
+            preConfirm: (val) => {
+                if (!val || !val.trim()) {
+                    Swal.showValidationMessage('Debe capturar el motivo del rechazo.');
+                    return false;
+                }
+                return val.trim();
+            }
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            const params = new URLSearchParams({ id: String(idRegistro), comentario: result.value });
+            fetch('/CierreCredito/rechazarVoBo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) throw new Error(res.mensaje);
+                Swal.fire({ icon: 'success', title: 'Rechazado', text: res.mensaje, timer: 2200, showConfirmButton: false });
+                if (CC_P.validacion) cargarEnviadoFinalizado().catch(() => {});
+                if (CC_P.vobo)       cargarVoBo().catch(() => {});
+                if (CC_P.historial)  cargarHistorial().catch(() => {});
+            })
+            .catch(err => Swal.fire({ icon: 'error', title: 'Error', text: err.message }));
         });
     };
 
