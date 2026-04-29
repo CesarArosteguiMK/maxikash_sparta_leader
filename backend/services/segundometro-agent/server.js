@@ -258,7 +258,9 @@ const FALLBACK_DB_CHECK_MAP = {
   '16:40': { hh: '16', mm: '32', dayOffset: 0 },
   '18:40': { hh: '18', mm: '32', dayOffset: 0 },
   '20:40': { hh: '20', mm: '32', dayOffset: 0 },
-  // Slot de noche: automático principal en 23:52, respaldo al día siguiente 00:05.
+  // Nocturno (distinto de xx:40): el ZIP en disco es mega_rpt_*_23_52_00; en la tabla semana los datos de ese corte viven en columnas tipo Dias_mora_*_23_50.
+  // Comprobación BD a las 23:52 CDMX (mismo día del reporte). 00:05 del día siguiente = segunda ventana por si el poll no alcanzó 23:52–23:57.
+  '23:52': { hh: '23', mm: '52', dayOffset: 0 },
   '00:05': { hh: '23', mm: '52', dayOffset: -1 },
 };
 
@@ -284,6 +286,72 @@ function dayOfWeekFromYmd(fechaYYYYMMDD) {
 
 function esMartesFecha(fechaYYYYMMDD) {
   return dayOfWeekFromYmd(fechaYYYYMMDD) === 2;
+}
+
+/** Minutos desde medianoche (0–1439) desde objeto hora CDMX (`hora` HH:MM o `horaSeg` HH:MM:SS). */
+function minutosDesdeMedianocheDesdeNowCdmx(nowCdmx) {
+  const seg = String((nowCdmx && nowCdmx.horaSeg) || '');
+  const hm = String((nowCdmx && nowCdmx.hora) || '');
+  const raw = seg.split(':').length >= 3 ? seg : (hm ? hm + ':00' : '');
+  const p = raw.split(':');
+  if (p.length < 2) return null;
+  const h = parseInt(p[0], 10);
+  const m = parseInt(p[1], 10);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+/** Martes CDMX entre 07:00 y 07:29 (ventana para scheduler cada 5 min). */
+function esVentanaTruncarMartesCdmx(nowCdmx) {
+  if (!esMartesFecha(nowCdmx.fecha)) return false;
+  const mm = minutosDesdeMedianocheDesdeNowCdmx(nowCdmx);
+  if (mm === null) return false;
+  return mm >= 7 * 60 && mm < 7 * 60 + 30;
+}
+
+/** Martes CDMX antes de las 07:30: la UI no lista reportes (la semana operativa arranca con el slot 07:30). */
+function esMartesAntesDe0730Cdmx(nowCdmx) {
+  if (!esMartesFecha(nowCdmx.fecha)) return false;
+  const mm = minutosDesdeMedianocheDesdeNowCdmx(nowCdmx);
+  if (mm === null) return false;
+  return mm < 7 * 60 + 30;
+}
+
+/** Ventana tras cada slot HH:MM para que un poll cada 5 min no pierda el disparo. */
+const SLOT_VENTANA_MINUTOS = 6;
+
+function fallbackSlotParaNowCdmx(nowCdmx) {
+  const cur = minutosDesdeMedianocheDesdeNowCdmx(nowCdmx);
+  if (cur === null) return null;
+  for (const slotKey of Object.keys(FALLBACK_DB_CHECK_MAP)) {
+    const parts = slotKey.split(':');
+    if (parts.length !== 2) continue;
+    const sh = parseInt(parts[0], 10);
+    const sm = parseInt(parts[1], 10);
+    if (!Number.isFinite(sh) || !Number.isFinite(sm)) continue;
+    const slotStart = sh * 60 + sm;
+    if (cur >= slotStart && cur < slotStart + SLOT_VENTANA_MINUTOS) {
+      return { slotKey, meta: FALLBACK_DB_CHECK_MAP[slotKey] };
+    }
+  }
+  return null;
+}
+
+function horarioAutoCopyParaNowCdmx(config, nowCdmx) {
+  if (!config || !Array.isArray(config.horarios)) return null;
+  const cur = minutosDesdeMedianocheDesdeNowCdmx(nowCdmx);
+  if (cur === null) return null;
+  for (const slot of config.horarios) {
+    const parts = String(slot).split(':');
+    if (parts.length !== 2) continue;
+    const sh = parseInt(parts[0], 10);
+    const sm = parseInt(parts[1], 10);
+    if (!Number.isFinite(sh) || !Number.isFinite(sm)) continue;
+    const slotStart = sh * 60 + sm;
+    if (cur >= slotStart && cur < slotStart + SLOT_VENTANA_MINUTOS) return String(slot);
+  }
+  return null;
 }
 
 function proximaEjecucionByNow(config, nowCdmx) {
@@ -699,9 +767,9 @@ async function runMartesSemanalJob(slot, fechaCdmx, nombreEsperado) {
 }
 
 async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
+  // Mismo interruptor que «Copiar +1s automático» (`data/auto-copy-config.json` → enabled).
   if (!config || !config.enabled) return;
-  if (!esMartesFecha(nowCdmx.fecha)) return;
-  if (String(nowCdmx.hora) !== '07:00') return;
+  if (!esVentanaTruncarMartesCdmx(nowCdmx)) return;
   const slotKey = 'truncar_auto_07_00';
   const lastBySlot = config.lastRunBySlot || {};
   if (lastBySlot[slotKey] === nowCdmx.fecha) return;
@@ -711,6 +779,17 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 45000);
   try {
+    // Reservar el slot en disco antes del POST: como máximo un intento automático por martes
+    // (evita reintentos en la misma ventana si la respuesta se pierde pero PHP ya truncó).
+    const c0 = autoCopyConfig.readConfig();
+    const lbs0 = c0.lastRunBySlot || {};
+    if (lbs0[slotKey] === nowCdmx.fecha) {
+      return;
+    }
+    c0.lastRunBySlot = c0.lastRunBySlot || {};
+    c0.lastRunBySlot[slotKey] = nowCdmx.fecha;
+    autoCopyConfig.writeConfig(c0);
+
     const result = await postTruncarAutomaticoAgente(
       {
         source: 'auto-copy-scheduler',
@@ -722,7 +801,7 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     const ok = !!(result && result.r && result.r.ok && result.data && result.data.success);
     if (!ok) {
       const msg = (result && result.data && result.data.mensaje) || (result && result.error) || 'No se pudo ejecutar truncar automático.';
-      ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático martes 07:00: ' + msg, tipo: 'truncar_auto' };
+      ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático (martes 07:00–07:29 CDMX): ' + msg, tipo: 'truncar_auto' };
       ejecutarAhoraState.finishedAt = new Date().toISOString();
       console.warn('[truncar-auto] Falló:', msg);
       return;
@@ -732,7 +811,7 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     c.lastRunBySlot[slotKey] = nowCdmx.fecha;
     c.lastRunResult = {
       success: true,
-      mensaje: (result.data && result.data.mensaje) || 'Truncar automático martes 07:00 ejecutado.',
+      mensaje: (result.data && result.data.mensaje) || 'Truncar automático (martes 07:00–07:29 CDMX) ejecutado.',
       tipo: 'truncar_auto',
       fecha: nowCdmx.fecha,
       hora: nowCdmx.hora,
@@ -741,10 +820,10 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
     autoCopyConfig.writeConfig(c);
     ejecutarAhoraState.lastResult = c.lastRunResult;
     ejecutarAhoraState.finishedAt = new Date().toISOString();
-    console.log('[truncar-auto] Ejecutado con éxito martes 07:00.');
+    console.log('[truncar-auto] Ejecutado con éxito (ventana martes 07:00–07:29 CDMX).');
   } catch (e) {
     const msg = e && e.message ? e.message : 'Error en truncar automático.';
-    ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático martes 07:00: ' + msg, tipo: 'truncar_auto' };
+    ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático (martes 07:00–07:29 CDMX): ' + msg, tipo: 'truncar_auto' };
     ejecutarAhoraState.finishedAt = new Date().toISOString();
     console.warn('[truncar-auto] Excepción:', msg);
   } finally {
@@ -1344,18 +1423,18 @@ function startAutoCopyScheduler() {
     try {
       const config = autoCopyConfig.readConfig();
       const nowCdmx = await getCdmxNowForHttp();
-      const hora = nowCdmx.hora;
       const fecha = nowCdmx.fecha;
 
-    // Truncar automático (obligatorio) martes 07:00 CDMX.
-    // Corre únicamente cuando auto-copy está activo.
+    // Truncar automático: martes 07:00–07:29 CDMX, solo si Auto-copy está activo (mismo `enabled`).
     await ejecutarTruncarAutomaticoSiToca(config, nowCdmx);
 
-    // Respaldo: a xx:40 (y 00:05 para el slot de 23:52) consulta BD;
+    // Respaldo: a xx:40; nocturno a 23:52 y respaldo 00:05 (mismo archivo …_23_52_00) consulta BD;
     // si no está en BD (ok), dispara ejecución automática en background.
-    const fallbackMeta = FALLBACK_DB_CHECK_MAP[hora] || null;
-    if (config.enabled && fallbackMeta) {
-      const fallbackKey = 'fallback_' + hora;
+    const fallbackHit = fallbackSlotParaNowCdmx(nowCdmx);
+    const fallbackMeta = fallbackHit && fallbackHit.meta;
+    const fallbackSlotKey = fallbackHit && fallbackHit.slotKey;
+    if (config.enabled && fallbackMeta && fallbackSlotKey) {
+      const fallbackKey = 'fallback_' + fallbackSlotKey;
       const lastBySlot = config.lastRunBySlot || {};
       if (lastBySlot[fallbackKey] !== fecha) {
         if (fallbackAsyncRunning.has(fallbackKey)) {
@@ -1377,34 +1456,34 @@ function startAutoCopyScheduler() {
             consumeFallbackSlot();
             ejecutarAhoraState.lastResult = {
               success: true,
-              mensaje: 'Respaldo ' + hora + ': BD OK para ' + nombreEsperado + ' (no se dispara copia).',
+              mensaje: 'Respaldo ' + fallbackSlotKey + ': BD OK para ' + nombreEsperado + ' (no se dispara copia).',
               esPrueba: false,
             };
             ejecutarAhoraState.finishedAt = new Date().toISOString();
-            console.log('[fallback]', hora, 'BD OK, sin acción:', nombreEsperado);
+            console.log('[fallback]', fallbackSlotKey, 'BD OK, sin acción:', nombreEsperado);
             return;
           }
           // Importante: si la verificación BD falla (endpoint inaccesible, login, timeout, etc.)
-          // NO disparar copia para evitar falsos positivos. No consumir slot: reintento en ~30s.
+          // NO disparar copia para evitar falsos positivos. No consumir slot: reintento en el siguiente poll (~5 min).
           if (!bd.success || !bd.estado) {
             ejecutarAhoraState.lastResult = {
               success: false,
-              mensaje: 'Respaldo ' + hora + ': no se pudo verificar BD para ' + nombreEsperado + ' (' + (bd.error || 'sin estado') + '). No se dispara copia.',
+              mensaje: 'Respaldo ' + fallbackSlotKey + ': no se pudo verificar BD para ' + nombreEsperado + ' (' + (bd.error || 'sin estado') + '). No se dispara copia.',
               esPrueba: false,
             };
             ejecutarAhoraState.finishedAt = new Date().toISOString();
-            console.warn('[fallback]', hora, 'sin verificación BD válida; no se dispara copia.', nombreEsperado, 'error=', bd.error || 'n/a');
+            console.warn('[fallback]', fallbackSlotKey, 'sin verificación BD válida; no se dispara copia.', nombreEsperado, 'error=', bd.error || 'n/a');
             return;
           }
           // Si BD respondió "procesando", no disparamos respaldo para evitar falsos positivos.
           if (bd.estado === 'procesando') {
             ejecutarAhoraState.lastResult = {
               success: true,
-              mensaje: 'Respaldo ' + hora + ': BD en estado procesando para ' + nombreEsperado + ' (sin acción).',
+              mensaje: 'Respaldo ' + fallbackSlotKey + ': BD en estado procesando para ' + nombreEsperado + ' (sin acción).',
               esPrueba: false,
             };
             ejecutarAhoraState.finishedAt = new Date().toISOString();
-            console.log('[fallback]', hora, 'BD procesando, sin acción:', nombreEsperado);
+            console.log('[fallback]', fallbackSlotKey, 'BD procesando, sin acción:', nombreEsperado);
             return;
           }
           // Solo si BD respondió explícitamente "error", se dispara respaldo.
@@ -1412,33 +1491,33 @@ function startAutoCopyScheduler() {
             consumeFallbackSlot();
             ejecutarAhoraState.lastResult = {
               success: false,
-              mensaje: 'Respaldo ' + hora + ': estado BD no esperado (' + bd.estado + ') para ' + nombreEsperado + '. No se dispara copia.',
+              mensaje: 'Respaldo ' + fallbackSlotKey + ': estado BD no esperado (' + bd.estado + ') para ' + nombreEsperado + '. No se dispara copia.',
               esPrueba: false,
             };
             ejecutarAhoraState.finishedAt = new Date().toISOString();
-            console.warn('[fallback]', hora, 'estado BD no esperado; sin acción.', nombreEsperado, 'estadoBD=', bd.estado);
+            console.warn('[fallback]', fallbackSlotKey, 'estado BD no esperado; sin acción.', nombreEsperado, 'estadoBD=', bd.estado);
             return;
           }
           // Martes 07:31 (validación a las 07:40): rama especial en lugar del flujo normal.
-          if (esSlotEspecialMartesSemanal(hora, fallbackMeta, fecha)) {
+          if (esSlotEspecialMartesSemanal(fallbackSlotKey, fallbackMeta, fecha)) {
             const especial = await runMartesSemanalJob('MARTES_07_31', fecha, nombreEsperado);
             ejecutarAhoraState.lastResult = especial;
             ejecutarAhoraState.finishedAt = new Date().toISOString();
             if (especial.success) {
               consumeFallbackSlot();
-              console.log('[fallback]', hora, 'rama especial martes semanal completada.', nombreEsperado);
+              console.log('[fallback]', fallbackSlotKey, 'rama especial martes semanal completada.', nombreEsperado);
             } else {
-              console.warn('[fallback]', hora, 'rama especial martes semanal falló:', especial.mensaje);
+              console.warn('[fallback]', fallbackSlotKey, 'rama especial martes semanal falló:', especial.mensaje);
             }
             return;
           }
           if (ejecutarAhoraState.running) {
-            console.log('[fallback]', hora, 'BD no OK, pero ya hay ejecución en curso.');
+            console.log('[fallback]', fallbackSlotKey, 'BD no OK, pero ya hay ejecución en curso.');
             return;
           }
-          const started = startEjecutarAhoraBackground('fallback-' + hora);
+          const started = startEjecutarAhoraBackground('fallback-' + fallbackSlotKey);
           if (started) consumeFallbackSlot();
-          console.log('[fallback]', hora, started ? 'disparado (BD=error)' : 'no disparado (ya en curso)', nombreEsperado);
+          console.log('[fallback]', fallbackSlotKey, started ? 'disparado (BD=error)' : 'no disparado (ya en curso)', nombreEsperado);
           } finally {
             fallbackAsyncRunning.delete(fallbackKey);
           }
@@ -1449,23 +1528,24 @@ function startAutoCopyScheduler() {
 
       if (!AUTO_COPY_MAIN_ENABLED) return;
       if (!config.enabled || !config.horarios || !config.horarios.length) return;
-      if (!config.horarios.includes(hora)) return;
+      const horaSlot = horarioAutoCopyParaNowCdmx(config, nowCdmx);
+      if (!horaSlot) return;
       const lastBySlotAuto = config.lastRunBySlot || {};
-      if (lastBySlotAuto[hora] === fecha) return;
-      if (autoCopyRunningSlots.has(hora)) return;
-      autoCopyRunningSlots.add(hora);
+      if (lastBySlotAuto[horaSlot] === fecha) return;
+      if (autoCopyRunningSlots.has(horaSlot)) return;
+      autoCopyRunningSlots.add(horaSlot);
       (async () => {
         try {
-          await runAutoCopyJob(hora, fecha);
+          await runAutoCopyJob(horaSlot, fecha);
         } finally {
-          autoCopyRunningSlots.delete(hora);
+          autoCopyRunningSlots.delete(horaSlot);
         }
       })();
     } catch (e) {
       console.error('[auto-copy] Error obteniendo hora CDMX remota:', e.message);
     }
-  }, 30000);
-  console.log('Auto Copiar +1s: programador activo (cada 30s). Horarios CDMX:', (autoCopyConfig.readConfig().horarios || []).join(', '));
+  }, 300000);
+  console.log('Auto Copiar +1s: programador activo (cada 5 min). Horarios CDMX:', (autoCopyConfig.readConfig().horarios || []).join(', '));
 }
 
 app.get('/files', async (req, res) => {
@@ -1490,8 +1570,16 @@ app.get('/files', async (req, res) => {
         mensaje: 'No se pudieron listar los archivos: ' + (result.error || 'Error SSH'),
       });
     }
-    const archivos = parseListOutput(result.output, nowCdmx);
-    return res.json({ success: true, datos: archivos });
+    let archivos = parseListOutput(result.output, nowCdmx);
+    const ocultoInicioSemanaMartes = esMartesAntesDe0730Cdmx(nowCdmx);
+    if (ocultoInicioSemanaMartes) {
+      archivos = [];
+    }
+    return res.json({
+      success: true,
+      datos: archivos,
+      oculto_inicio_semana_martes: ocultoInicioSemanaMartes,
+    });
   } catch (e) {
     return res.status(500).json({ success: false, mensaje: e.message });
   }

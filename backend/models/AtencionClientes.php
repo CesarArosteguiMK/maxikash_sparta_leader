@@ -875,6 +875,9 @@ SQL;
     // OBTENER DICTAMEN DE UNA OPERACIÓN
     // =========================================================================
 
+    /**
+     * Último dictamen de cualquier tipo (compatibilidad).
+     */
     public function obtenerDictamen(int $idOperacion): ?array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
@@ -899,5 +902,80 @@ SQL;
              LIMIT 1",
             ['id' => $idOperacion]
         );
+    }
+
+    /**
+     * Último dictamen registrado desde 1.- Retenciones (llamada), con gestor.
+     * Usado en el modal de pipeline para alinear resumen con comentarios por llamada.
+     */
+    public function obtenerUltimoDictamenLlamadaRetenciones(int $idOperacion): ?array
+    {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $pred     = $this->sqlEsDictamenLlamadaRetenciones('d');
+
+        return $this->db->queryOne(
+            "SELECT d.*,
+                    DATE_FORMAT(d.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+                    o.id_credito,
+                    o.folio,
+                    o.nombre_cliente,
+                    o.estatus AS op_estatus,
+                    TRIM(CONCAT_WS(' ',
+                        per.nombres,
+                        per.segundo_nombre,
+                        per.apellidop,
+                        per.apellidom
+                    )) AS gestor_nombre
+             FROM adj_dictamen d
+             JOIN adj_operacion o ON o.id = d.id_operacion
+             {$joinAsig}
+             WHERE d.id_operacion = :id
+               AND {$pred}
+             ORDER BY
+                 CASE WHEN TRIM(COALESCE(d.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                 d.fecha_alta DESC,
+                 d.id DESC
+             LIMIT 1",
+            ['id' => $idOperacion]
+        );
+    }
+
+    /**
+     * Hasta 3 dictámenes de llamada (Retenciones), los más recientes, en orden cronológico (1ra → 3ra).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function obtenerHistorialDictamenesLlamadaRetenciones(int $idOperacion): array
+    {
+        $pred = $this->sqlEsDictamenLlamadaRetenciones('d');
+
+        $sql = <<<SQL
+        SELECT
+            t.id,
+            t.comentarios,
+            DATE_FORMAT(t.fecha_alta, '%d/%m/%Y %H:%i') AS fecha_alta_fmt,
+            t.dictamen,
+            t.llamada_a,
+            t.tipo_contacto,
+            t.resultado,
+            TRIM(CONCAT_WS(' ',
+                reg.nombres,
+                reg.segundo_nombre,
+                reg.apellidop,
+                reg.apellidom
+            )) AS registrado_nombre
+        FROM (
+            SELECT d.id, d.id_usuario, d.comentarios, d.fecha_alta, d.dictamen, d.llamada_a, d.tipo_contacto, d.resultado
+            FROM adj_dictamen d
+            WHERE d.id_operacion = :id
+              AND {$pred}
+            ORDER BY d.fecha_alta DESC, d.id DESC
+            LIMIT 3
+        ) AS t
+        LEFT JOIN persona reg ON reg.id = t.id_usuario
+        ORDER BY t.fecha_alta ASC, t.id ASC
+        SQL;
+
+        return $this->db->queryAll($sql, ['id' => $idOperacion]) ?: [];
     }
 }

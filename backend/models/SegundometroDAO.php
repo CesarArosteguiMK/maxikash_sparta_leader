@@ -641,6 +641,9 @@ class SegundometroDAO extends Model
      *   3. Si OK → truncar tbl_segundometro_semana
      *   4. Notificar resultado final
      *
+     * Idempotencia: si la tabla semana ya está vacía (p. ej. segundo POST del agente), no copia de nuevo
+     * y devuelve éxito con 0 registros, evitando duplicar filas en histórico.
+     *
      * @return array ['success' => bool, 'mensaje' => string, 'registros_copiados' => int]
      */
     public static function truncarSemanaAHistorico()
@@ -649,6 +652,16 @@ class SegundometroDAO extends Model
         $db = new DatabaseSegundometro();
         $fecha = date('Y-m-d H:i:s');
         $usuario = $_SESSION['usuario'] ?? 'sistema';
+
+        $cntRow = $db->queryOne('SELECT COUNT(*) AS cnt FROM tbl_segundometro_semana');
+        $cntSemana = (int) (($cntRow && isset($cntRow['cnt'])) ? $cntRow['cnt'] : 0);
+        if ($cntSemana === 0) {
+            return [
+                'success' => true,
+                'mensaje' => 'Tabla tbl_segundometro_semana sin registros; no hay copia ni truncate que aplicar (operación idempotente).',
+                'registros_copiados' => 0,
+            ];
+        }
 
         // Paso 1: Copiar datos de semana a histórico
         try {

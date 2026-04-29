@@ -288,7 +288,11 @@ class AtencionClientes extends Controller
             return;
         }
 
-        $dictamen = $this->model->obtenerDictamen($idOperacion);
+        $historialLlamadas = $this->model->obtenerHistorialDictamenesLlamadaRetenciones($idOperacion);
+        $dictamen           = $this->model->obtenerUltimoDictamenLlamadaRetenciones($idOperacion);
+        if (!$dictamen) {
+            $dictamen = $this->model->obtenerDictamen($idOperacion);
+        }
 
         if (!$dictamen) {
             http_response_code(404);
@@ -296,6 +300,10 @@ class AtencionClientes extends Controller
             return;
         }
 
-        echo json_encode(['success' => true, 'dictamen' => $dictamen], JSON_UNESCAPED_UNICODE);
+        echo json_encode([
+            'success'             => true,
+            'dictamen'            => $dictamen,
+            'historial_llamadas'  => $historialLlamadas,
+        ], JSON_UNESCAPED_UNICODE);
     }
 }
