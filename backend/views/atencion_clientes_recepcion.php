@@ -345,30 +345,101 @@ body.dark-mode .acr-rcpt-sec-head { background: #1e293b; }
     .acr-rcpt-ev-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .acr-rcpt-ev-cell {
-    border: 1px dashed rgba(0,0,0,.2);
-    border-radius: 8px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
     aspect-ratio: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: .3rem;
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    background: #fafafa;
+    background: #fff;
     padding: 6px;
     text-align: center;
+    transition: border-color .15s, background .15s;
 }
-body.dark-mode .acr-rcpt-ev-cell { background: #1e293b; }
-.acr-rcpt-ev-cell:hover { border-color: #c47a00; background: #fdf3dc; }
-body.dark-mode .acr-rcpt-ev-cell:hover { background: #431407; }
+body.dark-mode .acr-rcpt-ev-cell { background: #1e293b; border-color: #334155; }
+.acr-rcpt-ev-cell:hover { border-color: #f59e0b; background: #fffbeb; }
+body.dark-mode .acr-rcpt-ev-cell:hover { background: #334155; border-color: #f59e0b; }
 .acr-rcpt-ev-cell.uploaded {
-    border: 2px solid #16a34a;
-    background: #f0fdf4;
+    border-style: solid;
+    border-color: #e2e8f0;
+    background: #fff;
 }
-.acr-rcpt-ev-label { font-size: 11px; color: #64748b; line-height: 1.25; }
-.acr-rcpt-ev-cell.uploaded .acr-rcpt-ev-label { color: #2d6a1f; font-weight: 600; }
+.acr-rcpt-ev-cell.uploading { opacity: .65; pointer-events: none; }
+.acr-rcpt-ev-label {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    background: rgba(15, 23, 42, .72);
+    color: #fff;
+    font-size: .58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    line-height: 1.2;
+    padding: .18rem .25rem;
+    pointer-events: none;
+}
+.acr-rcpt-slot-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .7rem;
+    border: none;
+    color: #fff;
+    background: #f59e0b;
+    pointer-events: none;
+    z-index: 2;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .25);
+}
+.acr-rcpt-ev-cell.uploaded .acr-rcpt-slot-btn { background: #f97316; }
+.acr-rcpt-slot-icon-ph {
+    font-size: 1.35rem;
+    color: #94a3b8;
+    pointer-events: none;
+}
+.acr-rcpt-ev-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.acr-rcpt-ev-status {
+    position: absolute;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: .58rem;
+    font-weight: 800;
+    border-radius: 999px;
+    padding: 1px 7px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 2;
+    display: none;
+}
+.acr-rcpt-ev-status-pendiente {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+.acr-rcpt-ev-status-cierre {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
 .acr-rcpt-ev-check {
     position: absolute;
     top: 6px;
@@ -386,11 +457,11 @@ body.dark-mode .acr-rcpt-ev-cell:hover { background: #431407; }
 .acr-rcpt-ev-cell.uploaded .acr-rcpt-ev-check { display: flex; }
 .acr-rcpt-ev-cell input[type=file] { display: none; }
 .acr-rcpt-ev-cell:focus-within {
-    outline: 2px solid #c47a00;
+    outline: 2px solid #f59e0b;
     outline-offset: 2px;
     background: #fffbeb;
 }
-body.dark-mode .acr-rcpt-ev-cell:focus-within { background: #431407; outline-color: #fbbf24; }
+body.dark-mode .acr-rcpt-ev-cell:focus-within { background: #334155; outline-color: #fbbf24; }
 .acr-rcpt-alert-info {
     padding: 10px 14px;
     border-radius: 6px;
@@ -995,7 +1066,18 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         return n.toLocaleString('es-GT', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     }
 
-    var _acrRcptEvUploaded = [];
+    const ACR_RCPT_MEDIA_SLOTS = [
+        { key: 'vista_front', label: 'Vista frontal', required: true, isVideo: false, icon: 'fa-image' },
+        { key: 'vista_trs', label: 'Vista trasera', required: true, isVideo: false, icon: 'fa-image' },
+        { key: 'lado_izq', label: 'Lado izquierdo', required: true, isVideo: false, icon: 'fa-image' },
+        { key: 'lado_der', label: 'Lado derecho', required: true, isVideo: false, icon: 'fa-image' },
+        { key: 'tablero', label: 'Tablero / Odómetro', required: true, isVideo: false, icon: 'fa-gauge-high' },
+        { key: 'vin', label: 'Número de serie (VIN)', required: true, isVideo: false, icon: 'fa-barcode' },
+        { key: 'danos_vis', label: 'Daños visibles', required: false, isVideo: false, icon: 'fa-triangle-exclamation' },
+        { key: 'vid_gen', label: 'Video general (360°)', required: false, isVideo: true, icon: 'fa-video' },
+    ];
+
+    var _acrRcptEvUploaded = {};
     var _acrRcptArrived = false;
     var _acrRcptIdOp = 0;
     var _acrRcptServerLocked = false;
@@ -1195,6 +1277,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         _acrRcptLastDetalle = d;
         acrRcptSyncSelectsFromDetalle(d);
         acrRcptRenderDocumentacionBodies(d);
+        acrRcptSyncEvDesdeDetalle(d);
         acrRcptSyncFinRecepcionUi(d);
     }
 
@@ -1232,40 +1315,110 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     }
 
     function acrRcptUpdateEvCount() {
-        var total = _acrRcptEvUploaded.filter(Boolean).length;
-        var req = _acrRcptEvUploaded.slice(0, 6).filter(Boolean).length;
+        var total = 0;
+        var req = 0;
+        ACR_RCPT_MEDIA_SLOTS.forEach(function (row) {
+            if (_acrRcptEvUploaded[row.key]) {
+                total++;
+                if (row.required) req++;
+            }
+        });
         var elT = document.getElementById('acr-rcpt-evCount');
         var elR = document.getElementById('acr-rcpt-evReq');
         if (elT) elT.textContent = String(total);
         if (elR) elR.textContent = String(req);
     }
 
+    function acrRcptSetCellState(cell, cfg, row) {
+        if (!cell || !cfg) return;
+        var statusEl = cell.querySelector('.acr-rcpt-ev-status');
+        var prevImg = cell.querySelector('img.acr-rcpt-ev-thumb');
+        var prevVid = cell.querySelector('video.acr-rcpt-ev-thumb');
+        if (prevImg) prevImg.remove();
+        if (prevVid) prevVid.remove();
+
+        var hasUrl = !!(row && row.url);
+        _acrRcptEvUploaded[cfg.key] = hasUrl;
+        cell.classList.remove('uploading');
+
+        if (hasUrl) {
+            cell.classList.add('uploaded');
+            var mediaEl;
+            if (cfg.isVideo) {
+                mediaEl = document.createElement('video');
+                mediaEl.className = 'acr-rcpt-ev-thumb';
+                mediaEl.muted = true;
+                mediaEl.playsInline = true;
+                mediaEl.preload = 'metadata';
+                mediaEl.src = String(row.url);
+            } else {
+                mediaEl = document.createElement('img');
+                mediaEl.className = 'acr-rcpt-ev-thumb';
+                mediaEl.alt = cfg.label;
+                mediaEl.src = String(row.url);
+            }
+            cell.insertBefore(mediaEl, cell.firstChild);
+        } else {
+            cell.classList.remove('uploaded');
+        }
+
+        if (statusEl) {
+            statusEl.classList.remove('acr-rcpt-ev-status-pendiente', 'acr-rcpt-ev-status-cierre');
+            if (hasUrl) {
+                var est = String(row.estatus || '').toLowerCase();
+                if (est === 'cierre_almacen') {
+                    statusEl.classList.add('acr-rcpt-ev-status-cierre');
+                    statusEl.textContent = 'Cierre almacén';
+                } else {
+                    statusEl.classList.add('acr-rcpt-ev-status-pendiente');
+                    statusEl.textContent = 'Pendiente almacén';
+                }
+                statusEl.style.display = 'inline-flex';
+            } else {
+                statusEl.style.display = 'none';
+                statusEl.textContent = '';
+            }
+        }
+    }
+
+    function acrRcptSyncEvDesdeDetalle(detalle) {
+        var bySlot = {};
+        var evs = (detalle && detalle.evidencias) ? detalle.evidencias : [];
+        evs.forEach(function (ev) {
+            var k = String(ev.slot || '');
+            if (k && ev.url) {
+                bySlot[k] = ev;
+            }
+        });
+
+        ACR_RCPT_MEDIA_SLOTS.forEach(function (cfg, i) {
+            var cell = document.getElementById('acr-rcpt-ev-' + i);
+            acrRcptSetCellState(cell, cfg, bySlot[cfg.key] || null);
+        });
+        acrRcptUpdateEvCount();
+    }
+
     function acrRcptBuildEvGrid() {
         var host = document.getElementById('acr-rcpt-evGrid');
         if (!host) return;
-        var rows = [
-            ['Vista frontal', true, false],
-            ['Vista trasera', true, false],
-            ['Lado izquierdo', true, false],
-            ['Lado derecho', true, false],
-            ['Tablero / Odómetro', true, false],
-            ['Número de serie (VIN)', true, false],
-            ['Daños visibles', false, false],
-            ['Video general (360°)', false, true],
-        ];
-        host.innerHTML = rows.map(function (row, i) {
-            var badge = row[1]
+        host.innerHTML = ACR_RCPT_MEDIA_SLOTS.map(function (row, i) {
+            var badge = row.required
                 ? '<span class="badge bg-danger bg-opacity-75" style="font-size:9px;">REQ</span>'
                 : '<span class="badge bg-secondary" style="font-size:9px;">OPC</span>';
-            var accept = row[2] ? 'video/*' : 'image/*';
-            var icon = row[2] ? 'fa-video' : 'fa-image';
+            var accept = row.isVideo ? 'video/mp4' : 'image/*';
             return '<div class="acr-rcpt-ev-cell" id="acr-rcpt-ev-' + i + '" data-idx="' + i + '">' +
                 '<input type="file" id="acr-rcpt-fi-' + i + '" accept="' + accept + '" />' +
-                '<i class="fa-solid ' + icon + ' text-primary opacity-50"></i>' +
-                '<span class="acr-rcpt-ev-label">' + acrEsc(row[0]) + '</span>' + badge +
+                '<button class="acr-rcpt-slot-btn" tabindex="-1"><i class="fa-solid fa-plus"></i></button>' +
+                '<i class="acr-rcpt-slot-icon-ph fa-solid ' + row.icon + '"></i>' +
+                '<span class="acr-rcpt-ev-label">' + acrEsc(row.label) + '</span>' +
+                '<span class="acr-rcpt-ev-status"></span>' +
+                badge +
                 '<span class="acr-rcpt-ev-check"><i class="fa-solid fa-check"></i></span></div>';
         }).join('');
-        _acrRcptEvUploaded = rows.map(function () { return false; });
+        _acrRcptEvUploaded = {};
+        ACR_RCPT_MEDIA_SLOTS.forEach(function (row) {
+            _acrRcptEvUploaded[row.key] = false;
+        });
         host.querySelectorAll('.acr-rcpt-ev-cell').forEach(function (cell) {
             cell.addEventListener('click', function (ev) {
                 if (ev.target && ev.target.tagName === 'INPUT') return;
@@ -1278,12 +1431,33 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
             inp.addEventListener('change', function () {
                 var id = inp.id.replace('acr-rcpt-fi-', '');
                 var ii = parseInt(id, 10);
-                if (inp.files && inp.files[0]) {
-                    _acrRcptEvUploaded[ii] = true;
-                    var c = document.getElementById('acr-rcpt-ev-' + ii);
-                    if (c) c.classList.add('uploaded');
-                    acrRcptUpdateEvCount();
-                }
+                var cfg = ACR_RCPT_MEDIA_SLOTS[ii];
+                if (!cfg) return;
+                if (!inp.files || !inp.files[0]) return;
+
+                var c = document.getElementById('acr-rcpt-ev-' + ii);
+                if (c) c.classList.add('uploading');
+
+                acrRcptUploadRecepcionEvidencia(cfg.key, inp.files[0])
+                    .then(function (res) {
+                        inp.value = '';
+                        if (res && res.success) {
+                            return acrRcptRefetchDetalle();
+                        }
+                        if (c) c.classList.remove('uploading');
+                        window.alert((res && res.message) ? String(res.message) : 'No se pudo subir la evidencia.');
+                        return null;
+                    })
+                    .then(function (det) {
+                        if (det) {
+                            _acrRcptLastDetalle = det;
+                            acrRcptSyncEvDesdeDetalle(det);
+                        }
+                    })
+                    .catch(function () {
+                        if (c) c.classList.remove('uploading');
+                        window.alert('Error de red al subir la evidencia.');
+                    });
             });
         });
         acrRcptUpdateEvCount();
