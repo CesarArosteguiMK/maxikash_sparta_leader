@@ -2268,7 +2268,7 @@ function congelarModulo(convenio) {
         // ── Celda fecha ───────────────────────────────────────
         var celdaFecha = (esPagado || esParcial) && fila.fecha_pago_real
             ? '<span style="display:block;font-weight:600;color:' + (esParcial || esSobranteParcial ? '#f59e0b' : '#22c55e') + ';">'
-            + fmtFecha(fila.fecha_pago_real) + '</span>'
+            + fmtFecha(fila.fecha_pago) + '</span>'
             + '<span style="display:block;color:#888;font-size:0.82em;">' + (esParcial ? 'Parcial' : esSobranteParcial ? 'Sobrante' : 'Pagado') + '</span>'
             : fmtFechaRango(fila.fecha_pago);
 
