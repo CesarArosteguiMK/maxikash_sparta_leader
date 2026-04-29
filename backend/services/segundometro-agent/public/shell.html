@@ -134,13 +134,13 @@
               <span class="text-muted small" id="autoCopyEstadoLabel">Desactivado</span>
               <span class="badge bg-secondary" id="autoCopyEstadoProceso">En espera</span>
               <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="autoCopyToggle" title="Activar o desactivar: cuando está activado, el agente hará Copiar +1s solo a las horas indicadas">
+                <input class="form-check-input" type="checkbox" id="autoCopyToggle" title="Activar o desactivar: Copiar +1s por horario, respaldo BD y truncar automático martes (mismo interruptor)">
                 <label class="form-check-label fw-semibold" for="autoCopyToggle">Activar / Desactivar</label>
               </div>
             </div>
           </div>
           <div class="card-body">
-            <p class="small text-success mb-3"><i class="fa fa-info-circle me-1"></i> Al abrir el .bat solo se inicia el agente. La copia automática ocurre <strong>a las horas indicadas</strong> cuando el interruptor está en «Activar». Refuerzo BD: a las <strong>xx:40</strong> (y <strong>00:05</strong> para el slot de 23:52) valida en BD y, si no está en <code>ok</code>, dispara la ejecución de respaldo.</p>
+            <p class="small text-success mb-3"><i class="fa fa-info-circle me-1"></i> Al abrir el .bat solo se inicia el agente. Con el interruptor en «Activar»: la copia automática ocurre <strong>a las horas indicadas</strong>; el <strong>truncar semanal automático</strong> solo los <strong>martes entre 07:00 y 07:29 CDMX</strong> (una vez por martes). Refuerzo BD: ventana tras cada <strong>xx:40</strong> CDMX. Nocturno: el agente comprueba en BD el archivo <code>mega_rpt_…_23_52_00</code> (hora en el nombre del ZIP) a las <strong>23:52</strong> CDMX y, por si acaso, otra ventana a <strong>00:05</strong> del día siguiente; en la tabla semana ese corte se guarda en columnas como <code>Dias_mora_*_23_50</code> (nombre de columna en la BD, distinto del <code>23_52</code> del archivo). Los <strong>martes antes de las 07:30 CDMX</strong> no se listan reportes abajo hasta el corte <strong>07:30</strong>. Programador cada <strong>5 minutos</strong>.</p>
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-check-label small">
@@ -201,6 +201,7 @@
   let archivosActuales = [];
   let ejecucionEnCursoUI = false;
   let ultimoEstadoProceso = null;
+  let ocultoInicioSemanaUltimoListado = false;
 
   function horaCDMX() {
     try {
@@ -222,6 +223,10 @@
   function renderArchivos(archivos) {
     const container = document.getElementById('archivos-container');
     if (!archivos || archivos.length === 0) {
+      if (ocultoInicioSemanaUltimoListado) {
+        container.innerHTML = '<div class="alert alert-warning text-center"><i class="fa fa-calendar-week fa-2x mb-2"></i><p class="mb-1"><strong>Martes — antes de las 07:30 CDMX</strong></p><p class="mb-0 small">No se muestran reportes hasta la hora de inicio de semana operativa (primer reporte <strong>07:30</strong>). Tras el truncar, los datos nuevos se reflejan cuando llegue ese corte.</p></div>';
+        return;
+      }
       container.innerHTML = '<div class="alert alert-info text-center"><i class="fa fa-info-circle fa-2x mb-2"></i><p class="mb-0">No se encontraron archivos de reportes</p></div>';
       return;
     }
@@ -271,6 +276,7 @@
       clearTimeout(timeoutId);
       const j = await r.json();
       if (!j.success) throw new Error(j.mensaje || 'Error al listar');
+      ocultoInicioSemanaUltimoListado = !!j.oculto_inicio_semana_martes;
       archivosActuales = j.datos || [];
       renderArchivos(archivosActuales);
     } catch (e) {

@@ -1124,7 +1124,10 @@
                 if (!detalleResp.success) throw new Error(detalleResp.message);
                 _detalleActual = detalleResp.detalle;
                 const dictamen = (dictamenResp && dictamenResp.success) ? dictamenResp.dictamen : null;
-                opsRenderDetalle(detalleResp.detalle, dictamen);
+                const historialLlamadas = (dictamenResp && dictamenResp.success && Array.isArray(dictamenResp.historial_llamadas))
+                    ? dictamenResp.historial_llamadas
+                    : [];
+                opsRenderDetalle(detalleResp.detalle, dictamen, historialLlamadas);
             })
             .catch(err => {
                 document.getElementById('det-body').innerHTML = `
@@ -1132,7 +1135,8 @@
             });
     }
 
-    function opsRenderDetalle(op, dictamen) {
+    function opsRenderDetalle(op, dictamen, historialLlamadas) {
+        historialLlamadas = Array.isArray(historialLlamadas) ? historialLlamadas : [];
         dictamen = dictamen || null;
         _activeOpId = op.id;
 
@@ -1155,7 +1159,7 @@
                 <div style="font-size:.78rem;color:#94a3b8;font-weight:600;">${opsEsc(op.folio)}</div>
             </div>
         </div>
-        ${opsRenderDatosExpediente(op, dictamen)}
+        ${opsRenderDatosExpediente(op, dictamen, historialLlamadas)}
         </div>`;
 
         document.getElementById('det-body').innerHTML = html;
@@ -1295,7 +1299,16 @@
             '</div>';
     }
 
-    function opsRenderDatosExpediente(op, d) {
+    /** Etiqueta de comentarios: una sola llamada → "Comentarios"; varias → 1ra / 2da / 3ra (máx. 3 en API). */
+    function opsLabelComentariosLlamada(idx, total) {
+        if (total <= 1) return 'Comentarios';
+        if (idx === 0) return 'Comentarios 1ra llamada';
+        if (idx === 1) return 'Comentarios 2da llamada';
+        return 'Comentarios 3ra llamada';
+    }
+
+    function opsRenderDatosExpediente(op, d, historialLlamadas) {
+        historialLlamadas = Array.isArray(historialLlamadas) ? historialLlamadas : [];
         const gestor = (d && d.gestor_nombre) ? d.gestor_nombre : (op.gestor_nombre || null);
         const enRetenciones = op.estatus === 'cancelado' || op.estatus === 'Retenciones';
         const gestorMostrar = enRetenciones ? 'Pendiente de mandar' : gestor;
@@ -1312,6 +1325,28 @@
             ? '<span class="ops-exp-kv-val" style="white-space:pre-line;">' + opsEsc(d.comentarios) + '</span>'
             : null;
 
+        let comentariosFilas = '';
+        if (historialLlamadas.length > 0) {
+            const total = historialLlamadas.length;
+            let colHist = 'col-12';
+            if (total === 2) {
+                colHist = 'col-12 col-md-6';
+            } else if (total >= 3) {
+                colHist = 'col-12 col-md-6 col-lg-4';
+            }
+            comentariosFilas = '<div class="w-100"></div>';
+            historialLlamadas.forEach((row, idx) => {
+                const lbl = opsLabelComentariosLlamada(idx, total);
+                const txt = row && row.comentarios != null ? String(row.comentarios) : '';
+                const inner = txt.trim() !== ''
+                    ? '<span class="ops-exp-kv-val" style="white-space:pre-line;">' + opsEsc(txt) + '</span>'
+                    : null;
+                comentariosFilas += '<div class="' + colHist + '"><div class="h-100">' + opsExpKv(lbl, inner, true) + '</div></div>';
+            });
+        } else {
+            comentariosFilas = '<div class="w-100"></div><div class="col-12">' + opsExpKv('Comentarios', comHtml, true) + '</div>';
+        }
+
         const sec1 =
             '<div class="ops-exp-block mb-3">' +
             '<div class="ops-exp-block-title"><i class="fa-solid fa-headset me-2" style="opacity:.9;"></i>Atención a clientes informa</div>' +
@@ -1321,7 +1356,7 @@
             '<div class="col-sm-6 col-lg-3">' + opsExpKv('Dictamen', d && d.dictamen ? d.dictamen : null, false) + '</div>' +
             '<div class="col-sm-6 col-lg-3">' + opsExpKv('Gestor a cargo', gestorMostrar, false) + '</div>' +
             '<div class="col-sm-6 col-lg-3">' + opsExpKv('Fecha dictamen', d && d.fecha_alta_fmt ? d.fecha_alta_fmt : null, false) + '</div>' +
-            '<div class="col-sm-12 col-lg-12">' + opsExpKv('Comentarios', comHtml, true) + '</div>' +
+            comentariosFilas +
             '</div></div></div>';
 
         return sec1;
