@@ -313,6 +313,92 @@ body.dark-mode #modalAcdCierreDocumentacion .acd-cierre-banner {
 }
 body.dark-mode #modalAcdCierreVerBitacoraEtapa .modal-content { background: #1e293b; color: #e2e8f0; }
 
+/* Bitácora por etapa — timeline (modal secundario vista 4) */
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl {
+    list-style: none;
+    margin: 0;
+    padding: 0.35rem 0.25rem 0.5rem 0;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-item {
+    position: relative;
+    padding: 0 0 1.35rem 1.65rem;
+    margin: 0;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-item:last-child {
+    padding-bottom: 0;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-item::before {
+    content: '';
+    position: absolute;
+    left: 0.4rem;
+    top: 1rem;
+    bottom: 0;
+    width: 0;
+    border-left: 2px dashed #cbd5e1;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-item:last-child::before {
+    display: none;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-dot {
+    position: absolute;
+    left: 0;
+    top: 0.12rem;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    background: #fff;
+    border: 3px solid currentColor;
+    box-shadow: 0 0 0 3px #fff;
+    z-index: 1;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-content {
+    min-width: 0;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-headrow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.35;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    flex: 1;
+    min-width: 0;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-time {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-tl-user {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 600;
+}
+#modalAcdCierreVerBitacoraEtapa .acd-bit-dot--0 { color: #7c3aed; }
+#modalAcdCierreVerBitacoraEtapa .acd-bit-dot--1 { color: #16a34a; }
+#modalAcdCierreVerBitacoraEtapa .acd-bit-dot--2 { color: #0891b2; }
+#modalAcdCierreVerBitacoraEtapa .acd-bit-dot--3 { color: #ea580c; }
+body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-item::before {
+    border-left-color: #475569;
+}
+body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-dot {
+    background: #1e293b;
+    box-shadow: 0 0 0 3px #1e293b;
+}
+body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-title { color: #f1f5f9; }
+body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-time,
+body.dark-mode #modalAcdCierreVerBitacoraEtapa .acd-bit-tl-user { color: #94a3b8; }
+
 /* Bloque evidencia S2 (modal vista 4) */
 #acdEvidenciaCard {
     border: 2px solid #fed7aa;
@@ -484,7 +570,8 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
 (function () {
     'use strict';
 
-    const ACD_EV_TOTAL = 11;
+    /** Coincide con slots en MotosAdjudicadas: 9 medios + doc_repuve + doc_factura + doc_cierre_s2 */
+    const ACD_EV_TOTAL = 12;
 
     const ACD_CONFIG = {
         bandeja: {
@@ -504,11 +591,13 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     let _acdCierreIdOp = 0;
     let _acdCierreBuckets = { atencion: [], validacion: [], recuperacion: [] };
     let _acdEvidenciaUrl = '';
+    /** Si true: el modal principal se ocultó solo para ver bitácora; al cerrarla se vuelve a mostrar (no limpiar formulario). */
+    let _acdCierreDebeReaparecerTrasBitacora = false;
 
     const ACD_CIERRE_ETAPA_META = [
-        { key: 'atencion', tituloModal: 'Atención a clientes — bitácora', textoFila: 'ATENCION A CLIENTES OK' },
-        { key: 'validacion', tituloModal: 'Validaciones — bitácora', textoFila: 'VALIDACIONES OK' },
-        { key: 'recuperacion', tituloModal: 'Recuperación — bitácora', textoFila: 'RECUPERACION OK' },
+        { key: 'atencion', tituloModal: 'Atención a clientes — bitácora', textoFila: 'ATENCION A CLIENTES' },
+        { key: 'validacion', tituloModal: 'Validaciones — bitácora', textoFila: 'VALIDACIONES' },
+        { key: 'recuperacion', tituloModal: 'Recuperación — bitácora', textoFila: 'RECUPERACION' },
     ];
 
     function acdPartirBitacoraPorEtapa(bitacora) {
@@ -554,16 +643,40 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         if (!lines.length) {
             body.innerHTML = '<p class="text-muted small mb-0">No hay movimientos clasificados para esta etapa.</p>';
         } else {
-            body.innerHTML = '<ul class="list-group list-group-flush">' + lines.map(function (b) {
-                return `<li class="list-group-item px-2 py-2">
-                    <div class="small text-muted">${acdEsc(b.fecha_alta || '')} · ${acdEsc(b.nombre_usuario || '')}</div>
-                    <div style="font-size:.85rem;">${acdEsc(b.accion || '')}</div>
+            const nDots = 4;
+            body.innerHTML = '<ul class="acd-bit-tl" role="list">' + lines.map(function (b, idx) {
+                const dotCls = 'acd-bit-dot--' + (idx % nDots);
+                return `<li class="acd-bit-tl-item ${dotCls}">
+                    <span class="acd-bit-tl-dot" aria-hidden="true"></span>
+                    <div class="acd-bit-tl-content">
+                        <div class="acd-bit-tl-headrow">
+                            <span class="acd-bit-tl-title">${acdEsc(b.accion || '—')}</span>
+                            <span class="acd-bit-tl-time">${acdEsc(b.fecha_alta || '')}</span>
+                        </div>
+                        <div class="acd-bit-tl-user">${acdEsc(b.nombre_usuario || '')}</div>
+                    </div>
                 </li>`;
             }).join('') + '</ul>';
         }
-        const el = document.getElementById('modalAcdCierreVerBitacoraEtapa');
-        if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-            bootstrap.Modal.getOrCreateInstance(el).show();
+        const modalBit = document.getElementById('modalAcdCierreVerBitacoraEtapa');
+        const modalCierre = document.getElementById('modalAcdCierreDocumentacion');
+        if (!modalBit || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+
+        function abrirModalBitacora() {
+            bootstrap.Modal.getOrCreateInstance(modalBit).show();
+        }
+
+        if (modalCierre && modalCierre.classList.contains('show')) {
+            _acdCierreDebeReaparecerTrasBitacora = true;
+            const instCierre = bootstrap.Modal.getInstance(modalCierre) || bootstrap.Modal.getOrCreateInstance(modalCierre);
+            const onCierreHidden = function () {
+                modalCierre.removeEventListener('hidden.bs.modal', onCierreHidden);
+                abrirModalBitacora();
+            };
+            modalCierre.addEventListener('hidden.bs.modal', onCierreHidden, { once: true });
+            instCierre.hide();
+        } else {
+            abrirModalBitacora();
         }
     }
 
@@ -599,6 +712,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     window.acdModalCierreDocAbrir = function (idOperacion, idCredito, nombreCliente) {
         idOperacion = parseInt(idOperacion, 10) || 0;
         if (idOperacion <= 0) return;
+        _acdCierreDebeReaparecerTrasBitacora = false;
         acdModalCierreDocLimpiarFormulario();
         _acdCierreIdOp = idOperacion;
         const sub = document.getElementById('acdCierreSubtitulo');
@@ -954,6 +1068,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                         }
                         const mEl = document.getElementById('modalAcdCierreDocumentacion');
                         if (mEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                            _acdCierreDebeReaparecerTrasBitacora = false;
                             const inst = bootstrap.Modal.getInstance(mEl);
                             if (inst) inst.hide();
                         }
@@ -971,8 +1086,24 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         const modalCierre = document.getElementById('modalAcdCierreDocumentacion');
         if (modalCierre) {
             modalCierre.addEventListener('hidden.bs.modal', function () {
+                if (_acdCierreDebeReaparecerTrasBitacora) {
+                    return;
+                }
                 _acdCierreIdOp = 0;
                 acdModalCierreDocLimpiarFormulario();
+            });
+        }
+        const modalBitacoraEtapa = document.getElementById('modalAcdCierreVerBitacoraEtapa');
+        if (modalBitacoraEtapa) {
+            modalBitacoraEtapa.addEventListener('hidden.bs.modal', function () {
+                if (!_acdCierreDebeReaparecerTrasBitacora) return;
+                _acdCierreDebeReaparecerTrasBitacora = false;
+                const mc = document.getElementById('modalAcdCierreDocumentacion');
+                if (mc && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    requestAnimationFrame(function () {
+                        bootstrap.Modal.getOrCreateInstance(mc).show();
+                    });
+                }
             });
         }
 

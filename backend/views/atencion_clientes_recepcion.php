@@ -323,6 +323,7 @@ body.dark-mode .acr-rcpt-sec-head { background: #1e293b; }
 }
 .acr-rcpt-arrival-btn:hover { background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); color: #fff; }
 .acr-rcpt-arrival-btn.arrived { background: #16a34a; cursor: default; }
+.acr-rcpt-arrival-btn:disabled { opacity: 0.88; cursor: not-allowed; }
 .acr-rcpt-ts {
     margin-top: 10px;
     background: #eaf3de;
@@ -384,6 +385,12 @@ body.dark-mode .acr-rcpt-ev-cell:hover { background: #431407; }
 }
 .acr-rcpt-ev-cell.uploaded .acr-rcpt-ev-check { display: flex; }
 .acr-rcpt-ev-cell input[type=file] { display: none; }
+.acr-rcpt-ev-cell:focus-within {
+    outline: 2px solid #c47a00;
+    outline-offset: 2px;
+    background: #fffbeb;
+}
+body.dark-mode .acr-rcpt-ev-cell:focus-within { background: #431407; outline-color: #fbbf24; }
 .acr-rcpt-alert-info {
     padding: 10px 14px;
     border-radius: 6px;
@@ -461,6 +468,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     cursor: pointer;
 }
 .acr-rcpt-confirm-btn:hover { background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%); color: #fff; }
+.acr-rcpt-doc-thumb { max-height: 140px; max-width: 100%; border-radius: 8px; border: 1px solid rgba(0,0,0,.1); }
 .acr-rcpt-success-msg {
     display: none;
     margin-top: 10px;
@@ -553,11 +561,11 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         </div>
 
         <div class="acr-rcpt-steps">
-            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Gestión</div>
-            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Recolección</div>
-            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Traslado</div>
-            <div class="acr-rcpt-step active"><span class="acr-rcpt-step-num">4</span>Almacén</div>
-            <div class="acr-rcpt-step"><span class="acr-rcpt-step-num">5</span>Cierre</div>
+            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Retenciones</div>
+            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Evidencias</div>
+            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Recuperación</div>
+            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Cierre documentación</div>
+            <div class="acr-rcpt-step active"><span class="acr-rcpt-step-num"><i class="fa-solid fa-warehouse"></i></span>Recepción</div>
         </div>
 
         <div class="acr-rcpt-section">
@@ -619,7 +627,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                 <span class="text-primary"><i class="fa-solid fa-camera"></i></span>
                 <div>
                     <div class="acr-rcpt-sec-title">Evidencia Fotográfica y de Video</div>
-                    <div class="acr-rcpt-sec-sub">Mínimo 6 de 8 ángulos requeridos (demo visual)</div>
+                    <div class="acr-rcpt-sec-sub">Mínimo 6 de 8 ángulos requeridos</div>
                 </div>
             </div>
             <div class="acr-rcpt-sec-body">
@@ -639,10 +647,11 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                 <span class="text-warning"><i class="fa-solid fa-sack-dollar"></i></span>
                 <div>
                     <div class="acr-rcpt-sec-title">Estado de Cuenta</div>
-                    <div class="acr-rcpt-sec-sub">Resumen financiero (datos de expediente)</div>
+                    <div class="acr-rcpt-sec-sub">Resumen financiero (API S2 — estado de cuenta)</div>
                 </div>
             </div>
             <div class="acr-rcpt-sec-body">
+                <p class="small text-muted mb-2" id="acr-rcpt-ec-leyenda" style="display:none;"></p>
                 <div class="acr-rcpt-edc-grid">
                     <div class="acr-rcpt-edc-card">
                         <div class="acr-rcpt-edc-lbl">Saldo capital (ref.)</div>
@@ -653,14 +662,6 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                         <div class="acr-rcpt-edc-val bad" id="acr-rcpt-adeudo">—</div>
                     </div>
                 </div>
-                <div class="small text-muted text-uppercase fw-semibold mb-2" style="letter-spacing:.04em;">Últimas cuotas (ejemplo)</div>
-                <table class="acr-rcpt-cuotas">
-                    <thead><tr><th>#</th><th>Vencimiento</th><th>Monto</th><th>Estado</th></tr></thead>
-                    <tbody>
-                        <tr><td>—</td><td>—</td><td>—</td><td><span class="badge bg-success">Pagada</span></td></tr>
-                        <tr><td>—</td><td>—</td><td>—</td><td><span class="badge bg-warning text-dark">Pendiente</span></td></tr>
-                    </tbody>
-                </table>
             </div>
         </div>
 
@@ -737,6 +738,11 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                 </div>
             </div>
             <div class="acr-rcpt-sec-body">
+                <div class="border rounded p-3 mb-3" style="background:rgba(99,102,241,.06);border-color:rgba(99,102,241,.2)!important;">
+                    <label class="small text-muted d-block mb-2">Firma de recepción (imagen — firma del agente de almacén)</label>
+                    <input type="file" id="acr-rcpt-firma-file" class="form-control form-control-sm" accept="image/jpeg,image/png" />
+                    <div id="acr-rcpt-firma-preview" class="mt-2"></div>
+                </div>
                 <div class="row g-2 mb-2">
                     <div class="col-md-6">
                         <label class="small text-muted">Ubicación en almacén</label>
@@ -748,10 +754,10 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                     </div>
                 </div>
                 <button type="button" class="acr-rcpt-confirm-btn" id="acr-rcpt-finBtn">
-                    <i class="fa-solid fa-check me-2"></i>Confirmar recepción (demo)
+                    <i class="fa-solid fa-check me-2"></i>Confirmar recepción
                 </button>
                 <div class="acr-rcpt-success-msg" id="acr-rcpt-successMsg">
-                    <i class="fa-solid fa-check me-1"></i>Recepción registrada (vista demo). Conectar backend cuando defina reglas.
+                    <i class="fa-solid fa-check me-1"></i>Recepción confirmada en el sistema.
                 </div>
             </div>
         </div>
@@ -858,9 +864,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                         data-acr-id-credito="${Number(item.id_credito)}"
                         data-acr-folio="${encodeURIComponent(String(item.folio || ''))}"
                         data-acr-nombre="${encodeURIComponent(String(item.nombre_cliente || ''))}"
-                        data-acr-gestor="${encodeURIComponent(String(item.gestor_nombre || ''))}"
-                        data-acr-saldo-cap="${encodeURIComponent(String(item.saldo_capital ?? ''))}"
-                        data-acr-adeudo="${encodeURIComponent(String(item.adeudo_total ?? ''))}">
+                        data-acr-gestor="${encodeURIComponent(String(item.gestor_nombre || ''))}">
                         <i class="fa-solid fa-warehouse me-1"></i>Recepción en almacén
                     </button>
                 </div>
@@ -988,11 +992,244 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         if (!isFinite(n)) {
             return '—';
         }
-        return 'Q ' + n.toLocaleString('es-GT', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        return n.toLocaleString('es-GT', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     }
 
     var _acrRcptEvUploaded = [];
     var _acrRcptArrived = false;
+    var _acrRcptIdOp = 0;
+    var _acrRcptServerLocked = false;
+    var _acrRcptLastDetalle = null;
+    var ACR_RCPT_SLOT_DACION = 'doc_dacion_rcpt';
+    var ACR_RCPT_SLOT_TARJ = 'doc_tarjeta_rcpt';
+    var ACR_RCPT_SLOT_FIRMA = 'doc_firma_rcpt';
+
+    function acrRcptSyncFinRecepcionUi(d) {
+        var fin = document.getElementById('acr-rcpt-finBtn');
+        var sm = document.getElementById('acr-rcpt-successMsg');
+        var u = document.getElementById('acr-rcpt-ubicacion');
+        var ob = document.getElementById('acr-rcpt-obs');
+        if (!fin || !sm) return;
+        var fi = document.getElementById('acr-rcpt-firma-file');
+        if (!d) {
+            sm.style.display = 'none';
+            fin.style.display = '';
+            fin.disabled = false;
+            if (u) u.disabled = false;
+            if (ob) ob.disabled = false;
+            if (fi) { fi.disabled = false; }
+            return;
+        }
+        var at = d.recepcion_confirmada_at;
+        if (at != null && String(at) !== '') {
+            var tf = d.recepcion_confirmada_at_fmt ? String(d.recepcion_confirmada_at_fmt) : String(at);
+            sm.innerHTML = '<i class="fa-solid fa-check me-1"></i>Recepción confirmada el ' + acrEsc(tf) + '.';
+            sm.style.display = 'block';
+            fin.style.display = 'none';
+            if (u) {
+                u.disabled = true;
+                if (d.recepcion_ubicacion != null && String(d.recepcion_ubicacion) !== '') u.value = String(d.recepcion_ubicacion);
+            }
+            if (ob) {
+                ob.disabled = true;
+                if (d.recepcion_observaciones != null) ob.value = String(d.recepcion_observaciones);
+            }
+            if (fi) fi.disabled = true;
+        } else {
+            sm.style.display = 'none';
+            fin.style.display = '';
+            fin.disabled = false;
+            if (u) u.disabled = false;
+            if (ob) ob.disabled = false;
+        }
+    }
+
+    function acrRcptEvidUrl(detalle, slot) {
+        var evs = (detalle && detalle.evidencias) ? detalle.evidencias : [];
+        for (var i = 0; i < evs.length; i++) {
+            if ((evs[i].slot || '') === slot && evs[i].url) {
+                return String(evs[i].url);
+            }
+        }
+        return '';
+    }
+
+    function acrRcptRefetchDetalle() {
+        if (!_acrRcptIdOp) {
+            return Promise.resolve(null);
+        }
+        return fetch('/MotosAdjudicadas/obtenerDetalle/' + _acrRcptIdOp + '?incluir_todas=1', {
+            headers: { Accept: 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data && data.success && data.detalle) {
+                    return data.detalle;
+                }
+                return null;
+            });
+    }
+
+    function acrRcptDocRenderInitial() {
+        _acrRcptLastDetalle = null;
+        var ds = document.getElementById('acr-rcpt-dacionStatus');
+        var ts = document.getElementById('acr-rcpt-tarjetaStatus');
+        if (ds) { ds.value = ''; ds.disabled = false; }
+        if (ts) { ts.value = ''; ts.disabled = false; }
+        var bd = document.getElementById('acr-rcpt-dacionBody');
+        var bt = document.getElementById('acr-rcpt-tarjetaBody');
+        if (bd) bd.innerHTML = '<p class="text-muted small mb-0">Seleccione el estado del documento.</p>';
+        if (bt) bt.innerHTML = '<p class="text-muted small mb-0">Seleccione el estado del documento.</p>';
+        var fp = document.getElementById('acr-rcpt-firma-preview');
+        var fi = document.getElementById('acr-rcpt-firma-file');
+        if (fp) fp.innerHTML = '';
+        if (fi) { fi.value = ''; fi.disabled = false; }
+        var nd = document.getElementById('acr-rcpt-noDocSection');
+        if (nd) nd.style.display = 'none';
+    }
+
+    function acrRcptSyncSelectsFromDetalle(d) {
+        if (!d) return;
+        var urlD = acrRcptEvidUrl(d, ACR_RCPT_SLOT_DACION);
+        var urlT = acrRcptEvidUrl(d, ACR_RCPT_SLOT_TARJ);
+        var sd = document.getElementById('acr-rcpt-dacionStatus');
+        var st = document.getElementById('acr-rcpt-tarjetaStatus');
+        if (sd) {
+            sd.disabled = !!urlD;
+            if (urlD) {
+                sd.value = 'received';
+            } else {
+                var ed = String(d.recepcion_dacion_estado || '').toLowerCase();
+                if (ed === 'pending') sd.value = 'pending';
+                else if (ed === 'missing') sd.value = 'missing';
+                else if (ed === 'received') sd.value = 'received';
+                else sd.value = '';
+            }
+        }
+        if (st) {
+            st.disabled = !!urlT;
+            if (urlT) {
+                st.value = 'received';
+            } else {
+                var et = String(d.recepcion_tarjeta_estado || '').toLowerCase();
+                if (et === 'missing') st.value = 'missing';
+                else if (et === 'received') st.value = 'received';
+                else st.value = '';
+            }
+        }
+    }
+
+    function acrRcptRenderDocumentacionBodies(d) {
+        var det = d || _acrRcptLastDetalle || {};
+        var urlD = acrRcptEvidUrl(det, ACR_RCPT_SLOT_DACION);
+        var urlT = acrRcptEvidUrl(det, ACR_RCPT_SLOT_TARJ);
+        var urlF = acrRcptEvidUrl(det, ACR_RCPT_SLOT_FIRMA);
+        var bd = document.getElementById('acr-rcpt-dacionBody');
+        var bt = document.getElementById('acr-rcpt-tarjetaBody');
+        var sd = document.getElementById('acr-rcpt-dacionStatus');
+        var st = document.getElementById('acr-rcpt-tarjetaStatus');
+        var noDoc = document.getElementById('acr-rcpt-noDocSection');
+        var dv = sd ? sd.value : '';
+        var tv = st ? st.value : '';
+
+        if (bd) {
+            if (urlD) {
+                bd.innerHTML = '<p class="text-success small fw-semibold mb-2"><i class="fa-solid fa-check me-1"></i>Contrato de Dación recibido con firma del cliente.</p>' +
+                    '<div class="alert alert-success py-2 small mb-0">Documento recibido. Adjuntar escaneo al expediente digital antes de cerrar.</div>';
+            } else if (dv === 'pending') {
+                bd.innerHTML = '<p class="text-warning small fw-semibold mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>El cliente aún no ha firmado el Contrato de Dación.</p>' +
+                    '<div class="alert alert-warning py-2 small mb-0">Coordinar con legal para la firma antes del cierre definitivo.</div>';
+            } else if (dv === 'missing') {
+                bd.innerHTML = '<p class="text-danger small fw-semibold mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>El Contrato de Dación NO será recibido en este proceso.</p>' +
+                    '<div class="alert alert-danger py-2 small mb-0">Documentar la razón y notificar a legal.</div>';
+            } else if (dv === 'received') {
+                bd.innerHTML = '<p class="text-muted small mb-2">Seleccione el archivo del contrato firmado (PDF, JPG o PNG). Al guardar correctamente verá el mensaje de confirmación.</p>' +
+                    '<input type="file" class="form-control form-control-sm acr-rcpt-slot-fi" data-slot="' + ACR_RCPT_SLOT_DACION + '" accept="application/pdf,image/jpeg,image/png" />';
+            } else {
+                bd.innerHTML = '<p class="text-muted small mb-0">Seleccione el estado del documento.</p>';
+            }
+        }
+        if (bt) {
+            if (urlT) {
+                bt.innerHTML = '<p class="text-success small fw-semibold mb-0"><i class="fa-solid fa-check me-1"></i>Tarjeta de circulación recibida.</p>';
+            } else if (tv === 'missing') {
+                bt.innerHTML = '<p class="text-warning small fw-semibold mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>No se recibe la tarjeta. Documentar en observaciones.</p>';
+            } else if (tv === 'received') {
+                bt.innerHTML = '<p class="text-muted small mb-2">Seleccione la imagen de la tarjeta de circulación (JPG o PNG).</p>' +
+                    '<input type="file" class="form-control form-control-sm acr-rcpt-slot-fi" data-slot="' + ACR_RCPT_SLOT_TARJ + '" accept="image/jpeg,image/png" />';
+            } else {
+                bt.innerHTML = '<p class="text-muted small mb-0">Seleccione el estado del documento.</p>';
+            }
+        }
+        if (noDoc) {
+            noDoc.style.display = (dv === 'missing' || tv === 'missing') ? 'block' : 'none';
+        }
+        var fp = document.getElementById('acr-rcpt-firma-preview');
+        var fi = document.getElementById('acr-rcpt-firma-file');
+        if (fp) {
+            fp.innerHTML = '';
+            if (urlF) {
+                var okf = document.createElement('p');
+                okf.className = 'text-success small fw-semibold mb-2';
+                okf.innerHTML = '<i class="fa-solid fa-check me-1"></i>Firma de recepción registrada.';
+                fp.appendChild(okf);
+                var imf = document.createElement('img');
+                imf.className = 'acr-rcpt-doc-thumb';
+                imf.alt = 'Firma';
+                imf.src = urlF;
+                fp.appendChild(imf);
+            }
+        }
+        if (fi) {
+            fi.disabled = !!urlF;
+        }
+    }
+
+    function acrRcptApplyDocumentacionDesdeDetalle(d) {
+        if (!d) {
+            acrRcptDocRenderInitial();
+            acrRcptSyncFinRecepcionUi(null);
+            return;
+        }
+        _acrRcptLastDetalle = d;
+        acrRcptSyncSelectsFromDetalle(d);
+        acrRcptRenderDocumentacionBodies(d);
+        acrRcptSyncFinRecepcionUi(d);
+    }
+
+    function acrRcptUploadRecepcionEvidencia(slot, file) {
+        if (!_acrRcptIdOp || !file) {
+            return Promise.resolve(null);
+        }
+        var fd = new FormData();
+        fd.append('id_operacion', String(_acrRcptIdOp));
+        fd.append('slot', slot);
+        fd.append('archivo', file, file.name);
+        return fetch('/MotosAdjudicadas/subirEvidencia', { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); });
+    }
+
+    function acrRcptApplyArrivalUi(fechaLinea, serverLocked) {
+        _acrRcptArrived = true;
+        if (serverLocked) {
+            _acrRcptServerLocked = true;
+        }
+        var btn = document.getElementById('acr-rcpt-arrivalBtn');
+        var dsp = document.getElementById('acr-rcpt-tsDisplay');
+        var tx = document.getElementById('acr-rcpt-tsText');
+        if (btn) {
+            btn.classList.add('arrived');
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Llegada registrada';
+            btn.disabled = !!serverLocked;
+        }
+        if (tx) {
+            tx.textContent = serverLocked
+                ? ('Registrado en sistema: ' + (fechaLinea || '—'))
+                : ('Ingresó: ' + (fechaLinea || '—') + ' | Almacén (pendiente de guardar)');
+        }
+        if (dsp) dsp.classList.add('show');
+    }
 
     function acrRcptUpdateEvCount() {
         var total = _acrRcptEvUploaded.filter(Boolean).length;
@@ -1052,64 +1289,29 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         acrRcptUpdateEvCount();
     }
 
-    function acrRcptDacionUpdate() {
-        var v = (document.getElementById('acr-rcpt-dacionStatus') || {}).value || '';
-        var body = document.getElementById('acr-rcpt-dacionBody');
-        var noDoc = document.getElementById('acr-rcpt-noDocSection');
-        if (!body) return;
-        if (v === 'received') {
-            body.innerHTML = '<p class="text-success small fw-semibold mb-2"><i class="fa-solid fa-check me-1"></i>Contrato de Dación recibido con firma del cliente.</p>' +
-                '<div class="alert alert-success py-2 small mb-0">Documento recibido. Adjuntar escaneo al expediente digital antes de cerrar.</div>';
-            if (noDoc) noDoc.style.display = 'none';
-        } else if (v === 'pending') {
-            body.innerHTML = '<p class="text-warning small fw-semibold mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>El cliente aún no ha firmado el Contrato de Dación.</p>' +
-                '<div class="alert alert-warning py-2 small mb-0">Coordinar con legal para la firma antes del cierre definitivo.</div>';
-            if (noDoc) noDoc.style.display = 'none';
-        } else if (v === 'missing') {
-            body.innerHTML = '<p class="text-danger small fw-semibold mb-2"><i class="fa-solid fa-triangle-exclamation me-1"></i>El Contrato de Dación NO será recibido en este proceso.</p>' +
-                '<div class="alert alert-danger py-2 small mb-0">Documentar la razón y notificar a legal.</div>';
-            if (noDoc) noDoc.style.display = 'block';
-        } else {
-            body.innerHTML = '<p class="text-muted small mb-0">Seleccione el estado del documento.</p>';
-            if (noDoc) noDoc.style.display = 'none';
-        }
-    }
-
-    function acrRcptTarjetaUpdate() {
-        var v = (document.getElementById('acr-rcpt-tarjetaStatus') || {}).value || '';
-        var body = document.getElementById('acr-rcpt-tarjetaBody');
-        if (!body) return;
-        if (v === 'received') {
-            body.innerHTML = '<p class="text-success small fw-semibold mb-0"><i class="fa-solid fa-check me-1"></i>Tarjeta de circulación recibida.</p>';
-        } else if (v === 'missing') {
-            body.innerHTML = '<p class="text-warning small fw-semibold mb-0"><i class="fa-solid fa-triangle-exclamation me-1"></i>No se recibe la tarjeta. Documentar en observaciones.</p>';
-        } else {
-            body.innerHTML = '<p class="text-muted small mb-0">Seleccione el estado del documento.</p>';
-        }
-    }
-
     function acrRcptResetVistaDemo() {
         _acrRcptArrived = false;
+        _acrRcptServerLocked = false;
+        _acrRcptIdOp = 0;
         var btn = document.getElementById('acr-rcpt-arrivalBtn');
         var ts = document.getElementById('acr-rcpt-tsDisplay');
         if (btn) {
             btn.classList.remove('arrived');
             btn.style.display = '';
+            btn.disabled = false;
             btn.innerHTML = '<i class="fa-regular fa-clock"></i> Registrar Llegada a Almacén';
         }
         if (ts) ts.classList.remove('show');
-        var ds = document.getElementById('acr-rcpt-dacionStatus');
-        var tsS = document.getElementById('acr-rcpt-tarjetaStatus');
-        if (ds) ds.value = '';
-        if (tsS) tsS.value = '';
-        acrRcptDacionUpdate();
-        acrRcptTarjetaUpdate();
-        var nd = document.getElementById('acr-rcpt-noDocSection');
-        if (nd) nd.style.display = 'none';
+        acrRcptDocRenderInitial();
         var fin = document.getElementById('acr-rcpt-finBtn');
         var sm = document.getElementById('acr-rcpt-successMsg');
         if (fin) fin.style.display = '';
         if (sm) sm.style.display = 'none';
+        var ub = document.getElementById('acr-rcpt-ubicacion');
+        var ob = document.getElementById('acr-rcpt-obs');
+        if (ub) { ub.value = ''; ub.disabled = false; }
+        if (ob) { ob.value = ''; ob.disabled = false; }
+        acrRcptSyncFinRecepcionUi(null);
         acrRcptBuildEvGrid();
     }
 
@@ -1119,16 +1321,13 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         var nombre = '';
         var folio = '';
         var gestor = '';
-        var saldo = '';
-        var adeudo = '';
         try {
             nombre = decodeURIComponent(btn.getAttribute('data-acr-nombre') || '');
             folio = decodeURIComponent(btn.getAttribute('data-acr-folio') || '');
             gestor = decodeURIComponent(btn.getAttribute('data-acr-gestor') || '');
-            saldo = decodeURIComponent(btn.getAttribute('data-acr-saldo-cap') || '');
-            adeudo = decodeURIComponent(btn.getAttribute('data-acr-adeudo') || '');
         } catch (e1) { /* ignore */ }
-        var idCred = btn.getAttribute('data-acr-id-credito') || '';
+        var idCred = parseInt(btn.getAttribute('data-acr-id-credito') || '0', 10) || 0;
+        var idOp = parseInt(btn.getAttribute('data-acr-id-op') || '0', 10) || 0;
         var meta = document.getElementById('acr-rcpt-meta-line');
         var fecha = new Date().toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         if (meta) {
@@ -1140,14 +1339,87 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         var elP = document.getElementById('acr-rcpt-placa');
         if (elC) elC.textContent = nombre || '—';
         if (elCo) elCo.textContent = folio ? folio : ('CTR-' + idCred);
-        if (elM) elM.textContent = 'Datos de moto en expediente';
+        if (elM) elM.textContent = '—';
         if (elP) elP.textContent = '—';
         var sc = document.getElementById('acr-rcpt-saldo-cap');
         var ad = document.getElementById('acr-rcpt-adeudo');
-        if (sc) sc.textContent = acrFmtMoney(saldo);
-        if (ad) ad.textContent = acrFmtMoney(adeudo);
+        var ley = document.getElementById('acr-rcpt-ec-leyenda');
+        if (sc) sc.textContent = '…';
+        if (ad) ad.textContent = '…';
+        if (ley) {
+            ley.textContent = '';
+            ley.style.display = 'none';
+        }
         acrRcptResetVistaDemo();
+        _acrRcptIdOp = idOp;
+        var arrB0 = document.getElementById('acr-rcpt-arrivalBtn');
+        if (arrB0) arrB0.disabled = true;
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+        if (!idOp || !idCred) {
+            if (ley) {
+                ley.textContent = 'Falta id de operación o crédito para consultar S2.';
+                ley.style.display = 'block';
+            }
+            if (sc) sc.textContent = '—';
+            if (ad) ad.textContent = '—';
+            if (arrB0) arrB0.disabled = false;
+            return;
+        }
+
+        var urlDet = '/MotosAdjudicadas/obtenerDetalle/' + idOp + '?incluir_todas=1';
+        var urlEc = '/MotosAdjudicadas/recepcionResumenFinanciero?id_credito=' + encodeURIComponent(String(idCred));
+        Promise.all([
+            fetch(urlDet, { headers: { Accept: 'application/json' }, credentials: 'same-origin' }).then(function (r) { return r.json(); }),
+            fetch(urlEc, { headers: { Accept: 'application/json' }, credentials: 'same-origin' }).then(function (r) { return r.json(); }),
+        ]).then(function (pair) {
+            var jd = pair[0];
+            var je = pair[1];
+            if (jd && jd.success && jd.detalle) {
+                var d = jd.detalle;
+                var marca = (d.marca != null && String(d.marca).trim() !== '') ? String(d.marca).trim() : '';
+                var modelo = (d.modelo != null && String(d.modelo).trim() !== '') ? String(d.modelo).trim() : '';
+                var motoTxt = [marca, modelo].filter(Boolean).join(' ');
+                if (elM) elM.textContent = motoTxt || '—';
+                var pl = d.placas != null ? String(d.placas).trim() : '';
+                if (elP) elP.textContent = pl || '—';
+                var fl = d.fecha_llegada_almacen_fmt || d.fecha_llegada_almacen || '';
+                if (fl) {
+                    acrRcptApplyArrivalUi(String(fl), true);
+                }
+                acrRcptApplyDocumentacionDesdeDetalle(jd.detalle);
+            }
+            if (je && je.success) {
+                if (sc) sc.textContent = acrFmtMoney(je.saldo_capital);
+                if (ad) ad.textContent = acrFmtMoney(je.adeudo_total);
+                if (ley) {
+                    ley.textContent = '';
+                    ley.style.display = 'none';
+                }
+            } else {
+                if (sc) sc.textContent = '—';
+                if (ad) ad.textContent = '—';
+                if (ley) {
+                    ley.textContent = (je && je.message) ? String(je.message) : 'No se pudo obtener el estado de cuenta en S2.';
+                    ley.style.display = 'block';
+                }
+            }
+        }).catch(function () {
+            if (sc) sc.textContent = '—';
+            if (ad) ad.textContent = '—';
+            if (ley) {
+                ley.textContent = 'Error de red al consultar detalle o estado de cuenta.';
+                ley.style.display = 'block';
+            }
+        }).finally(function () {
+            var b = document.getElementById('acr-rcpt-arrivalBtn');
+            if (!b) return;
+            if (_acrRcptArrived || _acrRcptServerLocked) {
+                b.disabled = true;
+                return;
+            }
+            b.disabled = false;
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -1176,36 +1448,188 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
             modalAlmacen.addEventListener('hidden.bs.modal', function () {
                 acrRcptResetVistaDemo();
             });
+            modalAlmacen.addEventListener('change', function (ev) {
+                var t = ev.target;
+                if (!t || !t.classList || !t.classList.contains('acr-rcpt-slot-fi')) return;
+                var slot = t.getAttribute('data-slot') || '';
+                if (!t.files || !t.files[0]) return;
+                acrRcptUploadRecepcionEvidencia(slot, t.files[0])
+                    .then(function (res) {
+                        t.value = '';
+                        if (res && res.success) {
+                            return acrRcptRefetchDetalle();
+                        }
+                        window.alert((res && res.message) ? String(res.message) : 'No se pudo subir el archivo.');
+                        return null;
+                    })
+                    .then(function (det) {
+                        if (det) {
+                            acrRcptApplyDocumentacionDesdeDetalle(det);
+                        }
+                    });
+            });
+        }
+
+        var firmaInp = document.getElementById('acr-rcpt-firma-file');
+        if (firmaInp) {
+            firmaInp.addEventListener('change', function () {
+                if (!firmaInp.files || !firmaInp.files[0]) return;
+                acrRcptUploadRecepcionEvidencia(ACR_RCPT_SLOT_FIRMA, firmaInp.files[0])
+                    .then(function (res) {
+                        firmaInp.value = '';
+                        if (res && res.success) {
+                            return acrRcptRefetchDetalle();
+                        }
+                        window.alert((res && res.message) ? String(res.message) : 'No se pudo subir la firma.');
+                        return null;
+                    })
+                    .then(function (det) {
+                        if (det) {
+                            acrRcptApplyDocumentacionDesdeDetalle(det);
+                        }
+                    });
+            });
         }
 
         var arrBtn = document.getElementById('acr-rcpt-arrivalBtn');
         if (arrBtn) {
             arrBtn.addEventListener('click', function () {
-                if (_acrRcptArrived) return;
-                _acrRcptArrived = true;
-                arrBtn.classList.add('arrived');
-                arrBtn.innerHTML = '<i class="fa-solid fa-check"></i> Llegada registrada';
-                var now = new Date();
-                var ts = now.toLocaleDateString('es-GT', { day: '2-digit', month: 'long', year: 'numeric' }) +
-                    ' — ' + now.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' });
-                var tx = document.getElementById('acr-rcpt-tsText');
-                var dsp = document.getElementById('acr-rcpt-tsDisplay');
-                if (tx) tx.textContent = 'Ingresó: ' + ts + ' | Almacén (registro local)';
-                if (dsp) dsp.classList.add('show');
+                if (_acrRcptArrived || _acrRcptServerLocked) return;
+                if (!_acrRcptIdOp) {
+                    window.alert('No se identificó la operación. Cierre el modal y vuelva a abrirlo.');
+                    return;
+                }
+                arrBtn.disabled = true;
+                fetch('/MotosAdjudicadas/registrarLlegadaAlmacenRecepcion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ id_operacion: _acrRcptIdOp }),
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data && data.success && data.fecha_llegada_almacen) {
+                            acrRcptApplyArrivalUi(String(data.fecha_llegada_almacen), true);
+                            return;
+                        }
+                        if (data && data.ya_registrada && data.fecha_llegada_almacen) {
+                            acrRcptApplyArrivalUi(String(data.fecha_llegada_almacen), true);
+                            return;
+                        }
+                        arrBtn.disabled = false;
+                        window.alert((data && data.message) ? String(data.message) : 'No se pudo registrar la llegada.');
+                    })
+                    .catch(function () {
+                        arrBtn.disabled = false;
+                        window.alert('Error de red al registrar la llegada a almacén.');
+                    });
             });
         }
 
         var ds = document.getElementById('acr-rcpt-dacionStatus');
+        if (ds) {
+            ds.addEventListener('change', function () {
+                var v = ds.value || '';
+                if (!_acrRcptIdOp || ds.disabled) return;
+                if (v === 'pending' || v === 'missing') {
+                    fetch('/MotosAdjudicadas/guardarRecepcionEstadoDocumento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ id_operacion: _acrRcptIdOp, documento: 'dacion', estado: v }),
+                    })
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            if (!data || !data.success) {
+                                window.alert((data && data.message) ? String(data.message) : 'No se pudo guardar.');
+                                return null;
+                            }
+                            return acrRcptRefetchDetalle();
+                        })
+                        .then(function (det) {
+                            if (det) {
+                                acrRcptApplyDocumentacionDesdeDetalle(det);
+                            }
+                        });
+                } else {
+                    acrRcptRenderDocumentacionBodies(_acrRcptLastDetalle);
+                }
+            });
+        }
         var tsSt = document.getElementById('acr-rcpt-tarjetaStatus');
-        if (ds) ds.addEventListener('change', acrRcptDacionUpdate);
-        if (tsSt) tsSt.addEventListener('change', acrRcptTarjetaUpdate);
+        if (tsSt) {
+            tsSt.addEventListener('change', function () {
+                var v = tsSt.value || '';
+                if (!_acrRcptIdOp || tsSt.disabled) return;
+                if (v === 'missing') {
+                    fetch('/MotosAdjudicadas/guardarRecepcionEstadoDocumento', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ id_operacion: _acrRcptIdOp, documento: 'tarjeta', estado: 'missing' }),
+                    })
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            if (!data || !data.success) {
+                                window.alert((data && data.message) ? String(data.message) : 'No se pudo guardar.');
+                                return null;
+                            }
+                            return acrRcptRefetchDetalle();
+                        })
+                        .then(function (det) {
+                            if (det) {
+                                acrRcptApplyDocumentacionDesdeDetalle(det);
+                            }
+                        });
+                } else {
+                    acrRcptRenderDocumentacionBodies(_acrRcptLastDetalle);
+                }
+            });
+        }
 
         var finB = document.getElementById('acr-rcpt-finBtn');
         var sucM = document.getElementById('acr-rcpt-successMsg');
         if (finB && sucM) {
             finB.addEventListener('click', function () {
-                finB.style.display = 'none';
-                sucM.style.display = 'block';
+                if (!_acrRcptIdOp) {
+                    window.alert('No se identificó la operación.');
+                    return;
+                }
+                var ub = document.getElementById('acr-rcpt-ubicacion');
+                var ob = document.getElementById('acr-rcpt-obs');
+                var uval = ub ? String(ub.value || '').trim() : '';
+                var oval = ob ? String(ob.value || '').trim() : '';
+                finB.disabled = true;
+                fetch('/MotosAdjudicadas/confirmarRecepcionAlmacen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        id_operacion: _acrRcptIdOp,
+                        ubicacion: uval,
+                        observaciones: oval,
+                    }),
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        if (data && (data.success || data.ya_confirmada)) {
+                            return acrRcptRefetchDetalle();
+                        }
+                        finB.disabled = false;
+                        window.alert((data && data.message) ? String(data.message) : 'No se pudo confirmar la recepción.');
+                        return null;
+                    })
+                    .then(function (det) {
+                        if (det) {
+                            acrRcptApplyDocumentacionDesdeDetalle(det);
+                        } else {
+                            finB.disabled = false;
+                        }
+                    })
+                    .catch(function () {
+                        finB.disabled = false;
+                        window.alert('Error de red al confirmar la recepción.');
+                    });
             });
         }
     });

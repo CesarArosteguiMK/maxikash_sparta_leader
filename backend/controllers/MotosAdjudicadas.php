@@ -151,6 +151,96 @@ class MotosAdjudicadas extends Controller
         }
     }
 
+    /**
+     * GET /MotosAdjudicadas/recepcionResumenFinanciero?id_credito=N
+     * Saldo capital y adeudo total desde API S2 (estado de cuenta).
+     */
+    public function recepcionResumenFinanciero()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idCred = (int) ($_GET['id_credito'] ?? 0);
+        if ($idCred <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+        try {
+            $res = $this->model->obtenerResumenFinancieroEstadoCuentaS2($idCred);
+            echo json_encode($res);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/registrarLlegadaAlmacenRecepcion
+     * Body JSON: { "id_operacion": 123 }
+     */
+    public function registrarLlegadaAlmacenRecepcion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body    = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOp    = (int) ($body['id_operacion'] ?? 0);
+        $idUsr   = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nomUsr  = trim((string) ($_SESSION['usuario_nombre'] ?? 'SISTEMA'));
+        if ($idOp <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Operación inválida.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->registrarLlegadaAlmacenRecepcion($idOp, $idUsr, $nomUsr));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/guardarRecepcionEstadoDocumento
+     * Body JSON: { "id_operacion": 1, "documento": "dacion"|"tarjeta", "estado": "pending"|"missing" }
+     */
+    public function guardarRecepcionEstadoDocumento()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body   = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOp   = (int) ($body['id_operacion'] ?? 0);
+        $doc    = trim((string) ($body['documento'] ?? ''));
+        $estado = trim((string) ($body['estado'] ?? ''));
+        $idUsr  = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nomUsr = trim((string) ($_SESSION['usuario_nombre'] ?? 'SISTEMA'));
+        if ($idOp <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Operación inválida.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->guardarRecepcionEstadoDocumento($idOp, $doc, $estado, $idUsr, $nomUsr));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/confirmarRecepcionAlmacen
+     * Body JSON: { "id_operacion": 1, "ubicacion": "...", "observaciones": "..." }
+     */
+    public function confirmarRecepcionAlmacen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body   = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idOp   = (int) ($body['id_operacion'] ?? 0);
+        $ubic   = trim((string) ($body['ubicacion'] ?? ''));
+        $obs    = trim((string) ($body['observaciones'] ?? ''));
+        $idUsr  = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nomUsr = trim((string) ($_SESSION['usuario_nombre'] ?? 'SISTEMA'));
+        if ($idOp <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Operación inválida.']);
+            return;
+        }
+        try {
+            echo json_encode($this->model->confirmarRecepcionAlmacen($idOp, $ubic, $obs, $idUsr, $nomUsr));
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     // =========================================================================
     // API — CREAR OPERACIÓN
     // =========================================================================
@@ -400,6 +490,30 @@ class MotosAdjudicadas extends Controller
             echo json_encode(['success' => true, 'creditos' => $creditos]);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/obtenerMorosidadMisAdjudicaciones
+     * Body JSON: { "ids_credito": [1, 2, 3] } — morosidad desde Segundómetro sin bloquear la lista principal.
+     */
+    public function obtenerMorosidadMisAdjudicaciones()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $ids  = $body['ids_credito'] ?? $body['ids'] ?? [];
+
+        if (!is_array($ids) || $ids === []) {
+            echo json_encode(['success' => true, 'morosidad' => []]);
+            return;
+        }
+
+        try {
+            $morosidad = $this->model->obtenerMorosidadSegundometroPorCreditos($ids);
+            echo json_encode(['success' => true, 'morosidad' => $morosidad], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage(), 'morosidad' => []]);
         }
     }
 

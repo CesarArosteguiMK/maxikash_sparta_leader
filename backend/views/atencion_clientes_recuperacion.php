@@ -331,6 +331,53 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
     color: #fff;
 }
 
+/* Visor in-page (fotos, video, PDF) — dentro del modal para z-index / foco */
+#modalArRecuperacionEvidencias.ar-ev-ar-vista-abierta { overflow: visible !important; }
+#modalArRecuperacionEvidencias .ar-ev-vista-overlay {
+    position: fixed; inset: 0; z-index: 10050;
+    background: rgba(15, 23, 42, 0.82);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem; pointer-events: auto;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-panel {
+    width: 100%; max-width: 42rem; max-height: 92vh; overflow: auto;
+    background: #fff; border-radius: 0.75rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    padding: 1rem 1.1rem; position: relative; z-index: 1;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-panel.ar-ev-vista-panel--wide {
+    max-width: min(56rem, 96vw);
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox {
+    min-height: 12rem; max-height: 62vh;
+    background: #0f172a; border-radius: 0.5rem;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 0;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--pdf {
+    min-height: 56vh; max-height: 72vh;
+    background: #fff;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox .ar-ev-vista-img,
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox .ar-ev-vista-video {
+    max-width: 100%; max-height: 62vh; object-fit: contain;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox iframe {
+    width: 100%; min-height: 54vh; border: 0; border-radius: 0.35rem; background: #fff;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-panel--slot #ar-ev-vista-titulo { color: #0f766e; }
+#modalArRecuperacionEvidencias .ar-ev-vista-panel--repuve {
+    border: 1px solid #bbf7d0;
+    box-shadow: 0 22px 55px rgba(22, 163, 74, 0.14);
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-panel--repuve #ar-ev-vista-titulo { color: #14532d; }
+#modalArRecuperacionEvidencias .ar-ev-vista-panel--factura {
+    border: 1px solid #e9d5ff;
+    box-shadow: 0 22px 55px rgba(124, 58, 237, 0.12);
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-panel--factura #ar-ev-vista-titulo { color: #5b21b6; }
+body.dark-mode #modalArRecuperacionEvidencias .ar-ev-vista-panel { background: #1e293b; }
+
 .ar-ev-notas-panel {
     border: 1px solid #e2e8f0;
     border-radius: .65rem;
@@ -472,6 +519,17 @@ body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; 
             </div>
         </div>
     </div>
+    <div id="ar-ev-vista-overlay" class="ar-ev-vista-overlay d-none" role="dialog" aria-modal="true" aria-labelledby="ar-ev-vista-titulo">
+        <div class="ar-ev-vista-panel" tabindex="-1">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0" id="ar-ev-vista-titulo" style="font-size:1rem;font-weight:700;">Vista previa</h6>
+                <button type="button" class="btn btn-sm btn-light border" id="ar-ev-vista-btn-cerrar" aria-label="Cerrar vista">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="ar-ev-vista-mediabox" id="ar-ev-vista-mediabox"></div>
+        </div>
+    </div>
 </div>
 
 <?php
@@ -486,7 +544,8 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
 
     var AR_SERVER_PUBLIC_BASE = <?php echo json_encode($arPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
-    const AR_EV_TOTAL_LISTA = 11;
+    /** Mismo criterio que Recepción / Cierre doc: 9 medios + repuve + factura + doc_cierre_s2 */
+    const AR_EV_TOTAL_LISTA = 12;
     const AR_IMG_KEYS = [
         'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
         'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360'
@@ -692,7 +751,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         }
 
         return `
-        <div class="${cls}" data-ar-ev-url="${uEsc}" title="Clic para abrir">
+        <div class="${cls}" data-ar-ev-url="${uEsc}" data-ar-ev-lbl="${arEsc(sl.label)}" ${esVideo ? 'data-ar-ev-video="1"' : ''} title="Clic para ver aquí">
             ${media}
             <span class="ar-ev-lbl">${arEsc(sl.label)}</span>
             ${badge}
@@ -718,7 +777,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         if (has) {
             return `
             <div class="ar-ev-doc-zone ar-ev-doc-zone--green" role="button" tabindex="0"
-                 data-ar-ev-doc-open="${arEsc(url)}">
+                 data-ar-ev-doc-open="${arEsc(url)}" data-ar-ev-doc-kind="repuve">
                 <i class="fa-solid fa-file-pdf fa-2x text-success"></i>
                 <span class="fw-bold text-success small">VER REPUVE</span>
                 <span class="text-muted" style="font-size:.65rem;">PDF en expediente</span>
@@ -739,7 +798,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         if (has) {
             return `
             <div class="ar-ev-doc-zone ar-ev-doc-zone--purple" role="button" tabindex="0"
-                 data-ar-ev-doc-open="${arEsc(url)}">
+                 data-ar-ev-doc-open="${arEsc(url)}" data-ar-ev-doc-kind="factura">
                 <i class="fa-solid fa-file-invoice fa-2x" style="color:#7c3aed;"></i>
                 <span class="fw-bold small" style="color:#5b21b6;">VER FACTURA</span>
                 <span class="text-muted" style="font-size:.65rem;">Documento cargado</span>
@@ -779,6 +838,93 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         btn.disabled = false;
     }
 
+    function arEsPdfPorUrl(u) {
+        return /\.pdf(\?|#|$)/i.test(String(u || ''));
+    }
+
+    function arCerrarVistaOverlay() {
+        const modal = document.getElementById('modalArRecuperacionEvidencias');
+        if (modal) modal.classList.remove('ar-ev-ar-vista-abierta');
+        const ovl = document.getElementById('ar-ev-vista-overlay');
+        const box = document.getElementById('ar-ev-vista-mediabox');
+        const pan = ovl ? ovl.querySelector('.ar-ev-vista-panel') : null;
+        if (pan) {
+            pan.classList.remove(
+                'ar-ev-vista-panel--slot',
+                'ar-ev-vista-panel--repuve',
+                'ar-ev-vista-panel--factura',
+                'ar-ev-vista-panel--wide'
+            );
+        }
+        if (box) {
+            box.classList.remove('ar-ev-vista-mediabox--pdf');
+            box.innerHTML = '';
+        }
+        if (ovl) ovl.classList.add('d-none');
+    }
+
+    function arAbrirVistaSlotMedia(url, label, isVideo) {
+        arCerrarVistaOverlay();
+        const modal = document.getElementById('modalArRecuperacionEvidencias');
+        const ovl = document.getElementById('ar-ev-vista-overlay');
+        const tEl = document.getElementById('ar-ev-vista-titulo');
+        const box = document.getElementById('ar-ev-vista-mediabox');
+        const pan = ovl ? ovl.querySelector('.ar-ev-vista-panel') : null;
+        if (!ovl || !box || !pan) return;
+        const title = (label || 'Evidencia') + (isVideo ? ' — video' : '');
+        if (tEl) tEl.textContent = title;
+        pan.classList.add('ar-ev-vista-panel--slot');
+        if (isVideo) {
+            box.innerHTML =
+                '<video controls playsinline preload="metadata" class="ar-ev-vista-video" src="' +
+                arEsc(url) +
+                '"></video>';
+        } else {
+            box.innerHTML =
+                '<img class="ar-ev-vista-img" src="' +
+                arEsc(url) +
+                '" alt="' +
+                arEsc(label || 'Evidencia') +
+                '">';
+        }
+        ovl.classList.remove('d-none');
+        if (modal) modal.classList.add('ar-ev-ar-vista-abierta');
+    }
+
+    function arAbrirVistaDocumento(url, docKind) {
+        arCerrarVistaOverlay();
+        const modal = document.getElementById('modalArRecuperacionEvidencias');
+        const ovl = document.getElementById('ar-ev-vista-overlay');
+        const tEl = document.getElementById('ar-ev-vista-titulo');
+        const box = document.getElementById('ar-ev-vista-mediabox');
+        const pan = ovl ? ovl.querySelector('.ar-ev-vista-panel') : null;
+        if (!ovl || !box || !pan || !url) return;
+        const isPdf = arEsPdfPorUrl(url);
+        if (docKind === 'repuve') {
+            if (tEl) tEl.textContent = 'REPUVE — PDF';
+            pan.classList.add('ar-ev-vista-panel--repuve', 'ar-ev-vista-panel--wide');
+            box.classList.add('ar-ev-vista-mediabox--pdf');
+            box.innerHTML =
+                '<iframe src="' + arEsc(url) + '" title="REPUVE (PDF)"></iframe>';
+        } else {
+            if (tEl) tEl.textContent = isPdf ? 'Factura — PDF' : 'Factura';
+            pan.classList.add('ar-ev-vista-panel--factura');
+            if (isPdf) {
+                pan.classList.add('ar-ev-vista-panel--wide');
+                box.classList.add('ar-ev-vista-mediabox--pdf');
+                box.innerHTML =
+                    '<iframe src="' + arEsc(url) + '" title="Factura (PDF)"></iframe>';
+            } else {
+                box.innerHTML =
+                    '<img class="ar-ev-vista-img" src="' +
+                    arEsc(url) +
+                    '" alt="Factura">';
+            }
+        }
+        ovl.classList.remove('d-none');
+        if (modal) modal.classList.add('ar-ev-ar-vista-abierta');
+    }
+
     function arBindSlotClicks(root) {
         if (!root || !root.querySelectorAll) {
             return;
@@ -786,8 +932,10 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         root.querySelectorAll('.ar-ev-slot--click[data-ar-ev-url]').forEach(function (el) {
             el.addEventListener('click', function () {
                 const u = el.getAttribute('data-ar-ev-url');
+                const lbl = el.getAttribute('data-ar-ev-lbl') || '';
+                const isVid = el.getAttribute('data-ar-ev-video') === '1';
                 if (u) {
-                    window.open(u, '_blank', 'noopener');
+                    arAbrirVistaSlotMedia(u, lbl, isVid);
                 }
             });
         });
@@ -863,10 +1011,13 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             });
         }
         inner.querySelectorAll('[data-ar-ev-doc-open]').forEach(function (z) {
-            z.addEventListener('click', function () {
+            z.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
                 const u = z.getAttribute('data-ar-ev-doc-open');
+                const kind = z.getAttribute('data-ar-ev-doc-kind') || 'factura';
                 if (u) {
-                    window.open(u, '_blank', 'noopener');
+                    arAbrirVistaDocumento(u, kind);
                 }
             });
         });
@@ -909,14 +1060,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                             'La operación quedó en estatus <strong>Cierre documentado</strong>. ' +
                             'La verás en la <strong>bandeja de entrada</strong> de ' +
                             '<strong>4.- Cierre documentación</strong>.',
-                        confirmButtonText: 'Ir a Cierre documentación',
-                        showCancelButton: true,
-                        cancelButtonText: 'Cerrar',
-                        reverseButtons: true,
-                    }).then(function (result) {
-                        if (result.isConfirmed) {
-                            window.location.href = '/AtencionClientes/cierreDocumentacion';
-                        }
+                        confirmButtonText: 'Cerrar',
                     });
                 }
             })
@@ -959,6 +1103,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             return;
         }
         _arEvDetalle = null;
+        arCerrarVistaOverlay();
 
         const inner = document.getElementById('ar-ev-modal-inner');
         const titulo = document.getElementById('ar-ev-titulo-cliente');
@@ -1256,6 +1401,34 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 arEvEnviarACartera();
             });
         }
+
+        const mArEv = document.getElementById('modalArRecuperacionEvidencias');
+        if (mArEv) {
+            mArEv.addEventListener('hidden.bs.modal', function () {
+                arCerrarVistaOverlay();
+            });
+        }
+        const arOvl = document.getElementById('ar-ev-vista-overlay');
+        if (arOvl) {
+            arOvl.addEventListener('click', function (ev) {
+                if (ev.target === arOvl) {
+                    arCerrarVistaOverlay();
+                }
+            });
+        }
+        const arBtnVistaCerrar = document.getElementById('ar-ev-vista-btn-cerrar');
+        if (arBtnVistaCerrar) {
+            arBtnVistaCerrar.addEventListener('click', function () {
+                arCerrarVistaOverlay();
+            });
+        }
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key !== 'Escape') return;
+            const o = document.getElementById('ar-ev-vista-overlay');
+            if (o && !o.classList.contains('d-none')) {
+                arCerrarVistaOverlay();
+            }
+        });
     });
 })();
 </script>
