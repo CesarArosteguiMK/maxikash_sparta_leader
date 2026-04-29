@@ -1290,9 +1290,8 @@ class MotosAdjudicadas extends Model
     // =========================================================================
 
     /**
-     * Devuelve los créditos activos asignados al usuario (solo BD local).
-     * Morosidad / saldo desde Segundómetro: usar {@see obtenerMorosidadSegundometroPorCreditos()}
-     * en un request aparte para no bloquear la primera pintura de la vista.
+     * Devuelve los créditos activos asignados al usuario.
+     * El bucket se enriquece en esta misma respuesta para evitar una segunda llamada HTTP.
      */
     public function obtenerMisAdjudicaciones(int $idPersona): array
     {
@@ -1338,11 +1337,26 @@ class MotosAdjudicadas extends Model
         ) ?: [];
 
         foreach ($creditos as &$c) {
-            $c['dias_mora'] = 0;
-            $c['bucket']   = '—';
-            $c['saldo']     = 0;
+            $c['bucket'] = '—';
         }
         unset($c);
+
+        $idsCreditos = array_values(array_unique(array_filter(array_map(
+            static fn($c) => (int) ($c['id_credito'] ?? 0),
+            $creditos
+        ))));
+
+        if ($idsCreditos !== []) {
+            $morosidad = $this->obtenerMorosidadSegundometroPorCreditos($idsCreditos);
+            foreach ($creditos as &$c) {
+                $idKey = (string) ((int) ($c['id_credito'] ?? 0));
+                $bucket = trim((string) (($morosidad[$idKey]['bucket'] ?? '')));
+                if ($bucket !== '') {
+                    $c['bucket'] = $bucket;
+                }
+            }
+            unset($c);
+        }
 
         return $creditos;
     }

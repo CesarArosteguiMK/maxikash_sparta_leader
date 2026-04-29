@@ -407,7 +407,7 @@ class MotosAdjudicadas extends Controller
      * POST /MotosAdjudicadas/obtenerEvidenciasCredito
      * Body JSON: { "id_credito": 12345, "nombre_cliente": "Juan Pérez" }
      * Obtiene (o crea si no existe) la operación del pipeline asociada al crédito
-     * y devuelve sus evidencias y observaciones para el modal de Mis Adjudicaciones.
+     * y devuelve un detalle compacto para el modal de Mis Adjudicaciones.
      */
     public function obtenerEvidenciasCredito()
     {
@@ -426,8 +426,15 @@ class MotosAdjudicadas extends Controller
 
         try {
             $result = $this->model->obtenerOCrearOperacion($idCredito, $nombreCliente, $idUsuario);
-            if (!empty($result['success']) && !empty($result['detalle']['evidencias']) && is_array($result['detalle']['evidencias'])) {
-                foreach ($result['detalle']['evidencias'] as &$ev) {
+            if (empty($result['success']) || empty($result['detalle']) || !is_array($result['detalle'])) {
+                echo json_encode($result);
+                return;
+            }
+
+            $detalle = $result['detalle'];
+
+            if (!empty($detalle['evidencias']) && is_array($detalle['evidencias'])) {
+                foreach ($detalle['evidencias'] as &$ev) {
                     if (!is_array($ev) || empty($ev['url'])) {
                         continue;
                     }
@@ -442,7 +449,43 @@ class MotosAdjudicadas extends Controller
                 }
                 unset($ev);
             }
-            echo json_encode($result);
+
+            $historial = [];
+            if (!empty($detalle['historial']) && is_array($detalle['historial'])) {
+                foreach ($detalle['historial'] as $h) {
+                    if (!is_array($h)) {
+                        continue;
+                    }
+                    $historial[] = [
+                        'id'            => isset($h['id']) ? (int) $h['id'] : 0,
+                        'estatus_actual'=> (string) ($h['estatus_nuevo'] ?? $h['estatus_actual'] ?? ''),
+                        'id_usuario'    => isset($h['id_usuario']) ? (int) $h['id_usuario'] : 0,
+                        'fecha'         => (string) ($h['fecha'] ?? ''),
+                    ];
+                }
+            }
+
+            $detalleCompacto = [
+                'id'                     => isset($detalle['id']) ? (int) $detalle['id'] : 0,
+                'folio'                  => (string) ($detalle['folio'] ?? ''),
+                'id_credito'             => isset($detalle['id_credito']) ? (int) $detalle['id_credito'] : $idCredito,
+                'nombre_cliente'         => (string) ($detalle['nombre_cliente'] ?? $nombreCliente),
+                'id_usuario_alta'        => isset($detalle['id_usuario_alta']) ? (int) $detalle['id_usuario_alta'] : null,
+                'fecha_alta'             => $detalle['fecha_alta'] ?? null,
+                'fecha_actualizacion'    => $detalle['fecha_actualizacion'] ?? null,
+                'fecha_llegada_almacen'  => $detalle['fecha_llegada_almacen'] ?? null,
+                'recepcion_ubicacion'    => $detalle['recepcion_ubicacion'] ?? null,
+                'recepcion_observaciones'=> $detalle['recepcion_observaciones'] ?? null,
+                'recepcion_confirmada_at'=> $detalle['recepcion_confirmada_at'] ?? null,
+                'fecha_alta_fmt'         => (string) ($detalle['fecha_alta_fmt'] ?? ''),
+                'fecha_actualizacion_fmt'=> (string) ($detalle['fecha_actualizacion_fmt'] ?? ''),
+                'dias_en_pipeline'       => isset($detalle['dias_en_pipeline']) ? (int) $detalle['dias_en_pipeline'] : 0,
+                'evidencias'             => is_array($detalle['evidencias'] ?? null) ? $detalle['evidencias'] : [],
+                'observaciones'          => is_array($detalle['observaciones'] ?? null) ? $detalle['observaciones'] : [],
+                'historial'              => $historial,
+            ];
+
+            echo json_encode(['success' => true, 'detalle' => $detalleCompacto]);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -493,29 +536,6 @@ class MotosAdjudicadas extends Controller
         }
     }
 
-    /**
-     * POST /MotosAdjudicadas/obtenerMorosidadMisAdjudicaciones
-     * Body JSON: { "ids_credito": [1, 2, 3] } — morosidad desde Segundómetro sin bloquear la lista principal.
-     */
-    public function obtenerMorosidadMisAdjudicaciones()
-    {
-        header('Content-Type: application/json; charset=utf-8');
-
-        $body = json_decode(file_get_contents('php://input'), true) ?? [];
-        $ids  = $body['ids_credito'] ?? $body['ids'] ?? [];
-
-        if (!is_array($ids) || $ids === []) {
-            echo json_encode(['success' => true, 'morosidad' => []]);
-            return;
-        }
-
-        try {
-            $morosidad = $this->model->obtenerMorosidadSegundometroPorCreditos($ids);
-            echo json_encode(['success' => true, 'morosidad' => $morosidad], JSON_UNESCAPED_UNICODE);
-        } catch (\Throwable $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage(), 'morosidad' => []]);
-        }
-    }
 
     /**
      * POST /MotosAdjudicadas/guardarVeredictoEvidenciaAtn
