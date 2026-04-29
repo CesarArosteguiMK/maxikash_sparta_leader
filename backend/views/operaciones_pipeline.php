@@ -56,8 +56,8 @@
         text-overflow: ellipsis;
     }
 
-    /* Columna Retenciones: título largo en varias líneas */
-    .ops-column-header--ret .ops-col-title {
+    /* Cabecera de columna con título largo (Retenciones, Recuperación, Cierre, Recepción, …) */
+    .ops-column-header--long .ops-col-title {
         white-space: normal;
         overflow: visible;
         text-overflow: unset;
@@ -961,13 +961,21 @@
             </span>`;
         }
 
+        const OPS_TITULO_COL_LARGO = {
+            'Retenciones':               'Actualmente se encuentra en Retenciones',
+            'Revisión Recuperaciones':   'Actualmente se encuentra en Recuperacion',
+            'Cierre Documentado':        'Actualmente se encuentra en Cierre Documentado',
+            'Recepción':                 'Actualmente se encuentra en Recepción',
+        };
+
         STAGES.forEach(stage => {
             const cards = groups[stage];
             const col = document.createElement('div');
             col.className = 'ops-column';
-            const esRet = stage === 'Retenciones';
-            const tituloCol = esRet ? 'Actualmente se encuentra en Retenciones' : stage;
-            const hdrClass = esRet ? 'ops-column-header ops-column-header--ret' : 'ops-column-header';
+            const tituloCol = OPS_TITULO_COL_LARGO[stage] || stage;
+            const hdrClass = OPS_TITULO_COL_LARGO[stage]
+                ? 'ops-column-header ops-column-header--long'
+                : 'ops-column-header';
             col.innerHTML = `
                 <div class="${hdrClass}">
                     <span class="ops-col-title"><i class="fa-solid ${STAGE_ICONS[stage]} me-1"></i>${tituloCol}</span>
@@ -1093,6 +1101,28 @@
 
 
     // ──────────────────────────────────────────────────────────────────
+    /** Texto legible para badge de etapa (modal y tarjetas); evita mostrar claves como en_transito. */
+    function opsTextoEtapaUsuario(op) {
+        const est = (op.estatus || '').toString().trim();
+        if (est === 'Retenciones' || est === 'cancelado') {
+            return 'Actualmente se encuentra en Retenciones';
+        }
+        if (est === 'en_transito') {
+            return 'Actualmente se encuentra en evidencias';
+        }
+        if (est === 'Revisión Recuperaciones') {
+            return 'Actualmente se encuentra en Recuperacion';
+        }
+        if (est === 'Cierre Documentado') {
+            return 'Actualmente se encuentra en Cierre Documentado';
+        }
+        if (est === 'Recepción') {
+            return 'Actualmente se encuentra en Recepción';
+        }
+        if (!est) return '—';
+        return est.replace(/_/g, ' ');
+    }
+
     function opsAbrirDetalle(id) {
         _detalleActual = null;
         document.getElementById('det-folio').textContent = '…';
@@ -1123,10 +1153,7 @@
         _activeOpId = op.id;
         document.getElementById('det-folio').textContent = op.folio;
 
-        const est = (op.estatus || '').toString();
-        const textoEtapa = (est === 'Retenciones' || est === 'cancelado')
-            ? 'Actualmente se encuentra en Retenciones'
-            : est;
+        const textoEtapa = opsTextoEtapaUsuario(op);
 
         const html = `
         <div class="ops-modal-detalle">
@@ -1295,6 +1322,7 @@
         } else if (op.estatus === 'cancelado') {
             estatusBadge = '<span style="display:inline-flex;align-items:center;background:#fee2e2;color:#b91c1c;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-ban me-1"></i>Cancelado</span>';
         } else {
+            /* en_transito u otros con dictamen: corto aquí; el detalle largo va solo en el badge del encabezado del modal */
             estatusBadge = '<span style="display:inline-flex;align-items:center;background:#dbeafe;color:#1e40af;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>';
         }
         const comHtml = d && d.comentarios
