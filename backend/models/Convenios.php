@@ -569,7 +569,8 @@ public static function getConvenioActivo($id_credito)
         }
 
         // Para convenios ya completados no aplicar lógica de auto-cancelación.
-        // Sí cargar la amortización para que el front pueda mostrar la tabla.
+        // Sí cargar la amortización y correr auto-conciliación S2 por si hay
+        // semanas que siguen en pendiente_conciliar (comprobante subido pero no conciliado).
         if ($convenio['estatus'] === 'completado') {
             $amortCompletada = $db->queryAll(
                 "SELECT * FROM convenio_cliente_amortizacion
@@ -577,6 +578,51 @@ public static function getConvenioActivo($id_credito)
                  ORDER BY numero_semana",
                 ['id' => (int) $convenio['id']]
             );
+
+            // Verificar si hay semanas pendiente_conciliar que S2 ya tiene como pagadas
+            $hayPendienteConciliar = false;
+            foreach ($amortCompletada as $f) {
+                if ($f['estatus_pago'] === 'pendiente_conciliar') {
+                    $hayPendienteConciliar = true;
+                    break;
+                }
+            }
+
+            if ($hayPendienteConciliar) {
+                $resultS2c   = self::_getPagosS2Movil((int) $id_credito);
+                $rawS2c      = $resultS2c['raw'];
+                $porIdPagoC  = $resultS2c['porIdPago'];
+                $fechaAcC    = $convenio['fecha_acuerdo'] ?? null;
+                if ($fechaAcC) {
+                    $rawS2c = array_values(array_filter($rawS2c, fn($p) =>
+                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaAcC));
+                    $porIdPagoC = array_filter($porIdPagoC, fn($p) =>
+                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaAcC);
+                }
+                $mapaC = self::_mapearCuotasS2AConvenio($rawS2c, $amortCompletada);
+                foreach ($amortCompletada as &$filaC) {
+                    if ($filaC['estatus_pago'] !== 'pendiente_conciliar') continue;
+                    $idPagoC = $mapaC[(int)$filaC['numero_semana']] ?? null;
+                    if ($idPagoC === null) continue;
+                    $pagoS2c     = $porIdPagoC[$idPagoC] ?? null;
+                    $fechaPagoC  = $pagoS2c ? ($pagoS2c['fechaValor'] ?? date('Y-m-d')) : date('Y-m-d');
+                    $montoPagoC = $pagoS2c ? round((float)($pagoS2c['montoPago'] ?? $filaC['pago_semanal']), 2) : round((float)$filaC['pago_semanal'], 2);
+                    $db->CRUD(
+                        "UPDATE convenio_cliente_amortizacion
+                            SET estatus_pago    = 'pagado',
+                                fecha_pago_real = :fecha,
+                                monto_pagado    = :monto
+                          WHERE id = :id
+                            AND estatus_pago NOT IN ('pagado','cancelado')",
+                        ['fecha' => $fechaPagoC, 'monto' => $montoPagoC, 'id' => (int)$filaC['id']]
+                    );
+                    $filaC['estatus_pago']    = 'pagado';
+                    $filaC['fecha_pago_real'] = $fechaPagoC;
+                    $filaC['monto_pagado']    = $montoPagoC;
+                }
+                unset($filaC);
+            }
+
             $convenio['amortizacion']  = $amortCompletada ?: [];
             $convenio['pagos_s2movil'] = [];
             return self::resultado(true, 'Convenio completado.', $convenio);
@@ -715,7 +761,7 @@ public static function getConvenioActivo($id_credito)
                 // S2 confirma pago → marcar como pagado en BD
                 $pagoS2       = $pagosS2PorId[$idPago] ?? null;
                 $fechaPagoS2  = $pagoS2 ? ($pagoS2['fechaValor'] ?? $hoy->format('Y-m-d')) : $hoy->format('Y-m-d');
-                $montoSemanal = round((float) $fila['pago_semanal'], 2);
+                $montoPagoS2  = $pagoS2 ? round((float)($pagoS2['montoPago'] ?? $fila['pago_semanal']), 2) : round((float)$fila['pago_semanal'], 2);
                 $db->CRUD(
                     "UPDATE convenio_cliente_amortizacion
                         SET estatus_pago    = 'pagado',
@@ -723,11 +769,11 @@ public static function getConvenioActivo($id_credito)
                             monto_pagado    = :monto
                       WHERE id = :id
                         AND estatus_pago NOT IN ('pagado','cancelado')",
-                    ['fecha' => $fechaPagoS2, 'monto' => $montoSemanal, 'id' => (int) $fila['id']]
+                    ['fecha' => $fechaPagoS2, 'monto' => $montoPagoS2, 'id' => (int) $fila['id']]
                 );
                 $fila['estatus_pago']    = 'pagado';
                 $fila['fecha_pago_real'] = $fechaPagoS2;
-                $fila['monto_pagado']    = $montoSemanal;
+                $fila['monto_pagado']    = $montoPagoS2;
 
             } elseif ($idPago === null && $fila['estatus_pago'] === 'pendiente') {
                 // Sin pago S2 y fecha vencida → marcar como vencido
@@ -1016,6 +1062,13 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
             $semana      = $amortizacion[$idxSem];
             $numSem      = (int)$semana['numero_semana'];
             $pagoSemanal = round((float)$semana['pago_semanal'], 4);
+
+            // Semana ya pagada en BD: fue cubierta por un pago previo (posiblemente
+            // filtrado por fecha_acuerdo). Avanzar sin consumir dinero del pago actual.
+            if (($semana['estatus_pago'] ?? '') === 'pagado') {
+                $idxSem++;
+                continue;
+            }
 
             if (!isset($mapa[$numSem])) {
                 // La semana aún no tiene dueño — asignar al pago actual
