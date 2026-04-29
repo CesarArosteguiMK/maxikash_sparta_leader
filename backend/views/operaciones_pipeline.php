@@ -21,7 +21,7 @@
 </div>
 
 <!-- Kanban Board -->
-<div class="d-flex gap-3 overflow-auto pb-3" id="ops-pipeline-board" style="min-height:calc(100vh - 260px); display:none !important;"></div>
+<div id="ops-pipeline-board" style="display:none; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; min-height:calc(100vh - 260px);"></div>
 
 <!-- Spinner de carga inicial -->
 <div id="ops-loading" class="text-center py-5">
@@ -158,7 +158,7 @@
                 })
                 .finally(() => {
                     document.getElementById('ops-loading').style.display = 'none';
-                    document.getElementById('ops-pipeline-board').style.display = 'flex';
+                    document.getElementById('ops-pipeline-board').style.display = 'grid';
                 });
         }
 
@@ -196,8 +196,8 @@
                 const tituloCol = OPS_TITULO_COL_VISIBLE[stage] || stage;
 
                 const col = document.createElement('div');
-                col.className = 'card flex-shrink-0';
-                col.style.cssText = 'min-width:270px; max-width:270px;';
+                col.className = 'card';
+                col.style.cssText = 'min-width:0; overflow:hidden;';
 
                 col.innerHTML = `
                 <div class="card-header d-flex align-items-center justify-content-between py-2">
@@ -254,32 +254,52 @@
             const transitoBadge  = esTransito  ? `<span class="badge bg-label-info mt-1"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>` : '';
             const canceladoBadge = esCancelado ? `<span class="badge bg-label-danger mt-1"><i class="fa-solid fa-ban me-1"></i>Cancelado</span>` : '';
 
+            // Columnas que usan card compacto (una sola línea densa)
+            const esCompacto = opsEsColumnaRetenciones(op)
+                || op.estatus === 'en_transito'
+                || op.estatus === 'Recibido'
+                || op.estatus === 'Revisión Recuperaciones';
+
             if (opsEsColumnaRetenciones(op)) {
-                const fechaLlamada     = String(op.ret_llamada_fecha_fmt || '').trim();
-                const tieneLlamadaRet  = !!fechaLlamada;
-                const piePipe          = String(op.ret_registro_pipe_fmt || op.fecha_alta || '').trim();
-
-                const statusHtml = !tieneLlamadaRet
-                    ? `<small class="text-danger fw-bold">Pendiente de llamada</small>`
-                    : `<small class="text-body-secondary">${opsEsc(opsRetencionesLineaDetalle(op))}</small>`;
-
-                const footHtml = !tieneLlamadaRet
-                    ? `<small class="text-muted d-block mt-1 pt-1 border-top">${opsEsc(piePipe || '—')}</small>`
-                    : `<small class="text-muted d-block mt-1 pt-1 border-top">${opsEsc(fechaLlamada)}</small>`;
-
+                const fechaLlamada    = String(op.ret_llamada_fecha_fmt || '').trim();
+                const tieneLlamadaRet = !!fechaLlamada;
+                const piePipe         = String(op.ret_registro_pipe_fmt || op.fecha_alta || '').trim();
+                const statusTxt = !tieneLlamadaRet
+                    ? `<span class="text-danger fw-bold" style="font-size:.7rem;">Pendiente de llamada</span>`
+                    : `<span class="text-muted" style="font-size:.7rem;">${opsEsc(opsRetencionesLineaDetalle(op))}</span>`;
+                const footTxt = `<span class="text-muted" style="font-size:.68rem;">${opsEsc(!tieneLlamadaRet ? (piePipe || '—') : fechaLlamada)}</span>`;
                 return `
-            <div class="card card-body p-2 mb-2 border-start border-3 ${borderColor}" style="cursor:pointer;" onclick="opsAbrirDetalle(${op.id})">
-                <div class="d-flex align-items-center justify-content-between mb-1 gap-1">
-                    <span class="badge bg-label-primary">${opsEsc(op.folio)}</span>
-                    <small class="text-muted text-truncate" style="max-width:60%;">#${opsEsc(String(op.id_credito))}</small>
+            <div class="card mb-1 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.5rem;" onclick="opsAbrirDetalle(${op.id})">
+                <div class="px-2 py-1">
+                    <div class="d-flex align-items-center justify-content-between gap-1">
+                        <span class="badge bg-label-primary" style="font-size:.65rem;">${opsEsc(op.folio)}</span>
+                        <span class="text-muted text-truncate" style="font-size:.68rem; max-width:55%;">#${opsEsc(String(op.id_credito))}</span>
+                        ${canceladoBadge}
+                    </div>
+                    <div class="fw-semibold text-truncate" style="font-size:.78rem;">${opsEsc(op.nombre_cliente)}</div>
+                    <div class="d-flex align-items-center justify-content-between gap-1 mt-1 pt-1 border-top">
+                        ${statusTxt}${footTxt}
+                    </div>
                 </div>
-                <div class="fw-semibold small text-truncate">${opsEsc(op.nombre_cliente)}</div>
-                ${statusHtml}
-                ${footHtml}
-                ${canceladoBadge}${transitoBadge}
             </div>`;
             }
 
+            if (esCompacto) {
+                // Card minimalista de una fila: folio | nombre | crédito | días
+                return `
+            <div class="card mb-1 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.5rem;" onclick="opsAbrirDetalle(${op.id})">
+                <div class="px-2 py-1">
+                    <div class="d-flex align-items-center justify-content-between gap-1">
+                        <span class="badge bg-label-primary" style="font-size:.65rem;">${opsEsc(op.folio)}</span>
+                        <span class="badge ${agingBadge}" style="font-size:.65rem;">${dias}d</span>
+                    </div>
+                    <div class="fw-semibold text-truncate" style="font-size:.78rem;">${opsEsc(op.nombre_cliente)}</div>
+                    <div class="text-muted text-truncate" style="font-size:.7rem;">#${opsEsc(String(op.id_credito))}${op.area_actual ? '&nbsp;<span class="badge bg-label-secondary" style="font-size:.6rem;">' + opsEsc(op.area_actual) + '</span>' : ''}</div>
+                </div>
+            </div>`;
+            }
+
+            // Card completo (Cierre Documentado, Recepción)
             return `
         <div class="card card-body p-2 mb-2 border-start border-3 ${borderColor}" style="cursor:pointer;" onclick="opsAbrirDetalle(${op.id})">
             <div class="d-flex align-items-center justify-content-between mb-1 gap-1">
@@ -471,8 +491,6 @@
         // ──────────────────────────────────────────────────────────────────
         function opsRenderDatosExpediente(op, d, historialLlamadas) {
             historialLlamadas = Array.isArray(historialLlamadas) ? historialLlamadas : [];
-            const enRetenciones   = op.estatus === 'cancelado' || op.estatus === 'Retenciones';
-            const gestorMostrar   = enRetenciones ? 'Pendiente de mandar' : ((d && d.gestor_nombre) ? d.gestor_nombre : (op.gestor_nombre || null));
 
             let estatusBadge;
             if (!d) {
@@ -487,17 +505,15 @@
             let resumenCols = '';
             if (tieneHistorial) {
                 resumenCols = `
-                <div class="col-sm-6 col-lg-4">${opsExpKv('Estatus dictamen', estatusBadge, true)}</div>
-                <div class="col-sm-6 col-lg-4">${opsExpKv('Gestor a cargo', gestorMostrar)}</div>`;
+                <div class="col-sm-6">${opsExpKv('Estatus dictamen', estatusBadge, true)}</div>`;
             } else {
                 const comHtml = d && d.comentarios
                     ? `<span class="small fw-semibold" style="white-space:pre-line;">${opsEsc(d.comentarios)}</span>`
                     : null;
                 resumenCols = `
-                <div class="col-sm-6 col-lg-3">${opsExpKv('Estatus dictamen', estatusBadge, true)}</div>
-                <div class="col-sm-6 col-lg-3">${opsExpKv('Dictamen', d && d.dictamen ? d.dictamen : null)}</div>
-                <div class="col-sm-6 col-lg-3">${opsExpKv('Gestor a cargo', gestorMostrar)}</div>
-                <div class="col-sm-6 col-lg-3">${opsExpKv('Fecha dictamen', d && d.fecha_alta_fmt ? d.fecha_alta_fmt : null)}</div>
+                <div class="col-sm-6 col-lg-4">${opsExpKv('Estatus dictamen', estatusBadge, true)}</div>
+                <div class="col-sm-6 col-lg-4">${opsExpKv('Dictamen', d && d.dictamen ? d.dictamen : null)}</div>
+                <div class="col-sm-6 col-lg-4">${opsExpKv('Fecha dictamen', d && d.fecha_alta_fmt ? d.fecha_alta_fmt : null)}</div>
                 <div class="col-12 mt-2">${opsExpKv('Comentarios', comHtml, true)}</div>`;
             }
 
