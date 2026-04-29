@@ -404,6 +404,67 @@
         text-overflow: ellipsis;
     }
 
+    /* Separación entre resumen y tabla; mismo gris que CLIENTE / FOLIO (.ops-exp-kv-lbl → #64748b) */
+    .ops-llamadas-hist-wrap {
+        --ops-llam-border: #64748b;
+        border-top: 1px solid var(--ops-llam-border);
+        padding-top: .65rem;
+        margin-top: .35rem;
+    }
+
+    /* Tabla historial: columnas iguales + bordes discretos */
+    .ops-llamadas-hist {
+        font-size: .8125rem;
+        width: 100%;
+        table-layout: fixed;
+        border: 1px solid var(--ops-llam-border) !important;
+        border-collapse: collapse !important;
+    }
+    .ops-llamadas-hist thead th.ops-llam-th {
+        font-size: .65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #0f172a;
+        background: #f8fafc;
+        vertical-align: top;
+        border: 1px solid var(--ops-llam-border) !important;
+        border-bottom: 1px solid var(--ops-llam-border) !important;
+        padding: .5rem .55rem;
+    }
+    .ops-llamadas-hist td.ops-llam-td {
+        vertical-align: top;
+        border: 1px solid var(--ops-llam-border) !important;
+        padding: .5rem .55rem;
+    }
+    .ops-llam-inner-lbl {
+        display: block;
+        font-size: .58rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #94a3b8;
+        margin-bottom: .2rem;
+    }
+    .ops-llam-val {
+        font-weight: 600;
+        color: #1e293b;
+        line-height: 1.35;
+    }
+    .ops-llam-val.ops-llam-com {
+        font-weight: 500;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .ops-llam-meta {
+        font-size: .72rem;
+        font-weight: 500;
+        color: #64748b;
+        line-height: 1.45;
+        background: #fafbfc;
+    }
+    .ops-llam-meta div { word-break: break-word; }
+
     body.dark-mode .ops-exp-block {
         background: #0f172a;
         border-color: #334155;
@@ -416,6 +477,28 @@
     body.dark-mode .ops-exp-kv-lbl { color: #94a3b8; }
     body.dark-mode .ops-exp-kv-val { color: #e2e8f0; }
     body.dark-mode .ops-exp-kv-val--muted { color: #64748b; }
+
+    body.dark-mode .ops-llamadas-hist-wrap {
+        --ops-llam-border: #94a3b8;
+        border-top-color: var(--ops-llam-border);
+    }
+    body.dark-mode .ops-llamadas-hist {
+        border-color: #94a3b8 !important;
+        color: #e2e8f0;
+    }
+    body.dark-mode .ops-llamadas-hist thead th.ops-llam-th {
+        background: #1e293b;
+        color: #f1f5f9;
+        border-color: #94a3b8 !important;
+        border-bottom-color: #94a3b8 !important;
+    }
+    body.dark-mode .ops-llamadas-hist td.ops-llam-td { border-color: #94a3b8 !important; }
+    body.dark-mode .ops-llam-inner-lbl { color: #94a3b8; }
+    body.dark-mode .ops-llam-val { color: #e2e8f0; }
+    body.dark-mode .ops-llam-meta {
+        background: #0f172a;
+        color: #94a3b8;
+    }
 
     /* ── Viewer row (fixed height — never moves) ───────────────── */
     .ops-visor-row { height: 520px; }
@@ -1299,12 +1382,53 @@
             '</div>';
     }
 
-    /** Etiqueta de comentarios: una sola llamada → "Comentarios"; varias → 1ra / 2da / 3ra (máx. 3 en API). */
+    /** Encabezado de columna: 1ra / 2da / 3ra llamada (máx. 3 en API). */
     function opsLabelComentariosLlamada(idx, total) {
-        if (total <= 1) return 'Comentarios';
-        if (idx === 0) return 'Comentarios 1ra llamada';
-        if (idx === 1) return 'Comentarios 2da llamada';
-        return 'Comentarios 3ra llamada';
+        if (total <= 1) return '1ra llamada';
+        if (idx === 0) return '1ra llamada';
+        if (idx === 1) return '2da llamada';
+        return '3ra llamada';
+    }
+
+    /** Tabla: una columna por llamada (dictamen + comentarios + nombre/fecha sin prefijos). */
+    function opsRenderTablaHistorialLlamadas(rows) {
+        if (!rows || !rows.length) return '';
+        const total = rows.length;
+        const wPct = (100 / total) + '%';
+        let colg = '<colgroup>';
+        for (let i = 0; i < total; i++) {
+            colg += '<col style="width:' + wPct + '">';
+        }
+        colg += '</colgroup>';
+        let th = '';
+        let tdDict = '';
+        let tdCom = '';
+        let tdMeta = '';
+        rows.forEach((row, idx) => {
+            const tit = opsLabelComentariosLlamada(idx, total);
+            th += '<th scope="col" class="ops-llam-th">' + opsEsc(tit) + '</th>';
+            const dictRaw = row && row.dictamen != null ? String(row.dictamen).trim() : '';
+            const dict = dictRaw !== '' ? opsEsc(dictRaw) : '<span class="ops-exp-kv-val--muted">—</span>';
+            tdDict += '<td class="ops-llam-td"><span class="ops-llam-inner-lbl">Dictamen</span><div class="ops-llam-val">' + dict + '</div></td>';
+            const comRaw = row && row.comentarios != null ? String(row.comentarios).trim() : '';
+            const com = comRaw !== '' ? opsEsc(comRaw) : '<span class="ops-exp-kv-val--muted">—</span>';
+            tdCom += '<td class="ops-llam-td"><span class="ops-llam-inner-lbl">Comentarios</span><div class="ops-llam-val ops-llam-com">' + com + '</div></td>';
+            const usrRaw = row && row.registrado_nombre != null ? String(row.registrado_nombre).trim() : '';
+            const usr = usrRaw !== '' ? opsEsc(usrRaw) : '<span class="ops-exp-kv-val--muted">—</span>';
+            const fh = row && row.fecha_alta_fmt ? opsEsc(String(row.fecha_alta_fmt)) : '<span class="ops-exp-kv-val--muted">—</span>';
+            tdMeta += '<td class="ops-llam-td ops-llam-meta"><div>' + usr + '</div><div>' + fh + '</div></td>';
+        });
+        return '<div class="w-100"></div>' +
+            '<div class="col-12 px-0 ops-llamadas-hist-wrap">' +
+            '<div class="table-responsive">' +
+            '<table class="table table-sm align-top mb-0 ops-llamadas-hist">' +
+            colg +
+            '<thead><tr>' + th + '</tr></thead>' +
+            '<tbody>' +
+            '<tr>' + tdDict + '</tr>' +
+            '<tr>' + tdCom + '</tr>' +
+            '<tr>' + tdMeta + '</tr>' +
+            '</tbody></table></div></div>';
     }
 
     function opsRenderDatosExpediente(op, d, historialLlamadas) {
@@ -1325,38 +1449,31 @@
             ? '<span class="ops-exp-kv-val" style="white-space:pre-line;">' + opsEsc(d.comentarios) + '</span>'
             : null;
 
-        let comentariosFilas = '';
-        if (historialLlamadas.length > 0) {
-            const total = historialLlamadas.length;
-            let colHist = 'col-12';
-            if (total === 2) {
-                colHist = 'col-12 col-md-6';
-            } else if (total >= 3) {
-                colHist = 'col-12 col-md-6 col-lg-4';
-            }
-            comentariosFilas = '<div class="w-100"></div>';
-            historialLlamadas.forEach((row, idx) => {
-                const lbl = opsLabelComentariosLlamada(idx, total);
-                const txt = row && row.comentarios != null ? String(row.comentarios) : '';
-                const inner = txt.trim() !== ''
-                    ? '<span class="ops-exp-kv-val" style="white-space:pre-line;">' + opsEsc(txt) + '</span>'
-                    : null;
-                comentariosFilas += '<div class="' + colHist + '"><div class="h-100">' + opsExpKv(lbl, inner, true) + '</div></div>';
-            });
+        const tieneHistorialTabla = historialLlamadas.length > 0;
+        let resumenCols = '';
+        if (tieneHistorialTabla) {
+            resumenCols =
+                '<div class="col-sm-6 col-lg-4">' + opsExpKv('Estatus dictamen', estatusBadge, true) + '</div>' +
+                '<div class="col-sm-6 col-lg-4">' + opsExpKv('Gestor a cargo', gestorMostrar, false) + '</div>';
         } else {
-            comentariosFilas = '<div class="w-100"></div><div class="col-12">' + opsExpKv('Comentarios', comHtml, true) + '</div>';
+            resumenCols =
+                '<div class="col-sm-6 col-lg-3">' + opsExpKv('Estatus dictamen', estatusBadge, true) + '</div>' +
+                '<div class="col-sm-6 col-lg-3">' + opsExpKv('Dictamen', d && d.dictamen ? d.dictamen : null, false) + '</div>' +
+                '<div class="col-sm-6 col-lg-3">' + opsExpKv('Gestor a cargo', gestorMostrar, false) + '</div>' +
+                '<div class="col-sm-6 col-lg-3">' + opsExpKv('Fecha dictamen', d && d.fecha_alta_fmt ? d.fecha_alta_fmt : null, false) + '</div>';
         }
+
+        const bloqueHistorial = tieneHistorialTabla
+            ? opsRenderTablaHistorialLlamadas(historialLlamadas)
+            : ('<div class="w-100"></div><div class="col-12">' + opsExpKv('Comentarios', comHtml, true) + '</div>');
 
         const sec1 =
             '<div class="ops-exp-block mb-3">' +
             '<div class="ops-exp-block-title"><i class="fa-solid fa-headset me-2" style="opacity:.9;"></i>Atención a clientes informa</div>' +
             '<div class="ops-exp-block-body">' +
             '<div class="row g-2 g-md-3">' +
-            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Estatus dictamen', estatusBadge, true) + '</div>' +
-            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Dictamen', d && d.dictamen ? d.dictamen : null, false) + '</div>' +
-            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Gestor a cargo', gestorMostrar, false) + '</div>' +
-            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Fecha dictamen', d && d.fecha_alta_fmt ? d.fecha_alta_fmt : null, false) + '</div>' +
-            comentariosFilas +
+            resumenCols +
+            bloqueHistorial +
             '</div></div></div>';
 
         return sec1;
