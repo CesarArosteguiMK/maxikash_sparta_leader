@@ -229,6 +229,20 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-vista-mediabox { min-height: 12rem; max-height: 55vh; background: #0f172a; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; }
 .aev-vista-mediabox video, .aev-vista-mediabox img { max-width: 100%; max-height: 50vh; object-fit: contain; }
 .aev-vista-mediabox iframe { width: 100%; min-height: 50vh; border: 0; background: #fff; border-radius: 0.35rem; }
+#modalAevValidarEvidencias .aev-vista-panel.aev-vista-panel--pdf-only { max-width: min(56rem, 96vw); }
+#modalAevValidarEvidencias .aev-vista-mediabox.aev-vista-mediabox--repuve { min-height: 58vh; max-height: 72vh; }
+#modalAevValidarEvidencias .aev-vista-panel.aev-vista-panel--repuve {
+    border: 1px solid #bbf7d0;
+    box-shadow: 0 22px 55px rgba(22, 163, 74, 0.12);
+}
+#modalAevValidarEvidencias .aev-vista-panel.aev-vista-panel--repuve #aev-vista-titulo { color: #14532d; }
+.aev-btn-ver-repuve {
+    border: 2px solid #22c55a; color: #14532d; background: #fff; border-radius: 2rem;
+    font-weight: 800; font-size: .78rem; padding: .4rem 1.1rem; line-height: 1.2;
+}
+.aev-btn-ver-repuve:hover, .aev-btn-ver-repuve:focus {
+    background: #dcfce7; border-color: #16a34a; color: #14532d;
+}
 .aev-doc-zone {
     min-height: 88px; border: 2px dashed #86efac; border-radius: .5rem; background: #f0fdf4; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; text-align: center; gap: .4rem; margin-top: -1px;
 }
@@ -652,7 +666,15 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const m   = document.getElementById('modalAevValidarEvidencias');
         if (m) m.classList.remove('aev-ev-vista-abierta');
         const box = document.getElementById('aev-vista-mediabox');
-        if (box) { box.innerHTML = ''; }
+        const panRoot = ovl ? ovl.querySelector('.aev-vista-panel') : null;
+        if (panRoot) {
+            panRoot.classList.remove('aev-vista-panel--pdf-only');
+            panRoot.classList.remove('aev-vista-panel--repuve');
+        }
+        if (box) {
+            box.classList.remove('aev-vista-mediabox--repuve');
+            box.innerHTML = '';
+        }
         if (ovl) ovl.classList.add('d-none');
         const ta = document.getElementById('aev-vista-comentario');
         if (ta)  ta.value = '';
@@ -676,6 +698,14 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     function aevAbrirVistaEvidencia(slot, label) {
         if (!_aevStore.det) return;
         if (slot === 'doc_repuve') return;
+        const ovlPre = document.getElementById('aev-vista-overlay');
+        const panPre = ovlPre ? ovlPre.querySelector('.aev-vista-panel') : null;
+        const boxPre = document.getElementById('aev-vista-mediabox');
+        if (panPre) {
+            panPre.classList.remove('aev-vista-panel--pdf-only');
+            panPre.classList.remove('aev-vista-panel--repuve');
+        }
+        if (boxPre) boxPre.classList.remove('aev-vista-mediabox--repuve');
         const evMap = aevMapaPorSlot(_aevStore.det.evidencias);
         const row   = evMap[slot];
         if (!row || !row.url) return;
@@ -756,6 +786,44 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         }
     }
 
+    /** Repuve: solo lectura en el mismo overlay (sin dictaminar desde aquí). */
+    function aevAbrirVistaRepuvePdf() {
+        if (!_aevStore.det) return;
+        const evMap = aevMapaPorSlot(_aevStore.det.evidencias);
+        const row   = evMap.doc_repuve;
+        if (!row || !row.url) return;
+        const urlRaw = aevUrlForDisplay(String(row.url));
+        aevAsegurarOverlayDentroModal();
+        const modalAev = document.getElementById('modalAevValidarEvidencias');
+        if (modalAev) modalAev.classList.add('aev-ev-vista-abierta');
+        const ovl  = document.getElementById('aev-vista-overlay');
+        const tEl  = document.getElementById('aev-vista-titulo');
+        const box  = document.getElementById('aev-vista-mediabox');
+        const panelDict = document.getElementById('aev-vista-panel-dictamen');
+        const soloEl = document.getElementById('aev-vista-solo-aceptada');
+        const rechEl = document.getElementById('aev-vista-solo-rechazada');
+        const panRoot = ovl ? ovl.querySelector('.aev-vista-panel') : null;
+        if (!ovl || !box) return;
+        if (tEl) tEl.textContent = 'Momento 2: REPUVE — documento PDF';
+        if (soloEl) soloEl.classList.add('d-none');
+        if (rechEl) rechEl.classList.add('d-none');
+        if (panelDict) panelDict.classList.add('d-none');
+        if (panRoot) {
+            panRoot.classList.add('aev-vista-panel--pdf-only');
+            panRoot.classList.add('aev-vista-panel--repuve');
+        }
+        box.classList.add('aev-vista-mediabox--repuve');
+        const urlE = aeEsc(urlRaw);
+        box.innerHTML = '<iframe data-aev-src="' + urlE + '" title="Repuve (PDF)" class="aev-iframe-pdf"></iframe>';
+        aevSanearDomUrls(box);
+        _aevVistaCtx.slot  = 'doc_repuve';
+        _aevVistaCtx.label = 'Repuve';
+        _aevVistaCtx.evidId = row && row.id ? parseInt(row.id, 10) : 0;
+        _aevVistaCtx.soloAceptada = false;
+        _aevVistaCtx.soloRechazada = false;
+        ovl.classList.remove('d-none');
+    }
+
     function aevRefrescarCuerpoModal() {
         if (!_aevStore.det) return;
         const body = document.getElementById('aev-body');
@@ -834,13 +902,14 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             </div>`;
         }
         const tit  = 'Repuve';
-        const urlE = aeEsc(aevUrlForDisplay(ev.url));
         return `
         <div class="aev-doc-zone aev-doc-zone--acept" data-aev-subir="doc_repuve" role="button" tabindex="0" style="border-style:solid;border-color:#22c55a;background:#f0fdf4;cursor:pointer;">
             <i class="fa-solid fa-file-pdf fa-2x text-success"></i>
-            <a href="#" data-aev-href="` + urlE + `" target="_blank" rel="noopener" class="small d-block mt-1" onclick="event.stopPropagation()">Abrir PDF en nueva pestaña</a>
             <div class="fw-bold small mt-1" style="color:#14532d;">${aeEsc(tit)}</div>
-            <div class="small text-muted">PDF en expediente (gestor). Toca para reemplazar.</div>
+            <div class="small text-muted">PDF en expediente. Toca la zona (no el botón) para reemplazar.</div>
+            <button type="button" class="aev-btn-ver-repuve mt-2" data-aev-ver-repuve="1">
+                <i class="fa-solid fa-eye me-1" aria-hidden="true"></i>Ver PDF aquí
+            </button>
             <span class="aev-badge-ok mt-1" style="position:static;transform:none;display:inline-block;background:#15803d;">En expediente</span>
         </div>`;
     }
@@ -910,7 +979,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     function aevAplicarVeredictoDesdeVista(ver) {
         if (_aevVistaCtx.soloAceptada || _aevVistaCtx.soloRechazada) return;
         const s = _aevVistaCtx.slot;
-        if (!s) return;
+        if (!s || s === 'doc_repuve') return;
         if (ver === 'acep') { _aevStore.v[s] = 'acep'; }
         else if (ver === 'rec') { _aevStore.v[s] = 'rec'; }
         const cmt = document.getElementById('aev-vista-comentario');
@@ -1230,6 +1299,13 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const aevBody = document.getElementById('aev-body');
         if (aevBody) {
             aevBody.addEventListener('click', function (ev) {
+                const verRep = ev.target.closest('[data-aev-ver-repuve]');
+                if (verRep) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    aevAbrirVistaRepuvePdf();
+                    return;
+                }
                 const verEl = ev.target.closest('[data-aev-ver]');
                 if (verEl) {
                     const slot = verEl.getAttribute('data-aev-ver');

@@ -60,6 +60,74 @@ LEFT JOIN persona per              ON per.id = pa.id_persona
 SQL;
     }
 
+    /**
+     * Último adj_dictamen por operación (mismo orden que en Cierre documentación — Dictaminado).
+     *
+     * @param string $aliasDictamen Alias de adj_dictamen en el SELECT exterior (p. ej. "d").
+     */
+    private function sqlJoinUltimoDictamenPorOperacion(string $aliasDictamen = 'd'): string
+    {
+        $a = $aliasDictamen;
+
+        return <<<SQL
+INNER JOIN adj_dictamen {$a} ON {$a}.id = (
+    SELECT d2.id
+    FROM adj_dictamen d2
+    WHERE d2.id_operacion = o.id
+    ORDER BY
+        CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+        d2.fecha_alta DESC,
+        d2.id DESC
+    LIMIT 1
+)
+SQL;
+    }
+
+    /**
+     * Mismo subconjunto operación+dictamen que la pestaña «Dictaminado» de 4.- Cierre documentación.
+     */
+    private function sqlWhereComoDictaminadoCierreDocumentacion(): string
+    {
+        return <<<'SQL'
+WHERE (
+    o.estatus IN ('Cierre Documentado', 'Recepción')
+    OR EXISTS (
+        SELECT 1
+        FROM adj_historial_estatus h
+        WHERE h.id_operacion = o.id
+          AND h.estatus_nuevo IN ('Cierre Documentado', 'Recepción')
+    )
+)
+  AND (
+    o.estatus <> 'Cierre Documentado'
+    OR TRIM(COALESCE(d.tipo_contacto, '')) = 'Cierre documentación'
+)
+SQL;
+    }
+
+    /**
+     * Dictamen registrado desde 1.- Retenciones (modal de llamada), no el de Cierre S2 ni otros módulos.
+     *
+     * @param string $alias Prefijo de tabla.columna (p. ej. "d2", "dr")
+     */
+    private function sqlEsDictamenLlamadaRetenciones(string $alias): string
+    {
+        return <<<SQL
+(
+    {$alias}.tipo_contacto IN ('Contacto', 'Sin contacto')
+    OR (
+        ({$alias}.tipo_contacto IS NULL OR TRIM({$alias}.tipo_contacto) = '')
+        AND {$alias}.dictamen IN (
+            'Autorizado para recolección',
+            'Cancelado, promesa de pago',
+            'Pendiente de contacto',
+            'No localizado'
+        )
+    )
+)
+SQL;
+    }
+
     // =========================================================================
     // ENTRANTES  (estatus = 'Retenciones')
     // =========================================================================
@@ -67,6 +135,7 @@ SQL;
     public function obtenerEntrantes(): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $esRet    = $this->sqlEsDictamenLlamadaRetenciones('dr');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -88,6 +157,12 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE o.estatus = 'Retenciones'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM adj_dictamen dr
+              WHERE dr.id_operacion = o.id
+                AND {$esRet}
+          )
         ORDER BY o.fecha_alta ASC
         SQL;
 
@@ -152,6 +227,22 @@ SQL;
                 )))";
 
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $exclAprobados = $tieneEnvio
+            ? '(
+            IFNULL(o.atencion_envio_validado, 0) = 0
+            AND NOT EXISTS (
+                SELECT 1
+                FROM adj_bitacora bv
+                WHERE bv.id_operacion = o.id
+                  AND bv.accion LIKE :pat_validadas
+            )
+        )'
+            : 'NOT EXISTS (
+            SELECT 1
+            FROM adj_bitacora bv
+            WHERE bv.id_operacion = o.id
+              AND bv.accion LIKE :pat_validadas
+        )';
         $sql = <<<SQL
         SELECT
             o.id,
@@ -174,6 +265,7 @@ SQL;
         FROM adj_operacion o
         {$joinAsig}
         WHERE {$where}
+          AND {$exclAprobados}
           AND EXISTS (
               SELECT 1
               FROM adj_bitacora b
@@ -183,17 +275,38 @@ SQL;
         ORDER BY o.fecha_alta ASC
         SQL;
 
-        return $this->db->queryAll($sql) ?: [];
+        return $this->db->queryAll($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']) ?: [];
     }
 
     /**
      * Misma lista que Evidencias → Aprobados: Procesando IA tras «Enviar evidencias validadas».
-     * Usada también por 3.- Recuperación → Bandeja de entrada.
+     * Si $excluirDictaminadoRecuperacion: no devuelve filas que ya salen en 3.- Recuperación → Dictaminado
+     * (Cierre documentado + dictamen, p. ej. ya enviadas a cartera o en Recepción con historial).
      */
-    private function listarOperacionesAprobadasEvidenciasAtencion(): array
+    private function listarOperacionesAprobadasEvidenciasAtencion(bool $excluirDictaminadoRecuperacion = false): array
     {
         $ma = new MotosAdjudicadas();
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $exclDictRec = '';
+        if ($excluirDictaminadoRecuperacion) {
+            $exclDictRec = <<<'SQL'
+
+            AND NOT (
+                (
+                    o.estatus = 'Cierre Documentado'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM adj_historial_estatus h_cierre
+                        WHERE h_cierre.id_operacion = o.id
+                          AND h_cierre.estatus_nuevo = 'Cierre Documentado'
+                    )
+                )
+                AND EXISTS (
+                    SELECT 1 FROM adj_dictamen ddr WHERE ddr.id_operacion = o.id
+                )
+            )
+SQL;
+        }
         if (!$ma->adjOperacionTieneColumnaEnvioAtencion()) {
             $sql = <<<SQL
             SELECT
@@ -216,17 +329,26 @@ SQL;
                 DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
             FROM adj_operacion o
             {$joinAsig}
-            WHERE o.estatus = 'Procesando IA'
+            WHERE (
+                o.estatus = 'Procesando IA'
+                OR EXISTS (
+                    SELECT 1
+                    FROM adj_historial_estatus h
+                    WHERE h.id_operacion = o.id
+                      AND h.estatus_nuevo = 'Procesando IA'
+                )
+            )
               AND EXISTS (
                     SELECT 1
                     FROM adj_bitacora b
                     WHERE b.id_operacion = o.id
-                      AND b.accion LIKE '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%'
+                      AND b.accion LIKE :pat_validadas
               )
+              {$exclDictRec}
             ORDER BY o.fecha_alta ASC
             SQL;
 
-            return $this->db->queryAll($sql) ?: [];
+            return $this->db->queryAll($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']) ?: [];
         }
         $sql = <<<SQL
         SELECT
@@ -249,12 +371,29 @@ SQL;
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
-        WHERE o.estatus = 'Procesando IA'
-          AND IFNULL(o.atencion_envio_validado, 0) = 1
+        WHERE (
+            o.estatus = 'Procesando IA'
+            OR EXISTS (
+                SELECT 1
+                FROM adj_historial_estatus h
+                WHERE h.id_operacion = o.id
+                  AND h.estatus_nuevo = 'Procesando IA'
+            )
+        )
+          AND (
+            IFNULL(o.atencion_envio_validado, 0) = 1
+            OR EXISTS (
+                SELECT 1
+                FROM adj_bitacora b
+                WHERE b.id_operacion = o.id
+                  AND b.accion LIKE :pat_validadas
+            )
+          )
+          {$exclDictRec}
         ORDER BY o.fecha_alta ASC
         SQL;
 
-        return $this->db->queryAll($sql) ?: [];
+        return $this->db->queryAll($sql, ['pat_validadas' => '%EVIDENCIAS VALIDADAS (PROCESANDO IA)%']) ?: [];
     }
 
     /**
@@ -275,19 +414,13 @@ SQL;
     }
 
     /**
-     * 3.- Recuperación — etapas posteriores a la validación de evidencias en pipeline.
+     * 4.- Cierre documentación — Bandeja de entrada: operaciones en etapa Cierre documentado
+     * pendientes de trabajo en esta vista (p. ej. llegadas desde Recuperación).
+     *
+     * No se excluye por tener dictamen antiguo de Retenciones u otras etapas: ese registro no es
+     * el dictamen de “Cierre documentación” (confirmación S2); la pestaña Dictaminado filtra aparte.
      */
     public function obtenerRecuperacionCierreDocumentado(): array
-    {
-        return $this->listarOperacionesAdjPorEstatus('Cierre Documentado');
-    }
-
-    /**
-     * 5.- Recepción — bandeja: operaciones ya en etapa Recepción y también las que siguen en
-     * Cierre documentado pero ya tienen dictamen (mismas que Dictaminado en vista 4), para gestionar
-     * ingreso a almacén antes del cierre formal en S2 si aplica.
-     */
-    public function obtenerRecuperacionRecepcion(): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
         $sql = <<<SQL
@@ -311,15 +444,45 @@ SQL;
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
-        WHERE (
-            o.estatus = 'Recepción'
-            OR (
-                o.estatus = 'Cierre Documentado'
-                AND EXISTS (
-                    SELECT 1 FROM adj_dictamen d WHERE d.id_operacion = o.id
-                )
-            )
-        )
+        WHERE o.estatus = 'Cierre Documentado'
+        ORDER BY o.fecha_alta ASC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
+    }
+
+    /**
+     * 5.- Recepción — Bandeja de entrada: mismas operaciones que en 4.- Cierre documentación — Dictaminado
+     * (confirmación S2 / tipo «Cierre documentación» o ya en Recepción con historial de esa etapa).
+     */
+    public function obtenerRecuperacionRecepcion(): array
+    {
+        $joinAsig   = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $joinUltimo = $this->sqlJoinUltimoDictamenPorOperacion('d');
+        $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
+        $sql        = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.telefono_contacto,
+            o.estatus,
+            o.saldo_capital,
+            o.adeudo_total,
+            DATEDIFF(NOW(), o.fecha_alta) AS dias_en_pipeline,
+            (SELECT COUNT(*) FROM adj_evidencia e WHERE e.id_operacion = o.id) AS evidencias_count,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre,
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+        FROM adj_operacion o
+        {$joinUltimo}
+        {$joinAsig}
+        {$whereDict}
         ORDER BY o.fecha_alta ASC
         SQL;
 
@@ -328,15 +491,16 @@ SQL;
 
     /**
      * 3.- Recuperación — Bandeja de entrada: mismas operaciones que Evidencias → Aprobados
-     * (Procesando IA con envío validado desde Atención), no solo estatus en_transito.
+     * (Procesando IA con envío validado), excluyendo las que ya están en Dictaminado de esta vista.
      */
     public function obtenerRecuperacionEnTransito(): array
     {
-        return $this->listarOperacionesAprobadasEvidenciasAtencion();
+        return $this->listarOperacionesAprobadasEvidenciasAtencion(true);
     }
 
     /**
-     * Pestaña Dictaminado en vistas 3–5: operaciones en la etapa indicada con último registro en adj_dictamen.
+     * Pestaña Dictaminado (p. ej. 5.- Recepción): operaciones con dictamen que están o estuvieron
+     * en la etapa del pipeline indicada (no desaparecen al avanzar de menú).
      */
     public function obtenerOperacionesDictamenPorEstatusPipeline(string $estatus): array
     {
@@ -377,22 +541,38 @@ SQL;
             LIMIT 1
         )
         {$joinAsig}
-        WHERE o.estatus = :estatus
+        WHERE (
+            o.estatus = :estatus_actual
+            OR EXISTS (
+                SELECT 1
+                FROM adj_historial_estatus h
+                WHERE h.id_operacion = o.id
+                  AND h.estatus_nuevo = :estatus_hist
+            )
+        )
         ORDER BY o.fecha_alta DESC
         SQL;
 
-        return $this->db->queryAll($sql, ['estatus' => $estatus]) ?: [];
+        return $this->db->queryAll($sql, [
+            'estatus_actual' => $estatus,
+            'estatus_hist'   => $estatus,
+        ]) ?: [];
     }
 
     /**
      * 4.- Cierre documentación — Dictaminado:
-     * operaciones con dictamen en esta etapa: las que siguen en “Cierre Documentado”
-     * y las que ya avanzaron a “Recepción” tras confirmar cierre en S2 (misma operación).
+     * operaciones que pasaron por Cierre / Recepción con historial, mostrando el último dictamen.
+     * Si la operación sigue en estatus Cierre documentado, solo entra aquí cuando el dictamen
+     * unido es el de esta etapa (confirmación S2, tipo_contacto «Cierre documentación»), no
+     * dictámenes previos de Retenciones u otras etapas (evita duplicar en Dictaminado lo que debe
+     * verse en bandeja de entrada al llegar desde Recuperación).
      */
     public function obtenerDictaminadosCierreDocumentacionLista(): array
     {
-        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
-        $sql = <<<SQL
+        $joinAsig   = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $joinUltimo = $this->sqlJoinUltimoDictamenPorOperacion('d');
+        $whereDict  = $this->sqlWhereComoDictaminadoCierreDocumentacion();
+        $sql        = <<<SQL
         SELECT
             o.id,
             o.folio,
@@ -417,18 +597,9 @@ SQL;
                 per.apellidom
             )) AS gestor_nombre
         FROM adj_operacion o
-        INNER JOIN adj_dictamen d ON d.id = (
-            SELECT d2.id
-            FROM adj_dictamen d2
-            WHERE d2.id_operacion = o.id
-            ORDER BY
-                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
-                d2.fecha_alta DESC,
-                d2.id DESC
-            LIMIT 1
-        )
+        {$joinUltimo}
         {$joinAsig}
-        WHERE o.estatus IN ('Cierre Documentado', 'Recepción')
+        {$whereDict}
         ORDER BY o.fecha_actualizacion DESC, o.fecha_alta DESC
         SQL;
 
@@ -436,8 +607,8 @@ SQL;
     }
 
     /**
-     * 3.- Recuperación — Pestaña Dictaminado: operaciones en tránsito o ya enviadas a Cartera (Cierre documentado).
-     * Incluye las que aún no tienen fila en adj_dictamen (LEFT JOIN al último dictamen si existe).
+     * 3.- Recuperación — Pestaña Dictaminado: operaciones en Cierre documentado o que ya estuvieron ahí
+     * (no desaparecen al pasar a Recepción u otra etapa). Último dictamen si existe.
      */
     public function obtenerDictaminadosRecuperacionLista(): array
     {
@@ -478,7 +649,18 @@ SQL;
             LIMIT 1
         )
         {$joinAsig}
-        WHERE o.estatus = 'Cierre Documentado'
+        WHERE (
+            o.estatus = 'Cierre Documentado'
+            OR EXISTS (
+                SELECT 1
+                FROM adj_historial_estatus h
+                WHERE h.id_operacion = o.id
+                  AND h.estatus_nuevo = 'Cierre Documentado'
+            )
+        )
+        AND EXISTS (
+            SELECT 1 FROM adj_dictamen dd WHERE dd.id_operacion = o.id
+        )
         ORDER BY o.fecha_alta DESC
         SQL;
 
@@ -486,12 +668,17 @@ SQL;
     }
 
     // =========================================================================
-    // DICTAMINADOS  (estatus = 'en_transito' o 'cancelado')
+    // DICTAMINADOS — 1.- Retenciones (dictamen de llamada; ver sqlEsDictamenLlamadaRetenciones)
     // =========================================================================
 
+    /**
+     * Retenciones — Dictaminado: operaciones con dictamen de llamada registrado en esta vista.
+     * Se mantienen visibles aunque el estatus avance (Recibido, Procesando IA, etc.).
+     */
     public function obtenerDictaminados(): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $predD2   = $this->sqlEsDictamenLlamadaRetenciones('d2');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -517,9 +704,18 @@ SQL;
                 per.apellidom
             )) AS gestor_nombre
         FROM adj_operacion o
-        LEFT JOIN adj_dictamen d ON d.id_operacion = o.id
+        INNER JOIN adj_dictamen d ON d.id = (
+            SELECT d2.id
+            FROM adj_dictamen d2
+            WHERE d2.id_operacion = o.id
+              AND {$predD2}
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
+            LIMIT 1
+        )
         {$joinAsig}
-        WHERE o.estatus IN ('en_transito', 'cancelado')
         ORDER BY o.fecha_alta DESC
         SQL;
 

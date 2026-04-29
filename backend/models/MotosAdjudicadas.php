@@ -16,6 +16,12 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columna adj_operacion.atencion_envio_validado */
     private static $adjOperacionEnvioAtencionCol = null;
 
+    /** @var null|bool columna adj_operacion.fecha_llegada_almacen (migración 20260428_adj_operacion_fecha_llegada_almacen.sql) */
+    private static $adjOperacionFechaLlegadaAlmacenCol = null;
+
+    /** @var null|bool columnas recepcion_*_estado (migración 20260428_adj_operacion_recepcion_doc_estado.sql) */
+    private static $adjOperacionRecepcionDocEstadoCol = null;
+
     public function __construct()
     {
         $this->db = new Database();
@@ -90,6 +96,373 @@ class MotosAdjudicadas extends Model
             self::$adjOperacionEnvioAtencionCol = false;
         }
         return self::$adjOperacionEnvioAtencionCol;
+    }
+
+    /**
+     * true si existe adj_operacion.fecha_llegada_almacen.
+     */
+    public function adjOperacionTieneColumnaFechaLlegadaAlmacen(): bool
+    {
+        if (self::$adjOperacionFechaLlegadaAlmacenCol !== null) {
+            return self::$adjOperacionFechaLlegadaAlmacenCol;
+        }
+        try {
+            $this->db->queryOne('SELECT fecha_llegada_almacen FROM adj_operacion LIMIT 1');
+            self::$adjOperacionFechaLlegadaAlmacenCol = true;
+        } catch (\Throwable $e) {
+            self::$adjOperacionFechaLlegadaAlmacenCol = false;
+        }
+
+        return self::$adjOperacionFechaLlegadaAlmacenCol;
+    }
+
+    public function adjOperacionTieneColumnasRecepcionDocEstado(): bool
+    {
+        if (self::$adjOperacionRecepcionDocEstadoCol !== null) {
+            return self::$adjOperacionRecepcionDocEstadoCol;
+        }
+        try {
+            $this->db->queryOne('SELECT recepcion_dacion_estado, recepcion_tarjeta_estado FROM adj_operacion LIMIT 1');
+            self::$adjOperacionRecepcionDocEstadoCol = true;
+        } catch (\Throwable $e) {
+            self::$adjOperacionRecepcionDocEstadoCol = false;
+        }
+
+        return self::$adjOperacionRecepcionDocEstadoCol;
+    }
+
+    /**
+     * Guarda estado de documento en recepción (sin archivo): pendiente / no recibido.
+     *
+     * @param  string  $documento  dacion | tarjeta
+     * @param  string  $estado     pending | missing
+     * @return array{success:bool, message?:string}
+     */
+    public function guardarRecepcionEstadoDocumento(int $idOperacion, string $documento, string $estado, int $idUsuario, string $nombreUsuario): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'Operación inválida.'];
+        }
+        $documento = strtolower(trim($documento));
+        $estado    = strtolower(trim($estado));
+        if (!in_array($documento, ['dacion', 'tarjeta'], true)) {
+            return ['success' => false, 'message' => 'Documento no reconocido.'];
+        }
+        if ($documento === 'dacion' && !in_array($estado, ['pending', 'missing'], true)) {
+            return ['success' => false, 'message' => 'Estado no válido para contrato de dación.'];
+        }
+        if ($documento === 'tarjeta' && $estado !== 'missing') {
+            return ['success' => false, 'message' => 'Estado no válido para tarjeta de circulación.'];
+        }
+        if (!$this->adjOperacionTieneColumnasRecepcionDocEstado()) {
+            return [
+                'success' => false,
+                'message' => 'Falta migración: ejecute backend/migrations/20260428_adj_operacion_recepcion_doc_estado.sql',
+            ];
+        }
+        $row = $this->db->queryOne(
+            'SELECT id, estatus FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$row) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+        if (trim((string) ($row['estatus'] ?? '')) !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo aplica en etapa Recepción.'];
+        }
+        $col = $documento === 'dacion' ? 'recepcion_dacion_estado' : 'recepcion_tarjeta_estado';
+        $ahora = $this->fechaHoraCdmx();
+        $this->db->CRUD(
+            "UPDATE adj_operacion SET `{$col}` = :est, fecha_actualizacion = :f WHERE id = :id",
+            ['est' => $estado, 'f' => $ahora, 'id' => $idOperacion]
+        );
+        $label = $documento === 'dacion' ? 'CONTRATO DACIÓN' : 'TARJETA CIRCULACIÓN';
+        $this->registrarBitacora(
+            $idOperacion,
+            "RECEPCIÓN DOC {$label}: " . strtoupper($estado),
+            $idUsuario,
+            $nombreUsuario,
+            $ahora
+        );
+
+        return ['success' => true];
+    }
+
+    /** @var null|bool columnas recepcion_confirmada_at / ubicación */
+    private static $adjOperacionRecepcionConfirmCol = null;
+
+    public function adjOperacionTieneColumnasRecepcionConfirmacion(): bool
+    {
+        if (self::$adjOperacionRecepcionConfirmCol !== null) {
+            return self::$adjOperacionRecepcionConfirmCol;
+        }
+        try {
+            $this->db->queryOne('SELECT recepcion_confirmada_at FROM adj_operacion LIMIT 1');
+            self::$adjOperacionRecepcionConfirmCol = true;
+        } catch (\Throwable $e) {
+            self::$adjOperacionRecepcionConfirmCol = false;
+        }
+
+        return self::$adjOperacionRecepcionConfirmCol;
+    }
+
+    /**
+     * Confirma recepción en almacén (una vez): ubicación, observaciones y validaciones mínimas.
+     *
+     * @return array{success:bool, message?:string, confirmada_at_fmt?:string, ya_confirmada?:bool}
+     */
+    public function confirmarRecepcionAlmacen(int $idOperacion, string $ubicacion, string $observaciones, int $idUsuario, string $nombreUsuario): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'Operación inválida.'];
+        }
+        if (!$this->adjOperacionTieneColumnasRecepcionConfirmacion()) {
+            return [
+                'success' => false,
+                'message' => 'Falta migración: ejecute backend/migrations/20260428_adj_operacion_recepcion_confirmacion.sql',
+            ];
+        }
+        if (!$this->adjOperacionTieneColumnasRecepcionDocEstado()) {
+            return [
+                'success' => false,
+                'message' => 'Falta migración de documentos: backend/migrations/20260428_adj_operacion_recepcion_doc_estado.sql',
+            ];
+        }
+        $ubicacion     = trim($ubicacion);
+        $observaciones = trim($observaciones);
+        if ($ubicacion === '') {
+            return ['success' => false, 'message' => 'Indique la ubicación en almacén.'];
+        }
+        $op = $this->db->queryOne(
+            'SELECT id, estatus, fecha_llegada_almacen, recepcion_confirmada_at,
+                    recepcion_dacion_estado, recepcion_tarjeta_estado
+             FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$op) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+        if (trim((string) ($op['estatus'] ?? '')) !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo se confirma recepción en etapa Recepción.'];
+        }
+        if (!$this->adjOperacionTieneColumnaFechaLlegadaAlmacen() || empty($op['fecha_llegada_almacen'])) {
+            return ['success' => false, 'message' => 'Debe registrar primero la llegada física a almacén.'];
+        }
+        if (!empty($op['recepcion_confirmada_at'])) {
+            $fmt = $this->db->queryOne(
+                "SELECT DATE_FORMAT(recepcion_confirmada_at, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
+                ['id' => $idOperacion]
+            );
+
+            return [
+                'success'          => false,
+                'message'          => 'La recepción ya fue confirmada y no puede modificarse.',
+                'ya_confirmada'    => true,
+                'confirmada_at_fmt' => (string) ($fmt['f'] ?? $op['recepcion_confirmada_at']),
+            ];
+        }
+
+        $urls = $this->db->queryAll(
+            "SELECT slot, TRIM(url) AS url FROM adj_evidencia
+             WHERE id_operacion = :id AND slot IN ('doc_dacion_rcpt','doc_tarjeta_rcpt','doc_firma_rcpt') AND url IS NOT NULL AND TRIM(url) <> ''",
+            ['id' => $idOperacion]
+        ) ?: [];
+        $by = [];
+        foreach ($urls as $u) {
+            $by[(string) ($u['slot'] ?? '')] = (string) ($u['url'] ?? '');
+        }
+        $urlD = $by['doc_dacion_rcpt'] ?? '';
+        $urlT = $by['doc_tarjeta_rcpt'] ?? '';
+        $urlF = $by['doc_firma_rcpt'] ?? '';
+
+        $dEst = strtolower(trim((string) ($op['recepcion_dacion_estado'] ?? '')));
+        $tEst = strtolower(trim((string) ($op['recepcion_tarjeta_estado'] ?? '')));
+
+        $dacionOk = in_array($dEst, ['pending', 'missing'], true) || $urlD !== '';
+        if (!$dacionOk) {
+            return ['success' => false, 'message' => 'Indique el estado del contrato de dación o suba el escaneo firmado.'];
+        }
+        $tarjOk = $tEst === 'missing' || $urlT !== '';
+        if (!$tarjOk) {
+            return ['success' => false, 'message' => 'Indique si no recibe la tarjeta o suba la foto de la tarjeta de circulación.'];
+        }
+        if ($urlF === '') {
+            return ['success' => false, 'message' => 'Debe subir la imagen de firma de recepción del agente de almacén.'];
+        }
+
+        $ahora = $this->fechaHoraCdmx();
+        $n = (int) $this->db->CRUD(
+            'UPDATE adj_operacion SET
+                recepcion_ubicacion = :u,
+                recepcion_observaciones = :o,
+                recepcion_confirmada_at = :c,
+                fecha_actualizacion = :c2
+             WHERE id = :id AND recepcion_confirmada_at IS NULL',
+            [
+                'u'  => $ubicacion,
+                'o'  => $observaciones !== '' ? $observaciones : null,
+                'c'  => $ahora,
+                'c2' => $ahora,
+                'id' => $idOperacion,
+            ]
+        );
+        if ($n <= 0) {
+            $fmt2 = $this->db->queryOne(
+                "SELECT DATE_FORMAT(recepcion_confirmada_at, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
+                ['id' => $idOperacion]
+            );
+
+            return [
+                'success'            => false,
+                'message'            => 'La recepción ya fue confirmada y no puede modificarse.',
+                'ya_confirmada'      => true,
+                'confirmada_at_fmt' => (string) ($fmt2['f'] ?? ''),
+            ];
+        }
+        $this->registrarBitacora(
+            $idOperacion,
+            'RECEPCIÓN EN ALMACÉN CONFIRMADA: ' . $ubicacion,
+            $idUsuario,
+            $nombreUsuario,
+            $ahora
+        );
+        $fmt = $this->db->queryOne(
+            "SELECT DATE_FORMAT(recepcion_confirmada_at, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
+            ['id' => $idOperacion]
+        );
+
+        return [
+            'success'            => true,
+            'confirmada_at_fmt'  => (string) ($fmt['f'] ?? $ahora),
+        ];
+    }
+
+    /**
+     * Saldo capital y adeudo total según API S2 (estado de cuenta), misma fuente que EstadoCuenta.
+     *
+     * @return array{success:bool, message?:string, saldo_capital?:float, adeudo_total?:float, fecha_corte?:string}
+     */
+    public function obtenerResumenFinancieroEstadoCuentaS2(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de crédito inválido.'];
+        }
+        try {
+            $ctrl = new \Controllers\EstadoCuenta();
+            $res  = $ctrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'), 20);
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al consultar estado de cuenta S2.'];
+        }
+        if (empty($res['ok']) || !is_array($res['data'])) {
+            return ['success' => false, 'message' => (string) ($res['error'] ?? 'No se pudo obtener estado de cuenta.')];
+        }
+        $ds = $res['data']['datosSaldos'] ?? [];
+        if (!is_array($ds)) {
+            $ds = [];
+        }
+        $vig = (float) ($ds['saldoTotalVigente'] ?? $ds['CapitalPendientePago'] ?? $ds['capitalPendientePago'] ?? 0);
+        $ven = (float) ($ds['saldoTotalVencido'] ?? 0);
+        $adeudo = (float) ($ds['adeudoTotal'] ?? $ds['montoTotalAdeudado'] ?? 0);
+        if ($adeudo <= 0) {
+            $adeudo = $vig + $ven;
+        }
+        $saldoCapital = (float) ($ds['saldoCapital'] ?? $ds['saldoTotalCapital'] ?? 0);
+        if ($saldoCapital <= 0) {
+            $saldoCapital = $vig > 0 ? $vig : ($vig + $ven);
+        }
+
+        return [
+            'success'        => true,
+            'saldo_capital'  => round($saldoCapital, 2),
+            'adeudo_total'   => round($adeudo, 2),
+            'fecha_corte'    => date('Y-m-d'),
+        ];
+    }
+
+    /**
+     * Registra una sola vez la llegada física al almacén (Recepción). No se puede modificar ni repetir.
+     *
+     * @return array{success:bool, message?:string, fecha_llegada_almacen?:string, ya_registrada?:bool}
+     */
+    public function registrarLlegadaAlmacenRecepcion(int $idOperacion, int $idUsuario, string $nombreUsuario): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'Operación inválida.'];
+        }
+        if (!$this->adjOperacionTieneColumnaFechaLlegadaAlmacen()) {
+            return [
+                'success' => false,
+                'message' => 'Falta migración de base de datos: ejecute backend/migrations/20260428_adj_operacion_fecha_llegada_almacen.sql',
+            ];
+        }
+        $row = $this->db->queryOne(
+            'SELECT id, estatus, fecha_llegada_almacen FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$row) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+        $est = trim((string) ($row['estatus'] ?? ''));
+        if ($est !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo se registra llegada a almacén cuando la operación está en etapa Recepción.'];
+        }
+        if (!empty($row['fecha_llegada_almacen'])) {
+            $fmt = $this->db->queryOne(
+                "SELECT DATE_FORMAT(fecha_llegada_almacen, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
+                ['id' => $idOperacion]
+            );
+
+            return [
+                'success'          => false,
+                'message'          => 'La llegada a almacén ya fue registrada y no puede modificarse.',
+                'ya_registrada'    => true,
+                'fecha_llegada_almacen' => (string) ($fmt['f'] ?? $row['fecha_llegada_almacen']),
+            ];
+        }
+        $ahora = $this->fechaHoraCdmx();
+        $n = (int) $this->db->CRUD(
+            'UPDATE adj_operacion
+                SET fecha_llegada_almacen = :fecha, fecha_actualizacion = :fecha2
+              WHERE id = :id AND fecha_llegada_almacen IS NULL',
+            ['fecha' => $ahora, 'fecha2' => $ahora, 'id' => $idOperacion]
+        );
+        if ($n <= 0) {
+            $row2 = $this->db->queryOne(
+                'SELECT fecha_llegada_almacen FROM adj_operacion WHERE id = :id LIMIT 1',
+                ['id' => $idOperacion]
+            );
+            if (!empty($row2['fecha_llegada_almacen'])) {
+                $fmt2 = $this->db->queryOne(
+                    "SELECT DATE_FORMAT(fecha_llegada_almacen, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
+                    ['id' => $idOperacion]
+                );
+
+                return [
+                    'success'               => false,
+                    'message'               => 'La llegada a almacén ya fue registrada y no puede modificarse.',
+                    'ya_registrada'         => true,
+                    'fecha_llegada_almacen' => (string) ($fmt2['f'] ?? $row2['fecha_llegada_almacen']),
+                ];
+            }
+
+            return ['success' => false, 'message' => 'No se pudo registrar la llegada. Intente de nuevo.'];
+        }
+        $this->registrarBitacora(
+            $idOperacion,
+            'LLEGADA A ALMACÉN REGISTRADA (RECEPCIÓN): ' . $ahora,
+            $idUsuario,
+            $nombreUsuario,
+            $ahora
+        );
+        $fmt = $this->db->queryOne(
+            "SELECT DATE_FORMAT(fecha_llegada_almacen, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
+            ['id' => $idOperacion]
+        );
+
+        return [
+            'success'               => true,
+            'fecha_llegada_almacen' => (string) ($fmt['f'] ?? $ahora),
+        ];
     }
 
     // =========================================================================
@@ -202,6 +575,7 @@ class MotosAdjudicadas extends Model
             'rec_tacometro', 'rec_serie',     'rec_frontal', 'rec_lateral',
             'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
             'doc_repuve',    'doc_factura',   'doc_cierre_s2',
+            'doc_dacion_rcpt', 'doc_tarjeta_rcpt', 'doc_firma_rcpt',
         ];
         if (!in_array($slot, $allowed, true)) {
             return ['success' => false, 'message' => 'Slot de evidencia no reconocido.'];
@@ -217,9 +591,15 @@ class MotosAdjudicadas extends Model
         $mime      = $fileInfo['type'] ?? '';
         $ext       = strtolower(pathinfo($fileInfo['name'] ?? '', PATHINFO_EXTENSION));
         $videoSlots = ['fis_360'];
-        $docSlots   = ['doc_repuve', 'doc_factura', 'doc_cierre_s2'];
+        $docSlots   = ['doc_repuve', 'doc_factura', 'doc_cierre_s2', 'doc_dacion_rcpt'];
+        $recepImgSlots = ['doc_tarjeta_rcpt', 'doc_firma_rcpt'];
 
-        if (in_array($slot, $videoSlots, true)) {
+        if (in_array($slot, $recepImgSlots, true)) {
+            if (!in_array($mime, ['image/jpeg', 'image/png'], true)) {
+                return ['success' => false, 'message' => 'Solo se aceptan imágenes JPG o PNG.'];
+            }
+            $tipo = 'image';
+        } elseif (in_array($slot, $videoSlots, true)) {
             if ($mime !== 'video/mp4' || $ext !== 'mp4') {
                 return ['success' => false, 'message' => 'Este campo solo acepta video MP4.'];
             }
@@ -231,7 +611,7 @@ class MotosAdjudicadas extends Model
                 }
                 $tipo = 'pdf';
             } else {
-                // doc_factura, doc_cierre_s2: PDF o imagen
+                // doc_factura, doc_cierre_s2, doc_dacion_rcpt: PDF o imagen
                 $okMimes = ['application/pdf', 'image/jpeg', 'image/png'];
                 if (!in_array($mime, $okMimes, true)) {
                     return ['success' => false, 'message' => 'Solo se aceptan PDF, JPG o PNG.'];
@@ -302,11 +682,37 @@ class MotosAdjudicadas extends Model
         $slotLabel = self::SLOT_LABELS[$slot] ?? strtoupper($slot);
         $this->registrarBitacora($idOperacion, 'SUBIÓ EVIDENCIA EN ' . $slotLabel, $idUsuario, $nombreUsuario);
 
+        if (in_array($slot, ['doc_dacion_rcpt', 'doc_tarjeta_rcpt'], true)) {
+            $this->marcarRecepcionDocumentoRecibidoEnOperacion($idOperacion, $slot);
+        }
+
         $urlClient = $urlRelativa;
         if (function_exists('sparta_url_publica_desde_repositorio')) {
             $urlClient = sparta_url_publica_desde_repositorio($urlRelativa);
         }
         return ['success' => true, 'url' => $urlClient];
+    }
+
+    /**
+     * Marca recepcion_*_estado = received cuando existe migración de columnas.
+     */
+    private function marcarRecepcionDocumentoRecibidoEnOperacion(int $idOperacion, string $slot): void
+    {
+        if (!$this->adjOperacionTieneColumnasRecepcionDocEstado()) {
+            return;
+        }
+        $ahora = $this->fechaHoraCdmx();
+        if ($slot === 'doc_dacion_rcpt') {
+            $this->db->CRUD(
+                'UPDATE adj_operacion SET recepcion_dacion_estado = :e, fecha_actualizacion = :f WHERE id = :id',
+                ['e' => 'received', 'f' => $ahora, 'id' => $idOperacion]
+            );
+        } elseif ($slot === 'doc_tarjeta_rcpt') {
+            $this->db->CRUD(
+                'UPDATE adj_operacion SET recepcion_tarjeta_estado = :e, fecha_actualizacion = :f WHERE id = :id',
+                ['e' => 'received', 'f' => $ahora, 'id' => $idOperacion]
+            );
+        }
     }
 
     // =========================================================================
@@ -535,6 +941,26 @@ class MotosAdjudicadas extends Model
             return null;
         }
 
+        $fla = $op['fecha_llegada_almacen'] ?? null;
+        if ($fla !== null && (string) $fla !== '') {
+            try {
+                $dtFmt = new \DateTime((string) $fla, new \DateTimeZone('America/Mexico_City'));
+                $op['fecha_llegada_almacen_fmt'] = $dtFmt->format('d/m/Y H:i');
+            } catch (\Throwable $e) {
+                $op['fecha_llegada_almacen_fmt'] = (string) $fla;
+            }
+        }
+
+        $rca = $op['recepcion_confirmada_at'] ?? null;
+        if ($rca !== null && (string) $rca !== '') {
+            try {
+                $dtC = new \DateTime((string) $rca, new \DateTimeZone('America/Mexico_City'));
+                $op['recepcion_confirmada_at_fmt'] = $dtC->format('d/m/Y H:i');
+            } catch (\Throwable $e) {
+                $op['recepcion_confirmada_at_fmt'] = (string) $rca;
+            }
+        }
+
         if ($this->adjEvidenciaTieneColumnasAtn()) {
             $evs = $this->db->queryAll(
                 "SELECT id, tipo, slot, url, estatus, val_atn, comentario_atn,
@@ -707,6 +1133,9 @@ class MotosAdjudicadas extends Model
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
         'doc_cierre_s2' => 'CONFIRMACIÓN CIERRE S2',
+        'doc_dacion_rcpt'   => 'CONTRATO DACIÓN (RECEPCIÓN ALMACÉN)',
+        'doc_tarjeta_rcpt'  => 'TARJETA CIRCULACIÓN (RECEPCIÓN ALMACÉN)',
+        'doc_firma_rcpt'    => 'FIRMA RECEPCIÓN ALMACÉN',
     ];
 
     /** Fotos/video que sí se dictaminan (aceptar/rechazar) en Atención a clientes. */
@@ -829,82 +1258,86 @@ class MotosAdjudicadas extends Model
     // =========================================================================
 
     /**
-     * Devuelve los créditos activos asignados al usuario en la tabla
-     * asigna_creditos_adjudicacion, enriquecidos con datos del Segundometro
-     * (nombre del cliente, saldo, días de mora, bucket).
+     * Devuelve los créditos activos asignados al usuario (solo BD local).
+     * Morosidad / saldo desde Segundómetro: usar {@see obtenerMorosidadSegundometroPorCreditos()}
+     * en un request aparte para no bloquear la primera pintura de la vista.
      */
     public function obtenerMisAdjudicaciones(int $idPersona): array
     {
-        $adjModel = new AdjudicacionModel();
-        $creditos = $adjModel->obtenerCreditosAsignados($idPersona);
-
-        if (empty($creditos)) {
-            return [];
-        }
-
-        // Enriquecer con Segundometro
-        $ids = array_map('intval', array_column($creditos, 'id_credito'));
-
-        $placeholders = [];
-        $params = [];
-        foreach ($ids as $i => $id) {
-            $key = "id$i";
-            $placeholders[] = ":$key";
-            $params[$key] = $id;
-        }
-        $inStr = implode(',', $placeholders);
-
-        // Regla de negocio: sólo mostrar en Mis Adjudicaciones cuando el
-        // crédito ya salió de Atención a Clientes (estatus en_transito o posterior).
-        $ops = $this->db->queryAll(
-            "SELECT ao.id_credito, ao.estatus
-             FROM adj_operacion ao
-             INNER JOIN (
-                SELECT id_credito, MAX(id) AS max_id
-                FROM adj_operacion
-                WHERE id_credito IN ($inStr)
-                GROUP BY id_credito
-             ) ult ON ult.max_id = ao.id",
-            $params
+        $creditos = $this->db->queryAll(
+            <<<SQL
+            SELECT
+                aca.id_credito                                          AS id_credito,
+                IF(aca.estatus = '1', 'Activo', 'Inactivo')            AS estado,
+                DATE_FORMAT(aca.fecha_alta, '%Y-%m-%d %H:%i')          AS fecha_asignacion,
+                DATE_FORMAT(aca.fecha_baja, '%Y-%m-%d %H:%i')          AS fecha_desasignacion,
+                COALESCE(NULLIF(TRIM(ult_op.nombre_cliente), ''), '—') AS nombre_cliente,
+                TRIM(CONCAT_WS(' ', per_alta.nombres, per_alta.apellidop)) AS asignado_por,
+                aca.id                                                  AS id_asignacion
+            FROM asigna_creditos_adjudicacion aca
+            INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+            LEFT JOIN persona per_alta ON per_alta.id = aca.alta
+            INNER JOIN (
+                SELECT ao.id, ao.id_credito, ao.nombre_cliente, ao.estatus
+                FROM adj_operacion ao
+                INNER JOIN (
+                    SELECT aop.id_credito, MAX(aop.id) AS id_max
+                    FROM adj_operacion aop
+                    INNER JOIN asigna_creditos_adjudicacion acx
+                        ON acx.id_credito = aop.id_credito AND acx.estatus = '1'
+                    INNER JOIN personal_adjudicacion pax
+                        ON pax.id = acx.id_personal_adj AND pax.id_persona = :idPersonaUlt
+                    GROUP BY aop.id_credito
+                ) m ON m.id_max = ao.id AND m.id_credito = ao.id_credito
+            ) ult_op ON ult_op.id_credito = aca.id_credito
+            WHERE pa.id_persona = :idPersona
+              AND aca.estatus = '1'
+              AND ult_op.estatus IN (
+                  'en_transito',
+                  'Recibido',
+                  'Procesando IA',
+                  'Revisión Recuperaciones',
+                  'Cierre Documentado',
+                  'Recepción'
+              )
+            ORDER BY aca.fecha_alta DESC
+            SQL,
+            ['idPersona' => $idPersona, 'idPersonaUlt' => $idPersona]
         ) ?: [];
 
-        $permitidos = array_flip([
-            'en_transito',
-            'Recibido',
-            'Procesando IA',
-            'Revisión Recuperaciones',
-            'Cierre Documentado',
-            'Recepción',
-        ]);
-
-        $idsVisibles = [];
-        foreach ($ops as $op) {
-            $idCredito = (int)($op['id_credito'] ?? 0);
-            $estatus = (string)($op['estatus'] ?? '');
-            if ($idCredito > 0 && isset($permitidos[$estatus])) {
-                $idsVisibles[$idCredito] = true;
-            }
+        foreach ($creditos as &$c) {
+            $c['dias_mora'] = 0;
+            $c['bucket']   = '—';
+            $c['saldo']     = 0;
         }
+        unset($c);
 
-        $creditos = array_values(array_filter(
-            $creditos,
-            fn($c) => isset($idsVisibles[(int)($c['id_credito'] ?? 0)])
-        ));
+        return $creditos;
+    }
 
-        if (empty($creditos)) {
+    /**
+     * Morosidad y saldo desde __SPARTA_SECRET_REDACTED__ (Segundómetro). Llamada asíncrona desde la vista.
+     *
+     * @param int[] $idsCreditos
+     * @return array<string, array{nombre_cliente: string, dias_mora: int, bucket: string, saldo: float}>
+     */
+    public function obtenerMorosidadSegundometroPorCreditos(array $idsCreditos): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCreditos), fn($v) => $v > 0)));
+        if ($ids === []) {
             return [];
         }
 
-        $ids = array_map('intval', array_column($creditos, 'id_credito'));
         $placeholders = [];
-        $params = [];
+        $params       = [];
         foreach ($ids as $i => $id) {
-            $key = "id$i";
-            $placeholders[] = ":$key";
-            $params[$key] = $id;
+            $key            = 'id' . $i;
+            $placeholders[] = ':' . $key;
+            $params[$key]   = $id;
         }
         $inStr = implode(',', $placeholders);
 
+        $mapa = [];
         try {
             $dbS2 = new \Core\DatabaseSegundometro();
 
@@ -916,49 +1349,49 @@ class MotosAdjudicadas extends Model
                 $params
             ) ?: [];
 
-            $mapa = [];
             foreach ($rows as $r) {
-                $mapa[(int)$r['Id_credito']] = $r;
+                $mapa[(string) (int) $r['Id_credito']] = $r;
             }
 
-            // Histórico para los no encontrados en semana
-            $faltantes = array_filter($ids, fn($id) => !isset($mapa[$id]));
-            if (!empty($faltantes)) {
-                $ph2 = []; $p2 = [];
+            $faltantes = array_filter($ids, fn($id) => !isset($mapa[(string) $id]));
+            if ($faltantes !== []) {
+                $ph2 = [];
+                $p2  = [];
                 foreach (array_values($faltantes) as $i => $id) {
-                    $k = "h$i"; $ph2[] = ":$k"; $p2[$k] = $id;
+                    $k        = 'h' . $i;
+                    $ph2[]    = ':' . $k;
+                    $p2[$k]   = $id;
                 }
                 $rowsH = $dbS2->queryAll(
-                    "SELECT Id_credito,
-                            MAX(Nombre_cliente)       AS Nombre_cliente,
-                            MAX(Dias_mora)            AS Dias_mora,
+                    'SELECT Id_credito,
+                            MAX(Nombre_cliente)        AS Nombre_cliente,
+                            MAX(Dias_mora)             AS Dias_mora,
                             MAX(Bucket_Morosidad_Real) AS Bucket_Morosidad_Real,
-                            MAX(Saldo_total_capital)  AS saldo
+                            MAX(Saldo_total_capital)   AS saldo
                      FROM tbl_segundometro_histo
-                     WHERE Id_credito IN (" . implode(',', $ph2) . ")
-                     GROUP BY Id_credito",
+                     WHERE Id_credito IN (' . implode(',', $ph2) . ')
+                     GROUP BY Id_credito',
                     $p2
                 ) ?: [];
                 foreach ($rowsH as $r) {
-                    $mapa[(int)$r['Id_credito']] = $r;
+                    $mapa[(string) (int) $r['Id_credito']] = $r;
                 }
             }
-        } catch (\Exception $e) {
-            $mapa = [];
+        } catch (\Throwable $e) {
+            return [];
         }
 
-        // Fusionar
-        foreach ($creditos as &$c) {
-            $id = (int)$c['id_credito'];
-            $s2 = $mapa[$id] ?? [];
-            $c['nombre_cliente'] = $s2['Nombre_cliente']        ?? 'No disponible';
-            $c['dias_mora']      = $s2['Dias_mora']             ?? 0;
-            $c['bucket']         = $s2['Bucket_Morosidad_Real'] ?? '—';
-            $c['saldo']          = $s2['saldo']                 ?? 0;
+        $out = [];
+        foreach ($mapa as $idKey => $r) {
+            $out[$idKey] = [
+                'nombre_cliente' => (string) ($r['Nombre_cliente'] ?? 'No disponible'),
+                'dias_mora'      => (int) ($r['Dias_mora'] ?? 0),
+                'bucket'         => (string) ($r['Bucket_Morosidad_Real'] ?? '—'),
+                'saldo'          => isset($r['saldo']) ? (float) $r['saldo'] : 0.0,
+            ];
         }
-        unset($c);
 
-        return $creditos;
+        return $out;
     }
 
     // =========================================================================
@@ -1023,6 +1456,12 @@ class MotosAdjudicadas extends Model
                            THEN slot ELSE NULL END
                        ) AS pendiente
                 FROM adj_evidencia
+                WHERE id_operacion IN (
+                    SELECT MAX(id)
+                    FROM adj_operacion
+                    WHERE id_credito IN ($inStr)
+                    GROUP BY id_credito
+                )
                 GROUP BY id_operacion
              ) ev ON ev.id_operacion = ult.max_id",
             $params

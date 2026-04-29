@@ -1130,6 +1130,36 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             .catch(() => {});
     }
 
+    /** Aplica morosidad/saldo desde Segundómetro (request aparte, en paralelo con evidencias). */
+    function madjFusionarMorosidad(creditos, moro) {
+        if (!moro || typeof moro !== 'object') return;
+        (creditos || []).forEach(function (c) {
+            const m = moro[String(c.id_credito)] || moro[c.id_credito];
+            if (!m) return;
+            if (m.nombre_cliente && String(m.nombre_cliente).trim() !== '' && m.nombre_cliente !== 'No disponible') {
+                c.nombre_cliente = m.nombre_cliente;
+            }
+            c.dias_mora = m.dias_mora != null ? +m.dias_mora : 0;
+            c.bucket = m.bucket != null && String(m.bucket).trim() !== '' ? m.bucket : '—';
+            c.saldo = m.saldo != null ? +m.saldo : 0;
+        });
+    }
+
+    function _madjCargarMorosidadParalelo(creditos) {
+        const ids = (creditos || []).map(function (c) { return +c.id_credito; })
+            .filter(function (n) { return Number.isFinite(n) && n > 0; });
+        if (!ids.length) {
+            return Promise.resolve({});
+        }
+        return fetch('/MotosAdjudicadas/obtenerMorosidadMisAdjudicaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ ids_credito: ids }),
+        })
+            .then(function (r) { return r.json(); })
+            .catch(function () { return {}; });
+    }
+
     // --------------------------------------------------------------
     // CARGA PRINCIPAL
     // --------------------------------------------------------------
@@ -1147,10 +1177,17 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 if (data.success && Array.isArray(data.creditos)) {
                     _todos = data.creditos;
                     madjActualizarKPIs(_todos);
-                    _madjPrecargarProgreso(_todos)
-                        .finally(() => {
-                            madjRenderizarTabla(_todos);
-                        });
+                    madjRenderizarTabla(_todos);
+                    Promise.all([
+                        _madjPrecargarProgreso(_todos),
+                        _madjCargarMorosidadParalelo(_todos),
+                    ]).then(function (results) {
+                        const moroRes = results[1];
+                        if (moroRes && moroRes.success && moroRes.morosidad) {
+                            madjFusionarMorosidad(_todos, moroRes.morosidad);
+                        }
+                        madjRenderizarTabla(_todos);
+                    });
                 } else {
                     _todos = [];
                     _madjProgresoCreditos = {};
