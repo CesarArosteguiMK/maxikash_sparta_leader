@@ -957,15 +957,22 @@ SQL;
             t.dictamen,
             t.llamada_a,
             t.tipo_contacto,
-            t.resultado
+            t.resultado,
+            TRIM(CONCAT_WS(' ',
+                reg.nombres,
+                reg.segundo_nombre,
+                reg.apellidop,
+                reg.apellidom
+            )) AS registrado_nombre
         FROM (
-            SELECT d.id, d.comentarios, d.fecha_alta, d.dictamen, d.llamada_a, d.tipo_contacto, d.resultado
+            SELECT d.id, d.id_usuario, d.comentarios, d.fecha_alta, d.dictamen, d.llamada_a, d.tipo_contacto, d.resultado
             FROM adj_dictamen d
             WHERE d.id_operacion = :id
               AND {$pred}
             ORDER BY d.fecha_alta DESC, d.id DESC
             LIMIT 3
         ) AS t
+        LEFT JOIN persona reg ON reg.id = t.id_usuario
         ORDER BY t.fecha_alta ASC, t.id ASC
         SQL;
 
