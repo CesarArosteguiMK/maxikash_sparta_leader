@@ -149,6 +149,49 @@
         margin-bottom: 0.5rem;
     }
 
+    /* Tarjeta columna Retenciones (layout acordado con negocio) */
+    .ops-card--ret-kanban .ops-card-folio { margin-bottom: 0; }
+    .ops-card--ret-kanban .ops-card-head-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.35rem;
+    }
+    .ops-card--ret-kanban .ops-card-credito-inline {
+        font-size: 0.68rem;
+        color: #64748b;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 58%;
+    }
+    .ops-card--ret-kanban .ops-card-status-pendiente {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #b91c1c;
+        line-height: 1.35;
+        margin-bottom: 0.35rem;
+    }
+    .ops-card--ret-kanban .ops-card-status-detalle {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #334155;
+        line-height: 1.35;
+        margin-bottom: 0.35rem;
+    }
+    .ops-card--ret-kanban .ops-card-foot-ret {
+        margin-top: 0.4rem;
+        border-top: 1px dashed #e2e8f0;
+        padding-top: 0.45rem;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #475569;
+        line-height: 1.3;
+    }
+
     .ops-aging-badge {
         font-size: 0.65rem;
         font-weight: 600;
@@ -258,6 +301,88 @@
     .ops-det-area { font-size: .72rem; color: #64748b; margin-top: 2px; }
     .ops-det-id   { font-size: 1.625rem; font-weight: 900; color: var(--ops-green); line-height: 1; }
     .ops-det-lbl  { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; }
+
+    /* Modal detalle operación — layout ancho, secciones 1.- 2.- 3.- */
+    .ops-modal-detalle .ops-det-header {
+        padding: .85rem 1rem !important;
+        margin-bottom: 1rem !important;
+        border-radius: .5rem;
+    }
+    .ops-modal-detalle .ops-det-name { font-size: 1rem; }
+    .ops-modal-detalle .ops-det-id { font-size: 1.35rem; }
+
+    .ops-exp-block {
+        border: 1px solid #e2e8f0;
+        border-radius: .5rem;
+        background: #fff;
+        overflow: hidden;
+        margin-bottom: 0;
+    }
+    .ops-exp-block-title {
+        background: var(--ops-green-light);
+        border-bottom: 1px solid var(--ops-green-border);
+        padding: .5rem 1rem;
+        font-size: .8rem;
+        font-weight: 700;
+        color: var(--ops-green-text);
+        letter-spacing: .02em;
+    }
+    .ops-exp-block-body { padding: .75rem 1rem 1rem; }
+    .ops-exp-kv { min-width: 0; }
+    .ops-exp-kv-lbl {
+        display: block;
+        font-size: .65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        color: #64748b;
+        margin-bottom: .2rem;
+        line-height: 1.2;
+    }
+    .ops-exp-kv-val {
+        font-size: .84rem;
+        font-weight: 600;
+        color: #1e293b;
+        line-height: 1.35;
+        word-break: break-word;
+    }
+    .ops-exp-kv-val--muted { color: #94a3b8; font-weight: 500; font-style: italic; }
+
+    .ops-exp-kv--credito-stack .ops-exp-kv-credito-id {
+        display: block;
+        font-size: .9rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+        line-height: 1.3;
+    }
+    .ops-exp-kv--credito-stack .ops-exp-kv-credito-nombre {
+        display: block;
+        margin-top: .35rem;
+        font-size: .84rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        line-height: 1.35;
+        letter-spacing: .02em;
+    }
+
+    .ops-exp-col-folio .ops-exp-kv-val {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body.dark-mode .ops-exp-block {
+        background: #0f172a;
+        border-color: #334155;
+    }
+    body.dark-mode .ops-exp-block-title {
+        background: #1e1b4b;
+        border-bottom-color: #4338ca;
+        color: #c7d2fe;
+    }
+    body.dark-mode .ops-exp-kv-lbl { color: #94a3b8; }
+    body.dark-mode .ops-exp-kv-val { color: #e2e8f0; }
+    body.dark-mode .ops-exp-kv-val--muted { color: #64748b; }
 
     /* ── Viewer row (fixed height — never moves) ───────────────── */
     .ops-visor-row { height: 520px; }
@@ -471,6 +596,14 @@
     body.dark-mode .ops-card-nombre { color: #e2e8f0; }
     body.dark-mode .ops-card-credito { color: #94a3b8; }
 
+    body.dark-mode .ops-card--ret-kanban .ops-card-credito-inline { color: #94a3b8; }
+    body.dark-mode .ops-card--ret-kanban .ops-card-status-detalle { color: #cbd5e1; }
+    body.dark-mode .ops-card--ret-kanban .ops-card-foot-ret {
+        border-top-color: #334155;
+        color: #94a3b8;
+    }
+    body.dark-mode .ops-card--ret-kanban .ops-card-status-pendiente { color: #fca5a5; }
+
     body.dark-mode .ops-aging-green  { background: #1e1b4b; color: #c7d2fe; border-color: #4338ca; }
     body.dark-mode .ops-aging-yellow { background: #422006; color: #fcd34d; border-color: #92400e; }
     body.dark-mode .ops-aging-red    { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
@@ -616,8 +749,8 @@
      ═══════════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalDetalleOperacion" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"
-         style="max-width:96vw;width:96vw;margin:.5rem auto;">
-        <div class="modal-content" style="height:94vh;">
+         style="max-width:min(1040px,96vw);width:100%;margin:1rem auto;">
+        <div class="modal-content" style="max-height:min(90vh,820px);">
             <div class="modal-header" style="background:var(--ops-green-light); border-bottom:1px solid var(--ops-green-border);">
                 <h5 class="modal-title" style="color:var(--ops-green-text);">
                     <i class="fa-solid fa-diagram-project me-2" style="color:var(--ops-green);"></i>
@@ -803,6 +936,28 @@
         return `<div class="ops-empty-col"><i class="fa-regular fa-folder-open"></i><span>Sin operaciones</span></div>`;
     }
 
+    function opsEsColumnaRetenciones(op) {
+        return op.estatus === 'cancelado' || op.estatus === 'Retenciones';
+    }
+
+    /** Línea de estado bajo el nombre (tarjeta Retenciones con dictamen de llamada). */
+    function opsRetencionesLineaDetalle(op) {
+        const tipo = String(op.ret_llamada_tipo_contacto || '').trim();
+        const res = String(op.ret_llamada_resultado || '').trim();
+        const dict = String(op.ret_llamada_dictamen || '').trim();
+        const parts = [];
+        if (tipo) parts.push(tipo);
+        if (res) parts.push(res);
+        if (dict) parts.push(dict);
+        let line = parts.join(' · ');
+        if (dict === 'Pendiente de contacto') {
+            line += ' — Requiere reintento';
+        } else if (dict === 'No localizado') {
+            line += ' — Sin reintento programado';
+        }
+        return line || 'Contacto registrado';
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // RENDER CARD
     // ──────────────────────────────────────────────────────────────────
@@ -833,6 +988,32 @@
         const canceladoBadge = esCancelado
             ? `<div style="margin-top:.3rem;"><span style="background:#fee2e2;color:#b91c1c;font-size:.7rem;font-weight:700;border-radius:20px;padding:1px 8px;"><i class="fa-solid fa-ban me-1"></i>Cancelado</span></div>`
             : '';
+
+        if (opsEsColumnaRetenciones(op)) {
+            const fechaLlamada = String(op.ret_llamada_fecha_fmt || '').trim();
+            const tieneLlamadaRet = !!fechaLlamada;
+            const piePipe = String(op.ret_registro_pipe_fmt || op.fecha_alta || '').trim();
+            let statusHtml;
+            let footHtml;
+            if (!tieneLlamadaRet) {
+                statusHtml = '<div class="ops-card-status-pendiente">Pendiente de llamada</div>';
+                footHtml = `<div class="ops-card-foot-ret" title="Registro en flujo (primera vez en Retenciones o alta de operación)">${opsEsc(piePipe || '—')}</div>`;
+            } else {
+                statusHtml = `<div class="ops-card-status-detalle">${opsEsc(opsRetencionesLineaDetalle(op))}</div>`;
+                footHtml = `<div class="ops-card-foot-ret" title="Fecha y hora del contacto / dictamen">${opsEsc(fechaLlamada)}</div>`;
+            }
+            return `
+        <div class="ops-card ops-card--ret-kanban${cardExtra}" onclick="${clickHandler}" title="${opsEsc(op.nombre_cliente)}">
+            <div class="ops-card-head-top">
+                <span class="ops-card-folio">${opsEsc(op.folio)}</span>
+                <span class="ops-card-credito-inline"><i class="fa-solid fa-hashtag me-1" style="opacity:.5;"></i>Crédito ${opsEsc(String(op.id_credito))}</span>
+            </div>
+            <div class="ops-card-nombre">${opsEsc(op.nombre_cliente)}</div>
+            ${statusHtml}
+            ${footHtml}
+            ${canceladoBadge}${transitoBadge}
+        </div>`;
+        }
 
         return `
         <div class="ops-card${cardExtra}" onclick="${clickHandler}" title="${opsEsc(op.nombre_cliente)}">
@@ -892,30 +1073,12 @@
         _activeOpId = op.id;
         document.getElementById('det-folio').textContent = op.folio;
 
-        // Aging
-        const dias = parseInt(op.dias_en_pipeline || 0);
-        let agingClass = 'ops-aging-green';
-        if (dias > 5) agingClass = 'ops-aging-red';
-        else if (dias > 2) agingClass = 'ops-aging-yellow';
-
-        // Build evidence map from server data
-        (op.evidencias || []).forEach(ev => {
-            const k = `${op.id}_${ev.slot}`;
-            if (!_evState[k]) {
-                _evState[k] = { src: ev.url, type: ev.tipo, label: ev.slot, uploaded: true };
-            }
-        });
-
         const html = `
-        <!-- ① INFO BAR -->
+        <div class="ops-modal-detalle">
         <div class="ops-det-header d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 mb-3">
             <div>
                 <div class="ops-det-name">${opsEsc(op.nombre_cliente)}</div>
-                <div class="ops-det-area">
-                    <i class="fa-solid fa-location-dot me-1"></i>${opsEsc(op.area_actual || 'Sin área')}
-                </div>
-                <div class="mt-1 d-flex gap-2 flex-wrap">
-                    <span class="ops-aging-badge ${agingClass}">${dias}d en flujo</span>
+                <div class="mt-1">
                     <span class="badge" style="background:var(--ops-green);color:#fff;border-radius:999px;font-size:.68rem;padding:.2rem .55rem;">${opsEsc(op.estatus)}</span>
                 </div>
             </div>
@@ -926,70 +1089,10 @@
                 <div style="font-size:.78rem;color:#94a3b8;font-weight:600;">${opsEsc(op.folio)}</div>
             </div>
         </div>
-        ${op.estatus === 'Retenciones' ? opsRenderDatosExpediente(op, dictamen) : ''}
-
-        <!-- ② VISOR + ACCIONES DE TRAMO -->
-        <div class="row g-3 mb-3 ops-visor-row" style="align-items:stretch;">
-            <div class="col-12 col-md-6 d-flex flex-column">
-                <div class="ops-asset-viewer">
-                    <div class="ops-av-ph" id="ops-av-ph">
-                        <i class="fa-regular fa-image"></i>
-                        <span>Selecciona una evidencia para previsualizarla</span>
-                    </div>
-                    <img id="ops-av-img" style="display:none" src="" alt="">
-                    <video id="ops-av-vid" style="display:none" controls playsinline src=""></video>
-                    <iframe id="ops-av-pdf" style="display:none;width:100%;height:100%;border:none;border-radius:.5rem;" src="" allowfullscreen></iframe>
-                    <div class="ops-av-lbl" id="ops-av-lbl"></div>
-                </div>
-            </div>
-            <div class="col-12 col-md-6 d-flex flex-column gap-2" style="height:100%;">
-                <div class="ops-tramo-wrap">
-                    <div class="ops-tramo-hdr">
-                        <i class="fa-solid fa-comment-lines"></i>Acciones de Tramo
-                    </div>
-                    <div class="ops-tramo-body" id="det-obs-list">
-                        ${opsRenderObservaciones(op.observaciones || [])}
-                    </div>
-                    <div class="ops-tramo-foot">
-                        <div class="input-group input-group-sm">
-                            <input type="text" id="det-obs-input" class="form-control"
-                                   placeholder="Especifique el motivo del rechazo o aprobación del dictamen…"
-                                   maxlength="500">
-                            <button class="btn btn-ops-green" type="button"
-                                    onclick="opsAgregarObservacion(${op.id},'${opsEscJS(op.estatus)}','${opsEscJS(op.area_actual || '')}')">
-                                <i class="fa-solid fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ④ EVIDENCIA DE RECOLECCIÓN -->
-        ${opsRenderEvSection(op.id, EV_SECTIONS[0])}
-
-        <!-- ④ EVIDENCIA FÍSICA (MOMENTO 1) -->
-        ${opsRenderEvSection(op.id, EV_SECTIONS[1])}
-
-        <!-- ⑤ MOMENTO 2 & 3 -->
-        <div class="row g-3 mb-3">
-            <div class="col-12 col-sm-6">${opsRenderEvDoc(op.id, EV_DOCS[0])}</div>
-            <div class="col-12 col-sm-6">${opsRenderEvDoc(op.id, EV_DOCS[1])}</div>
-        </div>
-
-        ${op.estatus !== 'Retenciones' ? opsRenderDatosExpediente(op, dictamen) : ''}
-
-        <!-- ⑦ HISTORIAL -->
-        <div class="ops-detail-section mb-0">
-            <h6><i class="fa-solid fa-clock-rotate-left me-1"></i>Historial de etapas</h6>
-            ${opsRenderHistorial(op.historial || [])}
+        ${opsRenderDatosExpediente(op, dictamen)}
         </div>`;
 
         document.getElementById('det-body').innerHTML = html;
-        requestAnimationFrame(() => {
-            const _obsList = document.getElementById('det-obs-list');
-            if (_obsList) _obsList.scrollTop = _obsList.scrollHeight;
-        });
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -1114,76 +1217,76 @@
         }
     }
 
-    function opsDatoPar(label, value) {
-        return `<div class="mb-1" style="font-size:.8125rem;">
-            <span class="text-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;">${opsEsc(label)}: </span>
-            <span class="fw-semibold">${opsEsc(String(value))}</span>
-        </div>`;
+    /** Etiqueta + valor (texto escapado o HTML seguro si rawHtml). */
+    function opsExpKv(lbl, content, rawHtml) {
+        const empty = content === null || content === undefined || content === '';
+        const inner = empty
+            ? '<span class="ops-exp-kv-val ops-exp-kv-val--muted">—</span>'
+            : (rawHtml ? content : '<span class="ops-exp-kv-val">' + opsEsc(String(content)) + '</span>');
+        return '<div class="ops-exp-kv">' +
+            '<span class="ops-exp-kv-lbl">' + opsEsc(lbl) + '</span>' +
+            inner +
+            '</div>';
     }
 
     function opsRenderDatosExpediente(op, d) {
-        const esRetencion = op.estatus === 'Retenciones';
         const gestor = (d && d.gestor_nombre) ? d.gestor_nombre : (op.gestor_nombre || null);
         let estatusBadge;
         if (!d) {
-            estatusBadge = '<span style="background:#fef9c3;color:#713f12;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-clock me-1"></i>Pendiente de gestión</span>';
+            estatusBadge = '<span style="display:inline-flex;align-items:center;background:#fef9c3;color:#713f12;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-clock me-1"></i>Pendiente de gestión</span>';
         } else if (op.estatus === 'cancelado') {
-            estatusBadge = '<span style="background:#fee2e2;color:#b91c1c;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-ban me-1"></i>Cancelado</span>';
+            estatusBadge = '<span style="display:inline-flex;align-items:center;background:#fee2e2;color:#b91c1c;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-ban me-1"></i>Cancelado</span>';
         } else {
-            estatusBadge = '<span style="background:#dbeafe;color:#1e40af;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>';
+            estatusBadge = '<span style="display:inline-flex;align-items:center;background:#dbeafe;color:#1e40af;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>';
         }
-        const fila = (lbl, val) =>
-            '<div style="display:flex;align-items:flex-start;gap:.5rem;padding:.32rem 0;border-bottom:1px solid #f1f5f9;font-size:.875rem;">' +
-            '<span style="color:#64748b;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;min-width:155px;flex-shrink:0;">' + opsEsc(lbl) + '</span>' +
-            '<span style="color:#1e293b;font-weight:500;">' + ((val !== null && val !== undefined && val !== '') ? val : '<span style="color:#94a3b8;font-style:italic;">—</span>') + '</span>' +
+        const credBloque =
+            '<div class="ops-exp-kv ops-exp-kv--credito-stack">' +
+            '<span class="ops-exp-kv-val ops-exp-kv-credito-id">Crédito' + opsEsc(String(op.id_credito)) + '</span>' +
+            '<span class="ops-exp-kv-val ops-exp-kv-credito-nombre">' + opsEsc(op.nombre_cliente) + '</span>' +
             '</div>';
-        const btnClass = 'accordion-button' + (esRetencion ? '' : ' collapsed');
-        const colClass  = 'accordion-collapse' + (esRetencion ? ' collapse show' : ' collapse');
-        return (
-            '<div class="accordion accordion-flush mb-3">' +
-            '<div class="accordion-item" style="border:1px solid #e2e8f0;border-radius:.5rem;overflow:hidden;">' +
-            '<h2 class="accordion-header">' +
-            '<button class="' + btnClass + ' py-2" type="button"' +
-            ' data-bs-toggle="collapse" data-bs-target="#det-acc-datos"' +
-            ' style="font-size:.78rem;font-weight:700;color:var(--ops-green-text);background:var(--ops-green-light);">' +
-            '<i class="fa-solid fa-circle-info me-2"></i>Datos del expediente' +
-            '</button></h2>' +
-            '<div id="det-acc-datos" class="' + colClass + '">' +
-            '<div class="accordion-body py-2 px-3">' +
-            '<div class="ops-detail-section mb-2" style="border-left:3px solid #2563eb;">' +
-            '<h6><i class="fa-solid fa-headset me-1"></i>Retenciones — Atención a Clientes</h6>' +
-            fila('Crédito', '<strong>Crédito ' + opsEsc(String(op.id_credito)) + '</strong> ' + opsEsc(op.nombre_cliente)) +
-            fila('Folio ADJ', opsEsc(op.folio)) +
-            fila('Estatus dictamen', estatusBadge) +
-            fila('Dictamen',       d && d.dictamen       ? opsEsc(d.dictamen)       : null) +
-            fila('Gestor a cargo', gestor                ? opsEsc(gestor)            : null) +
-            fila('Fecha dictamen', d && d.fecha_alta_fmt ? opsEsc(d.fecha_alta_fmt)  : null) +
-            fila('Comentarios',    d && d.comentarios    ? '<span style="white-space:pre-line;">' + opsEsc(d.comentarios) + '</span>' : null) +
-            '</div>' +
+        const comHtml = d && d.comentarios
+            ? '<span class="ops-exp-kv-val" style="white-space:pre-line;">' + opsEsc(d.comentarios) + '</span>'
+            : null;
+
+        const sec1 =
+            '<div class="ops-exp-block mb-3">' +
+            '<div class="ops-exp-block-title"><i class="fa-solid fa-headset me-2" style="opacity:.9;"></i>1.- Retenciones — Atención a clientes</div>' +
+            '<div class="ops-exp-block-body">' +
+            '<div class="row g-2 g-md-3">' +
+            '<div class="col-sm-6 col-lg-3">' + credBloque + '</div>' +
+            '<div class="col-sm-6 col-lg-3 ops-exp-col-folio">' + opsExpKv('Folio ADJ', op.folio, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Estatus dictamen', estatusBadge, true) + '</div>' +
+            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Dictamen', d && d.dictamen ? d.dictamen : null, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Gestor a cargo', gestor, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Fecha dictamen', d && d.fecha_alta_fmt ? d.fecha_alta_fmt : null, false) + '</div>' +
+            '<div class="col-sm-12 col-lg-6">' + opsExpKv('Comentarios', comHtml, true) + '</div>' +
+            '</div></div></div>';
+
+        const vehMarca = [op.marca, op.modelo].filter(Boolean).join(' ') || null;
+        const sec2 =
+            '<div class="col-md-6 mb-3 mb-md-0">' +
+            '<div class="ops-exp-block h-100">' +
+            '<div class="ops-exp-block-title"><i class="fa-solid fa-motorcycle me-2" style="opacity:.9;"></i>2.- Vehículo</div>' +
+            '<div class="ops-exp-block-body">' +
             '<div class="row g-2">' +
-            '<div class="col-12 col-sm-6"><div class="ops-detail-section mb-2">' +
-            '<h6><i class="fa-solid fa-motorcycle me-1"></i>Vehículo</h6>' +
-            opsDatoPar('Marca / Modelo', [op.marca, op.modelo].filter(Boolean).join(' ') || '—') +
-            opsDatoPar('N° Serie',  op.serie     || '—') +
-            opsDatoPar('N° Motor', op.num_motor || '—') +
-            opsDatoPar('Placas',   op.placas    || '—') +
-            '</div></div>' +
-            '<div class="col-12 col-sm-6"><div class="ops-detail-section mb-2">' +
-            '<h6><i class="fa-solid fa-truck me-1"></i>Logística</h6>' +
-            opsDatoPar('Responsable', op.responsable_entrega   || '—') +
-            opsDatoPar('Teléfono',    op.telefono_contacto     || '—') +
-            opsDatoPar('Dirección',   op.direccion_recoleccion || '—') +
-            '</div></div>' +
-            '<div class="col-12"><div class="ops-detail-section mb-0">' +
-            '<h6><i class="fa-solid fa-dollar-sign me-1"></i>Financiero</h6>' +
-            '<div class="row g-1">' +
-            '<div class="col-4">' + opsDatoPar('Días mora',    (op.dias_mora || 0) + 'd') + '</div>' +
-            '<div class="col-4">' + opsDatoPar('Saldo capital', opsFormatMXN(op.saldo_capital || 0)) + '</div>' +
-            '<div class="col-4">' + opsDatoPar('Adeudo total',  opsFormatMXN(op.adeudo_total  || 0)) + '</div>' +
-            '</div></div></div>' +
-            '</div>' +
-            '</div></div></div></div>'
-        );
+            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Marca / modelo', vehMarca, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-4">' + opsExpKv('N° serie', op.serie || null, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-4">' + opsExpKv('N° motor', op.num_motor || null, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Placas', op.placas || null, false) + '</div>' +
+            '</div></div></div></div>';
+
+        const sec3 =
+            '<div class="col-md-6">' +
+            '<div class="ops-exp-block h-100">' +
+            '<div class="ops-exp-block-title"><i class="fa-solid fa-truck me-2" style="opacity:.9;"></i>3.- Logística</div>' +
+            '<div class="ops-exp-block-body">' +
+            '<div class="row g-2">' +
+            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Responsable', op.responsable_entrega || null, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Teléfono', op.telefono_contacto || null, false) + '</div>' +
+            '<div class="col-sm-12 col-lg-4">' + opsExpKv('Dirección', op.direccion_recoleccion || null, false) + '</div>' +
+            '</div></div></div></div>';
+
+        return sec1 + '<div class="row g-3 align-items-stretch">' + sec2 + sec3 + '</div>';
     }
 
     function opsRenderObservaciones(obs) {
@@ -1266,10 +1369,6 @@
 
     function opsSlug(str) {
         return str.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    }
-
-    function opsFormatMXN(num) {
-        return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
     }
 
     // ──────────────────────────────────────────────────────────────────

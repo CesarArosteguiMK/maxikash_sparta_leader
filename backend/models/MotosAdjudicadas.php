@@ -883,6 +883,28 @@ class MotosAdjudicadas extends Model
     // PIPELINE / LECTURA
     // =========================================================================
 
+    /**
+     * Dictamen registrado desde Retenciones (misma regla que Models\AtencionClientes).
+     *
+     * @param string $alias Alias de adj_dictamen en la expresión (p. ej. "d2")
+     */
+    private function sqlEsDictamenLlamadaRetenciones(string $alias): string
+    {
+        return <<<SQL
+(
+    {$alias}.tipo_contacto IN ('Contacto', 'Sin contacto')
+    OR (
+        ({$alias}.tipo_contacto IS NULL OR TRIM({$alias}.tipo_contacto) = '')
+        AND {$alias}.dictamen IN (
+            'Autorizado para recolección',
+            'Cancelado, promesa de pago',
+            'Pendiente de contacto',
+            'No localizado'
+        )
+    )
+)
+SQL;
+    }
 
     /**
      * Devuelve todas las operaciones activas (no cerradas-archivadas),
@@ -890,6 +912,7 @@ class MotosAdjudicadas extends Model
      */
     public function obtenerPipeline(): array
     {
+        $predD2 = $this->sqlEsDictamenLlamadaRetenciones('d2');
         $sql = <<<SQL
         SELECT
             o.id,
@@ -922,8 +945,32 @@ class MotosAdjudicadas extends Model
                INNER JOIN personal_adjudicacion pa2 ON pa2.id = aca2.id_personal_adj
                INNER JOIN persona per2              ON per2.id = pa2.id_persona
               WHERE aca2.id_credito = o.id_credito AND aca2.estatus = '1'
-              LIMIT 1) AS gestor_nombre
+              LIMIT 1) AS gestor_nombre,
+            COALESCE(
+                (SELECT DATE_FORMAT(h.fecha, '%d/%m/%Y %H:%i')
+                 FROM adj_historial_estatus h
+                 WHERE h.id_operacion = o.id
+                   AND h.estatus_nuevo IN ('Retenciones', 'cancelado')
+                 ORDER BY h.fecha ASC
+                 LIMIT 1),
+                DATE_FORMAT(o.fecha_alta, '%d/%m/%Y %H:%i')
+            ) AS ret_registro_pipe_fmt,
+            ret_d.tipo_contacto AS ret_llamada_tipo_contacto,
+            ret_d.resultado AS ret_llamada_resultado,
+            ret_d.dictamen AS ret_llamada_dictamen,
+            DATE_FORMAT(ret_d.fecha_alta, '%d/%m/%Y %H:%i') AS ret_llamada_fecha_fmt
         FROM adj_operacion o
+        LEFT JOIN adj_dictamen ret_d ON ret_d.id = (
+            SELECT d2.id
+            FROM adj_dictamen d2
+            WHERE d2.id_operacion = o.id
+              AND {$predD2}
+            ORDER BY
+                CASE WHEN TRIM(COALESCE(d2.dictamen, '')) = '' THEN 1 ELSE 0 END,
+                d2.fecha_alta DESC,
+                d2.id DESC
+            LIMIT 1
+        )
         ORDER BY
             FIELD(o.estatus,
                 'Recibido',
