@@ -716,7 +716,69 @@ SQL;
             LIMIT 1
         )
         {$joinAsig}
+        WHERE o.estatus != 'Retenciones'
         ORDER BY o.fecha_alta DESC
+        SQL;
+
+        return $this->db->queryAll($sql) ?: [];
+    }
+
+    // =========================================================================
+    // PENDIENTES  (estatus = 'Retenciones' + último dictamen empieza con 'Pendiente')
+    // =========================================================================
+
+    public function obtenerPendientes(): array
+    {
+        $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+        $sql = <<<SQL
+        SELECT
+            o.id,
+            o.folio,
+            o.id_credito,
+            o.nombre_cliente,
+            o.estatus,
+            (
+                SELECT COUNT(*)
+                FROM adj_dictamen dp
+                WHERE dp.id_operacion = o.id
+                  AND dp.tipo_contacto IN ('Contacto', 'Sin contacto')
+            ) AS intentos_realizados,
+            DATE_FORMAT(
+                (
+                    SELECT dp2.fecha_alta
+                    FROM adj_dictamen dp2
+                    WHERE dp2.id_operacion = o.id
+                      AND dp2.tipo_contacto IN ('Contacto', 'Sin contacto')
+                    ORDER BY dp2.id DESC
+                    LIMIT 1
+                ),
+                '%d/%m/%Y %H:%i'
+            ) AS fecha_ultimo_intento,
+            TRIM(CONCAT_WS(' ',
+                per.nombres,
+                per.segundo_nombre,
+                per.apellidop,
+                per.apellidom
+            )) AS gestor_nombre,
+            DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
+        FROM adj_operacion o
+        {$joinAsig}
+        WHERE o.estatus = 'Retenciones'
+          AND EXISTS (
+              SELECT 1
+              FROM adj_dictamen dp3
+              WHERE dp3.id_operacion = o.id
+                AND dp3.tipo_contacto IN ('Contacto', 'Sin contacto')
+          )
+          AND (
+              SELECT dp4.dictamen
+              FROM adj_dictamen dp4
+              WHERE dp4.id_operacion = o.id
+                AND dp4.tipo_contacto IN ('Contacto', 'Sin contacto')
+              ORDER BY dp4.id DESC
+              LIMIT 1
+          ) LIKE 'Pendiente%'
+        ORDER BY o.fecha_alta ASC
         SQL;
 
         return $this->db->queryAll($sql) ?: [];
@@ -728,10 +790,12 @@ SQL;
 
     /**
      * Guarda el dictamen en adj_dictamen y actualiza el estatus de adj_operacion.
-     * Estatus resultante:
-     *   'Autorizado para recolección'  → 'en_transito'
-     *   'Cancelado, promesa de pago'   → 'cancelado'
-     *   otros valores                  → sin cambio de estatus
+     * Estatus resultante (BD):
+     *   'Autorizado para recolección'        → 'en_transito'
+     *   'Cancelado, promesa de pago'         → 'cancelado'
+     *   'Cancelamiento total (sin intentos)' → 'cancelado'
+     *   'Pendiente, …'                       → sin cambio (devuelve estatus_nuevo='pendiente')
+     *   otros valores                        → sin cambio de estatus
      */
     public function registrarDictamen(int $idOperacion, array $data, int $idUsuario): array
     {
@@ -755,6 +819,10 @@ SQL;
             $nuevoEstatus = 'en_transito';
         } elseif ($dictamen === 'Cancelado, promesa de pago') {
             $nuevoEstatus = 'cancelado';
+        } elseif ($dictamen === 'Cancelamiento total (sin intentos)') {
+            $nuevoEstatus = 'cancelado';
+        } elseif (str_starts_with($dictamen, 'Pendiente')) {
+            $nuevoEstatus = 'pendiente'; // no cambia estatus en BD, solo señal al frontend
         }
 
         $this->db->CRUD(
@@ -779,7 +847,7 @@ SQL;
             ]
         );
 
-        if ($nuevoEstatus !== null) {
+        if ($nuevoEstatus !== null && $nuevoEstatus !== 'pendiente') {
             $this->db->CRUD(
                 "UPDATE adj_operacion
                     SET estatus = :estatus, fecha_actualizacion = :fecha

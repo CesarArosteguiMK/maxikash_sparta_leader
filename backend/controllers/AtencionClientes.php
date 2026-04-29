@@ -202,6 +202,22 @@ class AtencionClientes extends Controller
     }
 
     // =========================================================================
+    // API: PENDIENTES
+    // =========================================================================
+
+    public function obtenerPendientes(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $datos = $this->model->obtenerPendientes();
+            echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los datos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    // =========================================================================
     // API: DICTAMINADOS
     // =========================================================================
 
