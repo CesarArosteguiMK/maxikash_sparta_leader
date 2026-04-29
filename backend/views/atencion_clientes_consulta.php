@@ -535,19 +535,33 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
     // INIT
     // ──────────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function () {
-        acCargarEntrantes();
-
-        document.getElementById('tab-dictaminados-btn').addEventListener('shown.bs.tab', function () {
-            acCargarDictaminados();
-        });
-
-        document.getElementById('tab-pendientes-btn').addEventListener('shown.bs.tab', function () {
-            acCargarPendientes();
-        });
-
+        acCargarTodo();
         document.getElementById('ac-btn-guardar-dictamen')
             .addEventListener('click', acGuardarDictamen);
     });
+
+    // ──────────────────────────────────────────────────────────────────
+    // CARGAR TODO (paralelo con spinner)
+    // ──────────────────────────────────────────────────────────────────
+    function acCargarTodo() {
+        const hasSwal = typeof Swal !== 'undefined';
+        if (hasSwal) {
+            Swal.fire({
+                title: 'Cargando Retenciones…',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        Promise.all([
+            acCargarEntrantes().catch(() => {}),
+            acCargarDictaminados().catch(() => {}),
+            acCargarPendientes().catch(() => {}),
+        ]).then(() => { if (hasSwal) Swal.close(); });
+    }
 
     // ──────────────────────────────────────────────────────────────────
     // CARGAR ENTRANTES
@@ -559,7 +573,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         loader.style.display = 'block';
         lista.innerHTML      = '';
 
-        fetch('/AtencionClientes/obtenerEntrantes', { headers: { 'Accept': 'application/json' } })
+        return fetch('/AtencionClientes/obtenerEntrantes', { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(data => {
                 if (!data.success) throw new Error(data.message || 'Error al cargar');
@@ -597,7 +611,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         loader.style.display = 'block';
         lista.innerHTML      = '';
 
-        fetch('/AtencionClientes/obtenerDictaminados', { headers: { 'Accept': 'application/json' } })
+        return fetch('/AtencionClientes/obtenerDictaminados', { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(data => {
                 if (!data.success) throw new Error(data.message || 'Error al cargar');
@@ -633,7 +647,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         loader.style.display = 'block';
         lista.innerHTML      = '';
 
-        fetch('/AtencionClientes/obtenerPendientes', { headers: { 'Accept': 'application/json' } })
+        return fetch('/AtencionClientes/obtenerPendientes', { headers: { 'Accept': 'application/json' } })
             .then(r => r.json())
             .then(data => {
                 if (!data.success) throw new Error(data.message || 'Error al cargar');
@@ -1037,8 +1051,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     html: 'El dictamen fue registrado correctamente.' + (mensajeExtra ? '<br><small class="text-muted">' + mensajeExtra + '</small>' : ''),
                     confirmButtonColor: '#2563eb',
                 }).then(() => {
-                    acCargarEntrantes();
-                    acCargarPendientes();
+                    acCargarTodo();
                 });
             })
             .catch(err => {

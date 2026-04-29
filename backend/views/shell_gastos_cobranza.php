@@ -25,7 +25,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                             </div>
                             <?php if ($gc_shell_modo_cartera): ?>
                             <p class="small text-muted mb-0 mt-1" style="max-width:42rem;">
-                                Vista simplificada para consultar reportes y conciliar pagos. El avance del proceso se muestra en <strong>Herramienta</strong> debajo.
+                                Consulta reportes de cartera, revisa movimientos y concilia pagos.
                             </p>
                             <?php else: ?>
                             <div id="gastosCobranzaDetalle" class="small text-muted mt-1" style="min-height:1.25em"></div>
