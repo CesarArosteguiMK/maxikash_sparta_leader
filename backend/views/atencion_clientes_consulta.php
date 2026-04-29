@@ -193,6 +193,30 @@
 .ac-badge-pendiente      { background: #fef3c7; color: #92400e; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
 .ac-badge-ultimo-intento { background: #fde8e8; color: #991b1b; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
 
+/* ── Validación modal dictaminar ── */
+.ac-modal-input.ac-invalid {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,.15) !important;
+}
+.ac-modal-input.ac-valid {
+    border-color: #22c55e !important;
+    box-shadow: 0 0 0 3px rgba(34,197,94,.10) !important;
+}
+.ac-char-counter {
+    font-size: .72rem;
+    color: #94a3b8;
+    text-align: right;
+    margin-top: .18rem;
+    transition: color .15s;
+}
+.ac-char-counter.ac-counter-warn  { color: #f59e0b; font-weight: 700; }
+.ac-char-counter.ac-counter-limit { color: #ef4444; font-weight: 700; }
+body.dark-mode .ac-modal-input.ac-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,.18) !important; }
+body.dark-mode .ac-modal-input.ac-valid   { border-color: #4ade80 !important; box-shadow: 0 0 0 3px rgba(74,222,128,.12) !important; }
+body.dark-mode .ac-char-counter           { color: #64748b; }
+body.dark-mode .ac-char-counter.ac-counter-warn  { color: #fbbf24; }
+body.dark-mode .ac-char-counter.ac-counter-limit { color: #f87171; }
+
 /* ── Modal Dictaminar ── */
 .ac-modal-sep {
     border: none;
@@ -258,7 +282,6 @@ body.dark-mode .ac-card-footer        { background: #111827; border-color: #1f29
 body.dark-mode .ac-modal-input        { background: #1e293b; border-color: #475569; color: #e2e8f0; }
 body.dark-mode .ac-modal-input:focus  { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
 body.dark-mode .ac-modal-label        { color: #94a3b8; }
-body.dark-mode .ac-resumen-row        { border-color: #334155; }
 body.dark-mode .ac-resumen-lbl        { color: #94a3b8; }
 body.dark-mode .ac-resumen-val        { color: #e2e8f0; }
 body.dark-mode .ac-badge-transito        { background: rgba(30,64,175,.35); color: #93c5fd; }
@@ -444,9 +467,10 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
 
                 <!-- Comentarios -->
                 <div class="mt-3">
-                    <label class="ac-modal-label">Comentarios</label>
+                    <label class="ac-modal-label">Comentarios <span style="color:#94a3b8;font-weight:400;font-size:.7rem;">(máx. 150 caracteres)</span></label>
                     <textarea class="ac-modal-input" id="ac-dict-comentarios"
-                              placeholder="Detalle de la gestión..."></textarea>
+                              placeholder="Detalle de la gestión..." maxlength="150"></textarea>
+                    <div class="ac-char-counter" id="ac-dict-comentarios-counter">0 / 150</div>
                 </div>
             </div>
 
@@ -457,8 +481,9 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     <i class="fa-solid fa-xmark me-1"></i>Cancelar
                 </button>
                 <button type="button" class="btn fw-bold" id="ac-btn-guardar-dictamen"
-                        style="background:linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 100%);color:#fff;border:none;border-radius:2rem;padding:.45rem 1.6rem;">
-                    <i class="fa-solid fa-check me-1"></i>Guardar dictamen
+                        style="background:linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 100%);color:#fff;border:none;border-radius:2rem;padding:.45rem 1.6rem;opacity:.45;cursor:not-allowed;"
+                        disabled>
+                    <i class="fa-solid fa-lock me-1"></i>Guardar dictamen
                 </button>
             </div>
 
@@ -920,6 +945,15 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         document.getElementById('ac-dict-plataforma').value         = '';
         acRebuildSelect('ac-dict-resultado', [], '— Seleccione tipo primero —');
         acRebuildSelect('ac-dict-dictamen',  [], '— Seleccione resultado primero —');
+        // Resetear validación
+        ['ac-dict-llamada-a','ac-dict-tipo-contacto','ac-dict-resultado',
+         'ac-dict-dictamen','ac-dict-plataforma','ac-dict-persona-contactada',
+         'ac-dict-comentarios'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('ac-valid','ac-invalid');
+        });
+        acActualizarContador('');
+        acBloquearGuardar();
 
         new bootstrap.Modal(document.getElementById('modalAcDictaminar')).show();
 
@@ -958,6 +992,66 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
             });
     };
 
+    // ── Helpers de validación ─────────────────────────────────────────
+    const AC_MAX_COMENTARIOS = 150;
+
+    function acActualizarContador(val) {
+        const len = val.length;
+        const el  = document.getElementById('ac-dict-comentarios-counter');
+        if (!el) return;
+        el.textContent = len + ' / ' + AC_MAX_COMENTARIOS;
+        el.className   = 'ac-char-counter';
+        if (len >= AC_MAX_COMENTARIOS)      el.classList.add('ac-counter-limit');
+        else if (len >= AC_MAX_COMENTARIOS * .8) el.classList.add('ac-counter-warn');
+    }
+
+    function acBloquearGuardar() {
+        const btn = document.getElementById('ac-btn-guardar-dictamen');
+        btn.disabled = true;
+        btn.style.opacity = '.45';
+        btn.style.cursor  = 'not-allowed';
+        btn.innerHTML = '<i class="fa-solid fa-lock me-1"></i>Guardar dictamen';
+    }
+
+    function acDesbloquearGuardar() {
+        const btn = document.getElementById('ac-btn-guardar-dictamen');
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor  = 'pointer';
+        btn.innerHTML = '<i class="fa-solid fa-check me-1"></i>Guardar dictamen';
+    }
+
+    function acValidarModal() {
+        const ids = [
+            { id: 'ac-dict-llamada-a',         type: 'select' },
+            { id: 'ac-dict-persona-contactada', type: 'text'   },
+            { id: 'ac-dict-tipo-contacto',      type: 'select' },
+            { id: 'ac-dict-resultado',          type: 'select' },
+            { id: 'ac-dict-dictamen',           type: 'select' },
+            { id: 'ac-dict-plataforma',         type: 'select' },
+        ];
+
+        let allOk = true;
+        ids.forEach(({ id }) => {
+            const el  = document.getElementById(id);
+            const ok  = el && el.value.trim() !== '';
+            el.classList.toggle('ac-valid',   ok);
+            el.classList.toggle('ac-invalid', !ok);
+            if (!ok) allOk = false;
+        });
+
+        // Comentarios: requerido + 150 chars max + sin caracteres peligrosos
+        const ta  = document.getElementById('ac-dict-comentarios');
+        const val = ta.value;
+        const comentOk = val.trim().length > 0 && val.length <= AC_MAX_COMENTARIOS;
+        ta.classList.toggle('ac-valid',   comentOk);
+        ta.classList.toggle('ac-invalid', !comentOk);
+        if (!comentOk) allOk = false;
+
+        if (allOk) acDesbloquearGuardar();
+        else       acBloquearGuardar();
+    }
+
     // ── Auto-fill al seleccionar "Llamada a" ──────────────────────────
     document.getElementById('ac-dict-llamada-a').addEventListener('change', function () {
         const contacto = _acContactosMap[this.value];
@@ -970,6 +1064,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
             document.getElementById('ac-dict-numero').value             = '';
             document.getElementById('ac-dict-persona-contactada').value = '';
         }
+        acValidarModal();
     });
 
     // ── Cascada: Tipo contacto → Resultado ───────────────────────────
@@ -978,6 +1073,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         acRebuildSelect('ac-dict-resultado', opciones,
             opciones.length ? '— Seleccione resultado —' : '— Seleccione tipo primero —');
         acRebuildSelect('ac-dict-dictamen', [], '— Seleccione resultado primero —');
+        acValidarModal();
     });
 
     // ── Cascada: Resultado → Dictamen ────────────────────────────────
@@ -985,6 +1081,25 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         const opciones = acGetDictamenOpts(this.value);
         acRebuildSelect('ac-dict-dictamen', opciones,
             opciones.length ? '— Seleccione dictamen —' : '— Seleccione resultado primero —');
+        acValidarModal();
+    });
+
+    // ── Cambio en dictamen y plataforma ──────────────────────────────
+    document.getElementById('ac-dict-dictamen').addEventListener('change',  acValidarModal);
+    document.getElementById('ac-dict-plataforma').addEventListener('change', acValidarModal);
+
+    // ── Persona contactada ───────────────────────────────────────────
+    document.getElementById('ac-dict-persona-contactada').addEventListener('input', acValidarModal);
+
+    // ── Comentarios: contador + sanitize + validar ───────────────────
+    document.getElementById('ac-dict-comentarios').addEventListener('input', function () {
+        // Remover caracteres que no tienen lugar en un comentario de call center
+        this.value = this.value.replace(/[<>"';\\]/g, '');
+        if (this.value.length > AC_MAX_COMENTARIOS) {
+            this.value = this.value.slice(0, AC_MAX_COMENTARIOS);
+        }
+        acActualizarContador(this.value);
+        acValidarModal();
     });
 
     // ──────────────────────────────────────────────────────────────────
@@ -994,19 +1109,14 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         const idOperacion = parseInt(document.getElementById('ac-dict-id-operacion').value, 10);
         if (!idOperacion) return;
 
-        const dictamen = document.getElementById('ac-dict-dictamen').value;
-        if (!dictamen) {
-            Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Seleccione un dictamen.', confirmButtonColor: '#2563eb' });
-            return;
-        }
+        // Seguro: el botón solo llega aquí si acValidarModal() lo habilitó.
+        const dictamen   = document.getElementById('ac-dict-dictamen').value;
         const selLlamada = document.getElementById('ac-dict-llamada-a');
         const llamadaA   = selLlamada.value;
-        // Guardar el label visible (ej. "Cliente (titular)"), no el value interno
         const llamadaALabel = selLlamada.selectedOptions[0]?.textContent?.split(' — ')[0].trim() || llamadaA;
-        if (!llamadaA) {
-            Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'Seleccione a quién se llamó.', confirmButtonColor: '#2563eb' });
-            return;
-        }
+        const comentarios   = document.getElementById('ac-dict-comentarios').value;
+
+        if (!dictamen || !llamadaA || !comentarios.trim()) return; // guard final
 
         const payload = {
             id_operacion:       idOperacion,
@@ -1018,12 +1128,14 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
             resultado:          document.getElementById('ac-dict-resultado').value,
             dictamen:           dictamen,
             plataforma:         document.getElementById('ac-dict-plataforma').value,
-            comentarios:        document.getElementById('ac-dict-comentarios').value,
+            comentarios:        comentarios,
         };
 
         const btn = document.getElementById('ac-btn-guardar-dictamen');
-        btn.disabled    = true;
-        btn.innerHTML   = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando…';
+        btn.disabled      = true;
+        btn.style.opacity = '.65';
+        btn.style.cursor  = 'not-allowed';
+        btn.innerHTML     = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando…';
 
         fetch('/AtencionClientes/dictaminar', {
             method:  'POST',
@@ -1058,8 +1170,8 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                 Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#2563eb' });
             })
             .finally(() => {
-                btn.disabled  = false;
-                btn.innerHTML = '<i class="fa-solid fa-check me-1"></i>Guardar dictamen';
+                // On error: re-enable so the gestor can fix and retry
+                acDesbloquearGuardar();
             });
     }
 
@@ -1067,10 +1179,10 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
     // ESTADO VACÍO
     // ──────────────────────────────────────────────────────────────────
     function acSinDatos(msg) {
-        return `<div class="text-center py-5 text-muted">
-            <i class="fa-regular fa-folder-open fa-2x mb-2 d-block"></i>
-            <span style="font-size:.9rem;">${acEsc(msg)}</span>
-        </div>`;
+        return '<div class="text-center py-5 text-muted">'
+             + '<i class="fa-regular fa-folder-open fa-2x mb-2 d-block"></i>'
+             + '<span style="font-size:.9rem;">' + acEsc(msg) + '</span>'
+             + '</div>';
     }
 
 })();

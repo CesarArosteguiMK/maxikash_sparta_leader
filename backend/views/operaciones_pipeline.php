@@ -56,17 +56,6 @@
         text-overflow: ellipsis;
     }
 
-    /* Cabecera de columna con título largo (Retenciones, Recuperación, Cierre, Recepción, …) */
-    .ops-column-header--long .ops-col-title {
-        white-space: normal;
-        overflow: visible;
-        text-overflow: unset;
-        text-transform: none;
-        font-size: 0.62rem;
-        line-height: 1.25;
-        letter-spacing: 0.02em;
-    }
-
     .ops-column-header .ops-col-count {
         background: var(--ops-green);
         color: #fff;
@@ -961,23 +950,19 @@
             </span>`;
         }
 
-        const OPS_TITULO_COL_LARGO = {
-            'Retenciones':               'Actualmente se encuentra en Retenciones',
-            'Revisión Recuperaciones':   'Actualmente se encuentra en Recuperacion',
-            'Cierre Documentado':        'Actualmente se encuentra en Cierre Documentado',
-            'Recepción':                 'Actualmente se encuentra en Recepción',
+        /** Texto visible en la cabecera de columna (la clave interna sigue siendo STAGES / estatus BD). */
+        const OPS_TITULO_COL_VISIBLE = {
+            'Revisión Recuperaciones': 'Recuperacion',
+            'Recepción':               'Recepcion',
         };
 
         STAGES.forEach(stage => {
             const cards = groups[stage];
             const col = document.createElement('div');
             col.className = 'ops-column';
-            const tituloCol = OPS_TITULO_COL_LARGO[stage] || stage;
-            const hdrClass = OPS_TITULO_COL_LARGO[stage]
-                ? 'ops-column-header ops-column-header--long'
-                : 'ops-column-header';
+            const tituloCol = OPS_TITULO_COL_VISIBLE[stage] || stage;
             col.innerHTML = `
-                <div class="${hdrClass}">
+                <div class="ops-column-header">
                     <span class="ops-col-title"><i class="fa-solid ${STAGE_ICONS[stage]} me-1"></i>${tituloCol}</span>
                     <span class="ops-col-count">${cards.length}</span>
                 </div>
@@ -1329,7 +1314,7 @@
 
         const sec1 =
             '<div class="ops-exp-block mb-3">' +
-            '<div class="ops-exp-block-title"><i class="fa-solid fa-headset me-2" style="opacity:.9;"></i>1.- Retenciones — Atención a clientes</div>' +
+            '<div class="ops-exp-block-title"><i class="fa-solid fa-headset me-2" style="opacity:.9;"></i>Atención a clientes informa</div>' +
             '<div class="ops-exp-block-body">' +
             '<div class="row g-2 g-md-3">' +
             '<div class="col-sm-6 col-lg-3">' + opsExpKv('Estatus dictamen', estatusBadge, true) + '</div>' +
@@ -1339,31 +1324,7 @@
             '<div class="col-sm-12 col-lg-12">' + opsExpKv('Comentarios', comHtml, true) + '</div>' +
             '</div></div></div>';
 
-        const vehMarca = [op.marca, op.modelo].filter(Boolean).join(' ') || null;
-        const sec2 =
-            '<div class="col-md-6 mb-3 mb-md-0">' +
-            '<div class="ops-exp-block h-100">' +
-            '<div class="ops-exp-block-title"><i class="fa-solid fa-motorcycle me-2" style="opacity:.9;"></i>2.- Vehículo</div>' +
-            '<div class="ops-exp-block-body">' +
-            '<div class="row g-2">' +
-            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Marca / modelo', vehMarca, false) + '</div>' +
-            '<div class="col-sm-6 col-lg-4">' + opsExpKv('N° serie', op.serie || null, false) + '</div>' +
-            '<div class="col-sm-6 col-lg-4">' + opsExpKv('N° motor', op.num_motor || null, false) + '</div>' +
-            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Placas', op.placas || null, false) + '</div>' +
-            '</div></div></div></div>';
-
-        const sec3 =
-            '<div class="col-md-6">' +
-            '<div class="ops-exp-block h-100">' +
-            '<div class="ops-exp-block-title"><i class="fa-solid fa-truck me-2" style="opacity:.9;"></i>3.- Logística</div>' +
-            '<div class="ops-exp-block-body">' +
-            '<div class="row g-2">' +
-            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Responsable', op.responsable_entrega || null, false) + '</div>' +
-            '<div class="col-sm-6 col-lg-4">' + opsExpKv('Teléfono', op.telefono_contacto || null, false) + '</div>' +
-            '<div class="col-sm-12 col-lg-4">' + opsExpKv('Dirección', op.direccion_recoleccion || null, false) + '</div>' +
-            '</div></div></div></div>';
-
-        return sec1 + '<div class="row g-3 align-items-stretch">' + sec2 + sec3 + '</div>';
+        return sec1;
     }
 
     function opsRenderObservaciones(obs) {
