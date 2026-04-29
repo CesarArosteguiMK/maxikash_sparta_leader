@@ -319,6 +319,17 @@ class MotosAdjudicadas extends Model
                 'confirmada_at_fmt' => (string) ($fmt2['f'] ?? ''),
             ];
         }
+
+        $slotsIn = "'vista_trs','vista_front','lado_izq','lado_der','tablero','vin','danos_vis','vid_gen'";
+        $this->db->CRUD(
+            "UPDATE adj_evidencia
+             SET estatus = 'cierre_almacen'
+             WHERE id_operacion = :id
+               AND slot IN ($slotsIn)
+               AND estatus = 'pendiente_almacen'",
+            ['id' => $idOperacion]
+        );
+
         $this->registrarBitacora(
             $idOperacion,
             'RECEPCIÓN EN ALMACÉN CONFIRMADA: ' . $ubicacion,
@@ -576,6 +587,8 @@ class MotosAdjudicadas extends Model
             'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
             'doc_repuve',    'doc_factura',   'doc_cierre_s2',
             'doc_dacion_rcpt', 'doc_tarjeta_rcpt', 'doc_firma_rcpt',
+            'vista_trs', 'vista_front', 'lado_izq', 'lado_der',
+            'tablero', 'vin', 'danos_vis', 'vid_gen',
         ];
         if (!in_array($slot, $allowed, true)) {
             return ['success' => false, 'message' => 'Slot de evidencia no reconocido.'];
@@ -590,9 +603,15 @@ class MotosAdjudicadas extends Model
         // 3. Validar tipo MIME según slot
         $mime      = $fileInfo['type'] ?? '';
         $ext       = strtolower(pathinfo($fileInfo['name'] ?? '', PATHINFO_EXTENSION));
-        $videoSlots = ['fis_360'];
+        $videoSlots = ['fis_360', 'vid_gen'];
         $docSlots   = ['doc_repuve', 'doc_factura', 'doc_cierre_s2', 'doc_dacion_rcpt'];
-        $recepImgSlots = ['doc_tarjeta_rcpt', 'doc_firma_rcpt'];
+        $recepImgSlots = [
+            'doc_tarjeta_rcpt', 'doc_firma_rcpt',
+            'vista_trs', 'vista_front', 'lado_izq', 'lado_der', 'tablero', 'vin', 'danos_vis',
+        ];
+        $estatusEvidencia = in_array($slot, self::RECEPCION_ALMACEN_SLOTS, true)
+            ? 'pendiente_almacen'
+            : 'pendiente_envio';
 
         if (in_array($slot, $recepImgSlots, true)) {
             if (!in_array($mime, ['image/jpeg', 'image/png'], true)) {
@@ -665,17 +684,17 @@ class MotosAdjudicadas extends Model
         if ($old) {
             $this->db->CRUD(
                 "UPDATE adj_evidencia
-                    SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'pendiente_envio'
+                    SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus
                   WHERE id_operacion = :id AND slot = :slot",
-                ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora,
+                ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
                  'id'   => $idOperacion, 'slot' => $slot]
             );
         } else {
             $this->db->CRUD(
                 "INSERT INTO adj_evidencia (id_operacion, tipo, slot, url, fecha_alta, alta, estatus)
-                 VALUES (:id, :tipo, :slot, :url, :fecha, :alta, 'pendiente_envio')",
+                 VALUES (:id, :tipo, :slot, :url, :fecha, :alta, :estatus)",
                 ['id'   => $idOperacion, 'tipo' => $tipo, 'slot' => $slot,
-                 'url'  => $urlRelativa, 'fecha' => $ahora, 'alta' => $idUsuario]
+                 'url'  => $urlRelativa, 'fecha' => $ahora, 'alta' => $idUsuario, 'estatus' => $estatusEvidencia]
             );
         }
 
@@ -1183,6 +1202,19 @@ SQL;
         'doc_dacion_rcpt'   => 'CONTRATO DACIÓN (RECEPCIÓN ALMACÉN)',
         'doc_tarjeta_rcpt'  => 'TARJETA CIRCULACIÓN (RECEPCIÓN ALMACÉN)',
         'doc_firma_rcpt'    => 'FIRMA RECEPCIÓN ALMACÉN',
+        'vista_trs'         => 'VISTA TRASERA (RECEPCIÓN ALMACÉN)',
+        'vista_front'       => 'VISTA FRONTAL (RECEPCIÓN ALMACÉN)',
+        'lado_izq'          => 'LADO IZQUIERDO (RECEPCIÓN ALMACÉN)',
+        'lado_der'          => 'LADO DERECHO (RECEPCIÓN ALMACÉN)',
+        'tablero'           => 'TABLERO / ODÓMETRO (RECEPCIÓN ALMACÉN)',
+        'vin'               => 'VIN (RECEPCIÓN ALMACÉN)',
+        'danos_vis'         => 'DAÑOS VISIBLES (RECEPCIÓN ALMACÉN)',
+        'vid_gen'           => 'VIDEO GENERAL 360° (RECEPCIÓN ALMACÉN)',
+    ];
+
+    private const RECEPCION_ALMACEN_SLOTS = [
+        'vista_trs', 'vista_front', 'lado_izq', 'lado_der',
+        'tablero', 'vin', 'danos_vis', 'vid_gen',
     ];
 
     /** Fotos/video que sí se dictaminan (aceptar/rechazar) en Atención a clientes. */
