@@ -56,6 +56,17 @@
         text-overflow: ellipsis;
     }
 
+    /* Columna Retenciones: título largo en varias líneas */
+    .ops-column-header--ret .ops-col-title {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+        text-transform: none;
+        font-size: 0.62rem;
+        line-height: 1.25;
+        letter-spacing: 0.02em;
+    }
+
     .ops-column-header .ops-col-count {
         background: var(--ops-green);
         color: #fff;
@@ -149,16 +160,16 @@
         margin-bottom: 0.5rem;
     }
 
-    /* Tarjeta columna Retenciones (layout acordado con negocio) */
-    .ops-card--ret-kanban .ops-card-folio { margin-bottom: 0; }
+    /* Tarjeta solo columna Retenciones (folio + crédito arriba; sin días ni evidencias) */
     .ops-card--ret-kanban .ops-card-head-top {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0.35rem;
         flex-wrap: wrap;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.25rem;
     }
+    .ops-card--ret-kanban .ops-card-folio { margin-bottom: 0; }
     .ops-card--ret-kanban .ops-card-credito-inline {
         font-size: 0.68rem;
         color: #64748b;
@@ -167,6 +178,24 @@
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 58%;
+    }
+    .ops-card--ret-kanban .ops-card-cliente-lbl {
+        font-size: 0.58rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #94a3b8;
+        margin-top: 0.15rem;
+        margin-bottom: 0.06rem;
+    }
+    .ops-card--ret-kanban .ops-card-nombre--ret {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-bottom: 0.35rem;
+        line-height: 1.3;
     }
     .ops-card--ret-kanban .ops-card-status-pendiente {
         font-size: 0.72rem;
@@ -183,7 +212,7 @@
         margin-bottom: 0.35rem;
     }
     .ops-card--ret-kanban .ops-card-foot-ret {
-        margin-top: 0.4rem;
+        margin-top: 0.35rem;
         border-top: 1px dashed #e2e8f0;
         padding-top: 0.45rem;
         font-size: 0.65rem;
@@ -301,6 +330,13 @@
     .ops-det-area { font-size: .72rem; color: #64748b; margin-top: 2px; }
     .ops-det-id   { font-size: 1.625rem; font-weight: 900; color: var(--ops-green); line-height: 1; }
     .ops-det-lbl  { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; }
+    .ops-det-cliente-nombre {
+        font-size: 1.35rem;
+        font-weight: 800;
+        line-height: 1.2;
+        color: #1e293b;
+        letter-spacing: .02em;
+    }
 
     /* Modal detalle operación — layout ancho, secciones 1.- 2.- 3.- */
     .ops-modal-detalle .ops-det-header {
@@ -310,6 +346,14 @@
     }
     .ops-modal-detalle .ops-det-name { font-size: 1rem; }
     .ops-modal-detalle .ops-det-id { font-size: 1.35rem; }
+    .ops-modal-detalle .ops-det-cliente-nombre { font-size: 1.35rem; }
+    .ops-modal-detalle .ops-det-etapa-badge {
+        font-size: .68rem;
+        line-height: 1.25;
+        white-space: normal;
+        max-width: min(100%, 22rem);
+        text-align: left;
+    }
 
     .ops-exp-block {
         border: 1px solid #e2e8f0;
@@ -597,6 +641,7 @@
     body.dark-mode .ops-card-credito { color: #94a3b8; }
 
     body.dark-mode .ops-card--ret-kanban .ops-card-credito-inline { color: #94a3b8; }
+    body.dark-mode .ops-card--ret-kanban .ops-card-cliente-lbl { color: #64748b; }
     body.dark-mode .ops-card--ret-kanban .ops-card-status-detalle { color: #cbd5e1; }
     body.dark-mode .ops-card--ret-kanban .ops-card-foot-ret {
         border-top-color: #334155;
@@ -637,6 +682,7 @@
         box-shadow: 0 1px 4px rgba(99,102,241,.18);
     }
     body.dark-mode .ops-det-name  { color: #f1f5f9; }
+    body.dark-mode .ops-det-cliente-nombre { color: #f1f5f9; }
     body.dark-mode .ops-det-area  { color: #94a3b8; }
     body.dark-mode .ops-det-lbl   { color: #475569; }
 
@@ -919,9 +965,12 @@
             const cards = groups[stage];
             const col = document.createElement('div');
             col.className = 'ops-column';
+            const esRet = stage === 'Retenciones';
+            const tituloCol = esRet ? 'Actualmente se encuentra en Retenciones' : stage;
+            const hdrClass = esRet ? 'ops-column-header ops-column-header--ret' : 'ops-column-header';
             col.innerHTML = `
-                <div class="ops-column-header">
-                    <span class="ops-col-title"><i class="fa-solid ${STAGE_ICONS[stage]} me-1"></i>${stage}</span>
+                <div class="${hdrClass}">
+                    <span class="ops-col-title"><i class="fa-solid ${STAGE_ICONS[stage]} me-1"></i>${tituloCol}</span>
                     <span class="ops-col-count">${cards.length}</span>
                 </div>
                 <div class="ops-cards-body" id="ops-col-${opsSlug(stage)}">
@@ -940,7 +989,7 @@
         return op.estatus === 'cancelado' || op.estatus === 'Retenciones';
     }
 
-    /** Línea de estado bajo el nombre (tarjeta Retenciones con dictamen de llamada). */
+    /** Resumen tipo · resultado · dictamen (último dictamen de llamada en Retenciones). */
     function opsRetencionesLineaDetalle(op) {
         const tipo = String(op.ret_llamada_tipo_contacto || '').trim();
         const res = String(op.ret_llamada_resultado || '').trim();
@@ -1008,7 +1057,8 @@
                 <span class="ops-card-folio">${opsEsc(op.folio)}</span>
                 <span class="ops-card-credito-inline"><i class="fa-solid fa-hashtag me-1" style="opacity:.5;"></i>Crédito ${opsEsc(String(op.id_credito))}</span>
             </div>
-            <div class="ops-card-nombre">${opsEsc(op.nombre_cliente)}</div>
+            <div class="ops-card-cliente-lbl">Cliente</div>
+            <div class="ops-card-nombre ops-card-nombre--ret">${opsEsc(op.nombre_cliente)}</div>
             ${statusHtml}
             ${footHtml}
             ${canceladoBadge}${transitoBadge}
@@ -1073,13 +1123,19 @@
         _activeOpId = op.id;
         document.getElementById('det-folio').textContent = op.folio;
 
+        const est = (op.estatus || '').toString();
+        const textoEtapa = (est === 'Retenciones' || est === 'cancelado')
+            ? 'Actualmente se encuentra en Retenciones'
+            : est;
+
         const html = `
         <div class="ops-modal-detalle">
         <div class="ops-det-header d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 mb-3">
             <div>
-                <div class="ops-det-name">${opsEsc(op.nombre_cliente)}</div>
+                <div class="ops-det-lbl">Cliente</div>
+                <div class="ops-det-cliente-nombre">${opsEsc(op.nombre_cliente)}</div>
                 <div class="mt-1">
-                    <span class="badge" style="background:var(--ops-green);color:#fff;border-radius:999px;font-size:.68rem;padding:.2rem .55rem;">${opsEsc(op.estatus)}</span>
+                    <span class="badge ops-det-etapa-badge" style="background:var(--ops-green);color:#fff;border-radius:999px;padding:.28rem .65rem;">${opsEsc(textoEtapa)}</span>
                 </div>
             </div>
             <div class="text-end">
@@ -1231,6 +1287,8 @@
 
     function opsRenderDatosExpediente(op, d) {
         const gestor = (d && d.gestor_nombre) ? d.gestor_nombre : (op.gestor_nombre || null);
+        const enRetenciones = op.estatus === 'cancelado' || op.estatus === 'Retenciones';
+        const gestorMostrar = enRetenciones ? 'Pendiente de mandar' : gestor;
         let estatusBadge;
         if (!d) {
             estatusBadge = '<span style="display:inline-flex;align-items:center;background:#fef9c3;color:#713f12;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-clock me-1"></i>Pendiente de gestión</span>';
@@ -1239,11 +1297,6 @@
         } else {
             estatusBadge = '<span style="display:inline-flex;align-items:center;background:#dbeafe;color:#1e40af;font-size:.78rem;font-weight:700;border-radius:20px;padding:2px 10px;"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>';
         }
-        const credBloque =
-            '<div class="ops-exp-kv ops-exp-kv--credito-stack">' +
-            '<span class="ops-exp-kv-val ops-exp-kv-credito-id">Crédito' + opsEsc(String(op.id_credito)) + '</span>' +
-            '<span class="ops-exp-kv-val ops-exp-kv-credito-nombre">' + opsEsc(op.nombre_cliente) + '</span>' +
-            '</div>';
         const comHtml = d && d.comentarios
             ? '<span class="ops-exp-kv-val" style="white-space:pre-line;">' + opsEsc(d.comentarios) + '</span>'
             : null;
@@ -1253,13 +1306,11 @@
             '<div class="ops-exp-block-title"><i class="fa-solid fa-headset me-2" style="opacity:.9;"></i>1.- Retenciones — Atención a clientes</div>' +
             '<div class="ops-exp-block-body">' +
             '<div class="row g-2 g-md-3">' +
-            '<div class="col-sm-6 col-lg-3">' + credBloque + '</div>' +
-            '<div class="col-sm-6 col-lg-3 ops-exp-col-folio">' + opsExpKv('Folio ADJ', op.folio, false) + '</div>' +
             '<div class="col-sm-6 col-lg-3">' + opsExpKv('Estatus dictamen', estatusBadge, true) + '</div>' +
             '<div class="col-sm-6 col-lg-3">' + opsExpKv('Dictamen', d && d.dictamen ? d.dictamen : null, false) + '</div>' +
-            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Gestor a cargo', gestor, false) + '</div>' +
+            '<div class="col-sm-6 col-lg-3">' + opsExpKv('Gestor a cargo', gestorMostrar, false) + '</div>' +
             '<div class="col-sm-6 col-lg-3">' + opsExpKv('Fecha dictamen', d && d.fecha_alta_fmt ? d.fecha_alta_fmt : null, false) + '</div>' +
-            '<div class="col-sm-12 col-lg-6">' + opsExpKv('Comentarios', comHtml, true) + '</div>' +
+            '<div class="col-sm-12 col-lg-12">' + opsExpKv('Comentarios', comHtml, true) + '</div>' +
             '</div></div></div>';
 
         const vehMarca = [op.marca, op.modelo].filter(Boolean).join(' ') || null;
