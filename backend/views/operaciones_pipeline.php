@@ -266,20 +266,23 @@
                 const piePipe         = String(op.ret_registro_pipe_fmt || op.fecha_alta || '').trim();
                 const statusTxt = !tieneLlamadaRet
                     ? `<span class="text-danger fw-bold" style="font-size:.7rem;">Pendiente de llamada</span>`
-                    : `<span class="text-muted" style="font-size:.7rem;">${opsEsc(opsRetencionesLineaDetalle(op))}</span>`;
-                const footTxt = `<span class="text-muted" style="font-size:.68rem;">${opsEsc(!tieneLlamadaRet ? (piePipe || '—') : fechaLlamada)}</span>`;
+                    : `<span class="text-muted" style="font-size:.7rem;">${opsEsc(opsRetencionesLineaDetalle(op))}</span>`;;
+                const fechaPie = !tieneLlamadaRet ? (piePipe || '—') : fechaLlamada;
                 return `
-            <div class="card mb-1 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.5rem;" onclick="opsAbrirDetalle(${op.id})">
-                <div class="px-2 py-1">
-                    <div class="d-flex align-items-center justify-content-between gap-1">
+            <div class="card mb-1 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.5rem;display:flex;flex-direction:column;" onclick="opsAbrirDetalle(${op.id})">
+                <div class="px-2 pt-2 pb-1 flex-grow-1">
+                    <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
                         <span class="badge bg-label-primary" style="font-size:.65rem;">${opsEsc(op.folio)}</span>
                         <span class="text-muted text-truncate" style="font-size:.68rem; max-width:55%;">#${opsEsc(String(op.id_credito))}</span>
                         ${canceladoBadge}
                     </div>
                     <div class="fw-semibold text-truncate" style="font-size:.78rem;">${opsEsc(op.nombre_cliente)}</div>
-                    <div class="d-flex align-items-center justify-content-between gap-1 mt-1 pt-1 border-top">
-                        ${statusTxt}${footTxt}
-                    </div>
+                    <div class="mt-1">${statusTxt}</div>
+                </div>
+                <div class="px-2 py-1 border-top d-flex align-items-center gap-1" style="background:var(--bs-tertiary-bg,#f8f9fa);border-radius:0 0 .35rem .35rem;">
+                    <i class="fa-regular fa-clock text-muted" style="font-size:.62rem;flex-shrink:0;"></i>
+                    <span class="text-muted fw-semibold" style="font-size:.62rem;flex-shrink:0;">Últ. act.&nbsp;</span>
+                    <span class="text-muted text-truncate" style="font-size:.65rem;">${opsEsc(fechaPie)}</span>
                 </div>
             </div>`;
             }
