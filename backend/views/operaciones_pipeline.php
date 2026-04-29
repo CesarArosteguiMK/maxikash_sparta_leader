@@ -800,7 +800,7 @@
             <div class="modal-header" style="background:var(--ops-green-light); border-bottom:1px solid var(--ops-green-border);">
                 <h5 class="modal-title" style="color:var(--ops-green-text);">
                     <i class="fa-solid fa-diagram-project me-2" style="color:var(--ops-green);"></i>
-                    Detalle de Operación — <span id="det-folio"></span>
+                    Detalle de Operación
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -1125,7 +1125,6 @@
 
     function opsAbrirDetalle(id) {
         _detalleActual = null;
-        document.getElementById('det-folio').textContent = '…';
         document.getElementById('det-body').innerHTML = `
             <div class="text-center py-4">
                 <div class="spinner-border spinner-border-sm" style="color:var(--ops-green);"></div>
@@ -1151,7 +1150,6 @@
     function opsRenderDetalle(op, dictamen) {
         dictamen = dictamen || null;
         _activeOpId = op.id;
-        document.getElementById('det-folio').textContent = op.folio;
 
         const textoEtapa = opsTextoEtapaUsuario(op);
 
