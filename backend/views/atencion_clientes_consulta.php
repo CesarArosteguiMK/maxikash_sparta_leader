@@ -188,8 +188,10 @@
 .ac-btn-dictaminar:active { transform: translateY(0); }
 
 /* ── Badges de dictamen ── */
-.ac-badge-transito  { background: #dbeafe; color: #1e40af; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
-.ac-badge-cancelado { background: #fee2e2; color: #b91c1c; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
+.ac-badge-transito       { background: #dbeafe; color: #1e40af; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
+.ac-badge-cancelado      { background: #fee2e2; color: #b91c1c; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
+.ac-badge-pendiente      { background: #fef3c7; color: #92400e; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
+.ac-badge-ultimo-intento { background: #fde8e8; color: #991b1b; font-size: .78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
 
 /* ── Modal Dictaminar ── */
 .ac-modal-sep {
@@ -259,8 +261,10 @@ body.dark-mode .ac-modal-label        { color: #94a3b8; }
 body.dark-mode .ac-resumen-row        { border-color: #334155; }
 body.dark-mode .ac-resumen-lbl        { color: #94a3b8; }
 body.dark-mode .ac-resumen-val        { color: #e2e8f0; }
-body.dark-mode .ac-badge-transito     { background: rgba(30,64,175,.35); color: #93c5fd; }
-body.dark-mode .ac-badge-cancelado    { background: rgba(185,28,28,.35); color: #fca5a5; }
+body.dark-mode .ac-badge-transito        { background: rgba(30,64,175,.35); color: #93c5fd; }
+body.dark-mode .ac-badge-cancelado       { background: rgba(185,28,28,.35); color: #fca5a5; }
+body.dark-mode .ac-badge-pendiente       { background: rgba(146,64,14,.35); color: #fcd34d; }
+body.dark-mode .ac-badge-ultimo-intento  { background: rgba(153,27,27,.35); color: #fca5a5; }
 body.dark-mode .ae-list-cell .ac-lbl { color: #94a3b8; }
 body.dark-mode .ae-list-cell .ac-val { color: #e2e8f0; }
 body.dark-mode .ae-list-muted { color: #64748b; }
@@ -318,6 +322,14 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                         <span class="badge bg-label-secondary ms-1" id="ac-badge-dictaminados" style="display:none;"></span>
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-pendientes-btn"
+                            data-bs-toggle="tab" data-bs-target="#tabPendientes"
+                            type="button" role="tab">
+                        <i class="fa-solid fa-clock-rotate-left me-1"></i>Pendientes
+                        <span class="badge bg-label-warning ms-1" id="ac-badge-pendientes" style="display:none;"></span>
+                    </button>
+                </li>
             </ul>
         </div>
 
@@ -337,6 +349,14 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
                 </div>
                 <div id="ac-lista-dictaminados"></div>
+            </div>
+
+            <!-- ── TAB PENDIENTES ── -->
+            <div class="tab-pane fade" id="tabPendientes" role="tabpanel">
+                <div id="ac-loader-pendientes" class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2"></div>Cargando...
+                </div>
+                <div id="ac-lista-pendientes"></div>
             </div>
 
         </div>
@@ -486,7 +506,11 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
     // ESTADO LOCAL
     // ──────────────────────────────────────────────────────────────────
     let _acEntrMap    = {};   // id → item completo de entrantes
+    let _acPendMap    = {};   // id → item completo de pendientes
     let _acItemActual = null; // item del modal abierto
+    let _acItemSource = 'entrante'; // 'entrante' | 'pendiente'
+
+    const AC_MAX_INTENTOS = 4;
 
     // ──────────────────────────────────────────────────────────────────
     // HELPERS
@@ -515,6 +539,10 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
 
         document.getElementById('tab-dictaminados-btn').addEventListener('shown.bs.tab', function () {
             acCargarDictaminados();
+        });
+
+        document.getElementById('tab-pendientes-btn').addEventListener('shown.bs.tab', function () {
+            acCargarPendientes();
         });
 
         document.getElementById('ac-btn-guardar-dictamen')
@@ -588,6 +616,44 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                 }
 
                 lista.innerHTML = data.datos.map(acRenderCardDictaminado).join('');
+            })
+            .catch(err => {
+                lista.innerHTML = `<div class="alert alert-danger">${acEsc(err.message)}</div>`;
+            })
+            .finally(() => { loader.style.display = 'none'; });
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // CARGAR PENDIENTES
+    // ──────────────────────────────────────────────────────────────────
+    function acCargarPendientes() {
+        const loader = document.getElementById('ac-loader-pendientes');
+        const lista  = document.getElementById('ac-lista-pendientes');
+
+        loader.style.display = 'block';
+        lista.innerHTML      = '';
+
+        fetch('/AtencionClientes/obtenerPendientes', { headers: { 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.message || 'Error al cargar');
+
+                const badge = document.getElementById('ac-badge-pendientes');
+                if (data.datos.length > 0) {
+                    badge.textContent   = data.datos.length;
+                    badge.style.display = '';
+                } else {
+                    badge.style.display = 'none';
+                }
+
+                if (data.datos.length === 0) {
+                    lista.innerHTML = acSinDatos('No hay operaciones pendientes en este momento.');
+                    return;
+                }
+
+                _acPendMap = {};
+                data.datos.forEach(item => { _acPendMap[item.id] = item; });
+                lista.innerHTML = data.datos.map(acRenderCardPendiente).join('');
             })
             .catch(err => {
                 lista.innerHTML = `<div class="alert alert-danger">${acEsc(err.message)}</div>`;
@@ -706,6 +772,70 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // RENDER CARD — PENDIENTE
+    // ──────────────────────────────────────────────────────────────────
+    function acRenderCardPendiente(item) {
+        const intentos    = parseInt(item.intentos_realizados || 0, 10);
+        const esUltimo    = intentos === AC_MAX_INTENTOS - 1;
+        const sinIntentos = intentos >= AC_MAX_INTENTOS;
+
+        let badgeHtml;
+        if (sinIntentos) {
+            badgeHtml = `<span class="ac-badge-cancelado"><i class="fa-solid fa-ban me-1"></i>Sin intentos disponibles</span>`;
+        } else if (esUltimo) {
+            badgeHtml = `<span class="ac-badge-ultimo-intento"><i class="fa-solid fa-triangle-exclamation me-1"></i>Último intento (${intentos + 1}&nbsp;/&nbsp;${AC_MAX_INTENTOS})</span>`;
+        } else {
+            badgeHtml = `<span class="ac-badge-pendiente"><i class="fa-solid fa-clock me-1"></i>Intento ${intentos + 1}&nbsp;/&nbsp;${AC_MAX_INTENTOS}</span>`;
+        }
+
+        const g  = item.gestor_nombre
+            ? acEsc(item.gestor_nombre)
+            : '<span class="ae-list-muted">Sin asignar</span>';
+        const nombreCliente = item.nombre_cliente
+            ? acEsc(item.nombre_cliente)
+            : '<span class="ae-list-muted">Sin nombre</span>';
+        const folio  = item.folio ? acEsc(item.folio) : '—';
+        const fechaU = item.fecha_ultimo_intento
+            ? acEsc(item.fecha_ultimo_intento)
+            : '<span class="ae-list-muted">—</span>';
+        const idOp   = parseInt(item.id, 10) || 0;
+
+        return `
+        <div class="ac-card">
+            <div class="ac-card-body">
+                <div class="ae-list-grid">
+                    <div class="ae-list-cell ae-main-meta">
+                        <span class="ae-main-folio">${folio}</span>
+                        <span class="ae-main-credito"># Crédito ${acEsc(String(item.id_credito))}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-gestor">
+                        <span class="ac-lbl">Gestor a cargo</span>
+                        <span class="ac-val">${g}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-asig">
+                        <span class="ac-lbl">Último intento</span>
+                        <span class="ac-val">${fechaU}</span>
+                    </div>
+                    <div class="ae-list-cell ae-list-nombre">
+                        <span class="ac-lbl">Nombre</span>
+                        <span class="ac-val">${nombreCliente}</span>
+                    </div>
+                    <div class="ae-list-cell" style="grid-column: span 2;">
+                        <span class="ac-lbl">Intentos realizados</span>
+                        <span class="ac-val">${badgeHtml}</span>
+                    </div>
+                </div>
+                <div class="ae-list-action">
+                    <button type="button" class="ac-btn-dictaminar"
+                            onclick="acAbrirDictaminar(${idOp}, 'pendiente')" ${idOp ? '' : 'disabled'}>
+                        <i class="fa-solid fa-phone-volume me-1"></i>Dictaminar
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // ABRIR MODAL DICTAMINAR
     // ──────────────────────────────────────────────────────────────────
     // Opciones de resultado según tipo-contacto
@@ -714,14 +844,31 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
         'Sin contacto': ['Buzón de voz', 'No contesta', 'Fuera de servicio', 'Número equivocado'],
     };
 
-    // Opciones de dictamen según resultado
-    const AC_DICTAMEN_OPTS = {
-        'Contacto efectivo':  ['Autorizado para recolección', 'Cancelado, promesa de pago'],
+    // Opciones de dictamen según resultado (dinámico para Contacto efectivo)
+    const AC_DICTAMEN_OPTS_STATIC = {
         'Buzón de voz':       ['Pendiente de contacto', 'No localizado'],
         'No contesta':        ['Pendiente de contacto', 'No localizado'],
         'Fuera de servicio':  ['Pendiente de contacto', 'No localizado'],
         'Número equivocado':  ['Pendiente de contacto', 'No localizado'],
     };
+
+    function acGetDictamenOpts(resultado) {
+        if (resultado !== 'Contacto efectivo') {
+            return AC_DICTAMEN_OPTS_STATIC[resultado] || [];
+        }
+        const intentos = (_acItemActual && _acItemActual.intentos_realizados != null)
+            ? parseInt(_acItemActual.intentos_realizados, 10) : 0;
+        const base = ['Autorizado para recolección', 'Cancelado, promesa de pago'];
+        if (intentos >= AC_MAX_INTENTOS) {
+            base.push('Cancelamiento total (sin intentos)');
+        } else if (intentos === AC_MAX_INTENTOS - 1) {
+            base.push('Pendiente, último intento');
+        } else {
+            const quedan = AC_MAX_INTENTOS - intentos - 1;
+            base.push('Pendiente, nuevo intento (quedan ' + quedan + ')');
+        }
+        return base;
+    }
 
     function acRebuildSelect(selectId, opciones, placeholder) {
         const sel = document.getElementById(selectId);
@@ -737,8 +884,12 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
     // Mapa: value → {telefono, nombre} de los contactos cargados dinámicamente
     let _acContactosMap = {};
 
-    window.acAbrirDictaminar = function (idOperacion) {
-        _acItemActual = _acEntrMap[idOperacion] || null;
+    window.acAbrirDictaminar = function (idOperacion, source) {
+        source        = source || 'entrante';
+        _acItemSource = source;
+        _acItemActual = source === 'pendiente'
+            ? (_acPendMap[idOperacion] || null)
+            : (_acEntrMap[idOperacion] || null);
         const idCredito = _acItemActual ? (_acItemActual.id_credito || 0) : 0;
 
         document.getElementById('ac-dict-id-operacion').value = idOperacion;
@@ -817,7 +968,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
 
     // ── Cascada: Resultado → Dictamen ────────────────────────────────
     document.getElementById('ac-dict-resultado').addEventListener('change', function () {
-        const opciones = AC_DICTAMEN_OPTS[this.value] || [];
+        const opciones = acGetDictamenOpts(this.value);
         acRebuildSelect('ac-dict-dictamen', opciones,
             opciones.length ? '— Seleccione dictamen —' : '— Seleccione resultado primero —');
     });
@@ -845,6 +996,7 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
 
         const payload = {
             id_operacion:       idOperacion,
+            source:             _acItemSource,
             llamada_a:          llamadaALabel,
             numero:             document.getElementById('ac-dict-numero').value,
             persona_contactada: document.getElementById('ac-dict-persona-contactada').value,
@@ -875,6 +1027,8 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     mensajeExtra = 'La operación fue trasladada a <strong>Recibido</strong>.';
                 } else if (data.estatus_nuevo === 'cancelado') {
                     mensajeExtra = 'La operación quedó marcada como <strong>Cancelado</strong> en Retenciones.';
+                } else if (data.estatus_nuevo === 'pendiente') {
+                    mensajeExtra = 'La operación fue movida a la pestaña de <strong>Pendientes</strong>.';
                 }
 
                 Swal.fire({
@@ -882,7 +1036,10 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     title: 'Dictamen guardado',
                     html: 'El dictamen fue registrado correctamente.' + (mensajeExtra ? '<br><small class="text-muted">' + mensajeExtra + '</small>' : ''),
                     confirmButtonColor: '#2563eb',
-                }).then(() => { acCargarEntrantes(); });
+                }).then(() => {
+                    acCargarEntrantes();
+                    acCargarPendientes();
+                });
             })
             .catch(err => {
                 Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#2563eb' });
