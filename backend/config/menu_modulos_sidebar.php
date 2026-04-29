@@ -110,6 +110,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'subItems' => [
                     ['label' => 'Segundometro', 'url' => '/segundometro/shell', 'modulos' => [16]],
                     ['label' => 'Gastos Cobranza', 'url' => '/gastoscobranza/shell', 'modulos' => [31]],
+                    ['label' => 'Cartera', 'url' => '/gastoscobranza/shellcartera', 'modulos' => [50]],
                 ],
             ],
         ];

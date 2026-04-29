@@ -14,6 +14,9 @@ class Gastoscobranza extends Controller
     /** POST /run puede tardar horas (miles de llamadas S2); antes 600s PHP cortaba y el navegador veía «Error al invocar /run». */
     private const AGENTE_RUN_TIMEOUT_SEC = 7200;
 
+    /** Cartera en Servicios está restringido al módulo web 50. */
+    private const MODULO_CARTERA = 50;
+
     public function __construct()
     {
         parent::__construct();
@@ -24,6 +27,21 @@ class Gastoscobranza extends Controller
         // Solo [gastoscobranza_agent] vía parse_ini(process_sections); no usar CONFIGURACION plano (colisiona "enabled"/"url"/"key").
         $enabled = $this->agenteIni('enabled', '0');
         return in_array((string)$enabled, ['1', 'true', 'TRUE', 'yes', 'on'], true);
+    }
+
+    private function usuarioTieneModulo(int $moduloId): bool
+    {
+        $modulos = $_SESSION['modulos'] ?? [];
+        if (!is_array($modulos)) {
+            return false;
+        }
+        foreach ($modulos as $mid) {
+            if ((int) $mid === $moduloId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function agenteBaseUrl()
@@ -168,6 +186,34 @@ class Gastoscobranza extends Controller
         $this->set('reportes_esta_semana', $resumen['reportes_esta_semana']);
         $this->set('ultimo_reporte', $resumen['ultimo_reporte']);
         $this->set('reporte_automatico', $resumen['reporte_automatico']);
+        $this->set('gc_shell_modo_cartera', false);
+        self::render('shell_gastos_cobranza');
+    }
+
+    /**
+     * Servicios → Cartera: misma integración con el agente que Gastos Cobranza, con UI reducida (módulo web 50).
+     */
+    public function shellcartera()
+    {
+        if (!$this->usuarioTieneModulo(self::MODULO_CARTERA)) {
+            header('Location: /' . VISTA_DEFECTO);
+            exit;
+        }
+        $this->set('titulo', 'Cartera');
+        $this->set('tituloShell', 'Cartera');
+        $this->set('gastosCobranzaAgenteUrl', $this->agenteBaseUrl());
+        $this->set('gastosCobranzaAgenteHabilitado', $this->agenteHabilitado());
+        $resumen = $this->shellCalcularResumenReportesVista();
+        $this->set('reportes_esta_semana', $resumen['reportes_esta_semana']);
+        $this->set('ultimo_reporte', $resumen['ultimo_reporte']);
+        $this->set('reporte_automatico', $resumen['reporte_automatico']);
+        $this->set('gc_shell_modo_cartera', true);
+        $this->set('gc_shell_modulo_badge', 'Módulo 50');
+        $this->set('gc_shell_ec_worker_label', 'Conciliar Pagos');
+        $this->set('gc_shell_ec_modal_titulo', 'Conciliar Pagos en Sparta');
+        $this->set('gc_shell_ec_btn_ejecutar', 'Conciliar pagos');
+        $this->set('gc_shell_ec_footer_hint', 'La corrida puede tardar varios minutos.');
+        $this->set('gc_shell_ec_salida_label', 'Salida');
         self::render('shell_gastos_cobranza');
     }
 

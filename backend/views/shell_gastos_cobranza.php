@@ -1,22 +1,41 @@
+<?php
+$gc_shell_modo_cartera = !empty($gc_shell_modo_cartera);
+$gc_shell_modulo_badge = isset($gc_shell_modulo_badge) ? (string) $gc_shell_modulo_badge : 'Módulo 31';
+$gc_shell_ec_worker_label = isset($gc_shell_ec_worker_label) ? (string) $gc_shell_ec_worker_label : 'EC Worker';
+$gc_shell_ec_modal_titulo = isset($gc_shell_ec_modal_titulo) ? (string) $gc_shell_ec_modal_titulo : 'EC Worker / Excel enriquecido';
+$gc_shell_ec_btn_ejecutar = isset($gc_shell_ec_btn_ejecutar) ? (string) $gc_shell_ec_btn_ejecutar : 'Ejecutar corrida del agente';
+$gc_shell_ec_footer_hint = isset($gc_shell_ec_footer_hint) ? (string) $gc_shell_ec_footer_hint
+    : 'La corrida puede tardar varios minutos. En modo Worker estándar, al finalizar bien se dispara en automático la lista negra con el mismo Excel para dejar reflejados esos valores en verificación semana.';
+$gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shell_ec_salida_label : 'Salida EC worker / enrich';
+?>
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm border-0 gc-shell-hero-card">
                 <div class="card-body py-4">
                     <div class="row align-items-center g-4">
-                        <div class="col-lg-8">
+                        <div class="<?= $gc_shell_modo_cartera ? 'col-12' : 'col-lg-8' ?>">
                             <div class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-1">
                                 <h4 class="mb-0 fw-semibold text-heading gc-shell-hero-title">
                                     <i class="fa fa-file-invoice-dollar text-primary me-2"></i>
                                     <?= htmlspecialchars(isset($tituloShell) ? $tituloShell : 'Gastos Cobranza', ENT_QUOTES, 'UTF-8') ?>
                                 </h4>
+                                <?php if (!$gc_shell_modo_cartera): ?>
                                 <span id="gastosCobranzaEstadoBadge" class="badge bg-label-secondary">Comprobando…</span>
+                                <?php endif; ?>
                             </div>
+                            <?php if ($gc_shell_modo_cartera): ?>
+                            <p class="small text-muted mb-0 mt-1" style="max-width:42rem;">
+                                Vista simplificada para consultar reportes y conciliar pagos. El avance del proceso se muestra en <strong>Herramienta</strong> debajo.
+                            </p>
+                            <?php else: ?>
                             <div id="gastosCobranzaDetalle" class="small text-muted mt-1" style="min-height:1.25em"></div>
-                            <div id="gastosCobranzaEjecucionBanner" class="alert alert-primary d-none py-2 px-3 mt-2 mb-0 small d-flex align-items-center gap-2" role="status" aria-live="polite">
+                            <?php endif; ?>
+                            <div id="gastosCobranzaEjecucionBanner" class="alert alert-primary d-none py-2 px-3 mt-2 mb-0 small d-flex align-items-center gap-2<?= $gc_shell_modo_cartera ? ' gc-cartera-sin-banner-ejec' : '' ?>" role="status" aria-live="polite">
                                 <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
                                 <span class="gc-ejec-text fw-semibold">Operación en curso…</span>
                             </div>
                         </div>
+                        <?php if (!$gc_shell_modo_cartera): ?>
                         <div class="col-lg-4 d-flex justify-content-lg-end">
                             <div class="gc-shell-module-card">
                                 <div class="gc-shell-module-icon" aria-hidden="true">
@@ -24,10 +43,11 @@
                                 </div>
                                 <div class="gc-shell-module-text">
                                     <span class="gc-shell-module-label">Control de acceso</span>
-                                    <span class="gc-shell-module-name">Módulo 31</span>
+                                    <span class="gc-shell-module-name"><?= htmlspecialchars($gc_shell_modulo_badge, ENT_QUOTES, 'UTF-8') ?></span>
                                 </div>
                             </div>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -42,14 +62,15 @@
     $gcRepAutoClase = ($gcRepAuto === 'Activo') ? 'text-success' : (($gcRepAuto === 'Inactivo') ? 'text-danger' : 'text-muted');
     ?>
     <div style="background:#fff; border:0.5px solid #dde3ec; border-radius:12px; padding:16px 22px; margin-bottom:12px; display:flex; gap:0; flex-wrap:wrap;">
-        <div style="flex:1; padding-right:20px; border-right:0.5px solid #eef1f5;">
+        <div style="flex:1; padding-right:20px; <?= $gc_shell_modo_cartera ? '' : 'border-right:0.5px solid #eef1f5;' ?>">
             <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Reportes esta semana</div>
             <div style="font-size:15px; font-weight:700; color:#2ecc8b;"><?= htmlspecialchars($gcRepSem, ENT_QUOTES, 'UTF-8') ?></div>
         </div>
-        <div style="flex:1; padding:0 20px; border-right:0.5px solid #eef1f5;">
+        <div style="flex:1; padding:0 20px; <?= $gc_shell_modo_cartera ? '' : 'border-right:0.5px solid #eef1f5;' ?>">
             <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Último reporte</div>
             <div style="font-size:15px; font-weight:700; color:#1a3a5c;"><?= htmlspecialchars($gcUltRep, ENT_QUOTES, 'UTF-8') ?></div>
         </div>
+        <?php if (!$gc_shell_modo_cartera): ?>
         <div style="flex:1; padding-left:20px;">
             <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Reporte automático</div>
             <div class="form-check form-switch mb-0 gc-auto-run-switch d-flex align-items-center gap-2 ps-0">
@@ -58,19 +79,54 @@
                 <span id="gcAutoRunEstadoTexto" class="small fw-semibold <?= htmlspecialchars($gcRepAutoClase, ENT_QUOTES, 'UTF-8') ?>" style="color:<?= htmlspecialchars($gcRepAutoColor, ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars($gcRepAuto, ENT_QUOTES, 'UTF-8') ?></span>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 
     <div class="row mb-3">
         <div class="col-12">
-            <div id="shellGastosCobranzaAccionesBar" class="card shadow-sm border-0">
+            <div id="shellGastosCobranzaAccionesBar" class="card shadow-sm border-0<?= $gc_shell_modo_cartera ? ' gc-shell-cartera-acciones' : '' ?>">
                 <div class="card-body py-3">
                     <div class="sg-agent-head mb-3">
+                        <?php if ($gc_shell_modo_cartera): ?>
+                        <span class="sg-agent-title">
+                            <span class="sg-agent-dot" aria-hidden="true"></span>
+                            Herramienta
+                        </span>
+                        <span class="sg-agent-title gc-cartera-titulo-actividad-head">
+                            <span class="sg-agent-dot" aria-hidden="true"></span>
+                            Actividad
+                        </span>
+                        <?php else: ?>
                         <span class="sg-agent-title">
                             <span class="sg-agent-dot" aria-hidden="true"></span>
                             Herramientas del agente
                         </span>
+                        <?php endif; ?>
                     </div>
                     <div class="sg-agent-actions">
+                        <?php if ($gc_shell_modo_cartera): ?>
+                        <div class="gc-cartera-herramienta-cuerpo w-100">
+                            <div class="gc-cartera-herramienta-col-accion">
+                                <div class="sg-agent-row-top">
+                                    <div class="sg-btn-wrap">
+                                        <button type="button" class="sg-tip-btn sg-btn-violet" id="btnGcAbrirModalEcWorker" data-bs-toggle="modal" data-bs-target="#modalGcEcWorker">
+                                            <span class="sg-tip-btn-face">
+                                                <i class="fa fa-rocket" aria-hidden="true"></i>
+                                                <span class="sg-btn-label"><?= htmlspecialchars($gc_shell_ec_worker_label, ENT_QUOTES, 'UTF-8') ?></span>
+                                                <span class="sg-tooltip-icon" data-tip="Sube el Excel acordado y concilia pagos en Sparta (mismo proceso técnico que el worker GC). Puede tardar varios minutos."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="gc-cartera-actividad w-100 min-w-0">
+                                <div class="gc-cartera-actividad-header mb-2">
+                                    <span class="badge rounded-pill bg-label-secondary gc-cartera-act-pill" id="gcCarteraActividadEstado">En espera</span>
+                                </div>
+                                <div id="gcCarteraActividadList" class="gc-cartera-actividad-list small" role="log" aria-live="polite" aria-relevant="additions"></div>
+                            </div>
+                        </div>
+                        <?php else: ?>
                         <div class="sg-agent-row-top">
                             <div class="sg-btn-wrap">
                                 <button type="button" class="sg-tip-btn sg-btn-violet" id="btnGcAbrirModalEcWorker" data-bs-toggle="modal" data-bs-target="#modalGcEcWorker">
@@ -109,12 +165,14 @@
                                 </span>
                             </button>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <?php if (!$gc_shell_modo_cartera): ?>
     <div class="row mb-3">
         <div class="col-12">
             <div class="card shadow-sm border-0">
@@ -149,22 +207,24 @@
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
     <div class="modal fade" id="modalGcEcWorker" tabindex="-1" aria-labelledby="modalGcEcWorkerLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title fw-semibold" id="modalGcEcWorkerLabel" style="color:#1a3a5c;">
-                        <i class="fa fa-rocket text-secondary me-2" aria-hidden="true"></i>EC Worker / Excel enriquecido
+                        <i class="fa fa-rocket text-secondary me-2" aria-hidden="true"></i><?= htmlspecialchars($gc_shell_ec_modal_titulo, ENT_QUOTES, 'UTF-8') ?>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row g-3 align-items-end">
-                        <div class="col-12 col-md-6 col-lg-5">
+                        <div class="col-12 <?= $gc_shell_modo_cartera ? '' : 'col-md-6 col-lg-5' ?>">
                             <label class="form-label small mb-1 text-muted" for="ecLauncherFile">Excel (.xlsx) — requerido</label>
                             <input type="file" class="form-control form-control-sm" id="ecLauncherFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" autocomplete="off">
                         </div>
+                        <?php if (!$gc_shell_modo_cartera): ?>
                         <div class="col-6 col-md-3 col-lg-2">
                             <label class="form-label small mb-1 text-muted" for="ecLauncherFecha">Fecha corte S2</label>
                             <input type="date" class="form-control form-control-sm" id="ecLauncherFecha">
@@ -186,6 +246,7 @@
                                 </label>
                             </div>
                         </div>
+                        <?php endif; ?>
                     </div>
                     <div id="ecErroresReintentoBanner" class="alert alert-warning d-none mt-3 mb-0 py-2 small" role="alert">
                         Tras la segunda pasada automática aún hubo créditos con error.
@@ -193,20 +254,21 @@
                         para revisión manual.
                     </div>
                     <div id="ecLauncherSalidaWrap" class="d-none mt-3">
-                        <label class="form-label small fw-semibold">Salida EC worker / enrich</label>
+                        <label class="form-label small fw-semibold"><?= htmlspecialchars($gc_shell_ec_salida_label, ENT_QUOTES, 'UTF-8') ?></label>
                         <pre id="ecLauncherSalida" class="bg-light border rounded p-2 small mb-0" style="max-height:260px;overflow:auto;white-space:pre-wrap;"></pre>
                     </div>
                 </div>
                 <div class="modal-footer d-flex flex-wrap align-items-center gap-2">
-                    <span class="small text-muted text-start flex-grow-1 me-auto" style="min-width: 12rem;">La corrida puede tardar varios minutos. En modo Worker estándar, al finalizar bien se dispara en automático la lista negra con el mismo Excel para dejar reflejados esos valores en verificación semana.</span>
+                    <span class="small text-muted text-start flex-grow-1 me-auto" style="min-width: 12rem;"><?= htmlspecialchars($gc_shell_ec_footer_hint, ENT_QUOTES, 'UTF-8') ?></span>
                     <button type="button" class="btn btn-primary" id="btnEcLauncherEjecutar" disabled>
-                        <i class="fa fa-play me-2" aria-hidden="true"></i>Ejecutar corrida del agente
+                        <i class="fa fa-play me-2" aria-hidden="true"></i><?= htmlspecialchars($gc_shell_ec_btn_ejecutar, ENT_QUOTES, 'UTF-8') ?>
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
+    <?php if (!$gc_shell_modo_cartera): ?>
     <div class="modal fade" id="modalGcListaNegra" tabindex="-1" aria-labelledby="modalGcListaNegraLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -344,6 +406,7 @@
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
     <div class="row mb-3">
         <div class="col-12">
@@ -356,6 +419,7 @@
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-3">
                             <div id="shellGastosCobranzaReporteToolbar" class="d-flex flex-wrap align-items-center gap-2">
+                                <?php if (!$gc_shell_modo_cartera): ?>
                                 <div class="sg-btn-wrap">
                                     <button type="button" class="sg-tip-btn sg-btn-green" id="btnGastosCobranzaEjecutar" disabled>
                                         <span class="sg-tip-btn-face">
@@ -364,6 +428,7 @@
                                         </span>
                                     </button>
                                 </div>
+                                <?php endif; ?>
                                 <div class="sg-btn-wrap">
                                     <button type="button" class="sg-tip-btn sg-btn-warn" id="btnGastosCobranzaHistoricoReportes" title="Ver reportes de semanas anteriores (los archivos no se borran)">
                                         <span class="sg-tip-btn-face">
@@ -580,6 +645,36 @@
     #shellGastosCobranzaAccionesBar .sg-agent-actions,
     #shellGastosCobranzaReporteToolbar {
         width: min(860px, 100%);
+    }
+    /* Cartera: la tarjeta Herramienta usa todo el ancho; evita hueco a la derecha del bloque de acciones */
+    #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .sg-agent-actions {
+        width: 100%;
+        max-width: 100%;
+    }
+    #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-herramienta-cuerpo {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 1rem 1.35rem;
+        align-items: start;
+    }
+    #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-herramienta-col-accion {
+        align-self: start;
+    }
+    #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-herramienta-col-accion .sg-agent-row-top {
+        grid-template-columns: minmax(0, max-content);
+        justify-items: start;
+    }
+    #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-herramienta-col-accion .sg-tip-btn {
+        width: auto;
+        min-width: 14.5rem;
+    }
+    #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-titulo-actividad-head {
+        margin-left: auto;
+    }
+    #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-actividad {
+        padding-left: 1.15rem;
+        margin-left: 0.15rem;
+        border-left: 1px solid rgba(67, 89, 113, 0.1);
     }
     #shellGastosCobranzaReporteToolbar {
         display: flex;
@@ -1054,6 +1149,21 @@
         #shellGastosCobranzaAccionesBar .sg-agent-row-top {
             grid-template-columns: 1fr;
         }
+        #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-herramienta-cuerpo {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-actividad {
+            border-left: none;
+            margin-left: 0;
+            padding-left: 0;
+            padding-top: 1rem;
+            margin-top: 0.15rem;
+            border-top: 1px solid rgba(67, 89, 113, 0.1);
+        }
+        #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-herramienta-col-accion .sg-tip-btn {
+            width: 100%;
+        }
         #shellGastosCobranzaAccionesBar .sg-tip-btn,
         #shellGastosCobranzaReporteToolbar .sg-tip-btn,
         #shellGastosCobranzaLogToolbar .sg-tip-btn {
@@ -1071,6 +1181,10 @@
     html.dark-mode #shellGastosCobranzaAccionesBar .sg-agent-title,
     body.dark-mode #shellGastosCobranzaAccionesBar .sg-agent-title {
         color: #cbd5e1;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-actividad,
+    body.dark-mode #shellGastosCobranzaAccionesBar.gc-shell-cartera-acciones .gc-cartera-actividad {
+        border-left-color: rgba(148, 163, 184, 0.22);
     }
     html.dark-mode #shellGastosCobranzaAccionesBar .sg-tip-btn,
     html.dark-mode #shellGastosCobranzaReporteToolbar .sg-tip-btn,
@@ -1199,6 +1313,52 @@
     .gc-rep-est-vacio { background: transparent; color: #a0a8b0; border: none; font-weight: 400; }
     .gc-rep-est-otro { background: #f3f4f6; color: #4b5563; border-color: rgba(75, 85, 99, 0.12); }
 
+    /* Cartera — columna derecha: solo estado (el título Actividad va en sg-agent-head con el mismo estilo que Herramienta) */
+    .gc-cartera-actividad-header {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        text-align: right;
+        gap: 0.45rem;
+    }
+
+    /* Cartera — panel de actividad (progreso legible, sin ruido técnico) */
+    .gc-cartera-actividad-list {
+        max-height: 11.5rem;
+        width: min(100%, 31rem);
+        margin-left: auto;
+        overflow-y: auto;
+        border-radius: 0.5rem;
+        background: linear-gradient(180deg, #fafbfd 0%, #f4f6f9 100%);
+        border: 1px solid rgba(67, 89, 113, 0.08);
+        padding: 0.5rem 0.65rem;
+    }
+    .gc-cartera-act-line {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        padding: 0.35rem 0.25rem;
+        border-radius: 0.35rem;
+        margin-bottom: 0.15rem;
+        border-left: 3px solid #cbd5e1;
+        background: rgba(255, 255, 255, 0.65);
+    }
+    .gc-cartera-act-line:last-child { margin-bottom: 0; }
+    .gc-cartera-act-line--info { border-left-color: #94a3b8; background: rgba(148, 163, 184, 0.08); }
+    .gc-cartera-act-line--run { border-left-color: #696cff; background: rgba(105, 108, 255, 0.06); }
+    .gc-cartera-act-line--ok { border-left-color: #2ecc8b; background: rgba(46, 204, 139, 0.07); }
+    .gc-cartera-act-line--warn { border-left-color: #f5a524; background: rgba(245, 165, 36, 0.08); }
+    .gc-cartera-act-line--err { border-left-color: #e74c3c; background: rgba(231, 76, 60, 0.06); }
+    .gc-cartera-act-time {
+        flex-shrink: 0;
+        font-size: 0.65rem;
+        opacity: 0.75;
+        color: #697a8d;
+        min-width: 4.5rem;
+    }
+    .gc-cartera-act-msg { flex: 1; min-width: 0; color: #3a4a5c; line-height: 1.35; }
+    .gc-cartera-act-pill { font-weight: 600; font-size: 0.65rem; letter-spacing: 0.02em; }
+
     /* Acciones reporte_cobranza: neo-ligero (tonos suaves, pill, sombra mínima) */
     .gc-rep-acciones-cell .btn,
     .gc-rep-acciones-cell a.btn {
@@ -1246,6 +1406,7 @@
 
 <script>
 (function () {
+    var gcShellModoCartera = <?= $gc_shell_modo_cartera ? 'true' : 'false' ?>;
     var badge = document.getElementById('gastosCobranzaEstadoBadge');
     var detalle = document.getElementById('gastosCobranzaDetalle');
     var btnRun = document.getElementById('btnGastosCobranzaEjecutar');
@@ -1313,6 +1474,66 @@
     var gcUltimoScriptDescargo = false;
     /** Evita reejecutar el mismo día (CDMX) tras un reporte real exitoso. */
     var LS_REPORTE_OK_YMD = 'gastosCobranza_reporteRealOkYmd';
+
+    var gcCarteraActividadList = document.getElementById('gcCarteraActividadList');
+    var gcCarteraActividadEstado = document.getElementById('gcCarteraActividadEstado');
+    var gcCarteraActividadVacio = document.getElementById('gcCarteraActividadVacio');
+    /** Evita repetir el mismo aviso de “ocupado remoto” en cada poll. */
+    var gcCarteraUltimoAvisoRemoto = '';
+
+    function gcCarteraEsc(s) {
+        return String(s || '')
+            .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;');
+    }
+
+    function gcCarteraFmtHora() {
+        try {
+            var d = new Date();
+            var h = d.getHours();
+            var m = d.getMinutes();
+            var s = d.getSeconds();
+            return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        } catch (e) {
+            return '—';
+        }
+    }
+
+    function gcCarteraActividadPush(mensaje, claseLinea) {
+        if (!gcShellModoCartera || !gcCarteraActividadList) return;
+        if (gcCarteraActividadVacio) gcCarteraActividadVacio.classList.add('d-none');
+        var cls = claseLinea || 'gc-cartera-act-line--info';
+        var row = document.createElement('div');
+        row.className = 'gc-cartera-act-line ' + cls;
+        row.innerHTML = '<span class="gc-cartera-act-time">' + gcCarteraFmtHora() + '</span>' +
+            '<span class="gc-cartera-act-msg">' + gcCarteraEsc(mensaje) + '</span>';
+        gcCarteraActividadList.appendChild(row);
+        while (gcCarteraActividadList.children.length > 28) {
+            gcCarteraActividadList.removeChild(gcCarteraActividadList.firstChild);
+        }
+        try {
+            gcCarteraActividadList.scrollTop = gcCarteraActividadList.scrollHeight;
+        } catch (e2) { /* ignorar */ }
+    }
+
+    function gcCarteraActividadEstadoSet(texto, pillClass) {
+        if (!gcCarteraActividadEstado) return;
+        gcCarteraActividadEstado.textContent = texto || 'En espera';
+        gcCarteraActividadEstado.className = 'badge rounded-pill gc-cartera-act-pill ' + (pillClass || 'bg-label-secondary');
+    }
+
+    function gcCarteraMapOperacionHumana(tipo) {
+        var map = {
+            reporte: 'Generando reporte de cobranza…',
+            worker: 'Conciliando pagos en Sparta…',
+            enrich: 'Procesando Excel enriquecido…',
+            lista_negra: 'Aplicando resultados en verificación semana…',
+            descargo: 'Generando descargo…',
+            insertar_mora_martes: 'Ejecutando proceso de moras…',
+            detectar_gdc_liquidados: 'Detectando créditos liquidados…',
+            eliminar_gastos_despachos: 'Procesando gastos despachos…'
+        };
+        return map[tipo] || 'Proceso en curso…';
+    }
 
     function gcOcultarHintProcesosCronjobs() {
         var el = document.getElementById('gcProcesosCronjobsHint');
@@ -1408,6 +1629,7 @@
     }
 
     function actualizarBannerEjecucion() {
+        if (gcShellModoCartera) return;
         if (!ejecucionBanner) return;
         var span = ejecucionBanner.querySelector('.gc-ejec-text');
         if (!gcShellOperacionEnCurso) {
@@ -1431,12 +1653,19 @@
     function iniciarOperacionShell(tipo) {
         gcShellOperacionEnCurso = tipo;
         actualizarBannerEjecucion();
+        if (gcShellModoCartera) {
+            gcCarteraActividadPush(gcCarteraMapOperacionHumana(tipo), 'gc-cartera-act-line--run');
+            gcCarteraActividadEstadoSet('En curso', 'bg-label-warning');
+        }
         aplicarEstadoBotonesShellCompleto();
     }
 
     function finalizarOperacionShell() {
         gcShellOperacionEnCurso = null;
         actualizarBannerEjecucion();
+        if (gcShellModoCartera) {
+            gcCarteraActividadEstadoSet('En espera', 'bg-label-secondary');
+        }
         aplicarEstadoBotonesShellCompleto();
     }
 
@@ -1904,11 +2133,15 @@
         var actual = gcClaveSemanaActualCdmx();
         var filtrados = gcFiltrarArchivosPorClaveLunes(gcCacheArchivosReporte, actual);
         if (!gcCacheArchivosReporte.length) {
-            tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
+            tbodyRep.innerHTML = gcShellModoCartera
+                ? '<tr><td colspan="6" class="text-muted small">Aún no hay reportes en la carpeta de esta semana. Cuando el área correspondiente genere un archivo, podrá descargarlo aquí.</td></tr>'
+                : '<tr><td colspan="6" class="text-muted small">Aún no hay archivos .xlsx en <code>reporte/</code>. Ejecuta el reporte para generar uno.</td></tr>';
         } else if (!filtrados.length) {
-            tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">No hay archivos en la semana en curso (lun–dom, Ciudad de México). Los reportes de semanas anteriores siguen en el servidor: use <strong>Histórico</strong>.</td></tr>';
+            tbodyRep.innerHTML = gcShellModoCartera
+                ? '<tr><td colspan="6" class="text-muted small">No hay archivos en la semana en curso (lun–dom, Ciudad de México). Los de semanas anteriores siguen en el servidor: use <strong>Histórico</strong>.</td></tr>'
+                : '<tr><td colspan="6" class="text-muted small">No hay archivos en la semana en curso (lun–dom, Ciudad de México). Los reportes de semanas anteriores siguen en el servidor: use <strong>Histórico</strong>.</td></tr>';
         } else {
-            tbodyRep.innerHTML = htmlFilasTablaReportes(filtrados);
+            tbodyRep.innerHTML = htmlFilasTablaReportes(filtrados, { soloDescargar: gcShellModoCartera });
         }
         aplicarEstadoBotonesShellCompleto();
     }
@@ -2026,6 +2259,7 @@
      *   'auto' o ausente = bajar solo si el usuario ya estaba cerca del final (útil con «Auto cada 4 s»)
      */
     async function traerLog(lineas, opts) {
+        if (!logPanel) return;
         opts = opts || {};
         var estabaCercaDelFinal = logPanelEstaCercaDelFinal();
         var n = typeof lineas === 'number' && lineas > 0 ? Math.min(400, lineas) : 400;
@@ -2119,6 +2353,7 @@
     }
 
     function comenzarLogRapidoEcWorker() {
+        if (!logPanel) return;
         if (ivLogEcWorker) clearInterval(ivLogEcWorker);
         traerLog(380, { scrollBottom: 'auto' });
         ivLogEcWorker = setInterval(function () {
@@ -2217,6 +2452,9 @@
                     body: JSON.stringify(payloadEc)
                 });
             } catch (eFetch) {
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('No hubo conexión con el servidor. Intente de nuevo.', 'gc-cartera-act-line--err');
+                }
                 alertar('Error de red',
                     'No se pudo conectar al servidor para ejecutar el worker. Lista negra NO se ejecutó. Detalle: ' +
                     String(eFetch.message || eFetch), 'error');
@@ -2227,6 +2465,9 @@
             try {
                 data = JSON.parse(raw);
             } catch (eParse) {
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('Respuesta no válida del servidor (¿sesión vencida?).', 'gc-cartera-act-line--err');
+                }
                 alertar('Error',
                     'El servidor no devolvió JSON en worker/enrich. Suele ser sesión caducada o error PHP. ' +
                     'Lista negra NO se ejecutó. Inicio de respuesta: ' +
@@ -2249,6 +2490,9 @@
             }
             if (workerLlegoAlFin) {
                 /* Worker llegó al final (0 = todo ok, 2 = ok con errores parciales) → cargar lista negra automático */
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('Conciliación aplicada. Actualizando verificación semana…', 'gc-cartera-act-line--run');
+                }
                 await traerListaReportes();
                 var nombreExcelListaNegra = (data.archivo && String(data.archivo).trim())
                     ? String(data.archivo).trim()
@@ -2257,6 +2501,9 @@
                 try {
                     dataCarga = await invocarCargaVerificacionAgente(nombreExcelListaNegra, cargaOpts);
                 } catch (eCarga) {
+                    if (gcShellModoCartera) {
+                        gcCarteraActividadPush('Conciliación lista, pero no se pudo aplicar verificación semana (red o servidor).', 'gc-cartera-act-line--warn');
+                    }
                     alertar('Worker ok — lista negra falló',
                         'El worker terminó (código ' + codigoSalida + ') pero no se pudo contactar al servidor para la lista negra. ' +
                         'Puedes cargarla manualmente con el botón morado en la tabla. Detalle: ' +
@@ -2281,6 +2528,14 @@
                     if (cargaVerifOutWrap) cargaVerifOutWrap.classList.remove('d-none');
                 }
                 if (okC) {
+                    if (gcShellModoCartera) {
+                        gcCarteraActividadPush(
+                            codigoSalida === 0
+                                ? 'Verificación semana actualizada correctamente.'
+                                : 'Verificación semana actualizada con advertencias (revise el aviso en pantalla).',
+                            codigoSalida === 0 ? 'gc-cartera-act-line--ok' : 'gc-cartera-act-line--warn'
+                        );
+                    }
                     if (codigoSalida === 0) {
                         alertar('¡Todo listo!',
                             'Worker completado correctamente.\nLista negra actualizada con el mismo Excel.' +
@@ -2295,6 +2550,9 @@
                             'warning');
                     }
                 } else {
+                    if (gcShellModoCartera) {
+                        gcCarteraActividadPush('La conciliación terminó, pero falló el paso de verificación semana.', 'gc-cartera-act-line--warn');
+                    }
                     alertar('Worker ok — Lista negra FALLÓ',
                         'El worker terminó (código ' + codigoSalida + ') pero la carga a lista negra tuvo un error: ' +
                         (dataCarga.mensaje || 'sin detalle') +
@@ -2305,6 +2563,9 @@
                 }
             } else if (esWorker) {
                 /* Worker falló antes de terminar → lista negra no se intentó */
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('La conciliación no pudo completarse. Revise el mensaje en pantalla.', 'gc-cartera-act-line--err');
+                }
                 alertar('Worker falló — Lista negra NO ejecutada',
                     'El worker no llegó al final (código ' + codigoSalida + '). ' +
                     'La lista negra NO se ejecutó para no insertar datos de un lote incompleto.\n\n' +
@@ -2328,8 +2589,10 @@
         opts = opts || {};
         var sil = !!opts.silencioso;
         if (!sil) {
-            badge.className = 'badge bg-label-warning';
-            badge.textContent = 'Comprobando…';
+            if (badge) {
+                badge.className = 'badge bg-label-warning';
+                badge.textContent = 'Comprobando…';
+            }
             if (detalle) detalle.textContent = '';
             gcOcultarHintProcesosCronjobs();
             if (btnRun) btnRun.disabled = true;
@@ -2353,9 +2616,15 @@
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
                 gcMarcarCronjobsScriptsNoDisponibles();
-                badge.className = 'badge bg-label-danger';
-                badge.textContent = 'Error';
+                if (badge) {
+                    badge.className = 'badge bg-label-danger';
+                    badge.textContent = 'Error';
+                }
                 if (detalle) detalle.textContent = data.mensaje || 'Error';
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('No se pudo verificar el servicio. Intente de nuevo en unos segundos.', 'gc-cartera-act-line--err');
+                    gcCarteraActividadEstadoSet('Sin servicio', 'bg-label-danger');
+                }
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarAutoRunDesdeAgente(null);
                 aplicarEstadoBotonesShellCompleto();
@@ -2368,17 +2637,25 @@
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
                 gcMarcarCronjobsScriptsNoDisponibles();
-                badge.className = 'badge bg-label-secondary';
-                badge.textContent = 'INI desactivado';
+                if (badge) {
+                    badge.className = 'badge bg-label-secondary';
+                    badge.textContent = 'INI desactivado';
+                }
                 if (detalle) detalle.innerHTML = data.detalle || '';
                 gcCacheArchivosReporte = [];
                 if (tbodyRep) {
-                    tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
+                    tbodyRep.innerHTML = gcShellModoCartera
+                        ? '<tr><td colspan="6" class="text-muted small">El servicio de conciliación no está disponible en este momento. Si el inconveniente continúa, contacte a sistemas.</td></tr>'
+                        : '<tr><td colspan="6" class="text-muted small">Habilite el agente en <code>config.ini</code> para listar reportes.</td></tr>';
                 }
                 if (tbodyRepHist) {
                     tbodyRepHist.innerHTML = '<tr><td colspan="6" class="text-muted small">—</td></tr>';
                 }
                 gcActualizarHintSemanaActual();
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('Servicio no disponible. Contacte a sistemas si necesita acceso.', 'gc-cartera-act-line--warn');
+                    gcCarteraActividadEstadoSet('No disponible', 'bg-label-secondary');
+                }
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarAutoRunDesdeAgente(null);
                 aplicarEstadoBotonesShellCompleto();
@@ -2386,15 +2663,30 @@
             }
             if (data.agente_online) {
                 gcAgenteOnline = true;
-                badge.className = 'badge bg-label-success';
-                badge.textContent = 'Agente en línea';
+                if (badge) {
+                    badge.className = 'badge bg-label-success';
+                    badge.textContent = 'Agente en línea';
+                }
                 var a = data.agente || {};
                 gcUltimoScriptCarga = !!a.script_carga_verificacion_semana;
                 gcUltimoScriptDescargo = !!a.script_descargo_estatus3;
                 gcAgenteReportaEcOcupado = !!a.ec_launcher_ocupado;
                 gcAgenteReportaCronjobsOcupado = !!(a.cronjobs_gc_ocupado || (a.cronjobs_gc && a.cronjobs_gc.busy));
                 gcAplicarScriptsCronjobsDesdeAgente(a);
-                if (detalle) {
+                if (gcShellModoCartera) {
+                    if (gcShellOperacionEnCurso) {
+                        gcCarteraActividadEstadoSet('En curso', 'bg-label-warning');
+                    } else if (gcAgenteReportaEcOcupado) {
+                        gcCarteraActividadEstadoSet('Ocupado', 'bg-label-warning');
+                        if (gcCarteraUltimoAvisoRemoto !== 'remoto_ec') {
+                            gcCarteraActividadPush('Hay una conciliación en curso (otra ventana o usuario). Espere un momento.', 'gc-cartera-act-line--warn');
+                            gcCarteraUltimoAvisoRemoto = 'remoto_ec';
+                        }
+                    } else {
+                        gcCarteraUltimoAvisoRemoto = '';
+                        gcCarteraActividadEstadoSet('En espera', 'bg-label-secondary');
+                    }
+                } else if (detalle) {
                     if (gcAgenteReportaEcOcupado) {
                         detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker/EC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
                     } else if (gcAgenteReportaCronjobsOcupado) {
@@ -2416,18 +2708,28 @@
                 gcUltimoScriptCarga = false;
                 gcUltimoScriptDescargo = false;
                 gcMarcarCronjobsScriptsNoDisponibles();
-                badge.className = 'badge bg-label-danger';
-                badge.textContent = 'Sin conexión';
+                if (badge) {
+                    badge.className = 'badge bg-label-danger';
+                    badge.textContent = 'Sin conexión';
+                }
                 if (detalle) detalle.textContent = data.detalle || '';
-                logPanel.value = 'Levante el agente (npm start en gastos-cobranza-agent, puerto 3120).';
+                if (logPanel) {
+                    logPanel.value = 'Levante el agente (npm start en gastos-cobranza-agent, puerto 3120).';
+                }
                 gcCacheArchivosReporte = [];
                 if (tbodyRep) {
-                    tbodyRep.innerHTML = '<tr><td colspan="6" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
+                    tbodyRep.innerHTML = gcShellModoCartera
+                        ? '<tr><td colspan="6" class="text-muted small">Sin conexión con el servicio. Intente más tarde o verifique su red.</td></tr>'
+                        : '<tr><td colspan="6" class="text-muted small">Agente fuera de línea — sin listado.</td></tr>';
                 }
                 if (tbodyRepHist) {
                     tbodyRepHist.innerHTML = '<tr><td colspan="6" class="text-muted small">—</td></tr>';
                 }
                 gcActualizarHintSemanaActual();
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('Sin conexión con el servicio de conciliación.', 'gc-cartera-act-line--warn');
+                    gcCarteraActividadEstadoSet('Sin conexión', 'bg-label-danger');
+                }
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
                 aplicarAutoRunDesdeAgente(null);
                 aplicarEstadoBotonesShellCompleto();
@@ -2439,9 +2741,15 @@
             gcUltimoScriptCarga = false;
             gcUltimoScriptDescargo = false;
             gcMarcarCronjobsScriptsNoDisponibles();
-            badge.className = 'badge bg-label-danger';
-            badge.textContent = 'Error red';
+            if (badge) {
+                badge.className = 'badge bg-label-danger';
+                badge.textContent = 'Error red';
+            }
             if (detalle) detalle.textContent = String(e.message || e);
+            if (gcShellModoCartera) {
+                gcCarteraActividadPush('Error de red al consultar el servicio.', 'gc-cartera-act-line--err');
+                gcCarteraActividadEstadoSet('Error', 'bg-label-danger');
+            }
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
             aplicarAutoRunDesdeAgente(null);
             aplicarEstadoBotonesShellCompleto();
@@ -2506,17 +2814,31 @@
         }
     }
 
+    function gcEcFechaCorteParaWorker() {
+        if (gcShellModoCartera) return fechaCalendarioCdmxYmd();
+        if (ecFecha && ecFecha.value) return ecFecha.value;
+        return fechaCalendarioCdmxYmd();
+    }
+
+    function gcEcTipoWorkerOEnrich() {
+        if (gcShellModoCartera) return 'worker';
+        return (ecEnrich && ecEnrich.checked) ? 'enrich' : 'worker';
+    }
+
     async function ejecutarEcLauncherFlujo() {
         if (!ecFile || !ecFile.files || !ecFile.files[0]) {
             alertar('Falta archivo', 'Seleccione un Excel .xlsx.', 'warning');
             return;
         }
-        if (!ecFecha || !ecFecha.value) {
+        if (!gcShellModoCartera && (!ecFecha || !ecFecha.value)) {
             alertar('Fecha', 'Indique la fecha de corte.', 'warning');
             return;
         }
         btnEcLauncher.disabled = true;
-        ecOutWrap.classList.add('d-none');
+        if (gcShellModoCartera) {
+            gcCarteraActividadPush('Subiendo archivo…', 'gc-cartera-act-line--info');
+        }
+        if (ecOutWrap) ecOutWrap.classList.add('d-none');
         if (ecErroresReintentoBanner) ecErroresReintentoBanner.classList.add('d-none');
         try {
             var fd = new FormData();
@@ -2528,14 +2850,20 @@
             });
             var ju = await up.json();
             if (!ju.success || !ju.nombre) {
+                if (gcShellModoCartera) {
+                    gcCarteraActividadPush('No se pudo subir el archivo. Revise el formato o el tamaño.', 'gc-cartera-act-line--err');
+                }
                 alertar('Subida', ju.mensaje || 'No se pudo subir el archivo.', 'error');
                 refrescarEstado();
                 return;
             }
+            if (gcShellModoCartera) {
+                gcCarteraActividadPush('Archivo recibido. Iniciando conciliación…', 'gc-cartera-act-line--info');
+            }
             var payloadEc = {
                 nombre: ju.nombre,
-                tipo: ecEnrich && ecEnrich.checked ? 'enrich' : 'worker',
-                fechaCorte: ecFecha.value,
+                tipo: gcEcTipoWorkerOEnrich(),
+                fechaCorte: gcEcFechaCorteParaWorker(),
                 column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
                 omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
                 soloColumnas: false,
@@ -2543,6 +2871,9 @@
             };
             await ejecutarPayloadEcYListaNegra(payloadEc, {});
         } catch (e) {
+            if (gcShellModoCartera) {
+                gcCarteraActividadPush('Error al procesar la solicitud.', 'gc-cartera-act-line--err');
+            }
             alertar('Error', String(e.message || e), 'error');
         }
         refrescarEstado();
@@ -2767,7 +3098,7 @@
     }
 
     async function ejecutarWorkerDesdeReporte(nombreArchivo) {
-        if (!ecFecha || !ecFecha.value) {
+        if (!gcShellModoCartera && (!ecFecha || !ecFecha.value)) {
             alertar('Fecha de corte', 'Indique la fecha de corte S2 en el modal «EC Worker / Excel enriquecido» (la misma que usaría al subir el Excel).', 'warning');
             try {
                 if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
@@ -2778,13 +3109,13 @@
             if (ecFecha) ecFecha.focus();
             return;
         }
-        ecOutWrap.classList.add('d-none');
+        if (ecOutWrap) ecOutWrap.classList.add('d-none');
         if (ecErroresReintentoBanner) ecErroresReintentoBanner.classList.add('d-none');
         try {
             var payloadEcW = {
                 nombre: nombreArchivo,
                 tipo: 'worker',
-                fechaCorte: ecFecha.value,
+                fechaCorte: gcEcFechaCorteParaWorker(),
                 column: ecCol ? ecCol.value.trim() || 'ID CREDITO' : 'ID CREDITO',
                 omitir: ecOmitir ? parseInt(ecOmitir.value, 10) || 0 : 0,
                 soloColumnas: false,
@@ -2805,11 +3136,14 @@
             refrescarEstado({ silencioso: true });
         }, 15000);
         if (ivLog) clearInterval(ivLog);
-        ivLog = setInterval(function () {
-            if (document.hidden || !chkLog.checked) return;
-            if (ivLogEcWorker) return;
-            traerLog(400, { scrollBottom: 'auto' });
-        }, 4000);
+        ivLog = null;
+        if (chkLog) {
+            ivLog = setInterval(function () {
+                if (document.hidden || !chkLog.checked) return;
+                if (ivLogEcWorker) return;
+                traerLog(400, { scrollBottom: 'auto' });
+            }, 4000);
+        }
         if (ivRep) clearInterval(ivRep);
         ivRep = setInterval(function () {
             if (document.hidden) return;
