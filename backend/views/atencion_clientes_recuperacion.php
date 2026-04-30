@@ -1053,15 +1053,14 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 arCargarConteosPestanas();
                 arCargarSeccion('bandeja', true);
                 arCargarSeccion('dictaminado', true);
-                if (typeof Swal !== 'undefined') {
+                if (typeof spartaSwalEnviadoOk === 'function') {
+                    spartaSwalEnviadoOk('Recuperación enviada correctamente.');
+                } else if (typeof Swal !== 'undefined') {
                     Swal.fire({
                         icon: 'success',
-                        title: 'Enviado a Cartera',
-                        html:
-                            'La operación quedó en estatus <strong>Cierre documentado</strong>. ' +
-                            'La verás en la <strong>bandeja de entrada</strong> de ' +
-                            '<strong>3.- Cierre documentación</strong>.',
-                        confirmButtonText: 'Cerrar',
+                        title: 'Enviado',
+                        text: 'Recuperación enviada correctamente.',
+                        confirmButtonColor: '#0f172a',
                     });
                 }
             })

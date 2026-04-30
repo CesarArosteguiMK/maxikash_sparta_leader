@@ -22,6 +22,12 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columnas recepcion_*_estado (migración 20260428_adj_operacion_recepcion_doc_estado.sql) */
     private static $adjOperacionRecepcionDocEstadoCol = null;
 
+    /** Slots de evidencias fotográficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
+    private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
+        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+    ];
+
     public function __construct()
     {
         $this->db = new Database();
@@ -685,15 +691,26 @@ class MotosAdjudicadas extends Model
         $urlRelativa = '/uploads/operaciones/' . $idOperacion . '/' . $filename;
         $ahora       = $this->fechaHoraCdmx();
 
-        // 8. INSERT o UPDATE en adj_evidencia
+        // 8. INSERT o UPDATE en adj_evidencia (al reemplazar archivo se limpia veredicto de Atención para revalidar)
         if ($old) {
-            $this->db->CRUD(
-                "UPDATE adj_evidencia
-                    SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus
-                  WHERE id_operacion = :id AND slot = :slot",
-                ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
-                 'id'   => $idOperacion, 'slot' => $slot]
-            );
+            if ($this->adjEvidenciaTieneColumnasAtn()) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                        SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus,
+                            val_atn = NULL, comentario_atn = NULL
+                      WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
+                     'id'   => $idOperacion, 'slot' => $slot]
+                );
+            } else {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                        SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus
+                      WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
+                     'id'   => $idOperacion, 'slot' => $slot]
+                );
+            }
         } else {
             $this->db->CRUD(
                 "INSERT INTO adj_evidencia (id_operacion, tipo, slot, url, fecha_alta, alta, estatus)
@@ -714,6 +731,13 @@ class MotosAdjudicadas extends Model
         if (function_exists('sparta_url_publica_desde_repositorio')) {
             $urlClient = sparta_url_publica_desde_repositorio($urlRelativa);
         }
+
+        /* Reemplazo en slots dictaminables: si ya no hay rechazos, regresa a bandeja Evidencias (Recibido). */
+        if ($this->adjEvidenciaTieneColumnasAtn()
+            && in_array($slot, self::SLOTS_VALIDACION_ATENCION_MEDIA, true)) {
+            $this->finalizarCierreValidacionEvidenciaAtn($idOperacion, $idUsuario, $nombreUsuario);
+        }
+
         return ['success' => true, 'url' => $urlClient];
     }
 
@@ -1471,18 +1495,42 @@ SQL;
      * Devuelve los créditos activos asignados al usuario.
      * El bucket se enriquece en esta misma respuesta para evitar una segunda llamada HTTP.
      */
-    public function obtenerMisAdjudicaciones(int $idPersona): array
+    /**
+     * @param bool $incluirMorosidad Si false, no consulta Segundómetro (más rápido; bucket queda en "—" hasta un segundo request).
+     * @return array{creditos: array<int, array>, resumen_evidencias: array<int, array{total:int, rechazo_atn:int, all_sent:bool}>}
+     */
+    public function obtenerMisAdjudicaciones(int $idPersona, bool $incluirMorosidad = true): array
     {
+        $slots    = self::MADJ_SLOTS_EVIDENCIA_MEDIA;
+        $slotPh   = [];
+        $params   = ['idPersona' => $idPersona, 'idPersonaUlt' => $idPersona];
+        foreach ($slots as $i => $slot) {
+            $k            = 'mslot' . $i;
+            $slotPh[]     = ':' . $k;
+            $params[$k]   = $slot;
+        }
+        $slotIn = implode(',', $slotPh);
+
+        $fragRechazoAtn = $this->adjEvidenciaTieneColumnasAtn()
+            ? "COUNT(DISTINCT CASE
+                    WHEN slot IN ($slotIn) AND estatus IN ('pendiente_envio', 'recibido')
+                         AND val_atn = 2
+                    THEN slot ELSE NULL END
+                ) AS rechazo_atn"
+            : '0 AS rechazo_atn';
+
         $creditos = $this->db->queryAll(
-            <<<SQL
-            SELECT
+            "SELECT
                 aca.id_credito                                          AS id_credito,
                 IF(aca.estatus = '1', 'Activo', 'Inactivo')            AS estado,
                 DATE_FORMAT(aca.fecha_alta, '%Y-%m-%d %H:%i')          AS fecha_asignacion,
                 DATE_FORMAT(aca.fecha_baja, '%Y-%m-%d %H:%i')          AS fecha_desasignacion,
                 COALESCE(NULLIF(TRIM(ult_op.nombre_cliente), ''), '—') AS nombre_cliente,
                 TRIM(CONCAT_WS(' ', per_alta.nombres, per_alta.apellidop)) AS asignado_por,
-                aca.id                                                  AS id_asignacion
+                aca.id                                                  AS id_asignacion,
+                COALESCE(madj_ev.total, 0)                              AS madj_ev_total,
+                COALESCE(madj_ev.pendiente, 0)                          AS madj_ev_pendiente,
+                COALESCE(madj_ev.rechazo_atn, 0)                        AS madj_ev_rechazo_atn
             FROM asigna_creditos_adjudicacion aca
             INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
             LEFT JOIN persona per_alta ON per_alta.id = aca.alta
@@ -1499,6 +1547,20 @@ SQL;
                     GROUP BY aop.id_credito
                 ) m ON m.id_max = ao.id AND m.id_credito = ao.id_credito
             ) ult_op ON ult_op.id_credito = aca.id_credito
+            LEFT JOIN (
+                SELECT id_operacion,
+                       COUNT(DISTINCT CASE
+                           WHEN slot IN ($slotIn) AND estatus IN ('pendiente_envio', 'recibido')
+                           THEN slot ELSE NULL END
+                       ) AS total,
+                       COUNT(DISTINCT CASE
+                           WHEN slot IN ($slotIn) AND estatus = 'pendiente_envio'
+                           THEN slot ELSE NULL END
+                       ) AS pendiente,
+                       $fragRechazoAtn
+                FROM adj_evidencia
+                GROUP BY id_operacion
+            ) madj_ev ON madj_ev.id_operacion = ult_op.id
             WHERE pa.id_persona = :idPersona
               AND aca.estatus = '1'
               AND ult_op.estatus IN (
@@ -1510,13 +1572,26 @@ SQL;
                   'Recepción',
                   'Retenciones'
               )
-            ORDER BY aca.fecha_alta DESC
-            SQL,
-            ['idPersona' => $idPersona, 'idPersonaUlt' => $idPersona]
+            ORDER BY aca.fecha_alta DESC",
+            $params
         ) ?: [];
 
+        $totalSlotsVista = count($slots);
+        $resumenEvidencias = [];
         foreach ($creditos as &$c) {
             $c['bucket'] = '—';
+            $idCred = (int) ($c['id_credito'] ?? 0);
+            $total  = (int) ($c['madj_ev_total'] ?? 0);
+            $pend   = (int) ($c['madj_ev_pendiente'] ?? 0);
+            $rej    = (int) ($c['madj_ev_rechazo_atn'] ?? 0);
+            unset($c['madj_ev_total'], $c['madj_ev_pendiente'], $c['madj_ev_rechazo_atn']);
+            if ($idCred > 0) {
+                $resumenEvidencias[$idCred] = [
+                    'total'       => $total,
+                    'rechazo_atn' => $rej,
+                    'all_sent'    => $total >= $totalSlotsVista && $pend === 0 && $rej === 0,
+                ];
+            }
         }
         unset($c);
 
@@ -1525,7 +1600,7 @@ SQL;
             $creditos
         ))));
 
-        if ($idsCreditos !== []) {
+        if ($incluirMorosidad && $idsCreditos !== []) {
             $morosidad = $this->obtenerMorosidadSegundometroPorCreditos($idsCreditos);
             foreach ($creditos as &$c) {
                 $idKey = (string) ((int) ($c['id_credito'] ?? 0));
@@ -1537,7 +1612,10 @@ SQL;
             unset($c);
         }
 
-        return $creditos;
+        return [
+            'creditos'           => $creditos,
+            'resumen_evidencias' => $resumenEvidencias,
+        ];
     }
 
     /**
@@ -1637,11 +1715,7 @@ SQL;
             return [];
         }
 
-        // Slots válidos de Mis Adjudicaciones (9 evidencias requeridas en esta vista)
-        $slotsPermitidos = [
-            'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-            'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
-        ];
+        $slotsPermitidos = self::MADJ_SLOTS_EVIDENCIA_MEDIA;
 
         $placeholders = [];
         $params = [];
@@ -1660,10 +1734,19 @@ SQL;
         }
         $slotIn = implode(',', $slotPh);
 
+        $fragRechazoAtn = $this->adjEvidenciaTieneColumnasAtn()
+            ? "COUNT(DISTINCT CASE
+                    WHEN slot IN ($slotIn) AND estatus IN ('pendiente_envio', 'recibido')
+                         AND val_atn = 2
+                    THEN slot ELSE NULL END
+                ) AS rechazo_atn"
+            : '0 AS rechazo_atn';
+
         $rows = $this->db->queryAll(
             "SELECT ult.id_credito,
-                    COALESCE(ev.total, 0)     AS total,
-                    COALESCE(ev.pendiente, 0) AS pendiente
+                    COALESCE(ev.total, 0)       AS total,
+                    COALESCE(ev.pendiente, 0)   AS pendiente,
+                    COALESCE(ev.rechazo_atn, 0) AS rechazo_atn
              FROM (
                 SELECT id_credito, MAX(id) AS max_id
                 FROM adj_operacion
@@ -1679,7 +1762,8 @@ SQL;
                        COUNT(DISTINCT CASE
                            WHEN slot IN ($slotIn) AND estatus = 'pendiente_envio'
                            THEN slot ELSE NULL END
-                       ) AS pendiente
+                       ) AS pendiente,
+                       $fragRechazoAtn
                 FROM adj_evidencia
                 WHERE id_operacion IN (
                     SELECT MAX(id)
@@ -1697,11 +1781,14 @@ SQL;
             $id       = (int) ($r['id_credito'] ?? 0);
             $total    = (int) ($r['total']      ?? 0);
             $pendiente = (int) ($r['pendiente'] ?? 0);
+            $rechazoAtn = (int) ($r['rechazo_atn'] ?? 0);
             if ($id > 0) {
                 $totalSlotsVista = count($slotsPermitidos);
+                // No "todo enviado a revisión" si Atención rechazó alguna media: el gestor debe reemplazar y reenviar.
                 $resumen[$id] = [
-                    'total'    => $total,
-                    'all_sent' => $total >= $totalSlotsVista && $pendiente === 0,
+                    'total'         => $total,
+                    'rechazo_atn'   => $rechazoAtn,
+                    'all_sent'      => $total >= $totalSlotsVista && $pendiente === 0 && $rechazoAtn === 0,
                 ];
             }
         }

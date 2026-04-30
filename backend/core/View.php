@@ -11,6 +11,8 @@ $layoutChromelessReporteriaEmbed = isset($layoutChromelessReporteriaEmbed) && $l
 $__demoCss    = realpath(__DIR__ . '/../../public/assets/css/demo.css');
 $__darkCss    = realpath(__DIR__ . '/../../public/assets/css/dark-mode.css');
 $__swalGlassCss = realpath(__DIR__ . '/../../public/assets/css/swal-liquid-glass.css');
+$__spartaSwalEnviadoOkJs = realpath(__DIR__ . '/../../public/assets/js/sparta_swal_enviado_ok.js');
+$__spartaSwalEnviadoOkVer = ($__spartaSwalEnviadoOkJs ? filemtime($__spartaSwalEnviadoOkJs) : time());
 $__assetsVer  = ($__demoCss ? filemtime($__demoCss) : '')
     . ($__darkCss ? '.' . filemtime($__darkCss) : '')
     . ($__swalGlassCss ? '.' . filemtime($__swalGlassCss) : '');
@@ -716,6 +718,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
 
     <!-- Page JS -->
     <script src="/assets/js/comunes.js"></script>
+    <script src="/assets/js/sparta_swal_enviado_ok.js?v=<?= (int) $__spartaSwalEnviadoOkVer ?>"></script>
     <script src="/assets/js/componentes.js"></script>
 
     <!-- Linkify: convierte URLs en texto a enlaces clicables (descripción dictamen Sabueso) -->

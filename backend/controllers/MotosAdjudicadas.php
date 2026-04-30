@@ -581,6 +581,7 @@ class MotosAdjudicadas extends Controller
 
     /**
      * GET/POST /MotosAdjudicadas/obtenerMisAdjudicaciones
+     * Query opcional: omitir_morosidad=1 — omite consulta a Segundómetro (respuesta más rápida; usar luego obtenerMorosidadMisCreditos).
      */
     public function obtenerMisAdjudicaciones()
     {
@@ -592,9 +593,45 @@ class MotosAdjudicadas extends Controller
             return;
         }
 
+        $omitirMorosidad = isset($_GET['omitir_morosidad'])
+            && (string) $_GET['omitir_morosidad'] === '1';
+
         try {
-            $creditos = $this->model->obtenerMisAdjudicaciones((int) $idPersona);
-            echo json_encode(['success' => true, 'creditos' => $creditos]);
+            $pack              = $this->model->obtenerMisAdjudicaciones((int) $idPersona, !$omitirMorosidad);
+            $creditos          = $pack['creditos'];
+            $resumenEvidencias = $pack['resumen_evidencias'];
+            echo json_encode([
+                'success'            => true,
+                'creditos'           => $creditos,
+                'resumen_evidencias' => $resumenEvidencias,
+                'morosidad_diferida' => $omitirMorosidad,
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/obtenerMorosidadMisCreditos
+     * Body JSON: { "ids_credito": [1, 2, 3] } — buckets desde Segundómetro (segunda fase de Mis adjudicaciones).
+     */
+    public function obtenerMorosidadMisCreditos()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $ids  = $body['ids_credito'] ?? $body['ids'] ?? [];
+
+        if (!is_array($ids) || $ids === []) {
+            echo json_encode(['success' => true, 'morosidad' => []], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $morosidad = $this->model->obtenerMorosidadSegundometroPorCreditos(
+                array_values(array_unique(array_filter(array_map('intval', $ids), static fn ($v) => $v > 0)))
+            );
+            echo json_encode(['success' => true, 'morosidad' => $morosidad], JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }

@@ -176,6 +176,9 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
     color: #fff; padding: .75rem 1.15rem; border: none;
 }
 #modalAevValidarEvidencias .btn-close { filter: brightness(0) invert(1); }
+#modalAevValidarEvidencias .modal-dialog.modal-xl {
+    max-width: min(72rem, 98vw);
+}
 /* Una línea de ayuda; sin cajas ni párrafos largos */
 .aev-ev-hint {
     font-size: .72rem;
@@ -225,9 +228,38 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
     display: flex; align-items: center; justify-content: center; padding: 1rem;
     pointer-events: auto;
 }
-#modalAevValidarEvidencias .aev-vista-panel { width: 100%; max-width: 42rem; max-height: 92vh; overflow: auto; background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 50px rgba(0,0,0,.35); padding: 1rem 1.1rem; position: relative; z-index: 1; }
-.aev-vista-mediabox { min-height: 12rem; max-height: 55vh; background: #0f172a; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; }
+#modalAevValidarEvidencias .aev-vista-panel { width: 100%; max-width: min(52rem, 96vw); max-height: 92vh; overflow: auto; background: #fff; border-radius: 0.75rem; box-shadow: 0 20px 50px rgba(0,0,0,.35); padding: 1rem 1.1rem; position: relative; z-index: 1; }
+.aev-vista-mediabox { min-height: 12rem; max-height: 60vh; background: #0f172a; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; }
 .aev-vista-mediabox video, .aev-vista-mediabox img { max-width: 100%; max-height: 50vh; object-fit: contain; }
+.aev-vista-mediabox.aev-vista-mediabox--zoomable {
+    flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 0; overflow: hidden;
+}
+.aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-toolbar {
+    flex-shrink: 0; background: rgba(15, 23, 42, 0.96); border-top: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+.aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-wrap {
+    flex: 1; overflow: hidden; min-height: 11rem; max-height: 54vh; border-radius: 0.5rem 0.5rem 0 0;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+}
+.aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-wrap.aev-zoom-wrap--scaled:not(.aev-zoom-wrap--dragging) {
+    cursor: grab;
+}
+.aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-wrap.aev-zoom-wrap--scaled:not(.aev-zoom-wrap--dragging) .aev-zoom-media {
+    cursor: grab;
+}
+.aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-wrap.aev-zoom-wrap--dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+.aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-wrap.aev-zoom-wrap--dragging .aev-zoom-media {
+    user-select: none; pointer-events: none; transition: none;
+}
+.aev-vista-mediabox.aev-vista-mediabox--zoomable .aev-zoom-media {
+    max-width: 100%; max-height: 52vh; width: auto; height: auto; object-fit: contain;
+    transform-origin: center center; transition: transform 0.1s ease-out; display: block; will-change: transform;
+}
 .aev-vista-mediabox iframe { width: 100%; min-height: 50vh; border: 0; background: #fff; border-radius: 0.35rem; }
 #modalAevValidarEvidencias .aev-vista-panel.aev-vista-panel--pdf-only { max-width: min(56rem, 96vw); }
 #modalAevValidarEvidencias .aev-vista-mediabox.aev-vista-mediabox--repuve { min-height: 58vh; max-height: 72vh; }
@@ -594,6 +626,136 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
     let _aevStore  = { det: null, idCredito: 0, v: {}, c: {} };
     let _aevVistaCtx = { slot: '', label: '', evidId: 0, soloAceptada: false, soloRechazada: false };
+    let _aevZoomTeardown = null;
+
+    function aevZoomTeardown() {
+        if (typeof _aevZoomTeardown === 'function') {
+            _aevZoomTeardown();
+            _aevZoomTeardown = null;
+        }
+    }
+
+    /** HTML del visor con barra de zoom abajo (solo imagen / video). */
+    function aevZoomHtmlMedia(innerTag) {
+        return (
+            '<div class="aev-zoom-wrap" tabindex="-1">' + innerTag + '</div>' +
+            '<div class="aev-zoom-toolbar d-flex align-items-center justify-content-center gap-2 flex-wrap py-1 px-2">' +
+            '<button type="button" class="btn btn-sm btn-outline-light aev-zoom-btn-minus" title="Alejar" aria-label="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>' +
+            '<span class="small text-white aev-zoom-pct fw-semibold" style="min-width:3.25rem;text-align:center;">100%</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-light aev-zoom-btn-plus" title="Acercar" aria-label="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary aev-zoom-btn-reset">Restablecer</button>' +
+            '</div>'
+        );
+    }
+
+    /** Enlaza rueda, botones, doble clic y arrastre para desplazar con zoom. */
+    function aevZoomWire(box) {
+        aevZoomTeardown();
+        const wrap = box.querySelector('.aev-zoom-wrap');
+        const media = box.querySelector('.aev-zoom-media');
+        const pctEl = box.querySelector('.aev-zoom-pct');
+        const btnMinus = box.querySelector('.aev-zoom-btn-minus');
+        const btnPlus = box.querySelector('.aev-zoom-btn-plus');
+        const btnReset = box.querySelector('.aev-zoom-btn-reset');
+        if (!wrap || !media) return;
+
+        let scale = 1;
+        let panX = 0;
+        let panY = 0;
+        const wheelOpts = { passive: false };
+        let dragPan = false;
+        let dragClientX0 = 0;
+        let dragClientY0 = 0;
+        let panDrag0X = 0;
+        let panDrag0Y = 0;
+
+        function clamp(v) { return Math.min(4, Math.max(1, v)); }
+
+        /** scale() no agranda el layout: el pan va con translate, sin scrollbars. */
+        function commitTransform() {
+            if (scale <= 1.02) {
+                scale = 1;
+                panX = 0;
+                panY = 0;
+            }
+            media.style.transformOrigin = 'center center';
+            media.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+            if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
+            wrap.classList.toggle('aev-zoom-wrap--scaled', scale > 1.02);
+        }
+
+        function onWheel(e) {
+            const isVideo = media.tagName === 'VIDEO';
+            if (isVideo && !e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.9 : 1.1;
+            scale = clamp(scale * factor);
+            commitTransform();
+        }
+
+        function delta(step) {
+            scale = clamp(scale + step);
+            commitTransform();
+        }
+
+        function resetZoom() {
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            commitTransform();
+        }
+
+        function endDragPan() {
+            if (!dragPan) return;
+            dragPan = false;
+            wrap.classList.remove('aev-zoom-wrap--dragging');
+            document.removeEventListener('mousemove', onDocMouseMove);
+            document.removeEventListener('mouseup', onDocMouseUp);
+        }
+
+        function onDocMouseMove(e) {
+            if (!dragPan) return;
+            panX = panDrag0X + (e.clientX - dragClientX0);
+            panY = panDrag0Y + (e.clientY - dragClientY0);
+            commitTransform();
+        }
+
+        function onDocMouseUp() {
+            endDragPan();
+        }
+
+        function onWrapMouseDown(e) {
+            if (scale <= 1.02 || e.button !== 0) return;
+            if (media.tagName === 'VIDEO') {
+                const r = media.getBoundingClientRect();
+                if (e.clientY > r.bottom - 52) return;
+            }
+            dragPan = true;
+            dragClientX0 = e.clientX;
+            dragClientY0 = e.clientY;
+            panDrag0X = panX;
+            panDrag0Y = panY;
+            wrap.classList.add('aev-zoom-wrap--dragging');
+            document.addEventListener('mousemove', onDocMouseMove);
+            document.addEventListener('mouseup', onDocMouseUp);
+            e.preventDefault();
+        }
+
+        media.style.transformOrigin = 'center center';
+        wrap.addEventListener('wheel', onWheel, wheelOpts);
+        wrap.addEventListener('mousedown', onWrapMouseDown);
+        if (btnMinus) btnMinus.addEventListener('click', function () { delta(-0.22); });
+        if (btnPlus) btnPlus.addEventListener('click', function () { delta(0.22); });
+        if (btnReset) btnReset.addEventListener('click', resetZoom);
+        media.addEventListener('dblclick', resetZoom);
+
+        _aevZoomTeardown = function () {
+            endDragPan();
+            wrap.removeEventListener('wheel', onWheel, wheelOpts);
+            wrap.removeEventListener('mousedown', onWrapMouseDown);
+        };
+        commitTransform();
+    }
 
     function aevReiniciarStore(det, idC) {
         _aevStore.det     = det;
@@ -672,7 +834,9 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             panRoot.classList.remove('aev-vista-panel--repuve');
         }
         if (box) {
+            aevZoomTeardown();
             box.classList.remove('aev-vista-mediabox--repuve');
+            box.classList.remove('aev-vista-mediabox--zoomable');
             box.innerHTML = '';
         }
         if (ovl) ovl.classList.add('d-none');
@@ -766,14 +930,25 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const esPdf = (AEV_PDF_KEYS.indexOf(slot) !== -1)
             || (row.tipo && String(row.tipo).toLowerCase().indexOf('pdf') !== -1)
             || /\.pdf(\?|#|$)/i.test(urlRaw);
+        aevZoomTeardown();
         if (esPdf) {
+            box.classList.remove('aev-vista-mediabox--zoomable');
             box.innerHTML = '<iframe data-aev-src="' + urlE + '" title="Documento" class="aev-iframe-pdf"></iframe>';
         } else if (esVideo) {
-            box.innerHTML = '<video controls playsinline data-aev-src="' + urlE + '"></video>';
+            box.classList.add('aev-vista-mediabox--zoomable');
+            box.innerHTML = aevZoomHtmlMedia(
+                '<video controls playsinline class="aev-zoom-media" data-aev-src="' + urlE + '"></video>'
+            );
         } else {
-            box.innerHTML = '<img data-aev-src="' + urlE + '" alt="Evidencia">';
+            box.classList.add('aev-vista-mediabox--zoomable');
+            box.innerHTML = aevZoomHtmlMedia(
+                '<img class="aev-zoom-media" draggable="false" data-aev-src="' + urlE + '" alt="Evidencia">'
+            );
         }
         aevSanearDomUrls(box);
+        if (!esPdf) {
+            aevZoomWire(box);
+        }
         _aevVistaCtx.slot  = slot;
         _aevVistaCtx.label = label || '';
         ovl.classList.remove('d-none');
@@ -812,6 +987,8 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             panRoot.classList.add('aev-vista-panel--pdf-only');
             panRoot.classList.add('aev-vista-panel--repuve');
         }
+        aevZoomTeardown();
+        box.classList.remove('aev-vista-mediabox--zoomable');
         box.classList.add('aev-vista-mediabox--repuve');
         const urlE = aeEsc(urlRaw);
         box.innerHTML = '<iframe data-aev-src="' + urlE + '" title="Repuve (PDF)" class="aev-iframe-pdf"></iframe>';
@@ -1469,12 +1646,14 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                             const inst = bootstrap.Modal.getInstance(mEl);
                             if (inst) inst.hide();
                         }
-                        if (typeof Swal !== 'undefined') {
+                        if (typeof spartaSwalEnviadoOk === 'function') {
+                            spartaSwalEnviadoOk('Evidencias enviadas correctamente.');
+                        } else if (typeof Swal !== 'undefined') {
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Enviado',
                                 text: 'Evidencias enviadas correctamente.',
-                                confirmButtonColor: '#16a34a'
+                                confirmButtonColor: '#0f172a',
                             });
                         }
                     })
