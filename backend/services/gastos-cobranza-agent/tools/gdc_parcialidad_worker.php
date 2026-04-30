@@ -12,6 +12,7 @@
  *   php gdc_parcialidad_worker.php --apply --limit=0
  *   php gdc_parcialidad_worker.php --apply --skip-backup --limit=0
  *   php gdc_parcialidad_worker.php --apply --skip-backup --limit=0 --omitir-primeros=6457
+ *   php gdc_parcialidad_worker.php --apply --skip-backup --limit=0 --desde-id-credito=1785381
  */
 
 declare(strict_types=1);
@@ -36,6 +37,7 @@ $opts = getopt('', [
     'out:',
     'delay-ms:',
     'omitir-primeros:',
+    'desde-id-credito:',
     'verbose',
     'apply',
     'skip-backup',
@@ -73,7 +75,13 @@ $limit = isset($opts['limit'])
     : ($apply ? 0 : 50);
 $delayMs = isset($opts['delay-ms']) ? max(0, (int) $opts['delay-ms']) : 300;
 $omitirPrimeros = isset($opts['omitir-primeros']) ? max(0, (int) $opts['omitir-primeros']) : 0;
+$desdeIdCredito = isset($opts['desde-id-credito']) ? max(0, (int) $opts['desde-id-credito']) : 0;
 $verbose = array_key_exists('verbose', $opts);
+
+if ($desdeIdCredito > 0 && $omitirPrimeros > 0) {
+    fwrite(STDERR, "Use solo uno: --desde-id-credito o --omitir-primeros (el indice depende del total actual en BD).\n");
+    exit(1);
+}
 
 $ids = [];
 if (isset($opts['id-credito'])) {
@@ -105,7 +113,16 @@ try {
     }
 
     $totalOriginal = count($ids);
-    if ($omitirPrimeros > 0) {
+    if ($desdeIdCredito > 0) {
+        $nAntes = $totalOriginal;
+        $ids = array_values(array_filter($ids, static fn($id): bool => (int) $id >= $desdeIdCredito));
+        $totalOriginal = count($ids);
+        if ($totalOriginal === 0) {
+            fwrite(STDERR, "--desde-id-credito ({$desdeIdCredito}) no deja ningun credito en la lista.\n");
+            exit(1);
+        }
+        echo "[gdc-parcialidad] Reanudacion por Id_credito>={$desdeIdCredito}: {$totalOriginal} credito(s) (lista completa tenia {$nAntes}).\n";
+    } elseif ($omitirPrimeros > 0) {
         if ($omitirPrimeros >= $totalOriginal) {
             fwrite(STDERR, "--omitir-primeros ({$omitirPrimeros}) es mayor o igual al total de creditos ({$totalOriginal}).\n");
             exit(1);
@@ -249,7 +266,8 @@ try {
 
 function imprimirUso(): void
 {
-    fwrite(STDERR, "Uso: php gdc_parcialidad_worker.php [--apply] [--skip-backup] [--omitir-primeros=N] [--id-credito=ID[,ID]] [--file=creditos.txt] [--fecha-corte=YYYY-MM-DD] [--limit=N] [--out=reporte.csv] [--delay-ms=N] [--verbose]\n");
+    fwrite(STDERR, "Uso: php gdc_parcialidad_worker.php [--apply] [--skip-backup] [--omitir-primeros=N|--desde-id-credito=ID] [--id-credito=ID[,ID]] [--file=creditos.txt] [--fecha-corte=YYYY-MM-DD] [--limit=N] [--out=reporte.csv] [--delay-ms=N] [--verbose]\n");
+    fwrite(STDERR, "  --desde-id-credito=ID  Reanuda procesando solo Id_credito>=ID (recomendado si cambia el total de creditos en BD).\n");
 }
 
 function loadEnvFile(string $path): void

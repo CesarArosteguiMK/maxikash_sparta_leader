@@ -4730,16 +4730,16 @@ HTML;
     }
 
     /**
-     * Scripts del tablero Asignación (cfg inyectada + ReporteriaAsignacionTablero.frontend.js / .excel.js).
+     * Scripts del tablero Asignación (cfg inyectada + JS en public/assets/js/reporteria/).
      */
     private static function htmlScriptBundleAsignacionTablero(string $cfgJson): string
     {
         static $cache = null;
         if ($cache === null) {
-            $dir = __DIR__;
+            $dir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'reporteria';
             $cache = [
-                'main' => (string) file_get_contents($dir . '/ReporteriaAsignacionTablero.frontend.js'),
-                'excel' => (string) file_get_contents($dir . '/ReporteriaAsignacionTablero.excel.js'),
+                'main' => (string) file_get_contents($dir . DIRECTORY_SEPARATOR . 'ReporteriaAsignacionTablero.frontend.js'),
+                'excel' => (string) file_get_contents($dir . DIRECTORY_SEPARATOR . 'ReporteriaAsignacionTablero.excel.js'),
             ];
         }
 
