@@ -1422,7 +1422,7 @@ HTML;
                         ccs.fecha_actualizacion, ccs.usuario_actualizacion,
                         ccs.id_celula
                  FROM cierre_credito_seguimiento ccs
-                 WHERE ccs.estatus IN ('notificado_cartera', 'cerrado', 'devuelto_cartera'){$celulaWhere}
+                 WHERE ccs.estatus IN ('enviado_cartera', 'notificado_cartera', 'cerrado', 'devuelto_cartera'){$celulaWhere}
                  ORDER BY ccs.fecha_actualizacion DESC, ccs.fecha_alta DESC",
                 $params ?: null
             ) ?: [];
