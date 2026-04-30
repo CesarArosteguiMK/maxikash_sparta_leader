@@ -2298,6 +2298,60 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     window.madjGuardarDatosMoto  = madjGuardarDatosMoto;
     window.madjEditarDatosMoto   = madjEditarDatosMoto;
 
+    // ------------------------------------------------------------------
+    // SANITIZACIÓN EN TIEMPO REAL — campos del formulario de moto/logística
+    // ------------------------------------------------------------------
+    const _MADJ_LETTERS_ONLY = new Set(['moto_color', 'log_responsable']);
+    const _MADJ_DIGITS_ONLY  = new Set(['log_telefono']);
+
+    function _madjEsSpam(s) {
+        if (!s || s.length < 6) return false;
+        // 1. Mismo carácter repetido ≥6 veces seguidas → "eeeeeeee", "222222"
+        if (/(.)\1{5,}/.test(s)) return true;
+        // 2. Patrón corto (1-4 chars) repetido ≥4 veces → "21212121", "abababab"
+        if (/^(.{1,4})\1{3,}/.test(s)) return true;
+        // 3. Baja entropía: cadena ≥10 chars con pocos caracteres únicos
+        //    Cubre "111122223333444455556666" (7 únicos / 33 = 0.21)
+        if (s.length >= 10 && (new Set(s).size / s.length) < 0.25) return true;
+        return false;
+    }
+
+    function _madjSanitizarCampo(el) {
+        const campo = (el.id || '').replace('madj-datos-', '');
+        let   val   = el.value;
+        let   nuevo = val;
+
+        if (_MADJ_LETTERS_ONLY.has(campo)) {
+            // Solo letras (incluye acentos y ñ) y espacios simples — sin números ni especiales
+            nuevo = val.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]/g, '');
+        } else if (_MADJ_DIGITS_ONLY.has(campo)) {
+            // Teléfono: solo dígitos
+            nuevo = val.replace(/\D/g, '');
+        } else {
+            // Texto general: eliminar caracteres de inyección / shell / código
+            nuevo = val.replace(/[/\\=(){}\[\]<>;:|@#%^*~`!$"']/g, '');
+        }
+
+        // Detectar entrada basura / spam — cualquier hit → limpiar campo completo
+        if (_madjEsSpam(nuevo)) {
+            nuevo = '';
+        }
+
+        if (nuevo !== val) {
+            el.value = nuevo;
+            el.classList.add('is-invalid');
+            setTimeout(() => el.classList.remove('is-invalid'), 700);
+        }
+    }
+
+    // Listener delegado: se activa en cualquier input dentro del formulario de moto
+    document.addEventListener('input', function (e) {
+        const el = e.target;
+        if (el && el.id && el.id.startsWith('madj-datos-') && el.type !== 'number') {
+            _madjSanitizarCampo(el);
+        }
+    });
+
     // INIT
     document.addEventListener('DOMContentLoaded', madjCargar);
     if (document.readyState !== 'loading') madjCargar();

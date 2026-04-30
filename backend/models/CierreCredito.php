@@ -1524,26 +1524,8 @@ HTML;
                 ['usuario' => $usuario, 'id' => $id]
             );
 
-            // 3. Resolver email del usuario que envió a cartera (usuario_alta = nombre completo)
-            $emailDestinatario = null;
-            $nombreAltaLimpio  = trim((string) ($registro['usuario_alta'] ?? ''));
-            if ($nombreAltaLimpio !== '') {
-                $personaRow = $db->queryOne(
-                    "SELECT user_name
-                     FROM persona
-                     WHERE TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop)) = :nombre
-                       AND user_name IS NOT NULL AND TRIM(user_name) != ''
-                     LIMIT 1",
-                    ['nombre' => $nombreAltaLimpio]
-                );
-                if ($personaRow && filter_var($personaRow['user_name'], FILTER_VALIDATE_EMAIL)) {
-                    $emailDestinatario = $personaRow['user_name'];
-                }
-            }
-            // Fallback si no se resuelve el email
-            if (!$emailDestinatario) {
-                $emailDestinatario = 'pedro.figueroa@__SPARTA_SECRET_REDACTED__.mx';
-            }
+            // 3. Destinatario fijo de confirmación de cierre
+            $emailDestinatario = 'cipriano.mendez@__SPARTA_SECRET_REDACTED__.mx';
 
             // 4. Enviar correo de confirmación de cierre
             $emailError = null;
