@@ -1157,14 +1157,22 @@ body.dark-mode .ae-main-credito { color: #e2e8f0; }
                     mensajeExtra = 'La operación fue movida a la pestaña de <strong>Pendientes</strong>.';
                 }
 
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Dictamen guardado',
-                    html: 'El dictamen fue registrado correctamente.' + (mensajeExtra ? '<br><small class="text-muted">' + mensajeExtra + '</small>' : ''),
-                    confirmButtonColor: '#2563eb',
-                }).then(() => {
-                    acCargarTodo();
-                });
+                var htmlDictamen = 'El dictamen fue registrado correctamente.' +
+                    (mensajeExtra ? '<br><small class="text-muted">' + mensajeExtra + '</small>' : '');
+                if (typeof spartaSwalEnviadoOk === 'function') {
+                    spartaSwalEnviadoOk(null, { html: htmlDictamen }).then(function () {
+                        acCargarTodo();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Enviado',
+                        html: htmlDictamen,
+                        confirmButtonColor: '#0f172a',
+                    }).then(function () {
+                        acCargarTodo();
+                    });
+                }
             })
             .catch(err => {
                 Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#2563eb' });
