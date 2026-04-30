@@ -337,6 +337,10 @@ class MotosAdjudicadas extends Model
             $nombreUsuario,
             $ahora
         );
+
+        /* Flujo actual: tras Recepción sigue la etapa Retenciones (atención / cierre de llamadas). */
+        $this->cambiarEstatus($idOperacion, 'Retenciones', $idUsuario, $nombreUsuario);
+
         $fmt = $this->db->queryOne(
             "SELECT DATE_FORMAT(recepcion_confirmada_at, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
             ['id' => $idOperacion]
@@ -345,6 +349,7 @@ class MotosAdjudicadas extends Model
         return [
             'success'            => true,
             'confirmada_at_fmt'  => (string) ($fmt['f'] ?? $ahora),
+            'estatus_nuevo'      => 'Retenciones',
         ];
     }
 
@@ -1086,10 +1091,10 @@ SQL;
                 'en_transito',
                 'Procesando IA',
                 'Revisión Recuperaciones',
-                'Retenciones',
-                'cancelado',
                 'Cierre Documentado',
-                'Recepción'
+                'Recepción',
+                'Retenciones',
+                'cancelado'
             ),
             o.fecha_alta ASC
         SQL;
@@ -1502,7 +1507,8 @@ SQL;
                   'Procesando IA',
                   'Revisión Recuperaciones',
                   'Cierre Documentado',
-                  'Recepción'
+                  'Recepción',
+                  'Retenciones'
               )
             ORDER BY aca.fecha_alta DESC
             SQL,
@@ -1740,10 +1746,10 @@ SQL;
         }
 
         $maxLen = [
-            'moto_marca'     => 80,  'moto_modelo'    => 80,  'moto_color'     => 40,
-            'moto_no_serie'  => 30,  'moto_no_motor'  => 30,  'moto_placas'    => 15,
-            'log_ubicacion'  => 120, 'log_direccion'  => 200, 'log_ciudad'     => 80,
-            'log_estado'     => 60,  'log_responsable'=> 120, 'log_telefono'   => 15,
+            'moto_marca'     => 100, 'moto_modelo'    => 100, 'moto_color'     => 50,
+            'moto_no_serie'  => 50,  'moto_no_motor'  => 30,  'moto_placas'    => 10,
+            'log_ubicacion'  => 100, 'log_direccion'  => 100, 'log_ciudad'     => 50,
+            'log_estado'     => 60,  'log_responsable'=> 100, 'log_telefono'   => 10,
         ];
 
         $setClauses = [];
@@ -1814,7 +1820,7 @@ SQL;
             'folio'               => $folio,
             'id_credito'          => $idCredito,
             'nombre_cliente'      => $nombreCliente !== '' ? $nombreCliente : "Crédito #{$idCredito}",
-            'estatus'             => 'Retenciones',
+            'estatus'             => 'en_transito',
             'id_usuario_alta'     => $idUsuario ?: null,
             'fecha_alta'          => $ahora,
             'fecha_actualizacion' => $ahora,

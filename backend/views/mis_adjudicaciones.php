@@ -1667,12 +1667,12 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <div class="col-6 col-md-3 madj-datos-field">
                         <label for="madj-datos-moto_marca">Marca <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_marca"
-                               placeholder="Ej. Honda" maxlength="80" value="${v('moto_marca')}">
+                               placeholder="Ej. Honda" maxlength="100" value="${v('moto_marca')}">
                     </div>
                     <div class="col-6 col-md-3 madj-datos-field">
                         <label for="madj-datos-moto_modelo">Modelo <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_modelo"
-                               placeholder="Ej. CB125F" maxlength="80" value="${v('moto_modelo')}">
+                               placeholder="Ej. CB125F" maxlength="100" value="${v('moto_modelo')}">
                     </div>
                     <div class="col-6 col-md-2 madj-datos-field">
                         <label for="madj-datos-moto_anio">Año <span class="text-danger">*</span></label>
@@ -1682,12 +1682,12 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <div class="col-6 col-md-2 madj-datos-field">
                         <label for="madj-datos-moto_color">Color <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_color"
-                               placeholder="Ej. Rojo" maxlength="40" value="${v('moto_color')}">
+                               placeholder="Ej. Rojo" maxlength="50" value="${v('moto_color')}">
                     </div>
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_no_serie">No. de Serie (VIN) <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_no_serie"
-                               placeholder="Ej. 3C4PDCAB2ET209142" maxlength="30" value="${v('moto_no_serie')}">
+                               placeholder="Ej. 3C4PDCAB2ET209142" maxlength="50" value="${v('moto_no_serie')}">
                     </div>
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_no_motor">No. de Motor <span class="text-danger">*</span></label>
@@ -1697,7 +1697,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_placas">Placas <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_placas"
-                               placeholder="ABC-123" maxlength="15" value="${v('moto_placas')}">
+                               placeholder="ABC-123" maxlength="10" value="${v('moto_placas')}">
                     </div>
                 </div>
             </div>
@@ -1710,17 +1710,17 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <div class="col-12 col-md-6 madj-datos-field">
                         <label for="madj-datos-log_ubicacion">Nombre del Resguardo / Almacén <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_ubicacion"
-                               placeholder="Ej. Bodega Central Norte" maxlength="120" value="${v('log_ubicacion')}">
+                               placeholder="Ej. Bodega Central Norte" maxlength="100" value="${v('log_ubicacion')}">
                     </div>
                     <div class="col-12 col-md-6 madj-datos-field">
                         <label for="madj-datos-log_direccion">Dirección <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_direccion"
-                               placeholder="Calle, número, colonia" maxlength="200" value="${v('log_direccion')}">
+                               placeholder="Calle, número, colonia" maxlength="100" value="${v('log_direccion')}">
                     </div>
                     <div class="col-6 col-md-3 madj-datos-field">
                         <label for="madj-datos-log_ciudad">Ciudad / Municipio <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_ciudad"
-                               placeholder="Monterrey" maxlength="80" value="${v('log_ciudad')}">
+                               placeholder="Monterrey" maxlength="50" value="${v('log_ciudad')}">
                     </div>
                     <div class="col-6 col-md-3 madj-datos-field">
                         <label for="madj-datos-log_estado">Estado <span class="text-danger">*</span></label>
@@ -1732,12 +1732,13 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_responsable">Responsable de Resguardo <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_responsable"
-                               placeholder="Nombre completo" maxlength="120" value="${v('log_responsable')}">
+                               placeholder="Nombre completo" maxlength="100" value="${v('log_responsable')}">
                     </div>
                     <div class="col-6 col-md-2 madj-datos-field">
                         <label for="madj-datos-log_telefono">Teléfono de Contacto <span class="text-danger">*</span></label>
                         <input type="tel" class="form-control form-control-sm" id="madj-datos-log_telefono"
-                               placeholder="10 dígitos" maxlength="15" value="${v('log_telefono')}">
+                               placeholder="10 dígitos" maxlength="10" pattern="[0-9]{10}"
+                               inputmode="numeric" value="${v('log_telefono')}">
                     </div>
                 </div>
             </div>
@@ -2146,25 +2147,53 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
         let valido = true;
         const datos = {};
+        const errores = [];
 
         campos.forEach(c => {
             const el = document.getElementById('madj-datos-' + c);
             if (!el) return;
             const val = el.value.trim();
+
+            // Validación de vacío
             if (!val) {
                 el.classList.add('is-invalid');
                 valido = false;
-            } else {
-                el.classList.remove('is-invalid');
-                datos[c] = val;
+                return;
             }
+
+            // Validación específica: año numérico en rango
+            if (c === 'moto_anio') {
+                const anio = parseInt(val, 10);
+                if (isNaN(anio) || anio < 1990 || anio > 2030) {
+                    el.classList.add('is-invalid');
+                    errores.push('El año debe ser un número entre 1990 y 2030.');
+                    valido = false;
+                    return;
+                }
+            }
+
+            // Validación específica: teléfono exactamente 10 dígitos
+            if (c === 'log_telefono') {
+                if (!/^\d{10}$/.test(val)) {
+                    el.classList.add('is-invalid');
+                    errores.push('El teléfono debe tener exactamente 10 dígitos numéricos.');
+                    valido = false;
+                    return;
+                }
+            }
+
+            el.classList.remove('is-invalid');
+            datos[c] = val;
         });
 
         if (!valido) {
+            const msg = errores.length
+                ? errores[0]
+                : 'Debes completar todos los campos para continuar.';
             Swal.fire({
                 icon: 'warning',
                 title: 'Campos incompletos',
-                text: 'Debes completar todos los campos para continuar.',
+                text: msg,
                 confirmButtonColor: '#f59e0b',
             });
             const primerInvalido = document.querySelector('#madj-datos-form-wrap .is-invalid');

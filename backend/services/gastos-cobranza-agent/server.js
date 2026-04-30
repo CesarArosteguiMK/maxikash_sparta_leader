@@ -1530,6 +1530,8 @@ app.use(express.json());
 
 /** Un solo proceso EC (worker o enrich) a la vez; evita solapar worker.php en el mismo agente. */
 let ecLauncherBusy = false;
+/** Carga a lista negra (/carga-verificacion-semana/run) en curso; mismo agente no debe aceptar worker ni otra carga. */
+let cargaVerificacionSemanaBusy = false;
 /** Un solo cronjob manual (insertar mora / detectar liquidados / eliminar despachos) a la vez. */
 let cronjobsGcBusy = false;
 
@@ -1616,6 +1618,7 @@ app.get('/health', (req, res) => {
       getDescargoEstatus3ScriptPath() !== '' && getDescargoEstatus3ScriptPath() === SCRIPT_DESCARGO_ESTATUS3,
     carpeta_descargo_estatus3: DESCARGO_ESTATUS3_DIR,
     ec_launcher_ocupado: ecLauncherBusy,
+    carga_verificacion_semana_ocupado: cargaVerificacionSemanaBusy,
     cronjobs_gc_ocupado: cronjobsGcBusy,
     cronjobs_gc: {
       busy: cronjobsGcBusy,
@@ -1981,6 +1984,13 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
         'Ya hay un Worker o proceso EC (enrich) en ejecución en este agente. Espere a que termine antes de lanzar otro.',
     });
   }
+  if (cargaVerificacionSemanaBusy) {
+    return res.status(409).json({
+      success: false,
+      mensaje:
+        'Hay una carga a lista negra (verificación semana) en curso en este agente. Espere a que termine antes de lanzar el Worker o enrich.',
+    });
+  }
   ecLauncherBusy = true;
 
   /** Solo reportes cobranza en reporte/: la tabla del shell muestra estado por .estados_reporte.json */
@@ -2144,6 +2154,20 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
     return res.status(404).json({ success: false, mensaje: `Archivo no encontrado en ${donde}.` });
   }
 
+  if (ecLauncherBusy) {
+    return res.status(409).json({
+      success: false,
+      mensaje:
+        'Hay un Worker o proceso EC (enrich) en ejecución. Espere a que termine antes de cargar a lista negra.',
+    });
+  }
+  if (cargaVerificacionSemanaBusy) {
+    return res.status(409).json({
+      success: false,
+      mensaje: 'Ya hay una carga a lista negra en curso en este agente. Espere a que termine.',
+    });
+  }
+
   const archivoLog =
     origenCarpeta === 'reporte' ? path.relative(REPORTE_DIR, abs).replace(/\\/g, '/') : path.basename(abs);
 
@@ -2200,6 +2224,7 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
     `--- carga-verificacion-semana archivo=${archivoLog} dryRun=${dryRun} inicioSemana=${inicioSemana || '(auto)'} headerRow=${headerRowExplicit ? headerRowPandas : 'auto'}${traceId ? ` trace=${traceId}` : ''} ---`,
   );
 
+  cargaVerificacionSemanaBusy = true;
   const child = spawn(REPORTE_PYTHON, args, {
     cwd,
     env: ENV_CON_PYTHON_UNBUFFERED,
@@ -2214,6 +2239,7 @@ app.post('/carga-verificacion-semana/run', express.json({ limit: '512kb' }), (re
   const enviar = (payload) => {
     if (respondio) return;
     respondio = true;
+    cargaVerificacionSemanaBusy = false;
     if (payload.codigo_salida !== undefined) {
       appendLog(`--- carga-verificacion-semana cierre ${payload.codigo_salida}${traceId ? ` trace=${traceId}` : ''} ---`);
     } else if (payload.mensaje) {
