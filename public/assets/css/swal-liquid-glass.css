@@ -82,3 +82,35 @@ body.dark-mode .modal-content.modal-content-glass {
     border-color: rgba(71, 85, 105, 0.5) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(51, 65, 85, 0.3) inset;
 }
+
+/* ── "Enviado" unificado (spartaSwalEnviadoOk) ── */
+div:where(.swal2-container) .swal-enviado-ok-popup {
+    border-radius: 1rem;
+    padding: 1.5rem 1.75rem 1.15rem;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+}
+div:where(.swal2-container) .swal-enviado-ok-popup .swal2-title {
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 1.35rem;
+    padding-top: 0.15rem;
+}
+div:where(.swal2-container) .swal-enviado-ok-popup .swal2-html-container,
+div:where(.swal2-container) .swal-enviado-ok-popup .swal2-content {
+    color: #64748b;
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+div:where(.swal2-container) .swal-enviado-ok-popup .swal2-confirm.swal-enviado-ok-btn {
+    border-radius: 0.65rem !important;
+    font-weight: 600;
+    min-width: 5.5rem;
+    padding: 0.55rem 1.5rem !important;
+}
+body.dark-mode div:where(.swal2-container) .swal-enviado-ok-popup .swal2-title {
+    color: #f1f5f9;
+}
+body.dark-mode div:where(.swal2-container) .swal-enviado-ok-popup .swal2-html-container,
+body.dark-mode div:where(.swal2-container) .swal-enviado-ok-popup .swal2-content {
+    color: #94a3b8;
+}

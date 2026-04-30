@@ -170,8 +170,42 @@
     }
     .madj-ev-status-pendiente { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
     .madj-ev-status-recibido  { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-    .madj-ev-slot.has-file.status-pendiente { border-color: #fcd34d !important; border-style: solid !important; }
-    .madj-ev-slot.has-file.status-recibido  { border-color: #86efac !important; border-style: solid !important; }
+    .madj-ev-status-aceptada  { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .madj-ev-status-rechazada { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    @keyframes madj-ev-slot-rechazo-pulse {
+        0%, 100% {
+            border-color: #b91c1c !important;
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55), 0 0 12px rgba(220, 38, 38, 0.25);
+        }
+        50% {
+            border-color: #f87171 !important;
+            box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.2), 0 0 18px rgba(248, 113, 113, 0.45);
+        }
+    }
+    .madj-ev-slot.has-file.status-pendiente {
+        border-width: 3px !important;
+        border-color: #f59e0b !important;
+        border-style: solid !important;
+        box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25);
+    }
+    .madj-ev-slot.has-file.status-recibido,
+    .madj-ev-slot.has-file.status-aceptada {
+        border-width: 3px !important;
+        border-style: solid !important;
+        /* Verde tipo icono “éxito” (referencia ~#28a745 / #22c55e) */
+        border-color: #28a745 !important;
+        box-shadow: 0 0 0 1px rgba(40, 167, 69, 0.45), 0 2px 12px rgba(40, 167, 69, 0.32);
+    }
+    .madj-ev-slot.has-file.status-rechazada {
+        border-width: 3px !important;
+        border-style: solid !important;
+        border-color: #dc2626 !important;
+        animation: madj-ev-slot-rechazo-pulse 1.15s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .madj-ev-slot.has-file.status-rechazada,
+        body.dark-mode .madj-ev-slot.has-file.status-rechazada { animation: none !important; }
+    }
     .madj-ev-slot img.madj-thumb,
     .madj-ev-slot video.madj-thumb    { width: 100%; height: 100%; object-fit: cover; display: block; }
     .madj-slot-vid-ov {
@@ -645,6 +679,16 @@
         border-color: #166534 !important;
         color: #bbf7d0 !important;
     }
+    body.dark-mode .madj-ev-status-aceptada {
+        background: #14532d !important;
+        border-color: #166534 !important;
+        color: #bbf7d0 !important;
+    }
+    body.dark-mode .madj-ev-status-rechazada {
+        background: #7f1d1d !important;
+        border-color: #991b1b !important;
+        color: #fecaca !important;
+    }
 
     /* -- Modal Evidencias — cabeceras de sección -------------------- */
     body.dark-mode .madj-ev-hdr-orange {
@@ -692,14 +736,33 @@
 
     /* Slot con archivo cargado: mantener borde de estado pero bg oscuro */
     body.dark-mode .madj-ev-slot.has-file         { background: #1e293b !important; }
-    body.dark-mode .madj-ev-slot.has-file.status-pendiente { border-color: #fcd34d !important; }
-    body.dark-mode .madj-ev-slot.has-file.status-recibido  { border-color: #4ade80 !important; }
+    body.dark-mode .madj-ev-slot.has-file.status-pendiente {
+        border-width: 3px !important;
+        border-color: #fbbf24 !important;
+        box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.3);
+    }
+    body.dark-mode .madj-ev-slot.has-file.status-recibido,
+    body.dark-mode .madj-ev-slot.has-file.status-aceptada {
+        border-width: 3px !important;
+        border-color: #34d399 !important;
+        box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.45), 0 2px 14px rgba(40, 167, 69, 0.35);
+    }
+    body.dark-mode .madj-ev-slot.has-file.status-rechazada {
+        border-width: 3px !important;
+        border-color: #f87171 !important;
+        animation: madj-ev-slot-rechazo-pulse 1.15s ease-in-out infinite;
+    }
 
     /* -- Modal Evidencias — barra de progreso ----------------------- */
     body.dark-mode .madj-ev-progress-bg  { background: #334155 !important; }
     body.dark-mode .madj-ev-progress-lbl { color: #94a3b8 !important; }
 
     /* -- Aviso "enviadas" en el footer del modal ------------------- */
+    body.dark-mode #madj-ev-rechazo-notice {
+        background: rgba(127,29,29,.25) !important;
+        border-color: rgba(248,113,113,.35) !important;
+    }
+    body.dark-mode #madj-ev-rechazo-notice p { color: #fecaca !important; }
     body.dark-mode #madj-ev-sent-notice {
         background: rgba(30,64,175,.2) !important;
         border-color: rgba(59,130,246,.35) !important;
@@ -924,6 +987,13 @@
                 </div>
             </div>
             <div class="modal-footer bg-light py-2 flex-column align-items-stretch gap-2">
+                <div id="madj-ev-rechazo-notice" class="d-none w-100"
+                     style="background:#fef2f2;border:1px solid #fecaca;border-radius:.5rem;padding:.6rem .9rem;">
+                    <p class="mb-0 small" style="color:#991b1b;font-weight:600;">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        Hay evidencias <strong>rechazadas</strong> (borde rojo). Reemplázalas y pulsa <strong>Enviar evidencias</strong> para que vuelvan a la bandeja de entrada de Evidencias.
+                    </p>
+                </div>
                 <div id="madj-ev-sent-notice" class="d-none w-100"
                      style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:.5rem;padding:.6rem .9rem;">
                     <p class="mb-0 small" style="color:#1d4ed8;font-weight:600;">
@@ -1169,7 +1239,28 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         });
     }
 
-    function _madjPrecargarProgreso(creditos) {
+    /** Aplica mapa id_credito → { total, all_sent } | número (legacy) */
+    function _madjAplicarMapaResumen(mapa) {
+        if (!mapa || typeof mapa !== 'object') return;
+        Object.keys(mapa).forEach(function (id) {
+            const r = mapa[id];
+            if (r && typeof r === 'object') {
+                const total = Math.min(_madjTotalSlots(), Math.max(0, parseInt(r.total || 0, 10)));
+                _madjSetProgressCredito(id, total);
+                _madjMarcarCreditoSent(id, !!r.all_sent);
+            } else {
+                const total = Math.min(_madjTotalSlots(), Math.max(0, parseInt(r || 0, 10)));
+                _madjSetProgressCredito(id, total);
+                _madjMarcarCreditoSent(id, total >= _madjTotalSlots());
+            }
+        });
+    }
+
+    /**
+     * @param {Array} creditos
+     * @param {object|undefined} resumenInline — si viene en la misma respuesta que la lista (más rápido, sin parpadeo de botones).
+     */
+    function _madjPrecargarProgreso(creditos, resumenInline) {
         const ids = (creditos || []).map(c => +c.id_credito).filter(n => Number.isFinite(n) && n > 0);
         _madjProgresoCreditos = {};
         _madjProgresoCargado  = false;
@@ -1177,6 +1268,12 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         ids.forEach(id => {
             _madjProgresoCreditos[String(id)] = { uploaded: 0, total: _madjTotalSlots() };
         });
+
+        if (resumenInline != null && typeof resumenInline === 'object') {
+            _madjAplicarMapaResumen(resumenInline);
+            _madjProgresoCargado = true;
+            return Promise.resolve();
+        }
 
         if (!ids.length) {
             _madjProgresoCargado = true;
@@ -1191,18 +1288,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             .then(r => r.json())
             .then(data => {
                 if (!data || !data.success || !data.resumen) return;
-                Object.keys(data.resumen).forEach(id => {
-                    const r = data.resumen[id];
-                    if (r && typeof r === 'object') {
-                        const total = Math.min(_madjTotalSlots(), Math.max(0, parseInt(r.total || 0, 10)));
-                        _madjSetProgressCredito(id, total);
-                        _madjMarcarCreditoSent(id, !!r.all_sent);
-                    } else {
-                        const total = Math.min(_madjTotalSlots(), Math.max(0, parseInt(r || 0, 10)));
-                        _madjSetProgressCredito(id, total);
-                        _madjMarcarCreditoSent(id, total >= _madjTotalSlots());
-                    }
-                });
+                _madjAplicarMapaResumen(data.resumen);
             })
             .catch(() => {})
             .finally(() => {
@@ -1214,6 +1300,37 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // --------------------------------------------------------------
     // CARGA PRINCIPAL
     // --------------------------------------------------------------
+    /** Segunda fase: buckets desde Segundómetro (no bloquea la primera pintada). */
+    function _madjEnriquecerBucketsMorosidad() {
+        const ids = (_todos || []).map(c => +c.id_credito).filter(n => Number.isFinite(n) && n > 0);
+        if (!ids.length) return;
+
+        fetch('/MotosAdjudicadas/obtenerMorosidadMisCreditos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ ids_credito: ids }),
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.success || !data.morosidad) return;
+                const m = data.morosidad;
+                let hubo = false;
+                (_todos || []).forEach(function (c) {
+                    const idKey = String(c.id_credito != null ? c.id_credito : '');
+                    const row = m[idKey];
+                    if (!row) return;
+                    const bucket = String(row.bucket || '').trim();
+                    if (bucket !== '' && c.bucket !== bucket) {
+                        c.bucket = bucket;
+                        hubo = true;
+                    }
+                });
+                if (hubo) madjRenderizarTabla(_todos || []);
+            })
+            .catch(function () {});
+    }
+
     function madjCargar() {
         const btn  = document.getElementById('madj-btn-refresh');
         const icon = btn.querySelector('i');
@@ -1222,21 +1339,23 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
         document.getElementById('madj-loading').style.display = 'block';
 
-        fetch('/MotosAdjudicadas/obtenerMisAdjudicaciones')
+        fetch('/MotosAdjudicadas/obtenerMisAdjudicaciones?omitir_morosidad=1')
             .then(r => r.json())
             .then(data => {
-                if (data.success && Array.isArray(data.creditos)) {
-                    _todos = data.creditos;
-                    madjActualizarKPIs(_todos);
-                    madjRenderizarTabla(_todos);
-                    _madjPrecargarProgreso(_todos).finally(function () {
-                        madjRenderizarTabla(_todos);
-                    });
-                } else {
+                if (!data.success || !Array.isArray(data.creditos)) {
                     _todos = [];
                     _madjProgresoCreditos = {};
-                    _madjProgresoCargado  = false;                    madjMostrarEmpty();
+                    _madjProgresoCargado = false;
+                    madjMostrarEmpty();
+                    return Promise.resolve();
                 }
+                _todos = data.creditos;
+                madjActualizarKPIs(_todos);
+                return _madjPrecargarProgreso(_todos, data.resumen_evidencias);
+            })
+            .then(function () {
+                madjRenderizarTabla(_todos || []);
+                _madjEnriquecerBucketsMorosidad();
             })
             .catch(() => {
                 Swal.fire('Error', 'No se pudieron cargar las adjudicaciones.', 'error');
@@ -1382,6 +1501,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     let _madjPendingFiles = {}; // { slotKey: File } -" ya no se usa para staging, se conserva por compatibilidad
     let _madjCommittedSlots = new Set();
     let _madjSlotEstatus = {}; // { slotKey: 'pendiente_envio' | 'recibido' }
+    /** Veredicto Atención por slot: 0 sin veredicto, 1 aceptada, 2 rechazada (solo slots con val_atn en BD). */
+    let _madjSlotValAtn = {};
     let _madjEnsureOpPromise = null;
     let _madjDatosMotoGuardados = false; // true cuando paso 1 está guardado
     let _madjDatosMotoData = null;       // datos logísticos guardados en paso 1
@@ -1446,6 +1567,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             _madjEvState[slotKey] = { src: madjUrlForDisplay(ev.url), type: ev.tipo };
             _madjCommittedSlots.add(slotKey);
             _madjSlotEstatus[slotKey] = estatus;
+            const va = parseInt(ev.val_atn, 10);
+            _madjSlotValAtn[slotKey] = (va === 1 || va === 2) ? va : 0;
         });
 
         if (_madjActiveCreditId) {
@@ -1508,6 +1631,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         _madjPendingFiles = {};
         _madjCommittedSlots = new Set();
         _madjSlotEstatus = {};
+        _madjSlotValAtn = {};
         _madjEnsureOpPromise = null;
         _madjDatosMotoGuardados = false;
         _madjDatosMotoData = null;
@@ -1765,15 +1889,38 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         </div>`;
     }
 
+    function _madjSlotTieneRechazoAtn() {
+        return Object.keys(_madjSlotValAtn).some(k => MADJ_EV_ALLOWED_SLOTS.has(k) && _madjSlotValAtn[k] === 2);
+    }
+
     function _madjRenderSlot(sl) {
         const st = _madjEvState[sl.key];
         if (st && st.src) {
             const es = _madjSlotEstatus[sl.key];
+            const va = parseInt(_madjSlotValAtn[sl.key], 10) || 0;
             const isPendiente = es === 'pendiente_envio';
-            const statusCls   = isPendiente ? 'status-pendiente' : 'status-recibido';
-            const statusBadge = isPendiente
-                ? '<span class="madj-ev-status-badge madj-ev-status-pendiente">Por enviar</span>'
-                : '<span class="madj-ev-status-badge madj-ev-status-recibido"><i class="fa-solid fa-check me-1"></i>Enviado</span>';
+            let statusCls;
+            let statusBadge;
+            if (va === 2) {
+                statusCls = 'status-rechazada';
+                statusBadge = '<span class="madj-ev-status-badge madj-ev-status-rechazada"><i class="fa-solid fa-xmark me-1"></i>Rechazada</span>';
+            } else if (va === 1) {
+                statusCls = 'status-aceptada';
+                statusBadge = '<span class="madj-ev-status-badge madj-ev-status-aceptada"><i class="fa-solid fa-check me-1"></i>Aceptada</span>';
+            } else {
+                statusCls = isPendiente ? 'status-pendiente' : 'status-recibido';
+                statusBadge = isPendiente
+                    ? '<span class="madj-ev-status-badge madj-ev-status-pendiente">Por enviar</span>'
+                    : '<span class="madj-ev-status-badge madj-ev-status-recibido"><i class="fa-solid fa-check me-1"></i>Enviado</span>';
+            }
+            /** Atención aceptó la evidencia (val_atn=1): no se permite reemplazar desde Mis adjudicaciones. */
+            const mostrarBtnReemplazar = va !== 1;
+            const btnRepHtml = mostrarBtnReemplazar
+                ? `<button type="button" class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
+                        onclick="madjSlotTrigger('${sl.key}')">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>`
+                : '';
             const media = sl.isVideo
                 ? `<video class="madj-thumb" data-madj-src="${esc(st.src)}" muted playsinline></video>
                    <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>`
@@ -1783,10 +1930,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 ${media}
                 <span class="slot-lbl">${esc(sl.label)}</span>
                 ${statusBadge}
-                <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
-                        onclick="madjSlotTrigger('${sl.key}')">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                </button>
+                ${btnRepHtml}
             </div>`;
         }
         return `
@@ -1809,10 +1953,11 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     function _madjActualizarBotonEnviar() {
         const btn    = document.getElementById('madj-btn-enviar-evidencias');
         const notice = document.getElementById('madj-ev-sent-notice');
+        const noticeRech = document.getElementById('madj-ev-rechazo-notice');
         const totalSlots  = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
         const totalFilled = _madjContarEvidencias();
         const hasPendiente = Object.values(_madjSlotEstatus).some(s => s === 'pendiente_envio');
-        const allSent = totalFilled >= totalSlots && !hasPendiente && totalFilled > 0;
+        const allSent = totalFilled >= totalSlots && !hasPendiente && totalFilled > 0 && !_madjSlotTieneRechazoAtn();
 
         if (_madjActiveCreditId) {
             _madjMarcarCreditoSent(_madjActiveCreditId, allSent);
@@ -1828,6 +1973,10 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             }
         }
 
+        if (noticeRech) {
+            if (_madjSlotTieneRechazoAtn()) noticeRech.classList.remove('d-none');
+            else noticeRech.classList.add('d-none');
+        }
         if (notice) {
             if (allSent) notice.classList.remove('d-none');
             else notice.classList.add('d-none');
@@ -1910,7 +2059,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             .catch(err => {
                 // Restaurar slot vacío en caso de error
                 if (slotEl) {
-                    slotEl.classList.remove('uploading', 'has-file', 'status-pendiente', 'status-recibido');
+                    slotEl.classList.remove('uploading', 'has-file', 'status-pendiente', 'status-recibido', 'status-aceptada', 'status-rechazada');
                     slotEl.onclick = () => madjSlotTrigger(key);
                     const sl = (() => {
                         for (const sec of MADJ_EV_SECTIONS) {
@@ -2017,6 +2166,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 _madjCommittedSlots.add(slotKey);
                 delete _madjPendingFiles[slotKey];
                 _madjSlotEstatus[slotKey] = 'pendiente_envio';
+                _madjSlotValAtn[slotKey] = 0;
 
                 const statusBadge = '<span class="madj-ev-status-badge madj-ev-status-pendiente">Por enviar</span>';
 
@@ -2024,7 +2174,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     slotEl.classList.remove('uploading');
                     slotEl.querySelector('.madj-slot-upload-spin')?.remove();
                     slotEl.classList.add('has-file', 'status-pendiente');
-                    slotEl.classList.remove('status-recibido');
+                    slotEl.classList.remove('status-recibido', 'status-aceptada', 'status-rechazada');
                     slotEl.onclick = null;
                     if (isVideo) {
                         slotEl.innerHTML =
@@ -2095,9 +2245,10 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             for (const key of Object.keys(_madjSlotEstatus)) {
                 if (_madjSlotEstatus[key] === 'pendiente_envio') {
                     _madjSlotEstatus[key] = 'recibido';
+                    _madjSlotValAtn[key] = 0;
                     const slotEl = document.getElementById('madj-slot-' + key);
                     if (slotEl) {
-                        slotEl.classList.remove('status-pendiente');
+                        slotEl.classList.remove('status-pendiente', 'status-aceptada', 'status-rechazada');
                         slotEl.classList.add('status-recibido');
                         const badge = slotEl.querySelector('.madj-ev-status-badge');
                         if (badge) {

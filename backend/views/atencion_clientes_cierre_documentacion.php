@@ -1092,13 +1092,16 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
                         if (!data.success) throw new Error(data.message || 'No se pudo registrar.');
-                        if (typeof Swal !== 'undefined') {
+                        if (typeof spartaSwalEnviadoOk === 'function') {
+                            spartaSwalEnviadoOk(
+                                'Confirmación de cierre documentación enviada correctamente. La operación pasó a la bandeja de Recepción.'
+                            );
+                        } else if (typeof Swal !== 'undefined') {
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Listo',
-                                text: 'Confirmación registrada. La operación pasó a la bandeja de Recepción (vista 5).',
-                                timer: 2800,
-                                showConfirmButton: false,
+                                title: 'Enviado',
+                                text: 'Confirmación de cierre documentación enviada correctamente. La operación pasó a la bandeja de Recepción.',
+                                confirmButtonColor: '#0f172a',
                             });
                         }
                         const mEl = document.getElementById('modalAcdCierreDocumentacion');
