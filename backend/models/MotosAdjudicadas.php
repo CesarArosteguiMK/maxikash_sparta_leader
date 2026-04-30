@@ -1812,6 +1812,81 @@ SQL;
         'log_estado', 'log_responsable', 'log_telefono',
     ];
 
+    /** ISO 3779 / NHTSA: VIN de 17 caracteres máx.; sin I, O, Q (motocicletas incluidas). */
+    private const MADJ_VIN_MAX_LEN = 17;
+    private const MADJ_VIN_MIN_LEN = 8;
+
+    /** Número de motor (fabricante): límite superior típico en motos; sin estándar único como el VIN. */
+    private const MADJ_NO_MOTOR_MAX_LEN = 24;
+
+    /** Placa motocicleta México (NOM-001-SCT-2-2016 / formatos por estado): serie corta; margen por variantes. */
+    private const MADJ_PLACAS_MOTO_MAX_LEN = 9;
+    private const MADJ_PLACAS_MOTO_MIN_LEN = 4;
+
+    /**
+     * Validación de formato para Mis adjudicaciones (motocicleta).
+     * @return string|null mensaje de error o null si todo OK
+     */
+    private function validarDatosMotoFormatos(array $datos): ?string
+    {
+        if (array_key_exists('moto_no_serie', $datos)) {
+            $vin = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_no_serie']));
+            $len = strlen($vin);
+            if ($len < self::MADJ_VIN_MIN_LEN || $len > self::MADJ_VIN_MAX_LEN) {
+                return 'El número de serie (VIN) debe tener entre '
+                    . self::MADJ_VIN_MIN_LEN . ' y ' . self::MADJ_VIN_MAX_LEN
+                    . ' caracteres (ISO 3779 para motocicletas: máximo ' . self::MADJ_VIN_MAX_LEN . ').';
+            }
+            if (!preg_match('/^[A-HJ-NPR-Z0-9]+$/', $vin)) {
+                return 'El VIN solo puede incluir letras (sin I, O ni Q) y dígitos, sin espacios.';
+            }
+        }
+
+        if (array_key_exists('moto_no_motor', $datos)) {
+            $motor = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_no_motor']));
+            if ($motor === '') {
+                return 'El número de motor es obligatorio.';
+            }
+            if (strlen($motor) > self::MADJ_NO_MOTOR_MAX_LEN) {
+                return 'El número de motor admite como máximo '
+                    . self::MADJ_NO_MOTOR_MAX_LEN
+                    . ' caracteres (letras, números y guion), típico en motocicletas.';
+            }
+            if (!preg_match('/^[A-Z0-9\-]+$/', $motor)) {
+                return 'El número de motor solo puede incluir letras, números y guiones.';
+            }
+        }
+
+        if (array_key_exists('moto_placas', $datos)) {
+            $placas = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_placas']));
+            $lp     = strlen($placas);
+            if ($lp < self::MADJ_PLACAS_MOTO_MIN_LEN || $lp > self::MADJ_PLACAS_MOTO_MAX_LEN) {
+                return 'Las placas de motocicleta deben tener entre '
+                    . self::MADJ_PLACAS_MOTO_MIN_LEN . ' y ' . self::MADJ_PLACAS_MOTO_MAX_LEN
+                    . ' caracteres (en México el formato de serie suele ser corto, p. ej. Y001AA).';
+            }
+            if (!preg_match('/^[A-Z0-9\-]+$/', $placas)) {
+                return 'Las placas solo pueden incluir letras, números y guion.';
+            }
+        }
+
+        if (array_key_exists('moto_color', $datos)) {
+            $color = trim((string) $datos['moto_color']);
+            if ($color !== '' && !preg_match('/^[a-záéíóúüñÁÉÍÓÚÜÑ\s]+$/u', $color)) {
+                return 'El color debe contener solo letras (y espacios), sin números.';
+            }
+        }
+
+        if (array_key_exists('log_responsable', $datos)) {
+            $nom = trim((string) $datos['log_responsable']);
+            if ($nom !== '' && !preg_match('/^[a-záéíóúüñÁÉÍÓÚÜÑ\s\'\.\-]+$/u', $nom)) {
+                return 'El responsable de resguardo debe ser un nombre (letras); no se permiten números.';
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Guarda los datos de la moto y logísticos en adj_operacion.
      * @param  int    $idOperacion  ID de adj_operacion
@@ -1832,9 +1907,16 @@ SQL;
             return ['success' => false, 'message' => 'Operación no encontrada.'];
         }
 
+        $fmtErr = $this->validarDatosMotoFormatos($datos);
+        if ($fmtErr !== null) {
+            return ['success' => false, 'message' => $fmtErr];
+        }
+
         $maxLen = [
             'moto_marca'     => 100, 'moto_modelo'    => 100, 'moto_color'     => 50,
-            'moto_no_serie'  => 50,  'moto_no_motor'  => 30,  'moto_placas'    => 10,
+            'moto_no_serie'  => self::MADJ_VIN_MAX_LEN,
+            'moto_no_motor'  => self::MADJ_NO_MOTOR_MAX_LEN,
+            'moto_placas'    => self::MADJ_PLACAS_MOTO_MAX_LEN,
             'log_ubicacion'  => 100, 'log_direccion'  => 100, 'log_ciudad'     => 50,
             'log_estado'     => 60,  'log_responsable'=> 100, 'log_telefono'   => 10,
         ];
@@ -1846,9 +1928,18 @@ SQL;
             if (!array_key_exists($campo, $datos)) {
                 continue;
             }
-            $val = $campo === 'moto_anio'
-                ? ((int) $datos[$campo] ?: null)
-                : mb_substr(trim((string) $datos[$campo]), 0, $maxLen[$campo] ?? 255);
+            $valRaw = $datos[$campo];
+            if ($campo === 'moto_anio') {
+                $val = ((int) $valRaw ?: null);
+            } elseif ($campo === 'moto_no_serie' || $campo === 'moto_no_motor' || $campo === 'moto_placas') {
+                $val = mb_substr(
+                    strtoupper(preg_replace('/\s+/u', '', trim((string) $valRaw))),
+                    0,
+                    $maxLen[$campo] ?? 255
+                );
+            } else {
+                $val = mb_substr(trim((string) $valRaw), 0, $maxLen[$campo] ?? 255);
+            }
             $setClauses[]      = "`{$campo}` = :{$campo}";
             $params[$campo]    = $val;
         }

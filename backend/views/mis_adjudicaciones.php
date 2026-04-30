@@ -1533,6 +1533,13 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     );
     const MADJ_EV_VALID_ESTATUS = new Set(['pendiente_envio', 'recibido']);
 
+    /** Motocicleta: ISO 3779 VIN máx. 17 (sin I,O,Q); placas MX moto cortas; motor sin estándar único. */
+    const MADJ_VIN_MAX = 17;
+    const MADJ_VIN_MIN = 8;
+    const MADJ_MOTOR_MAX = 24;
+    const MADJ_PLACAS_MOTO_MAX = 9;
+    const MADJ_PLACAS_MOTO_MIN = 4;
+
     function _madjNormalizarEstatus(estatus) {
         const v = String(estatus || 'recibido').trim().toLowerCase();
         return MADJ_EV_VALID_ESTATUS.has(v) ? v : null;
@@ -1760,7 +1767,54 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         const body = document.getElementById('madj-ev-body');
         body.innerHTML = html;
         madjSanearDomUrls(body);
+        _madjBindDatosMotoConstraints();
         _madjActualizarBotonEnviar();
+    }
+
+    /** Filtros en vivo: VIN/placas/motor alfanuméricos; color y responsable sin dígitos. */
+    function _madjBindDatosMotoConstraints() {
+        const wrap = document.getElementById('madj-datos-form-wrap');
+        if (!wrap) return;
+
+        const vinStrip = /[^A-HJ-NPR-Z0-9]/gi;
+        const motorStrip = /[^A-Za-z0-9\-]/g;
+        const plateStrip = /[^A-Za-z0-9\-]/g;
+
+        const serie = document.getElementById('madj-datos-moto_no_serie');
+        if (serie) {
+            serie.setAttribute('maxlength', String(MADJ_VIN_MAX));
+            serie.addEventListener('input', function madjVinInput() {
+                let v = serie.value.toUpperCase().replace(/\s/g, '').replace(vinStrip, '');
+                if (v.length > MADJ_VIN_MAX) v = v.slice(0, MADJ_VIN_MAX);
+                serie.value = v;
+            });
+        }
+        const motor = document.getElementById('madj-datos-moto_no_motor');
+        if (motor) {
+            motor.setAttribute('maxlength', String(MADJ_MOTOR_MAX));
+            motor.addEventListener('input', function madjMotorInput() {
+                motor.value = motor.value.toUpperCase().replace(/\s/g, '').replace(motorStrip, '').slice(0, MADJ_MOTOR_MAX);
+            });
+        }
+        const placas = document.getElementById('madj-datos-moto_placas');
+        if (placas) {
+            placas.setAttribute('maxlength', String(MADJ_PLACAS_MOTO_MAX));
+            placas.addEventListener('input', function madjPlacasInput() {
+                placas.value = placas.value.toUpperCase().replace(/\s/g, '').replace(plateStrip, '').slice(0, MADJ_PLACAS_MOTO_MAX);
+            });
+        }
+        const color = document.getElementById('madj-datos-moto_color');
+        if (color) {
+            color.addEventListener('input', function madjColorInput() {
+                color.value = color.value.replace(/[0-9]/g, '');
+            });
+        }
+        const resp = document.getElementById('madj-datos-log_responsable');
+        if (resp) {
+            resp.addEventListener('input', function madjRespInput() {
+                resp.value = resp.value.replace(/[0-9]/g, '');
+            });
+        }
     }
 
     // --------------------------------------------------------------
@@ -1806,22 +1860,30 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <div class="col-6 col-md-2 madj-datos-field">
                         <label for="madj-datos-moto_color">Color <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_color"
-                               placeholder="Ej. Rojo" maxlength="50" value="${v('moto_color')}">
+                               placeholder="Ej. Rojo" maxlength="50" autocomplete="off"
+                               title="Solo letras (sin números)"
+                               value="${v('moto_color')}">
                     </div>
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_no_serie">No. de Serie (VIN) <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="madj-datos-moto_no_serie"
-                               placeholder="Ej. 3C4PDCAB2ET209142" maxlength="50" value="${v('moto_no_serie')}">
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="madj-datos-moto_no_serie"
+                               placeholder="Ej. MH4KC0110LK012345 (17)" maxlength="${MADJ_VIN_MAX}" autocomplete="off"
+                               title="ISO 3779 (motocicleta): máximo 17 caracteres; sin I, O ni Q"
+                               value="${v('moto_no_serie')}">
                     </div>
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_no_motor">No. de Motor <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="madj-datos-moto_no_motor"
-                               placeholder="Ej. JC65E-3900001" maxlength="30" value="${v('moto_no_motor')}">
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="madj-datos-moto_no_motor"
+                               placeholder="Ej. JC65E-3900001" maxlength="${MADJ_MOTOR_MAX}" autocomplete="off"
+                               title="Motocicleta: hasta ${MADJ_MOTOR_MAX} caracteres (letras, números, guion)"
+                               value="${v('moto_no_motor')}">
                     </div>
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_placas">Placas <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="madj-datos-moto_placas"
-                               placeholder="ABC-123" maxlength="10" value="${v('moto_placas')}">
+                        <input type="text" class="form-control form-control-sm text-uppercase" id="madj-datos-moto_placas"
+                               placeholder="Ej. Y001AA (moto)" maxlength="${MADJ_PLACAS_MOTO_MAX}" autocomplete="off"
+                               title="Placa de motocicleta (México): típicamente 6 caracteres; máximo ${MADJ_PLACAS_MOTO_MAX}"
+                               value="${v('moto_placas')}">
                     </div>
                 </div>
             </div>
@@ -1856,7 +1918,9 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <div class="col-6 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_responsable">Responsable de Resguardo <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_responsable"
-                               placeholder="Nombre completo" maxlength="100" value="${v('log_responsable')}">
+                               placeholder="Nombre completo" maxlength="100" autocomplete="name"
+                               title="Solo nombre (letras); sin números"
+                               value="${v('log_responsable')}">
                     </div>
                     <div class="col-6 col-md-2 madj-datos-field">
                         <label for="madj-datos-log_telefono">Teléfono de Contacto <span class="text-danger">*</span></label>
@@ -2321,6 +2385,83 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     valido = false;
                     return;
                 }
+                el.classList.remove('is-invalid');
+                datos[c] = val;
+                return;
+            }
+
+            // VIN motocicleta — ISO 3779: hasta 17 caracteres; sin I, O, Q
+            if (c === 'moto_no_serie') {
+                const v = val.replace(/\s/g, '').toUpperCase();
+                if (v.length < MADJ_VIN_MIN || v.length > MADJ_VIN_MAX || !/^[A-HJ-NPR-Z0-9]+$/.test(v)) {
+                    el.classList.add('is-invalid');
+                    errores.push(
+                        'El VIN debe tener entre ' + MADJ_VIN_MIN + ' y ' + MADJ_VIN_MAX
+                        + ' caracteres (solo letras permitidas sin I, O, Q y números). Estándar ISO 3779 para motos.'
+                    );
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = v;
+                return;
+            }
+
+            // No. motor — típico fabricante moto (sin estándar único como el VIN)
+            if (c === 'moto_no_motor') {
+                const m = val.replace(/\s/g, '').toUpperCase();
+                if (!m || m.length > MADJ_MOTOR_MAX || !/^[A-Z0-9\-]+$/.test(m)) {
+                    el.classList.add('is-invalid');
+                    errores.push('No. de motor: obligatorio, máximo ' + MADJ_MOTOR_MAX + ' caracteres (letras, números y guion).');
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = m;
+                return;
+            }
+
+            // Placas motocicleta México — serie corta (NOM / formatos estatales)
+            if (c === 'moto_placas') {
+                const p = val.replace(/\s/g, '').toUpperCase();
+                if (p.length < MADJ_PLACAS_MOTO_MIN || p.length > MADJ_PLACAS_MOTO_MAX || !/^[A-Z0-9\-]+$/.test(p)) {
+                    el.classList.add('is-invalid');
+                    errores.push(
+                        'Placas de motocicleta: entre ' + MADJ_PLACAS_MOTO_MIN + ' y ' + MADJ_PLACAS_MOTO_MAX
+                        + ' caracteres (ej. Y001AA).'
+                    );
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = p;
+                return;
+            }
+
+            // Color — solo letras (español)
+            if (c === 'moto_color') {
+                if (!/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s]+$/u.test(val)) {
+                    el.classList.add('is-invalid');
+                    errores.push('El color solo debe contener letras (sin números).');
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = val;
+                return;
+            }
+
+            // Responsable — nombre sin dígitos
+            if (c === 'log_responsable') {
+                if (!/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s'.-]+$/u.test(val)) {
+                    el.classList.add('is-invalid');
+                    errores.push('El responsable debe ser un nombre (letras); no se permiten números.');
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = val;
+                return;
             }
 
             // Validación específica: teléfono exactamente 10 dígitos
@@ -2331,6 +2472,9 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     valido = false;
                     return;
                 }
+                el.classList.remove('is-invalid');
+                datos[c] = val;
+                return;
             }
 
             el.classList.remove('is-invalid');
