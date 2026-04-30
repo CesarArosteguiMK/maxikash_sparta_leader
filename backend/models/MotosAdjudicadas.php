@@ -769,6 +769,115 @@ class MotosAdjudicadas extends Model
     }
 
     /**
+     * Resumen para modal Flujo de Operaciones (etapa Recibido / evidencia).
+     *
+     * @param list<array<string,mixed>> $evs
+     * @param array<string,mixed>       $op Fila adj_operacion (incl. es_validado_ia, score_ia si existen).
+     * @return array<string, mixed>
+     */
+    private function construirResumenEvidenciaFlujo(array $evs, array $op): array
+    {
+        $bySlot = [];
+        foreach ($evs as $r) {
+            $sk = trim((string) ($r['slot'] ?? ''));
+            if ($sk !== '') {
+                $bySlot[$sk] = $r;
+            }
+        }
+
+        $cargadas = 0;
+        foreach (self::SLOTS_PIPELINE_EXPEDIENTE as $s) {
+            if (isset($bySlot[$s]) && trim((string) ($bySlot[$s]['url'] ?? '')) !== '') {
+                $cargadas++;
+            }
+        }
+
+        $validadas = 0;
+        $aceptadas = 0;
+        $devueltas = 0;
+        $pendientes = 0;
+
+        foreach (self::SLOTS_VALIDACION_ATENCION_MEDIA as $s) {
+            if (!isset($bySlot[$s])) {
+                continue;
+            }
+            $url = trim((string) ($bySlot[$s]['url'] ?? ''));
+            $va = (int) ($bySlot[$s]['val_atn'] ?? 0);
+            if ($url !== '' && $va === 0) {
+                $pendientes++;
+            }
+            if ($va === 1) {
+                $aceptadas++;
+                $validadas++;
+            } elseif ($va === 2) {
+                $devueltas++;
+                $validadas++;
+            }
+        }
+
+        // Repuve (PDF): expediente + envío al pipeline + resultado IA en operación
+        $repuvePdf      = false;
+        $repuveEstatus  = null;
+        $repuveRow      = $bySlot[self::SLOT_REPVE_ATENCION] ?? null;
+        if ($repuveRow !== null) {
+            $repuvePdf = trim((string) ($repuveRow['url'] ?? '')) !== '';
+            if ($repuvePdf) {
+                $repuveEstatus = trim((string) ($repuveRow['estatus'] ?? ''));
+                $repuveEstatus = $repuveEstatus !== '' ? $repuveEstatus : null;
+            }
+        }
+
+        $iaRaw = $op['es_validado_ia'] ?? null;
+        $iaInt = null;
+        if ($iaRaw !== null && $iaRaw !== '') {
+            $iaInt = (int) $iaRaw;
+        }
+
+        if ($iaInt === null) {
+            $validacionIaTxt = 'Pendiente de validación IA';
+        } elseif ($iaInt === 1) {
+            $validacionIaTxt = 'Conforme según IA';
+        } else {
+            $validacionIaTxt = 'No conforme según IA';
+        }
+
+        if (!$repuvePdf) {
+            $estatusEnvioTxt = 'Sin PDF en expediente';
+        } elseif ($repuveEstatus === 'recibido') {
+            $estatusEnvioTxt = 'PDF enviado al pipeline';
+        } elseif ($repuveEstatus === 'pendiente_envio') {
+            $estatusEnvioTxt = 'PDF cargado; pendiente de envío al pipeline';
+        } elseif ($repuveEstatus !== null) {
+            $estatusEnvioTxt = $repuveEstatus;
+        } else {
+            $estatusEnvioTxt = '—';
+        }
+
+        $scoreIa = null;
+        if (\array_key_exists('score_ia', $op) && $op['score_ia'] !== null && $op['score_ia'] !== '') {
+            $scoreIa = is_numeric($op['score_ia']) ? (float) $op['score_ia'] : null;
+        }
+
+        return [
+            'total_slots'               => \count(self::SLOTS_PIPELINE_EXPEDIENTE),
+            'cargadas_gestor'           => $cargadas,
+            'slots_validacion_media'    => \count(self::SLOTS_VALIDACION_ATENCION_MEDIA),
+            'validadas_en_evidencia'    => $validadas,
+            'aceptadas'                 => $aceptadas,
+            'devueltas'                 => $devueltas,
+            'pendientes_validacion'     => $pendientes,
+            'repuve'                    => [
+                'pdf_cargado'        => $repuvePdf,
+                'estatus_archivo'    => $repuveEstatus,
+                'estatus_pipeline'   => $estatusEnvioTxt,
+                'es_validado_ia'     => $iaInt,
+                'validacion_ia_txt'  => $validacionIaTxt,
+                'score_ia'           => $scoreIa,
+            ],
+        ];
+    }
+
+    /**
      * Vista 4 Cartera: registra que el usuario confirma haber dado de alta el cierre en S2
      * y envía la operación a la etapa Recepción (bandeja de entrada de la vista 5).
      *
@@ -1071,6 +1180,16 @@ SQL;
         unset($r);
         $op['evidencias'] = $evs;
 
+        $op['resumen_evidencia_flujo'] = $this->construirResumenEvidenciaFlujo($evs, $op);
+        $op['validaciones_evidencia_timeline'] = $this->db->queryAll(
+            "SELECT nombre_usuario, accion,
+                    DATE_FORMAT(fecha_alta, '%d/%m/%Y %h:%i:%s %p') AS fecha_fmt
+             FROM adj_bitacora
+             WHERE id_operacion = :id AND accion LIKE '%VALIDACIÓN EVIDENCIA%'
+             ORDER BY fecha_alta ASC",
+            ['id' => $id]
+        ) ?: [];
+
         $op['observaciones'] = $this->db->queryAll(
             "SELECT id, etapa, area, id_usuario, texto, DATE_FORMAT(fecha, '%Y-%m-%d %H:%i') AS fecha
              FROM adj_observacion WHERE id_operacion = :id ORDER BY fecha ASC",
@@ -1225,6 +1344,13 @@ SQL;
 
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atención. */
     private const SLOT_REPVE_ATENCION = 'doc_repuve';
+
+    /** Slots del expediente de evidencias en pipeline (11; alineado con la vista operaciones_pipeline). */
+    private const SLOTS_PIPELINE_EXPEDIENTE = [
+        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'doc_repuve', 'doc_factura',
+    ];
 
     private const ESTATUS_VALIDOS = [
         'Recibido',

@@ -1008,21 +1008,36 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         }
     }
 
+    function acrCargarConteosPestanas() {
+        return fetch('/AtencionClientes/obtenerConteosRecepcion', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.conteos) return;
+                const c = data.conteos;
+                acrSetBadge('bandeja', c.bandeja);
+                acrSetBadge('dictaminado', c.dictaminado);
+            })
+            .catch(function () {});
+    }
+
     function acrCargarSeccion(key, forzar) {
         const cfg = ACR_CONFIG[key];
-        if (!cfg) return;
+        if (!cfg) return Promise.resolve();
 
         const suf      = key === 'bandeja' ? 'bandeja' : 'dictaminado';
         const loaderId = 'acr-loader-' + suf;
         const listaId  = 'acr-lista-'  + suf;
 
         if (!forzar && _acrCargada[key]) {
-            return;
+            return Promise.resolve();
         }
 
         const loader = document.getElementById(loaderId);
         const lista  = document.getElementById(listaId);
-        if (!loader || !lista) return;
+        if (!loader || !lista) return Promise.resolve();
 
         const primeraCarga = lista.children.length === 0;
         if (primeraCarga) {
@@ -1031,7 +1046,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
             lista.classList.add('acr-lista-updating');
         }
 
-        fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        return fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data.success) {
@@ -1056,6 +1071,26 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                 loader.style.display = 'none';
                 lista.classList.remove('acr-lista-updating');
             });
+    }
+
+    function acrCargarVistaInicialConSpinner() {
+        var hasSwal = typeof Swal !== 'undefined';
+        if (hasSwal) {
+            Swal.fire({
+                title: 'Cargando Recepción…',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function () { Swal.showLoading(); },
+            });
+        }
+        Promise.all([
+            acrCargarConteosPestanas(),
+            acrCargarSeccion('bandeja', true),
+        ]).finally(function () {
+            if (hasSwal) Swal.close();
+        });
     }
 
     function acrFmtMoney(v) {
@@ -1597,7 +1632,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        acrCargarSeccion('bandeja', true);
+        acrCargarVistaInicialConSpinner();
 
         var bb = document.getElementById('acr-tab-bandeja-btn');
         var bd = document.getElementById('acr-tab-dictaminado-btn');

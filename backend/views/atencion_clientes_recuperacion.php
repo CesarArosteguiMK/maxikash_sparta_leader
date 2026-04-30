@@ -1050,6 +1050,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 if (mEl && window.bootstrap && bootstrap.Modal.getInstance(mEl)) {
                     bootstrap.Modal.getInstance(mEl).hide();
                 }
+                arCargarConteosPestanas();
                 arCargarSeccion('bandeja', true);
                 arCargarSeccion('dictaminado', true);
                 if (typeof Swal !== 'undefined') {
@@ -1329,21 +1330,36 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         }
     }
 
+    function arCargarConteosPestanas() {
+        return fetch('/AtencionClientes/obtenerConteosRecuperacion', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.conteos) return;
+                const c = data.conteos;
+                arSetBadge('bandeja', c.bandeja);
+                arSetBadge('dictaminado', c.dictaminado);
+            })
+            .catch(function () {});
+    }
+
     function arCargarSeccion(key, forzar) {
         const cfg = AR_CONFIG[key];
-        if (!cfg) return;
+        if (!cfg) return Promise.resolve();
 
         const suf      = key === 'bandeja' ? 'bandeja' : 'dictaminado';
         const loaderId = 'ar-loader-' + suf;
         const listaId  = 'ar-lista-'  + suf;
 
         if (!forzar && _arCargada[key]) {
-            return;
+            return Promise.resolve();
         }
 
         const loader = document.getElementById(loaderId);
         const lista  = document.getElementById(listaId);
-        if (!loader || !lista) return;
+        if (!loader || !lista) return Promise.resolve();
 
         const primeraCarga = lista.children.length === 0;
         if (primeraCarga) {
@@ -1352,7 +1368,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             lista.classList.add('ar-lista-updating');
         }
 
-        fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        return fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data.success) {
@@ -1379,8 +1395,28 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             });
     }
 
+    function arCargarVistaInicialConSpinner() {
+        const hasSwal = typeof Swal !== 'undefined';
+        if (hasSwal) {
+            Swal.fire({
+                title: 'Cargando Recuperación…',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function () { Swal.showLoading(); },
+            });
+        }
+        Promise.all([
+            arCargarConteosPestanas(),
+            arCargarSeccion('bandeja', true),
+        ]).finally(function () {
+            if (hasSwal) Swal.close();
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        arCargarSeccion('bandeja', true);
+        arCargarVistaInicialConSpinner();
 
         const bb = document.getElementById('ar-tab-bandeja-btn');
         const bd = document.getElementById('ar-tab-dictaminado-btn');

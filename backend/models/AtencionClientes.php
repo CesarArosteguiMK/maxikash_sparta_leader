@@ -414,6 +414,53 @@ SQL;
     }
 
     /**
+     * Conteos para badges en pestañas de 2.- Evidencias (misma regla que obtenerRecibidos / Aprobados / Correcciones).
+     *
+     * @return array{bandeja: int, aprobados: int, correcciones: int}
+     */
+    public function obtenerConteosPestanasEvidencias(): array
+    {
+        return [
+            'bandeja'      => \count($this->obtenerRecibidos()),
+            'aprobados'    => \count($this->obtenerEvidenciasAprobadas()),
+            'correcciones' => \count($this->obtenerEvidenciasCorrecciones()),
+        ];
+    }
+
+    /**
+     * @return array{bandeja: int, dictaminado: int}
+     */
+    public function obtenerConteosPestanasRecuperacion(): array
+    {
+        return [
+            'bandeja'      => \count($this->obtenerRecuperacionEnTransito()),
+            'dictaminado'  => \count($this->obtenerDictaminadosRecuperacionLista()),
+        ];
+    }
+
+    /**
+     * @return array{bandeja: int, dictaminado: int}
+     */
+    public function obtenerConteosPestanasCierreDocumentacion(): array
+    {
+        return [
+            'bandeja'      => \count($this->obtenerRecuperacionCierreDocumentado()),
+            'dictaminado'  => \count($this->obtenerDictaminadosCierreDocumentacionLista()),
+        ];
+    }
+
+    /**
+     * @return array{bandeja: int, dictaminado: int}
+     */
+    public function obtenerConteosPestanasRecepcion(): array
+    {
+        return [
+            'bandeja'      => \count($this->obtenerRecuperacionRecepcion()),
+            'dictaminado'  => \count($this->obtenerOperacionesDictamenPorEstatusPipeline('Recepción')),
+        ];
+    }
+
+    /**
      * 4.- Cierre documentación — Bandeja de entrada: operaciones en etapa Cierre documentado
      * pendientes de trabajo en esta vista (p. ej. llegadas desde Recuperación).
      *

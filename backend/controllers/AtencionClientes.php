@@ -125,6 +125,61 @@ class AtencionClientes extends Controller
         }
     }
 
+    /**
+     * GET /AtencionClientes/obtenerConteosEvidencias
+     * Conteos para badges de Bandeja / Aprobados / Correcciones sin cargar cada lista completa.
+     */
+    public function obtenerConteosEvidencias(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $conteos = $this->model->obtenerConteosPestanasEvidencias();
+            echo json_encode(['success' => true, 'conteos' => $conteos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los conteos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /** GET /AtencionClientes/obtenerConteosRecuperacion — badges pestañas vista 3 */
+    public function obtenerConteosRecuperacion(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $conteos = $this->model->obtenerConteosPestanasRecuperacion();
+            echo json_encode(['success' => true, 'conteos' => $conteos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los conteos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /** GET /AtencionClientes/obtenerConteosCierreDocumentacion — badges vista 4 */
+    public function obtenerConteosCierreDocumentacion(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $conteos = $this->model->obtenerConteosPestanasCierreDocumentacion();
+            echo json_encode(['success' => true, 'conteos' => $conteos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los conteos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /** GET /AtencionClientes/obtenerConteosRecepcion — badges vista 5 */
+    public function obtenerConteosRecepcion(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $conteos = $this->model->obtenerConteosPestanasRecepcion();
+            echo json_encode(['success' => true, 'conteos' => $conteos], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Error al obtener los conteos.'], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     // =========================================================================
     // API: 3.- RECUPERACIÓN (listas por estatus de pipeline)
     // =========================================================================
