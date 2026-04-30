@@ -1414,6 +1414,8 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
     var btnGcProcesoDetectarLiquidados = document.getElementById('btnGcProcesoDetectarLiquidados');
     var btnGcProcesoEliminarDespachos = document.getElementById('btnGcProcesoEliminarDespachos');
     var btnEcLauncher = document.getElementById('btnEcLauncherEjecutar');
+    var btnAbrirModalEcWorker = document.getElementById('btnGcAbrirModalEcWorker');
+    var btnAbrirModalListaNegra = document.getElementById('btnGcAbrirModalListaNegra');
     var btnCargaVerif = document.getElementById('btnCargaVerifEjecutar');
     var btnDescargoEstatus3 = document.getElementById('btnDescargoEstatus3');
     var chkDescargoSinActualizarGuia = document.getElementById('chkDescargoSinActualizarGuia');
@@ -1728,6 +1730,10 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
         var shellBloq = !!gcShellOperacionEnCurso;
         var agenteOcupadoGlobal = gcAgenteReportaEcOcupado || gcAgenteReportaCronjobsOcupado;
         var puedeEc = gcAgenteOnline && !agenteOcupadoGlobal && !shellBloq;
+        /** No abrir modales de Worker/Lista negra si esta pestaña corre algo o el agente tiene EC o carga lista negra (cualquier origen). */
+        var puedeAbrirModalEcLista = gcAgenteOnline && !shellBloq && !agenteOcupadoGlobal;
+        if (btnAbrirModalEcWorker) btnAbrirModalEcWorker.disabled = !puedeAbrirModalEcLista;
+        if (btnAbrirModalListaNegra) btnAbrirModalListaNegra.disabled = !puedeAbrirModalEcLista;
         if (btnEcLauncher) btnEcLauncher.disabled = !puedeEc || !gcEcLauncherTieneExcel();
         try {
             document.querySelectorAll('.btn-gc-worker-reporte').forEach(function (b) {
@@ -2600,6 +2606,8 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
             if (btnGcProcesoDetectarLiquidados) btnGcProcesoDetectarLiquidados.disabled = true;
             if (btnGcProcesoEliminarDespachos) btnGcProcesoEliminarDespachos.disabled = true;
             if (btnEcLauncher) btnEcLauncher.disabled = true;
+            if (btnAbrirModalEcWorker) btnAbrirModalEcWorker.disabled = true;
+            if (btnAbrirModalListaNegra) btnAbrirModalListaNegra.disabled = true;
             if (btnCargaVerif) btnCargaVerif.disabled = true;
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
         }
@@ -2670,7 +2678,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                 var a = data.agente || {};
                 gcUltimoScriptCarga = !!a.script_carga_verificacion_semana;
                 gcUltimoScriptDescargo = !!a.script_descargo_estatus3;
-                gcAgenteReportaEcOcupado = !!a.ec_launcher_ocupado;
+                gcAgenteReportaEcOcupado = !!(a.ec_launcher_ocupado || a.carga_verificacion_semana_ocupado);
                 gcAgenteReportaCronjobsOcupado = !!(a.cronjobs_gc_ocupado || (a.cronjobs_gc && a.cronjobs_gc.busy));
                 gcAplicarScriptsCronjobsDesdeAgente(a);
                 if (gcShellModoCartera) {
@@ -2679,7 +2687,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                     } else if (gcAgenteReportaEcOcupado) {
                         gcCarteraActividadEstadoSet('Ocupado', 'bg-label-warning');
                         if (gcCarteraUltimoAvisoRemoto !== 'remoto_ec') {
-                            gcCarteraActividadPush('Hay una conciliación en curso (otra ventana o usuario). Espere un momento.', 'gc-cartera-act-line--warn');
+                            gcCarteraActividadPush('Hay conciliación o carga a lista negra en curso (otra ventana o usuario). Espere un momento.', 'gc-cartera-act-line--warn');
                             gcCarteraUltimoAvisoRemoto = 'remoto_ec';
                         }
                     } else {
@@ -2688,7 +2696,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                     }
                 } else if (detalle) {
                     if (gcAgenteReportaEcOcupado) {
-                        detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker/EC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
+                        detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Worker EC o lista negra en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
                     } else if (gcAgenteReportaCronjobsOcupado) {
                         detalle.innerHTML = '<span class="text-warning"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i><strong>Proceso GC en ejecución</strong> — espere a que termine antes de lanzar otro.</span>';
                     } else {

@@ -1,6 +1,6 @@
 <style>
 /* ══════════════════════════════════════════
-   2.- EVIDENCIAS — estética alineada a 1.- Retenciones
+   1.- EVIDENCIAS — estética alineada a Retenciones
 ══════════════════════════════════════════ */
 .ac-header-gradient {
     background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
@@ -14,7 +14,7 @@
 .ac-header-gradient i  { color: #fff; }
 
 
-/* ── Cards (misma base que 1.- Retenciones) ── */
+/* ── Cards (misma base que Retenciones) ── */
 .ac-card {
     border: 1px solid #e5e7eb;
     border-radius: 0.6rem;
@@ -261,7 +261,7 @@ body.dark-mode .aev-ev-slot, body.dark-mode .aev-doc-zone { background: #1e293b;
     <div class="ac-header-gradient d-flex align-items-center gap-3">
         <i class="fa-solid fa-camera-retro fa-2x"></i>
         <div>
-            <h4>2.- Evidencias</h4>
+            <h4>1.- Evidencias</h4>
             <p>Gestión de evidencias para operaciones de motos adjudicadas</p>
         </div>
     </div>
@@ -1111,7 +1111,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     }
 
     /**
-     * Misma estructura visual que la tarjeta "Entrantes" en 1.- Retenciones
+     * Misma estructura visual que la tarjeta "Entrantes" en Retenciones
      * (encabezado azul, # crédito + nombre, filas etiqueta/valor, botón al pie).
      */
     function aeRenderCard(item) {
@@ -1302,7 +1302,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             });
     }
 
-    /** Carga inicial paralela (badges + bandeja) con el mismo Swal que 1.- Retenciones. */
+    /** Carga inicial paralela (badges + bandeja) con el mismo Swal que Retenciones. */
     function aeCargarVistaInicialConSpinner() {
         const hasSwal = typeof Swal !== 'undefined';
         if (hasSwal) {

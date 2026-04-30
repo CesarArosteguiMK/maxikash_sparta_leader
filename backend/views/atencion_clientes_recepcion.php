@@ -570,7 +570,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
     <div class="acr-header-gradient d-flex align-items-center gap-3">
         <i class="fa-solid fa-flag-checkered fa-2x"></i>
         <div>
-            <h4>5.- Recepción</h4>
+            <h4>4.- Recepción</h4>
             <p>Gestión de recepción para operaciones de motos adjudicadas</p>
         </div>
     </div>
@@ -632,11 +632,11 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
         </div>
 
         <div class="acr-rcpt-steps">
-            <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Retenciones</div>
             <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Evidencias</div>
             <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Recuperación</div>
             <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Cierre documentación</div>
             <div class="acr-rcpt-step active"><span class="acr-rcpt-step-num"><i class="fa-solid fa-warehouse"></i></span>Recepción</div>
+            <div class="acr-rcpt-step"><span class="acr-rcpt-step-num">5</span>Retenciones</div>
         </div>
 
         <div class="acr-rcpt-section">

@@ -434,7 +434,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     <div class="acd-header-gradient d-flex align-items-center gap-3">
         <i class="fa-solid fa-file-circle-check fa-2x"></i>
         <div>
-            <h4>4.- Cierre Documentación</h4>
+            <h4>3.- Cierre Documentación</h4>
             <p>Gestión de cierre de documentación para operaciones de motos adjudicadas</p>
         </div>
     </div>
