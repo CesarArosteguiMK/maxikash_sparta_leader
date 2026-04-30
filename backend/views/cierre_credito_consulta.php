@@ -399,6 +399,35 @@ body.dark-mode .cc-filtro-conv[data-filtro-conv="con_docs"].active  { background
 body.dark-mode .cc-filtro-conv[data-filtro-conv="activos"].active   { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
 body.dark-mode .cc-filtro-conv[data-filtro-conv="cancelados"].active{ background: rgba(220,38,38,.2); border-color: #dc2626; color: #f87171; }
 body.dark-mode .cc-filtro-conv[data-filtro-conv="todos"].active     { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
+/* ── Descripción de sub-pestañas Cartera ── */
+.cc-subtab-desc {
+    display: flex;
+    align-items: flex-start;
+    gap: .5rem;
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+    border-radius: 0 .4rem .4rem 0;
+    padding: .55rem .9rem;
+    font-size: .83rem;
+    color: #1e40af;
+    line-height: 1.45;
+}
+.cc-subtab-desc i { margin-top: .15rem; flex-shrink: 0; }
+.cc-subtab-desc--notif {
+    background: #f0fdf4;
+    border-left-color: #16a34a;
+    color: #14532d;
+}
+body.dark-mode .cc-subtab-desc {
+    background: rgba(59,130,246,.1);
+    border-left-color: #3b82f6;
+    color: #93c5fd;
+}
+body.dark-mode .cc-subtab-desc--notif {
+    background: rgba(22,163,74,.1);
+    border-left-color: #16a34a;
+    color: #86efac;
+}
 /* Scroll-to-top button */
 .cc-scroll-top-btn {
     position: sticky; bottom: 1rem; float: right; margin-right: .5rem; z-index: 10;
@@ -477,9 +506,11 @@ body.dark-mode .cc-estatus-cancelado  { background: rgba(185,28,28,.35) !importa
 body.dark-mode .cc-estatus-default    { background: rgba(71,85,105,.3)  !important; color: #94a3b8 !important; }
 
 /* ── Estatus badges Cartera ── */
+.cc-estatus-enviado_cartera    { background: #e0e7ff; color: #3730a3; }
 .cc-estatus-notificado_cartera { background: #e0f2fe; color: #0369a1; }
 .cc-estatus-cerrado            { background: #1d4ed8; color: #fff; }
 .cc-estatus-devuelto_cartera   { background: #b91c1c; color: #fff; }
+body.dark-mode .cc-estatus-enviado_cartera    { background: rgba(55,48,163,.3)  !important; color: #a5b4fc !important; }
 body.dark-mode .cc-estatus-notificado_cartera { background: rgba(3,105,161,.3) !important; color: #7dd3fc !important; }
 body.dark-mode .cc-estatus-cerrado            { background: #1e3a8a !important; color: #bfdbfe !important; }
 body.dark-mode .cc-estatus-devuelto_cartera   { background: rgba(185,28,28,.4) !important; color: #fca5a5 !important; }
@@ -744,26 +775,6 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                     </button>
                 </li>
                 <?php endif; ?>
-                <!-- Barra de búsqueda general -->
-                <li class="ms-auto d-flex align-items-center py-1 pe-2">
-                    <div id="barraGeneral" class="dataTables_filter">
-                        <label style="display:flex;align-items:center;gap:.4rem;margin:0;font-size:.875rem;font-weight:400;color:#566a7f;">
-                            Buscar:
-                            <span style="position:relative;display:inline-flex;align-items:center;">
-                                <input type="text" id="barraGeneral-input"
-                                       class="form-control form-control-sm"
-                                       placeholder=""
-                                       autocomplete="off"
-                                       style="padding-right:1.6rem;">
-                                <button type="button" id="barraGeneral-limpiar"
-                                        title="Limpiar"
-                                        style="display:none;position:absolute;right:.35rem;background:none;border:none;padding:0;line-height:1;color:#a1acb8;cursor:pointer;font-size:.8rem;">
-                                    &#x2715;
-                                </button>
-                            </span>
-                        </label>
-                    </div>
-                </li>
             </ul>
     </div>
 
@@ -771,6 +782,27 @@ $ccActCart  = ($cc_default_tab === 'cartera');
      CONTENIDO DE PESTAÑAS
 ══════════════════════════════════════ -->
 <div class="tab-content" id="ccTabContent">
+
+    <!-- Barra de búsqueda general — fija dentro del contenido -->
+    <div class="d-flex justify-content-end align-items-center pb-2 border-bottom mb-2">
+        <div id="barraGeneral" class="dataTables_filter">
+            <label style="display:flex;align-items:center;gap:.4rem;margin:0;font-size:.875rem;font-weight:400;color:#566a7f;">
+                Buscar:
+                <span style="position:relative;display:inline-flex;align-items:center;">
+                    <input type="text" id="barraGeneral-input"
+                           class="form-control form-control-sm"
+                           placeholder=""
+                           autocomplete="off"
+                           style="padding-right:1.6rem;">
+                    <button type="button" id="barraGeneral-limpiar"
+                            title="Limpiar"
+                            style="display:none;position:absolute;right:.35rem;background:none;border:none;padding:0;line-height:1;color:#a1acb8;cursor:pointer;font-size:.8rem;">
+                        &#x2715;
+                    </button>
+                </span>
+            </label>
+        </div>
+    </div>
 
     <?php if (!empty($cc_perm_convenios)): ?>
     <!-- ══ PESTAÑA 0: CONVENIOS (TODOS) ══ -->
@@ -1033,23 +1065,83 @@ $ccActCart  = ($cc_default_tab === 'cartera');
             Cargando notificaciones de cartera...
         </div>
         <div id="wrap-cartera" class="d-none">
-            <div class="card-datatable table-responsive">
-                <table id="tablaCartera" class="dt-responsive table border-top">
-                    <thead>
-                        <tr>
-                            <th></th><!-- control responsive -->
-                            <th>Crédito / Cliente</th>
-                            <th>Producto</th>
-                            <th>Total convenio</th>
-                            <th>Fecha acuerdo</th>
-                            <th>Avance</th>
-                            <th>Estatus</th>
-                            <th>Acciones</th>
-                            <th></th><!-- id oculto -->
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+            <!-- Sub-pestañas -->
+            <ul class="nav nav-tabs cc-nav-tabs mb-3" id="cartera-subtabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="cartera-recibidos-btn"
+                            data-bs-toggle="tab" data-bs-target="#cartera-recibidos"
+                            type="button" role="tab" aria-controls="cartera-recibidos" aria-selected="true">
+                        <i class="fa-solid fa-inbox me-1"></i>Recibidos
+                        <span class="badge ms-1" id="badge-cart-recibidos" style="background:#0f5c8a;color:#fff;">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="cartera-notificados-btn"
+                            data-bs-toggle="tab" data-bs-target="#cartera-notificados"
+                            type="button" role="tab" aria-controls="cartera-notificados" aria-selected="false">
+                        <i class="fa-solid fa-bell me-1"></i>Notificados
+                        <span class="badge ms-1" id="badge-cart-notificados" style="background:#0f5c8a;color:#fff;">0</span>
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content">
+                <!-- Sub-tab: Recibidos (enviado_cartera) -->
+                <div class="tab-pane fade show active" id="cartera-recibidos" role="tabpanel">
+                    <div class="cc-subtab-desc mb-3">
+                        <i class="fa-solid fa-circle-info me-2"></i>
+                        Convenios de cierre de crédito <strong>recibidos desde el correo de cobranza</strong>. Estos registros están pendientes de revisión y notificación interna para continuar con el proceso de cierre.
+                    </div>
+                    <div class="card-datatable table-responsive">
+                        <table id="tablaCartRecibidos" class="dt-responsive table border-top">
+                            <thead>
+                                <tr>
+                                    <th></th><!-- control responsive -->
+                                    <th>Crédito / Cliente</th>
+                                    <th>Producto</th>
+                                    <th>Total convenio</th>
+                                    <th>Fecha acuerdo</th>
+                                    <th>Avance</th>
+                                    <th>Estatus</th>
+                                    <th></th><!-- id oculto -->
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="empty-cart-recibidos" class="text-center py-4 text-muted d-none">
+                        <i class="fa-solid fa-inbox fa-2x mb-2 d-block opacity-50"></i>
+                        Sin registros recibidos en cartera.
+                    </div>
+                </div>
+                <!-- Sub-tab: Notificados (notificado_cartera) -->
+                <div class="tab-pane fade" id="cartera-notificados" role="tabpanel">
+                    <div class="cc-subtab-desc cc-subtab-desc--notif mb-3">
+                        <i class="fa-solid fa-circle-info me-2"></i>
+                        Convenios <strong>notificados al área de cartera</strong> y en espera de resolución. Desde aquí se puede registrar el convenio en S2 o devolver el expediente al despacho en caso de incidencia.
+                    </div>
+                    <div class="card-datatable table-responsive">
+                        <table id="tablaCartNotificados" class="dt-responsive table border-top">
+                            <thead>
+                                <tr>
+                                    <th></th><!-- control responsive -->
+                                    <th>Crédito / Cliente</th>
+                                    <th>Producto</th>
+                                    <th>Total convenio</th>
+                                    <th>Fecha acuerdo</th>
+                                    <th>Avance</th>
+                                    <th>Estatus</th>
+                                    <th>Acciones</th>
+                                    <th></th><!-- id oculto -->
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="empty-cart-notificados" class="text-center py-4 text-muted d-none">
+                        <i class="fa-solid fa-bell fa-2x mb-2 d-block opacity-50"></i>
+                        Sin convenios notificados pendientes.
+                    </div>
+                </div>
             </div>
         </div>
         <div id="empty-cartera" class="text-center py-5 text-muted d-none">
@@ -1250,12 +1342,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
     function convenioEstatusBadge(estatus) {
         const map = {
-            'completado':          { bg: '#bbf7d0', color: '#14532d', icon: 'fa-circle-check',      label: 'Completo'          },
-            'activo':              { bg: '#dbeafe', color: '#1e40af', icon: 'fa-hourglass-half',    label: 'Activo'            },
-            'cancelado':           { bg: '#fee2e2', color: '#b91c1c', icon: 'fa-ban',               label: 'Cancelado'         },
-            'notificado_cartera':  { bg: '#e0f2fe', color: '#0369a1', icon: 'fa-bell',             label: 'Notificado'        },
-            'cerrado':             { bg: '#1d4ed8', color: '#fff',    icon: 'fa-circle-check',      label: 'Cerrado'           },
-            'devuelto_cartera':    { bg: '#b91c1c', color: '#fff',    icon: 'fa-rotate-left',       label: 'Devuelto cartera'  },
+            'completado':          { bg: '#bbf7d0', color: '#14532d', icon: 'fa-circle-check',      label: 'Completo'              },
+            'activo':              { bg: '#dbeafe', color: '#1e40af', icon: 'fa-hourglass-half',    label: 'Activo'                },
+            'cancelado':           { bg: '#fee2e2', color: '#b91c1c', icon: 'fa-ban',               label: 'Cancelado'             },
+            'enviado_cartera':     { bg: '#e0e7ff', color: '#3730a3', icon: 'fa-inbox',             label: 'En bandeja de entrada' },
+            'notificado_cartera':  { bg: '#e0f2fe', color: '#0369a1', icon: 'fa-bell',             label: 'Notificado'            },
+            'cerrado':             { bg: '#1d4ed8', color: '#fff',    icon: 'fa-circle-check',      label: 'Cerrado'               },
+            'devuelto_cartera':    { bg: '#b91c1c', color: '#fff',    icon: 'fa-rotate-left',       label: 'Devuelto cartera'      },
         };
         const cfg = map[estatus] || { bg: '#f1f5f9', color: '#475569', icon: 'fa-circle', label: esc(estatus || '—') };
         const cls = map[estatus] ? `cc-estatus-${estatus}` : 'cc-estatus-default';
@@ -1402,6 +1495,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         if (elVoBo && elVoBo.classList.contains('show')) return 'vobo';
         const elHist = document.getElementById('tab-historial');
         if (elHist && elHist.classList.contains('show')) return 'hist';
+        const elCart = document.getElementById('tab-cartera');
+        if (elCart && elCart.classList.contains('show')) return 'cartera';
         return 'ef';
     }
 
@@ -1441,6 +1536,17 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
         if (tab === 'vobo') {
             if (_tablaVoBo) { _tablaVoBo.search(t).draw(); }
+            return;
+        }
+
+        if (tab === 'cartera') {
+            const subRec = document.getElementById('cartera-recibidos');
+            const subNot = document.getElementById('cartera-notificados');
+            if (subNot && subNot.classList.contains('show')) {
+                if (_tablaCartNot) _tablaCartNot.search(t).draw();
+            } else {
+                if (_tablaCartRec) _tablaCartRec.search(t).draw();
+            }
             return;
         }
 
@@ -3232,8 +3338,11 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     const tabCarteraBtn = document.getElementById('tab-cartera-btn');
     if (tabCarteraBtn) {
         tabCarteraBtn.addEventListener('shown.bs.tab', function () {
-            const t = document.getElementById('barraGeneral-input').value;
-            if (t.trim()) { if (_tablaCart) _tablaCart.search(t).draw(); }
+            const t = document.getElementById('barraGeneral-input').value.trim();
+            if (t) {
+                if (_tablaCartRec) _tablaCartRec.search(t).draw();
+                if (_tablaCartNot) _tablaCartNot.search(t).draw();
+            }
         });
     }
 
@@ -3311,101 +3420,84 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     }
 
     /* ══════════════════════════════════
-       PESTAÑA CARTERA
+       PESTAÑA CARTERA — sub-tabs Recibidos / Notificados
     ══════════════════════════════════ */
-    let _tablaCart = null;
+    let _tablaCartRec = null;  // enviado_cartera
+    let _tablaCartNot = null;  // notificado_cartera
 
-    function renderCartera(rows) {
-        const loaderEl = document.getElementById('loader-cartera');
-        const wrapEl   = document.getElementById('wrap-cartera');
-        const emptyEl  = document.getElementById('empty-cartera');
-        if (loaderEl) loaderEl.classList.add('d-none');
-
-        const badgeEl = document.getElementById('badge-cartera');
-        if (!rows || rows.length === 0) {
-            if (emptyEl) emptyEl.classList.remove('d-none');
-            if (badgeEl) { badgeEl.textContent = '0'; badgeEl.style.display = ''; }
-            return;
+    /** Configuración de columnas compartida entre ambas sub-tablas.
+     *  @param {boolean} conAcciones – incluir columna Acciones */
+    function _colsCartera(conAcciones) {
+        const cols = [
+            {
+                data: null, orderable: false, searchable: false, className: 'cc-cart-toggle',
+                defaultContent: '<i class="fa-solid fa-plus-circle" style="font-size:1rem;color:#3b82f6;cursor:pointer;"></i>'
+            },
+            {
+                data: null, render: function(d, t, r) {
+                    return `<strong>${esc(r.id_credito)}</strong><br><small class="text-muted">${esc(r.nombre_cliente)}</small>` +
+                           (CC_AMBAS ? `<br>${_celulaBadge(r)}` : '');
+                }
+            },
+            {
+                data: null, render: function(d, t, r) {
+                    const pct = parseFloat(r.porcentaje_descuento) || 0;
+                    return `<span>${esc(r.nombre_producto || '—')}</span><br>` +
+                           (pct ? `<span class="cc-pct-badge">${pct}%</span>` : '');
+                }
+            },
+            {
+                data: 'total_a_pagar', className: 'text-end',
+                render: function(d) { return `<strong class="text-success">${fmt(d)}</strong>`; }
+            },
+            { data: 'fecha_acuerdo', render: function(d) { return esc(d || '—'); } },
+            {
+                data: null, orderable: false, searchable: false,
+                render: function(d, t, r) {
+                    const pagadas = parseInt(r.cuotas_pagadas) || 0;
+                    const semanas = parseInt(r.numero_semanas) || parseInt(r.num_semanas_amort) || 0;
+                    if (!semanas) return '<span class="text-muted">—</span>';
+                    return `<span style="font-size:.83rem;">${pagadas}/${semanas}</span>`;
+                }
+            },
+            {
+                data: 'estatus', orderable: false,
+                render: function(d) { return convenioEstatusBadge(d); }
+            }
+        ];
+        if (conAcciones) {
+            cols.push({
+                data: null, orderable: false, searchable: false,
+                render: function(d, t, r) {
+                    const nc2 = esc(r.nombre_cliente || '').replace(/'/g, "\\'");
+                    const convCompletado = (r.estatus_convenio === 'completado');
+                    let btns = '';
+                    if (convCompletado) {
+                        btns = `<button class="btn btn-sm btn-primary d-block w-100" style="font-size:.72rem;"` +
+                            ` onclick="ccCerrarConvenio(${r.id_cierre},${r.id_credito},'${nc2}')"` +
+                            ` title="Cerrar convenio"><i class="fa-solid fa-circle-check me-1"></i>Cerrar</button>`;
+                    } else {
+                        btns = `<button class="btn btn-sm btn-danger d-block w-100" style="font-size:.72rem;"` +
+                            ` onclick="ccDevolverPorCartera(${r.id_cierre},${r.id_credito},'${nc2}')"` +
+                            ` title="Devolver al despacho"><i class="fa-solid fa-rotate-left me-1"></i>Devolver</button>`;
+                    }
+                    return `<div style="min-width:120px;">${btns}</div>`;
+                }
+            });
         }
-        if (wrapEl) wrapEl.classList.remove('d-none');
-        if (badgeEl) {
-            const pending = rows.filter(r => r.estatus === 'notificado_cartera').length;
-            badgeEl.textContent = pending;
-            badgeEl.style.display = '';
-        }
-        _initTablaCartera();
-        _tablaCart.clear().rows.add(rows).draw();
-        const t = document.getElementById('barraGeneral-input').value.trim();
-        if (t) _tablaCart.search(t).draw();
+        cols.push({ data: 'id_cierre', visible: false, searchable: false });
+        return cols;
     }
 
-    function _initTablaCartera() {
-        if (_tablaCart) return;
-        _tablaCart = $('#tablaCartera').DataTable({
+    function _dtOptsCartera(emptyMsg) {
+        return {
             data: [],
-            columns: [
-                {
-                    data: null, orderable: false, searchable: false, className: 'cc-cart-toggle',
-                    defaultContent: '<i class="fa-solid fa-plus-circle" style="font-size:1rem;color:#3b82f6;cursor:pointer;"></i>'
-                },
-                {
-                    data: null, render: function(d, t, r) {
-                        return `<strong>${esc(r.id_credito)}</strong><br><small class="text-muted">${esc(r.nombre_cliente)}</small>` +
-                               (CC_AMBAS ? `<br>${_celulaBadge(r)}` : '');
-                    }
-                },
-                {
-                    data: null, render: function(d, t, r) {
-                        const pct = parseFloat(r.porcentaje_descuento) || 0;
-                        return `<span>${esc(r.nombre_producto || '—')}</span><br>` +
-                               (pct ? `<span class="cc-pct-badge">${pct}%</span>` : '');
-                    }
-                },
-                {
-                    data: 'total_a_pagar', className: 'text-end',
-                    render: function(d) { return `<strong class="text-success">${fmt(d)}</strong>`; }
-                },
-                { data: 'fecha_acuerdo', render: function(d) { return esc(d || '—'); } },
-                {
-                    data: null, orderable: false, searchable: false,
-                    render: function(d, t, r) {
-                        const pagadas = parseInt(r.cuotas_pagadas) || 0;
-                        const semanas = parseInt(r.numero_semanas) || parseInt(r.num_semanas_amort) || 0;
-                        if (!semanas) return '<span class="text-muted">—</span>';
-                        return `<span style="font-size:.83rem;">${pagadas}/${semanas}</span>`;
-                    }
-                },
-                {
-                    data: 'estatus', orderable: false,
-                    render: function(d) { return convenioEstatusBadge(d); }
-                },
-                {
-                    data: null, orderable: false, searchable: false,
-                    render: function(d, t, r) {
-                        if (r.estatus !== 'notificado_cartera') return '';
-                        const nc2 = esc(r.nombre_cliente || '').replace(/'/g, "\\'");
-                        const convCompletado = (r.estatus_convenio === 'completado');
-                        let btns = '';
-                        if (convCompletado) {
-                            btns = `<button class="btn btn-sm btn-primary d-block w-100" style="font-size:.72rem;"` +
-                                ` onclick="ccCerrarConvenio(${r.id_cierre},${r.id_credito},'${nc2}')"` +
-                                ` title="Cerrar convenio"><i class="fa-solid fa-circle-check me-1"></i>Cerrar</button>`;
-                        } else {
-                            btns = `<button class="btn btn-sm btn-danger d-block w-100" style="font-size:.72rem;"` +
-                                ` onclick="ccDevolverPorCartera(${r.id_cierre},${r.id_credito},'${nc2}')"` +
-                                ` title="Devolver al despacho"><i class="fa-solid fa-rotate-left me-1"></i>Devolver</button>`;
-                        }
-                        return `<div style="min-width:120px;">${btns}</div>`;
-                    }
-                },
-                { data: 'id_cierre', visible: false, searchable: false }
-            ],
             pageLength: 15,
             lengthMenu: [10, 15, 25, 50, 100],
-            order: [[8, 'desc']],
+            order: [[0, 'desc']],  // se sobreescribe en _initTablaCart*
             responsive: { details: false },
             language: {
-                emptyTable:   'Sin notificaciones de cartera',
+                emptyTable:   emptyMsg,
                 infoEmpty:    'Sin registros',
                 info:         'Mostrando _START_ a _END_ de _TOTAL_ convenios',
                 infoFiltered: '(filtrado de _MAX_ totales)',
@@ -3421,12 +3513,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             drawCallback: function() {
                 $('.dataTables_paginate > .pagination').addClass('pagination-sm');
             }
-        });
+        };
+    }
 
-        // ── Click en ícono (+) para desplegar amortización ──
-        $('#tablaCartera tbody').on('click', 'td.cc-cart-toggle', function() {
-            const tr  = $(this).closest('tr');
-            const row = _tablaCart.row(tr);
+    function _bindCartToggle(tableId, dtInstance) {
+        $(`#${tableId} tbody`).on('click', 'td.cc-cart-toggle', function() {
+            const tr   = $(this).closest('tr');
+            const row  = dtInstance.row(tr);
             const icon = $(this).find('i');
             if (row.child.isShown()) {
                 row.child.hide();
@@ -3462,6 +3555,74 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 row.child(`<div class="alert alert-danger m-2 py-2">Error: ${esc(err.message)}</div>`).show();
             });
         });
+    }
+
+    function _initTablaCartRecibidos() {
+        if (_tablaCartRec) return;
+        const opts = _dtOptsCartera('Sin registros recibidos en cartera');
+        opts.columns = _colsCartera(false);
+        opts.order   = [[7, 'desc']];   // id_cierre (col 7 sin acciones)
+        _tablaCartRec = $('#tablaCartRecibidos').DataTable(opts);
+        _bindCartToggle('tablaCartRecibidos', _tablaCartRec);
+    }
+
+    function _initTablaCartNotificados() {
+        if (_tablaCartNot) return;
+        const opts = _dtOptsCartera('Sin convenios notificados pendientes');
+        opts.columns = _colsCartera(true);
+        opts.order   = [[8, 'desc']];   // id_cierre (col 8 con acciones)
+        _tablaCartNot = $('#tablaCartNotificados').DataTable(opts);
+        _bindCartToggle('tablaCartNotificados', _tablaCartNot);
+    }
+
+    function renderCartera(rows) {
+        const loaderEl = document.getElementById('loader-cartera');
+        const wrapEl   = document.getElementById('wrap-cartera');
+        const emptyEl  = document.getElementById('empty-cartera');
+        if (loaderEl) loaderEl.classList.add('d-none');
+
+        const badgeEl = document.getElementById('badge-cartera');
+
+        if (!rows || rows.length === 0) {
+            if (emptyEl) emptyEl.classList.remove('d-none');
+            if (badgeEl) { badgeEl.textContent = '0'; badgeEl.style.display = ''; }
+            return;
+        }
+
+        if (wrapEl) wrapEl.classList.remove('d-none');
+
+        const recibidos    = rows.filter(r => r.estatus === 'enviado_cartera');
+        const notificados  = rows.filter(r => r.estatus === 'notificado_cartera');
+
+        // Badge principal de la pestaña: total de ambos
+        if (badgeEl) {
+            badgeEl.textContent = rows.length;
+            badgeEl.style.display = '';
+        }
+
+        // Badges de sub-pestañas
+        const badgeRec = document.getElementById('badge-cart-recibidos');
+        const badgeNot = document.getElementById('badge-cart-notificados');
+        if (badgeRec) badgeRec.textContent = recibidos.length;
+        if (badgeNot) badgeNot.textContent = notificados.length;
+
+        // ── Sub-tab Recibidos ──
+        const emptyRec = document.getElementById('empty-cart-recibidos');
+        _initTablaCartRecibidos();
+        _tablaCartRec.clear().rows.add(recibidos).draw();
+        if (emptyRec) emptyRec.classList.toggle('d-none', recibidos.length > 0);
+
+        // ── Sub-tab Notificados ──
+        const emptyNot = document.getElementById('empty-cart-notificados');
+        _initTablaCartNotificados();
+        _tablaCartNot.clear().rows.add(notificados).draw();
+        if (emptyNot) emptyNot.classList.toggle('d-none', notificados.length > 0);
+
+        const t = document.getElementById('barraGeneral-input').value.trim();
+        if (t) {
+            _tablaCartRec.search(t).draw();
+            _tablaCartNot.search(t).draw();
+        }
     }
 
     /* ══════════════════════════════════
