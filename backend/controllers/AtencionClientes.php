@@ -21,51 +21,51 @@ class AtencionClientes extends Controller
     public function consulta(): void
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        $this->set('titulo', '1.- Retenciones · Atención a clientes ' . $emp);
+        $this->set('titulo', 'Retenciones · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_consulta');
     }
 
     /**
      * GET /AtencionClientes/evidencias
-     * 2.- Evidencias (mismo controlador que 1.- Retenciones).
+     * 1.- Evidencias (mismo controlador que Retenciones).
      */
     public function evidencias(): void
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        $this->set('titulo', '2.- Evidencias · Atención a clientes ' . $emp);
+        $this->set('titulo', '1.- Evidencias · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_evidencias');
     }
 
     /**
      * GET /AtencionClientes/recuperacion
-     * 3.- Recuperación (seguimiento por etapa de pipeline).
+     * 2.- Recuperación (seguimiento por etapa de pipeline).
      */
     public function recuperacion(): void
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        $this->set('titulo', '3.- Recuperación · Atención a clientes ' . $emp);
+        $this->set('titulo', '2.- Recuperación · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_recuperacion');
     }
 
     /**
      * GET /AtencionClientes/cierreDocumentacion
-     * 4.- Cierre Documentación.
+     * 3.- Cierre Documentación.
      */
     public function cierreDocumentacion(): void
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        $this->set('titulo', '4.- Cierre documentación · Atención a clientes ' . $emp);
+        $this->set('titulo', '3.- Cierre documentación · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_cierre_documentacion');
     }
 
     /**
      * GET /AtencionClientes/recepcion
-     * 5.- Recepción.
+     * 4.- Recepción.
      */
     public function recepcion(): void
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        $this->set('titulo', '5.- Recepción · Atención a clientes ' . $emp);
+        $this->set('titulo', '4.- Recepción · Atención a clientes ' . $emp);
         $this->render('atencion_clientes_recepcion');
     }
 
@@ -86,7 +86,7 @@ class AtencionClientes extends Controller
     }
 
     // =========================================================================
-    // API: 2.- EVIDENCIAS (listas por estatus; mismo modelo)
+    // API: 1.- EVIDENCIAS (listas por estatus; mismo modelo)
     // =========================================================================
 
     public function obtenerRecibidos(): void

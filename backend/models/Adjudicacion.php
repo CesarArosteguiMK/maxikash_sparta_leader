@@ -68,9 +68,10 @@ class Adjudicacion extends Model
     }
 
     /**
-     * Crea o fuerza estatus Retenciones en adj_operacion para el crédito asignado.
+     * Crea adj_operacion en etapa Evidencias (en_transito) o solo actualiza fecha si ya existe.
+     * No fuerza estatus hacia atrás: el flujo inicia en Mis adjudicaciones / evidencias, no en Retenciones.
      */
-    private function asegurarOperacionEnRetenciones(int $idCredito, int $idUsuario, string $fecha): void
+    private function asegurarOperacionTrasAsignacionCredito(int $idCredito, int $idUsuario, string $fecha): void
     {
         $op = $this->db->queryOne(
             "SELECT id, estatus FROM adj_operacion WHERE id_credito = :id ORDER BY id DESC LIMIT 1",
@@ -78,33 +79,10 @@ class Adjudicacion extends Model
         );
 
         if ($op) {
-            $estatusActual = (string)($op['estatus'] ?? '');
-
-            if ($estatusActual !== 'Retenciones') {
-                $this->db->CRUD(
-                    "UPDATE adj_operacion
-                     SET estatus = 'Retenciones', fecha_actualizacion = :fecha
-                     WHERE id = :id",
-                    ['fecha' => $fecha, 'id' => (int)$op['id']]
-                );
-
-                $this->db->CRUD(
-                    "INSERT INTO adj_historial_estatus
-                        (id_operacion, estatus_anterior, estatus_nuevo, id_usuario, fecha)
-                     VALUES (:id_op, :anterior, 'Retenciones', :id_usr, :fecha)",
-                    [
-                        'id_op'    => (int)$op['id'],
-                        'anterior' => $estatusActual !== '' ? $estatusActual : 'N/A',
-                        'id_usr'   => $idUsuario ?: null,
-                        'fecha'    => $fecha,
-                    ]
-                );
-            } else {
-                $this->db->CRUD(
-                    "UPDATE adj_operacion SET fecha_actualizacion = :fecha WHERE id = :id",
-                    ['fecha' => $fecha, 'id' => (int)$op['id']]
-                );
-            }
+            $this->db->CRUD(
+                'UPDATE adj_operacion SET fecha_actualizacion = :fecha WHERE id = :id',
+                ['fecha' => $fecha, 'id' => (int) $op['id']]
+            );
 
             return;
         }
@@ -127,7 +105,7 @@ class Adjudicacion extends Model
             }
 
             if (!empty($s2['Nombre_cliente'])) {
-                $nombreCliente = trim((string)$s2['Nombre_cliente']);
+                $nombreCliente = trim((string) $s2['Nombre_cliente']);
             }
         } catch (\Exception $e) {
             // Si S2 no responde, se crea con nombre mínimo para no frenar el flujo.
@@ -137,14 +115,14 @@ class Adjudicacion extends Model
             "INSERT INTO adj_operacion
                 (folio, id_credito, nombre_cliente, estatus, id_usuario_alta, fecha_alta, fecha_actualizacion)
              VALUES
-                (:folio, :id_credito, :nombre_cliente, 'Retenciones', :id_usuario_alta, :fecha_alta, :fecha_actualizacion)",
+                (:folio, :id_credito, :nombre_cliente, 'en_transito', :id_usuario_alta, :fecha_alta, :fecha_actualizacion)",
             [
-                'folio'              => $this->generarFolioOperacion(),
-                'id_credito'         => $idCredito,
-                'nombre_cliente'     => $nombreCliente,
-                'id_usuario_alta'    => $idUsuario ?: null,
-                'fecha_alta'         => $fecha,
-                'fecha_actualizacion'=> $fecha,
+                'folio'               => $this->generarFolioOperacion(),
+                'id_credito'          => $idCredito,
+                'nombre_cliente'      => $nombreCliente,
+                'id_usuario_alta'     => $idUsuario ?: null,
+                'fecha_alta'          => $fecha,
+                'fecha_actualizacion' => $fecha,
             ]
         );
     }
@@ -287,7 +265,7 @@ class Adjudicacion extends Model
         );
 
         if ($n > 0) {
-            $this->asegurarOperacionEnRetenciones($idCredito, $usuarioAlta, $fechaAlta);
+            $this->asegurarOperacionTrasAsignacionCredito($idCredito, $usuarioAlta, $fechaAlta);
             return ['success' => true, 'message' => 'Crédito asignado correctamente.'];
         }
 

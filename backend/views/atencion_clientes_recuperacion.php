@@ -440,7 +440,7 @@ body.dark-mode .ar-ev-notas-panel { background: #0f172a; border-color: #334155; 
     <div class="ar-header-gradient d-flex align-items-center gap-3">
         <i class="fa-solid fa-truck-moving fa-2x"></i>
         <div>
-            <h4>3.- Recuperación</h4>
+            <h4>2.- Recuperación</h4>
             <p>Gestión de recuperación para operaciones de motos adjudicadas</p>
         </div>
     </div>
@@ -1060,7 +1060,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                         html:
                             'La operación quedó en estatus <strong>Cierre documentado</strong>. ' +
                             'La verás en la <strong>bandeja de entrada</strong> de ' +
-                            '<strong>4.- Cierre documentación</strong>.',
+                            '<strong>3.- Cierre documentación</strong>.',
                         confirmButtonText: 'Cerrar',
                     });
                 }

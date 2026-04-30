@@ -838,7 +838,7 @@ SQL;
     /**
      * Guarda el dictamen en adj_dictamen y actualiza el estatus de adj_operacion.
      * Estatus resultante (BD):
-     *   'Autorizado para recolección'        → 'en_transito'
+     *   'Autorizado para recolección'        → 'en_transito' (solo si la operación nunca avanzó por evidencias/recuperación/cierre/recepción; si ya pasó por esas etapas y vuelve a Retenciones al final del flujo, no cambia estatus)
      *   'Cancelado, promesa de pago'         → 'cancelado'
      *   'Cancelamiento total (sin intentos)' → 'cancelado'
      *   'Pendiente, …'                       → sin cambio (devuelve estatus_nuevo='pendiente')
@@ -863,7 +863,17 @@ SQL;
         $nuevoEstatus = null;
 
         if ($dictamen === 'Autorizado para recolección') {
-            $nuevoEstatus = 'en_transito';
+            $yaAvanzoEnPipeline = $this->db->queryOne(
+                "SELECT 1 AS ok FROM adj_historial_estatus
+                 WHERE id_operacion = :id
+                   AND estatus_nuevo IN (
+                       'Recibido', 'en_transito', 'Procesando IA', 'Revisión Recuperaciones',
+                       'Cierre Documentado', 'Recepción'
+                   )
+                 LIMIT 1",
+                ['id' => $idOperacion]
+            );
+            $nuevoEstatus = !empty($yaAvanzoEnPipeline['ok']) ? null : 'en_transito';
         } elseif ($dictamen === 'Cancelado, promesa de pago') {
             $nuevoEstatus = 'cancelado';
         } elseif ($dictamen === 'Cancelamiento total (sin intentos)') {

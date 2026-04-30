@@ -66,11 +66,11 @@
         // CONSTANTES
         // ──────────────────────────────────────────────────────────────────
         const STAGES = [
-            'Retenciones',
             'Recibido',
             'Revisión Recuperaciones',
             'Cierre Documentado',
             'Recepción',
+            'Retenciones',
         ];
 
         const STAGE_ICONS = {
@@ -186,7 +186,7 @@
                 let stage = op.estatus;
                 if (stage === 'en_transito') stage = 'Recibido';
                 else if (stage === 'cancelado') stage = 'Retenciones';
-                /* Misma bandeja que 3.- Recuperación (Evidencias → Aprobados): sigue en BD como Procesando IA */
+                /* Misma bandeja que 2.- Recuperación (Evidencias → Aprobados): sigue en BD como Procesando IA */
                 else if (stage === 'Procesando IA') stage = 'Revisión Recuperaciones';
                 if (groups[stage]) groups[stage].push(op);
             });
@@ -200,6 +200,7 @@
             }
 
             const OPS_TITULO_COL_VISIBLE = {
+                'Recibido':                'Evidencia',
                 'Revisión Recuperaciones': 'Recuperacion',
                 'Recepción':               'Recepcion',
             };
@@ -280,7 +281,7 @@
                 const piePipe         = String(op.ret_registro_pipe_fmt || op.fecha_alta || '').trim();
                 const statusTxt = !tieneLlamadaRet
                     ? `<span class="text-danger fw-bold" style="font-size:.7rem;">Pendiente de llamada</span>`
-                    : `<span class="text-muted" style="font-size:.7rem;">${opsEsc(opsRetencionesLineaDetalle(op))}</span>`;;
+                    : `<span class="text-muted" style="font-size:.7rem;">${opsEsc(opsRetencionesLineaDetalle(op))}</span>`;
                 const fechaPie = !tieneLlamadaRet ? (piePipe || '—') : fechaLlamada;
                 return `
             <div class="card mb-1 border-start border-3 ${borderColor}" style="cursor:pointer;border-radius:.5rem;display:flex;flex-direction:column;" onclick="opsAbrirDetalle(${op.id})">
@@ -412,28 +413,28 @@
         function opsPipelineStageIndex(op) {
             const est = (op && op.estatus != null) ? String(op.estatus).trim() : '';
             if (est === 'cancelado') {
-                return { current: 0, rejected: true };
+                return { current: 4, rejected: true };
             }
             if (est === 'Retenciones') {
-                return { current: 0, rejected: false };
+                return { current: 4, rejected: false };
             }
             if (est === 'en_transito' || est === 'Recibido') {
-                return { current: 1, rejected: false };
+                return { current: 0, rejected: false };
             }
             if (est === 'Procesando IA' || est === 'Revisión Recuperaciones') {
-                return { current: 2, rejected: false };
+                return { current: 1, rejected: false };
             }
             if (est === 'Cierre Documentado') {
-                return { current: 3, rejected: false };
+                return { current: 2, rejected: false };
             }
             if (est === 'Recepción') {
-                return { current: 4, rejected: false };
+                return { current: 3, rejected: false };
             }
             return { current: 0, rejected: false };
         }
 
         function opsHtmlStepperEtapaModal(op) {
-            const labels = ['Retenciones', 'Recibido', 'Recuperación', 'Cierre docs', 'Recepción'];
+            const labels = ['Evidencia', 'Recuperación', 'Cierre docs', 'Recepción', 'Retenciones'];
             const { current } = opsPipelineStageIndex(op);
             const sep = '<div style="width:24px;border-top:1.5px solid #ccc;margin-top:13px;"></div>';
             let parts = '';
