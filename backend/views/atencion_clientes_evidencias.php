@@ -1036,6 +1036,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
      */
     function aePostEnviarEvidenciasValidadas() {
         _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+        aeCargarConteosPestanas();
         aevRecargarPestanaEvidenciasActiva();
     }
 
@@ -1051,6 +1052,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             return;
         }
         _aeCargada = { bandeja: false, aprobados: false, correcciones: false };
+        aeCargarConteosPestanas();
         aevRecargarPestanaEvidenciasActiva();
     }
 
@@ -1213,29 +1215,47 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     function aeSetBadgeTab(key, n) {
         const el = document.getElementById(AE_BADGE_TAB[key]);
         if (!el) return;
-        if (n > 0) {
-            el.textContent   = n;
+        const num = Math.max(0, parseInt(n, 10) || 0);
+        if (num > 0) {
+            el.textContent = String(num);
             el.style.display = '';
         } else {
             el.style.display = 'none';
         }
     }
 
+    /** Misma regla que cada lista; muestra los tres totales sin abrir cada pestaña. */
+    function aeCargarConteosPestanas() {
+        return fetch('/AtencionClientes/obtenerConteosEvidencias', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.conteos) return;
+                const c = data.conteos;
+                aeSetBadgeTab('bandeja', c.bandeja);
+                aeSetBadgeTab('aprobados', c.aprobados);
+                aeSetBadgeTab('correcciones', c.correcciones);
+            })
+            .catch(function () { /* silencioso: los badges se actualizan al entrar a cada pestaña */ });
+    }
+
     function aeCargarSeccion(key, forzar) {
         const cfg = AE_CONFIG[key];
-        if (!cfg) return;
+        if (!cfg) return Promise.resolve();
 
         const idSuffix  = (key === 'bandeja' ? 'bandeja' : key);
         const loaderId  = 'ae-loader-' + idSuffix;
         const listaId   = 'ae-lista-'  + idSuffix;
 
         if (!forzar && _aeCargada[key]) {
-            return;
+            return Promise.resolve();
         }
 
         const loader = document.getElementById(loaderId);
         const lista  = document.getElementById(listaId);
-        if (!loader || !lista) return;
+        if (!loader || !lista) return Promise.resolve();
 
         const primeraCarga = lista.children.length === 0;
         if (primeraCarga) {
@@ -1244,7 +1264,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             lista.classList.add('ae-lista-updating');
         }
 
-        fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        return fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
@@ -1282,9 +1302,30 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             });
     }
 
+    /** Carga inicial paralela (badges + bandeja) con el mismo Swal que 1.- Retenciones. */
+    function aeCargarVistaInicialConSpinner() {
+        const hasSwal = typeof Swal !== 'undefined';
+        if (hasSwal) {
+            Swal.fire({
+                title: 'Cargando Evidencias…',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function () { Swal.showLoading(); },
+            });
+        }
+        Promise.all([
+            aeCargarConteosPestanas(),
+            aeCargarSeccion('bandeja', true),
+        ]).finally(function () {
+            if (hasSwal) Swal.close();
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         aevAsegurarOverlayDentroModal();
-        aeCargarSeccion('bandeja', true);
+        aeCargarVistaInicialConSpinner();
 
         document.getElementById('ae-tab-bandeja-btn').addEventListener('shown.bs.tab', function () {
             aeCargarSeccion('bandeja', false);

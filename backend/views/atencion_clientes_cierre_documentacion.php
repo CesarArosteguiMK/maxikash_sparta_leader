@@ -898,21 +898,36 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
         }
     }
 
+    function acdCargarConteosPestanas() {
+        return fetch('/AtencionClientes/obtenerConteosCierreDocumentacion', {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.conteos) return;
+                const c = data.conteos;
+                acdSetBadge('bandeja', c.bandeja);
+                acdSetBadge('dictaminado', c.dictaminado);
+            })
+            .catch(function () {});
+    }
+
     function acdCargarSeccion(key, forzar) {
         const cfg = ACD_CONFIG[key];
-        if (!cfg) return;
+        if (!cfg) return Promise.resolve();
 
         const suf      = key === 'bandeja' ? 'bandeja' : 'dictaminado';
         const loaderId = 'acd-loader-' + suf;
         const listaId  = 'acd-lista-'  + suf;
 
         if (!forzar && _acdCargada[key]) {
-            return;
+            return Promise.resolve();
         }
 
         const loader = document.getElementById(loaderId);
         const lista  = document.getElementById(listaId);
-        if (!loader || !lista) return;
+        if (!loader || !lista) return Promise.resolve();
 
         const primeraCarga = lista.children.length === 0;
         if (primeraCarga) {
@@ -921,7 +936,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
             lista.classList.add('acd-lista-updating');
         }
 
-        fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        return fetch(cfg.url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data.success) {
@@ -948,8 +963,28 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
             });
     }
 
+    function acdCargarVistaInicialConSpinner() {
+        const hasSwal = typeof Swal !== 'undefined';
+        if (hasSwal) {
+            Swal.fire({
+                title: 'Cargando Cierre documentación…',
+                html: '<span style="font-size:.875rem;color:#64748b;">Obteniendo todas las pestañas</span>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: function () { Swal.showLoading(); },
+            });
+        }
+        Promise.all([
+            acdCargarConteosPestanas(),
+            acdCargarSeccion('bandeja', true),
+        ]).finally(function () {
+            if (hasSwal) Swal.close();
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        acdCargarSeccion('bandeja', true);
+        acdCargarVistaInicialConSpinner();
 
         const bb = document.getElementById('acd-tab-bandeja-btn');
         const bd = document.getElementById('acd-tab-dictaminado-btn');
@@ -1072,6 +1107,7 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
                             const inst = bootstrap.Modal.getInstance(mEl);
                             if (inst) inst.hide();
                         }
+                        acdCargarConteosPestanas();
                         acdCargarSeccion('bandeja', true);
                     })
                     .catch(function (err) {

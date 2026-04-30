@@ -83,6 +83,17 @@
 
         const EV_TOTAL_SLOTS = 11;
 
+        /**
+         * Solo modal Detalle → etapa Recibido/Evidencia: expediente sin factura (eso va en Recuperación).
+         * 10 slots = recolección + física + Repuve PDF.
+         */
+        const OPS_MODAL_RECIBIDO_SLOTS = [
+            'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+            'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+            'doc_repuve',
+        ];
+        const OPS_MODAL_RECIBIDO_SLOT_TOTAL = OPS_MODAL_RECIBIDO_SLOTS.length;
+
         let _operaciones   = [];
         let _detalleActual = null;
         let _evState       = {};
@@ -175,6 +186,8 @@
                 let stage = op.estatus;
                 if (stage === 'en_transito') stage = 'Recibido';
                 else if (stage === 'cancelado') stage = 'Retenciones';
+                /* Misma bandeja que 3.- Recuperación (Evidencias → Aprobados): sigue en BD como Procesando IA */
+                else if (stage === 'Procesando IA') stage = 'Revisión Recuperaciones';
                 if (groups[stage]) groups[stage].push(op);
             });
 
@@ -258,6 +271,7 @@
             const esCompacto = opsEsColumnaRetenciones(op)
                 || op.estatus === 'en_transito'
                 || op.estatus === 'Recibido'
+                || op.estatus === 'Procesando IA'
                 || op.estatus === 'Revisión Recuperaciones';
 
             if (opsEsColumnaRetenciones(op)) {
@@ -334,6 +348,8 @@
                 'Retenciones':             'Actualmente se encuentra en Retenciones',
                 'cancelado':               'Actualmente se encuentra en Retenciones',
                 'en_transito':             'Actualmente se encuentra en evidencias',
+                'Recibido':                'Actualmente se encuentra en evidencias',
+                'Procesando IA':           'Actualmente se encuentra en Recuperacion',
                 'Revisión Recuperaciones': 'Actualmente se encuentra en Recuperacion',
                 'Cierre Documentado':      'Actualmente se encuentra en Cierre Documentado',
                 'Recepción':               'Actualmente se encuentra en Recepción',
@@ -344,6 +360,21 @@
         // ──────────────────────────────────────────────────────────────────
         // ABRIR DETALLE
         // ──────────────────────────────────────────────────────────────────
+        /** Dictamen + historial de llamadas solo aplican a etapa Retenciones. */
+        function opsEsEtapaRetencionesDetalle(op) {
+            return op && (op.estatus === 'cancelado' || op.estatus === 'Retenciones');
+        }
+
+        /** Modal de evidencias: Recibido / en tránsito (columna evidencia del pipeline). */
+        function opsEsEtapaRecibidoEvidenciaDetalle(op) {
+            return op && (op.estatus === 'en_transito' || op.estatus === 'Recibido');
+        }
+
+        /** Modal Recuperación: progreso 11 slots (10 evidencias + factura); pendiente doc_factura. */
+        function opsEsEtapaRecuperacionDetalle(op) {
+            return op && (op.estatus === 'Procesando IA' || op.estatus === 'Revisión Recuperaciones');
+        }
+
         function opsAbrirDetalle(id) {
             _detalleActual = null;
             document.getElementById('det-body').innerHTML = `
@@ -352,17 +383,25 @@
             </div>`;
             new bootstrap.Modal(document.getElementById('modalDetalleOperacion')).show();
 
-            const fetchDetalle  = fetch(`/MotosAdjudicadas/obtenerDetalle/${id}`,          { headers: { 'Accept': 'application/json' } }).then(r => r.json());
-            const fetchDictamen = fetch(`/AtencionClientes/obtenerDictamen?id=${id}`,       { headers: { 'Accept': 'application/json' } }).then(r => r.json()).catch(() => null);
-
-            Promise.all([fetchDetalle, fetchDictamen])
-                .then(([detalleResp, dictamenResp]) => {
+            fetch(`/MotosAdjudicadas/obtenerDetalle/${id}`, { headers: { 'Accept': 'application/json' } })
+                .then(r => r.json())
+                .then(detalleResp => {
                     if (!detalleResp.success) throw new Error(detalleResp.message);
-                    _detalleActual = detalleResp.detalle;
-                    const dictamen          = (dictamenResp && dictamenResp.success) ? dictamenResp.dictamen : null;
-                    const historialLlamadas = (dictamenResp && dictamenResp.success && Array.isArray(dictamenResp.historial_llamadas))
-                        ? dictamenResp.historial_llamadas : [];
-                    opsRenderDetalle(detalleResp.detalle, dictamen, historialLlamadas);
+                    const op = detalleResp.detalle;
+                    _detalleActual = op;
+                    if (opsEsEtapaRetencionesDetalle(op)) {
+                        return fetch(`/AtencionClientes/obtenerDictamen?id=${id}`, { headers: { 'Accept': 'application/json' } })
+                            .then(r => r.json())
+                            .catch(() => null)
+                            .then(dictamenResp => {
+                                const dictamen = (dictamenResp && dictamenResp.success) ? dictamenResp.dictamen : null;
+                                const historialLlamadas = (dictamenResp && dictamenResp.success && Array.isArray(dictamenResp.historial_llamadas))
+                                    ? dictamenResp.historial_llamadas : [];
+                                opsRenderDetalle(op, dictamen, historialLlamadas);
+                            });
+                    }
+                    opsRenderDetalle(op, null, []);
+                    return null;
                 })
                 .catch(err => {
                     document.getElementById('det-body').innerHTML = `<div class="alert alert-danger m-3">${opsEsc(err.message)}</div>`;
@@ -381,7 +420,7 @@
             if (est === 'en_transito' || est === 'Recibido') {
                 return { current: 1, rejected: false };
             }
-            if (est === 'Revisión Recuperaciones') {
+            if (est === 'Procesando IA' || est === 'Revisión Recuperaciones') {
                 return { current: 2, rejected: false };
             }
             if (est === 'Cierre Documentado') {
@@ -461,6 +500,220 @@
             document.getElementById('det-body').innerHTML = html;
         }
 
+        /**
+         * Bloque Recibido/Evidencia: progreso de carga, validación y bitácora de veredictos.
+         * No incluye historial de llamadas (solo Retenciones).
+         */
+        function opsRenderBloqueEvidenciaRecibido(op) {
+            const r = op.resumen_evidencia_flujo || {};
+            const rep = r.repuve || {};
+            const repPdf = !!rep.pdf_cargado;
+
+            const evsArr = Array.isArray(op.evidencias) ? op.evidencias : [];
+            const bySlotModal = {};
+            evsArr.forEach(e => {
+                const sk = e.slot != null ? String(e.slot).trim() : '';
+                if (sk) bySlotModal[sk] = e;
+            });
+            let cargadasModal = 0;
+            OPS_MODAL_RECIBIDO_SLOTS.forEach(slot => {
+                const row = bySlotModal[slot];
+                let tieneArchivo = row && String(row.url || '').trim() !== '';
+                if (slot === 'doc_repuve' && !tieneArchivo && repPdf) {
+                    tieneArchivo = true;
+                }
+                if (tieneArchivo) cargadasModal++;
+            });
+            const totalModal = Math.max(1, OPS_MODAL_RECIBIDO_SLOT_TOTAL);
+            const pctModal = Math.min(100, Math.round((cargadasModal / totalModal) * 100));
+            const expedienteCompleto = cargadasModal >= totalModal;
+
+            const slotsVal = parseInt(r.slots_validacion_media, 10) || 9;
+            const validadas = parseInt(r.validadas_en_evidencia, 10) || 0;
+            const aceptadas = parseInt(r.aceptadas, 10) || 0;
+            const devueltas = parseInt(r.devueltas, 10) || 0;
+            const pendVal = parseInt(r.pendientes_validacion, 10) || 0;
+            const pctValidacion = slotsVal > 0 ? Math.min(100, Math.round((validadas / slotsVal) * 100)) : 0;
+
+            const repPipe = rep.estatus_pipeline != null && rep.estatus_pipeline !== '' ? String(rep.estatus_pipeline) : '—';
+            const repScore = rep.score_ia;
+            const repScoreLine = (repPdf && repScore != null && repScore !== '')
+                ? `<div class="text-muted mt-2" style="font-size:.75rem;">Score IA: <strong>${opsEsc(String(repScore))}</strong></div>`
+                : '';
+
+            const repuveInner = !repPdf
+                ? `<p class="small text-muted mb-0 lh-base" style="max-width:42rem;">
+                    En espera de carga una vez finalice la validación de las evidencias (este apartado corresponde al administrador de validaciones).
+                </p>`
+                : `
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <span class="badge bg-label-success rounded-pill">PDF en expediente</span>
+                                <span class="small text-muted">${opsEsc(repPipe)}</span>
+                            </div>
+                            ${repScoreLine}`;
+
+            const timeline = Array.isArray(op.validaciones_evidencia_timeline) ? op.validaciones_evidencia_timeline : [];
+            const lineasTimeline = timeline.length
+                ? timeline.map(row => {
+                    const u = row && row.nombre_usuario != null ? String(row.nombre_usuario).trim() : '';
+                    const fh = row && row.fecha_fmt != null ? String(row.fecha_fmt).trim() : '';
+                    const acc = row && row.accion != null ? String(row.accion).trim() : '';
+                    const texto = acc.replace(/^VALIDACIÓN EVIDENCIA\s+/i, '').trim() || acc;
+                    return `
+                    <div class="d-flex gap-2 py-2 border-bottom border-light align-items-start">
+                        <i class="fa-solid fa-check-double text-primary mt-1" style="font-size:.75rem;"></i>
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="small fw-semibold" style="white-space:pre-wrap;">${opsEsc(texto)}</div>
+                            <div class="text-muted" style="font-size:.68rem;">
+                                ${fh ? `<span class="me-2"><i class="fa-regular fa-clock me-1"></i>${opsEsc(fh)}</span>` : ''}
+                                ${u ? `<span><i class="fa-regular fa-user me-1"></i>${opsEsc(u)}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('')
+                : `<p class="text-muted small fst-italic mb-0">Aún no hay validaciones registradas en bitácora.</p>`;
+
+            return `
+        <div class="mb-3">
+            ${opsHtmlBloqueEstatusDictamenModal()}
+        </div>
+        <div class="card mb-0 border-primary border-opacity-25">
+            <div class="card-header py-2">
+                <h6 class="mb-0 small fw-bold text-uppercase">
+                    <i class="fa-solid fa-images me-2 text-primary"></i>Evidencia (carga del gestor)
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3 mb-md-4">
+                    Progreso de carga
+                </p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="text-muted fw-semibold mb-1" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Archivos en expediente</div>
+                        <div class="progress mb-1" style="height:8px;">
+                            <div class="progress-bar ${expedienteCompleto ? 'bg-success' : 'bg-primary'}" role="progressbar" style="width:${pctModal}%;" aria-valuenow="${pctModal}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="small d-flex flex-wrap align-items-center gap-2">
+                            <span><strong>${cargadasModal}</strong> / ${totalModal} slots con archivo</span>
+                            ${expedienteCompleto ? '<span class="badge bg-label-success rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Expediente completo</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="text-muted fw-semibold mb-1" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Validación en Evidencia (fotos/video) (Admin Validación)</div>
+                        <div class="progress mb-1" style="height:8px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width:${pctValidacion}%;" aria-valuenow="${pctValidacion}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="small">
+                            <span class="badge bg-label-success rounded-pill">${aceptadas} aceptadas</span>
+                            <span class="badge bg-label-danger rounded-pill">${devueltas} devueltas</span>
+                            <span class="badge bg-label-secondary rounded-pill">${pendVal} pendientes</span>
+                        </div>
+                        <div class="text-muted mt-1" style="font-size:.75rem;">
+                            ${validadas} de ${slotsVal} ítems con veredicto (sobre los que aplica aceptar/rechazar).
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="rounded border p-3" style="background:var(--bs-tertiary-bg, #f8f9fa); border-color:rgba(20, 83, 45, 0.25) !important;">
+                            <div class="text-muted fw-semibold mb-2" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">
+                                <i class="fa-solid fa-file-pdf me-1 text-success"></i>Repuve (PDF)
+                            </div>
+                            ${repuveInner}
+                        </div>
+                    </div>
+                    <div class="col-12 mt-2 pt-2 border-top">
+                        <div class="text-muted fw-semibold mb-2" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i>Validaciones (fecha desde bitácora)
+                        </div>
+                        <div class="rounded border bg-light bg-opacity-50 px-2 py-1" style="max-height:220px;overflow-y:auto;">
+                            ${lineasTimeline}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        }
+
+        /**
+         * Bloque Procesando IA / Revisión Recuperaciones: progreso único xx/11 y apartado Factura (doc_factura).
+         */
+        function opsRenderBloqueRecuperacionFacturacion(op) {
+            const r = op.resumen_evidencia_flujo || {};
+            const rep = r.repuve || {};
+            const repPdf = !!rep.pdf_cargado;
+
+            const evsArr = Array.isArray(op.evidencias) ? op.evidencias : [];
+            const bySlot = {};
+            evsArr.forEach(e => {
+                const sk = e.slot != null ? String(e.slot).trim() : '';
+                if (sk) bySlot[sk] = e;
+            });
+
+            let cargadasDiez = 0;
+            OPS_MODAL_RECIBIDO_SLOTS.forEach(slot => {
+                const row = bySlot[slot];
+                let tieneArchivo = row && String(row.url || '').trim() !== '';
+                if (slot === 'doc_repuve' && !tieneArchivo && repPdf) {
+                    tieneArchivo = true;
+                }
+                if (tieneArchivo) cargadasDiez++;
+            });
+
+            const totalDiez = Math.max(1, OPS_MODAL_RECIBIDO_SLOT_TOTAL);
+            const diezCompleto = cargadasDiez >= totalDiez;
+
+            const rowFactura = bySlot.doc_factura;
+            const facturaCargada = rowFactura && String(rowFactura.url || '').trim() !== '';
+            const cargadosOnce = cargadasDiez + (facturaCargada ? 1 : 0);
+            const pctOnce = Math.min(100, Math.round((cargadosOnce / 11) * 100));
+            const expedienteOnceCompleto = cargadosOnce >= 11;
+
+            const facturaInner = !facturaCargada
+                ? `<p class="small text-muted mb-0 lh-base" style="max-width:42rem;">
+                    En espera de carga de la documentación de factura
+                </p>`
+                : `
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-0">
+                                <span class="badge bg-label-success rounded-pill">Documento en expediente</span>
+                            </div>`;
+
+            return `
+        <div class="mb-3">
+            ${opsHtmlBloqueEstatusDictamenModal()}
+        </div>
+        <div class="card mb-0 border-primary border-opacity-25">
+            <div class="card-header py-2">
+                <h6 class="mb-0 small fw-bold text-uppercase">
+                    <i class="fa-solid fa-folder-open me-2 text-primary"></i>Expediente en Recuperación
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3 mb-md-4">
+                    En esta etapa se deberá revalidar las evidencias de recolección del gestor.
+                </p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="text-muted fw-semibold mb-1" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Archivos en expediente</div>
+                        <div class="progress mb-1" style="height:8px;">
+                            <div class="progress-bar ${expedienteOnceCompleto ? 'bg-success' : diezCompleto ? 'bg-primary' : 'bg-secondary'}" role="progressbar" style="width:${pctOnce}%;" aria-valuenow="${pctOnce}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="small d-flex flex-wrap align-items-center gap-2">
+                            <span><strong>${cargadosOnce}</strong> / 11 slots con archivo</span>
+                            ${expedienteOnceCompleto ? '<span class="badge bg-label-success rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>11/11</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="rounded border p-3" style="background:var(--bs-tertiary-bg, #f8f9fa); border-color:rgba(13, 110, 253, 0.25) !important;">
+                            <div class="text-muted fw-semibold mb-2" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">
+                                <i class="fa-solid fa-file-invoice me-1 text-primary"></i>Factura
+                            </div>
+                            ${facturaInner}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        }
+
         // ──────────────────────────────────────────────────────────────────
         // KV HELPER
         // ──────────────────────────────────────────────────────────────────
@@ -473,6 +726,15 @@
             <div class="text-muted fw-semibold mb-1" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">${opsEsc(lbl)}</div>
             ${inner}
         </div>`;
+        }
+
+        /** Misma badge «En tránsito» que en Retenciones (camión + bg-label-info) para todo el modal Detalle. */
+        function opsHtmlEstatusDictamenBadgeModal() {
+            return `<span class="badge bg-label-info"><i class="fa-solid fa-truck-fast me-1"></i>En tránsito</span>`;
+        }
+
+        function opsHtmlBloqueEstatusDictamenModal() {
+            return opsExpKv('Estatus dictamen', opsHtmlEstatusDictamenBadgeModal(), true);
         }
 
         // ──────────────────────────────────────────────────────────────────
@@ -563,6 +825,32 @@
         // ──────────────────────────────────────────────────────────────────
         function opsRenderDatosExpediente(op, d, historialLlamadas) {
             historialLlamadas = Array.isArray(historialLlamadas) ? historialLlamadas : [];
+
+            if (opsEsEtapaRecibidoEvidenciaDetalle(op)) {
+                return opsRenderBloqueEvidenciaRecibido(op);
+            }
+
+            if (opsEsEtapaRecuperacionDetalle(op)) {
+                return opsRenderBloqueRecuperacionFacturacion(op);
+            }
+
+            if (!opsEsEtapaRetencionesDetalle(op)) {
+                const textoExpedienteGenerico = (op.estatus === 'Cierre Documentado')
+                    ? 'En espera de que Cartera publique y confirme el cierre de crédito en S2.'
+                    : 'En esta etapa el detalle de expediente se consulta en el módulo correspondiente.';
+                return `
+        <div class="mb-3">
+            ${opsHtmlBloqueEstatusDictamenModal()}
+        </div>
+        <div class="card mb-0">
+            <div class="card-body py-3">
+                <p class="text-muted small mb-0">
+                    <i class="fa-regular fa-folder-open me-1"></i>
+                    ${textoExpedienteGenerico}
+                </p>
+            </div>
+        </div>`;
+            }
 
             let estatusBadge;
             if (!d) {

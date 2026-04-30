@@ -4069,3 +4069,652 @@
 374037;1836862;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
 391311;1836862;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
 408997;1836862;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+322692;1836863;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;1;2026-03-23;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+374038;1836863;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+391312;1836863;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+408998;1836863;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+297195;1836873;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+356611;1836906;4;5;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-07;250.00;0;5;2026-04-06;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391313;1836906;2;7;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;1;7;2026-04-20;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+340240;1836912;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+297196;1836941;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+340241;1836941;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356612;1836941;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374039;1836941;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391314;1836941;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+408999;1836941;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+356613;1836962;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374040;1836962;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391315;1836962;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409000;1836962;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+340242;1836967;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-07;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+374041;1836967;2;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;1;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+409001;1836967;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297197;1836973;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+391316;1836993;1;5;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;5;2026-04-20;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+340243;1837005;3;4;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;4;2026-03-30;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+409002;1837005;2;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 52";cuota_en_periodo_gdc
+409003;1837078;1;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 104";cuota_en_periodo_gdc
+356614;1837133;4;5;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-07;250.00;0;5;2026-04-06;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+409004;1837140;1;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;5;2026-04-27;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+297198;1837160;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-23;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+340244;1837165;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-06;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+271108;1837179;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 11-2026";2026-03-09;2026-03-15;250.00;;;;1;2026-03-09;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322693;1837179;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;3;2026-03-23;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+297199;1837230;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322694;1837230;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340245;1837230;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356615;1837230;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374042;1837240;1;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;0;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+297200;1837344;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322695;1837344;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340246;1837344;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356616;1837344;0;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374043;1837344;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391317;1837344;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409005;1837344;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+356617;1837432;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;1;2026-04-06;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+374044;1837432;2;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;2;2026-04-13;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+409006;1837432;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;4;2026-04-27;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+271109;1837453;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 11-2026";2026-03-09;2026-03-15;250.00;;;;1;2026-03-09;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+374045;1837470;1;6;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;6;2026-04-13;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409007;1837470;2;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 78";cuota_en_periodo_gdc
+297201;1837482;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+322696;1837482;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;3;2026-03-23;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+340247;1837482;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;4;2026-03-30;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+356618;1837482;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+374046;1837482;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+391318;1837482;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+409008;1837482;7;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 130";cuota_en_periodo_gdc
+322697;1837485;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+374047;1837485;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391319;1837485;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409009;1837485;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+340248;1837507;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;1;2026-03-30;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+297202;1837553;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+322698;1837553;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;3;2026-03-23;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+340249;1837553;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;4;2026-03-30;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+356619;1837553;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+374048;1837553;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+391320;1837553;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+409010;1837553;7;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 130";cuota_en_periodo_gdc
+340250;1837607;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;4;2026-03-30;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+391321;1837607;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297203;1837633;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322699;1837633;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340251;1837633;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356620;1837633;0;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374049;1837633;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391322;1837633;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409011;1837633;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+340252;1837709;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374050;1837710;1;2;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-20;250.00;0;2;2026-04-13;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+409012;1837710;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;4;2026-04-27;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+340253;1837738;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;1;2026-03-30;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+356621;1837738;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;2;2026-04-06;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+374051;1837738;3;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;3;2026-04-13;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+391323;1837738;4;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;4;2026-04-20;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+409013;1837738;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;5;2026-04-27;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+271110;1837799;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 11-2026";2026-03-09;2026-03-15;250.00;;;;1;2026-03-09;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+297204;1837799;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+322700;1837799;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;3;2026-03-23;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+356622;1837799;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+374052;1837799;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+391324;1837799;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+409014;1837799;7;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 52";cuota_en_periodo_gdc
+391325;1837831;1;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;4;2026-04-20;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+409015;1837831;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;5;2026-04-27;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409016;1838164;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297205;1838239;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+340254;1838239;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+374053;1838239;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391326;1838361;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409017;1838361;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+322701;1838379;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340255;1838379;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356623;1838379;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374054;1838379;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391327;1838379;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409018;1838379;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297206;1838383;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322702;1838388;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;1;2026-03-23;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+340256;1838388;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;2;2026-03-30;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+356624;1838388;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;3;2026-04-06;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374055;1838388;4;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+391328;1838388;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409019;1838388;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+322703;1838428;0;1;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-30;250.00;0;1;2026-03-23;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322704;1838490;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+340257;1838490;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+374056;1838490;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391329;1838490;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409020;1838490;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+322705;1838535;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+356625;1838638;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-08;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374057;1838638;2;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-16;250.00;1;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391330;1838638;3;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-23;250.00;2;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409021;1838638;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+340258;1838679;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+374058;1838717;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+391331;1838782;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+374059;1838964;1;6;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;6;2026-04-13;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+340259;1838974;0;1;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-03;250.00;0;1;2026-03-30;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+356626;1838974;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;2;2026-04-06;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+374060;1838974;3;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;3;2026-04-13;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+391332;1838974;4;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;4;2026-04-20;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+409022;1838974;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;5;2026-04-27;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+356627;1838987;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+340260;1839017;0;1;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;1;2026-03-30;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+297207;1839087;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322706;1839087;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340261;1839087;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+374061;1839087;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391333;1839087;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409023;1839087;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+374062;1839089;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+391334;1839089;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+409024;1839089;3;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 52";cuota_en_periodo_gdc
+322707;1839166;0;1;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;1;2026-03-23;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+340262;1839175;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+297208;1839217;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322708;1839217;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+340263;1839217;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+356628;1839217;0;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374063;1839217;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391335;1839217;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409025;1839217;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+340264;1839272;3;4;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-06;250.00;0;4;2026-03-30;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+271111;1839294;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 11-2026";2026-03-09;2026-03-15;250.00;;;;1;2026-03-09;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322709;1839294;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;3;2026-03-23;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356629;1839294;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+374064;1839294;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+391336;1839294;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+409026;1839294;6;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 78";cuota_en_periodo_gdc
+374065;1839296;1;4;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;0;4;2026-04-13;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+297209;1839319;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+374066;1839319;2;6;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-21;250.00;1;6;2026-04-13;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+356630;1839345;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-09;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+340265;1839354;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;4;2026-03-30;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+322710;1839395;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+391337;1839409;1;5;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;5;2026-04-20;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+297211;1839539;1;2;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;2;2026-03-16;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+297212;1839626;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+356632;1839674;4;5;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-13;250.00;0;5;2026-04-06;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+356633;1839696;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-08;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374068;1839696;2;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-20;250.00;1;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+409027;1839696;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+340267;1839699;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374069;1839699;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409028;1839699;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297213;1839716;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+297214;1839814;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322712;1839814;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340268;1839814;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356634;1839814;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374070;1839814;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391338;1839814;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409029;1839814;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+391339;1839830;1;3;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;3;2026-04-20;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+391340;1839874;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-24;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+322713;1839889;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340269;1839889;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356635;1839889;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374071;1839889;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391341;1839889;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409030;1839889;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+297215;1839916;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+340270;1839916;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;4;2026-03-30;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+297216;1839962;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322714;1839962;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340271;1839962;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356636;1839962;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+340272;1840115;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+356637;1840115;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374072;1840115;3;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-22;250.00;1;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391342;1840115;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+374073;1840129;1;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+322715;1840131;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+356638;1840131;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+297217;1840273;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322716;1840273;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;1;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+374074;1840273;3;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;2;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+297218;1840300;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+340273;1840300;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356639;1840300;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+391343;1840300;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+297219;1840370;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-20;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322717;1840370;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-30;250.00;1;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+374075;1840370;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391344;1840370;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409031;1840370;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297220;1840443;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+391345;1840456;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+297221;1840496;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+409032;1840496;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+340274;1840558;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-03;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356640;1840558;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-13;250.00;1;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+391346;1840558;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409033;1840601;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+356641;1840604;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+374076;1840604;2;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+322718;1840620;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-25;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+340275;1840620;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+356642;1840620;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374077;1840620;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391347;1840620;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409034;1840620;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297222;1840657;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+391348;1840663;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+322719;1840680;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-27;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+409035;1840682;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297223;1840694;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+356643;1840694;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374078;1840694;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391349;1840694;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409036;1840694;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+391350;1840771;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-22;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409037;1840798;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+340276;1840801;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+409038;1840801;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+374079;1840858;1;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+391351;1840858;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+297224;1840878;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322720;1840878;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+271113;1840927;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 11-2026";2026-03-09;2026-03-15;250.00;;;;1;2026-03-09;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+356644;1840927;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+297225;1841096;1;2;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;2;2026-03-16;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+297226;1841122;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+322721;1841122;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+409039;1841145;1;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 130";cuota_en_periodo_gdc
+297227;1841150;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+391352;1841150;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+322722;1841196;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+409040;1841196;2;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;1;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+271114;1841249;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 11-2026";2026-03-09;2026-03-15;250.00;;;;1;2026-03-09;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409041;1841249;2;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 52";cuota_en_periodo_gdc
+297228;1841277;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;2;2026-03-16;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+322723;1841277;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;3;2026-03-23;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+340277;1841277;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;4;2026-03-30;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374080;1841277;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+391353;1841277;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+409042;1841277;6;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 130";cuota_en_periodo_gdc
+391354;1841295;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+356645;1841359;2;3;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-07;250.00;0;3;2026-04-06;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356646;1841387;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374081;1841387;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391355;1841387;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409043;1841387;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+297229;1841421;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322724;1841421;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+391356;1841421;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409044;1841421;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+340278;1841452;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356647;1841485;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+409045;1841485;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297230;1841903;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322725;1841903;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340279;1841903;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356648;1841903;0;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374082;1841903;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391357;1841903;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409046;1841903;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+356649;1841953;2;3;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-07;250.00;0;3;2026-04-06;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374083;1841999;1;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409047;1841999;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+322726;1842105;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+356650;1842105;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374084;1842105;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391358;1842105;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409048;1842105;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+340280;1842135;3;4;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;4;2026-03-30;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374085;1842135;2;6;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;1;6;2026-04-13;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+297231;1842300;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+356651;1842302;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;2;2026-04-06;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+409049;1842302;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;5;2026-04-27;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391359;1842320;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+391360;1842363;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+297232;1842423;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+409050;1842423;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+322727;1842466;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;3;2026-03-23;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+340281;1842466;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;4;2026-03-30;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+356652;1842466;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;5;2026-04-06;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+374086;1842466;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;6;2026-04-13;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+391361;1842466;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;7;2026-04-20;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+409051;1842466;6;8;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;8;2026-04-27;"CUOTA SEMANAL 8 DE 78";cuota_en_periodo_gdc
+391362;1842529;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+374087;1842564;1;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391363;1842564;2;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+297233;1842634;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+340282;1842634;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+340283;1842732;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+356653;1842732;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374088;1842732;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391364;1842732;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409052;1842732;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297234;1842770;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+297235;1842809;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322728;1842809;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+391365;1842816;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-23;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+340284;1842852;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;2;2026-03-30;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+297236;1842901;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+374089;1842901;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391366;1842901;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409053;1842901;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+409054;1843025;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297237;1843044;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+297238;1843052;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322729;1843052;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+340285;1843052;1;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+356654;1843052;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374090;1843052;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409055;1843052;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+374091;1843155;1;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+391367;1843155;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+409056;1843155;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+356655;1843249;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-08;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374092;1843249;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391368;1843249;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+297239;1843272;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-19;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+356656;1843319;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374093;1843319;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391369;1843319;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409057;1843319;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297240;1843376;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409058;1843376;2;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;1;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297241;1843419;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409059;1843419;2;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;1;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+409060;1843431;1;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;0;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+297242;1843454;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+374094;1843469;1;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+374095;1843576;1;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391370;1843576;2;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409061;1843576;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+322731;1843597;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-30;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+356657;1843597;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-08;250.00;1;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374096;1843597;3;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;2;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391371;1843597;4;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-22;250.00;3;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+271115;1843633;0;1;ok;"Requiere ajuste de parcialidad";"Semana 11-2026";2026-03-09;2026-03-15;250.00;2026-03-10;250.00;0;1;2026-03-09;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409062;1843667;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297243;1843670;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322732;1843670;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340287;1843670;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+391372;1843670;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409063;1843670;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+409064;1843680;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;2;2026-04-27;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+391373;1843739;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+322733;1843762;0;1;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;1;2026-03-23;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+340288;1843762;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;2;2026-03-30;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+356658;1843762;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;3;2026-04-06;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+374097;1843762;4;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+391374;1843762;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+409065;1843762;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+297244;1843774;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+391375;1843774;2;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;2;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+297245;1843787;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409066;1843787;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297246;1843840;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322734;1843840;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+340289;1843840;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+356659;1843840;0;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374098;1843840;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391376;1843840;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409067;1843840;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+391377;1843932;1;5;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-24;250.00;0;5;2026-04-20;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+322735;1843954;0;1;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;1;2026-03-23;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+374099;1843954;2;4;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;1;4;2026-04-13;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374100;1843955;1;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+374101;1843962;1;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;0;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391378;1843962;2;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-22;250.00;1;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409068;1843962;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+322736;1843973;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+340290;1843973;1;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+356660;1843973;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374102;1843973;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391379;1843973;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409069;1843973;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297247;1843979;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+297248;1843984;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322737;1843987;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;1;2026-03-23;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322738;1844005;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+356661;1844005;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374103;1844005;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391380;1844005;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+297249;1844062;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409070;1844070;1;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;0;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+391381;1844150;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+297250;1844182;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+356662;1844182;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-07;250.00;1;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+409071;1844182;3;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;2;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+374104;1844207;1;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409072;1844207;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+340291;1844212;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356663;1844212;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374105;1844212;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391382;1844212;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409073;1844212;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297251;1844259;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+322739;1844259;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+297252;1844263;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+374106;1844263;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391383;1844280;1;5;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-27;250.00;0;5;2026-04-20;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+356664;1844326;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-07;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374107;1844326;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391384;1844326;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409074;1844326;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+356665;1844343;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-12;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+340292;1844355;1;2;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;2;2026-03-30;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+409075;1844355;2;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+356666;1844396;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;1;2026-04-06;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+374108;1844396;2;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;2;2026-04-13;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+297253;1844407;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+322740;1844407;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+391385;1844478;1;4;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;4;2026-04-20;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+409076;1844490;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+322741;1844496;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-30;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+374109;1844496;2;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;1;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391386;1844530;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+322742;1844586;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+297254;1844610;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+340293;1844639;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+374110;1844646;1;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;1;2026-04-13;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+391387;1844646;2;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;2;2026-04-20;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+409077;1844646;3;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;3;2026-04-27;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+322743;1844674;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-29;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+409078;1844678;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+340294;1844741;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;1;2026-03-30;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+356667;1844741;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;2;2026-04-06;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+374111;1844741;3;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;3;2026-04-13;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+409079;1844741;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;5;2026-04-27;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+374112;1844798;1;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+409080;1844852;1;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;4;2026-04-27;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+297255;1844893;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-25;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+340295;1844893;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-06;250.00;1;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+356668;1844952;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374113;1844952;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391388;1844952;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409081;1844952;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+340296;1844972;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+297256;1844973;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322744;1844973;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340297;1844973;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356669;1844973;0;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374114;1844973;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391389;1844973;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409082;1844973;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+356670;1845019;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-08;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374115;1845019;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391390;1845019;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409083;1845019;4;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297257;1845026;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322745;1845026;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340298;1845026;0;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356671;1845026;0;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374116;1845026;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391391;1845026;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409084;1845026;7;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+409085;1845055;1;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297258;1845072;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+340299;1845072;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374117;1845072;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391392;1845072;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+322746;1845078;0;1;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-31;250.00;0;1;2026-03-23;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+340300;1845078;1;2;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-06;250.00;1;2;2026-03-30;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+374118;1845078;3;4;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-16;250.00;2;4;2026-04-13;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+297259;1845101;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409086;1845101;2;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;1;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297260;1845116;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322747;1845116;0;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340301;1845116;1;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356672;1845116;1;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374119;1845116;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391393;1845116;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+340302;1845214;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;2;2026-03-30;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+356673;1845214;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;3;2026-04-06;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374120;1845214;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+391394;1845214;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409087;1845214;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+340303;1845225;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;2;2026-03-30;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+356674;1845225;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;3;2026-04-06;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374121;1845225;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+391395;1845225;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409088;1845225;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+340304;1845276;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+356675;1845276;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374122;1845276;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391396;1845276;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+297261;1845291;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+409089;1845291;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297262;1845301;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+297263;1845307;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+340305;1845307;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356676;1845307;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374123;1845307;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391397;1845307;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409090;1845307;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297265;1845342;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+374125;1845342;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391398;1845412;1;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;1;2026-04-20;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+409091;1845412;2;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;2;2026-04-27;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+297266;1845528;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322749;1845528;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+340307;1845528;1;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+391399;1845528;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409092;1845528;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+391400;1845566;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409093;1845566;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297267;1845619;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+322750;1845619;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
+340308;1845619;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+356678;1845619;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374126;1845619;5;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391401;1845619;6;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409094;1845918;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+297268;1845925;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322751;1845925;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+356679;1845995;0;1;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-08;250.00;0;1;2026-04-06;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+409095;1845995;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;4;2026-04-27;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+297269;1846025;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+374127;1846057;1;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;1;2026-04-13;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+391402;1846074;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409096;1846074;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+322752;1846189;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 52";cuota_en_periodo_gdc
+297270;1846200;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+322753;1846277;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;1;2026-03-23;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+409097;1846277;2;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+297271;1846293;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+356680;1846293;3;4;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-03;250.00;0;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374128;1846317;1;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+356681;1846320;2;3;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-08;250.00;0;3;2026-04-06;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+374129;1846320;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;4;2026-04-13;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+391403;1846320;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;5;2026-04-20;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391404;1846355;1;2;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;2;2026-04-20;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+297272;1846359;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+340309;1846359;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+356682;1846359;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 52";cuota_en_periodo_gdc
+374130;1846359;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 52";cuota_en_periodo_gdc
+391405;1846359;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+409098;1846359;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+374131;1846374;1;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+409099;1846374;2;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+340310;1846466;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-06;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+297273;1846489;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-20;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+340311;1846489;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-03;250.00;1;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+356683;1846489;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374132;1846489;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+391406;1846489;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+409100;1846489;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 130";cuota_en_periodo_gdc
+297274;1846498;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 52";cuota_en_periodo_gdc
+340312;1846498;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+409101;1846498;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 52";cuota_en_periodo_gdc
+297275;1846542;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322754;1846542;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+356684;1846542;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374133;1846542;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391407;1846542;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409102;1846542;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+374134;1846561;1;4;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;4;2026-04-13;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+391408;1846561;2;5;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-22;250.00;1;5;2026-04-20;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+409103;1846561;3;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;6;2026-04-27;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+340313;1846616;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-02;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374135;1846672;1;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+322755;1846719;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340314;1846719;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356685;1846719;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374136;1846719;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391409;1846719;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409104;1846719;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+340315;1846767;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-02;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356686;1846767;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+374137;1846767;3;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+391410;1846767;4;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409105;1846767;5;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297276;1846843;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+409106;1846843;2;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;1;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+297277;1846884;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+374138;1846884;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+409107;1846884;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+322756;1847056;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;0;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+374139;1847056;2;5;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-15;250.00;1;5;2026-04-13;"CUOTA SEMANAL 5 DE 104";cuota_en_periodo_gdc
+409108;1847056;3;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+391411;1847068;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+297278;1847173;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-18;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+374140;1847201;1;1;sin_cambio;"La parcialidad actual ya coincide";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;0;1;2026-04-13;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+297279;1847226;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322757;1847226;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+356687;1847226;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 78";cuota_en_periodo_gdc
+374141;1847226;4;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 78";cuota_en_periodo_gdc
+391412;1847226;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+297280;1847290;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 78";cuota_en_periodo_gdc
+322758;1847373;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 78";cuota_en_periodo_gdc
+340316;1847373;1;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 78";cuota_en_periodo_gdc
+374142;1847402;1;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;3;2026-04-13;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+391413;1847402;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;4;2026-04-20;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+356688;1847488;2;3;ok;"Requiere ajuste de parcialidad";"Semana 15-2026";2026-04-06;2026-04-12;250.00;2026-04-07;250.00;0;3;2026-04-06;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+374143;1847488;2;4;ok;"Requiere ajuste de parcialidad";"Semana 16-2026";2026-04-13;2026-04-19;250.00;2026-04-14;250.00;1;4;2026-04-13;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+409109;1847488;3;6;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;2;6;2026-04-27;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+391414;1847515;1;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+340317;1847516;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-02;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 52";cuota_en_periodo_gdc
+391415;1847565;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 130";cuota_en_periodo_gdc
+297281;1847574;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+374144;1847574;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+356689;1847607;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+374145;1847607;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 16-2026";2026-04-13;2026-04-19;250.00;;;;5;2026-04-13;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+340318;1847672;2;3;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+297282;1847743;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322759;1847743;1;2;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 13-2026";2026-03-23;2026-03-29;250.00;;;;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+340319;1847743;2;3;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 14-2026";2026-03-30;2026-04-05;250.00;;;;3;2026-03-30;"CUOTA SEMANAL 3 DE 104";cuota_en_periodo_gdc
+356690;1847743;3;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 15-2026";2026-04-06;2026-04-12;250.00;;;;4;2026-04-06;"CUOTA SEMANAL 4 DE 104";cuota_en_periodo_gdc
+391416;1847743;5;6;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 17-2026";2026-04-20;2026-04-26;250.00;;;;6;2026-04-20;"CUOTA SEMANAL 6 DE 104";cuota_en_periodo_gdc
+409110;1847743;6;7;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;7;2026-04-27;"CUOTA SEMANAL 7 DE 104";cuota_en_periodo_gdc
+297283;1847746;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+340320;1847872;0;1;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-04-02;250.00;0;1;2026-03-30;"CUOTA SEMANAL 1 DE 130";cuota_en_periodo_gdc
+409111;1847872;2;5;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;5;2026-04-27;"CUOTA SEMANAL 5 DE 130";cuota_en_periodo_gdc
+297284;1847910;0;1;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 12-2026";2026-03-16;2026-03-22;250.00;;;;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+391417;1847956;1;3;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;3;2026-04-20;"CUOTA SEMANAL 3 DE 130";cuota_en_periodo_gdc
+409112;1847956;2;4;sin_nota_s2;"No se encontro nota GDC S2 compatible";"Semana 18-2026";2026-04-27;2026-05-03;250.00;;;;4;2026-04-27;"CUOTA SEMANAL 4 DE 130";cuota_en_periodo_gdc
+391418;1847996;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-21;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 78";cuota_en_periodo_gdc
+409113;1847996;2;7;ok;"Requiere ajuste de parcialidad";"Semana 18-2026";2026-04-27;2026-05-03;250.00;2026-04-28;250.00;1;7;2026-04-27;"CUOTA SEMANAL 7 DE 78";cuota_en_periodo_gdc
+297285;1848012;0;1;ok;"Requiere ajuste de parcialidad";"Semana 12-2026";2026-03-16;2026-03-22;250.00;2026-03-17;250.00;0;1;2026-03-16;"CUOTA SEMANAL 1 DE 104";cuota_en_periodo_gdc
+322760;1848012;1;2;ok;"Requiere ajuste de parcialidad";"Semana 13-2026";2026-03-23;2026-03-29;250.00;2026-03-24;250.00;1;2;2026-03-23;"CUOTA SEMANAL 2 DE 104";cuota_en_periodo_gdc
+391419;1848026;1;6;ok;"Requiere ajuste de parcialidad";"Semana 17-2026";2026-04-20;2026-04-26;250.00;2026-04-27;250.00;0;6;2026-04-20;"CUOTA SEMANAL 6 DE 52";cuota_en_periodo_gdc
+340321;1848048;1;2;ok;"Requiere ajuste de parcialidad";"Semana 14-2026";2026-03-30;2026-04-05;250.00;2026-03-31;250.00;0;2;2026-03-30;"CUOTA SEMANAL 2 DE 130";cuota_en_periodo_gdc
