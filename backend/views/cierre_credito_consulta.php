@@ -413,6 +413,7 @@ body.dark-mode .cc-filtro-conv[data-filtro-conv="todos"].active     { background
     line-height: 1.45;
 }
 .cc-subtab-desc i { margin-top: .15rem; flex-shrink: 0; }
+.cc-subtab-desc span { flex: 1; min-width: 0; }
 .cc-subtab-desc--notif {
     background: #f0fdf4;
     border-left-color: #16a34a;
@@ -1088,8 +1089,8 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                 <!-- Sub-tab: Recibidos (enviado_cartera) -->
                 <div class="tab-pane fade show active" id="cartera-recibidos" role="tabpanel">
                     <div class="cc-subtab-desc mb-3">
-                        <i class="fa-solid fa-circle-info me-2"></i>
-                        Convenios de cierre de crédito <strong>recibidos desde el correo de cobranza</strong>. Estos registros están pendientes de revisión y notificación interna para continuar con el proceso de cierre.
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>Convenios de cierre recibidos en tu bandeja y <strong>pendientes de revisión y notificación interna</strong>. Confirma que la captura y la liquidación por <strong>QUITA en S2</strong> estén completadas y, una vez validado, marca el registro como <strong>Cerrado</strong> para que desaparezca de esta vista.</span>
                     </div>
                     <div class="card-datatable table-responsive">
                         <table id="tablaCartRecibidos" class="dt-responsive table border-top">
@@ -1102,6 +1103,7 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                                     <th>Fecha acuerdo</th>
                                     <th>Avance</th>
                                     <th>Estatus</th>
+                                    <th>Acciones</th>
                                     <th></th><!-- id oculto -->
                                 </tr>
                             </thead>
@@ -1116,8 +1118,8 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                 <!-- Sub-tab: Notificados (notificado_cartera) -->
                 <div class="tab-pane fade" id="cartera-notificados" role="tabpanel">
                     <div class="cc-subtab-desc cc-subtab-desc--notif mb-3">
-                        <i class="fa-solid fa-circle-info me-2"></i>
-                        Convenios <strong>notificados al área de cartera</strong> y en espera de resolución. Desde aquí se puede registrar el convenio en S2 o devolver el expediente al despacho en caso de incidencia.
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>Convenios <strong>ya notificados al área de cartera</strong> y en espera de resolución. Han sido enviados para su carga en S2; una vez liquidados el sistema los cerrará automáticamente.</span>
                     </div>
                     <div class="card-datatable table-responsive">
                         <table id="tablaCartNotificados" class="dt-responsive table border-top">
@@ -3427,7 +3429,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
     /** Configuración de columnas compartida entre ambas sub-tablas.
      *  @param {boolean} conAcciones – incluir columna Acciones */
-    function _colsCartera(conAcciones) {
+    function _colsCartera(conAcciones, conCerrarSimple) {
         const cols = [
             {
                 data: null, orderable: false, searchable: false, className: 'cc-cart-toggle',
@@ -3482,6 +3484,16 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             ` title="Devolver al despacho"><i class="fa-solid fa-rotate-left me-1"></i>Devolver</button>`;
                     }
                     return `<div style="min-width:120px;">${btns}</div>`;
+                }
+            });
+        } else if (conCerrarSimple) {
+            cols.push({
+                data: null, orderable: false, searchable: false,
+                render: function(d, t, r) {
+                    const nc2 = esc(r.nombre_cliente || '').replace(/'/g, "\\'");
+                    return `<button class="btn btn-sm btn-primary" style="font-size:.72rem;"` +
+                        ` onclick="ccCerrarConvenio(${r.id_cierre},${r.id_credito},'${nc2}')"` +
+                        ` title="Marcar como cerrado"><i class="fa-solid fa-circle-check me-1"></i>Cerrar</button>`;
                 }
             });
         }
@@ -3560,8 +3572,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     function _initTablaCartRecibidos() {
         if (_tablaCartRec) return;
         const opts = _dtOptsCartera('Sin registros recibidos en cartera');
-        opts.columns = _colsCartera(false);
-        opts.order   = [[7, 'desc']];   // id_cierre (col 7 sin acciones)
+        opts.columns = _colsCartera(false, true);
+        opts.order   = [[8, 'desc']];   // id_cierre (col 8 con cerrar simple)
         _tablaCartRec = $('#tablaCartRecibidos').DataTable(opts);
         _bindCartToggle('tablaCartRecibidos', _tablaCartRec);
     }
