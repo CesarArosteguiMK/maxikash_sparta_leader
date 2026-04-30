@@ -1746,10 +1746,10 @@ SQL;
         }
 
         $maxLen = [
-            'moto_marca'     => 80,  'moto_modelo'    => 80,  'moto_color'     => 40,
-            'moto_no_serie'  => 30,  'moto_no_motor'  => 30,  'moto_placas'    => 15,
-            'log_ubicacion'  => 120, 'log_direccion'  => 200, 'log_ciudad'     => 80,
-            'log_estado'     => 60,  'log_responsable'=> 120, 'log_telefono'   => 15,
+            'moto_marca'     => 100, 'moto_modelo'    => 100, 'moto_color'     => 50,
+            'moto_no_serie'  => 50,  'moto_no_motor'  => 30,  'moto_placas'    => 10,
+            'log_ubicacion'  => 100, 'log_direccion'  => 100, 'log_ciudad'     => 50,
+            'log_estado'     => 60,  'log_responsable'=> 100, 'log_telefono'   => 10,
         ];
 
         $setClauses = [];

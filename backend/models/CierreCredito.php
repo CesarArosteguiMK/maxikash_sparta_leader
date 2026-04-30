@@ -1504,7 +1504,7 @@ HTML;
             $db = new Database();
             $registro = $db->queryOne(
                 "SELECT id FROM cierre_credito_seguimiento
-                 WHERE id = :id AND estatus = 'notificado_cartera' LIMIT 1",
+                 WHERE id = :id AND estatus IN ('notificado_cartera', 'enviado_cartera') LIMIT 1",
                 ['id' => $id]
             );
             if (!$registro) {
