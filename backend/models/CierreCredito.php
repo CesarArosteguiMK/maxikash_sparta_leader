@@ -1502,14 +1502,19 @@ HTML;
     {
         try {
             $db = new Database();
+
+            // 1. Obtener el registro completo
             $registro = $db->queryOne(
-                "SELECT id FROM cierre_credito_seguimiento
+                "SELECT id, id_credito, nombre_cliente, usuario_alta, id_celula
+                 FROM cierre_credito_seguimiento
                  WHERE id = :id AND estatus IN ('notificado_cartera', 'enviado_cartera') LIMIT 1",
                 ['id' => $id]
             );
             if (!$registro) {
                 return self::resultado(false, 'Registro no encontrado o no está pendiente de revisión.');
             }
+
+            // 2. Actualizar estatus → cerrado
             $db->CRUD(
                 "UPDATE cierre_credito_seguimiento
                  SET estatus              = 'cerrado',
@@ -1518,7 +1523,124 @@ HTML;
                  WHERE id = :id",
                 ['usuario' => $usuario, 'id' => $id]
             );
-            return self::resultado(true, 'Convenio cerrado correctamente por cartera.');
+
+            // 3. Resolver email del usuario que envió a cartera (usuario_alta = nombre completo)
+            $emailDestinatario = null;
+            $nombreAltaLimpio  = trim((string) ($registro['usuario_alta'] ?? ''));
+            if ($nombreAltaLimpio !== '') {
+                $personaRow = $db->queryOne(
+                    "SELECT user_name
+                     FROM persona
+                     WHERE TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop)) = :nombre
+                       AND user_name IS NOT NULL AND TRIM(user_name) != ''
+                     LIMIT 1",
+                    ['nombre' => $nombreAltaLimpio]
+                );
+                if ($personaRow && filter_var($personaRow['user_name'], FILTER_VALIDATE_EMAIL)) {
+                    $emailDestinatario = $personaRow['user_name'];
+                }
+            }
+            // Fallback si no se resuelve el email
+            if (!$emailDestinatario) {
+                $emailDestinatario = 'pedro.figueroa@__SPARTA_SECRET_REDACTED__.mx';
+            }
+
+            // 4. Enviar correo de confirmación de cierre
+            $emailError = null;
+            $configPath = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../../config/config.ini');
+            $ini        = is_file($configPath) ? @parse_ini_file($configPath, true) : [];
+            $idCelula   = (int) ($registro['id_celula'] ?? 0);
+            if ($idCelula === 2 && !empty($ini['mail_cierre_callcenter'])) {
+                $mailCfg = $ini['mail_cierre_callcenter'];
+            } elseif (!empty($ini['mail_cierre'])) {
+                $mailCfg = $ini['mail_cierre'];
+            } else {
+                $mailCfg = $ini['mail'] ?? [];
+            }
+
+            $smtpHost   = trim((string) ($mailCfg['smtp_host']    ?? ''));
+            $smtpUser   = trim((string) ($mailCfg['smtp_user']    ?? ''));
+            $smtpPass   = trim((string) ($mailCfg['smtp_pass']    ?? ''));
+            $smtpPort   = (int) ($mailCfg['smtp_port']    ?? 587);
+            $smtpSecure = strtolower(trim((string) ($mailCfg['smtp_secure'] ?? 'tls')));
+            $fromName   = trim((string) ($mailCfg['mail_from_name'] ?? 'Sparta Ledger'));
+
+            if ($smtpHost !== '' && $smtpUser !== '' && $smtpPass !== '') {
+                $autoload = defined('RAIZ') ? (dirname(RAIZ) . '/vendor/autoload.php')
+                                             : (__DIR__ . '/../../../vendor/autoload.php');
+                if (is_file($autoload)) {
+                    require_once $autoload;
+
+                    $idCredito = (int) $registro['id_credito'];
+                    $cliente   = htmlspecialchars((string) ($registro['nombre_cliente'] ?? ''), ENT_QUOTES, 'UTF-8');
+                    $fechaCierre = date('d/m/Y H:i');
+                    $usuarioCartera = htmlspecialchars($usuario, ENT_QUOTES, 'UTF-8');
+
+                    $html = <<<HTML
+                    <!DOCTYPE html>
+                    <html lang="es">
+                    <head><meta charset="UTF-8"><title>Cierre Confirmado</title></head>
+                    <body style="font-family:Arial,sans-serif;color:#333;margin:0;padding:20px;">
+                      <div style="max-width:600px;margin:auto;border:1px solid #ddd;border-radius:8px;overflow:hidden;">
+                        <div style="background:#059669;color:#fff;padding:20px 24px;">
+                          <h2 style="margin:0;font-size:20px;">&#10003; Cierre de Crédito Confirmado</h2>
+                          <p style="margin:5px 0 0;font-size:13px;opacity:.85;">Procesado el {$fechaCierre} por <strong>{$usuarioCartera}</strong></p>
+                        </div>
+                        <div style="padding:24px;">
+                          <p style="font-size:15px;margin-top:0;">El siguiente crédito ha sido <strong>cerrado correctamente por el área de Cartera</strong> y ha completado su ciclo de vida.</p>
+                          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                            <tr><td style="padding:10px 12px;background:#f0fdf4;font-weight:bold;width:45%;border-bottom:1px solid #d1fae5;">Crédito #</td><td style="padding:10px 12px;border-bottom:1px solid #d1fae5;font-size:15px;font-weight:bold;color:#059669;">{$idCredito}</td></tr>
+                            <tr><td style="padding:10px 12px;background:#f0fdf4;font-weight:bold;border-bottom:1px solid #d1fae5;">Cliente</td><td style="padding:10px 12px;border-bottom:1px solid #d1fae5;">{$cliente}</td></tr>
+                            <tr><td style="padding:10px 12px;background:#f0fdf4;font-weight:bold;border-bottom:1px solid #d1fae5;">Fecha de cierre</td><td style="padding:10px 12px;border-bottom:1px solid #d1fae5;">{$fechaCierre}</td></tr>
+                            <tr><td style="padding:10px 12px;background:#f0fdf4;font-weight:bold;">Confirmado por</td><td style="padding:10px 12px;">{$usuarioCartera}</td></tr>
+                          </table>
+                          <p style="margin-top:20px;font-size:13px;color:#555;border-left:3px solid #059669;padding-left:12px;">
+                            Este registro ha sido cerrado en el sistema y <strong>no requiere ninguna acción adicional</strong>.<br>
+                            Si tienes alguna duda, comunícate con el área de Cartera.
+                          </p>
+                        </div>
+                        <div style="background:#f4f6fb;padding:12px 24px;font-size:11px;color:#999;text-align:center;">
+                          Notificación automática de Sparta Ledger — no responder a este correo.
+                        </div>
+                      </div>
+                    </body>
+                    </html>
+                    HTML;
+
+                    try {
+                        $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+                        $mailer->isSMTP();
+                        $mailer->SMTPDebug   = 0;
+                        $mailer->Host        = $smtpHost;
+                        $mailer->Port        = $smtpPort;
+                        $mailer->SMTPAuth    = true;
+                        $mailer->Username    = $smtpUser;
+                        $mailer->Password    = $smtpPass;
+                        $mailer->SMTPSecure  = ($smtpSecure === 'ssl')
+                            ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                            : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                        $mailer->CharSet     = 'UTF-8';
+                        $mailer->isHTML(true);
+                        $mailer->setFrom($smtpUser, $fromName);
+                        $mailer->Sender      = $smtpUser;
+                        $mailer->addReplyTo($smtpUser, $fromName);
+                        $mailer->addAddress($emailDestinatario);
+                        $mailer->Subject     = "CIERRE CONFIRMADO #{$idCredito} — {$registro['nombre_cliente']}";
+                        $mailer->Body        = $html;
+                        $mailer->AltBody     = "Cierre confirmado. Crédito #{$idCredito} — {$registro['nombre_cliente']}. Procesado el {$fechaCierre} por {$usuario}.";
+                        $mailer->send();
+                    } catch (\Throwable $mailEx) {
+                        $emailError = $mailEx->getMessage();
+                        error_log('CierreCredito::cerrarConvenioCartera mail -> ' . $emailError);
+                    }
+                }
+            }
+
+            $resultado = self::resultado(true, 'Convenio cerrado correctamente por cartera.');
+            if ($emailError !== null) {
+                $resultado['email_error'] = $emailError;
+            }
+            return $resultado;
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al cerrar convenio.', [], $e->getMessage());
         }
