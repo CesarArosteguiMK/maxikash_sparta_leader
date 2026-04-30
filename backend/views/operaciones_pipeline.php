@@ -369,25 +369,94 @@
                 });
         }
 
+        /** Índice de etapa actual en el pipeline (0–4) para colorear el stepper. */
+        function opsPipelineStageIndex(op) {
+            const est = (op && op.estatus != null) ? String(op.estatus).trim() : '';
+            if (est === 'cancelado') {
+                return { current: 0, rejected: true };
+            }
+            if (est === 'Retenciones') {
+                return { current: 0, rejected: false };
+            }
+            if (est === 'en_transito' || est === 'Recibido') {
+                return { current: 1, rejected: false };
+            }
+            if (est === 'Revisión Recuperaciones') {
+                return { current: 2, rejected: false };
+            }
+            if (est === 'Cierre Documentado') {
+                return { current: 3, rejected: false };
+            }
+            if (est === 'Recepción') {
+                return { current: 4, rejected: false };
+            }
+            return { current: 0, rejected: false };
+        }
+
+        function opsHtmlStepperEtapaModal(op) {
+            const labels = ['Retenciones', 'Recibido', 'Recuperación', 'Cierre docs', 'Recepción'];
+            const { current } = opsPipelineStageIndex(op);
+            const sep = '<div style="width:24px;border-top:1.5px solid #ccc;margin-top:13px;"></div>';
+            let parts = '';
+            parts += '<div class="d-flex flex-column align-items-stretch">';
+            parts += '<div class="d-flex justify-content-end w-100 mb-2"><span class="text-muted small fw-semibold">Etapa</span></div>';
+            parts += '<div class="d-flex align-items-start">';
+            for (let i = 0; i < 5; i++) {
+                const num = String(i + 1);
+                parts += '<div class="d-flex flex-column align-items-center">';
+                if (i < current) {
+                    /* Etapa ya cumplida: verde Bootstrap (bg-success) */
+                    parts += '<div class="d-flex align-items-center justify-content-center fw-semibold rounded-circle bg-success text-white flex-shrink-0" style="width:28px;height:28px;">' + num + '</div>';
+                    parts += '<span class="text-center mt-1 text-success fw-medium" style="font-size:10px;max-width:52px;line-height:1.2;">' + opsEsc(labels[i]) + '</span>';
+                } else if (i === current) {
+                    parts += '<div class="d-flex align-items-center justify-content-center fw-semibold flex-shrink-0"' +
+                        ' style="width:28px;height:28px;border-radius:50%;background:#d7f5fc;color:#0d6efd;border:1.5px solid #0d6efd;">' + num + '</div>';
+                    parts += '<span class="text-center mt-1 text-primary fw-medium" style="font-size:10px;max-width:52px;line-height:1.2;">' + opsEsc(labels[i]) + '</span>';
+                } else {
+                    parts += '<div class="d-flex align-items-center justify-content-center flex-shrink-0"' +
+                        ' style="width:28px;height:28px;border-radius:50%;background:#fff;color:#aaa;border:1.5px solid #ccc;">' + num + '</div>';
+                    parts += '<span class="text-center text-muted mt-1" style="font-size:10px;max-width:52px;line-height:1.2;">' + opsEsc(labels[i]) + '</span>';
+                }
+                parts += '</div>';
+                if (i < 4) {
+                    parts += sep;
+                }
+            }
+            parts += '</div></div>';
+            return parts;
+        }
+
         function opsRenderDetalle(op, dictamen, historialLlamadas) {
             historialLlamadas = Array.isArray(historialLlamadas) ? historialLlamadas : [];
             _activeOpId = op.id;
             const textoEtapa = opsTextoEtapaUsuario(op);
 
             const html = `
-        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 p-3 mb-3 rounded border">
-            <div>
-                <div class="text-muted" style="font-size:.65rem; text-transform:uppercase; letter-spacing:.5px;">Cliente</div>
-                <div class="fw-bold fs-5">${opsEsc(op.nombre_cliente)}</div>
-                <span class="badge bg-primary mt-1">${opsEsc(textoEtapa)}</span>
+        <div class="p-3">
+            <div class="card border mb-3 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="text-muted small">Cliente</div>
+                            <div class="fs-5 fw-semibold">${opsEsc(op.nombre_cliente)}</div>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                <span class="text-muted small">ID Crédito</span>
+                                <span class="fw-medium">#${opsEsc(String(op.id_credito))}</span>
+                                <span class="text-muted">|</span>
+                                <span class="text-muted">${opsEsc(op.folio)}</span>
+                            </div>
+                            <div class="mt-2">
+                                <span class="badge bg-primary">${opsEsc(textoEtapa)}</span>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            ${opsHtmlStepperEtapaModal(op)}
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="text-end">
-                <div class="text-muted" style="font-size:.65rem; text-transform:uppercase; letter-spacing:.5px;">ID Crédito</div>
-                <div class="fw-black text-primary fs-4">#${opsEsc(String(op.id_credito))}</div>
-                <div class="text-muted small">${opsEsc(op.folio)}</div>
-            </div>
-        </div>
-        ${opsRenderDatosExpediente(op, dictamen, historialLlamadas)}`;
+            ${opsRenderDatosExpediente(op, dictamen, historialLlamadas)}
+        </div>`;
 
             document.getElementById('det-body').innerHTML = html;
         }
@@ -469,7 +538,7 @@
                 </div>
                 ${(usrRaw || fhRaw) ? `
                 <div class="card-footer d-flex align-items-center justify-content-between gap-2 py-2 px-3"
-                     style="background:transparent; border-top:1px dashed var(--bs-border-color); border-radius:0 0 .75rem .75rem !important;">
+                     style="background:transparent; border-top:1px solid var(--bs-border-color); border-radius:0 0 .75rem .75rem !important;">
                     <span class="small text-muted d-flex align-items-center gap-1">
                         <i class="fa-regular fa-user" style="font-size:.75rem;"></i>${opsEsc(usrRaw || '—')}
                     </span>
