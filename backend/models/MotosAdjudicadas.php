@@ -1703,6 +1703,91 @@ SQL;
         return $resumen;
     }
 
+    // =========================================================================
+    // DATOS DE MOTO + LOGÍSTICOS (Mis Adjudicaciones)
+    // Campos en adj_operacion: moto_marca, moto_modelo, moto_anio, moto_color,
+    //   moto_no_serie, moto_no_motor, moto_placas,
+    //   log_ubicacion, log_direccion, log_ciudad, log_estado, log_responsable, log_telefono,
+    //   datos_moto_at, datos_moto_by
+    // Migración: 20260430_adj_operacion_datos_moto_logisticos.sql
+    // =========================================================================
+
+    private const CAMPOS_DATOS_MOTO = [
+        'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
+        'moto_no_serie', 'moto_no_motor', 'moto_placas',
+        'log_ubicacion', 'log_direccion', 'log_ciudad',
+        'log_estado', 'log_responsable', 'log_telefono',
+    ];
+
+    /**
+     * Guarda los datos de la moto y logísticos en adj_operacion.
+     * @param  int    $idOperacion  ID de adj_operacion
+     * @param  array  $datos        Mapa campo → valor
+     * @return array{success:bool, message?:string}
+     */
+    public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = ''): array
+    {
+        if ($idOperacion <= 0) {
+            return ['success' => false, 'message' => 'Operación inválida.'];
+        }
+
+        $op = $this->db->queryOne(
+            'SELECT id FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
+        if (!$op) {
+            return ['success' => false, 'message' => 'Operación no encontrada.'];
+        }
+
+        $maxLen = [
+            'moto_marca'     => 80,  'moto_modelo'    => 80,  'moto_color'     => 40,
+            'moto_no_serie'  => 30,  'moto_no_motor'  => 30,  'moto_placas'    => 15,
+            'log_ubicacion'  => 120, 'log_direccion'  => 200, 'log_ciudad'     => 80,
+            'log_estado'     => 60,  'log_responsable'=> 120, 'log_telefono'   => 15,
+        ];
+
+        $setClauses = [];
+        $params     = ['id' => $idOperacion];
+
+        foreach (self::CAMPOS_DATOS_MOTO as $campo) {
+            if (!array_key_exists($campo, $datos)) {
+                continue;
+            }
+            $val = $campo === 'moto_anio'
+                ? ((int) $datos[$campo] ?: null)
+                : mb_substr(trim((string) $datos[$campo]), 0, $maxLen[$campo] ?? 255);
+            $setClauses[]      = "`{$campo}` = :{$campo}";
+            $params[$campo]    = $val;
+        }
+
+        if (empty($setClauses)) {
+            return ['success' => false, 'message' => 'No se recibieron campos válidos.'];
+        }
+
+        $ahora             = $this->fechaHoraCdmx();
+        $setClauses[]      = '`datos_moto_at` = :datos_moto_at';
+        $setClauses[]      = '`datos_moto_by` = :datos_moto_by';
+        $setClauses[]      = '`fecha_actualizacion` = :fecha_actualizacion';
+        $params['datos_moto_at']        = $ahora;
+        $params['datos_moto_by']        = $idUsuario ?: null;
+        $params['fecha_actualizacion']  = $ahora;
+
+        $this->db->CRUD(
+            'UPDATE adj_operacion SET ' . implode(', ', $setClauses) . ' WHERE id = :id',
+            $params
+        );
+
+        $this->registrarBitacora(
+            $idOperacion,
+            'DATOS MOTO REGISTRADOS: ' . ($datos['moto_marca'] ?? '') . ' ' . ($datos['moto_modelo'] ?? '') . ' (' . ($datos['moto_placas'] ?? '') . ')',
+            $idUsuario,
+            $nombreUsuario,
+            $ahora
+        );
+
+        return ['success' => true];
+    }
+
     /**
      * Busca la operación más reciente para un id_credito en adj_operacion.
      * Si no existe ninguna, crea una automáticamente con datos mínimos.

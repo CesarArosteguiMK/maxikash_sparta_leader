@@ -465,6 +465,28 @@ class MotosAdjudicadas extends Controller
                 }
             }
 
+            // Extraer campos de datos_moto guardados en adj_operacion
+            $datosMoto = null;
+            $camposMoto = [
+                'moto_marca','moto_modelo','moto_anio','moto_color',
+                'moto_no_serie','moto_no_motor','moto_placas',
+                'log_ubicacion','log_direccion','log_ciudad',
+                'log_estado','log_responsable','log_telefono',
+            ];
+            $tieneDatosMoto = false;
+            foreach ($camposMoto as $c) {
+                if (!empty($detalle[$c])) {
+                    $tieneDatosMoto = true;
+                    break;
+                }
+            }
+            if ($tieneDatosMoto) {
+                $datosMoto = [];
+                foreach ($camposMoto as $c) {
+                    $datosMoto[$c] = $detalle[$c] ?? null;
+                }
+            }
+
             $detalleCompacto = [
                 'id'                     => isset($detalle['id']) ? (int) $detalle['id'] : 0,
                 'folio'                  => (string) ($detalle['folio'] ?? ''),
@@ -480,12 +502,54 @@ class MotosAdjudicadas extends Controller
                 'fecha_alta_fmt'         => (string) ($detalle['fecha_alta_fmt'] ?? ''),
                 'fecha_actualizacion_fmt'=> (string) ($detalle['fecha_actualizacion_fmt'] ?? ''),
                 'dias_en_pipeline'       => isset($detalle['dias_en_pipeline']) ? (int) $detalle['dias_en_pipeline'] : 0,
+                'datos_moto'             => $datosMoto,
                 'evidencias'             => is_array($detalle['evidencias'] ?? null) ? $detalle['evidencias'] : [],
                 'observaciones'          => is_array($detalle['observaciones'] ?? null) ? $detalle['observaciones'] : [],
                 'historial'              => $historial,
             ];
 
             echo json_encode(['success' => true, 'detalle' => $detalleCompacto]);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/guardarDatosMoto
+     * Body JSON: { "id_credito": 12345, "datos": { "moto_marca": "Honda", ... } }
+     * Guarda los datos de la moto y logísticos en adj_operacion.
+     */
+    public function guardarDatosMoto()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+        $datos     = $body['datos'] ?? [];
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+        if (!is_array($datos) || empty($datos)) {
+            echo json_encode(['success' => false, 'message' => 'No se recibieron datos.']);
+            return;
+        }
+
+        $idUsuario     = (int)   ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        $nombreUsuario = (string) ($_SESSION['nombre']    ?? $_SESSION['usuario']     ?? '');
+
+        try {
+            // Obtener id_operacion a partir de id_credito
+            $op = $this->model->obtenerOCrearOperacion($idCredito, '', $idUsuario);
+            if (empty($op['success']) || empty($op['detalle']['id'])) {
+                echo json_encode(['success' => false, 'message' => $op['message'] ?? 'No se encontró la operación.']);
+                return;
+            }
+            $idOperacion = (int) $op['detalle']['id'];
+
+            $result = $this->model->guardarDatosMoto($idOperacion, $datos, $idUsuario, $nombreUsuario);
+            echo json_encode($result);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
