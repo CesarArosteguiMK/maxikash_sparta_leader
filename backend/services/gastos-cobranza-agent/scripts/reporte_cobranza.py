@@ -1427,6 +1427,7 @@ def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date
       5) Validación interna ABS(ultimo_abono_efectivo) >= saldo aplicable.
       6) Si no alcanza, saldo aplicable = ABS(ultimo_abono_efectivo).
       7) Filtro final saldo aplicable > 200 (sin tope superior).
+      8) Excluir filas con COMENTARIOS que contengan «CUOTA SIGUIENTE CUBIERTA - NO APLICAR».
     """
     # Paso 1: fecha de último abono estricta al día de negocio (ayer CDMX).
     con_fecha_permitida = [
@@ -1474,6 +1475,10 @@ def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date
     filtrado_final = [r for r in restaurado if _float_reg(r, "SALDO_APLICABLE_GC") > 200.0]
     excl_saldo_final = len(restaurado) - len(filtrado_final)
 
+    # Paso 8: fuera del Excel las filas «CUOTA SIGUIENTE CUBIERTA - NO APLICAR» (sáb–lun).
+    sin_cuota_cubierta = [r for r in filtrado_final if not _fila_excel_excluida_cuota_siguiente_cubierta(r)]
+    excl_cuota_siguiente_cubierta = len(filtrado_final) - len(sin_cuota_cubierta)
+
     stats = {
         "inicial": len(registros),
         "con_fecha_permitida": len(con_fecha_permitida),
@@ -1487,9 +1492,10 @@ def aplicar_pipeline_final_excel_gc(registros: list[dict], fecha_permitida: date
         "otros_conecto": len(subset_otros),
         "ajuste_no_alcanza": ajuste_no_alcanza,
         "excl_saldo_final": excl_saldo_final,
-        "final": len(filtrado_final),
+        "excl_cuota_siguiente_cubierta": excl_cuota_siguiente_cubierta,
+        "final": len(sin_cuota_cubierta),
     }
-    return filtrado_final, stats
+    return sin_cuota_cubierta, stats
 
 
 def etiquetas_reglas_desde_reg(reg: dict) -> list[str]:
@@ -1988,7 +1994,7 @@ def main() -> None:
 
     resultados, st_gc_excel = aplicar_pipeline_final_excel_gc(resultados, hoy)
     log.info(
-        "  Pipeline Excel GC (fecha permitida=%s): inicial=%s · fecha_ok=%s · sin_status_error=%s · NO_validos_200_300=%s/%s · ajustes_no_le_alcanza=%s · final=%s",
+        "  Pipeline Excel GC (fecha permitida=%s): inicial=%s · fecha_ok=%s · sin_status_error=%s · NO_validos_200_300=%s/%s · ajustes_no_le_alcanza=%s · excl_cuota_siguiente_cubierta=%s · final=%s",
         hoy.isoformat(),
         f"{st_gc_excel['inicial']:,}",
         f"{st_gc_excel['con_fecha_permitida']:,}",
@@ -1996,6 +2002,7 @@ def main() -> None:
         f"{st_gc_excel['no_validos_200_300']:,}",
         f"{st_gc_excel['no_total']:,}",
         f"{st_gc_excel['ajuste_no_alcanza']:,}",
+        f"{st_gc_excel['excl_cuota_siguiente_cubierta']:,}",
         f"{st_gc_excel['final']:,}",
     )
     if (
@@ -2003,6 +2010,7 @@ def main() -> None:
         or st_gc_excel["excl_status_error"]
         or st_gc_excel["excl_no_rango"]
         or st_gc_excel["excl_saldo_final"]
+        or st_gc_excel["excl_cuota_siguiente_cubierta"]
     ):
         notificar_google_chat(
             "📎 **Filtro Excel GC** aplicado\n"
@@ -2011,6 +2019,7 @@ def main() -> None:
             f"- `MAXI APP=NO` fuera de [200,300]: **{st_gc_excel['excl_no_rango']:,}**\n"
             f"- Ajustadas por `NO LE ALCANZA`: **{st_gc_excel['ajuste_no_alcanza']:,}**\n"
             f"- Omitidas por saldo final <= 200: **{st_gc_excel['excl_saldo_final']:,}**\n"
+            f"- Omitidas por «CUOTA SIGUIENTE CUBIERTA - NO APLICAR»: **{st_gc_excel['excl_cuota_siguiente_cubierta']:,}**\n"
             f"- Filas finales Excel: **{st_gc_excel['final']:,}**"
         )
 
