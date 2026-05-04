@@ -322,7 +322,8 @@ class CierreCredito extends Model
                    AND NOT EXISTS (
                        SELECT 1 FROM cierre_credito_seguimiento ccs
                        WHERE ccs.id_credito = cc.id_credito
-                                                 AND ccs.estatus IN ('en_proceso', 'envio_cobranza', 'enviado_cartera', 'en_cola', 'listo_envio')
+                         AND ccs.estatus IN ('en_proceso', 'envio_cobranza', 'enviado_cartera', 'en_cola', 'listo_envio',
+                                             'notificado_cartera', 'cerrado')
                    ){$celulaWhere}
                  ORDER BY cc.fecha_alta DESC",
                 $params ?: null
