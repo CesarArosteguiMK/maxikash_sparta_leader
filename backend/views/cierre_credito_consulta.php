@@ -545,6 +545,112 @@ body.dark-mode .cc-trail--devuelta .cc-trail-step--active { background:rgba(185,
 body.dark-mode .cc-trail--notif    .cc-trail-step--active { background:rgba(3,105,161,.3);  color:#7dd3fc; }
 body.dark-mode .cc-trail--cerrado  .cc-trail-step--active { background:rgba(30,64,175,.3);  color:#93c5fd; }
 
+/* ── Badge de antigüedad en Validación de Cierre ── */
+.cc-age-badge {
+    display:inline-flex; align-items:center; gap:.28rem;
+    padding:.18rem .52rem; border-radius:9999px;
+    font-size:.68rem; font-weight:700; white-space:nowrap;
+    border: 1px solid transparent;
+}
+.cc-age-badge.age-fresh   { background:#dcfce7; color:#166534; border-color:#86efac; }
+.cc-age-badge.age-mins    { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.cc-age-badge.age-warn    { background:#fef9c3; color:#713f12; border-color:#fde047; }
+.cc-age-badge.age-orange  { background:#ffedd5; color:#7c2d12; border-color:#fdba74; }
+.cc-age-badge.age-danger  { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+.cc-age-badge.age-critical{ background:#7f1d1d; color:#fecaca; border-color:#991b1b;
+    animation: cc-pulse-red 1.4s ease-in-out infinite; }
+@keyframes cc-pulse-red {
+    0%,100% { box-shadow:0 0 0 0 rgba(185,28,28,.5); }
+    50%      { box-shadow:0 0 0 5px rgba(185,28,28,0); }
+}
+body.dark-mode .cc-age-badge.age-fresh  { background:rgba(22,163,74,.2);  color:#86efac; border-color:rgba(134,239,172,.35); }
+body.dark-mode .cc-age-badge.age-mins   { background:rgba(37,99,235,.2);  color:#93c5fd; border-color:rgba(147,197,253,.35); }
+body.dark-mode .cc-age-badge.age-warn   { background:rgba(202,138,4,.2);  color:#fde047; border-color:rgba(253,224,71,.35); }
+body.dark-mode .cc-age-badge.age-orange { background:rgba(194,65,12,.25); color:#fdba74; border-color:rgba(253,186,116,.35); }
+body.dark-mode .cc-age-badge.age-danger { background:rgba(185,28,28,.25); color:#fca5a5; border-color:rgba(252,165,165,.35); }
+
+/* ── Línea de tiempo 4 momentos ── */
+.cc-timeline {
+    display:flex; flex-direction:column; gap:0;
+    margin-top:.6rem;
+    padding:.5rem .65rem;
+    background:linear-gradient(135deg,#f8fafc,#f1f5f9);
+    border:1px solid #e2e8f0; border-radius:.45rem;
+    font-size:.74rem;
+}
+.cc-timeline-title {
+    font-weight:700; color:#475569; font-size:.68rem;
+    text-transform:uppercase; letter-spacing:.05em; margin-bottom:.35rem;
+}
+.cc-tl-row {
+    display:flex; align-items:flex-start; gap:.5rem;
+    padding:.22rem 0; position:relative;
+}
+.cc-tl-row:not(:last-child)::after {
+    content:''; position:absolute; left:.45rem; top:1.4rem;
+    width:1px; height:calc(100% - .1rem); background:#cbd5e1;
+}
+.cc-tl-dot {
+    width:.85rem; height:.85rem; border-radius:50%; flex-shrink:0;
+    margin-top:.12rem; z-index:1;
+}
+.cc-tl-dot.done    { background:#22c55e; }
+.cc-tl-dot.pending { background:#e2e8f0; border:2px solid #94a3b8; }
+.cc-tl-info { display:flex; flex-direction:column; gap:.05rem; }
+.cc-tl-label { font-weight:600; color:#334155; }
+.cc-tl-date  { color:#64748b; font-size:.7rem; }
+body.dark-mode .cc-timeline { background:rgba(30,41,59,.5); border-color:rgba(71,85,105,.4); }
+body.dark-mode .cc-timeline-title { color:#94a3b8; }
+body.dark-mode .cc-tl-label { color:#cbd5e1; }
+body.dark-mode .cc-tl-date  { color:#94a3b8; }
+body.dark-mode .cc-tl-row:not(:last-child)::after { background:#334155; }
+body.dark-mode .cc-tl-dot.pending { background:#1e293b; border-color:#475569; }
+
+/* ── Banner "Enviado a validación" en tab En Proceso ── */
+.ep-espera-banner {
+    display:flex; align-items:center; gap:.6rem;
+    margin:.45rem 0 .35rem;
+    padding:.5rem .75rem; border-radius:.5rem;
+    border-left:4px solid transparent;
+    font-size:.78rem;
+}
+.ep-espera-icon { font-size:1.1rem; flex-shrink:0; }
+.ep-espera-body { display:flex; flex-direction:column; gap:.05rem; flex:1; min-width:0; }
+.ep-espera-label { font-weight:700; font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; opacity:.75; }
+.ep-espera-date  { font-weight:600; font-size:.82rem; white-space:nowrap; }
+.ep-espera-chip  {
+    flex-shrink:0; padding:.18rem .55rem; border-radius:9999px;
+    font-weight:700; font-size:.68rem; white-space:nowrap;
+    border:1px solid transparent;
+}
+/* Azul — < 1 día */
+.ep-wait-blue  { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+.ep-wait-blue  .ep-espera-icon  { color:#3b82f6; }
+.ep-wait-blue  .ep-espera-chip  { background:#dbeafe; border-color:#93c5fd; color:#1e40af; }
+/* Amarillo — 1-2 días */
+.ep-wait-yellow { background:#fefce8; border-color:#fde68a; color:#713f12; }
+.ep-wait-yellow .ep-espera-icon { color:#ca8a04; }
+.ep-wait-yellow .ep-espera-chip { background:#fef9c3; border-color:#fde047; color:#713f12; }
+/* Naranja — 3-6 días */
+.ep-wait-orange { background:#fff7ed; border-color:#fed7aa; color:#7c2d12; }
+.ep-wait-orange .ep-espera-icon { color:#ea580c; }
+.ep-wait-orange .ep-espera-chip { background:#ffedd5; border-color:#fdba74; color:#7c2d12; }
+/* Rojo — 7+ días */
+.ep-wait-red    { background:#fff1f2; border-color:#fecdd3; color:#881337;
+    animation: ep-pulse-border 1.6s ease-in-out infinite; }
+.ep-wait-red    .ep-espera-icon { color:#dc2626; }
+.ep-wait-red    .ep-espera-chip { background:#fee2e2; border-color:#fca5a5; color:#991b1b; }
+@keyframes ep-pulse-border {
+    0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.3); }
+    50%      { box-shadow: 0 0 0 4px rgba(220,38,38,0); }
+}
+/* Dark mode */
+body.dark-mode .ep-wait-blue   { background:rgba(37,99,235,.12);  border-color:rgba(147,197,253,.25); color:#93c5fd; }
+body.dark-mode .ep-wait-yellow { background:rgba(202,138,4,.12);  border-color:rgba(253,224,71,.25);  color:#fde047; }
+body.dark-mode .ep-wait-orange { background:rgba(194,65,12,.15);  border-color:rgba(253,186,116,.25); color:#fdba74; }
+body.dark-mode .ep-wait-red    { background:rgba(185,28,28,.18);  border-color:rgba(252,165,165,.25); color:#fca5a5; }
+body.dark-mode .ep-espera-chip { background:rgba(0,0,0,.25) !important; }
+
 /* ── Banner de descarte previo en cards ── */
 .cc-descarte-banner { background: #fef3c7; border: 1px solid #fde68a; border-radius: .45rem; padding: .55rem .8rem; font-size: .78rem; color: #78350f; }
 .cc-descarte-banner .cc-descarte-meta { color: #92400e; }
@@ -1258,6 +1364,116 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
     }
 
     /**
+     * Badge de antigüedad para el tab Validación de Cierre.
+     * Usa fecha_modifica (cuando el convenio pasó a completado).
+     * Si no existe, cae a fecha_alta del convenio.
+     */
+    function _ccAgeBadge(r) {
+        const raw = r.fecha_modifica || r.fecha_alta;
+        if (!raw) return '';
+        const iso  = raw.replace(' ', 'T') + (raw.includes('T') || raw.endsWith('Z') ? '' : 'Z');
+        const base = new Date(iso);
+        if (isNaN(base)) return '';
+        const mins = Math.floor((Date.now() - base.getTime()) / 60000);
+        let cls, icon, label;
+        if (mins < 30) {
+            cls = 'age-fresh';   icon = 'fa-circle-check';       label = 'Recién completado';
+        } else if (mins < 60) {
+            cls = 'age-mins';    icon = 'fa-clock';               label = `${mins} min en espera`;
+        } else if (mins < 180) {
+            const h = Math.floor(mins / 60);
+            cls = 'age-warn';    icon = 'fa-hourglass-half';      label = `${h}h en espera`;
+        } else if (mins < 1440) {
+            const h = Math.floor(mins / 60);
+            cls = 'age-orange';  icon = 'fa-triangle-exclamation'; label = `${h}h de retraso`;
+        } else if (mins < 10080) {
+            const d = Math.floor(mins / 1440);
+            cls = 'age-danger';  icon = 'fa-fire';                label = `${d} día${d!==1?'s':''} de retraso`;
+        } else {
+            cls = 'age-critical'; icon = 'fa-skull';              label = '+7 días de retraso';
+        }
+        return `<span class="cc-age-badge ${cls}"><i class="fa-solid ${icon}"></i>${label}</span>`;
+    }
+
+    /**
+     * Línea de tiempo de los 4 momentos del flujo de cierre.
+     * M1: fecha_alta convenio_cliente (acuerdo firmado)
+     * M2: fecha_modifica convenio_cliente (marcado completado)
+     * M3: fecha_alta de cierre_credito_seguimiento — no disponible aquí, se omite
+     * M4: confirmación por validador — pendiente
+     */
+    function _ccTimeline(r) {
+        const fmt = (val) => {
+            if (!val) return null;
+            const iso = val.replace(' ', 'T') + (val.includes('T') || val.endsWith('Z') ? '' : 'Z');
+            const d = new Date(iso);
+            if (isNaN(d)) return null;
+            return d.toLocaleString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric',
+                hour:'2-digit', minute:'2-digit', timeZone:'America/Mexico_City' });
+        };
+        const m1 = fmt(r.fecha_alta);
+        const m2 = fmt(r.fecha_modifica);
+        const steps = [
+            { label: '1. Alta del convenio',   date: m1, done: !!m1 },
+            { label: '2. Convenio completado', date: m2, done: !!m2 },
+        ];
+        const rows = steps.map(s => `
+            <div class="cc-tl-row">
+                <div class="cc-tl-dot ${s.done ? 'done' : 'pending'}"></div>
+                <div class="cc-tl-info">
+                    <span class="cc-tl-label">${s.label}</span>
+                    ${s.date ? `<span class="cc-tl-date">${s.date}</span>`
+                             : `<span class="cc-tl-date" style="font-style:italic;">Pendiente</span>`}
+                </div>
+            </div>`).join('');
+        return `<div class="cc-timeline">
+            <div class="cc-timeline-title"><i class="fa-solid fa-timeline me-1"></i>Flujo de cierre</div>
+            ${rows}
+        </div>`;
+    }
+
+    /**
+     * Banner prominente de "Enviado a validación" para el tab En Proceso.
+     * Muestra la fecha + cuánto tiempo lleva esperando con color según urgencia.
+     */
+    function _epEsperaBanner(fechaAlta) {
+        if (!fechaAlta) return '';
+        const iso  = fechaAlta.replace(' ', 'T') + (fechaAlta.includes('T') || fechaAlta.endsWith('Z') ? '' : 'Z');
+        const base = new Date(iso);
+        if (isNaN(base)) return '';
+        const mins = Math.floor((Date.now() - base.getTime()) / 60000);
+        const hrs  = Math.floor(mins / 60);
+        const days = Math.floor(mins / 1440);
+
+        let elapsed, chipCls;
+        if (mins < 60) {
+            elapsed = `${mins} min esperando`;                    chipCls = 'ep-wait-blue';
+        } else if (mins < 1440) {
+            elapsed = `${hrs}h esperando`;                        chipCls = 'ep-wait-blue';
+        } else if (days < 3) {
+            elapsed = `${days} día${days!==1?'s':''} esperando`;  chipCls = 'ep-wait-yellow';
+        } else if (days < 7) {
+            elapsed = `${days} días esperando`;                   chipCls = 'ep-wait-orange';
+        } else {
+            elapsed = `${days} días esperando`;                   chipCls = 'ep-wait-red';
+        }
+
+        const fmtD = base.toLocaleString('es-MX', {
+            day:'2-digit', month:'2-digit', year:'numeric',
+            hour:'2-digit', minute:'2-digit', timeZone:'America/Mexico_City'
+        });
+
+        return `<div class="ep-espera-banner ${chipCls}">
+            <div class="ep-espera-icon"><i class="fa-solid fa-paper-plane"></i></div>
+            <div class="ep-espera-body">
+                <span class="ep-espera-label">Enviado a validación</span>
+                <span class="ep-espera-date">${fmtD}</span>
+            </div>
+            <span class="ep-espera-chip">${elapsed}</span>
+        </div>`;
+    }
+
+    /**
      * Renderiza un paginador Bootstrap-DT dentro del elemento `containerId`.
      * @param {string}   containerId   ID del div destino
      * @param {number}   page          Página actual (1-based)
@@ -1755,11 +1971,13 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     Crédito: ${esc(r.id_credito)}
                     <small>${esc(r.nombre_cliente)}</small>
                 </span>
-                <span style="color:#fff; font-size:.82rem; font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:.4rem;">
+                <span style="color:#fff; font-size:.82rem; font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">
                     ${_celulaBadge(r)}
                     ${pagadas} pagos de ${semanas}${pagadas >= semanas ? ' <i class=\'bi bi-check-circle-fill\' style=\'color:#4ade80\'></i>' : ''}
                 </span>
             </div>
+            <!-- Badge antigüedad (debajo del header) -->
+            <div style="padding:.35rem .8rem .1rem;">${_ccAgeBadge(r)}</div>
 
             <!-- Cuerpo: detalles -->
             <div class="cc-conv-card-body">
@@ -1848,6 +2066,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                     })()}
 
                     ${_s2InfoHtml(r)}
+                    ${_ccTimeline(r)}
 
                 </div>
             </div>
@@ -2016,6 +2235,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 <span class="cc-lbl">En proceso desde</span>
                 <span class="cc-val">${fmtFecha(r.fecha_actualizacion || r.fecha_alta)}</span>
             </div>
+            ${_epEsperaBanner(r.fecha_alta)}
             <div class="cc-doccheck-wrap mt-1">
                 <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
                 <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
@@ -2166,6 +2386,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             <span class="cc-lbl">En proceso desde</span>
                             <span class="cc-val">${fmtFecha(r.fecha_actualizacion || r.fecha_alta)}</span>
                         </div>
+                        ${_epEsperaBanner(r.fecha_alta)}
                         <div class="cc-doccheck-wrap mt-2">
                             <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
                             <div class="cc-doccheck-items">${pdfBadge}${compBadge}</div>
