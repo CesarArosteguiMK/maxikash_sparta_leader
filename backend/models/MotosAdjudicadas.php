@@ -22,8 +22,16 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columnas recepcion_*_estado (migración 20260428_adj_operacion_recepcion_doc_estado.sql) */
     private static $adjOperacionRecepcionDocEstadoCol = null;
 
+<<<<<<< HEAD
     /** Máximo de consultas REPUVE nuevas (POST a Nubarium) por usuario y día natural CDMX. */
     private const REPUVE_CONSULTAS_MAX_DIA = 5;
+=======
+    /** Slots de evidencias fotográficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
+    private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
+        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+    ];
+>>>>>>> a4f66863e9d8ae0bbbb3d22ce3413e0c83f2eba3
 
     public function __construct()
     {
@@ -340,6 +348,10 @@ class MotosAdjudicadas extends Model
             $nombreUsuario,
             $ahora
         );
+
+        /* Flujo actual: tras Recepción sigue la etapa Retenciones (atención / cierre de llamadas). */
+        $this->cambiarEstatus($idOperacion, 'Retenciones', $idUsuario, $nombreUsuario);
+
         $fmt = $this->db->queryOne(
             "SELECT DATE_FORMAT(recepcion_confirmada_at, '%d/%m/%Y %h:%i:%s %p') AS f FROM adj_operacion WHERE id = :id LIMIT 1",
             ['id' => $idOperacion]
@@ -348,6 +360,7 @@ class MotosAdjudicadas extends Model
         return [
             'success'            => true,
             'confirmada_at_fmt'  => (string) ($fmt['f'] ?? $ahora),
+            'estatus_nuevo'      => 'Retenciones',
         ];
     }
 
@@ -683,15 +696,26 @@ class MotosAdjudicadas extends Model
         $urlRelativa = '/uploads/operaciones/' . $idOperacion . '/' . $filename;
         $ahora       = $this->fechaHoraCdmx();
 
-        // 8. INSERT o UPDATE en adj_evidencia
+        // 8. INSERT o UPDATE en adj_evidencia (al reemplazar archivo se limpia veredicto de Atención para revalidar)
         if ($old) {
-            $this->db->CRUD(
-                "UPDATE adj_evidencia
-                    SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus
-                  WHERE id_operacion = :id AND slot = :slot",
-                ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
-                 'id'   => $idOperacion, 'slot' => $slot]
-            );
+            if ($this->adjEvidenciaTieneColumnasAtn()) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                        SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus,
+                            val_atn = NULL, comentario_atn = NULL
+                      WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
+                     'id'   => $idOperacion, 'slot' => $slot]
+                );
+            } else {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                        SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = :estatus
+                      WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $urlRelativa, 'fecha' => $ahora, 'estatus' => $estatusEvidencia,
+                     'id'   => $idOperacion, 'slot' => $slot]
+                );
+            }
         } else {
             $this->db->CRUD(
                 "INSERT INTO adj_evidencia (id_operacion, tipo, slot, url, fecha_alta, alta, estatus)
@@ -712,6 +736,13 @@ class MotosAdjudicadas extends Model
         if (function_exists('sparta_url_publica_desde_repositorio')) {
             $urlClient = sparta_url_publica_desde_repositorio($urlRelativa);
         }
+
+        /* Reemplazo en slots dictaminables: si ya no hay rechazos, regresa a bandeja Evidencias (Recibido). */
+        if ($this->adjEvidenciaTieneColumnasAtn()
+            && in_array($slot, self::SLOTS_VALIDACION_ATENCION_MEDIA, true)) {
+            $this->finalizarCierreValidacionEvidenciaAtn($idOperacion, $idUsuario, $nombreUsuario);
+        }
+
         return ['success' => true, 'url' => $urlClient];
     }
 
@@ -769,6 +800,115 @@ class MotosAdjudicadas extends Model
              LIMIT 100",
             ['id' => $idOperacion]
         ) ?: [];
+    }
+
+    /**
+     * Resumen para modal Flujo de Operaciones (etapa Recibido / evidencia).
+     *
+     * @param list<array<string,mixed>> $evs
+     * @param array<string,mixed>       $op Fila adj_operacion (incl. es_validado_ia, score_ia si existen).
+     * @return array<string, mixed>
+     */
+    private function construirResumenEvidenciaFlujo(array $evs, array $op): array
+    {
+        $bySlot = [];
+        foreach ($evs as $r) {
+            $sk = trim((string) ($r['slot'] ?? ''));
+            if ($sk !== '') {
+                $bySlot[$sk] = $r;
+            }
+        }
+
+        $cargadas = 0;
+        foreach (self::SLOTS_PIPELINE_EXPEDIENTE as $s) {
+            if (isset($bySlot[$s]) && trim((string) ($bySlot[$s]['url'] ?? '')) !== '') {
+                $cargadas++;
+            }
+        }
+
+        $validadas = 0;
+        $aceptadas = 0;
+        $devueltas = 0;
+        $pendientes = 0;
+
+        foreach (self::SLOTS_VALIDACION_ATENCION_MEDIA as $s) {
+            if (!isset($bySlot[$s])) {
+                continue;
+            }
+            $url = trim((string) ($bySlot[$s]['url'] ?? ''));
+            $va = (int) ($bySlot[$s]['val_atn'] ?? 0);
+            if ($url !== '' && $va === 0) {
+                $pendientes++;
+            }
+            if ($va === 1) {
+                $aceptadas++;
+                $validadas++;
+            } elseif ($va === 2) {
+                $devueltas++;
+                $validadas++;
+            }
+        }
+
+        // Repuve (PDF): expediente + envío al pipeline + resultado IA en operación
+        $repuvePdf      = false;
+        $repuveEstatus  = null;
+        $repuveRow      = $bySlot[self::SLOT_REPVE_ATENCION] ?? null;
+        if ($repuveRow !== null) {
+            $repuvePdf = trim((string) ($repuveRow['url'] ?? '')) !== '';
+            if ($repuvePdf) {
+                $repuveEstatus = trim((string) ($repuveRow['estatus'] ?? ''));
+                $repuveEstatus = $repuveEstatus !== '' ? $repuveEstatus : null;
+            }
+        }
+
+        $iaRaw = $op['es_validado_ia'] ?? null;
+        $iaInt = null;
+        if ($iaRaw !== null && $iaRaw !== '') {
+            $iaInt = (int) $iaRaw;
+        }
+
+        if ($iaInt === null) {
+            $validacionIaTxt = 'Pendiente de validación IA';
+        } elseif ($iaInt === 1) {
+            $validacionIaTxt = 'Conforme según IA';
+        } else {
+            $validacionIaTxt = 'No conforme según IA';
+        }
+
+        if (!$repuvePdf) {
+            $estatusEnvioTxt = 'Sin PDF en expediente';
+        } elseif ($repuveEstatus === 'recibido') {
+            $estatusEnvioTxt = 'PDF enviado al pipeline';
+        } elseif ($repuveEstatus === 'pendiente_envio') {
+            $estatusEnvioTxt = 'PDF cargado; pendiente de envío al pipeline';
+        } elseif ($repuveEstatus !== null) {
+            $estatusEnvioTxt = $repuveEstatus;
+        } else {
+            $estatusEnvioTxt = '—';
+        }
+
+        $scoreIa = null;
+        if (\array_key_exists('score_ia', $op) && $op['score_ia'] !== null && $op['score_ia'] !== '') {
+            $scoreIa = is_numeric($op['score_ia']) ? (float) $op['score_ia'] : null;
+        }
+
+        return [
+            'total_slots'               => \count(self::SLOTS_PIPELINE_EXPEDIENTE),
+            'cargadas_gestor'           => $cargadas,
+            'slots_validacion_media'    => \count(self::SLOTS_VALIDACION_ATENCION_MEDIA),
+            'validadas_en_evidencia'    => $validadas,
+            'aceptadas'                 => $aceptadas,
+            'devueltas'                 => $devueltas,
+            'pendientes_validacion'     => $pendientes,
+            'repuve'                    => [
+                'pdf_cargado'        => $repuvePdf,
+                'estatus_archivo'    => $repuveEstatus,
+                'estatus_pipeline'   => $estatusEnvioTxt,
+                'es_validado_ia'     => $iaInt,
+                'validacion_ia_txt'  => $validacionIaTxt,
+                'score_ia'           => $scoreIa,
+            ],
+        ];
     }
 
     /**
@@ -980,10 +1120,10 @@ SQL;
                 'en_transito',
                 'Procesando IA',
                 'Revisión Recuperaciones',
-                'Retenciones',
-                'cancelado',
                 'Cierre Documentado',
-                'Recepción'
+                'Recepción',
+                'Retenciones',
+                'cancelado'
             ),
             o.fecha_alta ASC
         SQL;
@@ -1073,6 +1213,16 @@ SQL;
         }
         unset($r);
         $op['evidencias'] = $evs;
+
+        $op['resumen_evidencia_flujo'] = $this->construirResumenEvidenciaFlujo($evs, $op);
+        $op['validaciones_evidencia_timeline'] = $this->db->queryAll(
+            "SELECT nombre_usuario, accion,
+                    DATE_FORMAT(fecha_alta, '%d/%m/%Y %h:%i:%s %p') AS fecha_fmt
+             FROM adj_bitacora
+             WHERE id_operacion = :id AND accion LIKE '%VALIDACIÓN EVIDENCIA%'
+             ORDER BY fecha_alta ASC",
+            ['id' => $id]
+        ) ?: [];
 
         $op['observaciones'] = $this->db->queryAll(
             "SELECT id, etapa, area, id_usuario, texto, DATE_FORMAT(fecha, '%Y-%m-%d %H:%i') AS fecha
@@ -1229,6 +1379,13 @@ SQL;
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atención. */
     private const SLOT_REPVE_ATENCION = 'doc_repuve';
 
+    /** Slots del expediente de evidencias en pipeline (11; alineado con la vista operaciones_pipeline). */
+    private const SLOTS_PIPELINE_EXPEDIENTE = [
+        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'doc_repuve', 'doc_factura',
+    ];
+
     private const ESTATUS_VALIDOS = [
         'Recibido',
         'en_transito',
@@ -1343,18 +1500,42 @@ SQL;
      * Devuelve los créditos activos asignados al usuario.
      * El bucket se enriquece en esta misma respuesta para evitar una segunda llamada HTTP.
      */
-    public function obtenerMisAdjudicaciones(int $idPersona): array
+    /**
+     * @param bool $incluirMorosidad Si false, no consulta Segundómetro (más rápido; bucket queda en "—" hasta un segundo request).
+     * @return array{creditos: array<int, array>, resumen_evidencias: array<int, array{total:int, rechazo_atn:int, all_sent:bool}>}
+     */
+    public function obtenerMisAdjudicaciones(int $idPersona, bool $incluirMorosidad = true): array
     {
+        $slots    = self::MADJ_SLOTS_EVIDENCIA_MEDIA;
+        $slotPh   = [];
+        $params   = ['idPersona' => $idPersona, 'idPersonaUlt' => $idPersona];
+        foreach ($slots as $i => $slot) {
+            $k            = 'mslot' . $i;
+            $slotPh[]     = ':' . $k;
+            $params[$k]   = $slot;
+        }
+        $slotIn = implode(',', $slotPh);
+
+        $fragRechazoAtn = $this->adjEvidenciaTieneColumnasAtn()
+            ? "COUNT(DISTINCT CASE
+                    WHEN slot IN ($slotIn) AND estatus IN ('pendiente_envio', 'recibido')
+                         AND val_atn = 2
+                    THEN slot ELSE NULL END
+                ) AS rechazo_atn"
+            : '0 AS rechazo_atn';
+
         $creditos = $this->db->queryAll(
-            <<<SQL
-            SELECT
+            "SELECT
                 aca.id_credito                                          AS id_credito,
                 IF(aca.estatus = '1', 'Activo', 'Inactivo')            AS estado,
                 DATE_FORMAT(aca.fecha_alta, '%Y-%m-%d %H:%i')          AS fecha_asignacion,
                 DATE_FORMAT(aca.fecha_baja, '%Y-%m-%d %H:%i')          AS fecha_desasignacion,
                 COALESCE(NULLIF(TRIM(ult_op.nombre_cliente), ''), '—') AS nombre_cliente,
                 TRIM(CONCAT_WS(' ', per_alta.nombres, per_alta.apellidop)) AS asignado_por,
-                aca.id                                                  AS id_asignacion
+                aca.id                                                  AS id_asignacion,
+                COALESCE(madj_ev.total, 0)                              AS madj_ev_total,
+                COALESCE(madj_ev.pendiente, 0)                          AS madj_ev_pendiente,
+                COALESCE(madj_ev.rechazo_atn, 0)                        AS madj_ev_rechazo_atn
             FROM asigna_creditos_adjudicacion aca
             INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
             LEFT JOIN persona per_alta ON per_alta.id = aca.alta
@@ -1371,6 +1552,20 @@ SQL;
                     GROUP BY aop.id_credito
                 ) m ON m.id_max = ao.id AND m.id_credito = ao.id_credito
             ) ult_op ON ult_op.id_credito = aca.id_credito
+            LEFT JOIN (
+                SELECT id_operacion,
+                       COUNT(DISTINCT CASE
+                           WHEN slot IN ($slotIn) AND estatus IN ('pendiente_envio', 'recibido')
+                           THEN slot ELSE NULL END
+                       ) AS total,
+                       COUNT(DISTINCT CASE
+                           WHEN slot IN ($slotIn) AND estatus = 'pendiente_envio'
+                           THEN slot ELSE NULL END
+                       ) AS pendiente,
+                       $fragRechazoAtn
+                FROM adj_evidencia
+                GROUP BY id_operacion
+            ) madj_ev ON madj_ev.id_operacion = ult_op.id
             WHERE pa.id_persona = :idPersona
               AND aca.estatus = '1'
               AND ult_op.estatus IN (
@@ -1379,15 +1574,29 @@ SQL;
                   'Procesando IA',
                   'Revisión Recuperaciones',
                   'Cierre Documentado',
-                  'Recepción'
+                  'Recepción',
+                  'Retenciones'
               )
-            ORDER BY aca.fecha_alta DESC
-            SQL,
-            ['idPersona' => $idPersona, 'idPersonaUlt' => $idPersona]
+            ORDER BY aca.fecha_alta DESC",
+            $params
         ) ?: [];
 
+        $totalSlotsVista = count($slots);
+        $resumenEvidencias = [];
         foreach ($creditos as &$c) {
             $c['bucket'] = '—';
+            $idCred = (int) ($c['id_credito'] ?? 0);
+            $total  = (int) ($c['madj_ev_total'] ?? 0);
+            $pend   = (int) ($c['madj_ev_pendiente'] ?? 0);
+            $rej    = (int) ($c['madj_ev_rechazo_atn'] ?? 0);
+            unset($c['madj_ev_total'], $c['madj_ev_pendiente'], $c['madj_ev_rechazo_atn']);
+            if ($idCred > 0) {
+                $resumenEvidencias[$idCred] = [
+                    'total'       => $total,
+                    'rechazo_atn' => $rej,
+                    'all_sent'    => $total >= $totalSlotsVista && $pend === 0 && $rej === 0,
+                ];
+            }
         }
         unset($c);
 
@@ -1396,7 +1605,7 @@ SQL;
             $creditos
         ))));
 
-        if ($idsCreditos !== []) {
+        if ($incluirMorosidad && $idsCreditos !== []) {
             $morosidad = $this->obtenerMorosidadSegundometroPorCreditos($idsCreditos);
             foreach ($creditos as &$c) {
                 $idKey = (string) ((int) ($c['id_credito'] ?? 0));
@@ -1408,7 +1617,10 @@ SQL;
             unset($c);
         }
 
-        return $creditos;
+        return [
+            'creditos'           => $creditos,
+            'resumen_evidencias' => $resumenEvidencias,
+        ];
     }
 
     /**
@@ -1508,11 +1720,7 @@ SQL;
             return [];
         }
 
-        // Slots válidos de Mis Adjudicaciones (9 evidencias requeridas en esta vista)
-        $slotsPermitidos = [
-            'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-            'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
-        ];
+        $slotsPermitidos = self::MADJ_SLOTS_EVIDENCIA_MEDIA;
 
         $placeholders = [];
         $params = [];
@@ -1531,10 +1739,19 @@ SQL;
         }
         $slotIn = implode(',', $slotPh);
 
+        $fragRechazoAtn = $this->adjEvidenciaTieneColumnasAtn()
+            ? "COUNT(DISTINCT CASE
+                    WHEN slot IN ($slotIn) AND estatus IN ('pendiente_envio', 'recibido')
+                         AND val_atn = 2
+                    THEN slot ELSE NULL END
+                ) AS rechazo_atn"
+            : '0 AS rechazo_atn';
+
         $rows = $this->db->queryAll(
             "SELECT ult.id_credito,
-                    COALESCE(ev.total, 0)     AS total,
-                    COALESCE(ev.pendiente, 0) AS pendiente
+                    COALESCE(ev.total, 0)       AS total,
+                    COALESCE(ev.pendiente, 0)   AS pendiente,
+                    COALESCE(ev.rechazo_atn, 0) AS rechazo_atn
              FROM (
                 SELECT id_credito, MAX(id) AS max_id
                 FROM adj_operacion
@@ -1550,7 +1767,8 @@ SQL;
                        COUNT(DISTINCT CASE
                            WHEN slot IN ($slotIn) AND estatus = 'pendiente_envio'
                            THEN slot ELSE NULL END
-                       ) AS pendiente
+                       ) AS pendiente,
+                       $fragRechazoAtn
                 FROM adj_evidencia
                 WHERE id_operacion IN (
                     SELECT MAX(id)
@@ -1568,11 +1786,14 @@ SQL;
             $id       = (int) ($r['id_credito'] ?? 0);
             $total    = (int) ($r['total']      ?? 0);
             $pendiente = (int) ($r['pendiente'] ?? 0);
+            $rechazoAtn = (int) ($r['rechazo_atn'] ?? 0);
             if ($id > 0) {
                 $totalSlotsVista = count($slotsPermitidos);
+                // No "todo enviado a revisión" si Atención rechazó alguna media: el gestor debe reemplazar y reenviar.
                 $resumen[$id] = [
-                    'total'    => $total,
-                    'all_sent' => $total >= $totalSlotsVista && $pendiente === 0,
+                    'total'         => $total,
+                    'rechazo_atn'   => $rechazoAtn,
+                    'all_sent'      => $total >= $totalSlotsVista && $pendiente === 0 && $rechazoAtn === 0,
                 ];
             }
         }
@@ -1596,12 +1817,24 @@ SQL;
         'log_estado', 'log_responsable', 'log_telefono',
     ];
 
+    /** ISO 3779 / NHTSA: VIN de 17 caracteres máx.; sin I, O, Q (motocicletas incluidas). */
+    private const MADJ_VIN_MAX_LEN = 17;
+    private const MADJ_VIN_MIN_LEN = 8;
+
+    /** Número de motor (fabricante): límite superior típico en motos; sin estándar único como el VIN. */
+    private const MADJ_NO_MOTOR_MAX_LEN = 24;
+
+    /** Placa motocicleta México (NOM-001-SCT-2-2016 / formatos por estado): serie corta; margen por variantes. */
+    private const MADJ_PLACAS_MOTO_MAX_LEN = 9;
+    private const MADJ_PLACAS_MOTO_MIN_LEN = 4;
+
     /**
-     * REPUVE: consulta una sola vez por crédito y reutiliza el registro guardado.
-     * Si existe registro PROCESANDO, solo consulta estatus por UUID (sin relanzar POST).
+     * Validación de formato para Mis adjudicaciones (motocicleta).
+     * @return string|null mensaje de error o null si todo OK
      */
-    public function consultarRepuvePorCredito(int $idCredito, int $idUsuario = 0): array
+    private function validarDatosMotoFormatos(array $datos): ?string
     {
+<<<<<<< HEAD
         return $this->consultarRepuvePorCreditoCore($idCredito, $idUsuario, null);
     }
 
@@ -1970,324 +2203,64 @@ SQL;
             $k = (string) ($r['clave'] ?? '');
             if ($k !== '') {
                 $cfg[$k] = trim((string) ($r['valor'] ?? ''));
+=======
+        if (array_key_exists('moto_no_serie', $datos)) {
+            $vin = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_no_serie']));
+            $len = strlen($vin);
+            if ($len < self::MADJ_VIN_MIN_LEN || $len > self::MADJ_VIN_MAX_LEN) {
+                return 'El número de serie (VIN) debe tener entre '
+                    . self::MADJ_VIN_MIN_LEN . ' y ' . self::MADJ_VIN_MAX_LEN
+                    . ' caracteres (ISO 3779 para motocicletas: máximo ' . self::MADJ_VIN_MAX_LEN . ').';
+            }
+            if (!preg_match('/^[A-HJ-NPR-Z0-9]+$/', $vin)) {
+                return 'El VIN solo puede incluir letras (sin I, O ni Q) y dígitos, sin espacios.';
             }
         }
 
-        $base = rtrim((string) ($cfg['REPUVE_API_BASE_URL'] ?? ''), '/');
-        $key  = (string) ($cfg['REPUVE_API_KEY'] ?? '');
-        $usr  = (string) ($cfg['REPUVE_API_USUARIO'] ?? 'cobranza');
-        $to   = (int) ($cfg['REPUVE_API_TIMEOUT'] ?? 25);
-        if ($to < 5) {
-            $to = 25;
-        }
-
-        return [
-            'configured' => $base !== '' && $key !== '',
-            'base_url'   => $base,
-            'api_key'    => $key,
-            'usuario'    => $usr !== '' ? $usr : 'cobranza',
-            'timeout'    => $to,
-        ];
-    }
-
-    private function repuveResolverCriterio(int $idCredito): array
-    {
-        $op = $this->db->queryOne(
-            'SELECT moto_placas, placas, moto_no_serie, serie
-             FROM adj_operacion
-             WHERE id_credito = :id
-             ORDER BY id DESC
-             LIMIT 1',
-            ['id' => $idCredito]
-        );
-
-        if (!$op) {
-            return ['ok' => false, 'message' => 'No existe operación para el crédito indicado.'];
-        }
-
-        $plateBase = trim((string) ($op['moto_placas'] ?? ''));
-        if ($plateBase === '') {
-            $plateBase = trim((string) ($op['placas'] ?? ''));
-        }
-        $plate = strtoupper(preg_replace('/\s+/u', '', $plateBase));
-        if ($plate !== '') {
-            return ['ok' => true, 'field' => 'plate', 'value' => $plate];
-        }
-
-        $vinBase = trim((string) ($op['moto_no_serie'] ?? ''));
-        if ($vinBase === '') {
-            $vinBase = trim((string) ($op['serie'] ?? ''));
-        }
-        $vin = strtoupper(preg_replace('/\s+/u', '', $vinBase));
-        if ($vin !== '') {
-            return ['ok' => true, 'field' => 'vin', 'value' => $vin];
-        }
-
-        return [
-            'ok'      => false,
-            'message' => 'No hay placas ni VIN para consultar REPUVE. Primero captura y guarda los datos de la motocicleta.',
-        ];
-    }
-
-    private function repuveHeaders(array $cfg, int $idUsuario, int $idCredito): array
-    {
-        $headers = [
-            'Content-Type: application/json',
-            'Accept: application/json',
-            'X-API-KEY: ' . $cfg['api_key'],
-            'usuario: ' . $cfg['usuario'],
-            'idPersona: ' . max(0, $idUsuario),
-            'idOferta: ' . max(0, $idCredito),
-            'idFlujo: mis-adjudicaciones',
-        ];
-        return $headers;
-    }
-
-    private function repuveHttpJson(string $method, string $url, array $headers, ?array $body, int $timeout): array
-    {
-        $ch = curl_init();
-        $opts = [
-            CURLOPT_URL            => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_TIMEOUT        => $timeout,
-            CURLOPT_HTTPHEADER     => $headers,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
-        ];
-
-        if (strtoupper($method) === 'POST') {
-            $opts[CURLOPT_POST] = true;
-            $opts[CURLOPT_POSTFIELDS] = json_encode($body ?? [], JSON_UNESCAPED_UNICODE);
-        }
-
-        curl_setopt_array($ch, $opts);
-        $raw   = curl_exec($ch);
-        $errno = curl_errno($ch);
-        $error = curl_error($ch);
-        $http  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($errno || $raw === false) {
-            return [
-                'ok'          => false,
-                'http_status' => $http > 0 ? $http : null,
-                'mensaje'     => 'Error de red REPUVE: ' . ($error ?: 'sin detalle'),
-                'raw'         => null,
-                'json'        => null,
-            ];
-        }
-
-        $json = json_decode((string) $raw, true);
-        if (!is_array($json)) {
-            return [
-                'ok'          => false,
-                'http_status' => $http,
-                'mensaje'     => 'REPUVE devolvió respuesta no JSON.',
-                'raw'         => (string) $raw,
-                'json'        => null,
-            ];
-        }
-
-        return [
-            'ok'          => $http >= 200 && $http < 300,
-            'http_status' => $http,
-            'mensaje'     => (string) ($json['mensaje'] ?? ''),
-            'raw'         => (string) $raw,
-            'json'        => $json,
-        ];
-    }
-
-    private function repuveIniciarConsulta(array $cfg, string $field, string $value, int $idUsuario, int $idCredito): array
-    {
-        $url  = $cfg['base_url'] . '/nubarium/consultaRepuve';
-        $body = [$field => $value, 'pdf' => false];
-        $res  = $this->repuveHttpJson('POST', $url, $this->repuveHeaders($cfg, $idUsuario, $idCredito), $body, (int) $cfg['timeout']);
-
-        $uuid = '';
-        $estado = 'ERROR';
-        $msg = (string) ($res['mensaje'] ?? '');
-        if (!empty($res['json']['resultado']['uuid'])) {
-            $uuid = (string) $res['json']['resultado']['uuid'];
-            $estado = strtoupper((string) ($res['json']['resultado']['estado'] ?? 'PROCESANDO'));
-        }
-
-        return [
-            'ok'           => !empty($res['ok']) && $uuid !== '',
-            'uuid'         => $uuid,
-            'estado'       => $estado,
-            'http_status'  => $res['http_status'] ?? null,
-            'mensaje'      => $msg !== '' ? $msg : ((string) ($res['json']['resultado']['message'] ?? 'No se pudo iniciar consulta REPUVE.')),
-            'request_body' => json_encode($body, JSON_UNESCAPED_UNICODE),
-            'response_raw' => $res['raw'] ?? null,
-        ];
-    }
-
-    private function repuveSondearEstatus(array $cfg, string $uuid): array
-    {
-        $url = $cfg['base_url'] . '/nubarium/estatusRepuve/' . rawurlencode($uuid);
-        $headers = [
-            'Accept: application/json',
-            'X-API-KEY: ' . $cfg['api_key'],
-            'usuario: ' . $cfg['usuario'],
-        ];
-
-        $intentos = 6;
-        $ultimo = null;
-        for ($i = 0; $i < $intentos; $i++) {
-            $res = $this->repuveHttpJson('GET', $url, $headers, null, (int) $cfg['timeout']);
-            $ultimo = $res;
-            $json = is_array($res['json'] ?? null) ? $res['json'] : [];
-            $resultado = is_array($json['resultado'] ?? null) ? $json['resultado'] : [];
-            $estado = strtoupper((string) ($resultado['estado'] ?? ''));
-            $status = strtoupper((string) ($resultado['status'] ?? ''));
-            $messageCode = isset($resultado['messageCode']) ? (int) $resultado['messageCode'] : null;
-
-            $terminal = false;
-            $estadoFinal = 'ERROR';
-            if ($estado === 'PROCESANDO') {
-                $terminal = false;
-            } elseif ($status !== '' || $messageCode !== null) {
-                $terminal = true;
-                $estadoFinal = 'COMPLETADO';
-            } elseif (empty($res['ok']) && (($res['http_status'] ?? 0) >= 400)) {
-                $terminal = true;
-                $estadoFinal = 'ERROR';
+        if (array_key_exists('moto_no_motor', $datos)) {
+            $motor = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_no_motor']));
+            if ($motor === '') {
+                return 'El número de motor es obligatorio.';
             }
-
-            if ($terminal) {
-                $datosMoto = $this->repuveMapearDatosMoto($json);
-                return [
-                    'terminal'     => true,
-                    'estado_final' => $estadoFinal,
-                    'http_status'  => $res['http_status'] ?? null,
-                    'exito'        => $messageCode === 0 && !empty($datosMoto),
-                    'message_code' => $messageCode,
-                    'mensaje'      => (string) ($resultado['message'] ?? $json['mensaje'] ?? $res['mensaje'] ?? ''),
-                    'response_raw' => $res['raw'] ?? null,
-                    'datos_moto'   => $datosMoto,
-                    'repuve_id'    => (string) (($resultado['data']['repuveId'] ?? '') ?: ''),
-                ];
+            if (strlen($motor) > self::MADJ_NO_MOTOR_MAX_LEN) {
+                return 'El número de motor admite como máximo '
+                    . self::MADJ_NO_MOTOR_MAX_LEN
+                    . ' caracteres (letras, números y guion), típico en motocicletas.';
             }
-
-            if ($i < ($intentos - 1)) {
-                usleep(2000000);
+            if (!preg_match('/^[A-Z0-9\-]+$/', $motor)) {
+                return 'El número de motor solo puede incluir letras, números y guiones.';
+>>>>>>> a4f66863e9d8ae0bbbb3d22ce3413e0c83f2eba3
             }
         }
 
-        return [
-            'terminal'     => false,
-            'estado_final' => 'PROCESANDO',
-            'http_status'  => $ultimo['http_status'] ?? null,
-            'mensaje'      => 'Consulta REPUVE en proceso.',
-            'response_raw' => $ultimo['raw'] ?? null,
-        ];
-    }
+        if (array_key_exists('moto_placas', $datos)) {
+            $placas = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_placas']));
+            $lp     = strlen($placas);
+            if ($lp < self::MADJ_PLACAS_MOTO_MIN_LEN || $lp > self::MADJ_PLACAS_MOTO_MAX_LEN) {
+                return 'Las placas de motocicleta deben tener entre '
+                    . self::MADJ_PLACAS_MOTO_MIN_LEN . ' y ' . self::MADJ_PLACAS_MOTO_MAX_LEN
+                    . ' caracteres (en México el formato de serie suele ser corto, p. ej. Y001AA).';
+            }
+            if (!preg_match('/^[A-Z0-9\-]+$/', $placas)) {
+                return 'Las placas solo pueden incluir letras, números y guion.';
+            }
+        }
 
-    private function repuveGuardarInicio(int $idCredito, string $field, string $value, array $inicio): void
-    {
-        $this->db->CRUD(
-            "INSERT INTO adj_repuve_consulta
-                (id_credito, criterio_tipo, criterio_valor, uuid, estado, http_status, exito, mensaje, request_body, response_body)
-             VALUES
-                (:id_credito, :tipo, :valor, :uuid, :estado, :http_status, :exito, :mensaje, :request_body, :response_body)
-             ON DUPLICATE KEY UPDATE
-                criterio_tipo = VALUES(criterio_tipo),
-                criterio_valor = VALUES(criterio_valor),
-                uuid = VALUES(uuid),
-                estado = VALUES(estado),
-                http_status = VALUES(http_status),
-                exito = VALUES(exito),
-                mensaje = VALUES(mensaje),
-                request_body = VALUES(request_body),
-                response_body = VALUES(response_body)",
-            [
-                'id_credito'   => $idCredito,
-                'tipo'         => $field,
-                'valor'        => $value,
-                'uuid'         => (string) ($inicio['uuid'] ?? ''),
-                'estado'       => (string) ($inicio['estado'] ?? 'ERROR'),
-                'http_status'  => $inicio['http_status'] ?? null,
-                'exito'        => !empty($inicio['ok']) ? 1 : 0,
-                'mensaje'      => (string) ($inicio['mensaje'] ?? ''),
-                'request_body' => $inicio['request_body'] ?? null,
-                'response_body'=> $inicio['response_raw'] ?? null,
-            ]
-        );
-    }
+        if (array_key_exists('moto_color', $datos)) {
+            $color = trim((string) $datos['moto_color']);
+            if ($color !== '' && !preg_match('/^[a-záéíóúüñÁÉÍÓÚÜÑ\s]+$/u', $color)) {
+                return 'El color debe contener solo letras (y espacios), sin números.';
+            }
+        }
 
-    private function repuveActualizarFilaFinal(int $idCredito, array $estatus): void
-    {
-        $datos = is_array($estatus['datos_moto'] ?? null) ? $estatus['datos_moto'] : [];
-        $this->db->CRUD(
-            "UPDATE adj_repuve_consulta SET
-                estado = :estado,
-                http_status = :http_status,
-                exito = :exito,
-                message_code = :message_code,
-                mensaje = :mensaje,
-                response_body = COALESCE(:response_body, response_body),
-                repuve_id = :repuve_id,
-                placa = :placa,
-                vin = :vin,
-                marca = :marca,
-                modelo = :modelo,
-                anio_modelo = :anio
-             WHERE id_credito = :id_credito",
-            [
-                'estado'      => (string) ($estatus['estado_final'] ?? 'ERROR'),
-                'http_status' => $estatus['http_status'] ?? null,
-                'exito'       => !empty($estatus['exito']) ? 1 : 0,
-                'message_code'=> $estatus['message_code'] ?? null,
-                'mensaje'     => (string) ($estatus['mensaje'] ?? ''),
-                'response_body' => $estatus['response_raw'] ?? null,
-                'repuve_id'   => (string) ($estatus['repuve_id'] ?? ''),
-                'placa'       => (string) ($datos['moto_placas'] ?? ''),
-                'vin'         => (string) ($datos['moto_no_serie'] ?? ''),
-                'marca'       => (string) ($datos['moto_marca'] ?? ''),
-                'modelo'      => (string) ($datos['moto_modelo'] ?? ''),
-                'anio'        => (string) ($datos['moto_anio'] ?? ''),
-                'id_credito'  => $idCredito,
-            ]
-        );
-    }
+        if (array_key_exists('log_responsable', $datos)) {
+            $nom = trim((string) $datos['log_responsable']);
+            if ($nom !== '' && !preg_match('/^[a-záéíóúüñÁÉÍÓÚÜÑ\s\'\.\-]+$/u', $nom)) {
+                return 'El responsable de resguardo debe ser un nombre (letras); no se permiten números.';
+            }
+        }
 
-    private function repuveMapearDatosMoto(array $resp): array
-    {
-        $resultado = is_array($resp['resultado'] ?? null) ? $resp['resultado'] : [];
-        $data      = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
-        $vehicle   = is_array($data['vehicle'] ?? null) ? $data['vehicle'] : [];
-
-        $marca  = trim((string) ($vehicle['marca'] ?? ''));
-        $modelo = trim((string) ($vehicle['modelo'] ?? ($vehicle['linea'] ?? '')));
-        $anio   = trim((string) ($vehicle['anioModelo'] ?? ''));
-        $placa  = strtoupper(trim((string) ($vehicle['placa'] ?? '')));
-        $vin    = strtoupper(trim((string) ($vehicle['vin'] ?? '')));
-
-        $out = [];
-        if ($marca !== '') $out['moto_marca'] = $marca;
-        if ($modelo !== '') $out['moto_modelo'] = $modelo;
-        if ($anio !== '') $out['moto_anio'] = $anio;
-        if ($placa !== '') $out['moto_placas'] = $placa;
-        if ($vin !== '') $out['moto_no_serie'] = $vin;
-        return $out;
-    }
-
-    private function repuveDatosMotoDesdeFila(array $row): array
-    {
-        $out = [];
-        $marca = trim((string) ($row['marca'] ?? ''));
-        $modelo = trim((string) ($row['modelo'] ?? ''));
-        $anio = trim((string) ($row['anio_modelo'] ?? ''));
-        $placa = strtoupper(trim((string) ($row['placa'] ?? '')));
-        $vin = strtoupper(trim((string) ($row['vin'] ?? '')));
-
-        if ($marca !== '') $out['moto_marca'] = $marca;
-        if ($modelo !== '') $out['moto_modelo'] = $modelo;
-        if ($anio !== '') $out['moto_anio'] = $anio;
-        if ($placa !== '') $out['moto_placas'] = $placa;
-        if ($vin !== '') $out['moto_no_serie'] = $vin;
-        return $out;
+        return null;
     }
 
     /**
@@ -2310,9 +2283,16 @@ SQL;
             return ['success' => false, 'message' => 'Operación no encontrada.'];
         }
 
+        $fmtErr = $this->validarDatosMotoFormatos($datos);
+        if ($fmtErr !== null) {
+            return ['success' => false, 'message' => $fmtErr];
+        }
+
         $maxLen = [
             'moto_marca'     => 100, 'moto_modelo'    => 100, 'moto_color'     => 50,
-            'moto_no_serie'  => 50,  'moto_no_motor'  => 30,  'moto_placas'    => 10,
+            'moto_no_serie'  => self::MADJ_VIN_MAX_LEN,
+            'moto_no_motor'  => self::MADJ_NO_MOTOR_MAX_LEN,
+            'moto_placas'    => self::MADJ_PLACAS_MOTO_MAX_LEN,
             'log_ubicacion'  => 100, 'log_direccion'  => 100, 'log_ciudad'     => 50,
             'log_estado'     => 60,  'log_responsable'=> 100, 'log_telefono'   => 10,
         ];
@@ -2324,9 +2304,18 @@ SQL;
             if (!array_key_exists($campo, $datos)) {
                 continue;
             }
-            $val = $campo === 'moto_anio'
-                ? ((int) $datos[$campo] ?: null)
-                : mb_substr(trim((string) $datos[$campo]), 0, $maxLen[$campo] ?? 255);
+            $valRaw = $datos[$campo];
+            if ($campo === 'moto_anio') {
+                $val = ((int) $valRaw ?: null);
+            } elseif ($campo === 'moto_no_serie' || $campo === 'moto_no_motor' || $campo === 'moto_placas') {
+                $val = mb_substr(
+                    strtoupper(preg_replace('/\s+/u', '', trim((string) $valRaw))),
+                    0,
+                    $maxLen[$campo] ?? 255
+                );
+            } else {
+                $val = mb_substr(trim((string) $valRaw), 0, $maxLen[$campo] ?? 255);
+            }
             $setClauses[]      = "`{$campo}` = :{$campo}";
             $params[$campo]    = $val;
         }
@@ -2387,7 +2376,7 @@ SQL;
             'folio'               => $folio,
             'id_credito'          => $idCredito,
             'nombre_cliente'      => $nombreCliente !== '' ? $nombreCliente : "Crédito #{$idCredito}",
-            'estatus'             => 'Retenciones',
+            'estatus'             => 'en_transito',
             'id_usuario_alta'     => $idUsuario ?: null,
             'fecha_alta'          => $ahora,
             'fecha_actualizacion' => $ahora,
