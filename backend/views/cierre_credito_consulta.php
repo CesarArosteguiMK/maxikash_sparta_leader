@@ -2013,8 +2013,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 <span class="cc-val">${esc(r.usuario_alta)}</span>
             </div>
             <div class="cc-detail-row">
-                <span class="cc-lbl">Fecha envío</span>
-                <span class="cc-val">${fmtFecha(r.fecha_alta)}</span>
+                <span class="cc-lbl">En proceso desde</span>
+                <span class="cc-val">${fmtFecha(r.fecha_actualizacion || r.fecha_alta)}</span>
             </div>
             <div class="cc-doccheck-wrap mt-1">
                 <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
@@ -2163,8 +2163,8 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                             <span class="cc-val">${esc(r.usuario_alta)}</span>
                         </div>
                         <div class="cc-detail-row">
-                            <span class="cc-lbl">Fecha envío</span>
-                            <span class="cc-val">${fmtFecha(r.fecha_alta)}</span>
+                            <span class="cc-lbl">En proceso desde</span>
+                            <span class="cc-val">${fmtFecha(r.fecha_actualizacion || r.fecha_alta)}</span>
                         </div>
                         <div class="cc-doccheck-wrap mt-2">
                             <div class="cc-doccheck-title"><i class="fa-solid fa-paperclip me-1"></i>Documentos adjuntos</div>
