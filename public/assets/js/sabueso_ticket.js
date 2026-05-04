@@ -972,7 +972,7 @@
                 html += '<div class="credito-modal-item"><i class="fa-solid fa-hashtag text-primary me-2"></i><span class="text-muted small">ID de crédito</span><div class="fw-medium">' + (d.id_credito || d.Id_credito || '\u2014') + '</div></div>';
                 if (d.Id_cliente) html += '<div class="credito-modal-item"><i class="fa-solid fa-id-card text-primary me-2"></i><span class="text-muted small">ID cliente</span><div class="fw-medium">' + d.Id_cliente + '</div></div>';
                 html += '<div class="credito-modal-item"><i class="fa-solid fa-map-marker-alt text-primary me-2"></i><span class="text-muted small">Dirección</span><div class="fw-medium">' + (d.Domicilio_Completo || '\u2014') + '</div></div>';
-                var tel = d.telefono_referencia1 || d.telefono_referencia2 || '';
+                var tel = (d.telefono_cliente != null && String(d.telefono_cliente).trim() !== '') ? String(d.telefono_cliente).trim() : '';
                 if (tel) html += '<div class="credito-modal-item"><i class="fa-solid fa-phone text-primary me-2"></i><span class="text-muted small">Teléfono</span><div class="fw-medium">' + tel + '</div></div>';
                 if (d.correo || d.email) html += '<div class="credito-modal-item"><i class="fa-solid fa-envelope text-primary me-2"></i><span class="text-muted small">Correo</span><div class="fw-medium">' + (d.correo || d.email || '\u2014') + '</div></div>';
                 var tickets = d.tickets || [];

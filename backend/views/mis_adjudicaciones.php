@@ -1508,6 +1508,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     let _madjDatosMotoData = null;       // datos logísticos guardados en paso 1
     let _madjMotoApiData   = null;       // datos de moto auto-cargados desde API externa
     let _madjMotoApiStatus = 'idle';     // 'idle' | 'loading' | 'loaded' | 'unavailable' | 'error'
+    let _madjMotoApiMsg    = '';
 
     const MADJ_EV_SECTIONS = [
         { key: 'recoleccion', label: 'Evidencia de Recolección (Final)', headerClass: 'madj-ev-hdr-orange', icon: 'fa-camera-retro',
@@ -1590,11 +1591,103 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
     /** Hidratar respuesta de la API externa de motos */
     function _madjHidratarMotoApi(apiResp) {
-        if (!apiResp) { _madjMotoApiStatus = 'error'; return; }
-        if (apiResp.unavailable) { _madjMotoApiStatus = 'unavailable'; return; }
-        if (!apiResp.success || !apiResp.datos_moto) { _madjMotoApiStatus = 'error'; return; }
+        if (!apiResp) {
+            _madjMotoApiStatus = 'error';
+            _madjMotoApiMsg = 'Respuesta vacía al consultar REPUVE.';
+            return;
+        }
+        _madjMotoApiMsg = String(apiResp.message || '').trim();
+        if (apiResp.unavailable) {
+            _madjMotoApiStatus = 'unavailable';
+            return;
+        }
+        if (apiResp.repuve && String(apiResp.repuve.estado || '').toUpperCase() === 'PROCESANDO') {
+            _madjMotoApiStatus = 'loading';
+            if (!_madjMotoApiMsg) _madjMotoApiMsg = 'Consulta REPUVE en proceso. Intenta nuevamente en unos segundos.';
+            return;
+        }
+        if (!apiResp.success || !apiResp.datos_moto) {
+            _madjMotoApiStatus = 'error';
+            if (!_madjMotoApiMsg) _madjMotoApiMsg = 'No se pudieron recuperar datos autocompletables desde REPUVE.';
+            return;
+        }
         _madjMotoApiData   = apiResp.datos_moto;
         _madjMotoApiStatus = 'loaded';
+    }
+
+    function _madjMotoApiBannerHtml() {
+        if (_madjMotoApiStatus === 'loading') {
+            return '<div class="alert alert-info py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-spinner fa-spin me-1"></i>' +
+                esc(_madjMotoApiMsg || 'Consultando REPUVE para autocompletar datos de la motocicleta...') +
+                '</div>';
+        }
+        if (_madjMotoApiStatus === 'loaded') {
+            return '<div class="alert alert-success py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-circle-check me-1"></i>Datos base cargados desde REPUVE. Verifica y completa los campos faltantes.</div>';
+        }
+        if (_madjMotoApiStatus === 'unavailable') {
+            return '<div class="alert alert-warning py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-triangle-exclamation me-1"></i>' +
+                esc(_madjMotoApiMsg || 'REPUVE no está configurado en este ambiente. Captura manual requerida.') +
+                '</div>';
+        }
+        if (_madjMotoApiStatus === 'error') {
+            return '<div class="alert alert-warning py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-triangle-exclamation me-1"></i>' +
+                esc(_madjMotoApiMsg || 'No se pudo autocompletar desde REPUVE. Puedes continuar con captura manual.') +
+                '</div>';
+        }
+        return '';
+    }
+
+    function _madjAplicarMotoApiEnFormularioSiVacio() {
+        if (!_madjMotoApiData || typeof _madjMotoApiData !== 'object') return;
+        if (_madjDatosMotoGuardados) return;
+        const keys = ['moto_marca', 'moto_modelo', 'moto_anio', 'moto_no_serie', 'moto_placas'];
+        keys.forEach(function (k) {
+            const el = document.getElementById('madj-datos-' + k);
+            if (!el) return;
+            if (String(el.value || '').trim() !== '') return;
+            const v = String(_madjMotoApiData[k] || '').trim();
+            if (!v) return;
+            el.value = v;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }
+
+    function _madjConsultarRepuveEnSegundoPlano(idCredito) {
+        const id = parseInt(idCredito, 10);
+        if (!id || id <= 0) return;
+        if (_madjDatosMotoGuardados) return;
+        if (_madjMotoApiStatus === 'loading' || _madjMotoApiStatus === 'loaded') return;
+
+        _madjMotoApiStatus = 'loading';
+        if (!_madjDatosMotoGuardados) {
+            _madjRenderEvModalBody({});
+        }
+
+        fetch('/MotosAdjudicadas/consultarRepuveCredito', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ id_credito: id }),
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                _madjHidratarMotoApi(resp || {});
+                if (!_madjDatosMotoGuardados) {
+                    _madjAplicarMotoApiEnFormularioSiVacio();
+                    _madjRenderEvModalBody({});
+                    _madjAplicarMotoApiEnFormularioSiVacio();
+                }
+            })
+            .catch(function () {
+                _madjMotoApiStatus = 'error';
+                _madjMotoApiMsg = 'Error de red al consultar REPUVE.';
+                if (!_madjDatosMotoGuardados) {
+                    _madjRenderEvModalBody({});
+                }
+            });
     }
 
     function _madjAsegurarOperacionActiva() {
@@ -1644,6 +1737,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         _madjDatosMotoData = null;
         _madjMotoApiData   = null;
         _madjMotoApiStatus = 'idle';
+        _madjMotoApiMsg    = '';
 
         document.getElementById('madj-ev-titulo').textContent =
             nombreCliente || ('Crédito #' + idCredito);
@@ -1670,6 +1764,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 }
                 _madjHidratarDetalleRemoto(data.detalle || {});
                 _madjRenderEvModalBody(data.detalle || {});
+                _madjConsultarRepuveEnSegundoPlano(idCredito);
             })
             .catch(() => {
                 document.getElementById('madj-ev-body').innerHTML =
@@ -1821,7 +1916,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // PASO 1 — Formulario de datos de la moto
     // --------------------------------------------------------------
     function _madjRenderDatosMotoForm() {
-        const d = _madjDatosMotoData || {};
+        const d = Object.assign({}, _madjMotoApiData || {}, _madjDatosMotoData || {});
         const v = (key) => esc(d[key] || '');
 
         const estadosMX = [
@@ -1837,6 +1932,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
         return `
         <div id="madj-datos-form-wrap">
+            ${_madjMotoApiBannerHtml()}
             <div class="madj-datos-sec-hdr madj-datos-sec-hdr-moto">
                 <i class="fa-solid fa-motorcycle"></i> Datos de la Motocicleta
             </div>
