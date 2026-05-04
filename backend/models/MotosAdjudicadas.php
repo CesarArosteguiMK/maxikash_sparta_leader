@@ -1594,6 +1594,526 @@ SQL;
     ];
 
     /**
+     * REPUVE: consulta una sola vez por crédito y reutiliza el registro guardado.
+     * Si existe registro PROCESANDO, solo consulta estatus por UUID (sin relanzar POST).
+     */
+    public function consultarRepuvePorCredito(int $idCredito, int $idUsuario = 0): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de crédito inválido.'];
+        }
+
+        $this->repuveAsegurarTabla();
+
+        $cfg = $this->repuveCargarConfig();
+        if (empty($cfg['configured'])) {
+            return [
+                'success'     => false,
+                'unavailable' => true,
+                'message'     => 'REPUVE no está configurado. Faltan REPUVE_API_BASE_URL y/o REPUVE_API_KEY en config_api.',
+            ];
+        }
+
+        $row = $this->db->queryOne(
+            'SELECT * FROM adj_repuve_consulta WHERE id_credito = :id LIMIT 1',
+            ['id' => $idCredito]
+        );
+
+        // Si ya hay registro final (éxito o error), nunca relanzar POST por regla de negocio.
+        if ($row) {
+            $estado = strtoupper(trim((string) ($row['estado'] ?? '')));
+            if ($estado === 'COMPLETADO' || $estado === 'ERROR') {
+                $datosMoto = $this->repuveDatosMotoDesdeFila($row);
+                return [
+                    'success'      => !empty($datosMoto),
+                    'from_cache'   => true,
+                    'id_credito'   => $idCredito,
+                    'datos_moto'   => $datosMoto,
+                    'repuve'       => [
+                        'estado'       => $estado,
+                        'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
+                        'mensaje'      => (string) ($row['mensaje'] ?? ''),
+                    ],
+                    'message'      => !empty($datosMoto)
+                        ? 'Datos REPUVE cargados desde caché.'
+                        : ((string) ($row['mensaje'] ?? 'No hay datos de vehículo para autocompletar.')),
+                ];
+            }
+
+            // Registro en proceso: solo sondeo de estatus por UUID.
+            $uuid = trim((string) ($row['uuid'] ?? ''));
+            if ($uuid !== '') {
+                $estatus = $this->repuveSondearEstatus($cfg, $uuid);
+                if (!empty($estatus['terminal'])) {
+                    $this->repuveActualizarFilaFinal($idCredito, $estatus);
+                    $row = $this->db->queryOne(
+                        'SELECT * FROM adj_repuve_consulta WHERE id_credito = :id LIMIT 1',
+                        ['id' => $idCredito]
+                    );
+                    $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
+                    return [
+                        'success'    => !empty($datosMoto),
+                        'from_cache' => true,
+                        'id_credito' => $idCredito,
+                        'datos_moto' => $datosMoto,
+                        'repuve'     => [
+                            'estado'       => (string) (($row['estado'] ?? 'PROCESANDO')),
+                            'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
+                            'mensaje'      => (string) ($row['mensaje'] ?? ''),
+                        ],
+                        'message'    => !empty($datosMoto)
+                            ? 'Datos REPUVE actualizados desde estatus.'
+                            : ((string) ($row['mensaje'] ?? 'Consulta REPUVE sin datos autocompletables.')),
+                    ];
+                }
+
+                return [
+                    'success'    => false,
+                    'from_cache' => true,
+                    'id_credito' => $idCredito,
+                    'repuve'     => [
+                        'estado'       => 'PROCESANDO',
+                        'message_code' => null,
+                        'mensaje'      => 'Consulta REPUVE en proceso. Intenta nuevamente en unos segundos.',
+                    ],
+                    'message'    => 'Consulta REPUVE en proceso. Intenta nuevamente en unos segundos.',
+                ];
+            }
+        }
+
+        $criterio = $this->repuveResolverCriterio($idCredito);
+        if (empty($criterio['ok'])) {
+            return ['success' => false, 'message' => (string) ($criterio['message'] ?? 'No se pudo determinar criterio de búsqueda.')];
+        }
+
+        $inicio = $this->repuveIniciarConsulta(
+            $cfg,
+            (string) $criterio['field'],
+            (string) $criterio['value'],
+            $idUsuario,
+            $idCredito
+        );
+
+        $this->repuveGuardarInicio(
+            $idCredito,
+            (string) $criterio['field'],
+            (string) $criterio['value'],
+            $inicio
+        );
+
+        if (empty($inicio['ok'])) {
+            return [
+                'success'    => false,
+                'id_credito' => $idCredito,
+                'message'    => (string) ($inicio['mensaje'] ?? 'No se pudo iniciar la consulta REPUVE.'),
+            ];
+        }
+
+        $uuid = (string) ($inicio['uuid'] ?? '');
+        if ($uuid === '') {
+            return ['success' => false, 'id_credito' => $idCredito, 'message' => 'REPUVE no devolvió UUID de seguimiento.'];
+        }
+
+        $estatus = $this->repuveSondearEstatus($cfg, $uuid);
+        if (!empty($estatus['terminal'])) {
+            $this->repuveActualizarFilaFinal($idCredito, $estatus);
+            $row = $this->db->queryOne(
+                'SELECT * FROM adj_repuve_consulta WHERE id_credito = :id LIMIT 1',
+                ['id' => $idCredito]
+            );
+            $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
+            return [
+                'success'    => !empty($datosMoto),
+                'from_cache' => false,
+                'id_credito' => $idCredito,
+                'datos_moto' => $datosMoto,
+                'repuve'     => [
+                    'estado'       => (string) (($row['estado'] ?? 'COMPLETADO')),
+                    'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
+                    'mensaje'      => (string) ($row['mensaje'] ?? ''),
+                ],
+                'message'    => !empty($datosMoto)
+                    ? 'Datos REPUVE consultados correctamente.'
+                    : ((string) ($row['mensaje'] ?? 'Consulta REPUVE completada sin datos autocompletables.')),
+            ];
+        }
+
+        return [
+            'success'    => false,
+            'id_credito' => $idCredito,
+            'repuve'     => [
+                'estado'  => 'PROCESANDO',
+                'mensaje' => 'Consulta REPUVE en proceso. Se guardó el UUID para seguimiento.',
+            ],
+            'message'    => 'Consulta REPUVE en proceso. Se guardó el UUID para seguimiento.',
+        ];
+    }
+
+    private function repuveAsegurarTabla(): void
+    {
+        $this->db->CRUD(
+            "CREATE TABLE IF NOT EXISTS adj_repuve_consulta (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                id_credito BIGINT NOT NULL,
+                criterio_tipo VARCHAR(10) NOT NULL,
+                criterio_valor VARCHAR(64) NOT NULL,
+                uuid VARCHAR(36) NULL,
+                estado VARCHAR(20) NOT NULL DEFAULT 'PROCESANDO',
+                http_status INT NULL,
+                exito TINYINT(1) NULL,
+                message_code INT NULL,
+                mensaje VARCHAR(512) NULL,
+                request_body LONGTEXT NULL,
+                response_body LONGTEXT NULL,
+                repuve_id VARCHAR(50) NULL,
+                placa VARCHAR(32) NULL,
+                vin VARCHAR(32) NULL,
+                marca VARCHAR(100) NULL,
+                modelo VARCHAR(100) NULL,
+                anio_modelo VARCHAR(10) NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_adj_repuve_credito (id_credito),
+                KEY idx_adj_repuve_uuid (uuid)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
+
+    private function repuveCargarConfig(): array
+    {
+        $rows = $this->db->queryAll(
+            "SELECT clave, valor
+             FROM config_api
+             WHERE clave IN ('REPUVE_API_BASE_URL','REPUVE_API_KEY','REPUVE_API_USUARIO','REPUVE_API_TIMEOUT')"
+        ) ?: [];
+
+        $cfg = [];
+        foreach ($rows as $r) {
+            $k = (string) ($r['clave'] ?? '');
+            if ($k !== '') {
+                $cfg[$k] = trim((string) ($r['valor'] ?? ''));
+            }
+        }
+
+        $base = rtrim((string) ($cfg['REPUVE_API_BASE_URL'] ?? ''), '/');
+        $key  = (string) ($cfg['REPUVE_API_KEY'] ?? '');
+        $usr  = (string) ($cfg['REPUVE_API_USUARIO'] ?? 'cobranza');
+        $to   = (int) ($cfg['REPUVE_API_TIMEOUT'] ?? 25);
+        if ($to < 5) {
+            $to = 25;
+        }
+
+        return [
+            'configured' => $base !== '' && $key !== '',
+            'base_url'   => $base,
+            'api_key'    => $key,
+            'usuario'    => $usr !== '' ? $usr : 'cobranza',
+            'timeout'    => $to,
+        ];
+    }
+
+    private function repuveResolverCriterio(int $idCredito): array
+    {
+        $op = $this->db->queryOne(
+            'SELECT moto_placas, placas, moto_no_serie, serie
+             FROM adj_operacion
+             WHERE id_credito = :id
+             ORDER BY id DESC
+             LIMIT 1',
+            ['id' => $idCredito]
+        );
+
+        if (!$op) {
+            return ['ok' => false, 'message' => 'No existe operación para el crédito indicado.'];
+        }
+
+        $plateBase = trim((string) ($op['moto_placas'] ?? ''));
+        if ($plateBase === '') {
+            $plateBase = trim((string) ($op['placas'] ?? ''));
+        }
+        $plate = strtoupper(preg_replace('/\s+/u', '', $plateBase));
+        if ($plate !== '') {
+            return ['ok' => true, 'field' => 'plate', 'value' => $plate];
+        }
+
+        $vinBase = trim((string) ($op['moto_no_serie'] ?? ''));
+        if ($vinBase === '') {
+            $vinBase = trim((string) ($op['serie'] ?? ''));
+        }
+        $vin = strtoupper(preg_replace('/\s+/u', '', $vinBase));
+        if ($vin !== '') {
+            return ['ok' => true, 'field' => 'vin', 'value' => $vin];
+        }
+
+        return [
+            'ok'      => false,
+            'message' => 'No hay placas ni VIN para consultar REPUVE. Primero captura y guarda los datos de la motocicleta.',
+        ];
+    }
+
+    private function repuveHeaders(array $cfg, int $idUsuario, int $idCredito): array
+    {
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'X-API-KEY: ' . $cfg['api_key'],
+            'usuario: ' . $cfg['usuario'],
+            'idPersona: ' . max(0, $idUsuario),
+            'idOferta: ' . max(0, $idCredito),
+            'idFlujo: mis-adjudicaciones',
+        ];
+        return $headers;
+    }
+
+    private function repuveHttpJson(string $method, string $url, array $headers, ?array $body, int $timeout): array
+    {
+        $ch = curl_init();
+        $opts = [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+        ];
+
+        if (strtoupper($method) === 'POST') {
+            $opts[CURLOPT_POST] = true;
+            $opts[CURLOPT_POSTFIELDS] = json_encode($body ?? [], JSON_UNESCAPED_UNICODE);
+        }
+
+        curl_setopt_array($ch, $opts);
+        $raw   = curl_exec($ch);
+        $errno = curl_errno($ch);
+        $error = curl_error($ch);
+        $http  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($errno || $raw === false) {
+            return [
+                'ok'          => false,
+                'http_status' => $http > 0 ? $http : null,
+                'mensaje'     => 'Error de red REPUVE: ' . ($error ?: 'sin detalle'),
+                'raw'         => null,
+                'json'        => null,
+            ];
+        }
+
+        $json = json_decode((string) $raw, true);
+        if (!is_array($json)) {
+            return [
+                'ok'          => false,
+                'http_status' => $http,
+                'mensaje'     => 'REPUVE devolvió respuesta no JSON.',
+                'raw'         => (string) $raw,
+                'json'        => null,
+            ];
+        }
+
+        return [
+            'ok'          => $http >= 200 && $http < 300,
+            'http_status' => $http,
+            'mensaje'     => (string) ($json['mensaje'] ?? ''),
+            'raw'         => (string) $raw,
+            'json'        => $json,
+        ];
+    }
+
+    private function repuveIniciarConsulta(array $cfg, string $field, string $value, int $idUsuario, int $idCredito): array
+    {
+        $url  = $cfg['base_url'] . '/nubarium/consultaRepuve';
+        $body = [$field => $value, 'pdf' => false];
+        $res  = $this->repuveHttpJson('POST', $url, $this->repuveHeaders($cfg, $idUsuario, $idCredito), $body, (int) $cfg['timeout']);
+
+        $uuid = '';
+        $estado = 'ERROR';
+        $msg = (string) ($res['mensaje'] ?? '');
+        if (!empty($res['json']['resultado']['uuid'])) {
+            $uuid = (string) $res['json']['resultado']['uuid'];
+            $estado = strtoupper((string) ($res['json']['resultado']['estado'] ?? 'PROCESANDO'));
+        }
+
+        return [
+            'ok'           => !empty($res['ok']) && $uuid !== '',
+            'uuid'         => $uuid,
+            'estado'       => $estado,
+            'http_status'  => $res['http_status'] ?? null,
+            'mensaje'      => $msg !== '' ? $msg : ((string) ($res['json']['resultado']['message'] ?? 'No se pudo iniciar consulta REPUVE.')),
+            'request_body' => json_encode($body, JSON_UNESCAPED_UNICODE),
+            'response_raw' => $res['raw'] ?? null,
+        ];
+    }
+
+    private function repuveSondearEstatus(array $cfg, string $uuid): array
+    {
+        $url = $cfg['base_url'] . '/nubarium/estatusRepuve/' . rawurlencode($uuid);
+        $headers = [
+            'Accept: application/json',
+            'X-API-KEY: ' . $cfg['api_key'],
+            'usuario: ' . $cfg['usuario'],
+        ];
+
+        $intentos = 6;
+        $ultimo = null;
+        for ($i = 0; $i < $intentos; $i++) {
+            $res = $this->repuveHttpJson('GET', $url, $headers, null, (int) $cfg['timeout']);
+            $ultimo = $res;
+            $json = is_array($res['json'] ?? null) ? $res['json'] : [];
+            $resultado = is_array($json['resultado'] ?? null) ? $json['resultado'] : [];
+            $estado = strtoupper((string) ($resultado['estado'] ?? ''));
+            $status = strtoupper((string) ($resultado['status'] ?? ''));
+            $messageCode = isset($resultado['messageCode']) ? (int) $resultado['messageCode'] : null;
+
+            $terminal = false;
+            $estadoFinal = 'ERROR';
+            if ($estado === 'PROCESANDO') {
+                $terminal = false;
+            } elseif ($status !== '' || $messageCode !== null) {
+                $terminal = true;
+                $estadoFinal = 'COMPLETADO';
+            } elseif (empty($res['ok']) && (($res['http_status'] ?? 0) >= 400)) {
+                $terminal = true;
+                $estadoFinal = 'ERROR';
+            }
+
+            if ($terminal) {
+                $datosMoto = $this->repuveMapearDatosMoto($json);
+                return [
+                    'terminal'     => true,
+                    'estado_final' => $estadoFinal,
+                    'http_status'  => $res['http_status'] ?? null,
+                    'exito'        => $messageCode === 0 && !empty($datosMoto),
+                    'message_code' => $messageCode,
+                    'mensaje'      => (string) ($resultado['message'] ?? $json['mensaje'] ?? $res['mensaje'] ?? ''),
+                    'response_raw' => $res['raw'] ?? null,
+                    'datos_moto'   => $datosMoto,
+                    'repuve_id'    => (string) (($resultado['data']['repuveId'] ?? '') ?: ''),
+                ];
+            }
+
+            if ($i < ($intentos - 1)) {
+                usleep(2000000);
+            }
+        }
+
+        return [
+            'terminal'     => false,
+            'estado_final' => 'PROCESANDO',
+            'http_status'  => $ultimo['http_status'] ?? null,
+            'mensaje'      => 'Consulta REPUVE en proceso.',
+            'response_raw' => $ultimo['raw'] ?? null,
+        ];
+    }
+
+    private function repuveGuardarInicio(int $idCredito, string $field, string $value, array $inicio): void
+    {
+        $this->db->CRUD(
+            "INSERT INTO adj_repuve_consulta
+                (id_credito, criterio_tipo, criterio_valor, uuid, estado, http_status, exito, mensaje, request_body, response_body)
+             VALUES
+                (:id_credito, :tipo, :valor, :uuid, :estado, :http_status, :exito, :mensaje, :request_body, :response_body)
+             ON DUPLICATE KEY UPDATE
+                criterio_tipo = VALUES(criterio_tipo),
+                criterio_valor = VALUES(criterio_valor),
+                uuid = VALUES(uuid),
+                estado = VALUES(estado),
+                http_status = VALUES(http_status),
+                exito = VALUES(exito),
+                mensaje = VALUES(mensaje),
+                request_body = VALUES(request_body),
+                response_body = VALUES(response_body)",
+            [
+                'id_credito'   => $idCredito,
+                'tipo'         => $field,
+                'valor'        => $value,
+                'uuid'         => (string) ($inicio['uuid'] ?? ''),
+                'estado'       => (string) ($inicio['estado'] ?? 'ERROR'),
+                'http_status'  => $inicio['http_status'] ?? null,
+                'exito'        => !empty($inicio['ok']) ? 1 : 0,
+                'mensaje'      => (string) ($inicio['mensaje'] ?? ''),
+                'request_body' => $inicio['request_body'] ?? null,
+                'response_body'=> $inicio['response_raw'] ?? null,
+            ]
+        );
+    }
+
+    private function repuveActualizarFilaFinal(int $idCredito, array $estatus): void
+    {
+        $datos = is_array($estatus['datos_moto'] ?? null) ? $estatus['datos_moto'] : [];
+        $this->db->CRUD(
+            "UPDATE adj_repuve_consulta SET
+                estado = :estado,
+                http_status = :http_status,
+                exito = :exito,
+                message_code = :message_code,
+                mensaje = :mensaje,
+                response_body = COALESCE(:response_body, response_body),
+                repuve_id = :repuve_id,
+                placa = :placa,
+                vin = :vin,
+                marca = :marca,
+                modelo = :modelo,
+                anio_modelo = :anio
+             WHERE id_credito = :id_credito",
+            [
+                'estado'      => (string) ($estatus['estado_final'] ?? 'ERROR'),
+                'http_status' => $estatus['http_status'] ?? null,
+                'exito'       => !empty($estatus['exito']) ? 1 : 0,
+                'message_code'=> $estatus['message_code'] ?? null,
+                'mensaje'     => (string) ($estatus['mensaje'] ?? ''),
+                'response_body' => $estatus['response_raw'] ?? null,
+                'repuve_id'   => (string) ($estatus['repuve_id'] ?? ''),
+                'placa'       => (string) ($datos['moto_placas'] ?? ''),
+                'vin'         => (string) ($datos['moto_no_serie'] ?? ''),
+                'marca'       => (string) ($datos['moto_marca'] ?? ''),
+                'modelo'      => (string) ($datos['moto_modelo'] ?? ''),
+                'anio'        => (string) ($datos['moto_anio'] ?? ''),
+                'id_credito'  => $idCredito,
+            ]
+        );
+    }
+
+    private function repuveMapearDatosMoto(array $resp): array
+    {
+        $resultado = is_array($resp['resultado'] ?? null) ? $resp['resultado'] : [];
+        $data      = is_array($resultado['data'] ?? null) ? $resultado['data'] : [];
+        $vehicle   = is_array($data['vehicle'] ?? null) ? $data['vehicle'] : [];
+
+        $marca  = trim((string) ($vehicle['marca'] ?? ''));
+        $modelo = trim((string) ($vehicle['modelo'] ?? ($vehicle['linea'] ?? '')));
+        $anio   = trim((string) ($vehicle['anioModelo'] ?? ''));
+        $placa  = strtoupper(trim((string) ($vehicle['placa'] ?? '')));
+        $vin    = strtoupper(trim((string) ($vehicle['vin'] ?? '')));
+
+        $out = [];
+        if ($marca !== '') $out['moto_marca'] = $marca;
+        if ($modelo !== '') $out['moto_modelo'] = $modelo;
+        if ($anio !== '') $out['moto_anio'] = $anio;
+        if ($placa !== '') $out['moto_placas'] = $placa;
+        if ($vin !== '') $out['moto_no_serie'] = $vin;
+        return $out;
+    }
+
+    private function repuveDatosMotoDesdeFila(array $row): array
+    {
+        $out = [];
+        $marca = trim((string) ($row['marca'] ?? ''));
+        $modelo = trim((string) ($row['modelo'] ?? ''));
+        $anio = trim((string) ($row['anio_modelo'] ?? ''));
+        $placa = strtoupper(trim((string) ($row['placa'] ?? '')));
+        $vin = strtoupper(trim((string) ($row['vin'] ?? '')));
+
+        if ($marca !== '') $out['moto_marca'] = $marca;
+        if ($modelo !== '') $out['moto_modelo'] = $modelo;
+        if ($anio !== '') $out['moto_anio'] = $anio;
+        if ($placa !== '') $out['moto_placas'] = $placa;
+        if ($vin !== '') $out['moto_no_serie'] = $vin;
+        return $out;
+    }
+
+    /**
      * Guarda los datos de la moto y logísticos en adj_operacion.
      * @param  int    $idOperacion  ID de adj_operacion
      * @param  array  $datos        Mapa campo → valor

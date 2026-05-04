@@ -1645,7 +1645,7 @@ window.actualizarDictamenCamposPorTipo = function() {
                         var d = resp.datos;
                         var idCred = d.id_credito || id;
                         var nombre = (d.Nombre_cliente || d.nombre_completo || '—').toString().replace(/</g, '&lt;');
-                        var tel = (d.telefono_referencia1 || d.telefono_referencia2 || '—').toString().replace(/</g, '&lt;');
+                        var tel = ((d.telefono_cliente != null && String(d.telefono_cliente).trim() !== '') ? String(d.telefono_cliente).trim() : '—').toString().replace(/</g, '&lt;');
                         var dom = (d.Domicilio_Completo || '—').toString().replace(/</g, '&lt;');
                         var htmlTop = '<div><span class="text-muted small d-block">ID crédito</span><div class="fw-semibold">' + idCred + '</div></div>' +
                             '<div><span class="text-muted small d-block">Nombre completo</span><div class="fw-semibold">' + nombre + '</div></div>' +

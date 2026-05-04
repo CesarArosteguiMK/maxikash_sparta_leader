@@ -556,6 +556,32 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/consultarRepuveCredito
+     * Body JSON: { "id_credito": 12345 }
+     * Consulta REPUVE una sola vez por crédito y reutiliza el registro en BD.
+     */
+    public function consultarRepuveCredito()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->consultarRepuvePorCredito($idCredito, $idUsuario);
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * POST /MotosAdjudicadas/obtenerResumenEvidenciasCreditos
      * Body JSON: { "ids_credito": [123, 456] }
      */
