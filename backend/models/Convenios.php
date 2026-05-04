@@ -1063,10 +1063,22 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
             $numSem      = (int)$semana['numero_semana'];
             $pagoSemanal = round((float)$semana['pago_semanal'], 4);
 
-            // Semana ya pagada en BD: fue cubierta por un pago previo (posiblemente
-            // filtrado por fecha_acuerdo). Avanzar sin consumir dinero del pago actual.
+            // Semana ya pagada en BD: consumir su pago_semanal del disponible para
+            // evitar que el mismo pago S2 sea reasignado a semanas posteriores en
+            // ejecuciones sucesivas de la auto-conciliación (cada carga de página
+            // llama a esta función; sin consumir, el mismo pago S2 cubre sems
+            // distintas en cada run, marcando el convenio como completado cuando no lo está).
             if (($semana['estatus_pago'] ?? '') === 'pagado') {
-                $idxSem++;
+                if ($disponible >= $pagoSemanal - 0.005) {
+                    $disponible = round($disponible - $pagoSemanal, 4);
+                    $idxSem++;
+                } else {
+                    // El disponible actual no cubre el monto de esta semana pagada;
+                    // el resto provino de un pago anterior.
+                    $sobrante   = $disponible;
+                    $disponible = 0;
+                    // No avanzar $idxSem: la semana se completará con el siguiente pago.
+                }
                 continue;
             }
 

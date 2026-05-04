@@ -430,9 +430,9 @@ class Sabueso extends Controller
                     var htmlCredito = '<div class="row g-2 mb-3">';
                     htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">ID crédito</span><div class="fw-semibold">' + (credito.id_credito || '—') + '</div></div>';
                     htmlCredito += '<div class="col-md-8"><span class="text-muted small d-block">Nombre cliente</span><div class="fw-semibold">' + esc(credito.Nombre_cliente || credito.nombre_completo || '—') + '</div></div>';
-                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Teléfono 1</span><div class="fw-semibold">' + esc(credito.telefono_referencia1 || '—') + '</div></div>';
-                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Teléfono 2</span><div class="fw-semibold">' + esc(credito.telefono_referencia2 || '—') + '</div></div>';
-                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Celular</span><div class="fw-semibold">' + esc(credito.Celular || credito.celular || '—') + '</div></div>';
+                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Teléfono</span><div class="fw-semibold">' + esc((credito.telefono_cliente && String(credito.telefono_cliente).trim()) ? String(credito.telefono_cliente).trim() : (credito.Celular || credito.celular || '—')) + '</div></div>';
+                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Ref. 1</span><div class="fw-semibold">' + esc(credito.telefono_referencia1 || '—') + '</div></div>';
+                    htmlCredito += '<div class="col-md-4"><span class="text-muted small d-block">Ref. 2</span><div class="fw-semibold">' + esc(credito.telefono_referencia2 || '—') + '</div></div>';
                     htmlCredito += '<div class="col-md-12"><span class="text-muted small d-block">Dirección</span><div class="fw-semibold small">' + esc(credito.Domicilio_Completo || '—') + '</div></div>';
                     htmlCredito += '</div>';
 
@@ -3097,6 +3097,18 @@ class Sabueso extends Controller
             $datosRef = ($ref['success'] ?? false) && !empty($ref['datos']) ? $ref['datos'][0] : [];
             $credito = array_merge($datosDir ?: [], $datosRef ?: []);
             $credito['id_credito'] = $idCredito;
+            $telefonoCliente = '';
+            $telRes = EmpresaDAO::getTelefonoTitularCredito($idCredito);
+            if (!empty($telRes['success']) && array_key_exists('datos', $telRes)) {
+                $telefonoCliente = trim((string) $telRes['datos']);
+            }
+            if ($telefonoCliente === '') {
+                $telSm = EmpresaDAO::getCelularCreditoSegundometro($idCredito);
+                if (!empty($telSm['success']) && array_key_exists('datos', $telSm)) {
+                    $telefonoCliente = trim((string) $telSm['datos']);
+                }
+            }
+            $credito['telefono_cliente'] = $telefonoCliente;
             if (empty($datosDir) && !empty($datosRef)) {
                 $credito['Nombre_cliente'] = $credito['nombre_completo'] ?? $credito['Nombre_cliente'] ?? '—';
                 $credito['Domicilio_Completo'] = $credito['Domicilio_Completo'] ?? 'No disponible';
@@ -3881,6 +3893,18 @@ class Sabueso extends Controller
         $datosRef = ($ref['success'] ?? false) && !empty($ref['datos']) ? $ref['datos'][0] : [];
         $todo = array_merge($datosDir ?: [], $datosRef ?: []);
         $todo['id_credito'] = $idCredito;
+        $telefonoCliente = '';
+        $telRes = EmpresaDAO::getTelefonoTitularCredito($idCredito);
+        if (!empty($telRes['success']) && array_key_exists('datos', $telRes)) {
+            $telefonoCliente = trim((string) $telRes['datos']);
+        }
+        if ($telefonoCliente === '') {
+            $telSm = EmpresaDAO::getCelularCreditoSegundometro($idCredito);
+            if (!empty($telSm['success']) && array_key_exists('datos', $telSm)) {
+                $telefonoCliente = trim((string) $telSm['datos']);
+            }
+        }
+        $todo['telefono_cliente'] = $telefonoCliente;
         // Si no hay datos en ninguna fuente: success true + datos null para que el front muestre alert sin lanzar error.
         if (empty($datosDir) && empty($datosRef)) {
             self::respuestaJSON([

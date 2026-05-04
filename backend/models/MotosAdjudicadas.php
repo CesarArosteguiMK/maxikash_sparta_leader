@@ -22,11 +22,8 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columnas recepcion_*_estado (migración 20260428_adj_operacion_recepcion_doc_estado.sql) */
     private static $adjOperacionRecepcionDocEstadoCol = null;
 
-    /** Slots de evidencias fotográficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
-    private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
-    ];
+    /** Máximo de consultas REPUVE nuevas (POST a Nubarium) por usuario y día natural CDMX. */
+    private const REPUVE_CONSULTAS_MAX_DIA = 5;
 
     public function __construct()
     {
@@ -1812,13 +1809,680 @@ SQL;
         'log_estado', 'log_responsable', 'log_telefono',
     ];
 
+    /** ISO 3779 / NHTSA: VIN de 17 caracteres máx.; sin I, O, Q (motocicletas incluidas). */
+    private const MADJ_VIN_MAX_LEN = 17;
+    private const MADJ_VIN_MIN_LEN = 8;
+
+    /** Número de motor (fabricante): límite superior típico en motos; sin estándar único como el VIN. */
+    private const MADJ_NO_MOTOR_MAX_LEN = 24;
+
+    /** Placa motocicleta México (NOM-001-SCT-2-2016 / formatos por estado): serie corta; margen por variantes. */
+    private const MADJ_PLACAS_MOTO_MAX_LEN = 9;
+    private const MADJ_PLACAS_MOTO_MIN_LEN = 4;
+
+    /** Slots de evidencia media (fotos/video) que se cuentan/dictaminan en Mis Adjudicaciones. */
+    private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
+        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+    ];
+
+    /**
+     * Validación de formato para Mis adjudicaciones (motocicleta).
+     * @return string|null mensaje de error o null si todo OK
+     */
+    private function validarDatosMotoFormatos(array $datos): ?string
+    {
+        if (array_key_exists('moto_no_serie', $datos)) {
+            $vin = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_no_serie']));
+            $lv  = strlen($vin);
+            if ($vin !== '' && ($lv < self::MADJ_VIN_MIN_LEN || $lv > self::MADJ_VIN_MAX_LEN)) {
+                return 'El número de serie (VIN) debe tener entre '
+                    . self::MADJ_VIN_MIN_LEN . ' y ' . self::MADJ_VIN_MAX_LEN . ' caracteres.';
+            }
+        }
+
+        if (array_key_exists('moto_no_motor', $datos)) {
+            $motor = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_no_motor']));
+            if ($motor !== '' && strlen($motor) > self::MADJ_NO_MOTOR_MAX_LEN) {
+                return 'El número de motor no debe superar ' . self::MADJ_NO_MOTOR_MAX_LEN . ' caracteres.';
+            }
+        }
+
+        if (array_key_exists('moto_placas', $datos)) {
+            $placas = strtoupper(preg_replace('/\s+/u', '', (string) $datos['moto_placas']));
+            $lp     = strlen($placas);
+            if ($lp < self::MADJ_PLACAS_MOTO_MIN_LEN || $lp > self::MADJ_PLACAS_MOTO_MAX_LEN) {
+                return 'Las placas de motocicleta deben tener entre '
+                    . self::MADJ_PLACAS_MOTO_MIN_LEN . ' y ' . self::MADJ_PLACAS_MOTO_MAX_LEN
+                    . ' caracteres (en México el formato de serie suele ser corto, p. ej. Y001AA).';
+            }
+            if (!preg_match('/^[A-Z0-9\-]+$/', $placas)) {
+                return 'Las placas solo pueden incluir letras, números y guion.';
+            }
+        }
+
+        if (array_key_exists('moto_color', $datos)) {
+            $color = trim((string) $datos['moto_color']);
+            if ($color !== '' && !preg_match('/^[a-záéíóúüñÁÉÍÓÚÜÑ\s]+$/u', $color)) {
+                return 'El color debe contener solo letras (y espacios), sin números.';
+            }
+        }
+
+        if (array_key_exists('log_responsable', $datos)) {
+            $nom = trim((string) $datos['log_responsable']);
+            if ($nom !== '' && !preg_match('/^[a-záéíóúüñÁÉÍÓÚÜÑ\s\'\.\.\-]+$/u', $nom)) {
+                return 'El responsable de resguardo debe ser un nombre (letras); no se permiten números.';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Consulta REPUVE con placa o VIN explícitos (vista dedicada).
+     *
+     * @param  string  $tipo  plate | vin
+     */
+    public function consultarRepuveConCriterio(int $idCredito, string $tipo, string $valorRaw, int $idUsuario = 0): array
+    {
+        $tipo = strtolower(trim($tipo));
+        if (!in_array($tipo, ['plate', 'vin'], true)) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success' => false,
+                'message' => 'El criterio debe ser placa (plate) o VIN (vin).',
+            ]);
+        }
+        $val = strtoupper(preg_replace('/\s+/u', '', trim($valorRaw)));
+        if ($val === '') {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success' => false,
+                'message' => 'Indica placa o número de serie (VIN).',
+            ]);
+        }
+        if ($tipo === 'vin' && strlen($val) < 8) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success' => false,
+                'message' => 'El VIN parece incompleto.',
+            ]);
+        }
+        if ($tipo === 'plate' && strlen($val) < 4) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success' => false,
+                'message' => 'La placa parece incompleta.',
+            ]);
+        }
+
+        return $this->consultarRepuvePorCreditoCore($idCredito, $idUsuario, [
+            'ok'    => true,
+            'field' => $tipo,
+            'value' => $val,
+        ]);
+    }
+
+    /**
+     * @param  array|null  $criterioForzado  null = usar placas/VIN en adj_operacion; o ['ok'=>true,'field'=>'plate|vin','value'=>...]
+     */
+    private function consultarRepuvePorCreditoCore(int $idCredito, int $idUsuario, ?array $criterioForzado): array
+    {
+        if ($idCredito <= 0) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, ['success' => false, 'message' => 'ID de crédito inválido.']);
+        }
+
+        $this->repuveAsegurarTabla();
+        $this->repuveAsegurarTablaLog();
+
+        $cfg = $this->repuveCargarConfig();
+        if (empty($cfg['configured'])) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success'     => false,
+                'unavailable' => true,
+                'message'     => 'REPUVE no está configurado. Faltan REPUVE_API_BASE_URL y/o REPUVE_API_KEY en config_api.',
+            ]);
+        }
+
+        $row = $this->db->queryOne(
+            'SELECT * FROM adj_repuve_consulta WHERE id_credito = :id LIMIT 1',
+            ['id' => $idCredito]
+        );
+
+        // Si ya hay registro final (éxito o error), nunca relanzar POST por regla de negocio.
+        if ($row) {
+            $estado = strtoupper(trim((string) ($row['estado'] ?? '')));
+            if ($estado === 'COMPLETADO' || $estado === 'ERROR') {
+                $datosMoto = $this->repuveDatosMotoDesdeFila($row);
+                $out = [
+                    'success'      => !empty($datosMoto),
+                    'from_cache'   => true,
+                    'id_credito'   => $idCredito,
+                    'datos_moto'   => $datosMoto,
+                    'repuve'       => [
+                        'estado'       => $estado,
+                        'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
+                        'mensaje'      => (string) ($row['mensaje'] ?? ''),
+                    ],
+                    'message'      => !empty($datosMoto)
+                        ? 'Datos REPUVE cargados desde caché.'
+                        : ((string) ($row['mensaje'] ?? 'No hay datos de vehículo para autocompletar.')),
+                ];
+                return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+            }
+
+            $uuid = trim((string) ($row['uuid'] ?? ''));
+            if ($uuid !== '') {
+                $estatus = $this->repuveSondearEstatus($cfg, $uuid);
+                if (!empty($estatus['terminal'])) {
+                    $this->repuveActualizarFilaFinal($idCredito, $estatus);
+                    $row = $this->db->queryOne(
+                        'SELECT * FROM adj_repuve_consulta WHERE id_credito = :id LIMIT 1',
+                        ['id' => $idCredito]
+                    );
+                    $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
+                    $out = [
+                        'success'    => !empty($datosMoto),
+                        'from_cache' => true,
+                        'id_credito' => $idCredito,
+                        'datos_moto' => $datosMoto,
+                        'repuve'     => [
+                            'estado'       => (string) (($row['estado'] ?? 'PROCESANDO')),
+                            'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
+                            'mensaje'      => (string) ($row['mensaje'] ?? ''),
+                        ],
+                        'message'    => !empty($datosMoto)
+                            ? 'Datos REPUVE actualizados desde estatus.'
+                            : ((string) ($row['mensaje'] ?? 'Consulta REPUVE sin datos autocompletables.')),
+                    ];
+                    return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+                }
+
+                $out = [
+                    'success'    => false,
+                    'from_cache' => true,
+                    'id_credito' => $idCredito,
+                    'repuve'     => [
+                        'estado'       => 'PROCESANDO',
+                        'message_code' => null,
+                        'mensaje'      => 'Consulta REPUVE en proceso. Intenta nuevamente en unos segundos.',
+                    ],
+                    'message'    => 'Consulta REPUVE en proceso. Intenta nuevamente en unos segundos.',
+                ];
+                return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+            }
+        }
+
+        $criterio = $criterioForzado ?? $this->repuveResolverCriterio($idCredito);
+        if (empty($criterio['ok'])) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success' => false,
+                'message' => (string) ($criterio['message'] ?? 'No se pudo determinar criterio de búsqueda.'),
+            ]);
+        }
+
+        if ($idUsuario > 0 && $this->repuveContarConsultasHoy($idUsuario) >= self::REPUVE_CONSULTAS_MAX_DIA) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success'          => false,
+                'message'          => 'Alcanzaste el máximo de ' . self::REPUVE_CONSULTAS_MAX_DIA . ' consultas REPUVE por día. Intenta mañana.',
+                'limite_alcanzado' => true,
+            ]);
+        }
+
+        $inicio = $this->repuveIniciarConsulta(
+            $cfg,
+            (string) $criterio['field'],
+            (string) $criterio['value'],
+            $idUsuario,
+            $idCredito
+        );
+
+        $this->repuveGuardarInicio(
+            $idCredito,
+            (string) $criterio['field'],
+            (string) $criterio['value'],
+            $inicio
+        );
+
+        if (!empty($inicio['ok']) && $idUsuario > 0) {
+            $this->repuveRegistrarUsoConsulta($idUsuario, $idCredito);
+        }
+
+        if (empty($inicio['ok'])) {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success'    => false,
+                'id_credito' => $idCredito,
+                'message'    => (string) ($inicio['mensaje'] ?? 'No se pudo iniciar la consulta REPUVE.'),
+            ]);
+        }
+
+        $uuid = (string) ($inicio['uuid'] ?? '');
+        if ($uuid === '') {
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, [
+                'success'    => false,
+                'id_credito' => $idCredito,
+                'message'    => 'REPUVE no devolvió UUID de seguimiento.',
+            ]);
+        }
+
+        $estatus = $this->repuveSondearEstatus($cfg, $uuid);
+        if (!empty($estatus['terminal'])) {
+            $this->repuveActualizarFilaFinal($idCredito, $estatus);
+            $row = $this->db->queryOne(
+                'SELECT * FROM adj_repuve_consulta WHERE id_credito = :id LIMIT 1',
+                ['id' => $idCredito]
+            );
+            $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
+            $out = [
+                'success'    => !empty($datosMoto),
+                'from_cache' => false,
+                'id_credito' => $idCredito,
+                'datos_moto' => $datosMoto,
+                'repuve'     => [
+                    'estado'       => (string) (($row['estado'] ?? 'COMPLETADO')),
+                    'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
+                    'mensaje'      => (string) ($row['mensaje'] ?? ''),
+                ],
+                'message'    => !empty($datosMoto)
+                    ? 'Datos REPUVE consultados correctamente.'
+                    : ((string) ($row['mensaje'] ?? 'Consulta REPUVE completada sin datos autocompletables.')),
+            ];
+            return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+        }
+
+        $out = [
+            'success'    => false,
+            'id_credito' => $idCredito,
+            'repuve'     => [
+                'estado'  => 'PROCESANDO',
+                'mensaje' => 'Consulta REPUVE en proceso. Se guardó el UUID para seguimiento.',
+            ],
+            'message'    => 'Consulta REPUVE en proceso. Se guardó el UUID para seguimiento.',
+        ];
+        return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
+    }
+
+    /** Añade cupo diario y sincroniza datos de moto hacia adj_operacion cuando hay resultado útil. */
+    private function repuveEnriquecerResultado(int $idCredito, int $idUsuario, array $result): array
+    {
+        $result['limite_consultas'] = $this->repuveInfoLimite($idUsuario);
+
+        if (
+            $idCredito > 0
+            && !empty($result['datos_moto'])
+            && is_array($result['datos_moto'])
+        ) {
+            $this->repuveSincronizarDatosMotoAOperacion($idCredito, $result['datos_moto'], $idUsuario);
+        }
+
+        return $result;
+    }
+
+    /** @return array{max:int,usado_hoy:int,restantes:int} */
+    private function repuveInfoLimite(int $idUsuario): array
+    {
+        $max = self::REPUVE_CONSULTAS_MAX_DIA;
+        if ($idUsuario <= 0) {
+            return ['max' => $max, 'usado_hoy' => 0, 'restantes' => $max];
+        }
+        $usado = $this->repuveContarConsultasHoy($idUsuario);
+
+        return [
+            'max'       => $max,
+            'usado_hoy' => $usado,
+            'restantes' => max(0, $max - $usado),
+        ];
+    }
+
+    /**
+     * Cupo de consultas REPUVE del día (para barra en pantalla Consulta REPUVE).
+     *
+     * @return array{max:int,usado_hoy:int,restantes:int}
+     */
+    public function obtenerInfoLimiteRepuve(int $idUsuario = 0): array
+    {
+        $this->repuveAsegurarTablaLog();
+
+        return $this->repuveInfoLimite($idUsuario);
+    }
+
+    private function repuveSincronizarDatosMotoAOperacion(int $idCredito, array $datosMoto, int $idUsuario): void
+    {
+        if ($idCredito <= 0 || empty($datosMoto)) {
+            return;
+        }
+        $opRes = $this->obtenerOCrearOperacion($idCredito, '', $idUsuario);
+        if (empty($opRes['success']) || empty($opRes['detalle']['id'])) {
+            return;
+        }
+        $idOp = (int) $opRes['detalle']['id'];
+        $this->guardarDatosMoto($idOp, $datosMoto, $idUsuario, 'REPUVE', false);
+    }
+
+    private function repuveAsegurarTablaLog(): void
+    {
+        $this->db->CRUD(
+            "CREATE TABLE IF NOT EXISTS adj_repuve_consulta_log (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                id_usuario INT NOT NULL,
+                id_credito BIGINT NOT NULL,
+                creado_at DATETIME NOT NULL,
+                PRIMARY KEY (id),
+                KEY idx_repuve_log_u_fecha (id_usuario, creado_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
+
+    private function repuveContarConsultasHoy(int $idUsuario): int
+    {
+        if ($idUsuario <= 0) {
+            return 0;
+        }
+        $tz    = new \DateTimeZone('America/Mexico_City');
+        $start = (new \DateTime('today', $tz))->format('Y-m-d H:i:s');
+        $end   = (new \DateTime('tomorrow', $tz))->format('Y-m-d H:i:s');
+        $row   = $this->db->queryOne(
+            'SELECT COUNT(*) AS c FROM adj_repuve_consulta_log
+             WHERE id_usuario = :u AND creado_at >= :s AND creado_at < :e',
+            ['u' => $idUsuario, 's' => $start, 'e' => $end]
+        );
+
+        return (int) ($row['c'] ?? 0);
+    }
+
+    private function repuveRegistrarUsoConsulta(int $idUsuario, int $idCredito): void
+    {
+        if ($idUsuario <= 0) {
+            return;
+        }
+        $this->repuveAsegurarTablaLog();
+        $ahora = $this->fechaHoraCdmx();
+        $this->db->CRUD(
+            'INSERT INTO adj_repuve_consulta_log (id_usuario, id_credito, creado_at) VALUES (:u, :c, :a)',
+            ['u' => $idUsuario, 'c' => $idCredito, 'a' => $ahora]
+        );
+    }
+
+    private function repuveAsegurarTabla(): void
+    {
+        $this->db->CRUD(
+            "CREATE TABLE IF NOT EXISTS adj_repuve_consulta (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                id_credito BIGINT NOT NULL,
+                criterio_tipo VARCHAR(10) NOT NULL,
+                criterio_valor VARCHAR(64) NOT NULL,
+                uuid VARCHAR(36) NULL,
+                estado VARCHAR(20) NOT NULL DEFAULT 'PROCESANDO',
+                http_status INT NULL,
+                exito TINYINT(1) NULL,
+                message_code INT NULL,
+                mensaje VARCHAR(512) NULL,
+                request_body LONGTEXT NULL,
+                response_body LONGTEXT NULL,
+                repuve_id VARCHAR(50) NULL,
+                placa VARCHAR(32) NULL,
+                vin VARCHAR(32) NULL,
+                marca VARCHAR(100) NULL,
+                modelo VARCHAR(100) NULL,
+                anio_modelo VARCHAR(10) NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_adj_repuve_credito (id_credito),
+                KEY idx_adj_repuve_uuid (uuid)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    }
+
+    private function repuveCargarConfig(): array
+    {
+        $rows = $this->db->queryAll(
+            "SELECT clave, valor
+             FROM config_api
+             WHERE clave IN ('REPUVE_API_BASE_URL','REPUVE_API_KEY','REPUVE_API_USUARIO','REPUVE_API_TIMEOUT')"
+        ) ?: [];
+
+        $cfg = [];
+        foreach ($rows as $r) {
+            $k = (string) ($r['clave'] ?? '');
+            if ($k !== '') {
+                $cfg[$k] = trim((string) ($r['valor'] ?? ''));
+            }
+        }
+
+        $cfg['configured'] = !empty($cfg['REPUVE_API_BASE_URL']) && !empty($cfg['REPUVE_API_KEY']);
+
+        return $cfg;
+    }
+
+    /** Extrae datos del vehículo (marca, modelo, año, placa, VIN) desde una fila de adj_repuve_consulta. */
+    private function repuveDatosMotoDesdeFila(array $row): array
+    {
+        if (empty($row)) {
+            return [];
+        }
+        $out = [];
+        foreach (['marca', 'modelo', 'anio_modelo', 'placa', 'vin'] as $col) {
+            $v = trim((string) ($row[$col] ?? ''));
+            if ($v !== '') {
+                $out[$col] = $v;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Determina el criterio de búsqueda REPUVE (VIN o placa) leyendo la operación activa del crédito.
+     * @return array{ok:bool,field?:string,value?:string,message?:string}
+     */
+    private function repuveResolverCriterio(int $idCredito): array
+    {
+        $op = $this->db->queryOne(
+            'SELECT moto_no_serie, moto_placas FROM adj_operacion
+             WHERE id_credito = :id ORDER BY id DESC LIMIT 1',
+            ['id' => $idCredito]
+        );
+        if (!$op) {
+            return ['ok' => false, 'message' => 'No hay operación registrada para este crédito.'];
+        }
+
+        $vin = strtoupper(preg_replace('/\s+/u', '', (string) ($op['moto_no_serie'] ?? '')));
+        if (strlen($vin) >= self::MADJ_VIN_MIN_LEN) {
+            return ['ok' => true, 'field' => 'vin', 'value' => $vin];
+        }
+
+        $placa = strtoupper(preg_replace('/\s+/u', '', (string) ($op['moto_placas'] ?? '')));
+        if (strlen($placa) >= self::MADJ_PLACAS_MOTO_MIN_LEN) {
+            return ['ok' => true, 'field' => 'plate', 'value' => $placa];
+        }
+
+        return ['ok' => false, 'message' => 'No hay número de serie (VIN) ni placa registrados para este crédito.'];
+    }
+
+    /**
+     * Lanza el POST inicial a la API REPUVE para iniciar la consulta.
+     * @return array{ok:bool,uuid?:string,http_status?:int,mensaje?:string,request_raw?:string,response_raw?:string}
+     */
+    private function repuveIniciarConsulta(array $cfg, string $field, string $value, int $idUsuario, int $idCredito): array
+    {
+        $baseUrl = rtrim((string) ($cfg['REPUVE_API_BASE_URL'] ?? ''), '/');
+        $apiKey  = (string) ($cfg['REPUVE_API_KEY'] ?? '');
+        $timeout = max(10, (int) ($cfg['REPUVE_API_TIMEOUT'] ?? 20));
+
+        $payload = (string) json_encode(['tipo' => $field, 'valor' => $value]);
+
+        $ch = curl_init($baseUrl . '/consulta');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $apiKey,
+            ],
+        ]);
+        $raw      = (string) curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $resp = json_decode($raw, true) ?: [];
+        $uuid = trim((string) ($resp['uuid'] ?? ''));
+
+        if ($httpCode >= 200 && $httpCode < 300 && $uuid !== '') {
+            return [
+                'ok'           => true,
+                'uuid'         => $uuid,
+                'http_status'  => $httpCode,
+                'request_raw'  => $payload,
+                'response_raw' => $raw,
+            ];
+        }
+
+        return [
+            'ok'           => false,
+            'uuid'         => '',
+            'http_status'  => $httpCode,
+            'mensaje'      => (string) ($resp['mensaje'] ?? $resp['message'] ?? 'Error al iniciar consulta REPUVE.'),
+            'request_raw'  => $payload,
+            'response_raw' => $raw,
+        ];
+    }
+
+    /** Guarda o actualiza la fila inicial en adj_repuve_consulta tras lanzar el POST. */
+    private function repuveGuardarInicio(int $idCredito, string $field, string $value, array $inicio): void
+    {
+        $ahora = $this->fechaHoraCdmx();
+        $uuid  = (string) ($inicio['uuid'] ?? '');
+
+        $exists = $this->db->queryOne(
+            'SELECT id FROM adj_repuve_consulta WHERE id_credito = :id LIMIT 1',
+            ['id' => $idCredito]
+        );
+
+        if ($exists) {
+            $this->db->CRUD(
+                "UPDATE adj_repuve_consulta
+                 SET criterio_tipo = :tipo, criterio_valor = :valor, uuid = :uuid,
+                     estado = 'PROCESANDO', http_status = :hs, exito = NULL,
+                     message_code = NULL, mensaje = NULL,
+                     request_body = :req, response_body = :res, updated_at = :upd
+                 WHERE id_credito = :id",
+                [
+                    'tipo'  => $field,
+                    'valor' => $value,
+                    'uuid'  => $uuid !== '' ? $uuid : null,
+                    'hs'    => (int) ($inicio['http_status'] ?? 0),
+                    'req'   => (string) ($inicio['request_raw'] ?? ''),
+                    'res'   => (string) ($inicio['response_raw'] ?? ''),
+                    'upd'   => $ahora,
+                    'id'    => $idCredito,
+                ]
+            );
+        } else {
+            $this->db->CRUD(
+                "INSERT INTO adj_repuve_consulta
+                     (id_credito, criterio_tipo, criterio_valor, uuid, estado, http_status, request_body, response_body, created_at, updated_at)
+                 VALUES (:id, :tipo, :valor, :uuid, 'PROCESANDO', :hs, :req, :res, :created, :upd)",
+                [
+                    'id'      => $idCredito,
+                    'tipo'    => $field,
+                    'valor'   => $value,
+                    'uuid'    => $uuid !== '' ? $uuid : null,
+                    'hs'      => (int) ($inicio['http_status'] ?? 0),
+                    'req'     => (string) ($inicio['request_raw'] ?? ''),
+                    'res'     => (string) ($inicio['response_raw'] ?? ''),
+                    'created' => $ahora,
+                    'upd'     => $ahora,
+                ]
+            );
+        }
+    }
+
+    /**
+     * Consulta el estado de una consulta REPUVE en curso por su UUID.
+     * @return array{terminal:bool,estado:string,http_status:int,exito:int,message_code:int|null,mensaje:string,repuve_id:string,placa:string,vin:string,marca:string,modelo:string,anio_modelo:string,response_raw:string}
+     */
+    private function repuveSondearEstatus(array $cfg, string $uuid): array
+    {
+        $baseUrl = rtrim((string) ($cfg['REPUVE_API_BASE_URL'] ?? ''), '/');
+        $apiKey  = (string) ($cfg['REPUVE_API_KEY'] ?? '');
+        $timeout = max(10, (int) ($cfg['REPUVE_API_TIMEOUT'] ?? 20));
+
+        $ch = curl_init($baseUrl . '/consulta/' . urlencode($uuid));
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_HTTPHEADER     => [
+                'Authorization: Bearer ' . $apiKey,
+            ],
+        ]);
+        $raw      = (string) curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $resp   = json_decode($raw, true) ?: [];
+        $estado = strtoupper(trim((string) ($resp['estado'] ?? $resp['status'] ?? '')));
+
+        return [
+            'terminal'     => in_array($estado, ['COMPLETADO', 'ERROR'], true),
+            'estado'       => $estado,
+            'http_status'  => $httpCode,
+            'exito'        => (int) ($estado === 'COMPLETADO'),
+            'message_code' => isset($resp['message_code']) ? (int) $resp['message_code'] : null,
+            'mensaje'      => (string) ($resp['mensaje'] ?? $resp['message'] ?? ''),
+            'repuve_id'    => (string) ($resp['repuve_id'] ?? $resp['id'] ?? ''),
+            'placa'        => strtoupper(trim((string) ($resp['placa'] ?? ''))),
+            'vin'          => strtoupper(trim((string) ($resp['vin'] ?? $resp['serie'] ?? ''))),
+            'marca'        => trim((string) ($resp['marca'] ?? '')),
+            'modelo'       => trim((string) ($resp['modelo'] ?? '')),
+            'anio_modelo'  => trim((string) ($resp['anio_modelo'] ?? $resp['anio'] ?? '')),
+            'response_raw' => $raw,
+        ];
+    }
+
+    /** Actualiza la fila de adj_repuve_consulta con el resultado final (COMPLETADO o ERROR). */
+    private function repuveActualizarFilaFinal(int $idCredito, array $estatus): void
+    {
+        $ahora = $this->fechaHoraCdmx();
+        $this->db->CRUD(
+            "UPDATE adj_repuve_consulta
+             SET estado       = :estado,
+                 http_status  = :hs,
+                 exito        = :exito,
+                 message_code = :mc,
+                 mensaje      = :msg,
+                 response_body= :res,
+                 repuve_id    = :rid,
+                 placa        = :placa,
+                 vin          = :vin,
+                 marca        = :marca,
+                 modelo       = :modelo,
+                 anio_modelo  = :anio,
+                 updated_at   = :upd
+             WHERE id_credito = :id",
+            [
+                'estado' => $estatus['estado'] !== '' ? $estatus['estado'] : 'COMPLETADO',
+                'hs'     => (int) ($estatus['http_status'] ?? 0),
+                'exito'  => (int) ($estatus['exito'] ?? 0),
+                'mc'     => isset($estatus['message_code']) ? (int) $estatus['message_code'] : null,
+                'msg'    => mb_substr((string) ($estatus['mensaje'] ?? ''), 0, 512),
+                'res'    => (string) ($estatus['response_raw'] ?? ''),
+                'rid'    => mb_substr((string) ($estatus['repuve_id'] ?? ''), 0, 50),
+                'placa'  => mb_substr((string) ($estatus['placa'] ?? ''), 0, 32),
+                'vin'    => mb_substr((string) ($estatus['vin'] ?? ''), 0, 32),
+                'marca'  => mb_substr((string) ($estatus['marca'] ?? ''), 0, 100),
+                'modelo' => mb_substr((string) ($estatus['modelo'] ?? ''), 0, 100),
+                'anio'   => mb_substr((string) ($estatus['anio_modelo'] ?? ''), 0, 10),
+                'upd'    => $ahora,
+                'id'     => $idCredito,
+            ]
+        );
+    }
+
     /**
      * Guarda los datos de la moto y logísticos en adj_operacion.
      * @param  int    $idOperacion  ID de adj_operacion
      * @param  array  $datos        Mapa campo → valor
      * @return array{success:bool, message?:string}
      */
-    public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = ''): array
+    public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = '', bool $registrarBitacora = true): array
     {
         if ($idOperacion <= 0) {
             return ['success' => false, 'message' => 'Operación inválida.'];
@@ -1832,9 +2496,16 @@ SQL;
             return ['success' => false, 'message' => 'Operación no encontrada.'];
         }
 
+        $fmtErr = $this->validarDatosMotoFormatos($datos);
+        if ($fmtErr !== null) {
+            return ['success' => false, 'message' => $fmtErr];
+        }
+
         $maxLen = [
             'moto_marca'     => 100, 'moto_modelo'    => 100, 'moto_color'     => 50,
-            'moto_no_serie'  => 50,  'moto_no_motor'  => 30,  'moto_placas'    => 10,
+            'moto_no_serie'  => self::MADJ_VIN_MAX_LEN,
+            'moto_no_motor'  => self::MADJ_NO_MOTOR_MAX_LEN,
+            'moto_placas'    => self::MADJ_PLACAS_MOTO_MAX_LEN,
             'log_ubicacion'  => 100, 'log_direccion'  => 100, 'log_ciudad'     => 50,
             'log_estado'     => 60,  'log_responsable'=> 100, 'log_telefono'   => 10,
         ];
@@ -1846,9 +2517,18 @@ SQL;
             if (!array_key_exists($campo, $datos)) {
                 continue;
             }
-            $val = $campo === 'moto_anio'
-                ? ((int) $datos[$campo] ?: null)
-                : mb_substr(trim((string) $datos[$campo]), 0, $maxLen[$campo] ?? 255);
+            $valRaw = $datos[$campo];
+            if ($campo === 'moto_anio') {
+                $val = ((int) $valRaw ?: null);
+            } elseif ($campo === 'moto_no_serie' || $campo === 'moto_no_motor' || $campo === 'moto_placas') {
+                $val = mb_substr(
+                    strtoupper(preg_replace('/\s+/u', '', trim((string) $valRaw))),
+                    0,
+                    $maxLen[$campo] ?? 255
+                );
+            } else {
+                $val = mb_substr(trim((string) $valRaw), 0, $maxLen[$campo] ?? 255);
+            }
             $setClauses[]      = "`{$campo}` = :{$campo}";
             $params[$campo]    = $val;
         }
@@ -1870,13 +2550,15 @@ SQL;
             $params
         );
 
-        $this->registrarBitacora(
-            $idOperacion,
-            'DATOS MOTO REGISTRADOS: ' . ($datos['moto_marca'] ?? '') . ' ' . ($datos['moto_modelo'] ?? '') . ' (' . ($datos['moto_placas'] ?? '') . ')',
-            $idUsuario,
-            $nombreUsuario,
-            $ahora
-        );
+        if ($registrarBitacora) {
+            $this->registrarBitacora(
+                $idOperacion,
+                'DATOS MOTO REGISTRADOS: ' . ($datos['moto_marca'] ?? '') . ' ' . ($datos['moto_modelo'] ?? '') . ' (' . ($datos['moto_placas'] ?? '') . ')',
+                $idUsuario,
+                $nombreUsuario,
+                $ahora
+            );
+        }
 
         return ['success' => true];
     }

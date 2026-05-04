@@ -322,13 +322,16 @@ class CierreCredito extends Model
                    AND NOT EXISTS (
                        SELECT 1 FROM cierre_credito_seguimiento ccs
                        WHERE ccs.id_credito = cc.id_credito
-                                                 AND ccs.estatus IN ('en_proceso', 'envio_cobranza', 'enviado_cartera', 'en_cola', 'listo_envio')
+                         AND ccs.estatus IN ('en_proceso', 'envio_cobranza', 'enviado_cartera', 'en_cola', 'listo_envio',
+                                             'notificado_cartera', 'cerrado')
                    ){$celulaWhere}
                  ORDER BY cc.fecha_alta DESC",
                 $params ?: null
             );
             $rows = $rows ?: [];
             self::_enrichWithS2AndSemana($rows);
+            // Excluir créditos que ya están Saldados según la API de S2 (doble confirmación)
+            self::_filterSaldadosEnS2($rows);
             return self::resultado(true, 'Convenios saldados.', $rows);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener convenios saldados.', [], $e->getMessage());
@@ -1524,26 +1527,8 @@ HTML;
                 ['usuario' => $usuario, 'id' => $id]
             );
 
-            // 3. Resolver email del usuario que envió a cartera (usuario_alta = nombre completo)
-            $emailDestinatario = null;
-            $nombreAltaLimpio  = trim((string) ($registro['usuario_alta'] ?? ''));
-            if ($nombreAltaLimpio !== '') {
-                $personaRow = $db->queryOne(
-                    "SELECT user_name
-                     FROM persona
-                     WHERE TRIM(CONCAT_WS(' ', nombres, segundo_nombre, apellidop)) = :nombre
-                       AND user_name IS NOT NULL AND TRIM(user_name) != ''
-                     LIMIT 1",
-                    ['nombre' => $nombreAltaLimpio]
-                );
-                if ($personaRow && filter_var($personaRow['user_name'], FILTER_VALIDATE_EMAIL)) {
-                    $emailDestinatario = $personaRow['user_name'];
-                }
-            }
-            // Fallback si no se resuelve el email
-            if (!$emailDestinatario) {
-                $emailDestinatario = 'pedro.figueroa@__SPARTA_SECRET_REDACTED__.mx';
-            }
+            // 3. Destinatario fijo de confirmación de cierre
+            $emailDestinatario = 'cipriano.mendez@__SPARTA_SECRET_REDACTED__.mx';
 
             // 4. Enviar correo de confirmación de cierre
             $emailError = null;
@@ -1737,7 +1722,8 @@ HTML;
         try {
             $dbSm   = new DatabaseSegundometro();
             $s2Rows = $dbSm->queryAll(
-                "SELECT Id_credito, Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total, Monto_otorgado
+                "SELECT Id_credito, Numero_amortizaciones, Num_cuotas_pagadas, Abonos_total, Monto_otorgado,
+                        Status_credito
                  FROM tbl_segundometro_semana
                  WHERE Id_credito IN ($inSql)",
                 $params
@@ -1757,8 +1743,77 @@ HTML;
             $row['s2_cuotas_pagadas']     = $s2 !== null ? (int)   $s2['Num_cuotas_pagadas']    : null;
             $row['s2_total_pagado']       = $s2 !== null ? (float) $s2['Abonos_total']          : null;
             $row['s2_monto_otorgado']     = $s2 !== null ? (float) $s2['Monto_otorgado']        : null;
+            $row['s2_status_credito']     = $s2 !== null ? ($s2['Status_credito'] ?? null)      : null;
         }
         unset($row);
+    }
+
+    /**
+     * Consulta la API de S2 en paralelo (cURL multi) y elimina de $rows
+     * los créditos cuyo statusCredito sea 'Saldado'.
+     * Silencia errores individuales — si S2 no responde para un crédito, lo deja pasar.
+     */
+    private static function _filterSaldadosEnS2(array &$rows): void
+    {
+        if (empty($rows)) return;
+
+        $endpoint   = defined('ENDPOINT') ? ENDPOINT : 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $token      = defined('TOKEN')    ? TOKEN    : '__SPARTA_TOKEN_REDACTED__';
+        $fechaCorte = date('Y-m-d');
+        $headers    = ['Content-Type: application/json', 'Token: ' . $token];
+
+        // Indexar IDs por posición para correlacionar respuestas
+        $idsPorIdx = [];
+        foreach ($rows as $i => $row) {
+            $id = (int) ($row['id_credito'] ?? 0);
+            if ($id > 0) $idsPorIdx[$i] = $id;
+        }
+        if (empty($idsPorIdx)) return;
+
+        // Abrir handles cURL en paralelo
+        $mh      = curl_multi_init();
+        $handles = [];
+        foreach ($idsPorIdx as $idx => $idCredito) {
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => json_encode(['idCredito' => $idCredito, 'fechaCorte' => $fechaCorte]),
+                CURLOPT_TIMEOUT        => 10,
+                CURLOPT_HTTPHEADER     => $headers,
+            ]);
+            $handles[$idx] = $ch;
+            curl_multi_add_handle($mh, $ch);
+        }
+
+        // Ejecutar hasta que todos terminen
+        $running = null;
+        do {
+            curl_multi_exec($mh, $running);
+            curl_multi_select($mh, 1.0);
+        } while ($running > 0);
+
+        // Recolectar cuáles están Saldados
+        $saldados = [];
+        foreach ($handles as $idx => $ch) {
+            $body = curl_multi_getcontent($ch);
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+            if ($body) {
+                $data   = json_decode($body, true);
+                $status = $data['estadoCuenta']['statusCredito'] ?? '';
+                if ($status === 'Saldado') {
+                    $saldados[$idsPorIdx[$idx]] = true;
+                }
+            }
+        }
+        curl_multi_close($mh);
+
+        if (!empty($saldados)) {
+            $rows = array_values(array_filter($rows, function ($row) use ($saldados) {
+                return !isset($saldados[(int) ($row['id_credito'] ?? 0)]);
+            }));
+        }
     }
 
     public static function getHistorial(?array $celulas = null): array

@@ -394,7 +394,20 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
-     * GET /MotosAdjudicadas/misAdjudicaciones
+     * GET /MotosAdjudicadas/repuveConsulta
+     * Consulta REPUVE por crédito (placa o VIN).
+     */
+    public function repuveConsulta()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Consulta REPUVE — Motos Adjudicadas ' . $emp);
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+        self::set('limite_repuve', $this->model->obtenerInfoLimiteRepuve($idUsuario));
+        return self::render('repuve_consulta');
+    }
+
+    /**
+     * POST /MotosAdjudicadas/misAdjudicaciones
      */
     public function misAdjudicaciones()
     {
@@ -550,6 +563,70 @@ class MotosAdjudicadas extends Controller
 
             $result = $this->model->guardarDatosMoto($idOperacion, $datos, $idUsuario, $nombreUsuario);
             echo json_encode($result);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/consultarRepuveCredito
+     * Body JSON: { "id_credito": 12345 }
+     * Consulta REPUVE una sola vez por crédito y reutiliza el registro en BD.
+     */
+    public function consultarRepuveCredito()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->consultarRepuvePorCredito($idCredito, $idUsuario);
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/ejecutarConsultaRepuve
+     * Body JSON: { "id_credito": 12345, "tipo": "plate"|"vin", "valor": "..." }
+     * Exige crédito con asignación activa en adjudicación.
+     */
+    public function ejecutarConsultaRepuve()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+        $tipo      = trim((string) ($body['tipo'] ?? ''));
+        $valor     = (string) ($body['valor'] ?? '');
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+
+        try {
+            $valCred = $this->model->buscarCreditoEnAdjudicacion($idCredito);
+            if (empty($valCred['success'])) {
+                echo json_encode($valCred, JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $result = $this->model->consultarRepuveConCriterio($idCredito, $tipo, $valor, $idUsuario);
+            $result['credito'] = [
+                'id_credito'     => $idCredito,
+                'nombre_cliente' => (string) ($valCred['nombre_cliente'] ?? ''),
+            ];
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
