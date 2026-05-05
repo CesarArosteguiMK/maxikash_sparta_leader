@@ -1859,6 +1859,54 @@
         function esFAD_DOCConPermisoControl() {
             return typeof window.tienePermisoControlFAD_DOC !== 'undefined' && window.tienePermisoControlFAD_DOC && typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
         }
+        /** Documentación: modal de documento abierto como EVIDENCIA (por tipo o título). */
+        function esModalDocumentoEvidencia() {
+            var tipo = (typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual)
+                ? String(window.tipoDocumentoActual).toUpperCase() : '';
+            var tituloEl = document.querySelector('#modalDocumento .modal-title');
+            var titulo = tituloEl ? tituloEl.textContent.replace(/\s+/g, ' ').trim().toUpperCase() : '';
+            return tipo === 'EVIDENCIA' || titulo === 'EVIDENCIA' || titulo.indexOf('EVIDENCIA') !== -1;
+        }
+
+        /**
+         * Evidencia es siempre un solo archivo en Documentación: mostrar 1/1 y ocultar flechas de página.
+         * Factura, FAD_DOC, Validaciones conservan paginación real.
+         */
+        function actualizarControlesPaginacionPdfEvidencia() {
+            var btnPrev = document.getElementById('pdfPrev');
+            var btnNext = document.getElementById('pdfNext');
+            var cur = document.getElementById('pdfCurrentPage');
+            var tot = document.getElementById('pdfTotalPages');
+            if (!cur || !tot) return;
+            if (esModalDocumentoEvidencia()) {
+                if (btnPrev) {
+                    btnPrev.style.display = 'none';
+                    btnPrev.setAttribute('aria-hidden', 'true');
+                }
+                if (btnNext) {
+                    btnNext.style.display = 'none';
+                    btnNext.setAttribute('aria-hidden', 'true');
+                }
+                cur.textContent = '1';
+                tot.textContent = '1';
+            } else {
+                if (btnPrev) {
+                    btnPrev.style.display = '';
+                    btnPrev.removeAttribute('aria-hidden');
+                }
+                if (btnNext) {
+                    btnNext.style.display = '';
+                    btnNext.removeAttribute('aria-hidden');
+                }
+                if (typeof pdfDocFactura !== 'undefined' && pdfDocFactura && typeof pdfDocFactura.numPages === 'number') {
+                    tot.textContent = String(pdfDocFactura.numPages);
+                }
+                if (typeof pageNumFactura !== 'undefined') {
+                    cur.textContent = String(pageNumFactura);
+                }
+            }
+        }
+
         /** Oculta solo los controles de zoom del visor PDF cuando el documento es EVIDENCIA (Documentación). */
         function actualizarVisibilidadZoomPdfControlesEvidencia() {
             var grp = document.getElementById('pdfControlsZoomGroup');
@@ -1876,6 +1924,9 @@
                 grp.classList.remove('d-none');
                 grp.classList.add('d-inline-flex');
                 grp.style.removeProperty('display');
+            }
+            if (typeof actualizarControlesPaginacionPdfEvidencia === 'function') {
+                actualizarControlesPaginacionPdfEvidencia();
             }
         }
 
@@ -3543,6 +3594,9 @@
                 // 3. Documento cargado con éxito
                 const totalPagesSpan = document.getElementById('pdfTotalPages');
                 if (totalPagesSpan) totalPagesSpan.textContent = pdfDocFactura.numPages;
+                if (typeof actualizarControlesPaginacionPdfEvidencia === 'function') {
+                    actualizarControlesPaginacionPdfEvidencia();
+                }
 
                 Swal.close();
 
@@ -3842,9 +3896,13 @@
 
                 pageRenderingFactura = false;
 
-                // Actualizar contador visual
-                const currentPageSpan = document.getElementById('pdfCurrentPage');
-                if (currentPageSpan) currentPageSpan.textContent = num;
+                // Contador de página (EVIDENCIA: siempre 1/1 en Documentación)
+                if (typeof actualizarControlesPaginacionPdfEvidencia === 'function') {
+                    actualizarControlesPaginacionPdfEvidencia();
+                } else {
+                    const currentPageSpan = document.getElementById('pdfCurrentPage');
+                    if (currentPageSpan) currentPageSpan.textContent = num;
+                }
 
                 // Actualizar zoom level
                 const zoomLevel = document.getElementById('pdfZoomLevel');
@@ -3902,12 +3960,14 @@
 
         /* --- FUNCIONES DE CONTROL PARA FACTURA, FAD_DOC y VALIDACIONES (Botones) --- */
         function onPrevPageFactura() {
+            if (typeof esModalDocumentoEvidencia === 'function' && esModalDocumentoEvidencia()) return;
             if (!pdfDocFactura || pageNumFactura <= 1) return;
             pageNumFactura--;
             renderPageFactura(pageNumFactura);
         }
 
         function onNextPageFactura() {
+            if (typeof esModalDocumentoEvidencia === 'function' && esModalDocumentoEvidencia()) return;
             if (!pdfDocFactura || pageNumFactura >= pdfDocFactura.numPages) return;
             pageNumFactura++;
             renderPageFactura(pageNumFactura);

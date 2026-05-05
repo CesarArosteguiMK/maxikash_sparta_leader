@@ -29,6 +29,35 @@ class MotosAdjudicadas extends Controller
         return self::render('operaciones_pipeline');
     }
 
+    /**
+     * GET /MotosAdjudicadas/listaDictamenes
+     */
+    public function listaDictamenes()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Motos Adjudicadas - Lista de Dictámenes ' . $emp);
+        $gmk = defined('GOOGLE_MAPS_API_KEY') ? (string) GOOGLE_MAPS_API_KEY : '';
+        self::set(
+            'google_maps_api_key_js',
+            json_encode($gmk, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
+        );
+        return self::render('motos_adjudicadas_lista_dictamenes');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/obtenerListaDictamenes
+     */
+    public function obtenerListaDictamenes()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $rows = $this->model->obtenerListaDictumsMotos();
+            echo json_encode(['success' => true, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     // =========================================================================
     // API — BUSCAR CRÉDITO EN ADJUDICACIÓN
     // =========================================================================
@@ -166,6 +195,26 @@ class MotosAdjudicadas extends Controller
         try {
             $res = $this->model->obtenerResumenFinancieroEstadoCuentaS2($idCred);
             echo json_encode($res);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/obtenerResumenS2ModalDictamen?id_credito=N
+     * Datos S2 (estado de cuenta) para la sección «S2» del modal Lista Dictámenes.
+     */
+    public function obtenerResumenS2ModalDictamen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idCred = (int) ($_GET['id_credito'] ?? 0);
+        if ($idCred <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+        try {
+            $res = $this->model->obtenerResumenS2ModalDictamen($idCred);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -605,7 +654,8 @@ class MotosAdjudicadas extends Controller
 
         $body      = json_decode(file_get_contents('php://input'), true) ?? [];
         $idCredito = (int) ($body['id_credito'] ?? 0);
-        $tipo      = trim((string) ($body['tipo'] ?? ''));
+        $tipoRaw   = strtolower(trim((string) ($body['tipo'] ?? 'plate')));
+        $tipo      = in_array($tipoRaw, ['plate', 'vin'], true) ? $tipoRaw : 'plate';
         $valor     = (string) ($body['valor'] ?? '');
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
 

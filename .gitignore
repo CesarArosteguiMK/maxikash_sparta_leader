@@ -112,6 +112,11 @@ composer-temp.phar
 Thumbs.db
 Desktop.ini
 
+# ========== Exports masivos temporales (scripts CLI; no subir — superan límites de GitHub) ==========
+tmp_asignacion_*.csv
+tmp_histo_primeros_pagos_*.csv
+tmp_histo_primeros_pagos_*.xlsx
+
 # ========== Node / npm (si se ejecuta fuera de subcarpetas con .gitignore propio) ==========
 npm-debug.log*
 yarn-debug.log*
