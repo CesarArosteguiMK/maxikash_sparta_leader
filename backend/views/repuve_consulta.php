@@ -86,14 +86,78 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
         to   { opacity: 1; transform: translateY(0); }
     }
     .rep-animate { animation: repFadeIn 0.35s ease-out both; }
+    /* Modal de carga: mismo estilo que referencia (caja blanca, título gris pizarra, subtítulo gris, anillo morado claro) */
+    .rep-loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.25rem;
+        background: rgba(15, 23, 42, 0.48);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    .rep-loading-overlay.rep-loading-on { display: flex; }
+    .rep-loading-box {
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 2rem 2.5rem 2rem;
+        min-width: min(22rem, 100%);
+        max-width: 26rem;
+        width: 100%;
+        text-align: center;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        box-shadow:
+            0 4px 6px -1px rgba(15, 23, 42, 0.06),
+            0 10px 28px -4px rgba(15, 23, 42, 0.12),
+            0 24px 48px -12px rgba(15, 23, 42, 0.14);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .rep-loading-title {
+        margin: 0 0 0.5rem;
+        font-size: 1.625rem;
+        font-weight: 600;
+        color: #4a5568;
+        letter-spacing: -0.025em;
+        line-height: 1.3;
+    }
+    .rep-loading-sub {
+        margin: 0 0 1.75rem;
+        font-size: 0.9375rem;
+        font-weight: 400;
+        color: #718096;
+        line-height: 1.45;
+    }
+    .rep-loading-spinner-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding-top: 0.125rem;
+    }
+    /* Anillo fino lavanda / periwinkle con tramo activo (referencia) */
+    .rep-loading-spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        border: 3px solid #ede9fe;
+        border-top-color: #a5b4fc;
+        border-right-color: #c4b5fd;
+        animation: rep-loading-spin 0.85s linear infinite;
+    }
+    @keyframes rep-loading-spin {
+        to { transform: rotate(360deg); }
+    }
 </style>
 
 <div class="rep-wrap">
     <div class="rep-hero rep-animate">
         <h4><i class="fa-solid fa-id-card-clip me-2" style="color:var(--rep-color)"></i>Consulta REPUVE</h4>
         <p class="text-muted small mb-2 mb-md-3">
-            Valida el crédito adjudicado, consulta por <strong>placa</strong> o <strong>VIN</strong> y guardamos los datos del vehículo en la operación.
-            En <strong>Mis adjudicaciones</strong> → Registrar evidencias, los campos de la moto se cargarán automáticamente.
+            Valida el crédito adjudicado y consulta en REPUVE por <strong>placa</strong> o <strong>VIN</strong> (número de serie, motocicleta).
+            <strong>Una sola consulta REPUVE por crédito</strong> (costo del servicio); si sigue en proceso, puedes pulsar de nuevo solo para consultar el estatus, sin nuevo cargo.
+            Los datos del vehículo se guardan en la operación y en <strong>Mis adjudicaciones</strong> → <strong>Registrar evidencias</strong> se muestran solos cuando ya existan.
         </p>
         <span class="rep-limite-pill" id="rep-limite-pill" title="Consultas nuevas a REPUVE por día (zona CDMX)">
             <i class="fa-solid fa-gauge-high"></i>
@@ -120,8 +184,8 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             <div id="rep-credito-panel" class="mt-3" style="display:none;">
                 <dl class="rep-dl">
                     <dt>Cliente</dt><dd id="rep-nombre-cliente">—</dd>
-                    <dt>Saldo</dt><dd id="rep-saldo">—</dd>
-                    <dt>Mora</dt><dd id="rep-mora">—</dd>
+                    <dt title="Monto según Segundómetro (S2) para este crédito; no es un cargo de REPUVE.">Saldo total vencido</dt><dd id="rep-saldo">—</dd>
+                    <dt>Mora (días)</dt><dd id="rep-mora">—</dd>
                     <dt>Gestor</dt><dd id="rep-gestor">—</dd>
                 </dl>
             </div>
@@ -130,19 +194,19 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
     </div>
 
     <div class="rep-card" id="rep-step-criterio" style="opacity:0.5; pointer-events:none;">
-        <div class="rep-card-hdr"><i class="fa-solid fa-motorcycle me-1"></i> 2. Criterio REPUVE</div>
+        <div class="rep-card-hdr"><i class="fa-solid fa-motorcycle me-1"></i> 2. Placa o VIN (REPUVE)</div>
         <div class="rep-card-body">
             <div class="row g-2 mb-2">
                 <div class="col-md-4">
                     <label class="form-label small text-muted mb-1">Buscar por</label>
                     <select class="form-select" id="rep-tipo">
                         <option value="plate">Placa</option>
-                        <option value="vin">VIN (serie)</option>
+                        <option value="vin">VIN (número de serie)</option>
                     </select>
                 </div>
                 <div class="col-md-8">
-                    <label class="form-label small text-muted mb-1">Valor</label>
-                    <input type="text" class="form-control text-uppercase" id="rep-valor" placeholder="Placa o VIN según el tipo" autocomplete="off" />
+                    <label class="form-label small text-muted mb-1" id="rep-valor-label">Placa</label>
+                    <input type="text" class="form-control text-uppercase" id="rep-valor" placeholder="Ej. Y001AA (motocicleta)" maxlength="17" autocomplete="off" />
                 </div>
             </div>
             <button type="button" class="btn text-white" id="rep-btn-consultar" style="background:linear-gradient(90deg,var(--rep-dark),var(--rep-color));border:none;">
@@ -158,8 +222,18 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             <div class="rep-result-grid mb-3" id="rep-result-grid"></div>
             <div class="rep-note mb-0">
                 <i class="fa-solid fa-database me-1"></i>
-                Estos datos se guardan en la operación del crédito. Al abrir <strong>Registrar evidencias</strong> en Mis adjudicaciones, el formulario ya vendrá lleno en «Datos de la motocicleta».
+                Los datos del vehículo se <strong>guardan solos en la base de datos</strong> al obtener respuesta de REPUVE. En <strong>Mis adjudicaciones</strong> → <strong>Registrar evidencias</strong>, «Datos de la motocicleta» ya vendrá lleno.
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="rep-loading-overlay" class="rep-loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+    <div class="rep-loading-box">
+        <h3 class="rep-loading-title" id="rep-loading-msg">Consultando información…</h3>
+        <p class="rep-loading-sub" id="rep-loading-sub">Por favor espere</p>
+        <div class="rep-loading-spinner-wrap">
+            <div class="rep-loading-spinner" role="presentation" aria-hidden="true"></div>
         </div>
     </div>
 </div>
@@ -174,6 +248,7 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
     const $consultar = document.getElementById('rep-btn-consultar');
     const $tipo = document.getElementById('rep-tipo');
     const $valor = document.getElementById('rep-valor');
+    const $valorLabel = document.getElementById('rep-valor-label');
     const $msg = document.getElementById('rep-consulta-msg');
     const $resWrap = document.getElementById('rep-result-wrap');
     const $resGrid = document.getElementById('rep-result-grid');
@@ -181,6 +256,45 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
     const $limR = document.getElementById('rep-limite-rest');
 
     let idCreditoOk = 0;
+
+    const $overlay = document.getElementById('rep-loading-overlay');
+    const $loadMsg = document.getElementById('rep-loading-msg');
+    const $loadSub = document.getElementById('rep-loading-sub');
+
+    function repShowLoading(title, sub) {
+        if ($loadMsg) $loadMsg.textContent = title || 'Consultando información…';
+        if ($loadSub) $loadSub.textContent = sub !== undefined && sub !== null ? sub : 'Por favor espere';
+        if ($overlay) {
+            $overlay.classList.add('rep-loading-on');
+            $overlay.setAttribute('aria-hidden', 'false');
+        }
+    }
+
+    function repHideLoading() {
+        if ($overlay) {
+            $overlay.classList.remove('rep-loading-on');
+            $overlay.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    function repSyncTipoUi() {
+        if (!$tipo || !$valor) return;
+        const t = ($tipo.value || 'plate').trim();
+        if (t === 'vin') {
+            if ($valorLabel) $valorLabel.textContent = 'VIN (número de serie)';
+            $valor.placeholder = 'Ej. 17 caracteres sin I, O, Q';
+            $valor.setAttribute('maxlength', '17');
+        } else {
+            if ($valorLabel) $valorLabel.textContent = 'Placa';
+            $valor.placeholder = 'Ej. Y001AA (motocicleta)';
+            $valor.setAttribute('maxlength', '16');
+        }
+    }
+
+    if ($tipo) {
+        $tipo.addEventListener('change', repSyncTipoUi);
+        repSyncTipoUi();
+    }
 
     function setLimite(l) {
         if (!l || typeof l !== 'object') return;
@@ -214,6 +328,7 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             return;
         }
         $validar.disabled = true;
+        repShowLoading('Consultando información…', 'Validando crédito y datos de cartera');
         try {
             const r = await fetch('/MotosAdjudicadas/buscarCredito', {
                 method: 'POST',
@@ -222,6 +337,7 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             });
             const j = await r.json();
             if (!j.success) {
+                repHideLoading();
                 $err.textContent = j.message || 'No se pudo validar el crédito.';
                 $err.style.display = 'block';
                 return;
@@ -237,6 +353,7 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             $err.textContent = 'Error de red al validar.';
             $err.style.display = 'block';
         } finally {
+            repHideLoading();
             $validar.disabled = false;
         }
     });
@@ -250,6 +367,37 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
         moto_no_motor: 'No. de motor',
         moto_color: 'Color'
     };
+
+    function repEscapeHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function repBloqueDetalleRepuve(j) {
+        let out = '';
+        if (j.adj_operacion_sync_error) {
+            out += '<div class="alert alert-danger py-2 small mt-2 mb-0"><strong>No se actualizó adj_operacion:</strong> '
+                + repEscapeHtml(j.adj_operacion_sync_error) + '</div>';
+        }
+        if (j.repuve_respuesta_tecnica || j.repuve || j.repuve_ultima_encuesta || j.repuve_respuesta_api || j.repuve_respuesta_raw) {
+            const pack = j.repuve_respuesta_tecnica && typeof j.repuve_respuesta_tecnica === 'object'
+                ? j.repuve_respuesta_tecnica
+                : {
+                    repuve_resumen_ui: j.repuve || null,
+                    ultima_encuesta_estatus: j.repuve_ultima_encuesta || null,
+                    paso2_respuesta_api_guardada_en_bd: j.repuve_respuesta_api || null,
+                    paso1_respuesta_inicio_consulta: j.repuve_respuesta_raw || null
+                };
+            out += '<details class="small mt-2"><summary class="text-muted">Ver respuesta técnica REPUVE (JSON — formato API Nubarium)</summary>'
+                + '<pre class="bg-light border rounded p-2 mt-1 mb-0 text-start" style="font-size:0.72rem;max-height:320px;overflow:auto;white-space:pre-wrap;">'
+                + repEscapeHtml(JSON.stringify(pack, null, 2))
+                + '</pre></details>';
+        }
+        return out;
+    }
 
     function renderDatosMoto(dm) {
         $resGrid.innerHTML = '';
@@ -278,13 +426,14 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             $msg.innerHTML = '<div class="alert alert-warning py-2 small mb-0">Primero valida el crédito.</div>';
             return;
         }
-        const tipo = ($tipo.value || 'plate').trim();
+        const tipo = ($tipo && $tipo.value ? $tipo.value : 'plate').trim();
         const valor = ($valor.value || '').trim();
         if (!valor) {
-            $msg.innerHTML = '<div class="alert alert-warning py-2 small mb-0">Captura placa o VIN.</div>';
+            $msg.innerHTML = '<div class="alert alert-warning py-2 small mb-0">Captura la placa o el VIN según el tipo elegido.</div>';
             return;
         }
         $consultar.disabled = true;
+        repShowLoading('Consultando información…', 'Consulta REPUVE en curso — por favor espere');
         try {
             const r = await fetch('/MotosAdjudicadas/ejecutarConsultaRepuve', {
                 method: 'POST',
@@ -306,7 +455,8 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             let cls = j.success ? 'success' : 'warning';
             if (j.repuve && j.repuve.estado === 'PROCESANDO') cls = 'info';
             const txt = j.message || (j.success ? 'Listo.' : 'Sin datos.');
-            $msg.innerHTML = '<div class="alert alert-' + cls + ' py-2 small mb-0">' + String(txt).replace(/</g, '&lt;') + '</div>';
+            $msg.innerHTML = '<div class="alert alert-' + cls + ' py-2 small mb-0">' + String(txt).replace(/</g, '&lt;') + '</div>'
+                + repBloqueDetalleRepuve(j);
 
             if (j.datos_moto) {
                 renderDatosMoto(j.datos_moto);
@@ -316,6 +466,7 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
         } catch (e) {
             $msg.innerHTML = '<div class="alert alert-danger py-2 small mb-0">Error de red.</div>';
         } finally {
+            repHideLoading();
             $consultar.disabled = false;
         }
     });

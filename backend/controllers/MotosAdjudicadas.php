@@ -605,7 +605,8 @@ class MotosAdjudicadas extends Controller
 
         $body      = json_decode(file_get_contents('php://input'), true) ?? [];
         $idCredito = (int) ($body['id_credito'] ?? 0);
-        $tipo      = trim((string) ($body['tipo'] ?? ''));
+        $tipoRaw   = strtolower(trim((string) ($body['tipo'] ?? 'plate')));
+        $tipo      = in_array($tipoRaw, ['plate', 'vin'], true) ? $tipoRaw : 'plate';
         $valor     = (string) ($body['valor'] ?? '');
         $idUsuario = (int) ($_SESSION['usuario_id'] ?? $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? 0);
 
