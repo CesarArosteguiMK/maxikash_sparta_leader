@@ -74,13 +74,15 @@ if (!isset($google_maps_api_key_js)) {
     var modalMediaBody = document.getElementById('modalDictamenMediaCuerpo');
     var modalMediaTitulo = document.getElementById('modalDictamenMediaTitulo');
     var modalDetalleEl = document.getElementById('modalDictamenDetalle');
-    /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string }|null} */
+    /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string, idCreditoSeg:number|null, rowRef:object }|null} */
     var madjDetalleSesion = null;
     var madjDetalleOcultoPorMedia = false;
     /** Primer lote de filas para mostrar la tabla rápido; el resto se pide en segundo plano. */
     var MADJ_DICTAMENES_PRIMER_LOTE = 10;
     var madjCargaListaToken = 0;
     var madjNombresSolicitados = {};
+    /** Token guardado en adj_s2_cache_dictamen.ma_seg_area (dictamen de administración de cobranza). */
+    var MADJ_SEG_AREA_GUARDADO = 'dictamen_admin_cobranza';
     var modalDetalleCuerpo = document.getElementById('modalDictamenDetalleCuerpo');
 
     function escAttr(s) {
@@ -447,7 +449,9 @@ if (!isset($google_maps_api_key_js)) {
             lat: lat,
             lng: lng,
             nom: nom,
-            cred: cred
+            cred: cred,
+            idCreditoSeg: idCredNum > 0 ? idCredNum : null,
+            rowRef: row
         };
 
         var html = '<div class="container-fluid px-0">';
@@ -533,8 +537,170 @@ if (!isset($google_maps_api_key_js)) {
                 '</div></div>';
         }
 
-        html += '</section></div>';
+        html += '</section>';
+
+        html +=
+            '<section class="border border-2 border-primary rounded p-3 mb-0 mt-4" aria-label="Seguimiento interno">' +
+            '<p class="fw-semibold small text-uppercase text-secondary mb-3">Seguimiento interno</p>' +
+            '<div class="row g-3">' +
+            '<div class="col-12">' +
+            '<span id="madjSegBloqueDictamenLbl" class="form-label fw-semibold small text-secondary d-block mb-2">Dictamen de administración de cobranza</span>' +
+            '<div class="row g-2">' +
+            '<div class="col-auto">' +
+            '<select class="form-select form-select-sm" id="madjSegAplicaRecoleccion" aria-label="Aplica para recolección">' +
+            '<option value="">— Seleccione —</option>' +
+            '<option value="1">Sí aplica para la recolección</option>' +
+            '<option value="0">No aplica para la recolección</option>' +
+            '</select>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="col-12">' +
+            '<label class="form-label fw-semibold small text-secondary" for="madjSegComentarios">Comentarios <span class="text-danger">*</span></label>' +
+            '<textarea class="form-control" id="madjSegComentarios" rows="3" required aria-required="true" placeholder="Comentarios (obligatorio)…"></textarea>' +
+            '</div>' +
+            '<div class="col-12 d-flex flex-wrap align-items-center gap-2">' +
+            '<button type="button" class="btn btn-primary" id="madjBtnGuardarSeguimiento">Guardar seguimiento</button>' +
+            '<span class="small text-muted" id="madjSegGuardadoMsg" role="status"></span>' +
+            '</div>' +
+            '</div>' +
+            '</section>';
+
+        html += '</div>';
         modalDetalleCuerpo.innerHTML = html;
+        madjEnlazarFormularioSeguimiento(row);
+    }
+
+    function madjEnlazarFormularioSeguimiento(row) {
+        var ta = document.getElementById('madjSegComentarios');
+        var selAplica = document.getElementById('madjSegAplicaRecoleccion');
+        var msg = document.getElementById('madjSegGuardadoMsg');
+        var btn = document.getElementById('madjBtnGuardarSeguimiento');
+        if (!ta || !selAplica) return;
+        ta.value = String(row.ma_seg_comentarios || '');
+        var ap = row.ma_seg_aplica;
+        if (ap === 1 || ap === true || ap === '1') {
+            selAplica.value = '1';
+        } else if (ap === 0 || ap === false || ap === '0') {
+            selAplica.value = '0';
+        } else {
+            selAplica.value = '';
+        }
+        if (msg) {
+            msg.textContent = '';
+            msg.classList.remove('text-danger', 'text-success');
+            msg.classList.add('text-muted');
+        }
+        selAplica.onchange = function () {
+            if (msg) {
+                msg.textContent = '';
+                msg.classList.remove('text-danger', 'text-success');
+                msg.classList.add('text-muted');
+            }
+        };
+        if (btn) {
+            btn.onclick = function () {
+                madjGuardarSeguimientoInterno();
+            };
+        }
+    }
+
+    function madjActualizarFilaSeguimientoEnTabla(idCredito, payload) {
+        if (!tablaDictamenes || !idCredito) return;
+        tablaDictamenes.rows().every(function () {
+            var r = this.data() || {};
+            if (parseInt(String(r.id_credito || '0'), 10) !== idCredito) {
+                return;
+            }
+            r.ma_seg_comentarios = payload.comentarios;
+            r.ma_seg_area = payload.area_seguimiento || MADJ_SEG_AREA_GUARDADO;
+            r.ma_seg_aplica = payload.aplica;
+            this.data(r);
+        });
+    }
+
+    function madjGuardarSeguimientoInterno() {
+        var ses = madjDetalleSesion;
+        var idCredito = ses && ses.idCreditoSeg ? parseInt(String(ses.idCreditoSeg), 10) : 0;
+        var ta = document.getElementById('madjSegComentarios');
+        var selAplica = document.getElementById('madjSegAplicaRecoleccion');
+        var msg = document.getElementById('madjSegGuardadoMsg');
+        if (idCredito <= 0 || !ta || !selAplica) return;
+        var com = String(ta.value || '').trim();
+        var aplicaStr = String(selAplica.value || '').trim();
+        if (aplicaStr !== '0' && aplicaStr !== '1') {
+            if (msg) {
+                msg.textContent = 'Seleccione una opción en el desplegable.';
+                msg.classList.add('text-danger');
+                msg.classList.remove('text-muted', 'text-success');
+            }
+            try {
+                selAplica.focus();
+            } catch (eApl) {}
+            return;
+        }
+        if (!com) {
+            if (msg) {
+                msg.textContent = 'Escriba un comentario antes de guardar.';
+                msg.classList.add('text-danger');
+                msg.classList.remove('text-muted', 'text-success');
+            }
+            try {
+                ta.focus();
+            } catch (e1) {}
+            return;
+        }
+        if (msg) {
+            msg.textContent = 'Guardando…';
+            msg.classList.remove('text-danger', 'text-success');
+            msg.classList.add('text-muted');
+        }
+        fetch('/MotosAdjudicadas/guardarSeguimientoMaDictamen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                id_credito: idCredito,
+                comentarios: com,
+                aplica: parseInt(aplicaStr, 10)
+            })
+        })
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (data) {
+                if (!data || !data.success) {
+                    if (msg) {
+                        msg.textContent = (data && data.message) || 'No se pudo guardar.';
+                        msg.classList.add('text-danger');
+                        msg.classList.remove('text-muted', 'text-success');
+                    }
+                    return;
+                }
+                if (msg) {
+                    msg.textContent = 'Guardado.';
+                    msg.classList.remove('text-danger', 'text-muted');
+                    msg.classList.add('text-success');
+                }
+                var apVal = parseInt(aplicaStr, 10);
+                madjActualizarFilaSeguimientoEnTabla(idCredito, {
+                    comentarios: com,
+                    area_seguimiento: MADJ_SEG_AREA_GUARDADO,
+                    aplica: apVal
+                });
+                if (ses && ses.rowRef) {
+                    ses.rowRef.ma_seg_comentarios = com;
+                    ses.rowRef.ma_seg_area = MADJ_SEG_AREA_GUARDADO;
+                    ses.rowRef.ma_seg_aplica = apVal;
+                }
+            })
+            .catch(function () {
+                if (msg) {
+                    msg.textContent = 'Error de red.';
+                    msg.classList.add('text-danger');
+                    msg.classList.remove('text-muted', 'text-success');
+                }
+            });
     }
 
     function cargarBloqueS2DetalleEnSegundoPlano(idCredito) {

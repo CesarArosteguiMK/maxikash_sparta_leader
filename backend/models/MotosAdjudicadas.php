@@ -529,11 +529,140 @@ class MotosAdjudicadas extends Model
             try {
                 $this->db->CRUD("ALTER TABLE adj_s2_cache_dictamen ADD COLUMN nombre_actualizado_at DATETIME NULL");
             } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_comentarios TEXT NULL');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_area VARCHAR(32) NULL');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_aplica TINYINT(1) NULL');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_actualizado_at DATETIME NULL');
+            } catch (\Throwable $e) {}
             self::$cacheResumenS2DictamenTablaOk = true;
         } catch (\Throwable $e) {
             self::$cacheResumenS2DictamenTablaOk = false;
         }
         return self::$cacheResumenS2DictamenTablaOk;
+    }
+
+    /**
+     * Seguimiento del modal Lista dictámenes (por id_credito en adj_s2_cache_dictamen).
+     *
+     * @param  int[]  $idsCredito
+     * @return array<int, array{comentarios: string, area_seguimiento: string, aplica: int|null}>
+     */
+    public function obtenerSeguimientoMaDictamenPorCreditos(array $idsCredito): array
+    {
+        $idsCredito = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn ($v) => $v > 0)));
+        if ($idsCredito === [] || !$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return [];
+        }
+        $ph     = [];
+        $params = [];
+        foreach ($idsCredito as $i => $id) {
+            $k          = 'c'.$i;
+            $ph[]       = ':'.$k;
+            $params[$k] = $id;
+        }
+        try {
+            $rows = $this->db->queryAll(
+                'SELECT id_credito, ma_seg_comentarios, ma_seg_area, ma_seg_aplica
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito IN ('.implode(',', $ph).')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc <= 0) {
+                continue;
+            }
+            $ap     = $r['ma_seg_aplica'] ?? null;
+            $aplica = null;
+            if ($ap !== null && $ap !== '') {
+                $aplica = ((int) $ap) === 1 ? 1 : 0;
+            }
+            $out[$idc] = [
+                'comentarios'      => (string) ($r['ma_seg_comentarios'] ?? ''),
+                'area_seguimiento' => trim((string) ($r['ma_seg_area'] ?? '')),
+                'aplica'           => $aplica,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Valor fijo en BD para el apartado «Dictamen de administración de cobranza» (sin select en UI). */
+    private const MA_SEG_AREA_DICTAMEN_ADM_COBRANZA = 'dictamen_admin_cobranza';
+
+    /**
+     * @return array{success: bool, message?: string}
+     */
+    public function guardarSeguimientoMaDictamen(int $idCredito, string $comentarios, ?int $aplica): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'Crédito inválido.'];
+        }
+        $comentarios = trim($comentarios);
+        if ($comentarios === '') {
+            return ['success' => false, 'message' => 'El comentario es obligatorio.'];
+        }
+        if ($aplica !== 0 && $aplica !== 1) {
+            return ['success' => false, 'message' => 'Seleccione sí o no en el desplegable.'];
+        }
+        $areaSeguimiento = self::MA_SEG_AREA_DICTAMEN_ADM_COBRANZA;
+        if (!$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return ['success' => false, 'message' => 'No fue posible preparar el almacenamiento.'];
+        }
+        $ahora = date('Y-m-d H:i:s');
+        try {
+            $this->db->CRUD(
+                'INSERT INTO adj_s2_cache_dictamen (
+                    id_credito,
+                    ma_seg_comentarios,
+                    ma_seg_area,
+                    ma_seg_aplica,
+                    ma_seg_actualizado_at,
+                    consultado_at,
+                    actualizado_at,
+                    ultimo_efectivo_es_estricto
+                ) VALUES (
+                    :id_credito,
+                    :com,
+                    :area,
+                    :aplica,
+                    :seg_a,
+                    :ahora,
+                    :ahora2,
+                    0
+                )
+                ON DUPLICATE KEY UPDATE
+                    ma_seg_comentarios = VALUES(ma_seg_comentarios),
+                    ma_seg_area = VALUES(ma_seg_area),
+                    ma_seg_aplica = VALUES(ma_seg_aplica),
+                    ma_seg_actualizado_at = VALUES(ma_seg_actualizado_at),
+                    actualizado_at = VALUES(actualizado_at)',
+                [
+                    'id_credito' => $idCredito,
+                    'com'        => $comentarios,
+                    'area'       => $areaSeguimiento,
+                    'aplica'     => $aplica,
+                    'seg_a'      => $ahora,
+                    'ahora'      => $ahora,
+                    'ahora2'     => $ahora,
+                ]
+            );
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al guardar.'];
+        }
+
+        return ['success' => true];
     }
 
     /**
@@ -2212,6 +2341,23 @@ EOSQL;
                 array_pop($rows);
             }
         }
+
+        $idsCredSeg = [];
+        foreach ($rows as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc > 0) {
+                $idsCredSeg[] = $idc;
+            }
+        }
+        $segMap = $this->obtenerSeguimientoMaDictamenPorCreditos($idsCredSeg);
+        foreach ($rows as &$r) {
+            $idc                     = (int) ($r['id_credito'] ?? 0);
+            $s                       = $segMap[$idc] ?? null;
+            $r['ma_seg_comentarios'] = $s['comentarios'] ?? '';
+            $r['ma_seg_area']        = $s['area_seguimiento'] ?? '';
+            $r['ma_seg_aplica']      = $s['aplica'] ?? null;
+        }
+        unset($r);
 
         return ['rows' => $rows, 'has_more' => $hasMore];
     }

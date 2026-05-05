@@ -282,6 +282,34 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/guardarSeguimientoMaDictamen
+     * Body JSON: id_credito, comentarios (obligatorio), aplica (0|1) para recolección.
+     * Persiste en adj_s2_cache_dictamen (ma_seg_area fijo: dictamen_admin_cobranza).
+     */
+    public function guardarSeguimientoMaDictamen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body        = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito   = (int) ($body['id_credito'] ?? $body['id_dictum'] ?? 0);
+        $comentarios = trim((string) ($body['comentarios'] ?? ''));
+        $aplicaRaw   = $body['aplica'] ?? null;
+        $aplica      = null;
+        if ($aplicaRaw === 0 || $aplicaRaw === '0' || $aplicaRaw === false) {
+            $aplica = 0;
+        } elseif ($aplicaRaw === 1 || $aplicaRaw === '1' || $aplicaRaw === true) {
+            $aplica = 1;
+        }
+        try {
+            echo json_encode(
+                $this->model->guardarSeguimientoMaDictamen($idCredito, $comentarios, $aplica),
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * POST /MotosAdjudicadas/registrarLlegadaAlmacenRecepcion
      * Body JSON: { "id_operacion": 123 }
      */
