@@ -284,7 +284,7 @@ class MotosAdjudicadas extends Controller
     /**
      * POST /MotosAdjudicadas/guardarSeguimientoMaDictamen
      * Body JSON: id_credito, comentarios (obligatorio), aplica (0|1) para recolección.
-     * Persiste en adj_s2_cache_dictamen (ma_seg_area fijo: dictamen_admin_cobranza).
+     * Persiste seguimiento en adj_s2_cache_dictamen (ma_seg_comentarios, ma_seg_aplica, ma_seg_actualizado_at).
      */
     public function guardarSeguimientoMaDictamen()
     {

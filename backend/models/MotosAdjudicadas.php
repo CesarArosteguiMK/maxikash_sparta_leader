@@ -415,6 +415,7 @@ class MotosAdjudicadas extends Model
      *   success:bool,
      *   message?:string,
      *   monto_otorgado?:float|null,
+     *   cuotas_contratadas?:int|null,
      *   cuotas_pagadas?:int|null,
      *   total_pagado_cliente?:float|null,
      *   ultimo_efectivo_fecha?:string|null,
@@ -429,7 +430,7 @@ class MotosAdjudicadas extends Model
         }
 
         $cache = $this->obtenerCacheResumenS2ModalDictamen($idCredito);
-        if ($cache !== null) {
+        if ($cache !== null && !$this->cacheResumenS2ModalRequiereRefrescoS2($cache)) {
             return $cache + ['success' => true, 'from_cache' => true];
         }
 
@@ -477,10 +478,12 @@ class MotosAdjudicadas extends Model
             $totalPagado = round($sum, 2);
         }
 
-        $ult = $this->extraerUltimoAbonoEfectivoDesdeEstadoCuenta($ec);
+        $ult                 = $this->extraerUltimoAbonoEfectivoDesdeEstadoCuenta($ec);
+        $cuotasContratadas   = $this->extraerCuotasContratadasDesdeEstadoCuenta($ec);
         $salida = [
             'success'                       => true,
             'monto_otorgado'                => $montoOtorgado > 0 ? round($montoOtorgado, 2) : null,
+            'cuotas_contratadas'            => $cuotasContratadas,
             'cuotas_pagadas'                => $cuotasPagadas,
             'total_pagado_cliente'          => $totalPagado,
             'ultimo_efectivo_fecha'         => $ult['fecha'],
@@ -491,6 +494,64 @@ class MotosAdjudicadas extends Model
         $this->guardarCacheResumenS2ModalDictamen($idCredito, $salida, $ec);
 
         return $salida;
+    }
+
+    /**
+     * Si la fila de caché tiene huecos en datos que debe proveer S2, se fuerza nueva consulta y UPDATE en BD.
+     *
+     * @param  array<string,mixed>  $cache
+     */
+    private function cacheResumenS2ModalRequiereRefrescoS2(array $cache): bool
+    {
+        if (($cache['cuotas_contratadas'] ?? null) === null) {
+            return true;
+        }
+        if (($cache['monto_otorgado'] ?? null) === null) {
+            return true;
+        }
+        if (($cache['cuotas_pagadas'] ?? null) === null) {
+            return true;
+        }
+        if (($cache['total_pagado_cliente'] ?? null) === null) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Cuotas contratadas / plazo desde respuesta estado de cuenta S2 (datosSaldos, datosCliente, raíz).
+     */
+    private function extraerCuotasContratadasDesdeEstadoCuenta(array $ec): ?int
+    {
+        $ds  = is_array($ec['datosSaldos'] ?? null) ? $ec['datosSaldos'] : [];
+        $dc  = is_array($ec['datosCliente'] ?? null) ? $ec['datosCliente'] : [];
+        $dcr = is_array($ec['datosCredito'] ?? null) ? $ec['datosCredito'] : [];
+        $keys = [
+            'cuotasContratadas', 'Cuotas_contratadas', 'cuotas_contratadas',
+            'Numero_amortizaciones', 'numeroAmortizaciones', 'numero_amortizaciones',
+            'Numero_cuotas', 'numero_cuotas', 'Num_cuotas',
+            'plazoTotal', 'Plazo_total', 'numAmortizaciones', 'totalCuotas',
+        ];
+        foreach ($keys as $k) {
+            foreach ([$ec, $ds, $dc, $dcr] as $src) {
+                if (!is_array($src) || !array_key_exists($k, $src)) {
+                    continue;
+                }
+                $v = $src[$k];
+                if ($v === null || $v === '') {
+                    continue;
+                }
+                if (is_numeric($v)) {
+                    $n = (int) $v;
+                    if ($n > 0) {
+                        return $n;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -533,7 +594,10 @@ class MotosAdjudicadas extends Model
                 $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_comentarios TEXT NULL');
             } catch (\Throwable $e) {}
             try {
-                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_area VARCHAR(32) NULL');
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_cuotas_contratadas INT NULL');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen DROP COLUMN ma_seg_area');
             } catch (\Throwable $e) {}
             try {
                 $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_aplica TINYINT(1) NULL');
@@ -550,9 +614,10 @@ class MotosAdjudicadas extends Model
 
     /**
      * Seguimiento del modal Lista dictámenes (por id_credito en adj_s2_cache_dictamen).
+     * Solo comentarios + aplica recolección (+ ma_seg_actualizado_at). Cuotas contratadas S2 van en ma_seg_cuotas_contratadas.
      *
      * @param  int[]  $idsCredito
-     * @return array<int, array{comentarios: string, area_seguimiento: string, aplica: int|null}>
+     * @return array<int, array{comentarios: string, aplica: int|null}>
      */
     public function obtenerSeguimientoMaDictamenPorCreditos(array $idsCredito): array
     {
@@ -569,7 +634,7 @@ class MotosAdjudicadas extends Model
         }
         try {
             $rows = $this->db->queryAll(
-                'SELECT id_credito, ma_seg_comentarios, ma_seg_area, ma_seg_aplica
+                'SELECT id_credito, ma_seg_comentarios, ma_seg_aplica
                  FROM adj_s2_cache_dictamen
                  WHERE id_credito IN ('.implode(',', $ph).')',
                 $params
@@ -589,17 +654,13 @@ class MotosAdjudicadas extends Model
                 $aplica = ((int) $ap) === 1 ? 1 : 0;
             }
             $out[$idc] = [
-                'comentarios'      => (string) ($r['ma_seg_comentarios'] ?? ''),
-                'area_seguimiento' => trim((string) ($r['ma_seg_area'] ?? '')),
-                'aplica'           => $aplica,
+                'comentarios' => (string) ($r['ma_seg_comentarios'] ?? ''),
+                'aplica'      => $aplica,
             ];
         }
 
         return $out;
     }
-
-    /** Valor fijo en BD para el apartado «Dictamen de administración de cobranza» (sin select en UI). */
-    private const MA_SEG_AREA_DICTAMEN_ADM_COBRANZA = 'dictamen_admin_cobranza';
 
     /**
      * @return array{success: bool, message?: string}
@@ -616,7 +677,6 @@ class MotosAdjudicadas extends Model
         if ($aplica !== 0 && $aplica !== 1) {
             return ['success' => false, 'message' => 'Seleccione sí o no en el desplegable.'];
         }
-        $areaSeguimiento = self::MA_SEG_AREA_DICTAMEN_ADM_COBRANZA;
         if (!$this->asegurarTablaCacheResumenS2ModalDictamen()) {
             return ['success' => false, 'message' => 'No fue posible preparar el almacenamiento.'];
         }
@@ -626,7 +686,6 @@ class MotosAdjudicadas extends Model
                 'INSERT INTO adj_s2_cache_dictamen (
                     id_credito,
                     ma_seg_comentarios,
-                    ma_seg_area,
                     ma_seg_aplica,
                     ma_seg_actualizado_at,
                     consultado_at,
@@ -635,7 +694,6 @@ class MotosAdjudicadas extends Model
                 ) VALUES (
                     :id_credito,
                     :com,
-                    :area,
                     :aplica,
                     :seg_a,
                     :ahora,
@@ -644,14 +702,12 @@ class MotosAdjudicadas extends Model
                 )
                 ON DUPLICATE KEY UPDATE
                     ma_seg_comentarios = VALUES(ma_seg_comentarios),
-                    ma_seg_area = VALUES(ma_seg_area),
                     ma_seg_aplica = VALUES(ma_seg_aplica),
                     ma_seg_actualizado_at = VALUES(ma_seg_actualizado_at),
                     actualizado_at = VALUES(actualizado_at)',
                 [
                     'id_credito' => $idCredito,
                     'com'        => $comentarios,
-                    'area'       => $areaSeguimiento,
                     'aplica'     => $aplica,
                     'seg_a'      => $ahora,
                     'ahora'      => $ahora,
@@ -698,7 +754,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * @return array{monto_otorgado:?float,cuotas_pagadas:?int,total_pagado_cliente:?float,ultimo_efectivo_fecha:?string,ultimo_efectivo_monto:?float,ultimo_efectivo_es_estricto:bool}|null
+     * @return array{monto_otorgado:?float,cuotas_contratadas:?int,cuotas_pagadas:?int,total_pagado_cliente:?float,ultimo_efectivo_fecha:?string,ultimo_efectivo_monto:?float,ultimo_efectivo_es_estricto:bool}|null
      */
     private function obtenerCacheResumenS2ModalDictamen(int $idCredito): ?array
     {
@@ -712,6 +768,7 @@ class MotosAdjudicadas extends Model
             $r = $this->db->queryOne(
                 "SELECT
                     monto_otorgado,
+                    ma_seg_cuotas_contratadas,
                     cuotas_pagadas,
                     total_pagado_cliente,
                     ultimo_efectivo_fecha,
@@ -733,8 +790,11 @@ class MotosAdjudicadas extends Model
             return null;
         }
 
+        $cc = $r['ma_seg_cuotas_contratadas'] ?? null;
+
         return [
             'monto_otorgado'              => isset($r['monto_otorgado']) && $r['monto_otorgado'] !== '' ? (float) $r['monto_otorgado'] : null,
+            'cuotas_contratadas'          => $cc !== null && $cc !== '' ? (int) $cc : null,
             'cuotas_pagadas'              => isset($r['cuotas_pagadas']) && $r['cuotas_pagadas'] !== '' ? (int) $r['cuotas_pagadas'] : null,
             'total_pagado_cliente'        => isset($r['total_pagado_cliente']) && $r['total_pagado_cliente'] !== '' ? (float) $r['total_pagado_cliente'] : null,
             'ultimo_efectivo_fecha'       => isset($r['ultimo_efectivo_fecha']) && $r['ultimo_efectivo_fecha'] !== '' ? (string) $r['ultimo_efectivo_fecha'] : null,
@@ -744,7 +804,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * @param array{monto_otorgado?:?float,cuotas_pagadas?:?int,total_pagado_cliente?:?float,ultimo_efectivo_fecha?:?string,ultimo_efectivo_monto?:?float,ultimo_efectivo_es_estricto?:bool} $resumen
+     * @param array{monto_otorgado?:?float,cuotas_contratadas?:?int,cuotas_pagadas?:?int,total_pagado_cliente?:?float,ultimo_efectivo_fecha?:?string,ultimo_efectivo_monto?:?float,ultimo_efectivo_es_estricto?:bool} $resumen
      * @param array<string,mixed> $payloadEstadoCuenta
      */
     private function guardarCacheResumenS2ModalDictamen(int $idCredito, array $resumen, array $payloadEstadoCuenta = []): void
@@ -764,6 +824,7 @@ class MotosAdjudicadas extends Model
                 "INSERT INTO adj_s2_cache_dictamen (
                     id_credito,
                     monto_otorgado,
+                    ma_seg_cuotas_contratadas,
                     cuotas_pagadas,
                     total_pagado_cliente,
                     ultimo_efectivo_fecha,
@@ -775,6 +836,7 @@ class MotosAdjudicadas extends Model
                 ) VALUES (
                     :id_credito,
                     :monto_otorgado,
+                    :ma_seg_cuotas_contratadas,
                     :cuotas_pagadas,
                     :total_pagado_cliente,
                     :ultimo_efectivo_fecha,
@@ -786,6 +848,7 @@ class MotosAdjudicadas extends Model
                 )
                 ON DUPLICATE KEY UPDATE
                     monto_otorgado = VALUES(monto_otorgado),
+                    ma_seg_cuotas_contratadas = VALUES(ma_seg_cuotas_contratadas),
                     cuotas_pagadas = VALUES(cuotas_pagadas),
                     total_pagado_cliente = VALUES(total_pagado_cliente),
                     ultimo_efectivo_fecha = VALUES(ultimo_efectivo_fecha),
@@ -795,16 +858,17 @@ class MotosAdjudicadas extends Model
                     consultado_at = VALUES(consultado_at),
                     actualizado_at = VALUES(actualizado_at)",
                 [
-                    'id_credito'                => $idCredito,
-                    'monto_otorgado'            => $resumen['monto_otorgado'] ?? null,
-                    'cuotas_pagadas'            => $resumen['cuotas_pagadas'] ?? null,
-                    'total_pagado_cliente'      => $resumen['total_pagado_cliente'] ?? null,
-                    'ultimo_efectivo_fecha'     => $resumen['ultimo_efectivo_fecha'] ?? null,
-                    'ultimo_efectivo_monto'     => $resumen['ultimo_efectivo_monto'] ?? null,
+                    'id_credito'                  => $idCredito,
+                    'monto_otorgado'              => $resumen['monto_otorgado'] ?? null,
+                    'ma_seg_cuotas_contratadas'   => $resumen['cuotas_contratadas'] ?? null,
+                    'cuotas_pagadas'              => $resumen['cuotas_pagadas'] ?? null,
+                    'total_pagado_cliente'        => $resumen['total_pagado_cliente'] ?? null,
+                    'ultimo_efectivo_fecha'       => $resumen['ultimo_efectivo_fecha'] ?? null,
+                    'ultimo_efectivo_monto'       => $resumen['ultimo_efectivo_monto'] ?? null,
                     'ultimo_efectivo_es_estricto' => !empty($resumen['ultimo_efectivo_es_estricto']) ? 1 : 0,
-                    'payload_json'              => $jsonPayload,
-                    'consultado_at'             => $ahora,
-                    'actualizado_at'            => $ahora,
+                    'payload_json'                => $jsonPayload,
+                    'consultado_at'               => $ahora,
+                    'actualizado_at'              => $ahora,
                 ]
             );
         } catch (\Throwable $e) {
@@ -2354,7 +2418,6 @@ EOSQL;
             $idc                     = (int) ($r['id_credito'] ?? 0);
             $s                       = $segMap[$idc] ?? null;
             $r['ma_seg_comentarios'] = $s['comentarios'] ?? '';
-            $r['ma_seg_area']        = $s['area_seguimiento'] ?? '';
             $r['ma_seg_aplica']      = $s['aplica'] ?? null;
         }
         unset($r);

@@ -81,8 +81,6 @@ if (!isset($google_maps_api_key_js)) {
     var MADJ_DICTAMENES_PRIMER_LOTE = 10;
     var madjCargaListaToken = 0;
     var madjNombresSolicitados = {};
-    /** Token guardado en adj_s2_cache_dictamen.ma_seg_area (dictamen de administración de cobranza). */
-    var MADJ_SEG_AREA_GUARDADO = 'dictamen_admin_cobranza';
     var modalDetalleCuerpo = document.getElementById('modalDictamenDetalleCuerpo');
 
     function escAttr(s) {
@@ -392,23 +390,28 @@ if (!isset($google_maps_api_key_js)) {
             ) +
             madjCampoReadonly(
                 'col-md-4',
+                'Cuotas contratadas',
+                data.cuotas_contratadas != null ? String(data.cuotas_contratadas) : ''
+            ) +
+            madjCampoReadonly(
+                'col-md-4',
                 'Cuotas pagadas',
                 data.cuotas_pagadas != null ? String(data.cuotas_pagadas) : ''
             ) +
+            '</div>' +
+            '<div class="row g-3">' +
             madjCampoReadonly(
                 'col-md-4',
                 'Total pagado por el cliente',
                 madjFmtMoneyMx(data.total_pagado_cliente)
             ) +
-            '</div>' +
-            '<div class="row g-3">' +
             madjCampoReadonly(
-                'col-md-6',
+                'col-md-4',
                 'Fecha último abono efectivo',
                 data.ultimo_efectivo_fecha || ''
             ) +
             madjCampoReadonly(
-                'col-md-6',
+                'col-md-4',
                 'Monto último abono efectivo',
                 madjFmtMoneyMx(data.ultimo_efectivo_monto)
             ) +
@@ -613,7 +616,6 @@ if (!isset($google_maps_api_key_js)) {
                 return;
             }
             r.ma_seg_comentarios = payload.comentarios;
-            r.ma_seg_area = payload.area_seguimiento || MADJ_SEG_AREA_GUARDADO;
             r.ma_seg_aplica = payload.aplica;
             this.data(r);
         });
@@ -685,12 +687,10 @@ if (!isset($google_maps_api_key_js)) {
                 var apVal = parseInt(aplicaStr, 10);
                 madjActualizarFilaSeguimientoEnTabla(idCredito, {
                     comentarios: com,
-                    area_seguimiento: MADJ_SEG_AREA_GUARDADO,
                     aplica: apVal
                 });
                 if (ses && ses.rowRef) {
                     ses.rowRef.ma_seg_comentarios = com;
-                    ses.rowRef.ma_seg_area = MADJ_SEG_AREA_GUARDADO;
                     ses.rowRef.ma_seg_aplica = apVal;
                 }
             })
