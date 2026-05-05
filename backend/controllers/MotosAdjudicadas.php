@@ -29,6 +29,35 @@ class MotosAdjudicadas extends Controller
         return self::render('operaciones_pipeline');
     }
 
+    /**
+     * GET /MotosAdjudicadas/listaDictamenes
+     */
+    public function listaDictamenes()
+    {
+        $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
+        self::set('titulo', 'Motos Adjudicadas - Lista de Dictámenes ' . $emp);
+        $gmk = defined('GOOGLE_MAPS_API_KEY') ? (string) GOOGLE_MAPS_API_KEY : '';
+        self::set(
+            'google_maps_api_key_js',
+            json_encode($gmk, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)
+        );
+        return self::render('motos_adjudicadas_lista_dictamenes');
+    }
+
+    /**
+     * GET /MotosAdjudicadas/obtenerListaDictamenes
+     */
+    public function obtenerListaDictamenes()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $rows = $this->model->obtenerListaDictumsMotos();
+            echo json_encode(['success' => true, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     // =========================================================================
     // API — BUSCAR CRÉDITO EN ADJUDICACIÓN
     // =========================================================================

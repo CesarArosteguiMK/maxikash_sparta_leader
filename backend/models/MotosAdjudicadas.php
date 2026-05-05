@@ -4,6 +4,7 @@ namespace Models;
 
 use Core\Model;
 use Core\Database;
+use Core\DatabaseLegacy;
 use Models\Adjudicacion as AdjudicacionModel;
 
 class MotosAdjudicadas extends Model
@@ -1619,6 +1620,118 @@ SQL;
             'creditos'           => $creditos,
             'resumen_evidencias' => $resumenEvidencias,
         ];
+    }
+
+    /**
+     * Lista dictámenes de Motos Adjudicadas (opción 13).
+     * Extrae valores del JSON `form_response` en SQL (mismo patrón que Gestiones / JSON_TABLE legacy).
+     * Enriquece nombre de cliente con Sky Logic cuando exista en `base_clientes`.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function obtenerListaDictumsMotos(): array
+    {
+        $sql = <<<'EOSQL'
+SELECT
+    d.id                           AS id,
+    d.task_id                      AS task_id,
+    CAST(t.credit_number AS UNSIGNED) AS id_credito,
+    d.created_at                   AS fecha_registro,
+    d.lat                          AS lat,
+    d.lng                          AS lng,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'direccion_actual' THEN j.raw END), '$.value')), ''
+    )) AS direccion_actual,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'comentarios_generales' THEN j.raw END), '$.value')), ''
+    )) AS comentarios_generales,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'marca_y_modelo' THEN j.raw END), '$.value')), ''
+    )) AS marca_modelo,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'numero_de_serie' THEN j.raw END), '$.value')), ''
+    )) AS numero_serie,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'kilometraje' THEN j.raw END), '$.value')), ''
+    )) AS kilometraje,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'fecha_de_moto_recuperada' THEN j.raw END), '$.value')), ''
+    )) AS fecha_moto_recuperada,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'tomar_foto' THEN j.raw END), '$.value')), ''
+    )) AS url_foto,
+    TRIM(COALESCE(
+        JSON_UNQUOTE(JSON_EXTRACT(MAX(CASE WHEN j.name = 'video_de_moto_recuperada' THEN j.raw END), '$.value')), ''
+    )) AS url_video
+FROM dictums d
+INNER JOIN tasks t ON t.id = d.task_id
+JOIN JSON_TABLE(
+    JSON_UNQUOTE(d.form_response),
+    '$[*]' COLUMNS (
+        name VARCHAR(255) PATH '$.name',
+        value VARCHAR(255) PATH '$.value',
+        raw JSON PATH '$'
+    )
+) j
+WHERE d.opciondictamen_id = :opcion
+GROUP BY d.id, d.task_id, t.credit_number, d.created_at, d.lat, d.lng
+ORDER BY d.id DESC
+EOSQL;
+
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $rows = $legacyDb->queryAll($sql, ['opcion' => 13]) ?: [];
+        } catch (\Throwable $e) {
+            $rows = $this->db->queryAll($sql, ['opcion' => 13]) ?: [];
+        }
+
+        $creditosIds = [];
+        foreach ($rows as $r) {
+            $idc = isset($r['id_credito']) ? (int) $r['id_credito'] : 0;
+            if ($idc > 0) {
+                $creditosIds[$idc] = true;
+            }
+        }
+
+        /** @var array<int, string> */
+        $nombrePorCredito = [];
+        if ($creditosIds !== []) {
+            $lista = array_keys($creditosIds);
+            sort($lista);
+            $ph     = [];
+            $params = [];
+            foreach ($lista as $i => $id) {
+                $k        = 'c' . $i;
+                $ph[]     = ':' . $k;
+                $params[$k] = $id;
+            }
+            try {
+                $sky = $this->db->queryAll(
+                    'SELECT id_credito, MAX(TRIM(nombre_completo_cliente)) AS nombre_completo_cliente
+                     FROM base_clientes
+                     WHERE id_credito IN (' . implode(',', $ph) . ')
+                     GROUP BY id_credito',
+                    $params
+                ) ?: [];
+                foreach ($sky as $s) {
+                    $cid = (int) ($s['id_credito'] ?? 0);
+                    $nom = trim((string) ($s['nombre_completo_cliente'] ?? ''));
+                    if ($cid > 0 && $nom !== '') {
+                        $nombrePorCredito[$cid] = $nom;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Sin Sky Logic disponible para esos créditos: se deja el nombre vacío.
+            }
+        }
+
+        foreach ($rows as &$r) {
+            $cid                       = isset($r['id_credito']) ? (int) $r['id_credito'] : 0;
+            $r['nombre_cliente']       = $nombrePorCredito[$cid] ?? '';
+        }
+        unset($r);
+
+        return $rows;
     }
 
     /**
