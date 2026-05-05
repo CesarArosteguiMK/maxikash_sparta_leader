@@ -72,6 +72,53 @@ class MotosAdjudicadas extends Controller
         }
     }
 
+    /**
+     * GET /MotosAdjudicadas/obtenerListaDictamenesCompleta
+     * Segunda fase opcional para refrescar lista completa en background (sin repetir el mismo endpoint en Network).
+     */
+    public function obtenerListaDictamenesCompleta()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $result = $this->model->obtenerListaDictumsMotos(null, 0, false);
+            echo json_encode(
+                [
+                    'success'  => true,
+                    'rows'     => $result['rows'],
+                    'has_more' => $result['has_more'],
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/resolverNombresClienteDictamenes?ids=1,2,3
+     * Resuelve y cachea nombres por lote para la lista de dictámenes.
+     */
+    public function resolverNombresClienteDictamenes()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $raw = trim((string) ($_GET['ids'] ?? ''));
+            if ($raw === '') {
+                echo json_encode(['success' => true, 'nombres' => []], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $raw)), static fn($v) => $v > 0)));
+            if ($ids === []) {
+                echo json_encode(['success' => true, 'nombres' => []], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $map = $this->model->resolverNombresClienteDictamenesPorCreditos($ids);
+            echo json_encode(['success' => true, 'nombres' => $map], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     // =========================================================================
     // API — BUSCAR CRÉDITO EN ADJUDICACIÓN
     // =========================================================================

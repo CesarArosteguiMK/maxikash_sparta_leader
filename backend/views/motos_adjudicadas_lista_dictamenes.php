@@ -80,6 +80,7 @@ if (!isset($google_maps_api_key_js)) {
     /** Primer lote de filas para mostrar la tabla rápido; el resto se pide en segundo plano. */
     var MADJ_DICTAMENES_PRIMER_LOTE = 10;
     var madjCargaListaToken = 0;
+    var madjNombresSolicitados = {};
     var modalDetalleCuerpo = document.getElementById('modalDictamenDetalleCuerpo');
 
     function escAttr(s) {
@@ -574,12 +575,81 @@ if (!isset($google_maps_api_key_js)) {
     function renderClienteCredito(row) {
         var nom = String(row.nombre_cliente || '').trim();
         var cred = String(row.id_credito != null ? row.id_credito : '').trim();
-        var linea1 = nom ? escAttr(nom) : '<span class="text-muted">Sin nombre en cartera</span>';
+        var linea1 = nom ? escAttr(nom) : '<span class="text-muted">Cargando nombre…</span>';
         var linea2 =
             '<span class="small text-muted">Crédito: <strong>' +
             escAttr(cred || '—') +
             '</strong></span>';
         return '<div>' + linea1 + '</div><div>' + linea2 + '</div>';
+    }
+
+    function resolverNombresPendientesEnTabla(maximo) {
+        if (!tablaDictamenes) return;
+        var ids = [];
+        var vistos = {};
+        tablaDictamenes.rows({ page: 'current' }).every(function () {
+            var r = this.data() || {};
+            var idc = parseInt(String(r.id_credito || '0'), 10);
+            var nom = String(r.nombre_cliente || '').trim();
+            if (idc > 0 && !nom && !madjNombresSolicitados[idc] && !vistos[idc]) {
+                ids.push(idc);
+                vistos[idc] = true;
+            }
+        });
+        if (maximo && ids.length < maximo) {
+            tablaDictamenes.rows().every(function () {
+                if (ids.length >= maximo) return;
+                var r = this.data() || {};
+                var idc = parseInt(String(r.id_credito || '0'), 10);
+                var nom = String(r.nombre_cliente || '').trim();
+                if (idc > 0 && !nom && !madjNombresSolicitados[idc] && !vistos[idc]) {
+                    ids.push(idc);
+                    vistos[idc] = true;
+                }
+            });
+        }
+        if (maximo && ids.length > maximo) {
+            ids = ids.slice(0, maximo);
+        }
+        if (ids.length === 0) return;
+
+        ids.forEach(function (idc) {
+            madjNombresSolicitados[idc] = true;
+        });
+
+        fetch(
+            '/MotosAdjudicadas/resolverNombresClienteDictamenes?ids=' +
+                encodeURIComponent(ids.join(',')),
+            { credentials: 'same-origin' }
+        )
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (data) {
+                if (!data || !data.success || !tablaDictamenes) {
+                    return;
+                }
+                var map = data.nombres || {};
+                var huboCambio = false;
+                tablaDictamenes.rows().every(function () {
+                    var row = this.data() || {};
+                    var idc = parseInt(String(row.id_credito || '0'), 10);
+                    if (idc <= 0) return;
+                    var key = String(idc);
+                    var nuevo = typeof map[key] === 'string' ? String(map[key]).trim() : '';
+                    if (nuevo && String(row.nombre_cliente || '').trim() !== nuevo) {
+                        row.nombre_cliente = nuevo;
+                        this.data(row);
+                        huboCambio = true;
+                    }
+                });
+                if (huboCambio) {
+                    tablaDictamenes.draw(false);
+                }
+            })
+            .catch(function () {
+                // Silencioso: seguirá intentando en futuros cambios de página.
+            });
     }
 
     function columnas() {
@@ -734,6 +804,7 @@ if (!isset($google_maps_api_key_js)) {
                     tablaDictamenes.rows.add(filas);
                     tablaDictamenes.draw();
                 }
+                resolverNombresPendientesEnTabla(50);
             })
             .catch(function (err) {
                 if (token !== madjCargaListaToken) return;
@@ -770,6 +841,9 @@ if (!isset($google_maps_api_key_js)) {
             var tr = $(this).closest('tr');
             var row = tablaDictamenes.row(tr).data();
             if (row) abrirModalDetalle(row);
+        });
+        $('#tablaDictamenesMotos').on('draw.dt', function () {
+            resolverNombresPendientesEnTabla(25);
         });
         var btnRef = document.getElementById('btnDictamenesRefrescar');
         if (btnRef) btnRef.addEventListener('click', cargar);

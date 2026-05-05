@@ -519,11 +519,53 @@ class MotosAdjudicadas extends Model
                     KEY idx_adj_s2_cache_dictamen_actualizado (actualizado_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
             );
+            // Extensiones para caché de nombre del cliente en la misma tabla.
+            try {
+                $this->db->CRUD("ALTER TABLE adj_s2_cache_dictamen ADD COLUMN nombre_cliente VARCHAR(255) NULL");
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD("ALTER TABLE adj_s2_cache_dictamen ADD COLUMN nombre_fuente VARCHAR(50) NULL");
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD("ALTER TABLE adj_s2_cache_dictamen ADD COLUMN nombre_actualizado_at DATETIME NULL");
+            } catch (\Throwable $e) {}
             self::$cacheResumenS2DictamenTablaOk = true;
         } catch (\Throwable $e) {
             self::$cacheResumenS2DictamenTablaOk = false;
         }
         return self::$cacheResumenS2DictamenTablaOk;
+    }
+
+    /**
+     * Fila de caché con resumen S2 real (no solo nombre guardado en la misma tabla).
+     *
+     * @param array<string,mixed> $r
+     */
+    private function filaCacheS2TieneResumenFinanciero(array $r): bool
+    {
+        $pj = isset($r['payload_json']) ? trim((string) $r['payload_json']) : '';
+        if ($pj !== '') {
+            return true;
+        }
+        $m = $r['monto_otorgado'] ?? null;
+        if ($m !== null && $m !== '' && (float) $m > 0) {
+            return true;
+        }
+        $c = $r['cuotas_pagadas'] ?? null;
+        if ($c !== null && $c !== '') {
+            return true;
+        }
+        $t = $r['total_pagado_cliente'] ?? null;
+        if ($t !== null && $t !== '' && (float) $t > 0) {
+            return true;
+        }
+        $um = $r['ultimo_efectivo_monto'] ?? null;
+        if ($um !== null && $um !== '' && (float) $um > 0) {
+            return true;
+        }
+        $uf = isset($r['ultimo_efectivo_fecha']) ? trim((string) $r['ultimo_efectivo_fecha']) : '';
+
+        return $uf !== '';
     }
 
     /**
@@ -545,7 +587,8 @@ class MotosAdjudicadas extends Model
                     total_pagado_cliente,
                     ultimo_efectivo_fecha,
                     ultimo_efectivo_monto,
-                    ultimo_efectivo_es_estricto
+                    ultimo_efectivo_es_estricto,
+                    payload_json
                  FROM adj_s2_cache_dictamen
                  WHERE id_credito = :id
                  LIMIT 1",
@@ -557,13 +600,16 @@ class MotosAdjudicadas extends Model
         if (!$r) {
             return null;
         }
+        if (!$this->filaCacheS2TieneResumenFinanciero($r)) {
+            return null;
+        }
 
         return [
-            'monto_otorgado'              => isset($r['monto_otorgado']) ? (float) $r['monto_otorgado'] : null,
-            'cuotas_pagadas'              => isset($r['cuotas_pagadas']) ? (int) $r['cuotas_pagadas'] : null,
-            'total_pagado_cliente'        => isset($r['total_pagado_cliente']) ? (float) $r['total_pagado_cliente'] : null,
+            'monto_otorgado'              => isset($r['monto_otorgado']) && $r['monto_otorgado'] !== '' ? (float) $r['monto_otorgado'] : null,
+            'cuotas_pagadas'              => isset($r['cuotas_pagadas']) && $r['cuotas_pagadas'] !== '' ? (int) $r['cuotas_pagadas'] : null,
+            'total_pagado_cliente'        => isset($r['total_pagado_cliente']) && $r['total_pagado_cliente'] !== '' ? (float) $r['total_pagado_cliente'] : null,
             'ultimo_efectivo_fecha'       => isset($r['ultimo_efectivo_fecha']) && $r['ultimo_efectivo_fecha'] !== '' ? (string) $r['ultimo_efectivo_fecha'] : null,
-            'ultimo_efectivo_monto'       => isset($r['ultimo_efectivo_monto']) ? (float) $r['ultimo_efectivo_monto'] : null,
+            'ultimo_efectivo_monto'       => isset($r['ultimo_efectivo_monto']) && $r['ultimo_efectivo_monto'] !== '' ? (float) $r['ultimo_efectivo_monto'] : null,
             'ultimo_efectivo_es_estricto' => !empty($r['ultimo_efectivo_es_estricto']),
         ];
     }
@@ -2081,6 +2127,30 @@ EOSQL;
         }
         unset($r);
 
+        // Completar faltantes con caché local de nombres (rápido, sin tocar servicios externos).
+        $idsSinNombre = [];
+        foreach ($rows as $r) {
+            $cid = (int) ($r['id_credito'] ?? 0);
+            if ($cid > 0 && trim((string) ($r['nombre_cliente'] ?? '')) === '') {
+                $idsSinNombre[$cid] = true;
+            }
+        }
+        if ($idsSinNombre !== []) {
+            $cacheNombres = $this->obtenerNombresClienteCachePorCreditos(array_keys($idsSinNombre));
+            if ($cacheNombres !== []) {
+                foreach ($rows as &$r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                        continue;
+                    }
+                    if (!empty($cacheNombres[$cid])) {
+                        $r['nombre_cliente'] = (string) $cacheNombres[$cid];
+                    }
+                }
+                unset($r);
+            }
+        }
+
         if (!$modoRapido) {
             $idsSinNombre = [];
             foreach ($rows as $r) {
@@ -2121,6 +2191,19 @@ EOSQL;
                 }
                 unset($r);
             }
+
+            // Guardar en caché local todos los nombres ya resueltos para próximas cargas rápidas.
+            $aGuardar = [];
+            foreach ($rows as $r) {
+                $cid = (int) ($r['id_credito'] ?? 0);
+                $nom = trim((string) ($r['nombre_cliente'] ?? ''));
+                if ($cid > 0 && $nom !== '' && strcasecmp($nom, 'Sin nombre') !== 0 && strcasecmp($nom, 'No disponible') !== 0) {
+                    $aGuardar[$cid] = $nom;
+                }
+            }
+            if ($aGuardar !== []) {
+                $this->guardarNombresClienteCachePorCredito($aGuardar);
+            }
         }
 
         if ($limit !== null && $limit > 0) {
@@ -2131,6 +2214,161 @@ EOSQL;
         }
 
         return ['rows' => $rows, 'has_more' => $hasMore];
+    }
+
+    private function asegurarTablaCacheNombreCredito(): bool
+    {
+        // Usar la misma tabla adj_s2_cache_dictamen para no crear una tabla aparte.
+        return $this->asegurarTablaCacheResumenS2ModalDictamen();
+    }
+
+    /**
+     * @param int[] $idsCreditos
+     * @return array<int,string> [id_credito => nombre_cliente]
+     */
+    private function obtenerNombresClienteCachePorCreditos(array $idsCreditos): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCreditos), static fn($v) => $v > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        if (!$this->asegurarTablaCacheNombreCredito()) {
+            return [];
+        }
+        $ph = [];
+        $params = [];
+        foreach ($ids as $i => $id) {
+            $k = 'id' . $i;
+            $ph[] = ':' . $k;
+            $params[$k] = $id;
+        }
+        try {
+            $rows = $this->db->queryAll(
+                'SELECT id_credito, nombre_cliente
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito IN (' . implode(',', $ph) . ')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $map = [];
+        foreach ($rows as $r) {
+            $cid = (int) ($r['id_credito'] ?? 0);
+            $nom = trim((string) ($r['nombre_cliente'] ?? ''));
+            if ($cid > 0 && $nom !== '') {
+                $map[$cid] = $nom;
+            }
+        }
+        return $map;
+    }
+
+    /**
+     * @param array<int,string> $nombresPorCredito [id_credito => nombre_cliente]
+     */
+    private function guardarNombresClienteCachePorCredito(array $nombresPorCredito): void
+    {
+        if ($nombresPorCredito === []) {
+            return;
+        }
+        if (!$this->asegurarTablaCacheNombreCredito()) {
+            return;
+        }
+        $ahora = date('Y-m-d H:i:s');
+        foreach ($nombresPorCredito as $cid => $nombre) {
+            $idCredito = (int) $cid;
+            $nom = trim((string) $nombre);
+            if ($idCredito <= 0 || $nom === '') {
+                continue;
+            }
+            try {
+                $this->db->CRUD(
+                    "INSERT INTO adj_s2_cache_dictamen (
+                        id_credito, nombre_cliente, nombre_fuente, nombre_actualizado_at, consultado_at, actualizado_at
+                    ) VALUES (
+                        :id_credito, :nombre_cliente, :nombre_fuente, :nombre_actualizado_at, :consultado_at, :actualizado_at
+                    )
+                    ON DUPLICATE KEY UPDATE
+                        nombre_cliente = VALUES(nombre_cliente),
+                        nombre_fuente = VALUES(nombre_fuente),
+                        nombre_actualizado_at = VALUES(nombre_actualizado_at),
+                        actualizado_at = VALUES(actualizado_at)",
+                    [
+                        'id_credito' => $idCredito,
+                        'nombre_cliente' => $nom,
+                        'nombre_fuente' => 'dictamen_full',
+                        'nombre_actualizado_at' => $ahora,
+                        'consultado_at' => $ahora,
+                        'actualizado_at' => $ahora,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                // No bloquear flujo por fallo de caché.
+            }
+        }
+    }
+
+    /**
+     * Resuelve nombres por lote (cache local + base_clientes + segundómetro) y los persiste en caché.
+     *
+     * @param int[] $idsCreditos
+     * @return array<int,string> [id_credito => nombre_cliente]
+     */
+    public function resolverNombresClienteDictamenesPorCreditos(array $idsCreditos): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCreditos), static fn($v) => $v > 0)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $nombres = $this->obtenerNombresClienteCachePorCreditos($ids);
+
+        $faltantes = array_values(array_filter($ids, static fn($id) => empty($nombres[$id])));
+        if ($faltantes !== []) {
+            $ph = [];
+            $params = [];
+            foreach ($faltantes as $i => $id) {
+                $k = 'c' . $i;
+                $ph[] = ':' . $k;
+                $params[$k] = $id;
+            }
+            try {
+                $rowsBase = $this->db->queryAll(
+                    'SELECT id_credito, MAX(TRIM(nombre_completo_cliente)) AS nombre_completo_cliente
+                     FROM base_clientes
+                     WHERE id_credito IN (' . implode(',', $ph) . ')
+                     GROUP BY id_credito',
+                    $params
+                ) ?: [];
+                foreach ($rowsBase as $r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    $nom = trim((string) ($r['nombre_completo_cliente'] ?? ''));
+                    if ($cid > 0 && $nom !== '') {
+                        $nombres[$cid] = $nom;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignorar y continuar con siguiente fuente.
+            }
+        }
+
+        $faltantes = array_values(array_filter($ids, static fn($id) => empty($nombres[$id])));
+        if ($faltantes !== []) {
+            $mapSm = $this->obtenerMorosidadSegundometroPorCreditos($faltantes);
+            foreach ($faltantes as $idc) {
+                $key = (string) $idc;
+                $nomSm = trim((string) (($mapSm[$key]['nombre_cliente'] ?? '')));
+                if ($nomSm !== '' && strcasecmp($nomSm, 'No disponible') !== 0 && strcasecmp($nomSm, 'Sin nombre') !== 0) {
+                    $nombres[$idc] = $nomSm;
+                }
+            }
+        }
+
+        if ($nombres !== []) {
+            $this->guardarNombresClienteCachePorCredito($nombres);
+        }
+
+        return $nombres;
     }
 
     /**
