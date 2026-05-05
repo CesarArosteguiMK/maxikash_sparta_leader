@@ -451,7 +451,10 @@ if (!isset($google_maps_api_key_js)) {
         };
 
         var html = '<div class="container-fluid px-0">';
-        html += '<div class="row g-3">';
+        html +=
+            '<section class="border border-2 border-primary rounded p-3 mb-4" aria-label="Datos Legacy">' +
+            '<p class="fw-semibold small text-uppercase text-secondary mb-2">Legacy</p>' +
+            '<div class="row g-3">';
         html += madjCampoReadonly('col-md-4', 'Nombre del cliente', nom);
         html += madjCampoReadonly('col-md-4', 'ID de crédito', cred);
         html += madjCampoReadonly('col-md-4', 'Kilometraje', row.kilometraje);
@@ -459,16 +462,19 @@ if (!isset($google_maps_api_key_js)) {
         html += madjCampoReadonly('col-md-4', 'Marca / modelo', marcaMay);
         html += madjCampoReadonly('col-md-4', 'Fecha de registro', fmtFechaRegistro(row.fecha_registro));
         html += madjComentarioReadonly(row.comentarios_generales);
-        html += '</div>';
+        html += '</div></section>';
 
         html +=
-            '<p class="fw-semibold small text-uppercase text-secondary mt-4 mb-2">S2</p>' +
+            '<section class="border border-2 border-warning rounded p-3 mb-4" aria-label="Datos S2">' +
+            '<p class="fw-semibold small text-uppercase text-secondary mb-2">S2</p>' +
             '<div class="mb-0" id="madjS2Root">' +
             madjHtmlBloqueS2(idCredNum, dataS2) +
-            '</div>';
+            '</div></section>';
 
-        html += '<p class="fw-semibold small text-uppercase text-secondary mt-3 mb-2">Evidencias</p>';
-        html += '<div class="row g-3">';
+        html +=
+            '<section class="border border-2 border-primary rounded p-3 mb-4" aria-label="Evidencias Legacy">' +
+            '<p class="fw-semibold small text-uppercase text-secondary mb-2">Legacy — Evidencias</p>' +
+            '<div class="row g-3">';
         html += '<div class="col-md-6">';
         html +=
             '<label class="form-label fw-semibold small text-secondary">Fotografía</label>';
@@ -498,9 +504,11 @@ if (!isset($google_maps_api_key_js)) {
             html +=
                 '<input type="text" class="form-control bg-light" value="" placeholder="—" readonly />';
         }
-        html += '</div></div>';
+        html += '</div></div></section>';
 
-        html += '<p class="fw-semibold small text-uppercase text-secondary mt-3 mb-2">Ubicación</p>';
+        html +=
+            '<section class="border border-2 border-primary rounded p-3 mb-0" aria-label="Ubicación Legacy">' +
+            '<p class="fw-semibold small text-uppercase text-secondary mb-2">Legacy — Ubicación</p>';
         if (hayCoords) {
             html +=
                 '<div class="row g-3 mb-3">' +
@@ -525,7 +533,7 @@ if (!isset($google_maps_api_key_js)) {
                 '</div></div>';
         }
 
-        html += '</div>';
+        html += '</section></div>';
         modalDetalleCuerpo.innerHTML = html;
     }
 
