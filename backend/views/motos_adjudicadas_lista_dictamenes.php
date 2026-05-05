@@ -11,7 +11,6 @@ if (!isset($google_maps_api_key_js)) {
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
             <h5 class="card-title mb-0">Lista de dictámenes — Motos adjudicadas</h5>
-            <small class="text-muted">Dictámenes con opción «Moto adjudicada» (legacy)</small>
         </div>
         <button type="button" class="btn btn-primary btn-sm" id="btnDictamenesRefrescar">
             <i class="fa-solid fa-rotate-right me-1"></i>Refrescar
@@ -23,10 +22,9 @@ if (!isset($google_maps_api_key_js)) {
                 <thead>
                     <tr>
                         <th>Cliente / Crédito</th>
-                        <th>Fecha recuperación</th>
                         <th>Marca / modelo</th>
                         <th>Fecha registro</th>
-                        <th class="text-center" style="width:1%">Acción</th>
+                        <th class="text-center text-nowrap">Acción</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -44,7 +42,7 @@ if (!isset($google_maps_api_key_js)) {
             </div>
             <div class="modal-body" id="modalDictamenDetalleCuerpo"></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -59,10 +57,7 @@ if (!isset($google_maps_api_key_js)) {
             </div>
             <div class="modal-body text-center" id="modalDictamenMediaCuerpo"></div>
             <div class="modal-footer">
-                <a class="btn btn-outline-primary" id="modalDictamenMediaAbrirPestaña" href="#" target="_blank" rel="noopener noreferrer">
-                    Abrir en nueva pestaña
-                </a>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -78,8 +73,10 @@ if (!isset($google_maps_api_key_js)) {
     var modalMediaEl = document.getElementById('modalDictamenMedia');
     var modalMediaBody = document.getElementById('modalDictamenMediaCuerpo');
     var modalMediaTitulo = document.getElementById('modalDictamenMediaTitulo');
-    var modalMediaLink = document.getElementById('modalDictamenMediaAbrirPestaña');
     var modalDetalleEl = document.getElementById('modalDictamenDetalle');
+    /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string }|null} */
+    var madjDetalleSesion = null;
+    var madjDetalleOcultoPorMedia = false;
     var modalDetalleCuerpo = document.getElementById('modalDictamenDetalleCuerpo');
 
     function escAttr(s) {
@@ -108,14 +105,6 @@ if (!isset($google_maps_api_key_js)) {
         return la >= -90 && la <= 90 && lo >= -180 && lo <= 180;
     }
 
-    /** Mismo patrón que Sabueso (panel / rastreo): búsqueda por coordenadas. */
-    function urlGoogleMapsSearchApi(lat, lng) {
-        return (
-            'https://www.google.com/maps/search/?api=1&query=' +
-            encodeURIComponent(String(lat) + ',' + String(lng))
-        );
-    }
-
     function cargarMapaGoogleDictamen(lat, lng, nomCliente, idCredito) {
         var cont = document.getElementById('madjDictamenMapaContenedor');
         if (!cont) return;
@@ -132,7 +121,7 @@ if (!isset($google_maps_api_key_js)) {
 
         if (!apiKey) {
             cont.innerHTML =
-                '<p class="text-muted small mb-0 p-2">Falta <code>GOOGLE_MAPS_API_KEY</code> en configuración. Use «Abrir en Google Maps (nueva pestaña)».</p>';
+                '<p class="text-muted small mb-0 p-2">Falta <code>GOOGLE_MAPS_API_KEY</code> en configuración para mostrar el mapa.</p>';
             return;
         }
 
@@ -159,6 +148,12 @@ if (!isset($google_maps_api_key_js)) {
                 '</span>';
             var infow = new google.maps.InfoWindow({ content: htmlInfo });
             infow.open(madjDictamenMapa, marker);
+            setTimeout(function () {
+                if (madjDictamenMapa && google.maps && google.maps.event) {
+                    google.maps.event.trigger(madjDictamenMapa, 'resize');
+                    madjDictamenMapa.setCenter({ lat: la, lng: lo });
+                }
+            }, 250);
         }
 
         if (typeof google !== 'undefined' && google.maps) {
@@ -195,37 +190,74 @@ if (!isset($google_maps_api_key_js)) {
 
     function abrirModalMedia(tipo, url) {
         modalMediaTitulo.textContent = tipo === 'video' ? 'Video' : 'Fotografía';
-        modalMediaLink.href = url;
         if (tipo === 'video') {
             modalMediaBody.innerHTML =
-                '<video class="w-100 rounded" controls playsinline preload="metadata" style="max-height:85vh;object-fit:contain;background:#000" src="' +
+                '<div class="ratio ratio-16x9 bg-dark rounded overflow-hidden">' +
+                '<video class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain bg-dark" controls playsinline preload="metadata" src="' +
                 escAttr(url) +
-                '"></video>';
+                '"></video></div>';
         } else {
             modalMediaBody.innerHTML =
                 '<img class="img-fluid rounded shadow-sm" src="' + escAttr(url) + '" alt="Evidencia" />';
         }
-        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-            bootstrap.Modal.getOrCreateInstance(modalMediaEl).show();
+        if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+            return;
         }
+        var detInst =
+            modalDetalleEl && bootstrap.Modal.getInstance(modalDetalleEl)
+                ? bootstrap.Modal.getInstance(modalDetalleEl)
+                : modalDetalleEl
+                  ? bootstrap.Modal.getOrCreateInstance(modalDetalleEl)
+                  : null;
+        var detalleAbierto = !!(modalDetalleEl && modalDetalleEl.classList.contains('show'));
+        if (detalleAbierto && detInst) {
+            madjDetalleOcultoPorMedia = true;
+            function despuesDeOcultarDetalle() {
+                modalDetalleEl.removeEventListener('hidden.bs.modal', despuesDeOcultarDetalle);
+                bootstrap.Modal.getOrCreateInstance(modalMediaEl).show();
+            }
+            modalDetalleEl.addEventListener('hidden.bs.modal', despuesDeOcultarDetalle);
+            detInst.hide();
+            return;
+        }
+        madjDetalleOcultoPorMedia = false;
+        bootstrap.Modal.getOrCreateInstance(modalMediaEl).show();
     }
 
     if (modalMediaEl) {
         modalMediaEl.addEventListener('hidden.bs.modal', function () {
             modalMediaBody.innerHTML = '';
-            modalMediaLink.href = '#';
+            if (madjDetalleOcultoPorMedia && modalDetalleEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                madjDetalleOcultoPorMedia = false;
+                bootstrap.Modal.getOrCreateInstance(modalDetalleEl).show();
+            }
         });
     }
 
     if (modalDetalleEl) {
+        modalDetalleEl.addEventListener('shown.bs.modal', function () {
+            var s = madjDetalleSesion;
+            if (!s || !s.hayCoords) {
+                return;
+            }
+            cargarMapaGoogleDictamen(parseFloat(s.lat), parseFloat(s.lng), s.nom, s.cred);
+            var geoEl = document.getElementById('madjDetalleRevGeo');
+            if (geoEl) {
+                intentarEtiquetaMapa(s.lat, s.lng, geoEl);
+            }
+        });
         modalDetalleEl.addEventListener('hidden.bs.modal', function () {
             var contMap = document.getElementById('madjDictamenMapaContenedor');
             if (contMap) contMap.innerHTML = '';
             madjDictamenMapa = null;
-            var wrapMap = document.getElementById('madjDictamenMapaWrap');
-            if (wrapMap) wrapMap.classList.add('d-none');
         });
         modalDetalleEl.addEventListener('click', function (ev) {
+            var fotoImg = ev.target.closest('img.js-dict-foto-click');
+            if (fotoImg) {
+                var u = fotoImg.getAttribute('data-url') || fotoImg.getAttribute('src') || '';
+                if (u) abrirModalMedia('foto', u);
+                return;
+            }
             var btn = ev.target.closest('.js-dict-media-inline');
             if (!btn) return;
             var tipo = btn.getAttribute('data-tipo') || 'foto';
@@ -234,17 +266,44 @@ if (!isset($google_maps_api_key_js)) {
         });
     }
 
-    function parEtiquetaValor(etq, val) {
-        var v = String(val == null ? '' : val).trim();
+    /** Campo solo lectura (patrón modal detalle Bootstrap 5). */
+    function madjCampoReadonly(colClass, etiqueta, valor) {
+        var v = String(valor == null ? '' : valor).trim();
+        var valAttr = v ? escAttr(v) : '';
         return (
-            '<dt class="col-sm-4 col-md-3 text-muted">' + escAttr(etq) + '</dt>' +
-            '<dd class="col-sm-8 col-md-9">' + (v ? escAttr(v) : '<span class="text-muted">—</span>') + '</dd>'
+            '<div class="' +
+            colClass +
+            '">' +
+            '<label class="form-label fw-semibold small text-secondary">' +
+            escAttr(etiqueta) +
+            '</label>' +
+            '<input type="text" class="form-control bg-light" value="' +
+            valAttr +
+            '" placeholder="—" readonly />' +
+            '</div>'
+        );
+    }
+
+    function madjComentarioReadonly(texto) {
+        var raw = String(texto == null ? '' : texto);
+        var inner = escAttr(raw);
+        return (
+            '<div class="col-12">' +
+            '<label class="form-label fw-semibold small text-secondary">Comentario</label>' +
+            '<textarea class="form-control bg-light" readonly rows="3" placeholder="—">' +
+            inner +
+            '</textarea>' +
+            '</div>'
         );
     }
 
     function intentarEtiquetaMapa(lat, lng, elSalida) {
         if (!elSalida || !coordsValidas(lat, lng)) return;
-        elSalida.textContent = 'Obteniendo denominación del lugar…';
+        var wrap = elSalida.closest ? elSalida.closest('[data-madj-revgeo-wrap]') : null;
+        if (wrap) {
+            wrap.classList.remove('d-none');
+        }
+        elSalida.value = 'Obteniendo denominación del lugar…';
         var url =
             'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' +
             encodeURIComponent(String(lat)) +
@@ -257,19 +316,104 @@ if (!isset($google_maps_api_key_js)) {
             })
             .then(function (j) {
                 if (j && j.display_name) {
-                    elSalida.textContent = j.display_name;
+                    elSalida.value = j.display_name;
                 } else {
-                    elSalida.textContent = '';
-                    elSalida.classList.add('d-none');
+                    elSalida.value = '';
+                    if (wrap) wrap.classList.add('d-none');
                 }
             })
             .catch(function () {
-                elSalida.textContent =
-                    'No se pudo obtener el nombre del lugar automáticamente. Use «Ver en Google Maps» con las coordenadas.';
+                elSalida.value = 'No se pudo obtener el nombre del lugar automáticamente.';
             });
     }
 
-    function abrirModalDetalle(row) {
+    function madjFmtMoneyMx(val) {
+        if (val === null || val === undefined || val === '') {
+            return '—';
+        }
+        var n = Number(val);
+        if (!isFinite(n)) {
+            return '—';
+        }
+        return (
+            '$ ' +
+            n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        );
+    }
+
+    /** HTML del bloque S2 a partir de la respuesta JSON del backend (o error). */
+    function madjHtmlBloqueS2(idCredito, data) {
+        if (!idCredito || idCredito <= 0) {
+            return '<p class="text-muted small mb-0">Sin ID de crédito para consultar S2.</p>';
+        }
+        if (!data || !data.success) {
+            return (
+                '<p class="text-danger small mb-0">' +
+                escAttr((data && data.message) || 'No fue posible obtener datos de S2.') +
+                '</p>'
+            );
+        }
+        return (
+            '<div class="row g-3">' +
+            madjCampoReadonly(
+                'col-md-4',
+                'Total del crédito otorgado',
+                madjFmtMoneyMx(data.monto_otorgado)
+            ) +
+            madjCampoReadonly(
+                'col-md-4',
+                'Cuotas pagadas',
+                data.cuotas_pagadas != null ? String(data.cuotas_pagadas) : ''
+            ) +
+            madjCampoReadonly(
+                'col-md-4',
+                'Total pagado por el cliente',
+                madjFmtMoneyMx(data.total_pagado_cliente)
+            ) +
+            '</div>' +
+            '<div class="row g-3">' +
+            madjCampoReadonly(
+                'col-md-6',
+                'Fecha último abono efectivo',
+                data.ultimo_efectivo_fecha || ''
+            ) +
+            madjCampoReadonly(
+                'col-md-6',
+                'Monto último abono efectivo',
+                madjFmtMoneyMx(data.ultimo_efectivo_monto)
+            ) +
+            '</div>'
+        );
+    }
+
+    function madjMostrarCargandoDetalleS2() {
+        if (typeof Swal === 'undefined' || typeof Swal.fire !== 'function') {
+            return;
+        }
+        Swal.fire({
+            title: 'Consultando información en S2…',
+            html:
+                '<p class="small text-secondary fw-normal mt-1 mb-0 text-center">Espere un momento…</p>',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            backdrop: true,
+            didOpen: function () {
+                if (typeof Swal.showLoading === 'function') Swal.showLoading();
+            }
+        });
+    }
+
+    function madjOcultarCargandoDetalleS2() {
+        if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
+            Swal.close();
+        }
+    }
+
+    /**
+     * Arma el HTML del modal de detalle (con S2 ya resuelto) y guarda sesión para mapa/geocodificación al mostrarse.
+     */
+    function aplicarCuerpoModalDetalle(row, dataS2) {
         var nom = String(row.nombre_cliente || '').trim();
         var cred = String(row.id_credito != null ? row.id_credito : '').trim();
         var lat = row.lat;
@@ -278,108 +422,133 @@ if (!isset($google_maps_api_key_js)) {
         var video = String(row.url_video || '').trim();
         var hayCoords = coordsValidas(lat, lng);
 
-        var html = '<div class="container-fluid px-0">';
-        html += '<dl class="row mb-0 gy-2">';
-        html += parEtiquetaValor('Nombre del cliente', nom || '—');
-        html += parEtiquetaValor('ID de crédito', cred || '—');
-        html += parEtiquetaValor('Fecha de recuperación', row.fecha_moto_recuperada);
-        html += parEtiquetaValor('Kilometraje', row.kilometraje);
-        html += parEtiquetaValor('Número de serie', row.numero_serie);
-        html += parEtiquetaValor('Marca / modelo', row.marca_modelo);
-        html += '<dt class="col-sm-4 col-md-3 text-muted">Comentario</dt>';
-        html +=
-            '<dd class="col-sm-8 col-md-9"><div class="text-break">' +
-            (String(row.comentarios_generales || '').trim()
-                ? escAttr(String(row.comentarios_generales).trim()).replace(/\r?\n/g, '<br>')
-                : '<span class="text-muted">—</span>') +
-            '</div></dd>';
-        html += parEtiquetaValor('Fecha de registro', fmtFechaRegistro(row.fecha_registro));
-        html += '</dl>';
+        var marcaTxt = String(row.marca_modelo == null ? '' : row.marca_modelo).trim();
+        var marcaMay = marcaTxt ? marcaTxt.toLocaleUpperCase('es-MX') : '';
 
-        html += '<hr class="my-4">';
-        html += '<h6 class="mb-3">Evidencias</h6><div class="row g-3">';
+        var coordTxt = hayCoords ? String(lat) + ', ' + String(lng) : '';
+
+        var idCredNum = parseInt(String(cred || '0'), 10);
+
+        madjDetalleSesion = {
+            hayCoords: hayCoords,
+            lat: lat,
+            lng: lng,
+            nom: nom,
+            cred: cred
+        };
+
+        var html = '<div class="container-fluid px-0">';
+        html += '<div class="row g-3">';
+        html += madjCampoReadonly('col-md-4', 'Nombre del cliente', nom);
+        html += madjCampoReadonly('col-md-4', 'ID de crédito', cred);
+        html += madjCampoReadonly('col-md-4', 'Kilometraje', row.kilometraje);
+        html += madjCampoReadonly('col-md-4', 'Número de serie', row.numero_serie);
+        html += madjCampoReadonly('col-md-4', 'Marca / modelo', marcaMay);
+        html += madjCampoReadonly('col-md-4', 'Fecha de registro', fmtFechaRegistro(row.fecha_registro));
+        html += madjComentarioReadonly(row.comentarios_generales);
+        html += '</div>';
+
+        html +=
+            '<p class="fw-semibold small text-uppercase text-secondary mt-4 mb-2">S2</p>' +
+            '<div class="mb-0">' +
+            madjHtmlBloqueS2(idCredNum, dataS2) +
+            '</div>';
+
+        html += '<p class="fw-semibold small text-uppercase text-secondary mt-3 mb-2">Evidencias</p>';
+        html += '<div class="row g-3">';
         html += '<div class="col-md-6">';
-        html += '<p class="small text-muted mb-1">Fotografía</p>';
+        html +=
+            '<label class="form-label fw-semibold small text-secondary">Fotografía</label>';
         if (foto) {
             html +=
+                '<div class="ratio ratio-4x3 border rounded overflow-hidden bg-white">' +
                 '<img src="' +
                 escAttr(foto) +
-                '" alt="Foto" class="img-fluid rounded border mb-2" style="max-height:220px;object-fit:contain"/>' +
-                '<div><button type="button" class="btn btn-sm btn-outline-primary js-dict-media-inline" data-tipo="foto" data-url="' +
+                '" alt="Foto" data-url="' +
                 escAttr(foto) +
-                '"><i class="fa-solid fa-expand me-1"></i>Ver en grande</button></div>';
+                '" class="js-dict-foto-click position-absolute top-0 start-0 w-100 h-100 object-fit-contain cursor-pointer" title="Clic para ampliar"/>' +
+                '</div>';
         } else {
-            html += '<span class="text-muted">—</span>';
+            html +=
+                '<input type="text" class="form-control bg-light" value="" placeholder="—" readonly />';
         }
         html += '</div>';
         html += '<div class="col-md-6">';
-        html += '<p class="small text-muted mb-1">Video</p>';
+        html += '<label class="form-label fw-semibold small text-secondary">Video</label>';
         if (video) {
             html +=
-                '<div class="rounded border overflow-hidden bg-dark d-flex justify-content-center align-items-center mb-2" style="max-height:280px">' +
+                '<div class="ratio ratio-4x3 border rounded overflow-hidden bg-dark">' +
                 '<video controls playsinline preload="metadata" src="' +
                 escAttr(video) +
-                '" class="d-block" style="width:100%;max-height:280px;object-fit:contain"></video></div>' +
-                '<div><button type="button" class="btn btn-sm btn-outline-primary js-dict-media-inline" data-tipo="video" data-url="' +
-                escAttr(video) +
-                '"><i class="fa-solid fa-expand me-1"></i>Ver en grande</button></div>';
+                '" class="position-absolute top-0 start-0 w-100 h-100 object-fit-contain bg-dark"></video></div>';
         } else {
-            html += '<span class="text-muted">—</span>';
+            html +=
+                '<input type="text" class="form-control bg-light" value="" placeholder="—" readonly />';
         }
         html += '</div></div>';
 
-        html += '<hr class="my-4">';
-        html += '<h6 class="mb-3">Ubicación</h6>';
-        var dirForm = String(row.direccion_actual || '').trim();
-        html += '<dl class="row mb-3">';
-        html += parEtiquetaValor('Dirección (formulario)', dirForm || '—');
+        html += '<p class="fw-semibold small text-uppercase text-secondary mt-3 mb-2">Ubicación</p>';
         if (hayCoords) {
             html +=
-                '<dt class="col-sm-4 col-md-3 text-muted">Coordenadas</dt><dd class="col-sm-8 col-md-9"><code>' +
-                escAttr(String(lat) + ', ' + String(lng)) +
-                '</code></dd>';
+                '<div class="row g-3 mb-3">' +
+                '<div class="col-12" data-madj-revgeo-wrap="1">' +
+                '<label class="form-label fw-semibold small text-secondary">Lugar (aprox.)</label>' +
+                '<textarea class="form-control bg-light" readonly rows="3" id="madjDetalleRevGeo" placeholder="—"></textarea>' +
+                '</div></div>';
             html +=
-                '<dt class="col-sm-4 col-md-3 text-muted">Lugar (aprox.)</dt><dd class="col-sm-8 col-md-9"><span id="madjDetalleRevGeo" class="text-break"></span></dd>';
-        }
-        html += '</dl>';
-
-        if (hayCoords) {
-            html +=
-                '<div class="d-flex flex-wrap gap-2 align-items-center mb-2">' +
-                '<button type="button" class="btn btn-primary" id="madjBtnVerMapaGoogle">' +
-                '<i class="fa-solid fa-map-location-dot me-1"></i>Ver en Google Maps</button>' +
-                '<a class="btn btn-outline-secondary btn-sm" href="' +
-                escAttr(urlGoogleMapsSearchApi(lat, lng)) +
-                '" target="_blank" rel="noopener noreferrer">' +
-                '<i class="fa-solid fa-external-link-alt me-1"></i>Abrir en nueva pestaña</a>' +
-                '</div>' +
-                '<div id="madjDictamenMapaWrap" class="d-none">' +
-                '<div id="madjDictamenMapaContenedor" class="rounded border overflow-hidden" style="height:380px;width:100%"></div>' +
-                '</div>';
+                '<div id="madjDictamenMapaWrap" class="mb-3 col-12 col-xl-8 mx-auto">' +
+                '<div class="ratio ratio-21x9 rounded border overflow-hidden">' +
+                '<div id="madjDictamenMapaContenedor" class="bg-light"></div>' +
+                '</div></div>';
+            html += '<div class="row g-3">';
+            html += madjCampoReadonly('col-12', 'Coordenadas', coordTxt);
+            html += '</div>';
         } else {
-            html += '<p class="text-muted mb-0">Sin coordenadas de geolocalización en este dictamen.</p>';
+            html +=
+                '<div class="row g-3">' +
+                '<div class="col-12">' +
+                '<label class="form-label fw-semibold small text-secondary">Coordenadas</label>' +
+                '<input type="text" class="form-control bg-light" value="Sin coordenadas de geolocalización en este dictamen." readonly />' +
+                '</div></div>';
         }
 
         html += '</div>';
         modalDetalleCuerpo.innerHTML = html;
+    }
 
-        var geoEl = document.getElementById('madjDetalleRevGeo');
-        if (hayCoords && geoEl) {
-            intentarEtiquetaMapa(lat, lng, geoEl);
+    function abrirModalDetalle(row) {
+        var cred = String(row.id_credito != null ? row.id_credito : '').trim();
+        var idCredNum = parseInt(String(cred || '0'), 10);
+
+        function mostrarModal(dataS2) {
+            aplicarCuerpoModalDetalle(row, dataS2);
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalDetalleEl).show();
+            }
         }
 
-        var btnVerMapa = document.getElementById('madjBtnVerMapaGoogle');
-        if (btnVerMapa && hayCoords) {
-            btnVerMapa.addEventListener('click', function () {
-                var wrap = document.getElementById('madjDictamenMapaWrap');
-                if (wrap) wrap.classList.remove('d-none');
-                cargarMapaGoogleDictamen(parseFloat(lat), parseFloat(lng), nom, cred);
+        if (!idCredNum || idCredNum <= 0) {
+            mostrarModal(null);
+            return;
+        }
+
+        madjMostrarCargandoDetalleS2();
+        fetch(
+            '/MotosAdjudicadas/obtenerResumenS2ModalDictamen?id_credito=' +
+                encodeURIComponent(String(idCredNum)),
+            { credentials: 'same-origin' }
+        )
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (data) {
+                madjOcultarCargandoDetalleS2();
+                mostrarModal(data);
+            })
+            .catch(function () {
+                madjOcultarCargandoDetalleS2();
+                mostrarModal({ success: false, message: 'Error de red al consultar S2.' });
             });
-        }
-
-        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-            bootstrap.Modal.getOrCreateInstance(modalDetalleEl).show();
-        }
     }
 
     function renderClienteCredito(row) {
@@ -409,19 +578,16 @@ if (!isset($google_maps_api_key_js)) {
                 }
             },
             {
-                data: 'fecha_moto_recuperada',
-                defaultContent: '—',
-                render: function (d) {
-                    var t = String(d == null ? '' : d).trim();
-                    return t ? escAttr(t) : '—';
-                }
-            },
-            {
                 data: 'marca_modelo',
                 defaultContent: '—',
-                render: function (d) {
+                render: function (d, type) {
                     var t = String(d == null ? '' : d).trim();
-                    return t ? escAttr(t) : '—';
+                    if (!t) return '—';
+                    var may = t.toLocaleUpperCase('es-MX');
+                    if (type === 'sort' || type === 'filter') {
+                        return may;
+                    }
+                    return escAttr(may);
                 }
             },
             {
@@ -456,7 +622,7 @@ if (!isset($google_maps_api_key_js)) {
             columns: columnas(),
             pageLength: 5,
             lengthMenu: [[5, 10, 50, -1], [5, 10, 50, 'Todos']],
-            order: [[3, 'desc']],
+            order: [[2, 'desc']],
             autoWidth: false,
             language: {
                 decimal: '',
@@ -501,9 +667,32 @@ if (!isset($google_maps_api_key_js)) {
         };
     }
 
+    function dictamenListaMostrarCargando() {
+        if (typeof Swal === 'undefined' || typeof Swal.fire !== 'function') return;
+        Swal.fire({
+            title: 'Procesando su petición',
+            html:
+                '<p class="small text-secondary fw-normal mt-1 mb-0 text-center">Espere un momento...</p>',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            backdrop: true,
+            didOpen: function () {
+                if (typeof Swal.showLoading === 'function') Swal.showLoading();
+            }
+        });
+    }
+
+    function dictamenListaOcultarCargando() {
+        if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
+            Swal.close();
+        }
+    }
+
     function cargar() {
         var btn = document.getElementById('btnDictamenesRefrescar');
         if (btn) btn.disabled = true;
+        dictamenListaMostrarCargando();
         fetch('/MotosAdjudicadas/obtenerListaDictamenes', { credentials: 'same-origin' })
             .then(function (r) {
                 return r.json();
@@ -512,6 +701,7 @@ if (!isset($google_maps_api_key_js)) {
                 if (!data || !data.success) {
                     throw new Error((data && data.message) || 'No fue posible cargar la lista.');
                 }
+                dictamenListaOcultarCargando();
                 var filas = Array.isArray(data.rows) ? data.rows : [];
                 if (!tablaDictamenes) {
                     tablaDictamenes = jQuery('#tablaDictamenesMotos').DataTable(opcionesDataTable(filas));
@@ -522,6 +712,7 @@ if (!isset($google_maps_api_key_js)) {
                 }
             })
             .catch(function (err) {
+                dictamenListaOcultarCargando();
                 if (window.Swal && Swal.fire) {
                     Swal.fire({ icon: 'error', title: 'Error', text: err.message || String(err) });
                 } else {

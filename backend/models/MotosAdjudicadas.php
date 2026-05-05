@@ -406,6 +406,184 @@ class MotosAdjudicadas extends Model
     }
 
     /**
+     * Resumen financiero S2 (estado de cuenta) para el modal Lista Dictámenes — Motos adjudicadas.
+     *
+     * @return array{
+     *   success:bool,
+     *   message?:string,
+     *   monto_otorgado?:float|null,
+     *   cuotas_pagadas?:int|null,
+     *   total_pagado_cliente?:float|null,
+     *   ultimo_efectivo_fecha?:string|null,
+     *   ultimo_efectivo_monto?:float|null,
+     *   ultimo_efectivo_es_estricto?:bool
+     * }
+     */
+    public function obtenerResumenS2ModalDictamen(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de crédito inválido.'];
+        }
+        try {
+            $ctrl = new \Controllers\EstadoCuenta();
+            $res  = $ctrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'), 25);
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al consultar estado de cuenta S2.'];
+        }
+        if (empty($res['ok']) || !is_array($res['data'])) {
+            return ['success' => false, 'message' => (string) ($res['error'] ?? 'No se pudo obtener estado de cuenta.')];
+        }
+        $ec = $res['data'];
+        $ds = is_array($ec['datosSaldos'] ?? null) ? $ec['datosSaldos'] : [];
+
+        $montoOtorgado = (float) ($ec['montoOtorgado'] ?? 0);
+        if ($montoOtorgado <= 0.0) {
+            $montoOtorgado = (float) ($ds['montoOtorgado'] ?? $ds['Monto_otorgado'] ?? 0);
+        }
+
+        $cuotasPagadas = null;
+        foreach (['cuotasPagadas', 'Num_cuotas_pagadas', 'num_cuotas_pagadas', 'Cuotas_pagadas'] as $k) {
+            if (isset($ds[$k]) && $ds[$k] !== '' && $ds[$k] !== null && is_numeric($ds[$k])) {
+                $cuotasPagadas = (int) $ds[$k];
+                break;
+            }
+        }
+
+        $totalPagado = null;
+        foreach (['Abonos_total', 'abonos_total'] as $k) {
+            if (isset($ds[$k]) && is_numeric($ds[$k])) {
+                $totalPagado = round((float) $ds[$k], 2);
+                break;
+            }
+        }
+        if ($totalPagado === null) {
+            $pagosArr = is_array($ec['datosPagos'] ?? null) ? $ec['datosPagos'] : [];
+            $sum      = 0.0;
+            foreach ($pagosArr as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                $sum += (float) ($p['montoPago'] ?? $p['monto'] ?? 0);
+            }
+            $totalPagado = round($sum, 2);
+        }
+
+        $ult = $this->extraerUltimoAbonoEfectivoDesdeEstadoCuenta($ec);
+
+        return [
+            'success'                       => true,
+            'monto_otorgado'                => $montoOtorgado > 0 ? round($montoOtorgado, 2) : null,
+            'cuotas_pagadas'                => $cuotasPagadas,
+            'total_pagado_cliente'          => $totalPagado,
+            'ultimo_efectivo_fecha'         => $ult['fecha'],
+            'ultimo_efectivo_monto'         => $ult['monto'],
+            'ultimo_efectivo_es_estricto'   => $ult['estricto'],
+        ];
+    }
+
+    /**
+     * @return array{fecha:?string,monto:?float,estricto:bool}
+     */
+    private function extraerUltimoAbonoEfectivoDesdeEstadoCuenta(array $ec): array
+    {
+        $pagos = is_array($ec['datosPagos'] ?? null) ? $ec['datosPagos'] : [];
+        $efectivos = [];
+        $todos     = [];
+        foreach ($pagos as $p) {
+            if (!is_array($p)) {
+                continue;
+            }
+            $monto = (float) ($p['montoPago'] ?? $p['monto'] ?? 0);
+            if ($monto <= 0) {
+                continue;
+            }
+            $fechaRaw = $p['fechaDeposito'] ?? $p['fechaValor'] ?? $p['fechaRegistro'] ?? null;
+            $ts       = $this->timestampDesdeFechaS2Dictamen($fechaRaw);
+            if ($ts === null) {
+                continue;
+            }
+            $item = ['ts' => $ts, 'fecha_raw' => $fechaRaw, 'monto' => round($monto, 2)];
+            $todos[] = $item;
+            if ($this->pagoS2PareceEfectivoDictamen($p)) {
+                $efectivos[] = $item;
+            }
+        }
+        $lista    = $efectivos !== [] ? $efectivos : $todos;
+        $estricto = $efectivos !== [];
+        if ($lista === []) {
+            return ['fecha' => null, 'monto' => null, 'estricto' => false];
+        }
+        usort($lista, static function ($a, $b) {
+            return ($a['ts'] ?? 0) <=> ($b['ts'] ?? 0);
+        });
+        $last = $lista[count($lista) - 1];
+
+        return [
+            'fecha'    => $this->formatearFechaDisplayMxDictamen($last['fecha_raw'] ?? null),
+            'monto'    => $last['monto'],
+            'estricto' => $estricto,
+        ];
+    }
+
+    private function pagoS2PareceEfectivoDictamen(array $p): bool
+    {
+        foreach (['formaPago', 'tipoFormaPago', 'descripcionFormaPago', 'tipoDeposito', 'forma_de_pago', 'concepto'] as $k) {
+            if (empty($p[$k])) {
+                continue;
+            }
+            $t = mb_strtolower(trim((string) $p[$k]), 'UTF-8');
+            if ($t === '') {
+                continue;
+            }
+            if (strpos($t, 'efect') !== false || strpos($t, 'cash') !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param mixed $raw */
+    private function timestampDesdeFechaS2Dictamen($raw): ?int
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        if (is_numeric($raw)) {
+            $n = (float) $raw;
+            if ($n > 2000000000000) {
+                return (int) round($n / 1000);
+            }
+            if ($n > 20000000000) {
+                return (int) round($n / 1000);
+            }
+            if ($n > 1000000000) {
+                return (int) $n;
+            }
+        }
+        $t = strtotime((string) $raw);
+
+        return $t !== false ? $t : null;
+    }
+
+    /** @param mixed $raw */
+    private function formatearFechaDisplayMxDictamen($raw): ?string
+    {
+        $ts = $this->timestampDesdeFechaS2Dictamen($raw);
+        if ($ts === null) {
+            return null;
+        }
+        try {
+            $dt = new \DateTime('@' . $ts);
+            $dt->setTimezone(new \DateTimeZone('America/Mexico_City'));
+
+            return $dt->format('d/m/Y H:i');
+        } catch (\Throwable $e) {
+            return date('d/m/Y H:i', $ts);
+        }
+    }
+
+    /**
      * Registra una sola vez la llegada f?sica al almac?n (Recepci?n). No se puede modificar ni repetir.
      *
      * @return array{success:bool, message?:string, fecha_llegada_almacen?:string, ya_registrada?:bool}
@@ -1625,7 +1803,7 @@ SQL;
     /**
      * Lista dictámenes de Motos Adjudicadas (opción 13).
      * Extrae valores del JSON `form_response` en SQL (mismo patrón que Gestiones / JSON_TABLE legacy).
-     * Enriquece nombre de cliente con Sky Logic cuando exista en `base_clientes`.
+     * Enriquece nombre con `base_clientes`, luego Segundómetro (lote) y, si sigue vacío, API S2 estado de cuenta.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -1730,6 +1908,46 @@ EOSQL;
             $r['nombre_cliente']       = $nombrePorCredito[$cid] ?? '';
         }
         unset($r);
+
+        $idsSinNombre = [];
+        foreach ($rows as $r) {
+            $cid = (int) ($r['id_credito'] ?? 0);
+            if ($cid > 0 && trim((string) ($r['nombre_cliente'] ?? '')) === '') {
+                $idsSinNombre[$cid] = true;
+            }
+        }
+        $listaSinNombre = array_keys($idsSinNombre);
+        if ($listaSinNombre !== []) {
+            $mapSm = $this->obtenerMorosidadSegundometroPorCreditos($listaSinNombre);
+            foreach ($rows as &$r) {
+                $cid = (int) ($r['id_credito'] ?? 0);
+                if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                    continue;
+                }
+                $key   = (string) $cid;
+                $nomSm = trim((string) (($mapSm[$key]['nombre_cliente'] ?? '')));
+                if ($nomSm !== '' && strcasecmp($nomSm, 'No disponible') !== 0) {
+                    $r['nombre_cliente'] = $nomSm;
+                }
+            }
+            unset($r);
+
+            $adjModel = new AdjudicacionModel();
+            foreach ($rows as &$r) {
+                $cid = (int) ($r['id_credito'] ?? 0);
+                if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                    continue;
+                }
+                $api = $adjModel->buscarCreditoPorId($cid);
+                if (!empty($api['success']) && !empty($api['credito'])) {
+                    $nomApi = trim((string) ($api['credito']['nombre_cliente'] ?? ''));
+                    if ($nomApi !== '' && strcasecmp($nomApi, 'Sin nombre') !== 0) {
+                        $r['nombre_cliente'] = $nomApi;
+                    }
+                }
+            }
+            unset($r);
+        }
 
         return $rows;
     }

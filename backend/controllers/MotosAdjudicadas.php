@@ -201,6 +201,26 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * GET /MotosAdjudicadas/obtenerResumenS2ModalDictamen?id_credito=N
+     * Datos S2 (estado de cuenta) para la sección «S2» del modal Lista Dictámenes.
+     */
+    public function obtenerResumenS2ModalDictamen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idCred = (int) ($_GET['id_credito'] ?? 0);
+        if ($idCred <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+        try {
+            $res = $this->model->obtenerResumenS2ModalDictamen($idCred);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * POST /MotosAdjudicadas/registrarLlegadaAlmacenRecepcion
      * Body JSON: { "id_operacion": 123 }
      */
