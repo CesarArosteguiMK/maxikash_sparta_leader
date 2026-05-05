@@ -325,6 +325,7 @@ class Convenios extends Controller
             'pdf_adjunto'                => $pdfPath,
             'monto_adicional'            => isset($_POST['monto_adicional']) ? (float) $_POST['monto_adicional'] : 0.0,
             'total_final_con_adicional'  => isset($_POST['total_final_con_adicional']) ? (float) $_POST['total_final_con_adicional'] : null,
+            'id_celula'                  => $this->resolverIdCelulaUsuario(),
         ]);
 
         $r = ConveniosDAO::migrarConvenio($datos);
