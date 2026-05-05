@@ -227,8 +227,28 @@ if (!isset($google_maps_api_key_js)) {
         bootstrap.Modal.getOrCreateInstance(modalMediaEl).show();
     }
 
+    function detenerMediosDentro(contenedor) {
+        if (!contenedor || !contenedor.querySelectorAll) {
+            return;
+        }
+        var medias = contenedor.querySelectorAll('video, audio');
+        medias.forEach(function (m) {
+            try {
+                m.pause();
+            } catch (e) {}
+            try {
+                m.currentTime = 0;
+            } catch (e2) {}
+            try {
+                m.removeAttribute('src');
+                m.load();
+            } catch (e3) {}
+        });
+    }
+
     if (modalMediaEl) {
         modalMediaEl.addEventListener('hidden.bs.modal', function () {
+            detenerMediosDentro(modalMediaBody);
             modalMediaBody.innerHTML = '';
             if (madjDetalleOcultoPorMedia && modalDetalleEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                 madjDetalleOcultoPorMedia = false;
@@ -250,6 +270,7 @@ if (!isset($google_maps_api_key_js)) {
             }
         });
         modalDetalleEl.addEventListener('hidden.bs.modal', function () {
+            detenerMediosDentro(modalDetalleEl);
             var contMap = document.getElementById('madjDictamenMapaContenedor');
             if (contMap) contMap.innerHTML = '';
             madjDictamenMapa = null;
@@ -694,11 +715,8 @@ if (!isset($google_maps_api_key_js)) {
         var btn = document.getElementById('btnDictamenesRefrescar');
         if (btn) btn.disabled = true;
         dictamenListaMostrarCargando();
-        var urlPrimero =
-            '/MotosAdjudicadas/obtenerListaDictamenes?limit=' +
-            encodeURIComponent(String(MADJ_DICTAMENES_PRIMER_LOTE)) +
-            '&offset=0&rapido=1';
-        fetch(urlPrimero, { credentials: 'same-origin' })
+        var urlUnico = '/MotosAdjudicadas/obtenerListaDictamenes?rapido=1';
+        fetch(urlUnico, { credentials: 'same-origin' })
             .then(function (r) {
                 return r.json();
             })
@@ -716,24 +734,6 @@ if (!isset($google_maps_api_key_js)) {
                     tablaDictamenes.rows.add(filas);
                     tablaDictamenes.draw();
                 }
-                var urlCompleto = '/MotosAdjudicadas/obtenerListaDictamenes';
-                fetch(urlCompleto, { credentials: 'same-origin' })
-                    .then(function (r2) {
-                        return r2.json();
-                    })
-                    .then(function (data2) {
-                        if (token !== madjCargaListaToken) return;
-                        if (!data2 || !data2.success || !tablaDictamenes) {
-                            return;
-                        }
-                        var filasFull = Array.isArray(data2.rows) ? data2.rows : [];
-                        tablaDictamenes.clear();
-                        tablaDictamenes.rows.add(filasFull);
-                        tablaDictamenes.draw(false);
-                    })
-                    .catch(function () {
-                        /* ya hay primer lote pintado; recarga completa opcional */
-                    });
             })
             .catch(function (err) {
                 if (token !== madjCargaListaToken) return;
