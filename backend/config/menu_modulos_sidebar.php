@@ -79,10 +79,10 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
             'Motos Adjudicadas' => [
                 'icono' => 'fa-solid fa-motorcycle',
                 'subItems' => [
+                    ['label' => 'Lista Dictámenes', 'url' => '/MotosAdjudicadas/listaDictamenes', 'modulos' => [64]],
                     ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos', 'modulos' => [62]],
                     ['label' => 'Operaciones', 'url' => '/MotosAdjudicadas/pipeline', 'modulos' => [63]],
                     ['label' => 'Mis Adjudicaciones', 'url' => '/MotosAdjudicadas/misAdjudicaciones', 'modulos' => [64]],
-                    ['label' => 'Lista Dictámenes', 'url' => '/MotosAdjudicadas/listaDictamenes', 'modulos' => [64]],
                     ['label' => 'Consulta REPUVE', 'url' => '/MotosAdjudicadas/repuveConsulta', 'modulos' => [64]],
                     ['label' => '1.- Evidencias', 'url' => '/AtencionClientes/evidencias', 'modulos' => [70]],
                     ['label' => '2.- Recuperación', 'url' => '/AtencionClientes/recuperacion', 'modulos' => [71]],

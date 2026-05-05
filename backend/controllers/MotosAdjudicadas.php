@@ -51,8 +51,22 @@ class MotosAdjudicadas extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            $rows = $this->model->obtenerListaDictumsMotos();
-            echo json_encode(['success' => true, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : null;
+            if ($limit !== null && $limit <= 0) {
+                $limit = null;
+            }
+            $offset = isset($_GET['offset']) ? max(0, (int) $_GET['offset']) : 0;
+            $modoRapido = isset($_GET['rapido']) && (string) $_GET['rapido'] === '1';
+
+            $result = $this->model->obtenerListaDictumsMotos($limit, $offset, $modoRapido);
+            echo json_encode(
+                [
+                    'success'  => true,
+                    'rows'     => $result['rows'],
+                    'has_more' => $result['has_more'],
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
         } catch (\Throwable $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }

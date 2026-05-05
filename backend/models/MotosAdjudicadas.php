@@ -23,6 +23,9 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columnas recepcion_*_estado (migraci?n 20260428_adj_operacion_recepcion_doc_estado.sql) */
     private static $adjOperacionRecepcionDocEstadoCol = null;
 
+    /** @var null|bool tabla de caché para resumen S2 en modal de dictámenes */
+    private static $cacheResumenS2DictamenTablaOk = null;
+
     /** M?ximo de consultas REPUVE nuevas (POST a Nubarium) por usuario y d?a natural CDMX. */
     private const REPUVE_CONSULTAS_MAX_DIA = 5;
 
@@ -424,6 +427,12 @@ class MotosAdjudicadas extends Model
         if ($idCredito <= 0) {
             return ['success' => false, 'message' => 'ID de crédito inválido.'];
         }
+
+        $cache = $this->obtenerCacheResumenS2ModalDictamen($idCredito);
+        if ($cache !== null) {
+            return $cache + ['success' => true, 'from_cache' => true];
+        }
+
         try {
             $ctrl = new \Controllers\EstadoCuenta();
             $res  = $ctrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'), 25);
@@ -469,8 +478,7 @@ class MotosAdjudicadas extends Model
         }
 
         $ult = $this->extraerUltimoAbonoEfectivoDesdeEstadoCuenta($ec);
-
-        return [
+        $salida = [
             'success'                       => true,
             'monto_otorgado'                => $montoOtorgado > 0 ? round($montoOtorgado, 2) : null,
             'cuotas_pagadas'                => $cuotasPagadas,
@@ -478,7 +486,155 @@ class MotosAdjudicadas extends Model
             'ultimo_efectivo_fecha'         => $ult['fecha'],
             'ultimo_efectivo_monto'         => $ult['monto'],
             'ultimo_efectivo_es_estricto'   => $ult['estricto'],
+            'from_cache'                    => false,
         ];
+        $this->guardarCacheResumenS2ModalDictamen($idCredito, $salida, $ec);
+
+        return $salida;
+    }
+
+    /**
+     * Crea (si falta) la tabla de caché del resumen S2 del modal de dictámenes.
+     */
+    private function asegurarTablaCacheResumenS2ModalDictamen(): bool
+    {
+        if (self::$cacheResumenS2DictamenTablaOk !== null) {
+            return self::$cacheResumenS2DictamenTablaOk;
+        }
+        try {
+            $this->db->CRUD(
+                "CREATE TABLE IF NOT EXISTS adj_s2_cache_dictamen (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_credito INT NOT NULL,
+                    monto_otorgado DECIMAL(14,2) NULL,
+                    cuotas_pagadas INT NULL,
+                    total_pagado_cliente DECIMAL(14,2) NULL,
+                    ultimo_efectivo_fecha VARCHAR(40) NULL,
+                    ultimo_efectivo_monto DECIMAL(14,2) NULL,
+                    ultimo_efectivo_es_estricto TINYINT(1) NOT NULL DEFAULT 0,
+                    payload_json LONGTEXT NULL,
+                    consultado_at DATETIME NOT NULL,
+                    actualizado_at DATETIME NOT NULL,
+                    UNIQUE KEY ux_adj_s2_cache_dictamen_credito (id_credito),
+                    KEY idx_adj_s2_cache_dictamen_actualizado (actualizado_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+            self::$cacheResumenS2DictamenTablaOk = true;
+        } catch (\Throwable $e) {
+            self::$cacheResumenS2DictamenTablaOk = false;
+        }
+        return self::$cacheResumenS2DictamenTablaOk;
+    }
+
+    /**
+     * @return array{monto_otorgado:?float,cuotas_pagadas:?int,total_pagado_cliente:?float,ultimo_efectivo_fecha:?string,ultimo_efectivo_monto:?float,ultimo_efectivo_es_estricto:bool}|null
+     */
+    private function obtenerCacheResumenS2ModalDictamen(int $idCredito): ?array
+    {
+        if ($idCredito <= 0) {
+            return null;
+        }
+        if (!$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return null;
+        }
+        try {
+            $r = $this->db->queryOne(
+                "SELECT
+                    monto_otorgado,
+                    cuotas_pagadas,
+                    total_pagado_cliente,
+                    ultimo_efectivo_fecha,
+                    ultimo_efectivo_monto,
+                    ultimo_efectivo_es_estricto
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito = :id
+                 LIMIT 1",
+                ['id' => $idCredito]
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (!$r) {
+            return null;
+        }
+
+        return [
+            'monto_otorgado'              => isset($r['monto_otorgado']) ? (float) $r['monto_otorgado'] : null,
+            'cuotas_pagadas'              => isset($r['cuotas_pagadas']) ? (int) $r['cuotas_pagadas'] : null,
+            'total_pagado_cliente'        => isset($r['total_pagado_cliente']) ? (float) $r['total_pagado_cliente'] : null,
+            'ultimo_efectivo_fecha'       => isset($r['ultimo_efectivo_fecha']) && $r['ultimo_efectivo_fecha'] !== '' ? (string) $r['ultimo_efectivo_fecha'] : null,
+            'ultimo_efectivo_monto'       => isset($r['ultimo_efectivo_monto']) ? (float) $r['ultimo_efectivo_monto'] : null,
+            'ultimo_efectivo_es_estricto' => !empty($r['ultimo_efectivo_es_estricto']),
+        ];
+    }
+
+    /**
+     * @param array{monto_otorgado?:?float,cuotas_pagadas?:?int,total_pagado_cliente?:?float,ultimo_efectivo_fecha?:?string,ultimo_efectivo_monto?:?float,ultimo_efectivo_es_estricto?:bool} $resumen
+     * @param array<string,mixed> $payloadEstadoCuenta
+     */
+    private function guardarCacheResumenS2ModalDictamen(int $idCredito, array $resumen, array $payloadEstadoCuenta = []): void
+    {
+        if ($idCredito <= 0) {
+            return;
+        }
+        if (!$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return;
+        }
+        $ahora = date('Y-m-d H:i:s');
+        $jsonPayload = $payloadEstadoCuenta !== []
+            ? json_encode($payloadEstadoCuenta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            : null;
+        try {
+            $this->db->CRUD(
+                "INSERT INTO adj_s2_cache_dictamen (
+                    id_credito,
+                    monto_otorgado,
+                    cuotas_pagadas,
+                    total_pagado_cliente,
+                    ultimo_efectivo_fecha,
+                    ultimo_efectivo_monto,
+                    ultimo_efectivo_es_estricto,
+                    payload_json,
+                    consultado_at,
+                    actualizado_at
+                ) VALUES (
+                    :id_credito,
+                    :monto_otorgado,
+                    :cuotas_pagadas,
+                    :total_pagado_cliente,
+                    :ultimo_efectivo_fecha,
+                    :ultimo_efectivo_monto,
+                    :ultimo_efectivo_es_estricto,
+                    :payload_json,
+                    :consultado_at,
+                    :actualizado_at
+                )
+                ON DUPLICATE KEY UPDATE
+                    monto_otorgado = VALUES(monto_otorgado),
+                    cuotas_pagadas = VALUES(cuotas_pagadas),
+                    total_pagado_cliente = VALUES(total_pagado_cliente),
+                    ultimo_efectivo_fecha = VALUES(ultimo_efectivo_fecha),
+                    ultimo_efectivo_monto = VALUES(ultimo_efectivo_monto),
+                    ultimo_efectivo_es_estricto = VALUES(ultimo_efectivo_es_estricto),
+                    payload_json = VALUES(payload_json),
+                    consultado_at = VALUES(consultado_at),
+                    actualizado_at = VALUES(actualizado_at)",
+                [
+                    'id_credito'                => $idCredito,
+                    'monto_otorgado'            => $resumen['monto_otorgado'] ?? null,
+                    'cuotas_pagadas'            => $resumen['cuotas_pagadas'] ?? null,
+                    'total_pagado_cliente'      => $resumen['total_pagado_cliente'] ?? null,
+                    'ultimo_efectivo_fecha'     => $resumen['ultimo_efectivo_fecha'] ?? null,
+                    'ultimo_efectivo_monto'     => $resumen['ultimo_efectivo_monto'] ?? null,
+                    'ultimo_efectivo_es_estricto' => !empty($resumen['ultimo_efectivo_es_estricto']) ? 1 : 0,
+                    'payload_json'              => $jsonPayload,
+                    'consultado_at'             => $ahora,
+                    'actualizado_at'            => $ahora,
+                ]
+            );
+        } catch (\Throwable $e) {
+            // No bloquear flujo principal por falla de caché.
+        }
     }
 
     /**
@@ -1805,11 +1961,16 @@ SQL;
      * Extrae valores del JSON `form_response` en SQL (mismo patrón que Gestiones / JSON_TABLE legacy).
      * Enriquece nombre con `base_clientes`, luego Segundómetro (lote) y, si sigue vacío, API S2 estado de cuenta.
      *
-     * @return array<int, array<string, mixed>>
+     * @param int|null $limit Si no es null y > 0, solo se traen hasta $limit filas (se pide una fila extra en SQL para detectar si hay más datos).
+     * @param int $offset Desplazamiento (p. ej. segundo lote tras el primer lote rápido).
+     * @param bool $modoRapido Si es true, omite fuentes externas lentas para mostrar resultados iniciales más rápido.
+     * @return array{rows: array<int, array<string, mixed>>, has_more: bool}
      */
-    public function obtenerListaDictumsMotos(): array
+    public function obtenerListaDictumsMotos(?int $limit = null, int $offset = 0, bool $modoRapido = false): array
     {
-        $sql = <<<'EOSQL'
+        $offset = max(0, $offset);
+
+        $sqlBase = <<<'EOSQL'
 SELECT
     d.id                           AS id,
     d.task_id                      AS task_id,
@@ -1855,6 +2016,17 @@ WHERE d.opciondictamen_id = :opcion
 GROUP BY d.id, d.task_id, t.credit_number, d.created_at, d.lat, d.lng
 ORDER BY d.id DESC
 EOSQL;
+
+        $hasMore = false;
+        if ($limit !== null && $limit > 0) {
+            $take = $limit + 1;
+            $sql  = $sqlBase . ' LIMIT ' . (int) $take . ' OFFSET ' . (int) $offset;
+        } elseif ($offset > 0) {
+            // MySQL exige LIMIT cuando se usa OFFSET: tomar el resto de filas desde $offset.
+            $sql = $sqlBase . ' LIMIT 2147483647 OFFSET ' . (int) $offset;
+        } else {
+            $sql = $sqlBase;
+        }
 
         try {
             $legacyDb = new DatabaseLegacy();
@@ -1909,47 +2081,56 @@ EOSQL;
         }
         unset($r);
 
-        $idsSinNombre = [];
-        foreach ($rows as $r) {
-            $cid = (int) ($r['id_credito'] ?? 0);
-            if ($cid > 0 && trim((string) ($r['nombre_cliente'] ?? '')) === '') {
-                $idsSinNombre[$cid] = true;
-            }
-        }
-        $listaSinNombre = array_keys($idsSinNombre);
-        if ($listaSinNombre !== []) {
-            $mapSm = $this->obtenerMorosidadSegundometroPorCreditos($listaSinNombre);
-            foreach ($rows as &$r) {
+        if (!$modoRapido) {
+            $idsSinNombre = [];
+            foreach ($rows as $r) {
                 $cid = (int) ($r['id_credito'] ?? 0);
-                if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
-                    continue;
-                }
-                $key   = (string) $cid;
-                $nomSm = trim((string) (($mapSm[$key]['nombre_cliente'] ?? '')));
-                if ($nomSm !== '' && strcasecmp($nomSm, 'No disponible') !== 0) {
-                    $r['nombre_cliente'] = $nomSm;
+                if ($cid > 0 && trim((string) ($r['nombre_cliente'] ?? '')) === '') {
+                    $idsSinNombre[$cid] = true;
                 }
             }
-            unset($r);
-
-            $adjModel = new AdjudicacionModel();
-            foreach ($rows as &$r) {
-                $cid = (int) ($r['id_credito'] ?? 0);
-                if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
-                    continue;
-                }
-                $api = $adjModel->buscarCreditoPorId($cid);
-                if (!empty($api['success']) && !empty($api['credito'])) {
-                    $nomApi = trim((string) ($api['credito']['nombre_cliente'] ?? ''));
-                    if ($nomApi !== '' && strcasecmp($nomApi, 'Sin nombre') !== 0) {
-                        $r['nombre_cliente'] = $nomApi;
+            $listaSinNombre = array_keys($idsSinNombre);
+            if ($listaSinNombre !== []) {
+                $mapSm = $this->obtenerMorosidadSegundometroPorCreditos($listaSinNombre);
+                foreach ($rows as &$r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                        continue;
+                    }
+                    $key   = (string) $cid;
+                    $nomSm = trim((string) (($mapSm[$key]['nombre_cliente'] ?? '')));
+                    if ($nomSm !== '' && strcasecmp($nomSm, 'No disponible') !== 0) {
+                        $r['nombre_cliente'] = $nomSm;
                     }
                 }
+                unset($r);
+
+                $adjModel = new AdjudicacionModel();
+                foreach ($rows as &$r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                        continue;
+                    }
+                    $api = $adjModel->buscarCreditoPorId($cid);
+                    if (!empty($api['success']) && !empty($api['credito'])) {
+                        $nomApi = trim((string) ($api['credito']['nombre_cliente'] ?? ''));
+                        if ($nomApi !== '' && strcasecmp($nomApi, 'Sin nombre') !== 0) {
+                            $r['nombre_cliente'] = $nomApi;
+                        }
+                    }
+                }
+                unset($r);
             }
-            unset($r);
         }
 
-        return $rows;
+        if ($limit !== null && $limit > 0) {
+            if (count($rows) > $limit) {
+                $hasMore = true;
+                array_pop($rows);
+            }
+        }
+
+        return ['rows' => $rows, 'has_more' => $hasMore];
     }
 
     /**

@@ -77,6 +77,9 @@ if (!isset($google_maps_api_key_js)) {
     /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string }|null} */
     var madjDetalleSesion = null;
     var madjDetalleOcultoPorMedia = false;
+    /** Primer lote de filas para mostrar la tabla rápido; el resto se pide en segundo plano. */
+    var MADJ_DICTAMENES_PRIMER_LOTE = 10;
+    var madjCargaListaToken = 0;
     var modalDetalleCuerpo = document.getElementById('modalDictamenDetalleCuerpo');
 
     function escAttr(s) {
@@ -346,6 +349,9 @@ if (!isset($google_maps_api_key_js)) {
         if (!idCredito || idCredito <= 0) {
             return '<p class="text-muted small mb-0">Sin ID de crédito para consultar S2.</p>';
         }
+        if (data && data.__loading) {
+            return madjHtmlBloqueS2Cargando();
+        }
         if (!data || !data.success) {
             return (
                 '<p class="text-danger small mb-0">' +
@@ -386,32 +392,17 @@ if (!isset($google_maps_api_key_js)) {
         );
     }
 
-    function madjMostrarCargandoDetalleS2() {
-        if (typeof Swal === 'undefined' || typeof Swal.fire !== 'function') {
-            return;
-        }
-        Swal.fire({
-            title: 'Consultando información en S2…',
-            html:
-                '<p class="small text-secondary fw-normal mt-1 mb-0 text-center">Espere un momento…</p>',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            backdrop: true,
-            didOpen: function () {
-                if (typeof Swal.showLoading === 'function') Swal.showLoading();
-            }
-        });
-    }
-
-    function madjOcultarCargandoDetalleS2() {
-        if (typeof Swal !== 'undefined' && typeof Swal.close === 'function') {
-            Swal.close();
-        }
+    function madjHtmlBloqueS2Cargando() {
+        return (
+            '<div class="text-center py-3 text-muted">' +
+            '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' +
+            'Consultando información en S2…' +
+            '</div>'
+        );
     }
 
     /**
-     * Arma el HTML del modal de detalle (con S2 ya resuelto) y guarda sesión para mapa/geocodificación al mostrarse.
+     * Arma el HTML del modal de detalle y guarda sesión para mapa/geocodificación al mostrarse.
      */
     function aplicarCuerpoModalDetalle(row, dataS2) {
         var nom = String(row.nombre_cliente || '').trim();
@@ -450,7 +441,7 @@ if (!isset($google_maps_api_key_js)) {
 
         html +=
             '<p class="fw-semibold small text-uppercase text-secondary mt-4 mb-2">S2</p>' +
-            '<div class="mb-0">' +
+            '<div class="mb-0" id="madjS2Root">' +
             madjHtmlBloqueS2(idCredNum, dataS2) +
             '</div>';
 
@@ -496,7 +487,7 @@ if (!isset($google_maps_api_key_js)) {
                 '<textarea class="form-control bg-light" readonly rows="3" id="madjDetalleRevGeo" placeholder="—"></textarea>' +
                 '</div></div>';
             html +=
-                '<div id="madjDictamenMapaWrap" class="mb-3 col-12 col-xl-8 mx-auto">' +
+                '<div id="madjDictamenMapaWrap" class="mb-3 w-100">' +
                 '<div class="ratio ratio-21x9 rounded border overflow-hidden">' +
                 '<div id="madjDictamenMapaContenedor" class="bg-light"></div>' +
                 '</div></div>';
@@ -516,39 +507,47 @@ if (!isset($google_maps_api_key_js)) {
         modalDetalleCuerpo.innerHTML = html;
     }
 
-    function abrirModalDetalle(row) {
-        var cred = String(row.id_credito != null ? row.id_credito : '').trim();
-        var idCredNum = parseInt(String(cred || '0'), 10);
-
-        function mostrarModal(dataS2) {
-            aplicarCuerpoModalDetalle(row, dataS2);
-            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                bootstrap.Modal.getOrCreateInstance(modalDetalleEl).show();
-            }
-        }
-
-        if (!idCredNum || idCredNum <= 0) {
-            mostrarModal(null);
+    function cargarBloqueS2DetalleEnSegundoPlano(idCredito) {
+        var root = document.getElementById('madjS2Root');
+        if (!root) {
             return;
         }
-
-        madjMostrarCargandoDetalleS2();
+        if (!idCredito || idCredito <= 0) {
+            root.innerHTML = madjHtmlBloqueS2(idCredito, null);
+            return;
+        }
+        root.innerHTML = madjHtmlBloqueS2Cargando();
         fetch(
             '/MotosAdjudicadas/obtenerResumenS2ModalDictamen?id_credito=' +
-                encodeURIComponent(String(idCredNum)),
+                encodeURIComponent(String(idCredito)),
             { credentials: 'same-origin' }
         )
             .then(function (r) {
                 return r.json();
             })
             .then(function (data) {
-                madjOcultarCargandoDetalleS2();
-                mostrarModal(data);
+                var rootActual = document.getElementById('madjS2Root');
+                if (!rootActual) return;
+                rootActual.innerHTML = madjHtmlBloqueS2(idCredito, data);
             })
             .catch(function () {
-                madjOcultarCargandoDetalleS2();
-                mostrarModal({ success: false, message: 'Error de red al consultar S2.' });
+                var rootActual = document.getElementById('madjS2Root');
+                if (!rootActual) return;
+                rootActual.innerHTML = madjHtmlBloqueS2(idCredito, { success: false, message: 'Error de red al consultar S2.' });
             });
+    }
+
+    function abrirModalDetalle(row) {
+        var cred = String(row.id_credito != null ? row.id_credito : '').trim();
+        var idCredNum = parseInt(String(cred || '0'), 10);
+        aplicarCuerpoModalDetalle(
+            row,
+            idCredNum > 0 ? { __loading: true } : null
+        );
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalDetalleEl).show();
+        }
+        cargarBloqueS2DetalleEnSegundoPlano(idCredNum);
     }
 
     function renderClienteCredito(row) {
@@ -690,14 +689,21 @@ if (!isset($google_maps_api_key_js)) {
     }
 
     function cargar() {
+        madjCargaListaToken++;
+        var token = madjCargaListaToken;
         var btn = document.getElementById('btnDictamenesRefrescar');
         if (btn) btn.disabled = true;
         dictamenListaMostrarCargando();
-        fetch('/MotosAdjudicadas/obtenerListaDictamenes', { credentials: 'same-origin' })
+        var urlPrimero =
+            '/MotosAdjudicadas/obtenerListaDictamenes?limit=' +
+            encodeURIComponent(String(MADJ_DICTAMENES_PRIMER_LOTE)) +
+            '&offset=0&rapido=1';
+        fetch(urlPrimero, { credentials: 'same-origin' })
             .then(function (r) {
                 return r.json();
             })
             .then(function (data) {
+                if (token !== madjCargaListaToken) return;
                 if (!data || !data.success) {
                     throw new Error((data && data.message) || 'No fue posible cargar la lista.');
                 }
@@ -710,8 +716,27 @@ if (!isset($google_maps_api_key_js)) {
                     tablaDictamenes.rows.add(filas);
                     tablaDictamenes.draw();
                 }
+                var urlCompleto = '/MotosAdjudicadas/obtenerListaDictamenes';
+                fetch(urlCompleto, { credentials: 'same-origin' })
+                    .then(function (r2) {
+                        return r2.json();
+                    })
+                    .then(function (data2) {
+                        if (token !== madjCargaListaToken) return;
+                        if (!data2 || !data2.success || !tablaDictamenes) {
+                            return;
+                        }
+                        var filasFull = Array.isArray(data2.rows) ? data2.rows : [];
+                        tablaDictamenes.clear();
+                        tablaDictamenes.rows.add(filasFull);
+                        tablaDictamenes.draw(false);
+                    })
+                    .catch(function () {
+                        /* ya hay primer lote pintado; recarga completa opcional */
+                    });
             })
             .catch(function (err) {
+                if (token !== madjCargaListaToken) return;
                 dictamenListaOcultarCargando();
                 if (window.Swal && Swal.fire) {
                     Swal.fire({ icon: 'error', title: 'Error', text: err.message || String(err) });
