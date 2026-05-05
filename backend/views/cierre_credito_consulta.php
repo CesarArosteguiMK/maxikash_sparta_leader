@@ -367,6 +367,8 @@ body.dark-mode .cc-doc-partial { background: rgba(133,77,14,.2); color: #fbbf24;
 .cc-filtro-opcion.active { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
 .cc-filtro-opcion[data-filtro="con_docs"].active   { background: #dcfce7; border-color: #16a34a; color: #15803d; }
 .cc-filtro-opcion[data-filtro="devueltos"].active  { background: #fef9c3; border-color: #ca8a04; color: #854d0e; }
+.cc-filtro-opcion[data-filtro="despachos"].active  { background: rgba(30,58,138,.1); border-color: #1e3a8a; color: #1e3a8a; }
+.cc-filtro-opcion[data-filtro="call_center"].active { background: rgba(22,163,74,.1); border-color: #16a34a; color: #15803d; }
 /* Filtros Convenios tab */
 .cc-filtro-conv[data-filtro-conv="con_docs"].active    { background: #dcfce7; border-color: #16a34a; color: #15803d; }
 .cc-filtro-conv[data-filtro-conv="activos"].active     { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
@@ -473,6 +475,8 @@ body.dark-mode .cc-filtro-opcion:hover, body.dark-mode .cc-filtro-hist-opcion:ho
 body.dark-mode .cc-filtro-opcion.active { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
 body.dark-mode .cc-filtro-opcion[data-filtro="con_docs"].active  { background: rgba(21,128,61,.2); border-color: #16a34a; color: #4ade80; }
 body.dark-mode .cc-filtro-opcion[data-filtro="devueltos"].active { background: rgba(133,77,14,.2); border-color: #ca8a04; color: #fbbf24; }
+body.dark-mode .cc-filtro-opcion[data-filtro="despachos"].active  { background: rgba(30,58,138,.25); border-color: rgba(30,58,138,.5); color: #93c5fd; }
+body.dark-mode .cc-filtro-opcion[data-filtro="call_center"].active { background: rgba(22,163,74,.2); border-color: rgba(22,163,74,.45); color: #4ade80; }
 body.dark-mode .cc-filtro-count { color: #94a3b8; }
 
 /* Historial filter option active colors */
@@ -1020,6 +1024,14 @@ $ccActCart  = ($cc_default_tab === 'cartera');
                 <button class="cc-filtro-opcion" data-filtro="devueltos" type="button">
                     <i class="fa-solid fa-rotate-left"></i>Devueltos
                 </button>
+                <?php if (!(isset($cc_celulas_permitidas) && $cc_celulas_permitidas !== null)): ?>
+                <button class="cc-filtro-opcion" data-filtro="despachos" type="button">
+                    <i class="fa-solid fa-file-lines"></i>Despachos
+                </button>
+                <button class="cc-filtro-opcion" data-filtro="call_center" type="button">
+                    <i class="fa-solid fa-phone"></i>Call Center
+                </button>
+                <?php endif; ?>
             </div>
             <span id="cc-filtro-count" class="cc-filtro-count"></span>
         </div>
@@ -1631,6 +1643,10 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             return !!(r.pdf_adjunto && r.pdf_adjunto !== '') || (parseInt(r.comprobantes_subidos) || 0) > 0;
         if (_filtroEf === 'devueltos')
             return !!r.ultimo_motivo_descarte;
+        if (_filtroEf === 'despachos')
+            return parseInt(r.id_celula) === 1;
+        if (_filtroEf === 'call_center')
+            return parseInt(r.id_celula) === 2;
         return true;
     }
 

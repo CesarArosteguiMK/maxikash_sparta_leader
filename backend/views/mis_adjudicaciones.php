@@ -950,8 +950,8 @@
             </thead>
             <tbody id="madj-tbody"></tbody>
         </table>
-    </div>
-</div>
+        </div>
+     </div>
 </div>
 
 <!-- Tarjetas móviles (visibles solo en < md) -->
