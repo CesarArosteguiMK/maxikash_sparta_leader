@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\Adjudicacion as AdjudicacionDAO;
 use Models\MotosAdjudicadas as MotosAdjudicadasDAO;
 
 class MotosAdjudicadas extends Controller
@@ -285,6 +286,7 @@ class MotosAdjudicadas extends Controller
      * POST /MotosAdjudicadas/guardarSeguimientoMaDictamen
      * Body JSON: id_credito, comentarios (obligatorio), aplica (0|1) para recolección.
      * Persiste seguimiento en adj_s2_cache_dictamen (ma_seg_comentarios, ma_seg_aplica, ma_seg_actualizado_at).
+     * Asignación a Mis adjudicaciones solo si aplica === 1 («Sí aplica para la recolección»).
      */
     public function guardarSeguimientoMaDictamen()
     {
@@ -300,10 +302,47 @@ class MotosAdjudicadas extends Controller
             $aplica = 1;
         }
         try {
-            echo json_encode(
-                $this->model->guardarSeguimientoMaDictamen($idCredito, $comentarios, $aplica),
-                JSON_UNESCAPED_UNICODE
-            );
+            $result = $this->model->guardarSeguimientoMaDictamen($idCredito, $comentarios, $aplica);
+            if (!empty($result['success']) && $idCredito > 0 && $aplica === 1) {
+                $idPersona = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+                if ($idPersona > 0) {
+                    $adj  = new AdjudicacionDAO();
+                    $asig = $adj->asignarCredito($idPersona, $idCredito, $idPersona);
+                    if (empty($asig['success']) && !empty($asig['message'])) {
+                        $m = (string) $asig['message'];
+                        if (stripos($m, 'ya está asignado a este responsable') !== false
+                            || stripos($m, 'ya esta asignado a este responsable') !== false) {
+                            $asig['success'] = true;
+                            $asig['message'] = 'El crédito ya estaba asignado a usted.';
+                        }
+                    }
+                    $result['asignacion'] = $asig;
+                    if (!empty($asig['success'])) {
+                        $result['message'] = 'Seguimiento guardado. '
+                            . ($asig['message'] ?? 'Crédito asignado a usted; aparecerá en Mis adjudicaciones.');
+                    } else {
+                        $result['message'] = 'Seguimiento guardado. '
+                            . ($asig['message'] ?? 'No se pudo completar la asignación automática.');
+                    }
+                } else {
+                    $result['asignacion'] = [
+                        'success' => false,
+                        'message' => 'No hay persona en sesión; no se asignó el crédito automáticamente.',
+                    ];
+                    $result['message'] = 'Seguimiento guardado. '
+                        . ($result['asignacion']['message'] ?? '');
+                }
+            } elseif (!empty($result['success']) && $idCredito > 0 && $aplica === 0) {
+                $result['message'] = 'Seguimiento guardado. No aplica para recolección: el crédito no se asignó a Mis adjudicaciones.';
+                $result['asignacion'] = [
+                    'success'                  => true,
+                    'omitida_por_recoleccion'  => true,
+                    'message'                  => 'Sin asignación al indicar que no aplica para recolección.',
+                ];
+            } elseif (!empty($result['success'])) {
+                $result['message'] = 'Seguimiento guardado.';
+            }
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }

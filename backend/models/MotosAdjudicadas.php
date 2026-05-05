@@ -430,8 +430,12 @@ class MotosAdjudicadas extends Model
         }
 
         $cache = $this->obtenerCacheResumenS2ModalDictamen($idCredito);
-        if ($cache !== null && !$this->cacheResumenS2ModalRequiereRefrescoS2($cache)) {
-            return $cache + ['success' => true, 'from_cache' => true];
+        if ($cache !== null) {
+            $hayPayload = !empty($cache['_hay_payload_s2']);
+            unset($cache['_hay_payload_s2']);
+            if (!$this->cacheResumenS2ModalRequiereRefrescoS2($cache, $hayPayload)) {
+                return $cache + ['success' => true, 'from_cache' => true];
+            }
         }
 
         try {
@@ -498,11 +502,16 @@ class MotosAdjudicadas extends Model
 
     /**
      * Si la fila de caché tiene huecos en datos que debe proveer S2, se fuerza nueva consulta y UPDATE en BD.
+     * Si ya existe `payload_json` de un estado de cuenta guardado, no se reconsulta la API por columnas
+     * derivadas nulas (p. ej. cuotas contratadas que el S2 no envía en algunos créditos).
      *
      * @param  array<string,mixed>  $cache
      */
-    private function cacheResumenS2ModalRequiereRefrescoS2(array $cache): bool
+    private function cacheResumenS2ModalRequiereRefrescoS2(array $cache, bool $hayPayloadSnapshot = false): bool
     {
+        if ($hayPayloadSnapshot) {
+            return false;
+        }
         if (($cache['cuotas_contratadas'] ?? null) === null) {
             return true;
         }
@@ -754,7 +763,100 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * @return array{monto_otorgado:?float,cuotas_contratadas:?int,cuotas_pagadas:?int,total_pagado_cliente:?float,ultimo_efectivo_fecha:?string,ultimo_efectivo_monto:?float,ultimo_efectivo_es_estricto:bool}|null
+     * @param array<string,mixed> $r Fila de adj_s2_cache_dictamen con payload_json opcional
+     */
+    private function filaTienePayloadS2Guardado(array $r): bool
+    {
+        $pj = isset($r['payload_json']) ? trim((string) $r['payload_json']) : '';
+
+        return $pj !== '';
+    }
+
+    /**
+     * Convierte una fila de adj_s2_cache_dictamen al shape del modal S2 (sin success/from_cache).
+     *
+     * @param array<string,mixed> $r
+     *
+     * @return array<string,mixed>|null
+     */
+    private function normalizarFilaCacheResumenS2ModalDictamen(array $r): ?array
+    {
+        if (!$this->filaCacheS2TieneResumenFinanciero($r)) {
+            return null;
+        }
+        $cc = $r['ma_seg_cuotas_contratadas'] ?? null;
+
+        return [
+            'monto_otorgado'              => isset($r['monto_otorgado']) && $r['monto_otorgado'] !== '' ? (float) $r['monto_otorgado'] : null,
+            'cuotas_contratadas'          => $cc !== null && $cc !== '' ? (int) $cc : null,
+            'cuotas_pagadas'              => isset($r['cuotas_pagadas']) && $r['cuotas_pagadas'] !== '' ? (int) $r['cuotas_pagadas'] : null,
+            'total_pagado_cliente'        => isset($r['total_pagado_cliente']) && $r['total_pagado_cliente'] !== '' ? (float) $r['total_pagado_cliente'] : null,
+            'ultimo_efectivo_fecha'       => isset($r['ultimo_efectivo_fecha']) && $r['ultimo_efectivo_fecha'] !== '' ? (string) $r['ultimo_efectivo_fecha'] : null,
+            'ultimo_efectivo_monto'       => isset($r['ultimo_efectivo_monto']) && $r['ultimo_efectivo_monto'] !== '' ? (float) $r['ultimo_efectivo_monto'] : null,
+            'ultimo_efectivo_es_estricto' => !empty($r['ultimo_efectivo_es_estricto']),
+        ];
+    }
+
+    /**
+     * Resumen S2 del modal por muchos id_credito (una consulta), para pintar el modal sin esperar otro round-trip.
+     *
+     * @param int[] $idsCredito
+     *
+     * @return array<int, array<string, mixed>> [ id_credito => payload compatible con obtenerResumenS2ModalDictamen ]
+     */
+    private function obtenerMapaResumenS2ModalDictamenPorCreditos(array $idsCredito): array
+    {
+        $idsCredito = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn ($v) => $v > 0)));
+        if ($idsCredito === [] || !$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return [];
+        }
+        $ph     = [];
+        $params = [];
+        foreach ($idsCredito as $i => $id) {
+            $k          = 's2'.$i;
+            $ph[]       = ':'.$k;
+            $params[$k] = $id;
+        }
+        try {
+            $filas = $this->db->queryAll(
+                'SELECT
+                    id_credito,
+                    monto_otorgado,
+                    ma_seg_cuotas_contratadas,
+                    cuotas_pagadas,
+                    total_pagado_cliente,
+                    ultimo_efectivo_fecha,
+                    ultimo_efectivo_monto,
+                    ultimo_efectivo_es_estricto,
+                    payload_json
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito IN ('.implode(',', $ph).')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($filas as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc <= 0) {
+                continue;
+            }
+            $norm = $this->normalizarFilaCacheResumenS2ModalDictamen($r);
+            if ($norm === null) {
+                continue;
+            }
+            $out[$idc] = array_merge($norm, [
+                'success'    => true,
+                'from_cache' => true,
+            ]);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<monto_otorgado:?float,cuotas_contratadas:?int,cuotas_pagadas:?int,total_pagado_cliente:?float,ultimo_efectivo_fecha:?string,ultimo_efectivo_monto:?float,ultimo_efectivo_es_estricto:bool,_hay_payload_s2?:bool>|null
      */
     private function obtenerCacheResumenS2ModalDictamen(int $idCredito): ?array
     {
@@ -786,21 +888,15 @@ class MotosAdjudicadas extends Model
         if (!$r) {
             return null;
         }
-        if (!$this->filaCacheS2TieneResumenFinanciero($r)) {
+        $norm = $this->normalizarFilaCacheResumenS2ModalDictamen($r);
+        if ($norm === null) {
             return null;
         }
+        if ($this->filaTienePayloadS2Guardado($r)) {
+            $norm['_hay_payload_s2'] = true;
+        }
 
-        $cc = $r['ma_seg_cuotas_contratadas'] ?? null;
-
-        return [
-            'monto_otorgado'              => isset($r['monto_otorgado']) && $r['monto_otorgado'] !== '' ? (float) $r['monto_otorgado'] : null,
-            'cuotas_contratadas'          => $cc !== null && $cc !== '' ? (int) $cc : null,
-            'cuotas_pagadas'              => isset($r['cuotas_pagadas']) && $r['cuotas_pagadas'] !== '' ? (int) $r['cuotas_pagadas'] : null,
-            'total_pagado_cliente'        => isset($r['total_pagado_cliente']) && $r['total_pagado_cliente'] !== '' ? (float) $r['total_pagado_cliente'] : null,
-            'ultimo_efectivo_fecha'       => isset($r['ultimo_efectivo_fecha']) && $r['ultimo_efectivo_fecha'] !== '' ? (string) $r['ultimo_efectivo_fecha'] : null,
-            'ultimo_efectivo_monto'       => isset($r['ultimo_efectivo_monto']) && $r['ultimo_efectivo_monto'] !== '' ? (float) $r['ultimo_efectivo_monto'] : null,
-            'ultimo_efectivo_es_estricto' => !empty($r['ultimo_efectivo_es_estricto']),
-        ];
+        return $norm;
     }
 
     /**
@@ -2214,6 +2310,7 @@ SELECT
     d.id                           AS id,
     d.task_id                      AS task_id,
     CAST(t.credit_number AS UNSIGNED) AS id_credito,
+    d.user_id                      AS legacy_user_id,
     d.created_at                   AS fecha_registro,
     d.lat                          AS lat,
     d.lng                          AS lng,
@@ -2252,7 +2349,7 @@ JOIN JSON_TABLE(
     )
 ) j
 WHERE d.opciondictamen_id = :opcion
-GROUP BY d.id, d.task_id, t.credit_number, d.created_at, d.lat, d.lng
+GROUP BY d.id, d.task_id, t.credit_number, d.user_id, d.created_at, d.lat, d.lng
 ORDER BY d.id DESC
 EOSQL;
 
@@ -2414,15 +2511,138 @@ EOSQL;
             }
         }
         $segMap = $this->obtenerSeguimientoMaDictamenPorCreditos($idsCredSeg);
+        $s2Map  = $this->obtenerMapaResumenS2ModalDictamenPorCreditos($idsCredSeg);
         foreach ($rows as &$r) {
             $idc                     = (int) ($r['id_credito'] ?? 0);
             $s                       = $segMap[$idc] ?? null;
             $r['ma_seg_comentarios'] = $s['comentarios'] ?? '';
             $r['ma_seg_aplica']      = $s['aplica'] ?? null;
+            $r['s2_modal_resumen']   = $s2Map[$idc] ?? null;
         }
         unset($r);
 
+        $this->enriquecerGestorLegacyListaDictums($rows);
+
         return ['rows' => $rows, 'has_more' => $hasMore];
+    }
+
+    /**
+     * dictums.user_id (Legacy) → users.external_id → __SPARTA_SECRET_REDACTED__.persona.numero_empleado → nombre del gestor.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function enriquecerGestorLegacyListaDictums(array &$rows): void
+    {
+        $uids = [];
+        foreach ($rows as $r) {
+            $u = (int) ($r['legacy_user_id'] ?? 0);
+            if ($u > 0) {
+                $uids[$u] = true;
+            }
+        }
+        $lista = array_keys($uids);
+        if ($lista === []) {
+            foreach ($rows as &$r) {
+                $r['gestor_legacy_nombre'] = '';
+            }
+            unset($r);
+
+            return;
+        }
+        $map = $this->obtenerNombresGestorLegacyPorDictumUserIds($lista);
+        foreach ($rows as &$r) {
+            $u                       = (int) ($r['legacy_user_id'] ?? 0);
+            $r['gestor_legacy_nombre'] = $u > 0 ? (string) ($map[$u] ?? '') : '';
+        }
+        unset($r);
+    }
+
+    /**
+     * @param  int[]  $legacyUserIds  users.id en base Legacy (__SPARTA_SECRET_REDACTED__)
+     * @return array<int, string>     [ user_id => nombre completo gestor ]
+     */
+    private function obtenerNombresGestorLegacyPorDictumUserIds(array $legacyUserIds): array
+    {
+        $legacyUserIds = array_values(array_unique(array_filter(array_map('intval', $legacyUserIds), static fn ($v) => $v > 0)));
+        if ($legacyUserIds === []) {
+            return [];
+        }
+
+        $userRows = [];
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $ph       = [];
+            $params   = [];
+            foreach ($legacyUserIds as $i => $id) {
+                $k          = 'lu'.$i;
+                $ph[]       = ':'.$k;
+                $params[$k] = $id;
+            }
+            $userRows = $legacyDb->queryAll(
+                'SELECT id, TRIM(COALESCE(external_id, \'\')) AS external_id
+                 FROM users
+                 WHERE id IN ('.implode(',', $ph).')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $userIdToExternal = [];
+        $externals        = [];
+        foreach ($userRows as $ur) {
+            $uid = (int) ($ur['id'] ?? 0);
+            $ext = trim((string) ($ur['external_id'] ?? ''));
+            if ($uid <= 0 || $ext === '') {
+                continue;
+            }
+            $userIdToExternal[$uid] = $ext;
+            $externals[$ext]        = true;
+        }
+        if ($externals === []) {
+            return [];
+        }
+
+        $extList = array_keys($externals);
+        sort($extList);
+        $ph2     = [];
+        $params2 = [];
+        foreach ($extList as $i => $ext) {
+            $k           = 'ne'.$i;
+            $ph2[]       = ':'.$k;
+            $params2[$k] = $ext;
+        }
+
+        try {
+            $perRows = $this->db->queryAll(
+                'SELECT TRIM(numero_empleado) AS numero_empleado,
+                        TRIM(CONCAT_WS(\' \', nombres, segundo_nombre, apellidop, apellidom)) AS nombre_gestor
+                 FROM persona
+                 WHERE TRIM(numero_empleado) IN ('.implode(',', $ph2).')',
+                $params2
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $extToNombre = [];
+        foreach ($perRows as $pr) {
+            $ne = trim((string) ($pr['numero_empleado'] ?? ''));
+            $ng = trim((string) ($pr['nombre_gestor'] ?? ''));
+            if ($ne !== '' && $ng !== '' && !isset($extToNombre[$ne])) {
+                $extToNombre[$ne] = $ng;
+            }
+        }
+
+        $out = [];
+        foreach ($userIdToExternal as $uid => $ext) {
+            $nom = $extToNombre[$ext] ?? '';
+            if ($nom !== '') {
+                $out[$uid] = $nom;
+            }
+        }
+
+        return $out;
     }
 
     private function asegurarTablaCacheNombreCredito(): bool
