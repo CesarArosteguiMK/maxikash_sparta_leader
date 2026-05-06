@@ -988,6 +988,23 @@ if (!isset($google_maps_api_key_js)) {
         });
     }
 
+    /** Quita de la tabla los dictámenes del crédito (tras guardar seguimiento ya no deben aparecer). */
+    function madjQuitarFilasDictamenPorCredito(idCredito) {
+        if (!tablaDictamenes || !idCredito) {
+            return;
+        }
+        var idNum = parseInt(String(idCredito), 10);
+        if (idNum <= 0 || typeof tablaDictamenes.rows !== 'function') {
+            return;
+        }
+        tablaDictamenes
+            .rows(function (idx, data) {
+                return parseInt(String((data && data.id_credito) || '0'), 10) === idNum;
+            })
+            .remove()
+            .draw(false);
+    }
+
     function madjSwalDisponible() {
         return typeof window.Swal !== 'undefined' && typeof Swal.fire === 'function';
     }
@@ -1175,6 +1192,13 @@ if (!isset($google_maps_api_key_js)) {
                 }
                 if (bloquear) {
                     madjBloquearUiSeguimientoInterno();
+                }
+                madjQuitarFilasDictamenPorCredito(idCredito);
+                if (modalDetalleEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    var instMd = bootstrap.Modal.getInstance(modalDetalleEl);
+                    if (instMd) {
+                        instMd.hide();
+                    }
                 }
             })
             .catch(function () {

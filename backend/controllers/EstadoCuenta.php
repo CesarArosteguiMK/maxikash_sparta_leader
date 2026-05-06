@@ -5441,6 +5441,17 @@ public function descargar()
     }
 
     /**
+     * Devuelve ruta local o temporal del documento FACTURA para un crédito.
+     * Público para reutilizar extracción de datos moto en Mis adjudicaciones.
+     *
+     * @return array{path: string, isTemp: bool}|null
+     */
+    public function getRutaPdfFactura($idCredito)
+    {
+        return $this->getPdfPathForFactura((int) $idCredito);
+    }
+
+    /**
      * Devuelve ruta a un archivo PDF de FAD_DOC para el id dado.
      * Retorna ['path' => ruta absoluta, 'isTemp' => true si hay que borrarla después] o null.
      */
@@ -5483,6 +5494,154 @@ public function descargar()
             error_log("getPdfPathForFAD_DOC: " . $e->getMessage());
         }
         return null;
+    }
+
+    /**
+     * Resuelve ruta local o archivo temporal descargado desde S3 para FACTURA (misma lógica que descargar JSON).
+     *
+     * @return array{path: string, isTemp: bool}|null
+     */
+    private function getPdfPathForFactura(int $idCredito)
+    {
+        $id = (int) $idCredito;
+        if ($id <= 0) {
+            return null;
+        }
+
+        $directorioBase = sparta_uploads_join('documentos', 'doc_cliente');
+        if (is_dir($directorioBase)) {
+            $idSeguro = preg_replace('/[^0-9]/', '', (string) $id);
+            if ($idSeguro !== '') {
+                $patron = $directorioBase . DIRECTORY_SEPARATOR . $idSeguro . '_FACTURA_*.{pdf,jpg,jpeg,png}';
+                $archivos = glob($patron, GLOB_BRACE);
+                if ($archivos && count($archivos) > 0) {
+                    usort($archivos, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+                    return ['path' => $archivos[0], 'isTemp' => false];
+                }
+            }
+        }
+
+        $existeEnS3 = static function ($fileName) {
+            $s3Url = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
+            $ch = curl_init($s3Url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_NOBODY => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 8,
+            ]);
+            curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            return $code === 200;
+        };
+
+        $pullS3 = function ($fileName) use ($id) {
+            $s3Url = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
+            $ch = curl_init($s3Url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 45,
+            ]);
+            $data = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code !== 200 || $data === false || strlen($data) === 0) {
+                return null;
+            }
+            $tmpDir = __DIR__ . '/../storage/tmp_media';
+            if (!is_dir($tmpDir)) {
+                @mkdir($tmpDir, 0755, true);
+            }
+            $safeBase = preg_replace('/[^\w\.\-]/', '_', basename($fileName));
+            $tmpFile = $tmpDir . '/factura_' . $id . '_' . uniqid() . '_' . $safeBase;
+            if (file_put_contents($tmpFile, $data) === false) {
+                return null;
+            }
+            return $tmpFile;
+        };
+
+        $fileName = 'FACTURA/' . $id . '_factura.pdf';
+        if ($existeEnS3($fileName)) {
+            $tmp = $pullS3($fileName);
+            if ($tmp) {
+                return ['path' => $tmp, 'isTemp' => true];
+            }
+        }
+
+        try {
+            $res = $this->consultarDocumentoGenerico($id, 'FACTURA');
+            if (!empty($res['success']) && !empty($res['datos']['nombre_archivo'])) {
+                $nombreBD = basename(str_replace(['\\', '/'], '/', (string) $res['datos']['nombre_archivo']));
+                if ($nombreBD !== '') {
+                    $fileNameBD = 'FACTURA/' . $nombreBD;
+                    if ($existeEnS3($fileNameBD)) {
+                        $tmp = $pullS3($fileNameBD);
+                        if ($tmp) {
+                            return ['path' => $tmp, 'isTemp' => true];
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('getPdfPathForFactura: ' . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * Descargar archivo de factura (PDF o imagen según origen). Requiere permiso módulo 24 (misma regla que FAD_DOC).
+     * GET: id = id_credito
+     */
+    public function descargarPdfFactura()
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'mensaje' => 'ID de crédito no válido']);
+            exit;
+        }
+        $idUsuario = (int) ($_SESSION['usuario_id'] ?? 0);
+        $modulos = $idUsuario ? LoginDAO::getModulosUsuario($idUsuario) : [];
+        if (!in_array(24, $modulos)) {
+            header('Location: /inicio');
+            exit;
+        }
+        $info = $this->getPdfPathForFactura($id);
+        if (!$info || empty($info['path']) || !is_file($info['path'])) {
+            http_response_code(404);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'mensaje' => 'No se encontró la factura para este crédito.']);
+            exit;
+        }
+        $path = $info['path'];
+        $baseNombre = basename($path);
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = 'application/octet-stream';
+        if ($ext === 'pdf') {
+            $mime = 'application/pdf';
+        } elseif (in_array($ext, ['jpg', 'jpeg'], true)) {
+            $mime = 'image/jpeg';
+        } elseif ($ext === 'png') {
+            $mime = 'image/png';
+        } elseif ($ext === 'gif') {
+            $mime = 'image/gif';
+        }
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: attachment; filename="' . preg_replace('/[^\w\.\-]/', '_', $baseNombre) . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: no-cache, must-revalidate');
+        readfile($path);
+        if (!empty($info['isTemp'])) {
+            @unlink($path);
+        }
+        exit;
     }
 
     /**

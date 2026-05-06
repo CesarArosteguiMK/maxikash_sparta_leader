@@ -804,6 +804,31 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/obtenerDatosMotoFactura
+     * Body JSON: { "id_credito": 12345 }
+     * Extrae VIN, motor y color desde el documento FACTURA (si existe).
+     */
+    public function obtenerDatosMotoFactura()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->obtenerDatosMotoDesdeFactura($idCredito);
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * POST /MotosAdjudicadas/ejecutarConsultaRepuve
      * Body JSON: { "id_credito": 12345, "tipo": "plate"|"vin", "valor": "..." }
      * Exige crédito con asignación activa en adjudicación.

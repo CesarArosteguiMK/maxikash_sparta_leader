@@ -21,6 +21,7 @@ from app.services.document_crosscheck import (
     extraer_datos_curp_pdf, extraer_datos_nss_pdf,
     extraer_datos_constancia_fiscal, extraer_datos_acta_nacimiento,
     extraer_informacion_ingresos_fad,
+    extraer_datos_motocicleta_factura,
     validacion_cruzada,
     es_documento_nss, es_documento_curp, es_documento_constancia_fiscal, es_documento_acta_nacimiento,
     pdf_paginas_a_png_bytes,
@@ -446,6 +447,38 @@ async def fad_informacion_ingresos(
         "empleado": datos.get("empleado"),
         "ingreso_mensual_neto": datos.get("ingreso_mensual_neto"),
         "telefono": datos.get("telefono"),
+    }
+
+
+@router.post(
+    "/factura/datos-moto",
+    summary="Extraer VIN, No. motor y color desde FACTURA",
+    description="Sube FACTURA (PDF/JPG/PNG). Extrae No. de Serie (VIN), No. de Motor y Color para autollenado en Mis adjudicaciones.",
+    tags=["Motos adjudicadas"]
+)
+async def factura_datos_moto(
+    documento: UploadFile = File(..., description="Documento FACTURA (PDF/JPG/PNG)"),
+    api_key: str = Depends(verificar_api_key)
+):
+    if not documento.filename:
+        raise HTTPException(status_code=400, detail="Se requiere un documento de FACTURA")
+
+    ext = documento.filename.lower().rsplit(".", 1)[-1] if "." in documento.filename else ""
+    if ext not in {"pdf", "jpg", "jpeg", "png"}:
+        raise HTTPException(status_code=400, detail="Formato no soportado. Use PDF, JPG o PNG.")
+
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+
+    datos = extraer_datos_motocicleta_factura(file_bytes, documento.filename)
+    return {
+        "success": True,
+        "encontrado": datos.get("encontrado", False),
+        "vin": datos.get("vin"),
+        "no_motor": datos.get("no_motor"),
+        "color": datos.get("color"),
+        "texto_fuente": datos.get("texto_fuente", ""),
     }
 
 
