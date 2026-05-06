@@ -4146,7 +4146,8 @@ class Sabueso extends Controller
 
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
-        $sufijo = $modoRapido ? '_lite' : '';
+        // Bump lite suffix when lite payload shape changes (ej. domicilio_megareporte en modo rápido).
+        $sufijo = $modoRapido ? '_lite2' : '';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
@@ -4181,19 +4182,22 @@ class Sabueso extends Controller
             $domicilioMegareporte = null;
             $indiceCasa = null;
 
-            if (!$modoRapido) {
-                $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
-                $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
-                    ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
-                    : '';
-                if ($domicilioCompleto !== '' && !empty($puntosMapa)) {
-                    $geocoding = new GeocodingService();
-                    $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
-                    if (!empty($coordsMegareporte)) {
-                        $domicilioMegareporte = [
-                            'lat' => (float) $coordsMegareporte['lat'],
-                            'lng' => (float) $coordsMegareporte['lng'],
-                        ];
+            // En modo rápido seguimos omitiendo puntos_geo (BD alternas) pero sí devolvemos coords de megareporte
+            // para el mapa y el filtro; indice_casa solo se calcula en modo completo y con puntos en mapa.
+            $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+            $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
+                ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
+                : '';
+            if ($domicilioCompleto !== '') {
+                $geocoding = new GeocodingService();
+                $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
+                if (!empty($coordsMegareporte)) {
+                    $domicilioMegareporte = [
+                        'lat' => (float) $coordsMegareporte['lat'],
+                        'lng' => (float) $coordsMegareporte['lng'],
+                        'direccion' => $domicilioCompleto,
+                    ];
+                    if (!$modoRapido && !empty($puntosMapa)) {
                         $domicilio = [
                             'id' => 'megareporte',
                             'lat' => (float) $coordsMegareporte['lat'],

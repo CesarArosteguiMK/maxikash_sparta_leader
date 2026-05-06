@@ -56,6 +56,12 @@
         var rastreoFiltroGestoresSeleccionados = [];
         var rastreoColoresPorGestor = {};
         var rastreoPaletaColoresGestores = ["#ea580c", "#dc2626", "#9333ea", "#0891b2", "#ca8a04", "#db2777", "#0d9488", "#64748b"];
+        /** Valor reservado en data-gestor del filtro del mapa (Dirección megareporte); no usar como nombre de persona. */
+        var RASTREO_FILTRO_CAPA_MEGAREPORTE = '__MEGAREPORTE__';
+        var rastreoMegareporteMarkerAlternas = null;
+        var rastreoMegareporteOverlayAlternas = null;
+        var rastreoMegareporteMarkerAlternasGrande = null;
+        var rastreoMegareporteOverlayAlternasGrande = null;
 SCRIPT;
         $script .= <<<'JS'
         function sabuesoCloseDondeDetalle(){
@@ -746,6 +752,8 @@ JS;
             if (typeof window !== \'undefined\') window.rastreoIconoPosiciones = [];
             rastreoPolylinePathRawAlternas = [];
             rastreoMarkersPorGestorAlternas = {};
+            rastreoMegareporteMarkerAlternas = null;
+            rastreoMegareporteOverlayAlternas = null;
             rastreoMapaAlternas = new google.maps.Map(cont, { center: { lat: 19.43, lng: -99.13 }, zoom: 10, mapTypeControl: true, streetViewControl: true, fullscreenControl: true, zoomControl: true });
             var bounds = new google.maps.LatLngBounds();
             var hasPoints = false;
@@ -832,15 +840,15 @@ JS;
                     var dirMegareporte = (rastreoDomicilioMegareporte.direccion || rastreoDatosClienteActual.direccion || \'—\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var qMegareporte = encodeURIComponent(dirMegareporte || posMegareporte.lat + \',\' + posMegareporte.lng);
                     var infoHtmlMegareporte = \'<strong>Dirección megareporte</strong><br><strong>Dirección</strong>: \' + dirMegareporte + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + qMegareporte + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
-                    var markerMegareporte = new google.maps.Marker({ position: posMegareporte, map: rastreoMapaAlternas, icon: pinCirculoIcon(\'#000000\'), title: \'Dirección megareporte (casa)\', zIndex: 10 });
+                    rastreoMegareporteMarkerAlternas = new google.maps.Marker({ position: posMegareporte, map: rastreoMapaAlternas, icon: pinCirculoIcon(\'#000000\'), title: \'Dirección megareporte (casa)\', zIndex: 10 });
                     var infowMegareporte = new google.maps.InfoWindow({ content: infoHtmlMegareporte });
-                    markerMegareporte.addListener(\'click\', function() { infowMegareporte.open(rastreoMapaAlternas, markerMegareporte); });
+                    rastreoMegareporteMarkerAlternas.addListener(\'click\', function() { infowMegareporte.open(rastreoMapaAlternas, rastreoMegareporteMarkerAlternas); });
                     var idxMeg = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
                     if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: posMegareporte.lat, lng: posMegareporte.lng, idx: idxMeg });
                     ensureIconoFlotanteOverlayReady();
-                    var overlayMegareporte = new IconoFlotanteOverlay(posMegareporte, \'fa-megareporte\', \'#000000\');
-                    overlayMegareporte._idx = idxMeg;
-                    overlayMegareporte.setMap(rastreoMapaAlternas);
+                    rastreoMegareporteOverlayAlternas = new IconoFlotanteOverlay(posMegareporte, \'fa-megareporte\', \'#000000\');
+                    rastreoMegareporteOverlayAlternas._idx = idxMeg;
+                    rastreoMegareporteOverlayAlternas.setMap(rastreoMapaAlternas);
                 }
             }
             addClusterLabelsToMap(rastreoMapaAlternas, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
@@ -993,6 +1001,19 @@ JS;
                     rastreoPolylinesPorGestorAlternasGrande[n].poly.setMap(mostrar ? rastreoMapaAlternasGrande : null);
                 });
             }
+            var visMega = showAll || selected.indexOf(RASTREO_FILTRO_CAPA_MEGAREPORTE) !== -1;
+            if (rastreoMegareporteMarkerAlternas && rastreoMegareporteMarkerAlternas.setMap) {
+                rastreoMegareporteMarkerAlternas.setMap(visMega ? rastreoMapaAlternas : null);
+            }
+            if (rastreoMegareporteOverlayAlternas && rastreoMegareporteOverlayAlternas.setMap) {
+                rastreoMegareporteOverlayAlternas.setMap(visMega ? rastreoMapaAlternas : null);
+            }
+            if (rastreoMegareporteMarkerAlternasGrande && rastreoMegareporteMarkerAlternasGrande.setMap) {
+                rastreoMegareporteMarkerAlternasGrande.setMap(visMega ? rastreoMapaAlternasGrande : null);
+            }
+            if (rastreoMegareporteOverlayAlternasGrande && rastreoMegareporteOverlayAlternasGrande.setMap) {
+                rastreoMegareporteOverlayAlternasGrande.setMap(visMega ? rastreoMapaAlternasGrande : null);
+            }
         }
         function initMapaRastreoAlternasGrande(puntosMaxiApp, puntosGestores, puntosGeo) {
             puntosGeo = puntosGeo || [];
@@ -1013,6 +1034,8 @@ JS;
             rastreoPolylinesPorGestorAlternasGrande = {};
             if (typeof window !== \'undefined\') window.rastreoIconoPosiciones = [];
             rastreoPolylinePathRawAlternasGrande = [];
+            rastreoMegareporteMarkerAlternasGrande = null;
+            rastreoMegareporteOverlayAlternasGrande = null;
             rastreoMapaAlternasGrande = new google.maps.Map(cont, { center: { lat: 19.43, lng: -99.13 }, zoom: 10, mapTypeControl: true, streetViewControl: true, fullscreenControl: true, zoomControl: true });
             var bounds = new google.maps.LatLngBounds();
             var hasPoints = false;
@@ -1102,15 +1125,15 @@ JS;
                     var dirMegareporteGrande = (rastreoDomicilioMegareporte.direccion || rastreoDatosClienteActual.direccion || \'—\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\');
                     var qMegareporteGrande = encodeURIComponent(dirMegareporteGrande || posMegareporteGrande.lat + \',\' + posMegareporteGrande.lng);
                     var infoHtmlMegareporteGrande = \'<strong>Dirección megareporte</strong><br><strong>Dirección</strong>: \' + dirMegareporteGrande + \'<br><strong>Cliente</strong>: \' + (rastreoDatosClienteActual.nombre || \'—\') + \'<br><strong>Crédito</strong>: \' + (rastreoDatosClienteActual.credito || \'—\') + \'<br><a href="https://www.google.com/maps/search/?api=1&query=\' + qMegareporteGrande + \'" target="_blank" rel="noopener">Abrir en Google Maps</a>\';
-                    var markerMegareporteGrande = new google.maps.Marker({ position: posMegareporteGrande, map: rastreoMapaAlternasGrande, icon: iconNegroGrande, title: \'Dirección megareporte (casa)\', zIndex: 10 });
+                    rastreoMegareporteMarkerAlternasGrande = new google.maps.Marker({ position: posMegareporteGrande, map: rastreoMapaAlternasGrande, icon: iconNegroGrande, title: \'Dirección megareporte (casa)\', zIndex: 10 });
                     var infowMegareporteGrande = new google.maps.InfoWindow({ content: infoHtmlMegareporteGrande });
-                    markerMegareporteGrande.addListener(\'click\', function() { infowMegareporteGrande.open(rastreoMapaAlternasGrande, markerMegareporteGrande); });
+                    rastreoMegareporteMarkerAlternasGrande.addListener(\'click\', function() { infowMegareporteGrande.open(rastreoMapaAlternasGrande, rastreoMegareporteMarkerAlternasGrande); });
                     var idxMegG = (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) ? window.rastreoIconoPosiciones.length : 0;
                     if (typeof window !== \'undefined\' && window.rastreoIconoPosiciones && Array.isArray(window.rastreoIconoPosiciones)) window.rastreoIconoPosiciones.push({ lat: posMegareporteGrande.lat, lng: posMegareporteGrande.lng, idx: idxMegG });
                     ensureIconoFlotanteOverlayReady();
-                    var overlayMegareporteGrande = new IconoFlotanteOverlay(posMegareporteGrande, \'fa-megareporte\', \'#000000\');
-                    overlayMegareporteGrande._idx = idxMegG;
-                    overlayMegareporteGrande.setMap(rastreoMapaAlternasGrande);
+                    rastreoMegareporteOverlayAlternasGrande = new IconoFlotanteOverlay(posMegareporteGrande, \'fa-megareporte\', \'#000000\');
+                    rastreoMegareporteOverlayAlternasGrande._idx = idxMegG;
+                    rastreoMegareporteOverlayAlternasGrande.setMap(rastreoMapaAlternasGrande);
                 }
             }
             addClusterLabelsToMap(rastreoMapaAlternasGrande, todosPuntosParaCluster(puntosGeo, puntosMaxiApp, puntosGestores));
@@ -1149,12 +1172,22 @@ JS;
             if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-item cursor-pointer d-flex align-items-center gap-1" data-tipo-leyenda="megareporte" style="cursor:pointer;padding:2px 4px;border-radius:4px;" onmouseover="this.style.background=\\\'rgba(0,0,0,0.1)\\\'" onmouseout="this.style.background=\\\'transparent\\\'"><span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#000000;border:1px solid #333;flex-shrink:0;"></span> 🏡 = <span style="color:#000000 !important;font-weight:600 !important;">Casa megareporte.</span></span>\';
             if (tiposPresentes.gestores) leyendaGrandeHtml += \'<span class="d-block">Gestores = <span style="font-weight:600">cada asesor con su color.</span></span>\';
             leyendaGrandeHtml += \'<span class="d-block rastreo-leyenda-conteo" style="color:#0f172a !important;font-weight:700 !important;">\' + conU + \' de \' + totG + \' con ubicación (máx. 16 gestores en mapa).</span><span class="d-block small text-muted mt-1">Use el botón 🔍 Lupa y luego clic en el mapa para ampliar una zona.</span>\';
+            var seenGG = {}, nombresGG = [];
             if (puntosGestores && puntosGestores.length) {
-                var seenGG = {}, nombresGG = [];
                 puntosGestores.forEach(function(g) { var n = (g.nombre || \'—\').trim() || \'—\'; if (!seenGG[n]) { seenGG[n] = true; nombresGG.push(n); } });
+            }
+            var tieneMegaFiltro = false;
+            if (rastreoDomicilioMegareporte && rastreoDomicilioMegareporte.lat != null && rastreoDomicilioMegareporte.lng != null) {
+                var latMegaChk = parseFloat(rastreoDomicilioMegareporte.lat), lonMegaChk = parseFloat(rastreoDomicilioMegareporte.lng);
+                tieneMegaFiltro = !isNaN(latMegaChk) && !isNaN(lonMegaChk);
+            }
+            if (nombresGG.length || tieneMegaFiltro) {
                 var escOG = function(s) { if (s == null || s === undefined) return \'\'; return (s+\'\').replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/\"/g, \'&quot;\'); };
                 var htmlOG = \'<div class="rastreo-filtro-gestor-overlay" style="position:absolute;top:52px;right:8px;left:auto;z-index:10;background:rgba(255,255,255,0.95);padding:6px 8px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);pointer-events:auto;"><button type="button" class="btn btn-sm btn-outline-secondary mb-2 rastreo-btn-lupa-mapa" id="rastreoBtnLupaGrande" title="Clic aquí y luego en el mapa para ampliar una zona">🔍 Lupa</button><span class="small text-muted d-block mb-1">Filtrar por asesor (puede elegir varios)</span><div class="d-flex flex-column gap-1"><label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor=""> <span>Todos</span></label>\';
                 nombresGG.forEach(function(n) { var color = rastreoColoresPorGestor[n] || \'#6b7280\'; htmlOG += \'<label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor="\' + escOG(n) + \'"> <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:\' + color + \';flex-shrink:0"></span><span>\' + escOG(n) + \'</span></label>\'; });
+                if (tieneMegaFiltro) {
+                    htmlOG += \'<label class="d-flex align-items-center gap-2 mb-0 cursor-pointer"><input type="checkbox" class="rastreo-filtro-gestor-cb form-check-input" data-gestor="__MEGAREPORTE__"> <span class="rounded-circle d-inline-block" style="width:10px;height:10px;background:#000000;border:1px solid #333;flex-shrink:0"></span><span>Dirección megareporte</span></label>\';
+                }
                 htmlOG += \'</div><div class="rastreo-leyenda-mapa-grande mt-2 small text-muted" style="max-width:280px;">\' + leyendaGrandeHtml + \'</div></div>\';
                 cont.insertAdjacentHTML(\'beforeend\', htmlOG);
                 (function() {
