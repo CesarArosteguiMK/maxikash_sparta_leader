@@ -541,6 +541,14 @@ if (!isset($google_maps_api_key_js)) {
             });
     }
 
+    /** Precarga en segundo plano al abrir el detalle, para que «Elegir gestor» sea inmediato. */
+    function madjPrefetchResponsablesAdjudicacion() {
+        if (madjCacheResponsablesAdjudicacion) {
+            return;
+        }
+        madjFetchResponsablesAdjudicacion(function () {});
+    }
+
     function madjActualizarBadgeGestorSeleccionado() {
         var wrap = document.getElementById('madjGestorSeleccionadoWrap');
         var nomEl = document.getElementById('madjGestorSeleccionadoNombre');
@@ -623,14 +631,26 @@ if (!isset($google_maps_api_key_js)) {
             return;
         }
         btn.onclick = function () {
-            madjFetchResponsablesAdjudicacion(function (list) {
-                if (filtro) {
-                    filtro.value = '';
-                }
-                madjRenderOpcionesGestoresEnModal(list, '');
+            if (filtro) {
+                filtro.value = '';
+            }
+            if (madjCacheResponsablesAdjudicacion) {
+                madjRenderOpcionesGestoresEnModal(madjCacheResponsablesAdjudicacion, '');
                 if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                     bootstrap.Modal.getOrCreateInstance(modalEl).show();
                 }
+                return;
+            }
+            listaRoot.innerHTML =
+                '<div class="list-group-item text-center py-3 text-muted small">' +
+                '<span class="spinner-border spinner-border-sm me-2 text-primary" role="status" aria-hidden="true"></span>' +
+                'Cargando responsables…' +
+                '</div>';
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+            madjFetchResponsablesAdjudicacion(function (list) {
+                madjRenderOpcionesGestoresEnModal(list, filtro ? filtro.value : '');
             });
         };
         if (filtro) {
@@ -835,6 +855,7 @@ if (!isset($google_maps_api_key_js)) {
         madjEnlazarFormularioSeguimiento(row);
         if (puedeElegirGestorAsignacion) {
             madjWireGestorAsignacionUi(row);
+            madjPrefetchResponsablesAdjudicacion();
         }
     }
 
