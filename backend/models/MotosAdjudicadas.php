@@ -31,7 +31,6 @@ class MotosAdjudicadas extends Model
 
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
         'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
     ];
 
@@ -1317,7 +1316,7 @@ class MotosAdjudicadas extends Model
             return ['success' => false, 'message' => 'Slot de evidencia no reconocido.'];
         }
 
-        // 2. Operaci?n existe
+        // 2. Operaci?n existe (subir evidencias f?sicas puede ser antes de datos; enviar al pipeline exige datos guardados).
         $op = $this->db->queryOne('SELECT id FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
         if (!$op) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
@@ -1972,9 +1971,18 @@ SQL;
      */
     public function enviarEvidencias(int $idOperacion, int $idUsuario = 0, string $nombreUsuario = ''): array
     {
-        $op = $this->db->queryOne('SELECT id FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
+        $op = $this->db->queryOne(
+            'SELECT id, datos_moto_at FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
         if (!$op) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
+        }
+        if (empty($op['datos_moto_at'])) {
+            return [
+                'success' => false,
+                'message' => 'Debe guardar los datos de la motocicleta y la ubicación antes de enviar evidencias.',
+            ];
         }
 
         $this->db->CRUD(
@@ -2578,6 +2586,21 @@ EOSQL;
             $r['s2_modal_resumen']   = $s2Map[$idc] ?? null;
         }
         unset($r);
+
+        // Lista dictámenes: solo pendientes de «Seguimiento interno»; si ya se guardó (sí/no recolección), no listar.
+        $rows = array_values(array_filter($rows, static function (array $r): bool {
+            $com = trim((string) ($r['ma_seg_comentarios'] ?? ''));
+            if ($com === '') {
+                return true;
+            }
+            $ap = $r['ma_seg_aplica'] ?? null;
+            if ($ap === null || $ap === '') {
+                return true;
+            }
+            $apNum = is_numeric($ap) ? (int) $ap : -1;
+
+            return !($apNum === 0 || $apNum === 1);
+        }));
 
         $this->enriquecerGestorLegacyListaDictums($rows);
 
@@ -3633,7 +3656,7 @@ EOSQL;
 
         return [
             'ok'      => false,
-            'message' => 'No hay placa ni VIN para consultar REPUVE. Captura y guarda la placa o el VIN de la motocicleta en la operación.',
+            'message' => 'No hay placa ni VIN en el expediente. Usa el campo «No. de Serie (VIN)» y el botón de consulta REPUVE junto al campo.',
         ];
     }
 
@@ -4142,6 +4165,134 @@ EOSQL;
 
         return $this->repuveCompletarDatosMotoDesdeCriterio($idCred, $out);
     }
+
+    /**
+     * Extrae datos de motocicleta desde documento FACTURA:
+     * VIN (No. serie), No. motor y color.
+     */
+    public function obtenerDatosMotoDesdeFactura(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de crédito inválido.'];
+        }
+
+        $path = '';
+        $isTemp = false;
+        try {
+            $estadoCuenta = new \Controllers\EstadoCuenta();
+            if (!method_exists($estadoCuenta, 'getRutaPdfFactura')) {
+                return ['success' => false, 'unavailable' => true, 'message' => 'No está disponible la ruta de factura en este ambiente.'];
+            }
+
+            $info = $estadoCuenta->getRutaPdfFactura($idCredito);
+            if (!$info || empty($info['path']) || !is_file((string) $info['path'])) {
+                return ['success' => false, 'message' => 'No se encontró el documento de FACTURA para este crédito.'];
+            }
+            $path = (string) $info['path'];
+            $isTemp = !empty($info['isTemp']);
+
+            $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+                return ['success' => false, 'message' => 'Formato de FACTURA no compatible para extracción automática.'];
+            }
+
+            $configPath = dirname(__DIR__) . '/config/config.ini';
+            $config = is_file($configPath) ? parse_ini_file($configPath, true) : [];
+            $apiUrl = isset($config['doc_verificacion']['api_url']) ? trim((string) $config['doc_verificacion']['api_url']) : '';
+            $apiKey = isset($config['doc_verificacion']['api_key']) ? trim((string) $config['doc_verificacion']['api_key']) : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
+            if ($apiUrl === '') {
+                $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
+            }
+
+            $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+            $endpoint = rtrim((string) $baseUrl, '/') . '/factura/datos-moto';
+            $mime = $this->mimeParaDocumentoMotoFactura($ext);
+            $cfile = new \CURLFile($path, $mime, 'factura.' . $ext);
+
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => ['documento' => $cfile],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 35,
+                CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            ]);
+            $response = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
+            curl_close($ch);
+
+            if ($code !== 200 || $response === false) {
+                return ['success' => false, 'message' => 'No se pudo extraer desde FACTURA: ' . ($curlErr ?: ('HTTP ' . $code))];
+            }
+
+            $json = json_decode((string) $response, true);
+            if (!is_array($json) || empty($json['success'])) {
+                return ['success' => false, 'message' => 'Respuesta inválida al extraer datos de FACTURA.'];
+            }
+
+            $datosMoto = $this->normalizarDatosMotoFactura([
+                'moto_no_serie' => $json['vin'] ?? null,
+                'moto_no_motor' => $json['no_motor'] ?? null,
+                'moto_color' => $json['color'] ?? null,
+            ]);
+
+            if ($datosMoto === []) {
+                return ['success' => false, 'message' => 'La FACTURA no contiene VIN, No. de motor o color legibles.'];
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Datos de motocicleta autocompletados desde FACTURA.',
+                'datos_moto' => $datosMoto,
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al extraer datos desde FACTURA: ' . $e->getMessage()];
+        } finally {
+            if ($isTemp && $path !== '' && is_file($path)) {
+                @unlink($path);
+            }
+        }
+    }
+
+    private function mimeParaDocumentoMotoFactura(string $ext): string
+    {
+        if ($ext === 'pdf') {
+            return 'application/pdf';
+        }
+        if ($ext === 'png') {
+            return 'image/png';
+        }
+        return 'image/jpeg';
+    }
+
+    private function normalizarDatosMotoFactura(array $raw): array
+    {
+        $out = [];
+
+        $vin = strtoupper(preg_replace('/\s+/u', '', trim((string) ($raw['moto_no_serie'] ?? ''))));
+        if ($vin !== '' && preg_match('/^[A-HJ-NPR-Z0-9]{8,17}$/', $vin)) {
+            $out['moto_no_serie'] = $vin;
+        }
+
+        $motor = strtoupper(preg_replace('/\s+/u', '', trim((string) ($raw['moto_no_motor'] ?? ''))));
+        if ($motor !== '' && preg_match('/^[A-Z0-9\-]{4,24}$/', $motor)) {
+            $out['moto_no_motor'] = $motor;
+        }
+
+        $color = trim((string) ($raw['moto_color'] ?? ''));
+        if ($color !== '') {
+            $color = preg_replace('/\s+/u', ' ', $color);
+            $color = preg_replace('/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]/u', '', (string) $color);
+            $color = trim((string) $color);
+            if ($color !== '') {
+                $out['moto_color'] = mb_substr($color, 0, 50);
+            }
+        }
+
+        return $out;
+    }
+
     public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = '', bool $registrarBitacora = true): array
     {
         if ($idOperacion <= 0) {

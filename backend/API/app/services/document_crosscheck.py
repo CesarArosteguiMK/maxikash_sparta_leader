@@ -249,6 +249,105 @@ def extraer_informacion_ingresos_fad(pdf_bytes: bytes) -> Dict[str, Any]:
     return resultado
 
 
+def extraer_datos_motocicleta_factura(file_bytes: bytes, filename: str = "") -> Dict[str, Any]:
+    """
+    Extrae VIN, No. de Motor y Color desde FACTURA (PDF o imagen).
+    """
+    out: Dict[str, Any] = {
+        "encontrado": False,
+        "vin": None,
+        "no_motor": None,
+        "color": None,
+        "texto_fuente": "",
+    }
+    if not file_bytes:
+        return out
+
+    nombre = (filename or "").lower()
+    if nombre.endswith(".pdf"):
+        texto = texto_de_pdf_con_ocr(file_bytes, max_paginas=5)
+    else:
+        texto = _texto_ocr_imagen(file_bytes) or ""
+
+    if not texto:
+        return out
+
+    texto_norm = re.sub(r"[ \t]+", " ", texto).replace("\r", "\n")
+    texto_upper = texto_norm.upper()
+
+    def limpiar(valor: str) -> str:
+        return re.sub(r"\s+", " ", valor or "").strip()
+
+    # VIN / No. serie
+    vin = ""
+    pats_vin = [
+        r"(?:NO\.?\s*DE\s*SERIE|N[ÚU]M(?:ERO)?\s*DE\s*SERIE|VIN|NIV)\s*[:#\-]?\s*([A-HJ-NPR-Z0-9]{8,17})",
+        r"\b([A-HJ-NPR-Z0-9]{17})\b",
+    ]
+    for pat in pats_vin:
+        m = re.search(pat, texto_upper, re.IGNORECASE)
+        if m:
+            cand = re.sub(r"\s+", "", m.group(1).upper())
+            if 8 <= len(cand) <= 17 and re.match(r"^[A-HJ-NPR-Z0-9]+$", cand):
+                vin = cand
+                break
+
+    # No. motor
+    no_motor = ""
+    pats_motor = [
+        r"(?:NO\.?\s*DE\s*MOTOR|N[ÚU]M(?:ERO)?\s*DE\s*MOTOR|MOTOR)\s*[:#\-]?\s*([A-Z0-9\-]{4,24})",
+    ]
+    for pat in pats_motor:
+        m = re.search(pat, texto_upper, re.IGNORECASE)
+        if m:
+            cand = re.sub(r"\s+", "", m.group(1).upper())
+            if 4 <= len(cand) <= 24 and re.match(r"^[A-Z0-9\-]+$", cand):
+                no_motor = cand
+                break
+
+    # Color (1): etiqueta explícita
+    color = ""
+    m_color = re.search(
+        r"(?:\bCOLOR\b)\s*[:#\-]?\s*([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s]{1,30})",
+        texto_upper,
+        re.IGNORECASE,
+    )
+    if m_color:
+        cand = limpiar(m_color.group(1))
+        cand = re.sub(
+            r"\b(MODELO|SERIE|VIN|MOTOR|AÑO|ANIO|PLACAS|FACTURA|FOLIO)\b.*$",
+            "",
+            cand,
+            flags=re.IGNORECASE,
+        )
+        cand = limpiar(cand)
+        if cand and re.match(r"^[A-ZÁÉÍÓÚÜÑ\s]+$", cand, re.IGNORECASE):
+            color = cand.title()
+
+    # Color (2): fallback por palabra de color en descripción de unidad
+    if not color:
+        colores_catalogo = [
+            "NEGRO", "NEGRA", "BLANCO", "BLANCA", "ROJO", "ROJA", "AZUL",
+            "GRIS", "PLATA", "PLATEADO", "PLATEADA", "VERDE", "AMARILLO", "AMARILLA",
+            "NARANJA", "MORADO", "MORADA", "DORADO", "DORADA", "CAFE", "CAFÉ",
+            "BEIGE", "VINO", "GUINDA", "GRANATE",
+        ]
+        for c in colores_catalogo:
+            if re.search(rf"\b{re.escape(c)}\b", texto_upper):
+                color = c.title()
+                break
+
+    if vin:
+        out["vin"] = vin
+    if no_motor:
+        out["no_motor"] = no_motor
+    if color:
+        out["color"] = color
+    out["encontrado"] = bool(vin or no_motor or color)
+    out["texto_fuente"] = texto_norm[:2500]
+    return out
+
+
 def es_documento_nss(pdf_bytes: bytes) -> bool:
     """True si el PDF es uno de los tres formatos aceptados del IMSS: (1) vigencia de derechos,
     (2) constancia de asignación/homoclave NSS, (3) constancia de semanas cotizadas. No acepta la tarjeta NSS (imprimir/recortar).
