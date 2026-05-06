@@ -456,7 +456,7 @@ SQL;
     {
         return [
             'bandeja'      => \count($this->obtenerRecuperacionRecepcion()),
-            'dictaminado'  => \count($this->obtenerOperacionesDictamenPorEstatusPipeline('Recepción')),
+            'dictaminado'  => \count($this->obtenerOperacionesDictamenPorEstatusPipeline('Recepción', true)),
         ];
     }
 
@@ -548,10 +548,28 @@ SQL;
     /**
      * Pestaña Dictaminado (p. ej. 5.- Recepción): operaciones con dictamen que están o estuvieron
      * en la etapa del pipeline indicada (no desaparecen al avanzar de menú).
+     *
+     * @param  bool  $excluirRecepcionSinConfirmarAlmacen  Si es true y $estatus es «Recepción», no devuelve
+     *          filas que sigan en etapa Recepción pendientes de confirmación en almacén (evita duplicar con
+     *          la bandeja: el dictamen de S2 no cuenta como «dictaminado» de recepción hasta confirmar).
      */
-    public function obtenerOperacionesDictamenPorEstatusPipeline(string $estatus): array
+    public function obtenerOperacionesDictamenPorEstatusPipeline(string $estatus, bool $excluirRecepcionSinConfirmarAlmacen = false): array
     {
         $joinAsig = $this->sqlJoinUnaAsignacionActivaPorCredito();
+
+        $extraRecepcion = '';
+        if ($excluirRecepcionSinConfirmarAlmacen && trim($estatus) === 'Recepción') {
+            $ma = new MotosAdjudicadas();
+            if ($ma->adjOperacionTieneColumnasRecepcionConfirmacion()) {
+                $extraRecepcion = <<<'SQL'
+ AND NOT (
+    o.estatus = 'Recepción'
+    AND o.recepcion_confirmada_at IS NULL
+)
+SQL;
+            }
+        }
+
         $sql = <<<SQL
         SELECT
             o.id,
@@ -597,6 +615,7 @@ SQL;
                   AND h.estatus_nuevo = :estatus_hist
             )
         )
+        {$extraRecepcion}
         ORDER BY o.fecha_alta DESC
         SQL;
 
