@@ -31,7 +31,7 @@ class MotosAdjudicadas extends Model
 
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_daison',
     ];
 
     public function __construct()
@@ -1306,7 +1306,7 @@ class MotosAdjudicadas extends Model
         // 1. Whitelist de slots v?lidos
         $allowed = [
             'rec_tacometro', 'rec_serie',     'rec_frontal', 'rec_lateral',
-            'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+            'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_daison',
             'doc_repuve',    'doc_factura',   'doc_cierre_s2',
             'doc_dacion_rcpt', 'doc_tarjeta_rcpt', 'doc_firma_rcpt',
             'vista_trs', 'vista_front', 'lado_izq', 'lado_der',
@@ -1327,6 +1327,7 @@ class MotosAdjudicadas extends Model
         $ext       = strtolower(pathinfo($fileInfo['name'] ?? '', PATHINFO_EXTENSION));
         $videoSlots = ['fis_360', 'vid_gen'];
         $docSlots   = ['doc_repuve', 'doc_factura', 'doc_cierre_s2', 'doc_dacion_rcpt'];
+        $pdfOrImgMisAdj = ['fis_contrato_daison'];
         $recepImgSlots = [
             'doc_tarjeta_rcpt', 'doc_firma_rcpt',
             'vista_trs', 'vista_front', 'lado_izq', 'lado_der', 'tablero', 'vin', 'danos_vis',
@@ -1345,6 +1346,12 @@ class MotosAdjudicadas extends Model
                 return ['success' => false, 'message' => 'Este campo solo acepta video MP4.'];
             }
             $tipo = 'video';
+        } elseif (in_array($slot, $pdfOrImgMisAdj, true)) {
+            $okMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+            if (!in_array($mime, $okMimes, true)) {
+                return ['success' => false, 'message' => 'Contrato Daison: solo PDF, JPG o PNG.'];
+            }
+            $tipo = ($mime === 'application/pdf') ? 'pdf' : 'image';
         } elseif (in_array($slot, $docSlots, true)) {
             if ($slot === 'doc_repuve') {
                 if ($mime !== 'application/pdf' && $ext !== 'pdf') {
@@ -2078,6 +2085,7 @@ SQL;
         'fis_frontal'   => 'FRONTAL (F?SICA)',
         'fis_lateral'   => 'LATERAL (F?SICA)',
         'fis_360'       => 'INSPECCI??N 360?',
+        'fis_contrato_daison' => 'CONTRATO DAISON (F?SICA)',
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
         'doc_cierre_s2' => 'CONFIRMACI??N CIERRE S2',
@@ -2102,7 +2110,7 @@ SQL;
     /** Fotos/video que s? se dictaminan (aceptar/rechazar) en Atenci?n a clientes. */
     private const SLOTS_VALIDACION_ATENCION_MEDIA = [
         'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_daison',
     ];
 
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atenci?n. */
@@ -3071,7 +3079,7 @@ EOSQL;
     // DATOS DE MOTO + LOG?STICOS (Mis Adjudicaciones)
     // Campos en adj_operacion: moto_marca, moto_modelo, moto_anio, moto_color,
     //   moto_no_serie, moto_no_motor, moto_placas,
-    //   log_ubicacion, log_direccion, log_ciudad, log_estado, log_responsable, log_telefono,
+    //   log_direccion, log_ciudad, log_estado, log_lugar_resguardo, log_lugar_otro, log_telefono,
     //   datos_moto_at, datos_moto_by
     // Migraci?n: 20260430_adj_operacion_datos_moto_logisticos.sql
     // =========================================================================
@@ -3084,8 +3092,8 @@ EOSQL;
         'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
         'moto_no_serie', 'moto_no_motor', 'moto_placas',
         'marca', 'modelo', 'serie', 'num_motor', 'placas',
-        'log_ubicacion', 'log_direccion', 'log_ciudad',
-        'log_estado', 'log_responsable', 'log_telefono',
+        'log_direccion', 'log_ciudad',
+        'log_estado', 'log_lugar_resguardo', 'log_lugar_otro', 'log_telefono',
     ];
 
     /** ISO 3779 / NHTSA: VIN de 17 caracteres m?x.; sin I, O, Q (motocicletas incluidas). */
@@ -3153,11 +3161,30 @@ EOSQL;
             }
         }
 
-        if (array_key_exists('log_responsable', $datos)) {
-            $nom = trim((string) $datos['log_responsable']);
-            // Letras Unicode (mayúsculas/minúsculas y acentos); espacios y .'- permitidos; sin dígitos.
-            if ($nom !== '' && !preg_match('/^[\p{L}\s\'\.\-]+$/u', $nom)) {
-                return 'El responsable de resguardo debe ser un nombre (letras); no se permiten números.';
+        if (array_key_exists('log_lugar_resguardo', $datos)) {
+            $lr = strtolower(trim((string) $datos['log_lugar_resguardo']));
+            $permitidos = ['mi_domicilio', 'sucursal', 'otro'];
+            if ($lr === '' || !in_array($lr, $permitidos, true)) {
+                return 'Selecciona un lugar de resguardo válido.';
+            }
+            if ($lr === 'otro') {
+                $otro = trim((string) ($datos['log_lugar_otro'] ?? ''));
+                if ($otro === '') {
+                    return 'Indica cuál es el lugar de resguardo cuando eliges «Otro».';
+                }
+                if (mb_strlen($otro) > 200) {
+                    return '«Indicar cuál» admite como máximo 200 caracteres.';
+                }
+            }
+        }
+
+        if (array_key_exists('log_lugar_otro', $datos) && array_key_exists('log_lugar_resguardo', $datos)) {
+            $lr = strtolower(trim((string) $datos['log_lugar_resguardo']));
+            if ($lr !== 'otro') {
+                $ot = trim((string) $datos['log_lugar_otro']);
+                if ($ot !== '' && !preg_match('/^[\p{L}\p{N}\s\'\.\,\-\#\/]+$/u', $ot)) {
+                    return '«Indicar cuál» contiene caracteres no permitidos.';
+                }
             }
         }
 
@@ -4324,8 +4351,9 @@ EOSQL;
             'serie'          => self::MADJ_VIN_MAX_LEN,
             'num_motor'      => self::MADJ_NO_MOTOR_MAX_LEN,
             'placas'         => self::MADJ_PLACAS_MOTO_MAX_LEN,
-            'log_ubicacion'  => 100, 'log_direccion'  => 100, 'log_ciudad'     => 50,
-            'log_estado'     => 60,  'log_responsable'=> 100, 'log_telefono'   => 10,
+            'log_direccion'  => 100, 'log_ciudad'     => 50,
+            'log_estado'     => 60,  'log_lugar_resguardo' => 32, 'log_lugar_otro' => 200,
+            'log_telefono'   => 10,
         ];
 
         $setClauses = [];
@@ -4348,6 +4376,12 @@ EOSQL;
                 $val = ((int) $valRaw ?: null);
             } elseif (in_array($campo, ['moto_no_serie', 'moto_no_motor', 'moto_placas', 'serie', 'placas', 'num_motor'], true)) {
                 $val = $normalizaAlfanumerico($campo, $valRaw);
+            } elseif ($campo === 'log_lugar_resguardo') {
+                $lr = strtolower(trim((string) $valRaw));
+                $permitidos = ['mi_domicilio', 'sucursal', 'otro'];
+                $val = in_array($lr, $permitidos, true) ? $lr : '';
+            } elseif ($campo === 'log_lugar_otro') {
+                $val = mb_substr(trim((string) $valRaw), 0, $maxLen['log_lugar_otro']);
             } else {
                 $val = mb_substr(trim((string) $valRaw), 0, $maxLen[$campo] ?? 255);
             }
