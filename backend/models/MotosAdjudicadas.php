@@ -3132,8 +3132,9 @@ EOSQL;
 
         if (array_key_exists('log_responsable', $datos)) {
             $nom = trim((string) $datos['log_responsable']);
-            if ($nom !== '' && !preg_match('/^[a-z???????????????????\s\'\.\-]+$/u', $nom)) {
-                return 'El responsable de resguardo debe ser un nombre (letras); no se permiten n?meros.';
+            // Letras Unicode (mayúsculas/minúsculas y acentos); espacios y .'- permitidos; sin dígitos.
+            if ($nom !== '' && !preg_match('/^[\p{L}\s\'\.\-]+$/u', $nom)) {
+                return 'El responsable de resguardo debe ser un nombre (letras); no se permiten números.';
             }
         }
 
