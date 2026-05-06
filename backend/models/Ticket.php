@@ -2153,6 +2153,41 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
     }
 }
 
+    /**
+     * Nombres de persona (gestores) en una sola consulta — reportes masivos.
+     *
+     * @param array $idsPersona Lista de id persona
+     * @return array<int, string> id => nombre
+     */
+    private static function getNombresPersonaParaReporte(array $idsPersona): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsPersona), static function ($v) {
+            return $v > 0;
+        })));
+        if ($ids === []) {
+            return [];
+        }
+        try {
+            $in = implode(',', $ids);
+            $db = new Database();
+            $rows = $db->queryAll(
+                "SELECT id, TRIM(CONCAT(TRIM(IFNULL(nombres,'')), ' ', TRIM(IFNULL(apellidop,'')))) AS nombre " .
+                "FROM persona WHERE id IN ($in)"
+            );
+            $map = [];
+            foreach (is_array($rows) ? $rows : [] as $row) {
+                $id = (int)($row['id'] ?? 0);
+                if ($id > 0) {
+                    $map[$id] = trim((string)($row['nombre'] ?? ''));
+                }
+            }
+            return $map;
+        } catch (\Throwable $e) {
+            error_log('getNombresPersonaParaReporte error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
     // =====================================================================
     //  DICTAMEN DEL SISTEMA — verificación automática de visita
     // =====================================================================
@@ -2877,6 +2912,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         return false;
     }
 
+    /** Precarga estado de cuenta (reporte semanal): evita N llamadas serie a la API S2 por crédito. */
+    private static ?array $reporteSemanalEcPreload = null;
+
     /**
      * Cache de estadísticas en disco (carpeta temporal). Sin tabla en BD.
      */
@@ -3173,6 +3211,66 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
      * @param array $opts ['timeout_segundos' => int, 'max_api_calls' => int, 'cache_ttl_segundos' => int]
      * @return array{consultado: bool, pagos: array}
      */
+    private static function reporteSemanalPrecargarEstadoCuenta(array $idsCredito, array $opts): void
+    {
+        self::$reporteSemanalEcPreload = null;
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static function ($v) {
+            return $v > 0;
+        })));
+        if ($ids === []) {
+            return;
+        }
+        $timeoutSeg = max(2, min(20, (int)($opts['timeout_segundos'] ?? 20)));
+        $conc = max(1, min(24, (int)($opts['ec_parallel_concurrency'] ?? 12)));
+        $cacheTtl = max(0, (int)($opts['cache_ttl_segundos'] ?? 0));
+        $fechaCorte = self::fechaCdmx();
+
+        try {
+            $ec = new \Controllers\EstadoCuenta();
+            $respuestas = $ec->api___SPARTA_SECRET_REDACTED___parallel($ids, $fechaCorte, $timeoutSeg, $conc);
+        } catch (\Throwable $e) {
+            error_log('reporteSemanalPrecargarEstadoCuenta: ' . $e->getMessage());
+            $respuestas = [];
+        }
+
+        $preload = [];
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $vacío = ['consultado' => false, 'pagos' => []];
+        foreach ($ids as $cid) {
+            $resEstado = is_array($respuestas) && array_key_exists($cid, $respuestas) ? $respuestas[$cid] : null;
+            if (!is_array($resEstado)) {
+                $preload[$cid] = $vacío;
+                continue;
+            }
+            $pagosRaw = $resEstado['data']['datosPagos'] ?? [];
+            if (empty($resEstado['ok']) || !is_array($pagosRaw)) {
+                $preload[$cid] = $vacío;
+                continue;
+            }
+            $out = [];
+            foreach ($pagosRaw as $p) {
+                $raw = $p['fechaDeposito'] ?? $p['fechaRegistro'] ?? $p['fechaValor'] ?? null;
+                $ts = self::pagoRawATimestamp($raw, $tz);
+                if ($ts === null) {
+                    continue;
+                }
+                $out[] = [
+                    'ts' => $ts,
+                    'fecha' => date('Y-m-d H:i:s', $ts),
+                    'monto' => $p['montoPago'] ?? null,
+                    'referencia' => $p['referencia'] ?? ($p['descripcion'] ?? null),
+                ];
+            }
+            $norm = ['consultado' => true, 'pagos' => $out];
+            $preload[$cid] = $norm;
+            if ($cacheTtl > 0) {
+                $cacheKey = '__SPARTA_SECRET_REDACTED___pagos:' . $cid . ':' . $fechaCorte;
+                self::statsCacheWrite($cacheKey, $norm, $cacheTtl);
+            }
+        }
+        self::$reporteSemanalEcPreload = $preload;
+    }
+
     private static function getPagosEstadoCuentaNormalizados(int $idCredito, array $opts = []): array
     {
         static $cachePagosCredito = [];
@@ -3181,6 +3279,9 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
         $vacío = ['consultado' => false, 'pagos' => []];
         if ($idCredito < 1) {
             return $vacío;
+        }
+        if (is_array(self::$reporteSemanalEcPreload) && array_key_exists($idCredito, self::$reporteSemanalEcPreload)) {
+            return self::$reporteSemanalEcPreload[$idCredito];
         }
         if (array_key_exists($idCredito, $cachePagosCredito)) {
             return $cachePagosCredito[$idCredito];
@@ -4975,17 +5076,15 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             }
 
             $nombresCliente = !empty($idsCredito) ? self::getNombresClienteParaReporte(array_keys($idsCredito)) : [];
-            $nombresGestor = [];
-            foreach (array_keys($idsGestor) as $gid) {
-                $gid = (int)$gid;
-                $nombresGestor[$gid] = $gid > 0 ? self::getNombrePersona($gid) : '';
-            }
+            $nombresGestor = !empty($idsGestor) ? self::getNombresPersonaParaReporte(array_keys($idsGestor)) : [];
 
             $optsReporteSemanal = [
                 'timeout_segundos' => 10,
                 'max_api_calls' => 1000,
                 'cache_ttl_segundos' => 604800,
+                'ec_parallel_concurrency' => 12,
             ];
+            self::reporteSemanalPrecargarEstadoCuenta(array_keys($idsCredito), $optsReporteSemanal);
             $pagosSemanaPorCredito = [];
             foreach (array_keys($idsCredito) as $cid) {
                 $cid = (int)$cid;
@@ -5223,6 +5322,8 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
                 'resumen' => [],
                 'filas' => [],
             ];
+        } finally {
+            self::$reporteSemanalEcPreload = null;
         }
     }
 
