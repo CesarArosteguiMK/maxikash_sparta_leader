@@ -6,6 +6,21 @@ if (!isset($google_maps_api_key_js)) {
 }
 ?>
 <script>window.MADJ_GOOGLE_MAPS_KEY = <?= $google_maps_api_key_js ?>;</script>
+<style>
+    /*
+     * Sneat/core.css: backdrop 1089, modal 1090. Antes usábamos ~1072 y el hijo quedaba detrás del padre.
+     * Orden: backdrop página (1089) < modal padre (1090) < scrim (1095) < modal hijo (1105).
+     */
+    .madj-modal-elegir-gestor.modal.show {
+        z-index: 1105 !important;
+    }
+
+    .modal-backdrop.madj-elegir-gestor-backdrop {
+        z-index: 1095 !important;
+        background-color: rgba(0, 0, 0, 0.52) !important;
+        opacity: 1 !important;
+    }
+</style>
 
 <div class="card mb-4">
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
@@ -63,7 +78,7 @@ if (!isset($google_maps_api_key_js)) {
     </div>
 </div>
 
-<div class="modal fade" id="modalMadjElegirGestor" tabindex="-1" aria-labelledby="modalMadjElegirGestorTitulo" aria-hidden="true">
+<div class="modal fade madj-modal-elegir-gestor" id="modalMadjElegirGestor" tabindex="-1" aria-labelledby="modalMadjElegirGestorTitulo" aria-hidden="true" data-bs-backdrop="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
@@ -92,7 +107,7 @@ if (!isset($google_maps_api_key_js)) {
     var modalMediaBody = document.getElementById('modalDictamenMediaCuerpo');
     var modalMediaTitulo = document.getElementById('modalDictamenMediaTitulo');
     var modalDetalleEl = document.getElementById('modalDictamenDetalle');
-    /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string, idCreditoSeg:number|null, rowRef:object, idPersonaResponsableAsignacion:number|null, nombrePersonaResponsableAsignacion:string }|null} */
+    /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string, idCreditoSeg:number|null, rowRef:object, gestorManualElegido:boolean, idPersonaResponsableManual:number|null, nombrePersonaResponsableManual:string }|null} */
     var madjDetalleSesion = null;
     /** @type {null|Array<{id_persona:number,nombre_completo:string}>} */
     var madjCacheResponsablesAdjudicacion = null;
@@ -102,6 +117,43 @@ if (!isset($google_maps_api_key_js)) {
     var madjCargaListaToken = 0;
     var madjNombresSolicitados = {};
     var modalDetalleCuerpo = document.getElementById('modalDictamenDetalleCuerpo');
+    var modalElegirGestorEl = document.getElementById('modalMadjElegirGestor');
+
+    /** Scrim entre modal padre e hijo; hijo por encima del padre (tema Sneat: modal 1090). */
+    function madjWireModalGestorBackdropSobreDetalle() {
+        if (!modalElegirGestorEl || modalElegirGestorEl.getAttribute('data-madj-backdrop-stack') === '1') {
+            return;
+        }
+        modalElegirGestorEl.setAttribute('data-madj-backdrop-stack', '1');
+
+        /* Evita stacking context del layout: el hijo compite en z-index con el padre a nivel viewport. */
+        if (modalElegirGestorEl.parentNode !== document.body) {
+            document.body.appendChild(modalElegirGestorEl);
+        }
+
+        modalElegirGestorEl.addEventListener('shown.bs.modal', function () {
+            window.requestAnimationFrame(function () {
+                var backs = document.querySelectorAll('.modal-backdrop');
+                if (!backs.length) {
+                    return;
+                }
+                var topBd = backs[backs.length - 1];
+                topBd.classList.add('madj-elegir-gestor-backdrop');
+                topBd.style.setProperty('z-index', '1095', 'important');
+                modalElegirGestorEl.style.setProperty('z-index', '1105', 'important');
+            });
+        });
+
+        modalElegirGestorEl.addEventListener('hide.bs.modal', function () {
+            document.querySelectorAll('.modal-backdrop.madj-elegir-gestor-backdrop').forEach(function (b) {
+                b.classList.remove('madj-elegir-gestor-backdrop');
+                b.style.removeProperty('z-index');
+            });
+            modalElegirGestorEl.style.removeProperty('z-index');
+        });
+    }
+
+    madjWireModalGestorBackdropSobreDetalle();
 
     function escAttr(s) {
         return String(s == null ? '' : s)
@@ -489,22 +541,42 @@ if (!isset($google_maps_api_key_js)) {
             });
     }
 
+    function madjActualizarBadgeGestorSeleccionado() {
+        var wrap = document.getElementById('madjGestorSeleccionadoWrap');
+        var nomEl = document.getElementById('madjGestorSeleccionadoNombre');
+        if (!wrap || !nomEl || !madjDetalleSesion) {
+            return;
+        }
+        var nom = String(madjDetalleSesion.nombrePersonaResponsableManual || '').trim();
+        if (madjDetalleSesion.gestorManualElegido && nom !== '') {
+            nomEl.textContent = nom;
+            wrap.classList.remove('d-none');
+            wrap.classList.add('d-inline-flex', 'align-items-center');
+        } else {
+            nomEl.textContent = '';
+            wrap.classList.add('d-none');
+            wrap.classList.remove('d-inline-flex', 'align-items-center');
+        }
+    }
+
     function madjSetGestorAsignacionSesion(idPersona, nombre) {
         if (!madjDetalleSesion) {
             return;
         }
-        madjDetalleSesion.idPersonaResponsableAsignacion =
-            idPersona > 0 ? idPersona : null;
-        madjDetalleSesion.nombrePersonaResponsableAsignacion = nombre || '';
+        madjDetalleSesion.gestorManualElegido = true;
+        madjDetalleSesion.idPersonaResponsableManual = idPersona > 0 ? idPersona : null;
+        madjDetalleSesion.nombrePersonaResponsableManual = nombre || '';
+        madjActualizarBadgeGestorSeleccionado();
     }
 
-    function madjInicializarGestorAsignacionDesdeRow(row) {
+    function madjInicializarGestorAsignacionDesdeRow() {
         if (!madjDetalleSesion) {
             return;
         }
-        var legacyPid = parseInt(String(row.gestor_legacy_id_persona || '0'), 10);
-        var legacyNom = String(row.gestor_legacy_nombre || '').trim();
-        madjSetGestorAsignacionSesion(legacyPid, legacyNom);
+        madjDetalleSesion.gestorManualElegido = false;
+        madjDetalleSesion.idPersonaResponsableManual = null;
+        madjDetalleSesion.nombrePersonaResponsableManual = '';
+        madjActualizarBadgeGestorSeleccionado();
     }
 
     function madjRenderOpcionesGestoresEnModal(lista, filtroTxt) {
@@ -542,7 +614,7 @@ if (!isset($google_maps_api_key_js)) {
     }
 
     function madjWireGestorAsignacionUi(row) {
-        madjInicializarGestorAsignacionDesdeRow(row);
+        madjInicializarGestorAsignacionDesdeRow();
         var btn = document.getElementById('madjBtnElegirGestor');
         var modalEl = document.getElementById('modalMadjElegirGestor');
         var filtro = document.getElementById('madjFiltroGestorLista');
@@ -613,8 +685,9 @@ if (!isset($google_maps_api_key_js)) {
             cred: cred,
             idCreditoSeg: idCredNum > 0 ? idCredNum : null,
             rowRef: row,
-            idPersonaResponsableAsignacion: parseInt(String(row.gestor_legacy_id_persona || '0'), 10) || null,
-            nombrePersonaResponsableAsignacion: String(row.gestor_legacy_nombre || '').trim()
+            gestorManualElegido: false,
+            idPersonaResponsableManual: null,
+            nombrePersonaResponsableManual: ''
         };
 
         var html = '<div class="container-fluid px-0">';
@@ -638,13 +711,19 @@ if (!isset($google_maps_api_key_js)) {
             html +=
                 '<div class="col-md-6">' +
                 '<label class="form-label fw-semibold small text-secondary">Gestor a cargo (Legacy)</label>' +
-                '<div class="input-group input-group-sm">' +
+                '<div class="d-flex flex-wrap align-items-center gap-2">' +
+                '<div class="input-group input-group-sm flex-grow-1" style="min-width:12rem;">' +
                 '<input type="text" class="form-control bg-light" id="madjInputGestorLegacy" readonly value="' +
                 escAttr(gestorLegacyTxt) +
                 '" placeholder="—" />' +
                 '<button type="button" class="btn btn-primary" id="madjBtnElegirGestor" title="Elegir gestor" aria-label="Elegir gestor">' +
                 '<i class="fa-solid fa-user-tag"></i>' +
                 '</button>' +
+                '</div>' +
+                '<span id="madjGestorSeleccionadoWrap" class="small text-success d-none gap-1 flex-shrink-0" role="status">' +
+                '<i class="fa-solid fa-check" aria-hidden="true"></i>' +
+                '<span>Seleccionado: <strong id="madjGestorSeleccionadoNombre"></strong></span>' +
+                '</span>' +
                 '</div>' +
                 '</div>';
         } else {
@@ -908,6 +987,28 @@ if (!isset($google_maps_api_key_js)) {
             } catch (e1) {}
             return;
         }
+        var apNumPre = parseInt(aplicaStr, 10);
+        if (
+            apNumPre === 1 &&
+            ses &&
+            ses.rowRef &&
+            !ses.gestorManualElegido &&
+            (parseInt(String(ses.rowRef.gestor_legacy_id_persona || '0'), 10) || 0) <= 0
+        ) {
+            if (swalOk) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Gestor requerido',
+                    text: 'No hay Gestor a cargo (Legacy) vinculado a persona. Use «Elegir gestor» y seleccione un responsable.',
+                    confirmButtonColor: btnColor
+                });
+            } else if (msg) {
+                msg.textContent = 'Use «Elegir gestor»: no hay persona Legacy vinculada.';
+                msg.classList.add('text-danger');
+                msg.classList.remove('text-muted', 'text-success');
+            }
+            return;
+        }
         if (swalOk) {
             Swal.fire({
                 title: 'Guardando seguimiento',
@@ -932,11 +1033,13 @@ if (!isset($google_maps_api_key_js)) {
                 id_credito: idCredito,
                 comentarios: com,
                 aplica: parseInt(aplicaStr, 10),
+                gestor_manual: !!(ses && ses.gestorManualElegido),
                 id_persona_responsable:
-                    parseInt(aplicaStr, 10) === 1 &&
                     ses &&
-                    ses.idPersonaResponsableAsignacion != null
-                        ? parseInt(String(ses.idPersonaResponsableAsignacion), 10)
+                    ses.gestorManualElegido &&
+                    ses.idPersonaResponsableManual != null &&
+                    parseInt(aplicaStr, 10) === 1
+                        ? parseInt(String(ses.idPersonaResponsableManual), 10)
                         : 0,
                 id_persona_responsable_default:
                     ses && ses.rowRef

@@ -202,6 +202,7 @@
             const OPS_TITULO_COL_VISIBLE = {
                 'Recibido':                'Evidencia',
                 'Revisión Recuperaciones': 'Recuperacion',
+                'Cierre Documentado':      'Cartera',
                 'Recepción':               'Recepcion',
             };
 
@@ -317,7 +318,7 @@
             </div>`;
             }
 
-            // Card completo (Cierre Documentado, Recepción)
+            // Card completo (Cartera / Cierre Documentado en BD, Recepción)
             return `
         <div class="card card-body p-2 mb-2 border-start border-3 ${borderColor}" style="cursor:pointer;" onclick="opsAbrirDetalle(${op.id})">
             <div class="d-flex align-items-center justify-content-between mb-1 gap-1">
@@ -352,7 +353,7 @@
                 'Recibido':                'Actualmente se encuentra en evidencias',
                 'Procesando IA':           'Actualmente se encuentra en Recuperacion',
                 'Revisión Recuperaciones': 'Actualmente se encuentra en Recuperacion',
-                'Cierre Documentado':      'Actualmente se encuentra en Cierre Documentado',
+                'Cierre Documentado':      'Actualmente se encuentra en Cartera',
                 'Recepción':               'Actualmente se encuentra en Recepción',
             };
             return MAP[est] || (est ? est.replace(/_/g, ' ') : '—');
@@ -434,7 +435,7 @@
         }
 
         function opsHtmlStepperEtapaModal(op) {
-            const labels = ['Evidencia', 'Recuperación', 'Cierre docs', 'Recepción', 'Retenciones'];
+            const labels = ['Evidencia', 'Recuperación', 'Cartera', 'Recepción', 'Retenciones'];
             const { current } = opsPipelineStageIndex(op);
             const sep = '<div style="width:24px;border-top:1.5px solid #ccc;margin-top:13px;"></div>';
             let parts = '';
