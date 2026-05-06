@@ -1243,7 +1243,7 @@ class Reporteria extends Controller
 
         $data = $r['datos'];
 
-        // Columnas completas según tu var_dump
+        // Columnas alineadas al resultado del reporte de corte (EmpresasDAO)
         $columnas = [
             \PHPSpreadsheet::ColumnaExcel('id_original', 'ID ORIGINAL'),
             \PHPSpreadsheet::ColumnaExcel('Telefono', 'TELEFONO'),
@@ -1302,7 +1302,7 @@ class Reporteria extends Controller
 
         $data = $r['datos'];
 
-        // Columnas completas según tu var_dump
+        // Columnas alineadas al resultado del reporte Legacy (EmpresasDAO)
         // Columnas que coinciden con los datos de la consulta SQL
         // IMPORTANTE: El primer parámetro es el CAMPO (clave del array), el segundo es el TÍTULO
         $columnas = [

@@ -70,6 +70,31 @@ function getMenu(): string
                 '/analitica/callcenter',
                 '/analitica/resumencallcenter',
             ],
+            /**
+             * Panel Admin (entrada /sabueso/panelAdminInicio) y cada panel por módulo comparten contexto;
+             * si no se enlazan, el lateral no marca activo en /validaciones/paneladmin, etc.
+             */
+            '/sabueso/paneladmininicio' => [
+                '/sabueso/paneladmininicio',
+                '/sabueso/paneladmin',
+                '/validaciones/paneladmin',
+                '/validaciones/formulario',
+                '/viaticos/paneladmin',
+                '/plantilla/paneladmin',
+                '/atencioncliente/paneladmin',
+                '/aplicacionespago/paneladmin',
+                '/creditoproblematico/paneladmin',
+                '/aclaracioncredito/paneladmin',
+                '/sabueso/panelsolicitudbaja',
+            ],
+            '/validaciones/gestor' => [
+                '/validaciones/gestor',
+                '/validaciones/territorial',
+            ],
+            '/validaciones/territorial' => [
+                '/validaciones/gestor',
+                '/validaciones/territorial',
+            ],
         ];
         foreach ($sameSection as $canonical => $paths) {
             if ($menuPath !== $canonical) {

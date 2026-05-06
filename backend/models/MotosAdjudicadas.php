@@ -3606,7 +3606,7 @@ EOSQL;
     private function repuveResolverCriterio(int $idCredito): array
     {
         $op = $this->db->queryOne(
-            'SELECT moto_placas, placas, moto_no_serie, serie
+            'SELECT moto_placas, moto_no_serie
              FROM adj_operacion
              WHERE id_credito = :id
              ORDER BY id DESC
@@ -3619,18 +3619,12 @@ EOSQL;
         }
 
         $plateBase = trim((string) ($op['moto_placas'] ?? ''));
-        if ($plateBase === '') {
-            $plateBase = trim((string) ($op['placas'] ?? ''));
-        }
         $plate = strtoupper(preg_replace('/\s+/u', '', $plateBase));
         if ($plate !== '') {
             return ['ok' => true, 'field' => 'plate', 'value' => $plate];
         }
 
         $vinBase = trim((string) ($op['moto_no_serie'] ?? ''));
-        if ($vinBase === '') {
-            $vinBase = trim((string) ($op['serie'] ?? ''));
-        }
         $vin = strtoupper(preg_replace('/\s+/u', '', $vinBase));
         if ($vin !== '') {
             return ['ok' => true, 'field' => 'vin', 'value' => $vin];
