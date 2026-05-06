@@ -672,6 +672,45 @@ class MotosAdjudicadas extends Model
     }
 
     /**
+     * @param int[] $idsCredito
+     * @return array<int, bool> [id_credito => true] si tiene asignación activa.
+     */
+    private function obtenerMapaAsignacionActivaPorCreditos(array $idsCredito): array
+    {
+        $idsCredito = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn($v) => $v > 0)));
+        if ($idsCredito === []) {
+            return [];
+        }
+        $ph     = [];
+        $params = [];
+        foreach ($idsCredito as $i => $id) {
+            $k          = 'ac' . $i;
+            $ph[]       = ':' . $k;
+            $params[$k] = $id;
+        }
+        try {
+            $rows = $this->db->queryAll(
+                'SELECT id_credito
+                 FROM asigna_creditos_adjudicacion
+                 WHERE estatus = \'1\'
+                   AND id_credito IN (' . implode(',', $ph) . ')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc > 0) {
+                $out[$idc] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * @return array{success: bool, message?: string}
      */
     public function guardarSeguimientoMaDictamen(int $idCredito, string $comentarios, ?int $aplica): array
@@ -1742,7 +1781,7 @@ SQL;
             o.modelo,
             o.serie,
             o.num_motor,
-            o.placas,
+            NULL AS placas,
             o.dias_mora,
             o.saldo_capital,
             o.adeudo_total,
@@ -1796,7 +1835,21 @@ SQL;
             o.fecha_alta ASC
         SQL;
 
-        return $this->db->queryAll($sql) ?: [];
+        try {
+            return $this->db->queryAll($sql) ?: [];
+        } catch (\Throwable $e) {
+            // Compatibilidad: en algunos entornos legacy adj_operacion aún no tiene columna `placas`.
+            if (stripos((string) $e->getMessage(), "Unknown column 'o.placas'") !== false) {
+                $sqlFallback = str_replace(
+                    "            o.placas,\n",
+                    "            NULL AS placas,\n",
+                    $sql
+                );
+
+                return $this->db->queryAll($sqlFallback) ?: [];
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -2512,11 +2565,16 @@ EOSQL;
         }
         $segMap = $this->obtenerSeguimientoMaDictamenPorCreditos($idsCredSeg);
         $s2Map  = $this->obtenerMapaResumenS2ModalDictamenPorCreditos($idsCredSeg);
+        $asigActMap = $this->obtenerMapaAsignacionActivaPorCreditos($idsCredSeg);
         foreach ($rows as &$r) {
             $idc                     = (int) ($r['id_credito'] ?? 0);
             $s                       = $segMap[$idc] ?? null;
+            $aplicaSeg               = $s['aplica'] ?? null;
             $r['ma_seg_comentarios'] = $s['comentarios'] ?? '';
-            $r['ma_seg_aplica']      = $s['aplica'] ?? null;
+            $r['ma_seg_aplica']      = $aplicaSeg;
+            $r['ma_seg_asignacion_ok'] = ($aplicaSeg === 0)
+                ? true
+                : ($aplicaSeg === 1 ? !empty($asigActMap[$idc]) : null);
             $r['s2_modal_resumen']   = $s2Map[$idc] ?? null;
         }
         unset($r);
@@ -2543,25 +2601,28 @@ EOSQL;
         $lista = array_keys($uids);
         if ($lista === []) {
             foreach ($rows as &$r) {
-                $r['gestor_legacy_nombre'] = '';
+                $r['gestor_legacy_nombre']     = '';
+                $r['gestor_legacy_id_persona'] = null;
             }
             unset($r);
 
             return;
         }
-        $map = $this->obtenerNombresGestorLegacyPorDictumUserIds($lista);
+        $map = $this->obtenerDatosGestorLegacyPorDictumUserIds($lista);
         foreach ($rows as &$r) {
-            $u                       = (int) ($r['legacy_user_id'] ?? 0);
-            $r['gestor_legacy_nombre'] = $u > 0 ? (string) ($map[$u] ?? '') : '';
+            $u = (int) ($r['legacy_user_id'] ?? 0);
+            $d = ($u > 0 && isset($map[$u])) ? $map[$u] : null;
+            $r['gestor_legacy_nombre']      = $d ? (string) ($d['nombre'] ?? '') : '';
+            $r['gestor_legacy_id_persona']  = ($d && !empty($d['id_persona'])) ? (int) $d['id_persona'] : null;
         }
         unset($r);
     }
 
     /**
      * @param  int[]  $legacyUserIds  users.id en base Legacy (__SPARTA_SECRET_REDACTED__)
-     * @return array<int, string>     [ user_id => nombre completo gestor ]
+     * @return array<int, array{nombre: string, id_persona: int}>
      */
-    private function obtenerNombresGestorLegacyPorDictumUserIds(array $legacyUserIds): array
+    private function obtenerDatosGestorLegacyPorDictumUserIds(array $legacyUserIds): array
     {
         $legacyUserIds = array_values(array_unique(array_filter(array_map('intval', $legacyUserIds), static fn ($v) => $v > 0)));
         if ($legacyUserIds === []) {
@@ -2615,7 +2676,8 @@ EOSQL;
 
         try {
             $perRows = $this->db->queryAll(
-                'SELECT TRIM(numero_empleado) AS numero_empleado,
+                'SELECT id,
+                        TRIM(numero_empleado) AS numero_empleado,
                         TRIM(CONCAT_WS(\' \', nombres, segundo_nombre, apellidop, apellidom)) AS nombre_gestor
                  FROM persona
                  WHERE TRIM(numero_empleado) IN ('.implode(',', $ph2).')',
@@ -2625,20 +2687,25 @@ EOSQL;
             return [];
         }
 
-        $extToNombre = [];
+        $extToDatos = [];
         foreach ($perRows as $pr) {
             $ne = trim((string) ($pr['numero_empleado'] ?? ''));
             $ng = trim((string) ($pr['nombre_gestor'] ?? ''));
-            if ($ne !== '' && $ng !== '' && !isset($extToNombre[$ne])) {
-                $extToNombre[$ne] = $ng;
+            $pid = (int) ($pr['id'] ?? 0);
+            if ($ne === '' || $ng === '' || $pid <= 0 || isset($extToDatos[$ne])) {
+                continue;
             }
+            $extToDatos[$ne] = [
+                'nombre'       => $ng,
+                'id_persona'   => $pid,
+            ];
         }
 
         $out = [];
         foreach ($userIdToExternal as $uid => $ext) {
-            $nom = $extToNombre[$ext] ?? '';
-            if ($nom !== '') {
-                $out[$uid] = $nom;
+            $d = $extToDatos[$ext] ?? null;
+            if ($d !== null && ($d['nombre'] ?? '') !== '') {
+                $out[$uid] = $d;
             }
         }
 

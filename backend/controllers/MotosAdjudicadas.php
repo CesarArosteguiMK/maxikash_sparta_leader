@@ -284,50 +284,68 @@ class MotosAdjudicadas extends Controller
 
     /**
      * POST /MotosAdjudicadas/guardarSeguimientoMaDictamen
-     * Body JSON: id_credito, comentarios (obligatorio), aplica (0|1) para recolección.
+     * Body JSON: id_credito, comentarios (obligatorio), aplica (0|1) para recolección,
+     * id_persona_responsable (opcional si aplica===1) y id_persona_responsable_default (gestor Legacy por defecto).
      * Persiste seguimiento en adj_s2_cache_dictamen (ma_seg_comentarios, ma_seg_aplica, ma_seg_actualizado_at).
-     * Asignación a Mis adjudicaciones solo si aplica === 1 («Sí aplica para la recolección»).
+     * Asignación a Mis adjudicaciones solo si aplica === 1; el responsable es id_persona_responsable (no el usuario en sesión).
      */
     public function guardarSeguimientoMaDictamen()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $body        = json_decode(file_get_contents('php://input'), true) ?? [];
-        $idCredito   = (int) ($body['id_credito'] ?? $body['id_dictum'] ?? 0);
-        $comentarios = trim((string) ($body['comentarios'] ?? ''));
-        $aplicaRaw   = $body['aplica'] ?? null;
-        $aplica      = null;
+        $body                   = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito              = (int) ($body['id_credito'] ?? $body['id_dictum'] ?? 0);
+        $comentarios            = trim((string) ($body['comentarios'] ?? ''));
+        $idPersonaResponsable   = (int) ($body['id_persona_responsable'] ?? 0);
+        $idPersonaDefault       = (int) ($body['id_persona_responsable_default'] ?? 0);
+        $aplicaRaw              = $body['aplica'] ?? null;
+        $aplica                 = null;
         if ($aplicaRaw === 0 || $aplicaRaw === '0' || $aplicaRaw === false) {
             $aplica = 0;
         } elseif ($aplicaRaw === 1 || $aplicaRaw === '1' || $aplicaRaw === true) {
             $aplica = 1;
         }
+
+        $adj = new AdjudicacionDAO();
+        if ($aplica === 1) {
+            if ($idPersonaResponsable <= 0 && $idPersonaDefault > 0) {
+                $idPersonaResponsable = $idPersonaDefault;
+            }
+            if ($idPersonaResponsable <= 0) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'No se encontró gestor para asignar. Seleccione uno con el botón del campo de gestor o verifique el gestor Legacy.',
+                ], JSON_UNESCAPED_UNICODE);
+
+                return;
+            }
+        }
+
         try {
             $result = $this->model->guardarSeguimientoMaDictamen($idCredito, $comentarios, $aplica);
             if (!empty($result['success']) && $idCredito > 0 && $aplica === 1) {
-                $idPersona = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
-                if ($idPersona > 0) {
-                    $adj  = new AdjudicacionDAO();
-                    $asig = $adj->asignarCredito($idPersona, $idCredito, $idPersona);
+                $idUsuarioAlta = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+                if ($idUsuarioAlta > 0) {
+                    $asig = $adj->asignarCredito($idPersonaResponsable, $idCredito, $idUsuarioAlta);
                     if (empty($asig['success']) && !empty($asig['message'])) {
                         $m = (string) $asig['message'];
                         if (stripos($m, 'ya está asignado a este responsable') !== false
                             || stripos($m, 'ya esta asignado a este responsable') !== false) {
                             $asig['success'] = true;
-                            $asig['message'] = 'El crédito ya estaba asignado a usted.';
+                            $asig['message'] = 'El crédito ya estaba asignado al responsable seleccionado.';
                         }
                     }
                     $result['asignacion'] = $asig;
                     if (!empty($asig['success'])) {
                         $result['message'] = 'Seguimiento guardado. '
-                            . ($asig['message'] ?? 'Crédito asignado a usted; aparecerá en Mis adjudicaciones.');
+                            . ($asig['message'] ?? 'Crédito asignado al gestor elegido; aparecerá en Mis adjudicaciones del responsable.');
                     } else {
                         $result['message'] = 'Seguimiento guardado. '
-                            . ($asig['message'] ?? 'No se pudo completar la asignación automática.');
+                            . ($asig['message'] ?? 'No se pudo completar la asignación.');
                     }
                 } else {
                     $result['asignacion'] = [
                         'success' => false,
-                        'message' => 'No hay persona en sesión; no se asignó el crédito automáticamente.',
+                        'message' => 'No hay persona en sesión para registrar la asignación.',
                     ];
                     $result['message'] = 'Seguimiento guardado. '
                         . ($result['asignacion']['message'] ?? '');

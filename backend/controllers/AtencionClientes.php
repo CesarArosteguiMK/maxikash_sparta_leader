@@ -49,7 +49,7 @@ class AtencionClientes extends Controller
 
     /**
      * GET /AtencionClientes/cierreDocumentacion
-     * 3.- Cierre Documentación.
+     * 3.-Cartera.
      */
     public function cierreDocumentacion(): void
     {

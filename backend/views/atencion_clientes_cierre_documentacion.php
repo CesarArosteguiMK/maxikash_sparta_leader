@@ -167,7 +167,7 @@
 .acd-btn-pipeline:hover  { opacity: .9; transform: translateY(-1px); color: #fff; }
 .acd-btn-pipeline:active { transform: translateY(0); }
 
-/* Forzar tono de tabs al color propio de Cierre Documentación */
+/* Forzar tono de tabs al color propio de Cartera (paso 3) */
 #acdTabNav .nav-link {
     color: #0f172a;
 }
@@ -434,8 +434,8 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
     <div class="acd-header-gradient d-flex align-items-center gap-3">
         <i class="fa-solid fa-file-circle-check fa-2x"></i>
         <div>
-            <h4>3.- Cierre Documentación</h4>
-            <p>Gestión de cierre de documentación para operaciones de motos adjudicadas</p>
+            <h4>3.-Cartera</h4>
+            <p>Gestión de cartera / cierre de documentación para operaciones de motos adjudicadas</p>
         </div>
     </div>
 

@@ -340,8 +340,9 @@
 <!-- Título de la página -->
 <h4 class="mb-2">
     <i class="fa-solid fa-motorcycle me-2" style="color: var(--adj-amber);"></i>
-    Administración de asignación de créditos para motos adjudicadas
+    Admin Cobranza
 </h4>
+<p class="text-muted small mb-3">Asignación de créditos para motos adjudicadas</p>
 
 <div class="row g-4 mb-4">
     <!-- PANEL IZQUIERDO -->

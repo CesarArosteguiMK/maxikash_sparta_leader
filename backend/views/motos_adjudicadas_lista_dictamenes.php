@@ -63,6 +63,24 @@ if (!isset($google_maps_api_key_js)) {
     </div>
 </div>
 
+<div class="modal fade" id="modalMadjElegirGestor" tabindex="-1" aria-labelledby="modalMadjElegirGestorTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalMadjElegirGestorTitulo">Seleccionar gestor responsable</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="search" class="form-control form-control-sm mb-2" id="madjFiltroGestorLista" autocomplete="off" placeholder="Buscar responsable…" />
+                <div class="list-group list-group-flush border rounded small" id="madjListaGestoresAsignacion" style="max-height: 280px; overflow-y: auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 (function () {
     'use strict';
@@ -74,8 +92,10 @@ if (!isset($google_maps_api_key_js)) {
     var modalMediaBody = document.getElementById('modalDictamenMediaCuerpo');
     var modalMediaTitulo = document.getElementById('modalDictamenMediaTitulo');
     var modalDetalleEl = document.getElementById('modalDictamenDetalle');
-    /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string, idCreditoSeg:number|null, rowRef:object }|null} */
+    /** @type {{ hayCoords:boolean, lat:any, lng:any, nom:string, cred:string, idCreditoSeg:number|null, rowRef:object, idPersonaResponsableAsignacion:number|null, nombrePersonaResponsableAsignacion:string }|null} */
     var madjDetalleSesion = null;
+    /** @type {null|Array<{id_persona:number,nombre_completo:string}>} */
+    var madjCacheResponsablesAdjudicacion = null;
     var madjDetalleOcultoPorMedia = false;
     /** Primer lote de filas para mostrar la tabla rápido; el resto se pide en segundo plano. */
     var MADJ_DICTAMENES_PRIMER_LOTE = 10;
@@ -428,6 +448,143 @@ if (!isset($google_maps_api_key_js)) {
         );
     }
 
+    function madjSeguimientoInternoYaPersistido(row) {
+        if (!row) {
+            return false;
+        }
+        var com = String(row.ma_seg_comentarios || '').trim();
+        if (com === '') {
+            return false;
+        }
+        var ap = row.ma_seg_aplica;
+        if (ap === 0 || ap === false || ap === '0') {
+            return true;
+        }
+        if (ap === 1 || ap === true || ap === '1') {
+            return !!row.ma_seg_asignacion_ok;
+        }
+
+        return false;
+    }
+
+    function madjFetchResponsablesAdjudicacion(cb) {
+        if (madjCacheResponsablesAdjudicacion) {
+            cb(madjCacheResponsablesAdjudicacion);
+            return;
+        }
+        fetch('/Adjudicacion/obtenerListaResponsables', { credentials: 'same-origin' })
+            .then(function (r) {
+                return r.json();
+            })
+            .then(function (data) {
+                if (data && data.success && Array.isArray(data.responsables)) {
+                    madjCacheResponsablesAdjudicacion = data.responsables;
+                    cb(madjCacheResponsablesAdjudicacion);
+                } else {
+                    cb([]);
+                }
+            })
+            .catch(function () {
+                cb([]);
+            });
+    }
+
+    function madjSetGestorAsignacionSesion(idPersona, nombre) {
+        if (!madjDetalleSesion) {
+            return;
+        }
+        madjDetalleSesion.idPersonaResponsableAsignacion =
+            idPersona > 0 ? idPersona : null;
+        madjDetalleSesion.nombrePersonaResponsableAsignacion = nombre || '';
+    }
+
+    function madjInicializarGestorAsignacionDesdeRow(row) {
+        if (!madjDetalleSesion) {
+            return;
+        }
+        var legacyPid = parseInt(String(row.gestor_legacy_id_persona || '0'), 10);
+        var legacyNom = String(row.gestor_legacy_nombre || '').trim();
+        madjSetGestorAsignacionSesion(legacyPid, legacyNom);
+    }
+
+    function madjRenderOpcionesGestoresEnModal(lista, filtroTxt) {
+        var root = document.getElementById('madjListaGestoresAsignacion');
+        if (!root) {
+            return;
+        }
+        var f = String(filtroTxt || '')
+            .trim()
+            .toLocaleUpperCase('es-MX');
+        root.innerHTML = '';
+        var hay = false;
+        lista.forEach(function (r) {
+            var pid = parseInt(String(r.id_persona || '0'), 10);
+            var nom = String(r.nombre_completo || '').trim();
+            if (pid <= 0 || nom === '') {
+                return;
+            }
+            if (f && nom.toLocaleUpperCase('es-MX').indexOf(f) === -1) {
+                return;
+            }
+            hay = true;
+            var a = document.createElement('button');
+            a.type = 'button';
+            a.className = 'list-group-item list-group-item-action py-2';
+            a.textContent = nom;
+            a.setAttribute('data-id-persona', String(pid));
+            a.setAttribute('data-nombre', nom);
+            root.appendChild(a);
+        });
+        if (!hay) {
+            root.innerHTML =
+                '<div class="list-group-item text-muted small">No hay coincidencias.</div>';
+        }
+    }
+
+    function madjWireGestorAsignacionUi(row) {
+        madjInicializarGestorAsignacionDesdeRow(row);
+        var btn = document.getElementById('madjBtnElegirGestor');
+        var modalEl = document.getElementById('modalMadjElegirGestor');
+        var filtro = document.getElementById('madjFiltroGestorLista');
+        var listaRoot = document.getElementById('madjListaGestoresAsignacion');
+        if (!btn || !modalEl || !listaRoot) {
+            return;
+        }
+        btn.onclick = function () {
+            madjFetchResponsablesAdjudicacion(function (list) {
+                if (filtro) {
+                    filtro.value = '';
+                }
+                madjRenderOpcionesGestoresEnModal(list, '');
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            });
+        };
+        if (filtro) {
+            filtro.oninput = function () {
+                madjFetchResponsablesAdjudicacion(function (list) {
+                    madjRenderOpcionesGestoresEnModal(list, filtro.value);
+                });
+            };
+        }
+        listaRoot.onclick = function (ev) {
+            var t = ev.target;
+            if (!t || !t.getAttribute) {
+                return;
+            }
+            if (t.getAttribute('data-id-persona') == null) {
+                return;
+            }
+            var pid = parseInt(String(t.getAttribute('data-id-persona') || '0'), 10);
+            var nom = String(t.getAttribute('data-nombre') || '').trim();
+            madjSetGestorAsignacionSesion(pid, nom);
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            }
+        };
+    }
+
     /**
      * Arma el HTML del modal de detalle y guarda sesión para mapa/geocodificación al mostrarse.
      */
@@ -446,6 +603,7 @@ if (!isset($google_maps_api_key_js)) {
         var coordTxt = hayCoords ? String(lat) + ', ' + String(lng) : '';
 
         var idCredNum = parseInt(String(cred || '0'), 10);
+        var puedeElegirGestorAsignacion = !madjSeguimientoInternoYaPersistido(row);
 
         madjDetalleSesion = {
             hayCoords: hayCoords,
@@ -454,7 +612,9 @@ if (!isset($google_maps_api_key_js)) {
             nom: nom,
             cred: cred,
             idCreditoSeg: idCredNum > 0 ? idCredNum : null,
-            rowRef: row
+            rowRef: row,
+            idPersonaResponsableAsignacion: parseInt(String(row.gestor_legacy_id_persona || '0'), 10) || null,
+            nombrePersonaResponsableAsignacion: String(row.gestor_legacy_nombre || '').trim()
         };
 
         var html = '<div class="container-fluid px-0">';
@@ -470,13 +630,26 @@ if (!isset($google_maps_api_key_js)) {
         html += madjCampoReadonly('col-md-4', 'Fecha de registro', fmtFechaRegistro(row.fecha_registro));
         html += '</div>';
         html += '<div class="row g-3 mt-0">';
-        html += madjCampoReadonly(
-            'col-md-6',
-            'Gestor a cargo (Legacy)',
+        var gestorLegacyTxt =
             row.gestor_legacy_nombre != null && String(row.gestor_legacy_nombre).trim() !== ''
                 ? String(row.gestor_legacy_nombre).trim()
-                : ''
-        );
+                : '';
+        if (puedeElegirGestorAsignacion) {
+            html +=
+                '<div class="col-md-6">' +
+                '<label class="form-label fw-semibold small text-secondary">Gestor a cargo (Legacy)</label>' +
+                '<div class="input-group input-group-sm">' +
+                '<input type="text" class="form-control bg-light" id="madjInputGestorLegacy" readonly value="' +
+                escAttr(gestorLegacyTxt) +
+                '" placeholder="—" />' +
+                '<button type="button" class="btn btn-primary" id="madjBtnElegirGestor" title="Elegir gestor" aria-label="Elegir gestor">' +
+                '<i class="fa-solid fa-user-tag"></i>' +
+                '</button>' +
+                '</div>' +
+                '</div>';
+        } else {
+            html += madjCampoReadonly('col-md-6', 'Gestor a cargo (Legacy)', gestorLegacyTxt);
+        }
         html += madjComentarioReadonly(row.comentarios_generales);
         html += '</div></section>';
 
@@ -581,25 +754,9 @@ if (!isset($google_maps_api_key_js)) {
         html += '</div>';
         modalDetalleCuerpo.innerHTML = html;
         madjEnlazarFormularioSeguimiento(row);
-    }
-
-    function madjSeguimientoInternoYaPersistido(row) {
-        if (!row) {
-            return false;
+        if (puedeElegirGestorAsignacion) {
+            madjWireGestorAsignacionUi(row);
         }
-        var com = String(row.ma_seg_comentarios || '').trim();
-        if (com === '') {
-            return false;
-        }
-        var ap = row.ma_seg_aplica;
-        return (
-            ap === 0 ||
-            ap === 1 ||
-            ap === true ||
-            ap === false ||
-            ap === '0' ||
-            ap === '1'
-        );
     }
 
     /** Tras guardar o si ya venía de BD: sin botón, campos solo lectura. */
@@ -640,6 +797,10 @@ if (!isset($google_maps_api_key_js)) {
             msg.textContent = '';
             msg.classList.remove('text-danger', 'text-success', 'text-warning');
             msg.classList.add('text-muted');
+        }
+        var btnGest = document.getElementById('madjBtnElegirGestor');
+        if (btnGest) {
+            btnGest.remove();
         }
     }
 
@@ -770,7 +931,17 @@ if (!isset($google_maps_api_key_js)) {
             body: JSON.stringify({
                 id_credito: idCredito,
                 comentarios: com,
-                aplica: parseInt(aplicaStr, 10)
+                aplica: parseInt(aplicaStr, 10),
+                id_persona_responsable:
+                    parseInt(aplicaStr, 10) === 1 &&
+                    ses &&
+                    ses.idPersonaResponsableAsignacion != null
+                        ? parseInt(String(ses.idPersonaResponsableAsignacion), 10)
+                        : 0,
+                id_persona_responsable_default:
+                    ses && ses.rowRef
+                        ? parseInt(String(ses.rowRef.gestor_legacy_id_persona || '0'), 10) || 0
+                        : 0
             })
         })
             .then(function (r) {
@@ -840,7 +1011,13 @@ if (!isset($google_maps_api_key_js)) {
                     ses.rowRef.ma_seg_comentarios = com;
                     ses.rowRef.ma_seg_aplica = apVal;
                 }
-                madjBloquearUiSeguimientoInterno();
+                var bloquear = apVal === 0 || !advAsig;
+                if (ses && ses.rowRef) {
+                    ses.rowRef.ma_seg_asignacion_ok = bloquear;
+                }
+                if (bloquear) {
+                    madjBloquearUiSeguimientoInterno();
+                }
             })
             .catch(function () {
                 if (swalOk && typeof Swal.close === 'function') {
