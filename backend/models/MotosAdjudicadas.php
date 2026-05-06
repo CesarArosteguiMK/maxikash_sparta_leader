@@ -63,7 +63,7 @@ class MotosAdjudicadas extends Model
     {
         $e = trim($estatus);
 
-        return $e === 'Revisi?n Recuperaciones';
+        return $e === 'Revisión Recuperaciones';
     }
 
     /**
@@ -180,8 +180,8 @@ class MotosAdjudicadas extends Model
         if (!$row) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
-        if (trim((string) ($row['estatus'] ?? '')) !== 'Recepci?n') {
-            return ['success' => false, 'message' => 'Solo aplica en etapa Recepci?n.'];
+        if (trim((string) ($row['estatus'] ?? '')) !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo aplica en etapa Recepción.'];
         }
         $col = $documento === 'dacion' ? 'recepcion_dacion_estado' : 'recepcion_tarjeta_estado';
         $ahora = $this->fechaHoraCdmx();
@@ -255,8 +255,8 @@ class MotosAdjudicadas extends Model
         if (!$op) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
-        if (trim((string) ($op['estatus'] ?? '')) !== 'Recepci?n') {
-            return ['success' => false, 'message' => 'Solo se confirma recepci?n en etapa Recepci?n.'];
+        if (trim((string) ($op['estatus'] ?? '')) !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo se confirma recepci?n en etapa Recepción.'];
         }
         if (!$this->adjOperacionTieneColumnaFechaLlegadaAlmacen() || empty($op['fecha_llegada_almacen'])) {
             return ['success' => false, 'message' => 'Debe registrar primero la llegada f?sica a almac?n.'];
@@ -351,7 +351,7 @@ class MotosAdjudicadas extends Model
             $ahora
         );
 
-        /* Flujo actual: tras Recepci?n sigue la etapa Retenciones (atenci?n / cierre de llamadas). */
+        /* Flujo actual: tras Recepción sigue la etapa Retenciones (atenci?n / cierre de llamadas). */
         $this->cambiarEstatus($idOperacion, 'Retenciones', $idUsuario, $nombreUsuario);
 
         $fmt = $this->db->queryOne(
@@ -1114,7 +1114,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * Registra una sola vez la llegada f?sica al almac?n (Recepci?n). No se puede modificar ni repetir.
+     * Registra una sola vez la llegada f?sica al almac?n (Recepción). No se puede modificar ni repetir.
      *
      * @return array{success:bool, message?:string, fecha_llegada_almacen?:string, ya_registrada?:bool}
      */
@@ -1137,8 +1137,8 @@ class MotosAdjudicadas extends Model
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
         $est = trim((string) ($row['estatus'] ?? ''));
-        if ($est !== 'Recepci?n') {
-            return ['success' => false, 'message' => 'Solo se registra llegada a almac?n cuando la operaci?n est? en etapa Recepci?n.'];
+        if ($est !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo se registra llegada a almac?n cuando la operaci?n est? en etapa Recepción.'];
         }
         if (!empty($row['fecha_llegada_almacen'])) {
             $fmt = $this->db->queryOne(
@@ -1620,7 +1620,7 @@ class MotosAdjudicadas extends Model
 
     /**
      * Vista 4 Cartera: registra que el usuario confirma haber dado de alta el cierre en S2
-     * y env?a la operaci?n a la etapa Recepci?n (bandeja de entrada de la vista 5).
+     * y env?a la operaci?n a la etapa Recepción (bandeja de entrada de la vista 5).
      *
      * @return array{success:bool, message?:string, estatus_nuevo?:string}
      */
@@ -1675,12 +1675,12 @@ class MotosAdjudicadas extends Model
             ]
         );
 
-        $mov = $this->cambiarEstatus($idOperacion, 'Recepci?n', $idUsuario, $nombreUsuario);
+        $mov = $this->cambiarEstatus($idOperacion, 'Recepción', $idUsuario, $nombreUsuario);
         if (empty($mov['success'])) {
             return $mov;
         }
 
-        return ['success' => true, 'estatus_nuevo' => 'Recepci?n'];
+        return ['success' => true, 'estatus_nuevo' => 'Recepción'];
     }
 
     /**
@@ -1826,9 +1826,9 @@ SQL;
                 'Recibido',
                 'en_transito',
                 'Procesando IA',
-                'Revisi?n Recuperaciones',
+                'Revisión Recuperaciones',
                 'Cierre Documentado',
-                'Recepci?n',
+                'Recepción',
                 'Retenciones',
                 'cancelado'
             ),
@@ -2111,10 +2111,10 @@ SQL;
         'Recibido',
         'en_transito',
         'Procesando IA',
-        'Revisi?n Recuperaciones',
+        'Revisión Recuperaciones',
         'Retenciones',
         'Cierre Documentado',
-        'Recepci?n',
+        'Recepción',
     ];
 
     /**
@@ -2293,9 +2293,9 @@ SQL;
                   'en_transito',
                   'Recibido',
                   'Procesando IA',
-                  'Revisi?n Recuperaciones',
+                  'Revisión Recuperaciones',
                   'Cierre Documentado',
-                  'Recepci?n',
+                  'Recepción',
                   'Retenciones'
               )
             ORDER BY aca.fecha_alta DESC",
@@ -4411,7 +4411,7 @@ EOSQL;
             return ['success' => false, 'message' => 'Esta operaci?n ya fue enviada.'];
         }
 
-        $previos = ['Recibido', 'en_transito', 'Revisi?n Recuperaciones', 'Procesando IA'];
+        $previos = ['Recibido', 'en_transito', 'Revisión Recuperaciones', 'Procesando IA'];
         if (!in_array($est, $previos, true)) {
             return ['success' => false, 'message' => 'Esta operaci?n no est? en etapa para este paso.'];
         }
@@ -4433,8 +4433,8 @@ EOSQL;
     }
 
     /**
-     * Si hay al menos una evidencia con val_atn = 2, mueve la operaci?n a "Revisi?n Recuperaciones".
-     * Si ya no hay rechazos y estaba en "Revisi?n Recuperaciones", regresa a bandeja (Recibido/en_transito),
+     * Si hay al menos una evidencia con val_atn = 2, mueve la operaci?n a "Revisión Recuperaciones".
+     * Si ya no hay rechazos y estaba en "Revisión Recuperaciones", regresa a bandeja (Recibido/en_transito),
      * salvo que ya est? enviada desde Atenci?n, caso en el que vuelve a "Procesando IA".
      *
      * @return array{success:bool, message?:string, rechazos?:int, enviado_a_correcciones?:bool, regresado_de_correcciones?:bool}
@@ -4466,7 +4466,7 @@ EOSQL;
             // Si ya estaba en Procesando IA por env?o desde Atenci?n, no bajar a Correcciones por rechazos en UI.
             $noForzarCorrecciones = ($estatus === 'Procesando IA' && $this->operacionTieneEnvioAtencionMarcado($idOperacion));
             if (!$noForzarCorrecciones && !$this->esEstatusRevisionRecuperaciones($estatus)) {
-                $r = $this->cambiarEstatus($idOperacion, 'Revisi?n Recuperaciones', $idUsuario, $nombreUsuario);
+                $r = $this->cambiarEstatus($idOperacion, 'Revisión Recuperaciones', $idUsuario, $nombreUsuario);
                 if (empty($r['success'])) {
                     return $r;
                 }
@@ -4510,7 +4510,7 @@ EOSQL;
                     "SELECT estatus_anterior
                      FROM adj_historial_estatus
                      WHERE id_operacion = :id
-                       AND estatus_nuevo = 'Revisi?n Recuperaciones'
+                       AND estatus_nuevo = 'Revisión Recuperaciones'
                      ORDER BY id DESC
                      LIMIT 1",
                     ['id' => $idOperacion]
