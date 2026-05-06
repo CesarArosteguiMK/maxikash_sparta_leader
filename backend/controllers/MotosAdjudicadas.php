@@ -307,9 +307,8 @@ class MotosAdjudicadas extends Controller
 
         $adj = new AdjudicacionDAO();
         if ($aplica === 1) {
-            if ($idPersonaResponsable <= 0 && $idPersonaDefault > 0) {
-                $idPersonaResponsable = $idPersonaDefault;
-            }
+            // Forzar asignación al responsable id_persona=1 para centralizar visibilidad en Mis adjudicaciones.
+            $idPersonaResponsable = 1;
             if ($idPersonaResponsable <= 0) {
                 echo json_encode([
                     'success' => false,
@@ -860,7 +859,7 @@ class MotosAdjudicadas extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        $idPersona = $_SESSION['usuario_id'] ?? null;
+        $idPersona = $_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? null;
         if (!$idPersona) {
             echo json_encode(['success' => false, 'message' => 'Sesión no identificada.']);
             return;
