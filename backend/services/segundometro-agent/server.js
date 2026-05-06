@@ -779,16 +779,11 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 45000);
   try {
-    // Reservar el slot en disco antes del POST: como máximo un intento automático por martes
-    // (evita reintentos en la misma ventana si la respuesta se pierde pero PHP ya truncó).
-    const c0 = autoCopyConfig.readConfig();
-    const lbs0 = c0.lastRunBySlot || {};
-    if (lbs0[slotKey] === nowCdmx.fecha) {
+    const cFresh = autoCopyConfig.readConfig();
+    const lbsCheck = cFresh.lastRunBySlot || {};
+    if (lbsCheck[slotKey] === nowCdmx.fecha) {
       return;
     }
-    c0.lastRunBySlot = c0.lastRunBySlot || {};
-    c0.lastRunBySlot[slotKey] = nowCdmx.fecha;
-    autoCopyConfig.writeConfig(c0);
 
     const result = await postTruncarAutomaticoAgente(
       {
@@ -804,6 +799,7 @@ async function ejecutarTruncarAutomaticoSiToca(config, nowCdmx) {
       ejecutarAhoraState.lastResult = { success: false, mensaje: 'Truncar automático (martes 07:00–07:29 CDMX): ' + msg, tipo: 'truncar_auto' };
       ejecutarAhoraState.finishedAt = new Date().toISOString();
       console.warn('[truncar-auto] Falló:', msg);
+      // Importante: NO grabar lastRunBySlot si PHP/red falló — debe poder reintentarse en la misma ventana.
       return;
     }
     const c = autoCopyConfig.readConfig();
@@ -1548,6 +1544,24 @@ function startAutoCopyScheduler() {
   console.log('Auto Copiar +1s: programador activo (cada 5 min). Horarios CDMX:', (autoCopyConfig.readConfig().horarios || []).join(', '));
 }
 
+/** Poll cada 1 min solo en martes ~06:55–07:35 CDMX (reloj local TZ): el truncar automático no debe depender del ciclo de 5 min. */
+let truncarVentanaSchedulerInterval = null;
+function startTruncarVentanaScheduler() {
+  if (truncarVentanaSchedulerInterval) return;
+  truncarVentanaSchedulerInterval = setInterval(async () => {
+    try {
+      const quick = getCdmxLocalSync();
+      const mm = minutosDesdeMedianocheDesdeNowCdmx(quick);
+      if (!esMartesFecha(quick.fecha) || mm === null || mm < 6 * 60 + 55 || mm >= 7 * 60 + 35) return;
+      const config = autoCopyConfig.readConfig();
+      const nowCdmx = await getCdmxNowForHttp();
+      await ejecutarTruncarAutomaticoSiToca(config, nowCdmx);
+    } catch (e) {
+      console.error('[truncar-auto] Ventana rápida:', e.message);
+    }
+  }, 60000);
+}
+
 app.get('/files', async (req, res) => {
   try {
     // No bloquear el listado si worldtimeapi/timeapi.io cuelgan o no hay red;
@@ -2130,6 +2144,7 @@ app.listen(PORT, () => {
   console.log('  Pruebas JSON:       http://localhost:' + PORT + '/test.html');
   if (API_KEY) console.log('  API Key requerida (X-Api-Key)');
   startAutoCopyScheduler();
+  startTruncarVentanaScheduler();
   // Catch-up: verifica reportes perdidos cuando el agente estuvo apagado
   runStartupCatchUp().catch((e) => console.error('[catch-up] Error al iniciar:', e.message));
 });

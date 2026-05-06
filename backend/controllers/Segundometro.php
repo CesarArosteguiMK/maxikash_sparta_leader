@@ -132,13 +132,7 @@ class Segundometro extends Controller
                 const container = document.getElementById('archivos-container');
 
                 if (!archivos || archivos.length === 0) {
-                    container.innerHTML = `
-                        <div class="alert alert-info text-center">
-                            <i class="fa fa-info-circle fa-2x mb-2"></i>
-                            <p class="mb-0">No se encontraron archivos de reportes en el servidor</p>
-                            <small class="text-muted">Los archivos aparecerán aquí cuando existan en el servidor</small>
-                        </div>
-                    `;
+                    container.innerHTML = '';
                     return;
                 }
 

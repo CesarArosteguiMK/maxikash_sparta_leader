@@ -7,6 +7,14 @@ if (!isset($google_maps_api_key_js)) {
 ?>
 <script>window.MADJ_GOOGLE_MAPS_KEY = <?= $google_maps_api_key_js ?>;</script>
 <style>
+    /* Encabezado alineado con Flujo de Operaciones (banner + jerarquía) */
+    .madj-dict-page .madj-dict-card {
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .madj-dict-page .madj-dict-card .card-body {
+        padding-top: 1rem;
+    }
     /*
      * Sneat/core.css: backdrop 1089, modal 1090. Antes usábamos ~1072 y el hijo quedaba detrás del padre.
      * Orden: backdrop página (1089) < modal padre (1090) < scrim (1095) < modal hijo (1105).
@@ -20,30 +28,56 @@ if (!isset($google_maps_api_key_js)) {
         background-color: rgba(0, 0, 0, 0.52) !important;
         opacity: 1 !important;
     }
+
+    .madj-dict-page #tablaDictamenesMotos thead th {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 700;
+        color: #334155;
+        background-color: #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .madj-dict-page #tablaDictamenesMotos.table-striped > tbody > tr:nth-of-type(odd) > * {
+        --bs-table-accent-bg: rgba(241, 245, 249, 0.55);
+    }
 </style>
 
-<div class="card mb-4">
-    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div>
-            <h5 class="card-title mb-0">Lista de dictámenes — Motos adjudicadas</h5>
-        </div>
-        <button type="button" class="btn btn-primary btn-sm" id="btnDictamenesRefrescar">
+<div class="madj-dict-page">
+    <h4 class="mb-2 fw-bold text-body">
+        <i class="fa-solid fa-file-signature me-2 text-primary" aria-hidden="true"></i>
+        Lista de dictámenes
+    </h4>
+
+    <div class="alert alert-primary d-flex align-items-center gap-2 mb-3 py-2 px-3" role="alert">
+        <i class="fa-solid fa-circle-info flex-shrink-0" aria-hidden="true"></i>
+        <span class="small mb-0">
+            <strong>Módulo Motos adjudicadas</strong> — Listado de dictámenes con datos de cliente, marca/modelo y acceso al detalle.
+        </span>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-end flex-wrap gap-2 mb-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnDictamenesRefrescar">
             <i class="fa-solid fa-rotate-right me-1"></i>Refrescar
         </button>
     </div>
-    <div class="card-body">
-        <div class="card-datatable table-responsive">
-            <table id="tablaDictamenesMotos" class="dt-responsive table table-striped table-hover border-top w-100">
-                <thead>
-                    <tr>
-                        <th>Cliente / Crédito</th>
-                        <th>Marca / modelo</th>
-                        <th>Fecha registro</th>
-                        <th class="text-center text-nowrap">Acción</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+
+    <div class="card mb-4 madj-dict-card">
+        <div class="card-body pt-0">
+            <div class="card-datatable table-responsive">
+                <table id="tablaDictamenesMotos" class="dt-responsive table table-striped table-hover border-top w-100">
+                    <thead>
+                        <tr>
+                            <th>Cliente / Crédito</th>
+                            <th>Marca / modelo</th>
+                            <th>Fecha registro</th>
+                            <th class="text-center text-nowrap">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -541,6 +575,14 @@ if (!isset($google_maps_api_key_js)) {
             });
     }
 
+    /** Precarga en segundo plano al abrir el detalle, para que «Elegir gestor» sea inmediato. */
+    function madjPrefetchResponsablesAdjudicacion() {
+        if (madjCacheResponsablesAdjudicacion) {
+            return;
+        }
+        madjFetchResponsablesAdjudicacion(function () {});
+    }
+
     function madjActualizarBadgeGestorSeleccionado() {
         var wrap = document.getElementById('madjGestorSeleccionadoWrap');
         var nomEl = document.getElementById('madjGestorSeleccionadoNombre');
@@ -623,14 +665,26 @@ if (!isset($google_maps_api_key_js)) {
             return;
         }
         btn.onclick = function () {
-            madjFetchResponsablesAdjudicacion(function (list) {
-                if (filtro) {
-                    filtro.value = '';
-                }
-                madjRenderOpcionesGestoresEnModal(list, '');
+            if (filtro) {
+                filtro.value = '';
+            }
+            if (madjCacheResponsablesAdjudicacion) {
+                madjRenderOpcionesGestoresEnModal(madjCacheResponsablesAdjudicacion, '');
                 if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                     bootstrap.Modal.getOrCreateInstance(modalEl).show();
                 }
+                return;
+            }
+            listaRoot.innerHTML =
+                '<div class="list-group-item text-center py-3 text-muted small">' +
+                '<span class="spinner-border spinner-border-sm me-2 text-primary" role="status" aria-hidden="true"></span>' +
+                'Cargando responsables…' +
+                '</div>';
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+            madjFetchResponsablesAdjudicacion(function (list) {
+                madjRenderOpcionesGestoresEnModal(list, filtro ? filtro.value : '');
             });
         };
         if (filtro) {
@@ -835,6 +889,7 @@ if (!isset($google_maps_api_key_js)) {
         madjEnlazarFormularioSeguimiento(row);
         if (puedeElegirGestorAsignacion) {
             madjWireGestorAsignacionUi(row);
+            madjPrefetchResponsablesAdjudicacion();
         }
     }
 

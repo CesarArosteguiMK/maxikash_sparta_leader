@@ -201,7 +201,6 @@
   let archivosActuales = [];
   let ejecucionEnCursoUI = false;
   let ultimoEstadoProceso = null;
-  let ocultoInicioSemanaUltimoListado = false;
 
   function horaCDMX() {
     try {
@@ -223,11 +222,7 @@
   function renderArchivos(archivos) {
     const container = document.getElementById('archivos-container');
     if (!archivos || archivos.length === 0) {
-      if (ocultoInicioSemanaUltimoListado) {
-        container.innerHTML = '<div class="alert alert-warning text-center"><i class="fa fa-calendar-week fa-2x mb-2"></i><p class="mb-1"><strong>Martes — antes de las 07:30 CDMX</strong></p><p class="mb-0 small">No se muestran reportes hasta la hora de inicio de semana operativa (primer reporte <strong>07:30</strong>). Tras el truncar, los datos nuevos se reflejan cuando llegue ese corte.</p></div>';
-        return;
-      }
-      container.innerHTML = '<div class="alert alert-info text-center"><i class="fa fa-info-circle fa-2x mb-2"></i><p class="mb-0">No se encontraron archivos de reportes</p></div>';
+      container.innerHTML = '';
       return;
     }
     const porFecha = {};
@@ -276,7 +271,6 @@
       clearTimeout(timeoutId);
       const j = await r.json();
       if (!j.success) throw new Error(j.mensaje || 'Error al listar');
-      ocultoInicioSemanaUltimoListado = !!j.oculto_inicio_semana_martes;
       archivosActuales = j.datos || [];
       renderArchivos(archivosActuales);
     } catch (e) {

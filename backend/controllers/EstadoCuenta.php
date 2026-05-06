@@ -3147,7 +3147,7 @@ JS;
      *
      * @return \CurlHandle|resource|false
      */
-    private function api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorte, int $timeoutSegundos = 20)
+    private function api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorte, int $timeoutSegundos = 20, bool $logRequest = true)
     {
         $url = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
         $fechaCorteStr = is_string($fechaCorte) ? $fechaCorte : date('Y-m-d', is_numeric($fechaCorte) ? (int) $fechaCorte : time());
@@ -3155,7 +3155,9 @@ JS;
             'idCredito'  => (int) $idCredito,
             'fechaCorte' => $fechaCorteStr,
         ]);
-        error_log('[EstadoCuenta API] Request idCredito=' . (int) $idCredito . ', fechaCorte=' . $fechaCorteStr);
+        if ($logRequest) {
+            error_log('[EstadoCuenta API] Request idCredito=' . (int) $idCredito . ', fechaCorte=' . $fechaCorteStr);
+        }
 
         $envTimeout = getenv('ESTADO_CUENTA_S2_TIMEOUT');
         if ($envTimeout !== false && $envTimeout !== '' && ctype_digit((string) $envTimeout)) {
@@ -3242,7 +3244,7 @@ JS;
 
     function api___SPARTA_SECRET_REDACTED__($idCredito, $fechaCorte, $timeoutSegundos = 20)
     {
-        $ch = $this->api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorte, $timeoutSegundos);
+        $ch = $this->api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorte, $timeoutSegundos, true);
         if ($ch === false) {
             return [
                 'ok'     => false,
@@ -3257,6 +3259,79 @@ JS;
         curl_close($ch);
 
         return $this->api___SPARTA_SECRET_REDACTED___parsear_respuesta($response, $httpCode, $curlErr !== '' ? $curlErr : null);
+    }
+
+    /**
+     * Varias consultas estado de cuenta en paralelo (curl_multi). Misma API que api___SPARTA_SECRET_REDACTED__.
+     *
+     * @param int[] $idsCredito
+     * @return array<int, array> Mapa id_credito → respuesta con forma de api___SPARTA_SECRET_REDACTED__()
+     */
+    public function api___SPARTA_SECRET_REDACTED___parallel(array $idsCredito, $fechaCorte, int $timeoutSegundos = 10, int $maxConcurrent = 12): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static function ($v) {
+            return $v > 0;
+        })));
+        $out = [];
+        if ($ids === []) {
+            return $out;
+        }
+        $maxConcurrent = max(1, min(32, $maxConcurrent));
+        $fechaCorteStr = is_string($fechaCorte) ? $fechaCorte : date('Y-m-d', is_numeric($fechaCorte) ? (int) $fechaCorte : time());
+
+        foreach (array_chunk($ids, $maxConcurrent) as $chunk) {
+            $mh = curl_multi_init();
+            if ($mh === false) {
+                foreach ($chunk as $cid) {
+                    $out[(int) $cid] = [
+                        'ok'     => false,
+                        'status' => 0,
+                        'error'  => 'No se pudo inicializar curl_multi',
+                        'data'   => null,
+                    ];
+                }
+                continue;
+            }
+            $handles = [];
+            foreach ($chunk as $idCredito) {
+                $idCredito = (int) $idCredito;
+                $ch = $this->api___SPARTA_SECRET_REDACTED___curl_init($idCredito, $fechaCorteStr, $timeoutSegundos, false);
+                if ($ch === false) {
+                    $out[$idCredito] = [
+                        'ok'     => false,
+                        'status' => 0,
+                        'error'  => 'No se pudo inicializar cURL',
+                        'data'   => null,
+                    ];
+                    continue;
+                }
+                curl_multi_add_handle($mh, $ch);
+                $handles[$idCredito] = $ch;
+            }
+            $running = null;
+            do {
+                $mrc = curl_multi_exec($mh, $running);
+                if ($running > 0) {
+                    curl_multi_select($mh, 1.0);
+                }
+            } while ($running > 0 && $mrc === CURLM_OK);
+
+            foreach ($handles as $idCredito => $ch) {
+                $response = curl_multi_getcontent($ch);
+                $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErr = curl_error($ch);
+                curl_multi_remove_handle($mh, $ch);
+                curl_close($ch);
+                $out[$idCredito] = $this->api___SPARTA_SECRET_REDACTED___parsear_respuesta(
+                    $response,
+                    $httpCode,
+                    $curlErr !== '' ? $curlErr : null
+                );
+            }
+            curl_multi_close($mh);
+        }
+
+        return $out;
     }
 
     /**
