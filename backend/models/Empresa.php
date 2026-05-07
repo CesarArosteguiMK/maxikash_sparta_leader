@@ -799,6 +799,7 @@ class Empresa extends Model
                 t.Jefe_de_Plaza,
                 t.Zonal,
                 t.Territorial,
+                t.Observaciones,
                 t.Cuotas_vencidas,
                 t.Saldo_vencido_actualizado,
                 t.Fecha_primer_vencimiento,
@@ -807,6 +808,7 @@ class Empresa extends Model
             FROM tbl_segundometro_semana t
             WHERE DATE(t.Fecha_primer_vencimiento) = :lunes
             ORDER BY
+                t.Observaciones,
                 t.Territorial,
                 t.Zonal,
                 t.Jefe_de_Plaza,
@@ -878,6 +880,7 @@ class Empresa extends Model
                 t.Jefe_de_Plaza,
                 t.Zonal,
                 t.Territorial,
+                t.Observaciones,
                 t.Cuotas_vencidas,
                 t.Saldo_vencido_actualizado,
                 t.Fecha_primer_vencimiento,
@@ -888,6 +891,7 @@ class Empresa extends Model
                 t.Cierre_Actual                  AS bucket_corte_actual
             FROM tbl_segundometro_semana t
             ORDER BY
+                t.Observaciones,
                 t.Territorial,
                 t.Zonal,
                 t.Jefe_de_Plaza,
