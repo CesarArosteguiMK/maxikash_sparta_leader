@@ -256,6 +256,21 @@ if errorlevel 1 (
 goto :post_install
 
 :install_venv
+rem Python embeddable (portable) muchas veces no incluye modulo venv.
+rem En ese caso, caer a instalacion GLOBAL en vez de fallar.
+echo.>>"%INST_LOG%"
+echo ===== soporte de modulo venv =====>>"%INST_LOG%"
+if defined PY_EXE_FULL (
+    "!PY_EXE_FULL!" -m venv --help >>"%INST_LOG%" 2>&1
+) else (
+    call %PY_CMD% -m venv --help >>"%INST_LOG%" 2>&1
+)
+if errorlevel 1 (
+    echo [AVISO] Este Python no trae modulo venv; se usara modo GLOBAL.>>"%INST_LOG%"
+    if "%SILENT%"=="0" echo [AVISO] Este Python no trae modulo venv; cambio a instalacion GLOBAL.
+    goto :install_global
+)
+
 rem Si ya hay venv pero se creo con Python 3.14t/free-thread ^(pip y PyMuPDF fallan^): borrarlo y recrear con la base portable/PATH actual.
 if exist "%API_DIR%\venv\Scripts\python.exe" (
     echo ===== comprobacion venv existente (no free-thread) =====>>"%INST_LOG%"

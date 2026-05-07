@@ -762,6 +762,108 @@ if ($InstallMissing -and $Script:PythonFreeThreading) {
 }
 
 # =====================================================================
+# 15) Re-escaneo tras auto-fix: limpiar resumen de cosas ya resueltas
+# =====================================================================
+if ($InstallMissing -and $pyExe -and -not $Script:PythonFreeThreading) {
+    Section '15. Re-escaneo tras auto-fix'
+    $stillMissing = @()
+    $stillBroken  = @()
+    foreach ($p in $pkgs) {
+        $mod = $p[0]; $pip = $p[1]
+        $code = @"
+import importlib
+try:
+    importlib.import_module('$mod')
+    print('OK')
+except Exception as e:
+    print('ERR|' + type(e).__name__ + ': ' + str(e)[:200])
+"@
+        $r2 = Invoke-PyCapture -PyExe $pyExe -PyArgs $pyArgs -Code $code
+        $okLine = $false
+        foreach ($cand in (($r2.StdOut + "`n" + $r2.StdErr) -split "`r?`n")) {
+            if ($cand.Trim() -eq 'OK') { $okLine = $true; break }
+        }
+        if (-not $okLine) {
+            $detail = ''
+            foreach ($cand in (($r2.StdOut + "`n" + $r2.StdErr) -split "`r?`n")) {
+                if ($cand -like 'ERR|*') { $detail = ($cand -replace '^ERR\|',''); break }
+            }
+            if ($detail -match 'No module named') { $stillMissing += $pip }
+            else { $stillBroken += [pscustomobject]@{ Module=$mod; Pip=$pip; Detail=$detail } }
+        }
+    }
+
+    # Limpiar entradas obsoletas del Summary y de Recommended
+    $cleanSummary = New-Object System.Collections.Generic.List[string]
+    foreach ($s in $Script:Summary) {
+        $skip = $false
+        if ($s -match 'Falta paquete:|Import fallo:') { $skip = $true }
+        if ($s -match 'La app NO se puede importar')  { $skip = $true }
+        if (-not $skip) { $cleanSummary.Add($s) | Out-Null }
+    }
+    $Script:Summary = $cleanSummary
+
+    $cleanRec = New-Object System.Collections.Generic.List[string]
+    foreach ($r in $Script:Recommended) {
+        $skip = $false
+        if ($r -match 'Instale: ".*pip install') { $skip = $true }
+        if ($r -match 'Lea las lineas anteriores') { $skip = $true }
+        if ($r -match 'Falta paquete -> pip install') { $skip = $true }
+        if ($r -match 'find_loader from pkgutil') { $skip = $true }
+        if ($r -match "DLL load failed' -> instale") { $skip = $true }
+        if ($r -match "'libzbar' -> instale dll") { $skip = $true }
+        if (-not $skip) { $cleanRec.Add($r) | Out-Null }
+    }
+    $Script:Recommended = $cleanRec
+
+    # Recalcular HasErrors a partir del Summary limpio
+    $Script:HasErrors = $false
+    $Script:HasWarnings = $false
+    foreach ($s in $Script:Summary) {
+        if ($s.StartsWith('[ERR ]')) { $Script:HasErrors = $true }
+        elseif ($s.StartsWith('[WARN]')) { $Script:HasWarnings = $true }
+    }
+
+    if ($stillMissing.Count -eq 0 -and $stillBroken.Count -eq 0) {
+        Ok "Todos los paquetes Python ahora se importan correctamente."
+        # Re-correr smoke import si estaba fallando
+        $smokePy = Join-Path $here '_smoke_import.py'
+        if (Test-Path -LiteralPath $smokePy) {
+            $tmpO = [System.IO.Path]::GetTempFileName()
+            $tmpE = [System.IO.Path]::GetTempFileName()
+            $sArgs = @()
+            if ($pyArgs.Count -gt 0) { $sArgs += $pyArgs }
+            $sArgs += $smokePy
+            $pSmoke = Start-Process -FilePath $pyExe -ArgumentList $sArgs `
+                -WorkingDirectory $ApiDir -NoNewWindow -Wait -PassThru `
+                -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
+            $smokeOut = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
+            Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
+            if ($smokeOut -match 'SMOKE_OK') {
+                Ok "Smoke import 'from app.main import app' OK tras auto-fix."
+            } else {
+                Err "Smoke import sigue fallando tras auto-fix:"
+                foreach ($l in (($smokeOut -split "`r?`n") | Where-Object { $_ -ne '' } | Select-Object -Last 20)) {
+                    Out-Log "       $l" 'Red'
+                }
+            }
+        }
+    } else {
+        if ($stillMissing.Count -gt 0) {
+            Err ("Aun faltan: " + ($stillMissing -join ', '))
+            $pfx = "`"$pyExe`""
+            if ($pyArgs.Count -gt 0) { $pfx += ' ' + ($pyArgs -join ' ') }
+            Rec ("Reintente: $pfx -m pip install " + ($stillMissing -join ' '))
+        }
+        if ($stillBroken.Count -gt 0) {
+            foreach ($b in $stillBroken) {
+                Err ("Sigue roto: $($b.Module) -> $($b.Detail)")
+            }
+        }
+    }
+}
+
+# =====================================================================
 # RESUMEN FINAL
 # =====================================================================
 Out-Log ''

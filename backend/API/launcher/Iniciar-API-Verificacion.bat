@@ -83,8 +83,26 @@ if "!DOC_RC!"=="1" (
     echo [2/4] Auto-reparacion termino con codigo !DOC_FIX_RC!
 
     if "!DOC_FIX_RC!"=="1" (
-        echo [3/4] Auto-fix insuficiente. Ejecutando instalacion completa en venv...
-        call "%~dp0instalar-agente.bat" /VENV /SILENT
+        rem Antes de hacer una "instalacion completa", validamos con smoke import:
+        rem si la app ya se importa, los [ERR] del doctor son ruido cosmetico
+        rem (estados intermedios) y no hay que reinstalar nada.
+        set "PORTABLE_PY=%API_DIR%\tools\PythonPortable\python.exe"
+        set "SMOKE_OK=0"
+        if exist "%API_DIR%\launcher\_smoke_import.py" (
+            if exist "!PORTABLE_PY!" (
+                pushd "%API_DIR%" >nul
+                "!PORTABLE_PY!" "%API_DIR%\launcher\_smoke_import.py" >nul 2>&1
+                if not errorlevel 1 set "SMOKE_OK=1"
+                popd >nul
+            )
+        )
+        if "!SMOKE_OK!"=="1" (
+            echo [3/4] Auto-fix dejo la app importable; saltando instalacion adicional.
+        ) else (
+            echo [3/4] Auto-fix insuficiente. Ejecutando instalacion completa...
+            rem Modo GLOBAL: el portable embeddable no soporta venv.
+            call "%~dp0instalar-agente.bat" /GLOBAL /SILENT
+        )
     ) else (
         echo [3/4] Auto-fix aplicado.
     )

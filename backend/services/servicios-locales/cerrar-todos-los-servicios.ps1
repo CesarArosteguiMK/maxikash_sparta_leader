@@ -70,13 +70,23 @@ if (Test-Path -LiteralPath $ps3120) {
     Write-Host '[OK] Puerto 3120 (fallback)' -ForegroundColor Gray
 }
 
-$ps8000 = Join-Path $BackendRoot 'API\launcher\cerrar-agente.ps1'
-if (Test-Path -LiteralPath $ps8000) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $ps8000 -Silent
-    Write-Host '[OK] Puerto 8000 (API verificacion documentos)' -ForegroundColor Gray
+# Puerto 8000 + procesos del flujo 1-click (bootstrap, doctor, instalar-agente).
+# El web-api-1click-parar.ps1 incluye cerrar-agente y limpia tambien
+# cmd/PowerShell/Python encadenados al lanzador. Si no existe, hace fallback
+# al cerrar-agente clasico.
+$ps1click = Join-Path $BackendRoot 'API\launcher\web-api-1click-parar.ps1'
+if (Test-Path -LiteralPath $ps1click) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $ps1click | Out-Null
+    Write-Host '[OK] Puerto 8000 + procesos 1-click (API verificacion documentos)' -ForegroundColor Gray
 } else {
-    Stop-Port -Port 8000
-    Write-Host '[OK] Puerto 8000 (fallback)' -ForegroundColor Gray
+    $ps8000 = Join-Path $BackendRoot 'API\launcher\cerrar-agente.ps1'
+    if (Test-Path -LiteralPath $ps8000) {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $ps8000 -Silent
+        Write-Host '[OK] Puerto 8000 (API verificacion documentos)' -ForegroundColor Gray
+    } else {
+        Stop-Port -Port 8000
+        Write-Host '[OK] Puerto 8000 (fallback)' -ForegroundColor Gray
+    }
 }
 
 $apiDir = Join-Path $BackendRoot 'API'

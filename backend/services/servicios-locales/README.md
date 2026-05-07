@@ -29,9 +29,9 @@ Primera vez en una maquina: ejecute **`instalar-todos-deps-node.bat`** o cada `i
 2. **3100** - Agente `services/segundometro-agent/`
 3. **3110** - Agente `services/correos-primeros-pagos-agent/` (con el `.bat` minimizada en la barra; con el `.vbs` oculto **no** deberia verse)
 4. **3120** - Agente `services/gastos-cobranza-agent/` (reporte cobranza, worker EC, carga lista negra, descargo estatus 3)
-5. **8000** - API Python en `API/` mediante `iniciar-agente-oculto.ps1` (sin ventana CMD; mismo efecto que `iniciar-agente-oculto.vbs`). Docker no es obligatorio.
+5. **8000** - API Python en `API/` mediante `Iniciar-API-Verificacion.bat` (flujo 1-click). Si el Python portable falta o esta incompleto (`_socket.pyd`), se descarga el embeddable oficial de python.org automaticamente; luego doctor + auto-fix instalan dependencias y arrancan uvicorn. Espera hasta 90s para considerar que levanto. Docker no es obligatorio.
 
-**Requisitos:** Node.js; dependencias npm y Python de la API instaladas antes ^(ver seccion anterior^); Python 3.10+ y Tesseract en Windows para la API local ^(detalle en `API\REQUISITOS_API_LOCAL.md`^).
+**Requisitos:** Node.js; dependencias npm de los agentes instaladas (la API Python se auto-instala vía bootstrap si es necesario, asumiendo salida a `python.org` y `bootstrap.pypa.io`); Tesseract OCR ya viene en `backend/API/tools/`.
 
 ## Detener
 

@@ -181,14 +181,38 @@ if (-not $nodeExe) {
 
 Start-Sleep -Milliseconds 300
 
-# --- 5) API Python verificacion documentos (uvicorn puerto 8000; global o venv si existe) ---
+# --- 5) API Python verificacion documentos (uvicorn puerto 8000) ---
+# Usar el flujo 1-click (Iniciar-API-Verificacion.bat) en vez del arranque
+# oculto directo: el 1-click incluye bootstrap del Python portable, doctor
+# con auto-fix y reintento. Asi, si alguna dependencia o el _socket.pyd
+# faltan, se reparan solas en lugar de fallar silenciosamente.
 $apiDir = Join-Path $BackendRoot 'API'
+$apiOneClick = Join-Path $apiDir 'launcher\Iniciar-API-Verificacion.bat'
 $apiOcultoPs1 = Join-Path $apiDir 'launcher\iniciar-agente-oculto.ps1'
 $apiOcultoVbs = Join-Path $apiDir 'launcher\iniciar-agente-oculto.vbs'
 if (Test-PortListening -Port 8000) {
     Write-Host '[5/5] API verificación documentos (8000) ya está activa.' -ForegroundColor Gray
+} elseif (Test-Path -LiteralPath $apiOneClick) {
+    Write-Step '[5/5] API verificación documentos (1-click con bootstrap -> 8000)...'
+    # Si la maquina recien acaba de descargar Python portable, la primera
+    # corrida puede instalar paquetes y tardar varios minutos. Por eso
+    # ampliamos el timeout y -ademas- mostramos el progreso si hay consola.
+    $apiArgs = @('/c', "`"$apiOneClick`"")
+    if ($SinVentanas) {
+        Start-Process -FilePath 'cmd.exe' -ArgumentList $apiArgs `
+            -WorkingDirectory (Split-Path -Parent $apiOneClick) -WindowStyle Hidden
+    } else {
+        Start-Process -FilePath 'cmd.exe' -ArgumentList $apiArgs `
+            -WorkingDirectory (Split-Path -Parent $apiOneClick) -WindowStyle Minimized
+    }
+    if (Wait-PortListening -Port 8000 -TimeoutSec 90) {
+        Write-Host '      [OK] Puerto 8000 en LISTEN.' -ForegroundColor Green
+    } else {
+        Write-Host '      [AVISO] No levanto en 8000 dentro de 90s. Si es la primera vez puede seguir instalando dependencias.' -ForegroundColor DarkYellow
+        Write-Host '             Logs: backend\API\logs\bootstrap-python-*.log y instalar-*.log' -ForegroundColor DarkYellow
+    }
 } elseif (Test-Path -LiteralPath $apiOcultoPs1) {
-    Write-Step '[5/5] API verificación documentos (Python -> 8000, segundo plano)...'
+    Write-Step '[5/5] API verificación documentos (PS oculto -> 8000)...'
     Start-Process -FilePath 'powershell.exe' -ArgumentList @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', $apiOcultoPs1
     ) -WorkingDirectory $apiDir -WindowStyle Hidden
@@ -206,7 +230,7 @@ if (Test-PortListening -Port 8000) {
         Write-Host '      [AVISO] No levantó en 8000 dentro de 35s.' -ForegroundColor DarkYellow
     }
 } else {
-    Write-Host '[SKIP] No hay API\launcher\iniciar-agente-oculto.ps1 ni .vbs' -ForegroundColor DarkYellow
+    Write-Host '[SKIP] No hay API\launcher\Iniciar-API-Verificacion.bat ni iniciar-agente-oculto.ps1/.vbs' -ForegroundColor DarkYellow
 }
 
 Write-Host ''
