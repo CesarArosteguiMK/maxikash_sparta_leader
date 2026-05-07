@@ -481,7 +481,7 @@ except Exception as e:
     if ($brokenImport.Count -gt 0) {
         Rec "Algun paquete esta instalado pero falla al importar (DLL ausente, version incompatible, archivo corrupto)."
         foreach ($b in $brokenImport) {
-            if ($b.Module -eq 'pyzbar')        { Rec "pyzbar: copie libzbar-64.dll/libiconv.dll a System32 o instale 'zbar' para Windows; el wheel de pyzbar no incluye la DLL." }
+            if ($b.Module -eq 'pyzbar')        { Rec "pyzbar: copie libzbar-64.dll y libiconv.dll en $(Join-Path $ApiDir 'tools\zbar\bin') (portable); el wheel no incluye la DLL nativa." }
             elseif ($b.Module -eq 'cv2')       { Rec "opencv: instale Visual C++ Redistributable 2015-2022 x64 (vc_redist.x64.exe de Microsoft)." }
             elseif ($b.Module -eq 'pdf417decoder') { Rec "pdf417decoder: requiere wheel para su Python; con 3.13/3.14 instale Build Tools o cambie a Python 3.12." }
             elseif ($b.Module -eq 'torch')     { Rec "torch: el wheel ocupa ~600MB; en Python muy nuevo no hay wheel y necesita compilarse. Cambie a 3.12." }
@@ -545,7 +545,7 @@ else:
         Rec "  - Falta paquete -> pip install ese paquete"
         Rec "  - 'cannot import name find_loader from pkgutil' -> pip install --upgrade pytesseract"
         Rec "  - 'DLL load failed' -> instale Visual C++ Redistributable x64"
-        Rec "  - 'libzbar' -> instale dll de zbar para Windows"
+        Rec "  - 'libzbar' -> copie libzbar-64.dll y libiconv.dll en $(Join-Path $ApiDir 'tools\zbar\bin') y ejecute launcher\bootstrap-zbar-local.ps1"
     }
 } else { Warn "Sin Python; se omite smoke import." }
 
