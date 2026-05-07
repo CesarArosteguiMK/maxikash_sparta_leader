@@ -65,7 +65,8 @@ if "!DOC_RC!"=="1" (
         echo [3/4] Auto-fix aplicado.
     )
 ) else (
-    echo [2/4] Entorno utilizable (sin errores bloqueantes).
+    rem OJO: no usar parentesis literales sin escapar dentro de bloques if (...)^); CMD los interpreta como cierre de bloque.
+    echo [2/4] Entorno utilizable - sin errores bloqueantes.
     echo [3/4] Continuando...
 )
 
@@ -93,9 +94,9 @@ echo ============================================================
 echo   Revisa estos logs:
 echo   - %API_DIR%\logs\api_oculto_startup.log
 echo   - %API_DIR%\logs\uvicorn-stderr.log
-echo   - %API_DIR%\logs\doctor-*.log  (el mas reciente)
+echo   - %API_DIR%\logs\doctor-*.log   ^(el mas reciente^)
 echo.
-echo   Siguiente paso recomendado (1 clic):
+echo   Siguiente paso recomendado ^(1 clic^):
 echo   - Ejecuta: %~dp0Iniciar-API-Verificacion.bat /CONSOLA
 echo     para ver el error exacto en vivo.
 echo ============================================================
