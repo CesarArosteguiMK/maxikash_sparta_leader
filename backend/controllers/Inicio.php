@@ -1104,53 +1104,7 @@ class Inicio extends Controller
             return;
         }
 
-        $servicios = [
-            [
-                'id'   => 'doc_candidato',
-                'name' => 'API documentación candidato (Node)',
-                'port' => 3001,
-                'role' => 'API Node — validación de documentos en alta de candidato',
-                'url_check'   => 'http://127.0.0.1:3001/',
-                'url_browser' => 'http://127.0.0.1:3001/',
-                'hint' => 'Si está caída: backend/API/documentacion-candidato/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'segundometro',
-                'name' => 'Agente Segundómetro (Node)',
-                'port' => 3100,
-                'role' => 'Agente cron de reportes Segundómetro vía SSH',
-                'url_check'   => 'http://127.0.0.1:3100/health',
-                'url_browser' => 'http://127.0.0.1:3100/health',
-                'hint' => 'Si está caída: backend/services/segundometro-agent/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'correos_pp',
-                'name' => 'Agente correos primeros pagos (Node)',
-                'port' => 3110,
-                'role' => 'Genera y envía correos de primeros pagos de cobranza',
-                'url_check'   => 'http://127.0.0.1:3110/health',
-                'url_browser' => 'http://127.0.0.1:3110/health',
-                'hint' => 'Si está caída: backend/services/correos-primeros-pagos-agent/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'gastos_cobranza',
-                'name' => 'Agente Gastos cobranza (Node)',
-                'port' => 3120,
-                'role' => 'Reportes de cobranza, worker EC, lista negra, descargo estatus 3',
-                'url_check'   => 'http://127.0.0.1:3120/health',
-                'url_browser' => 'http://127.0.0.1:3120/health',
-                'hint' => 'Si está caída: backend/services/gastos-cobranza-agent/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'api_doc_python',
-                'name' => 'API verificación documentos (Python · uvicorn)',
-                'port' => 8000,
-                'role' => 'OCR + verificación documental (FastAPI 1-click)',
-                'url_check'   => 'http://127.0.0.1:8000/docs',
-                'url_browser' => 'http://127.0.0.1:8000/docs',
-                'hint' => 'Si está caída: pulsa el botón «API» (1-click). Logs en backend/API/logs.',
-            ],
-        ];
+        $servicios = $this->serviciosLocalesCatalogo();
 
         $listening = $this->serviciosLocalesPuertosEnListen();
 
@@ -1185,6 +1139,7 @@ class Inicio extends Controller
                 'latency_ms' => $http['ms'],
                 'estado'     => $estado, // up | listen_no_http | down
                 'hint'       => $s['hint'],
+                'can_control'=> true,
             ];
         }
 
@@ -1198,6 +1153,204 @@ class Inicio extends Controller
             ],
             'services'     => $out,
         ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Ejecuta acción sobre un servicio local desde el panel web (usuario 878).
+     * Acciones: iniciar | parar | reiniciar
+     */
+    public function serviciosLocalesAccion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+        if (stripos(PHP_OS, 'WIN') !== 0) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Solo disponible en Windows']);
+            return;
+        }
+
+        $serviceId = trim((string)($_POST['service'] ?? $_GET['service'] ?? ''));
+        $action = trim((string)($_POST['action'] ?? $_GET['action'] ?? ''));
+        if ($serviceId === '' || $action === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Faltan parámetros service/action']);
+            return;
+        }
+        if (!in_array($action, ['iniciar', 'parar', 'reiniciar'], true)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Acción inválida']);
+            return;
+        }
+
+        $byId = [];
+        foreach ($this->serviciosLocalesCatalogo() as $srv) {
+            $byId[$srv['id']] = $srv;
+        }
+        if (!isset($byId[$serviceId])) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Servicio no encontrado']);
+            return;
+        }
+        $srv = $byId[$serviceId];
+        $port = (int)$srv['port'];
+
+        $ok = false;
+        if ($action === 'iniciar') {
+            $ok = $this->serviciosLocalesIniciar($srv);
+            usleep(350000);
+        } elseif ($action === 'parar') {
+            $ok = $this->serviciosLocalesParar($srv);
+            usleep(350000);
+        } else { // reiniciar
+            $this->serviciosLocalesParar($srv);
+            usleep(800000);
+            $ok = $this->serviciosLocalesIniciar($srv);
+            usleep(350000);
+        }
+
+        $listening = $this->serviciosLocalesPuertosEnListen();
+        $isListen = isset($listening[$port]);
+        $http = ['ok' => false, 'status' => null, 'ms' => null];
+        if ($isListen) {
+            $http = $this->serviciosLocalesProbarHttp((string)$srv['url_check'], 1400);
+        }
+        $estado = ($isListen && $http['ok']) ? 'up' : ($isListen ? 'listen_no_http' : 'down');
+
+        echo json_encode([
+            'success' => (bool)$ok,
+            'message' => ucfirst($action) . ' lanzado para ' . $srv['name'],
+            'service' => $serviceId,
+            'action'  => $action,
+            'estado'  => $estado,
+            'listening' => $isListen,
+            'pid' => $isListen ? ($listening[$port] ?? null) : null,
+            'http_status' => $http['status'],
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /** Catálogo único de servicios locales para estado y acciones. */
+    private function serviciosLocalesCatalogo(): array
+    {
+        $backendRoot = dirname(__DIR__);
+        return [
+            [
+                'id'   => 'doc_candidato',
+                'name' => 'API documentación candidato (Node)',
+                'port' => 3001,
+                'role' => 'API Node — validación de documentos en alta de candidato',
+                'url_check'   => 'http://127.0.0.1:3001/',
+                'url_browser' => 'http://127.0.0.1:3001/',
+                'hint' => 'Si está caída: backend/API/documentacion-candidato/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'documentacion-candidato' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'documentacion-candidato' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+            [
+                'id'   => 'segundometro',
+                'name' => 'Agente Segundómetro (Node)',
+                'port' => 3100,
+                'role' => 'Agente cron de reportes Segundómetro vía SSH',
+                'url_check'   => 'http://127.0.0.1:3100/health',
+                'url_browser' => 'http://127.0.0.1:3100/health',
+                'hint' => 'Si está caída: backend/services/segundometro-agent/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'segundometro-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'segundometro-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+            [
+                'id'   => 'correos_pp',
+                'name' => 'Agente correos primeros pagos (Node)',
+                'port' => 3110,
+                'role' => 'Genera y envía correos de primeros pagos de cobranza',
+                'url_check'   => 'http://127.0.0.1:3110/health',
+                'url_browser' => 'http://127.0.0.1:3110/health',
+                'hint' => 'Si está caída: backend/services/correos-primeros-pagos-agent/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'correos-primeros-pagos-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_bat'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'correos-primeros-pagos-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.bat',
+            ],
+            [
+                'id'   => 'gastos_cobranza',
+                'name' => 'Agente Gastos cobranza (Node)',
+                'port' => 3120,
+                'role' => 'Reportes de cobranza, worker EC, lista negra, descargo estatus 3',
+                'url_check'   => 'http://127.0.0.1:3120/health',
+                'url_browser' => 'http://127.0.0.1:3120/health',
+                'hint' => 'Si está caída: backend/services/gastos-cobranza-agent/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'gastos-cobranza-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'gastos-cobranza-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+            [
+                'id'   => 'api_doc_python',
+                'name' => 'API verificación documentos (Python · uvicorn)',
+                'port' => 8000,
+                'role' => 'OCR + verificación documental (FastAPI 1-click)',
+                'url_check'   => 'http://127.0.0.1:8000/docs',
+                'url_browser' => 'http://127.0.0.1:8000/docs',
+                'hint' => 'Si está caída: backend/API/launcher/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+        ];
+    }
+
+    private function serviciosLocalesIniciar(array $srv): bool
+    {
+        $bat = (string)($srv['start_bat'] ?? '');
+        if ($bat === '' || !is_file($bat)) {
+            return false;
+        }
+        $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $bat) . '""';
+        @pclose(@popen($cmd, 'r'));
+        return true;
+    }
+
+    private function serviciosLocalesParar(array $srv): bool
+    {
+        $ok = false;
+        $stopPs1 = (string)($srv['stop_ps1'] ?? '');
+        $stopBat = (string)($srv['stop_bat'] ?? '');
+        if ($stopPs1 !== '' && is_file($stopPs1)) {
+            $ps = '"' . str_replace('"', '""', $stopPs1) . '"';
+            $cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File ' . $ps . ' -Silent';
+            @shell_exec($cmd);
+            $ok = true;
+        } elseif ($stopBat !== '' && is_file($stopBat)) {
+            $cmd = 'cmd /c "' . str_replace('"', '""', $stopBat) . '"';
+            @shell_exec($cmd);
+            $ok = true;
+        }
+        // Fallback: matar proceso dueño del puerto.
+        $port = (int)($srv['port'] ?? 0);
+        if ($port > 0) {
+            $this->serviciosLocalesStopPort($port);
+            $ok = true;
+        }
+        return $ok;
+    }
+
+    private function serviciosLocalesStopPort(int $port): void
+    {
+        if ($port <= 0) {
+            return;
+        }
+        $out = @shell_exec('netstat -ano');
+        if (!is_string($out) || $out === '') {
+            return;
+        }
+        $pids = [];
+        foreach (preg_split('/\r?\n/', $out) as $line) {
+            if (stripos($line, 'LISTENING') === false || strpos($line, ':' . $port) === false) {
+                continue;
+            }
+            if (preg_match('/\sLISTENING\s+(\d+)\s*$/i', trim($line), $m)) {
+                $pids[(int)$m[1]] = true;
+            }
+        }
+        foreach (array_keys($pids) as $pid) {
+            @shell_exec('taskkill /PID ' . (int)$pid . ' /F');
+        }
     }
 
     /** Devuelve [puerto => pid] de los puertos TCP en LISTENING locales. */

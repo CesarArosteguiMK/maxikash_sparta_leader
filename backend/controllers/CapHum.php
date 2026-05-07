@@ -6345,22 +6345,140 @@ class CapHum extends Controller
     }
 
     /**
-     * Base URL de la API de verificación (desde config.ini [doc_verificacion] api_url).
-     * Para uso en la vista subir_documentos_candidato (llamadas desde el navegador).
+     * Base URL usada por la vista para validar documentos.
+     * Importante: debe ser mismo origen (PHP) para evitar bloqueos CORS/PNA en navegador.
      */
     private function getApiVerificacionBase()
     {
+        return '/CapHum/docVerificacionProxy';
+    }
+
+    /**
+     * Proxy server-side para la API Python de verificación de documentos.
+     * Evita llamadas directas del navegador a 127.0.0.1 (bloqueadas por CORS/PNA).
+     */
+    public function docVerificacionProxy($endpoint = '')
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            http_response_code(405);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido.']);
+            return;
+        }
+
+        $endpoint = trim((string) $endpoint, " \t\n\r\0\x0B/");
+        if ($endpoint === '') {
+            $endpoint = trim((string) ($_GET['endpoint'] ?? ''), " \t\n\r\0\x0B/");
+        }
+
+        $permitidos = [
+            'verificar',
+            'verificar-calidad',
+            'verificar-comprobante',
+            'verificar-curp-documento',
+            'verificar-constancia-fiscal-documento',
+            'verificar-nss-documento',
+        ];
+        if (!in_array($endpoint, $permitidos, true)) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'Endpoint de verificación no permitido.']);
+            return;
+        }
+
+        $cfg = $this->getDocVerificacionConfig();
+        if ($cfg === null) {
+            http_response_code(503);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'API de verificación no configurada.']);
+            return;
+        }
+
+        $targetUrl = rtrim($cfg['base_url'], '/') . '/' . $endpoint;
+        if (!empty($_SERVER['QUERY_STRING'])) {
+            parse_str((string) $_SERVER['QUERY_STRING'], $queryParams);
+            unset($queryParams['url'], $queryParams['endpoint']);
+            if (!empty($queryParams)) {
+                $targetUrl .= '?' . http_build_query($queryParams);
+            }
+        }
+
+        $postFields = [];
+        foreach ($_FILES as $name => $file) {
+            $tmpName = $file['tmp_name'] ?? '';
+            if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+                continue;
+            }
+            $mime = trim((string) ($file['type'] ?? ''));
+            $filename = basename((string) ($file['name'] ?? 'documento.bin'));
+            $postFields[$name] = new \CURLFile($tmpName, $mime !== '' ? $mime : 'application/octet-stream', $filename);
+        }
+
+        if (empty($postFields)) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'No se recibió archivo para verificar.']);
+            return;
+        }
+
+        $ch = curl_init($targetUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $postFields,
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $cfg['api_key']],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_CONNECTTIMEOUT => 8,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        $contentType = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+
+        if ($body === false) {
+            http_response_code(502);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => $curlErr !== '' ? $curlErr : 'No se pudo conectar con la API de verificación.']);
+            return;
+        }
+
+        if ($httpCode <= 0) {
+            $httpCode = 502;
+        }
+        http_response_code($httpCode);
+        if (stripos($contentType, 'application/json') !== false) {
+            header('Content-Type: application/json; charset=utf-8');
+        } else {
+            header('Content-Type: text/plain; charset=utf-8');
+        }
+        echo $body;
+    }
+
+    /**
+     * Obtiene configuración de la API de verificación de documentos.
+     */
+    private function getDocVerificacionConfig()
+    {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
         if (!is_file($configFile)) {
-            return 'http://localhost:8000/api/v1';
+            return null;
         }
         $config = @parse_ini_file($configFile, true);
-        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
-        if ($apiUrl === '') {
-            return 'http://localhost:8000/api/v1';
+        $apiUrl = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
+        $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? ''));
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
         }
         $base = preg_replace('#/verificar\s*$#', '', $apiUrl);
-        return $base !== '' ? $base : 'http://localhost:8000/api/v1';
+        $base = trim((string) $base);
+        if ($base === '') {
+            return null;
+        }
+        return [
+            'base_url' => $base,
+            'api_key' => $apiKey,
+        ];
     }
 
     /**

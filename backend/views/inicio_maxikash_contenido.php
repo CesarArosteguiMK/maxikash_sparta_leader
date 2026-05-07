@@ -559,6 +559,33 @@ body.dark-mode .inicio-btn-api1click {
   padding: 6px 12px 10px;
   text-align: right;
 }
+.estado-srv-ops {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.estado-srv-opbtn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(51, 65, 85, 0.9);
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  cursor: pointer;
+  line-height: 1.25;
+}
+.estado-srv-opbtn:hover { background: rgba(71, 85, 105, 0.95); }
+.estado-srv-opbtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.estado-srv-opbtn--danger {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fecaca;
+}
+.estado-srv-opbtn--danger:hover { background: rgba(153, 27, 27, 0.9); }
 
 .api1click-panel {
   position: fixed;
@@ -1579,11 +1606,62 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   var chkAuto = document.getElementById('estadoSrvAuto');
   var pollTimer = null;
   var inFlight = false;
+  var serviceCtlBusy = false;
 
   function escapeHtml(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
     });
+  }
+  function srvAjaxHeaders() {
+    return { 'X-Requested-With': 'XMLHttpRequest', 'Front-Request': '1' };
+  }
+  function srvParseJsonBody(text, urlHint) {
+    var t = (typeof text === 'string') ? text.trim() : '';
+    if (t === '') return {};
+    try { return JSON.parse(t); }
+    catch (_e) { throw new Error('JSON inválido en ' + urlHint + ': ' + t.slice(0, 180)); }
+  }
+  function srvPostJson(url, bodyObj) {
+    var body = new URLSearchParams();
+    Object.keys(bodyObj || {}).forEach(function(k){
+      body.append(k, bodyObj[k]);
+    });
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: Object.assign({ 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, srvAjaxHeaders()),
+      body: body.toString()
+    })
+      .then(function(r){
+        return r.text().then(function(body){
+          var data = srvParseJsonBody(body, url);
+          if (!r.ok) {
+            var msg = (data && (data.message || data.error)) ? (data.message || data.error) : ('HTTP ' + r.status);
+            throw new Error(msg);
+          }
+          return data || {};
+        });
+      });
+  }
+  function srvDoServiceAction(serviceId, serviceName, action) {
+    if (serviceCtlBusy) return;
+    serviceCtlBusy = true;
+    var msg = action + ' ' + serviceName + '...';
+    if (foot) foot.textContent = msg.charAt(0).toUpperCase() + msg.slice(1);
+    fetchEstado();
+    srvPostJson('/inicio/servicioslocalesaccion', { service: serviceId, action: action })
+      .then(function(data){
+        var m = (data && data.message) ? data.message : ('Acción aplicada en ' + serviceName + '.');
+        if (foot) foot.textContent = m;
+      })
+      .catch(function(err){
+        if (foot) foot.textContent = 'Error en ' + serviceName + ': ' + (err && err.message ? err.message : String(err));
+      })
+      .finally(function(){
+        serviceCtlBusy = false;
+        fetchEstado();
+      });
   }
 
   function renderEstado(data){
@@ -1622,6 +1700,14 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       } else {
         html += '    <div class="estado-srv-meta">' + escapeHtml(srv.hint || '') + '</div>';
       }
+      if (srv.can_control !== false) {
+        var dis = serviceCtlBusy ? ' disabled' : '';
+        html += '    <div class="estado-srv-ops">';
+        html += '      <button type="button" class="estado-srv-opbtn" data-srv-id="' + escapeHtml(srv.id) + '" data-srv-name="' + escapeHtml(srv.name) + '" data-srv-action="iniciar"' + dis + '>Iniciar</button>';
+        html += '      <button type="button" class="estado-srv-opbtn" data-srv-id="' + escapeHtml(srv.id) + '" data-srv-name="' + escapeHtml(srv.name) + '" data-srv-action="reiniciar"' + dis + '>Reiniciar</button>';
+        html += '      <button type="button" class="estado-srv-opbtn estado-srv-opbtn--danger" data-srv-id="' + escapeHtml(srv.id) + '" data-srv-name="' + escapeHtml(srv.name) + '" data-srv-action="parar"' + dis + '>Parar</button>';
+        html += '    </div>';
+      }
       html += '  </div>';
       html += '  <span class="estado-srv-tag">' + tag + '</span>';
       html += '</div>';
@@ -1635,7 +1721,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     inFlight = true;
     fetch('/inicio/serviciosLocalesEstado', {
       credentials: 'same-origin',
-      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Front-Request': '1' }
+      headers: srvAjaxHeaders()
     })
       .then(function(r){
         return r.text().then(function(body){
@@ -1671,6 +1757,17 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     }
   });
   if (btnRefresh) btnRefresh.addEventListener('click', fetchEstado);
+  if (grid) {
+    grid.addEventListener('click', function(ev){
+      var btn = ev.target && ev.target.closest ? ev.target.closest('button[data-srv-action]') : null;
+      if (!btn) return;
+      var action = btn.getAttribute('data-srv-action') || '';
+      var serviceId = btn.getAttribute('data-srv-id') || '';
+      var serviceName = btn.getAttribute('data-srv-name') || serviceId;
+      if (!action || !serviceId) return;
+      srvDoServiceAction(serviceId, serviceName, action);
+    });
+  }
   if (chkAuto) {
     chkAuto.addEventListener('change', function(){
       if (this.checked && panel.classList.contains('open')) startAuto();
