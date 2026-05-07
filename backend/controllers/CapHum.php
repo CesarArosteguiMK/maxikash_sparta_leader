@@ -3333,8 +3333,7 @@ class CapHum extends Controller
                         return Swal.fire({
                             icon: 'error',
                             title: 'Error',
-                            text: data.mensaje || 'No se pudo registrar',
-                            footer: data.error ? String(data.error) : undefined
+                            text: data.mensaje || 'No se pudo registrar'
                         });
                     }
 
@@ -10651,9 +10650,52 @@ public function getMunicipios()
         if ($inserted['success']) {
             echo json_encode(['success' => true, 'mensaje' => 'Usuario registrado correctamente']);
         } else {
-            echo json_encode(['success' => false, 'mensaje' => 'Error al registrar el usuario', 'error' => $inserted['error']]);
+            $mensajeAmigable = $this->interpretarErrorDBPersona((string)($inserted['error'] ?? ''));
+            echo json_encode(['success' => false, 'mensaje' => $mensajeAmigable]);
         }
     }
+
+    /**
+     * Convierte un mensaje de error de base de datos en un texto amigable para el usuario.
+     */
+    private function interpretarErrorDBPersona(string $error): string
+    {
+        // Usuario duplicado
+        if (stripos($error, 'uq_persona_user_name') !== false
+            || (stripos($error, 'Duplicate entry') !== false && stripos($error, 'user_name') !== false)) {
+            return 'El nombre de usuario ya se encuentra registrado. Favor de capturar uno diferente.';
+        }
+        // Correo duplicado
+        if (stripos($error, 'uq_persona_correo') !== false
+            || (stripos($error, 'Duplicate entry') !== false && stripos($error, 'correo') !== false)) {
+            return 'El correo electrónico ya está registrado en el sistema.';
+        }
+        // CURP duplicada
+        if (stripos($error, 'uq_persona_curp') !== false
+            || (stripos($error, 'Duplicate entry') !== false && stripos($error, 'curp') !== false)) {
+            return 'La CURP ingresada ya está registrada en el sistema.';
+        }
+        // Número de empleado duplicado
+        if (stripos($error, 'uq_persona_numero_empleado') !== false
+            || (stripos($error, 'Duplicate entry') !== false && stripos($error, 'numero_empleado') !== false)) {
+            return 'El número de empleado ya está registrado en el sistema.';
+        }
+        // Entrada duplicada genérica
+        if (stripos($error, 'Duplicate entry') !== false || stripos($error, '1062') !== false) {
+            return 'Uno de los datos ingresados ya se encuentra registrado. Favor de verificar la información.';
+        }
+        // Campo obligatorio nulo
+        if (stripos($error, 'cannot be null') !== false || stripos($error, '1048') !== false) {
+            return 'Favor de completar todos los campos requeridos.';
+        }
+        // Llave foránea inválida
+        if (stripos($error, 'foreign key') !== false || stripos($error, '1452') !== false) {
+            return 'Uno de los valores seleccionados no es válido. Verifique la información ingresada.';
+        }
+        // Error genérico
+        return 'Ocurrió un error al registrar el usuario. Favor de verificar la información e intentar nuevamente.';
+    }
+
     public function registrarBaja()
     {
         // ⚠️ Al usar FormData NO se usa php://input

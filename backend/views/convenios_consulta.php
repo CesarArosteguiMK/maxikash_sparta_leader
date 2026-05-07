@@ -2067,10 +2067,15 @@ function congelarModulo(convenio) {
             document.getElementById('labelMax').textContent = _ofertaActiva.semanas_max + ' sem';
         }
         document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
-    } else if (convenio.tipo === 'globo') {  // ← NUEVO bloque
+    } else if (convenio.tipo === 'globo') {
         document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
         document.getElementById('labelMin').textContent = convenio.numero_semanas + ' sem';
         document.getElementById('labelMax').textContent = convenio.numero_semanas + ' sem';
+    } else if (convenio.id_producto_convenio === 4) {
+        // Producto Pago Mixto (Rayo) pero no está en _ofertas (ej: convenio ya completado).
+        // Forzar modo rayo bloqueado para que el panel no quede interactivo.
+        esRayoCongelado = true;
+        document.getElementById('sliderTitulo').textContent = 'Plazo activo: ' + convenio.nombre_producto;
     }
 
     if (esRayoCongelado) {
@@ -2299,18 +2304,39 @@ function congelarModulo(convenio) {
 
             if (!esGrupo || pagosS2.length === 0) {
                 // Pago individual o sin datos S2 — monto simple
+                var pagosSecundarios = fila.pagos_secundarios || [];
+                var montoSec = parseFloat(fila.monto_secundario || 0);
+                var tieneSecundario = montoSec > 0.01;
+                var montoTotal = tieneSecundario ? round2(montoAplicado + montoSec) : montoAplicado;
+
                 celdaMontoPagado =
                     '<div style="border-left:3px solid ' + colorBorde + ';padding-left:5px;">' +
-                    '<span style="display:block;font-size:0.78rem;font-weight:700;color:' + colorTexto + ';">' +
-                    fmt2(montoAplicado) +
-                    (esParcial ? ' <small style="color:#dc2626;">(parcial)</small>' : '') +
-                    '</span>' +
-                    (esParcial && faltante > 0
+                    // Si hay pago secundario: mostrar monto original tachado + total actualizado
+                    (tieneSecundario
+                        ? '<span style="display:block;font-size:0.72rem;color:#9ca3af;text-decoration:line-through;">' +
+                          fmt2(montoAplicado) +
+                          '</span>' +
+                          '<span style="display:block;font-size:0.78rem;font-weight:700;color:' + colorTexto + ';">' +
+                          fmt2(montoTotal) +
+                          '</span>'
+                        : '<span style="display:block;font-size:0.78rem;font-weight:700;color:' + colorTexto + ';">' +
+                          fmt2(montoAplicado) +
+                          (esParcial ? ' <small style="color:#dc2626;">(parcial)</small>' : '') +
+                          '</span>'
+                    ) +
+                    (esParcial && !tieneSecundario && faltante > 0
                         ? '<span style="display:block;font-size:0.70rem;color:#dc2626;">Falta: ' + fmt2(faltante) + '</span>'
                         : '') +
                     (pagosS2.length > 0
                         ? '<span style="display:block;font-size:0.68rem;color:#aaa;">' + fmtF2(pagosS2[0].fechaValor) + '</span>'
                         : '') +
+                    // Pagos secundarios que completaron el déficit (ej: $60 del 23/04)
+                    pagosSecundarios.map(function(ps) {
+                        return '<span style="display:block;font-size:0.68rem;color:#7c3aed;margin-top:2px;">' +
+                               '<i class="fas fa-plus-circle" style="font-size:0.60rem;margin-right:2px;"></i>' +
+                               fmt2(ps.montoPago) + ' · ' + fmtF2(ps.fechaValor) +
+                               '</span>';
+                    }).join('') +
                     '</div>';
             } else {
                 // Pago compartido — corchete

@@ -570,7 +570,8 @@ public static function getConvenioActivo($id_credito)
 
         // Para convenios ya completados no aplicar lógica de auto-cancelación.
         // Sí cargar la amortización y correr auto-conciliación S2 por si hay
-        // semanas que siguen en pendiente_conciliar (comprobante subido pero no conciliado).
+        // semanas que siguen en pendiente_conciliar o pendiente/vencido
+        // (ej: convenio recreado desde BD con estatus=completado pero filas sin conciliar).
         if ($convenio['estatus'] === 'completado') {
             $amortCompletada = $db->queryAll(
                 "SELECT * FROM convenio_cliente_amortizacion
@@ -579,10 +580,10 @@ public static function getConvenioActivo($id_credito)
                 ['id' => (int) $convenio['id']]
             );
 
-            // Verificar si hay semanas pendiente_conciliar que S2 ya tiene como pagadas
+            // Verificar si hay semanas que aún requieren conciliación S2
             $hayPendienteConciliar = false;
             foreach ($amortCompletada as $f) {
-                if ($f['estatus_pago'] === 'pendiente_conciliar') {
+                if (in_array($f['estatus_pago'], ['pendiente_conciliar', 'pendiente', 'vencido'])) {
                     $hayPendienteConciliar = true;
                     break;
                 }
@@ -593,38 +594,98 @@ public static function getConvenioActivo($id_credito)
                 $rawS2c      = $resultS2c['raw'];
                 $porIdPagoC  = $resultS2c['porIdPago'];
                 $fechaAcC    = $convenio['fecha_acuerdo'] ?? null;
-                if ($fechaAcC) {
+                $fechaFiltroC = $fechaAcC
+                    ? (new \DateTime($fechaAcC))->modify('-30 days')->format('Y-m-d')
+                    : null;
+                if ($fechaFiltroC) {
                     $rawS2c = array_values(array_filter($rawS2c, fn($p) =>
-                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaAcC));
+                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaFiltroC));
                     $porIdPagoC = array_filter($porIdPagoC, fn($p) =>
-                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaAcC);
+                        empty($p['fechaValor']) || $p['fechaValor'] >= $fechaFiltroC);
                 }
-                $resultadoMapaC = self::_mapearCuotasS2AConvenio($rawS2c, $amortCompletada);
-                $mapaC       = $resultadoMapaC['mapa'];
-                $mapaMontosC = $resultadoMapaC['montos'];
+                $resultadoMapaC    = self::_mapearCuotasS2AConvenio($rawS2c, $amortCompletada);
+                $mapaC             = $resultadoMapaC['mapa'];
+                $mapaMontosC       = $resultadoMapaC['montos'];
+                $mapaSecundariosC  = $resultadoMapaC['secundarios'];
+
                 foreach ($amortCompletada as &$filaC) {
-                    if ($filaC['estatus_pago'] !== 'pendiente_conciliar') continue;
                     $numSemC = (int)$filaC['numero_semana'];
                     $idPagoC = $mapaC[$numSemC] ?? null;
+
+                    // Adjuntar datos S2 a la fila para el frontend
+                    $filaC['cuota_s2']         = $idPagoC;
+                    $filaC['pagos_s2']         = ($idPagoC !== null && isset($porIdPagoC[$idPagoC]))
+                        ? [ $porIdPagoC[$idPagoC] ] : [];
+                    $filaC['pagos_secundarios'] = $mapaSecundariosC[$numSemC] ?? [];
+
+                    // Solo conciliar filas que aún no están pagadas/canceladas
+                    if (!in_array($filaC['estatus_pago'], ['pendiente_conciliar', 'pendiente', 'vencido'])) {
+                        // Backfill monto_secundario en filas ya pagadas
+                        if ($filaC['estatus_pago'] === 'pagado'
+                            && !empty($mapaSecundariosC[$numSemC])
+                            && ($filaC['monto_secundario'] === null || (float)$filaC['monto_secundario'] === 0.0)
+                        ) {
+                            $msBack = round(array_sum(array_column($mapaSecundariosC[$numSemC], 'montoPago')), 2);
+                            $db->CRUD(
+                                "UPDATE convenio_cliente_amortizacion SET monto_secundario = :ms WHERE id = :id",
+                                ['ms' => $msBack, 'id' => (int)$filaC['id']]
+                            );
+                            $filaC['monto_secundario'] = $msBack;
+                        }
+                        continue;
+                    }
+
                     if ($idPagoC === null) continue;
-                    $pagoS2c     = $porIdPagoC[$idPagoC] ?? null;
-                    $fechaPagoC  = $pagoS2c ? ($pagoS2c['fechaValor'] ?? date('Y-m-d')) : date('Y-m-d');
-                    // Usar monto acumulado (puede combinar varios pagos S2, ej $2,000 + $60)
+
+                    $pagoS2c    = $porIdPagoC[$idPagoC] ?? null;
+                    $fechaPagoC = $pagoS2c ? ($pagoS2c['fechaValor'] ?? date('Y-m-d')) : date('Y-m-d');
                     $montoPagoC = isset($mapaMontosC[$numSemC])
                         ? round((float)$mapaMontosC[$numSemC], 2)
                         : ($pagoS2c ? round((float)($pagoS2c['montoPago'] ?? $filaC['pago_semanal']), 2) : round((float)$filaC['pago_semanal'], 2));
+
+                    $psFc      = round((float)$filaC['pago_semanal'], 2);
+                    $capFc     = (float)($filaC['capital'] ?? 0);
+                    $cuotaEspC = ($capFc > 0.50 && $capFc < $psFc - 1.00) ? round($capFc, 2) : $psFc;
+                    $estatusC  = ($montoPagoC >= $cuotaEspC - 1.00) ? 'pagado' : 'parcial';
+
+                    $msC = !empty($mapaSecundariosC[$numSemC])
+                        ? round(array_sum(array_column($mapaSecundariosC[$numSemC], 'montoPago')), 2)
+                        : null;
+
                     $db->CRUD(
                         "UPDATE convenio_cliente_amortizacion
-                            SET estatus_pago    = 'pagado',
-                                fecha_pago_real = :fecha,
-                                monto_pagado    = :monto
+                            SET estatus_pago     = :estatus,
+                                fecha_pago_real  = :fecha,
+                                monto_pagado     = :monto,
+                                monto_secundario = :ms
                           WHERE id = :id
                             AND estatus_pago NOT IN ('pagado','cancelado')",
-                        ['fecha' => $fechaPagoC, 'monto' => $montoPagoC, 'id' => (int)$filaC['id']]
+                        ['estatus' => $estatusC, 'fecha' => $fechaPagoC, 'monto' => $montoPagoC, 'ms' => $msC, 'id' => (int)$filaC['id']]
                     );
-                    $filaC['estatus_pago']    = 'pagado';
+                    $filaC['estatus_pago']    = $estatusC;
                     $filaC['fecha_pago_real'] = $fechaPagoC;
                     $filaC['monto_pagado']    = $montoPagoC;
+                    $filaC['monto_secundario'] = $msC;
+                }
+                unset($filaC);
+
+                // Si ahora todas quedaron pagadas, confirmar convenio como completado en BD
+                $todasC = array_reduce($amortCompletada,
+                    fn($c, $f) => $c && ($f['estatus_pago'] === 'pagado'), true);
+                if ($todasC && !empty($amortCompletada)) {
+                    $db->CRUD(
+                        "UPDATE convenio_cliente SET estatus = 'completado', fecha_modifica = NOW()
+                          WHERE id = :id AND estatus != 'cancelado'",
+                        ['id' => (int)$convenio['id']]
+                    );
+                    $convenio['estatus'] = 'completado';
+                }
+            } else {
+                // Todas las filas ya pagadas — solo adjuntar datos S2 para UI
+                foreach ($amortCompletada as &$filaC) {
+                    $filaC['cuota_s2']          = null;
+                    $filaC['pagos_s2']          = [];
+                    $filaC['pagos_secundarios'] = [];
                 }
                 unset($filaC);
             }
@@ -670,7 +731,7 @@ public static function getConvenioActivo($id_credito)
                     // acuerda el día 22 pero se captura el día 24). Sin esta ventana
                     // esos pagos quedan invisibles y el sistema cancela por error.
                     $fechaFiltroVerif = (new \DateTime($fechaAcuerdo))
-                        ->modify('-7 days')
+                        ->modify('-30 days')
                         ->format('Y-m-d');
                     $rawVerif = array_values(array_filter($rawVerif, function ($p) use ($fechaFiltroVerif) {
                         return empty($p['fechaValor']) || $p['fechaValor'] >= $fechaFiltroVerif;
@@ -738,7 +799,7 @@ public static function getConvenioActivo($id_credito)
                  // el convenio fuera formalmente capturado en el sistema.
          $fechaAcuerdo = $convenio['fecha_acuerdo'] ?? null;
          $fechaFiltroConv = $fechaAcuerdo
-             ? (new \DateTime($fechaAcuerdo))->modify('-7 days')->format('Y-m-d')
+             ? (new \DateTime($fechaAcuerdo))->modify('-30 days')->format('Y-m-d')
              : null;
          $pagosS2Raw   = array_filter($pagosS2Raw, function($p) use ($fechaFiltroConv) {
              if (!$fechaFiltroConv || empty($p['fechaValor'])) return true;
@@ -752,10 +813,11 @@ public static function getConvenioActivo($id_credito)
              return $p['fechaValor'] >= $fechaFiltroConv;
          });
 
-        // Mapeo por capital acumulado → devuelve ['mapa' => numSem=>idPago, 'montos' => numSem=>montoAcumulado]
+        // Mapeo por capital acumulado → devuelve ['mapa' => numSem=>idPago, 'montos' => numSem=>montoAcumulado, 'secundarios' => numSem=>[...]]
         $resultadoMapa = self::_mapearCuotasS2AConvenio($pagosS2Raw, $amortizacion);
-        $mapaCuotas  = $resultadoMapa['mapa'];
-        $mapaMontos  = $resultadoMapa['montos'];
+        $mapaCuotas      = $resultadoMapa['mapa'];
+        $mapaMontos      = $resultadoMapa['montos'];
+        $mapaSecundarios = $resultadoMapa['secundarios'];
 
         // Enriquecer cada fila con su pago S2 correspondiente
         foreach ($amortizacion as &$fila) {
@@ -769,6 +831,8 @@ public static function getConvenioActivo($id_credito)
             } else {
                 $fila['pagos_s2'] = [];
             }
+            // Pagos secundarios que completaron el déficit de esta semana (ej: $60 que completó el $2,000)
+            $fila['pagos_secundarios'] = $mapaSecundarios[$numSemana] ?? [];
         }
         unset($fila);
 
@@ -797,23 +861,34 @@ public static function getConvenioActivo($id_credito)
                 $cuotaEsperada  = ($capFila > 0.50 && $capFila < $psFila - 1.00) ? round($capFila, 2) : $psFila;
                 $estatusPagoS2  = ($montoPagoS2 >= $cuotaEsperada - 1.00) ? 'pagado' : 'parcial';
 
+                // Calcular monto_secundario: suma de los pagos complementarios que completaron el déficit
+                $montoSecundario = null;
+                if (!empty($mapaSecundarios[$numSem])) {
+                    $montoSecundario = round(
+                        array_sum(array_column($mapaSecundarios[$numSem], 'montoPago')), 2
+                    );
+                }
+
                 $db->CRUD(
                     "UPDATE convenio_cliente_amortizacion
-                        SET estatus_pago    = :estatus,
-                            fecha_pago_real = :fecha,
-                            monto_pagado    = :monto
+                        SET estatus_pago     = :estatus,
+                            fecha_pago_real  = :fecha,
+                            monto_pagado     = :monto,
+                            monto_secundario = :ms
                       WHERE id = :id
                         AND estatus_pago NOT IN ('pagado','cancelado')",
                     [
                         'estatus' => $estatusPagoS2,
                         'fecha'   => $fechaPagoS2,
                         'monto'   => $montoPagoS2,
+                        'ms'      => $montoSecundario,
                         'id'      => (int) $fila['id'],
                     ]
                 );
                 $fila['estatus_pago']    = $estatusPagoS2;
                 $fila['fecha_pago_real'] = $fechaPagoS2;
                 $fila['monto_pagado']    = $montoPagoS2;
+                $fila['monto_secundario'] = $montoSecundario;
 
             } elseif ($idPago === null && $fila['estatus_pago'] === 'pendiente') {
                 // Sin pago S2 y fecha vencida → marcar como vencido
@@ -828,6 +903,25 @@ public static function getConvenioActivo($id_credito)
                     );
                     $fila['estatus_pago'] = 'vencido';
                 }
+            }
+
+            // Backfill: row ya pagada con monto_secundario NULL pero hay pagos secundarios
+            // detectados en $mapaSecundarios (cargado previo a que se guardara la columna).
+            // Corre para TODOS los rows después del if/elseif.
+            if ($fila['estatus_pago'] === 'pagado'
+                && !empty($mapaSecundarios[$numSem])
+                && ($fila['monto_secundario'] === null || (float)$fila['monto_secundario'] === 0.0)
+            ) {
+                $montoSecBackfill = round(
+                    array_sum(array_column($mapaSecundarios[$numSem], 'montoPago')), 2
+                );
+                $db->CRUD(
+                    "UPDATE convenio_cliente_amortizacion
+                        SET monto_secundario = :ms
+                      WHERE id = :id",
+                    ['ms' => $montoSecBackfill, 'id' => (int) $fila['id']]
+                );
+                $fila['monto_secundario'] = $montoSecBackfill;
             }
 
             if ($fila['estatus_pago'] !== 'pagado') {
@@ -1096,18 +1190,19 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
     //    Pago 2 ($16,519.00) → retoma sem 11 con $109.10 ya abonado, etc.
     //    Pago 3 ($1.00)      → residuo final
 
-    $mapa       = [];   // numero_semana => idPago (pago principal que inició la cobertura)
-    $mapaMontos = [];   // numero_semana => monto total acumulado real (puede combinar varios pagos)
-    $sobrante   = 0.0;  // montoPago no consumido del pago anterior
-    $idxSem     = 0;
-    $nSemanas   = count($amortizacion);
+    $mapa           = [];   // numero_semana => idPago (pago principal)
+    $mapaMontos     = [];   // numero_semana => monto total acumulado (puede combinar varios pagos)
+    $mapaSecundarios = [];  // numero_semana => [ ['idPago'=>..,'montoPago'=>..,'fechaValor'=>..], ... ]
+    $sobrante         = 0.0;
+    $sobrante_pago_id = null;  // idPago que generó el sobrante actual
+    $idxSem           = 0;
+    $nSemanas         = count($amortizacion);
 
-    // Seguimiento de déficit: cuando una semana se mapea dentro de la tolerancia del 5%
-    // pero queda corta (ej: $2,000 vs $2,060 → déficit $60), el siguiente pago PEQUEÑO
-    // (≤ déficit + $100) se aplica a completar esa semana en lugar de sobrante hacia la
-    // siguiente. Pagos GRANDES (> déficit + $100) se consideran pagos de nueva semana.
-    $deficitSem    = 0.0;   // cuánto falta para completar la última semana mapeada
-    $deficitNumSem = null;  // número de semana que tiene el déficit
+    // Seguimiento de déficit: cuando una semana se mapea dentro del 5% de tolerancia pero
+    // queda corta (ej: $2,000 vs $2,060 → déficit $60), el siguiente pago PEQUEÑO
+    // (≤ déficit + $100) completa esa semana. Pagos GRANDES son nueva semana.
+    $deficitSem    = 0.0;
+    $deficitNumSem = null;
 
     foreach ($pagosUnicos as $pago) {
         if ($idxSem >= $nSemanas && $deficitSem <= 0.01) break;
@@ -1115,25 +1210,28 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
         $disponible = round($pago['montoPago'] + $sobrante, 4);
         $sobrante   = 0.0;
 
-        // ── Paso 1: intentar completar el déficit de la semana anterior ───────
-        // Solo si el pago es "pequeño" (≤ déficit + $100). Un pago grande (ej $2,060
-        // cuando el déficit es $60) corresponde a una semana nueva, no a completar.
+        // ── Paso 1: completar déficit de la semana anterior ───────────────────
         if ($deficitSem > 0.01 && $deficitNumSem !== null) {
             if ($disponible <= $deficitSem + 100.00) {
-                // Pago pequeño: va enteramente a cubrir el déficit
+                // Pago pequeño: va a cubrir el déficit
                 $mapaMontos[$deficitNumSem] = round(
                     ($mapaMontos[$deficitNumSem] ?? 0) + $disponible, 4
                 );
+                // Registrar como pago secundario para mostrar en UI
+                $mapaSecundarios[$deficitNumSem][] = [
+                    'idPago'     => $pago['idPago'],
+                    'montoPago'  => $pago['montoPago'],
+                    'fechaValor' => $pago['fechaValor'],
+                ];
                 $deficitSem -= $disponible;
                 $disponible  = 0.0;
                 if ($deficitSem <= 1.00) {
                     $deficitSem    = 0.0;
                     $deficitNumSem = null;
                 }
-                // Pago consumido por completo en el déficit
                 if ($disponible <= 0.001) continue;
             } else {
-                // Pago grande: la semana previa queda con el monto parcial ya registrado
+                // Pago grande: semana previa queda como parcial
                 $deficitSem    = 0.0;
                 $deficitNumSem = null;
             }
@@ -1151,14 +1249,30 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
 
             // Semana ya pagada en BD: consumir su cuota del disponible para evitar que
             // el mismo pago S2 se reasigne a semanas posteriores en ejecuciones sucesivas.
+            // Aun así mapeamos el pago y calculamos el déficit para que los pagos
+            // secundarios (ej: $60 que completan un $2,000) queden registrados en
+            // $mapaSecundarios y sean visibles en la UI.
             if (($semana['estatus_pago'] ?? '') === 'pagado') {
                 $toleranciaPagada = max(1.00, $pagoSemanal * 0.05);
                 if ($disponible >= $pagoSemanal - $toleranciaPagada) {
+                    // Mapear el pago a esta semana (para que pagos_s2 y pagos_secundarios funcionen)
+                    if (!isset($mapa[$numSem])) {
+                        $mapa[$numSem]       = $pago['idPago'];
+                        $mapaMontos[$numSem] = round(min($disponible, $pagoSemanal), 4);
+                    }
+                    // Si el pago llegó corto (dentro de tolerancia), registrar déficit
+                    // para que el siguiente pago pequeño lo complete en $mapaSecundarios.
+                    $deficit = max(0.0, $pagoSemanal - $disponible);
+                    if ($deficit > 1.00) {
+                        $deficitSem    = $deficit;
+                        $deficitNumSem = $numSem;
+                    }
                     $disponible = max(0.0, round($disponible - $pagoSemanal, 4));
                     $idxSem++;
                 } else {
-                    $sobrante   = $disponible;
-                    $disponible = 0;
+                    $sobrante         = $disponible;
+                    $sobrante_pago_id = $pago['idPago'];
+                    $disponible       = 0;
                 }
                 continue;
             }
@@ -1183,21 +1297,31 @@ private static function _mapearCuotasS2AConvenio(array $rawPagos, array $amortiz
                 $idxSem++;
             } else {
                 // No alcanza — sobrante al siguiente pago
-                $sobrante   = $disponible;
-                $disponible = 0;
+                $sobrante         = $disponible;
+                $sobrante_pago_id = $pago['idPago'];
+                $disponible       = 0;
             }
         }
 
         if ($disponible > 0.001 && $idxSem < $nSemanas) {
-            $sobrante = $disponible;
+            $sobrante         = $disponible;
+            $sobrante_pago_id = $pago['idPago'];
         }
     }
 
-    // Si al terminar todos los pagos hay pool parcial sin mapear (semana parcial real),
-    // se habrá mapeado dentro del 5% con mapaMontos reflejando el monto real.
-    // El déficit final se ignora — la semana muestra 'parcial' en la conciliación.
+    // Sobrante final: si un pago cubrió sem N completa y quedó sobrante que no alcanzó
+    // para sem N+1 (< 95% del pago_semanal), ese sobrante se aplica como pago parcial.
+    // Sin este bloque, sem N+1 quedaría con $idPago=null y la conciliación la ignoraría.
+    if ($sobrante > 0.001 && $sobrante_pago_id !== null && $idxSem < $nSemanas) {
+        $semana = $amortizacion[$idxSem];
+        $numSem = (int)$semana['numero_semana'];
+        if (!isset($mapa[$numSem]) && ($semana['estatus_pago'] ?? '') !== 'pagado') {
+            $mapa[$numSem]       = $sobrante_pago_id;
+            $mapaMontos[$numSem] = round($sobrante, 4);
+        }
+    }
 
-    return ['mapa' => $mapa, 'montos' => $mapaMontos];
+    return ['mapa' => $mapa, 'montos' => $mapaMontos, 'secundarios' => $mapaSecundarios];
 }
 
     // ─────────────────────────────────────────────
