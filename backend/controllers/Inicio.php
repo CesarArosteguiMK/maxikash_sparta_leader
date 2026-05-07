@@ -769,6 +769,59 @@ class Inicio extends Controller
         ], JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * Intenta detener el proceso 1-click/API atascado en el servidor y desbloquea el panel (usuario 878).
+     * Ejecuta launcher\web-api-1click-parar.bat en segundo plano (log en backend/API/logs).
+     */
+    public function apiDocOneClickParar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado'], JSON_UNESCAPED_UNICODE);
+
+            return;
+        }
+        if (stripos(PHP_OS, 'WIN') !== 0) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Solo Windows'], JSON_UNESCAPED_UNICODE);
+
+            return;
+        }
+        $apiDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API';
+        $launcherDir = $apiDir . DIRECTORY_SEPARATOR . 'launcher';
+        $stopper = $launcherDir . DIRECTORY_SEPARATOR . 'web-api-1click-parar.bat';
+        $logsDir = $apiDir . DIRECTORY_SEPARATOR . 'logs';
+        if (!is_dir($logsDir)) {
+            @mkdir($logsDir, 0777, true);
+        }
+        if (!is_file($stopper)) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se encontró web-api-1click-parar.bat en launcher',
+            ], JSON_UNESCAPED_UNICODE);
+
+            return;
+        }
+        $logName = 'web-api-1click-parar-' . date('Ymd-His') . '.log';
+        $logPath = $logsDir . DIRECTORY_SEPARATOR . $logName;
+
+        $cmd = 'start "" /b cmd /c ""'
+            . str_replace('"', '""', $stopper) . '" > "'
+            . str_replace('"', '""', $logPath) . '" 2>&1"';
+        @pclose(@popen($cmd, 'r'));
+        usleep(200000);
+
+        unset($_SESSION['api_doc_1click_log'], $_SESSION['api_doc_1click_started_at']);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Parada solicitada: se liberó el panel; en el servidor se intenta cortar el batch/doctor/Python de esta API y el puerto 8000. Revise el log "' . $logName . '" (Lista → seleccionar ese archivo).',
+            'log_file' => $logName,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
     private function apiDocOneClickDetectFatalBatchError(string $content): bool
     {
         if ($content === '') {
@@ -984,16 +1037,9 @@ class Inicio extends Controller
         if ($base === '' || strpbrk($base, "\\/") !== false) {
             return false;
         }
-        if (!preg_match('/^[a-zA-Z0-9._-]+\.log$/', $base)) {
-            return false;
-        }
-        return str_starts_with($base, 'web-api-1click-')
-            || str_starts_with($base, 'doctor-')
-            || str_starts_with($base, 'instalar-')
-            || str_starts_with($base, 'doctor-pip-')
-            || $base === 'api_oculto_startup.log'
-            || $base === 'uvicorn-stdout.log'
-            || $base === 'uvicorn-stderr.log';
+        // Solo nombres planos *.log dentro de backend/API/logs (sin .. ni rutas).
+        // Lista blanca muy estricta ocultaba archivos válidos nuevos → el usuario 878 veía el desplegable vacío.
+        return (bool) preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.log$/', $base);
     }
 
     /**
