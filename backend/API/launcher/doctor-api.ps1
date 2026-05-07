@@ -58,6 +58,7 @@ $LogFile = Join-Path $LogsDir "doctor-$stamp.log"
 # ---------- Estado global ----------
 $Script:HasErrors   = $false
 $Script:HasWarnings = $false
+$Script:PythonFreeThreading = $false
 $Script:Summary     = New-Object System.Collections.Generic.List[string]
 $Script:FixesApplied = New-Object System.Collections.Generic.List[string]
 $Script:Recommended  = New-Object System.Collections.Generic.List[string]
@@ -271,6 +272,7 @@ if (-not $pyExe) {
         $chkOut = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
         Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
         if ($pChk.ExitCode -eq 2) {
+            $Script:PythonFreeThreading = $true
             Err "Python FREE-THREADING (sin GIL / Py_GIL_DISABLED): incompatible con compilacion wheel de PyMuPDF y otros."
             foreach ($ln in (($chkOut -split "`r?`n") | Where-Object { $_.Trim() -ne '' })) {
                 Out-Log "       $ln" 'Red'
@@ -620,7 +622,11 @@ try {
 # =====================================================================
 # 14) Auto-fix: instalar paquetes faltantes
 # =====================================================================
-if ($InstallMissing -and $pyExe -and $missing.Count -gt 0) {
+if ($InstallMissing -and $Script:PythonFreeThreading) {
+    Section '14. Auto-fix: instalando paquetes faltantes'
+    Warn "Se omite auto-instalacion con pip porque el Python actual es FREE-THREADING (python*t)."
+    Rec  "Primero use Python 3.12 estandar (portable en API\\tools\\PythonPortable\\ o PYTHON_EXE.txt), recree venv y luego reintente."
+} elseif ($InstallMissing -and $pyExe -and $missing.Count -gt 0) {
     Section '14. Auto-fix: instalando paquetes faltantes'
     $pipLog = Join-Path $LogsDir "doctor-pip-$stamp.log"
     foreach ($pkg in $missing) {
