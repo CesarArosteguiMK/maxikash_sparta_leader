@@ -52,6 +52,9 @@ class Inicio extends Controller
         $this->set('mostrarDiagnosticoAdmin', $mostrarDiagnosticoAdmin);
         $mostrarBotonApiDocOneClick = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 878);
         $this->set('mostrarBotonApiDocOneClick', $mostrarBotonApiDocOneClick);
+        // Botón "Servicios" para ver estado de los puertos locales (3001, 3100, 3110, 3120, 8000).
+        $mostrarBotonEstadoServicios = $mostrarBotonApiDocOneClick;
+        $this->set('mostrarBotonEstadoServicios', $mostrarBotonEstadoServicios);
 
         self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
     }
@@ -1071,9 +1074,208 @@ class Inicio extends Controller
         return $real;
     }
 
+    /**
+     * Estado de los servicios locales (puertos del orquestador).
+     * Solo usuario 878.
+     *
+     * Lee netstat para detectar qué puertos están en LISTENING y, si lo está,
+     * intenta una llamada HTTP corta a su /health o /docs (la que cada servicio
+     * usa) para confirmar que responde y, si la respuesta trae JSON con el
+     * mismo formato, lo expone tal cual.
+     *
+     * Respuesta JSON:
+     * {
+     *   success: true,
+     *   generated_at: "2026-05-07 14:30:00",
+     *   summary: { up: 4, down: 1, total: 5 },
+     *   services: [
+     *     { id, name, port, role, url_check, listening:bool, http_ok:bool,
+     *       http_status:int|null, http_ms:int|null, latency_ms:int|null,
+     *       url_browser, hint }
+     *   ]
+     * }
+     */
+    public function serviciosLocalesEstado()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+
+        $servicios = [
+            [
+                'id'   => 'doc_candidato',
+                'name' => 'API documentación candidato (Node)',
+                'port' => 3001,
+                'role' => 'API Node — validación de documentos en alta de candidato',
+                'url_check'   => 'http://127.0.0.1:3001/',
+                'url_browser' => 'http://127.0.0.1:3001/',
+                'hint' => 'Si está caída: backend/API/documentacion-candidato/iniciar-agente.bat',
+            ],
+            [
+                'id'   => 'segundometro',
+                'name' => 'Agente Segundómetro (Node)',
+                'port' => 3100,
+                'role' => 'Agente cron de reportes Segundómetro vía SSH',
+                'url_check'   => 'http://127.0.0.1:3100/health',
+                'url_browser' => 'http://127.0.0.1:3100/health',
+                'hint' => 'Si está caída: backend/services/segundometro-agent/iniciar-agente.bat',
+            ],
+            [
+                'id'   => 'correos_pp',
+                'name' => 'Agente correos primeros pagos (Node)',
+                'port' => 3110,
+                'role' => 'Genera y envía correos de primeros pagos de cobranza',
+                'url_check'   => 'http://127.0.0.1:3110/health',
+                'url_browser' => 'http://127.0.0.1:3110/health',
+                'hint' => 'Si está caída: backend/services/correos-primeros-pagos-agent/iniciar-agente.bat',
+            ],
+            [
+                'id'   => 'gastos_cobranza',
+                'name' => 'Agente Gastos cobranza (Node)',
+                'port' => 3120,
+                'role' => 'Reportes de cobranza, worker EC, lista negra, descargo estatus 3',
+                'url_check'   => 'http://127.0.0.1:3120/health',
+                'url_browser' => 'http://127.0.0.1:3120/health',
+                'hint' => 'Si está caída: backend/services/gastos-cobranza-agent/iniciar-agente.bat',
+            ],
+            [
+                'id'   => 'api_doc_python',
+                'name' => 'API verificación documentos (Python · uvicorn)',
+                'port' => 8000,
+                'role' => 'OCR + verificación documental (FastAPI 1-click)',
+                'url_check'   => 'http://127.0.0.1:8000/docs',
+                'url_browser' => 'http://127.0.0.1:8000/docs',
+                'hint' => 'Si está caída: pulsa el botón «API» (1-click). Logs en backend/API/logs.',
+            ],
+        ];
+
+        $listening = $this->serviciosLocalesPuertosEnListen();
+
+        $out = [];
+        $up = 0;
+        foreach ($servicios as $s) {
+            $port = (int)$s['port'];
+            $isListen = isset($listening[$port]);
+            $http = ['ok' => false, 'status' => null, 'ms' => null];
+            if ($isListen) {
+                $http = $this->serviciosLocalesProbarHttp($s['url_check'], 1500);
+            }
+            if ($isListen && $http['ok']) {
+                $up++;
+                $estado = 'up';
+            } elseif ($isListen) {
+                $estado = 'listen_no_http';
+            } else {
+                $estado = 'down';
+            }
+            $out[] = [
+                'id'         => $s['id'],
+                'name'       => $s['name'],
+                'port'       => $port,
+                'role'       => $s['role'],
+                'url_check'  => $s['url_check'],
+                'url_browser'=> $s['url_browser'],
+                'listening'  => $isListen,
+                'pid'        => $isListen ? ($listening[$port] ?? null) : null,
+                'http_ok'    => $http['ok'],
+                'http_status'=> $http['status'],
+                'latency_ms' => $http['ms'],
+                'estado'     => $estado, // up | listen_no_http | down
+                'hint'       => $s['hint'],
+            ];
+        }
+
+        echo json_encode([
+            'success'      => true,
+            'generated_at' => date('Y-m-d H:i:s'),
+            'summary'      => [
+                'up'    => $up,
+                'down'  => count($servicios) - $up,
+                'total' => count($servicios),
+            ],
+            'services'     => $out,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /** Devuelve [puerto => pid] de los puertos TCP en LISTENING locales. */
+    private function serviciosLocalesPuertosEnListen(): array
+    {
+        $ports = [];
+        // netstat -ano funciona tanto en Windows Server como en CMD/IIS sin admin
+        $cmd = stripos(PHP_OS, 'WIN') === 0 ? 'netstat -ano' : 'ss -tlnp';
+        $out = @shell_exec($cmd);
+        if (!is_string($out) || $out === '') {
+            return $ports;
+        }
+        $lines = preg_split('/\r?\n/', $out);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+            // Windows: "  TCP    127.0.0.1:8000   0.0.0.0:0   LISTENING   12345"
+            if (stripos(PHP_OS, 'WIN') === 0) {
+                if (stripos($line, 'LISTENING') === false) continue;
+                if (preg_match('/(?:\[?[^\s\[\]]+\]?:|:):?(\d+)\s+\S+\s+LISTENING\s+(\d+)/i', $line, $m)) {
+                    $port = (int)$m[1];
+                    $pid  = (int)$m[2];
+                    if ($port > 0) $ports[$port] = $pid;
+                }
+            } else {
+                // ss -tlnp: ej. "LISTEN 0 128 *:8000 *:* users:((\"python\",pid=1234,fd=4))"
+                if (preg_match('/:(\d+)\s/', $line, $m)) {
+                    $ports[(int)$m[1]] = null;
+                }
+            }
+        }
+        return $ports;
+    }
+
+    /** Hace un GET corto y devuelve ['ok'=>bool, 'status'=>int|null, 'ms'=>int|null]. */
+    private function serviciosLocalesProbarHttp(string $url, int $timeoutMs = 1500): array
+    {
+        $ch = @curl_init($url);
+        if (!$ch) {
+            return ['ok' => false, 'status' => null, 'ms' => null];
+        }
+        $opts = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_NOBODY         => true, // HEAD-like: nos basta el status
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 2,
+            CURLOPT_TIMEOUT_MS     => $timeoutMs,
+            CURLOPT_CONNECTTIMEOUT_MS => min(800, $timeoutMs),
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_USERAGENT      => 'SpartaLedger/ServiciosLocalesEstado',
+        ];
+        @curl_setopt_array($ch, $opts);
+        $t0 = microtime(true);
+        $resp = @curl_exec($ch);
+        $ms = (int)round((microtime(true) - $t0) * 1000);
+        $status = (int)@curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $errno  = @curl_errno($ch);
+        @curl_close($ch);
+        if ($errno !== 0 && $status === 0) {
+            // Algunos /health solo aceptan GET completo; reintentar sin NOBODY.
+            $ch2 = @curl_init($url);
+            if ($ch2) {
+                $opts[CURLOPT_NOBODY] = false;
+                @curl_setopt_array($ch2, $opts);
+                $t1 = microtime(true);
+                @curl_exec($ch2);
+                $ms = (int)round((microtime(true) - $t1) * 1000);
+                $status = (int)@curl_getinfo($ch2, CURLINFO_RESPONSE_CODE);
+                @curl_close($ch2);
+            }
+        }
+        $ok = ($status >= 200 && $status < 500); // 4xx aún cuenta como "responde HTTP"
+        return ['ok' => $ok, 'status' => $status > 0 ? $status : null, 'ms' => $ms];
+    }
+
     private function validarActualizacionPassword()
     {
-        // Suponiendo que en la sesión se guarda el nombre de usuario
         $usuarioSesion = $_SESSION['usuario'] ?? null;
 
         if (!$usuarioSesion) {

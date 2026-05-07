@@ -11,6 +11,7 @@ $mostrarBotonAnalytics = $mostrarBotonAnalytics ?? false;
 $itemsAnalytics = $itemsAnalytics ?? [];
 $mostrarDiagnosticoAdmin = $mostrarDiagnosticoAdmin ?? false;
 $mostrarBotonApiDocOneClick = $mostrarBotonApiDocOneClick ?? false;
+$mostrarBotonEstadoServicios = $mostrarBotonEstadoServicios ?? false;
 $logoUrl = '/assets/img/Logotipo-Maxikash-Outline.webp';
 
 $mensajesPorPuesto = [
@@ -413,6 +414,152 @@ body.dark-mode .inicio-btn-api1click {
   background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
 }
 
+/* Botón "Servicios" — estado en vivo de los puertos locales (solo usuario 878) */
+.inicio-btn-estado-srv {
+  position: fixed;
+  bottom: 24px;
+  left: 92px; /* a la derecha del botón API */
+  z-index: 9996;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.45);
+  transition: all 0.25s ease;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.inicio-btn-estado-srv i { font-size: 18px; }
+.inicio-btn-estado-srv:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(79, 70, 229, 0.55);
+}
+.inicio-btn-estado-srv:active { transform: scale(0.96); }
+.inicio-btn-estado-srv.alerta {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  box-shadow: 0 6px 24px rgba(220, 38, 38, 0.55);
+}
+.estado-srv-panel {
+  position: fixed;
+  bottom: 95px;
+  left: 24px;
+  z-index: 9996;
+  width: min(620px, calc(100vw - 36px));
+  max-height: 70vh;
+  display: none;
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45);
+  overflow: hidden;
+}
+.estado-srv-panel.open { display: block; }
+.estado-srv-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.95);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  flex-wrap: wrap;
+}
+.estado-srv-title { font-size: 12px; font-weight: 700; flex: 1 1 auto; }
+.estado-srv-summary {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.35);
+}
+.estado-srv-summary.ok { background: rgba(22, 163, 74, 0.35); color: #86efac; }
+.estado-srv-summary.err { background: rgba(220, 38, 38, 0.35); color: #fecaca; }
+.estado-srv-summary.warn { background: rgba(202, 138, 4, 0.35); color: #fde68a; }
+.estado-srv-actions { display: flex; align-items: center; gap: 8px; }
+.estado-srv-chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+.estado-srv-tbtn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(51, 65, 85, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+  cursor: pointer;
+}
+.estado-srv-tbtn:hover { background: rgba(71, 85, 105, 0.95); }
+.estado-srv-help {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.7);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.estado-srv-grid {
+  padding: 8px;
+  max-height: calc(70vh - 130px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.estado-srv-loading { padding: 12px; text-align: center; color: #94a3b8; font-size: 12px; }
+.estado-srv-card {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+.estado-srv-card .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #475569;
+  flex-shrink: 0;
+}
+.estado-srv-card.up   .dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.estado-srv-card.warn .dot { background: #eab308; box-shadow: 0 0 6px #eab308; }
+.estado-srv-card.down .dot { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.estado-srv-name { font-size: 12.5px; font-weight: 700; line-height: 1.2; }
+.estado-srv-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; word-break: break-word; }
+.estado-srv-meta a { color: #93c5fd; text-decoration: none; }
+.estado-srv-meta a:hover { text-decoration: underline; }
+.estado-srv-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.estado-srv-card.up   .estado-srv-tag { background: rgba(22, 163, 74, 0.35); color: #86efac; }
+.estado-srv-card.warn .estado-srv-tag { background: rgba(202, 138, 4, 0.35); color: #fde68a; }
+.estado-srv-card.down .estado-srv-tag { background: rgba(220, 38, 38, 0.35); color: #fecaca; }
+.estado-srv-foot {
+  font-size: 10.5px;
+  color: #94a3b8;
+  padding: 6px 12px 10px;
+  text-align: right;
+}
+
 .api1click-panel {
   position: fixed;
   bottom: 95px;
@@ -654,6 +801,35 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnParar" title="Corta en el servidor esta ejecución (batch/doctor/pip/python de esta API + puerto 8000)">Parar ejecución</button>
       </div>
       <pre class="api1click-body" id="api1clickOutput">Sin ejecución todavía.</pre>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($mostrarBotonEstadoServicios)): ?>
+    <button
+      type="button"
+      id="btnEstadoServicios"
+      class="inicio-btn-estado-srv"
+      title="Estado de todos los agentes y APIs locales (puertos 3001, 3100, 3110, 3120, 8000). Solo usuario 878."
+      aria-label="Estado de servicios locales">
+      <i class="fa-solid fa-heart-pulse"></i>
+      <span>Servicios</span>
+    </button>
+    <div class="estado-srv-panel" id="estadoSrvPanel" aria-live="polite">
+      <div class="estado-srv-hd">
+        <span class="estado-srv-title">Servicios locales · estado en vivo</span>
+        <span class="estado-srv-summary" id="estadoSrvSummary">—</span>
+        <span class="estado-srv-actions">
+          <label class="estado-srv-chk" title="Refresca cada 5s">
+            <input type="checkbox" id="estadoSrvAuto" /> Auto
+          </label>
+          <button type="button" class="estado-srv-tbtn" id="estadoSrvBtnRefresh" title="Refrescar ahora">Refrescar</button>
+        </span>
+      </div>
+      <p class="estado-srv-help">Verde = puerto en LISTEN y respondiendo HTTP. Amarillo = en LISTEN pero no responde HTTP (arrancando o caído de fachada). Rojo = puerto no abierto.</p>
+      <div class="estado-srv-grid" id="estadoSrvGrid">
+        <div class="estado-srv-loading">Cargando estado…</div>
+      </div>
+      <div class="estado-srv-foot" id="estadoSrvFoot"></div>
     </div>
     <?php endif; ?>
 
@@ -1387,6 +1563,118 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
           if (outApi1) outApi1.textContent = 'Error al lanzar: ' + (err && err.message ? err.message : err);
           api1StopPolling();
         });
+    });
+  }
+})();
+
+(function(){
+  // Panel "Servicios locales" (solo usuario 878).
+  var btnEstado = document.getElementById('btnEstadoServicios');
+  if (!btnEstado) return;
+  var panel = document.getElementById('estadoSrvPanel');
+  var grid  = document.getElementById('estadoSrvGrid');
+  var summary = document.getElementById('estadoSrvSummary');
+  var foot = document.getElementById('estadoSrvFoot');
+  var btnRefresh = document.getElementById('estadoSrvBtnRefresh');
+  var chkAuto = document.getElementById('estadoSrvAuto');
+  var pollTimer = null;
+  var inFlight = false;
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function renderEstado(data){
+    if (!data || !data.success) {
+      grid.innerHTML = '<div class="estado-srv-loading">No se pudo obtener el estado.</div>';
+      summary.textContent = '—';
+      summary.className = 'estado-srv-summary err';
+      return;
+    }
+    var s = data.summary || { up:0, down:0, total:0 };
+    summary.textContent = s.up + '/' + s.total + ' arriba';
+    summary.className = 'estado-srv-summary ' + (s.down === 0 ? 'ok' : (s.up === 0 ? 'err' : 'warn'));
+    btnEstado.classList.toggle('alerta', s.down > 0);
+
+    var html = '';
+    var services = data.services || [];
+    services.forEach(function(srv){
+      var cls, tag;
+      if (srv.estado === 'up') { cls = 'up'; tag = 'ARRIBA'; }
+      else if (srv.estado === 'listen_no_http') { cls = 'warn'; tag = 'EN PUERTO'; }
+      else { cls = 'down'; tag = 'CAÍDA'; }
+      var lat = (srv.latency_ms != null) ? (srv.latency_ms + ' ms') : '—';
+      var status = (srv.http_status != null) ? srv.http_status : '—';
+      var pid = srv.pid ? (' · PID ' + srv.pid) : '';
+      var browseLink = srv.url_browser
+        ? '<a href="' + escapeHtml(srv.url_browser) + '" target="_blank" rel="noopener">' + escapeHtml(srv.url_browser) + '</a>'
+        : '';
+      html += '<div class="estado-srv-card ' + cls + '">';
+      html += '  <span class="dot"></span>';
+      html += '  <div>';
+      html += '    <div class="estado-srv-name">' + escapeHtml(srv.name) + '</div>';
+      html += '    <div class="estado-srv-meta">Puerto <strong>' + srv.port + '</strong>' + pid + ' · HTTP ' + escapeHtml(status) + ' · ' + escapeHtml(lat) + '</div>';
+      html += '    <div class="estado-srv-meta">' + escapeHtml(srv.role || '') + '</div>';
+      if (cls === 'up') {
+        html += '    <div class="estado-srv-meta">' + browseLink + '</div>';
+      } else {
+        html += '    <div class="estado-srv-meta">' + escapeHtml(srv.hint || '') + '</div>';
+      }
+      html += '  </div>';
+      html += '  <span class="estado-srv-tag">' + tag + '</span>';
+      html += '</div>';
+    });
+    grid.innerHTML = html || '<div class="estado-srv-loading">Sin servicios configurados.</div>';
+    foot.textContent = 'Generado: ' + (data.generated_at || '—');
+  }
+
+  function fetchEstado(){
+    if (inFlight) return;
+    inFlight = true;
+    fetch('/inicio/serviciosLocalesEstado', {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Front-Request': '1' }
+    })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          try { return JSON.parse(body); }
+          catch (e) { throw new Error('JSON inválido: ' + body.slice(0, 120)); }
+        });
+      })
+      .then(renderEstado)
+      .catch(function(err){
+        grid.innerHTML = '<div class="estado-srv-loading">Error: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
+        summary.textContent = 'ERR';
+        summary.className = 'estado-srv-summary err';
+      })
+      .finally(function(){ inFlight = false; });
+  }
+
+  function startAuto(){
+    stopAuto();
+    pollTimer = setInterval(fetchEstado, 5000);
+  }
+  function stopAuto(){
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  btnEstado.addEventListener('click', function(){
+    var open = panel.classList.toggle('open');
+    if (open) {
+      fetchEstado();
+      if (chkAuto && chkAuto.checked) startAuto();
+    } else {
+      stopAuto();
+    }
+  });
+  if (btnRefresh) btnRefresh.addEventListener('click', fetchEstado);
+  if (chkAuto) {
+    chkAuto.addEventListener('change', function(){
+      if (this.checked && panel.classList.contains('open')) startAuto();
+      else stopAuto();
     });
   }
 })();
