@@ -3879,10 +3879,10 @@ class Sabueso extends Controller
         $datos = json_decode($raw, true) ?: [];
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' ? (int)$datos['id_credito'] : 0;
         /**
-         * Por rendimiento, por defecto NO ejecutar extracción FAD en esta API.
-         * Si algún flujo necesita forzarlo puede enviar: { "omitir_fad": false }.
+         * Mostrar siempre "Dónde trabaja" en rastreo.
+         * Aunque el cliente envíe omitir_fad=true, aquí priorizamos devolver la info laboral.
          */
-        $omitirFad = !array_key_exists('omitir_fad', $datos) ? true : !empty($datos['omitir_fad']);
+        $omitirFad = false;
         if ($idCredito < 1) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'ID de crédito requerido.', 'datos' => null]);
             return;
@@ -3984,10 +3984,7 @@ class Sabueso extends Controller
         $apiUrl = isset($config['doc_verificacion']['api_url']) ? trim($config['doc_verificacion']['api_url']) : '';
         $apiKey = isset($config['doc_verificacion']['api_key']) ? trim($config['doc_verificacion']['api_key']) : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
         if ($apiUrl === '') {
-            if ($isTemp) {
-                @unlink($path);
-            }
-            return ['error' => 'api_no_config'];
+            $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
         }
         $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
         $endpoint = rtrim($baseUrl, '/') . '/fad/informacion-ingresos';
@@ -4146,7 +4143,8 @@ class Sabueso extends Controller
 
     private function getUbicacionesCachePath(int $idCredito, bool $modoRapido = false): string
     {
-        $sufijo = $modoRapido ? '_lite' : '';
+        // Bump lite suffix when lite payload shape changes (ej. domicilio_megareporte en modo rápido).
+        $sufijo = $modoRapido ? '_lite2' : '';
         return dirname(__DIR__) . '/storage/cache/sabueso_ubicaciones_' . $idCredito . $sufijo . '.json';
     }
 
@@ -4181,19 +4179,22 @@ class Sabueso extends Controller
             $domicilioMegareporte = null;
             $indiceCasa = null;
 
-            if (!$modoRapido) {
-                $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
-                $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
-                    ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
-                    : '';
-                if ($domicilioCompleto !== '' && !empty($puntosMapa)) {
-                    $geocoding = new GeocodingService();
-                    $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
-                    if (!empty($coordsMegareporte)) {
-                        $domicilioMegareporte = [
-                            'lat' => (float) $coordsMegareporte['lat'],
-                            'lng' => (float) $coordsMegareporte['lng'],
-                        ];
+            // En modo rápido seguimos omitiendo puntos_geo (BD alternas) pero sí devolvemos coords de megareporte
+            // para el mapa y el filtro; indice_casa solo se calcula en modo completo y con puntos en mapa.
+            $dirMegareporte = EmpresaDAO::getConsultaDireccionEstadoCuenta($idCredito);
+            $domicilioCompleto = ($dirMegareporte['success'] ?? false) && !empty($dirMegareporte['datos'][0]['Domicilio_Completo'])
+                ? trim((string) $dirMegareporte['datos'][0]['Domicilio_Completo'])
+                : '';
+            if ($domicilioCompleto !== '') {
+                $geocoding = new GeocodingService();
+                $coordsMegareporte = $geocoding->getDomicilioCoordsForCredito($idCredito, $domicilioCompleto);
+                if (!empty($coordsMegareporte)) {
+                    $domicilioMegareporte = [
+                        'lat' => (float) $coordsMegareporte['lat'],
+                        'lng' => (float) $coordsMegareporte['lng'],
+                        'direccion' => $domicilioCompleto,
+                    ];
+                    if (!$modoRapido && !empty($puntosMapa)) {
                         $domicilio = [
                             'id' => 'megareporte',
                             'lat' => (float) $coordsMegareporte['lat'],

@@ -50,6 +50,8 @@ class Inicio extends Controller
         $mostrarDiagnosticoAdmin = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 1)
             && !empty($configInicio['mostrar_botones_diagnostico']);
         $this->set('mostrarDiagnosticoAdmin', $mostrarDiagnosticoAdmin);
+        $mostrarBotonApiDocOneClick = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 878);
+        $this->set('mostrarBotonApiDocOneClick', $mostrarBotonApiDocOneClick);
 
         self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
     }
@@ -590,6 +592,397 @@ class Inicio extends Controller
         </body>
         </html>
         <?php
+    }
+
+    /**
+     * Inicia el flujo 1-click de API documentación en segundo plano.
+     * Solo usuario 878.
+     */
+    public function apiDocOneClickIniciar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+        if (stripos(PHP_OS, 'WIN') !== 0) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Este flujo 1-click está diseñado para Windows Server']);
+            return;
+        }
+
+        $apiDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API';
+        $launcherDir = $apiDir . DIRECTORY_SEPARATOR . 'launcher';
+        $runner = $launcherDir . DIRECTORY_SEPARATOR . 'web-api-1click-runner.bat';
+        $logsDir = $apiDir . DIRECTORY_SEPARATOR . 'logs';
+        if (!is_dir($logsDir)) {
+            @mkdir($logsDir, 0777, true);
+        }
+
+        if (!is_file($runner)) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se encontró el runner 1-click',
+                'runner' => $runner,
+            ]);
+            return;
+        }
+
+        $running = $this->apiDocOneClickHayProcesoActivo();
+        if ($running['is_running']) {
+            echo json_encode([
+                'success' => true,
+                'started' => false,
+                'message' => 'Ya hay una ejecución en curso. Mostrando log actual...',
+                'log_file' => basename((string)($running['log_file'] ?? '')),
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $logName = 'web-api-1click-' . date('Ymd-His') . '.log';
+        $logPath = $logsDir . DIRECTORY_SEPARATOR . $logName;
+        $_SESSION['api_doc_1click_log'] = $logPath;
+        $_SESSION['api_doc_1click_started_at'] = time();
+
+        $runnerQ = '"' . str_replace('"', '""', $runner) . '"';
+        $logQ = '"' . str_replace('"', '""', $logPath) . '"';
+        $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $runner) . '" > "' . str_replace('"', '""', $logPath) . '" 2>&1"';
+        @pclose(@popen($cmd, 'r'));
+
+        // Pequeña pausa para que el log nazca y no se vea vacío al primer poll
+        usleep(250000);
+
+        echo json_encode([
+            'success' => true,
+            'started' => true,
+            'message' => 'Ejecución 1-click iniciada.',
+            'log_file' => $logName,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Devuelve estado y tail del log de la ejecución 1-click.
+     * Solo usuario 878.
+     */
+    public function apiDocOneClickEstado()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+
+        $logPath = (string)($_SESSION['api_doc_1click_log'] ?? '');
+        if ($logPath === '' || !is_file($logPath)) {
+            echo json_encode([
+                'success' => true,
+                'has_log' => false,
+                'is_running' => false,
+                'completed' => false,
+                'message' => 'Aún no hay ejecución iniciada.',
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $content = $this->leerTailArchivo($logPath, 64000);
+        $completed = (strpos($content, '__FIN__:') !== false);
+        $exitCode = null;
+        if ($completed && preg_match('/__FIN__:(-?\d+)/', $content, $m)) {
+            $exitCode = (int)$m[1];
+        }
+        // Si el .bat murió por sintaxis CMD, no llega __FIN__: — detectar para no dejar el UI colgado en "Ejecutando".
+        $fatalBatch = $this->apiDocOneClickDetectFatalBatchError($content);
+        if ($fatalBatch) {
+            $completed = true;
+            if ($exitCode === null) {
+                $exitCode = 1;
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'has_log' => true,
+            'is_running' => !$completed,
+            'completed' => $completed,
+            'exit_code' => $exitCode,
+            'log_file' => basename($logPath),
+            'output_tail' => $content,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function apiDocOneClickHayProcesoActivo(): array
+    {
+        $logPath = (string)($_SESSION['api_doc_1click_log'] ?? '');
+        if ($logPath === '' || !is_file($logPath)) {
+            return ['is_running' => false];
+        }
+        $tail = $this->leerTailArchivo($logPath, 16000);
+        if (strpos($tail, '__FIN__:') !== false) {
+            return ['is_running' => false, 'log_file' => $logPath];
+        }
+        if ($this->apiDocOneClickDetectFatalBatchError($tail)) {
+            return ['is_running' => false, 'log_file' => $logPath];
+        }
+        return ['is_running' => true, 'log_file' => $logPath];
+    }
+
+    private function apiDocOneClickDetectFatalBatchError(string $content): bool
+    {
+        if ($content === '') {
+            return false;
+        }
+        $patterns = [
+            '. was unexpected at this time.',
+            'was unexpected at this time.',
+            "'-' is not recognized",
+            'is not recognized as an internal or external command',
+        ];
+        foreach ($patterns as $p) {
+            if (stripos($content, $p) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function leerTailArchivo(string $path, int $maxBytes = 64000): string
+    {
+        if (!is_file($path)) {
+            return '';
+        }
+        $size = @filesize($path);
+        if (!is_int($size) || $size <= 0) {
+            return '';
+        }
+
+        $fp = @fopen($path, 'rb');
+        if (!$fp) {
+            return '';
+        }
+
+        $readBytes = min($maxBytes, $size);
+        if ($size > $readBytes) {
+            @fseek($fp, $size - $readBytes);
+        }
+        $data = @fread($fp, $readBytes);
+        @fclose($fp);
+
+        if ($data === false) {
+            return '';
+        }
+        return (string)$data;
+    }
+
+    /**
+     * Lista archivos .log permitidos en backend/API/logs (para panel web usuario 878).
+     */
+    public function apiDocLogListar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+        $dir = $this->apiDocLogsDirResolved();
+        if ($dir === '') {
+            echo json_encode(['success' => false, 'message' => 'No existe carpeta logs de la API']);
+            return;
+        }
+        $items = [];
+        $dh = @opendir($dir);
+        if ($dh === false) {
+            echo json_encode(['success' => false, 'message' => 'No se puede leer la carpeta logs']);
+            return;
+        }
+        while (($f = readdir($dh)) !== false) {
+            if ($f === '.' || $f === '..') {
+                continue;
+            }
+            if (!$this->apiDocLogBasenamePermitido($f)) {
+                continue;
+            }
+            $full = $dir . DIRECTORY_SEPARATOR . $f;
+            if (!is_file($full)) {
+                continue;
+            }
+            $items[] = [
+                'name' => $f,
+                'size' => @filesize($full) ?: 0,
+                'mtime' => @filemtime($full) ?: 0,
+            ];
+        }
+        closedir($dh);
+        usort($items, static function ($a, $b) {
+            return ($b['mtime'] ?? 0) <=> ($a['mtime'] ?? 0);
+        });
+        echo json_encode([
+            'success' => true,
+            'logs_dir' => 'backend/API/logs',
+            'files' => $items,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Devuelve contenido de un log permitido (JSON). GET ?archivo=nombre.log&completo=1
+     */
+    public function apiDocLogContenido()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+        $base = isset($_GET['archivo']) ? (string) $_GET['archivo'] : '';
+        $completo = !empty($_GET['completo']) && $_GET['completo'] !== '0' && $_GET['completo'] !== 'false';
+        $resolved = $this->apiDocLogResolveSafe($base);
+        if ($resolved === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Archivo no permitido o no encontrado']);
+            return;
+        }
+        $maxFull = 524288; // 512 KiB
+        $maxTail = 131072; // 128 KiB
+        $size = @filesize($resolved);
+        if (!is_int($size) || $size <= 0) {
+            echo json_encode([
+                'success' => true,
+                'archivo' => basename($resolved),
+                'size' => 0,
+                'truncado' => false,
+                'contenido' => '',
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        if ($completo && $size > $maxFull) {
+            $content = $this->leerTailArchivo($resolved, $maxFull);
+            echo json_encode([
+                'success' => true,
+                'archivo' => basename($resolved),
+                'size' => $size,
+                'truncado' => true,
+                'nota' => 'Archivo muy grande: se muestran solo los últimos 512 KiB. Use descargar para el archivo completo.',
+                'contenido' => $content,
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        if (!$completo) {
+            $content = $this->leerTailArchivo($resolved, $maxTail);
+            echo json_encode([
+                'success' => true,
+                'archivo' => basename($resolved),
+                'size' => $size,
+                'truncado' => $size > $maxTail,
+                'contenido' => $content,
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        $content = @file_get_contents($resolved);
+        if ($content === false) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'No se pudo leer el archivo']);
+            return;
+        }
+        $jsonFlags = JSON_UNESCAPED_UNICODE;
+        if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+            $jsonFlags |= JSON_INVALID_UTF8_SUBSTITUTE;
+        }
+        echo json_encode([
+            'success' => true,
+            'archivo' => basename($resolved),
+            'size' => $size,
+            'truncado' => false,
+            'contenido' => $content,
+        ], $jsonFlags);
+    }
+
+    /**
+     * Descarga un log permitido como adjunto.
+     */
+    public function apiDocLogDescargar()
+    {
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'No autorizado';
+            return;
+        }
+        $base = isset($_GET['archivo']) ? (string) $_GET['archivo'] : '';
+        $resolved = $this->apiDocLogResolveSafe($base);
+        if ($resolved === '') {
+            http_response_code(404);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo 'Archivo no permitido o no encontrado';
+            return;
+        }
+        $name = basename($resolved);
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . str_replace('"', '', $name) . '"');
+        header('X-Content-Type-Options: nosniff');
+        $size = @filesize($resolved);
+        if (is_int($size) && $size > 0) {
+            header('Content-Length: ' . $size);
+        }
+        readfile($resolved);
+        exit;
+    }
+
+    private function apiDocLogsDirResolved(): string
+    {
+        $apiDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API';
+        $logs = $apiDir . DIRECTORY_SEPARATOR . 'logs';
+        $r = @realpath($logs);
+        return is_string($r) && is_dir($r) ? $r : '';
+    }
+
+    private function apiDocLogBasenamePermitido(string $base): bool
+    {
+        if ($base === '' || strpbrk($base, "\\/") !== false) {
+            return false;
+        }
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.log$/', $base)) {
+            return false;
+        }
+        return str_starts_with($base, 'web-api-1click-')
+            || str_starts_with($base, 'doctor-')
+            || str_starts_with($base, 'instalar-')
+            || str_starts_with($base, 'doctor-pip-')
+            || $base === 'api_oculto_startup.log'
+            || $base === 'uvicorn-stdout.log'
+            || $base === 'uvicorn-stderr.log';
+    }
+
+    /**
+     * Resuelve nombre seguro bajo API/logs; cadena vacía si inválido.
+     */
+    private function apiDocLogResolveSafe(string $base): string
+    {
+        $base = trim($base);
+        if (!$this->apiDocLogBasenamePermitido($base)) {
+            return '';
+        }
+        $dir = $this->apiDocLogsDirResolved();
+        if ($dir === '') {
+            return '';
+        }
+        $full = $dir . DIRECTORY_SEPARATOR . $base;
+        if (!is_file($full)) {
+            return '';
+        }
+        $real = @realpath($full);
+        if (!is_string($real) || !is_file($real)) {
+            return '';
+        }
+        $dirNorm = strtolower(str_replace('\\', '/', $dir));
+        $realNorm = strtolower(str_replace('\\', '/', $real));
+        if ($realNorm !== $dirNorm && strpos($realNorm, $dirNorm . '/') !== 0) {
+            return '';
+        }
+        return $real;
     }
 
     private function validarActualizacionPassword()

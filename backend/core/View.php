@@ -70,6 +70,31 @@ function getMenu(): string
                 '/analitica/callcenter',
                 '/analitica/resumencallcenter',
             ],
+            /**
+             * Panel Admin (entrada /sabueso/panelAdminInicio) y cada panel por módulo comparten contexto;
+             * si no se enlazan, el lateral no marca activo en /validaciones/paneladmin, etc.
+             */
+            '/sabueso/paneladmininicio' => [
+                '/sabueso/paneladmininicio',
+                '/sabueso/paneladmin',
+                '/validaciones/paneladmin',
+                '/validaciones/formulario',
+                '/viaticos/paneladmin',
+                '/plantilla/paneladmin',
+                '/atencioncliente/paneladmin',
+                '/aplicacionespago/paneladmin',
+                '/creditoproblematico/paneladmin',
+                '/aclaracioncredito/paneladmin',
+                '/sabueso/panelsolicitudbaja',
+            ],
+            '/validaciones/gestor' => [
+                '/validaciones/gestor',
+                '/validaciones/territorial',
+            ],
+            '/validaciones/territorial' => [
+                '/validaciones/gestor',
+                '/validaciones/territorial',
+            ],
         ];
         foreach ($sameSection as $canonical => $paths) {
             if ($menuPath !== $canonical) {
@@ -123,14 +148,14 @@ function getMenu(): string
         'Motos Adjudicadas' => [
             'icono'    => 'fa-solid fa-motorcycle',
             'subItems' => [
-                ['label' => 'Asignación de Créditos', 'url' => '/Adjudicacion/AsignacionCreditos',          'modulos' => [62]],
+                ['label' => 'Lista Dictámenes',       'url' => '/MotosAdjudicadas/listaDictamenes',         'modulos' => [64]],
+                ['label' => 'Admin Cobranza', 'url' => '/Adjudicacion/AsignacionCreditos',          'modulos' => [62]],
                 ['label' => 'Operaciones',            'url' => '/MotosAdjudicadas/pipeline',                'modulos' => [63]],
                 ['label' => 'Mis Adjudicaciones',     'url' => '/MotosAdjudicadas/misAdjudicaciones',       'modulos' => [64]],
-                ['label' => 'Lista Dictámenes',       'url' => '/MotosAdjudicadas/listaDictamenes',         'modulos' => [64]],
                 ['label' => 'Consulta REPUVE',         'url' => '/MotosAdjudicadas/repuveConsulta',         'modulos' => [64]],
                 ['label' => '1.- Evidencias',     'url' => '/AtencionClientes/evidencias',             'modulos' => [70]],
                 ['label' => '2.- Recuperación',   'url' => '/AtencionClientes/recuperacion',           'modulos' => [71]],
-                ['label' => '3.- Cierre Documentación', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
+                ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                 ['label' => '4.- Recepción',      'url' => '/AtencionClientes/recepcion',             'modulos' => [73]],
                 ['label' => 'Retenciones',    'url' => '/AtencionClientes/consulta',                'modulos' => [69]],
             ],

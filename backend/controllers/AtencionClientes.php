@@ -49,7 +49,7 @@ class AtencionClientes extends Controller
 
     /**
      * GET /AtencionClientes/cierreDocumentacion
-     * 3.- Cierre Documentación.
+     * 3.-Cartera.
      */
     public function cierreDocumentacion(): void
     {
@@ -248,7 +248,7 @@ class AtencionClientes extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            $datos = $this->model->obtenerOperacionesDictamenPorEstatusPipeline('Recepción');
+            $datos = $this->model->obtenerOperacionesDictamenPorEstatusPipeline('Recepción', true);
             echo json_encode(['success' => true, 'datos' => $datos], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             http_response_code(500);

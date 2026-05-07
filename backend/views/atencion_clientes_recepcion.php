@@ -628,7 +628,7 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
                 <h1 class="text-white">Recepción de Moto — Almacén</h1>
                 <p id="acr-rcpt-meta-line">Caso &nbsp;|&nbsp; Agente: — &nbsp;|&nbsp; <span id="acr-rcpt-hdate"></span></p>
             </div>
-            <span class="acr-rcpt-badge-rec">RECUPERACIÓN</span>
+            <span class="acr-rcpt-badge-rec">RECEPCIÓN</span>
         </div>
 
         <div class="acr-rcpt-steps">
@@ -636,7 +636,6 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
             <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Recuperación</div>
             <div class="acr-rcpt-step done"><span class="acr-rcpt-step-num"><i class="fa-solid fa-check"></i></span>Cierre documentación</div>
             <div class="acr-rcpt-step active"><span class="acr-rcpt-step-num"><i class="fa-solid fa-warehouse"></i></span>Recepción</div>
-            <div class="acr-rcpt-step"><span class="acr-rcpt-step-num">5</span>Retenciones</div>
         </div>
 
         <div class="acr-rcpt-section">

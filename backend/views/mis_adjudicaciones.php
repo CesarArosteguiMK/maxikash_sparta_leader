@@ -1504,20 +1504,15 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     /** Veredicto Atención por slot: 0 sin veredicto, 1 aceptada, 2 rechazada (solo slots con val_atn en BD). */
     let _madjSlotValAtn = {};
     let _madjEnsureOpPromise = null;
-    let _madjDatosMotoGuardados = false; // true cuando paso 1 está guardado
+    let _madjDatosMotoGuardados = false; // true cuando datos moto/logísticos ya guardados (tras evidencias completas)
     let _madjDatosMotoData = null;       // datos logísticos guardados en paso 1
     let _madjMotoApiData   = null;       // datos de moto auto-cargados desde API externa
     let _madjMotoApiStatus = 'idle';     // 'idle' | 'loading' | 'loaded' | 'unavailable' | 'error'
     let _madjMotoApiMsg    = '';
+    let _madjMotoFacturaStatus = 'idle'; // 'idle' | 'loading' | 'loaded' | 'unavailable' | 'error'
+    let _madjMotoFacturaMsg    = '';
 
     const MADJ_EV_SECTIONS = [
-        { key: 'recoleccion', label: 'Evidencia de Recolección (Final)', headerClass: 'madj-ev-hdr-orange', icon: 'fa-camera-retro',
-          slots: [
-              { key: 'rec_tacometro', label: 'Tacómetro Rec.',  icon: 'fa-gauge-high',    accept: 'image/jpeg,image/png' },
-              { key: 'rec_serie',     label: 'No. Serie Rec.',  icon: 'fa-hashtag',        accept: 'image/jpeg,image/png' },
-              { key: 'rec_frontal',   label: 'Frontal Rec.',    icon: 'fa-camera',         accept: 'image/jpeg,image/png' },
-              { key: 'rec_lateral',   label: 'Lateral Rec.',    icon: 'fa-camera-rotate',  accept: 'image/jpeg,image/png' },
-          ]},
         { key: 'fisica', label: 'Evidencia Física (Momento 1)', headerClass: 'madj-ev-hdr-blue', icon: 'fa-camera',
           slots: [
               { key: 'fis_vin',       label: 'Serie VIN',       icon: 'fa-barcode',        accept: 'image/jpeg,image/png' },
@@ -1525,6 +1520,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
               { key: 'fis_frontal',   label: 'Vista Frontal',   icon: 'fa-camera',         accept: 'image/jpeg,image/png' },
               { key: 'fis_lateral',   label: 'Vista Lateral',   icon: 'fa-camera-rotate',  accept: 'image/jpeg,image/png' },
               { key: 'fis_360',       label: 'Inspección 360',  icon: 'fa-video',          accept: 'video/mp4', isVideo: true },
+              { key: 'fis_contrato_dacion', label: 'Contrato Dación', icon: 'fa-file-signature', accept: 'image/jpeg,image/png,application/pdf', allowPdf: true },
           ]},
     ];
 
@@ -1540,6 +1536,30 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     const MADJ_MOTOR_MAX = 24;
     const MADJ_PLACAS_MOTO_MAX = 9;
     const MADJ_PLACAS_MOTO_MIN = 4;
+    const MADJ_DATOS_MOTO_REQUIRED = [
+        'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
+        'moto_no_serie', 'moto_no_motor', 'moto_placas',
+        'log_lugar_resguardo', 'log_direccion', 'log_ciudad',
+        'log_estado', 'log_telefono',
+    ];
+
+    function _madjTieneValor(v) {
+        return String(v == null ? '' : v).trim() !== '';
+    }
+
+    function _madjDatosMotoCompletos(datos) {
+        if (!datos || typeof datos !== 'object') return false;
+        if (!MADJ_DATOS_MOTO_REQUIRED.every(function (k) {
+            return _madjTieneValor(datos[k]);
+        })) {
+            return false;
+        }
+        const lr = String(datos.log_lugar_resguardo || '').trim();
+        if (lr === 'otro' && !_madjTieneValor(datos.log_lugar_otro)) {
+            return false;
+        }
+        return true;
+    }
 
     function _madjNormalizarEstatus(estatus) {
         const v = String(estatus || 'recibido').trim().toLowerCase();
@@ -1585,11 +1605,17 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
         if (det && det.datos_moto && typeof det.datos_moto === 'object' && Object.keys(det.datos_moto).length > 0) {
             _madjDatosMotoData = det.datos_moto;
-            _madjDatosMotoGuardados = true;
+            _madjDatosMotoGuardados = _madjDatosMotoCompletos(det.datos_moto);
         }
     }
 
     /** Hidratar respuesta de la API externa de motos */
+    function _madjMergeMotoAutoData(dm) {
+        if (!dm || typeof dm !== 'object') return;
+        _madjMotoApiData = Object.assign({}, _madjMotoApiData || {}, dm);
+    }
+
+    /** Hidratar respuesta de la API externa de motos (REPUVE) */
     function _madjHidratarMotoApi(apiResp) {
         if (!apiResp) {
             _madjMotoApiStatus = 'error';
@@ -1611,8 +1637,32 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             if (!_madjMotoApiMsg) _madjMotoApiMsg = 'No se pudieron recuperar datos autocompletables desde REPUVE.';
             return;
         }
-        _madjMotoApiData   = apiResp.datos_moto;
+        _madjMergeMotoAutoData(apiResp.datos_moto);
         _madjMotoApiStatus = 'loaded';
+    }
+
+    /** Hidratar respuesta de extracción automática desde FACTURA. */
+    function _madjHidratarMotoFactura(apiResp) {
+        if (!apiResp) {
+            _madjMotoFacturaStatus = 'error';
+            _madjMotoFacturaMsg = 'Respuesta vacía al consultar FACTURA.';
+            return;
+        }
+        _madjMotoFacturaMsg = String(apiResp.message || '').trim();
+        if (apiResp.unavailable) {
+            _madjMotoFacturaStatus = 'unavailable';
+            return;
+        }
+        if (!apiResp.success || !apiResp.datos_moto || typeof apiResp.datos_moto !== 'object') {
+            _madjMotoFacturaStatus = 'error';
+            if (!_madjMotoFacturaMsg) _madjMotoFacturaMsg = 'No se pudieron extraer datos autocompletables desde FACTURA.';
+            return;
+        }
+        _madjMergeMotoAutoData(apiResp.datos_moto);
+        _madjMotoFacturaStatus = 'loaded';
+        if (_madjMotoApiStatus !== 'loading') {
+            _madjMotoApiStatus = 'loaded';
+        }
     }
 
     function _madjMotoApiBannerHtml() {
@@ -1622,14 +1672,36 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 esc(_madjMotoApiMsg || 'Consultando REPUVE para autocompletar datos de la motocicleta...') +
                 '</div>';
         }
+        if (_madjMotoFacturaStatus === 'loading') {
+            return '<div class="alert alert-info py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-spinner fa-spin me-1"></i>' +
+                esc(_madjMotoFacturaMsg || 'Buscando datos en FACTURA para autocompletar No. de motor y color...') +
+                '</div>';
+        }
         if (_madjMotoApiStatus === 'loaded') {
             return '<div class="alert alert-success py-2 px-3 mb-2 small">' +
-                '<i class="fa-solid fa-circle-check me-1"></i>Datos base cargados desde REPUVE. Verifica y completa los campos faltantes.</div>';
+                '<i class="fa-solid fa-circle-check me-1"></i>Datos base autocompletados (REPUVE/FACTURA). Verifica y completa los campos faltantes.</div>';
+        }
+        if (_madjMotoFacturaStatus === 'loaded') {
+            return '<div class="alert alert-success py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-circle-check me-1"></i>Datos adicionales cargados desde FACTURA (VIN/Motor/Color cuando estén disponibles).</div>';
         }
         if (_madjMotoApiStatus === 'unavailable') {
             return '<div class="alert alert-warning py-2 px-3 mb-2 small">' +
                 '<i class="fa-solid fa-triangle-exclamation me-1"></i>' +
                 esc(_madjMotoApiMsg || 'REPUVE no está configurado en este ambiente. Captura manual requerida.') +
+                '</div>';
+        }
+        if (_madjMotoFacturaStatus === 'unavailable') {
+            return '<div class="alert alert-warning py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-triangle-exclamation me-1"></i>' +
+                esc(_madjMotoFacturaMsg || 'Extracción por FACTURA no disponible en este ambiente. Captura manual para campos faltantes.') +
+                '</div>';
+        }
+        if (_madjMotoFacturaStatus === 'error') {
+            return '<div class="alert alert-warning py-2 px-3 mb-2 small">' +
+                '<i class="fa-solid fa-triangle-exclamation me-1"></i>' +
+                esc(_madjMotoFacturaMsg || 'No se pudo extraer desde FACTURA para este crédito. Revisa si existe FACTURA cargada.') +
                 '</div>';
         }
         if (_madjMotoApiStatus === 'error') {
@@ -1644,7 +1716,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     function _madjAplicarMotoApiEnFormularioSiVacio() {
         if (!_madjMotoApiData || typeof _madjMotoApiData !== 'object') return;
         if (_madjDatosMotoGuardados) return;
-        const keys = ['moto_marca', 'moto_modelo', 'moto_anio', 'moto_no_serie', 'moto_placas'];
+        const keys = ['moto_marca', 'moto_modelo', 'moto_anio', 'moto_color', 'moto_no_serie', 'moto_no_motor', 'moto_placas'];
         keys.forEach(function (k) {
             const el = document.getElementById('madj-datos-' + k);
             if (!el) return;
@@ -1654,6 +1726,135 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             el.value = v;
             el.dispatchEvent(new Event('input', { bubbles: true }));
         });
+    }
+
+    /** Rellena campos de datos moto desde objeto datos_moto (REPUVE). Sobrescribe valores actuales si vienen no vacíos. */
+    function madjRellenarCamposDatosMotoDesdeObjeto(dm) {
+        if (!dm || typeof dm !== 'object') return;
+        const map = [
+            ['moto_marca', 'madj-datos-moto_marca'],
+            ['moto_modelo', 'madj-datos-moto_modelo'],
+            ['moto_anio', 'madj-datos-moto_anio'],
+            ['moto_color', 'madj-datos-moto_color'],
+            ['moto_no_serie', 'madj-datos-moto_no_serie'],
+            ['moto_no_motor', 'madj-datos-moto_no_motor'],
+            ['moto_placas', 'madj-datos-moto_placas'],
+        ];
+        map.forEach(function (pair) {
+            const k = pair[0];
+            const id = pair[1];
+            const el = document.getElementById(id);
+            if (!el) return;
+            let val = dm[k];
+            if (val == null || String(val).trim() === '') return;
+            if (k === 'moto_anio') {
+                const n = parseInt(String(val), 10);
+                val = !isNaN(n) && n > 0 ? String(n) : String(val).trim();
+            } else {
+                val = String(val).trim();
+            }
+            el.value = val;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    }
+
+    /** Consulta REPUVE usando el VIN capturado en el formulario (sin guardar aún en BD). */
+    function madjConsultarRepuveDesdeFormulario() {
+        const idCred = parseInt(String(_madjActiveCreditId || '0'), 10);
+        const vinEl = document.getElementById('madj-datos-moto_no_serie');
+        const btn = document.getElementById('madj-btn-consultar-repuve');
+
+        if (!idCred || idCred <= 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'warning', title: 'Crédito', text: 'No hay un crédito activo en el modal.', confirmButtonColor: '#f59e0b' });
+            }
+            return;
+        }
+        if (!vinEl) return;
+
+        let vin = String(vinEl.value || '').replace(/\s/g, '').toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/gi, '');
+        if (vin.length > MADJ_VIN_MAX) vin = vin.slice(0, MADJ_VIN_MAX);
+        vinEl.value = vin;
+
+        if (vin.length < MADJ_VIN_MIN) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'VIN incompleto',
+                    text: 'Captura un número de serie (VIN) válido (' + MADJ_VIN_MIN + '–' + MADJ_VIN_MAX + ' caracteres) antes de consultar REPUVE.',
+                    confirmButtonColor: '#f59e0b',
+                });
+            }
+            try { vinEl.focus(); } catch (e) {}
+            return;
+        }
+
+        const labelBtn = '<i class="fa-solid fa-database" aria-hidden="true"></i>';
+        const spinBtn = '<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = spinBtn;
+        }
+
+        fetch('/MotosAdjudicadas/ejecutarConsultaRepuve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ id_credito: idCred, tipo: 'vin', valor: vin }),
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = labelBtn;
+                }
+                if (!resp || !resp.success) {
+                    const msg = (resp && resp.message) ? resp.message : 'No se pudo completar la consulta.';
+                    const enProceso = resp && resp.repuve && String(resp.repuve.estado || '').toUpperCase() === 'PROCESANDO';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: enProceso ? 'info' : 'warning',
+                            title: 'REPUVE',
+                            text: msg,
+                            confirmButtonColor: enProceso ? '#696cff' : '#f59e0b',
+                        });
+                    }
+                    return;
+                }
+                const dm = resp.datos_moto;
+                if (!dm || typeof dm !== 'object' || !Object.keys(dm).length) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'REPUVE',
+                            text: resp.message || 'La consulta no devolvió datos para autocompletar.',
+                            confirmButtonColor: '#696cff',
+                        });
+                    }
+                    return;
+                }
+                _madjMotoApiData = Object.assign({}, _madjMotoApiData || {}, dm);
+                _madjMotoApiStatus = 'loaded';
+                madjRellenarCamposDatosMotoDesdeObjeto(dm);
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Datos REPUVE',
+                        text: resp.message || 'Campos completados. Verifica la información y guarda cuando esté lista.',
+                        timer: 2600,
+                        showConfirmButton: false,
+                    });
+                }
+            })
+            .catch(function () {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = labelBtn;
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo contactar al servidor.', confirmButtonColor: '#dc2626' });
+                }
+            });
     }
 
     function _madjConsultarRepuveEnSegundoPlano(idCredito) {
@@ -1684,6 +1885,38 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             .catch(function () {
                 _madjMotoApiStatus = 'error';
                 _madjMotoApiMsg = 'Error de red al consultar REPUVE.';
+                if (!_madjDatosMotoGuardados) {
+                    _madjRenderEvModalBody({});
+                }
+            });
+    }
+
+    function _madjConsultarFacturaEnSegundoPlano(idCredito) {
+        const id = parseInt(idCredito, 10);
+        if (!id || id <= 0) return;
+        if (_madjDatosMotoGuardados) return;
+        if (_madjMotoFacturaStatus === 'loading' || _madjMotoFacturaStatus === 'loaded') return;
+
+        _madjMotoFacturaStatus = 'loading';
+        _madjMotoFacturaMsg = 'Buscando datos de motocicleta en FACTURA...';
+
+        fetch('/MotosAdjudicadas/obtenerDatosMotoFactura', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ id_credito: id }),
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                _madjHidratarMotoFactura(resp || {});
+                if (!_madjDatosMotoGuardados) {
+                    _madjAplicarMotoApiEnFormularioSiVacio();
+                    _madjRenderEvModalBody({});
+                    _madjAplicarMotoApiEnFormularioSiVacio();
+                }
+            })
+            .catch(function () {
+                _madjMotoFacturaStatus = 'error';
+                _madjMotoFacturaMsg = 'Error de red al consultar FACTURA.';
                 if (!_madjDatosMotoGuardados) {
                     _madjRenderEvModalBody({});
                 }
@@ -1738,6 +1971,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         _madjMotoApiData   = null;
         _madjMotoApiStatus = 'idle';
         _madjMotoApiMsg    = '';
+        _madjMotoFacturaStatus = 'idle';
+        _madjMotoFacturaMsg    = '';
 
         document.getElementById('madj-ev-titulo').textContent =
             nombreCliente || ('Crédito #' + idCredito);
@@ -1765,6 +2000,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 _madjHidratarDetalleRemoto(data.detalle || {});
                 _madjRenderEvModalBody(data.detalle || {});
                 _madjConsultarRepuveEnSegundoPlano(idCredito);
+                _madjConsultarFacturaEnSegundoPlano(idCredito);
             })
             .catch(() => {
                 document.getElementById('madj-ev-body').innerHTML =
@@ -1772,41 +2008,79 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             });
     }
 
+    function _madjHayPendienteEnvioEnSlotsActivos() {
+        for (const k of Object.keys(_madjSlotEstatus)) {
+            if (MADJ_EV_ALLOWED_SLOTS.has(k) && _madjSlotEstatus[k] === 'pendiente_envio') return true;
+        }
+        return false;
+    }
+
+    /** Todas las casillas de evidencia tienen archivo (paso previo a datos de la moto). */
+    function _madjEvidenciasSlotsCompletos() {
+        const totalSlots = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
+        return totalSlots > 0 && _madjContarEvidencias() >= totalSlots;
+    }
+
     // --------------------------------------------------------------
-    // RENDER BODY DEL MODAL — dos pasos
+    // RENDER BODY — 1 Evidencias fotográficas, 2 Datos moto; enviar solo con datos guardados
     // --------------------------------------------------------------
     function _madjRenderEvModalBody(det) {
-        const paso1Done = _madjDatosMotoGuardados;
+        const evidenciasCargadas = _madjEvidenciasSlotsCompletos();
+        const datosDone = _madjDatosMotoGuardados && _madjDatosMotoCompletos(_madjDatosMotoData || {});
 
-        // Actualizar barra mini de la tabla solo cuando paso 2 está activo
-        if (_madjActiveCreditId && paso1Done) {
-            _madjSetProgressCredito(_madjActiveCreditId, Object.keys(_madjEvState).length);
+        if (_madjActiveCreditId) {
+            _madjSetProgressCredito(_madjActiveCreditId, _madjContarEvidencias());
         }
 
         let html = '';
 
-        // ── Indicador de pasos ────────────────────────────────────────
         html += `
         <div class="madj-steps-indicator">
-            <div class="madj-step-item ${paso1Done ? 'done' : 'active'}">
-                <div class="madj-step-num">${paso1Done ? '<i class="fa-solid fa-check" style="font-size:.55rem;"></i>' : '1'}</div>
-                <span>Datos de la Moto</span>
-            </div>
-            <div class="madj-step-item ${paso1Done ? 'active' : ''}">
-                <div class="madj-step-num">2</div>
+            <div class="madj-step-item ${evidenciasCargadas ? 'done' : 'active'}">
+                <div class="madj-step-num">${evidenciasCargadas ? '<i class="fa-solid fa-check" style="font-size:.55rem;"></i>' : '1'}</div>
                 <span>Evidencias Fotográficas</span>
+            </div>
+            <div class="madj-step-item ${datosDone ? 'done' : (evidenciasCargadas ? 'active' : '')}">
+                <div class="madj-step-num">${datosDone ? '<i class="fa-solid fa-check" style="font-size:.55rem;"></i>' : '2'}</div>
+                <span>Datos de la Moto</span>
             </div>
         </div>`;
 
-        // ── Paso 1 ────────────────────────────────────────────────────
-        if (paso1Done) {
+        // ── Paso 1: evidencias fotográficas ───────────────────────────
+        const _totalSlots = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
+        const _uploaded   = _madjContarEvidencias();
+        const _pct        = _totalSlots ? Math.round((_uploaded / _totalSlots) * 100) : 0;
+
+        html += `
+        <div class="madj-ev-progress-wrap">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span style="font-size:.72rem;font-weight:700;color:#475569;">
+                    <i class="fa-solid fa-images me-1" style="color:#f59e0b;"></i>Progreso de evidencias
+                </span>
+                <span class="madj-ev-progress-lbl" id="madj-ev-progreso-lbl">${_uploaded} / ${_totalSlots}</span>
+            </div>
+            <div class="madj-ev-progress-bg">
+                <div class="madj-ev-progress-fill" id="madj-ev-progreso-fill" style="width:${_pct}%;"></div>
+            </div>
+        </div>`;
+
+        MADJ_EV_SECTIONS.forEach(sec => { html += _madjRenderEvSection(sec); });
+
+        // ── Paso 2: datos moto / logísticos (tras completar evidencias) ──
+        if (!evidenciasCargadas) {
+            html += `
+            <div class="madj-paso2-locked mt-3">
+                <i class="fa-solid fa-lock madj-lock-icon"></i>
+                <p class="mb-0">Sube <strong>todas</strong> las evidencias fotográficas arriba; después podrás capturar los datos de la motocicleta y la ubicación.</p>
+            </div>`;
+        } else if (datosDone) {
             const d = _madjDatosMotoData || {};
             const marca  = esc(d.moto_marca  || '');
             const modelo = esc(d.moto_modelo || '');
             const anio   = esc(d.moto_anio   || '');
             const serie  = esc(d.moto_no_serie || '');
             html += `
-            <div class="madj-datos-saved-wrap">
+            <div class="madj-datos-saved-wrap mt-3">
                 <span class="saved-lbl">
                     <i class="fa-solid fa-circle-check"></i>
                     Datos registrados &mdash; ${marca} ${modelo} ${anio}${serie ? ' &bull; Serie: ' + serie : ''}
@@ -1821,38 +2095,10 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             html += _madjRenderDatosMotoForm();
         }
 
-        // ── Paso 2 ────────────────────────────────────────────────────
-        if (paso1Done) {
-            const _totalSlots = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
-            const _uploaded   = Object.keys(_madjEvState).length;
-            const _pct        = _totalSlots ? Math.round((_uploaded / _totalSlots) * 100) : 0;
-
-            html += `
-            <div class="madj-ev-progress-wrap">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span style="font-size:.72rem;font-weight:700;color:#475569;">
-                        <i class="fa-solid fa-images me-1" style="color:#f59e0b;"></i>Progreso de evidencias
-                    </span>
-                    <span class="madj-ev-progress-lbl" id="madj-ev-progreso-lbl">${_uploaded} / ${_totalSlots}</span>
-                </div>
-                <div class="madj-ev-progress-bg">
-                    <div class="madj-ev-progress-fill" id="madj-ev-progreso-fill" style="width:${_pct}%;"></div>
-                </div>
-            </div>`;
-
-            MADJ_EV_SECTIONS.forEach(sec => { html += _madjRenderEvSection(sec); });
-        } else {
-            html += `
-            <div class="madj-paso2-locked">
-                <i class="fa-solid fa-lock madj-lock-icon"></i>
-                <p>Completa y guarda los datos de la motocicleta para desbloquear la subida de evidencias.</p>
-            </div>`;
-        }
-
         // Hidden file inputs (siempre en el DOM para que estén disponibles al subir)
         MADJ_EV_SECTIONS.forEach(sec => {
             sec.slots.forEach(sl => {
-                const capAttr = sl.isVideo ? 'capture="camcorder"' : 'capture="environment"';
+                const capAttr = sl.allowPdf ? '' : (sl.isVideo ? 'capture="camcorder"' : 'capture="environment"');
                 html += `<input type="file" id="madj-finput-${sl.key}" class="d-none"
                              accept="${sl.accept}" ${capAttr}
                              onchange="madjSlotChange('${sl.key}', this)">`;
@@ -1863,6 +2109,9 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         body.innerHTML = html;
         madjSanearDomUrls(body);
         _madjBindDatosMotoConstraints();
+        if (evidenciasCargadas && !datosDone) {
+            _madjAplicarMotoApiEnFormularioSiVacio();
+        }
         _madjActualizarBotonEnviar();
     }
 
@@ -1904,16 +2153,26 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 color.value = color.value.replace(/[0-9]/g, '');
             });
         }
-        const resp = document.getElementById('madj-datos-log_responsable');
-        if (resp) {
-            resp.addEventListener('input', function madjRespInput() {
-                resp.value = resp.value.replace(/[0-9]/g, '');
-            });
+        const lugSel = document.getElementById('madj-datos-log_lugar_resguardo');
+        const lugOtroInp = document.getElementById('madj-datos-log_lugar_otro');
+        function madjSyncLogLugarOtroVis() {
+            const wrap = document.getElementById('madj-wrap-log_lugar_otro');
+            if (!wrap || !lugSel) return;
+            const show = lugSel.value === 'otro';
+            wrap.classList.toggle('d-none', !show);
+            if (!show && lugOtroInp) {
+                lugOtroInp.value = '';
+                lugOtroInp.classList.remove('is-invalid');
+            }
+        }
+        if (lugSel) {
+            lugSel.addEventListener('change', madjSyncLogLugarOtroVis);
+            madjSyncLogLugarOtroVis();
         }
     }
 
     // --------------------------------------------------------------
-    // PASO 1 — Formulario de datos de la moto
+    // PASO 2 — Formulario de datos de la moto (tras evidencias completas)
     // --------------------------------------------------------------
     function _madjRenderDatosMotoForm() {
         const d = Object.assign({}, _madjMotoApiData || {}, _madjDatosMotoData || {});
@@ -1938,43 +2197,56 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             </div>
             <div class="madj-datos-sec-body">
                 <div class="row g-2">
-                    <div class="col-6 col-md-3 madj-datos-field">
+                    <div class="col-12 madj-datos-field">
+                        <label for="madj-datos-moto_no_serie" class="mb-0">No. de Serie (VIN) <span class="text-danger">*</span></label>
+                        <div class="madj-vin-repuve-inline mt-3 d-flex flex-wrap align-items-stretch gap-2"
+                             style="max-width:min(100%, 420px);">
+                            <input type="text" class="form-control form-control-sm text-uppercase flex-grow-1 madj-vin-input"
+                                   style="min-width:11rem;width:0;"
+                                   id="madj-datos-moto_no_serie"
+                                   placeholder="Ej. MH4KC0110LK012345 (17)" maxlength="${MADJ_VIN_MAX}" autocomplete="off"
+                                   title="ISO 3779 (motocicleta): máximo 17 caracteres; sin I, O ni Q"
+                                   value="${v('moto_no_serie')}">
+                            <button type="button" class="btn btn-outline-primary btn-sm px-2 d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                                    style="min-width:2.25rem;"
+                                    id="madj-btn-consultar-repuve"
+                                    onclick="madjConsultarRepuveDesdeFormulario()"
+                                    aria-label="Consultar REPUVE con este VIN"
+                                    title="Consultar REPUVE: usa el VIN capturado y, si el servicio encuentra el vehículo, autocompleta marca, modelo, año, placas y demás datos disponibles.">
+                                <i class="fa-solid fa-database" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_marca">Marca <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_marca"
                                placeholder="Ej. Honda" maxlength="100" value="${v('moto_marca')}">
                     </div>
-                    <div class="col-6 col-md-3 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_modelo">Modelo <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_modelo"
                                placeholder="Ej. CB125F" maxlength="100" value="${v('moto_modelo')}">
                     </div>
-                    <div class="col-6 col-md-2 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_anio">Año <span class="text-danger">*</span></label>
                         <input type="number" class="form-control form-control-sm" id="madj-datos-moto_anio"
                                placeholder="2022" min="1990" max="2030" value="${v('moto_anio')}">
                     </div>
-                    <div class="col-6 col-md-2 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_color">Color <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-moto_color"
                                placeholder="Ej. Rojo" maxlength="50" autocomplete="off"
                                title="Solo letras (sin números)"
                                value="${v('moto_color')}">
                     </div>
-                    <div class="col-6 col-md-4 madj-datos-field">
-                        <label for="madj-datos-moto_no_serie">No. de Serie (VIN) <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm text-uppercase" id="madj-datos-moto_no_serie"
-                               placeholder="Ej. MH4KC0110LK012345 (17)" maxlength="${MADJ_VIN_MAX}" autocomplete="off"
-                               title="ISO 3779 (motocicleta): máximo 17 caracteres; sin I, O ni Q"
-                               value="${v('moto_no_serie')}">
-                    </div>
-                    <div class="col-6 col-md-4 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_no_motor">No. de Motor <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm text-uppercase" id="madj-datos-moto_no_motor"
                                placeholder="Ej. JC65E-3900001" maxlength="${MADJ_MOTOR_MAX}" autocomplete="off"
                                title="Motocicleta: hasta ${MADJ_MOTOR_MAX} caracteres (letras, números, guion)"
                                value="${v('moto_no_motor')}">
                     </div>
-                    <div class="col-6 col-md-4 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-moto_placas">Placas <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm text-uppercase" id="madj-datos-moto_placas"
                                placeholder="Ej. Y001AA (moto)" maxlength="${MADJ_PLACAS_MOTO_MAX}" autocomplete="off"
@@ -1989,36 +2261,41 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             </div>
             <div class="madj-datos-sec-body">
                 <div class="row g-2">
-                    <div class="col-12 col-md-6 madj-datos-field">
-                        <label for="madj-datos-log_ubicacion">Nombre del Resguardo / Almacén <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="madj-datos-log_ubicacion"
-                               placeholder="Ej. Bodega Central Norte" maxlength="100" value="${v('log_ubicacion')}">
+                    <div class="col-12 col-md-4 madj-datos-field">
+                        <label for="madj-datos-log_lugar_resguardo">Lugar de resguardo <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="madj-datos-log_lugar_resguardo">
+                            <option value="">— Seleccionar —</option>
+                            <option value="mi_domicilio"${d.log_lugar_resguardo === 'mi_domicilio' ? ' selected' : ''}>Mi domicilio</option>
+                            <option value="sucursal"${d.log_lugar_resguardo === 'sucursal' ? ' selected' : ''}>Sucursal</option>
+                            <option value="otro"${d.log_lugar_resguardo === 'otro' ? ' selected' : ''}>Otro</option>
+                        </select>
                     </div>
-                    <div class="col-12 col-md-6 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field d-none" id="madj-wrap-log_lugar_otro">
+                        <label for="madj-datos-log_lugar_otro">Indicar cuál <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="madj-datos-log_lugar_otro"
+                               placeholder="Describe el lugar" maxlength="200" autocomplete="off"
+                               value="${v('log_lugar_otro')}">
+                    </div>
+                </div>
+                <div class="row g-2 mt-0">
+                    <div class="col-12 madj-datos-field">
                         <label for="madj-datos-log_direccion">Dirección <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_direccion"
                                placeholder="Calle, número, colonia" maxlength="100" value="${v('log_direccion')}">
                     </div>
-                    <div class="col-6 col-md-3 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_ciudad">Ciudad / Municipio <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_ciudad"
                                placeholder="Monterrey" maxlength="50" value="${v('log_ciudad')}">
                     </div>
-                    <div class="col-6 col-md-3 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_estado">Estado <span class="text-danger">*</span></label>
                         <select class="form-select form-select-sm" id="madj-datos-log_estado">
                             <option value="">— Seleccionar —</option>
                             ${estadoOptions}
                         </select>
                     </div>
-                    <div class="col-6 col-md-4 madj-datos-field">
-                        <label for="madj-datos-log_responsable">Responsable de Resguardo <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="madj-datos-log_responsable"
-                               placeholder="Nombre completo" maxlength="100" autocomplete="name"
-                               title="Solo nombre (letras); sin números"
-                               value="${v('log_responsable')}">
-                    </div>
-                    <div class="col-6 col-md-2 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_telefono">Teléfono de Contacto <span class="text-danger">*</span></label>
                         <input type="tel" class="form-control form-control-sm" id="madj-datos-log_telefono"
                                placeholder="10 dígitos" maxlength="10" pattern="[0-9]{10}"
@@ -2031,7 +2308,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 <button type="button" class="btn btn-sm" id="madj-btn-guardar-datos"
                         onclick="madjGuardarDatosMoto()"
                         style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff;font-weight:700;box-shadow:0 2px 8px rgba(217,119,6,.25);">
-                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar y desbloquear evidencias
+                    <i class="fa-solid fa-floppy-disk me-1"></i>Guardar datos de la motocicleta
                 </button>
             </div>
         </div>`;
@@ -2081,10 +2358,16 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <i class="fa-solid fa-arrows-rotate"></i>
                 </button>`
                 : '';
+            const esPdf = String(st.type || '').toLowerCase() === 'pdf';
             const media = sl.isVideo
                 ? `<video class="madj-thumb" data-madj-src="${esc(st.src)}" muted playsinline></video>
                    <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>`
-                : `<img class="madj-thumb" data-madj-src="${esc(st.src)}" alt="${esc(sl.label)}">`;
+                : (esPdf
+                    ? `<div class="d-flex flex-column align-items-center justify-content-center h-100 py-2 px-1">
+                           <i class="fa-solid fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>
+                           <span class="small fw-semibold mt-1">PDF</span>
+                       </div>`
+                    : `<img class="madj-thumb" data-madj-src="${esc(st.src)}" alt="${esc(sl.label)}">`);
             return `
             <div class="madj-ev-slot has-file ${statusCls}" id="madj-slot-${sl.key}">
                 ${media}
@@ -2114,17 +2397,18 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         const btn    = document.getElementById('madj-btn-enviar-evidencias');
         const notice = document.getElementById('madj-ev-sent-notice');
         const noticeRech = document.getElementById('madj-ev-rechazo-notice');
+        const datosListos = _madjDatosMotoGuardados;
         const totalSlots  = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
         const totalFilled = _madjContarEvidencias();
-        const hasPendiente = Object.values(_madjSlotEstatus).some(s => s === 'pendiente_envio');
-        const allSent = totalFilled >= totalSlots && !hasPendiente && totalFilled > 0 && !_madjSlotTieneRechazoAtn();
+        const hasPendiente = _madjHayPendienteEnvioEnSlotsActivos();
+        const allSent = datosListos && totalFilled >= totalSlots && !hasPendiente && totalFilled > 0 && !_madjSlotTieneRechazoAtn();
 
         if (_madjActiveCreditId) {
             _madjMarcarCreditoSent(_madjActiveCreditId, allSent);
         }
 
         if (btn) {
-            if (totalFilled >= totalSlots && hasPendiente) {
+            if (datosListos && totalFilled >= totalSlots && hasPendiente) {
                 btn.classList.remove('d-none');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias';
@@ -2317,7 +2601,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     throw new Error(data.message || 'No se pudo subir la evidencia.');
                 }
 
-                const isPdf   = file.type === 'application/pdf';
+                const isPdf   = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
                 const isVideo = file.type.startsWith('video');
                 _madjEvState[slotKey] = {
                     src:  madjUrlForDisplay(data.url),
@@ -2346,6 +2630,18 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                                      onclick="madjSlotTrigger('${slotKey}')">
                                  <i class="fa-solid fa-arrows-rotate"></i>
                              </button>`;
+                    } else if (isPdf) {
+                        slotEl.innerHTML =
+                            `<div class="d-flex flex-column align-items-center justify-content-center h-100 py-2 px-1">
+                                 <i class="fa-solid fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>
+                                 <span class="small fw-semibold mt-1">PDF</span>
+                             </div>
+                             <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
+                             ${statusBadge}
+                             <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
+                                     onclick="madjSlotTrigger('${slotKey}')">
+                                 <i class="fa-solid fa-arrows-rotate"></i>
+                             </button>`;
                     } else {
                         slotEl.innerHTML =
                             `<img class="madj-thumb" data-madj-src="${esc(madjUrlForDisplay(data.url))}" alt="">
@@ -2364,6 +2660,10 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 if (_madjActiveCreditId) {
                     _madjSetProgressCredito(_madjActiveCreditId, _madjCommittedSlots.size);
                 }
+                const tsSlots = MADJ_EV_SECTIONS.reduce((a, s) => a + s.slots.length, 0);
+                if (_madjContarEvidencias() >= tsSlots) {
+                    _madjRenderEvModalBody({});
+                }
             })
             .catch(err => {
                 if (slotEl) {
@@ -2377,8 +2677,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     async function madjEnviarEvidencias() {
         const confirm = await Swal.fire({
             title: '¿Enviar evidencias?',
-            html: '<p>Al enviar, las evidencias estarán disponibles para revisión.</p>' +
-                  '<p class="text-muted small mb-0">Las evidencias <strong>"Por enviar"</strong> pasarán a <strong>"Enviado"</strong>.</p>',
+            html: '<p>Las evidencias pasarán a la <strong>bandeja de entrada de evidencias</strong> para revisión y continuarán su ciclo habitual.</p>' +
+                  '<p class="text-muted small mb-0">Las marcadas como <strong>Por enviar</strong> quedarán como <strong>Enviado</strong>.</p>',
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, enviar',
@@ -2426,7 +2726,6 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 _madjMarcarCreditoSent(_madjActiveCreditId, true);
             }
 
-            // Mostrar aviso en el footer del modal
             _madjActualizarBotonEnviar();
 
             Swal.fire({
@@ -2446,14 +2745,15 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     }
 
     // --------------------------------------------------------------
-    // PASO 1 — GUARDAR / EDITAR DATOS DE LA MOTO
+    // GUARDAR / EDITAR DATOS DE LA MOTO (tras evidencias completas)
     // --------------------------------------------------------------
     function madjGuardarDatosMoto() {
         const campos = [
             'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
             'moto_no_serie', 'moto_no_motor', 'moto_placas',
-            'log_ubicacion', 'log_direccion', 'log_ciudad',
-            'log_estado', 'log_responsable', 'log_telefono',
+            'log_lugar_resguardo', 'log_lugar_otro',
+            'log_direccion', 'log_ciudad',
+            'log_estado', 'log_telefono',
         ];
 
         let valido = true;
@@ -2464,6 +2764,25 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             const el = document.getElementById('madj-datos-' + c);
             if (!el) return;
             const val = el.value.trim();
+
+            if (c === 'log_lugar_otro') {
+                const lugEl = document.getElementById('madj-datos-log_lugar_resguardo');
+                const lugVal = lugEl ? String(lugEl.value || '').trim() : '';
+                if (lugVal !== 'otro') {
+                    el.classList.remove('is-invalid');
+                    datos[c] = '';
+                    return;
+                }
+                if (!val) {
+                    el.classList.add('is-invalid');
+                    errores.push('Indica cuál es el lugar cuando eliges «Otro».');
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = val;
+                return;
+            }
 
             // Validación de vacío
             if (!val) {
@@ -2547,19 +2866,6 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 return;
             }
 
-            // Responsable — nombre sin dígitos
-            if (c === 'log_responsable') {
-                if (!/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s'.-]+$/u.test(val)) {
-                    el.classList.add('is-invalid');
-                    errores.push('El responsable debe ser un nombre (letras); no se permiten números.');
-                    valido = false;
-                    return;
-                }
-                el.classList.remove('is-invalid');
-                datos[c] = val;
-                return;
-            }
-
             // Validación específica: teléfono exactamente 10 dígitos
             if (c === 'log_telefono') {
                 if (!/^\d{10}$/.test(val)) {
@@ -2613,21 +2919,21 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 if (!data.success) throw new Error(data.message || 'Error al guardar los datos.');
 
                 _madjDatosMotoData = datos;
-                _madjDatosMotoGuardados = true;
+                _madjDatosMotoGuardados = _madjDatosMotoCompletos(datos);
                 _madjRenderEvModalBody({});
 
                 Swal.fire({
                     icon: 'success',
                     title: '¡Datos guardados!',
-                    text: 'Ahora puedes subir las evidencias fotográficas.',
-                    timer: 2000,
+                    text: 'Usa el botón inferior «Enviar evidencias» para enviarlas a revisión.',
+                    timer: 2600,
                     showConfirmButton: false,
                 });
             })
             .catch(err => {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i>Guardar y desbloquear evidencias';
+                    btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i>Guardar datos de la motocicleta';
                 }
                 Swal.fire('Error', err.message || 'No se pudieron guardar los datos.', 'error');
             });
@@ -2679,6 +2985,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // -----------------------------------------------------------------------------------------------------------------
     window.madjCargar            = madjCargar;
     window.madjAplicarFiltro     = madjAplicarFiltro;
+    window.madjConsultarRepuveDesdeFormulario = madjConsultarRepuveDesdeFormulario;
     window.madjExportar          = madjExportar;
     window.madjEvidenciasAbrir   = madjEvidenciasAbrir;
     window.madjSlotTrigger       = madjSlotTrigger;
@@ -2692,7 +2999,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // ------------------------------------------------------------------
     // SANITIZACIÓN EN TIEMPO REAL — campos del formulario de moto/logística
     // ------------------------------------------------------------------
-    const _MADJ_LETTERS_ONLY = new Set(['moto_color', 'log_responsable']);
+    const _MADJ_LETTERS_ONLY = new Set(['moto_color']);
     const _MADJ_DIGITS_ONLY  = new Set(['log_telefono']);
 
     function _madjEsSpam(s) {

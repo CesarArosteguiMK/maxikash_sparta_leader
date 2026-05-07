@@ -159,6 +159,25 @@ class Adjudicacion extends Model
         return $this->db->queryAll($query) ?: [];
     }
 
+    /**
+     * Comprueba si id_persona corresponde a un responsable activo de adjudicación.
+     */
+    public function idPersonaEsResponsableActivo(int $idPersona): bool
+    {
+        if ($idPersona <= 0) {
+            return false;
+        }
+        $row = $this->db->queryOne(
+            "SELECT 1 AS ok
+             FROM personal_adjudicacion
+             WHERE id_persona = :id AND estatus = 'Activo'
+             LIMIT 1",
+            ['id' => $idPersona]
+        );
+
+        return !empty($row);
+    }
+
     // =========================================================================
     // DATOS DE UN RESPONSABLE
     // =========================================================================

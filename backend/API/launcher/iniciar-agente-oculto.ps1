@@ -1,95 +1,180 @@
-# Arranca uvicorn en 8000 sin usar iniciar-agente.bat (sin ventana CMD).
-# Lo invoca iniciar-agente-oculto.vbs y el orquestador en modo sin ventanas.
+# =====================================================================
+#  iniciar-agente-oculto.ps1
+#  Arranca uvicorn (puerto 8000) en segundo plano y SIN ventana, pero:
+#   - Hace smoke import previo (from app.main import app) para no
+#     enmascarar el error real cuando uvicorn no arranca.
+#   - Captura stdout y stderr de uvicorn a logs/uvicorn-stdout.log y
+#     logs/uvicorn-stderr.log (asi se ve el error de verdad si revienta).
+#   - Espera hasta 20s a que el puerto 8000 quede LISTENING.
+#   - Si no levanta, vuelca los ultimos errores en logs/api_oculto_startup.log
+#     y devuelve exit code != 0.
+# =====================================================================
 
 $ErrorActionPreference = 'Stop'
+
 $here = $PSScriptRoot
+if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $ApiDir = $here
 if (-not (Test-Path -LiteralPath (Join-Path $ApiDir 'app\main.py'))) {
     $parent = Split-Path -Parent $here
-    if (Test-Path -LiteralPath (Join-Path $parent 'app\main.py')) {
-        $ApiDir = $parent
-    }
+    if (Test-Path -LiteralPath (Join-Path $parent 'app\main.py')) { $ApiDir = $parent }
 }
-$logDir = Join-Path $ApiDir 'logs'
-$logFile = Join-Path $logDir 'api_oculto_startup.log'
+$logsDir   = Join-Path $ApiDir 'logs'
+$startLog  = Join-Path $logsDir 'api_oculto_startup.log'
+$outLog    = Join-Path $logsDir 'uvicorn-stdout.log'
+$errLog    = Join-Path $logsDir 'uvicorn-stderr.log'
 
-function Write-Log {
+if (-not (Test-Path -LiteralPath $logsDir)) {
+    try { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null } catch {}
+}
+
+function Write-Start {
     param([string] $Msg)
     try {
-        if (-not (Test-Path -LiteralPath $logDir)) {
-            New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-        }
         $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-        Add-Content -LiteralPath $logFile -Value "[$ts] $Msg" -Encoding UTF8
+        Add-Content -LiteralPath $startLog -Value "[$ts] $Msg" -Encoding UTF8
     } catch {}
 }
 
+Write-Start ('=' * 50)
+Write-Start "Inicio (PID host PowerShell: $PID)"
+Write-Start "ApiDir: $ApiDir"
+
+# ---- 1) Verificar app/main.py ----
 $mainPy = Join-Path $ApiDir 'app\main.py'
 if (-not (Test-Path -LiteralPath $mainPy)) {
-    Write-Log 'ERROR: No esta app\main.py en la carpeta API.'
+    Write-Start "ERROR: No esta app\main.py. Revise la carpeta API."
     exit 1
 }
 
+# ---- 2) Resolver Python ----
 $pyExe = $null
 $pyArgs = @()
-if (Test-Path -LiteralPath (Join-Path $ApiDir 'venv\Scripts\python.exe')) {
-    $pyExe = Join-Path $ApiDir 'venv\Scripts\python.exe'
-    Write-Log 'INFO: Usando Python de venv.'
+$venvPy = Join-Path $ApiDir 'venv\Scripts\python.exe'
+if (Test-Path -LiteralPath $venvPy) {
+    $pyExe = $venvPy
+    Write-Start "Python: venv ($venvPy)"
 } else {
-    try {
-        & py -3 -c "import sys" *> $null
+    & py -3 -c "import sys" *> $null
+    if ($LASTEXITCODE -eq 0) {
+        $pyExe = 'py'; $pyArgs = @('-3')
+        Write-Start 'Python: py -3 (global)'
+    } else {
+        & python -c "import sys" *> $null
         if ($LASTEXITCODE -eq 0) {
-            $pyExe = 'py'
-            $pyArgs = @('-3')
-            Write-Log 'INFO: Usando Python global (py -3).'
+            $pyExe = 'python'
+            Write-Start 'Python: python (global)'
         }
-    } catch {}
-    if (-not $pyExe) {
-        try {
-            & python -c "import sys" *> $null
-            if ($LASTEXITCODE -eq 0) {
-                $pyExe = 'python'
-                Write-Log 'INFO: Usando Python global (python).'
-            }
-        } catch {}
     }
 }
 if (-not $pyExe) {
-    Write-Log 'ERROR: No se encontro Python (ni venv ni global).'
+    Write-Start 'ERROR: No se encontro Python (ni venv, ni py -3, ni python).'
+    Write-Start 'SOLUCION: ejecute launcher\Diagnosticar-API.bat para ver el detalle, o instale Python 3.10/3.11/3.12 64-bit.'
     exit 1
 }
 
-$listening = $false
+# ---- 3) Si ya hay algo escuchando en 8000, no relanzar ----
+$alreadyListening = $false
 try {
-    $conns = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
-    if ($conns) { $listening = $true }
+    $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+    if ($c) { $alreadyListening = $true }
 } catch {}
-if (-not $listening) {
+if (-not $alreadyListening) {
     foreach ($line in (netstat -ano 2>$null)) {
-        if ($line -match 'LISTENING' -and $line -match ':8000\s') {
-            $listening = $true
-            break
-        }
+        if ($line -match 'LISTENING' -and $line -match ':8000\s') { $alreadyListening = $true; break }
     }
 }
-if ($listening) {
-    Write-Log 'OK: Puerto 8000 ya en LISTEN; no se inicia de nuevo.'
+if ($alreadyListening) {
+    Write-Start 'OK: Puerto 8000 ya esta en LISTEN; no se inicia de nuevo.'
     exit 0
 }
 
-$argList = @()
-if ($pyArgs.Count -gt 0) { $argList += $pyArgs }
-$argList += @(
-    '-m', 'uvicorn',
-    'app.main:app',
-    '--host', '0.0.0.0',
-    '--port', '8000'
-)
-try {
-    Start-Process -FilePath $pyExe -ArgumentList $argList -WorkingDirectory $ApiDir -WindowStyle Hidden
-    Write-Log 'OK: uvicorn lanzado en segundo plano (sin ventana).'
-} catch {
-    Write-Log "ERROR: $($_.Exception.Message)"
+# ---- 4) Smoke import: si la app no se importa, NO arrancar a ciegas ----
+$smokeScript = Join-Path $here '_smoke_import.py'
+$smokeOut = ''
+$smokeRc  = 1
+if (Test-Path -LiteralPath $smokeScript) {
+    $tmpO = [System.IO.Path]::GetTempFileName()
+    $tmpE = [System.IO.Path]::GetTempFileName()
+    $sArgs = @()
+    if ($pyArgs.Count -gt 0) { $sArgs += $pyArgs }
+    $sArgs += $smokeScript
+    try {
+        $sp = Start-Process -FilePath $pyExe -ArgumentList $sArgs -WorkingDirectory $ApiDir `
+              -NoNewWindow -Wait -PassThru `
+              -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
+        $smokeRc = $sp.ExitCode
+        $smokeOut = ((Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue))
+    } catch {
+        $smokeOut = "Excepcion al lanzar smoke import: $($_.Exception.Message)"
+    } finally {
+        Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
+    }
+} else {
+    Write-Start "AVISO: no se encontro $smokeScript ; smoke import omitido."
+    $smokeRc = 0
+    $smokeOut = 'SMOKE_OK (omitido)'
+}
+if ($smokeRc -ne 0 -or $smokeOut -notmatch 'SMOKE_OK') {
+    Write-Start 'ERROR: smoke import fallo. uvicorn no podria arrancar la app. Detalle:'
+    foreach ($l in ($smokeOut -split "`r?`n")) {
+        if ($l.Trim()) { Write-Start ('  ' + $l.TrimEnd()) }
+    }
+    Write-Start 'SOLUCION: ejecute launcher\Diagnosticar-API.bat para auto-diagnosticar (use /FIX o /INSTALL).'
     exit 1
 }
+Write-Start 'OK: smoke import correcto.'
+
+# ---- 5) Lanzar uvicorn capturando stdout y stderr ----
+$argList = @()
+if ($pyArgs.Count -gt 0) { $argList += $pyArgs }
+$argList += @('-m','uvicorn','app.main:app','--host','0.0.0.0','--port','8000')
+
+# Truncar logs anteriores (mantener historial seria sumar tamano sin control).
+try { Set-Content -LiteralPath $outLog -Value '' -Encoding UTF8 } catch {}
+try { Set-Content -LiteralPath $errLog -Value '' -Encoding UTF8 } catch {}
+
+try {
+    $proc = Start-Process -FilePath $pyExe -ArgumentList $argList -WorkingDirectory $ApiDir `
+        -WindowStyle Hidden -PassThru `
+        -RedirectStandardOutput $outLog `
+        -RedirectStandardError  $errLog
+    Write-Start "OK: uvicorn lanzado (PID $($proc.Id)). stdout=$outLog stderr=$errLog"
+} catch {
+    Write-Start "ERROR: no se pudo lanzar Python: $($_.Exception.Message)"
+    exit 1
+}
+
+# ---- 6) Esperar hasta 20s a que 8000 quede LISTENING ----
+$ok = $false
+for ($i = 0; $i -lt 40; $i++) {
+    Start-Sleep -Milliseconds 500
+    try {
+        $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+        if ($c) { $ok = $true; break }
+    } catch {}
+    # Si el proceso murio, no tiene sentido seguir esperando.
+    if ($proc.HasExited) { break }
+}
+
+if (-not $ok) {
+    Write-Start 'ERROR: uvicorn no quedo escuchando en :8000 tras 20s.'
+    if ($proc.HasExited) {
+        Write-Start "  ProcessExitCode: $($proc.ExitCode)"
+    } else {
+        Write-Start "  Proceso sigue vivo (PID $($proc.Id)) pero sin LISTEN. Posible bind a otra IP o tardando demasiado."
+    }
+    Write-Start '  --- Ultimas lineas de stderr ---'
+    try {
+        Get-Content -LiteralPath $errLog -Tail 40 -ErrorAction SilentlyContinue | ForEach-Object { Write-Start ('  ' + $_) }
+    } catch {}
+    Write-Start '  --- Ultimas lineas de stdout ---'
+    try {
+        Get-Content -LiteralPath $outLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { Write-Start ('  ' + $_) }
+    } catch {}
+    Write-Start 'SOLUCION: ejecute launcher\Diagnosticar-API.bat (o Diagnosticar-API.bat /FIX) para identificar la causa.'
+    exit 1
+}
+
+Write-Start 'OK: API escuchando en http://127.0.0.1:8000  (docs: /docs).'
 exit 0

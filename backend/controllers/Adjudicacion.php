@@ -22,7 +22,7 @@ class Adjudicacion extends Controller
     public function AsignacionCreditos()
     {
         $emp = defined('CONFIGURACION') && isset(CONFIGURACION['EMPRESA']) ? (string) CONFIGURACION['EMPRESA'] : '';
-        self::set('titulo', 'Asignación de Créditos para Adjudicación ' . $emp);
+        self::set('titulo', 'Admin Cobranza ' . $emp);
         return self::render('asignacion_creditosAdjudicacion');
     }
 

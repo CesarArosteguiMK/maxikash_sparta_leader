@@ -3,6 +3,7 @@
 namespace Controllers;
 
 use Core\Controller;
+use Models\Adjudicacion as AdjudicacionDAO;
 use Models\MotosAdjudicadas as MotosAdjudicadasDAO;
 
 class MotosAdjudicadas extends Controller
@@ -51,8 +52,69 @@ class MotosAdjudicadas extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
         try {
-            $rows = $this->model->obtenerListaDictumsMotos();
-            echo json_encode(['success' => true, 'rows' => $rows], JSON_UNESCAPED_UNICODE);
+            $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : null;
+            if ($limit !== null && $limit <= 0) {
+                $limit = null;
+            }
+            $offset = isset($_GET['offset']) ? max(0, (int) $_GET['offset']) : 0;
+            $modoRapido = isset($_GET['rapido']) && (string) $_GET['rapido'] === '1';
+
+            $result = $this->model->obtenerListaDictumsMotos($limit, $offset, $modoRapido);
+            echo json_encode(
+                [
+                    'success'  => true,
+                    'rows'     => $result['rows'],
+                    'has_more' => $result['has_more'],
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/obtenerListaDictamenesCompleta
+     * Segunda fase opcional para refrescar lista completa en background (sin repetir el mismo endpoint en Network).
+     */
+    public function obtenerListaDictamenesCompleta()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $result = $this->model->obtenerListaDictumsMotos(null, 0, false);
+            echo json_encode(
+                [
+                    'success'  => true,
+                    'rows'     => $result['rows'],
+                    'has_more' => $result['has_more'],
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+        } catch (\Throwable $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /MotosAdjudicadas/resolverNombresClienteDictamenes?ids=1,2,3
+     * Resuelve y cachea nombres por lote para la lista de dictámenes.
+     */
+    public function resolverNombresClienteDictamenes()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            $raw = trim((string) ($_GET['ids'] ?? ''));
+            if ($raw === '') {
+                echo json_encode(['success' => true, 'nombres' => []], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $raw)), static fn($v) => $v > 0)));
+            if ($ids === []) {
+                echo json_encode(['success' => true, 'nombres' => []], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $map = $this->model->resolverNombresClienteDictamenesPorCreditos($ids);
+            echo json_encode(['success' => true, 'nombres' => $map], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -215,6 +277,104 @@ class MotosAdjudicadas extends Controller
         try {
             $res = $this->model->obtenerResumenS2ModalDictamen($idCred);
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /MotosAdjudicadas/guardarSeguimientoMaDictamen
+     * Body JSON: id_credito, comentarios (obligatorio), aplica (0|1) para recolección,
+     * gestor_manual (bool): si true, id_persona_responsable es el elegido en catálogo; si false, se usa id_persona_responsable_default (Gestor Legacy).
+     * La asignación llama a Adjudicacion::asignarCredito, que crea fila en personal_adjudicacion si aún no existe.
+     * Persiste seguimiento en adj_s2_cache_dictamen (ma_seg_comentarios, ma_seg_aplica, ma_seg_actualizado_at).
+     * Asignación a Mis adjudicaciones solo si aplica === 1.
+     */
+    public function guardarSeguimientoMaDictamen()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $body                   = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito              = (int) ($body['id_credito'] ?? $body['id_dictum'] ?? 0);
+        $comentarios            = trim((string) ($body['comentarios'] ?? ''));
+        $idPersonaManual        = (int) ($body['id_persona_responsable'] ?? 0);
+        $idPersonaDefault       = (int) ($body['id_persona_responsable_default'] ?? 0);
+        $gestorManualRaw        = $body['gestor_manual'] ?? false;
+        $gestorManual           = ($gestorManualRaw === true || $gestorManualRaw === 1 || $gestorManualRaw === '1');
+        $aplicaRaw              = $body['aplica'] ?? null;
+        $aplica                 = null;
+        if ($aplicaRaw === 0 || $aplicaRaw === '0' || $aplicaRaw === false) {
+            $aplica = 0;
+        } elseif ($aplicaRaw === 1 || $aplicaRaw === '1' || $aplicaRaw === true) {
+            $aplica = 1;
+        }
+
+        $idPersonaResponsable = 0;
+        $adj                  = new AdjudicacionDAO();
+        if ($aplica === 1) {
+            if ($gestorManual) {
+                if ($idPersonaManual <= 0) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Seleccione un gestor en la lista (Elegir gestor) o guarde sin selección para usar el Gestor a cargo (Legacy).',
+                    ], JSON_UNESCAPED_UNICODE);
+
+                    return;
+                }
+                $idPersonaResponsable = $idPersonaManual;
+            } else {
+                if ($idPersonaDefault <= 0) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'No hay Gestor a cargo (Legacy) vinculado a persona en Sparta. Revise dictum → users → número de empleado.',
+                    ], JSON_UNESCAPED_UNICODE);
+
+                    return;
+                }
+                $idPersonaResponsable = $idPersonaDefault;
+            }
+        }
+
+        try {
+            $result = $this->model->guardarSeguimientoMaDictamen($idCredito, $comentarios, $aplica);
+            if (!empty($result['success']) && $idCredito > 0 && $aplica === 1) {
+                $idUsuarioAlta = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+                if ($idUsuarioAlta > 0) {
+                    $asig = $adj->asignarCredito($idPersonaResponsable, $idCredito, $idUsuarioAlta);
+                    if (empty($asig['success']) && !empty($asig['message'])) {
+                        $m = (string) $asig['message'];
+                        if (stripos($m, 'ya está asignado a este responsable') !== false
+                            || stripos($m, 'ya esta asignado a este responsable') !== false) {
+                            $asig['success'] = true;
+                            $asig['message'] = 'El crédito ya estaba asignado al responsable seleccionado.';
+                        }
+                    }
+                    $result['asignacion'] = $asig;
+                    if (!empty($asig['success'])) {
+                        $result['message'] = 'Seguimiento guardado. '
+                            . ($asig['message'] ?? 'Crédito asignado correctamente; aparecerá en Mis adjudicaciones del responsable.');
+                    } else {
+                        $result['message'] = 'Seguimiento guardado. '
+                            . ($asig['message'] ?? 'No se pudo completar la asignación.');
+                    }
+                } else {
+                    $result['asignacion'] = [
+                        'success' => false,
+                        'message' => 'No hay persona en sesión para registrar la asignación.',
+                    ];
+                    $result['message'] = 'Seguimiento guardado. '
+                        . ($result['asignacion']['message'] ?? '');
+                }
+            } elseif (!empty($result['success']) && $idCredito > 0 && $aplica === 0) {
+                $result['message'] = 'Seguimiento guardado. No aplica para recolección: el crédito no se asignó a Mis adjudicaciones.';
+                $result['asignacion'] = [
+                    'success'                  => true,
+                    'omitida_por_recoleccion'  => true,
+                    'message'                  => 'Sin asignación al indicar que no aplica para recolección.',
+                ];
+            } elseif (!empty($result['success'])) {
+                $result['message'] = 'Seguimiento guardado.';
+            }
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -532,8 +692,8 @@ class MotosAdjudicadas extends Controller
             $camposMoto = [
                 'moto_marca','moto_modelo','moto_anio','moto_color',
                 'moto_no_serie','moto_no_motor','moto_placas',
-                'log_ubicacion','log_direccion','log_ciudad',
-                'log_estado','log_responsable','log_telefono',
+                'log_direccion','log_ciudad',
+                'log_estado','log_lugar_resguardo','log_lugar_otro','log_telefono',
             ];
             $tieneDatosMoto = false;
             foreach ($camposMoto as $c) {
@@ -644,6 +804,31 @@ class MotosAdjudicadas extends Controller
     }
 
     /**
+     * POST /MotosAdjudicadas/obtenerDatosMotoFactura
+     * Body JSON: { "id_credito": 12345 }
+     * Extrae VIN, motor y color desde el documento FACTURA (si existe).
+     */
+    public function obtenerDatosMotoFactura()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $body      = json_decode(file_get_contents('php://input'), true) ?? [];
+        $idCredito = (int) ($body['id_credito'] ?? 0);
+
+        if ($idCredito <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de crédito inválido.']);
+            return;
+        }
+
+        try {
+            $result = $this->model->obtenerDatosMotoDesdeFactura($idCredito);
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * POST /MotosAdjudicadas/ejecutarConsultaRepuve
      * Body JSON: { "id_credito": 12345, "tipo": "plate"|"vin", "valor": "..." }
      * Exige crédito con asignación activa en adjudicación.
@@ -714,7 +899,7 @@ class MotosAdjudicadas extends Controller
     {
         header('Content-Type: application/json; charset=utf-8');
 
-        $idPersona = $_SESSION['usuario_id'] ?? null;
+        $idPersona = $_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? null;
         if (!$idPersona) {
             echo json_encode(['success' => false, 'message' => 'Sesión no identificada.']);
             return;

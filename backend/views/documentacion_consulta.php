@@ -186,7 +186,7 @@
                             <i class="fa fa-video"></i>
                         </button>
                         <div style="width: 1px; height: 20px; background-color: rgba(255,255,255,0.3); display: none;" id="pdfDescargarFADSep"></div>
-                        <a id="pdfDescargarFADBtn" href="#" class="btn btn-sm btn-success" style="min-width: 44px; min-height: 44px; display: none; align-items: center; justify-content: center; text-decoration: none;" title="Descargar PDF FAD_DOC">
+                        <a id="pdfDescargarFADBtn" href="#" class="btn btn-sm btn-success" style="min-width: 44px; min-height: 44px; display: none; align-items: center; justify-content: center; text-decoration: none;" title="Descargar PDF (FAD o factura)">
                             <i class="fa fa-download"></i>
                         </a>
                     </div>
@@ -1954,11 +1954,15 @@
             const btn = document.getElementById('pdfDescargarFADBtn');
             const sep = document.getElementById('pdfDescargarFADSep');
             if (!btn || !sep) return;
-            const esFAD = typeof window.tipoDocumentoActual !== 'undefined' && window.tipoDocumentoActual === 'FAD_DOC';
+            const tipo = typeof window.tipoDocumentoActual !== 'undefined' ? window.tipoDocumentoActual : '';
+            const esFAD = tipo === 'FAD_DOC';
+            const esFactura = tipo === 'FACTURA';
             const puedeDescargar = typeof window.tienePermisoDescargarPDFFAD_DOC !== 'undefined' && window.tienePermisoDescargarPDFFAD_DOC;
             const idCredito = typeof window.idCreditoDocumentoActual !== 'undefined' ? window.idCreditoDocumentoActual : '';
-            if (esFAD && puedeDescargar && idCredito) {
-                btn.href = '/EstadoCuenta/descargarPdfFAD_DOC?id=' + encodeURIComponent(idCredito);
+            if ((esFAD || esFactura) && puedeDescargar && idCredito) {
+                btn.href = esFAD
+                    ? '/EstadoCuenta/descargarPdfFAD_DOC?id=' + encodeURIComponent(idCredito)
+                    : '/EstadoCuenta/descargarPdfFactura?id=' + encodeURIComponent(idCredito);
                 btn.style.display = 'flex';
                 sep.style.display = 'block';
             } else {

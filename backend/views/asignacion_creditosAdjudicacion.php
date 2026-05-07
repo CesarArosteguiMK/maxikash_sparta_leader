@@ -340,17 +340,9 @@
 <!-- Título de la página -->
 <h4 class="mb-2">
     <i class="fa-solid fa-motorcycle me-2" style="color: var(--adj-amber);"></i>
-    Asignación de Créditos para Motos Adjudicadas
+    Admin Cobranza
 </h4>
-
-<!-- Banner contextual del módulo -->
-<div class="mb-4 d-flex align-items-center gap-2 px-3 py-2 rounded-2"
-     style="background:var(--adj-amber-light); border:1px solid var(--adj-amber-border); border-left:4px solid var(--adj-amber);">
-    <i class="fa-solid fa-circle-info" style="color:var(--adj-amber); flex-shrink:0;"></i>
-    <span style="font-size:0.875rem; color:var(--adj-amber-text);">
-        <strong>Módulo Adjudicación</strong> — Selecciona un gestor, busca créditos y gestiona sus asignaciones de recuperación.
-    </span>
-</div>
+<p class="text-muted small mb-3">Asignación de créditos para motos adjudicadas</p>
 
 <div class="row g-4 mb-4">
     <!-- PANEL IZQUIERDO -->
@@ -481,7 +473,7 @@
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="card-title mb-0 d-flex align-items-center gap-2">
                         <span class="adj-step-badge">2</span>
-                        <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar y asignar crédito
+                        <i class="fa-solid fa-magnifying-glass me-1"></i>Buscar y asignar crédito manualmente
                     </h5>
                     <button class="btn btn-outline-secondary btn-sm" id="adj-btn-refresh-tabla"
                             onclick="adjRefreshTablaCreditos()" title="Actualizar tabla de créditos asignados">
@@ -491,7 +483,7 @@
 
                 <div class="alert-adj-amber mb-4">
                     <i class="fa-solid fa-motorcycle me-2"></i>
-                    Busque un crédito por su ID y asígnelo al responsable seleccionado para adjudicación
+                    Busque un crédito por su ID y asígnelo al responsable seleccionado para adjudicación. Esta opción es exclusiva si llegara a presentarse una incidencia «Legacy».
                 </div>
 
                 <!-- Filtros -->

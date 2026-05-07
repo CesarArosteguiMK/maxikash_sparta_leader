@@ -1243,7 +1243,7 @@ class Reporteria extends Controller
 
         $data = $r['datos'];
 
-        // Columnas completas según tu var_dump
+        // Columnas alineadas al resultado del reporte de corte (EmpresasDAO)
         $columnas = [
             \PHPSpreadsheet::ColumnaExcel('id_original', 'ID ORIGINAL'),
             \PHPSpreadsheet::ColumnaExcel('Telefono', 'TELEFONO'),
@@ -1302,7 +1302,7 @@ class Reporteria extends Controller
 
         $data = $r['datos'];
 
-        // Columnas completas según tu var_dump
+        // Columnas alineadas al resultado del reporte Legacy (EmpresasDAO)
         // Columnas que coinciden con los datos de la consulta SQL
         // IMPORTANTE: El primer parámetro es el CAMPO (clave del array), el segundo es el TÍTULO
         $columnas = [
@@ -2528,16 +2528,26 @@ class Reporteria extends Controller
 
             /* ── Ranking jerarquía — rediseñado ── */
             function renderStatsJerarquia(data) {
-                const territoriales = {};
+                const liderObsKey = (r) => {
+                    const raw = r.Observaciones != null ? r.Observaciones : (r.observaciones != null ? r.observaciones : '');
+                    const s = String(raw).trim();
+                    return s !== '' ? s : '(Sin líder)';
+                };
+
+                const lideres = {};
 
                 data.forEach(r => {
+                    const lid  = liderObsKey(r);
                     const ter  = r.Territorial     || '(Sin territorial)';
                     const zon  = r.Zonal           || '(Sin zonal)';
                     const jefe = r.Jefe_de_Plaza   || '(Sin jefe)';
                     const gest = r.Gestor_Asignado || '(Sin gestor)';
 
-                    if (!territoriales[ter]) territoriales[ter] = { total:0, cobrados:0, pendientes:0, zonales:{} };
-                    const T = territoriales[ter]; T.total++;
+                    if (!lideres[lid]) lideres[lid] = { total:0, cobrados:0, pendientes:0, territoriales:{} };
+                    const L = lideres[lid]; L.total++;
+
+                    if (!L.territoriales[ter]) L.territoriales[ter] = { total:0, cobrados:0, pendientes:0, zonales:{} };
+                    const T = L.territoriales[ter]; T.total++;
 
                     /* clave combinada zonal+jefe para evitar filas dobles */
                     const zonKey = zon === jefe ? zon : `${zon}|||${jefe}`;
@@ -2566,9 +2576,9 @@ class Reporteria extends Controller
                     }
 
                     if (cobro) {
-                        G.cobrados++;  Z.cobrados++;  T.cobrados++;
+                        G.cobrados++;  Z.cobrados++;  T.cobrados++;  L.cobrados++;
                     } else {
-                        G.pendientes++; Z.pendientes++; T.pendientes++;
+                        G.pendientes++; Z.pendientes++; T.pendientes++; L.pendientes++;
                     }
                 });
 
@@ -2577,17 +2587,15 @@ class Reporteria extends Controller
                     /^current$/i.test(nombre.trim()) ||
                     nombre.trim() === '(Sin territorial)';
 
-                const terOrdenados = Object.entries(territoriales)
-                    .map(([k,v]) => ({ nombre:k, ...v }))
-                    .sort((a, b) => {
-                        if (esCurrent(a.nombre)) return -1;
-                        if (esCurrent(b.nombre)) return  1;
-                        return (a.cobrados / Math.max(a.total,1)) - (b.cobrados / Math.max(b.total,1));
-                    });
-
-                const tieneCarteraReal = terOrdenados.some(
-                    t => !esCurrent(t.nombre) && (t.total > 0)
+                const tieneCarteraReal = Object.values(lideres).some(L =>
+                    Object.keys(L.territoriales).some((nombreTer) => !esCurrent(nombreTer))
                 );
+
+                const liderOrdenados = Object.entries(lideres)
+                    .map(([k,v]) => ({ nombre:k, ...v }))
+                    .sort((a, b) =>
+                        (a.cobrados / Math.max(a.total, 1)) - (b.cobrados / Math.max(b.total, 1))
+                    );
 
                 const barColor = (pct) => pct >= 70 ? '#28a745' : pct >= 40 ? '#fd7e14' : '#dc3545';
                 const pphEsc = (s) => String(s)
@@ -2644,12 +2652,8 @@ class Reporteria extends Controller
                 const pphDonOf = (pct) => (pphDonC * (1 - Math.min(100, pct) / 100)).toFixed(2);
 
                 let html = '';
-                terOrdenados.forEach((ter, idx) => {
-
-                    /* ── Sin cartera operativa: aviso solo si no hay ningún territorial real con créditos ── */
-                    if (esCurrent(ter.nombre)) {
-                        if (!tieneCarteraReal) {
-                            html += `
+                let htmlAviso = '';
+                const avisoSinCartera = `
                         <div class="card mb-3 border-start border-3 border-secondary">
                             <div class="card-body py-3">
                                 <p class="mb-0 text-muted" style="font-size:.82rem;">
@@ -2658,21 +2662,40 @@ class Reporteria extends Controller
                                 </p>
                             </div>
                         </div>`;
+
+                liderOrdenados.forEach((lid, lidx) => {
+                    const pctLid = lid.total ? Math.round(lid.cobrados / lid.total * 100) : 0;
+
+                    const terOrdenados = Object.entries(lid.territoriales)
+                        .map(([k,v]) => ({ nombre:k, ...v }))
+                        .sort((a, b) => {
+                            if (esCurrent(a.nombre)) return -1;
+                            if (esCurrent(b.nombre)) return  1;
+                            return (a.cobrados / Math.max(a.total,1)) - (b.cobrados / Math.max(b.total,1));
+                        });
+
+                    let htmlTer = '';
+                    terOrdenados.forEach((ter, tix) => {
+
+                        /* ── Sin cartera operativa: aviso solo si no hay ningún territorial real con créditos ── */
+                        if (esCurrent(ter.nombre)) {
+                            if (!tieneCarteraReal && !htmlAviso) {
+                                htmlAviso = avisoSinCartera;
+                            }
+                            return;
                         }
-                        return;
-                    }
 
-                    /* ── Territorial normal ── */
-                    const pctTer = ter.total ? Math.round(ter.cobrados / ter.total * 100) : 0;
+                        /* ── Territorial normal ── */
+                        const pctTer = ter.total ? Math.round(ter.cobrados / ter.total * 100) : 0;
 
-                    const zonOrdenados = Object.values(ter.zonales)
-                        .sort((a,b) => (a.cobrados/Math.max(a.total,1)) - (b.cobrados/Math.max(b.total,1)));
+                        const zonOrdenados = Object.values(ter.zonales)
+                            .sort((a,b) => (a.cobrados/Math.max(a.total,1)) - (b.cobrados/Math.max(b.total,1)));
 
-                    let htmlZon = '';
-                    zonOrdenados.forEach((zon, zix) => {
+                        let htmlZon = '';
+                        zonOrdenados.forEach((zon, zix) => {
                         const pZ = zon.total ? Math.round(zon.cobrados / zon.total * 100) : 0;
                         const nombreMostrar = zon.mismoNombre ? zon.zonNombre : zon.jefNombre;
-                        const pphZonCid = `pphZonB_${idx}_${zix}`;
+                        const pphZonCid = `pphZonB_${lidx}_${tix}_${zix}`;
 
                         const gestOrdenados = Object.entries(zon.gestores)
                             .map(([k,v]) => ({ nombre:k, ...v }))
@@ -2680,7 +2703,7 @@ class Reporteria extends Controller
 
                         let htmlGest = '';
                         gestOrdenados.forEach((gest, gix) => {
-                            const crdId = `pphCrd_${idx}_${zix}_${gix}`;
+                            const crdId = `pphCrd_${lidx}_${tix}_${zix}_${gix}`;
                             const gList = pphAgruparCredsCobPend(gest.idCreditos);
                             const nIds = gList.total;
                             const filaCred = (idStr, nomStr, esCobr) => {
@@ -2765,10 +2788,10 @@ class Reporteria extends Controller
                                 <div class="bg-white">${htmlGest}</div>
                             </div>
                         </div>`;
-                    });
+                        });
 
-                    html += `<div class="mb-3 rounded-3 border overflow-hidden">
-                        <div class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 bg-white text-body border-bottom" style="cursor: pointer" data-bs-toggle="collapse" data-bs-target="#ter_${idx}" aria-expanded="false" role="button" tabindex="0">
+                        htmlTer += `<div class="mb-2 rounded-2 border overflow-hidden">
+                        <div class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 bg-white text-body border-bottom" style="cursor: pointer" data-bs-toggle="collapse" data-bs-target="#ter_${lidx}_${tix}" aria-expanded="false" role="button" tabindex="0">
                             <span class="small text-muted text-uppercase fw-semibold">Territorial</span>
                             <span class="fw-medium fs-6 flex-grow-1 text-body">${pphEsc(ter.nombre)}</span>
                             <span class="cartera-jer-cred-pill badge rounded-pill border text-body fw-medium px-2" style="background: #F4F3EF;">${fmtInt(ter.total)} créditos</span>
@@ -2786,12 +2809,39 @@ class Reporteria extends Controller
                             </svg>
                             <span class="text-muted user-select-none d-inline-block">▾</span>
                         </div>
-                        <div class="collapse" id="ter_${idx}"><div class="p-0 bg-white">${htmlZon}</div></div>
+                        <div class="collapse" id="ter_${lidx}_${tix}"><div class="p-0 bg-white">${htmlZon}</div></div>
+                    </div>`;
+                    });
+
+                    if (!htmlTer.trim()) {
+                        return;
+                    }
+
+                    html += `<div class="mb-3 rounded-3 border overflow-hidden">
+                        <div class="d-flex align-items-center flex-wrap gap-2 px-3 py-2 bg-white text-body border-bottom" style="cursor: pointer" data-bs-toggle="collapse" data-bs-target="#lid_${lidx}" aria-expanded="false" role="button" tabindex="0">
+                            <span class="small text-muted text-uppercase fw-semibold">Líder</span>
+                            <span class="fw-medium fs-6 flex-grow-1 text-body">${pphEsc(lid.nombre)}</span>
+                            <span class="cartera-jer-cred-pill badge rounded-pill border text-body fw-medium px-2" style="background: #F4F3EF;">${fmtInt(lid.total)} créditos</span>
+                            <div class="d-flex flex-wrap align-items-center gap-2 small text-muted">
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #1D9E75;"></span>${fmtInt(lid.cobrados)} ${MODO_CARTERA ? 'pagados' : 'cobrados'}
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1">
+                                    <span class="rounded-circle d-inline-block" style="width:6px; height:6px; background-color: #BA7517;"></span>${fmtInt(lid.pendientes)} pendientes
+                                </span>
+                            </div>
+                            <svg class="flex-shrink-0" width="44" height="44" viewBox="0 0 44 44" style="min-width: 44px" aria-hidden="true" focusable="false">
+                                <circle r="16" cx="22" cy="22" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="3"></circle>
+                                <circle r="16" cx="22" cy="22" fill="none" stroke="${barColor(pctLid)}" stroke-width="3" stroke-linecap="round" transform="rotate(-90 22 22)" style="stroke-dasharray: ${pphDonC.toFixed(2)}; stroke-dashoffset: ${pphDonOf(pctLid)};"></circle>
+                            </svg>
+                            <span class="text-muted user-select-none d-inline-block">▾</span>
+                        </div>
+                        <div class="collapse" id="lid_${lidx}"><div class="p-2 bg-white">${htmlTer}</div></div>
                     </div>`;
                 });
 
                 document.getElementById('statsJerarquia').innerHTML =
-                    html || '<p class="text-muted">Sin datos.</p>';
+                    (htmlAviso + html).trim() || '<p class="text-muted">Sin datos.</p>';
             }
 
             async function cargarConteosGestionesCollapse(el) {
@@ -2841,6 +2891,11 @@ class Reporteria extends Controller
             /* ── Acordeón jerarquía en tabla ── */
             function jerarquiaHtml(r, idx) {
                 const niveles = [];
+                const obsRaw = r.Observaciones != null ? r.Observaciones : r.observaciones;
+                const lidLbl = (obsRaw != null && String(obsRaw).trim() !== '')
+                    ? String(obsRaw).trim()
+                    : '(Sin líder)';
+                niveles.push({ icono:'fa-star', cls:'text-warning', label: lidLbl });
                 if (r.Territorial)   niveles.push({ icono:'fa-globe',            cls:'text-secondary', label: r.Territorial   });
                 if (r.Zonal)         niveles.push({ icono:'fa-map-location-dot', cls:'text-info',      label: r.Zonal         });
                 if (r.Jefe_de_Plaza) niveles.push({ icono:'fa-user-tie',         cls:'text-primary',   label: r.Jefe_de_Plaza });
@@ -3272,15 +3327,16 @@ class Reporteria extends Controller
                 const datos = aplicarFiltros(_data);
                 const headers = MODO_CARTERA
                     ? ['Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
-                        'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
+                        'Observaciones','Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
                         'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte','Ghost','Es_adjudicada']
                     : ['Id_credito','Nombre_cliente','Bucket_Nacio','Bucket_Corte_Actual',
-                        'Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
+                        'Observaciones','Territorial','Zonal','Jefe_Plaza','Gestor_Asignado',
                         'Cuotas_vencidas','Saldo_vencido_actualizado','Dias_mora_corte'];
                 const rows = MODO_CARTERA
                     ? datos.map(r => [
                         r.Id_credito, r.Nombre_cliente,
                         r.bucket_nacio, r.bucket_corte_actual,
+                        r.Observaciones ?? r.observaciones ?? '',
                         r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
                         r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte,
                         r.Ghost ?? r.ghost ?? '', r.es_adjudicada ?? ''
@@ -3288,6 +3344,7 @@ class Reporteria extends Controller
                     : datos.map(r => [
                         r.Id_credito, r.Nombre_cliente,
                         r.bucket_nacio, r.bucket_corte_actual,
+                        r.Observaciones ?? r.observaciones ?? '',
                         r.Territorial, r.Zonal, r.Jefe_de_Plaza, r.Gestor_Asignado,
                         r.Cuotas_vencidas, r.Saldo_vencido_actualizado, r.dias_mora_corte
                     ]);

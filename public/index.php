@@ -441,6 +441,7 @@ $rutasModulos = [
     'motosadjudicadas/repuveconsulta' => [64],
     'motosadjudicadas/ejecutarconsultarepuve' => [64],
     'motosadjudicadas/consultarrepuvecredito' => [64],
+    'motosadjudicadas/obtenerdatosmotofactura' => [64],
     'motosadjudicadas/buscarcredito' => [62, 63, 64],
 ];
 $controladoresModulos = [

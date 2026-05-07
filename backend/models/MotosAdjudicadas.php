@@ -23,13 +23,15 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columnas recepcion_*_estado (migraci?n 20260428_adj_operacion_recepcion_doc_estado.sql) */
     private static $adjOperacionRecepcionDocEstadoCol = null;
 
+    /** @var null|bool tabla de caché para resumen S2 en modal de dictámenes */
+    private static $cacheResumenS2DictamenTablaOk = null;
+
     /** M?ximo de consultas REPUVE nuevas (POST a Nubarium) por usuario y d?a natural CDMX. */
     private const REPUVE_CONSULTAS_MAX_DIA = 5;
 
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_dacion',
     ];
 
     public function __construct()
@@ -60,7 +62,7 @@ class MotosAdjudicadas extends Model
     {
         $e = trim($estatus);
 
-        return $e === 'Revisi?n Recuperaciones';
+        return $e === 'Revisión Recuperaciones';
     }
 
     /**
@@ -177,8 +179,8 @@ class MotosAdjudicadas extends Model
         if (!$row) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
-        if (trim((string) ($row['estatus'] ?? '')) !== 'Recepci?n') {
-            return ['success' => false, 'message' => 'Solo aplica en etapa Recepci?n.'];
+        if (trim((string) ($row['estatus'] ?? '')) !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo aplica en etapa Recepción.'];
         }
         $col = $documento === 'dacion' ? 'recepcion_dacion_estado' : 'recepcion_tarjeta_estado';
         $ahora = $this->fechaHoraCdmx();
@@ -252,8 +254,8 @@ class MotosAdjudicadas extends Model
         if (!$op) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
-        if (trim((string) ($op['estatus'] ?? '')) !== 'Recepci?n') {
-            return ['success' => false, 'message' => 'Solo se confirma recepci?n en etapa Recepci?n.'];
+        if (trim((string) ($op['estatus'] ?? '')) !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo se confirma recepci?n en etapa Recepción.'];
         }
         if (!$this->adjOperacionTieneColumnaFechaLlegadaAlmacen() || empty($op['fecha_llegada_almacen'])) {
             return ['success' => false, 'message' => 'Debe registrar primero la llegada f?sica a almac?n.'];
@@ -348,7 +350,7 @@ class MotosAdjudicadas extends Model
             $ahora
         );
 
-        /* Flujo actual: tras Recepci?n sigue la etapa Retenciones (atenci?n / cierre de llamadas). */
+        /* Flujo actual: tras Recepción sigue la etapa Retenciones (atenci?n / cierre de llamadas). */
         $this->cambiarEstatus($idOperacion, 'Retenciones', $idUsuario, $nombreUsuario);
 
         $fmt = $this->db->queryOne(
@@ -412,6 +414,7 @@ class MotosAdjudicadas extends Model
      *   success:bool,
      *   message?:string,
      *   monto_otorgado?:float|null,
+     *   cuotas_contratadas?:int|null,
      *   cuotas_pagadas?:int|null,
      *   total_pagado_cliente?:float|null,
      *   ultimo_efectivo_fecha?:string|null,
@@ -424,6 +427,16 @@ class MotosAdjudicadas extends Model
         if ($idCredito <= 0) {
             return ['success' => false, 'message' => 'ID de crédito inválido.'];
         }
+
+        $cache = $this->obtenerCacheResumenS2ModalDictamen($idCredito);
+        if ($cache !== null) {
+            $hayPayload = !empty($cache['_hay_payload_s2']);
+            unset($cache['_hay_payload_s2']);
+            if (!$this->cacheResumenS2ModalRequiereRefrescoS2($cache, $hayPayload)) {
+                return $cache + ['success' => true, 'from_cache' => true];
+            }
+        }
+
         try {
             $ctrl = new \Controllers\EstadoCuenta();
             $res  = $ctrl->api___SPARTA_SECRET_REDACTED__($idCredito, date('Y-m-d'), 25);
@@ -468,17 +481,533 @@ class MotosAdjudicadas extends Model
             $totalPagado = round($sum, 2);
         }
 
-        $ult = $this->extraerUltimoAbonoEfectivoDesdeEstadoCuenta($ec);
-
-        return [
+        $ult                 = $this->extraerUltimoAbonoEfectivoDesdeEstadoCuenta($ec);
+        $cuotasContratadas   = $this->extraerCuotasContratadasDesdeEstadoCuenta($ec);
+        $salida = [
             'success'                       => true,
             'monto_otorgado'                => $montoOtorgado > 0 ? round($montoOtorgado, 2) : null,
+            'cuotas_contratadas'            => $cuotasContratadas,
             'cuotas_pagadas'                => $cuotasPagadas,
             'total_pagado_cliente'          => $totalPagado,
             'ultimo_efectivo_fecha'         => $ult['fecha'],
             'ultimo_efectivo_monto'         => $ult['monto'],
             'ultimo_efectivo_es_estricto'   => $ult['estricto'],
+            'from_cache'                    => false,
         ];
+        $this->guardarCacheResumenS2ModalDictamen($idCredito, $salida, $ec);
+
+        return $salida;
+    }
+
+    /**
+     * Si la fila de caché tiene huecos en datos que debe proveer S2, se fuerza nueva consulta y UPDATE en BD.
+     * Si ya existe `payload_json` de un estado de cuenta guardado, no se reconsulta la API por columnas
+     * derivadas nulas (p. ej. cuotas contratadas que el S2 no envía en algunos créditos).
+     *
+     * @param  array<string,mixed>  $cache
+     */
+    private function cacheResumenS2ModalRequiereRefrescoS2(array $cache, bool $hayPayloadSnapshot = false): bool
+    {
+        if ($hayPayloadSnapshot) {
+            return false;
+        }
+        if (($cache['cuotas_contratadas'] ?? null) === null) {
+            return true;
+        }
+        if (($cache['monto_otorgado'] ?? null) === null) {
+            return true;
+        }
+        if (($cache['cuotas_pagadas'] ?? null) === null) {
+            return true;
+        }
+        if (($cache['total_pagado_cliente'] ?? null) === null) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Cuotas contratadas / plazo desde respuesta estado de cuenta S2 (datosSaldos, datosCliente, raíz).
+     */
+    private function extraerCuotasContratadasDesdeEstadoCuenta(array $ec): ?int
+    {
+        $ds  = is_array($ec['datosSaldos'] ?? null) ? $ec['datosSaldos'] : [];
+        $dc  = is_array($ec['datosCliente'] ?? null) ? $ec['datosCliente'] : [];
+        $dcr = is_array($ec['datosCredito'] ?? null) ? $ec['datosCredito'] : [];
+        $keys = [
+            'cuotasContratadas', 'Cuotas_contratadas', 'cuotas_contratadas',
+            'Numero_amortizaciones', 'numeroAmortizaciones', 'numero_amortizaciones',
+            'Numero_cuotas', 'numero_cuotas', 'Num_cuotas',
+            'plazoTotal', 'Plazo_total', 'numAmortizaciones', 'totalCuotas',
+        ];
+        foreach ($keys as $k) {
+            foreach ([$ec, $ds, $dc, $dcr] as $src) {
+                if (!is_array($src) || !array_key_exists($k, $src)) {
+                    continue;
+                }
+                $v = $src[$k];
+                if ($v === null || $v === '') {
+                    continue;
+                }
+                if (is_numeric($v)) {
+                    $n = (int) $v;
+                    if ($n > 0) {
+                        return $n;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Crea (si falta) la tabla de caché del resumen S2 del modal de dictámenes.
+     */
+    private function asegurarTablaCacheResumenS2ModalDictamen(): bool
+    {
+        if (self::$cacheResumenS2DictamenTablaOk !== null) {
+            return self::$cacheResumenS2DictamenTablaOk;
+        }
+        try {
+            $this->db->CRUD(
+                "CREATE TABLE IF NOT EXISTS adj_s2_cache_dictamen (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_credito INT NOT NULL,
+                    monto_otorgado DECIMAL(14,2) NULL,
+                    cuotas_pagadas INT NULL,
+                    total_pagado_cliente DECIMAL(14,2) NULL,
+                    ultimo_efectivo_fecha VARCHAR(40) NULL,
+                    ultimo_efectivo_monto DECIMAL(14,2) NULL,
+                    ultimo_efectivo_es_estricto TINYINT(1) NOT NULL DEFAULT 0,
+                    payload_json LONGTEXT NULL,
+                    consultado_at DATETIME NOT NULL,
+                    actualizado_at DATETIME NOT NULL,
+                    UNIQUE KEY ux_adj_s2_cache_dictamen_credito (id_credito),
+                    KEY idx_adj_s2_cache_dictamen_actualizado (actualizado_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+            );
+            // Extensiones para caché de nombre del cliente en la misma tabla.
+            try {
+                $this->db->CRUD("ALTER TABLE adj_s2_cache_dictamen ADD COLUMN nombre_cliente VARCHAR(255) NULL");
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD("ALTER TABLE adj_s2_cache_dictamen ADD COLUMN nombre_fuente VARCHAR(50) NULL");
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD("ALTER TABLE adj_s2_cache_dictamen ADD COLUMN nombre_actualizado_at DATETIME NULL");
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_comentarios TEXT NULL');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_cuotas_contratadas INT NULL');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen DROP COLUMN ma_seg_area');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_aplica TINYINT(1) NULL');
+            } catch (\Throwable $e) {}
+            try {
+                $this->db->CRUD('ALTER TABLE adj_s2_cache_dictamen ADD COLUMN ma_seg_actualizado_at DATETIME NULL');
+            } catch (\Throwable $e) {}
+            self::$cacheResumenS2DictamenTablaOk = true;
+        } catch (\Throwable $e) {
+            self::$cacheResumenS2DictamenTablaOk = false;
+        }
+        return self::$cacheResumenS2DictamenTablaOk;
+    }
+
+    /**
+     * Seguimiento del modal Lista dictámenes (por id_credito en adj_s2_cache_dictamen).
+     * Solo comentarios + aplica recolección (+ ma_seg_actualizado_at). Cuotas contratadas S2 van en ma_seg_cuotas_contratadas.
+     *
+     * @param  int[]  $idsCredito
+     * @return array<int, array{comentarios: string, aplica: int|null}>
+     */
+    public function obtenerSeguimientoMaDictamenPorCreditos(array $idsCredito): array
+    {
+        $idsCredito = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn ($v) => $v > 0)));
+        if ($idsCredito === [] || !$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return [];
+        }
+        $ph     = [];
+        $params = [];
+        foreach ($idsCredito as $i => $id) {
+            $k          = 'c'.$i;
+            $ph[]       = ':'.$k;
+            $params[$k] = $id;
+        }
+        try {
+            $rows = $this->db->queryAll(
+                'SELECT id_credito, ma_seg_comentarios, ma_seg_aplica
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito IN ('.implode(',', $ph).')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc <= 0) {
+                continue;
+            }
+            $ap     = $r['ma_seg_aplica'] ?? null;
+            $aplica = null;
+            if ($ap !== null && $ap !== '') {
+                $aplica = ((int) $ap) === 1 ? 1 : 0;
+            }
+            $out[$idc] = [
+                'comentarios' => (string) ($r['ma_seg_comentarios'] ?? ''),
+                'aplica'      => $aplica,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param int[] $idsCredito
+     * @return array<int, bool> [id_credito => true] si tiene asignación activa.
+     */
+    private function obtenerMapaAsignacionActivaPorCreditos(array $idsCredito): array
+    {
+        $idsCredito = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn($v) => $v > 0)));
+        if ($idsCredito === []) {
+            return [];
+        }
+        $ph     = [];
+        $params = [];
+        foreach ($idsCredito as $i => $id) {
+            $k          = 'ac' . $i;
+            $ph[]       = ':' . $k;
+            $params[$k] = $id;
+        }
+        try {
+            $rows = $this->db->queryAll(
+                'SELECT id_credito
+                 FROM asigna_creditos_adjudicacion
+                 WHERE estatus = \'1\'
+                   AND id_credito IN (' . implode(',', $ph) . ')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc > 0) {
+                $out[$idc] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{success: bool, message?: string}
+     */
+    public function guardarSeguimientoMaDictamen(int $idCredito, string $comentarios, ?int $aplica): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'Crédito inválido.'];
+        }
+        $comentarios = trim($comentarios);
+        if ($comentarios === '') {
+            return ['success' => false, 'message' => 'El comentario es obligatorio.'];
+        }
+        if ($aplica !== 0 && $aplica !== 1) {
+            return ['success' => false, 'message' => 'Seleccione sí o no en el desplegable.'];
+        }
+        if (!$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return ['success' => false, 'message' => 'No fue posible preparar el almacenamiento.'];
+        }
+        $ahora = date('Y-m-d H:i:s');
+        try {
+            $this->db->CRUD(
+                'INSERT INTO adj_s2_cache_dictamen (
+                    id_credito,
+                    ma_seg_comentarios,
+                    ma_seg_aplica,
+                    ma_seg_actualizado_at,
+                    consultado_at,
+                    actualizado_at,
+                    ultimo_efectivo_es_estricto
+                ) VALUES (
+                    :id_credito,
+                    :com,
+                    :aplica,
+                    :seg_a,
+                    :ahora,
+                    :ahora2,
+                    0
+                )
+                ON DUPLICATE KEY UPDATE
+                    ma_seg_comentarios = VALUES(ma_seg_comentarios),
+                    ma_seg_aplica = VALUES(ma_seg_aplica),
+                    ma_seg_actualizado_at = VALUES(ma_seg_actualizado_at),
+                    actualizado_at = VALUES(actualizado_at)',
+                [
+                    'id_credito' => $idCredito,
+                    'com'        => $comentarios,
+                    'aplica'     => $aplica,
+                    'seg_a'      => $ahora,
+                    'ahora'      => $ahora,
+                    'ahora2'     => $ahora,
+                ]
+            );
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al guardar.'];
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Fila de caché con resumen S2 real (no solo nombre guardado en la misma tabla).
+     *
+     * @param array<string,mixed> $r
+     */
+    private function filaCacheS2TieneResumenFinanciero(array $r): bool
+    {
+        $pj = isset($r['payload_json']) ? trim((string) $r['payload_json']) : '';
+        if ($pj !== '') {
+            return true;
+        }
+        $m = $r['monto_otorgado'] ?? null;
+        if ($m !== null && $m !== '' && (float) $m > 0) {
+            return true;
+        }
+        $c = $r['cuotas_pagadas'] ?? null;
+        if ($c !== null && $c !== '') {
+            return true;
+        }
+        $t = $r['total_pagado_cliente'] ?? null;
+        if ($t !== null && $t !== '' && (float) $t > 0) {
+            return true;
+        }
+        $um = $r['ultimo_efectivo_monto'] ?? null;
+        if ($um !== null && $um !== '' && (float) $um > 0) {
+            return true;
+        }
+        $uf = isset($r['ultimo_efectivo_fecha']) ? trim((string) $r['ultimo_efectivo_fecha']) : '';
+
+        return $uf !== '';
+    }
+
+    /**
+     * @param array<string,mixed> $r Fila de adj_s2_cache_dictamen con payload_json opcional
+     */
+    private function filaTienePayloadS2Guardado(array $r): bool
+    {
+        $pj = isset($r['payload_json']) ? trim((string) $r['payload_json']) : '';
+
+        return $pj !== '';
+    }
+
+    /**
+     * Convierte una fila de adj_s2_cache_dictamen al shape del modal S2 (sin success/from_cache).
+     *
+     * @param array<string,mixed> $r
+     *
+     * @return array<string,mixed>|null
+     */
+    private function normalizarFilaCacheResumenS2ModalDictamen(array $r): ?array
+    {
+        if (!$this->filaCacheS2TieneResumenFinanciero($r)) {
+            return null;
+        }
+        $cc = $r['ma_seg_cuotas_contratadas'] ?? null;
+
+        return [
+            'monto_otorgado'              => isset($r['monto_otorgado']) && $r['monto_otorgado'] !== '' ? (float) $r['monto_otorgado'] : null,
+            'cuotas_contratadas'          => $cc !== null && $cc !== '' ? (int) $cc : null,
+            'cuotas_pagadas'              => isset($r['cuotas_pagadas']) && $r['cuotas_pagadas'] !== '' ? (int) $r['cuotas_pagadas'] : null,
+            'total_pagado_cliente'        => isset($r['total_pagado_cliente']) && $r['total_pagado_cliente'] !== '' ? (float) $r['total_pagado_cliente'] : null,
+            'ultimo_efectivo_fecha'       => isset($r['ultimo_efectivo_fecha']) && $r['ultimo_efectivo_fecha'] !== '' ? (string) $r['ultimo_efectivo_fecha'] : null,
+            'ultimo_efectivo_monto'       => isset($r['ultimo_efectivo_monto']) && $r['ultimo_efectivo_monto'] !== '' ? (float) $r['ultimo_efectivo_monto'] : null,
+            'ultimo_efectivo_es_estricto' => !empty($r['ultimo_efectivo_es_estricto']),
+        ];
+    }
+
+    /**
+     * Resumen S2 del modal por muchos id_credito (una consulta), para pintar el modal sin esperar otro round-trip.
+     *
+     * @param int[] $idsCredito
+     *
+     * @return array<int, array<string, mixed>> [ id_credito => payload compatible con obtenerResumenS2ModalDictamen ]
+     */
+    private function obtenerMapaResumenS2ModalDictamenPorCreditos(array $idsCredito): array
+    {
+        $idsCredito = array_values(array_unique(array_filter(array_map('intval', $idsCredito), static fn ($v) => $v > 0)));
+        if ($idsCredito === [] || !$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return [];
+        }
+        $ph     = [];
+        $params = [];
+        foreach ($idsCredito as $i => $id) {
+            $k          = 's2'.$i;
+            $ph[]       = ':'.$k;
+            $params[$k] = $id;
+        }
+        try {
+            $filas = $this->db->queryAll(
+                'SELECT
+                    id_credito,
+                    monto_otorgado,
+                    ma_seg_cuotas_contratadas,
+                    cuotas_pagadas,
+                    total_pagado_cliente,
+                    ultimo_efectivo_fecha,
+                    ultimo_efectivo_monto,
+                    ultimo_efectivo_es_estricto,
+                    payload_json
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito IN ('.implode(',', $ph).')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $out = [];
+        foreach ($filas as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc <= 0) {
+                continue;
+            }
+            $norm = $this->normalizarFilaCacheResumenS2ModalDictamen($r);
+            if ($norm === null) {
+                continue;
+            }
+            $out[$idc] = array_merge($norm, [
+                'success'    => true,
+                'from_cache' => true,
+            ]);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<monto_otorgado:?float,cuotas_contratadas:?int,cuotas_pagadas:?int,total_pagado_cliente:?float,ultimo_efectivo_fecha:?string,ultimo_efectivo_monto:?float,ultimo_efectivo_es_estricto:bool,_hay_payload_s2?:bool>|null
+     */
+    private function obtenerCacheResumenS2ModalDictamen(int $idCredito): ?array
+    {
+        if ($idCredito <= 0) {
+            return null;
+        }
+        if (!$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return null;
+        }
+        try {
+            $r = $this->db->queryOne(
+                "SELECT
+                    monto_otorgado,
+                    ma_seg_cuotas_contratadas,
+                    cuotas_pagadas,
+                    total_pagado_cliente,
+                    ultimo_efectivo_fecha,
+                    ultimo_efectivo_monto,
+                    ultimo_efectivo_es_estricto,
+                    payload_json
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito = :id
+                 LIMIT 1",
+                ['id' => $idCredito]
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (!$r) {
+            return null;
+        }
+        $norm = $this->normalizarFilaCacheResumenS2ModalDictamen($r);
+        if ($norm === null) {
+            return null;
+        }
+        if ($this->filaTienePayloadS2Guardado($r)) {
+            $norm['_hay_payload_s2'] = true;
+        }
+
+        return $norm;
+    }
+
+    /**
+     * @param array{monto_otorgado?:?float,cuotas_contratadas?:?int,cuotas_pagadas?:?int,total_pagado_cliente?:?float,ultimo_efectivo_fecha?:?string,ultimo_efectivo_monto?:?float,ultimo_efectivo_es_estricto?:bool} $resumen
+     * @param array<string,mixed> $payloadEstadoCuenta
+     */
+    private function guardarCacheResumenS2ModalDictamen(int $idCredito, array $resumen, array $payloadEstadoCuenta = []): void
+    {
+        if ($idCredito <= 0) {
+            return;
+        }
+        if (!$this->asegurarTablaCacheResumenS2ModalDictamen()) {
+            return;
+        }
+        $ahora = date('Y-m-d H:i:s');
+        $jsonPayload = $payloadEstadoCuenta !== []
+            ? json_encode($payloadEstadoCuenta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            : null;
+        try {
+            $this->db->CRUD(
+                "INSERT INTO adj_s2_cache_dictamen (
+                    id_credito,
+                    monto_otorgado,
+                    ma_seg_cuotas_contratadas,
+                    cuotas_pagadas,
+                    total_pagado_cliente,
+                    ultimo_efectivo_fecha,
+                    ultimo_efectivo_monto,
+                    ultimo_efectivo_es_estricto,
+                    payload_json,
+                    consultado_at,
+                    actualizado_at
+                ) VALUES (
+                    :id_credito,
+                    :monto_otorgado,
+                    :ma_seg_cuotas_contratadas,
+                    :cuotas_pagadas,
+                    :total_pagado_cliente,
+                    :ultimo_efectivo_fecha,
+                    :ultimo_efectivo_monto,
+                    :ultimo_efectivo_es_estricto,
+                    :payload_json,
+                    :consultado_at,
+                    :actualizado_at
+                )
+                ON DUPLICATE KEY UPDATE
+                    monto_otorgado = VALUES(monto_otorgado),
+                    ma_seg_cuotas_contratadas = VALUES(ma_seg_cuotas_contratadas),
+                    cuotas_pagadas = VALUES(cuotas_pagadas),
+                    total_pagado_cliente = VALUES(total_pagado_cliente),
+                    ultimo_efectivo_fecha = VALUES(ultimo_efectivo_fecha),
+                    ultimo_efectivo_monto = VALUES(ultimo_efectivo_monto),
+                    ultimo_efectivo_es_estricto = VALUES(ultimo_efectivo_es_estricto),
+                    payload_json = VALUES(payload_json),
+                    consultado_at = VALUES(consultado_at),
+                    actualizado_at = VALUES(actualizado_at)",
+                [
+                    'id_credito'                  => $idCredito,
+                    'monto_otorgado'              => $resumen['monto_otorgado'] ?? null,
+                    'ma_seg_cuotas_contratadas'   => $resumen['cuotas_contratadas'] ?? null,
+                    'cuotas_pagadas'              => $resumen['cuotas_pagadas'] ?? null,
+                    'total_pagado_cliente'        => $resumen['total_pagado_cliente'] ?? null,
+                    'ultimo_efectivo_fecha'       => $resumen['ultimo_efectivo_fecha'] ?? null,
+                    'ultimo_efectivo_monto'       => $resumen['ultimo_efectivo_monto'] ?? null,
+                    'ultimo_efectivo_es_estricto' => !empty($resumen['ultimo_efectivo_es_estricto']) ? 1 : 0,
+                    'payload_json'                => $jsonPayload,
+                    'consultado_at'               => $ahora,
+                    'actualizado_at'              => $ahora,
+                ]
+            );
+        } catch (\Throwable $e) {
+            // No bloquear flujo principal por falla de caché.
+        }
     }
 
     /**
@@ -584,7 +1113,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * Registra una sola vez la llegada f?sica al almac?n (Recepci?n). No se puede modificar ni repetir.
+     * Registra una sola vez la llegada f?sica al almac?n (Recepción). No se puede modificar ni repetir.
      *
      * @return array{success:bool, message?:string, fecha_llegada_almacen?:string, ya_registrada?:bool}
      */
@@ -607,8 +1136,8 @@ class MotosAdjudicadas extends Model
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
         }
         $est = trim((string) ($row['estatus'] ?? ''));
-        if ($est !== 'Recepci?n') {
-            return ['success' => false, 'message' => 'Solo se registra llegada a almac?n cuando la operaci?n est? en etapa Recepci?n.'];
+        if ($est !== 'Recepción') {
+            return ['success' => false, 'message' => 'Solo se registra llegada a almac?n cuando la operaci?n est? en etapa Recepción.'];
         }
         if (!empty($row['fecha_llegada_almacen'])) {
             $fmt = $this->db->queryOne(
@@ -777,7 +1306,7 @@ class MotosAdjudicadas extends Model
         // 1. Whitelist de slots v?lidos
         $allowed = [
             'rec_tacometro', 'rec_serie',     'rec_frontal', 'rec_lateral',
-            'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+            'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_dacion',
             'doc_repuve',    'doc_factura',   'doc_cierre_s2',
             'doc_dacion_rcpt', 'doc_tarjeta_rcpt', 'doc_firma_rcpt',
             'vista_trs', 'vista_front', 'lado_izq', 'lado_der',
@@ -787,7 +1316,7 @@ class MotosAdjudicadas extends Model
             return ['success' => false, 'message' => 'Slot de evidencia no reconocido.'];
         }
 
-        // 2. Operaci?n existe
+        // 2. Operaci?n existe (subir evidencias f?sicas puede ser antes de datos; enviar al pipeline exige datos guardados).
         $op = $this->db->queryOne('SELECT id FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
         if (!$op) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
@@ -798,6 +1327,7 @@ class MotosAdjudicadas extends Model
         $ext       = strtolower(pathinfo($fileInfo['name'] ?? '', PATHINFO_EXTENSION));
         $videoSlots = ['fis_360', 'vid_gen'];
         $docSlots   = ['doc_repuve', 'doc_factura', 'doc_cierre_s2', 'doc_dacion_rcpt'];
+        $pdfOrImgMisAdj = ['fis_contrato_dacion'];
         $recepImgSlots = [
             'doc_tarjeta_rcpt', 'doc_firma_rcpt',
             'vista_trs', 'vista_front', 'lado_izq', 'lado_der', 'tablero', 'vin', 'danos_vis',
@@ -816,6 +1346,12 @@ class MotosAdjudicadas extends Model
                 return ['success' => false, 'message' => 'Este campo solo acepta video MP4.'];
             }
             $tipo = 'video';
+        } elseif (in_array($slot, $pdfOrImgMisAdj, true)) {
+            $okMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+            if (!in_array($mime, $okMimes, true)) {
+                return ['success' => false, 'message' => 'Contrato Dación: solo PDF, JPG o PNG.'];
+            }
+            $tipo = ($mime === 'application/pdf') ? 'pdf' : 'image';
         } elseif (in_array($slot, $docSlots, true)) {
             if ($slot === 'doc_repuve') {
                 if ($mime !== 'application/pdf' && $ext !== 'pdf') {
@@ -1090,7 +1626,7 @@ class MotosAdjudicadas extends Model
 
     /**
      * Vista 4 Cartera: registra que el usuario confirma haber dado de alta el cierre en S2
-     * y env?a la operaci?n a la etapa Recepci?n (bandeja de entrada de la vista 5).
+     * y env?a la operaci?n a la etapa Recepción (bandeja de entrada de la vista 5).
      *
      * @return array{success:bool, message?:string, estatus_nuevo?:string}
      */
@@ -1145,12 +1681,12 @@ class MotosAdjudicadas extends Model
             ]
         );
 
-        $mov = $this->cambiarEstatus($idOperacion, 'Recepci?n', $idUsuario, $nombreUsuario);
+        $mov = $this->cambiarEstatus($idOperacion, 'Recepción', $idUsuario, $nombreUsuario);
         if (empty($mov['success'])) {
             return $mov;
         }
 
-        return ['success' => true, 'estatus_nuevo' => 'Recepci?n'];
+        return ['success' => true, 'estatus_nuevo' => 'Recepción'];
     }
 
     /**
@@ -1251,7 +1787,7 @@ SQL;
             o.modelo,
             o.serie,
             o.num_motor,
-            o.placas,
+            NULL AS placas,
             o.dias_mora,
             o.saldo_capital,
             o.adeudo_total,
@@ -1296,16 +1832,30 @@ SQL;
                 'Recibido',
                 'en_transito',
                 'Procesando IA',
-                'Revisi?n Recuperaciones',
+                'Revisión Recuperaciones',
                 'Cierre Documentado',
-                'Recepci?n',
+                'Recepción',
                 'Retenciones',
                 'cancelado'
             ),
             o.fecha_alta ASC
         SQL;
 
-        return $this->db->queryAll($sql) ?: [];
+        try {
+            return $this->db->queryAll($sql) ?: [];
+        } catch (\Throwable $e) {
+            // Compatibilidad: en algunos entornos legacy adj_operacion aún no tiene columna `placas`.
+            if (stripos((string) $e->getMessage(), "Unknown column 'o.placas'") !== false) {
+                $sqlFallback = str_replace(
+                    "            o.placas,\n",
+                    "            NULL AS placas,\n",
+                    $sql
+                );
+
+                return $this->db->queryAll($sqlFallback) ?: [];
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -1428,9 +1978,18 @@ SQL;
      */
     public function enviarEvidencias(int $idOperacion, int $idUsuario = 0, string $nombreUsuario = ''): array
     {
-        $op = $this->db->queryOne('SELECT id FROM adj_operacion WHERE id = :id', ['id' => $idOperacion]);
+        $op = $this->db->queryOne(
+            'SELECT id, datos_moto_at FROM adj_operacion WHERE id = :id LIMIT 1',
+            ['id' => $idOperacion]
+        );
         if (!$op) {
             return ['success' => false, 'message' => 'Operaci?n no encontrada.'];
+        }
+        if (empty($op['datos_moto_at'])) {
+            return [
+                'success' => false,
+                'message' => 'Debe guardar los datos de la motocicleta y la ubicación antes de enviar evidencias.',
+            ];
         }
 
         $this->db->CRUD(
@@ -1526,6 +2085,7 @@ SQL;
         'fis_frontal'   => 'FRONTAL (F?SICA)',
         'fis_lateral'   => 'LATERAL (F?SICA)',
         'fis_360'       => 'INSPECCI??N 360?',
+        'fis_contrato_dacion' => 'CONTRATO DACI??N (F?SICA)',
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
         'doc_cierre_s2' => 'CONFIRMACI??N CIERRE S2',
@@ -1550,7 +2110,7 @@ SQL;
     /** Fotos/video que s? se dictaminan (aceptar/rechazar) en Atenci?n a clientes. */
     private const SLOTS_VALIDACION_ATENCION_MEDIA = [
         'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_dacion',
     ];
 
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atenci?n. */
@@ -1567,10 +2127,10 @@ SQL;
         'Recibido',
         'en_transito',
         'Procesando IA',
-        'Revisi?n Recuperaciones',
+        'Revisión Recuperaciones',
         'Retenciones',
         'Cierre Documentado',
-        'Recepci?n',
+        'Recepción',
     ];
 
     /**
@@ -1749,9 +2309,9 @@ SQL;
                   'en_transito',
                   'Recibido',
                   'Procesando IA',
-                  'Revisi?n Recuperaciones',
+                  'Revisión Recuperaciones',
                   'Cierre Documentado',
-                  'Recepci?n',
+                  'Recepción',
                   'Retenciones'
               )
             ORDER BY aca.fecha_alta DESC",
@@ -1805,15 +2365,21 @@ SQL;
      * Extrae valores del JSON `form_response` en SQL (mismo patrón que Gestiones / JSON_TABLE legacy).
      * Enriquece nombre con `base_clientes`, luego Segundómetro (lote) y, si sigue vacío, API S2 estado de cuenta.
      *
-     * @return array<int, array<string, mixed>>
+     * @param int|null $limit Si no es null y > 0, solo se traen hasta $limit filas (se pide una fila extra en SQL para detectar si hay más datos).
+     * @param int $offset Desplazamiento (p. ej. segundo lote tras el primer lote rápido).
+     * @param bool $modoRapido Si es true, omite fuentes externas lentas para mostrar resultados iniciales más rápido.
+     * @return array{rows: array<int, array<string, mixed>>, has_more: bool}
      */
-    public function obtenerListaDictumsMotos(): array
+    public function obtenerListaDictumsMotos(?int $limit = null, int $offset = 0, bool $modoRapido = false): array
     {
-        $sql = <<<'EOSQL'
+        $offset = max(0, $offset);
+
+        $sqlBase = <<<'EOSQL'
 SELECT
     d.id                           AS id,
     d.task_id                      AS task_id,
     CAST(t.credit_number AS UNSIGNED) AS id_credito,
+    d.user_id                      AS legacy_user_id,
     d.created_at                   AS fecha_registro,
     d.lat                          AS lat,
     d.lng                          AS lng,
@@ -1852,9 +2418,20 @@ JOIN JSON_TABLE(
     )
 ) j
 WHERE d.opciondictamen_id = :opcion
-GROUP BY d.id, d.task_id, t.credit_number, d.created_at, d.lat, d.lng
+GROUP BY d.id, d.task_id, t.credit_number, d.user_id, d.created_at, d.lat, d.lng
 ORDER BY d.id DESC
 EOSQL;
+
+        $hasMore = false;
+        if ($limit !== null && $limit > 0) {
+            $take = $limit + 1;
+            $sql  = $sqlBase . ' LIMIT ' . (int) $take . ' OFFSET ' . (int) $offset;
+        } elseif ($offset > 0) {
+            // MySQL exige LIMIT cuando se usa OFFSET: tomar el resto de filas desde $offset.
+            $sql = $sqlBase . ' LIMIT 2147483647 OFFSET ' . (int) $offset;
+        } else {
+            $sql = $sqlBase;
+        }
 
         try {
             $legacyDb = new DatabaseLegacy();
@@ -1909,6 +2486,7 @@ EOSQL;
         }
         unset($r);
 
+        // Completar faltantes con caché local de nombres (rápido, sin tocar servicios externos).
         $idsSinNombre = [];
         foreach ($rows as $r) {
             $cid = (int) ($r['id_credito'] ?? 0);
@@ -1916,40 +2494,408 @@ EOSQL;
                 $idsSinNombre[$cid] = true;
             }
         }
-        $listaSinNombre = array_keys($idsSinNombre);
-        if ($listaSinNombre !== []) {
-            $mapSm = $this->obtenerMorosidadSegundometroPorCreditos($listaSinNombre);
-            foreach ($rows as &$r) {
-                $cid = (int) ($r['id_credito'] ?? 0);
-                if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
-                    continue;
-                }
-                $key   = (string) $cid;
-                $nomSm = trim((string) (($mapSm[$key]['nombre_cliente'] ?? '')));
-                if ($nomSm !== '' && strcasecmp($nomSm, 'No disponible') !== 0) {
-                    $r['nombre_cliente'] = $nomSm;
-                }
-            }
-            unset($r);
-
-            $adjModel = new AdjudicacionModel();
-            foreach ($rows as &$r) {
-                $cid = (int) ($r['id_credito'] ?? 0);
-                if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
-                    continue;
-                }
-                $api = $adjModel->buscarCreditoPorId($cid);
-                if (!empty($api['success']) && !empty($api['credito'])) {
-                    $nomApi = trim((string) ($api['credito']['nombre_cliente'] ?? ''));
-                    if ($nomApi !== '' && strcasecmp($nomApi, 'Sin nombre') !== 0) {
-                        $r['nombre_cliente'] = $nomApi;
+        if ($idsSinNombre !== []) {
+            $cacheNombres = $this->obtenerNombresClienteCachePorCreditos(array_keys($idsSinNombre));
+            if ($cacheNombres !== []) {
+                foreach ($rows as &$r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                        continue;
+                    }
+                    if (!empty($cacheNombres[$cid])) {
+                        $r['nombre_cliente'] = (string) $cacheNombres[$cid];
                     }
                 }
+                unset($r);
             }
-            unset($r);
         }
 
-        return $rows;
+        if (!$modoRapido) {
+            $idsSinNombre = [];
+            foreach ($rows as $r) {
+                $cid = (int) ($r['id_credito'] ?? 0);
+                if ($cid > 0 && trim((string) ($r['nombre_cliente'] ?? '')) === '') {
+                    $idsSinNombre[$cid] = true;
+                }
+            }
+            $listaSinNombre = array_keys($idsSinNombre);
+            if ($listaSinNombre !== []) {
+                $mapSm = $this->obtenerMorosidadSegundometroPorCreditos($listaSinNombre);
+                foreach ($rows as &$r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                        continue;
+                    }
+                    $key   = (string) $cid;
+                    $nomSm = trim((string) (($mapSm[$key]['nombre_cliente'] ?? '')));
+                    if ($nomSm !== '' && strcasecmp($nomSm, 'No disponible') !== 0) {
+                        $r['nombre_cliente'] = $nomSm;
+                    }
+                }
+                unset($r);
+
+                $adjModel = new AdjudicacionModel();
+                foreach ($rows as &$r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    if ($cid <= 0 || trim((string) ($r['nombre_cliente'] ?? '')) !== '') {
+                        continue;
+                    }
+                    $api = $adjModel->buscarCreditoPorId($cid);
+                    if (!empty($api['success']) && !empty($api['credito'])) {
+                        $nomApi = trim((string) ($api['credito']['nombre_cliente'] ?? ''));
+                        if ($nomApi !== '' && strcasecmp($nomApi, 'Sin nombre') !== 0) {
+                            $r['nombre_cliente'] = $nomApi;
+                        }
+                    }
+                }
+                unset($r);
+            }
+
+            // Guardar en caché local todos los nombres ya resueltos para próximas cargas rápidas.
+            $aGuardar = [];
+            foreach ($rows as $r) {
+                $cid = (int) ($r['id_credito'] ?? 0);
+                $nom = trim((string) ($r['nombre_cliente'] ?? ''));
+                if ($cid > 0 && $nom !== '' && strcasecmp($nom, 'Sin nombre') !== 0 && strcasecmp($nom, 'No disponible') !== 0) {
+                    $aGuardar[$cid] = $nom;
+                }
+            }
+            if ($aGuardar !== []) {
+                $this->guardarNombresClienteCachePorCredito($aGuardar);
+            }
+        }
+
+        if ($limit !== null && $limit > 0) {
+            if (count($rows) > $limit) {
+                $hasMore = true;
+                array_pop($rows);
+            }
+        }
+
+        $idsCredSeg = [];
+        foreach ($rows as $r) {
+            $idc = (int) ($r['id_credito'] ?? 0);
+            if ($idc > 0) {
+                $idsCredSeg[] = $idc;
+            }
+        }
+        $segMap = $this->obtenerSeguimientoMaDictamenPorCreditos($idsCredSeg);
+        $s2Map  = $this->obtenerMapaResumenS2ModalDictamenPorCreditos($idsCredSeg);
+        $asigActMap = $this->obtenerMapaAsignacionActivaPorCreditos($idsCredSeg);
+        foreach ($rows as &$r) {
+            $idc                     = (int) ($r['id_credito'] ?? 0);
+            $s                       = $segMap[$idc] ?? null;
+            $aplicaSeg               = $s['aplica'] ?? null;
+            $r['ma_seg_comentarios'] = $s['comentarios'] ?? '';
+            $r['ma_seg_aplica']      = $aplicaSeg;
+            $r['ma_seg_asignacion_ok'] = ($aplicaSeg === 0)
+                ? true
+                : ($aplicaSeg === 1 ? !empty($asigActMap[$idc]) : null);
+            $r['s2_modal_resumen']   = $s2Map[$idc] ?? null;
+        }
+        unset($r);
+
+        // Lista dictámenes: solo pendientes de «Seguimiento interno»; si ya se guardó (sí/no recolección), no listar.
+        $rows = array_values(array_filter($rows, static function (array $r): bool {
+            $com = trim((string) ($r['ma_seg_comentarios'] ?? ''));
+            if ($com === '') {
+                return true;
+            }
+            $ap = $r['ma_seg_aplica'] ?? null;
+            if ($ap === null || $ap === '') {
+                return true;
+            }
+            $apNum = is_numeric($ap) ? (int) $ap : -1;
+
+            return !($apNum === 0 || $apNum === 1);
+        }));
+
+        $this->enriquecerGestorLegacyListaDictums($rows);
+
+        return ['rows' => $rows, 'has_more' => $hasMore];
+    }
+
+    /**
+     * dictums.user_id (Legacy) → users.external_id → __SPARTA_SECRET_REDACTED__.persona.numero_empleado → nombre del gestor.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function enriquecerGestorLegacyListaDictums(array &$rows): void
+    {
+        $uids = [];
+        foreach ($rows as $r) {
+            $u = (int) ($r['legacy_user_id'] ?? 0);
+            if ($u > 0) {
+                $uids[$u] = true;
+            }
+        }
+        $lista = array_keys($uids);
+        if ($lista === []) {
+            foreach ($rows as &$r) {
+                $r['gestor_legacy_nombre']     = '';
+                $r['gestor_legacy_id_persona'] = null;
+            }
+            unset($r);
+
+            return;
+        }
+        $map = $this->obtenerDatosGestorLegacyPorDictumUserIds($lista);
+        foreach ($rows as &$r) {
+            $u = (int) ($r['legacy_user_id'] ?? 0);
+            $d = ($u > 0 && isset($map[$u])) ? $map[$u] : null;
+            $r['gestor_legacy_nombre']      = $d ? (string) ($d['nombre'] ?? '') : '';
+            $r['gestor_legacy_id_persona']  = ($d && !empty($d['id_persona'])) ? (int) $d['id_persona'] : null;
+        }
+        unset($r);
+    }
+
+    /**
+     * @param  int[]  $legacyUserIds  users.id en base Legacy (__SPARTA_SECRET_REDACTED__)
+     * @return array<int, array{nombre: string, id_persona: int}>
+     */
+    private function obtenerDatosGestorLegacyPorDictumUserIds(array $legacyUserIds): array
+    {
+        $legacyUserIds = array_values(array_unique(array_filter(array_map('intval', $legacyUserIds), static fn ($v) => $v > 0)));
+        if ($legacyUserIds === []) {
+            return [];
+        }
+
+        $userRows = [];
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $ph       = [];
+            $params   = [];
+            foreach ($legacyUserIds as $i => $id) {
+                $k          = 'lu'.$i;
+                $ph[]       = ':'.$k;
+                $params[$k] = $id;
+            }
+            $userRows = $legacyDb->queryAll(
+                'SELECT id, TRIM(COALESCE(external_id, \'\')) AS external_id
+                 FROM users
+                 WHERE id IN ('.implode(',', $ph).')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $userIdToExternal = [];
+        $externals        = [];
+        foreach ($userRows as $ur) {
+            $uid = (int) ($ur['id'] ?? 0);
+            $ext = trim((string) ($ur['external_id'] ?? ''));
+            if ($uid <= 0 || $ext === '') {
+                continue;
+            }
+            $userIdToExternal[$uid] = $ext;
+            $externals[$ext]        = true;
+        }
+        if ($externals === []) {
+            return [];
+        }
+
+        $extList = array_keys($externals);
+        sort($extList);
+        $ph2     = [];
+        $params2 = [];
+        foreach ($extList as $i => $ext) {
+            $k           = 'ne'.$i;
+            $ph2[]       = ':'.$k;
+            $params2[$k] = $ext;
+        }
+
+        try {
+            $perRows = $this->db->queryAll(
+                'SELECT id,
+                        TRIM(numero_empleado) AS numero_empleado,
+                        TRIM(CONCAT_WS(\' \', nombres, segundo_nombre, apellidop, apellidom)) AS nombre_gestor
+                 FROM persona
+                 WHERE TRIM(numero_empleado) IN ('.implode(',', $ph2).')',
+                $params2
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $extToDatos = [];
+        foreach ($perRows as $pr) {
+            $ne = trim((string) ($pr['numero_empleado'] ?? ''));
+            $ng = trim((string) ($pr['nombre_gestor'] ?? ''));
+            $pid = (int) ($pr['id'] ?? 0);
+            if ($ne === '' || $ng === '' || $pid <= 0 || isset($extToDatos[$ne])) {
+                continue;
+            }
+            $extToDatos[$ne] = [
+                'nombre'       => $ng,
+                'id_persona'   => $pid,
+            ];
+        }
+
+        $out = [];
+        foreach ($userIdToExternal as $uid => $ext) {
+            $d = $extToDatos[$ext] ?? null;
+            if ($d !== null && ($d['nombre'] ?? '') !== '') {
+                $out[$uid] = $d;
+            }
+        }
+
+        return $out;
+    }
+
+    private function asegurarTablaCacheNombreCredito(): bool
+    {
+        // Usar la misma tabla adj_s2_cache_dictamen para no crear una tabla aparte.
+        return $this->asegurarTablaCacheResumenS2ModalDictamen();
+    }
+
+    /**
+     * @param int[] $idsCreditos
+     * @return array<int,string> [id_credito => nombre_cliente]
+     */
+    private function obtenerNombresClienteCachePorCreditos(array $idsCreditos): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCreditos), static fn($v) => $v > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        if (!$this->asegurarTablaCacheNombreCredito()) {
+            return [];
+        }
+        $ph = [];
+        $params = [];
+        foreach ($ids as $i => $id) {
+            $k = 'id' . $i;
+            $ph[] = ':' . $k;
+            $params[$k] = $id;
+        }
+        try {
+            $rows = $this->db->queryAll(
+                'SELECT id_credito, nombre_cliente
+                 FROM adj_s2_cache_dictamen
+                 WHERE id_credito IN (' . implode(',', $ph) . ')',
+                $params
+            ) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $map = [];
+        foreach ($rows as $r) {
+            $cid = (int) ($r['id_credito'] ?? 0);
+            $nom = trim((string) ($r['nombre_cliente'] ?? ''));
+            if ($cid > 0 && $nom !== '') {
+                $map[$cid] = $nom;
+            }
+        }
+        return $map;
+    }
+
+    /**
+     * @param array<int,string> $nombresPorCredito [id_credito => nombre_cliente]
+     */
+    private function guardarNombresClienteCachePorCredito(array $nombresPorCredito): void
+    {
+        if ($nombresPorCredito === []) {
+            return;
+        }
+        if (!$this->asegurarTablaCacheNombreCredito()) {
+            return;
+        }
+        $ahora = date('Y-m-d H:i:s');
+        foreach ($nombresPorCredito as $cid => $nombre) {
+            $idCredito = (int) $cid;
+            $nom = trim((string) $nombre);
+            if ($idCredito <= 0 || $nom === '') {
+                continue;
+            }
+            try {
+                $this->db->CRUD(
+                    "INSERT INTO adj_s2_cache_dictamen (
+                        id_credito, nombre_cliente, nombre_fuente, nombre_actualizado_at, consultado_at, actualizado_at
+                    ) VALUES (
+                        :id_credito, :nombre_cliente, :nombre_fuente, :nombre_actualizado_at, :consultado_at, :actualizado_at
+                    )
+                    ON DUPLICATE KEY UPDATE
+                        nombre_cliente = VALUES(nombre_cliente),
+                        nombre_fuente = VALUES(nombre_fuente),
+                        nombre_actualizado_at = VALUES(nombre_actualizado_at),
+                        actualizado_at = VALUES(actualizado_at)",
+                    [
+                        'id_credito' => $idCredito,
+                        'nombre_cliente' => $nom,
+                        'nombre_fuente' => 'dictamen_full',
+                        'nombre_actualizado_at' => $ahora,
+                        'consultado_at' => $ahora,
+                        'actualizado_at' => $ahora,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                // No bloquear flujo por fallo de caché.
+            }
+        }
+    }
+
+    /**
+     * Resuelve nombres por lote (cache local + base_clientes + segundómetro) y los persiste en caché.
+     *
+     * @param int[] $idsCreditos
+     * @return array<int,string> [id_credito => nombre_cliente]
+     */
+    public function resolverNombresClienteDictamenesPorCreditos(array $idsCreditos): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCreditos), static fn($v) => $v > 0)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $nombres = $this->obtenerNombresClienteCachePorCreditos($ids);
+
+        $faltantes = array_values(array_filter($ids, static fn($id) => empty($nombres[$id])));
+        if ($faltantes !== []) {
+            $ph = [];
+            $params = [];
+            foreach ($faltantes as $i => $id) {
+                $k = 'c' . $i;
+                $ph[] = ':' . $k;
+                $params[$k] = $id;
+            }
+            try {
+                $rowsBase = $this->db->queryAll(
+                    'SELECT id_credito, MAX(TRIM(nombre_completo_cliente)) AS nombre_completo_cliente
+                     FROM base_clientes
+                     WHERE id_credito IN (' . implode(',', $ph) . ')
+                     GROUP BY id_credito',
+                    $params
+                ) ?: [];
+                foreach ($rowsBase as $r) {
+                    $cid = (int) ($r['id_credito'] ?? 0);
+                    $nom = trim((string) ($r['nombre_completo_cliente'] ?? ''));
+                    if ($cid > 0 && $nom !== '') {
+                        $nombres[$cid] = $nom;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignorar y continuar con siguiente fuente.
+            }
+        }
+
+        $faltantes = array_values(array_filter($ids, static fn($id) => empty($nombres[$id])));
+        if ($faltantes !== []) {
+            $mapSm = $this->obtenerMorosidadSegundometroPorCreditos($faltantes);
+            foreach ($faltantes as $idc) {
+                $key = (string) $idc;
+                $nomSm = trim((string) (($mapSm[$key]['nombre_cliente'] ?? '')));
+                if ($nomSm !== '' && strcasecmp($nomSm, 'No disponible') !== 0 && strcasecmp($nomSm, 'Sin nombre') !== 0) {
+                    $nombres[$idc] = $nomSm;
+                }
+            }
+        }
+
+        if ($nombres !== []) {
+            $this->guardarNombresClienteCachePorCredito($nombres);
+        }
+
+        return $nombres;
     }
 
     /**
@@ -2133,7 +3079,7 @@ EOSQL;
     // DATOS DE MOTO + LOG?STICOS (Mis Adjudicaciones)
     // Campos en adj_operacion: moto_marca, moto_modelo, moto_anio, moto_color,
     //   moto_no_serie, moto_no_motor, moto_placas,
-    //   log_ubicacion, log_direccion, log_ciudad, log_estado, log_responsable, log_telefono,
+    //   log_direccion, log_ciudad, log_estado, log_lugar_resguardo, log_lugar_otro, log_telefono,
     //   datos_moto_at, datos_moto_by
     // Migraci?n: 20260430_adj_operacion_datos_moto_logisticos.sql
     // =========================================================================
@@ -2146,8 +3092,8 @@ EOSQL;
         'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
         'moto_no_serie', 'moto_no_motor', 'moto_placas',
         'marca', 'modelo', 'serie', 'num_motor', 'placas',
-        'log_ubicacion', 'log_direccion', 'log_ciudad',
-        'log_estado', 'log_responsable', 'log_telefono',
+        'log_direccion', 'log_ciudad',
+        'log_estado', 'log_lugar_resguardo', 'log_lugar_otro', 'log_telefono',
     ];
 
     /** ISO 3779 / NHTSA: VIN de 17 caracteres m?x.; sin I, O, Q (motocicletas incluidas). */
@@ -2215,10 +3161,23 @@ EOSQL;
             }
         }
 
-        if (array_key_exists('log_responsable', $datos)) {
-            $nom = trim((string) $datos['log_responsable']);
-            if ($nom !== '' && !preg_match('/^[a-z???????????????????\s\'\.\-]+$/u', $nom)) {
-                return 'El responsable de resguardo debe ser un nombre (letras); no se permiten n?meros.';
+        if (array_key_exists('log_lugar_resguardo', $datos)) {
+            $lr = strtolower(trim((string) $datos['log_lugar_resguardo']));
+            $permitidos = ['mi_domicilio', 'sucursal', 'otro'];
+            if ($lr === '' || !in_array($lr, $permitidos, true)) {
+                return 'Selecciona un lugar de resguardo válido.';
+            }
+            if ($lr === 'otro') {
+                $otro = trim((string) ($datos['log_lugar_otro'] ?? ''));
+                if ($otro === '') {
+                    return 'Indica cuál es el lugar de resguardo cuando eliges «Otro».';
+                }
+                if (mb_strlen($otro) > 200) {
+                    return '«Indicar cuál» admite como máximo 200 caracteres.';
+                }
+                if (!preg_match('/^[\p{L}\p{N}\s\'\.\,\-\#\/]+$/u', $otro)) {
+                    return '«Indicar cuál» solo puede incluir letras, números y signos básicos.';
+                }
             }
         }
 
@@ -2691,7 +3650,7 @@ EOSQL;
     private function repuveResolverCriterio(int $idCredito): array
     {
         $op = $this->db->queryOne(
-            'SELECT moto_placas, placas, moto_no_serie, serie
+            'SELECT moto_placas, moto_no_serie
              FROM adj_operacion
              WHERE id_credito = :id
              ORDER BY id DESC
@@ -2704,18 +3663,12 @@ EOSQL;
         }
 
         $plateBase = trim((string) ($op['moto_placas'] ?? ''));
-        if ($plateBase === '') {
-            $plateBase = trim((string) ($op['placas'] ?? ''));
-        }
         $plate = strtoupper(preg_replace('/\s+/u', '', $plateBase));
         if ($plate !== '') {
             return ['ok' => true, 'field' => 'plate', 'value' => $plate];
         }
 
         $vinBase = trim((string) ($op['moto_no_serie'] ?? ''));
-        if ($vinBase === '') {
-            $vinBase = trim((string) ($op['serie'] ?? ''));
-        }
         $vin = strtoupper(preg_replace('/\s+/u', '', $vinBase));
         if ($vin !== '') {
             return ['ok' => true, 'field' => 'vin', 'value' => $vin];
@@ -2723,7 +3676,7 @@ EOSQL;
 
         return [
             'ok'      => false,
-            'message' => 'No hay placa ni VIN para consultar REPUVE. Captura y guarda la placa o el VIN de la motocicleta en la operación.',
+            'message' => 'No hay placa ni VIN en el expediente. Usa el campo «No. de Serie (VIN)» y el botón de consulta REPUVE junto al campo.',
         ];
     }
 
@@ -3232,6 +4185,134 @@ EOSQL;
 
         return $this->repuveCompletarDatosMotoDesdeCriterio($idCred, $out);
     }
+
+    /**
+     * Extrae datos de motocicleta desde documento FACTURA:
+     * VIN (No. serie), No. motor y color.
+     */
+    public function obtenerDatosMotoDesdeFactura(int $idCredito): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'ID de crédito inválido.'];
+        }
+
+        $path = '';
+        $isTemp = false;
+        try {
+            $estadoCuenta = new \Controllers\EstadoCuenta();
+            if (!method_exists($estadoCuenta, 'getRutaPdfFactura')) {
+                return ['success' => false, 'unavailable' => true, 'message' => 'No está disponible la ruta de factura en este ambiente.'];
+            }
+
+            $info = $estadoCuenta->getRutaPdfFactura($idCredito);
+            if (!$info || empty($info['path']) || !is_file((string) $info['path'])) {
+                return ['success' => false, 'message' => 'No se encontró el documento de FACTURA para este crédito.'];
+            }
+            $path = (string) $info['path'];
+            $isTemp = !empty($info['isTemp']);
+
+            $ext = strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+                return ['success' => false, 'message' => 'Formato de FACTURA no compatible para extracción automática.'];
+            }
+
+            $configPath = dirname(__DIR__) . '/config/config.ini';
+            $config = is_file($configPath) ? parse_ini_file($configPath, true) : [];
+            $apiUrl = isset($config['doc_verificacion']['api_url']) ? trim((string) $config['doc_verificacion']['api_url']) : '';
+            $apiKey = isset($config['doc_verificacion']['api_key']) ? trim((string) $config['doc_verificacion']['api_key']) : 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
+            if ($apiUrl === '') {
+                $apiUrl = 'http://127.0.0.1:8000/api/v1/verificar';
+            }
+
+            $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+            $endpoint = rtrim((string) $baseUrl, '/') . '/factura/datos-moto';
+            $mime = $this->mimeParaDocumentoMotoFactura($ext);
+            $cfile = new \CURLFile($path, $mime, 'factura.' . $ext);
+
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => ['documento' => $cfile],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 35,
+                CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            ]);
+            $response = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
+            curl_close($ch);
+
+            if ($code !== 200 || $response === false) {
+                return ['success' => false, 'message' => 'No se pudo extraer desde FACTURA: ' . ($curlErr ?: ('HTTP ' . $code))];
+            }
+
+            $json = json_decode((string) $response, true);
+            if (!is_array($json) || empty($json['success'])) {
+                return ['success' => false, 'message' => 'Respuesta inválida al extraer datos de FACTURA.'];
+            }
+
+            $datosMoto = $this->normalizarDatosMotoFactura([
+                'moto_no_serie' => $json['vin'] ?? null,
+                'moto_no_motor' => $json['no_motor'] ?? null,
+                'moto_color' => $json['color'] ?? null,
+            ]);
+
+            if ($datosMoto === []) {
+                return ['success' => false, 'message' => 'La FACTURA no contiene VIN, No. de motor o color legibles.'];
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Datos de motocicleta autocompletados desde FACTURA.',
+                'datos_moto' => $datosMoto,
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Error al extraer datos desde FACTURA: ' . $e->getMessage()];
+        } finally {
+            if ($isTemp && $path !== '' && is_file($path)) {
+                @unlink($path);
+            }
+        }
+    }
+
+    private function mimeParaDocumentoMotoFactura(string $ext): string
+    {
+        if ($ext === 'pdf') {
+            return 'application/pdf';
+        }
+        if ($ext === 'png') {
+            return 'image/png';
+        }
+        return 'image/jpeg';
+    }
+
+    private function normalizarDatosMotoFactura(array $raw): array
+    {
+        $out = [];
+
+        $vin = strtoupper(preg_replace('/\s+/u', '', trim((string) ($raw['moto_no_serie'] ?? ''))));
+        if ($vin !== '' && preg_match('/^[A-HJ-NPR-Z0-9]{8,17}$/', $vin)) {
+            $out['moto_no_serie'] = $vin;
+        }
+
+        $motor = strtoupper(preg_replace('/\s+/u', '', trim((string) ($raw['moto_no_motor'] ?? ''))));
+        if ($motor !== '' && preg_match('/^[A-Z0-9\-]{4,24}$/', $motor)) {
+            $out['moto_no_motor'] = $motor;
+        }
+
+        $color = trim((string) ($raw['moto_color'] ?? ''));
+        if ($color !== '') {
+            $color = preg_replace('/\s+/u', ' ', $color);
+            $color = preg_replace('/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ\s]/u', '', (string) $color);
+            $color = trim((string) $color);
+            if ($color !== '') {
+                $out['moto_color'] = mb_substr($color, 0, 50);
+            }
+        }
+
+        return $out;
+    }
+
     public function guardarDatosMoto(int $idOperacion, array $datos, int $idUsuario = 0, string $nombreUsuario = '', bool $registrarBitacora = true): array
     {
         if ($idOperacion <= 0) {
@@ -3263,8 +4344,9 @@ EOSQL;
             'serie'          => self::MADJ_VIN_MAX_LEN,
             'num_motor'      => self::MADJ_NO_MOTOR_MAX_LEN,
             'placas'         => self::MADJ_PLACAS_MOTO_MAX_LEN,
-            'log_ubicacion'  => 100, 'log_direccion'  => 100, 'log_ciudad'     => 50,
-            'log_estado'     => 60,  'log_responsable'=> 100, 'log_telefono'   => 10,
+            'log_direccion'  => 100, 'log_ciudad'     => 50,
+            'log_estado'     => 60,  'log_lugar_resguardo' => 32, 'log_lugar_otro' => 200,
+            'log_telefono'   => 10,
         ];
 
         $setClauses = [];
@@ -3287,6 +4369,12 @@ EOSQL;
                 $val = ((int) $valRaw ?: null);
             } elseif (in_array($campo, ['moto_no_serie', 'moto_no_motor', 'moto_placas', 'serie', 'placas', 'num_motor'], true)) {
                 $val = $normalizaAlfanumerico($campo, $valRaw);
+            } elseif ($campo === 'log_lugar_resguardo') {
+                $lr = strtolower(trim((string) $valRaw));
+                $permitidos = ['mi_domicilio', 'sucursal', 'otro'];
+                $val = in_array($lr, $permitidos, true) ? $lr : '';
+            } elseif ($campo === 'log_lugar_otro') {
+                $val = mb_substr(trim((string) $valRaw), 0, $maxLen['log_lugar_otro']);
             } else {
                 $val = mb_substr(trim((string) $valRaw), 0, $maxLen[$campo] ?? 255);
             }
@@ -3501,7 +4589,7 @@ EOSQL;
             return ['success' => false, 'message' => 'Esta operaci?n ya fue enviada.'];
         }
 
-        $previos = ['Recibido', 'en_transito', 'Revisi?n Recuperaciones', 'Procesando IA'];
+        $previos = ['Recibido', 'en_transito', 'Revisión Recuperaciones', 'Procesando IA'];
         if (!in_array($est, $previos, true)) {
             return ['success' => false, 'message' => 'Esta operaci?n no est? en etapa para este paso.'];
         }
@@ -3523,8 +4611,8 @@ EOSQL;
     }
 
     /**
-     * Si hay al menos una evidencia con val_atn = 2, mueve la operaci?n a "Revisi?n Recuperaciones".
-     * Si ya no hay rechazos y estaba en "Revisi?n Recuperaciones", regresa a bandeja (Recibido/en_transito),
+     * Si hay al menos una evidencia con val_atn = 2, mueve la operaci?n a "Revisión Recuperaciones".
+     * Si ya no hay rechazos y estaba en "Revisión Recuperaciones", regresa a bandeja (Recibido/en_transito),
      * salvo que ya est? enviada desde Atenci?n, caso en el que vuelve a "Procesando IA".
      *
      * @return array{success:bool, message?:string, rechazos?:int, enviado_a_correcciones?:bool, regresado_de_correcciones?:bool}
@@ -3556,7 +4644,7 @@ EOSQL;
             // Si ya estaba en Procesando IA por env?o desde Atenci?n, no bajar a Correcciones por rechazos en UI.
             $noForzarCorrecciones = ($estatus === 'Procesando IA' && $this->operacionTieneEnvioAtencionMarcado($idOperacion));
             if (!$noForzarCorrecciones && !$this->esEstatusRevisionRecuperaciones($estatus)) {
-                $r = $this->cambiarEstatus($idOperacion, 'Revisi?n Recuperaciones', $idUsuario, $nombreUsuario);
+                $r = $this->cambiarEstatus($idOperacion, 'Revisión Recuperaciones', $idUsuario, $nombreUsuario);
                 if (empty($r['success'])) {
                     return $r;
                 }
@@ -3600,7 +4688,7 @@ EOSQL;
                     "SELECT estatus_anterior
                      FROM adj_historial_estatus
                      WHERE id_operacion = :id
-                       AND estatus_nuevo = 'Revisi?n Recuperaciones'
+                       AND estatus_nuevo = 'Revisión Recuperaciones'
                      ORDER BY id DESC
                      LIMIT 1",
                     ['id' => $idOperacion]

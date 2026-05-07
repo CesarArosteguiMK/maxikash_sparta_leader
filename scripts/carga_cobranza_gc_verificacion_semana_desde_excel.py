@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Nota: el agente Gastos Cobranza (Node) ejecuta la copia en
+backend/services/gastos-cobranza-agent/scripts/carga_cobranza_gc_verificacion_semana_desde_excel.py
+(versión distinta). Este archivo es para uso manual desde la raíz del repo.
+
 Carga id_credito desde Excel hacia __SPARTA_SECRET_REDACTED__.cobranza_gc_verificacion_semana.
 
 El Excel debe tener una columna de encabezado reconocible como ID de crédito, por ejemplo:
