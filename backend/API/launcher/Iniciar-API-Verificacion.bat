@@ -49,6 +49,26 @@ if !errorlevel! EQU 0 (
     exit /b 0
 )
 
+rem ----- Bootstrap defensivo: si Python portable existe pero esta roto -----
+rem (le faltan .pyd como _socket), descargar el embeddable oficial. Todo lo
+rem demas (pip, requirements) depende de que socket/ssl funcionen.
+set "PORTABLE_PY=%API_DIR%\tools\PythonPortable\python.exe"
+if exist "%PORTABLE_PY%" (
+    "%PORTABLE_PY%" -c "import _socket, ssl" >nul 2>&1
+    if errorlevel 1 (
+        echo [0/4] Python portable incompleto ^(falta _socket/ssl^). Reparando...
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-python.ps1"
+        set "BS_RC=!ERRORLEVEL!"
+        if not "!BS_RC!"=="0" (
+            echo [ERROR] Bootstrap del Python portable fallo ^(codigo !BS_RC!^).
+            echo         Vea: %API_DIR%\logs\bootstrap-python-*.log
+        )
+    )
+) else (
+    echo [0/4] No hay Python portable. Descargando uno limpio...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-python.ps1"
+)
+
 echo [1/4] Diagnostico rapido...
 rem Sin -Quiet: asi la salida llega al log web y el panel no parece congelado.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"

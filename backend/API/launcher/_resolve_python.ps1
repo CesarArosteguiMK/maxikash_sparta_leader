@@ -31,6 +31,12 @@ function Test-SpartaPythonViable {
     if (-not $PythonExe -or -not (Test-Path -LiteralPath $PythonExe)) {
         return $false
     }
+    # Stdlib minima: _socket y ssl. Si el embeddable esta incompleto, esto
+    # se cae aqui y el caller (instalar-agente / doctor) puede lanzar el
+    # bootstrap.
+    & $PythonExe -c "import _socket, ssl" *> $null
+    if ($LASTEXITCODE -ne 0) { return $false }
+
     $chk = Join-Path $ApiDir 'launcher\_check_standard_python.py'
     if (-not (Test-Path -LiteralPath $chk)) {
         return $true

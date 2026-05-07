@@ -80,12 +80,54 @@ function Err     { param([string] $M) Out-Log "[ERR ] $M" 'Red';    $Script:HasE
 function Fix     { param([string] $M) Out-Log "[FIX ] $M" 'Magenta'; $null = $Script:FixesApplied.Add($M) }
 function Rec     { param([string] $M) $null = $Script:Recommended.Add($M); Out-Log "       -> $M" 'DarkYellow' }
 
+function Test-PythonStdlibSano {
+    # Devuelve $true si _socket y ssl cargan (Python no esta corrupto/incompleto).
+    param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
+    if (-not (Test-Path -LiteralPath $PyExe)) { return $false }
+    & $PyExe @PyArgs -c "import _socket, ssl" *> $null
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Invoke-PythonBootstrapIfBroken {
+    # Si python portable existe pero _socket no carga, ejecuta bootstrap-python.ps1
+    # para reinstalarlo. Devuelve $true si tras el intento Python esta sano.
+    param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
+    if ($Script:PythonFreeThreading) { return $false }
+    if (Test-PythonStdlibSano -PyExe $PyExe -PyArgs $PyArgs) { return $true }
+
+    # Solo bootstrap si Python esta dentro del API (no tocamos Python global).
+    $portable = Join-Path $ApiDir 'tools\PythonPortable\python.exe'
+    if ($PyExe -ne $portable) {
+        Err 'Python no es portable y stdlib esta rota; bootstrap solo aplica al portable.'
+        return $false
+    }
+    $bs = Join-Path $ApiDir 'launcher\bootstrap-python.ps1'
+    if (-not (Test-Path -LiteralPath $bs)) {
+        Err "No existe $bs; no se puede reparar Python automaticamente."
+        return $false
+    }
+    Fix '_socket no carga; ejecutando bootstrap-python.ps1 -Force (descarga embeddable oficial)...'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $bs -Force -LogFile (Join-Path $LogsDir "bootstrap-from-doctor-$stamp.log")
+    if ($LASTEXITCODE -ne 0) {
+        Err "bootstrap-python.ps1 fallo (exit $LASTEXITCODE)"
+        return $false
+    }
+    return (Test-PythonStdlibSano -PyExe $PyExe -PyArgs $PyArgs)
+}
+
 function Invoke-EnsurePipBootstrap {
     # Portable/minimal Python sin Scripts\pip.exe: ensurepip crea pip en Lib\ensurepip.
+    # Si _socket esta roto, dispara bootstrap-python.ps1 antes.
     param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
     & $PyExe @PyArgs -m pip --version *> $null
     if ($LASTEXITCODE -eq 0) { return $true }
     if ($Script:PythonFreeThreading) { return $false }
+    if (-not (Test-PythonStdlibSano -PyExe $PyExe -PyArgs $PyArgs)) {
+        if (-not (Invoke-PythonBootstrapIfBroken -PyExe $PyExe -PyArgs $PyArgs)) { return $false }
+        # bootstrap-python.ps1 ya instala pip via get-pip.py; revalidar.
+        & $PyExe @PyArgs -m pip --version *> $null
+        if ($LASTEXITCODE -eq 0) { return $true }
+    }
     Out-Log '[bootstrap] pip no operativo; ejecutando ensurepip + pip upgrade...' 'Magenta'
     $null = & $PyExe @PyArgs -m ensurepip --upgrade 2>&1 | ForEach-Object { Out-Log $_ 'DarkGray' }
     $null = & $PyExe @PyArgs -m pip install --upgrade pip 2>&1 | ForEach-Object { Out-Log $_ 'DarkGray' }
@@ -251,7 +293,28 @@ if (-not $pyExe) {
     Rec 'Opcion B — Una sola linea con ruta completa del exe en  launcher\PYTHON_EXE.txt  (ej. D:\sitio\...\python.exe).'
     Rec 'Opcion C — Servidor convencional: Python desde python.org y PATH / py launcher.'
 } elseif ($pyExe) {
-    $pyVer = (& $pyExe @pyArgs -c 'import sys,platform; print(platform.python_version()+"|"+sys.executable+"|"+platform.architecture()[0])' 2>$null)
+    # Capturar stdout limpio con archivo (algunos Python embeddable escupen
+    # warnings por _pth en stderr y rompen la lectura inline).
+    $pyVer = $null
+    try {
+        $tmpVO = [System.IO.Path]::GetTempFileName()
+        $tmpVE = [System.IO.Path]::GetTempFileName()
+        $verArgs = @()
+        if ($pyArgs.Count -gt 0) { $verArgs += $pyArgs }
+        $verArgs += @('-c', 'import sys,platform; print(platform.python_version()+"|"+sys.executable+"|"+platform.architecture()[0])')
+        $pVer = Start-Process -FilePath $pyExe -ArgumentList $verArgs `
+            -Wait -PassThru -NoNewWindow `
+            -RedirectStandardOutput $tmpVO -RedirectStandardError $tmpVE
+        if ($pVer.ExitCode -eq 0) {
+            $rawVer = Get-Content -LiteralPath $tmpVO -Raw -ErrorAction SilentlyContinue
+            if ($rawVer) {
+                foreach ($ln in ($rawVer -split "`r?`n")) {
+                    if ($ln -match '^\d+\.\d+\.\d+\|') { $pyVer = $ln.Trim(); break }
+                }
+            }
+        }
+        Remove-Item -LiteralPath $tmpVO, $tmpVE -ErrorAction SilentlyContinue
+    } catch {}
     if ($pyVer) {
         $parts = $pyVer.Split('|')
         Info "Version    : $($parts[0])"
@@ -295,6 +358,28 @@ if (-not $pyExe) {
         } else {
             Ok "Python no es la variante free-threading conocida incompatible con pymupdf."
         }
+    }
+
+    # ---------- Stdlib basica (_socket, ssl) ----------
+    if (-not (Test-PythonStdlibSano -PyExe $pyExe -PyArgs $pyArgs)) {
+        $portablePath = Join-Path $ApiDir 'tools\PythonPortable\python.exe'
+        $esPortable = ($pyExe -eq $portablePath)
+        Err "Python esta INCOMPLETO: no carga _socket / ssl (faltan .pyd en DLLs\)."
+        if ($esPortable -and ($Fix -or $InstallMissing)) {
+            if (Invoke-PythonBootstrapIfBroken -PyExe $pyExe -PyArgs $pyArgs) {
+                Fix 'Python portable reinstalado desde python.org (embeddable). Ya carga _socket/ssl.'
+            } else {
+                Err 'No se pudo reparar Python portable automaticamente. Vea logs\bootstrap-from-doctor-*.log'
+                Rec 'Ejecute manualmente: launcher\Bootstrap-Python.bat /FORCE'
+            }
+        } elseif ($esPortable) {
+            Rec 'Ejecute  launcher\Bootstrap-Python.bat  para reinstalar Python portable desde python.org (1-3 min).'
+            Rec '(O re-lance este doctor con -Fix para que lo haga automatico)'
+        } else {
+            Rec 'El Python en uso no es portable; reinstale Python 3.12 estandar desde python.org.'
+        }
+    } else {
+        Ok 'Stdlib basica OK (_socket, ssl).'
     }
 }
 

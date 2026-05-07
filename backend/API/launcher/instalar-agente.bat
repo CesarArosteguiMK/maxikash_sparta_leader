@@ -135,7 +135,32 @@ if errorlevel 2 (
     exit /b 2
 )
 
-rem -------- Bootstrap pip si falta (ensurepip; portable a veces sin pip operativo) --------
+rem -------- Si el Python portable esta roto (falta _socket/ssl), bootstrapear --------
+rem El embeddable mal copiado pierde DLLs criticas; ensurepip no puede funcionar
+rem porque socket.py no puede importar _socket.pyd.
+echo.>>"%INST_LOG%"
+echo ===== chequeo Python tiene _socket/ssl =====>>"%INST_LOG%"
+set "NEED_BOOTSTRAP=0"
+if defined PY_EXE_FULL (
+    "!PY_EXE_FULL!" -c "import _socket, ssl" >>"%INST_LOG%" 2>&1
+    if errorlevel 1 set "NEED_BOOTSTRAP=1"
+)
+if "%NEED_BOOTSTRAP%"=="1" (
+    echo [bootstrap] Python portable incompleto. Descargando embeddable oficial...
+    echo [bootstrap] Python portable incompleto. Descargando embeddable oficial...>>"%INST_LOG%"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%API_DIR%\launcher\bootstrap-python.ps1" -Force >>"%INST_LOG%" 2>&1
+    set "BS_RC=!ERRORLEVEL!"
+    echo [bootstrap] codigo de salida: !BS_RC!>>"%INST_LOG%"
+    if not "!BS_RC!"=="0" (
+        echo [ERROR] Bootstrap del Python portable fallo. Vea %INST_LOG%
+        if "%SILENT%"=="0" pause
+        exit /b 1
+    )
+    rem Tras el bootstrap el python.exe portable es nuevo.
+    set "PY_EXE_FULL=%API_DIR%\tools\PythonPortable\python.exe"
+)
+
+rem -------- Bootstrap pip si falta (ensurepip / get-pip si bootstrap ya corrio) --------
 echo.>>"%INST_LOG%"
 echo ===== bootstrap pip ^(ensurepip si pip no responde^) =====>>"%INST_LOG%"
 if defined PY_EXE_FULL (
@@ -147,13 +172,18 @@ if defined PY_EXE_FULL (
         "!PY_EXE_FULL!" -m pip install --upgrade pip >>"%INST_LOG%" 2>&1
         "!PY_EXE_FULL!" -m pip --version >>"%INST_LOG%" 2>&1
         if errorlevel 1 (
-            echo [ERROR] pip sigue sin funcionar tras ensurepip. Vea %INST_LOG%
-            echo          Ejecute manualmente: "!PY_EXE_FULL!" -m ensurepip --upgrade
-            if "%SILENT%"=="0" pause
-            exit /b 1
+            echo [pip] ensurepip fallo; lanzando bootstrap-python.ps1 -Force ...>>"%INST_LOG%"
+            if "%SILENT%"=="0" echo [pip] ensurepip fallo; reinstalando Python portable...
+            powershell -NoProfile -ExecutionPolicy Bypass -File "%API_DIR%\launcher\bootstrap-python.ps1" -Force >>"%INST_LOG%" 2>&1
+            "!PY_EXE_FULL!" -m pip --version >>"%INST_LOG%" 2>&1
+            if errorlevel 1 (
+                echo [ERROR] pip sigue sin funcionar tras bootstrap. Vea %INST_LOG%
+                if "%SILENT%"=="0" pause
+                exit /b 1
+            )
         )
-        if "%SILENT%"=="0" echo [OK] pip disponible tras ensurepip.
-        echo [OK] pip disponible tras ensurepip.>>"%INST_LOG%"
+        if "%SILENT%"=="0" echo [OK] pip disponible.
+        echo [OK] pip disponible.>>"%INST_LOG%"
     )
 ) else (
     call %PY_CMD% -m pip --version >>"%INST_LOG%" 2>&1

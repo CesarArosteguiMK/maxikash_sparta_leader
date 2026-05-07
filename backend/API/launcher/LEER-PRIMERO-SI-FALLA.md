@@ -6,6 +6,35 @@ pasos en este orden.
 
 ---
 
+## 0) Si el doctor dice `ModuleNotFoundError: No module named '_socket'`
+
+Ese error significa que el **Python portable** dentro de
+`backend\API\tools\PythonPortable\` está **incompleto** (le faltan `.pyd` en
+`DLLs\`). Ni `pip` ni `ensurepip` pueden funcionar porque no se puede
+importar `socket`.
+
+Solución (1-3 minutos, descarga ~25 MB desde python.org):
+
+```
+launcher\Bootstrap-Python.bat
+```
+
+Esto:
+
+1. Descarga el Python 3.12 **embeddable amd64** oficial.
+2. Lo extrae sobre `tools\PythonPortable\` (sustituyendo lo roto).
+3. Habilita `import site` en el archivo `_pth` para que `pip` funcione.
+4. Descarga `get-pip.py` y deja `pip` operativo.
+
+A partir de ahí, el botón **API** del panel web (o el flujo
+`Iniciar-API-Verificacion.bat`) instalará todas las dependencias normalmente.
+
+> Desde el botón web también se ejecuta automáticamente el bootstrap si
+> detecta que `_socket`/`ssl` no cargan, así que en muchos casos no hace falta
+> hacer nada manual.
+
+---
+
 ## 1) Ejecuta el DOCTOR (lo más importante)
 
 Doble clic:
