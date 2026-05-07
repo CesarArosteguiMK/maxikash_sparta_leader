@@ -2728,20 +2728,20 @@ class CapHum extends Controller
                                 Swal.fire({
                                     icon: 'success',
                                     title: '¡Listo!',
-                                    text: 'La baja se registró correctamente.'
+                                    text: data.message || 'La baja se registró correctamente.'
+                                }).then(() => {
+                                    $("#modalBajas").modal("hide");
+
+                                    //  Limpieza
+                                    archivosSeleccionados = [];
+                                    const listEl = document.getElementById("listaArchivos");
+                                    if (listEl) { listEl.innerHTML = ""; listEl.style.display = "none"; }
+                                    const spanBajaOk = document.getElementById("bajaModal_nombreArchivo");
+                                    if (spanBajaOk) spanBajaOk.textContent = "No se ha seleccionado ningún archivo";
+
+                                    if (typeof getUsuarios === 'function') getUsuarios();
+                                    if (typeof getBajas === 'function') getBajas();
                                 });
-
-                                $("#modalBajas").modal("hide");
-
-                                //  Limpieza
-                                archivosSeleccionados = [];
-                                const listEl = document.getElementById("listaArchivos");
-                                if (listEl) { listEl.innerHTML = ""; listEl.style.display = "none"; }
-                                const spanBajaOk = document.getElementById("bajaModal_nombreArchivo");
-                                if (spanBajaOk) spanBajaOk.textContent = "No se ha seleccionado ningún archivo";
-
-                                if (typeof getUsuarios === 'function') getUsuarios();
-                                if (typeof getBajas === 'function') getBajas();
                             } else {
                                 Swal.fire({
                                     icon: 'error',
@@ -10698,6 +10698,8 @@ public function getMunicipios()
 
     public function registrarBaja()
     {
+        header('Content-Type: application/json; charset=utf-8');
+
         // ⚠️ Al usar FormData NO se usa php://input
         $idGestor    = $_POST['idGestor'] ?? null;
         $motivo      = $_POST['motivo'] ?? null;
@@ -10780,6 +10782,7 @@ public function getMunicipios()
                 'error'   => $resultado['error'] ?? null
             ]);
         }
+        exit;
     }
 
     /**
