@@ -13,5 +13,5 @@ venv/
 # Ruta local al python.exe (servidor sin PATH); ver PYTHON_EXE.example.txt
 launcher/PYTHON_EXE.txt
 
-# Python embebido instalado aqui (~100MB); no versionar
-tools/PythonPortable/
+# Python portable requerido por el flujo 1-click en servidores sin PATH.
+# Se versiona para que el pull lo traiga.
