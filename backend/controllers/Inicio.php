@@ -693,6 +693,14 @@ class Inicio extends Controller
         if ($completed && preg_match('/__FIN__:(-?\d+)/', $content, $m)) {
             $exitCode = (int)$m[1];
         }
+        // Si el .bat murió por sintaxis CMD, no llega __FIN__: — detectar para no dejar el UI colgado en "Ejecutando".
+        $fatalBatch = $this->apiDocOneClickDetectFatalBatchError($content);
+        if ($fatalBatch) {
+            $completed = true;
+            if ($exitCode === null) {
+                $exitCode = 1;
+            }
+        }
 
         echo json_encode([
             'success' => true,
@@ -715,7 +723,29 @@ class Inicio extends Controller
         if (strpos($tail, '__FIN__:') !== false) {
             return ['is_running' => false, 'log_file' => $logPath];
         }
+        if ($this->apiDocOneClickDetectFatalBatchError($tail)) {
+            return ['is_running' => false, 'log_file' => $logPath];
+        }
         return ['is_running' => true, 'log_file' => $logPath];
+    }
+
+    private function apiDocOneClickDetectFatalBatchError(string $content): bool
+    {
+        if ($content === '') {
+            return false;
+        }
+        $patterns = [
+            '. was unexpected at this time.',
+            'was unexpected at this time.',
+            "'-' is not recognized",
+            'is not recognized as an internal or external command',
+        ];
+        foreach ($patterns as $p) {
+            if (stripos($content, $p) !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function leerTailArchivo(string $path, int $maxBytes = 64000): string
