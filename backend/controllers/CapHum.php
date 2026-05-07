@@ -6422,13 +6422,19 @@ class CapHum extends Controller
             return;
         }
 
+        $timeout = 60;
+        if ($endpoint === 'verificar-calidad-identificacion-pdf') {
+            // El análisis de PDFs de identificación puede tardar más de 60s.
+            $timeout = 180;
+        }
+
         $ch = curl_init($targetUrl);
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $postFields,
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $cfg['api_key']],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 60,
+            CURLOPT_TIMEOUT => $timeout,
             CURLOPT_CONNECTTIMEOUT => 8,
         ]);
         $body = curl_exec($ch);
@@ -7336,8 +7342,8 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 45,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 180,
+            CURLOPT_CONNECTTIMEOUT => 8,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -7705,18 +7711,14 @@ class CapHum extends Controller
             }
 
             if ($i === 5 && $ext === 'pdf') {
-                $apiCalidad = $this->verificarCalidadIdentificacionPdfApi($rutaDestino);
-                if ($apiCalidad !== null && is_array($apiCalidad)) {
-                    $verificacionCalidadJson = json_encode($apiCalidad);
-                } else {
-                    // API no disponible o error: guardar nota para revisión manual sin fallar la subida
-                    $verificacionCalidadJson = json_encode([
-                        'aceptado' => true,
-                        'notas' => ['No se pudo conectar con el sistema de revisión. Revisar identificación manualmente.'],
-                        'detalle_frente' => null,
-                        'detalle_reverso' => null,
-                    ]);
-                }
+                // En esta etapa solo guardamos rápido. La validación profunda se corre en background.
+                $verificacionCalidadJson = json_encode([
+                    'aceptado' => true,
+                    'pendiente_revision_profunda' => true,
+                    'notas' => ['Identificación recibida. La revisión profunda se ejecutará automáticamente en segundo plano.'],
+                    'detalle_frente' => null,
+                    'detalle_reverso' => null,
+                ]);
             }
 
             // Misma estrategia que carga_documento_persona: solo guardar ruta en BD, archivo en disco (sin BLOB = rápido).

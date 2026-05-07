@@ -823,30 +823,6 @@ $documentos = [
                 });
             }
 
-            function verificarCalidadIdentificacionPdfAPI(file) {
-                return new Promise(function(resolve, reject) {
-                    var formData = new FormData();
-                    formData.append('documento', file, file.name || 'identificacion.pdf');
-                    fetchWithTimeout(API_BASE + '/verificar-calidad-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_IDENTIFICACION_TIMEOUT_MS)
-                    .then(function(r) {
-                        if (!r.ok) {
-                            return r.json().catch(function() { return {}; }).then(function(body) {
-                                throw new Error((body && (body.detail || body.mensaje)) ? (body.detail || body.mensaje) : 'La API respondió con error. Intenta de nuevo.');
-                            });
-                        }
-                        return r.json();
-                    })
-                    .then(resolve)
-                    .catch(function(err) {
-                        if (err && err.name === 'AbortError') {
-                            reject(new Error('Verificación tardó demasiado. Revisa tu conexión o que la API esté encendida e intenta de nuevo.'));
-                        } else {
-                            reject(err);
-                        }
-                    });
-                });
-            }
-
             function actualizarCheckmark(docNum, aprobado) {
                 var label = document.querySelector('label[for="archivo_' + docNum + '"]');
                 if (!label) return;
@@ -1056,25 +1032,13 @@ $documentos = [
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
-                    var verificandoDiv = showVerificando(msg, 'Revisando PDF de identificación...');
-                    verificarCalidadIdentificacionPdfAPI(file).then(function(res) {
-                        idVerificado.front = true;
-                        idVerificado.back = true;
-                        actualizarCheckmark(5, true);
-                        var el = document.getElementById('id-verificado-frente');
-                        if (el) el.style.display = 'inline';
-                        var nota = '';
-                        if (res && res.notas && res.notas.length) {
-                            nota = ' Nota: ' + res.notas[0];
-                        }
-                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> PDF de identificación recibido y revisado.' + nota, false);
-                    }).catch(function(err) {
-                        var texto = (err && err.message) ? err.message : 'No se pudo revisar el PDF en este momento.';
-                        showResultado(msg, verificandoDiv, texto + ' Puedes continuar y se validará al subir el documento.', true);
-                        var el = document.getElementById('id-verificado-frente');
-                        if (el) el.style.display = 'none';
-                        actualizarCheckmark(5, false);
-                    });
+                    var verificandoDiv = showVerificando(msg, 'Validando formato del PDF...');
+                    idVerificado.front = true;
+                    idVerificado.back = true;
+                    actualizarCheckmark(5, true);
+                    var el = document.getElementById('id-verificado-frente');
+                    if (el) el.style.display = 'inline';
+                    showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> PDF de identificación cargado. La revisión profunda se realizará automáticamente después de subir.', false);
                 });
             }
             var inputReversoId = document.getElementById('archivo_5_reverso');
