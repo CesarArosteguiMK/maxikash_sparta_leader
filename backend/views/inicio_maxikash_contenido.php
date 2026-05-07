@@ -491,6 +491,13 @@ body.dark-mode .inicio-btn-api1click {
   white-space: nowrap;
 }
 .api1click-tbtn:hover { background: rgba(71, 85, 105, 0.95); }
+.api1click-tbtn--danger {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fecaca;
+}
+.api1click-tbtn--danger:hover { background: rgba(153, 27, 27, 0.9); }
+body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
 .api1click-chk {
   display: inline-flex;
   align-items: center;
@@ -634,7 +641,7 @@ body.dark-mode .inicio-btn-api1click {
       <p class="api1click-help"><strong>Canal oficial (usuario 878):</strong> diagnóstico, instalación si hace falta y arranque de la API desde aquí — sin ejecutar BAT a mano en el servidor ni depender del PATH. Python/Tesseract dentro de la carpeta de la API los deja soporte/despliegue una vez; el día a día es este botón. Logs (<code>backend/API/logs</code>): Lista → Ver → Copiar o Descargar.</p>
       <div class="api1click-toolbar">
         <select id="api1clickLogSelect" title="Archivos .log en backend/API/logs" aria-label="Seleccionar log">
-          <option value="">— Cargar lista —</option>
+          <option value="">— Lista de logs (pulsa «Lista» o espera al auto-actualizar) —</option>
         </select>
         <button type="button" class="api1click-tbtn" id="api1clickBtnRefreshList" title="Actualizar lista de logs">Lista</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnView" title="Mostrar contenido aquí abajo">Ver log</button>
@@ -643,7 +650,8 @@ body.dark-mode .inicio-btn-api1click {
         </label>
         <button type="button" class="api1click-tbtn" id="api1clickBtnCopy" title="Copiar texto visible al portapapeles">Copiar</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnDownload" title="Descargar .log">Descargar</button>
-        <button type="button" class="api1click-tbtn" id="api1clickBtnOlvidar" title="Si el panel cree que sigue ejecutando y quieres lanzar otra vez (no mata procesos en el servidor)">Desbloquear panel</button>
+        <button type="button" class="api1click-tbtn" id="api1clickBtnOlvidar" title="Solo quita el bloqueo en la web; no mata procesos en el servidor">Desbloquear panel</button>
+        <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnParar" title="Corta en el servidor esta ejecución (batch/doctor/pip/python de esta API + puerto 8000)">Parar ejecución</button>
       </div>
       <pre class="api1click-body" id="api1clickOutput">Sin ejecución todavía.</pre>
     </div>
@@ -1080,21 +1088,33 @@ body.dark-mode .inicio-btn-api1click {
   var btnApi1Copy = document.getElementById('api1clickBtnCopy');
   var btnApi1Download = document.getElementById('api1clickBtnDownload');
   var btnApi1Olvidar = document.getElementById('api1clickBtnOlvidar');
+  var btnApi1Parar = document.getElementById('api1clickBtnParar');
   var chkApi1Completo = document.getElementById('api1clickLogCompleto');
+  var api1ListaPollTicks = 0;
 
   function api1RefreshLogList() {
     if (!selApi1Logs) return;
-    fetch('/inicio/apidoconeloglistar')
-      .then(function(r){ return r.json(); })
+    selApi1Logs.disabled = true;
+    var cur = selApi1Logs.value;
+    fetch('/inicio/apidoconeloglistar', { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r){
+        if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status + ' (' + r.statusText + ')'));
+        return r.json();
+      })
       .then(function(data){
-        if (!data || !data.success) return;
-        var cur = selApi1Logs.value;
         selApi1Logs.innerHTML = '';
+        if (!data || !data.success) {
+          var ox = document.createElement('option');
+          ox.value = '';
+          ox.textContent = data && data.message ? String(data.message) : 'No se pudo listar logs (¿sesión?).';
+          selApi1Logs.appendChild(ox);
+          return;
+        }
         var files = data.files || [];
         if (files.length === 0) {
           var o0 = document.createElement('option');
           o0.value = '';
-          o0.textContent = '(sin archivos .log todavía)';
+          o0.textContent = '(sin archivos .log en backend/API/logs)';
           selApi1Logs.appendChild(o0);
           return;
         }
@@ -1109,7 +1129,14 @@ body.dark-mode .inicio-btn-api1click {
           selApi1Logs.value = cur;
         }
       })
-      .catch(function(){});
+      .catch(function(e){
+        selApi1Logs.innerHTML = '';
+        var oe = document.createElement('option');
+        oe.value = '';
+        oe.textContent = 'Error al cargar lista: ' + (e && e.message ? e.message : e);
+        selApi1Logs.appendChild(oe);
+      })
+      .finally(function(){ selApi1Logs.disabled = false; });
   }
   function api1ViewSelectedLog() {
     if (!selApi1Logs || !selApi1Logs.value) {
@@ -1192,6 +1219,24 @@ body.dark-mode .inicio-btn-api1click {
       })
       .catch(function(){ if (outApi1) outApi1.textContent = 'No se pudo desbloquear (red o sesión).'; });
   });
+  if (btnApi1Parar) btnApi1Parar.addEventListener('click', function(){
+    if (!confirm('¿PARAR esta ejecución en el servidor? Se intentará cerrar doctor/instalar/batch relacionados con esta API, liberar el puerto 8000 y procesos Python cuya línea de comando incluya esta carpeta. Luego podrás pulsar «API» otra vez.\n\nSolo otros Python de otros proyectos NO deberían verse afectados si no usan esa ruta.')) return;
+    fetch('/inicio/apidoconeclickparar', { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        api1StopPolling();
+        if (btnApi1) btnApi1.classList.remove('running');
+        if (data && data.success) {
+          api1SetState('ok', 'Listo');
+          if (outApi1) outApi1.textContent = data.message || 'Parada solicitada.';
+          if (data.log_file) api1RefreshLogList();
+        } else {
+          api1SetState('err', 'Error');
+          if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo iniciar parada.';
+        }
+      })
+      .catch(function(){ api1SetState('err', 'Error'); if (outApi1) outApi1.textContent = 'Error de red al parar.'; });
+  });
 
   function api1SetState(kind, text) {
     if (!badgeApi1) return;
@@ -1231,6 +1276,10 @@ body.dark-mode .inicio-btn-api1click {
           api1StopPolling();
           return;
         }
+        api1ListaPollTicks += 1;
+        if (api1ListaPollTicks === 1 || api1ListaPollTicks % 4 === 0) {
+          api1RefreshLogList();
+        }
         api1RenderTail(data);
         if (data.completed) {
           if (typeof data.exit_code === 'number' && data.exit_code === 0) {
@@ -1238,6 +1287,7 @@ body.dark-mode .inicio-btn-api1click {
           } else {
             api1SetState('err', 'Con errores');
           }
+          api1RefreshLogList();
           api1StopPolling();
           return;
         }
@@ -1256,6 +1306,7 @@ body.dark-mode .inicio-btn-api1click {
   }
   if (btnApi1) {
     btnApi1.addEventListener('click', function(){
+      api1ListaPollTicks = 0;
       api1OpenPanel();
       api1RefreshLogList();
       if (outApi1) {

@@ -141,6 +141,8 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                                     <span class="badge rounded-pill bg-label-secondary gc-cartera-act-pill" id="gcCarteraActividadEstado">En espera</span>
                                 </div>
                                 <div id="gcCarteraActividadList" class="gc-cartera-actividad-list small" role="log" aria-live="polite" aria-relevant="additions"></div>
+                                <?php /* Mismo id que el log del modal en modo GC completo: JS rellena vía traerLog para leer % de avance del worker. */ ?>
+                                <textarea id="gastosCobranzaLogPanel" class="d-none" readonly tabindex="-1" aria-hidden="true"></textarea>
                             </div>
                         </div>
                         <?php else: ?>
@@ -1499,6 +1501,45 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
     var gcCarteraActividadVacio = document.getElementById('gcCarteraActividadVacio');
     /** Evita repetir el mismo aviso de “ocupado remoto” en cada poll. */
     var gcCarteraUltimoAvisoRemoto = '';
+    /** Máx. mensajes de “sin conexión / error al verificar” por racha offline (poll cada ~15 s). */
+    var gcCarteraAvisosConexionMax = 2;
+    var gcCarteraAvisosConexionEnRacha = 0;
+
+    function gcCarteraResetAvisosConexion() {
+        gcCarteraAvisosConexionEnRacha = 0;
+    }
+
+    /**
+     * Mensaje de fallo de conexión/verificación: como mucho gcCarteraAvisosConexionMax veces hasta volver en línea.
+     */
+    function gcCarteraPushConexionLimitado(mensaje, claseLinea) {
+        if (!gcShellModoCartera) return;
+        if (gcCarteraAvisosConexionEnRacha >= gcCarteraAvisosConexionMax) return;
+        gcCarteraAvisosConexionEnRacha++;
+        gcCarteraActividadPush(mensaje, claseLinea || 'gc-cartera-act-line--warn');
+    }
+
+    /** Último % leído del log del worker (Conciliar pagos); se resetea al terminar la operación. */
+    var gcCarteraWorkerUltimoPct = -1;
+
+    function gcCarteraSincronizarProgresoWorkerDesdeLog() {
+        if (!gcShellModoCartera || !logPanel || gcShellOperacionEnCurso !== 'worker') return;
+        var t = logPanel.value || '';
+        var re = /\[ec-webhook-worker\] Avance:\s*(\d+)\/(\d+)\s*\((\d+)%\)/g;
+        var m;
+        var last = null;
+        while ((m = re.exec(t)) !== null) {
+            last = m;
+        }
+        if (!last) return;
+        var n = parseInt(last[1], 10);
+        var tot = parseInt(last[2], 10);
+        var pct = parseInt(last[3], 10);
+        if (isNaN(pct) || isNaN(tot) || tot <= 0) return;
+        gcCarteraWorkerUltimoPct = pct;
+        var sub = pct + '% · ' + n + '/' + tot;
+        gcCarteraActividadEstadoSet('En curso · ' + sub, 'bg-label-warning');
+    }
 
     function gcCarteraEsc(s) {
         return String(s || '')
@@ -1769,6 +1810,9 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
 
     function iniciarOperacionShell(tipo) {
         gcShellOperacionEnCurso = tipo;
+        if (tipo === 'worker') {
+            gcCarteraWorkerUltimoPct = -1;
+        }
         actualizarBannerEjecucion();
         if (gcShellModoCartera) {
             gcCarteraActividadPush(gcCarteraMapOperacionHumana(tipo), 'gc-cartera-act-line--run');
@@ -1779,6 +1823,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
 
     function finalizarOperacionShell() {
         gcShellOperacionEnCurso = null;
+        gcCarteraWorkerUltimoPct = -1;
         actualizarBannerEjecucion();
         if (gcShellModoCartera) {
             gcCarteraActividadEstadoSet('En espera', 'bg-label-secondary');
@@ -2406,6 +2451,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
             if (bajar) {
                 scrollLogPanelAlFinal();
             }
+            gcCarteraSincronizarProgresoWorkerDesdeLog();
         } catch (e) {
             logPanel.value = String(e.message || e);
         }
@@ -2745,7 +2791,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                 }
                 if (detalle) detalle.textContent = data.mensaje || 'Error';
                 if (gcShellModoCartera) {
-                    gcCarteraActividadPush('No se pudo verificar el servicio. Intente de nuevo en unos segundos.', 'gc-cartera-act-line--err');
+                    gcCarteraPushConexionLimitado('No se pudo verificar el servicio. Intente de nuevo en unos segundos.', 'gc-cartera-act-line--err');
                     gcCarteraActividadEstadoSet('Sin servicio', 'bg-label-danger');
                 }
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
@@ -2776,7 +2822,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                 }
                 gcActualizarHintSemanaActual();
                 if (gcShellModoCartera) {
-                    gcCarteraActividadPush('Servicio no disponible. Contacte a sistemas si necesita acceso.', 'gc-cartera-act-line--warn');
+                    gcCarteraPushConexionLimitado('Servicio no disponible. Contacte a sistemas si necesita acceso.', 'gc-cartera-act-line--warn');
                     gcCarteraActividadEstadoSet('No disponible', 'bg-label-secondary');
                 }
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
@@ -2786,6 +2832,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
             }
             if (data.agente_online) {
                 gcAgenteOnline = true;
+                gcCarteraResetAvisosConexion();
                 if (badge) {
                     badge.className = 'badge bg-label-success';
                     badge.textContent = 'Agente en línea';
@@ -2798,7 +2845,14 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                 gcAplicarScriptsCronjobsDesdeAgente(a);
                 if (gcShellModoCartera) {
                     if (gcShellOperacionEnCurso) {
-                        gcCarteraActividadEstadoSet('En curso', 'bg-label-warning');
+                        if (gcShellOperacionEnCurso === 'worker') {
+                            gcCarteraSincronizarProgresoWorkerDesdeLog();
+                            if (gcCarteraWorkerUltimoPct < 0) {
+                                gcCarteraActividadEstadoSet('En curso', 'bg-label-warning');
+                            }
+                        } else {
+                            gcCarteraActividadEstadoSet('En curso', 'bg-label-warning');
+                        }
                     } else if (gcAgenteReportaEcOcupado) {
                         gcCarteraActividadEstadoSet('Ocupado', 'bg-label-warning');
                         if (gcCarteraUltimoAvisoRemoto !== 'remoto_ec') {
@@ -2850,7 +2904,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                 }
                 gcActualizarHintSemanaActual();
                 if (gcShellModoCartera) {
-                    gcCarteraActividadPush('Sin conexión con el servicio de conciliación.', 'gc-cartera-act-line--warn');
+                    gcCarteraPushConexionLimitado('Sin conexión con el servicio de conciliación.', 'gc-cartera-act-line--warn');
                     gcCarteraActividadEstadoSet('Sin conexión', 'bg-label-danger');
                 }
                 if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
@@ -2870,7 +2924,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
             }
             if (detalle) detalle.textContent = String(e.message || e);
             if (gcShellModoCartera) {
-                gcCarteraActividadPush('Error de red al consultar el servicio.', 'gc-cartera-act-line--err');
+                gcCarteraPushConexionLimitado('Error de red al consultar el servicio.', 'gc-cartera-act-line--err');
                 gcCarteraActividadEstadoSet('Error', 'bg-label-danger');
             }
             if (btnDescargoEstatus3) btnDescargoEstatus3.disabled = true;
