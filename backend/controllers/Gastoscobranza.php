@@ -17,9 +17,198 @@ class Gastoscobranza extends Controller
     /** Cartera en Servicios está restringido al módulo web 50. */
     private const MODULO_CARTERA = 50;
 
+    /** Shell Gastos Cobranza completo (módulo web 31). */
+    private const MODULO_SHELL = 31;
+
     public function __construct()
     {
         parent::__construct();
+    }
+
+    /** Destinatarios del envío automático del Excel de reporte GC (agente Node → PHP). */
+    private function rutaArchivoDestinatariosCorreoGc(): string
+    {
+        return RAIZ . '/storage/config/gastos_cobranza_destinatarios.json';
+    }
+
+    /** @return list<string> */
+    private function gastosCobranzaDestinatariosPorDefecto(): array
+    {
+        return ['lrgonzalez033@gmail.com', '__SPARTA_SECRET_REDACTED__.martinez@__SPARTA_SECRET_REDACTED__.mx'];
+    }
+
+    /**
+     * @param array<int, string|array{email?:mixed,activo?:mixed}> $raw
+     * @return list<array{email:string,activo:bool}>
+     */
+    private function normalizarDestinatariosCorreoGc(array $raw): array
+    {
+        $map = [];
+        foreach ($raw as $item) {
+            $emailRaw = is_array($item) ? ($item['email'] ?? '') : $item;
+            $email = strtolower(trim((string) $emailRaw));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $activo = true;
+            if (is_array($item)) {
+                $v = $item['activo'] ?? true;
+                $activo = !in_array($v, [false, 0, '0', 'false', 'FALSE', 'off', 'OFF', 'no', 'NO'], true);
+            }
+            $map[$email] = ['email' => $email, 'activo' => $activo];
+        }
+
+        return array_values($map);
+    }
+
+    /**
+     * Sin sesión: uso desde cron CLI (`enviar_reporte_gc_excel.php`).
+     *
+     * @return list<string> emails activos (como mínimo los por defecto si el archivo no existe o está vacío)
+     */
+    public static function destinatariosActivosReporteGcDesdeArchivo(): array
+    {
+        $path = RAIZ . '/storage/config/gastos_cobranza_destinatarios.json';
+        $defaults = ['lrgonzalez033@gmail.com', '__SPARTA_SECRET_REDACTED__.martinez@__SPARTA_SECRET_REDACTED__.mx'];
+        if (!is_file($path)) {
+            return $defaults;
+        }
+        $raw = @file_get_contents($path);
+        $json = is_string($raw) ? json_decode($raw, true) : null;
+        if (!is_array($json)) {
+            return $defaults;
+        }
+        $lista = $json['destinatarios'] ?? [];
+        if (!is_array($lista)) {
+            $lista = [];
+        }
+        $tmp = new self();
+        $items = $tmp->normalizarDestinatariosCorreoGc($lista);
+        $activos = [];
+        foreach ($items as $it) {
+            if (!empty($it['activo'])) {
+                $activos[] = $it['email'];
+            }
+        }
+        if (empty($activos)) {
+            return $defaults;
+        }
+
+        return array_values(array_unique($activos));
+    }
+
+    /**
+     * @return array{destinatarios:list<array{email:string,activo:bool}>,updated_at:?string}
+     */
+    private function cargarConfigDestinatariosCorreoGc(): array
+    {
+        $path = $this->rutaArchivoDestinatariosCorreoGc();
+        $updatedAt = null;
+        if (!is_file($path)) {
+            $items = $this->normalizarDestinatariosCorreoGc($this->gastosCobranzaDestinatariosPorDefecto());
+
+            return ['destinatarios' => $items, 'updated_at' => null];
+        }
+        $raw = @file_get_contents($path);
+        $json = is_string($raw) ? json_decode($raw, true) : null;
+        if (!is_array($json)) {
+            $items = $this->normalizarDestinatariosCorreoGc($this->gastosCobranzaDestinatariosPorDefecto());
+
+            return ['destinatarios' => $items, 'updated_at' => null];
+        }
+        $lista = $json['destinatarios'] ?? [];
+        if (!is_array($lista)) {
+            $lista = [];
+        }
+        $items = $this->normalizarDestinatariosCorreoGc($lista);
+        if (empty($items)) {
+            $items = $this->normalizarDestinatariosCorreoGc($this->gastosCobranzaDestinatariosPorDefecto());
+        }
+        $updatedAt = isset($json['updated_at']) ? (string) $json['updated_at'] : null;
+
+        return ['destinatarios' => $items, 'updated_at' => $updatedAt];
+    }
+
+    /**
+     * @param array<int, string|array{email?:mixed,activo?:mixed}> $destinatarios
+     * @return list<array{email:string,activo:bool}>
+     */
+    private function guardarDestinatariosCorreoGc(array $destinatarios): array
+    {
+        $items = $this->normalizarDestinatariosCorreoGc($destinatarios);
+        if (empty($items)) {
+            throw new \RuntimeException('Debes guardar al menos un correo válido.');
+        }
+        $dir = dirname($this->rutaArchivoDestinatariosCorreoGc());
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new \RuntimeException('No se pudo crear el directorio de configuración.');
+        }
+        $payload = [
+            'destinatarios' => $items,
+            'updated_at' => date('c'),
+            'updated_by' => (int) ($_SESSION['usuario_id'] ?? 0),
+        ];
+        $path = $this->rutaArchivoDestinatariosCorreoGc();
+        $ok = @file_put_contents(
+            $path,
+            json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            LOCK_EX
+        );
+        if ($ok === false) {
+            throw new \RuntimeException('No se pudo guardar la configuración de correos.');
+        }
+
+        return $items;
+    }
+
+    private function usuarioPuedeAdministrarCorreosGcShell(): bool
+    {
+        return $this->usuarioTieneModulo(self::MODULO_SHELL);
+    }
+
+    /** GET/POST JSON: destinatarios reporte automático Gastos Cobranza (misma lista que usa el cron de envío Excel). */
+    public function getDestinatariosCorreo()
+    {
+        try {
+            if (!$this->usuarioPuedeAdministrarCorreosGcShell()) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+                return;
+            }
+            $cfg = $this->cargarConfigDestinatariosCorreoGc();
+            self::respuestaJSON(self::respuesta(true, 'Destinatarios obtenidos.', [
+                'destinatarios' => $cfg['destinatarios'],
+                'updated_at' => $cfg['updated_at'],
+            ]));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener destinatarios: ' . $e->getMessage()));
+        }
+    }
+
+    public function setDestinatariosCorreo()
+    {
+        try {
+            if (!$this->usuarioPuedeAdministrarCorreosGcShell()) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+                return;
+            }
+            $raw = file_get_contents('php://input');
+            $body = json_decode((string) $raw, true);
+            if (!is_array($body)) {
+                self::respuestaJSON(self::respuesta(false, 'Payload inválido.'));
+                return;
+            }
+            $dest = $body['destinatarios'] ?? [];
+            if (!is_array($dest)) {
+                self::respuestaJSON(self::respuesta(false, 'destinatarios debe ser un arreglo.'));
+                return;
+            }
+            $guardados = $this->guardarDestinatariosCorreoGc($dest);
+            self::respuestaJSON(self::respuesta(true, 'Destinatarios actualizados.', [
+                'destinatarios' => $guardados,
+            ]));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar destinatarios: ' . $e->getMessage()));
+        }
     }
 
     private function agenteHabilitado()

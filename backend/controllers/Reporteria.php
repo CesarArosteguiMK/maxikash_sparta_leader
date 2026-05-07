@@ -3711,6 +3711,7 @@ class Reporteria extends Controller
                 const res = await Swal.fire({
                     title: 'Administrar correos',
                     html: `
+                        <p class="text-muted small mb-3 mt-0 text-center">(Primeros pagos)</p>
                         <div class="text-start">
                             <label class="form-label mb-2 fw-semibold">Destinatarios</label>
                             <div id="swal-correos-admin-lista" class="rounded-3 border bg-light p-2 overflow-auto"></div>

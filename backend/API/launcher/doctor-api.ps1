@@ -628,7 +628,14 @@ if (-not $vcOk) {
 # =====================================================================
 Section '9. zbar DLL para pyzbar'
 $dllPaths = @(
+    (Join-Path $ApiDir 'tools\zbar\bin\libzbar-64.dll'),
+    (Join-Path $ApiDir 'tools\zbar\bin\libiconv.dll'),
+    (Join-Path $ApiDir 'tools\zbar\libzbar-64.dll'),
+    (Join-Path $ApiDir 'tools\zbar\libiconv.dll'),
+    (Join-Path $ApiDir 'tools\libzbar-64.dll'),
+    (Join-Path $ApiDir 'tools\libiconv.dll'),
     "$env:WINDIR\System32\libzbar-64.dll",
+    "$env:WINDIR\System32\libiconv.dll",
     "$env:WINDIR\System32\libzbar-0.dll",
     "$env:WINDIR\SysWOW64\libzbar-64.dll"
 )
@@ -642,7 +649,9 @@ if ($zbarFound) {
             Ok "pyzbar funciona (la dll viaja con el wheel)."
         } else {
             Warn "pyzbar no encuentra libzbar. La verificacion de QR/PDF417 fallara."
-            Rec  "Descargue 'zbar' para Windows o copie libzbar-64.dll a $env:WINDIR\System32"
+            Rec  "Coloque DLLs locales en: $(Join-Path $ApiDir 'tools\zbar\bin')"
+            Rec  "Archivos requeridos (x64): libzbar-64.dll y libiconv.dll"
+            Rec  "Luego reinicie API. Evite depender de $env:WINDIR\System32 para despliegues portables."
         }
     } else { Warn "Sin Python; no se pudo probar pyzbar." }
 }

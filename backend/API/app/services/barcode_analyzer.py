@@ -1,8 +1,70 @@
 # app/services/barcode_analyzer.py
 """CAPA 5: QR, barcode y PDF417 en documentos."""
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
 import numpy as np
 import cv2
 from loguru import logger
+
+
+def _bootstrap_local_zbar_for_pyzbar() -> None:
+    """Asegura DLLs de zbar dentro del proyecto (sin depender de System32).
+
+    pyzbar en Windows intenta cargar libzbar/libiconv desde el cwd o desde su
+    propia carpeta site-packages\\pyzbar. Para un despliegue portable en esta API,
+    copiamos DLLs desde backend/API/tools/zbar/bin (o tools/) hacia la carpeta
+    de pyzbar si faltan.
+    """
+    if sys.platform != "win32":
+        return
+
+    api_root = Path(__file__).resolve().parents[2]
+    # Ubicacion canonical dentro del proyecto.
+    project_zbar_dirs = [
+        api_root / "tools" / "zbar" / "bin",
+        api_root / "tools" / "zbar",
+        api_root / "tools",
+    ]
+
+    try:
+        import pyzbar as _pyzbar_pkg  # type: ignore
+    except Exception:
+        # Si pyzbar no esta instalado, este bootstrap no aplica.
+        return
+
+    pyzbar_dir = Path(getattr(_pyzbar_pkg, "__file__", "")).resolve().parent
+    if not pyzbar_dir.is_dir():
+        return
+
+    # pyzbar espera estos nombres en Windows x64.
+    required = ("libzbar-64.dll", "libiconv.dll")
+    for dll_name in required:
+        target = pyzbar_dir / dll_name
+        if target.is_file():
+            continue
+        copied = False
+        for src_dir in project_zbar_dirs:
+            candidate = src_dir / dll_name
+            if candidate.is_file():
+                try:
+                    shutil.copy2(str(candidate), str(target))
+                    copied = True
+                except Exception as ex:
+                    logger.warning(f"No se pudo copiar {dll_name} a pyzbar: {ex}")
+                break
+        if not copied:
+            logger.debug(
+                f"DLL faltante para pyzbar ({dll_name}); "
+                "buscada en tools/zbar/bin, tools/zbar y tools/."
+            )
+
+
+_bootstrap_local_zbar_for_pyzbar()
 
 try:
     from pyzbar import pyzbar

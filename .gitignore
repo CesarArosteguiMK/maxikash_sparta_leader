@@ -56,6 +56,10 @@ backend/cronjobs/logs/**
 backend/services/gastos-cobranza-agent/tools/**/logs/**
 backend/services/gastos-cobranza-agent/tools/**/*.log
 
+# ========== Python portable embebido (API local): PyTorch y DLLs >100 MB — no versionar (GitHub rechaza push) ==========
+# Recrear en cada máquina: Python del sistema + pip install -r backend/API/requirements.txt (o el instalador del proyecto).
+backend/API/tools/PythonPortable/
+
 # ========== Zip empaquetado de API (no subir el .zip; la carpeta backend/API/ sí va al repo) ==========
 backend/API.zip
 

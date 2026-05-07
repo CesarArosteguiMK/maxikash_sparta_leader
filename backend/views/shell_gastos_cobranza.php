@@ -174,6 +174,15 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                                     </span>
                                 </button>
                             </div>
+                            <div class="sg-btn-wrap">
+                                <button type="button" class="sg-tip-btn sg-btn-slate" id="btnConfigCorreosGastosCobranza">
+                                    <span class="sg-tip-btn-face">
+                                        <i class="fa fa-users-gear" aria-hidden="true"></i>
+                                        <span class="sg-btn-label">Administrar correos</span>
+                                        <span class="sg-tooltip-icon" data-tip="Destinatarios cuando el agente envía el Excel del reporte por correo. Si en el servidor existe la variable GASTOS_GC_REPORTE_MAIL_TO y no está vacía, tiene prioridad sobre esta lista."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                    </span>
+                                </button>
+                            </div>
                         </div>
                         <div class="sg-agent-row-bottom">
                             <button type="button" class="sg-tip-btn sg-btn-green sg-tip-btn-run" id="btnGcAbrirModalLog" data-bs-toggle="modal" data-bs-target="#modalGcAgenteLog">
@@ -703,7 +712,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
     }
     #shellGastosCobranzaAccionesBar .sg-agent-row-top {
         display: grid;
-        grid-template-columns: repeat(3, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
         gap: 8px;
         align-items: stretch;
     }
@@ -875,6 +884,16 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
         background: #ede9fe;
         border-color: #a78bfa;
         color: #4c1d95;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-slate {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #475569;
+    }
+    #shellGastosCobranzaAccionesBar .sg-btn-slate:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #334155;
     }
     #shellGastosCobranzaAccionesBar .sg-tip-btn-run {
         min-height: 38px;
@@ -1297,6 +1316,18 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
         background: rgba(91, 33, 182, 0.55);
         border-color: #c4b5fd;
         color: #f5f3ff;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-slate,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-slate {
+        background: rgba(51, 65, 85, 0.65);
+        border-color: rgba(148, 163, 184, 0.45);
+        color: #e2e8f0;
+    }
+    html.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-slate:hover,
+    body.dark-mode #shellGastosCobranzaAccionesBar .sg-btn-slate:hover {
+        background: rgba(71, 85, 105, 0.75);
+        border-color: rgba(203, 213, 225, 0.55);
+        color: #f8fafc;
     }
     html.dark-mode #shellGastosCobranzaAccionesBar .sg-tip-btn:disabled,
     body.dark-mode #shellGastosCobranzaAccionesBar .sg-tip-btn:disabled {
@@ -3001,6 +3032,179 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
         if (gcShellModoCartera) return 'worker';
         return (ecEnrich && ecEnrich.checked) ? 'enrich' : 'worker';
     }
+
+    document.getElementById('btnConfigCorreosGastosCobranza')?.addEventListener('click', async function () {
+        var parseEmails = function (raw) {
+            return (raw || '').split(/[,\s;]+/).map(function (v) { return v.trim().toLowerCase(); }).filter(Boolean);
+        };
+        var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        var actuales = [];
+        try {
+            var r = await fetch('/gastoscobranza/getDestinatariosCorreo', { method: 'POST', headers: { 'Front-Request': 'true' } });
+            var d = await r.json();
+            if (!d || !d.success) throw new Error(d && d.mensaje ? d.mensaje : 'No se pudo cargar la configuración.');
+            var arr = Array.isArray(d.datos && d.datos.destinatarios) ? d.datos.destinatarios : [];
+            actuales = arr.map(function (v) {
+                return (typeof v === 'string') ? { email: String(v || '').trim(), activo: true } : v;
+            }).map(function (v) {
+                return { email: String(v && v.email ? v.email : '').trim().toLowerCase(), activo: v && v.activo !== false };
+            }).filter(function (v) { return v.email; });
+        } catch (e) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Correos', text: e && e.message ? e.message : 'No se pudo cargar la lista.' });
+            } else {
+                window.alert('Correos: ' + (e && e.message ? e.message : ''));
+            }
+            return;
+        }
+
+        if (typeof Swal === 'undefined') {
+            var txt = window.prompt('Correos Gastos Cobranza (separados por coma):', actuales.map(function (v) { return v.email; }).join(', ')) || '';
+            var lista = [];
+            try { lista = parseEmails(txt); } catch (e2) { return; }
+            if (!lista.length) return;
+            var invalidos = lista.filter(function (e) { return !emailRegex.test(e); });
+            if (invalidos.length) return;
+            await fetch('/gastoscobranza/setDestinatariosCorreo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                body: JSON.stringify({ destinatarios: lista.map(function (email) { return { email: email, activo: true }; }) })
+            });
+            return;
+        }
+
+        var res = await Swal.fire({
+            title: 'Administrar correos',
+            html: '<p class="text-muted small mb-3 mt-0 text-center">(Gastos de cobranza)</p>' +
+                '<div class="text-start">' +
+                '<label class="form-label mb-2 fw-semibold">Destinatarios</label>' +
+                '<div id="swal-gc-correos-admin-lista" class="rounded-3 border bg-light p-2 overflow-auto"></div>' +
+                '<div class="input-group input-group-sm mt-3">' +
+                '<input id="swal-gc-correos-admin-new" class="form-control" placeholder="nuevo@dominio.com">' +
+                '<button id="swal-gc-correos-admin-add" type="button" class="btn btn-primary">' +
+                '<i class="fa fa-plus me-1"></i>Agregar</button></div>' +
+                '<div id="swal-gc-correos-admin-preview" class="small mt-2"></div></div>',
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar',
+            didOpen: function () {
+                var listaEl = document.getElementById('swal-gc-correos-admin-lista');
+                var inNew = document.getElementById('swal-gc-correos-admin-new');
+                var btnAdd = document.getElementById('swal-gc-correos-admin-add');
+                var pv = document.getElementById('swal-gc-correos-admin-preview');
+                var items = actuales.slice();
+                var render = function () {
+                    if (!listaEl) return;
+                    if (!items.length) {
+                        listaEl.innerHTML = '<div class="text-muted small py-2 px-1">Sin correos. Agrega uno para comenzar.</div>';
+                    } else {
+                        listaEl.innerHTML = items.map(function (it, ix) {
+                            return '<div class="d-flex align-items-center gap-2 py-2 px-2 mb-1 rounded-2 border bg-white">' +
+                                '<div class="form-check form-switch m-0 flex-grow-1 d-flex align-items-center gap-2">' +
+                                '<input class="form-check-input me-1" type="checkbox" role="switch" id="gcmail_' + ix + '" ' +
+                                (it.activo ? 'checked' : '') + ' data-ix="' + ix + '">' +
+                                '<label class="form-check-label small fw-medium ' + (it.activo ? '' : 'text-muted') + '" for="gcmail_' + ix + '">' + it.email + '</label>' +
+                                '<span class="badge ' + (it.activo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary') + ' ms-2">' +
+                                (it.activo ? 'Activo' : 'Inactivo') + '</span></div>' +
+                                '<button type="button" class="btn btn-sm btn-outline-danger" data-del="' + ix + '" title="Quitar">' +
+                                '<i class="fa fa-trash"></i></button></div>';
+                        }).join('');
+                    }
+                    refreshPreview();
+                };
+                var refreshPreview = function () {
+                    if (!pv) return;
+                    var total = items.length;
+                    var activos = items.filter(function (x) { return x.activo; }).length;
+                    if (!total) {
+                        pv.innerHTML = '<span class="text-warning fw-semibold">Debes agregar al menos un correo.</span>';
+                        return;
+                    }
+                    if (!activos) {
+                        pv.innerHTML = '<span class="text-warning fw-semibold">Activa al menos un correo para envío.</span>';
+                        return;
+                    }
+                    pv.innerHTML = '<span class="badge bg-success-subtle text-success">Activos: ' + activos + '</span> ' +
+                        '<span class="badge bg-primary-subtle text-primary ms-1">Total: ' + total + '</span>';
+                };
+                listaEl.addEventListener('click', function (ev) {
+                    var btnDel = ev.target && ev.target.closest ? ev.target.closest('[data-del]') : null;
+                    var del = btnDel && btnDel.getAttribute ? btnDel.getAttribute('data-del') : null;
+                    if (del == null) return;
+                    var i = parseInt(del, 10);
+                    if (!isFinite(i)) return;
+                    items.splice(i, 1);
+                    render();
+                });
+                listaEl.addEventListener('change', function (ev) {
+                    var t = ev.target;
+                    if (!t || !t.getAttribute) return;
+                    var ix = parseInt(t.getAttribute('data-ix'), 10);
+                    if (!isFinite(ix) || !items[ix]) return;
+                    items[ix].activo = !!t.checked;
+                    render();
+                });
+                btnAdd.addEventListener('click', function () {
+                    var email = String(inNew && inNew.value ? inNew.value : '').trim().toLowerCase();
+                    if (!email) return;
+                    if (!emailRegex.test(email)) {
+                        if (pv) pv.innerHTML = '<span class="text-danger">Correo inválido: ' + email + '</span>';
+                        return;
+                    }
+                    if (items.some(function (x) { return x.email === email; })) {
+                        if (pv) pv.innerHTML = '<span class="text-warning">Ese correo ya existe.</span>';
+                        return;
+                    }
+                    items.push({ email: email, activo: true });
+                    if (inNew) inNew.value = '';
+                    render();
+                });
+                inNew.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Enter') {
+                        ev.preventDefault();
+                        btnAdd.click();
+                    }
+                });
+                window.__gcMailItemsRef = function () { return items; };
+                render();
+            },
+            preConfirm: function () {
+                var itemsFn = window.__gcMailItemsRef;
+                var items = (typeof itemsFn === 'function') ? itemsFn() : [];
+                if (!Array.isArray(items) || !items.length) {
+                    Swal.showValidationMessage('Debes agregar al menos un correo.');
+                    return false;
+                }
+                var invalidos = items.map(function (x) { return x.email; }).filter(function (e) { return !emailRegex.test(e); });
+                if (invalidos.length) {
+                    Swal.showValidationMessage('Corrige correos inválidos: ' + invalidos.join(', '));
+                    return false;
+                }
+                var activos = items.filter(function (x) { return x.activo; });
+                if (!activos.length) {
+                    Swal.showValidationMessage('Activa al menos un correo.');
+                    return false;
+                }
+                return { destinatarios: items };
+            }
+        });
+        if (!res.isConfirmed || !res.value) return;
+
+        try {
+            var r2 = await fetch('/gastoscobranza/setDestinatariosCorreo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                body: JSON.stringify({ destinatarios: res.value.destinatarios })
+            });
+            var d2 = await r2.json();
+            if (!d2 || !d2.success) throw new Error(d2 && d2.mensaje ? d2.mensaje : 'No se pudo guardar.');
+            Swal.fire({ icon: 'success', title: 'Guardado', text: 'Destinatarios actualizados correctamente.' });
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'Error', text: e && e.message ? e.message : 'No se pudo guardar la lista.' });
+        } finally {
+            try { delete window.__gcMailItemsRef; } catch (e3) {}
+        }
+    });
 
     async function ejecutarEcLauncherFlujo() {
         if (!ecFile || !ecFile.files || !ecFile.files[0]) {
