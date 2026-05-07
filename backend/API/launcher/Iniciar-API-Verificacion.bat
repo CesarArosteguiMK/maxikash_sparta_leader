@@ -50,13 +50,17 @@ if !errorlevel! EQU 0 (
 )
 
 echo [1/4] Diagnostico rapido...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1" -Quiet
+rem Sin -Quiet: asi la salida llega al log web y el panel no parece congelado.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"
 set "DOC_RC=!ERRORLEVEL!"
 
 if "!DOC_RC!"=="1" (
     echo [2/4] Se detectaron errores bloqueantes. Intentando auto-reparar...
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1" -Fix -InstallMissing -Quiet
+    echo NOTA: pip puede tardar 15-45 min ^(torch/opencv son grandes^). Ver lineas abajo...
+    rem Sin -Quiet: ver progreso en panel web mientras instala paquetes.
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1" -Fix -InstallMissing
     set "DOC_FIX_RC=!ERRORLEVEL!"
+    echo [2/4] Auto-reparacion termino con codigo !DOC_FIX_RC!
 
     if "!DOC_FIX_RC!"=="1" (
         echo [3/4] Auto-fix insuficiente. Ejecutando instalacion completa en venv...

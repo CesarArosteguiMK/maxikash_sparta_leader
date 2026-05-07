@@ -418,7 +418,7 @@ body.dark-mode .inicio-btn-api1click {
   bottom: 95px;
   left: 24px;
   z-index: 9996;
-  width: min(520px, calc(100vw - 36px));
+  width: min(580px, calc(100vw - 36px));
   max-height: 62vh;
   display: none;
   background: rgba(15, 23, 42, 0.96);
@@ -452,12 +452,61 @@ body.dark-mode .inicio-btn-api1click {
 .api1click-body {
   margin: 0;
   padding: 12px;
-  max-height: calc(62vh - 78px);
+  max-height: calc(62vh - 168px);
   overflow: auto;
   font-size: 12px;
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.api1click-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.98);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  font-size: 11px;
+}
+.api1click-toolbar select#api1clickLogSelect {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+}
+.api1click-tbtn {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(51, 65, 85, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.api1click-tbtn:hover { background: rgba(71, 85, 105, 0.95); }
+.api1click-chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #94a3b8;
+  cursor: pointer;
+  user-select: none;
+}
+.api1click-chk input { accent-color: #0d9488; }
+.api1click-help {
+  width: 100%;
+  margin: 0;
+  padding: 6px 10px 0;
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.35;
 }
 </style>
 
@@ -581,6 +630,19 @@ body.dark-mode .inicio-btn-api1click {
       <div class="api1click-hd">
         <span class="api1click-title">API documentación · instalación/arranque 1-click</span>
         <span class="api1click-badge" id="api1clickBadge">Listo</span>
+      </div>
+      <p class="api1click-help">Logs del servidor (sin entrar al disco): elige archivo → Ver → Copiar o Descargar para enviar al soporte.</p>
+      <div class="api1click-toolbar">
+        <select id="api1clickLogSelect" title="Archivos .log en backend/API/logs" aria-label="Seleccionar log">
+          <option value="">— Cargar lista —</option>
+        </select>
+        <button type="button" class="api1click-tbtn" id="api1clickBtnRefreshList" title="Actualizar lista de logs">Lista</button>
+        <button type="button" class="api1click-tbtn" id="api1clickBtnView" title="Mostrar contenido aquí abajo">Ver log</button>
+        <label class="api1click-chk" title="Si el archivo es muy grande, el servidor envía solo los últimos 512 KiB">
+          <input type="checkbox" id="api1clickLogCompleto" /> Completo
+        </label>
+        <button type="button" class="api1click-tbtn" id="api1clickBtnCopy" title="Copiar texto visible al portapapeles">Copiar</button>
+        <button type="button" class="api1click-tbtn" id="api1clickBtnDownload" title="Descargar .log">Descargar</button>
       </div>
       <pre class="api1click-body" id="api1clickOutput">Sin ejecución todavía.</pre>
     </div>
@@ -1011,6 +1073,110 @@ body.dark-mode .inicio-btn-api1click {
   var outApi1 = document.getElementById('api1clickOutput');
   var api1Timer = null;
   var api1Running = false;
+  var selApi1Logs = document.getElementById('api1clickLogSelect');
+  var btnApi1RefreshList = document.getElementById('api1clickBtnRefreshList');
+  var btnApi1View = document.getElementById('api1clickBtnView');
+  var btnApi1Copy = document.getElementById('api1clickBtnCopy');
+  var btnApi1Download = document.getElementById('api1clickBtnDownload');
+  var chkApi1Completo = document.getElementById('api1clickLogCompleto');
+
+  function api1RefreshLogList() {
+    if (!selApi1Logs) return;
+    fetch('/inicio/apidoconeloglistar')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data || !data.success) return;
+        var cur = selApi1Logs.value;
+        selApi1Logs.innerHTML = '';
+        var files = data.files || [];
+        if (files.length === 0) {
+          var o0 = document.createElement('option');
+          o0.value = '';
+          o0.textContent = '(sin archivos .log todavía)';
+          selApi1Logs.appendChild(o0);
+          return;
+        }
+        files.forEach(function(f){
+          var opt = document.createElement('option');
+          opt.value = f.name;
+          var kb = Math.round((f.size || 0) / 1024);
+          opt.textContent = f.name + ' (' + kb + ' KiB)';
+          selApi1Logs.appendChild(opt);
+        });
+        if (cur && Array.prototype.some.call(selApi1Logs.options, function(o){ return o.value === cur; })) {
+          selApi1Logs.value = cur;
+        }
+      })
+      .catch(function(){});
+  }
+  function api1ViewSelectedLog() {
+    if (!selApi1Logs || !selApi1Logs.value) {
+      alert('Primero pulsa «Lista» y elige un archivo .log.');
+      return;
+    }
+    var u = '/inicio/apidoconelogcontenido?archivo=' + encodeURIComponent(selApi1Logs.value);
+    if (chkApi1Completo && chkApi1Completo.checked) u += '&completo=1';
+    if (outApi1) outApi1.textContent = 'Cargando…';
+    fetch(u)
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data || !data.success) {
+          if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo leer el log.';
+          return;
+        }
+        var t = data.contenido != null ? String(data.contenido) : '';
+        if (data.nota) t = String(data.nota) + '\n\n' + t;
+        if (data.truncado && !data.nota) t = '(Fragmento: archivo grande)\n\n' + t;
+        if (outApi1) outApi1.textContent = t;
+      })
+      .catch(function(e){
+        if (outApi1) outApi1.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      });
+  }
+  function api1CopyVisibleLog() {
+    if (!outApi1) return;
+    var t = outApi1.textContent || '';
+    if (!t.trim()) {
+      alert('No hay texto para copiar.');
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function(){
+        alert('Copiado al portapapeles. Pégalo en el chat de soporte.');
+      }).catch(function(){
+        api1CopyFallback(t);
+      });
+    } else {
+      api1CopyFallback(t);
+    }
+  }
+  function api1CopyFallback(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      alert('Copiado.');
+    } catch (e) {
+      alert('No se pudo copiar automáticamente; selecciona el texto manualmente.');
+    }
+    document.body.removeChild(ta);
+  }
+  function api1DownloadSelectedLog() {
+    if (!selApi1Logs || !selApi1Logs.value) {
+      alert('Elige un archivo y usa «Lista» si hace falta.');
+      return;
+    }
+    window.location.href = '/inicio/apidoconelogdescargar?archivo=' + encodeURIComponent(selApi1Logs.value);
+  }
+  if (btnApi1RefreshList) btnApi1RefreshList.addEventListener('click', api1RefreshLogList);
+  if (btnApi1View) btnApi1View.addEventListener('click', api1ViewSelectedLog);
+  if (btnApi1Copy) btnApi1Copy.addEventListener('click', api1CopyVisibleLog);
+  if (btnApi1Download) btnApi1Download.addEventListener('click', api1DownloadSelectedLog);
+
   function api1SetState(kind, text) {
     if (!badgeApi1) return;
     badgeApi1.className = 'api1click-badge';
@@ -1075,6 +1241,7 @@ body.dark-mode .inicio-btn-api1click {
   if (btnApi1) {
     btnApi1.addEventListener('click', function(){
       api1OpenPanel();
+      api1RefreshLogList();
       if (outApi1) {
         outApi1.textContent = 'Iniciando flujo 1-click...';
       }
