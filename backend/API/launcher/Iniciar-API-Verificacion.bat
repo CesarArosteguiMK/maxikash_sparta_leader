@@ -69,10 +69,13 @@ if exist "%PORTABLE_PY%" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-python.ps1"
 )
 
-rem ----- Bootstrap zbar local: mantener DLLs dentro de API\tools\zbar\bin -----
+rem ----- Bootstrap zbar: descarga DLL MSYS2 solo dentro de API\tools\zbar\bin -----
 if exist "%~dp0bootstrap-zbar-local.ps1" (
-    echo [0/4] Verificando zbar local ^(QR/PDF417 portable^)... 
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-zbar-local.ps1" >nul 2>&1
+    echo [0/4] zbar local ^(QR/PDF417^): preparando DLLs en API\tools\zbar\bin...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-zbar-local.ps1" >>"%API_DIR%\logs\bootstrap-zbar.log" 2>&1
+    if errorlevel 1 (
+        echo       [AVISO] bootstrap-zbar-local.ps1 fallo. Ver: %API_DIR%\logs\bootstrap-zbar.log
+    )
 )
 
 echo [1/4] Diagnostico rapido...

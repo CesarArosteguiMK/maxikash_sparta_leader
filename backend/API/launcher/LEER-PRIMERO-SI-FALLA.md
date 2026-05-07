@@ -180,14 +180,13 @@ Síntoma: `ImportError: Unable to find zbar shared library`.
 
 Solución portable (recomendada para este proyecto):
 
-1. Copia estas DLLs en `backend/API/tools/zbar/bin/`:
-   - `libzbar-64.dll`
-   - `libiconv.dll`
-2. Ejecuta `launcher\bootstrap-zbar-local.ps1` (deja lista la carpeta local).
-3. Reinicia la API.
+1. Ejecuta `launcher\bootstrap-zbar-local.ps1` (descarga paquetes MSYS2
+   en red y deja todas las DLL necesarias en `backend/API/tools/zbar/bin`,
+   sin usar System32).
+2. Reinicia la API (o el flujo 1‑click ya lo llama al inicio).
 
-Evita depender de `C:\Windows\System32` para que el despliegue sea
-autocontenido dentro de `backend/API`.
+Si el servidor no tiene salida a Internet, copia manualmente la carpeta
+`tools/zbar/bin` desde una máquina donde el bootstrap ya corrió.
 
 ### E. Tesseract OCR no instalado
 

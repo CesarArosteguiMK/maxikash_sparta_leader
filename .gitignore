@@ -125,3 +125,6 @@ tmp_histo_primeros_pagos_*.xlsx
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# ========== API zbar (DLL MSYS2 descargadas por bootstrap-zbar-local.ps1) ==========
+backend/API/tools/zbar/bin/*.dll

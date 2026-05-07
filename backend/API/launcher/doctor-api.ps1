@@ -624,36 +624,61 @@ if (-not $vcOk) {
 }
 
 # =====================================================================
-# 9) zbar dll para pyzbar
+# 9) zbar dll para pyzbar (solo rutas dentro de API; smoke real con _zbar_smoke.py)
 # =====================================================================
 Section '9. zbar DLL para pyzbar'
-$dllPaths = @(
-    (Join-Path $ApiDir 'tools\zbar\bin\libzbar-64.dll'),
-    (Join-Path $ApiDir 'tools\zbar\bin\libiconv.dll'),
-    (Join-Path $ApiDir 'tools\zbar\libzbar-64.dll'),
-    (Join-Path $ApiDir 'tools\zbar\libiconv.dll'),
-    (Join-Path $ApiDir 'tools\libzbar-64.dll'),
-    (Join-Path $ApiDir 'tools\libiconv.dll'),
-    "$env:WINDIR\System32\libzbar-64.dll",
-    "$env:WINDIR\System32\libiconv.dll",
-    "$env:WINDIR\System32\libzbar-0.dll",
-    "$env:WINDIR\SysWOW64\libzbar-64.dll"
-)
-$zbarFound = $dllPaths | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if ($zbarFound) {
-    Ok "zbar dll: $zbarFound"
-} else {
-    if ($pyExe) {
-        & $pyExe @pyArgs -c "from pyzbar.pyzbar import decode" *> $null
-        if ($LASTEXITCODE -eq 0) {
-            Ok "pyzbar funciona (la dll viaja con el wheel)."
+$zbarBin = Join-Path $ApiDir 'tools\zbar\bin'
+$haveProjDll = (Test-Path -LiteralPath (Join-Path $zbarBin 'libzbar-64.dll')) -and (Test-Path -LiteralPath (Join-Path $zbarBin 'libiconv.dll'))
+if ($haveProjDll) {
+    Info "DLLs en proyecto: $zbarBin"
+}
+if ($pyExe) {
+    $smokeZbar = Join-Path $here '_zbar_smoke.py'
+    if (-not (Test-Path -LiteralPath $smokeZbar)) {
+        Warn "Falta launcher\_zbar_smoke.py; no se puede validar pyzbar automaticamente."
+    } else {
+        $tmpZOut = [System.IO.Path]::GetTempFileName()
+        $tmpZErr = [System.IO.Path]::GetTempFileName()
+        $szArgs = @()
+        if ($pyArgs.Count -gt 0) { $szArgs += $pyArgs }
+        $szArgs += $smokeZbar
+        $pZ = Start-Process -FilePath $pyExe -ArgumentList $szArgs `
+            -WorkingDirectory $ApiDir -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $tmpZOut -RedirectStandardError $tmpZErr
+        $zOut = (Get-Content -LiteralPath $tmpZOut -Raw -ErrorAction SilentlyContinue)
+        $zErr = (Get-Content -LiteralPath $tmpZErr -Raw -ErrorAction SilentlyContinue)
+        Remove-Item -LiteralPath $tmpZOut, $tmpZErr -ErrorAction SilentlyContinue
+        if ($pZ.ExitCode -eq 0) {
+            Ok "pyzbar OK (DLL dentro de API -> copia a site-packages\pyzbar)."
         } else {
-            Warn "pyzbar no encuentra libzbar. La verificacion de QR/PDF417 fallara."
-            Rec  "Coloque DLLs locales en: $(Join-Path $ApiDir 'tools\zbar\bin')"
-            Rec  "Archivos requeridos (x64): libzbar-64.dll y libiconv.dll"
-            Rec  "Luego reinicie API. Evite depender de $env:WINDIR\System32 para despliegues portables."
+            Warn "pyzbar no carga; QR/PDF417 fallaran hasta tener DLLs locales."
+            foreach ($lx in (($zErr + "`n" + $zOut) -split "`r?`n")) {
+                if ($lx.Trim() -ne '') { Info "       $lx" }
+            }
+            Rec "Ejecute (descarga MSYS2 solo en API): powershell -ExecutionPolicy Bypass -File `"$(Join-Path $here 'bootstrap-zbar-local.ps1')`""
+            if ($Fix) {
+                Info "(-Fix) Intentando bootstrap-zbar-local.ps1 ..."
+                try {
+                    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here 'bootstrap-zbar-local.ps1')
+                    $tmpZOut2 = [System.IO.Path]::GetTempFileName()
+                    $tmpZErr2 = [System.IO.Path]::GetTempFileName()
+                    $pZ2 = Start-Process -FilePath $pyExe -ArgumentList $szArgs `
+                        -WorkingDirectory $ApiDir -NoNewWindow -Wait -PassThru `
+                        -RedirectStandardOutput $tmpZOut2 -RedirectStandardError $tmpZErr2
+                    if ($pZ2.ExitCode -eq 0) {
+                        Fix "pyzbar OK tras bootstrap local."
+                    } else {
+                        Warn "pyzbar sigue sin cargar tras bootstrap (red o permisos?)."
+                    }
+                    Remove-Item -LiteralPath $tmpZOut2, $tmpZErr2 -ErrorAction SilentlyContinue
+                } catch {
+                    Warn "No se pudo ejecutar bootstrap-zbar-local.ps1 automaticamente."
+                }
+            }
         }
-    } else { Warn "Sin Python; no se pudo probar pyzbar." }
+    }
+} else {
+    Warn "Sin Python; no se pudo probar pyzbar."
 }
 
 # =====================================================================
