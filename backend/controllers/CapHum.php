@@ -6374,6 +6374,7 @@ class CapHum extends Controller
         $permitidos = [
             'verificar',
             'verificar-calidad',
+            'precheck-identificacion-pdf',
             'verificar-calidad-identificacion-pdf',
             'verificar-comprobante',
             'verificar-curp-documento',
@@ -7395,6 +7396,43 @@ class CapHum extends Controller
     }
 
     /**
+     * Precheck rápido: confirma que el PDF parezca identificación oficial.
+     */
+    private function precheckIdentificacionPdfApi($rutaPdf)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/precheck-identificacion-pdf';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['documento' => $cfile],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_CONNECTTIMEOUT => 4,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        if ($body === false || $httpCode !== 200) {
+            return ['valido' => false, 'mensaje' => $curlErr ?: 'No se pudo revisar rápidamente la identificación (HTTP ' . $httpCode . ').'];
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : null;
+    }
+
+    /**
      * Llama a la API verificar-calidad-identificacion-pdf (Python). Siempre acepta; devuelve notas de revisión.
      * @param string $rutaPdf Ruta absoluta al PDF ya subido (identificación oficial, 1 o 2 páginas)
      * @return array|null Respuesta decodificada (aceptado, notas, detalle_frente, detalle_reverso) o null si error
@@ -7543,6 +7581,23 @@ class CapHum extends Controller
         ];
     }
 
+    /**
+     * Validación rápida local para evitar aceptar archivos renombrados como .pdf.
+     */
+    private function esPdfValidoBasico($rutaArchivo)
+    {
+        if ($rutaArchivo === '' || !is_file($rutaArchivo) || filesize($rutaArchivo) <= 0) {
+            return false;
+        }
+        $fh = @fopen($rutaArchivo, 'rb');
+        if (!$fh) {
+            return false;
+        }
+        $firma = fread($fh, 5);
+        fclose($fh);
+        return $firma === '%PDF-';
+    }
+
     private function subirDocumentosCandidatoProcesar($token)
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -7658,6 +7713,10 @@ class CapHum extends Controller
                 $errores[] = 'IDENTIFICACIÓN OFICIAL: solo se acepta un archivo PDF (con frente y reverso).';
                 continue;
             }
+            if (in_array($i, [3, 4, 5, 6, 7, 8, 10], true) && !$this->esPdfValidoBasico($_FILES[$fileKey]['tmp_name'] ?? '')) {
+                $errores[] = ($tiposDocumento[$i] ?? $key) . ': el archivo no parece ser un PDF válido.';
+                continue;
+            }
             $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
             $nombreArchivo = $slug . '.' . $ext;
             $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
@@ -7711,11 +7770,17 @@ class CapHum extends Controller
             }
 
             if ($i === 5 && $ext === 'pdf') {
-                // En esta etapa solo guardamos rápido. La validación profunda se corre en background.
+                $precheckId = $this->precheckIdentificacionPdfApi($rutaDestino);
+                if ($precheckId === null || empty($precheckId['valido'])) {
+                    @unlink($rutaDestino);
+                    $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . ($precheckId['mensaje'] ?? 'El PDF no parece corresponder a una identificación oficial.');
+                    continue;
+                }
                 $verificacionCalidadJson = json_encode([
                     'aceptado' => true,
+                    'precheck' => $precheckId,
                     'pendiente_revision_profunda' => true,
-                    'notas' => ['Identificación recibida. La revisión profunda se ejecutará automáticamente en segundo plano.'],
+                    'notas' => ['Identificación oficial recibida para revisión de expediente.'],
                     'detalle_frente' => null,
                     'detalle_reverso' => null,
                 ]);

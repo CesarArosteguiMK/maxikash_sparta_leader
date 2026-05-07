@@ -213,6 +213,10 @@ $esSubirDocCandidato = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'subirdocumentoscandidato';
 
+$esDocVerificacionProxy = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'caphum'
+    && strtolower($urlSolicitada[1]) === 'docverificacionproxy';
+
 $esDescargarDocCandidato = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'descargardocumentocandidato';
@@ -231,7 +235,7 @@ $esEstadoReportesAgente = isset($urlSolicitada[0], $urlSolicitada[1])
 
 // Importación Excel (XHR espera JSON; si la sesión cayó, el flujo de Login devolvía HTML y el modal mostraba "no es JSON").
 $solicitaImportExcelDespachosSinSesion = !isset($_SESSION['login'])
-    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
     && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'despachos'
@@ -249,7 +253,7 @@ if ($solicitaImportExcelDespachosSinSesion) {
 
 // Tablero Asignación (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «Unexpected token '<'».
 $solicitaJsonAsignacionTableroSinSesion = !isset($_SESSION['login'])
-    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
     && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && (strtolower($urlSolicitada[0]) === 'reporteria' || strtolower($urlSolicitada[0]) === 'analitica')
@@ -265,7 +269,7 @@ if ($solicitaJsonAsignacionTableroSinSesion) {
 
 // CierreCredito (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «JSON.parse: unexpected character at line 1 column 1».
 $solicitaCierreCreditoAjaxSinSesion = !isset($_SESSION['login'])
-    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
     && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'cierrecredito'
@@ -280,7 +284,7 @@ if ($solicitaCierreCreditoAjaxSinSesion) {
     exit;
 }
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 

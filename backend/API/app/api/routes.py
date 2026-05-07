@@ -28,6 +28,12 @@ from app.services.document_crosscheck import (
 )
 from app.core.config import get_settings
 
+try:
+    import fitz
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+
 router = APIRouter()
 settings = get_settings()
 
@@ -36,6 +42,79 @@ api_key_header = APIKeyHeader(name=settings.api_key_header, auto_error=False)
 EXTENSIONES_PERMITIDAS = {"jpg", "jpeg", "png", "webp", "tiff"}
 EXTENSIONES_COMPROBANTE = {"jpg", "jpeg", "png", "webp", "tiff", "pdf"}
 MAX_SIZE_BYTES = settings.max_image_size_mb * 1024 * 1024
+
+
+def _normalizar_texto_precheck(texto: str) -> str:
+    """Normaliza texto OCR para detección rápida de identificación oficial."""
+    if not texto:
+        return ""
+    reemplazos = {
+        "Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U", "Ü": "U", "Ñ": "N",
+        "á": "A", "é": "E", "í": "I", "ó": "O", "ú": "U", "ü": "U", "ñ": "N",
+    }
+    for src, dst in reemplazos.items():
+        texto = texto.replace(src, dst)
+    return re.sub(r"\s+", " ", texto.upper()).strip()
+
+
+def _indicadores_identificacion(texto: str) -> Dict[str, bool]:
+    """Devuelve señales textuales suficientes para precheck rápido de ID."""
+    t = _normalizar_texto_precheck(texto)
+    lineas_mrz = re.findall(r"[A-Z0-9<]{20,}", t)
+    tiene_mrz = bool(lineas_mrz and any("<<" in l or l.count("<") >= 2 for l in lineas_mrz))
+    tiene_ine = bool(re.search(r"INSTITUTO\s+NACIONAL\s+ELECTORAL|CREDENCIAL\s+PARA\s+VOT", t))
+    tiene_elector = bool(re.search(r"CLAVE\s+DE\s+ELECTOR|SECCION\s*\d|ELECTORAL|VOTAR", t))
+    tiene_curp = bool(re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d", t))
+    tiene_inm = bool(re.search(r"INSTITUTO\s+NACIONAL\s+DE\s+MIGRACION|MIGRACION|INM|RESIDENCIA\s+(TEMPORAL|PERMANENTE)|RESIDENTE\s+(TEMPORAL|PERMANENTE)|NUE\s*[.:]?\s*\d", t))
+    return {
+        "mrz": tiene_mrz,
+        "ine": tiene_ine,
+        "elector": tiene_elector,
+        "curp": tiene_curp,
+        "inm_residencia": tiene_inm,
+    }
+
+
+def _parece_identificacion_oficial(texto: str) -> bool:
+    indicadores = _indicadores_identificacion(texto)
+    if indicadores["mrz"] or indicadores["ine"] or indicadores["inm_residencia"]:
+        return True
+    return indicadores["curp"] and indicadores["elector"]
+
+
+def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[str, Any]:
+    """
+    Extrae texto mínimo para precheck. Primero usa capa de texto del PDF; si no hay,
+    renderiza máximo 2 páginas a baja resolución y aplica OCR rápido.
+    """
+    if not PYMUPDF_AVAILABLE or not pdf_bytes or len(pdf_bytes) < 100:
+        return {"texto": "", "paginas": 0, "modo": "sin_pymupdf"}
+
+    texto = ""
+    paginas = 0
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        paginas = doc.page_count
+        for i, page in enumerate(doc):
+            if i >= max_paginas:
+                break
+            texto += page.get_text() + "\n"
+        if texto.strip():
+            doc.close()
+            return {"texto": texto, "paginas": paginas, "modo": "texto_pdf"}
+
+        service = VerificacionService()
+        for i, page in enumerate(doc):
+            if i >= max_paginas:
+                break
+            pix = page.get_pixmap(dpi=95)
+            img_bytes = pix.tobytes("png")
+            texto += service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=1000) + "\n"
+        doc.close()
+        return {"texto": texto, "paginas": paginas, "modo": "ocr_rapido"}
+    except Exception as e:
+        logger.warning(f"precheck_identificacion_pdf: error leyendo PDF: {e}")
+        return {"texto": texto, "paginas": paginas, "modo": "error"}
 
 
 async def verificar_api_key(api_key: str = Depends(api_key_header)):
@@ -518,6 +597,62 @@ async def verificar_curp_documento(
         "es_reciente": datos.get("es_reciente"),
         "meses_antiguedad": datos.get("meses_antiguedad"),
         "fecha_emision": datos.get("fecha_emision"),
+    }
+
+
+@router.post(
+    "/precheck-identificacion-pdf",
+    summary="Precheck rápido de identificación oficial (PDF)",
+    description="""
+    Revisión rápida para la pantalla de subida de documentos.
+    Solo valida que el PDF parezca una identificación oficial (INE o residencia),
+    sin extraer datos finales ni ejecutar comparaciones profundas.
+    """,
+    tags=["Utilidades"]
+)
+async def precheck_identificacion_pdf(
+    documento: UploadFile = File(..., description="PDF de identificación oficial"),
+    api_key: str = Depends(verificar_api_key)
+):
+    inicio = time.time()
+    if not documento.filename or not documento.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Se requiere un archivo PDF de identificación oficial")
+    file_bytes = await documento.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Documento vacío")
+    if not file_bytes.startswith(b"%PDF-"):
+        return {
+            "valido": False,
+            "mensaje": "El archivo no parece ser un PDF válido.",
+            "paginas": 0,
+            "indicadores": {},
+            "modo": "firma_pdf",
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+
+    extraido = await asyncio.to_thread(_extraer_texto_pdf_rapido, file_bytes, 2)
+    texto = extraido.get("texto") or ""
+    indicadores = _indicadores_identificacion(texto)
+    valido = _parece_identificacion_oficial(texto)
+    paginas = int(extraido.get("paginas") or 0)
+
+    if paginas <= 0:
+        mensaje = "No se pudo abrir el PDF para revisión rápida."
+        valido = False
+    elif valido:
+        mensaje = "El PDF parece corresponder a una identificación oficial."
+    elif texto.strip():
+        mensaje = "El PDF no parece corresponder a una identificación oficial. Sube INE o residencia oficial."
+    else:
+        mensaje = "No se pudo leer suficiente texto del PDF. Sube una identificación oficial clara."
+
+    return {
+        "valido": valido,
+        "mensaje": mensaje,
+        "paginas": paginas,
+        "indicadores": indicadores,
+        "modo": extraido.get("modo"),
+        "tiempo_ms": int((time.time() - inicio) * 1000),
     }
 
 
