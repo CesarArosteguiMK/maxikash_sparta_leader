@@ -135,6 +135,44 @@ if errorlevel 2 (
     exit /b 2
 )
 
+rem -------- Bootstrap pip si falta (ensurepip; portable a veces sin pip operativo) --------
+echo.>>"%INST_LOG%"
+echo ===== bootstrap pip ^(ensurepip si pip no responde^) =====>>"%INST_LOG%"
+if defined PY_EXE_FULL (
+    "!PY_EXE_FULL!" -m pip --version >>"%INST_LOG%" 2>&1
+    if errorlevel 1 (
+        echo [pip] pip no operativo; ejecutando ensurepip...>>"%INST_LOG%"
+        if "%SILENT%"=="0" echo [pip] Activando pip ^(ensurepip^)...
+        "!PY_EXE_FULL!" -m ensurepip --upgrade >>"%INST_LOG%" 2>&1
+        "!PY_EXE_FULL!" -m pip install --upgrade pip >>"%INST_LOG%" 2>&1
+        "!PY_EXE_FULL!" -m pip --version >>"%INST_LOG%" 2>&1
+        if errorlevel 1 (
+            echo [ERROR] pip sigue sin funcionar tras ensurepip. Vea %INST_LOG%
+            echo          Ejecute manualmente: "!PY_EXE_FULL!" -m ensurepip --upgrade
+            if "%SILENT%"=="0" pause
+            exit /b 1
+        )
+        if "%SILENT%"=="0" echo [OK] pip disponible tras ensurepip.
+        echo [OK] pip disponible tras ensurepip.>>"%INST_LOG%"
+    )
+) else (
+    call %PY_CMD% -m pip --version >>"%INST_LOG%" 2>&1
+    if errorlevel 1 (
+        echo [pip] pip no operativo; ejecutando ensurepip...>>"%INST_LOG%"
+        if "%SILENT%"=="0" echo [pip] Activando pip ^(ensurepip^)...
+        call %PY_CMD% -m ensurepip --upgrade >>"%INST_LOG%" 2>&1
+        call %PY_CMD% -m pip install --upgrade pip >>"%INST_LOG%" 2>&1
+        call %PY_CMD% -m pip --version >>"%INST_LOG%" 2>&1
+        if errorlevel 1 (
+            echo [ERROR] pip sigue sin funcionar tras ensurepip. Vea %INST_LOG%
+            if "%SILENT%"=="0" pause
+            exit /b 1
+        )
+        if "%SILENT%"=="0" echo [OK] pip disponible tras ensurepip.
+        echo [OK] pip disponible tras ensurepip.>>"%INST_LOG%"
+    )
+)
+
 rem -------- Crear .env si falta --------
 if not exist "%API_DIR%\.env" (
     if exist "%API_DIR%\.env.example" (

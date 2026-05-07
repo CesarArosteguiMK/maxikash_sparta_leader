@@ -80,6 +80,19 @@ function Err     { param([string] $M) Out-Log "[ERR ] $M" 'Red';    $Script:HasE
 function Fix     { param([string] $M) Out-Log "[FIX ] $M" 'Magenta'; $null = $Script:FixesApplied.Add($M) }
 function Rec     { param([string] $M) $null = $Script:Recommended.Add($M); Out-Log "       -> $M" 'DarkYellow' }
 
+function Invoke-EnsurePipBootstrap {
+    # Portable/minimal Python sin Scripts\pip.exe: ensurepip crea pip en Lib\ensurepip.
+    param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
+    & $PyExe @PyArgs -m pip --version *> $null
+    if ($LASTEXITCODE -eq 0) { return $true }
+    if ($Script:PythonFreeThreading) { return $false }
+    Out-Log '[bootstrap] pip no operativo; ejecutando ensurepip + pip upgrade...' 'Magenta'
+    $null = & $PyExe @PyArgs -m ensurepip --upgrade 2>&1 | ForEach-Object { Out-Log $_ 'DarkGray' }
+    $null = & $PyExe @PyArgs -m pip install --upgrade pip 2>&1 | ForEach-Object { Out-Log $_ 'DarkGray' }
+    & $PyExe @PyArgs -m pip --version *> $null
+    return ($LASTEXITCODE -eq 0)
+}
+
 function Invoke-PyCapture {
     # Ejecuta Python con args y captura stdout+stderr a archivos tmp.
     # Devuelve PSCustomObject @{ ExitCode; StdOut; StdErr; All }.
@@ -291,7 +304,14 @@ if (-not $pyExe) {
 Section '4. pip'
 if ($pyExe) {
     & $pyExe @pyArgs -m pip --version *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $pipWorks = ($LASTEXITCODE -eq 0)
+    if (-not $pipWorks -and ($Fix -or $InstallMissing) -and -not $Script:PythonFreeThreading) {
+        if (Invoke-EnsurePipBootstrap -PyExe $pyExe -PyArgs $pyArgs) {
+            $pipWorks = $true
+            Fix 'pip quedo operativo tras ensurepip / upgrade pip.'
+        }
+    }
+    if ($pipWorks) {
         $pipv = (& $pyExe @pyArgs -m pip --version 2>$null)
         Ok "pip OK -> $pipv"
     } else {
@@ -628,6 +648,18 @@ if ($InstallMissing -and $Script:PythonFreeThreading) {
     Rec  "Primero use Python 3.12 estandar (portable en API\\tools\\PythonPortable\\ o PYTHON_EXE.txt), recree venv y luego reintente."
 } elseif ($InstallMissing -and $pyExe -and $missing.Count -gt 0) {
     Section '14. Auto-fix: instalando paquetes faltantes'
+    & $pyExe @pyArgs -m pip --version *> $null
+    if ($LASTEXITCODE -ne 0 -and -not $Script:PythonFreeThreading) {
+        if (-not (Invoke-EnsurePipBootstrap -PyExe $pyExe -PyArgs $pyArgs)) {
+            Err 'pip sigue sin funcionar; no se pueden instalar paquetes. Ejecute instalar-agente.bat o ensurepip manualmente.'
+        } else {
+            Fix 'pip operativo antes de pip install (ensurepip).'
+        }
+    }
+    & $pyExe @pyArgs -m pip --version *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Info 'Omitiendo instalacion por pip (no disponible).'
+    } else {
     $pipLog = Join-Path $LogsDir "doctor-pip-$stamp.log"
     foreach ($pkg in $missing) {
         Out-Log "  pip install $pkg ..." 'Magenta'
@@ -641,6 +673,7 @@ if ($InstallMissing -and $Script:PythonFreeThreading) {
         else { Err "Fallo pip install $pkg (vea $pipLog)" }
     }
     Info "Log de pip: $pipLog"
+    }
 }
 
 # =====================================================================
