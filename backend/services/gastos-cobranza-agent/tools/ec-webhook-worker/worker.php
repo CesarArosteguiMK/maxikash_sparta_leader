@@ -74,6 +74,7 @@ $opts = getopt('', [
     'saltar-chequeo-pais',
     'omitir-primeros:',
     'no-reintento-errores',
+    'ejecutado-por:',
 ]);
 if ($opts === false) {
     $opts = [];
@@ -98,6 +99,17 @@ $noAuditoria = array_key_exists('no-auditoria', $opts);
 $saltarChequeoPais = array_key_exists('saltar-chequeo-pais', $opts);
 $delayMs = isset($opts['delay']) ? max(0, (int) $opts['delay']) : (int) (getenv('DELAY_MS_BETWEEN_CREDITS') ?: 500);
 $usuarioAuditoria = trim((string) (getenv('EC_WORKER_AUDITORIA_USUARIO') ?: 'ec-webhook-worker'), " \t\"'");
+$ejecutadoPorOpt = isset($opts['ejecutado-por']) ? trim((string) $opts['ejecutado-por'], " \t\"'") : '';
+$ejecutadoPorEnv = trim((string) (getenv('EC_WORKER_EJECUTADO_POR') ?: ''), " \t\r\n");
+$ejecutadoPorLinea = $ejecutadoPorOpt !== '' ? $ejecutadoPorOpt : $ejecutadoPorEnv;
+$ejecutadoPorLinea = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $ejecutadoPorLinea);
+$ejecutadoPorLinea = str_replace(['*', '_'], [' ', ' '], $ejecutadoPorLinea);
+$ejecutadoPorLinea = trim(preg_replace('/\s+/u', ' ', $ejecutadoPorLinea) ?? '');
+if ($ejecutadoPorLinea !== '' && function_exists('mb_strlen') && mb_strlen($ejecutadoPorLinea, 'UTF-8') > 160) {
+    $ejecutadoPorLinea = mb_substr($ejecutadoPorLinea, 0, 157, 'UTF-8') . '…';
+} elseif ($ejecutadoPorLinea !== '' && strlen($ejecutadoPorLinea) > 160) {
+    $ejecutadoPorLinea = substr($ejecutadoPorLinea, 0, 157) . '…';
+}
 
 $token = getenv('TOKEN') ?: '';
 $endpoint = getenv('ENDPOINT') ?: 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
@@ -175,6 +187,9 @@ if (!$dryRun && !$noChat && $total > 0) {
         . "Total de id(s) de crédito a consultar en la API: *{$total}*.\n"
         . "_{$modoBd}_\n"
         . "_Fecha de corte:_ {$fechaCorte}.";
+    if ($ejecutadoPorLinea !== '') {
+        $ini .= "\n\n_Lo ejecutó:_ *{$ejecutadoPorLinea}*.";
+    }
     postGoogleChat($webhookUrl, $ini);
     echo "[ec-webhook-worker] Lote S2: {$total} id(s), fecha corte {$fechaCorte}. "
         . "En este log: avance cada 1% (línea propia) + detalle por crédito; Chat sigue con hitos 25/50/75/100%.\n";

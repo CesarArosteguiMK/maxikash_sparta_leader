@@ -1994,6 +1994,11 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   const omitir = Math.max(0, parseInt(String(req.body?.omitir ?? '0'), 10) || 0);
   const soloColumnas = !!req.body?.soloColumnas;
   const traceId = sanitizeTraceId(req.body?.traceId);
+  const ejecutadoPor = String(req.body?.ejecutadoPor != null ? req.body.ejecutadoPor : '')
+    .replace(/[\r\n\0]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
 
   if (!archivoRelRaw || !archivoRelRaw.toLowerCase().endsWith('.xlsx')) {
     return res.status(400).json({
@@ -2105,7 +2110,12 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   }
 
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
-  appendLog(`--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php}${traceId ? ` trace=${traceId}` : ''} ---`);
+  if (tipo === 'worker' && ejecutadoPor) {
+    env.EC_WORKER_EJECUTADO_POR = ejecutadoPor;
+  }
+  appendLog(
+    `--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php}${traceId ? ` trace=${traceId}` : ''}${ejecutadoPor ? ` ejecutado_por=${ejecutadoPor}` : ''} ---`,
+  );
   if (tipo === 'worker' && ecWorkerChatEventsEnabled()) {
     void notifyEcWorkflowWebhook('worker_inicio', traceId, [
       `archivo=${archivoEstado}`,

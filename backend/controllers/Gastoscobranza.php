@@ -67,6 +67,37 @@ class Gastoscobranza extends Controller
     }
 
     /**
+     * Nombre legible para webhook del worker EC (Conciliar pagos): sesión al iniciar la petición.
+     */
+    private function nombrePersonaEjecutorEcDesdeSesion(): string
+    {
+        if (!function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE) {
+            return '';
+        }
+        $u = trim(preg_replace('/\s+/u', ' ', (string) ($_SESSION['usuario_nombre'] ?? '')));
+        if ($u === '') {
+            $u = trim(preg_replace('/\s+/u', ' ', (string) ($_SESSION['nombre'] ?? '')));
+        }
+        if ($u === '') {
+            $u = trim((string) ($_SESSION['usuario'] ?? ''));
+        }
+        if ($u === '') {
+            $pid = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            if ($pid > 0) {
+                $u = 'Usuario id ' . $pid;
+            }
+        }
+        $u = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $u);
+        if (function_exists('mb_substr')) {
+            $u = mb_substr($u, 0, 160, 'UTF-8');
+        } else {
+            $u = substr($u, 0, 160);
+        }
+
+        return trim($u);
+    }
+
+    /**
      * Ruta relativa permitida bajo reporte/ del agente (raíz o historico/<carpeta>/).
      */
     private function archivoExcelReporteAgenteValido(string $rel): bool
@@ -967,6 +998,10 @@ class Gastoscobranza extends Controller
             $traceId = isset($body['traceId']) ? trim((string)$body['traceId']) : '';
             if ($traceId !== '' && preg_match('/^[A-Za-z0-9._:-]{6,80}$/', $traceId)) {
                 $payload['traceId'] = $traceId;
+            }
+            $ejecutadoPor = $this->nombrePersonaEjecutorEcDesdeSesion();
+            if ($ejecutadoPor !== '') {
+                $payload['ejecutadoPor'] = $ejecutadoPor;
             }
             $origenCarpeta = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
             if ($origenCarpeta === 'reporte') {
