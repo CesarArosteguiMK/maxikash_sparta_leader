@@ -2696,7 +2696,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <label class="form-label">Departamento *</label>
                     <select id="add_departamento_id" class="form-select js-select-buscador">
                         <option value="">Seleccione un departamento</option>
-                        <?php foreach ($departamento['datos'] as $dep): ?>
+                        <?php foreach ($departamento['datos'] ?? [] as $dep): ?>
                             <option value="<?= htmlspecialchars($dep['id']) ?>">
                                 <?= htmlspecialchars($dep['nombre']) ?>
                             </option>
