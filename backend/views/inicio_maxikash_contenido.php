@@ -1092,14 +1092,37 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   var chkApi1Completo = document.getElementById('api1clickLogCompleto');
   var api1ListaPollTicks = 0;
 
+  /** Cabeceras para que index.php devuelva JSON en errores (evita HTML login y fallo "Unexpected token <"). */
+  function api1AjaxHeaders() {
+    return {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Front-Request': 'true'
+    };
+  }
+  function api1ParseJsonBody(text, urlHint) {
+    var t = (text || '').trim();
+    if (t.charAt(0) === '<') {
+      throw new Error('El servidor respondió HTML en lugar de JSON (ruta ' + (urlHint || '') + ' ausiente, sesión caducada o error PHP). Actualice código y vuelva a iniciar sesión.');
+    }
+    try {
+      return JSON.parse(t);
+    } catch (e2) {
+      throw new Error('JSON inválido en ' + (urlHint || '') + ': ' + (e2 && e2.message ? e2.message : e2));
+    }
+  }
+
   function api1RefreshLogList() {
     if (!selApi1Logs) return;
     selApi1Logs.disabled = true;
     var cur = selApi1Logs.value;
-    fetch('/inicio/apidoconeloglistar', { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    fetch('/inicio/apidoconeloglistar', { credentials: 'same-origin', headers: api1AjaxHeaders() })
       .then(function(r){
-        if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status + ' (' + r.statusText + ')'));
-        return r.json();
+        return r.text().then(function(body){
+          if (!r.ok) {
+            throw new Error('HTTP ' + r.status + ' — ' + (body.slice(0, 120) || r.statusText));
+          }
+          return api1ParseJsonBody(body, 'apidoconeloglistar');
+        });
       })
       .then(function(data){
         selApi1Logs.innerHTML = '';
@@ -1146,8 +1169,13 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     var u = '/inicio/apidoconelogcontenido?archivo=' + encodeURIComponent(selApi1Logs.value);
     if (chkApi1Completo && chkApi1Completo.checked) u += '&completo=1';
     if (outApi1) outApi1.textContent = 'Cargando…';
-    fetch(u)
-      .then(function(r){ return r.json(); })
+    fetch(u, { credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return api1ParseJsonBody(body, 'apidoconelogcontenido');
+        });
+      })
       .then(function(data){
         if (!data || !data.success) {
           if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo leer el log.';
@@ -1207,8 +1235,12 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   if (btnApi1Download) btnApi1Download.addEventListener('click', api1DownloadSelectedLog);
   if (btnApi1Olvidar) btnApi1Olvidar.addEventListener('click', function(){
     if (!confirm('¿Desbloquear el panel? Podrás pulsar «API» otra vez. Un proceso ya lanzado puede seguir en el servidor hasta terminar.')) return;
-    fetch('/inicio/apidoconeclickolvidar', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(function(r){ return r.json(); })
+    fetch('/inicio/apidoconeclickolvidar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          return api1ParseJsonBody(body, 'apidoconeclickolvidar');
+        });
+      })
       .then(function(data){
         if (data && data.success) {
           api1StopPolling();
@@ -1221,8 +1253,13 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   });
   if (btnApi1Parar) btnApi1Parar.addEventListener('click', function(){
     if (!confirm('¿PARAR esta ejecución en el servidor? Se intentará cerrar doctor/instalar/batch relacionados con esta API, liberar el puerto 8000 y procesos Python cuya línea de comando incluya esta carpeta. Luego podrás pulsar «API» otra vez.\n\nSolo otros Python de otros proyectos NO deberían verse afectados si no usan esa ruta.')) return;
-    fetch('/inicio/apidoconeclickparar', { method: 'POST', credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .then(function(r){ return r.json(); })
+    fetch('/inicio/apidoconeclickparar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error(body.slice(0, 200) || ('HTTP ' + r.status));
+          return api1ParseJsonBody(body, 'apidoconeclickparar');
+        });
+      })
       .then(function(data){
         api1StopPolling();
         if (btnApi1) btnApi1.classList.remove('running');
@@ -1267,8 +1304,13 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     outApi1.textContent = tail || 'Ejecutando...';
   }
   function api1FetchEstado() {
-    fetch('/inicio/apidoconeclickestado')
-      .then(function(r){ return r.json(); })
+    fetch('/inicio/apidoconeclickestado', { credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return api1ParseJsonBody(body, 'apidoconeclickestado');
+        });
+      })
       .then(function(data){
         if (!data || data.success === false) {
           api1SetState('err', 'Error');
@@ -1314,8 +1356,13 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       }
       api1SetState('run', 'Lanzando');
       btnApi1.classList.add('running');
-      fetch('/inicio/apidoconeclickiniciar', { method: 'POST' })
-        .then(function(r){ return r.json(); })
+      fetch('/inicio/apidoconeclickiniciar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
+        .then(function(r){
+          return r.text().then(function(body){
+            if (!r.ok) throw new Error(body.slice(0, 160) || ('HTTP ' + r.status));
+            return api1ParseJsonBody(body, 'apidoconeclickiniciar');
+          });
+        })
         .then(function(data){
           if (!data || data.success === false) {
             api1SetState('err', 'Error');

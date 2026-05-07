@@ -511,6 +511,9 @@ function solicitudEsFrontRequest()
     if (!empty($_SERVER['HTTP_FRONT_REQUEST']) && strtolower(trim((string)$_SERVER['HTTP_FRONT_REQUEST'])) === 'true') {
         return true;
     }
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower(trim((string)$_SERVER['HTTP_X_REQUESTED_WITH'])) === 'xmlhttprequest') {
+        return true;
+    }
     if (function_exists('apache_request_headers')) {
         foreach (apache_request_headers() as $k => $v) {
             if (strtolower((string)$k) === 'front-request' && strtolower(trim((string)$v)) === 'true') {
