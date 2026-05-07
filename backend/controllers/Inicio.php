@@ -706,6 +706,15 @@ class Inicio extends Controller
                 $exitCode = 1;
             }
         }
+        $startedAt = (int)($_SESSION['api_doc_1click_started_at'] ?? 0);
+        if ($startedAt > 0 && (time() - $startedAt) > 7200 && !$completed && !$fatalBatch) {
+            $completed = true;
+            if ($exitCode === null) {
+                $exitCode = 1;
+            }
+            $content .= "\r\n\r\n[AVISO PANEL] Lleva más de 2 horas sin marca de fin en el log.\r\n";
+            $content .= "Puede usar «Desbloquear panel» y pulsar API de nuevo (el .bat del servidor puede seguir un rato).\r\n";
+        }
 
         echo json_encode([
             'success' => true,
@@ -724,6 +733,12 @@ class Inicio extends Controller
         if ($logPath === '' || !is_file($logPath)) {
             return ['is_running' => false];
         }
+        $startedAt = (int)($_SESSION['api_doc_1click_started_at'] ?? 0);
+        // Si lleva más de 2 h sin marca de fin en el log, liberar para poder pulsar API de nuevo
+        // (pip/torch pueden tardar, pero así no queda bloqueado eternamente el panel por un colgajo).
+        if ($startedAt > 0 && (time() - $startedAt) > 7200) {
+            return ['is_running' => false, 'log_file' => $logPath, 'panel_stale' => true];
+        }
         $tail = $this->leerTailArchivo($logPath, 16000);
         if (strpos($tail, '__FIN__:') !== false) {
             return ['is_running' => false, 'log_file' => $logPath];
@@ -732,6 +747,26 @@ class Inicio extends Controller
             return ['is_running' => false, 'log_file' => $logPath];
         }
         return ['is_running' => true, 'log_file' => $logPath];
+    }
+
+    /**
+     * Quita la sesión 1-click para poder lanzar una nueva ejecución desde la web (usuario 878).
+     * No mata procesos ya arrancados en el servidor — solo desbloquea el botón respecto de PHP.
+     */
+    public function apiDocOneClickOlvidar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+
+            return;
+        }
+        unset($_SESSION['api_doc_1click_log'], $_SESSION['api_doc_1click_started_at']);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Panel desbloqueado. Ya puedes pulsar API otra vez. Si había instalación en curso, puede seguir un rato en segundo plano en el servidor.',
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     private function apiDocOneClickDetectFatalBatchError(string $content): bool
