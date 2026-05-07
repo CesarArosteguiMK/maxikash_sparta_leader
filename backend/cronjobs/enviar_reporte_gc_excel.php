@@ -6,8 +6,9 @@
  * Uso:
  *   php enviar_reporte_gc_excel.php /ruta/absoluta/reporte_cobranza_DD-MM-YYYY.xlsx
  *
- * Destinatarios: variable de entorno GASTOS_GC_REPORTE_MAIL_TO (correos separados por coma).
- * Si está vacía, usa lista por defecto en código.
+ * Destinatarios: si GASTOS_GC_REPORTE_MAIL_TO está definida y no vacía, tiene prioridad (correos separados por coma).
+ * Si no, usa la lista guardada en Shell Gastos Cobranza → Administrar correos (`backend/storage/config/gastos_cobranza_destinatarios.json`).
+ * Si ese archivo no existe o no hay activos, cae al mismo par por defecto que antes en código.
  */
 
 declare(strict_types=1);
@@ -80,16 +81,22 @@ if ($xlsx === '' || !is_file($xlsx)) {
     exit(1);
 }
 
+/**
+ * Destinatarios: si existe GASTOS_GC_REPORTE_MAIL_TO (no vacía), tiene prioridad (despliegues/cron).
+ * Si no, la lista guardada desde Shell Gastos Cobranza (`storage/config/gastos_cobranza_destinatarios.json`).
+ */
 $rawTo = getenv('GASTOS_GC_REPORTE_MAIL_TO');
-if ($rawTo === false || trim($rawTo) === '') {
-    $rawTo = 'lrgonzalez033@gmail.com,__SPARTA_SECRET_REDACTED__.martinez@__SPARTA_SECRET_REDACTED__.mx';
-}
 $dest = [];
-foreach (explode(',', $rawTo) as $em) {
-    $em = strtolower(trim($em));
-    if ($em !== '') {
-        $dest[] = $em;
+if ($rawTo !== false && trim($rawTo) !== '') {
+    foreach (explode(',', $rawTo) as $em) {
+        $em = strtolower(trim((string) $em));
+        if ($em !== '') {
+            $dest[] = $em;
+        }
     }
+    $dest = array_values(array_unique($dest));
+} else {
+    $dest = \Controllers\Gastoscobranza::destinatariosActivosReporteGcDesdeArchivo();
 }
 
 try {

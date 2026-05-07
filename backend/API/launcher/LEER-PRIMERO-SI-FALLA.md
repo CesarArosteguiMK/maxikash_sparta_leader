@@ -178,8 +178,15 @@ Solución: instalar
 
 Síntoma: `ImportError: Unable to find zbar shared library`.
 
-Solución: descargar `zbar` para Windows o copiar `libzbar-64.dll` a
-`C:\Windows\System32`.
+Solución portable (recomendada para este proyecto):
+
+1. Ejecuta `launcher\bootstrap-zbar-local.ps1` (descarga paquetes MSYS2
+   en red y deja todas las DLL necesarias en `backend/API/tools/zbar/bin`,
+   sin usar System32).
+2. Reinicia la API (o el flujo 1‑click ya lo llama al inicio).
+
+Si el servidor no tiene salida a Internet, copia manualmente la carpeta
+`tools/zbar/bin` desde una máquina donde el bootstrap ya corrió.
 
 ### E. Tesseract OCR no instalado
 
