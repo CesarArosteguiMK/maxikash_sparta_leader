@@ -10,6 +10,7 @@ $accesosRapidos = $accesosRapidos ?? [];
 $mostrarBotonAnalytics = $mostrarBotonAnalytics ?? false;
 $itemsAnalytics = $itemsAnalytics ?? [];
 $mostrarDiagnosticoAdmin = $mostrarDiagnosticoAdmin ?? false;
+$mostrarBotonApiDocOneClick = $mostrarBotonApiDocOneClick ?? false;
 $logoUrl = '/assets/img/Logotipo-Maxikash-Outline.webp';
 
 $mensajesPorPuesto = [
@@ -373,6 +374,91 @@ body.dark-mode .inicio-btn-diagnostico-segundo {
 body.dark-mode .inicio-btn-diagnostico-bd {
   background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
 }
+
+/* Botón 1-click API documentación (solo usuario 878) */
+.inicio-btn-api1click {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 9996;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  box-shadow: 0 4px 16px rgba(234, 88, 12, 0.45);
+  transition: all 0.25s ease;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.inicio-btn-api1click i { font-size: 18px; }
+.inicio-btn-api1click:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(234, 88, 12, 0.55);
+}
+.inicio-btn-api1click:active { transform: scale(0.96); }
+.inicio-btn-api1click.running {
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  box-shadow: 0 6px 24px rgba(13, 148, 136, 0.55);
+}
+body.dark-mode .inicio-btn-api1click {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.api1click-panel {
+  position: fixed;
+  bottom: 95px;
+  left: 24px;
+  z-index: 9996;
+  width: min(520px, calc(100vw - 36px));
+  max-height: 62vh;
+  display: none;
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45);
+  overflow: hidden;
+}
+.api1click-panel.open { display: block; }
+.api1click-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.95);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+.api1click-title { font-size: 12px; font-weight: 700; letter-spacing: 0.2px; }
+.api1click-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.35);
+}
+.api1click-badge.ok { background: rgba(22, 163, 74, 0.35); color: #86efac; }
+.api1click-badge.err { background: rgba(220, 38, 38, 0.35); color: #fecaca; }
+.api1click-badge.run { background: rgba(13, 148, 136, 0.35); color: #99f6e4; }
+.api1click-body {
+  margin: 0;
+  padding: 12px;
+  max-height: calc(62vh - 78px);
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 </style>
 
 <div class="inicio-mkx">
@@ -478,6 +564,25 @@ body.dark-mode .inicio-btn-diagnostico-bd {
         <i class="fa-solid fa-database"></i>
         <span>BD alternas</span>
       </a>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($mostrarBotonApiDocOneClick)): ?>
+    <button
+      type="button"
+      id="btnApiDocOneClick"
+      class="inicio-btn-api1click"
+      title="Instalar + diagnosticar + iniciar API documentación (1 click)"
+      aria-label="Ejecutar API documentación 1 click">
+      <i class="fa-solid fa-rocket"></i>
+      <span>API</span>
+    </button>
+    <div class="api1click-panel" id="api1clickPanel" aria-live="polite">
+      <div class="api1click-hd">
+        <span class="api1click-title">API documentación · instalación/arranque 1-click</span>
+        <span class="api1click-badge" id="api1clickBadge">Listo</span>
+      </div>
+      <pre class="api1click-body" id="api1clickOutput">Sin ejecución todavía.</pre>
     </div>
     <?php endif; ?>
 
@@ -896,6 +1001,111 @@ body.dark-mode .inicio-btn-diagnostico-bd {
         if (textToggle) { textToggle.textContent = 'Gráficas'; }
         btnToggle.title = 'Ver gráficas y análisis';
       }
+    });
+  }
+
+  // API documentación 1-click (solo usuario 878)
+  var btnApi1 = document.getElementById('btnApiDocOneClick');
+  var panelApi1 = document.getElementById('api1clickPanel');
+  var badgeApi1 = document.getElementById('api1clickBadge');
+  var outApi1 = document.getElementById('api1clickOutput');
+  var api1Timer = null;
+  var api1Running = false;
+  function api1SetState(kind, text) {
+    if (!badgeApi1) return;
+    badgeApi1.className = 'api1click-badge';
+    if (kind === 'ok') badgeApi1.classList.add('ok');
+    if (kind === 'err') badgeApi1.classList.add('err');
+    if (kind === 'run') badgeApi1.classList.add('run');
+    badgeApi1.textContent = text || 'Listo';
+  }
+  function api1OpenPanel() {
+    if (panelApi1) panelApi1.classList.add('open');
+  }
+  function api1StopPolling() {
+    if (api1Timer) {
+      clearInterval(api1Timer);
+      api1Timer = null;
+    }
+    api1Running = false;
+    if (btnApi1) btnApi1.classList.remove('running');
+  }
+  function api1StartPolling() {
+    if (api1Timer) return;
+    api1Timer = setInterval(api1FetchEstado, 2500);
+  }
+  function api1RenderTail(data) {
+    if (!outApi1) return;
+    var tail = (data && data.output_tail) ? String(data.output_tail) : '';
+    outApi1.textContent = tail || 'Ejecutando...';
+  }
+  function api1FetchEstado() {
+    fetch('/inicio/apidoconeclickestado')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data || data.success === false) {
+          api1SetState('err', 'Error');
+          if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo consultar estado.';
+          api1StopPolling();
+          return;
+        }
+        api1RenderTail(data);
+        if (data.completed) {
+          if (typeof data.exit_code === 'number' && data.exit_code === 0) {
+            api1SetState('ok', 'OK');
+          } else {
+            api1SetState('err', 'Con errores');
+          }
+          api1StopPolling();
+          return;
+        }
+        if (data.is_running) {
+          api1SetState('run', 'Ejecutando');
+          if (btnApi1) btnApi1.classList.add('running');
+        } else {
+          api1SetState('ok', 'Listo');
+        }
+      })
+      .catch(function(err){
+        api1SetState('err', 'Error');
+        if (outApi1) outApi1.textContent = 'Error consultando estado: ' + (err && err.message ? err.message : err);
+        api1StopPolling();
+      });
+  }
+  if (btnApi1) {
+    btnApi1.addEventListener('click', function(){
+      api1OpenPanel();
+      if (outApi1) {
+        outApi1.textContent = 'Iniciando flujo 1-click...';
+      }
+      api1SetState('run', 'Lanzando');
+      btnApi1.classList.add('running');
+      fetch('/inicio/apidoconeclickiniciar', { method: 'POST' })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (!data || data.success === false) {
+            api1SetState('err', 'Error');
+            if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo iniciar la ejecución.';
+            api1StopPolling();
+            return;
+          }
+          api1Running = true;
+          if (outApi1) {
+            var lines = [];
+            if (data.message) lines.push(data.message);
+            if (data.log_file) lines.push('Log: ' + data.log_file);
+            lines.push('Consultando avance...');
+            outApi1.textContent = lines.join('\n');
+          }
+          api1SetState('run', 'Ejecutando');
+          api1FetchEstado();
+          api1StartPolling();
+        })
+        .catch(function(err){
+          api1SetState('err', 'Error');
+          if (outApi1) outApi1.textContent = 'Error al lanzar: ' + (err && err.message ? err.message : err);
+          api1StopPolling();
+        });
     });
   }
 })();
