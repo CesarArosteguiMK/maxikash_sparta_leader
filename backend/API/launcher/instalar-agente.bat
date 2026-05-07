@@ -2,6 +2,17 @@
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
 
+rem =====================================================================
+rem  instalar-agente.bat
+rem  Instala dependencias Python de la API verificacion documentos.
+rem  - Por defecto: Python GLOBAL (sin venv).
+rem  - Opciones:    /VENV  (entorno virtual .\venv)
+rem                 /SILENT (no pausa)
+rem  Mejora vs version vieja: TODO el output de pip se guarda en
+rem  logs\instalar-YYYYMMDD-HHMMSS.log y, si algo falla, se muestran
+rem  las ultimas lineas relevantes y se sugiere ejecutar el doctor.
+rem =====================================================================
+
 for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
 cd /d "%API_DIR%"
@@ -10,31 +21,40 @@ set "SILENT=0"
 set "MODE=GLOBAL"
 if /i "%~1"=="/SILENT" set "SILENT=1"
 if /i "%~2"=="/SILENT" set "SILENT=1"
-if /i "%~1"=="/VENV" set "MODE=VENV"
-if /i "%~2"=="/VENV" set "MODE=VENV"
+if /i "%~1"=="/VENV"   set "MODE=VENV"
+if /i "%~2"=="/VENV"   set "MODE=VENV"
 if /i "%~1"=="/GLOBAL" set "MODE=GLOBAL"
 if /i "%~2"=="/GLOBAL" set "MODE=GLOBAL"
+
+if not exist "%API_DIR%\logs" mkdir "%API_DIR%\logs" >nul 2>&1
+
+rem Timestamp YYYYMMDD-HHMMSS sin depender de locale
+for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value 2^>nul') do set "LDT=%%I"
+if "%LDT%"=="" set "LDT=%date:~-4%%date:~3,2%%date:~0,2%-%time:~0,2%%time:~3,2%%time:~6,2%"
+set "STAMP=%LDT:~0,8%-%LDT:~8,6%"
+set "INST_LOG=%API_DIR%\logs\instalar-%STAMP%.log"
 
 if "%SILENT%"=="0" (
     echo.
     echo ============================================
     echo   API verificacion documentos - instalacion
     echo   Carpeta: %API_DIR%
+    echo   Modo   : %MODE%   ^(otra opcion: /VENV ^| /GLOBAL^)
+    echo   Log    : %INST_LOG%
     echo ============================================
-    echo   Modo por defecto: GLOBAL ^(instala en Python de Windows^)
-    echo   Opcional: /VENV para entorno virtual
-    echo   Tesseract OCR: debe estar instalado en Windows
-    echo   ^(no se puede instalar solo con pip^)
-    echo ============================================
+    echo.
+    echo Tesseract OCR debe instalarse aparte ^(no se puede con pip^).
     echo.
 )
 
 if not exist "%API_DIR%\requirements.txt" (
+    echo [ERROR] No esta requirements.txt en %API_DIR%>>"%INST_LOG%"
     echo [ERROR] No esta requirements.txt en %API_DIR%
     if "%SILENT%"=="0" pause
     exit /b 1
 )
 
+rem -------- Detectar Python --------
 set "PY_CMD="
 py -3 -c "import sys" >nul 2>&1
 if not errorlevel 1 set "PY_CMD=py -3"
@@ -43,20 +63,41 @@ if not defined PY_CMD (
     if not errorlevel 1 set "PY_CMD=python"
 )
 if not defined PY_CMD (
+    echo [ERROR] No se encontro Python 3 ^(pruebe "py -3" o "python" en PATH^).>>"%INST_LOG%"
     echo [ERROR] No se encontro Python 3 ^(pruebe "py -3" o "python" en PATH^).
-    echo         Instale Python 3.10+ desde https://www.python.org/downloads/
+    echo         Instale Python 3.10/3.11/3.12 64-bit desde https://www.python.org/downloads/windows/
     if "%SILENT%"=="0" pause
     exit /b 1
 )
-
 if "%SILENT%"=="0" echo [OK] Python detectado: %PY_CMD%
+echo Python detectado: %PY_CMD%>>"%INST_LOG%"
 
-if not exist "%API_DIR%\logs" mkdir "%API_DIR%\logs" >nul 2>&1
+rem -------- Avisar si Python es muy nuevo --------
+for /f "delims=" %%v in ('%PY_CMD% -c "import platform;print(platform.python_version())" 2^>nul') do set "PYVER=%%v"
+echo Version Python: %PYVER%>>"%INST_LOG%"
+if defined PYVER (
+    for /f "tokens=1,2 delims=." %%a in ("%PYVER%") do (
+        set "PYMAJ=%%a"
+        set "PYMIN=%%b"
+    )
+    if "%PYMAJ%"=="3" if !PYMIN! GEQ 13 (
+        echo.
+        echo [AVISO] Python !PYVER! es muy nuevo: paquetes con C/Rust ^(pdf417decoder, torch, pyzbar^)
+        echo         pueden NO tener wheel y exigir Visual Studio Build Tools para compilar.
+        echo         Si la instalacion falla a la mitad, instale Python 3.12 64-bit y reintente.
+        echo.
+        echo [AVISO] Python !PYVER! es muy nuevo. Posibles fallos de wheel.>>"%INST_LOG%"
+    )
+)
+
+rem -------- Crear .env si falta --------
 if not exist "%API_DIR%\.env" (
     if exist "%API_DIR%\.env.example" (
         copy /Y "%API_DIR%\.env.example" "%API_DIR%\.env" >nul
+        echo [OK] Copiado .env desde .env.example>>"%INST_LOG%"
         if "%SILENT%"=="0" echo [OK] Copiado .env desde .env.example
     ) else (
+        echo [AVISO] No hay .env.example; cree .env manualmente si hace falta.>>"%INST_LOG%"
         if "%SILENT%"=="0" echo [AVISO] No hay .env.example; cree .env manualmente si hace falta.
     )
 )
@@ -65,21 +106,26 @@ if /i "%MODE%"=="VENV" goto :install_venv
 goto :install_global
 
 :install_global
-echo [pip] Instalando dependencias en Python GLOBAL...
-call %PY_CMD% -m pip install --upgrade pip
+echo.>>"%INST_LOG%"
+echo ===== pip upgrade (global) =====>>"%INST_LOG%"
+echo [pip] Actualizando pip ^(global^)...
+call %PY_CMD% -m pip install --upgrade pip >>"%INST_LOG%" 2>&1
 if errorlevel 1 (
-    echo [ERROR] pip upgrade global fallo.
-    if "%SILENT%"=="0" pause
-    exit /b 1
+    echo [ERROR] pip upgrade global fallo. Vea %INST_LOG%
+    goto :show_tail_and_fail
 )
-call %PY_CMD% -m pip install -r "%API_DIR%\requirements.txt"
+echo.>>"%INST_LOG%"
+echo ===== pip install -r requirements (global) =====>>"%INST_LOG%"
+echo [pip] Instalando requirements.txt en Python GLOBAL...
+call %PY_CMD% -m pip install -r "%API_DIR%\requirements.txt" >>"%INST_LOG%" 2>&1
 if errorlevel 1 (
     echo [AVISO] Instalacion global fallo. Reintentando con --user...
-    call %PY_CMD% -m pip install --user -r "%API_DIR%\requirements.txt"
+    echo.>>"%INST_LOG%"
+    echo ===== pip install -r requirements (--user) =====>>"%INST_LOG%"
+    call %PY_CMD% -m pip install --user -r "%API_DIR%\requirements.txt" >>"%INST_LOG%" 2>&1
     if errorlevel 1 (
-        echo [ERROR] pip install global/--user fallo. Revise mensajes arriba.
-        if "%SILENT%"=="0" pause
-        exit /b 1
+        echo [ERROR] pip install global/--user fallo. Vea %INST_LOG%
+        goto :show_tail_and_fail
     )
 )
 goto :post_install
@@ -87,31 +133,32 @@ goto :post_install
 :install_venv
 if not exist "%API_DIR%\venv\Scripts\python.exe" (
     echo [venv] Creando entorno virtual...
-    call %PY_CMD% -m venv "%API_DIR%\venv"
+    call %PY_CMD% -m venv "%API_DIR%\venv" >>"%INST_LOG%" 2>&1
     if errorlevel 1 (
         echo [ERROR] No se pudo crear venv. Revise Python.
-        if "%SILENT%"=="0" pause
-        exit /b 1
+        goto :show_tail_and_fail
     )
 )
 set "VENV_PY=%API_DIR%\venv\Scripts\python.exe"
 if not exist "%VENV_PY%" (
     echo [ERROR] Falta venv\Scripts\python.exe
-    if "%SILENT%"=="0" pause
-    exit /b 1
+    goto :show_tail_and_fail
 )
-echo [pip] Instalando dependencias en venv...
-"%VENV_PY%" -m pip install --upgrade pip
+echo.>>"%INST_LOG%"
+echo ===== pip upgrade (venv) =====>>"%INST_LOG%"
+echo [pip] Actualizando pip en venv...
+"%VENV_PY%" -m pip install --upgrade pip >>"%INST_LOG%" 2>&1
 if errorlevel 1 (
-    echo [ERROR] pip upgrade en venv fallo.
-    if "%SILENT%"=="0" pause
-    exit /b 1
+    echo [ERROR] pip upgrade en venv fallo. Vea %INST_LOG%
+    goto :show_tail_and_fail
 )
-"%VENV_PY%" -m pip install -r "%API_DIR%\requirements.txt"
+echo.>>"%INST_LOG%"
+echo ===== pip install -r requirements (venv) =====>>"%INST_LOG%"
+echo [pip] Instalando requirements.txt en venv...
+"%VENV_PY%" -m pip install -r "%API_DIR%\requirements.txt" >>"%INST_LOG%" 2>&1
 if errorlevel 1 (
-    echo [ERROR] pip install en venv fallo. Revise mensajes arriba.
-    if "%SILENT%"=="0" pause
-    exit /b 1
+    echo [ERROR] pip install en venv fallo. Vea %INST_LOG%
+    goto :show_tail_and_fail
 )
 
 :post_install
@@ -124,16 +171,47 @@ if "%TESS_OK%"=="1" (
     echo [OK] Tesseract OCR detectado.
 ) else (
     echo [IMPORTANTE] No se encontro Tesseract en la ruta habitual.
-    echo              Descargue el instalador para Windows desde:
-    echo              https://github.com/UB-Mannheim/tesseract/wiki
+    echo              Descargue para Windows: https://github.com/UB-Mannheim/tesseract/wiki
+    echo              Instalelo en  C:\Program Files\Tesseract-OCR\
 )
 echo.
-echo [OK] Dependencias Python listas.
-echo      Solo vuelva a ejecutar este .bat si cambia requirements.txt o falta un paquete.
-echo      Cada dia / cada sesion: launcher\iniciar-agente-oculto.vbs ^(o launcher\iniciar-agente.bat^) — no hace falta reinstalar.
-echo      Instalacion en venv ^(opcional^): launcher\instalar-agente.bat /VENV
-echo      Docker ^(opcional^): launcher\Iniciar-API-Verificacion-Docker.bat
+
+rem -------- Diagnostico final automatico --------
+echo [doctor] Ejecutando diagnostico final...
+echo.>>"%INST_LOG%"
+echo ===== doctor-api.ps1 (final) =====>>"%INST_LOG%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1" -Quiet >>"%INST_LOG%" 2>&1
+set "DOC_RC=!ERRORLEVEL!"
+if "%DOC_RC%"=="0" (
+    echo [OK] Diagnostico final: sin problemas.
+) else if "%DOC_RC%"=="2" (
+    echo [AVISO] Diagnostico final: hay advertencias (codigo 2). Vea %INST_LOG%.
+) else (
+    echo [ERROR] Diagnostico final detecto problemas (codigo %DOC_RC%).
+    echo         Ejecute  launcher\Diagnosticar-API.bat  para verlos en pantalla.
+)
+
+echo.
+echo [OK] Instalacion finalizada.
+echo      Log completo:    %INST_LOG%
+echo      Arrancar oculto: launcher\iniciar-agente-oculto.vbs
+echo      Arrancar visible:launcher\iniciar-agente-foreground.bat
+echo      Diagnostico:     launcher\Diagnosticar-API.bat
 echo.
 
 if "%SILENT%"=="0" pause
 exit /b 0
+
+:show_tail_and_fail
+echo.
+echo ============================================
+echo   ULTIMAS LINEAS DEL LOG  (%INST_LOG%)
+echo ============================================
+powershell -NoProfile -Command "Get-Content -LiteralPath '%INST_LOG%' -Tail 40"
+echo ============================================
+echo.
+echo Sugerencia: ejecute  launcher\Diagnosticar-API.bat /INSTALL
+echo            para que el doctor reinstale solo lo que falla.
+echo.
+if "%SILENT%"=="0" pause
+exit /b 1

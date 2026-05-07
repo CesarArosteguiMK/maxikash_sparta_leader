@@ -692,8 +692,8 @@ class MotosAdjudicadas extends Controller
             $camposMoto = [
                 'moto_marca','moto_modelo','moto_anio','moto_color',
                 'moto_no_serie','moto_no_motor','moto_placas',
-                'log_ubicacion','log_direccion','log_ciudad',
-                'log_estado','log_responsable','log_telefono',
+                'log_direccion','log_ciudad',
+                'log_estado','log_lugar_resguardo','log_lugar_otro','log_telefono',
             ];
             $tieneDatosMoto = false;
             foreach ($camposMoto as $c) {
