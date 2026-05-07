@@ -18,11 +18,15 @@ set "PY_EXE="
 set "PY_ARG="
 set "PY_SRC="
 
+rem venv solo si NO es Python free-threading (venv viejo hecho con 3.14t rompe deps)
 if exist "%API_DIR%\venv\Scripts\python.exe" (
-    set "PY_EXE=%API_DIR%\venv\Scripts\python.exe"
-    set "PY_ARG="
-    set "PY_SRC=venv"
-    goto :have_py
+    "%API_DIR%\venv\Scripts\python.exe" "%API_DIR%\launcher\_check_standard_python.py" >nul 2>&1
+    if not errorlevel 2 (
+        set "PY_EXE=%API_DIR%\venv\Scripts\python.exe"
+        set "PY_ARG="
+        set "PY_SRC=venv"
+        goto :have_py
+    )
 )
 
 if exist "%API_DIR%\launcher\PYTHON_EXE.txt" (

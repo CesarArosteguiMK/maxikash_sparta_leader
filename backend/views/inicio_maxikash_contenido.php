@@ -643,6 +643,7 @@ body.dark-mode .inicio-btn-api1click {
         </label>
         <button type="button" class="api1click-tbtn" id="api1clickBtnCopy" title="Copiar texto visible al portapapeles">Copiar</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnDownload" title="Descargar .log">Descargar</button>
+        <button type="button" class="api1click-tbtn" id="api1clickBtnOlvidar" title="Si el panel cree que sigue ejecutando y quieres lanzar otra vez (no mata procesos en el servidor)">Desbloquear panel</button>
       </div>
       <pre class="api1click-body" id="api1clickOutput">Sin ejecución todavía.</pre>
     </div>
@@ -1078,6 +1079,7 @@ body.dark-mode .inicio-btn-api1click {
   var btnApi1View = document.getElementById('api1clickBtnView');
   var btnApi1Copy = document.getElementById('api1clickBtnCopy');
   var btnApi1Download = document.getElementById('api1clickBtnDownload');
+  var btnApi1Olvidar = document.getElementById('api1clickBtnOlvidar');
   var chkApi1Completo = document.getElementById('api1clickLogCompleto');
 
   function api1RefreshLogList() {
@@ -1176,6 +1178,20 @@ body.dark-mode .inicio-btn-api1click {
   if (btnApi1View) btnApi1View.addEventListener('click', api1ViewSelectedLog);
   if (btnApi1Copy) btnApi1Copy.addEventListener('click', api1CopyVisibleLog);
   if (btnApi1Download) btnApi1Download.addEventListener('click', api1DownloadSelectedLog);
+  if (btnApi1Olvidar) btnApi1Olvidar.addEventListener('click', function(){
+    if (!confirm('¿Desbloquear el panel? Podrás pulsar «API» otra vez. Un proceso ya lanzado puede seguir en el servidor hasta terminar.')) return;
+    fetch('/inicio/apidoconeclickolvidar', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data && data.success) {
+          api1StopPolling();
+          api1SetState('ok', 'Listo');
+          if (outApi1) outApi1.textContent = data.message || 'Panel desbloqueado.';
+          if (btnApi1) btnApi1.classList.remove('running');
+        } else if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No autorizado.';
+      })
+      .catch(function(){ if (outApi1) outApi1.textContent = 'No se pudo desbloquear (red o sesión).'; });
+  });
 
   function api1SetState(kind, text) {
     if (!badgeApi1) return;

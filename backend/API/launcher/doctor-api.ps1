@@ -217,11 +217,19 @@ $pyExe   = $null
 $pyArgs  = @()
 $pySrc   = ''
 $resolved = Resolve-SpartaApiPython -ApiDir $ApiDir
+$venvStale = $false
+$venvPathChk = Join-Path $ApiDir 'venv\Scripts\python.exe'
+if ((Test-Path -LiteralPath $venvPathChk) -and -not (Test-SpartaPythonViable -PythonExe $venvPathChk -ApiDir $ApiDir)) {
+    $venvStale = $true
+}
 if ($resolved) {
     $pyExe = $resolved.Exe
     $pyArgs = $resolved.Args
     $pySrc = $resolved.Source
     Ok "Python a usar: $pySrc -> $pyExe"
+    if ($venvStale -and $pySrc -ne 'venv') {
+        Warn 'El venv antiguo (Python incompatible / free-thread) se ignora. Al ejecutar instalacion /VENV o el boton API se borrara venv y se creara bien con Python 3.12 portable si existe.'
+    }
 }
 if (-not $pyExe) {
     Err "No hay Python disponible (ni venv, ni portable en tools\, ni py -3, ni python)."

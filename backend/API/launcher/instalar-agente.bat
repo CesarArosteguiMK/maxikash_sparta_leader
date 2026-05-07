@@ -188,6 +188,24 @@ if errorlevel 1 (
 goto :post_install
 
 :install_venv
+rem Si ya hay venv pero se creo con Python 3.14t/free-thread ^(pip y PyMuPDF fallan^): borrarlo y recrear con la base portable/PATH actual.
+if exist "%API_DIR%\venv\Scripts\python.exe" (
+    echo ===== comprobacion venv existente (no free-thread) =====>>"%INST_LOG%"
+    "%API_DIR%\venv\Scripts\python.exe" "%API_DIR%\launcher\_check_standard_python.py" >>"%INST_LOG%" 2>&1
+    if errorlevel 2 (
+        echo [venv] El entorno actual es incompatible ^(ej. Python free-thread en venv^).>>"%INST_LOG%"
+        echo [venv] El entorno actual es incompatible ^(ej. Python free-thread^). Recreando venv...
+        rmdir /s /q "%API_DIR%\venv" 2>nul
+        timeout /t 1 /nobreak >nul
+        if exist "%API_DIR%\venv\Scripts\python.exe" (
+            echo [ERROR] No se pudo borrar backend\API\venv. Cierre procesos Python y borre esa carpeta a mano.>>"%INST_LOG%"
+            echo [ERROR] No se pudo borrar venv — cierre procesos usando Python en esa carpeta y borre backend\API\venv
+            if "%SILENT%"=="0" pause
+            exit /b 2
+        )
+        echo [venv] Carpeta venv eliminada; se creara de nuevo con el Python base.>>"%INST_LOG%"
+    )
+)
 if not exist "%API_DIR%\venv\Scripts\python.exe" (
     echo [venv] Creando entorno virtual...
     if defined PY_EXE_FULL (
@@ -206,12 +224,12 @@ if not exist "%VENV_PY%" (
     goto :show_tail_and_fail
 )
 echo.>>"%INST_LOG%"
-echo ===== chequeo Python venv (no free-thread) =====>>"%INST_LOG%"
+echo ===== chequeo Python venv tras crear/recrear (no free-thread) =====>>"%INST_LOG%"
 "%VENV_PY%" "%API_DIR%\launcher\_check_standard_python.py" >>"%INST_LOG%" 2>&1
 if errorlevel 2 (
     echo.
-    echo [ERROR] El Python dentro de venv es free-threading ^(p. ej. creo con Python 3.14t^).
-    echo          Borre la carpeta "%API_DIR%\venv" , instale Python 3.12 estandar y vuelva a ejecutar con /VENV
+    echo [ERROR] El Python del venv sigue siendo incompatible ^(free-threading^).
+    echo          Asegure API\tools\PythonPortable con Python 3.12 estandar o PATH con 3.12; borre venv y reintente.
     if "%SILENT%"=="0" pause
     exit /b 2
 )

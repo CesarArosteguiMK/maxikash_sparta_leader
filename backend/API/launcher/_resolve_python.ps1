@@ -23,11 +23,29 @@ function Get-SpartaPortablePythonExe {
     return $null
 }
 
+function Test-SpartaPythonViable {
+    param(
+        [string]$PythonExe,
+        [string]$ApiDir
+    )
+    if (-not $PythonExe -or -not (Test-Path -LiteralPath $PythonExe)) {
+        return $false
+    }
+    $chk = Join-Path $ApiDir 'launcher\_check_standard_python.py'
+    if (-not (Test-Path -LiteralPath $chk)) {
+        return $true
+    }
+    $p = Start-Process -FilePath $PythonExe -ArgumentList @($chk) `
+        -WorkingDirectory $ApiDir -Wait -PassThru -WindowStyle Hidden
+    # exit 2 = free-threading / incompatible
+    return ($null -eq $p.ExitCode -or $p.ExitCode -ne 2)
+}
+
 function Resolve-SpartaApiPython {
     param([string]$ApiDir)
 
     $venvPy = Join-Path $ApiDir 'venv\Scripts\python.exe'
-    if (Test-Path -LiteralPath $venvPy) {
+    if ((Test-Path -LiteralPath $venvPy) -and (Test-SpartaPythonViable -PythonExe $venvPy -ApiDir $ApiDir)) {
         return [PSCustomObject]@{ Exe = $venvPy; Args = @(); Source = 'venv' }
     }
 
