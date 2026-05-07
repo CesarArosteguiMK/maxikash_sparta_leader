@@ -1115,13 +1115,13 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     if (!selApi1Logs) return;
     selApi1Logs.disabled = true;
     var cur = selApi1Logs.value;
-    fetch('/inicio/apidoconeloglistar', { credentials: 'same-origin', headers: api1AjaxHeaders() })
+    fetch('/inicio/apidocloglistar', { credentials: 'same-origin', headers: api1AjaxHeaders() })
       .then(function(r){
         return r.text().then(function(body){
           if (!r.ok) {
             throw new Error('HTTP ' + r.status + ' — ' + (body.slice(0, 120) || r.statusText));
           }
-          return api1ParseJsonBody(body, 'apidoconeloglistar');
+          return api1ParseJsonBody(body, 'apidocloglistar');
         });
       })
       .then(function(data){
@@ -1166,14 +1166,14 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       alert('Primero pulsa «Lista» y elige un archivo .log.');
       return;
     }
-    var u = '/inicio/apidoconelogcontenido?archivo=' + encodeURIComponent(selApi1Logs.value);
+    var u = '/inicio/apidoclogcontenido?archivo=' + encodeURIComponent(selApi1Logs.value);
     if (chkApi1Completo && chkApi1Completo.checked) u += '&completo=1';
     if (outApi1) outApi1.textContent = 'Cargando…';
     fetch(u, { credentials: 'same-origin', headers: api1AjaxHeaders() })
       .then(function(r){
         return r.text().then(function(body){
           if (!r.ok) throw new Error('HTTP ' + r.status);
-          return api1ParseJsonBody(body, 'apidoconelogcontenido');
+          return api1ParseJsonBody(body, 'apidoclogcontenido');
         });
       })
       .then(function(data){
@@ -1227,7 +1227,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       alert('Elige un archivo y usa «Lista» si hace falta.');
       return;
     }
-    window.location.href = '/inicio/apidoconelogdescargar?archivo=' + encodeURIComponent(selApi1Logs.value);
+    window.location.href = '/inicio/apidoclogdescargar?archivo=' + encodeURIComponent(selApi1Logs.value);
   }
   if (btnApi1RefreshList) btnApi1RefreshList.addEventListener('click', api1RefreshLogList);
   if (btnApi1View) btnApi1View.addEventListener('click', api1ViewSelectedLog);
