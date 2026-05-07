@@ -29,6 +29,7 @@ def _pyzbar_package_dir() -> Path | None:
 
 
 _REGISTERED_DLL_DIRS: set[str] = set()
+_DLL_DIRECTORY_HANDLES: list[object] = []
 
 
 def _register_dll_search_paths(api_root: Path, pyzbar_dir: Path | None) -> None:
@@ -43,7 +44,8 @@ def _register_dll_search_paths(api_root: Path, pyzbar_dir: Path | None) -> None:
             if key in _REGISTERED_DLL_DIRS:
                 continue
             try:
-                os.add_dll_directory(key)
+                handle = os.add_dll_directory(key)
+                _DLL_DIRECTORY_HANDLES.append(handle)
                 _REGISTERED_DLL_DIRS.add(key)
             except OSError:
                 pass

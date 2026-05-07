@@ -6374,6 +6374,7 @@ class CapHum extends Controller
         $permitidos = [
             'verificar',
             'verificar-calidad',
+            'verificar-calidad-identificacion-pdf',
             'verificar-comprobante',
             'verificar-curp-documento',
             'verificar-constancia-fiscal-documento',

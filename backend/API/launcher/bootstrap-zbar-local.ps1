@@ -79,22 +79,10 @@ else {
     Write-Host "[zbar] DLLs locales ya presentes en $binDir"
 }
 
-$pyExeBootstrap = Join-Path $apiDir 'tools\PythonPortable\python.exe'
-if (-not (Test-Path -LiteralPath $pyExeBootstrap)) {
-    try {
-        $pyExeBootstrap = (Get-Command python -ErrorAction Stop).Source
-    } catch {
-        $pyExeBootstrap = $null
-    }
+if (-not (Test-NeedDownload)) {
+    Write-Host "[zbar] OK: DLLs locales presentes dentro de API. El doctor validara pyzbar."
+    exit 0
 }
 
-if ($pyExeBootstrap -and (Test-Path -LiteralPath $pyExeBootstrap)) {
-    Push-Location $apiDir
-    try {
-        & $pyExeBootstrap -c "from app.core.zbar_local import ensure_local_zbar_dlls; ensure_local_zbar_dlls()" 2>&1 | Out-Null
-    } finally {
-        Pop-Location
-    }
-}
-
-exit 0
+Write-Host "[zbar] ERROR: faltan DLLs locales en $binDir." -ForegroundColor Yellow
+exit 1
