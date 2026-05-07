@@ -49,6 +49,26 @@ if !errorlevel! EQU 0 (
     exit /b 0
 )
 
+rem ----- Bootstrap defensivo: si Python portable existe pero esta roto -----
+rem (le faltan .pyd como _socket), descargar el embeddable oficial. Todo lo
+rem demas (pip, requirements) depende de que socket/ssl funcionen.
+set "PORTABLE_PY=%API_DIR%\tools\PythonPortable\python.exe"
+if exist "%PORTABLE_PY%" (
+    "%PORTABLE_PY%" -c "import _socket, ssl" >nul 2>&1
+    if errorlevel 1 (
+        echo [0/4] Python portable incompleto ^(falta _socket/ssl^). Reparando...
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-python.ps1"
+        set "BS_RC=!ERRORLEVEL!"
+        if not "!BS_RC!"=="0" (
+            echo [ERROR] Bootstrap del Python portable fallo ^(codigo !BS_RC!^).
+            echo         Vea: %API_DIR%\logs\bootstrap-python-*.log
+        )
+    )
+) else (
+    echo [0/4] No hay Python portable. Descargando uno limpio...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-python.ps1"
+)
+
 echo [1/4] Diagnostico rapido...
 rem Sin -Quiet: asi la salida llega al log web y el panel no parece congelado.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"
@@ -63,8 +83,26 @@ if "!DOC_RC!"=="1" (
     echo [2/4] Auto-reparacion termino con codigo !DOC_FIX_RC!
 
     if "!DOC_FIX_RC!"=="1" (
-        echo [3/4] Auto-fix insuficiente. Ejecutando instalacion completa en venv...
-        call "%~dp0instalar-agente.bat" /VENV /SILENT
+        rem Antes de hacer una "instalacion completa", validamos con smoke import:
+        rem si la app ya se importa, los [ERR] del doctor son ruido cosmetico
+        rem (estados intermedios) y no hay que reinstalar nada.
+        set "PORTABLE_PY=%API_DIR%\tools\PythonPortable\python.exe"
+        set "SMOKE_OK=0"
+        if exist "%API_DIR%\launcher\_smoke_import.py" (
+            if exist "!PORTABLE_PY!" (
+                pushd "%API_DIR%" >nul
+                "!PORTABLE_PY!" "%API_DIR%\launcher\_smoke_import.py" >nul 2>&1
+                if not errorlevel 1 set "SMOKE_OK=1"
+                popd >nul
+            )
+        )
+        if "!SMOKE_OK!"=="1" (
+            echo [3/4] Auto-fix dejo la app importable; saltando instalacion adicional.
+        ) else (
+            echo [3/4] Auto-fix insuficiente. Ejecutando instalacion completa...
+            rem Modo GLOBAL: el portable embeddable no soporta venv.
+            call "%~dp0instalar-agente.bat" /GLOBAL /SILENT
+        )
     ) else (
         echo [3/4] Auto-fix aplicado.
     )

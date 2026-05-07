@@ -1,0 +1,5 @@
+# Copie este archivo como PYTHON_EXE.txt y deje UNA sola linea (sin #) con la ruta
+# absoluta al python.exe. Asi la API no depende del PATH del servidor.
+#
+# Ejemplo (ajuste a su disco):
+# D:\apps\Python312\python.exe

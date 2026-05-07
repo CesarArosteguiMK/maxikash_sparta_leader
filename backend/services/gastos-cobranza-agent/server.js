@@ -711,8 +711,11 @@ function autoRun10amCdmxEnabled() {
   return String(process.env.GASTOS_GC_AUTO_RUN_10AM_CDMX ?? '1').trim() !== '0';
 }
 
-/** `true`|`false` si no hubo disco escribible (EPERM/EACCES); `undefined` = leer de archivos. */
-let autoRunRuntimeMemory = undefined;
+/**
+ * Estado runtime en memoria cuando no hay disco escribible: `{ enabled, dias }`.
+ * `undefined` = leer de archivos.
+ */
+let autoRunRuntimeStateMemory = undefined;
 
 function listAutoRunRuntimeWritePaths() {
   const envPath = String(process.env.GASTOS_GC_AUTO_RUN_RUNTIME_FILE || '').trim();
@@ -731,29 +734,88 @@ function listAutoRunRuntimeReadPaths() {
   return [AUTO_RUN_RUNTIME_FILE_DATA, AUTO_RUN_RUNTIME_FILE_TMP, AUTO_RUN_RUNTIME_FILE_LEGACY];
 }
 
-function readAutoRunRuntimeOverride() {
-  if (autoRunRuntimeMemory !== undefined) return autoRunRuntimeMemory;
+function boolifyAutoRunEnabled(v) {
+  return (
+    v === true ||
+    v === 1 ||
+    String(v).trim() === '1' ||
+    String(v).trim().toLowerCase() === 'true'
+  );
+}
+
+/** 0=lun … 6=dom — lista única ordenada o null (= sin filtro de día; solo puede aplicar weekdays_only por .env). */
+function normalizeAutoRunDiasLista(arr) {
+  if (!Array.isArray(arr)) return null;
+  const s = new Set();
+  for (const x of arr) {
+    const n = parseInt(String(x), 10);
+    if (Number.isFinite(n) && n >= 0 && n <= 6) s.add(n);
+  }
+  return s.size ? Array.from(s).sort((a, b) => a - b) : null;
+}
+
+function simplifyParseEnabled(enabledRaw) {
+  if (enabledRaw === false || enabledRaw === 0 || String(enabledRaw).toLowerCase() === 'false') return false;
+  return boolifyAutoRunEnabled(enabledRaw);
+}
+
+/** Reemplaza parse con lógica clara sin flags rotos */
+function parseAutoRunRuntimeJsonObject(j) {
+  if (!j || typeof j !== 'object' || !Object.prototype.hasOwnProperty.call(j, 'enabled')) return null;
+  const enabled = simplifyParseEnabled(j.enabled);
+  let dias = null;
+  if (Object.prototype.hasOwnProperty.call(j, 'dias')) {
+    if (j.dias === null || j.dias === undefined) dias = null;
+    else if (Array.isArray(j.dias)) dias = normalizeAutoRunDiasLista(j.dias);
+    else return null;
+  }
+  return { enabled, dias };
+}
+
+function parseAutoRunRuntimeContentFixed(raw) {
+  const rawStr = String(raw ?? '').trim();
+  if (!rawStr) return null;
+  const low = rawStr.toLowerCase();
+  if (low === '0' || low === 'false' || low === 'off') return { enabled: false, dias: null };
+  if (low === '1' || low === 'true' || low === 'on') return { enabled: true, dias: null };
+  try {
+    const j = JSON.parse(rawStr);
+    return parseAutoRunRuntimeJsonObject(j);
+  } catch (_) {
+    return null;
+  }
+}
+
+/** @returns {{ enabled: (boolean|null), dias: (number[]|null) }} — enabled null = sin override de disco. */
+function readAutoRunRuntimeState() {
+  if (autoRunRuntimeStateMemory !== undefined) return autoRunRuntimeStateMemory;
   for (const p of listAutoRunRuntimeReadPaths()) {
     try {
       if (!fs.existsSync(p)) continue;
-      const t = fs.readFileSync(p, 'utf8').trim().toLowerCase();
-      if (t === '0' || t === 'false' || t === 'off') return false;
-      if (t === '1' || t === 'true' || t === 'on') return true;
+      const t = fs.readFileSync(p, 'utf8');
+      const st = parseAutoRunRuntimeContentFixed(t.trim());
+      if (!st) continue;
+      return { enabled: st.enabled, dias: st.dias };
     } catch (_) {}
   }
-  return null;
+  return { enabled: null, dias: null };
 }
 
-function writeAutoRunRuntimeOverride(enabled) {
-  autoRunRuntimeMemory = undefined;
-  const val = enabled ? '1' : '0';
+function persistAutoRunRuntimeState(state) {
+  autoRunRuntimeStateMemory = undefined;
+  const payload = `${JSON.stringify({
+    enabled: !!state.enabled,
+    dias: state.dias === null || state.dias === undefined ? null : state.dias,
+  })}\n`;
   let lastErr = null;
   for (const p of listAutoRunRuntimeWritePaths()) {
     try {
       const dir = path.dirname(p);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(p, val, { encoding: 'utf8' });
-      appendLog(`[auto-run] Preferencia runtime (${enabled ? 'activada' : 'desactivada'}) → ${p}`);
+      fs.writeFileSync(p, payload, { encoding: 'utf8' });
+      appendLog(
+        `[auto-run] Preferencia runtime (activo=${state.enabled ? 'sí' : 'no'} · días=${state.dias ? state.dias.join(',') : 'todos'}) → ${p}`,
+      );
       for (const other of listAutoRunRuntimeReadPaths()) {
         if (other === p) continue;
         try {
@@ -765,11 +827,25 @@ function writeAutoRunRuntimeOverride(enabled) {
       lastErr = e;
     }
   }
-  autoRunRuntimeMemory = !!enabled;
+  autoRunRuntimeStateMemory = { enabled: !!state.enabled, dias: state.dias };
   appendLog(
     `[auto-run] AVISO: no se pudo escribir estado en disco (${lastErr && lastErr.message ? lastErr.message : lastErr}); ` +
-      `queda ${enabled ? 'activado' : 'desactivado'} solo en memoria hasta reiniciar el agente Node.`,
+      `queda en memoria hasta reiniciar el agente Node.`,
   );
+}
+
+function readAutoRunRuntimeOverride() {
+  const st = readAutoRunRuntimeState();
+  if (st.enabled === null || st.enabled === undefined) return null;
+  return !!st.enabled;
+}
+
+function writeAutoRunRuntimeOverride(enabled) {
+  const cur = readAutoRunRuntimeState();
+  persistAutoRunRuntimeState({
+    enabled: !!enabled,
+    dias: cur.dias !== undefined ? cur.dias : null,
+  });
 }
 
 /** Si hay archivo runtime: manda sobre .env; si no, se usa GASTOS_GC_AUTO_RUN_10AM_CDMX. */
@@ -802,6 +878,27 @@ function autoRunTickMs() {
 
 function autoRunWeekdaysOnly() {
   return String(process.env.GASTOS_GC_AUTO_RUN_WEEKDAYS_ONLY || '0').trim() === '1';
+}
+
+/** Bloque `auto_run_cdmx` para GET /health y respuesta POST /auto-run-reporte (incluye días CDMX 0=lun…6=dom). */
+function getAutoRunCdmxStatusPayload() {
+  const runtimeOr = readAutoRunRuntimeOverride();
+  const st = readAutoRunRuntimeState();
+  const dias = Array.isArray(st.dias) && st.dias.length ? [...st.dias] : null;
+  return {
+    enabled: autoRun10amCdmxEffective(),
+    enabled_env: autoRun10amCdmxEnabled(),
+    runtime_override: runtimeOr === null ? null : runtimeOr ? 1 : 0,
+    runtime_solo_memoria: autoRunRuntimeStateMemory !== undefined,
+    hour: autoRunTargetHour(),
+    minute: autoRunTargetMinute(),
+    window_minutes: autoRunWindowMinutes(),
+    tick_ms: autoRunTickMs(),
+    weekdays_only: autoRunWeekdaysOnly(),
+    last_fired_cdmx_ymd: readAutoRunLastYmd(),
+    reporte_busy: reporteRunBusy,
+    dias,
+  };
 }
 
 /**
@@ -1469,10 +1566,13 @@ async function tickAutoRunReporteCdmx() {
       }
     }
 
+    const wd = cdmxWeekdayMon0(ymd.y, ymd.m, ymd.d);
     if (autoRunWeekdaysOnly()) {
-      const wd = cdmxWeekdayMon0(ymd.y, ymd.m, ymd.d);
       if (wd >= 5) return;
     }
+
+    const stRt = readAutoRunRuntimeState();
+    if (Array.isArray(stRt.dias) && stRt.dias.length > 0 && !stRt.dias.includes(wd)) return;
 
     const th = autoRunTargetHour();
     const tm = autoRunTargetMinute();
@@ -1565,24 +1665,41 @@ app.post('/auto-run-reporte', (req, res) => {
       body.enabled === 1 ||
       String(body.enabled).toLowerCase() === '1' ||
       String(body.enabled).toLowerCase() === 'true';
-    writeAutoRunRuntimeOverride(en);
-    const ro = readAutoRunRuntimeOverride();
-    const soloMemoria = autoRunRuntimeMemory !== undefined;
+
+    const cur = readAutoRunRuntimeState();
+    let diasNext = cur.dias;
+    if (Object.prototype.hasOwnProperty.call(body, 'dias')) {
+      if (body.dias === null || body.dias === undefined) {
+        diasNext = null;
+      } else if (!Array.isArray(body.dias)) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'El campo dias debe ser un arreglo de enteros 0–6 (lunes–domingo) o null.',
+        });
+      } else if (body.dias.length === 0) {
+        return res.status(400).json({
+          success: false,
+          mensaje: 'Seleccione al menos un día de la semana para el disparo automático.',
+        });
+      } else {
+        const norm = normalizeAutoRunDiasLista(body.dias);
+        if (!norm || norm.length === 0) {
+          return res.status(400).json({
+            success: false,
+            mensaje: 'Los valores en dias deben ser enteros 0–6 (0=lunes … 6=domingo).',
+          });
+        }
+        diasNext = norm;
+      }
+    }
+
+    persistAutoRunRuntimeState({ enabled: en, dias: diasNext });
+
+    const soloMemoria = autoRunRuntimeStateMemory !== undefined;
     return res.json({
       success: true,
       auto_run_runtime_solo_memoria: soloMemoria,
-      auto_run_cdmx: {
-        enabled: autoRun10amCdmxEffective(),
-        enabled_env: autoRun10amCdmxEnabled(),
-        runtime_override: ro === null ? null : ro ? 1 : 0,
-        hour: autoRunTargetHour(),
-        minute: autoRunTargetMinute(),
-        window_minutes: autoRunWindowMinutes(),
-        tick_ms: autoRunTickMs(),
-        weekdays_only: autoRunWeekdaysOnly(),
-        last_fired_cdmx_ymd: readAutoRunLastYmd(),
-        reporte_busy: reporteRunBusy,
-      },
+      auto_run_cdmx: getAutoRunCdmxStatusPayload(),
     });
   } catch (e) {
     return res.status(500).json({ success: false, mensaje: String(e?.message || e) });
@@ -1593,7 +1710,6 @@ app.get('/health', (req, res) => {
   ensureReporteDir();
   const scriptPath = getReporteScriptPath();
   const hCdmx = fmtCdmxYmdParts(nowForCdmxCalendar());
-  const runtimeOr = readAutoRunRuntimeOverride();
   res.json({
     success: true,
     servicio: 'gastos-cobranza-agent',
@@ -1629,19 +1745,7 @@ app.get('/health', (req, res) => {
         eliminar_gastos_despachos: fs.existsSync(SCRIPT_CRON_ELIMINAR_GASTOS_DESPACHOS),
       },
     },
-    auto_run_cdmx: {
-      enabled: autoRun10amCdmxEffective(),
-      enabled_env: autoRun10amCdmxEnabled(),
-      runtime_override: runtimeOr === null ? null : runtimeOr ? 1 : 0,
-      runtime_solo_memoria: autoRunRuntimeMemory !== undefined,
-      hour: autoRunTargetHour(),
-      minute: autoRunTargetMinute(),
-      window_minutes: autoRunWindowMinutes(),
-      tick_ms: autoRunTickMs(),
-      weekdays_only: autoRunWeekdaysOnly(),
-      last_fired_cdmx_ymd: readAutoRunLastYmd(),
-      reporte_busy: reporteRunBusy,
-    },
+    auto_run_cdmx: getAutoRunCdmxStatusPayload(),
     reporte: {
       en_curso: reporteRunBusy,
       cancelar: 'POST /run/cancel (misma API key) termina el proceso Python del reporte si está en ejecución.',
@@ -1890,6 +1994,11 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   const omitir = Math.max(0, parseInt(String(req.body?.omitir ?? '0'), 10) || 0);
   const soloColumnas = !!req.body?.soloColumnas;
   const traceId = sanitizeTraceId(req.body?.traceId);
+  const ejecutadoPor = String(req.body?.ejecutadoPor != null ? req.body.ejecutadoPor : '')
+    .replace(/[\r\n\0]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
 
   if (!archivoRelRaw || !archivoRelRaw.toLowerCase().endsWith('.xlsx')) {
     return res.status(400).json({
@@ -2001,7 +2110,12 @@ app.post('/ec-launcher/run', express.json({ limit: '1mb' }), (req, res) => {
   }
 
   const env = { ...process.env, FECHA_CORTE: fechaCorte };
-  appendLog(`--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php}${traceId ? ` trace=${traceId}` : ''} ---`);
+  if (tipo === 'worker' && ejecutadoPor) {
+    env.EC_WORKER_EJECUTADO_POR = ejecutadoPor;
+  }
+  appendLog(
+    `--- ec-launcher ${tipo} archivo=${archivoEstado} fecha=${fechaCorte} php=${php}${traceId ? ` trace=${traceId}` : ''}${ejecutadoPor ? ` ejecutado_por=${ejecutadoPor}` : ''} ---`,
+  );
   if (tipo === 'worker' && ecWorkerChatEventsEnabled()) {
     void notifyEcWorkflowWebhook('worker_inicio', traceId, [
       `archivo=${archivoEstado}`,

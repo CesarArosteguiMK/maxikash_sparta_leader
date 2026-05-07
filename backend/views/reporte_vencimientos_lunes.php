@@ -53,6 +53,9 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                 <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm shadow-sm d-inline-flex align-items-center">
                     <i class="fa fa-envelope me-1"></i> Enviar correo
                 </button>
+                <button type="button" id="btnConfigCorreosPrimerosPagos" class="btn btn-outline-secondary btn-sm shadow-sm d-inline-flex align-items-center">
+                    <i class="fa fa-users-gear me-1"></i> Correos
+                </button>
                 <?php endif; ?>
                 <a href="/analitica/PrimerosPagos" class="btn btn-outline-secondary btn-sm">
                     <i class="fa fa-arrow-left me-1"></i>Volver
@@ -83,6 +86,9 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
                 <?php if (!empty($vencimientos_puede_enviar_correo_primeros_pagos)): ?>
                 <button type="button" id="btnEnviarCorreo" class="btn btn-outline-primary btn-sm">
                     <i class="fa fa-envelope me-1"></i> Enviar correo
+                </button>
+                <button type="button" id="btnConfigCorreosPrimerosPagos" class="btn btn-outline-secondary btn-sm">
+                    <i class="fa fa-users-gear me-1"></i> Correos
                 </button>
                 <?php endif; ?>
                 <button type="button" id="btnExportarCSV" class="btn btn-outline-success btn-sm">

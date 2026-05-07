@@ -53,9 +53,12 @@ if (-not (Test-Path -LiteralPath $LogsDir)) {
 $stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $LogFile = Join-Path $LogsDir "doctor-$stamp.log"
 
+. (Join-Path $here '_resolve_python.ps1')
+
 # ---------- Estado global ----------
 $Script:HasErrors   = $false
 $Script:HasWarnings = $false
+$Script:PythonFreeThreading = $false
 $Script:Summary     = New-Object System.Collections.Generic.List[string]
 $Script:FixesApplied = New-Object System.Collections.Generic.List[string]
 $Script:Recommended  = New-Object System.Collections.Generic.List[string]
@@ -76,6 +79,61 @@ function Warn    { param([string] $M) Out-Log "[WARN] $M" 'Yellow'; $Script:HasW
 function Err     { param([string] $M) Out-Log "[ERR ] $M" 'Red';    $Script:HasErrors   = $true; $null = $Script:Summary.Add("[ERR ] $M") }
 function Fix     { param([string] $M) Out-Log "[FIX ] $M" 'Magenta'; $null = $Script:FixesApplied.Add($M) }
 function Rec     { param([string] $M) $null = $Script:Recommended.Add($M); Out-Log "       -> $M" 'DarkYellow' }
+
+function Test-PythonStdlibSano {
+    # Devuelve $true si _socket y ssl cargan (Python no esta corrupto/incompleto).
+    param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
+    if (-not (Test-Path -LiteralPath $PyExe)) { return $false }
+    & $PyExe @PyArgs -c "import _socket, ssl" *> $null
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Invoke-PythonBootstrapIfBroken {
+    # Si python portable existe pero _socket no carga, ejecuta bootstrap-python.ps1
+    # para reinstalarlo. Devuelve $true si tras el intento Python esta sano.
+    param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
+    if ($Script:PythonFreeThreading) { return $false }
+    if (Test-PythonStdlibSano -PyExe $PyExe -PyArgs $PyArgs) { return $true }
+
+    # Solo bootstrap si Python esta dentro del API (no tocamos Python global).
+    $portable = Join-Path $ApiDir 'tools\PythonPortable\python.exe'
+    if ($PyExe -ne $portable) {
+        Err 'Python no es portable y stdlib esta rota; bootstrap solo aplica al portable.'
+        return $false
+    }
+    $bs = Join-Path $ApiDir 'launcher\bootstrap-python.ps1'
+    if (-not (Test-Path -LiteralPath $bs)) {
+        Err "No existe $bs; no se puede reparar Python automaticamente."
+        return $false
+    }
+    Fix '_socket no carga; ejecutando bootstrap-python.ps1 -Force (descarga embeddable oficial)...'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $bs -Force -LogFile (Join-Path $LogsDir "bootstrap-from-doctor-$stamp.log")
+    if ($LASTEXITCODE -ne 0) {
+        Err "bootstrap-python.ps1 fallo (exit $LASTEXITCODE)"
+        return $false
+    }
+    return (Test-PythonStdlibSano -PyExe $PyExe -PyArgs $PyArgs)
+}
+
+function Invoke-EnsurePipBootstrap {
+    # Portable/minimal Python sin Scripts\pip.exe: ensurepip crea pip en Lib\ensurepip.
+    # Si _socket esta roto, dispara bootstrap-python.ps1 antes.
+    param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
+    & $PyExe @PyArgs -m pip --version *> $null
+    if ($LASTEXITCODE -eq 0) { return $true }
+    if ($Script:PythonFreeThreading) { return $false }
+    if (-not (Test-PythonStdlibSano -PyExe $PyExe -PyArgs $PyArgs)) {
+        if (-not (Invoke-PythonBootstrapIfBroken -PyExe $PyExe -PyArgs $PyArgs)) { return $false }
+        # bootstrap-python.ps1 ya instala pip via get-pip.py; revalidar.
+        & $PyExe @PyArgs -m pip --version *> $null
+        if ($LASTEXITCODE -eq 0) { return $true }
+    }
+    Out-Log '[bootstrap] pip no operativo; ejecutando ensurepip + pip upgrade...' 'Magenta'
+    $null = & $PyExe @PyArgs -m ensurepip --upgrade 2>&1 | ForEach-Object { Out-Log $_ 'DarkGray' }
+    $null = & $PyExe @PyArgs -m pip install --upgrade pip 2>&1 | ForEach-Object { Out-Log $_ 'DarkGray' }
+    & $PyExe @PyArgs -m pip --version *> $null
+    return ($LASTEXITCODE -eq 0)
+}
 
 function Invoke-PyCapture {
     # Ejecuta Python con args y captura stdout+stderr a archivos tmp.
@@ -208,31 +266,55 @@ if (-not (Test-Path -LiteralPath $LogsDir)) {
 }
 
 # =====================================================================
-# 3) Python disponible (venv > py -3 > python)
+# 3) Python disponible (venv > portable en tools/ > py -3 > python)
 # =====================================================================
 Section '3. Python (interprete a usar)'
 $pyExe   = $null
 $pyArgs  = @()
 $pySrc   = ''
-$venvPy  = Join-Path $ApiDir 'venv\Scripts\python.exe'
-if (Test-Path -LiteralPath $venvPy) {
-    $pyExe = $venvPy; $pySrc = 'venv'
-    Ok "Detectado venv: $venvPy"
+$resolved = Resolve-SpartaApiPython -ApiDir $ApiDir
+$venvStale = $false
+$venvPathChk = Join-Path $ApiDir 'venv\Scripts\python.exe'
+if ((Test-Path -LiteralPath $venvPathChk) -and -not (Test-SpartaPythonViable -PythonExe $venvPathChk -ApiDir $ApiDir)) {
+    $venvStale = $true
+}
+if ($resolved) {
+    $pyExe = $resolved.Exe
+    $pyArgs = $resolved.Args
+    $pySrc = $resolved.Source
+    Ok "Python a usar: $pySrc -> $pyExe"
+    if ($venvStale -and $pySrc -ne 'venv') {
+        Warn 'El venv antiguo (Python incompatible / free-thread) se ignora. Al ejecutar instalacion /VENV o el boton API se borrara venv y se creara bien con Python 3.12 portable si existe.'
+    }
 }
 if (-not $pyExe) {
-    & py -3 -c "import sys" *> $null
-    if ($LASTEXITCODE -eq 0) { $pyExe = 'py'; $pyArgs = @('-3'); $pySrc = 'py -3' }
-}
-if (-not $pyExe) {
-    & python -c "import sys" *> $null
-    if ($LASTEXITCODE -eq 0) { $pyExe = 'python'; $pySrc = 'python (PATH)' }
-}
-if (-not $pyExe) {
-    Err "No hay Python disponible (ni venv, ni py -3, ni python)."
-    Rec "Instale Python 3.10/3.11/3.12 64-bit desde https://www.python.org/downloads/windows/  (marcar 'Add to PATH' y 'py launcher')."
-} else {
-    Ok "Python a usar: $pySrc"
-    $pyVer = (& $pyExe @pyArgs -c "import sys,platform; print(platform.python_version()+'|'+sys.executable+'|'+platform.architecture()[0])" 2>$null)
+    Err "No hay Python disponible (ni venv, ni portable en tools\, ni py -3, ni python)."
+    Rec 'Opcion A — Sin instalador ni PATH: descomprima Python 3.12 64-bit en API\tools\PythonPortable\ (python.exe ahi).'
+    Rec 'Opcion B — Una sola linea con ruta completa del exe en  launcher\PYTHON_EXE.txt  (ej. D:\sitio\...\python.exe).'
+    Rec 'Opcion C — Servidor convencional: Python desde python.org y PATH / py launcher.'
+} elseif ($pyExe) {
+    # Capturar stdout limpio con archivo (algunos Python embeddable escupen
+    # warnings por _pth en stderr y rompen la lectura inline).
+    $pyVer = $null
+    try {
+        $tmpVO = [System.IO.Path]::GetTempFileName()
+        $tmpVE = [System.IO.Path]::GetTempFileName()
+        $verArgs = @()
+        if ($pyArgs.Count -gt 0) { $verArgs += $pyArgs }
+        $verArgs += @('-c', 'import sys,platform; print(platform.python_version()+"|"+sys.executable+"|"+platform.architecture()[0])')
+        $pVer = Start-Process -FilePath $pyExe -ArgumentList $verArgs `
+            -Wait -PassThru -NoNewWindow `
+            -RedirectStandardOutput $tmpVO -RedirectStandardError $tmpVE
+        if ($pVer.ExitCode -eq 0) {
+            $rawVer = Get-Content -LiteralPath $tmpVO -Raw -ErrorAction SilentlyContinue
+            if ($rawVer) {
+                foreach ($ln in ($rawVer -split "`r?`n")) {
+                    if ($ln -match '^\d+\.\d+\.\d+\|') { $pyVer = $ln.Trim(); break }
+                }
+            }
+        }
+        Remove-Item -LiteralPath $tmpVO, $tmpVE -ErrorAction SilentlyContinue
+    } catch {}
     if ($pyVer) {
         $parts = $pyVer.Split('|')
         Info "Version    : $($parts[0])"
@@ -243,14 +325,61 @@ if (-not $pyExe) {
         $minor = [int]$minor
         if ([int]$major -ne 3) { Err "Python 2.x detectado, no soportado." }
         elseif ($minor -ge 13) {
-            Warn "Python 3.$minor es muy nuevo: paquetes con C/Rust (pdf417decoder, pyzbar, torch, pydantic-core) pueden no tener wheel y exigir compilador (Visual Studio Build Tools)."
-            Rec  "Si el instalar-agente.bat falla compilando, instale Python 3.12 (64-bit) y vuelva a ejecutar instalar-agente.bat /VENV"
+            Warn ('Python 3.{0} es muy nuevo: paquetes con C/Rust (pdf417decoder, pyzbar, torch, pydantic-core) pueden no tener wheel y exigir compilador (Visual Studio Build Tools).' -f $minor)
+            Rec  'Si el instalar-agente.bat falla compilando, instale Python 3.12 (64-bit) y vuelva a ejecutar instalar-agente.bat /VENV'
         }
-        elseif ($minor -lt 10) { Warn "Python 3.$minor es viejo; recomendado 3.11 o 3.12." }
-        else { Ok "Version de Python adecuada." }
-        if ($parts[2] -ne '64bit') { Warn "Python NO es 64-bit; varias dependencias (torch, opencv) requieren x64." }
+        elseif ($minor -lt 10) { Warn ('Python 3.{0} es viejo; recomendado 3.11 o 3.12.' -f $minor) }
+        else { Ok 'Version de Python adecuada.' }
+        if ($parts[2] -ne '64bit') { Warn 'Python NO es 64-bit; varias dependencias (torch, opencv) requieren x64.' }
     } else {
         Warn "No se pudo obtener version de Python."
+    }
+
+    $chkPy = Join-Path $here '_check_standard_python.py'
+    if (Test-Path -LiteralPath $chkPy) {
+        $tmpO = [System.IO.Path]::GetTempFileName()
+        $tmpE = [System.IO.Path]::GetTempFileName()
+        $chkArgs = @()
+        if ($pyArgs.Count -gt 0) { $chkArgs += $pyArgs }
+        $chkArgs += $chkPy
+        $pChk = Start-Process -FilePath $pyExe -ArgumentList $chkArgs -WorkingDirectory $ApiDir `
+            -Wait -PassThru -NoNewWindow `
+            -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
+        $chkOut = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
+        Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
+        if ($pChk.ExitCode -eq 2) {
+            $Script:PythonFreeThreading = $true
+            Err "Python FREE-THREADING (sin GIL / Py_GIL_DISABLED): incompatible con compilacion wheel de PyMuPDF y otros."
+            foreach ($ln in (($chkOut -split "`r?`n") | Where-Object { $_.Trim() -ne '' })) {
+                Out-Log "       $ln" 'Red'
+            }
+            Rec 'Instale Python 3.12 64-bit ESTANDAR desde python.org; NO use la opcion free-thread ni python*t.exe.'
+            Rec "Elimine backend\API\venv y ejecute launcher\instalar-agente.bat /VENV"
+        } else {
+            Ok "Python no es la variante free-threading conocida incompatible con pymupdf."
+        }
+    }
+
+    # ---------- Stdlib basica (_socket, ssl) ----------
+    if (-not (Test-PythonStdlibSano -PyExe $pyExe -PyArgs $pyArgs)) {
+        $portablePath = Join-Path $ApiDir 'tools\PythonPortable\python.exe'
+        $esPortable = ($pyExe -eq $portablePath)
+        Err "Python esta INCOMPLETO: no carga _socket / ssl (faltan .pyd en DLLs\)."
+        if ($esPortable -and ($Fix -or $InstallMissing)) {
+            if (Invoke-PythonBootstrapIfBroken -PyExe $pyExe -PyArgs $pyArgs) {
+                Fix 'Python portable reinstalado desde python.org (embeddable). Ya carga _socket/ssl.'
+            } else {
+                Err 'No se pudo reparar Python portable automaticamente. Vea logs\bootstrap-from-doctor-*.log'
+                Rec 'Ejecute manualmente: launcher\Bootstrap-Python.bat /FORCE'
+            }
+        } elseif ($esPortable) {
+            Rec 'Ejecute  launcher\Bootstrap-Python.bat  para reinstalar Python portable desde python.org (1-3 min).'
+            Rec '(O re-lance este doctor con -Fix para que lo haga automatico)'
+        } else {
+            Rec 'El Python en uso no es portable; reinstale Python 3.12 estandar desde python.org.'
+        }
+    } else {
+        Ok 'Stdlib basica OK (_socket, ssl).'
     }
 }
 
@@ -260,12 +389,21 @@ if (-not $pyExe) {
 Section '4. pip'
 if ($pyExe) {
     & $pyExe @pyArgs -m pip --version *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $pipWorks = ($LASTEXITCODE -eq 0)
+    if (-not $pipWorks -and ($Fix -or $InstallMissing) -and -not $Script:PythonFreeThreading) {
+        if (Invoke-EnsurePipBootstrap -PyExe $pyExe -PyArgs $pyArgs) {
+            $pipWorks = $true
+            Fix 'pip quedo operativo tras ensurepip / upgrade pip.'
+        }
+    }
+    if ($pipWorks) {
         $pipv = (& $pyExe @pyArgs -m pip --version 2>$null)
         Ok "pip OK -> $pipv"
     } else {
         Err "pip no esta operativo en este Python."
-        Rec  "Ejecute en consola: $pySrc -m ensurepip --upgrade   y luego: $pySrc -m pip install --upgrade pip"
+        $pipPrefix = "`"$pyExe`""
+        if ($pyArgs.Count -gt 0) { $pipPrefix += ' ' + ($pyArgs -join ' ') }
+        Rec  "Ejecute: $pipPrefix -m ensurepip --upgrade   y luego   $pipPrefix -m pip install --upgrade pip"
     }
 } else { Warn "Sin Python; se omite check de pip." }
 
@@ -335,7 +473,11 @@ except Exception as e:
             }
         }
     }
-    if ($missing.Count -gt 0) { Rec ("Instale: $pySrc -m pip install " + ($missing -join ' ')) }
+    if ($missing.Count -gt 0) {
+        $pfx = "`"$pyExe`""
+        if ($pyArgs.Count -gt 0) { $pfx += ' ' + ($pyArgs -join ' ') }
+        Rec ("Instale: $pfx -m pip install " + ($missing -join ' '))
+    }
     if ($brokenImport.Count -gt 0) {
         Rec "Algun paquete esta instalado pero falla al importar (DLL ausente, version incompatible, archivo corrupto)."
         foreach ($b in $brokenImport) {
@@ -412,6 +554,8 @@ else:
 # =====================================================================
 Section '7. Tesseract OCR'
 $tessCandidates = @(
+    (Join-Path $ApiDir 'tools\tesseract.exe'),
+    (Join-Path $ApiDir 'tools\Tesseract-OCR\tesseract.exe'),
     'C:\Program Files\Tesseract-OCR\tesseract.exe',
     'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
     "$env:LOCALAPPDATA\Programs\Tesseract-OCR\tesseract.exe"
@@ -423,6 +567,17 @@ if (-not $tessFound) {
 if ($tessFound) {
     Ok "Tesseract: $tessFound"
     try { $tv = (& $tessFound --version 2>&1 | Select-Object -First 1); Info "Version    : $tv" } catch {}
+    $tessParent = Split-Path -Parent $tessFound
+    $tessdataDir = Join-Path $tessParent 'tessdata'
+    if (-not (Test-Path -LiteralPath $tessdataDir)) {
+        $tessdataDir = Join-Path $ApiDir 'tools\tessdata'
+    }
+    if (Test-Path -LiteralPath (Join-Path $tessdataDir 'spa.traineddata')) {
+        Ok "tessdata   : spa.traineddata presente ($tessdataDir)"
+    } else {
+        Warn "Falta spa.traineddata en tessdata (la API usa idioma spa+eng). Coloque spa.traineddata en: $tessdataDir"
+        Rec  "Descarga: https://github.com/tesseract-ocr/tessdata_best/raw/main/spa.traineddata"
+    }
     # Asegurar TESSERACT_CMD en .env
     $envFile = Join-Path $ApiDir '.env'
     if (Test-Path -LiteralPath $envFile) {
@@ -438,7 +593,8 @@ if ($tessFound) {
     }
 } else {
     Warn "Tesseract no encontrado. La API arranca, pero la verificacion OCR fallara."
-    Rec  "Instale Tesseract para Windows: https://github.com/UB-Mannheim/tesseract/wiki  (instale en 'C:\Program Files\Tesseract-OCR\')."
+    Rec  "Coloque una copia portable en: $(Join-Path $ApiDir 'tools\tesseract.exe') con carpeta tessdata al lado,"
+    Rec  "o instale Tesseract: https://github.com/UB-Mannheim/tesseract/wiki  ('C:\Program Files\Tesseract-OCR\')."
 }
 
 # =====================================================================
@@ -571,8 +727,24 @@ try {
 # =====================================================================
 # 14) Auto-fix: instalar paquetes faltantes
 # =====================================================================
-if ($InstallMissing -and $pyExe -and $missing.Count -gt 0) {
+if ($InstallMissing -and $Script:PythonFreeThreading) {
     Section '14. Auto-fix: instalando paquetes faltantes'
+    Warn "Se omite auto-instalacion con pip porque el Python actual es FREE-THREADING (python*t)."
+    Rec  "Primero use Python 3.12 estandar (portable en API\\tools\\PythonPortable\\ o PYTHON_EXE.txt), recree venv y luego reintente."
+} elseif ($InstallMissing -and $pyExe -and $missing.Count -gt 0) {
+    Section '14. Auto-fix: instalando paquetes faltantes'
+    & $pyExe @pyArgs -m pip --version *> $null
+    if ($LASTEXITCODE -ne 0 -and -not $Script:PythonFreeThreading) {
+        if (-not (Invoke-EnsurePipBootstrap -PyExe $pyExe -PyArgs $pyArgs)) {
+            Err 'pip sigue sin funcionar; no se pueden instalar paquetes. Ejecute instalar-agente.bat o ensurepip manualmente.'
+        } else {
+            Fix 'pip operativo antes de pip install (ensurepip).'
+        }
+    }
+    & $pyExe @pyArgs -m pip --version *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Info 'Omitiendo instalacion por pip (no disponible).'
+    } else {
     $pipLog = Join-Path $LogsDir "doctor-pip-$stamp.log"
     foreach ($pkg in $missing) {
         Out-Log "  pip install $pkg ..." 'Magenta'
@@ -586,6 +758,109 @@ if ($InstallMissing -and $pyExe -and $missing.Count -gt 0) {
         else { Err "Fallo pip install $pkg (vea $pipLog)" }
     }
     Info "Log de pip: $pipLog"
+    }
+}
+
+# =====================================================================
+# 15) Re-escaneo tras auto-fix: limpiar resumen de cosas ya resueltas
+# =====================================================================
+if ($InstallMissing -and $pyExe -and -not $Script:PythonFreeThreading) {
+    Section '15. Re-escaneo tras auto-fix'
+    $stillMissing = @()
+    $stillBroken  = @()
+    foreach ($p in $pkgs) {
+        $mod = $p[0]; $pip = $p[1]
+        $code = @"
+import importlib
+try:
+    importlib.import_module('$mod')
+    print('OK')
+except Exception as e:
+    print('ERR|' + type(e).__name__ + ': ' + str(e)[:200])
+"@
+        $r2 = Invoke-PyCapture -PyExe $pyExe -PyArgs $pyArgs -Code $code
+        $okLine = $false
+        foreach ($cand in (($r2.StdOut + "`n" + $r2.StdErr) -split "`r?`n")) {
+            if ($cand.Trim() -eq 'OK') { $okLine = $true; break }
+        }
+        if (-not $okLine) {
+            $detail = ''
+            foreach ($cand in (($r2.StdOut + "`n" + $r2.StdErr) -split "`r?`n")) {
+                if ($cand -like 'ERR|*') { $detail = ($cand -replace '^ERR\|',''); break }
+            }
+            if ($detail -match 'No module named') { $stillMissing += $pip }
+            else { $stillBroken += [pscustomobject]@{ Module=$mod; Pip=$pip; Detail=$detail } }
+        }
+    }
+
+    # Limpiar entradas obsoletas del Summary y de Recommended
+    $cleanSummary = New-Object System.Collections.Generic.List[string]
+    foreach ($s in $Script:Summary) {
+        $skip = $false
+        if ($s -match 'Falta paquete:|Import fallo:') { $skip = $true }
+        if ($s -match 'La app NO se puede importar')  { $skip = $true }
+        if (-not $skip) { $cleanSummary.Add($s) | Out-Null }
+    }
+    $Script:Summary = $cleanSummary
+
+    $cleanRec = New-Object System.Collections.Generic.List[string]
+    foreach ($r in $Script:Recommended) {
+        $skip = $false
+        if ($r -match 'Instale: ".*pip install') { $skip = $true }
+        if ($r -match 'Lea las lineas anteriores') { $skip = $true }
+        if ($r -match 'Falta paquete -> pip install') { $skip = $true }
+        if ($r -match 'find_loader from pkgutil') { $skip = $true }
+        if ($r -match "DLL load failed' -> instale") { $skip = $true }
+        if ($r -match "'libzbar' -> instale dll") { $skip = $true }
+        if (-not $skip) { $cleanRec.Add($r) | Out-Null }
+    }
+    $Script:Recommended = $cleanRec
+
+    # Recalcular HasErrors a partir del Summary limpio
+    $Script:HasErrors = $false
+    $Script:HasWarnings = $false
+    foreach ($s in $Script:Summary) {
+        if ($s.StartsWith('[ERR ]')) { $Script:HasErrors = $true }
+        elseif ($s.StartsWith('[WARN]')) { $Script:HasWarnings = $true }
+    }
+
+    if ($stillMissing.Count -eq 0 -and $stillBroken.Count -eq 0) {
+        Ok "Todos los paquetes Python ahora se importan correctamente."
+        # Re-correr smoke import si estaba fallando
+        $smokePy = Join-Path $here '_smoke_import.py'
+        if (Test-Path -LiteralPath $smokePy) {
+            $tmpO = [System.IO.Path]::GetTempFileName()
+            $tmpE = [System.IO.Path]::GetTempFileName()
+            $sArgs = @()
+            if ($pyArgs.Count -gt 0) { $sArgs += $pyArgs }
+            $sArgs += $smokePy
+            $pSmoke = Start-Process -FilePath $pyExe -ArgumentList $sArgs `
+                -WorkingDirectory $ApiDir -NoNewWindow -Wait -PassThru `
+                -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
+            $smokeOut = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
+            Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
+            if ($smokeOut -match 'SMOKE_OK') {
+                Ok "Smoke import 'from app.main import app' OK tras auto-fix."
+            } else {
+                Err "Smoke import sigue fallando tras auto-fix:"
+                foreach ($l in (($smokeOut -split "`r?`n") | Where-Object { $_ -ne '' } | Select-Object -Last 20)) {
+                    Out-Log "       $l" 'Red'
+                }
+            }
+        }
+    } else {
+        if ($stillMissing.Count -gt 0) {
+            Err ("Aun faltan: " + ($stillMissing -join ', '))
+            $pfx = "`"$pyExe`""
+            if ($pyArgs.Count -gt 0) { $pfx += ' ' + ($pyArgs -join ' ') }
+            Rec ("Reintente: $pfx -m pip install " + ($stillMissing -join ' '))
+        }
+        if ($stillBroken.Count -gt 0) {
+            foreach ($b in $stillBroken) {
+                Err ("Sigue roto: $($b.Module) -> $($b.Detail)")
+            }
+        }
+    }
 }
 
 # =====================================================================

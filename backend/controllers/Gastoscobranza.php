@@ -67,6 +67,37 @@ class Gastoscobranza extends Controller
     }
 
     /**
+     * Nombre legible para webhook del worker EC (Conciliar pagos): sesión al iniciar la petición.
+     */
+    private function nombrePersonaEjecutorEcDesdeSesion(): string
+    {
+        if (!function_exists('session_status') || session_status() !== PHP_SESSION_ACTIVE) {
+            return '';
+        }
+        $u = trim(preg_replace('/\s+/u', ' ', (string) ($_SESSION['usuario_nombre'] ?? '')));
+        if ($u === '') {
+            $u = trim(preg_replace('/\s+/u', ' ', (string) ($_SESSION['nombre'] ?? '')));
+        }
+        if ($u === '') {
+            $u = trim((string) ($_SESSION['usuario'] ?? ''));
+        }
+        if ($u === '') {
+            $pid = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+            if ($pid > 0) {
+                $u = 'Usuario id ' . $pid;
+            }
+        }
+        $u = (string) preg_replace('/[\x00-\x1F\x7F]/u', '', $u);
+        if (function_exists('mb_substr')) {
+            $u = mb_substr($u, 0, 160, 'UTF-8');
+        } else {
+            $u = substr($u, 0, 160);
+        }
+
+        return trim($u);
+    }
+
+    /**
      * Ruta relativa permitida bajo reporte/ del agente (raíz o historico/<carpeta>/).
      */
     private function archivoExcelReporteAgenteValido(string $rel): bool
@@ -542,13 +573,44 @@ class Gastoscobranza extends Controller
             if (!is_array($body) || !array_key_exists('enabled', $body)) {
                 echo json_encode([
                     'success' => false,
-                    'mensaje' => 'JSON inválido: se requiere { "enabled": true|false }.',
+                    'mensaje' => 'JSON inválido: se requiere { "enabled": true|false [, "dias": [0,…,6]|null] }.',
                 ], JSON_UNESCAPED_UNICODE);
                 return;
             }
             $en = $body['enabled'] === true || $body['enabled'] === 1
                 || $body['enabled'] === '1' || strtolower((string)$body['enabled']) === 'true';
-            $req = $this->agenteRequest('POST', '/auto-run-reporte', ['enabled' => $en], 25);
+            $payload = ['enabled' => $en];
+            if (array_key_exists('dias', $body)) {
+                if ($body['dias'] === null) {
+                    $payload['dias'] = null;
+                } elseif (is_array($body['dias'])) {
+                    $dias = [];
+                    foreach ($body['dias'] as $x) {
+                        $n = (int) $x;
+                        if ($n >= 0 && $n <= 6) {
+                            $dias[$n] = true;
+                        }
+                    }
+                    $payload['dias'] = array_keys($dias);
+                    sort($payload['dias'], SORT_NUMERIC);
+                    if ($payload['dias'] === []) {
+                        echo json_encode([
+                            'success' => false,
+                            'mensaje' => 'Seleccione al menos un día (0=lunes … 6=domingo) o omita el campo dias.',
+                        ], JSON_UNESCAPED_UNICODE);
+
+                        return;
+                    }
+                } else {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'El campo dias debe ser un arreglo de enteros o null.',
+                    ], JSON_UNESCAPED_UNICODE);
+
+                    return;
+                }
+            }
+            $req = $this->agenteRequest('POST', '/auto-run-reporte', $payload, 25);
             if (!$req['success'] || !is_array($req['json']) || empty($req['json']['success'])) {
                 $msg = is_array($req['json']) && !empty($req['json']['mensaje'])
                     ? (string)$req['json']['mensaje']
@@ -936,6 +998,10 @@ class Gastoscobranza extends Controller
             $traceId = isset($body['traceId']) ? trim((string)$body['traceId']) : '';
             if ($traceId !== '' && preg_match('/^[A-Za-z0-9._:-]{6,80}$/', $traceId)) {
                 $payload['traceId'] = $traceId;
+            }
+            $ejecutadoPor = $this->nombrePersonaEjecutorEcDesdeSesion();
+            if ($ejecutadoPor !== '') {
+                $payload['ejecutadoPor'] = $ejecutadoPor;
             }
             $origenCarpeta = isset($body['origenCarpeta']) ? strtolower(trim((string)$body['origenCarpeta'])) : '';
             if ($origenCarpeta === 'reporte') {

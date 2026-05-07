@@ -11,6 +11,7 @@ $mostrarBotonAnalytics = $mostrarBotonAnalytics ?? false;
 $itemsAnalytics = $itemsAnalytics ?? [];
 $mostrarDiagnosticoAdmin = $mostrarDiagnosticoAdmin ?? false;
 $mostrarBotonApiDocOneClick = $mostrarBotonApiDocOneClick ?? false;
+$mostrarBotonEstadoServicios = $mostrarBotonEstadoServicios ?? false;
 $logoUrl = '/assets/img/Logotipo-Maxikash-Outline.webp';
 
 $mensajesPorPuesto = [
@@ -413,6 +414,152 @@ body.dark-mode .inicio-btn-api1click {
   background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
 }
 
+/* Botón "Servicios" — estado en vivo de los puertos locales (solo usuario 878) */
+.inicio-btn-estado-srv {
+  position: fixed;
+  bottom: 24px;
+  left: 92px; /* a la derecha del botón API */
+  z-index: 9996;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.45);
+  transition: all 0.25s ease;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.inicio-btn-estado-srv i { font-size: 18px; }
+.inicio-btn-estado-srv:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(79, 70, 229, 0.55);
+}
+.inicio-btn-estado-srv:active { transform: scale(0.96); }
+.inicio-btn-estado-srv.alerta {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  box-shadow: 0 6px 24px rgba(220, 38, 38, 0.55);
+}
+.estado-srv-panel {
+  position: fixed;
+  bottom: 95px;
+  left: 24px;
+  z-index: 9996;
+  width: min(620px, calc(100vw - 36px));
+  max-height: 70vh;
+  display: none;
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45);
+  overflow: hidden;
+}
+.estado-srv-panel.open { display: block; }
+.estado-srv-hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.95);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  flex-wrap: wrap;
+}
+.estado-srv-title { font-size: 12px; font-weight: 700; flex: 1 1 auto; }
+.estado-srv-summary {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.35);
+}
+.estado-srv-summary.ok { background: rgba(22, 163, 74, 0.35); color: #86efac; }
+.estado-srv-summary.err { background: rgba(220, 38, 38, 0.35); color: #fecaca; }
+.estado-srv-summary.warn { background: rgba(202, 138, 4, 0.35); color: #fde68a; }
+.estado-srv-actions { display: flex; align-items: center; gap: 8px; }
+.estado-srv-chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+.estado-srv-tbtn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(51, 65, 85, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+  cursor: pointer;
+}
+.estado-srv-tbtn:hover { background: rgba(71, 85, 105, 0.95); }
+.estado-srv-help {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.7);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.estado-srv-grid {
+  padding: 8px;
+  max-height: calc(70vh - 130px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.estado-srv-loading { padding: 12px; text-align: center; color: #94a3b8; font-size: 12px; }
+.estado-srv-card {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+.estado-srv-card .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #475569;
+  flex-shrink: 0;
+}
+.estado-srv-card.up   .dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.estado-srv-card.warn .dot { background: #eab308; box-shadow: 0 0 6px #eab308; }
+.estado-srv-card.down .dot { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.estado-srv-name { font-size: 12.5px; font-weight: 700; line-height: 1.2; }
+.estado-srv-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; word-break: break-word; }
+.estado-srv-meta a { color: #93c5fd; text-decoration: none; }
+.estado-srv-meta a:hover { text-decoration: underline; }
+.estado-srv-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.estado-srv-card.up   .estado-srv-tag { background: rgba(22, 163, 74, 0.35); color: #86efac; }
+.estado-srv-card.warn .estado-srv-tag { background: rgba(202, 138, 4, 0.35); color: #fde68a; }
+.estado-srv-card.down .estado-srv-tag { background: rgba(220, 38, 38, 0.35); color: #fecaca; }
+.estado-srv-foot {
+  font-size: 10.5px;
+  color: #94a3b8;
+  padding: 6px 12px 10px;
+  text-align: right;
+}
+
 .api1click-panel {
   position: fixed;
   bottom: 95px;
@@ -491,6 +638,13 @@ body.dark-mode .inicio-btn-api1click {
   white-space: nowrap;
 }
 .api1click-tbtn:hover { background: rgba(71, 85, 105, 0.95); }
+.api1click-tbtn--danger {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fecaca;
+}
+.api1click-tbtn--danger:hover { background: rgba(153, 27, 27, 0.9); }
+body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
 .api1click-chk {
   display: inline-flex;
   align-items: center;
@@ -621,20 +775,20 @@ body.dark-mode .inicio-btn-api1click {
       type="button"
       id="btnApiDocOneClick"
       class="inicio-btn-api1click"
-      title="Instalar + diagnosticar + iniciar API documentación (1 click)"
-      aria-label="Ejecutar API documentación 1 click">
+      title="Canal oficial (usuario 878): diagnosticar, instalar dependencias si hace falta e iniciar la API — sin ejecutar BAT a mano en el servidor."
+      aria-label="API documentación: diagnóstico e inicio desde la web">
       <i class="fa-solid fa-rocket"></i>
       <span>API</span>
     </button>
     <div class="api1click-panel" id="api1clickPanel" aria-live="polite">
       <div class="api1click-hd">
-        <span class="api1click-title">API documentación · instalación/arranque 1-click</span>
+        <span class="api1click-title">API documentación · flujo oficial 1‑click</span>
         <span class="api1click-badge" id="api1clickBadge">Listo</span>
       </div>
-      <p class="api1click-help">Logs del servidor (sin entrar al disco): elige archivo → Ver → Copiar o Descargar para enviar al soporte.</p>
+      <p class="api1click-help"><strong>Canal oficial (usuario 878):</strong> diagnóstico, instalación si hace falta y arranque de la API desde aquí — sin ejecutar BAT a mano en el servidor ni depender del PATH. Python/Tesseract dentro de la carpeta de la API los deja soporte/despliegue una vez; el día a día es este botón. Logs (<code>backend/API/logs</code>): Lista → Ver → Copiar o Descargar.</p>
       <div class="api1click-toolbar">
         <select id="api1clickLogSelect" title="Archivos .log en backend/API/logs" aria-label="Seleccionar log">
-          <option value="">— Cargar lista —</option>
+          <option value="">— Lista de logs (pulsa «Lista» o espera al auto-actualizar) —</option>
         </select>
         <button type="button" class="api1click-tbtn" id="api1clickBtnRefreshList" title="Actualizar lista de logs">Lista</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnView" title="Mostrar contenido aquí abajo">Ver log</button>
@@ -643,8 +797,39 @@ body.dark-mode .inicio-btn-api1click {
         </label>
         <button type="button" class="api1click-tbtn" id="api1clickBtnCopy" title="Copiar texto visible al portapapeles">Copiar</button>
         <button type="button" class="api1click-tbtn" id="api1clickBtnDownload" title="Descargar .log">Descargar</button>
+        <button type="button" class="api1click-tbtn" id="api1clickBtnOlvidar" title="Solo quita el bloqueo en la web; no mata procesos en el servidor">Desbloquear panel</button>
+        <button type="button" class="api1click-tbtn api1click-tbtn--danger" id="api1clickBtnParar" title="Corta en el servidor esta ejecución (batch/doctor/pip/python de esta API + puerto 8000)">Parar ejecución</button>
       </div>
       <pre class="api1click-body" id="api1clickOutput">Sin ejecución todavía.</pre>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($mostrarBotonEstadoServicios)): ?>
+    <button
+      type="button"
+      id="btnEstadoServicios"
+      class="inicio-btn-estado-srv"
+      title="Estado de todos los agentes y APIs locales (puertos 3001, 3100, 3110, 3120, 8000). Solo usuario 878."
+      aria-label="Estado de servicios locales">
+      <i class="fa-solid fa-heart-pulse"></i>
+      <span>Servicios</span>
+    </button>
+    <div class="estado-srv-panel" id="estadoSrvPanel" aria-live="polite">
+      <div class="estado-srv-hd">
+        <span class="estado-srv-title">Servicios locales · estado en vivo</span>
+        <span class="estado-srv-summary" id="estadoSrvSummary">—</span>
+        <span class="estado-srv-actions">
+          <label class="estado-srv-chk" title="Refresca cada 5s">
+            <input type="checkbox" id="estadoSrvAuto" /> Auto
+          </label>
+          <button type="button" class="estado-srv-tbtn" id="estadoSrvBtnRefresh" title="Refrescar ahora">Refrescar</button>
+        </span>
+      </div>
+      <p class="estado-srv-help">Verde = puerto en LISTEN y respondiendo HTTP. Amarillo = en LISTEN pero no responde HTTP (arrancando o caído de fachada). Rojo = puerto no abierto.</p>
+      <div class="estado-srv-grid" id="estadoSrvGrid">
+        <div class="estado-srv-loading">Cargando estado…</div>
+      </div>
+      <div class="estado-srv-foot" id="estadoSrvFoot"></div>
     </div>
     <?php endif; ?>
 
@@ -1078,21 +1263,57 @@ body.dark-mode .inicio-btn-api1click {
   var btnApi1View = document.getElementById('api1clickBtnView');
   var btnApi1Copy = document.getElementById('api1clickBtnCopy');
   var btnApi1Download = document.getElementById('api1clickBtnDownload');
+  var btnApi1Olvidar = document.getElementById('api1clickBtnOlvidar');
+  var btnApi1Parar = document.getElementById('api1clickBtnParar');
   var chkApi1Completo = document.getElementById('api1clickLogCompleto');
+  var api1ListaPollTicks = 0;
+
+  /** Cabeceras para que index.php devuelva JSON en errores (evita HTML login y fallo "Unexpected token <"). */
+  function api1AjaxHeaders() {
+    return {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Front-Request': 'true'
+    };
+  }
+  function api1ParseJsonBody(text, urlHint) {
+    var t = (text || '').trim();
+    if (t.charAt(0) === '<') {
+      throw new Error('El servidor respondió HTML en lugar de JSON (ruta ' + (urlHint || '') + ' ausiente, sesión caducada o error PHP). Actualice código y vuelva a iniciar sesión.');
+    }
+    try {
+      return JSON.parse(t);
+    } catch (e2) {
+      throw new Error('JSON inválido en ' + (urlHint || '') + ': ' + (e2 && e2.message ? e2.message : e2));
+    }
+  }
 
   function api1RefreshLogList() {
     if (!selApi1Logs) return;
-    fetch('/inicio/apidoconeloglistar')
-      .then(function(r){ return r.json(); })
+    selApi1Logs.disabled = true;
+    var cur = selApi1Logs.value;
+    fetch('/inicio/apidocloglistar', { credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) {
+            throw new Error('HTTP ' + r.status + ' — ' + (body.slice(0, 120) || r.statusText));
+          }
+          return api1ParseJsonBody(body, 'apidocloglistar');
+        });
+      })
       .then(function(data){
-        if (!data || !data.success) return;
-        var cur = selApi1Logs.value;
         selApi1Logs.innerHTML = '';
+        if (!data || !data.success) {
+          var ox = document.createElement('option');
+          ox.value = '';
+          ox.textContent = data && data.message ? String(data.message) : 'No se pudo listar logs (¿sesión?).';
+          selApi1Logs.appendChild(ox);
+          return;
+        }
         var files = data.files || [];
         if (files.length === 0) {
           var o0 = document.createElement('option');
           o0.value = '';
-          o0.textContent = '(sin archivos .log todavía)';
+          o0.textContent = '(sin archivos .log en backend/API/logs)';
           selApi1Logs.appendChild(o0);
           return;
         }
@@ -1107,18 +1328,30 @@ body.dark-mode .inicio-btn-api1click {
           selApi1Logs.value = cur;
         }
       })
-      .catch(function(){});
+      .catch(function(e){
+        selApi1Logs.innerHTML = '';
+        var oe = document.createElement('option');
+        oe.value = '';
+        oe.textContent = 'Error al cargar lista: ' + (e && e.message ? e.message : e);
+        selApi1Logs.appendChild(oe);
+      })
+      .finally(function(){ selApi1Logs.disabled = false; });
   }
   function api1ViewSelectedLog() {
     if (!selApi1Logs || !selApi1Logs.value) {
       alert('Primero pulsa «Lista» y elige un archivo .log.');
       return;
     }
-    var u = '/inicio/apidoconelogcontenido?archivo=' + encodeURIComponent(selApi1Logs.value);
+    var u = '/inicio/apidoclogcontenido?archivo=' + encodeURIComponent(selApi1Logs.value);
     if (chkApi1Completo && chkApi1Completo.checked) u += '&completo=1';
     if (outApi1) outApi1.textContent = 'Cargando…';
-    fetch(u)
-      .then(function(r){ return r.json(); })
+    fetch(u, { credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return api1ParseJsonBody(body, 'apidoclogcontenido');
+        });
+      })
       .then(function(data){
         if (!data || !data.success) {
           if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo leer el log.';
@@ -1170,12 +1403,53 @@ body.dark-mode .inicio-btn-api1click {
       alert('Elige un archivo y usa «Lista» si hace falta.');
       return;
     }
-    window.location.href = '/inicio/apidoconelogdescargar?archivo=' + encodeURIComponent(selApi1Logs.value);
+    window.location.href = '/inicio/apidoclogdescargar?archivo=' + encodeURIComponent(selApi1Logs.value);
   }
   if (btnApi1RefreshList) btnApi1RefreshList.addEventListener('click', api1RefreshLogList);
   if (btnApi1View) btnApi1View.addEventListener('click', api1ViewSelectedLog);
   if (btnApi1Copy) btnApi1Copy.addEventListener('click', api1CopyVisibleLog);
   if (btnApi1Download) btnApi1Download.addEventListener('click', api1DownloadSelectedLog);
+  if (btnApi1Olvidar) btnApi1Olvidar.addEventListener('click', function(){
+    if (!confirm('¿Desbloquear el panel? Podrás pulsar «API» otra vez. Un proceso ya lanzado puede seguir en el servidor hasta terminar.')) return;
+    fetch('/inicio/apidoconeclickolvidar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          return api1ParseJsonBody(body, 'apidoconeclickolvidar');
+        });
+      })
+      .then(function(data){
+        if (data && data.success) {
+          api1StopPolling();
+          api1SetState('ok', 'Listo');
+          if (outApi1) outApi1.textContent = data.message || 'Panel desbloqueado.';
+          if (btnApi1) btnApi1.classList.remove('running');
+        } else if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No autorizado.';
+      })
+      .catch(function(){ if (outApi1) outApi1.textContent = 'No se pudo desbloquear (red o sesión).'; });
+  });
+  if (btnApi1Parar) btnApi1Parar.addEventListener('click', function(){
+    if (!confirm('¿PARAR esta ejecución en el servidor? Se intentará cerrar doctor/instalar/batch relacionados con esta API, liberar el puerto 8000 y procesos Python cuya línea de comando incluya esta carpeta. Luego podrás pulsar «API» otra vez.\n\nSolo otros Python de otros proyectos NO deberían verse afectados si no usan esa ruta.')) return;
+    fetch('/inicio/apidoconeclickparar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error(body.slice(0, 200) || ('HTTP ' + r.status));
+          return api1ParseJsonBody(body, 'apidoconeclickparar');
+        });
+      })
+      .then(function(data){
+        api1StopPolling();
+        if (btnApi1) btnApi1.classList.remove('running');
+        if (data && data.success) {
+          api1SetState('ok', 'Listo');
+          if (outApi1) outApi1.textContent = data.message || 'Parada solicitada.';
+          if (data.log_file) api1RefreshLogList();
+        } else {
+          api1SetState('err', 'Error');
+          if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo iniciar parada.';
+        }
+      })
+      .catch(function(){ api1SetState('err', 'Error'); if (outApi1) outApi1.textContent = 'Error de red al parar.'; });
+  });
 
   function api1SetState(kind, text) {
     if (!badgeApi1) return;
@@ -1206,14 +1480,23 @@ body.dark-mode .inicio-btn-api1click {
     outApi1.textContent = tail || 'Ejecutando...';
   }
   function api1FetchEstado() {
-    fetch('/inicio/apidoconeclickestado')
-      .then(function(r){ return r.json(); })
+    fetch('/inicio/apidoconeclickestado', { credentials: 'same-origin', headers: api1AjaxHeaders() })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return api1ParseJsonBody(body, 'apidoconeclickestado');
+        });
+      })
       .then(function(data){
         if (!data || data.success === false) {
           api1SetState('err', 'Error');
           if (outApi1) outApi1.textContent = (data && data.message) ? data.message : 'No se pudo consultar estado.';
           api1StopPolling();
           return;
+        }
+        api1ListaPollTicks += 1;
+        if (api1ListaPollTicks === 1 || api1ListaPollTicks % 4 === 0) {
+          api1RefreshLogList();
         }
         api1RenderTail(data);
         if (data.completed) {
@@ -1222,6 +1505,7 @@ body.dark-mode .inicio-btn-api1click {
           } else {
             api1SetState('err', 'Con errores');
           }
+          api1RefreshLogList();
           api1StopPolling();
           return;
         }
@@ -1240,6 +1524,7 @@ body.dark-mode .inicio-btn-api1click {
   }
   if (btnApi1) {
     btnApi1.addEventListener('click', function(){
+      api1ListaPollTicks = 0;
       api1OpenPanel();
       api1RefreshLogList();
       if (outApi1) {
@@ -1247,8 +1532,13 @@ body.dark-mode .inicio-btn-api1click {
       }
       api1SetState('run', 'Lanzando');
       btnApi1.classList.add('running');
-      fetch('/inicio/apidoconeclickiniciar', { method: 'POST' })
-        .then(function(r){ return r.json(); })
+      fetch('/inicio/apidoconeclickiniciar', { method: 'POST', credentials: 'same-origin', headers: api1AjaxHeaders() })
+        .then(function(r){
+          return r.text().then(function(body){
+            if (!r.ok) throw new Error(body.slice(0, 160) || ('HTTP ' + r.status));
+            return api1ParseJsonBody(body, 'apidoconeclickiniciar');
+          });
+        })
         .then(function(data){
           if (!data || data.success === false) {
             api1SetState('err', 'Error');
@@ -1273,6 +1563,118 @@ body.dark-mode .inicio-btn-api1click {
           if (outApi1) outApi1.textContent = 'Error al lanzar: ' + (err && err.message ? err.message : err);
           api1StopPolling();
         });
+    });
+  }
+})();
+
+(function(){
+  // Panel "Servicios locales" (solo usuario 878).
+  var btnEstado = document.getElementById('btnEstadoServicios');
+  if (!btnEstado) return;
+  var panel = document.getElementById('estadoSrvPanel');
+  var grid  = document.getElementById('estadoSrvGrid');
+  var summary = document.getElementById('estadoSrvSummary');
+  var foot = document.getElementById('estadoSrvFoot');
+  var btnRefresh = document.getElementById('estadoSrvBtnRefresh');
+  var chkAuto = document.getElementById('estadoSrvAuto');
+  var pollTimer = null;
+  var inFlight = false;
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function renderEstado(data){
+    if (!data || !data.success) {
+      grid.innerHTML = '<div class="estado-srv-loading">No se pudo obtener el estado.</div>';
+      summary.textContent = '—';
+      summary.className = 'estado-srv-summary err';
+      return;
+    }
+    var s = data.summary || { up:0, down:0, total:0 };
+    summary.textContent = s.up + '/' + s.total + ' arriba';
+    summary.className = 'estado-srv-summary ' + (s.down === 0 ? 'ok' : (s.up === 0 ? 'err' : 'warn'));
+    btnEstado.classList.toggle('alerta', s.down > 0);
+
+    var html = '';
+    var services = data.services || [];
+    services.forEach(function(srv){
+      var cls, tag;
+      if (srv.estado === 'up') { cls = 'up'; tag = 'ARRIBA'; }
+      else if (srv.estado === 'listen_no_http') { cls = 'warn'; tag = 'EN PUERTO'; }
+      else { cls = 'down'; tag = 'CAÍDA'; }
+      var lat = (srv.latency_ms != null) ? (srv.latency_ms + ' ms') : '—';
+      var status = (srv.http_status != null) ? srv.http_status : '—';
+      var pid = srv.pid ? (' · PID ' + srv.pid) : '';
+      var browseLink = srv.url_browser
+        ? '<a href="' + escapeHtml(srv.url_browser) + '" target="_blank" rel="noopener">' + escapeHtml(srv.url_browser) + '</a>'
+        : '';
+      html += '<div class="estado-srv-card ' + cls + '">';
+      html += '  <span class="dot"></span>';
+      html += '  <div>';
+      html += '    <div class="estado-srv-name">' + escapeHtml(srv.name) + '</div>';
+      html += '    <div class="estado-srv-meta">Puerto <strong>' + srv.port + '</strong>' + pid + ' · HTTP ' + escapeHtml(status) + ' · ' + escapeHtml(lat) + '</div>';
+      html += '    <div class="estado-srv-meta">' + escapeHtml(srv.role || '') + '</div>';
+      if (cls === 'up') {
+        html += '    <div class="estado-srv-meta">' + browseLink + '</div>';
+      } else {
+        html += '    <div class="estado-srv-meta">' + escapeHtml(srv.hint || '') + '</div>';
+      }
+      html += '  </div>';
+      html += '  <span class="estado-srv-tag">' + tag + '</span>';
+      html += '</div>';
+    });
+    grid.innerHTML = html || '<div class="estado-srv-loading">Sin servicios configurados.</div>';
+    foot.textContent = 'Generado: ' + (data.generated_at || '—');
+  }
+
+  function fetchEstado(){
+    if (inFlight) return;
+    inFlight = true;
+    fetch('/inicio/serviciosLocalesEstado', {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Front-Request': '1' }
+    })
+      .then(function(r){
+        return r.text().then(function(body){
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          try { return JSON.parse(body); }
+          catch (e) { throw new Error('JSON inválido: ' + body.slice(0, 120)); }
+        });
+      })
+      .then(renderEstado)
+      .catch(function(err){
+        grid.innerHTML = '<div class="estado-srv-loading">Error: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
+        summary.textContent = 'ERR';
+        summary.className = 'estado-srv-summary err';
+      })
+      .finally(function(){ inFlight = false; });
+  }
+
+  function startAuto(){
+    stopAuto();
+    pollTimer = setInterval(fetchEstado, 5000);
+  }
+  function stopAuto(){
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  btnEstado.addEventListener('click', function(){
+    var open = panel.classList.toggle('open');
+    if (open) {
+      fetchEstado();
+      if (chkAuto && chkAuto.checked) startAuto();
+    } else {
+      stopAuto();
+    }
+  });
+  if (btnRefresh) btnRefresh.addEventListener('click', fetchEstado);
+  if (chkAuto) {
+    chkAuto.addEventListener('change', function(){
+      if (this.checked && panel.classList.contains('open')) startAuto();
+      else stopAuto();
     });
   }
 })();
