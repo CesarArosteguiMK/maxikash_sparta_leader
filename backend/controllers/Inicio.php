@@ -50,6 +50,8 @@ class Inicio extends Controller
         $mostrarDiagnosticoAdmin = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 1)
             && !empty($configInicio['mostrar_botones_diagnostico']);
         $this->set('mostrarDiagnosticoAdmin', $mostrarDiagnosticoAdmin);
+        $mostrarBotonApiDocOneClick = (isset($_SESSION['usuario_id']) && (int)$_SESSION['usuario_id'] === 878);
+        $this->set('mostrarBotonApiDocOneClick', $mostrarBotonApiDocOneClick);
 
         self::render("inicio___SPARTA_SECRET_REDACTED___contenido", false);
     }
@@ -590,6 +592,158 @@ class Inicio extends Controller
         </body>
         </html>
         <?php
+    }
+
+    /**
+     * Inicia el flujo 1-click de API documentación en segundo plano.
+     * Solo usuario 878.
+     */
+    public function apiDocOneClickIniciar()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+        if (stripos(PHP_OS, 'WIN') !== 0) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Este flujo 1-click está diseñado para Windows Server']);
+            return;
+        }
+
+        $apiDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'API';
+        $launcherDir = $apiDir . DIRECTORY_SEPARATOR . 'launcher';
+        $runner = $launcherDir . DIRECTORY_SEPARATOR . 'web-api-1click-runner.bat';
+        $logsDir = $apiDir . DIRECTORY_SEPARATOR . 'logs';
+        if (!is_dir($logsDir)) {
+            @mkdir($logsDir, 0777, true);
+        }
+
+        if (!is_file($runner)) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'No se encontró el runner 1-click',
+                'runner' => $runner,
+            ]);
+            return;
+        }
+
+        $running = $this->apiDocOneClickHayProcesoActivo();
+        if ($running['is_running']) {
+            echo json_encode([
+                'success' => true,
+                'started' => false,
+                'message' => 'Ya hay una ejecución en curso. Mostrando log actual...',
+                'log_file' => basename((string)($running['log_file'] ?? '')),
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $logName = 'web-api-1click-' . date('Ymd-His') . '.log';
+        $logPath = $logsDir . DIRECTORY_SEPARATOR . $logName;
+        $_SESSION['api_doc_1click_log'] = $logPath;
+        $_SESSION['api_doc_1click_started_at'] = time();
+
+        $runnerQ = '"' . str_replace('"', '""', $runner) . '"';
+        $logQ = '"' . str_replace('"', '""', $logPath) . '"';
+        $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $runner) . '" > "' . str_replace('"', '""', $logPath) . '" 2>&1"';
+        @pclose(@popen($cmd, 'r'));
+
+        // Pequeña pausa para que el log nazca y no se vea vacío al primer poll
+        usleep(250000);
+
+        echo json_encode([
+            'success' => true,
+            'started' => true,
+            'message' => 'Ejecución 1-click iniciada.',
+            'log_file' => $logName,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Devuelve estado y tail del log de la ejecución 1-click.
+     * Solo usuario 878.
+     */
+    public function apiDocOneClickEstado()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+
+        $logPath = (string)($_SESSION['api_doc_1click_log'] ?? '');
+        if ($logPath === '' || !is_file($logPath)) {
+            echo json_encode([
+                'success' => true,
+                'has_log' => false,
+                'is_running' => false,
+                'completed' => false,
+                'message' => 'Aún no hay ejecución iniciada.',
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $content = $this->leerTailArchivo($logPath, 64000);
+        $completed = (strpos($content, '__FIN__:') !== false);
+        $exitCode = null;
+        if ($completed && preg_match('/__FIN__:(-?\d+)/', $content, $m)) {
+            $exitCode = (int)$m[1];
+        }
+
+        echo json_encode([
+            'success' => true,
+            'has_log' => true,
+            'is_running' => !$completed,
+            'completed' => $completed,
+            'exit_code' => $exitCode,
+            'log_file' => basename($logPath),
+            'output_tail' => $content,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function apiDocOneClickHayProcesoActivo(): array
+    {
+        $logPath = (string)($_SESSION['api_doc_1click_log'] ?? '');
+        if ($logPath === '' || !is_file($logPath)) {
+            return ['is_running' => false];
+        }
+        $tail = $this->leerTailArchivo($logPath, 16000);
+        if (strpos($tail, '__FIN__:') !== false) {
+            return ['is_running' => false, 'log_file' => $logPath];
+        }
+        return ['is_running' => true, 'log_file' => $logPath];
+    }
+
+    private function leerTailArchivo(string $path, int $maxBytes = 64000): string
+    {
+        if (!is_file($path)) {
+            return '';
+        }
+        $size = @filesize($path);
+        if (!is_int($size) || $size <= 0) {
+            return '';
+        }
+
+        $fp = @fopen($path, 'rb');
+        if (!$fp) {
+            return '';
+        }
+
+        $readBytes = min($maxBytes, $size);
+        if ($size > $readBytes) {
+            @fseek($fp, $size - $readBytes);
+        }
+        $data = @fread($fp, $readBytes);
+        @fclose($fp);
+
+        if ($data === false) {
+            return '';
+        }
+        return (string)$data;
     }
 
     private function validarActualizacionPassword()
