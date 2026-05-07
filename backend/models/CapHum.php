@@ -382,7 +382,7 @@ class CapHum extends Model
                         ['uid' => $idPersona, 'mid' => $moduloId]
                     );
                     if ($moduloId === 27) {
-                        $db->CRUD("DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id IN (19, 25)", ['uid' => $idPersona]);
+                        $db->CRUD('DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id IN (25)', ['uid' => $idPersona]);
                     }
                 }
                 $db->CRUD(
@@ -397,7 +397,7 @@ class CapHum extends Model
 
             } else {
 
-                // 3️⃣ Eliminar asignación (Panel Admin = 27: quitar también 19 y 25 para unificar)
+                // 3️⃣ Eliminar asignación (Panel Admin = 27: quitar también 25 ligado legado)
                 $moduloId = (int) $moduloId;
                 $db->CRUD(
                     "DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id = :mid",
@@ -405,7 +405,7 @@ class CapHum extends Model
                 );
                 if ($moduloId === 27) {
                     $db->CRUD(
-                        "DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id IN (19, 25)",
+                        'DELETE FROM asigna_modulo_web WHERE usuario_id = :uid AND modulo_web_id IN (25)',
                         ['uid' => $idPersona]
                     );
                 }
@@ -782,9 +782,9 @@ class CapHum extends Model
             FROM modulos_web m
             LEFT JOIN asigna_modulo_web a
                 ON a.usuario_id = $idPersona
-                AND (a.modulo_web_id = m.id OR (m.id = 27 AND a.modulo_web_id IN (19, 25)))
+                AND (a.modulo_web_id = m.id OR (m.id = 27 AND a.modulo_web_id IN (25)))
             WHERE m.activo = 1
-              AND m.id NOT IN (19, 25)
+              AND m.id NOT IN (25)
             ORDER BY m.id;
         SQL;
 

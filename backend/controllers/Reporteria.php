@@ -15,8 +15,13 @@ class Reporteria extends Controller
     /** URL base pública «Analítica» (controlador PHP Reporteria; históricamente /reporteria/). */
     private const BASE_PRIMEROS_PAGOS_ANALITICA = '/analitica';
 
-    /** Módulo web 33 — Permisos especiales: Enviar correo (reportes de primeros pagos). */
-    private const MODULO_ENVIAR_CORREO_PRIMEROS_PAGOS = 33;
+    /**
+     * Permiso especial para gestión/envío de correos en Primeros pagos.
+     * Compatibilidad:
+     * - 33: configuración previa del proyecto.
+     * - 25: alta reciente de permiso especial «Correos».
+     */
+    private const MODULOS_ENVIAR_CORREO_PRIMEROS_PAGOS = [33, 25];
 
     /**
      * Permisos especiales (pestaña «Permisos especiales» en modulos_web): cada tarjeta y su vista exigen su id (65–68).
@@ -24,11 +29,14 @@ class Reporteria extends Controller
      */
     private const MODULO_PP_COBRANZA_ESPERADA = 65;
     private const MODULO_PP_CARTERA = 66;
+    /** Entrada «Cartera actual» y JSON de cartera: solo `modulos_web` id 19. */
+    private const MODULO_CARTERA_ACTUAL_MENU = 19;
     private const MODULO_PP_PROXIMA_SEMANA = 67;
     private const MODULO_PP_HISTORICO = 68;
 
     /** Usuario que puede ejecutar copia + purga histórico primeros pagos desde la UI (solo este id). */
     private const USUARIO_PIPELINE_HISTO_PRIMEROS_DESDE_SEGUNDOMETRO = 878;
+    private const PP_DESTINATARIOS_FILE = RAIZ . '/storage/config/primeros_pagos_destinatarios.json';
 
     /** @return list<int> */
     private function modulosSesionInt(): array
@@ -44,7 +52,7 @@ class Reporteria extends Controller
 
     private function puedeAccederCarteraSegundometro(): bool
     {
-        return in_array(self::MODULO_PP_CARTERA, $this->modulosSesionInt(), true);
+        return in_array(self::MODULO_CARTERA_ACTUAL_MENU, $this->modulosSesionInt(), true);
     }
 
     private function puedeAccederPrimerosPagosProximaSemana(): bool
@@ -62,18 +70,133 @@ class Reporteria extends Controller
         return (int) ($_SESSION['usuario_id'] ?? 0) === self::USUARIO_PIPELINE_HISTO_PRIMEROS_DESDE_SEGUNDOMETRO;
     }
 
-    /**
-     * Usuario id 1 o permiso especial modulos_web id 33.
-     */
+    /** Solo permiso especial asignado en sesión (sin bypass por usuario). */
     private function puedeEnviarCorreoPrimerosPagos(): bool
     {
-        $uid = (int) ($_SESSION['usuario_id'] ?? 0);
-        if ($uid === 1) {
-            return true;
-        }
         $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
+        foreach (self::MODULOS_ENVIAR_CORREO_PRIMEROS_PAGOS as $mid) {
+            if (in_array((int) $mid, $mods, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-        return in_array(self::MODULO_ENVIAR_CORREO_PRIMEROS_PAGOS, $mods, true);
+    /** @return list<string> */
+    private function primerosPagosDestinatariosDefault(): array
+    {
+        return [
+            'roman.jimenez@__SPARTA_SECRET_REDACTED__.mx',
+            'marlon.flores@__SPARTA_SECRET_REDACTED__.mx',
+            'hector.ruiz@__SPARTA_SECRET_REDACTED__.mx',
+            'guillermo.garcia@__SPARTA_SECRET_REDACTED__.mx',
+            '__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx',
+            'josealberto.hernandez@__SPARTA_SECRET_REDACTED__.mx',
+            'josue.aldrete@__SPARTA_SECRET_REDACTED__.mx',
+            'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
+            'lrgonzalez033@gmail.com',
+        ];
+    }
+
+    /**
+     * @param array<int, string|array{email?:mixed,activo?:mixed}> $raw
+     * @return list<array{email:string,activo:bool}>
+     */
+    private function normalizarDestinatariosConEstado(array $raw): array
+    {
+        $map = [];
+        foreach ($raw as $item) {
+            $emailRaw = is_array($item) ? ($item['email'] ?? '') : $item;
+            $email = strtolower(trim((string) $emailRaw));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $activo = true;
+            if (is_array($item)) {
+                $v = $item['activo'] ?? true;
+                $activo = !in_array($v, [false, 0, '0', 'false', 'FALSE', 'off', 'OFF', 'no', 'NO'], true);
+            }
+            $map[$email] = ['email' => $email, 'activo' => $activo];
+        }
+        return array_values($map);
+    }
+
+    /**
+     * @return array{destinatarios:list<array{email:string,activo:bool}>,updated_at:?string}
+     */
+    private function cargarConfigDestinatariosPrimerosPagos(): array
+    {
+        $path = self::PP_DESTINATARIOS_FILE;
+        $updatedAt = null;
+        if (!is_file($path)) {
+            $items = $this->normalizarDestinatariosConEstado($this->primerosPagosDestinatariosDefault());
+            return ['destinatarios' => $items, 'updated_at' => null];
+        }
+        $raw = @file_get_contents($path);
+        $json = is_string($raw) ? json_decode($raw, true) : null;
+        if (!is_array($json)) {
+            $items = $this->normalizarDestinatariosConEstado($this->primerosPagosDestinatariosDefault());
+            return ['destinatarios' => $items, 'updated_at' => null];
+        }
+        $lista = $json['destinatarios'] ?? [];
+        if (!is_array($lista)) {
+            $lista = [];
+        }
+        $items = $this->normalizarDestinatariosConEstado($lista);
+        if (empty($items)) {
+            $items = $this->normalizarDestinatariosConEstado($this->primerosPagosDestinatariosDefault());
+        }
+        $updatedAt = isset($json['updated_at']) ? (string) $json['updated_at'] : null;
+        return ['destinatarios' => $items, 'updated_at' => $updatedAt];
+    }
+
+    /** @return list<string> */
+    private function cargarDestinatariosPrimerosPagosActivos(): array
+    {
+        $cfg = $this->cargarConfigDestinatariosPrimerosPagos();
+        $activos = [];
+        foreach ($cfg['destinatarios'] as $it) {
+            if (!empty($it['activo'])) {
+                $activos[] = (string) $it['email'];
+            }
+        }
+        if (empty($activos)) {
+            $defaults = $this->normalizarDestinatariosConEstado($this->primerosPagosDestinatariosDefault());
+            foreach ($defaults as $it) {
+                $activos[] = $it['email'];
+            }
+        }
+        return array_values(array_unique($activos));
+    }
+
+    /**
+     * @param array<int, string|array{email?:mixed,activo?:mixed}> $destinatarios
+     * @return list<array{email:string,activo:bool}>
+     */
+    private function guardarDestinatariosPrimerosPagos(array $destinatarios): array
+    {
+        $items = $this->normalizarDestinatariosConEstado($destinatarios);
+        if (empty($items)) {
+            throw new \RuntimeException('Debes guardar al menos un correo válido.');
+        }
+        $dir = dirname(self::PP_DESTINATARIOS_FILE);
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new \RuntimeException('No se pudo crear el directorio de configuración.');
+        }
+        $payload = [
+            'destinatarios' => $items,
+            'updated_at' => date('c'),
+            'updated_by' => (int) ($_SESSION['usuario_id'] ?? 0),
+        ];
+        $ok = @file_put_contents(
+            self::PP_DESTINATARIOS_FILE,
+            json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            LOCK_EX
+        );
+        if ($ok === false) {
+            throw new \RuntimeException('No se pudo guardar la configuración de correos.');
+        }
+        return $items;
     }
 
     /**
@@ -1460,7 +1583,7 @@ class Reporteria extends Controller
 
     /**
      * Rastreo: vista panel Sabueso solo consulta crédito. Acceso principal desde Estado de cuenta (botón + iframe).
-     * Autorización: módulos 18, 19 o 29 (ver getRutasModulos).
+     * Autorización: módulos 18, 27 o 29 (ver getRutasModulos).
      */
     public function consultaIdCredito()
     {
@@ -1763,13 +1886,30 @@ class Reporteria extends Controller
         $mods = $this->modulosSesionInt();
 
         self::set('pp_perm_cobranza', in_array(self::MODULO_PP_COBRANZA_ESPERADA, $mods, true));
-        self::set('pp_perm_cartera', in_array(self::MODULO_PP_CARTERA, $mods, true));
+        // Cartera actual ahora vive en menú propio: /analitica/carteraactual
+        self::set('pp_perm_cartera', false);
         self::set('pp_perm_proxima', in_array(self::MODULO_PP_PROXIMA_SEMANA, $mods, true));
         self::set('pp_perm_historico', in_array(self::MODULO_PP_HISTORICO, $mods, true));
 
         self::set("titulo", "Primeros pagos");
         self::set("script", "");
         self::render("reporte_primeros_pagos_inicio");
+    }
+
+    /**
+     * Landing dedicado para «Cartera actual»: muestra solo la card de cartera
+     * y desde ahí permite abrir el tablero completo.
+     */
+    public function CarteraActual()
+    {
+        self::set('pp_perm_cobranza', false);
+        self::set('pp_perm_cartera', true);
+        self::set('pp_perm_proxima', false);
+        self::set('pp_perm_historico', false);
+
+        self::set('titulo', 'Cartera actual');
+        self::set('script', '');
+        self::render('reporte_primeros_pagos_inicio');
     }
 
     /**
@@ -3387,11 +3527,34 @@ class Reporteria extends Controller
                 const defaultAsunto = VISTA_SIMPLE ? 'Primeros pagos — Semana actual' : 'Primeros pagos — Lunes de Cierre';
                 let destinatariosRaw = '';
                 let asunto = defaultAsunto;
+                const obtenerDestinatariosConfigurados = async () => {
+                    const r = await fetch('/analitica/getPrimerosPagosDestinatariosCorreo', { method: 'POST' });
+                    const d = await r.json();
+                    if (!d?.success) {
+                        throw new Error(d?.mensaje || 'No se pudo obtener la lista de correos.');
+                    }
+                    const arr = Array.isArray(d?.datos?.destinatarios) ? d.datos.destinatarios : [];
+                    return arr
+                        .map((v) => (typeof v === 'string' ? { email: v, activo: true } : v))
+                        .filter((v) => v && v.email)
+                        .filter((v) => v.activo !== false)
+                        .map((v) => String(v.email || '').trim())
+                        .filter(Boolean);
+                };
                 const parseEmails = (raw) => (raw || '')
                     .split(/[,\s;]+/)
                     .map(v => v.trim().toLowerCase())
                     .filter(Boolean);
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                let prefillEmails = '';
+                try {
+                    const list = await obtenerDestinatariosConfigurados();
+                    prefillEmails = list.join(', ');
+                } catch (e) {
+                    if (typeof Swal !== 'undefined') {
+                        await Swal.fire({ icon: 'warning', title: 'Destinatarios', text: e?.message || 'No se pudo cargar la lista guardada.' });
+                    }
+                }
 
                 if (typeof Swal !== 'undefined') {
                     const res = await Swal.fire({
@@ -3399,7 +3562,7 @@ class Reporteria extends Controller
                         html: `
                             <div class="text-start">
                                 <label class="form-label mb-1">Destinatarios</label>
-                                <input id="swal-emails" class="swal2-input" placeholder="correo1@dominio.com, correo2@dominio.com" style="width:100%;margin:.2rem 0 .8rem 0;">
+                                <input id="swal-emails" class="swal2-input" value="${prefillEmails.replace(/"/g, '&quot;')}" placeholder="correo1@dominio.com, correo2@dominio.com" style="width:100%;margin:.2rem 0 .8rem 0;">
                                 <div id="swal-emails-preview" class="small text-muted" style="min-height:20px;margin:-.2rem 0 .8rem 0;"></div>
                                 <label class="form-label mb-1">Asunto</label>
                                 <input id="swal-asunto" class="swal2-input" value="${defaultAsunto}" style="width:100%;margin:.2rem 0 0 0;">
@@ -3501,6 +3664,182 @@ class Reporteria extends Controller
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fa fa-envelope me-1"></i> Enviar correo';
                     }
+                }
+            });
+
+            /* ── Administrar destinatarios ── */
+            document.getElementById('btnConfigCorreosPrimerosPagos')?.addEventListener('click', async () => {
+                const parseEmails = (raw) => (raw || '')
+                    .split(/[,\s;]+/)
+                    .map(v => v.trim().toLowerCase())
+                    .filter(Boolean);
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                let actuales = [];
+                try {
+                    const r = await fetch('/analitica/getPrimerosPagosDestinatariosCorreo', { method: 'POST' });
+                    const d = await r.json();
+                    if (!d?.success) throw new Error(d?.mensaje || 'No se pudo cargar la configuración.');
+                    const arr = Array.isArray(d?.datos?.destinatarios) ? d.datos.destinatarios : [];
+                    actuales = arr
+                        .map((v) => (typeof v === 'string' ? { email: String(v || '').trim(), activo: true } : v))
+                        .map((v) => ({
+                            email: String(v?.email || '').trim().toLowerCase(),
+                            activo: v?.activo !== false,
+                        }))
+                        .filter((v) => v.email);
+                } catch (e) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'error', title: 'Correos', text: e?.message || 'No se pudo cargar la lista.' });
+                    }
+                    return;
+                }
+
+                if (typeof Swal === 'undefined') {
+                    const txt = window.prompt('Correos (separados por coma):', actuales.map(v => v.email).join(', ')) || '';
+                    const lista = [...new Set(parseEmails(txt))];
+                    if (!lista.length) return;
+                    const invalidos = lista.filter(e => !emailRegex.test(e));
+                    if (invalidos.length) return;
+                    await fetch('/analitica/setPrimerosPagosDestinatariosCorreo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ destinatarios: lista.map((email) => ({ email, activo: true })) }),
+                    });
+                    return;
+                }
+
+                const res = await Swal.fire({
+                    title: 'Administrar correos',
+                    html: `
+                        <div class="text-start">
+                            <label class="form-label mb-2 fw-semibold">Destinatarios</label>
+                            <div id="swal-correos-admin-lista" class="rounded-3 border bg-light p-2 overflow-auto"></div>
+                            <div class="input-group input-group-sm mt-3">
+                                <input id="swal-correos-admin-new" class="form-control" placeholder="nuevo@dominio.com">
+                                <button id="swal-correos-admin-add" type="button" class="btn btn-primary">
+                                    <i class="fa fa-plus me-1"></i>Agregar
+                                </button>
+                            </div>
+                            <div id="swal-correos-admin-preview" class="small mt-2"></div>
+                        </div>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Guardar',
+                    cancelButtonText: 'Cancelar',
+                    didOpen: () => {
+                        const listaEl = document.getElementById('swal-correos-admin-lista');
+                        const inNew = document.getElementById('swal-correos-admin-new');
+                        const btnAdd = document.getElementById('swal-correos-admin-add');
+                        const pv = document.getElementById('swal-correos-admin-preview');
+                        let items = [...actuales];
+                        const render = () => {
+                            if (!listaEl) return;
+                            if (!items.length) {
+                                listaEl.innerHTML = '<div class="text-muted small py-2 px-1">Sin correos. Agrega uno para comenzar.</div>';
+                            } else {
+                                listaEl.innerHTML = items.map((it, ix) => `
+                                    <div class="d-flex align-items-center gap-2 py-2 px-2 mb-1 rounded-2 border bg-white">
+                                        <div class="form-check form-switch m-0 flex-grow-1 d-flex align-items-center gap-2">
+                                            <input class="form-check-input me-1" type="checkbox" role="switch" id="ppmail_${ix}" ${it.activo ? 'checked' : ''} data-ix="${ix}">
+                                            <label class="form-check-label small fw-medium ${it.activo ? '' : 'text-muted'}" for="ppmail_${ix}">${it.email}</label>
+                                            <span class="badge ${it.activo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'} ms-2">${it.activo ? 'Activo' : 'Inactivo'}</span>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-del="${ix}" title="Quitar">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </div>
+                                `).join('');
+                            }
+                            refresh();
+                        };
+                        const refresh = () => {
+                            if (!pv) return;
+                            const total = items.length;
+                            const activos = items.filter((x) => x.activo).length;
+                            if (!total) {
+                                pv.innerHTML = '<span class="text-warning fw-semibold">Debes agregar al menos un correo.</span>';
+                                return;
+                            }
+                            if (!activos) {
+                                pv.innerHTML = '<span class="text-warning fw-semibold">Activa al menos un correo para envío.</span>';
+                                return;
+                            }
+                            pv.innerHTML = `<span class="badge bg-success-subtle text-success">Activos: ${activos}</span> <span class="badge bg-primary-subtle text-primary ms-1">Total: ${total}</span>`;
+                        };
+                        listaEl?.addEventListener('click', (ev) => {
+                            const btnDel = ev.target?.closest ? ev.target.closest('[data-del]') : null;
+                            const del = btnDel?.getAttribute ? btnDel.getAttribute('data-del') : null;
+                            if (del == null) return;
+                            const i = Number(del);
+                            if (!Number.isFinite(i)) return;
+                            items.splice(i, 1);
+                            render();
+                        });
+                        listaEl?.addEventListener('change', (ev) => {
+                            const t = ev.target;
+                            if (!t?.getAttribute) return;
+                            const ix = Number(t.getAttribute('data-ix'));
+                            if (!Number.isFinite(ix) || !items[ix]) return;
+                            items[ix].activo = !!t.checked;
+                            render();
+                        });
+                        btnAdd?.addEventListener('click', () => {
+                            const email = String(inNew?.value || '').trim().toLowerCase();
+                            if (!email) return;
+                            if (!emailRegex.test(email)) {
+                                if (pv) pv.innerHTML = `<span class="text-danger">Correo inválido: ${email}</span>`;
+                                return;
+                            }
+                            if (items.some((x) => x.email === email)) {
+                                if (pv) pv.innerHTML = `<span class="text-warning">Ese correo ya existe.</span>`;
+                                return;
+                            }
+                            items.push({ email, activo: true });
+                            if (inNew) inNew.value = '';
+                            render();
+                        });
+                        inNew?.addEventListener('keydown', (ev) => {
+                            if (ev.key === 'Enter') {
+                                ev.preventDefault();
+                                btnAdd?.click();
+                            }
+                        });
+                        window.__ppMailItemsRef = () => items;
+                        render();
+                    },
+                    preConfirm: () => {
+                        const items = (typeof window.__ppMailItemsRef === 'function') ? window.__ppMailItemsRef() : [];
+                        if (!Array.isArray(items) || !items.length) {
+                            Swal.showValidationMessage('Debes agregar al menos un correo.');
+                            return false;
+                        }
+                        const invalidos = items.map((x) => x.email).filter(e => !emailRegex.test(e));
+                        if (invalidos.length) {
+                            Swal.showValidationMessage(`Corrige correos inválidos: ${invalidos.join(', ')}`);
+                            return false;
+                        }
+                        const activos = items.filter((x) => x.activo);
+                        if (!activos.length) {
+                            Swal.showValidationMessage('Activa al menos un correo.');
+                            return false;
+                        }
+                        return { destinatarios: items };
+                    }
+                });
+                if (!res.isConfirmed || !res.value) return;
+
+                try {
+                    const r = await fetch('/analitica/setPrimerosPagosDestinatariosCorreo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ destinatarios: res.value.destinatarios }),
+                    });
+                    const d = await r.json();
+                    if (!d?.success) throw new Error(d?.mensaje || 'No se pudo guardar.');
+                    Swal.fire({ icon: 'success', title: 'Guardado', text: 'Destinatarios actualizados correctamente.' });
+                } catch (e) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: e?.message || 'No se pudo guardar la lista.' });
+                } finally {
+                    try { delete window.__ppMailItemsRef; } catch (e) {}
                 }
             });
 
@@ -3967,6 +4306,50 @@ class Reporteria extends Controller
             }
         }
         return $out;
+    }
+
+    public function getPrimerosPagosDestinatariosCorreo()
+    {
+        try {
+            if (!$this->puedeEnviarCorreoPrimerosPagos()) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+                return;
+            }
+            $cfg = $this->cargarConfigDestinatariosPrimerosPagos();
+            self::respuestaJSON(self::respuesta(true, 'Destinatarios obtenidos.', [
+                'destinatarios' => $cfg['destinatarios'],
+                'updated_at' => $cfg['updated_at'],
+            ]));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener destinatarios: ' . $e->getMessage()));
+        }
+    }
+
+    public function setPrimerosPagosDestinatariosCorreo()
+    {
+        try {
+            if (!$this->puedeEnviarCorreoPrimerosPagos()) {
+                self::respuestaJSON(self::respuesta(false, 'No autorizado.'));
+                return;
+            }
+            $raw = file_get_contents('php://input');
+            $body = json_decode((string) $raw, true);
+            if (!is_array($body)) {
+                self::respuestaJSON(self::respuesta(false, 'Payload inválido.'));
+                return;
+            }
+            $dest = $body['destinatarios'] ?? [];
+            if (!is_array($dest)) {
+                self::respuestaJSON(self::respuesta(false, 'destinatarios debe ser un arreglo.'));
+                return;
+            }
+            $guardados = $this->guardarDestinatariosPrimerosPagos($dest);
+            self::respuestaJSON(self::respuesta(true, 'Destinatarios actualizados.', [
+                'destinatarios' => $guardados,
+            ]));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al guardar destinatarios: ' . $e->getMessage()));
+        }
     }
 
     public function getEstadoEnvioVencimientosLunesProgramado()

@@ -2,20 +2,45 @@
 """Configuración central. Carga desde .env; valores por defecto permiten arranque sin .env."""
 import os
 import sys
-from pydantic_settings import BaseSettings
+from pathlib import Path
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import List
 
 
 def _default_tesseract_cmd() -> str:
+    # Raíz de esta API: .../backend/API  (este archivo está en app/core/config.py)
+    api_root = Path(__file__).resolve().parents[2]
+    portable = (
+        api_root / "tools" / "tesseract.exe",
+        api_root / "tools" / "Tesseract-OCR" / "tesseract.exe",
+    )
     if sys.platform == "win32":
+        for p in portable:
+            if p.is_file():
+                return str(p)
         win_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
         if os.path.isfile(win_path):
             return win_path
+        win_path86 = r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"
+        if os.path.isfile(win_path86):
+            return win_path86
+    else:
+        for p in portable:
+            if p.is_file():
+                return str(p)
     return "tesseract"
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
     # App
     app_name: str = "Doc Verificacion API"
     app_version: str = "1.0.0"
@@ -37,6 +62,20 @@ class Settings(BaseSettings):
     # Tesseract (en Windows auto-detecta; definir TESSERACT_CMD en .env para override)
     tesseract_cmd: str = _default_tesseract_cmd()
 
+    @field_validator("tesseract_cmd", mode="after")
+    @classmethod
+    def _tesseract_cmd_resuelve_si_invalido(cls, v: str) -> str:
+        s = (v or "").strip().strip('"')
+        if sys.platform == "win32" and s.startswith("/"):
+            # Típico .env copiado de Linux (Docker/ejemplo)
+            s = _default_tesseract_cmd()
+        p = Path(s) if s else None
+        if p is not None and p.is_file():
+            return str(p.resolve())
+        auto = Path(_default_tesseract_cmd())
+        if auto.is_file():
+            return str(auto.resolve())
+        return s or "tesseract"
 
     # Google Vision (opcional)
     use_google_vision: bool = False
@@ -85,12 +124,6 @@ class Settings(BaseSettings):
         "codigo_barras": 0.10,
         "ml_classifier": 0.10,
     }
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-
 
 @lru_cache()
 def get_settings() -> Settings:

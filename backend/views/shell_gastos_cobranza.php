@@ -71,12 +71,29 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
             <div style="font-size:15px; font-weight:700; color:#1a3a5c;"><?= htmlspecialchars($gcUltRep, ENT_QUOTES, 'UTF-8') ?></div>
         </div>
         <?php if (!$gc_shell_modo_cartera): ?>
-        <div style="flex:1; padding-left:20px;">
+        <div style="flex:1; padding-left:20px; min-width:12rem;">
             <div style="font-size:12px; color:#6b7a90; margin-bottom:4px;">Reporte automático</div>
             <div class="form-check form-switch mb-0 gc-auto-run-switch d-flex align-items-center gap-2 ps-0">
                 <input class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch" id="switchGcAutoRunReporte" autocomplete="off" disabled
                     title="Si está activo, el agente Node dispara el reporte en la ventana horaria CDMX configurada (por defecto ~10:00). Requiere agente en línea. La preferencia se guarda en el servidor del agente.">
                 <span id="gcAutoRunEstadoTexto" class="small fw-semibold <?= htmlspecialchars($gcRepAutoClase, ENT_QUOTES, 'UTF-8') ?>" style="color:<?= htmlspecialchars($gcRepAutoColor, ENT_QUOTES, 'UTF-8') ?>;"><?= htmlspecialchars($gcRepAuto, ENT_QUOTES, 'UTF-8') ?></span>
+            </div>
+            <div class="mt-2 pt-2" style="border-top:0.5px solid #eef1f5;">
+                <div class="small mb-1" style="font-size:11px; color:#6b7a90;">Días CDMX (auto)</div>
+                <div class="d-flex flex-wrap gap-2 align-items-center" role="group" aria-label="Días de ejecución del reporte automático">
+                    <?php
+                    $gcDiasLabels = [0 => 'Lun', 1 => 'Mar', 2 => 'Mié', 3 => 'Jue', 4 => 'Vie', 5 => 'Sáb', 6 => 'Dom'];
+                    foreach ($gcDiasLabels as $wd => $lab) {
+                        $wid = (int) $wd;
+                        echo '<div class="form-check form-switch m-0 d-flex align-items-center gap-1">';
+                        echo '<input class="form-check-input ms-0 flex-shrink-0 gc-auto-run-dia-cb" type="checkbox" role="switch" autocomplete="off" disabled '
+                            . 'id="gcAutoRunDia' . $wid . '" data-gc-wd="' . $wid . '" title="Incluir ' . htmlspecialchars($lab, ENT_QUOTES, 'UTF-8') . '">';
+                        echo '<label class="form-check-label small mb-0 user-select-none" for="gcAutoRunDia' . $wid . '" style="font-size:11px; color:#4a5f7a;">'
+                            . htmlspecialchars($lab, ENT_QUOTES, 'UTF-8') . '</label>';
+                        echo '</div>';
+                    }
+                    ?>
+                </div>
             </div>
         </div>
         <?php endif; ?>
@@ -1607,6 +1624,84 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
     var txtGcAutoRunEstado = document.getElementById('gcAutoRunEstadoTexto');
     /** Evita POST al sincronizar el switch desde /health */
     var gcAutoRunProgrammatic = false;
+    var gcAutoRunPersistTimer = null;
+
+    function gcCollectDiasChecked() {
+        var diasArr = [];
+        document.querySelectorAll('.gc-auto-run-dia-cb').forEach(function (el) {
+            if (!el.checked) return;
+            var w = parseInt(el.getAttribute('data-gc-wd'), 10);
+            if (!isNaN(w)) diasArr.push(w);
+        });
+        diasArr.sort(function (a, b) { return a - b; });
+        return diasArr;
+    }
+
+    async function gcPersistPreferenciaAutoRunYdias() {
+        if (gcShellModoCartera || !switchGcAutoRun || !gcAgenteOnline) return;
+        if (gcAutoRunProgrammatic) return;
+        var deseado = switchGcAutoRun.checked;
+        var diasArr = gcCollectDiasChecked();
+        if (diasArr.length === 0) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'warning', title: 'Días CDMX', text: 'Seleccione al menos un día de la semana.', confirmButtonColor: '#696cff' });
+            } else {
+                alert('Seleccione al menos un día de la semana.');
+            }
+            await refrescarEstado({ silencioso: true });
+            return;
+        }
+        var diasInputs = document.querySelectorAll('.gc-auto-run-dia-cb');
+        switchGcAutoRun.disabled = true;
+        diasInputs.forEach(function (el) { el.disabled = true; });
+        try {
+            var r = await fetch('/gastoscobranza/configurarautorunreporte', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
+                body: JSON.stringify({ enabled: deseado, dias: diasArr }),
+            });
+            var d = await r.json().catch(function () { return {}; });
+            if (!d.success) {
+                await refrescarEstado({ silencioso: true });
+                var msg = d.mensaje || 'No se pudo actualizar. ¿Agente actualizado (ruta /auto-run-reporte)?';
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Reporte automático', text: msg, confirmButtonColor: '#696cff' });
+                } else {
+                    alert(msg);
+                }
+            } else {
+                await refrescarEstado({ silencioso: true });
+                if (d.auto_run_runtime_solo_memoria && typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Reporte automático',
+                        text: 'El cambio quedó guardado solo en memoria del agente Node (no se pudo escribir en disco). Sigue válido hasta reiniciar el agente; para persistencia, permita escritura en gastos-cobranza-agent/data/ o en la carpeta temporal del sistema.',
+                        confirmButtonColor: '#696cff',
+                    });
+                }
+            }
+        } catch (err) {
+            await refrescarEstado({ silencioso: true });
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: 'Red', text: String(err.message || err), confirmButtonColor: '#696cff' });
+            } else {
+                alert(String(err.message || err));
+            }
+        } finally {
+            if (gcAgenteOnline && switchGcAutoRun) switchGcAutoRun.disabled = false;
+            if (gcAgenteOnline) {
+                document.querySelectorAll('.gc-auto-run-dia-cb').forEach(function (el) { el.disabled = false; });
+            }
+        }
+    }
+
+    function gcSchedulePersistAutoRun() {
+        if (gcAutoRunPersistTimer) clearTimeout(gcAutoRunPersistTimer);
+        gcAutoRunPersistTimer = setTimeout(function () {
+            gcAutoRunPersistTimer = null;
+            gcPersistPreferenciaAutoRunYdias();
+        }, 450);
+    }
 
     function actualizarTextoAutoRun(on) {
         if (!txtGcAutoRunEstado) return;
@@ -1617,15 +1712,35 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
 
     function aplicarAutoRunDesdeAgente(agente) {
         if (!switchGcAutoRun) return;
+        var diasInputs = document.querySelectorAll('.gc-auto-run-dia-cb');
         if (!gcAgenteOnline || !agente || !agente.auto_run_cdmx) {
             switchGcAutoRun.disabled = true;
+            diasInputs.forEach(function (el) { el.disabled = true; });
             actualizarTextoAutoRun(!!switchGcAutoRun.checked);
             return;
         }
         switchGcAutoRun.disabled = false;
-        var on = !!agente.auto_run_cdmx.enabled;
+        diasInputs.forEach(function (el) { el.disabled = false; });
+        var arc = agente.auto_run_cdmx;
+        var on = !!arc.enabled;
+        var dlist = arc.dias;
         gcAutoRunProgrammatic = true;
         switchGcAutoRun.checked = on;
+        diasInputs.forEach(function (el) {
+            var w = parseInt(el.getAttribute('data-gc-wd'), 10);
+            if (isNaN(w)) return;
+            if (!dlist || !dlist.length) {
+                el.checked = true;
+            } else {
+                el.checked = false;
+                for (var i = 0; i < dlist.length; i++) {
+                    if (parseInt(dlist[i], 10) === w) {
+                        el.checked = true;
+                        break;
+                    }
+                }
+            }
+        });
         gcAutoRunProgrammatic = false;
         actualizarTextoAutoRun(on);
     }
@@ -3258,54 +3373,16 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
     if (switchGcAutoRun) {
         switchGcAutoRun.addEventListener('change', async function () {
             if (gcAutoRunProgrammatic) return;
-            if (!gcAgenteOnline) return;
-            var deseado = switchGcAutoRun.checked;
-            actualizarTextoAutoRun(deseado);
-            switchGcAutoRun.disabled = true;
-            try {
-                var r = await fetch('/gastoscobranza/configurarautorunreporte', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Front-Request': 'true' },
-                    body: JSON.stringify({ enabled: deseado }),
-                });
-                var d = await r.json().catch(function () { return {}; });
-                if (!d.success) {
-                    gcAutoRunProgrammatic = true;
-                    switchGcAutoRun.checked = !deseado;
-                    gcAutoRunProgrammatic = false;
-                    actualizarTextoAutoRun(!deseado);
-                    var msg = d.mensaje || 'No se pudo actualizar. ¿Agente actualizado (ruta /auto-run-reporte)?';
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({ icon: 'error', title: 'Reporte automático', text: msg, confirmButtonColor: '#696cff' });
-                    } else {
-                        alert(msg);
-                    }
-                } else {
-                    await refrescarEstado({ silencioso: true });
-                    if (d.auto_run_runtime_solo_memoria && typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Reporte automático',
-                            text: 'El cambio quedó guardado solo en memoria del agente Node (no se pudo escribir en disco). Sigue válido hasta reiniciar el agente; para persistencia, permita escritura en gastos-cobranza-agent/data/ o en la carpeta temporal del sistema.',
-                            confirmButtonColor: '#696cff',
-                        });
-                    }
-                }
-            } catch (err) {
-                gcAutoRunProgrammatic = true;
-                switchGcAutoRun.checked = !deseado;
-                gcAutoRunProgrammatic = false;
-                actualizarTextoAutoRun(!deseado);
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'error', title: 'Red', text: String(err.message || err), confirmButtonColor: '#696cff' });
-                } else {
-                    alert(String(err.message || err));
-                }
-            } finally {
-                if (gcAgenteOnline && switchGcAutoRun) switchGcAutoRun.disabled = false;
-            }
+            actualizarTextoAutoRun(!!switchGcAutoRun.checked);
+            await gcPersistPreferenciaAutoRunYdias();
         });
     }
+    document.querySelectorAll('.gc-auto-run-dia-cb').forEach(function (el) {
+        el.addEventListener('change', function () {
+            if (gcAutoRunProgrammatic) return;
+            gcSchedulePersistAutoRun();
+        });
+    });
     refrescarEstado();
     programarPoll();
 })();

@@ -47,29 +47,20 @@ if (-not (Test-Path -LiteralPath $mainPy)) {
     exit 1
 }
 
-# ---- 2) Resolver Python ----
+# ---- 2) Resolver Python (venv > portable sin PATH > py > python en PATH) ----
+. (Join-Path $here '_resolve_python.ps1')
+$pyResolve = Resolve-SpartaApiPython -ApiDir $ApiDir
 $pyExe = $null
 $pyArgs = @()
-$venvPy = Join-Path $ApiDir 'venv\Scripts\python.exe'
-if (Test-Path -LiteralPath $venvPy) {
-    $pyExe = $venvPy
-    Write-Start "Python: venv ($venvPy)"
-} else {
-    & py -3 -c "import sys" *> $null
-    if ($LASTEXITCODE -eq 0) {
-        $pyExe = 'py'; $pyArgs = @('-3')
-        Write-Start 'Python: py -3 (global)'
-    } else {
-        & python -c "import sys" *> $null
-        if ($LASTEXITCODE -eq 0) {
-            $pyExe = 'python'
-            Write-Start 'Python: python (global)'
-        }
-    }
+if ($pyResolve) {
+    $pyExe = $pyResolve.Exe
+    $pyArgs = [string[]]$pyResolve.Args
+    Write-Start "Python: $($pyResolve.Source) ($pyExe)"
 }
 if (-not $pyExe) {
-    Write-Start 'ERROR: No se encontro Python (ni venv, ni py -3, ni python).'
-    Write-Start 'SOLUCION: ejecute launcher\Diagnosticar-API.bat para ver el detalle, o instale Python 3.10/3.11/3.12 64-bit.'
+    Write-Start 'ERROR: No se encontro Python (ni venv, ni portable tools\, ni py -3, ni python).'
+    Write-Start 'SOLUCION sin instalador/PATH: ponga Python 3.12 en API\tools\PythonPortable\ o una linea en launcher\PYTHON_EXE.txt'
+    Write-Start 'Ejecute launcher\Diagnosticar-API.bat para ver el detalle.'
     exit 1
 }
 

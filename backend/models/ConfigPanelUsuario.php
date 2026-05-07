@@ -63,14 +63,14 @@ class ConfigPanelUsuario extends Model
 
     /** Módulos que dan acceso a cada panel (clave => [id_modulo, ...]). */
     const PANELES_MODULOS = [
-        'sabueso_paneladmin' => [19],
-        'sabueso_panel_validaciones' => [19],
-        'sabueso_panel_plantilla' => [19],
-        'sabueso_panel_atencioncliente' => [19],
-        'sabueso_panel_viaticos' => [19],
-        'sabueso_panel_aplicacionespago' => [19],
-        'sabueso_panel_creditoproblematico' => [19],
-        'sabueso_panel_aclaracioncredito' => [19],
+        'sabueso_paneladmin' => [27],
+        'sabueso_panel_validaciones' => [27],
+        'sabueso_panel_plantilla' => [27],
+        'sabueso_panel_atencioncliente' => [27],
+        'sabueso_panel_viaticos' => [27],
+        'sabueso_panel_aplicacionespago' => [27],
+        'sabueso_panel_creditoproblematico' => [27],
+        'sabueso_panel_aclaracioncredito' => [27],
         'sabueso_panelsolicitudbaja' => [25],
     ];
 

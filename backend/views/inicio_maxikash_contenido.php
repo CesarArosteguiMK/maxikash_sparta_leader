@@ -621,17 +621,17 @@ body.dark-mode .inicio-btn-api1click {
       type="button"
       id="btnApiDocOneClick"
       class="inicio-btn-api1click"
-      title="Instalar + diagnosticar + iniciar API documentación (1 click)"
-      aria-label="Ejecutar API documentación 1 click">
+      title="Canal oficial (usuario 878): diagnosticar, instalar dependencias si hace falta e iniciar la API — sin ejecutar BAT a mano en el servidor."
+      aria-label="API documentación: diagnóstico e inicio desde la web">
       <i class="fa-solid fa-rocket"></i>
       <span>API</span>
     </button>
     <div class="api1click-panel" id="api1clickPanel" aria-live="polite">
       <div class="api1click-hd">
-        <span class="api1click-title">API documentación · instalación/arranque 1-click</span>
+        <span class="api1click-title">API documentación · flujo oficial 1‑click</span>
         <span class="api1click-badge" id="api1clickBadge">Listo</span>
       </div>
-      <p class="api1click-help">Logs del servidor (sin entrar al disco): elige archivo → Ver → Copiar o Descargar para enviar al soporte.</p>
+      <p class="api1click-help"><strong>Canal oficial (usuario 878):</strong> diagnóstico, instalación si hace falta y arranque de la API desde aquí — sin ejecutar BAT a mano en el servidor ni depender del PATH. Python/Tesseract dentro de la carpeta de la API los deja soporte/despliegue una vez; el día a día es este botón. Logs (<code>backend/API/logs</code>): Lista → Ver → Copiar o Descargar.</p>
       <div class="api1click-toolbar">
         <select id="api1clickLogSelect" title="Archivos .log en backend/API/logs" aria-label="Seleccionar log">
           <option value="">— Cargar lista —</option>

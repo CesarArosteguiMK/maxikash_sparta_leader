@@ -129,12 +129,14 @@
         padding: .75rem; background: #f8fafc;
         border: 1px solid #e2e8f0; border-top: none;
         border-radius: 0 0 .5rem .5rem;
-        display: flex; gap: .625rem; overflow-x: auto; scrollbar-width: thin;
+        display: grid;
+        grid-template-columns: repeat(6, 150px);
+        justify-content: start;
+        gap: .625rem;
+        overflow: visible;
     }
-    .madj-ev-slots-wrap::-webkit-scrollbar { height: 5px; }
-    .madj-ev-slots-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     .madj-ev-slot {
-        flex-shrink: 0; width: 120px; height: 120px;
+        width: 150px; height: 110px;
         background: #fff; border: 2px dashed #cbd5e1; border-radius: .625rem;
         cursor: pointer; position: relative;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -207,7 +209,14 @@
         body.dark-mode .madj-ev-slot.has-file.status-rechazada { animation: none !important; }
     }
     .madj-ev-slot img.madj-thumb,
-    .madj-ev-slot video.madj-thumb    { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .madj-ev-slot video.madj-thumb    {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+        background: #f8fafc;
+        display: block;
+    }
     .madj-slot-vid-ov {
         position: absolute; inset: 0; background: rgba(0,0,0,.38);
         display: flex; align-items: center; justify-content: center; pointer-events: none;
@@ -549,10 +558,19 @@
     }
     .madj-ev-progress-lbl  { font-size: .68rem; font-weight: 700; color: #64748b; text-align: right; margin-top: .2rem; }
     /* -- Mobile modal adjustments ------------------------------ */
+    @media (max-width: 1199.98px) {
+        .madj-ev-slots-wrap { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    }
+    @media (max-width: 991.98px) {
+        .madj-ev-slots-wrap { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    @media (max-width: 767.98px) {
+        .madj-ev-slots-wrap { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
     @media (max-width: 575.98px) {
         #modalEvidenciasMadj .modal-header { padding: .625rem 1rem; }
         #modalEvidenciasMadj .modal-body   { padding: .625rem .75rem; }
-        .madj-ev-slots-wrap { display: grid !important; grid-template-columns: repeat(2, 1fr); overflow-x: visible; }
+        .madj-ev-slots-wrap { grid-template-columns: repeat(2, 1fr); }
         .madj-ev-slot       { width: 100% !important; height: 140px !important; }
     }
 
@@ -1515,12 +1533,17 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     const MADJ_EV_SECTIONS = [
         { key: 'fisica', label: 'Evidencia Física (Momento 1)', headerClass: 'madj-ev-hdr-blue', icon: 'fa-camera',
           slots: [
-              { key: 'fis_vin',       label: 'Serie VIN',       icon: 'fa-barcode',        accept: 'image/jpeg,image/png' },
-              { key: 'fis_tacometro', label: 'Tacómetro',       icon: 'fa-gauge-high',     accept: 'image/jpeg,image/png' },
-              { key: 'fis_frontal',   label: 'Vista Frontal',   icon: 'fa-camera',         accept: 'image/jpeg,image/png' },
-              { key: 'fis_lateral',   label: 'Vista Lateral',   icon: 'fa-camera-rotate',  accept: 'image/jpeg,image/png' },
-              { key: 'fis_360',       label: 'Inspección 360',  icon: 'fa-video',          accept: 'video/mp4', isVideo: true },
-              { key: 'fis_contrato_dacion', label: 'Contrato Dación', icon: 'fa-file-signature', accept: 'image/jpeg,image/png,application/pdf', allowPdf: true },
+              { key: 'fis_dacion_hoja_1', label: 'Foto Dación (Hoja 1)', icon: 'fa-file-signature', accept: 'image/jpeg,image/png,application/pdf', allowPdf: true },
+              { key: 'fis_dacion_hoja_2', label: 'Foto Dación (Hoja 2)', icon: 'fa-file-signature', accept: 'image/jpeg,image/png,application/pdf', allowPdf: true },
+              { key: 'fis_vin', label: 'Foto NIV (VIN)', icon: 'fa-barcode', accept: 'image/jpeg,image/png' },
+              { key: 'fis_frontal', label: 'Foto frontal', icon: 'fa-camera', accept: 'image/jpeg,image/png' },
+              { key: 'fis_lateral_der', label: 'Foto lateral derecha', icon: 'fa-camera-rotate', accept: 'image/jpeg,image/png' },
+              { key: 'fis_trasera', label: 'Foto trasera', icon: 'fa-camera-retro', accept: 'image/jpeg,image/png' },
+              { key: 'fis_lateral_izq', label: 'Foto lateral izquierda', icon: 'fa-camera-rotate', accept: 'image/jpeg,image/png' },
+              { key: 'fis_tacometro', label: 'Foto tacómetro', icon: 'fa-gauge-high', accept: 'image/jpeg,image/png' },
+              { key: 'fis_video_cliente_acuerdo', label: 'Video cliente de acuerdo', icon: 'fa-user-check', accept: 'video/mp4', isVideo: true },
+              { key: 'fis_360_encendida', label: 'Video moto 360 encendida', icon: 'fa-video', accept: 'video/mp4', isVideo: true },
+              { key: 'fis_video_vuelta_prueba', label: 'Video vuelta de prueba', icon: 'fa-road', accept: 'video/mp4', isVideo: true },
           ]},
     ];
 

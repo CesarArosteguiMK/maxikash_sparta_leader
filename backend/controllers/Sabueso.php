@@ -90,7 +90,7 @@ class Sabueso extends Controller
         $usuarioId = (int)($_SESSION['usuario_id'] ?? 0);
         $personaId = (int)($_SESSION['persona_id'] ?? $usuarioId);
         $panelesUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
-        /** Rastreo: módulo 29 (permiso especial) o legado 18/19; sin requerir panel sabueso_paneladmin. */
+        /** Rastreo: módulo 29 (permiso especial) o Ticket (18) / Panel Admin (27); sin requerir panel sabueso_paneladmin. */
         $soloConsultaCredito = ($forzarSoloConsultaCredito === true)
             || (isset($_GET['solo_consulta_credito']) && (string)$_GET['solo_consulta_credito'] === '1');
         // URL canónica bajo Analítica (evita /sabueso/paneladmin?solo_consulta_credito=1 en la barra de direcciones).
@@ -100,7 +100,7 @@ class Sabueso extends Controller
         }
         if ($soloConsultaCredito) {
             $mods = array_map('intval', (array)($_SESSION['modulos'] ?? []));
-            if (!array_intersect([18, 19, 29], $mods)) {
+            if (!array_intersect([18, 27, 29], $mods)) {
                 header('Location: /Inicio', true, 302);
                 exit;
             }
@@ -110,7 +110,7 @@ class Sabueso extends Controller
         }
         $usuarioNombre = $usuarioId ? TicketDAO::getNombrePersona($usuarioId) : '';
         $modulos = $_SESSION['modulos'] ?? [];
-        $puedeUsarAnalizarIA = is_array($modulos) && (in_array(19, $modulos) || in_array(27, $modulos));
+        $puedeUsarAnalizarIA = is_array($modulos) && in_array(27, $modulos, true);
         self::set('miUsuarioId', $usuarioId);
         self::set('miUsuarioNombre', $usuarioNombre);
         self::set('miPersonaId', $personaId);
@@ -179,8 +179,8 @@ class Sabueso extends Controller
     {
         $mods = array_map('intval', (array) ($_SESSION['modulos'] ?? []));
         $idUsuarioSesion = (int) ($_SESSION['usuario_id'] ?? 0);
-        // Mismo criterio amplio que Estado de cuenta (usuario 1 o módulo 29) + legado panel 18/19.
-        if ($idUsuarioSesion !== 1 && !array_intersect([18, 19, 29], $mods)) {
+        // Mismo criterio amplio que Estado de cuenta (usuario 1 o módulo 29) + Ticket 18 / Panel 27.
+        if ($idUsuarioSesion !== 1 && !array_intersect([18, 27, 29], $mods)) {
             return '';
         }
         $usuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
@@ -4349,7 +4349,7 @@ class Sabueso extends Controller
 
     /**
      * API: análisis con IA (Google Gemini). Recibe id_credito e id_ticket, reúne contexto y devuelve predicción.
-     * Solo usuarios con permiso al Panel Admin (módulo 19) pueden usar esta función.
+     * Solo usuarios con permiso al Panel Admin (módulo 27) pueden usar esta función.
      */
     public function analizarIA()
     {
@@ -4359,7 +4359,7 @@ class Sabueso extends Controller
         @set_time_limit(90);
         try {
             $modulos = $_SESSION['modulos'] ?? [];
-            if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
+            if (!is_array($modulos) || !in_array(27, $modulos, true)) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Analizar con IA.', 'texto' => '']);
                 return;
             }
@@ -5574,7 +5574,7 @@ class Sabueso extends Controller
     /**
      * API: resumir solo ubicaciones con IA (Gemini). Recibe id_credito.
      * Devuelve JSON estructurado: one_line_summary, predictions, next_steps. Máx 1024 tokens.
-     * Solo usuarios con permiso al Panel Admin (módulo 19) pueden usar esta función.
+     * Solo usuarios con permiso al Panel Admin (módulo 27) pueden usar esta función.
      */
     public function resumirUbicacionesIA()
     {
@@ -5584,7 +5584,7 @@ class Sabueso extends Controller
         @set_time_limit(90);
         try {
             $modulos = $_SESSION['modulos'] ?? [];
-            if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
+            if (!is_array($modulos) || !in_array(27, $modulos, true)) {
                 self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Resumir ubicaciones con IA.', 'texto' => '', 'json' => null]);
                 return;
             }
@@ -5794,12 +5794,12 @@ class Sabueso extends Controller
 
     /**
      * API: resumir histórico de gestiones con IA (Gemini). Recibe id_credito.
-     * Usa las últimas 10 gestiones o las del último mes. Solo usuarios con permiso (módulo 19).
+     * Usa las últimas 10 gestiones o las del último mes. Solo usuarios con permiso (módulo 27).
      */
     public function resumirGestionesIA()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
+        if (!is_array($modulos) || !in_array(27, $modulos, true)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para usar Resumen con IA.', 'texto' => '']);
             return;
         }
@@ -6137,12 +6137,12 @@ class Sabueso extends Controller
 
     /**
      * API: generar dictamen del sistema (verificación automática post-12h).
-     * Solo usuarios con acceso a Panel Admin (módulo 19).
+     * Solo usuarios con acceso a Panel Admin (módulo 27).
      */
     public function generarDictamenSistema()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
+        if (!is_array($modulos) || !in_array(27, $modulos, true)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
             return;
         }
@@ -6196,7 +6196,7 @@ class Sabueso extends Controller
     public function otorgarProrrogaDictamenSistema()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
+        if (!is_array($modulos) || !in_array(27, $modulos, true)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
             return;
         }
@@ -6232,7 +6232,7 @@ class Sabueso extends Controller
     public function otorgarIntensidadDictamenSistema()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
+        if (!is_array($modulos) || !in_array(27, $modulos, true)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para esta acción.']);
             return;
         }
@@ -6290,12 +6290,12 @@ class Sabueso extends Controller
     /**
      * API: evidencia cruda para verificación (pagos, GPS, gestiones, suspected_test).
      * No llama a IA. Sirve para contrastar lo que dice la Lectura IA con datos reales del sistema.
-     * Requiere permiso módulo 19 (Panel Admin / Analizar IA).
+     * Requiere permiso módulo 27 (Panel Admin / Analizar IA).
      */
     public function getEvidenciaVerificacion()
     {
         $modulos = $_SESSION['modulos'] ?? [];
-        if (!is_array($modulos) || (!in_array(19, $modulos) && !in_array(27, $modulos))) {
+        if (!is_array($modulos) || !in_array(27, $modulos, true)) {
             self::respuestaJSON(['success' => false, 'mensaje' => 'No tiene permiso para ver datos verificados.', 'datos' => null]);
             return;
         }

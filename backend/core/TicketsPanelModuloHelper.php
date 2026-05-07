@@ -120,7 +120,7 @@ class TicketsPanelModuloHelper
         $claveRequerida = self::CATEGORIA_CLAVE_PANEL[$c] ?? '';
         $panelesUsuario = ConfigPanelUsuarioDAO::getPanelesPorPersona($personaId);
         // Panel admin por módulo (p. ej. sabueso_panel_validaciones) no aplica a Validaciones/Gestor ni Validaciones/Territorial:
-        // esos accesos van por módulos de ruta (18/19) y rol operativo, no por el mismo permiso que el panel administrador.
+        // esos accesos van por módulos de ruta (18/27) y rol operativo, no por el mismo permiso que el panel administrador.
         $omitirClavePanelAdmin = ($c === 'validaciones' && in_array($modo, ['territorial', 'gestor'], true));
         if (!$omitirClavePanelAdmin && ($claveRequerida === '' || !in_array($claveRequerida, $panelesUsuario, true))) {
             header('Location: /sabueso/panelAdminInicio', true, 302);
@@ -179,7 +179,7 @@ class TicketsPanelModuloHelper
     }
 
     /**
-     * Entrada automática al menú Validaciones (gestor o jefe territorial) sin depender de módulos 18/19.
+     * Entrada automática al menú Validaciones (gestor o jefe territorial) sin depender de módulos 18/27.
      * null si no aplica o si usa panel admin de validaciones (config_panel_usuario).
      *
      * @return array{tipo: string, url: string}|null tipo = 'gestor'|'territorial'

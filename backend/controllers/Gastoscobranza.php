@@ -542,13 +542,44 @@ class Gastoscobranza extends Controller
             if (!is_array($body) || !array_key_exists('enabled', $body)) {
                 echo json_encode([
                     'success' => false,
-                    'mensaje' => 'JSON inválido: se requiere { "enabled": true|false }.',
+                    'mensaje' => 'JSON inválido: se requiere { "enabled": true|false [, "dias": [0,…,6]|null] }.',
                 ], JSON_UNESCAPED_UNICODE);
                 return;
             }
             $en = $body['enabled'] === true || $body['enabled'] === 1
                 || $body['enabled'] === '1' || strtolower((string)$body['enabled']) === 'true';
-            $req = $this->agenteRequest('POST', '/auto-run-reporte', ['enabled' => $en], 25);
+            $payload = ['enabled' => $en];
+            if (array_key_exists('dias', $body)) {
+                if ($body['dias'] === null) {
+                    $payload['dias'] = null;
+                } elseif (is_array($body['dias'])) {
+                    $dias = [];
+                    foreach ($body['dias'] as $x) {
+                        $n = (int) $x;
+                        if ($n >= 0 && $n <= 6) {
+                            $dias[$n] = true;
+                        }
+                    }
+                    $payload['dias'] = array_keys($dias);
+                    sort($payload['dias'], SORT_NUMERIC);
+                    if ($payload['dias'] === []) {
+                        echo json_encode([
+                            'success' => false,
+                            'mensaje' => 'Seleccione al menos un día (0=lunes … 6=domingo) o omita el campo dias.',
+                        ], JSON_UNESCAPED_UNICODE);
+
+                        return;
+                    }
+                } else {
+                    echo json_encode([
+                        'success' => false,
+                        'mensaje' => 'El campo dias debe ser un arreglo de enteros o null.',
+                    ], JSON_UNESCAPED_UNICODE);
+
+                    return;
+                }
+            }
+            $req = $this->agenteRequest('POST', '/auto-run-reporte', $payload, 25);
             if (!$req['success'] || !is_array($req['json']) || empty($req['json']['success'])) {
                 $msg = is_array($req['json']) && !empty($req['json']['mensaje'])
                     ? (string)$req['json']['mensaje']

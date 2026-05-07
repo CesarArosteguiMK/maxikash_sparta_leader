@@ -22,10 +22,10 @@ class Validaciones extends Controller
         $modulos = $_SESSION['modulos'] ?? [];
         if (!is_array($modulos)) $modulos = [];
 
-        // Blindaje extra: solo admin (módulo 19) se queda en Panel Admin.
-        if (!in_array(19, $modulos, true)) {
+        // Blindaje extra: solo admin (módulo 27 Panel Admin) se queda en Panel Admin.
+        if (!in_array(27, $modulos, true)) {
             $personaId = $this->obtenerPersonaIdSesion();
-            // Tiene panel validaciones en config pero no módulo 19: no enviar a territorial (allí se redirige otra vez a paneladmin).
+            // Tiene panel validaciones en config pero no módulo 27: no enviar a territorial (allí se redirige otra vez a paneladmin).
             if ($personaId > 0 && $this->personaTienePanelAdminValidaciones($personaId)) {
                 header('Location: /sabueso/panelAdminInicio', true, 302);
                 exit;

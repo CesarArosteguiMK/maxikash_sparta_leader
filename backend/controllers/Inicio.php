@@ -597,6 +597,11 @@ class Inicio extends Controller
     /**
      * Inicia el flujo 1-click de API documentación en segundo plano.
      * Solo usuario 878.
+     *
+     * Punto único pactado desde la web: ejecuta launcher\web-api-1click-runner.bat
+     * → Iniciar-API-Verificacion.bat (doctor, auto-fix/install si aplica, arranque).
+     * Quien mantenga Python portable en API\tools y Tesseract debe hacerlo vía despliegue;
+     * el usuario 878 no debe depender de consola manual en el servidor.
      */
     public function apiDocOneClickIniciar()
     {

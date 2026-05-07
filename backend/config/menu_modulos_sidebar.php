@@ -38,6 +38,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                 'icono' => 'fa-solid fa-chart-line',
                 'subItems' => [
                     ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49, 65, 66, 67, 68]],
+                    ['label' => 'Cartera actual', 'url' => '/analitica/carteraactual', 'modulos' => [19]],
                     ['label' => 'Call Center', 'url' => '/analitica/callcenter', 'modulos' => [6]],
                     // ❌ Se eliminó Sabuesos para evitar conflicto con Tickets
                     ['label' => 'Layout Legacy', 'url' => '/analitica/layoutlegacy', 'modulos' => [7]],
@@ -57,7 +58,7 @@ if (!function_exists('getMenuSidebarModulosStructure')) {
                     [
                         'label' => 'Panel Admin',
                         'url' => '/sabueso/panelAdminInicio',
-                        'modulos' => [19, 25, 27],
+                        'modulos' => [25, 27],
                     ],
                     [
                         'label' => 'Cerrado/Eliminado Sabueso',
