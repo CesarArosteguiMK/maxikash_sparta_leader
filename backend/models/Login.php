@@ -86,7 +86,8 @@ class Login extends Model
             }
         }
         $ids = array_values(array_unique($ids));
-        if ((in_array(19, $ids, true) || in_array(25, $ids, true)) && !in_array(27, $ids, true)) {
+        /* Módulo 19 = «Cartera actual» (Analítica); no inyectar Panel Admin (27). Solo 25 puede unificarse con 27. */
+        if (in_array(25, $ids, true) && !in_array(27, $ids, true)) {
             $ids[] = 27;
             $ids = array_values(array_unique($ids));
         }

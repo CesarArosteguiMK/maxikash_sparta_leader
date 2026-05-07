@@ -13,7 +13,7 @@ for %%I in ("%~dp0..") do set "API_DIR=%%~fI"
 if "%API_DIR:~-1%"=="\" set "API_DIR=%API_DIR:~0,-1%"
 cd /d "%API_DIR%"
 
-rem -------- Resolver Python: venv > py -3 > python --------
+rem -------- Resolver Python: venv > portable sin PATH > py -3 > python --------
 set "PY_EXE="
 set "PY_ARG="
 set "PY_SRC="
@@ -22,6 +22,32 @@ if exist "%API_DIR%\venv\Scripts\python.exe" (
     set "PY_EXE=%API_DIR%\venv\Scripts\python.exe"
     set "PY_ARG="
     set "PY_SRC=venv"
+    goto :have_py
+)
+
+if exist "%API_DIR%\launcher\PYTHON_EXE.txt" (
+    for /f "usebackq eol=# tokens=* delims=" %%x in ("%API_DIR%\launcher\PYTHON_EXE.txt") do (
+        if exist "%%~x" (
+            set "PY_EXE=%%~x"
+            set "PY_ARG="
+            set "PY_SRC=PYTHON_EXE.txt"
+            goto :have_py
+        )
+    )
+)
+if exist "%API_DIR%\tools\PythonPortable\python.exe" (
+    set "PY_EXE=%API_DIR%\tools\PythonPortable\python.exe"
+    set "PY_SRC=portable PythonPortable"
+    goto :have_py
+)
+if exist "%API_DIR%\tools\python312\python.exe" (
+    set "PY_EXE=%API_DIR%\tools\python312\python.exe"
+    set "PY_SRC=portable python312"
+    goto :have_py
+)
+if exist "%API_DIR%\tools\Python312\python.exe" (
+    set "PY_EXE=%API_DIR%\tools\Python312\python.exe"
+    set "PY_SRC=portable Python312"
     goto :have_py
 )
 
@@ -41,7 +67,8 @@ if not errorlevel 1 (
     goto :have_py
 )
 
-echo [ERROR] No hay Python disponible: ni venv, ni py -3, ni python.
+echo [ERROR] No hay Python: ni venv, ni portable en tools\, ni py -3, ni python en PATH.
+echo         Sin instalador ni PATH: carpeta python.exe en API\tools\PythonPortable\ o launcher\PYTHON_EXE.txt
 echo         Ejecute  launcher\Diagnosticar-API.bat  para ver el detalle.
 pause
 exit /b 1

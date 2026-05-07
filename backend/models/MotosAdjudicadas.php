@@ -31,7 +31,11 @@ class MotosAdjudicadas extends Model
 
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_dacion',
+        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+        'fis_vin',
+        'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+        'fis_tacometro',
+        'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
     ];
 
     public function __construct()
@@ -1307,6 +1311,9 @@ class MotosAdjudicadas extends Model
         $allowed = [
             'rec_tacometro', 'rec_serie',     'rec_frontal', 'rec_lateral',
             'fis_vin',       'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_dacion',
+            'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+            'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+            'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
             'doc_repuve',    'doc_factura',   'doc_cierre_s2',
             'doc_dacion_rcpt', 'doc_tarjeta_rcpt', 'doc_firma_rcpt',
             'vista_trs', 'vista_front', 'lado_izq', 'lado_der',
@@ -1325,9 +1332,9 @@ class MotosAdjudicadas extends Model
         // 3. Validar tipo MIME seg?n slot
         $mime      = $fileInfo['type'] ?? '';
         $ext       = strtolower(pathinfo($fileInfo['name'] ?? '', PATHINFO_EXTENSION));
-        $videoSlots = ['fis_360', 'vid_gen'];
+        $videoSlots = ['fis_360', 'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba', 'vid_gen'];
         $docSlots   = ['doc_repuve', 'doc_factura', 'doc_cierre_s2', 'doc_dacion_rcpt'];
-        $pdfOrImgMisAdj = ['fis_contrato_dacion'];
+        $pdfOrImgMisAdj = ['fis_contrato_dacion', 'fis_dacion_hoja_1', 'fis_dacion_hoja_2'];
         $recepImgSlots = [
             'doc_tarjeta_rcpt', 'doc_firma_rcpt',
             'vista_trs', 'vista_front', 'lado_izq', 'lado_der', 'tablero', 'vin', 'danos_vis',
@@ -1349,7 +1356,7 @@ class MotosAdjudicadas extends Model
         } elseif (in_array($slot, $pdfOrImgMisAdj, true)) {
             $okMimes = ['application/pdf', 'image/jpeg', 'image/png'];
             if (!in_array($mime, $okMimes, true)) {
-                return ['success' => false, 'message' => 'Contrato Dación: solo PDF, JPG o PNG.'];
+                return ['success' => false, 'message' => 'Documento de dación: solo PDF, JPG o PNG.'];
             }
             $tipo = ($mime === 'application/pdf') ? 'pdf' : 'image';
         } elseif (in_array($slot, $docSlots, true)) {
@@ -2083,9 +2090,17 @@ SQL;
         'fis_vin'       => 'VIN (F?SICA)',
         'fis_tacometro' => 'TAC??METRO (F?SICA)',
         'fis_frontal'   => 'FRONTAL (F?SICA)',
-        'fis_lateral'   => 'LATERAL (F?SICA)',
-        'fis_360'       => 'INSPECCI??N 360?',
-        'fis_contrato_dacion' => 'CONTRATO DACI??N (F?SICA)',
+        'fis_lateral'   => 'LATERAL (F?SICA) [LEGACY]',
+        'fis_360'       => 'INSPECCI??N 360? [LEGACY]',
+        'fis_contrato_dacion' => 'CONTRATO DACI??N (F?SICA) [LEGACY]',
+        'fis_dacion_hoja_1' => 'DACI??N HOJA 1 (F?SICA)',
+        'fis_dacion_hoja_2' => 'DACI??N HOJA 2 (F?SICA)',
+        'fis_lateral_der' => 'LATERAL DERECHA (F?SICA)',
+        'fis_trasera' => 'TRASERA (F?SICA)',
+        'fis_lateral_izq' => 'LATERAL IZQUIERDA (F?SICA)',
+        'fis_video_cliente_acuerdo' => 'VIDEO CLIENTE DE ACUERDO (F?SICA)',
+        'fis_360_encendida' => 'VIDEO MOTO 360 ENCENDIDA (F?SICA)',
+        'fis_video_vuelta_prueba' => 'VIDEO VUELTA DE PRUEBA (F?SICA)',
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
         'doc_cierre_s2' => 'CONFIRMACI??N CIERRE S2',
@@ -2110,7 +2125,9 @@ SQL;
     /** Fotos/video que s? se dictaminan (aceptar/rechazar) en Atenci?n a clientes. */
     private const SLOTS_VALIDACION_ATENCION_MEDIA = [
         'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360', 'fis_contrato_dacion',
+        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+        'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+        'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
     ];
 
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atenci?n. */

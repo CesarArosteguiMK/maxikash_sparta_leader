@@ -24,7 +24,7 @@ if (!function_exists('getMenuItemsConfig')) {
             ['url' => '/caphum/estadisticas', 'label' => 'Estadísticas Capital Humano', 'icon' => 'fa-solid fa-chart-pie', 'bg' => 'bg-purple', 'modulos' => [38]],
             ['url' => '/ReporteriaBI/FlujoCobranza', 'label' => 'Flujo cobranza', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [50]],
             ['url' => '/sabueso/ticket', 'label' => 'Sabueso - Ticket', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [18]],
-            ['url' => '/sabueso/panelAdminInicio', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-table-cells', 'bg' => 'bg-teal', 'modulos' => [19, 25]],
+            ['url' => '/sabueso/panelAdminInicio', 'label' => 'Panel Admin', 'icon' => 'fa-solid fa-table-cells', 'bg' => 'bg-teal', 'modulos' => [25, 27]],
             ['url' => '/sabueso/cerradoEliminado', 'label' => 'Cerrado/Eliminado', 'icon' => 'fa-solid fa-dog', 'bg' => 'bg-teal', 'modulos' => [48]],
             ['url' => '/sabueso/estadisticas', 'label' => 'Analítica sabueso', 'icon' => 'fa-solid fa-chart-line', 'bg' => 'bg-orange', 'modulos' => [47]],
             ['url' => '/analitica/comparativas', 'label' => 'Comparativas avance semanal', 'icon' => 'fa-solid fa-chart-column', 'bg' => 'bg-orange', 'modulos' => [60]],
@@ -77,7 +77,7 @@ if (!function_exists('getRutasModulos')) {
             }
         }
         // Rastreo (antes Never paid): sin ítem de menú; acceso desde Estado de cuenta (iframe) o URL directa.
-        $modsRastreoSinTicket = [18, 19, 29];
+        $modsRastreoSinTicket = [18, 27, 29];
         $rutas['reporteria/consultaidcredito'] = $modsRastreoSinTicket;
         $rutas['reporteria/consultacreditorastreo'] = $modsRastreoSinTicket;
         $rutas['analitica/consultaidcredito'] = $modsRastreoSinTicket;

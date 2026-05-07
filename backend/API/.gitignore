@@ -9,3 +9,9 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# Ruta local al python.exe (servidor sin PATH); ver PYTHON_EXE.example.txt
+launcher/PYTHON_EXE.txt
+
+# Python embebido instalado aqui (~100MB); no versionar
+tools/PythonPortable/

@@ -55,6 +55,9 @@ function getMenu(): string
                 '/analitica/primerospagoshistorico',
                 '/analitica/vencimientoslunes',
                 '/analitica/vencimientolunessiguientesemana',
+            ],
+            '/analitica/carteraactual' => [
+                '/analitica/carteraactual',
                 '/analitica/cartera',
             ],
             '/analitica/comparativas' => [
@@ -167,7 +170,7 @@ function getMenu(): string
                 $mostrarMenuValidacionesAuto
                     ? ['label' => 'Validaciones',        'url' => $urlMenuValidacionesAuto,    'modulos' => []]
                     : null,
-                ['label' => 'Panel Admin',               'url' => '/sabueso/panelAdminInicio', 'modulos' => [19, 25, 27]],
+                ['label' => 'Panel Admin',               'url' => '/sabueso/panelAdminInicio', 'modulos' => [25, 27]],
                 ['label' => 'Cerrado/Eliminado Sabueso', 'url' => '/sabueso/cerradoEliminado', 'modulos' => [48]],
             ])),
         ],
@@ -175,6 +178,7 @@ function getMenu(): string
             'icono'    => 'fa-solid fa-chart-line',
             'subItems' => [
                 ['label' => 'Primeros pagos', 'url' => '/analitica/PrimerosPagos', 'modulos' => [49, 65, 66, 67, 68]],
+                ['label' => 'Cartera actual', 'url' => '/analitica/carteraactual', 'modulos' => [19]],
                 ['label' => 'Call Center',    'url' => '/analitica/callcenter',    'modulos' => [6]],
                 ['label' => 'Layout Legacy',  'url' => '/analitica/layoutlegacy',  'modulos' => [7]],
                 ['label' => 'Sabuesos', 'url' => '/sabueso/estadisticas',   'modulos' => [47]],

@@ -113,17 +113,54 @@ $stateFile = $stateDir . '/primeros_pagos_last_send.txt';
 $stateJson = $stateDir . '/primeros_pagos_estado.json';
 $marcaActual = date('Y-m-d H:i');
 
-$destinatarios = [
-    'roman.jimenez@__SPARTA_SECRET_REDACTED__.mx',
-    'marlon.flores@__SPARTA_SECRET_REDACTED__.mx',
-    'hector.ruiz@__SPARTA_SECRET_REDACTED__.mx',
-    'guillermo.garcia@__SPARTA_SECRET_REDACTED__.mx',
-    '__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx',
-    'josealberto.hernandez@__SPARTA_SECRET_REDACTED__.mx',
-    'josue.aldrete@__SPARTA_SECRET_REDACTED__.mx',
-    'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
-    'lrgonzalez033@gmail.com', // verificación / monitoreo
-];
+/** @return list<string> */
+function primerosPagosDestinatariosDefault(): array
+{
+    return [
+        'roman.jimenez@__SPARTA_SECRET_REDACTED__.mx',
+        'marlon.flores@__SPARTA_SECRET_REDACTED__.mx',
+        'hector.ruiz@__SPARTA_SECRET_REDACTED__.mx',
+        'guillermo.garcia@__SPARTA_SECRET_REDACTED__.mx',
+        '__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx',
+        'josealberto.hernandez@__SPARTA_SECRET_REDACTED__.mx',
+        'josue.aldrete@__SPARTA_SECRET_REDACTED__.mx',
+        'erika.ortiz@__SPARTA_SECRET_REDACTED__.mx',
+        'lrgonzalez033@gmail.com', // verificación / monitoreo
+    ];
+}
+
+/** @return list<string> */
+function primerosPagosDestinatariosDesdeConfig(): array
+{
+    $path = RAIZ . '/storage/config/primeros_pagos_destinatarios.json';
+    if (!is_file($path)) {
+        return primerosPagosDestinatariosDefault();
+    }
+    $raw = @file_get_contents($path);
+    $json = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($json) || !is_array($json['destinatarios'] ?? null)) {
+        return primerosPagosDestinatariosDefault();
+    }
+    $out = [];
+    foreach ($json['destinatarios'] as $it) {
+        $emailRaw = is_array($it) ? ($it['email'] ?? '') : $it;
+        $e = strtolower(trim((string) $emailRaw));
+        if ($e === '' || !filter_var($e, FILTER_VALIDATE_EMAIL)) {
+            continue;
+        }
+        if (is_array($it)) {
+            $activo = !in_array(($it['activo'] ?? true), [false, 0, '0', 'false', 'FALSE', 'off', 'OFF', 'no', 'NO'], true);
+            if (!$activo) {
+                continue;
+            }
+        }
+        $out[$e] = true;
+    }
+    $lista = array_values(array_keys($out));
+    return !empty($lista) ? $lista : primerosPagosDestinatariosDefault();
+}
+
+$destinatarios = primerosPagosDestinatariosDesdeConfig();
 
 $asunto = 'Primeros pagos — Lunes de Cierre';
 

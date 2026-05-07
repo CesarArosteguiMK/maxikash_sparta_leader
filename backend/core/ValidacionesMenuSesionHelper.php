@@ -5,7 +5,7 @@ namespace Core;
 use Core\Database;
 
 /**
- * Menú y accesos de Validaciones para gestores/capos sin módulos 18/19 en sesión.
+ * Menú y accesos de Validaciones para gestores/capos sin módulos 18/27 en sesión.
  */
 class ValidacionesMenuSesionHelper
 {
@@ -16,7 +16,7 @@ class ValidacionesMenuSesionHelper
             return false;
         }
 
-        return in_array(18, $mods, true) || in_array(19, $mods, true);
+        return in_array(18, $mods, true) || in_array(27, $mods, true);
     }
 
     public static function tieneAsignacionActivaTicketValidaciones(int $personaId): bool

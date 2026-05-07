@@ -53,6 +53,8 @@ if (-not (Test-Path -LiteralPath $LogsDir)) {
 $stamp   = Get-Date -Format 'yyyyMMdd-HHmmss'
 $LogFile = Join-Path $LogsDir "doctor-$stamp.log"
 
+. (Join-Path $here '_resolve_python.ps1')
+
 # ---------- Estado global ----------
 $Script:HasErrors   = $false
 $Script:HasWarnings = $false
@@ -208,31 +210,26 @@ if (-not (Test-Path -LiteralPath $LogsDir)) {
 }
 
 # =====================================================================
-# 3) Python disponible (venv > py -3 > python)
+# 3) Python disponible (venv > portable en tools/ > py -3 > python)
 # =====================================================================
 Section '3. Python (interprete a usar)'
 $pyExe   = $null
 $pyArgs  = @()
 $pySrc   = ''
-$venvPy  = Join-Path $ApiDir 'venv\Scripts\python.exe'
-if (Test-Path -LiteralPath $venvPy) {
-    $pyExe = $venvPy; $pySrc = 'venv'
-    Ok "Detectado venv: $venvPy"
+$resolved = Resolve-SpartaApiPython -ApiDir $ApiDir
+if ($resolved) {
+    $pyExe = $resolved.Exe
+    $pyArgs = $resolved.Args
+    $pySrc = $resolved.Source
+    Ok "Python a usar: $pySrc -> $pyExe"
 }
 if (-not $pyExe) {
-    & py -3 -c "import sys" *> $null
-    if ($LASTEXITCODE -eq 0) { $pyExe = 'py'; $pyArgs = @('-3'); $pySrc = 'py -3' }
-}
-if (-not $pyExe) {
-    & python -c "import sys" *> $null
-    if ($LASTEXITCODE -eq 0) { $pyExe = 'python'; $pySrc = 'python (PATH)' }
-}
-if (-not $pyExe) {
-    Err "No hay Python disponible (ni venv, ni py -3, ni python)."
-    Rec "Instale Python 3.10/3.11/3.12 64-bit desde https://www.python.org/downloads/windows/  (marcar 'Add to PATH' y 'py launcher')."
-} else {
-    Ok "Python a usar: $pySrc"
-    $pyVer = (& $pyExe @pyArgs -c "import sys,platform; print(platform.python_version()+'|'+sys.executable+'|'+platform.architecture()[0])" 2>$null)
+    Err "No hay Python disponible (ni venv, ni portable en tools\, ni py -3, ni python)."
+    Rec 'Opcion A — Sin instalador ni PATH: descomprima Python 3.12 64-bit en API\tools\PythonPortable\ (python.exe ahi).'
+    Rec 'Opcion B — Una sola linea con ruta completa del exe en  launcher\PYTHON_EXE.txt  (ej. D:\sitio\...\python.exe).'
+    Rec 'Opcion C — Servidor convencional: Python desde python.org y PATH / py launcher.'
+} elseif ($pyExe) {
+    $pyVer = (& $pyExe @pyArgs -c 'import sys,platform; print(platform.python_version()+"|"+sys.executable+"|"+platform.architecture()[0])' 2>$null)
     if ($pyVer) {
         $parts = $pyVer.Split('|')
         Info "Version    : $($parts[0])"
@@ -243,14 +240,38 @@ if (-not $pyExe) {
         $minor = [int]$minor
         if ([int]$major -ne 3) { Err "Python 2.x detectado, no soportado." }
         elseif ($minor -ge 13) {
-            Warn "Python 3.$minor es muy nuevo: paquetes con C/Rust (pdf417decoder, pyzbar, torch, pydantic-core) pueden no tener wheel y exigir compilador (Visual Studio Build Tools)."
-            Rec  "Si el instalar-agente.bat falla compilando, instale Python 3.12 (64-bit) y vuelva a ejecutar instalar-agente.bat /VENV"
+            Warn ('Python 3.{0} es muy nuevo: paquetes con C/Rust (pdf417decoder, pyzbar, torch, pydantic-core) pueden no tener wheel y exigir compilador (Visual Studio Build Tools).' -f $minor)
+            Rec  'Si el instalar-agente.bat falla compilando, instale Python 3.12 (64-bit) y vuelva a ejecutar instalar-agente.bat /VENV'
         }
-        elseif ($minor -lt 10) { Warn "Python 3.$minor es viejo; recomendado 3.11 o 3.12." }
-        else { Ok "Version de Python adecuada." }
-        if ($parts[2] -ne '64bit') { Warn "Python NO es 64-bit; varias dependencias (torch, opencv) requieren x64." }
+        elseif ($minor -lt 10) { Warn ('Python 3.{0} es viejo; recomendado 3.11 o 3.12.' -f $minor) }
+        else { Ok 'Version de Python adecuada.' }
+        if ($parts[2] -ne '64bit') { Warn 'Python NO es 64-bit; varias dependencias (torch, opencv) requieren x64.' }
     } else {
         Warn "No se pudo obtener version de Python."
+    }
+
+    $chkPy = Join-Path $here '_check_standard_python.py'
+    if (Test-Path -LiteralPath $chkPy) {
+        $tmpO = [System.IO.Path]::GetTempFileName()
+        $tmpE = [System.IO.Path]::GetTempFileName()
+        $chkArgs = @()
+        if ($pyArgs.Count -gt 0) { $chkArgs += $pyArgs }
+        $chkArgs += $chkPy
+        $pChk = Start-Process -FilePath $pyExe -ArgumentList $chkArgs -WorkingDirectory $ApiDir `
+            -Wait -PassThru -NoNewWindow `
+            -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
+        $chkOut = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
+        Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
+        if ($pChk.ExitCode -eq 2) {
+            Err "Python FREE-THREADING (sin GIL / Py_GIL_DISABLED): incompatible con compilacion wheel de PyMuPDF y otros."
+            foreach ($ln in (($chkOut -split "`r?`n") | Where-Object { $_.Trim() -ne '' })) {
+                Out-Log "       $ln" 'Red'
+            }
+            Rec 'Instale Python 3.12 64-bit ESTANDAR desde python.org; NO use la opcion free-thread ni python*t.exe.'
+            Rec "Elimine backend\API\venv y ejecute launcher\instalar-agente.bat /VENV"
+        } else {
+            Ok "Python no es la variante free-threading conocida incompatible con pymupdf."
+        }
     }
 }
 
@@ -265,7 +286,9 @@ if ($pyExe) {
         Ok "pip OK -> $pipv"
     } else {
         Err "pip no esta operativo en este Python."
-        Rec  "Ejecute en consola: $pySrc -m ensurepip --upgrade   y luego: $pySrc -m pip install --upgrade pip"
+        $pipPrefix = "`"$pyExe`""
+        if ($pyArgs.Count -gt 0) { $pipPrefix += ' ' + ($pyArgs -join ' ') }
+        Rec  "Ejecute: $pipPrefix -m ensurepip --upgrade   y luego   $pipPrefix -m pip install --upgrade pip"
     }
 } else { Warn "Sin Python; se omite check de pip." }
 
@@ -335,7 +358,11 @@ except Exception as e:
             }
         }
     }
-    if ($missing.Count -gt 0) { Rec ("Instale: $pySrc -m pip install " + ($missing -join ' ')) }
+    if ($missing.Count -gt 0) {
+        $pfx = "`"$pyExe`""
+        if ($pyArgs.Count -gt 0) { $pfx += ' ' + ($pyArgs -join ' ') }
+        Rec ("Instale: $pfx -m pip install " + ($missing -join ' '))
+    }
     if ($brokenImport.Count -gt 0) {
         Rec "Algun paquete esta instalado pero falla al importar (DLL ausente, version incompatible, archivo corrupto)."
         foreach ($b in $brokenImport) {
@@ -412,6 +439,8 @@ else:
 # =====================================================================
 Section '7. Tesseract OCR'
 $tessCandidates = @(
+    (Join-Path $ApiDir 'tools\tesseract.exe'),
+    (Join-Path $ApiDir 'tools\Tesseract-OCR\tesseract.exe'),
     'C:\Program Files\Tesseract-OCR\tesseract.exe',
     'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
     "$env:LOCALAPPDATA\Programs\Tesseract-OCR\tesseract.exe"
@@ -423,6 +452,17 @@ if (-not $tessFound) {
 if ($tessFound) {
     Ok "Tesseract: $tessFound"
     try { $tv = (& $tessFound --version 2>&1 | Select-Object -First 1); Info "Version    : $tv" } catch {}
+    $tessParent = Split-Path -Parent $tessFound
+    $tessdataDir = Join-Path $tessParent 'tessdata'
+    if (-not (Test-Path -LiteralPath $tessdataDir)) {
+        $tessdataDir = Join-Path $ApiDir 'tools\tessdata'
+    }
+    if (Test-Path -LiteralPath (Join-Path $tessdataDir 'spa.traineddata')) {
+        Ok "tessdata   : spa.traineddata presente ($tessdataDir)"
+    } else {
+        Warn "Falta spa.traineddata en tessdata (la API usa idioma spa+eng). Coloque spa.traineddata en: $tessdataDir"
+        Rec  "Descarga: https://github.com/tesseract-ocr/tessdata_best/raw/main/spa.traineddata"
+    }
     # Asegurar TESSERACT_CMD en .env
     $envFile = Join-Path $ApiDir '.env'
     if (Test-Path -LiteralPath $envFile) {
@@ -438,7 +478,8 @@ if ($tessFound) {
     }
 } else {
     Warn "Tesseract no encontrado. La API arranca, pero la verificacion OCR fallara."
-    Rec  "Instale Tesseract para Windows: https://github.com/UB-Mannheim/tesseract/wiki  (instale en 'C:\Program Files\Tesseract-OCR\')."
+    Rec  "Coloque una copia portable en: $(Join-Path $ApiDir 'tools\tesseract.exe') con carpeta tessdata al lado,"
+    Rec  "o instale Tesseract: https://github.com/UB-Mannheim/tesseract/wiki  ('C:\Program Files\Tesseract-OCR\')."
 }
 
 # =====================================================================
