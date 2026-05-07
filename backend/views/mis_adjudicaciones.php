@@ -1520,6 +1520,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
               { key: 'fis_frontal',   label: 'Vista Frontal',   icon: 'fa-camera',         accept: 'image/jpeg,image/png' },
               { key: 'fis_lateral',   label: 'Vista Lateral',   icon: 'fa-camera-rotate',  accept: 'image/jpeg,image/png' },
               { key: 'fis_360',       label: 'Inspección 360',  icon: 'fa-video',          accept: 'video/mp4', isVideo: true },
+              { key: 'fis_contrato_dacion', label: 'Contrato Dación', icon: 'fa-file-signature', accept: 'image/jpeg,image/png,application/pdf', allowPdf: true },
           ]},
     ];
 
@@ -1538,8 +1539,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     const MADJ_DATOS_MOTO_REQUIRED = [
         'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
         'moto_no_serie', 'moto_no_motor', 'moto_placas',
-        'log_ubicacion', 'log_direccion', 'log_ciudad',
-        'log_estado', 'log_responsable', 'log_telefono',
+        'log_lugar_resguardo', 'log_direccion', 'log_ciudad',
+        'log_estado', 'log_telefono',
     ];
 
     function _madjTieneValor(v) {
@@ -1548,9 +1549,16 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
 
     function _madjDatosMotoCompletos(datos) {
         if (!datos || typeof datos !== 'object') return false;
-        return MADJ_DATOS_MOTO_REQUIRED.every(function (k) {
+        if (!MADJ_DATOS_MOTO_REQUIRED.every(function (k) {
             return _madjTieneValor(datos[k]);
-        });
+        })) {
+            return false;
+        }
+        const lr = String(datos.log_lugar_resguardo || '').trim();
+        if (lr === 'otro' && !_madjTieneValor(datos.log_lugar_otro)) {
+            return false;
+        }
+        return true;
     }
 
     function _madjNormalizarEstatus(estatus) {
@@ -2090,7 +2098,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         // Hidden file inputs (siempre en el DOM para que estén disponibles al subir)
         MADJ_EV_SECTIONS.forEach(sec => {
             sec.slots.forEach(sl => {
-                const capAttr = sl.isVideo ? 'capture="camcorder"' : 'capture="environment"';
+                const capAttr = sl.allowPdf ? '' : (sl.isVideo ? 'capture="camcorder"' : 'capture="environment"');
                 html += `<input type="file" id="madj-finput-${sl.key}" class="d-none"
                              accept="${sl.accept}" ${capAttr}
                              onchange="madjSlotChange('${sl.key}', this)">`;
@@ -2145,11 +2153,21 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 color.value = color.value.replace(/[0-9]/g, '');
             });
         }
-        const resp = document.getElementById('madj-datos-log_responsable');
-        if (resp) {
-            resp.addEventListener('input', function madjRespInput() {
-                resp.value = resp.value.replace(/[0-9]/g, '');
-            });
+        const lugSel = document.getElementById('madj-datos-log_lugar_resguardo');
+        const lugOtroInp = document.getElementById('madj-datos-log_lugar_otro');
+        function madjSyncLogLugarOtroVis() {
+            const wrap = document.getElementById('madj-wrap-log_lugar_otro');
+            if (!wrap || !lugSel) return;
+            const show = lugSel.value === 'otro';
+            wrap.classList.toggle('d-none', !show);
+            if (!show && lugOtroInp) {
+                lugOtroInp.value = '';
+                lugOtroInp.classList.remove('is-invalid');
+            }
+        }
+        if (lugSel) {
+            lugSel.addEventListener('change', madjSyncLogLugarOtroVis);
+            madjSyncLogLugarOtroVis();
         }
     }
 
@@ -2243,36 +2261,41 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             </div>
             <div class="madj-datos-sec-body">
                 <div class="row g-2">
-                    <div class="col-12 col-md-6 madj-datos-field">
-                        <label for="madj-datos-log_ubicacion">Nombre del Resguardo / Almacén <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="madj-datos-log_ubicacion"
-                               placeholder="Ej. Bodega Central Norte" maxlength="100" value="${v('log_ubicacion')}">
+                    <div class="col-12 col-md-4 madj-datos-field">
+                        <label for="madj-datos-log_lugar_resguardo">Lugar de resguardo <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm" id="madj-datos-log_lugar_resguardo">
+                            <option value="">— Seleccionar —</option>
+                            <option value="mi_domicilio"${d.log_lugar_resguardo === 'mi_domicilio' ? ' selected' : ''}>Mi domicilio</option>
+                            <option value="sucursal"${d.log_lugar_resguardo === 'sucursal' ? ' selected' : ''}>Sucursal</option>
+                            <option value="otro"${d.log_lugar_resguardo === 'otro' ? ' selected' : ''}>Otro</option>
+                        </select>
                     </div>
-                    <div class="col-12 col-md-6 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field d-none" id="madj-wrap-log_lugar_otro">
+                        <label for="madj-datos-log_lugar_otro">Indicar cuál <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="madj-datos-log_lugar_otro"
+                               placeholder="Describe el lugar" maxlength="200" autocomplete="off"
+                               value="${v('log_lugar_otro')}">
+                    </div>
+                </div>
+                <div class="row g-2 mt-0">
+                    <div class="col-12 madj-datos-field">
                         <label for="madj-datos-log_direccion">Dirección <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_direccion"
                                placeholder="Calle, número, colonia" maxlength="100" value="${v('log_direccion')}">
                     </div>
-                    <div class="col-6 col-md-3 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_ciudad">Ciudad / Municipio <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_ciudad"
                                placeholder="Monterrey" maxlength="50" value="${v('log_ciudad')}">
                     </div>
-                    <div class="col-6 col-md-3 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_estado">Estado <span class="text-danger">*</span></label>
                         <select class="form-select form-select-sm" id="madj-datos-log_estado">
                             <option value="">— Seleccionar —</option>
                             ${estadoOptions}
                         </select>
                     </div>
-                    <div class="col-6 col-md-4 madj-datos-field">
-                        <label for="madj-datos-log_responsable">Responsable de Resguardo <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control form-control-sm" id="madj-datos-log_responsable"
-                               placeholder="Nombre completo" maxlength="100" autocomplete="name"
-                               title="Solo nombre (letras); sin números"
-                               value="${v('log_responsable')}">
-                    </div>
-                    <div class="col-6 col-md-2 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_telefono">Teléfono de Contacto <span class="text-danger">*</span></label>
                         <input type="tel" class="form-control form-control-sm" id="madj-datos-log_telefono"
                                placeholder="10 dígitos" maxlength="10" pattern="[0-9]{10}"
@@ -2335,10 +2358,16 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     <i class="fa-solid fa-arrows-rotate"></i>
                 </button>`
                 : '';
+            const esPdf = String(st.type || '').toLowerCase() === 'pdf';
             const media = sl.isVideo
                 ? `<video class="madj-thumb" data-madj-src="${esc(st.src)}" muted playsinline></video>
                    <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>`
-                : `<img class="madj-thumb" data-madj-src="${esc(st.src)}" alt="${esc(sl.label)}">`;
+                : (esPdf
+                    ? `<div class="d-flex flex-column align-items-center justify-content-center h-100 py-2 px-1">
+                           <i class="fa-solid fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>
+                           <span class="small fw-semibold mt-1">PDF</span>
+                       </div>`
+                    : `<img class="madj-thumb" data-madj-src="${esc(st.src)}" alt="${esc(sl.label)}">`);
             return `
             <div class="madj-ev-slot has-file ${statusCls}" id="madj-slot-${sl.key}">
                 ${media}
@@ -2572,7 +2601,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     throw new Error(data.message || 'No se pudo subir la evidencia.');
                 }
 
-                const isPdf   = file.type === 'application/pdf';
+                const isPdf   = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
                 const isVideo = file.type.startsWith('video');
                 _madjEvState[slotKey] = {
                     src:  madjUrlForDisplay(data.url),
@@ -2595,6 +2624,18 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                         slotEl.innerHTML =
                             `<video class="madj-thumb" data-madj-src="${esc(madjUrlForDisplay(data.url))}" muted playsinline></video>
                              <div class="madj-slot-vid-ov"><i class="fa-solid fa-play"></i></div>
+                             <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
+                             ${statusBadge}
+                             <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
+                                     onclick="madjSlotTrigger('${slotKey}')">
+                                 <i class="fa-solid fa-arrows-rotate"></i>
+                             </button>`;
+                    } else if (isPdf) {
+                        slotEl.innerHTML =
+                            `<div class="d-flex flex-column align-items-center justify-content-center h-100 py-2 px-1">
+                                 <i class="fa-solid fa-file-pdf" style="font-size:2rem;color:#dc2626;"></i>
+                                 <span class="small fw-semibold mt-1">PDF</span>
+                             </div>
                              <span class="slot-lbl">${esc(_madjSlotLabel(slotKey))}</span>
                              ${statusBadge}
                              <button class="madj-slot-btn madj-slot-btn-rep" title="Reemplazar"
@@ -2710,8 +2751,9 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         const campos = [
             'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
             'moto_no_serie', 'moto_no_motor', 'moto_placas',
-            'log_ubicacion', 'log_direccion', 'log_ciudad',
-            'log_estado', 'log_responsable', 'log_telefono',
+            'log_lugar_resguardo', 'log_lugar_otro',
+            'log_direccion', 'log_ciudad',
+            'log_estado', 'log_telefono',
         ];
 
         let valido = true;
@@ -2722,6 +2764,25 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             const el = document.getElementById('madj-datos-' + c);
             if (!el) return;
             const val = el.value.trim();
+
+            if (c === 'log_lugar_otro') {
+                const lugEl = document.getElementById('madj-datos-log_lugar_resguardo');
+                const lugVal = lugEl ? String(lugEl.value || '').trim() : '';
+                if (lugVal !== 'otro') {
+                    el.classList.remove('is-invalid');
+                    datos[c] = '';
+                    return;
+                }
+                if (!val) {
+                    el.classList.add('is-invalid');
+                    errores.push('Indica cuál es el lugar cuando eliges «Otro».');
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = val;
+                return;
+            }
 
             // Validación de vacío
             if (!val) {
@@ -2797,19 +2858,6 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 if (!/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s]+$/u.test(val)) {
                     el.classList.add('is-invalid');
                     errores.push('El color solo debe contener letras (sin números).');
-                    valido = false;
-                    return;
-                }
-                el.classList.remove('is-invalid');
-                datos[c] = val;
-                return;
-            }
-
-            // Responsable — nombre sin dígitos
-            if (c === 'log_responsable') {
-                if (!/^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ\s'.-]+$/u.test(val)) {
-                    el.classList.add('is-invalid');
-                    errores.push('El responsable debe ser un nombre (letras); no se permiten números.');
                     valido = false;
                     return;
                 }
@@ -2951,7 +2999,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     // ------------------------------------------------------------------
     // SANITIZACIÓN EN TIEMPO REAL — campos del formulario de moto/logística
     // ------------------------------------------------------------------
-    const _MADJ_LETTERS_ONLY = new Set(['moto_color', 'log_responsable']);
+    const _MADJ_LETTERS_ONLY = new Set(['moto_color']);
     const _MADJ_DIGITS_ONLY  = new Set(['log_telefono']);
 
     function _madjEsSpam(s) {
