@@ -4264,7 +4264,7 @@ class CapHum extends Controller
                     return;
                 }
                 var intentos = 0;
-                var maxIntentos = 45;
+                var maxIntentos = 60;
                 docModalPollTimer = setInterval(function() {
                     intentos++;
                     if (intentos > maxIntentos) {
@@ -4278,7 +4278,7 @@ class CapHum extends Controller
                         return;
                     }
                     cargarDocumentosModal(idCandidato, { fromPoll: true });
-                }, 4000);
+                }, 3000);
             }
 
             /* ── KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) ── */
@@ -6550,6 +6550,7 @@ class CapHum extends Controller
             'verificar-curp-documento',
             'verificar-constancia-fiscal-documento',
             'verificar-nss-documento',
+            'verificar-estado-cuenta',
         ];
         if (!in_array($endpoint, $permitidos, true)) {
             http_response_code(400);
@@ -6806,7 +6807,23 @@ class CapHum extends Controller
             return;
         }
         if (!empty($resultadoApi['error'])) {
-            echo json_encode(self::respuesta(false, $resultadoApi['error']));
+            $payloadError = [
+                'todo_coincide' => false,
+                'foto_rechazada' => false,
+                'curp_definitivo' => null,
+                'checks_ok' => 0,
+                'checks_totales' => 0,
+                'alertas' => ['No se pudo completar la verificación automática: ' . $resultadoApi['error']],
+                'identificacion_frente_score' => null,
+                'identificacion_reverso_score' => null,
+                'comparaciones' => null,
+                'nombre_ocr' => null,
+                'anio_nacimiento' => null,
+                'tipo_documento' => null,
+                'error_api' => $resultadoApi['error'],
+            ];
+            CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
+            echo json_encode(self::respuesta(true, 'La API falló, pero se registró el resultado para liberar el expediente.', ['verificacion_expediente' => $payloadError]));
             return;
         }
         $payload = [
@@ -7573,7 +7590,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => $post,
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 240,
+            CURLOPT_TIMEOUT => 45,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -7663,7 +7680,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 60,
+            CURLOPT_TIMEOUT => 25,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -7703,7 +7720,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 180,
+            CURLOPT_TIMEOUT => 45,
             CURLOPT_CONNECTTIMEOUT => 8,
         ]);
         $body = curl_exec($ch);
@@ -8307,10 +8324,9 @@ class CapHum extends Controller
                 if ($tipo === 'IDENTIFICACIÓN OFICIAL') {
                     $rutasParaValidar['identificacion_pdf'] = $pathAbs;
                     if ($idDoc > 0) {
-                        $precheckId = $this->precheckIdentificacionPdfApi($pathAbs);
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
-                            'aceptado' => is_array($precheckId) ? !empty($precheckId['valido']) : null,
-                            'precheck' => $precheckId,
+                            'aceptado' => null,
+                            'precheck' => null,
                             'pendiente_revision_profunda' => true,
                             'notas' => ['Identificación oficial recibida para revisión de expediente.'],
                             'detalle_frente' => null,
@@ -8319,23 +8335,16 @@ class CapHum extends Controller
                     }
                 } elseif ($tipo === 'CURP') {
                     $rutasParaValidar['curp'] = $pathAbs;
-                    if ($idDoc > 0) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($this->verificarCurpApi($pathAbs)));
-                    }
                 } elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL') {
                     $rutasParaValidar['nss'] = $pathAbs;
-                    if ($idDoc > 0) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($this->verificarNssApi($pathAbs)));
-                    }
                 } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                     $rutasParaValidar['constancia_fiscal'] = $pathAbs;
-                    if ($idDoc > 0) {
-                        $apiFiscal = $this->verificarConstanciaFiscalApi($pathAbs);
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode($apiFiscal), json_encode($apiFiscal));
-                    }
                 } elseif ($tipo === 'ESTADO DE CUENTA') {
                     if ($idDoc > 0) {
-                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($this->verificarEstadoCuentaApi($pathAbs)));
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['Estado de cuenta recibido para revisión.'],
+                        ]));
                     }
                 } elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') {
                     $rutasParaValidar['acta_nacimiento'] = $pathAbs;
@@ -8368,6 +8377,21 @@ class CapHum extends Controller
                 error_log('CapHum::verificacionBackground: OK para candidato ' . $id_candidato);
             } else {
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
+                CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
+                    'todo_coincide' => false,
+                    'foto_rechazada' => false,
+                    'curp_definitivo' => null,
+                    'checks_ok' => 0,
+                    'checks_totales' => 0,
+                    'alertas' => ['No se pudo completar la verificación automática: ' . $err],
+                    'identificacion_frente_score' => null,
+                    'identificacion_reverso_score' => null,
+                    'comparaciones' => null,
+                    'nombre_ocr' => null,
+                    'anio_nacimiento' => null,
+                    'tipo_documento' => null,
+                    'error_api' => $err,
+                ]));
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
             }
         } catch (\Exception $e) {

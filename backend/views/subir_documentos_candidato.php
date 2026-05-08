@@ -1394,7 +1394,11 @@ $documentos = [
                     formData.append('documento', file, file.name);
                     fetchWithTimeout(API_BASE + '/verificar-estado-cuenta', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
                     .then(function(r) {
-                        if (!r.ok) throw new Error('La API respondió con error. Intenta de nuevo.');
+                        if (!r.ok) {
+                            return r.json().catch(function() { return {}; }).then(function(body) {
+                                throw new Error((body && body.mensaje) ? body.mensaje : 'La API respondió con error. Intenta de nuevo.');
+                            });
+                        }
                         return r.json();
                     })
                     .then(function(res) {
@@ -1409,10 +1413,11 @@ $documentos = [
                         actualizarCheckmark(10, true);
                     })
                     .catch(function(err) {
-                        var texto = (err && err.message) ? err.message : 'Verificación no disponible. Revisa tu conexión o intenta de nuevo.';
-                        showResultado(msg, verificandoDiv, texto, true);
-                        inputEstadoCuenta.value = '';
-                        actualizarCheckmark(10, false);
+                        var detalle = (err && err.message) ? err.message : 'No se pudo validar en línea.';
+                        var texto = 'No se pudo validar el estado de cuenta en este momento. Puedes continuar con la subida y se revisará en backend. Detalle: ' + detalle;
+                        // Fallback: no bloquear la carga por caída temporal de la API.
+                        showResultado(msg, verificandoDiv, texto, false);
+                        actualizarCheckmark(10, true);
                     });
                 });
             }

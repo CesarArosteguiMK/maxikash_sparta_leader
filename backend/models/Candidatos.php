@@ -7,6 +7,26 @@ use Core\Database;
 
 class Candidatos extends Model
 {
+    private static function storageRoot(): string
+    {
+        return defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
+    }
+
+    private static function filtrarDocumentosConArchivo(array $documentos): array
+    {
+        $storageRoot = self::storageRoot();
+        $filtrados = [];
+        foreach ($documentos as $doc) {
+            $ruta = trim((string) ($doc['ruta_archivo'] ?? ''));
+            if ($ruta !== '' && !is_file($storageRoot . '/' . $ruta)) {
+                continue;
+            }
+            $filtrados[] = $doc;
+        }
+
+        return $filtrados;
+    }
+
     /**
      * Listar todos los candidatos con puesto y departamento de interés.
      */
@@ -549,7 +569,7 @@ class Candidatos extends Model
         try {
             $db = new Database();
             $lista = $db->queryAll("SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC", ['id' => $id_candidato]);
-            return self::resultado(true, 'Documentos encontrados.', $lista ?: []);
+            return self::resultado(true, 'Documentos encontrados.', self::filtrarDocumentosConArchivo($lista ?: []));
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al listar documentos.', [], $e->getMessage());
         }
@@ -687,7 +707,7 @@ class Candidatos extends Model
                 "SELECT id, id_candidato, tipo_documento, nombre_archivo, ruta_archivo, fecha_carga, validado, fecha_validado, verificacion_fiscal_json, verificacion_calidad_json FROM candidato_documento WHERE id_candidato = :id ORDER BY fecha_carga DESC",
                 ['id' => $id_candidato]
             );
-            $documentos = $documentos ?: [];
+            $documentos = self::filtrarDocumentosConArchivo($documentos ?: []);
             foreach ($documentos as &$d) {
                 if (!empty($d['verificacion_fiscal_json'])) {
                     $dec = json_decode($d['verificacion_fiscal_json'], true);

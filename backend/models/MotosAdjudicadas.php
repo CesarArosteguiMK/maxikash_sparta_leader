@@ -192,10 +192,10 @@ class MotosAdjudicadas extends Model
             "UPDATE adj_operacion SET `{$col}` = :est, fecha_actualizacion = :f WHERE id = :id",
             ['est' => $estado, 'f' => $ahora, 'id' => $idOperacion]
         );
-        $label = $documento === 'dacion' ? 'CONTRATO DACI??N' : 'TARJETA CIRCULACI??N';
+        $label = $documento === 'dacion' ? 'CONTRATO DACIÓN' : 'TARJETA CIRCULACIÓN';
         $this->registrarBitacora(
             $idOperacion,
-            "RECEPCI??N DOC {$label}: " . strtoupper($estado),
+            "RECEPCIÓN DOC {$label}: " . strtoupper($estado),
             $idUsuario,
             $nombreUsuario,
             $ahora
@@ -348,7 +348,7 @@ class MotosAdjudicadas extends Model
 
         $this->registrarBitacora(
             $idOperacion,
-            'RECEPCI??N EN ALMAC??N CONFIRMADA: ' . $ubicacion,
+            'RECEPCIÓN EN ALMACÉN CONFIRMADA: ' . $ubicacion,
             $idUsuario,
             $nombreUsuario,
             $ahora
@@ -1186,7 +1186,7 @@ class MotosAdjudicadas extends Model
         }
         $this->registrarBitacora(
             $idOperacion,
-            'LLEGADA A ALMAC??N REGISTRADA (RECEPCI??N): ' . $ahora,
+            'LLEGADA A ALMACÉN REGISTRADA (RECEPCIÓN): ' . $ahora,
             $idUsuario,
             $nombreUsuario,
             $ahora
@@ -1446,7 +1446,7 @@ class MotosAdjudicadas extends Model
         }
 
         $slotLabel = self::SLOT_LABELS[$slot] ?? strtoupper($slot);
-        $this->registrarBitacora($idOperacion, 'SUBI?? EVIDENCIA EN ' . $slotLabel, $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, 'SUBIÓ EVIDENCIA EN ' . $slotLabel, $idUsuario, $nombreUsuario);
 
         if (in_array($slot, ['doc_dacion_rcpt', 'doc_tarjeta_rcpt'], true)) {
             $this->marcarRecepcionDocumentoRecibidoEnOperacion($idOperacion, $slot);
@@ -1489,21 +1489,57 @@ class MotosAdjudicadas extends Model
     }
 
     // =========================================================================
-    // BIT?CORA
+    // BITÁCORA
     // =========================================================================
+
+    /**
+     * Textos guardados con codificación rota (?? en lugar de tilde) o mezcla legacy + UTF-8.
+     */
+    private function normalizarAdjBitacoraAccionDisplay(string $accion): string
+    {
+        static $map = [
+            'SUBI??'        => 'SUBIÓ',
+            'ENVI??'        => 'ENVIÓ',
+            'VALIDACI??N'   => 'VALIDACIÓN',
+            'DACI??N'       => 'DACIÓN',
+            'RECEPCI??N'    => 'RECEPCIÓN',
+            'ALMAC??N'      => 'ALMACÉN',
+            'CONFIRMACI??N' => 'CONFIRMACIÓN',
+            'CIRCULACI??N'  => 'CIRCULACIÓN',
+            'TAC??METRO'    => 'TACÓMETRO',
+            'RECOLECCI??N'  => 'RECOLECCIÓN',
+            'AGREG??'       => 'AGREGÓ',
+            'ACCI??N'       => 'ACCIÓN',
+            'INSPECCI??N'   => 'INSPECCIÓN',
+            'OD??METRO'     => 'ODÓMETRO',
+            'DA??OS'        => 'DAÑOS',
+            '(F?SICA)'      => '(FÍSICA)',
+        ];
+
+        return str_replace(array_keys($map), array_values($map), $accion);
+    }
 
     private function registrarBitacora(int $idOperacion, string $accion, int $idUsuario, string $nombreUsuario, ?string $fecha = null): void
     {
         if ($idOperacion <= 0) return;
         $fecha = $fecha ?? $this->fechaHoraCdmx();
+        $nom   = trim($nombreUsuario ?: 'SISTEMA');
+        $acc   = $accion;
+        if (function_exists('mb_strtoupper')) {
+            $nom = mb_strtoupper($nom, 'UTF-8');
+            $acc = mb_strtoupper($acc, 'UTF-8');
+        } else {
+            $nom = strtoupper($nom);
+            $acc = strtoupper($acc);
+        }
         $this->db->CRUD(
             "INSERT INTO adj_bitacora (id_operacion, id_usuario, nombre_usuario, accion, fecha_alta)
              VALUES (:id_op, :id_usr, :nombre, :accion, :fecha)",
             [
                 'id_op'  => $idOperacion,
                 'id_usr' => $idUsuario,
-                'nombre' => strtoupper(trim($nombreUsuario ?: 'SISTEMA')),
-                'accion' => strtoupper($accion),
+                'nombre' => $nom,
+                'accion' => $acc,
                 'fecha'  => $fecha,
             ]
         );
@@ -1511,7 +1547,7 @@ class MotosAdjudicadas extends Model
 
     public function obtenerBitacora(int $idOperacion): array
     {
-        return $this->db->queryAll(
+        $rows = $this->db->queryAll(
             "SELECT id, nombre_usuario, accion,
                     DATE_FORMAT(fecha_alta, '%d/%m/%Y %h:%i:%s %p') AS fecha_alta
              FROM adj_bitacora
@@ -1520,6 +1556,12 @@ class MotosAdjudicadas extends Model
              LIMIT 100",
             ['id' => $idOperacion]
         ) ?: [];
+        foreach ($rows as &$r) {
+            $r['accion'] = $this->normalizarAdjBitacoraAccionDisplay((string) ($r['accion'] ?? ''));
+        }
+        unset($r);
+
+        return $rows;
     }
 
     /**
@@ -1604,7 +1646,7 @@ class MotosAdjudicadas extends Model
         } elseif ($repuveEstatus !== null) {
             $estatusEnvioTxt = $repuveEstatus;
         } else {
-            $estatusEnvioTxt = '???';
+            $estatusEnvioTxt = '—';
         }
 
         $scoreIa = null;
@@ -1656,7 +1698,7 @@ class MotosAdjudicadas extends Model
 
         $this->registrarBitacora(
             $idOperacion,
-            'CONFIRMACI??N: Cierre documentado registrado en S2',
+            'CONFIRMACIÓN: Cierre documentado registrado en S2',
             $idUsuario,
             $nombreUsuario
         );
@@ -1678,7 +1720,7 @@ class MotosAdjudicadas extends Model
                 'llamada_a'          => 'Cierre S2',
                 'numero'             => '',
                 'persona_contactada' => $nombreUsuario !== '' ? $nombreUsuario : 'Usuario',
-                'tipo_contacto'      => 'Cierre documentaci?n',
+                'tipo_contacto'      => 'Cierre documentación',
                 'resultado'          => 'Confirmado en S2',
                 'dictamen'           => 'Cierre documentado confirmado en S2',
                 'plataforma'         => 'S2',
@@ -1733,7 +1775,7 @@ class MotosAdjudicadas extends Model
         }
 
         if ($comentarios !== '') {
-            $obs = $this->agregarObservacion($idOperacion, 'Recuperaci?n', 'Cartera', $idUsuario, $comentarios, $nombreUsuario);
+            $obs = $this->agregarObservacion($idOperacion, 'Recuperación', 'Cartera', $idUsuario, $comentarios, $nombreUsuario);
             if (empty($obs['success'])) {
                 return $obs;
             }
@@ -1756,9 +1798,9 @@ class MotosAdjudicadas extends Model
                 'llamada_a'          => 'Cartera',
                 'numero'             => '',
                 'persona_contactada' => $nombreUsuario !== '' ? $nombreUsuario : 'Usuario',
-                'tipo_contacto'      => 'Recuperaci?n',
+                'tipo_contacto'      => 'Recuperación',
                 'resultado'          => 'Expediente enviado',
-                'dictamen'           => 'Recuperaci?n enviada a Cartera (evidencias y factura completas)',
+                'dictamen'           => 'Recuperación enviada a Cartera (evidencias y factura completas)',
                 'plataforma'         => 'Sparta',
                 'comentarios'        => $comentarios !== '' ? $comentarios : null,
                 'id_usuario'         => $idUsuario ?: null,
@@ -1976,14 +2018,23 @@ SQL;
         $op['evidencias'] = $evs;
 
         $op['resumen_evidencia_flujo'] = $this->construirResumenEvidenciaFlujo($evs, $op);
-        $op['validaciones_evidencia_timeline'] = $this->db->queryAll(
+        $timeline = $this->db->queryAll(
             "SELECT nombre_usuario, accion,
                     DATE_FORMAT(fecha_alta, '%d/%m/%Y %h:%i:%s %p') AS fecha_fmt
              FROM adj_bitacora
-             WHERE id_operacion = :id AND accion LIKE '%VALIDACI??N EVIDENCIA%'
+             WHERE id_operacion = :id
+               AND (
+                   accion LIKE '%VALIDACIÓN EVIDENCIA%'
+                   OR accion LIKE '%VALIDACI??N EVIDENCIA%'
+               )
              ORDER BY fecha_alta ASC",
             ['id' => $id]
         ) ?: [];
+        foreach ($timeline as &$tl) {
+            $tl['accion'] = $this->normalizarAdjBitacoraAccionDisplay((string) ($tl['accion'] ?? ''));
+        }
+        unset($tl);
+        $op['validaciones_evidencia_timeline'] = $timeline;
 
         $op['observaciones'] = $this->db->queryAll(
             "SELECT id, etapa, area, id_usuario, texto, DATE_FORMAT(fecha, '%Y-%m-%d %H:%i') AS fecha
@@ -2032,7 +2083,7 @@ SQL;
             ['id' => $idOperacion]
         );
 
-        $this->registrarBitacora($idOperacion, 'ENVI?? EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario);
 
         return ['success' => true];
     }
@@ -2110,38 +2161,38 @@ SQL;
     // =========================================================================
 
     private const SLOT_LABELS = [
-        'rec_tacometro' => 'TAC??METRO (RECOLECCI??N)',
-        'rec_serie'     => 'NO. SERIE (RECOLECCI??N)',
-        'rec_frontal'   => 'FRONTAL (RECOLECCI??N)',
-        'rec_lateral'   => 'LATERAL (RECOLECCI??N)',
-        'fis_vin'       => 'VIN (F?SICA)',
-        'fis_tacometro' => 'TAC??METRO (F?SICA)',
-        'fis_frontal'   => 'FRONTAL (F?SICA)',
-        'fis_lateral'   => 'LATERAL (F?SICA) [LEGACY]',
-        'fis_360'       => 'INSPECCI??N 360? [LEGACY]',
-        'fis_contrato_dacion' => 'CONTRATO DACI??N (F?SICA) [LEGACY]',
-        'fis_dacion_hoja_1' => 'DACI??N HOJA 1 (F?SICA)',
-        'fis_dacion_hoja_2' => 'DACI??N HOJA 2 (F?SICA)',
-        'fis_lateral_der' => 'LATERAL DERECHA (F?SICA)',
-        'fis_trasera' => 'TRASERA (F?SICA)',
-        'fis_lateral_izq' => 'LATERAL IZQUIERDA (F?SICA)',
-        'fis_video_cliente_acuerdo' => 'VIDEO CLIENTE DE ACUERDO (F?SICA)',
-        'fis_360_encendida' => 'VIDEO MOTO 360 ENCENDIDA (F?SICA)',
-        'fis_video_vuelta_prueba' => 'VIDEO VUELTA DE PRUEBA (F?SICA)',
+        'rec_tacometro' => 'TACÓMETRO (RECOLECCIÓN)',
+        'rec_serie'     => 'NO. SERIE (RECOLECCIÓN)',
+        'rec_frontal'   => 'FRONTAL (RECOLECCIÓN)',
+        'rec_lateral'   => 'LATERAL (RECOLECCIÓN)',
+        'fis_vin'       => 'VIN (FÍSICA)',
+        'fis_tacometro' => 'TACÓMETRO (FÍSICA)',
+        'fis_frontal'   => 'FRONTAL (FÍSICA)',
+        'fis_lateral'   => 'LATERAL (FÍSICA) [LEGACY]',
+        'fis_360'       => 'INSPECCIÓN 360° [LEGACY]',
+        'fis_contrato_dacion' => 'CONTRATO DACIÓN (FÍSICA) [LEGACY]',
+        'fis_dacion_hoja_1' => 'DACIÓN HOJA 1 (FÍSICA)',
+        'fis_dacion_hoja_2' => 'DACIÓN HOJA 2 (FÍSICA)',
+        'fis_lateral_der' => 'LATERAL DERECHA (FÍSICA)',
+        'fis_trasera' => 'TRASERA (FÍSICA)',
+        'fis_lateral_izq' => 'LATERAL IZQUIERDA (FÍSICA)',
+        'fis_video_cliente_acuerdo' => 'VIDEO CLIENTE DE ACUERDO (FÍSICA)',
+        'fis_360_encendida' => 'VIDEO MOTO 360 ENCENDIDA (FÍSICA)',
+        'fis_video_vuelta_prueba' => 'VIDEO VUELTA DE PRUEBA (FÍSICA)',
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
-        'doc_cierre_s2' => 'CONFIRMACI??N CIERRE S2',
-        'doc_dacion_rcpt'   => 'CONTRATO DACI??N (RECEPCI??N ALMAC??N)',
-        'doc_tarjeta_rcpt'  => 'TARJETA CIRCULACI??N (RECEPCI??N ALMAC??N)',
-        'doc_firma_rcpt'    => 'FIRMA RECEPCI??N ALMAC??N',
-        'vista_trs'         => 'VISTA TRASERA (RECEPCI??N ALMAC??N)',
-        'vista_front'       => 'VISTA FRONTAL (RECEPCI??N ALMAC??N)',
-        'lado_izq'          => 'LADO IZQUIERDO (RECEPCI??N ALMAC??N)',
-        'lado_der'          => 'LADO DERECHO (RECEPCI??N ALMAC??N)',
-        'tablero'           => 'TABLERO / OD??METRO (RECEPCI??N ALMAC??N)',
-        'vin'               => 'VIN (RECEPCI??N ALMAC??N)',
-        'danos_vis'         => 'DA??OS VISIBLES (RECEPCI??N ALMAC??N)',
-        'vid_gen'           => 'VIDEO GENERAL 360? (RECEPCI??N ALMAC??N)',
+        'doc_cierre_s2' => 'CONFIRMACIÓN CIERRE S2',
+        'doc_dacion_rcpt'   => 'CONTRATO DACIÓN (RECEPCIÓN ALMACÉN)',
+        'doc_tarjeta_rcpt'  => 'TARJETA CIRCULACIÓN (RECEPCIÓN ALMACÉN)',
+        'doc_firma_rcpt'    => 'FIRMA RECEPCIÓN ALMACÉN',
+        'vista_trs'         => 'VISTA TRASERA (RECEPCIÓN ALMACÉN)',
+        'vista_front'       => 'VISTA FRONTAL (RECEPCIÓN ALMACÉN)',
+        'lado_izq'          => 'LADO IZQUIERDO (RECEPCIÓN ALMACÉN)',
+        'lado_der'          => 'LADO DERECHO (RECEPCIÓN ALMACÉN)',
+        'tablero'           => 'TABLERO / ODÓMETRO (RECEPCIÓN ALMACÉN)',
+        'vin'               => 'VIN (RECEPCIÓN ALMACÉN)',
+        'danos_vis'         => 'DAÑOS VISIBLES (RECEPCIÓN ALMACÉN)',
+        'vid_gen'           => 'VIDEO GENERAL 360° (RECEPCIÓN ALMACÉN)',
     ];
 
     private const RECEPCION_ALMACEN_SLOTS = [
@@ -2259,7 +2310,10 @@ SQL;
 
         $newId = $this->db->lastInsertId();
 
-        $accionBit = 'AGREG?? ACCI??N DE TRAMO: ' . mb_strtoupper(mb_substr($texto, 0, 60)) . (mb_strlen($texto) > 60 ? '???' : '');
+        $pref = 'AGREGÓ ACCIÓN DE TRAMO: ';
+        $tail = mb_strlen($texto, 'UTF-8') > 60 ? '…' : '';
+        $mid  = mb_strtoupper(mb_substr($texto, 0, 60, 'UTF-8'), 'UTF-8');
+        $accionBit = $pref . $mid . $tail;
         $this->registrarBitacora($idOperacion, $accionBit, $idUsuario, $nombreUsuario, $ahora);
 
         return ['success' => true, 'id' => $newId, 'fecha' => $ahora];
@@ -4652,7 +4706,7 @@ EOSQL;
         $etiq = $valAtn === 1 ? 'ACEPTADA' : 'RECHAZADA';
         $this->registrarBitacora(
             $idOperacion,
-            'VALIDACI??N EVIDENCIA ' . $etiq . ' (id evidencia ' . $idEvidencia . ')',
+            'VALIDACIÓN EVIDENCIA ' . $etiq . ' (id evidencia ' . $idEvidencia . ')',
             $idUsuario,
             $nombreUsuario
         );
@@ -4758,7 +4812,7 @@ EOSQL;
                 ['id' => $idOperacion]
             );
         }
-        $this->registrarBitacora($idOperacion, 'ENVI?? EVIDENCIAS VALIDADAS (PROCESANDO IA)', $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS VALIDADAS (PROCESANDO IA)', $idUsuario, $nombreUsuario);
 
         return ['success' => true];
     }
