@@ -2122,9 +2122,8 @@ SQL;
         'tablero', 'vin', 'danos_vis', 'vid_gen',
     ];
 
-    /** Fotos/video que s? se dictaminan (aceptar/rechazar) en Atenci?n a clientes. */
+    /** Fotos/video que s? se dictaminan (aceptar/rechazar) en Atenci?n a clientes (solo evidencia f?sica momento 1). */
     private const SLOTS_VALIDACION_ATENCION_MEDIA = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
         'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
         'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
         'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
@@ -2133,10 +2132,18 @@ SQL;
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atenci?n. */
     private const SLOT_REPVE_ATENCION = 'doc_repuve';
 
-    /** Slots del expediente de evidencias en pipeline (11; alineado con la vista operaciones_pipeline). */
+    /**
+     * Slots del expediente en pipeline/kanban: recolección + física momento 1 (Mis adjudicaciones) +
+     * momento 2 (Repuve) + momento 3 (Factura).
+     *
+     * @see MADJ_SLOTS_EVIDENCIA_MEDIA (debe mantener el mismo orden lógico de evidencia física)
+     */
     private const SLOTS_PIPELINE_EXPEDIENTE = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+        'fis_vin',
+        'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+        'fis_tacometro',
+        'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
         'doc_repuve', 'doc_factura',
     ];
 
@@ -4626,7 +4633,7 @@ EOSQL;
     }
 
     /**
-     * Listo para enviar a Procesando IA: 9 evidencias media con val_atn = 1 y Repuve con archivo en expediente (no dictamina Repuve).
+     * Listo para enviar a Procesando IA: evidencia f?sica (momento 1) completa con val_atn = 1 y PDF Repuve en expediente.
      */
     public function operacionTieneValidacionAtencionCompleta(int $idOperacion): bool
     {

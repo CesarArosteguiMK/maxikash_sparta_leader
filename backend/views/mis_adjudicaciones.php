@@ -153,13 +153,14 @@
         border: 1px solid #e2e8f0; border-top: none;
         border-radius: 0 0 .5rem .5rem;
         display: grid;
-        grid-template-columns: repeat(6, 150px);
-        justify-content: start;
+        /* 11 ítems → 6 + 5 en pantallas anchas */
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: .625rem;
+        width: 100%;
         overflow: visible;
     }
     .madj-ev-slot {
-        width: 150px; height: 110px;
+        width: 100%; min-width: 0; height: 110px;
         background: #fff; border: 2px dashed #cbd5e1; border-radius: .625rem;
         cursor: pointer; position: relative;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2806,18 +2807,21 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             });
     }
 
-    async function madjEnviarEvidencias() {
-        const confirm = await Swal.fire({
-            title: '¿Enviar evidencias?',
-            html: '<p>Las evidencias pasarán a la <strong>bandeja de entrada de evidencias</strong> para revisión y continuarán su ciclo habitual.</p>' +
-                  '<p class="text-muted small mb-0">Las marcadas como <strong>Por enviar</strong> quedarán como <strong>Enviado</strong>.</p>',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, enviar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#16a34a',
-        });
-        if (!confirm.isConfirmed) return;
+    async function madjEnviarEvidencias(opts) {
+        const options = opts || {};
+        if (!options.skipConfirm) {
+            const confirm = await Swal.fire({
+                title: '¿Enviar evidencias?',
+                html: '<p>Las evidencias pasarán a la <strong>bandeja de entrada de evidencias</strong> para revisión.</p>' +
+                      '<p class="text-muted small mb-0">Las marcadas como <strong>Por enviar</strong> quedarán como <strong>Enviado</strong>.</p>',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, enviar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#16a34a',
+            });
+            if (!confirm.isConfirmed) return false;
+        }
 
         const btn = document.getElementById('madj-btn-enviar-evidencias');
         if (btn) {
@@ -2867,12 +2871,14 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 timer: 2000,
                 showConfirmButton: false,
             });
+            return true;
         } catch (err) {
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias';
             }
             Swal.fire('Error', err.message || 'No se pudieron enviar las evidencias.', 'error');
+            return false;
         }
     }
 
@@ -3073,12 +3079,15 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 _madjDatosMotoGuardados = _madjDatosMotoCompletos(datos);
                 _madjRenderEvModalBody({});
 
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Datos guardados!',
-                    text: 'Usa el botón inferior «Enviar evidencias» para enviarlas a revisión.',
-                    timer: 2600,
-                    showConfirmButton: false,
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardado. Enviando evidencias...';
+                }
+                return madjEnviarEvidencias({ skipConfirm: true }).then(ok => {
+                    if (!ok && btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i>Guardar datos de la motocicleta';
+                    }
                 });
             })
             .catch(err => {

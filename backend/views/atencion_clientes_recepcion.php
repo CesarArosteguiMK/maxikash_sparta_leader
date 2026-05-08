@@ -845,7 +845,8 @@ body.dark-mode .acr-rcpt-doc-h { background: #1e293b; }
 (function () {
     'use strict';
 
-    const ACR_EV_TOTAL = 12;
+    /** Expediente operación: física M1 + Repuve + Factura (13). */
+    const ACR_EV_TOTAL = 13;
 
     const ACR_CONFIG = {
         bandeja: {

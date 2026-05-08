@@ -206,9 +206,16 @@ body.dark-mode .aev-ev-hint { color: #94a3b8 !important; }
 .aev-ev-hdr-blue   { background: #eff6ff; border: 1px solid #bfdbfe; border-bottom: 0; color: #1e40af; }
 .aev-ev-hdr-green  { background: #f0fdf4; border: 1px solid #bbf7d0; border-bottom: 0; color: #14532d; }
 .aev-ev-hdr-purple { background: #faf5ff; border: 1px solid #e9d5ff; border-bottom: 0; color: #6b21a8; }
-.aev-ev-slots-wrap { padding: .65rem; background: #f8fafc; border: 1px solid #e2e8f0; border-top: 0; border-radius: 0 0 .5rem .5rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+.aev-ev-slots-wrap {
+    padding: .65rem; background: #f8fafc; border: 1px solid #e2e8f0; border-top: 0; border-radius: 0 0 .5rem .5rem;
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .5rem;
+}
+@media (max-width: 1199.98px) { .aev-ev-slots-wrap { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 991.98px)  { .aev-ev-slots-wrap { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 767.98px)  { .aev-ev-slots-wrap { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 575.98px)  { .aev-ev-slots-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .aev-ev-slot {
-    flex: 0 0 118px; width: 118px; height: 118px; background: #fff; border: 2px solid #e2e8f0; border-radius: .6rem; position: relative; overflow: hidden;
+    width: 100%; min-width: 0; height: 118px; background: #fff; border: 2px solid #e2e8f0; border-radius: .6rem; position: relative; overflow: hidden;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem;
 }
 .aev-ev-slot--acept { border-color: #22c55a; background: #f0fdf4; }
@@ -568,7 +575,6 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         }
     }
 
-    const AE_EV_TOTAL = 10;
     const AE_CONFIG = {
         bandeja: {
             url:   '/AtencionClientes/obtenerRecibidos',
@@ -596,18 +602,18 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
 
     // Definición de slots (alineada a operaciones / Mis adjudicaciones) — sin tocar esos archivos: copia local.
     const AEV_EV_SECTIONS = [
-        { key: 'rec', label: 'Evidencia de recolección (final)', headerClass: 'aev-ev-hdr-orange', icon: 'fa-camera-retro', slots: [
-            { key: 'rec_tacometro', label: 'Tacómetro Rec.', icon: 'fa-gauge-high' },
-            { key: 'rec_serie',     label: 'No. Serie Rec.',  icon: 'fa-hashtag' },
-            { key: 'rec_frontal',   label: 'Frontal Rec.',   icon: 'fa-camera' },
-            { key: 'rec_lateral',   label: 'Lateral Rec.',   icon: 'fa-camera-rotate' },
-        ]},
         { key: 'fis', label: 'Evidencia física (momento 1)', headerClass: 'aev-ev-hdr-blue', icon: 'fa-camera', slots: [
-            { key: 'fis_vin',       label: 'Serie VIN',       icon: 'fa-barcode' },
-            { key: 'fis_tacometro', label: 'Tacómetro',       icon: 'fa-gauge-high' },
-            { key: 'fis_frontal',   label: 'Vista Frontal',   icon: 'fa-camera' },
-            { key: 'fis_lateral',   label: 'Vista Lateral',  icon: 'fa-camera-rotate' },
-            { key: 'fis_360',       label: 'Inspección 360',  icon: 'fa-video' },
+            { key: 'fis_dacion_hoja_1', label: 'Foto dación (hoja 1)', icon: 'fa-file-signature' },
+            { key: 'fis_dacion_hoja_2', label: 'Foto dación (hoja 2)', icon: 'fa-file-signature' },
+            { key: 'fis_vin', label: 'Foto VIN (VIN)', icon: 'fa-barcode' },
+            { key: 'fis_frontal', label: 'Foto frontal', icon: 'fa-camera' },
+            { key: 'fis_lateral_der', label: 'Foto lateral derecha', icon: 'fa-camera-rotate' },
+            { key: 'fis_trasera', label: 'Foto trasera', icon: 'fa-camera-retro' },
+            { key: 'fis_lateral_izq', label: 'Foto lateral izquierda', icon: 'fa-camera-rotate' },
+            { key: 'fis_tacometro', label: 'Foto tacómetro', icon: 'fa-gauge-high' },
+            { key: 'fis_video_cliente_acuerdo', label: 'Video cliente de acuerdo', icon: 'fa-video' },
+            { key: 'fis_360_encendida', label: 'Video moto 360 encendida', icon: 'fa-video' },
+            { key: 'fis_video_vuelta_prueba', label: 'Video vuelta de prueba', icon: 'fa-road' },
         ]},
     ];
     const AEV_EV_DOCS = [
@@ -619,9 +625,9 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         return a;
     })();
     const AEV_PDF_KEYS     = ['doc_repuve'];
-    const AEV_TOTAL_IMAGEN = 9;
-    const AEV_MODAL_TOTAL  = 10;
-    const AEV_KEYS_10 = AEV_IMAGEN_KEYS.concat(AEV_PDF_KEYS);
+    const AEV_TOTAL_IMAGEN = AEV_IMAGEN_KEYS.length;
+    const AEV_MODAL_TOTAL  = AEV_IMAGEN_KEYS.length + AEV_PDF_KEYS.length;
+    const AE_EV_TOTAL      = AEV_TOTAL_IMAGEN;
 
     /** detalle de sesión: veredictos v[slot]= acep|rec, comentarios c[slot] (persiste solo mientras dura el modal) */
     let _aevStore  = { det: null, idCredito: 0, v: {}, c: {} };
@@ -816,7 +822,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         return m;
     }
 
-    function aevNueveTodasAceptadas(evList) {
+    function aevImagenesTodasAceptadas(evList) {
         const m = aevMapaPorSlot(evList);
         return AEV_IMAGEN_KEYS.every(function (k) {
             return aevEstadoEvidencia(m[k], k) === 'acep';
@@ -925,8 +931,11 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             if (cleRech) { cleRech.textContent = ''; cleRech.style.display = ''; }
         }
         const urlE = aeEsc(urlRaw);
-        const es360 = (slot === 'fis_360');
-        const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || es360;
+        const esVideoSlot = slot === 'fis_360'
+            || slot === 'fis_360_encendida'
+            || slot === 'fis_video_cliente_acuerdo'
+            || slot === 'fis_video_vuelta_prueba';
+        const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || esVideoSlot;
         const esPdf = (AEV_PDF_KEYS.indexOf(slot) !== -1)
             || (row.tipo && String(row.tipo).toLowerCase().indexOf('pdf') !== -1)
             || /\.pdf(\?|#|$)/i.test(urlRaw);
@@ -1038,8 +1047,11 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
             </div>`;
         }
         const uEsc = aeEsc(aevUrlForDisplay(row.url));
-        const es360 = (sl.key === 'fis_360');
-        const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || es360;
+        const esVideoSlot = sl.key === 'fis_360'
+            || sl.key === 'fis_360_encendida'
+            || sl.key === 'fis_video_cliente_acuerdo'
+            || sl.key === 'fis_video_vuelta_prueba';
+        const esVideo = (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1) || esVideoSlot;
         const media = esVideo
             ? '<video class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" muted playsinline></video><div class="aev-aev-mute-play" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);pointer-events:none;"><i class="fa-solid fa-play" style="color:#fff;font-size:1.4rem;"></i></div>'
             : '<img class="aev-thumb" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" data-aev-src="' + uEsc + '" alt="">';
@@ -1098,7 +1110,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         const vpdf = aevCuentaValidadosPdf(evl);
         const vall = aevCuentaValidadosTot(evl);
         const pct9 = AEV_TOTAL_IMAGEN ? Math.round((vi / AEV_TOTAL_IMAGEN) * 100) : 0;
-        const mostrarDoc = aevNueveTodasAceptadas(evl);
+        const mostrarDoc = aevImagenesTodasAceptadas(evl);
 
         let html = '';
         html += '<p class="aev-ev-hint" role="note"><i class="fa-solid fa-hand-pointer me-1" style="opacity:.65;" aria-hidden="true"></i>Clic en cada evidencia para aceptar o rechazar.</p>';
@@ -1125,7 +1137,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
     }
 
     /**
-     * Enviar: visible y habilitado con las 9 aceptadas + Repuve (PDF) cargado en el sistema.
+     * Enviar: visible y habilitado con fotos/videos aceptados + Repuve (PDF) cargado.
      */
     function aevSincroBtnEnviar() {
         const btn = document.getElementById('aev-btn-enviar');
@@ -1134,7 +1146,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
         btn.disabled = true;
         btn.removeAttribute('title');
         if (!_aevStore.det) return;
-        if (!aevNueveTodasAceptadas(_aevStore.det.evidencias)) return;
+        if (!aevImagenesTodasAceptadas(_aevStore.det.evidencias)) return;
         const m = aevMapaPorSlot(_aevStore.det.evidencias);
         const rep = m.doc_repuve;
         if (!rep || !rep.url) return;
@@ -1534,7 +1546,7 @@ $aevPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_b
                 const sub = ev.target.closest('[data-aev-subir]');
                 if (sub) {
                     const sk = sub.getAttribute('data-aev-subir');
-                    if (sk === 'doc_repuve' && _aevStore.det && aevNueveTodasAceptadas(_aevStore.det.evidencias)) {
+                    if (sk === 'doc_repuve' && _aevStore.det && aevImagenesTodasAceptadas(_aevStore.det.evidencias)) {
                         const inp = document.getElementById('aev-inp-repuve');
                         if (inp) { inp.value = ''; inp.click(); }
                     }
