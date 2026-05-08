@@ -4245,6 +4245,42 @@ class CapHum extends Controller
                 window.candidatosDataMap = new Map();
             }
 
+            var docModalPollTimer = null;
+
+            function clearDocModalPoll() {
+                if (docModalPollTimer) {
+                    clearInterval(docModalPollTimer);
+                    docModalPollTimer = null;
+                }
+            }
+
+            function maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts) {
+                opts = opts || {};
+                if (opts.fromPoll) {
+                    return;
+                }
+                clearDocModalPoll();
+                if (!metricas || metricas.expediente_completo !== true || verif) {
+                    return;
+                }
+                var intentos = 0;
+                var maxIntentos = 45;
+                docModalPollTimer = setInterval(function() {
+                    intentos++;
+                    if (intentos > maxIntentos) {
+                        clearDocModalPoll();
+                        var bv = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                        var modalAbierto = document.getElementById("modalDocumentacionCandidato");
+                        if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
+                            bv.classList.remove("d-none");
+                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>No llegó el resultado de la verificación automática en el tiempo esperado. Cierra el modal y ábrelo de nuevo, o espera unos minutos y actualiza la página.</div>";
+                        }
+                        return;
+                    }
+                    cargarDocumentosModal(idCandidato, { fromPoll: true });
+                }, 4000);
+            }
+
             /* ── KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) ── */
             function kpiAnimateCounterCand(el, target, dur, delay) {
                 if (!el) return;
@@ -4974,7 +5010,11 @@ class CapHum extends Controller
                 }
             }
 
-            function cargarDocumentosModal(idCandidato) {
+            function cargarDocumentosModal(idCandidato, opts) {
+                opts = opts || {};
+                if (!opts.fromPoll) {
+                    clearDocModalPoll();
+                }
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
                 var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
                 var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
@@ -4982,6 +5022,9 @@ class CapHum extends Controller
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
+                if (cargando) {
+                    cargando.classList.remove("d-none");
+                }
                 fetch("/caphum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
@@ -4994,6 +5037,10 @@ class CapHum extends Controller
                         metricas: metricas
                     });
 
+                    if (verif) {
+                        clearDocModalPoll();
+                    }
+
                     renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
                     renderMetricasDoc(bloqueMetricas, metricas);
                     renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
@@ -5002,9 +5049,15 @@ class CapHum extends Controller
                         if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-success small mb-0\"><i class=\"fa fa-check-circle me-1\"></i>Expediente verificado automáticamente. Los resultados se muestran en cada documento.</div>"; }
                         renderVerificacionDoc(bloqueVerif, verif);
                     } else if (metricas && metricas.expediente_completo) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La verificación automática se está procesando en segundo plano. Los resultados aparecerán aquí cuando estén listos.</div>"; }
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso. Esta vista se actualiza sola cada pocos segundos hasta recibir el resultado.</div>"; }
                     }
-                }).catch(function() { renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato); if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; } });
+                    maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
+                }).catch(function() {
+                    renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
+                    if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
+                    if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                    if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+                });
             }
 
             function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
@@ -5024,40 +5077,12 @@ class CapHum extends Controller
                 if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                 if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                 if (lista) lista.innerHTML = "";
-
-                // Eager Loading: Obtener datos del Map global (sin peticiones de red - INSTANTÁNEO)
-                var docPayload = window.candidatosDataMap && window.candidatosDataMap.get(idCandidato) ? window.candidatosDataMap.get(idCandidato) : null;
-
-                if (docPayload) {
-                    // Datos disponibles instantáneamente desde memoria
-                    if (cargando) cargando.classList.add("d-none");
-                    if (vacio) vacio.classList.add("d-none");
-
-                    var docs = docPayload.documentos || [];
-                    var verif = docPayload.verificacion_expediente || null;
-                    var metricas = docPayload.metricas || null;
-
-                    renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
-                    renderMetricasDoc(bloqueMetricas, metricas);
-                    renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
-                    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-                    if (verif) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = ""; }
-                        renderVerificacionDoc(bloqueVerif, verif);
-                    } else if (metricas && metricas.expediente_completo && bloqueVerif) {
-                        bloqueVerif.classList.remove("d-none");
-                        bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso.</div>";
-                    }
-                } else {
-                    // Si no hay datos en memoria (no debería pasar con Eager Loading), mostrar vacío
-                    if (cargando) cargando.classList.add("d-none");
-                    if (vacio) vacio.classList.remove("d-none");
-                    if (lista) lista.innerHTML = "";
-                    if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
-                }
+                if (vacio) vacio.classList.add("d-none");
+                if (cargando) cargando.classList.remove("d-none");
 
                 var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
                 if (bsModal) bsModal.show();
+                cargarDocumentosModal(idCandidato);
             }
 
             function abrirModalReenviarPostulacion(idCandidato) {
@@ -5412,6 +5437,8 @@ class CapHum extends Controller
         var form = document.getElementById("formAgregarCandidato");
         if (form) { form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); }); }
         document.addEventListener("click", candidatosTableClick);
+        var modalDocPollEl = document.getElementById("modalDocumentacionCandidato");
+        if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); });
         document.addEventListener("click", function(e) {
             var btn = e.target.closest(".btn-cerrar-proceso-candidato");
             if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) abrirModalCerrarProceso(parseInt(id, 10)); }
@@ -6009,15 +6036,24 @@ class CapHum extends Controller
             'NÚMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
         ];
         $documentos_subidos = [];
+        $tipoDocumentoValidadoRh = [];
         $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
         if ($resDocs['success'] && !empty($resDocs['datos'])) {
             foreach ($resDocs['datos'] as $d) {
                 $tipo = trim($d['tipo_documento'] ?? '');
-                if (isset($tiposNombre[$tipo])) {
-                    $documentos_subidos[$tiposNombre[$tipo]] = $d;
+                if (!isset($tiposNombre[$tipo])) {
+                    continue;
+                }
+                $numTipo = $tiposNombre[$tipo];
+                if (!empty((int) ($d['validado'] ?? 0))) {
+                    $tipoDocumentoValidadoRh[$numTipo] = true;
+                }
+                if (!isset($documentos_subidos[$numTipo])) {
+                    $documentos_subidos[$numTipo] = $d;
                 }
             }
         }
+        $this->set('tipo_documento_validado_rh', $tipoDocumentoValidadoRh);
         $expediente_completo = isset($documentos_subidos[1]) && isset($documentos_subidos[2]) && isset($documentos_subidos[3])
             && isset($documentos_subidos[4]) && isset($documentos_subidos[5]) && isset($documentos_subidos[6])
             && isset($documentos_subidos[7]) && isset($documentos_subidos[8]) && isset($documentos_subidos[9])
@@ -6627,7 +6663,10 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'Falta el documento de identificación oficial (PDF con frente y reverso) para poder verificar.'));
             return;
         }
-        $resultadoApi = $this->validarExpedienteApi($rutasParaValidar);
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
+        $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+        $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro);
         if ($resultadoApi === null) {
             echo json_encode(self::respuesta(false, 'No se pudo enviar el expediente a la API.'));
             return;
@@ -7153,7 +7192,7 @@ class CapHum extends Controller
      * @param array $rutas ['identificacion_pdf' => ruta] o ['frente' => ruta, 'reverso' => ruta], más curp, nss, etc.
      * @return array|null Respuesta JSON de la API; null si faltan archivos; ['error' => mensaje] si fallo
      */
-    private function validarExpedienteApi(array $rutas)
+    private function validarExpedienteApi(array $rutas, $nombreCandidatoRegistro = null)
     {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
         if (!is_file($configFile)) {
@@ -7187,6 +7226,10 @@ class CapHum extends Controller
         $post = [
             'tipo_documento' => 'RESIDENCIA_TEMPORAL',
         ];
+        $nombreCandidatoRegistro = trim((string) $nombreCandidatoRegistro);
+        if ($nombreCandidatoRegistro !== '') {
+            $post['nombre_candidato_registro'] = $nombreCandidatoRegistro;
+        }
 
         $usaPdfId = !empty($rutas['identificacion_pdf']) && is_file($rutas['identificacion_pdf']);
         if ($usaPdfId) {
@@ -7656,6 +7699,18 @@ class CapHum extends Controller
                 }
             }
         }
+        $mapTipoDocStrToNum = [
+            'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3,
+            'CURP' => 4, 'IDENTIFICACIÓN OFICIAL' => 5, 'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7,
+            'NÚMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
+        ];
+        $tipoDocumentoValidadoRh = [];
+        foreach ($listaDocsExistentes as $d) {
+            $tipo = trim($d['tipo_documento'] ?? '');
+            if (isset($mapTipoDocStrToNum[$tipo]) && !empty((int) ($d['validado'] ?? 0))) {
+                $tipoDocumentoValidadoRh[$mapTipoDocStrToNum[$tipo]] = true;
+            }
+        }
         $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
 
         // Envío parcial: solo exigir que venga al menos un archivo nuevo (el candidato puede subir el resto después)
@@ -7677,6 +7732,9 @@ class CapHum extends Controller
         }
 
         for ($i = 1; $i <= 10; $i++) {
+            if (!empty($tipoDocumentoValidadoRh[$i])) {
+                continue;
+            }
             $key = 'archivo_' . $i;
             $fileKey = $key;
             if (!isset($_FILES[$key]) || $_FILES[$key]['error'] !== UPLOAD_ERR_OK || $_FILES[$key]['size'] <= 0) {
@@ -7729,60 +7787,10 @@ class CapHum extends Controller
 
             $verificacionFiscalJson = null;
             $verificacionCalidadJson = null;
-            if ($i === 7 && $ext === 'pdf') {
-                $apiFiscal = $this->verificarConstanciaFiscalApi($rutaDestino);
-                if ($apiFiscal === null || empty($apiFiscal['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'CONSTANCIA DE SITUACIÓN FISCAL: ' . ($apiFiscal['mensaje'] ?? 'No se pudo verificar el documento.');
-                    continue;
-                }
-                $verificacionFiscalJson = json_encode($apiFiscal);
-            }
-
-            if ($i === 10 && $ext === 'pdf') {
-                $apiEstadoCuenta = $this->verificarEstadoCuentaApi($rutaDestino);
-                if ($apiEstadoCuenta === null || empty($apiEstadoCuenta['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'ESTADO DE CUENTA: ' . ($apiEstadoCuenta['mensaje'] ?? 'No se pudo verificar el documento. Solo se aceptan bancos físicos de México.');
-                    continue;
-                }
-                $verificacionCalidadJson = json_encode($apiEstadoCuenta);
-            }
-
-            if ($i === 8 && $ext === 'pdf') {
-                $apiNss = $this->verificarNssApi($rutaDestino);
-                if ($apiNss === null || empty($apiNss['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: ' . ($apiNss['mensaje'] ?? 'Solo se acepta el PDF de vigencia de derechos del IMSS (descargado desde imss.gob.mx).');
-                    continue;
-                }
-                $verificacionCalidadJson = json_encode($apiNss);
-            }
-
-            if ($i === 4 && $ext === 'pdf') {
-                $apiCurp = $this->verificarCurpApi($rutaDestino);
-                if ($apiCurp === null || empty($apiCurp['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'CURP: ' . ($apiCurp['mensaje'] ?? 'No se pudo verificar la constancia de CURP. Sube el PDF del RENAPO.');
-                    continue;
-                }
-                $verificacionCalidadJson = json_encode($apiCurp);
-            }
-
-            if ($i === 5 && $ext === 'pdf') {
-                $precheckId = $this->precheckIdentificacionPdfApi($rutaDestino);
-                if ($precheckId === null || empty($precheckId['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'IDENTIFICACIÓN OFICIAL: ' . ($precheckId['mensaje'] ?? 'El PDF no parece corresponder a una identificación oficial.');
-                    continue;
-                }
+            if (in_array($i, [4, 5, 7, 8, 10], true)) {
                 $verificacionCalidadJson = json_encode([
-                    'aceptado' => true,
-                    'precheck' => $precheckId,
-                    'pendiente_revision_profunda' => true,
-                    'notas' => ['Identificación oficial recibida para revisión de expediente.'],
-                    'detalle_frente' => null,
-                    'detalle_reverso' => null,
+                    'pendiente_revision_backend' => true,
+                    'notas' => ['Documento guardado.'],
                 ]);
             }
 
@@ -7916,27 +7924,46 @@ class CapHum extends Controller
             }
         }
         if ($guardados > 0) {
-            echo json_encode(self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', $payload));
+            CandidatosDAO::updateVerificacionExpediente($id_candidato, null);
+            $respuestaSubida = self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', $payload);
         } else {
-            echo json_encode(self::respuesta(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.'));
+            $respuestaSubida = self::respuesta(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.');
         }
 
-        // Verificación automática en background: enviar respuesta al cliente y seguir procesando
-        if ($guardados > 0 && $expedienteCompleto) {
+        $jsonRespuesta = json_encode($respuestaSubida);
+        $puedeValidarEnBackground = $guardados > 0;
+
+        // Verificación automática en background: responder primero; el trabajo pesado va en shutdown.
+        // En Apache mod_php no existe fastcgi_finish_request(): si ejecutáramos la verificación aquí,
+        // el POST seguiría bloqueado hasta terminar todas las llamadas a la API (modal "cargando" eterno).
+        if ($puedeValidarEnBackground) {
+            header('Content-Length: ' . strlen($jsonRespuesta));
+            header('Connection: close');
+            echo $jsonRespuesta;
             if (function_exists('fastcgi_finish_request')) {
                 fastcgi_finish_request();
             } else {
-                if (ob_get_level() > 0) ob_end_flush();
+                while (ob_get_level() > 0) {
+                    @ob_end_flush();
+                }
                 flush();
-                if (function_exists('session_write_close')) session_write_close();
+                if (function_exists('session_write_close')) {
+                    session_write_close();
+                }
             }
             ignore_user_abort(true);
             set_time_limit(300);
-            $verifExistente = CandidatosDAO::getVerificacionExpediente($id_candidato);
-            if (empty($verifExistente)) {
-                error_log('CapHum::subirDocumentos: lanzando verificación automática background para candidato ' . $id_candidato);
-                $this->ejecutarVerificacionBackground($id_candidato);
-            }
+            $idCandBg = (int) $id_candidato;
+            register_shutdown_function(function () use ($idCandBg) {
+                error_log('CapHum::subirDocumentos: verificación automática (shutdown) candidato ' . $idCandBg);
+                try {
+                    $this->ejecutarVerificacionBackground($idCandBg);
+                } catch (\Throwable $e) {
+                    error_log('CapHum::subirDocumentos: error verificación shutdown candidato ' . $idCandBg . ': ' . $e->getMessage());
+                }
+            });
+        } else {
+            echo $jsonRespuesta;
         }
         exit;
     }
@@ -7959,17 +7986,52 @@ class CapHum extends Controller
                 if ($rutaRel === '' || !is_file($storageRoot . '/' . $rutaRel)) continue;
                 $pathAbs = $storageRoot . '/' . $rutaRel;
                 $tipo = trim($d['tipo_documento'] ?? '');
-                if ($tipo === 'IDENTIFICACIÓN OFICIAL') $rutasParaValidar['identificacion_pdf'] = $pathAbs;
-                elseif ($tipo === 'CURP') $rutasParaValidar['curp'] = $pathAbs;
-                elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL') $rutasParaValidar['nss'] = $pathAbs;
-                elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') $rutasParaValidar['constancia_fiscal'] = $pathAbs;
-                elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') $rutasParaValidar['acta_nacimiento'] = $pathAbs;
+                $idDoc = (int) ($d['id'] ?? 0);
+                if ($tipo === 'IDENTIFICACIÓN OFICIAL') {
+                    $rutasParaValidar['identificacion_pdf'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        $precheckId = $this->precheckIdentificacionPdfApi($pathAbs);
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'aceptado' => is_array($precheckId) ? !empty($precheckId['valido']) : null,
+                            'precheck' => $precheckId,
+                            'pendiente_revision_profunda' => true,
+                            'notas' => ['Identificación oficial recibida para revisión de expediente.'],
+                            'detalle_frente' => null,
+                            'detalle_reverso' => null,
+                        ]));
+                    }
+                } elseif ($tipo === 'CURP') {
+                    $rutasParaValidar['curp'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($this->verificarCurpApi($pathAbs)));
+                    }
+                } elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL') {
+                    $rutasParaValidar['nss'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($this->verificarNssApi($pathAbs)));
+                    }
+                } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
+                    $rutasParaValidar['constancia_fiscal'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        $apiFiscal = $this->verificarConstanciaFiscalApi($pathAbs);
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode($apiFiscal), json_encode($apiFiscal));
+                    }
+                } elseif ($tipo === 'ESTADO DE CUENTA') {
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($this->verificarEstadoCuentaApi($pathAbs)));
+                    }
+                } elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') {
+                    $rutasParaValidar['acta_nacimiento'] = $pathAbs;
+                }
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
                 return;
             }
-            $resultadoApi = $this->validarExpedienteApi($rutasParaValidar);
+            $candidatoRes = CandidatosDAO::getById($id_candidato);
+            $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
+            $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+            $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro);
             if (is_array($resultadoApi) && !isset($resultadoApi['error'])) {
                 $payload = [
                     'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,

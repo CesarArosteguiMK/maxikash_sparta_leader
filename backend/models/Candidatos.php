@@ -435,6 +435,36 @@ class Candidatos extends Model
     }
 
     /**
+     * Actualizar resultados de verificación OCR/API de un documento ya guardado.
+     */
+    public static function updateVerificacionDocumento($id_documento, $verificacion_fiscal_json = null, $verificacion_calidad_json = null)
+    {
+        $id_documento = (int) $id_documento;
+        if ($id_documento <= 0) {
+            return self::resultado(false, 'ID inválido.');
+        }
+        try {
+            $db = new Database();
+            $doc = $db->queryOne("SELECT id_candidato FROM candidato_documento WHERE id = :id", ['id' => $id_documento]);
+            if (!$doc) {
+                return self::resultado(false, 'Documento no encontrado.');
+            }
+            $db->CRUD(
+                "UPDATE candidato_documento SET verificacion_fiscal_json = :vf, verificacion_calidad_json = :vc WHERE id = :id",
+                [
+                    'id' => $id_documento,
+                    'vf' => $verificacion_fiscal_json,
+                    'vc' => $verificacion_calidad_json,
+                ]
+            );
+            self::invalidateDocumentacionCache((int) ($doc['id_candidato'] ?? 0));
+            return self::resultado(true, 'Verificación actualizada.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar verificación.', null, $e->getMessage());
+        }
+    }
+
+    /**
      * Obtener solo ruta y nombre de un documento (sin contenido). Para servir desde disco sin cargar LONGBLOB.
      */
     public static function getDocumentoRutaSolo($id_documento)

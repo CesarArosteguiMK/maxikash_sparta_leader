@@ -5,7 +5,7 @@ Endpoints de la API REST.
 import asyncio
 import re
 import time
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body, Form
 from fastapi.security.api_key import APIKeyHeader
 from typing import Optional, List, Dict, Any
 from loguru import logger
@@ -818,6 +818,7 @@ async def validar_expediente(
     documento_nss: Optional[UploadFile] = File(None, description="PDF constancia NSS"),
     constancia_fiscal: Optional[UploadFile] = File(None, description="PDF constancia de situación fiscal"),
     acta_nacimiento: Optional[UploadFile] = File(None, description="PDF acta de nacimiento"),
+    nombre_candidato_registro: Optional[str] = Form(None, description="Nombre registrado del candidato en Sparta Ledger"),
     tipo_documento: Optional[TipoDocumento] = Query(
         TipoDocumento.RESIDENCIA_TEMPORAL,
         description="Tipo de documento de identificación"
@@ -886,6 +887,7 @@ async def validar_expediente(
             datos_nss=datos_nss,
             datos_fiscal=datos_fiscal,
             datos_acta=datos_acta,
+            nombre_candidato_registro=nombre_candidato_registro,
         )
 
         tiempo_ms = int((time.time() - inicio) * 1000)
