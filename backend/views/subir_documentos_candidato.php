@@ -513,7 +513,7 @@ $documentos = [
                             <span id="curp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> CURP verificado</span>
                             <?php endif; ?>
                             <?php if ($num === 5): ?>
-                            <span id="id-verificado-frente" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Identificación verificada</span>
+                            <span id="id-verificado-frente" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> PDF cargado</span>
                             <?php endif; ?>
                             <?php if ($num === 6): ?>
                             <span id="comp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Comprobante verificado</span>
@@ -823,6 +823,30 @@ $documentos = [
                 });
             }
 
+            function precheckIdentificacionPdfAPI(file) {
+                return new Promise(function(resolve, reject) {
+                    var formData = new FormData();
+                    formData.append('documento', file, file.name || 'identificacion.pdf');
+                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 15000)
+                    .then(function(r) {
+                        if (!r.ok) {
+                            return r.json().catch(function() { return {}; }).then(function(body) {
+                                throw new Error((body && (body.detail || body.mensaje)) ? (body.detail || body.mensaje) : 'No se pudo revisar la identificación.');
+                            });
+                        }
+                        return r.json();
+                    })
+                    .then(resolve)
+                    .catch(function(err) {
+                        if (err && err.name === 'AbortError') {
+                            reject(new Error('La revisión rápida tardó demasiado. Intenta con un PDF más claro o ligero.'));
+                        } else {
+                            reject(err);
+                        }
+                    });
+                });
+            }
+
             function actualizarCheckmark(docNum, aprobado) {
                 var label = document.querySelector('label[for="archivo_' + docNum + '"]');
                 if (!label) return;
@@ -1032,13 +1056,30 @@ $documentos = [
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
-                    var verificandoDiv = showVerificando(msg, 'Validando formato del PDF...');
-                    idVerificado.front = true;
-                    idVerificado.back = true;
-                    actualizarCheckmark(5, true);
-                    var el = document.getElementById('id-verificado-frente');
-                    if (el) el.style.display = 'inline';
-                    showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> PDF de identificación cargado. La revisión profunda se realizará automáticamente después de subir.', false);
+                    var verificandoDiv = showVerificando(msg, 'Validando identificación...');
+                    precheckIdentificacionPdfAPI(file).then(function(res) {
+                        var el = document.getElementById('id-verificado-frente');
+                        if (!res || res.valido !== true) {
+                            showResultado(msg, verificandoDiv, (res && res.mensaje) ? res.mensaje : 'El PDF no parece corresponder a una identificación oficial.', true);
+                            inputFrente.value = '';
+                            idVerificado.front = false;
+                            idVerificado.back = false;
+                            if (el) el.style.display = 'none';
+                            return;
+                        }
+                        idVerificado.front = true;
+                        idVerificado.back = true;
+                        if (el) el.style.display = 'inline';
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Identificación oficial detectada.', false);
+                    }).catch(function(err) {
+                        var texto = (err && err.message) ? err.message : 'No se pudo revisar rápidamente la identificación.';
+                        showResultado(msg, verificandoDiv, texto, true);
+                        inputFrente.value = '';
+                        idVerificado.front = false;
+                        idVerificado.back = false;
+                        var el = document.getElementById('id-verificado-frente');
+                        if (el) el.style.display = 'none';
+                    });
                 });
             }
             var inputReversoId = document.getElementById('archivo_5_reverso');

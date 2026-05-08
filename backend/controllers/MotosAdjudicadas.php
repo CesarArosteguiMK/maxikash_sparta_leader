@@ -694,6 +694,7 @@ class MotosAdjudicadas extends Controller
                 'moto_no_serie','moto_no_motor','moto_placas',
                 'log_direccion','log_ciudad',
                 'log_estado','log_lugar_resguardo','log_lugar_otro','log_telefono',
+                'responsable_entrega',
             ];
             $tieneDatosMoto = false;
             foreach ($camposMoto as $c) {

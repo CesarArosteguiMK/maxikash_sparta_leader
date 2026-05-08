@@ -3097,6 +3097,7 @@ EOSQL;
     // Campos en adj_operacion: moto_marca, moto_modelo, moto_anio, moto_color,
     //   moto_no_serie, moto_no_motor, moto_placas,
     //   log_direccion, log_ciudad, log_estado, log_lugar_resguardo, log_lugar_otro, log_telefono,
+    //   responsable_entrega (nombre del responsable de resguardo / ubicación actual),
     //   datos_moto_at, datos_moto_by
     // Migraci?n: 20260430_adj_operacion_datos_moto_logisticos.sql
     // =========================================================================
@@ -3111,6 +3112,7 @@ EOSQL;
         'marca', 'modelo', 'serie', 'num_motor', 'placas',
         'log_direccion', 'log_ciudad',
         'log_estado', 'log_lugar_resguardo', 'log_lugar_otro', 'log_telefono',
+        'responsable_entrega',
     ];
 
     /** ISO 3779 / NHTSA: VIN de 17 caracteres m?x.; sin I, O, Q (motocicletas incluidas). */
@@ -3195,6 +3197,20 @@ EOSQL;
                 if (!preg_match('/^[\p{L}\p{N}\s\'\.\,\-\#\/]+$/u', $otro)) {
                     return '«Indicar cuál» solo puede incluir letras, números y signos básicos.';
                 }
+            }
+        }
+
+        if (array_key_exists('responsable_entrega', $datos)) {
+            $nom = trim((string) $datos['responsable_entrega']);
+            if ($nom === '') {
+                return 'Indica el nombre del responsable de resguardo.';
+            }
+            $len = mb_strlen($nom);
+            if ($len < 2 || $len > 160) {
+                return 'Responsable de resguardo: entre 2 y 160 caracteres.';
+            }
+            if (!preg_match('/^[\p{L}\p{M}\s\.\'\-]+$/u', $nom)) {
+                return 'El nombre del responsable solo puede incluir letras, espacios, punto y guion.';
             }
         }
 
@@ -3287,20 +3303,13 @@ EOSQL;
             $estado = strtoupper(trim((string) ($row['estado'] ?? '')));
             if ($estado === 'COMPLETADO' || $estado === 'ERROR') {
                 $datosMoto = $this->repuveDatosMotoDesdeFila($row);
-                $out = [
-                    'success'      => !empty($datosMoto),
-                    'from_cache'   => true,
-                    'id_credito'   => $idCredito,
-                    'datos_moto'   => $datosMoto,
-                    'repuve'       => [
-                        'estado'       => $estado,
-                        'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
-                        'mensaje'      => (string) ($row['mensaje'] ?? ''),
-                    ],
-                    'message'      => !empty($datosMoto)
-                        ? 'Datos REPUVE cargados desde caché.'
-                        : ((string) ($row['mensaje'] ?? 'No hay datos de vehículo para autocompletar.')),
-                ];
+                $out = $this->repuveConstruirRespuestaConsulta(
+                    $idCredito,
+                    $row,
+                    $datosMoto,
+                    true,
+                    'Datos REPUVE cargados desde caché.'
+                );
                 $out = $this->repuveAdjuntarRespuestasTecnicas($row, $out);
 
                 return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
@@ -3316,20 +3325,13 @@ EOSQL;
                         ['id' => $idCredito]
                     );
                     $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
-                    $out = [
-                        'success'    => !empty($datosMoto),
-                        'from_cache' => true,
-                        'id_credito' => $idCredito,
-                        'datos_moto' => $datosMoto,
-                        'repuve'     => [
-                            'estado'       => (string) (($row['estado'] ?? 'PROCESANDO')),
-                            'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
-                            'mensaje'      => (string) ($row['mensaje'] ?? ''),
-                        ],
-                        'message'    => !empty($datosMoto)
-                            ? 'Datos REPUVE actualizados desde estatus.'
-                            : ((string) ($row['mensaje'] ?? 'Consulta REPUVE sin datos autocompletables.')),
-                    ];
+                    $out = $this->repuveConstruirRespuestaConsulta(
+                        $idCredito,
+                        $row ?: [],
+                        $datosMoto,
+                        true,
+                        'Datos REPUVE actualizados desde estatus.'
+                    );
                     $out = $this->repuveAdjuntarRespuestasTecnicas($row, $out);
 
                     return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
@@ -3428,20 +3430,13 @@ EOSQL;
                 ['id' => $idCredito]
             );
             $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
-            $out = [
-                'success'    => !empty($datosMoto),
-                'from_cache' => false,
-                'id_credito' => $idCredito,
-                'datos_moto' => $datosMoto,
-                'repuve'     => [
-                    'estado'       => (string) (($row['estado'] ?? 'COMPLETADO')),
-                    'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
-                    'mensaje'      => (string) ($row['mensaje'] ?? ''),
-                ],
-                'message'    => !empty($datosMoto)
-                    ? 'Datos REPUVE consultados correctamente.'
-                    : ((string) ($row['mensaje'] ?? 'Consulta REPUVE completada sin datos autocompletables.')),
-            ];
+            $out = $this->repuveConstruirRespuestaConsulta(
+                $idCredito,
+                $row ?: [],
+                $datosMoto,
+                false,
+                'Datos REPUVE consultados correctamente.'
+            );
             $out = $this->repuveAdjuntarRespuestasTecnicas($row ?: [], $out);
 
             return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
@@ -3474,12 +3469,13 @@ EOSQL;
     {
         $result['limite_consultas'] = $this->repuveInfoLimite($idUsuario);
 
+        $dmSync = $result['datos_moto'] ?? [];
         if (
             $idCredito > 0
-            && !empty($result['datos_moto'])
-            && is_array($result['datos_moto'])
+            && is_array($dmSync)
+            && $this->repuveDatosMotoTienenAutocompletadoReal($dmSync)
         ) {
-            $syncErr = $this->repuveSincronizarDatosMotoAOperacion($idCredito, $result['datos_moto'], $idUsuario);
+            $syncErr = $this->repuveSincronizarDatosMotoAOperacion($idCredito, $dmSync, $idUsuario);
             if ($syncErr !== null) {
                 $result['adj_operacion_sync_error'] = $syncErr;
             }
@@ -4204,6 +4200,111 @@ EOSQL;
     }
 
     /**
+     * True si REPUVE aportó al menos un campo útil para autocompletar (no solo el VIN/placa que ya capturó el usuario).
+     */
+    private function repuveDatosMotoTienenAutocompletadoReal(array $datos): bool
+    {
+        foreach (['moto_marca', 'moto_modelo', 'moto_anio', 'moto_placas', 'moto_color', 'moto_no_motor'] as $k) {
+            if (trim((string) ($datos[$k] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Indica fallo del proveedor REPUVE (503, mensajes típicos, código 40, etc.), no “vehículo sin datos”. */
+    private function repuveEsFalloServicioExterno(array $row, string $mensajeTabla): bool
+    {
+        $http = (int) ($row['http_status'] ?? 0);
+        if ($http >= 500) {
+            return true;
+        }
+        $estadoRow = strtoupper(trim((string) ($row['estado'] ?? '')));
+        if ($estadoRow === 'ERROR') {
+            return true;
+        }
+        $mc = isset($row['message_code']) ? (int) $row['message_code'] : null;
+        if ($mc === 40) {
+            return true;
+        }
+        $msgL = strtolower($mensajeTabla);
+        foreach (['temporarily unavailable', 'service unavailable', 'gateway timeout', 'bad gateway', '503'] as $needle) {
+            if ($msgL !== '' && str_contains($msgL, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Arma respuesta JSON unificada tras leer adj_repuve_consulta (evita marcar éxito solo porque el VIN coincide con la consulta).
+     *
+     * @return array<string, mixed>
+     */
+    private function repuveConstruirRespuestaConsulta(
+        int $idCredito,
+        array $row,
+        array $datosMotoCrudos,
+        bool $fromCache,
+        string $mensajeExitoConDatos
+    ): array {
+        $tieneReal = $this->repuveDatosMotoTienenAutocompletadoReal($datosMotoCrudos);
+        $http = (int) ($row['http_status'] ?? 0);
+        $mcRaw = $row['message_code'] ?? null;
+        $mcInt = $mcRaw !== null && $mcRaw !== '' ? (int) $mcRaw : null;
+        $mensajeTabla = trim((string) ($row['mensaje'] ?? ''));
+        $estadoRow = strtoupper(trim((string) ($row['estado'] ?? '')));
+
+        if ($tieneReal) {
+            $tipo = 'datos_ok';
+            $message = $mensajeExitoConDatos;
+            $errorServicio = false;
+            $sinDatos = false;
+        } elseif ($this->repuveEsFalloServicioExterno($row, $mensajeTabla)) {
+            $tipo = 'fallo_servicio';
+            $errorServicio = true;
+            $sinDatos = false;
+            // Mensaje breve para UI (tooltip, alertas). El detalle técnico sigue en `repuve` (http_status, message_code, mensaje).
+            $message = "REPUVE no disponible\n\n"
+                . "El servicio REPUVE no está disponible en este momento. Esto no se debe a la información que usted capturó.\n\n"
+                . 'Complete manualmente los datos que falten. Gracias por su cooperación.';
+        } else {
+            $tipo = 'sin_datos_padron';
+            $errorServicio = false;
+            $sinDatos = true;
+            if ($mensajeTabla !== '') {
+                $message = 'REPUVE completó la consulta pero no devolvió datos del padrón para autocompletar (marca, modelo, año, etc.). Detalle: «'
+                    . $mensajeTabla . '». Verifica el VIN o completa la captura manual.';
+            } else {
+                $message = 'REPUVE completó la consulta sin datos del vehículo para autocompletar. Verifica el VIN o usa captura manual.';
+            }
+            if ($mcInt !== null && $mcInt !== 0) {
+                $message .= ' (código ' . $mcInt . ')';
+            }
+        }
+
+        return [
+            'success'                 => $tieneReal,
+            'from_cache'              => $fromCache,
+            'id_credito'              => $idCredito,
+            'datos_moto'              => $tieneReal ? $datosMotoCrudos : [],
+            'message'                 => $message,
+            'repuve_resultado_tipo'   => $tipo,
+            'repuve_error_servicio'   => $errorServicio,
+            'repuve_sin_datos_padron' => $sinDatos,
+            'repuve'                  => [
+                'estado'         => $estadoRow !== '' ? $estadoRow : (string) ($row['estado'] ?? ''),
+                'message_code'   => $mcInt,
+                'mensaje'        => $mensajeTabla,
+                'http_status'    => $http > 0 ? $http : null,
+                'exito_registro' => ((int) ($row['exito'] ?? 0)) === 1,
+            ],
+        ];
+    }
+
+    /**
      * Extrae datos de motocicleta desde documento FACTURA:
      * VIN (No. serie), No. motor y color.
      */
@@ -4364,6 +4465,7 @@ EOSQL;
             'log_direccion'  => 100, 'log_ciudad'     => 50,
             'log_estado'     => 60,  'log_lugar_resguardo' => 32, 'log_lugar_otro' => 200,
             'log_telefono'   => 10,
+            'responsable_entrega' => 160,
         ];
 
         $setClauses = [];
