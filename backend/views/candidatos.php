@@ -198,14 +198,23 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
-                <div id="modalDocumentacionCandidatoMetricas" class="mb-3 d-none"></div>
-                <div id="modalDocumentacionCandidatoVerificacion" class="mb-3 d-none"></div>
-                <div id="modalDocumentacionCandidatoAccionVerificar" class="mb-3 d-none"></div>
-                <div id="modalDocumentacionCandidatoAccionesProceso" class="mb-3 d-none"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
-                <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
-                <div id="modalDocumentacionCandidatoLista" class="list-group"></div>
+                <div class="row g-3 align-items-stretch">
+                    <div class="col-lg-8 col-12 d-flex flex-column">
+                        <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
+                        <div id="modalDocumentacionCandidatoLista" class="list-group flex-grow-1 h-100 overflow-auto border rounded bg-body-tertiary"></div>
+                    </div>
+                    <div class="col-lg-4 col-12 d-flex flex-column">
+                        <div class="modal-doc-col-stack d-flex flex-column gap-3 flex-grow-1 h-100">
+                            <div id="modalDocumentacionCandidatoMetricas" class="d-none flex-fill"></div>
+                            <div id="modalDocumentacionCandidatoVerificacion" class="d-none flex-fill"></div>
+                            <div id="modalDocumentacionCandidatoAccionVerificar" class="d-none flex-shrink-0"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="modalDocumentacionCandidatoComparaciones" class="mt-3 d-none"></div>
             </div>
+            <div class="modal-footer flex-column align-items-stretch border-top py-3 d-none text-lg-end" id="modalDocumentacionCandidatoAccionesProceso"></div>
         </div>
     </div>
 </div>
@@ -828,57 +837,6 @@ body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer #
     border-color: #bd2130 !important;
     color: #fff !important;
 }
-
-/* Modal Documentación: nitidez y legibilidad (evitar sensación de borroso) */
-#modalDocumentacionCandidato .modal-content {
-    background: #fff !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
-#modalDocumentacionCandidato .modal-body {
-    background: #fff !important;
-    color: #212529;
-}
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista {
-    background: #f8f9fa !important;
-    border-radius: 8px;
-    border: 1px solid rgba(0,0,0,0.08);
-    max-height: 50vh;
-    overflow-y: auto;
-}
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar { width: 10px; }
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-track { background: #e9ecef; border-radius: 5px; }
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-thumb { background: #adb5bd; border-radius: 5px; }
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item {
-    background: #fff !important;
-    border-color: rgba(0,0,0,0.08);
-    border-left-width: 3px;
-}
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista .btn { opacity: 1; }
-/* Modo oscuro: fondo sólido y contraste para que no se vea borroso */
-body.dark-mode #modalDocumentacionCandidato .modal-content {
-    background: #1e293b !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-}
-body.dark-mode #modalDocumentacionCandidato .modal-body {
-    background: #1e293b !important;
-    color: #e2e8f0;
-}
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista {
-    background: #0f172a !important;
-    border-color: rgba(148, 163, 184, 0.2);
-}
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-track { background: #334155; }
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-thumb { background: #64748b; }
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item {
-    background: #1e293b !important;
-    border-color: rgba(148, 163, 184, 0.15);
-    color: #e2e8f0;
-}
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item small.text-muted { color: #94a3b8 !important; }
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .btn { opacity: 1; filter: none; }
 
 /* Modal Resumen Candidato - mejora visual (modo claro y oscuro) */
 .modal-resumen-candidato .modal-content { border-radius: 14px; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }

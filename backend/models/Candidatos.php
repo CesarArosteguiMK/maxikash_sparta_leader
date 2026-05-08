@@ -92,6 +92,7 @@ class Candidatos extends Model
                 c.estatus,
                 c.notas,
                 c.postulacion_enviada,
+                c.fecha_postulacion_enviada,
                 c.fecha_registro,
                 c.fecha_actualizacion,
                 p.nombre AS nombre_puesto,
@@ -114,6 +115,34 @@ class Candidatos extends Model
     }
 
     /**
+     * Fecha y hora actual en Ciudad de México (valor guardado como datetime “naive” interpretado siempre en CDMX).
+     */
+    private static function fechaHoraActualMexicoCiudad(): string
+    {
+        return (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Registra el momento en que se envió por correo la postulación/enlace de documentos (hora CDMX).
+     */
+    public static function registrarFechaEnvioCorreoPostulacion($id_candidato, $fechaHoraCdmxMysql)
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0 || $fechaHoraCdmxMysql === null || trim((string) $fechaHoraCdmxMysql) === '') {
+            return;
+        }
+        try {
+            $db = new Database();
+            $fe = trim((string) $fechaHoraCdmxMysql);
+            $db->CRUD(
+                'UPDATE candidatos SET fecha_postulacion_enviada = :fe, postulacion_enviada = 1, fecha_actualizacion = :fe WHERE id = :id',
+                ['id' => $id_candidato, 'fe' => $fe]
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    /**
      * Insertar nuevo candidato (con postulación enviada y datos de postulación).
      */
     public static function insert($data)
@@ -125,7 +154,7 @@ class Candidatos extends Model
         }
 
         $postulacionEnviada = !empty($data['postulacion_enviada']) ? 1 : 0;
-        $fechaEnviada = $postulacionEnviada ? (date('Y-m-d H:i:s')) : null;
+        $fechaEnviada = $postulacionEnviada ? self::fechaHoraActualMexicoCiudad() : null;
 
         $query = <<<SQL
             INSERT INTO candidatos (
@@ -793,6 +822,73 @@ class Candidatos extends Model
             return self::resultado(true, 'Proceso cerrado correctamente.', ['id' => $id_candidato]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al cerrar el proceso.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Tabla de auditoría cuando RRHH elimina un documento del expediente (motivo + correo al candidato).
+     */
+    private static function ensureTablaEliminacionDocumentoCandidato(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $db = new Database();
+            $db->CRUD(
+                'CREATE TABLE IF NOT EXISTS candidato_documento_eliminacion (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_candidato INT NOT NULL,
+                    id_documento_eliminado INT NULL,
+                    tipo_documento VARCHAR(255) NULL,
+                    nombre_archivo VARCHAR(500) NULL,
+                    comentario TEXT NOT NULL,
+                    id_usuario_rrhh INT NULL,
+                    fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_candidato (id_candidato),
+                    INDEX idx_fecha (fecha_registro)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+        } catch (\Exception $e) {
+        }
+    }
+
+    /**
+     * @param int|null $id_usuario_rrhh ID en sesión de quien elimina (opcional)
+     */
+    public static function registrarEliminacionDocumentoCandidato(
+        $id_candidato,
+        $id_documento_eliminado,
+        $tipo_documento,
+        $nombre_archivo,
+        $comentario,
+        $id_usuario_rrhh = null
+    ) {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0 || trim($comentario ?? '') === '') {
+            return self::resultado(false, 'Datos inválidos para registrar la eliminación.');
+        }
+        self::ensureTablaEliminacionDocumentoCandidato();
+        try {
+            $db = new Database();
+            $db->CRUD(
+                'INSERT INTO candidato_documento_eliminacion
+                    (id_candidato, id_documento_eliminado, tipo_documento, nombre_archivo, comentario, id_usuario_rrhh, fecha_registro)
+                 VALUES (:idc, :idd, :tipo, :nom, :com, :usr, NOW())',
+                [
+                    'idc' => $id_candidato,
+                    'idd' => $id_documento_eliminado > 0 ? $id_documento_eliminado : null,
+                    'tipo' => $tipo_documento !== null && $tipo_documento !== '' ? substr(trim((string) $tipo_documento), 0, 255) : null,
+                    'nom' => $nombre_archivo !== null && $nombre_archivo !== '' ? substr(trim((string) $nombre_archivo), 0, 500) : null,
+                    'com' => trim((string) $comentario),
+                    'usr' => $id_usuario_rrhh !== null && (int) $id_usuario_rrhh > 0 ? (int) $id_usuario_rrhh : null,
+                ]
+            );
+            return self::resultado(true, 'Registro guardado.');
+        } catch (\Exception $e) {
+            return self::resultado(false, 'No se pudo guardar el motivo de eliminación.', null, $e->getMessage());
         }
     }
 }

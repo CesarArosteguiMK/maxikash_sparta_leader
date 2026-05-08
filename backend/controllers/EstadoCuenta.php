@@ -3457,8 +3457,8 @@ JS;
 
                         try {
                             const endpoint = tipoDocumento === 'INE'
-                                ? '/EstadoCuenta/registrarINE'
-                                : '/EstadoCuenta/registrarDocumentoCliente';
+                                ? '/estadocuenta/registrarINE'
+                                : '/estadocuenta/registrarDocumentoCliente';
 
                             const response = await fetch(endpoint, {
                                 method: 'POST',
@@ -3672,7 +3672,7 @@ JS;
                                 document.body.style.overflow = '';
                             }
                         });
-                        return fetch('/EstadoCuenta/descargar', {
+                        return fetch('/estadocuenta/descargar', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ id, tipo })
@@ -3859,7 +3859,7 @@ JS;
                                         window.idCreditoDocumentoActual = id;
                                         if (data.tipo === 'FAD_DOC') {
                                             window.paginasConMediaFAD_DOC = [];
-                                            fetch('/EstadoCuenta/paginasConMedia?idCredito=' + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(res){ if (res && res.success) window.paginasConMediaFAD_DOC = Array.isArray(res.paginasConMedia) ? res.paginasConMedia : []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); }).catch(function(){ window.paginasConMediaFAD_DOC = []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); });
+                                            fetch('/estadocuenta/paginasConMedia?idCredito=' + encodeURIComponent(id)).then(function(r){ return r.json(); }).then(function(res){ if (res && res.success) window.paginasConMediaFAD_DOC = Array.isArray(res.paginasConMedia) ? res.paginasConMedia : []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); }).catch(function(){ window.paginasConMediaFAD_DOC = []; if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia(); });
                                         } else {
                                             window.paginasConMediaFAD_DOC = null;
                                             if (typeof actualizarBotonVideosMedia === 'function') actualizarBotonVideosMedia();
@@ -4805,7 +4805,7 @@ public function descargar()
 
         // Helper: comprobar si un archivo existe en S3 (HEAD)
         $existeEnS3 = function ($fileName) {
-            $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
+            $s3Url = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
             $ch = curl_init($s3Url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
@@ -4917,8 +4917,8 @@ public function descargar()
                     'esINE' => true,
                     'archivoFrente' => $archivoFrente,
                     'archivoReverso' => $archivoReverso,
-                    'urlFrente' => '/EstadoCuenta/servirArchivoLocal?archivo=' . urlencode($archivoFrente),
-                    'urlReverso' => '/EstadoCuenta/servirArchivoLocal?archivo=' . urlencode($archivoReverso),
+                    'urlFrente' => '/estadocuenta/servirArchivoLocal?archivo=' . urlencode($archivoFrente),
+                    'urlReverso' => '/estadocuenta/servirArchivoLocal?archivo=' . urlencode($archivoReverso),
                     'extension' => 'jpg',
                     'esImagen' => true
                 ];
@@ -5150,7 +5150,7 @@ public function descargar()
                 if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
                     error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
-                    $base = '/EstadoCuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
+                    $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
                     echo json_encode([
                         'success' => true,
                         'tipo' => 'INE',
@@ -5171,8 +5171,8 @@ public function descargar()
             $idCliente = $data['estadoCuenta']['datosCliente']['idCliente'];
 
             // URLs directas para frente y reverso del INE (2da forma)
-            $urlFrente = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
-            $urlReverso = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_reverso.jpeg";
+            $urlFrente = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_frente.jpeg";
+            $urlReverso = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=INE/{$idCliente}_reverso.jpeg";
 
             // Comprobar que las imágenes INE existan en S3
             $chF = curl_init($urlFrente);
@@ -5192,7 +5192,7 @@ public function descargar()
                 if (!empty($resINE['success']) && !empty($resINE['datos']['archivo_ine_frente']) && !empty($resINE['datos']['archivo_ine_reverso'])) {
                     error_log("INE $id - RESULTADO: 3RA FORMA (persona_documentos)");
                     $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
-                    $base = '/EstadoCuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
+                    $base = '/estadocuenta/servirINEPersonaDocumento?id=' . urlencode($id) . '&lado=';
                     echo json_encode([
                         'success' => true,
                         'tipo' => 'INE',
@@ -5215,8 +5215,8 @@ public function descargar()
             echo json_encode([
                 'success' => true,
                 'tipo' => 'INE',
-                'frente' => $urlFrente,
-                'reverso' => $urlReverso
+                'frente' => '/estadocuenta/verDocumento?fileName=' . urlencode("INE/{$idCliente}_frente.jpeg"),
+                'reverso' => '/estadocuenta/verDocumento?fileName=' . urlencode("INE/{$idCliente}_reverso.jpeg")
             ]);
             exit;
         }
@@ -5250,8 +5250,6 @@ public function descargar()
             }
 
             if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
-                error_log("FAD_DOC $id - RESULTADO: 2DA FORMA (DAO)");
-                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
@@ -5261,21 +5259,26 @@ public function descargar()
                 $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
 
                 $fileName = "{$carpeta}/{$archivo}";
-                $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
+                if ($existeEnS3($fileName)) {
+                    error_log("FAD_DOC $id - RESULTADO: 2DA FORMA (DAO)");
+                    $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
+                    $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
 
-                echo json_encode([
-                    'success' => true,
-                    'tipo' => $tipo,
-                    'url' => $fileUrl,
-                    'archivo' => $archivo,
-                    'carpeta' => $carpeta,
-                    'esImagen' => $esImagen,
-                    'extension' => $extension
-                ]);
-                exit;
+                    echo json_encode([
+                        'success' => true,
+                        'tipo' => $tipo,
+                        'url' => $fileUrl,
+                        'archivo' => $archivo,
+                        'carpeta' => $carpeta,
+                        'esImagen' => $esImagen,
+                        'extension' => $extension
+                    ]);
+                    exit;
+                }
+                error_log("FAD_DOC $id - DAO devolvió nombre pero S3 no responde 200 (HEAD): $fileName; probando 3RA FORMA...");
             }
 
-            // Si DAO falla, intentar 3RA FORMA
+            // Si DAO falla o el archivo no está en S3, intentar 3RA FORMA
             error_log("FAD_DOC $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
             $nombreBD = $consultarBDTerceraForma($id, 'FAD_DOC');
 
@@ -5341,8 +5344,6 @@ public function descargar()
             }
 
             if ($res['success'] && isset($res['datos']['nombre_archivo']) && !empty($res['datos']['nombre_archivo'])) {
-                error_log("EVIDENCIA $id - RESULTADO: 2DA FORMA (DAO)");
-                $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
                 $archivo = basename($res['datos']['nombre_archivo']);
                 $archivo = str_replace(['doc_cliente/', 'doc_cliente\\'], '', $archivo);
                 $archivo = basename($archivo);
@@ -5352,21 +5353,26 @@ public function descargar()
                 $esImagen = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']);
 
                 $fileName = "{$carpeta}/{$archivo}";
-                $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
+                if ($existeEnS3($fileName)) {
+                    error_log("EVIDENCIA $id - RESULTADO: 2DA FORMA (DAO)");
+                    $this->registrarAuditoriaDocumento($id, $tipo, $nombreDoc, 1, null);
+                    $fileUrl = "/estadocuenta/verDocumento?fileName=" . urlencode($fileName);
 
-                echo json_encode([
-                    'success' => true,
-                    'tipo' => $tipo,
-                    'url' => $fileUrl,
-                    'archivo' => $archivo,
-                    'carpeta' => $carpeta,
-                    'esImagen' => $esImagen,
-                    'extension' => $extension
-                ]);
-                exit;
+                    echo json_encode([
+                        'success' => true,
+                        'tipo' => $tipo,
+                        'url' => $fileUrl,
+                        'archivo' => $archivo,
+                        'carpeta' => $carpeta,
+                        'esImagen' => $esImagen,
+                        'extension' => $extension
+                    ]);
+                    exit;
+                }
+                error_log("EVIDENCIA $id - DAO devolvió nombre pero S3 no responde 200 (HEAD): $fileName; probando 3RA FORMA...");
             }
 
-            // Si DAO falla, intentar 3RA FORMA
+            // Si DAO falla o el archivo no está en S3, intentar 3RA FORMA
             error_log("EVIDENCIA $id - 2DA FORMA (DAO) falló, probando 3RA FORMA...");
             $nombreBD = $consultarBDTerceraForma($id, 'EVIDENCIA');
 
@@ -5471,7 +5477,7 @@ public function descargar()
             if (!empty($res['success']) && !empty($res['datos']['nombre_archivo'])) {
                 $archivo = basename(str_replace(['doc_cliente/', 'doc_cliente\\'], '', $res['datos']['nombre_archivo']));
                 $fileName = 'FAD/' . $archivo;
-                $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
+                $s3Url = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
                 $ch = curl_init($s3Url);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
@@ -5522,7 +5528,7 @@ public function descargar()
         }
 
         $existeEnS3 = static function ($fileName) {
-            $s3Url = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
+            $s3Url = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
             $ch = curl_init($s3Url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
@@ -5537,7 +5543,7 @@ public function descargar()
         };
 
         $pullS3 = function ($fileName) use ($id) {
-            $s3Url = 'http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
+            $s3Url = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
             $ch = curl_init($s3Url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
@@ -6679,6 +6685,64 @@ public function descargar()
     }
 
     /**
+     * Descarga binaria desde el proxy S3 del audit-app (misma base que verDocumento / INE 2DA forma).
+     *
+     * @return array{0:int,1:string|false} HTTP code y cuerpo, o false si curl falló
+     */
+    private function ineAuditoriaS3DownloadBinary(string $fileName): array
+    {
+        $s3Url = 'http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=' . urlencode($fileName);
+        $ch = curl_init($s3Url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_SSL_VERIFYPEER => 0,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HEADER => false,
+        ]);
+        $data = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [$httpCode, $data !== false ? $data : false];
+    }
+
+    /** idCliente S2 para rutas estándar INE/{idCliente}_frente|reverso.{jpeg|jpg} */
+    private function ineObtenerIdClientePorCreditoApi(int $idCredito): ?int
+    {
+        $endpoint = 'https://servicios.s2movil.net/s2__SPARTA_SECRET_REDACTED__/estadocuenta';
+        $token = '__SPARTA_TOKEN_REDACTED__';
+        $payload = json_encode([
+            'idCredito' => $idCredito,
+            'fechaCorte' => date('Y-m-d'),
+        ]);
+        $ch = curl_init($endpoint);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Token: ' . $token,
+            ],
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_TIMEOUT => 10,
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        $data = is_string($response) ? json_decode($response, true) : null;
+        $idCliente = $data['estadoCuenta']['datosCliente']['idCliente'] ?? null;
+        if ($idCliente === null || $idCliente === '') {
+            return null;
+        }
+        if (!is_numeric($idCliente)) {
+            return null;
+        }
+
+        return (int) $idCliente;
+    }
+
+    /**
      * Sirve frente o reverso del INE desde persona_documentos (3RA FORMA).
      * GET: id = id de crédito (id_oferta), lado = frente|reverso
      */
@@ -6709,34 +6773,57 @@ public function descargar()
         }
         $valor = trim((string) $valor);
         // persona_documentos guarda nombres de archivo (ej. 698912_1748642990507_frente.jpeg); servimos desde S3 carpeta INE/
-        $fileName = (strpos($valor, 'INE/') === 0) ? $valor : 'INE/' . $valor;
-        $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
-        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-        $contentType = ($ext === 'png') ? 'image/png' : 'image/jpeg';
-        $ch = curl_init($s3Url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_SSL_VERIFYHOST => 0,
-            CURLOPT_SSL_VERIFYPEER => 0,
-            CURLOPT_TIMEOUT => 30,
-            CURLOPT_HEADER => false,
-        ]);
-        $data = curl_exec($ch);
-        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($httpCode !== 200 || $data === false) {
-            http_response_code(404);
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'No se pudo recuperar la imagen desde S3']);
+        $primary = (strpos($valor, 'INE/') === 0) ? $valor : 'INE/' . $valor;
+
+        $candidates = [$primary];
+        if (preg_match('/^(.+)\.(jpe?g|png)$/i', $primary, $m)) {
+            $base = $m[1];
+            $ext = strtolower($m[2]);
+            if ($ext === 'jpeg') {
+                $candidates[] = $base . '.jpg';
+            } elseif ($ext === 'jpg') {
+                $candidates[] = $base . '.jpeg';
+            }
+        }
+
+        $idCreditoInt = (int) $id;
+        $idCliente = $this->ineObtenerIdClientePorCreditoApi($idCreditoInt);
+        if ($idCliente !== null) {
+            $suf = $lado === 'frente' ? 'frente' : 'reverso';
+            $candidates[] = 'INE/' . $idCliente . '_' . $suf . '.jpeg';
+            $candidates[] = 'INE/' . $idCliente . '_' . $suf . '.jpg';
+            $candidates[] = 'INE/' . $idCliente . '_' . $suf . '.png';
+        }
+
+        $candidates = array_values(array_unique(array_filter($candidates)));
+
+        foreach ($candidates as $fileName) {
+            [$httpCode, $data] = $this->ineAuditoriaS3DownloadBinary($fileName);
+            if ($httpCode !== 200 || $data === false || strlen($data) < 16) {
+                continue;
+            }
+            $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            if ($ext === 'png') {
+                $contentType = 'image/png';
+            } elseif (in_array($ext, ['jpg', 'jpeg'], true)) {
+                $contentType = 'image/jpeg';
+            } else {
+                $contentType = 'image/jpeg';
+            }
+            if (ob_get_length()) {
+                ob_clean();
+            }
+            header('Content-Type: ' . $contentType);
+            header('Content-Disposition: inline; filename="INE_' . $lado . '.' . ($ext ?: 'jpg') . '"');
+            header('Content-Length: ' . strlen($data));
+            header('Cache-Control: public, max-age=3600');
+            echo $data;
             exit;
         }
-        if (ob_get_length()) ob_clean();
-        header('Content-Type: ' . $contentType);
-        header('Content-Disposition: inline; filename="INE_' . $lado . '.' . ($ext ?: 'jpg') . '"');
-        header('Content-Length: ' . strlen($data));
-        header('Cache-Control: public, max-age=3600');
-        echo $data;
+
+        http_response_code(404);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'No se pudo recuperar la imagen desde S3']);
         exit;
     }
 
@@ -6753,7 +6840,7 @@ public function descargar()
         // Decodificar el fileName si viene codificado
         $fileName = urldecode($fileName);
 
-        $s3Url = "http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
+        $s3Url = "http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=" . urlencode($fileName);
 
         // Determinar Content-Type basado en extensión
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
