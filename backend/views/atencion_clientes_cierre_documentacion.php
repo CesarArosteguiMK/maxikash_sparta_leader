@@ -570,8 +570,8 @@ body.dark-mode #acdEvidenciaTitulo.acd-ev-ok { color: #86efac; }
 (function () {
     'use strict';
 
-    /** Coincide con slots en MotosAdjudicadas: 9 medios + doc_repuve + doc_factura + doc_cierre_s2 */
-    const ACD_EV_TOTAL = 12;
+    /** Expediente (13) + doc_cierre_s2 en esta etapa. */
+    const ACD_EV_TOTAL = 14;
 
     const ACD_CONFIG = {
         bandeja: {

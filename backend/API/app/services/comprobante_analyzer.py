@@ -412,6 +412,16 @@ class ComprobanteAnalyzer:
         texto_total = ""
         for page in doc:
             texto_total += page.get_text() + "\n"
+        if texto_total.strip():
+            doc.close()
+            return texto_total
+
+        try:
+            for page in doc:
+                pix = page.get_pixmap(dpi=180)
+                texto_total += self._extraer_texto_imagen(pix.tobytes("png")) + "\n"
+        except Exception as e:
+            logger.warning(f"OCR de comprobante PDF escaneado falló: {e}")
         doc.close()
         return texto_total
 

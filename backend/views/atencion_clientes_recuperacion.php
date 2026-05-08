@@ -255,13 +255,17 @@
     border: 1px solid #e2e8f0;
     border-top: 0;
     border-radius: 0 0 .45rem .45rem;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: .45rem;
 }
+@media (max-width: 1199.98px) { #modalArRecuperacionEvidencias .ar-ev-slots-wrap { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (max-width: 991.98px)  { #modalArRecuperacionEvidencias .ar-ev-slots-wrap { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 767.98px)  { #modalArRecuperacionEvidencias .ar-ev-slots-wrap { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 575.98px)  { #modalArRecuperacionEvidencias .ar-ev-slots-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ar-ev-slot {
-    flex: 0 0 108px;
-    width: 108px;
+    width: 100%;
+    min-width: 0;
     height: 108px;
     background: #fff;
     border: 2px solid #e2e8f0;
@@ -340,30 +344,79 @@ body.dark-mode #modalArRecuperacionEvidencias #ar-ev-btn-enviar-cartera {
     padding: 1rem; pointer-events: auto;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel {
-    width: 100%; max-width: 42rem; max-height: 92vh; overflow: auto;
+    width: 100%; max-width: min(72rem, 96vw); max-height: 94vh; overflow: auto;
     background: #fff; border-radius: 0.75rem;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-    padding: 1rem 1.1rem; position: relative; z-index: 1;
+    padding: 1rem 1.15rem; position: relative; z-index: 1;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel.ar-ev-vista-panel--wide {
-    max-width: min(56rem, 96vw);
+    max-width: min(78rem, 98vw);
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox {
-    min-height: 12rem; max-height: 62vh;
+    min-height: 16rem; max-height: 72vh;
     background: #0f172a; border-radius: 0.5rem;
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 0;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--pdf {
-    min-height: 56vh; max-height: 72vh;
+    min-height: 64vh; max-height: 82vh;
     background: #fff;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox .ar-ev-vista-img,
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox .ar-ev-vista-video {
-    max-width: 100%; max-height: 62vh; object-fit: contain;
+    max-width: 100%; max-height: 72vh; object-fit: contain;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-mediabox iframe {
-    width: 100%; min-height: 54vh; border: 0; border-radius: 0.35rem; background: #fff;
+    width: 100%; min-height: min(72vh, 640px); border: 0; border-radius: 0.35rem; background: #fff;
+}
+/* Zoom fotos/video (igual criterio que menú Evidencias) */
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+    overflow: hidden;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-toolbar {
+    flex-shrink: 0;
+    background: rgba(15, 23, 42, 0.96);
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-wrap {
+    flex: 1;
+    overflow: hidden;
+    min-height: min(54vh, 420px);
+    max-height: 68vh;
+    border-radius: 0.5rem 0.5rem 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-wrap.ar-zoom-wrap--scaled:not(.ar-zoom-wrap--dragging),
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-wrap.ar-zoom-wrap--scaled:not(.ar-zoom-wrap--dragging) .ar-zoom-media {
+    cursor: grab;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-wrap.ar-zoom-wrap--dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-wrap.ar-zoom-wrap--dragging .ar-zoom-media {
+    user-select: none;
+    pointer-events: none;
+    transition: none;
+}
+#modalArRecuperacionEvidencias .ar-ev-vista-mediabox.ar-ev-vista-mediabox--zoomable .ar-zoom-media {
+    max-width: 100%;
+    max-height: min(62vh, 560px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    transform-origin: center center;
+    transition: transform 0.1s ease-out;
+    display: block;
+    will-change: transform;
 }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel--slot #ar-ev-vista-titulo { color: #0f766e; }
 #modalArRecuperacionEvidencias .ar-ev-vista-panel--repuve {
@@ -544,44 +597,35 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
 
     var AR_SERVER_PUBLIC_BASE = <?php echo json_encode($arPublicPath, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
-    /** Mismo criterio que Recepción / Cierre doc: 9 medios + repuve + factura + doc_cierre_s2 */
-    const AR_EV_TOTAL_LISTA = 12;
-    const AR_IMG_KEYS = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360'
-    ];
-    const AR_TOTAL_VALIDABLE_IMG = 9;
+    /** Lista: física M1 + Repuve + Factura (sin recolección). */
+    const AR_EV_TOTAL_LISTA = 13;
 
-    const AR_SEC_REC = {
-        key: 'rec',
-        label: 'Evidencia de recolección (final)',
-        hdr: 'ar-ev-hdr-orange',
-        icon: 'fa-camera-retro',
-        slots: [
-            { key: 'rec_tacometro', label: 'Tacómetro Rec.', icon: 'fa-gauge-high' },
-            { key: 'rec_serie',     label: 'No. Serie Rec.',  icon: 'fa-hashtag' },
-            { key: 'rec_frontal',   label: 'Frontal Rec.',    icon: 'fa-camera' },
-            { key: 'rec_lateral',   label: 'Lateral Rec.',    icon: 'fa-camera-rotate' },
-        ],
-    };
     const AR_SEC_FIS = {
         key: 'fis',
         label: 'Evidencia física (momento 1)',
         hdr: 'ar-ev-hdr-blue',
         icon: 'fa-camera',
         slots: [
-            { key: 'fis_vin',       label: 'Serie VIN',       icon: 'fa-barcode' },
-            { key: 'fis_tacometro', label: 'Tacómetro',       icon: 'fa-gauge-high' },
-            { key: 'fis_frontal',   label: 'Vista frontal',   icon: 'fa-camera' },
-            { key: 'fis_lateral',   label: 'Vista lateral',    icon: 'fa-camera-rotate' },
-            { key: 'fis_360',       label: 'Inspección 360',  icon: 'fa-video' },
+            { key: 'fis_dacion_hoja_1', label: 'Foto dación (hoja 1)', icon: 'fa-file-signature' },
+            { key: 'fis_dacion_hoja_2', label: 'Foto dación (hoja 2)', icon: 'fa-file-signature' },
+            { key: 'fis_vin', label: 'Foto NIV (VIN)', icon: 'fa-barcode' },
+            { key: 'fis_frontal', label: 'Foto frontal', icon: 'fa-camera' },
+            { key: 'fis_lateral_der', label: 'Foto lateral derecha', icon: 'fa-camera-rotate' },
+            { key: 'fis_trasera', label: 'Foto trasera', icon: 'fa-camera-retro' },
+            { key: 'fis_lateral_izq', label: 'Foto lateral izquierda', icon: 'fa-camera-rotate' },
+            { key: 'fis_tacometro', label: 'Foto tacómetro', icon: 'fa-gauge-high' },
+            { key: 'fis_video_cliente_acuerdo', label: 'Video cliente de acuerdo', icon: 'fa-user-check' },
+            { key: 'fis_360_encendida', label: 'Video moto 360 encendida', icon: 'fa-video' },
+            { key: 'fis_video_vuelta_prueba', label: 'Video vuelta de prueba', icon: 'fa-road' },
         ],
     };
 
+    const AR_IMG_KEYS = [];
+    AR_SEC_FIS.slots.forEach(function (sl) { AR_IMG_KEYS.push(sl.key); });
+    const AR_TOTAL_VALIDABLE_IMG = AR_IMG_KEYS.length;
+
     const AR_SLOT_LABEL = {};
-    [AR_SEC_REC, AR_SEC_FIS].forEach(function (sec) {
-        sec.slots.forEach(function (sl) { AR_SLOT_LABEL[sl.key] = sl.label; });
-    });
+    AR_SEC_FIS.slots.forEach(function (sl) { AR_SLOT_LABEL[sl.key] = sl.label; });
     AR_SLOT_LABEL.doc_repuve = 'Repuve';
     AR_SLOT_LABEL.doc_factura = 'Factura';
 
@@ -611,6 +655,134 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
 
     let _arCargada = { bandeja: false, dictaminado: false };
     let _arEvDetalle = null;
+    let _arZoomTeardown = null;
+
+    function arZoomTeardown() {
+        if (typeof _arZoomTeardown === 'function') {
+            _arZoomTeardown();
+            _arZoomTeardown = null;
+        }
+    }
+
+    /** Misma UX que Evidencias: barra de zoom bajo imagen/video. */
+    function arZoomHtmlMedia(innerTag) {
+        return (
+            '<div class="ar-zoom-wrap" tabindex="-1">' + innerTag + '</div>' +
+            '<div class="ar-zoom-toolbar d-flex align-items-center justify-content-center gap-2 flex-wrap py-1 px-2">' +
+            '<button type="button" class="btn btn-sm btn-outline-light ar-zoom-btn-minus" title="Alejar" aria-label="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>' +
+            '<span class="small text-white ar-zoom-pct fw-semibold" style="min-width:3.25rem;text-align:center;">100%</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-light ar-zoom-btn-plus" title="Acercar" aria-label="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary ar-zoom-btn-reset">Restablecer</button>' +
+            '</div>'
+        );
+    }
+
+    function arZoomWire(box) {
+        arZoomTeardown();
+        const wrap = box.querySelector('.ar-zoom-wrap');
+        const media = box.querySelector('.ar-zoom-media');
+        const pctEl = box.querySelector('.ar-zoom-pct');
+        const btnMinus = box.querySelector('.ar-zoom-btn-minus');
+        const btnPlus = box.querySelector('.ar-zoom-btn-plus');
+        const btnReset = box.querySelector('.ar-zoom-btn-reset');
+        if (!wrap || !media) return;
+
+        let scale = 1;
+        let panX = 0;
+        let panY = 0;
+        const wheelOpts = { passive: false };
+        let dragPan = false;
+        let dragClientX0 = 0;
+        let dragClientY0 = 0;
+        let panDrag0X = 0;
+        let panDrag0Y = 0;
+
+        function clamp(v) { return Math.min(4, Math.max(1, v)); }
+
+        function commitTransform() {
+            if (scale <= 1.02) {
+                scale = 1;
+                panX = 0;
+                panY = 0;
+            }
+            media.style.transformOrigin = 'center center';
+            media.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+            if (pctEl) pctEl.textContent = Math.round(scale * 100) + '%';
+            wrap.classList.toggle('ar-zoom-wrap--scaled', scale > 1.02);
+        }
+
+        function onWheel(e) {
+            const isVideo = media.tagName === 'VIDEO';
+            if (isVideo && !e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.9 : 1.1;
+            scale = clamp(scale * factor);
+            commitTransform();
+        }
+
+        function delta(step) {
+            scale = clamp(scale + step);
+            commitTransform();
+        }
+
+        function resetZoom() {
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            commitTransform();
+        }
+
+        function endDragPan() {
+            if (!dragPan) return;
+            dragPan = false;
+            wrap.classList.remove('ar-zoom-wrap--dragging');
+            document.removeEventListener('mousemove', onDocMouseMove);
+            document.removeEventListener('mouseup', onDocMouseUp);
+        }
+
+        function onDocMouseMove(e) {
+            if (!dragPan) return;
+            panX = panDrag0X + (e.clientX - dragClientX0);
+            panY = panDrag0Y + (e.clientY - dragClientY0);
+            commitTransform();
+        }
+
+        function onDocMouseUp() {
+            endDragPan();
+        }
+
+        function onWrapMouseDown(e) {
+            if (scale <= 1.02 || e.button !== 0) return;
+            if (media.tagName === 'VIDEO') {
+                const r = media.getBoundingClientRect();
+                if (e.clientY > r.bottom - 52) return;
+            }
+            dragPan = true;
+            dragClientX0 = e.clientX;
+            dragClientY0 = e.clientY;
+            panDrag0X = panX;
+            panDrag0Y = panY;
+            wrap.classList.add('ar-zoom-wrap--dragging');
+            document.addEventListener('mousemove', onDocMouseMove);
+            document.addEventListener('mouseup', onDocMouseUp);
+            e.preventDefault();
+        }
+
+        media.style.transformOrigin = 'center center';
+        wrap.addEventListener('wheel', onWheel, wheelOpts);
+        wrap.addEventListener('mousedown', onWrapMouseDown);
+        if (btnMinus) btnMinus.addEventListener('click', function () { delta(-0.22); });
+        if (btnPlus) btnPlus.addEventListener('click', function () { delta(0.22); });
+        if (btnReset) btnReset.addEventListener('click', resetZoom);
+        media.addEventListener('dblclick', resetZoom);
+
+        _arZoomTeardown = function () {
+            endDragPan();
+            wrap.removeEventListener('wheel', onWheel, wheelOpts);
+            wrap.removeEventListener('mousedown', onWrapMouseDown);
+        };
+        commitTransform();
+    }
 
     function arEsc(s) {
         if (s == null) return '';
@@ -739,7 +911,11 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             </div>`;
         }
 
-        const esVideo = (sl.key === 'fis_360') || (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1);
+        const esVideoSlot = sl.key === 'fis_360_encendida'
+            || sl.key === 'fis_video_cliente_acuerdo'
+            || sl.key === 'fis_video_vuelta_prueba'
+            || sl.key === 'fis_360';
+        const esVideo = esVideoSlot || (row.tipo && String(row.tipo).toLowerCase().indexOf('video') !== -1);
         const media = esVideo
             ? '<video class="ar-ev-thumb" muted playsinline preload="metadata" src="' + uEsc + '"></video>'
             : '<img class="ar-ev-thumb" src="' + uEsc + '" alt="">';
@@ -843,6 +1019,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
     }
 
     function arCerrarVistaOverlay() {
+        arZoomTeardown();
         const modal = document.getElementById('modalArRecuperacionEvidencias');
         if (modal) modal.classList.remove('ar-ev-ar-vista-abierta');
         const ovl = document.getElementById('ar-ev-vista-overlay');
@@ -857,7 +1034,7 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             );
         }
         if (box) {
-            box.classList.remove('ar-ev-vista-mediabox--pdf');
+            box.classList.remove('ar-ev-vista-mediabox--pdf', 'ar-ev-vista-mediabox--zoomable');
             box.innerHTML = '';
         }
         if (ovl) ovl.classList.add('d-none');
@@ -874,19 +1051,19 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
         const title = (label || 'Evidencia') + (isVideo ? ' — video' : '');
         if (tEl) tEl.textContent = title;
         pan.classList.add('ar-ev-vista-panel--slot');
+        box.classList.add('ar-ev-vista-mediabox--zoomable');
+        const urlE = arEsc(url);
+        const lblE = arEsc(label || 'Evidencia');
         if (isVideo) {
-            box.innerHTML =
-                '<video controls playsinline preload="metadata" class="ar-ev-vista-video" src="' +
-                arEsc(url) +
-                '"></video>';
+            box.innerHTML = arZoomHtmlMedia(
+                '<video controls playsinline preload="metadata" class="ar-zoom-media" src="' + urlE + '"></video>'
+            );
         } else {
-            box.innerHTML =
-                '<img class="ar-ev-vista-img" src="' +
-                arEsc(url) +
-                '" alt="' +
-                arEsc(label || 'Evidencia') +
-                '">';
+            box.innerHTML = arZoomHtmlMedia(
+                '<img class="ar-zoom-media" draggable="false" src="' + urlE + '" alt="' + lblE + '">'
+            );
         }
+        arZoomWire(box);
         ovl.classList.remove('d-none');
         if (modal) modal.classList.add('ar-ev-ar-vista-abierta');
     }
@@ -915,10 +1092,11 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
                 box.innerHTML =
                     '<iframe src="' + arEsc(url) + '" title="Factura (PDF)"></iframe>';
             } else {
-                box.innerHTML =
-                    '<img class="ar-ev-vista-img" src="' +
-                    arEsc(url) +
-                    '" alt="Factura">';
+                box.classList.add('ar-ev-vista-mediabox--zoomable');
+                box.innerHTML = arZoomHtmlMedia(
+                    '<img class="ar-zoom-media" draggable="false" src="' + arEsc(url) + '" alt="Factura">'
+                );
+                arZoomWire(box);
             }
         }
         ovl.classList.remove('d-none');
@@ -970,7 +1148,6 @@ $arPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_ba
             '<span class="ar-ev-prog-lbl">' + validadas + ' / ' + AR_TOTAL_VALIDABLE_IMG + '</span>' +
             '</div>' +
             '<div class="ar-ev-prog-bg mb-3"><div class="ar-ev-prog-fill" style="width:' + pct + '%;"></div></div>' +
-            arRenderSeccion(AR_SEC_REC, map) +
             arRenderSeccion(AR_SEC_FIS, map) +
             '<div class="row g-2 mt-1">' +
             '<div class="col-md-4">' +

@@ -63,7 +63,7 @@ def _indicadores_identificacion(texto: str) -> Dict[str, bool]:
     lineas_mrz = re.findall(r"[A-Z0-9<]{20,}", t)
     tiene_mrz = bool(lineas_mrz and any("<<" in l or l.count("<") >= 2 for l in lineas_mrz))
     tiene_ine = bool(re.search(r"INSTITUTO\s+NACIONAL\s+ELECTORAL|CREDENCIAL\s+PARA\s+VOT", t))
-    tiene_elector = bool(re.search(r"CLAVE\s+DE\s+ELECTOR|SECCION\s*\d|ELECTORAL|VOTAR", t))
+    tiene_elector = bool(re.search(r"CLAVE\s*DE\s*ELECTOR|CLAVEDEELECTOR|CLAVE.{0,4}ELECTOR|SECCION\s*\d|ELECTORAL|VOTAR", t))
     tiene_curp = bool(re.search(r"[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d", t))
     tiene_inm = bool(re.search(r"INSTITUTO\s+NACIONAL\s+DE\s+MIGRACION|MIGRACION|INM|RESIDENCIA\s+(TEMPORAL|PERMANENTE)|RESIDENTE\s+(TEMPORAL|PERMANENTE)|NUE\s*[.:]?\s*\d", t))
     return {
@@ -104,12 +104,34 @@ def _extraer_texto_pdf_rapido(pdf_bytes: bytes, max_paginas: int = 2) -> Dict[st
             return {"texto": texto, "paginas": paginas, "modo": "texto_pdf"}
 
         service = VerificacionService()
-        for i, page in enumerate(doc):
-            if i >= max_paginas:
-                break
-            pix = page.get_pixmap(dpi=95)
-            img_bytes = pix.tobytes("png")
-            texto += service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=1000) + "\n"
+        for dpi, max_ancho in ((95, 1000), (150, 1400)):
+            texto = ""
+            for i, page in enumerate(doc):
+                if i >= max_paginas:
+                    break
+                pix = page.get_pixmap(dpi=dpi)
+                img_bytes = pix.tobytes("png")
+                texto += service.ocr_analyzer.extraer_texto_rapido(img_bytes, max_ancho=max_ancho) + "\n"
+            if _parece_identificacion_oficial(texto):
+                doc.close()
+                return {"texto": texto, "paginas": paginas, "modo": f"ocr_rapido_{dpi}dpi"}
+
+        # Fallback ligero para INE escaneada: enfoca zona de datos/clave sin correr validación profunda.
+        if paginas > 0:
+            try:
+                page = doc[0]
+                pix = page.get_pixmap(dpi=120)
+                img_bytes = pix.tobytes("png")
+                texto_dedicado = service.ocr_analyzer._extraer_mrz_dedicado(img_bytes)
+                curp_zona = service.ocr_analyzer._extraer_curp_zona_dedicada(img_bytes)
+                texto = (texto or "") + "\n" + (texto_dedicado or "")
+                if curp_zona:
+                    texto += "\nCURP " + curp_zona
+                if _parece_identificacion_oficial(texto):
+                    doc.close()
+                    return {"texto": texto, "paginas": paginas, "modo": "ocr_zona_datos_120dpi"}
+            except Exception as e:
+                logger.warning(f"precheck_identificacion_pdf: fallback zona datos falló: {e}")
         doc.close()
         return {"texto": texto, "paginas": paginas, "modo": "ocr_rapido"}
     except Exception as e:
@@ -303,7 +325,10 @@ async def verificar_comprobante(
             recomendacion = prefijo + f"tiene {check.meses_antiguedad or 0} meses de antigüedad. Se requiere máximo 3 meses."
         elif check.es_reciente is None and not check.fecha_documento:
             resultado = "RECHAZADO"
-            recomendacion = prefijo + "no se pudo verificar la fecha o tiene más de 3 meses de antigüedad."
+            if any("no se pudo extraer texto" in (a or "").lower() for a in (check.alertas or [])):
+                recomendacion = prefijo + "no se pudo extraer texto legible del PDF para validar la fecha. Sube un PDF digital o una imagen más clara."
+            else:
+                recomendacion = prefijo + "no se pudo verificar la fecha del documento."
         elif score >= 75 and check.es_reciente is True:
             resultado = "APROBADO"
             recomendacion = f"Comprobante de {tipo_label} válido y reciente. Puede procesarse." if tipo_label else "Comprobante válido y reciente. Puede procesarse."

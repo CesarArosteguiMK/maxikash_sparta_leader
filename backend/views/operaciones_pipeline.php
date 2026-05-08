@@ -81,18 +81,22 @@
             'Recepción':                 'fa-flag-checkered',
         };
 
-        const EV_TOTAL_SLOTS = 11;
+        /** Expediente: física M1 + Repuve PDF + Factura (sin recolección). */
+        const EV_TOTAL_SLOTS = 13;
 
         /**
-         * Solo modal Detalle → etapa Recibido/Evidencia: expediente sin factura (eso va en Recuperación).
-         * 10 slots = recolección + física + Repuve PDF.
+         * Modal Detalle hasta Repuve PDF: sin factura (momento 3 en Recuperación).
          */
         const OPS_MODAL_RECIBIDO_SLOTS = [
-            'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-            'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+            'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+            'fis_vin',
+            'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+            'fis_tacometro',
+            'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
             'doc_repuve',
         ];
         const OPS_MODAL_RECIBIDO_SLOT_TOTAL = OPS_MODAL_RECIBIDO_SLOTS.length;
+        const OPS_EXPEDIENTE_TOTAL_CON_FACTURA = OPS_MODAL_RECIBIDO_SLOT_TOTAL + 1;
 
         let _operaciones   = [];
         let _detalleActual = null;
@@ -104,28 +108,22 @@
         // ──────────────────────────────────────────────────────────────────
         const EV_SECTIONS = [
             {
-                key: 'recoleccion',
-                label: 'Evidencia de Recolección (Final)',
-                badgeClass: 'bg-label-warning',
-                icon: 'fa-camera-retro',
-                slots: [
-                    { key: 'rec_tacometro', label: 'Tacómetro Rec.',  icon: 'fa-gauge-high',   accept: 'image/jpeg,image/png' },
-                    { key: 'rec_serie',     label: 'No. Serie Rec.',  icon: 'fa-hashtag',       accept: 'image/jpeg,image/png' },
-                    { key: 'rec_frontal',   label: 'Frontal Rec.',    icon: 'fa-camera',        accept: 'image/jpeg,image/png' },
-                    { key: 'rec_lateral',   label: 'Lateral Rec.',    icon: 'fa-camera-rotate', accept: 'image/jpeg,image/png' },
-                ],
-            },
-            {
                 key: 'fisica',
                 label: 'Evidencia Física (Momento 1)',
                 badgeClass: 'bg-label-info',
                 icon: 'fa-camera',
                 slots: [
-                    { key: 'fis_vin',       label: 'Serie VIN',       icon: 'fa-barcode',       accept: 'image/jpeg,image/png' },
-                    { key: 'fis_tacometro', label: 'Tacómetro',       icon: 'fa-gauge-high',    accept: 'image/jpeg,image/png' },
-                    { key: 'fis_frontal',   label: 'Vista Frontal',   icon: 'fa-camera',        accept: 'image/jpeg,image/png' },
-                    { key: 'fis_lateral',   label: 'Vista Lateral',   icon: 'fa-camera-rotate', accept: 'image/jpeg,image/png' },
-                    { key: 'fis_360',       label: 'Inspección 360',  icon: 'fa-video',         accept: 'video/mp4', isVideo: true },
+                    { key: 'fis_dacion_hoja_1', label: 'Foto Dación (Hoja 1)', icon: 'fa-file-signature', accept: 'image/jpeg,image/png,application/pdf' },
+                    { key: 'fis_dacion_hoja_2', label: 'Foto Dación (Hoja 2)', icon: 'fa-file-signature', accept: 'image/jpeg,image/png,application/pdf' },
+                    { key: 'fis_vin', label: 'Foto NIV (VIN)', icon: 'fa-barcode', accept: 'image/jpeg,image/png' },
+                    { key: 'fis_frontal', label: 'Foto frontal', icon: 'fa-camera', accept: 'image/jpeg,image/png' },
+                    { key: 'fis_lateral_der', label: 'Foto lateral derecha', icon: 'fa-camera-rotate', accept: 'image/jpeg,image/png' },
+                    { key: 'fis_trasera', label: 'Foto trasera', icon: 'fa-camera-retro', accept: 'image/jpeg,image/png' },
+                    { key: 'fis_lateral_izq', label: 'Foto lateral izquierda', icon: 'fa-camera-rotate', accept: 'image/jpeg,image/png' },
+                    { key: 'fis_tacometro', label: 'Foto tacómetro', icon: 'fa-gauge-high', accept: 'image/jpeg,image/png' },
+                    { key: 'fis_video_cliente_acuerdo', label: 'Video cliente de acuerdo', icon: 'fa-user-check', accept: 'video/mp4', isVideo: true },
+                    { key: 'fis_360_encendida', label: 'Video moto 360 encendida', icon: 'fa-video', accept: 'video/mp4', isVideo: true },
+                    { key: 'fis_video_vuelta_prueba', label: 'Video vuelta de prueba', icon: 'fa-road', accept: 'video/mp4', isVideo: true },
                 ],
             },
         ];
@@ -372,7 +370,7 @@
             return op && (op.estatus === 'en_transito' || op.estatus === 'Recibido');
         }
 
-        /** Modal Recuperación: progreso 11 slots (10 evidencias + factura); pendiente doc_factura. */
+        /** Modal Recuperación: progreso expediente hasta factura (momento 3). */
         function opsEsEtapaRecuperacionDetalle(op) {
             return op && (op.estatus === 'Procesando IA' || op.estatus === 'Revisión Recuperaciones');
         }
@@ -530,7 +528,7 @@
             const pctModal = Math.min(100, Math.round((cargadasModal / totalModal) * 100));
             const expedienteCompleto = cargadasModal >= totalModal;
 
-            const slotsVal = parseInt(r.slots_validacion_media, 10) || 9;
+            const slotsVal = parseInt(r.slots_validacion_media, 10) || 11;
             const validadas = parseInt(r.validadas_en_evidencia, 10) || 0;
             const aceptadas = parseInt(r.aceptadas, 10) || 0;
             const devueltas = parseInt(r.devueltas, 10) || 0;
@@ -636,7 +634,7 @@
         }
 
         /**
-         * Bloque Procesando IA / Revisión Recuperaciones: progreso único xx/11 y apartado Factura (doc_factura).
+         * Bloque Procesando IA / Revisión Recuperaciones: expediente completo incl. Factura (doc_factura).
          */
         function opsRenderBloqueRecuperacionFacturacion(op) {
             const r = op.resumen_evidencia_flujo || {};
@@ -666,8 +664,9 @@
             const rowFactura = bySlot.doc_factura;
             const facturaCargada = rowFactura && String(rowFactura.url || '').trim() !== '';
             const cargadosOnce = cargadasDiez + (facturaCargada ? 1 : 0);
-            const pctOnce = Math.min(100, Math.round((cargadosOnce / 11) * 100));
-            const expedienteOnceCompleto = cargadosOnce >= 11;
+            const totExp = Math.max(1, OPS_EXPEDIENTE_TOTAL_CON_FACTURA);
+            const pctOnce = Math.min(100, Math.round((cargadosOnce / totExp) * 100));
+            const expedienteOnceCompleto = cargadosOnce >= totExp;
 
             const facturaInner = !facturaCargada
                 ? `<p class="small text-muted mb-0 lh-base" style="max-width:42rem;">
@@ -690,7 +689,7 @@
             </div>
             <div class="card-body">
                 <p class="text-muted small mb-3 mb-md-4">
-                    En esta etapa se deberá revalidar las evidencias de recolección del gestor.
+                    En esta etapa se revisa el expediente completo (evidencia física, Repuve y factura).
                 </p>
                 <div class="row g-3">
                     <div class="col-12">
@@ -699,8 +698,8 @@
                             <div class="progress-bar ${expedienteOnceCompleto ? 'bg-success' : diezCompleto ? 'bg-primary' : 'bg-secondary'}" role="progressbar" style="width:${pctOnce}%;" aria-valuenow="${pctOnce}" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                         <div class="small d-flex flex-wrap align-items-center gap-2">
-                            <span><strong>${cargadosOnce}</strong> / 11 slots con archivo</span>
-                            ${expedienteOnceCompleto ? '<span class="badge bg-label-success rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>11/11</span>' : ''}
+                            <span><strong>${cargadosOnce}</strong> / ${totExp} slots con archivo</span>
+                            ${expedienteOnceCompleto ? '<span class="badge bg-label-success rounded-pill"><i class="fa-solid fa-circle-check me-1"></i>Completo</span>' : ''}
                         </div>
                     </div>
                     <div class="col-12">
