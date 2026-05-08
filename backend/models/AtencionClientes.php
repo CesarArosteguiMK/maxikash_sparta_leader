@@ -329,7 +329,8 @@ SQL;
                 DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
             FROM adj_operacion o
             {$joinAsig}
-            WHERE (
+            WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
+              AND (
                 o.estatus = 'Procesando IA'
                 OR EXISTS (
                     SELECT 1
@@ -371,7 +372,8 @@ SQL;
             DATE_FORMAT(aca.fecha_alta, '%d/%m/%Y') AS fecha_asignacion
         FROM adj_operacion o
         {$joinAsig}
-        WHERE (
+        WHERE TRIM(COALESCE(o.estatus, '')) <> 'Cierre Documentado'
+          AND (
             o.estatus = 'Procesando IA'
             OR EXISTS (
                 SELECT 1
@@ -723,9 +725,6 @@ SQL;
                 WHERE h.id_operacion = o.id
                   AND h.estatus_nuevo = 'Cierre Documentado'
             )
-        )
-        AND EXISTS (
-            SELECT 1 FROM adj_dictamen dd WHERE dd.id_operacion = o.id
         )
         ORDER BY o.fecha_alta DESC
         SQL;

@@ -134,7 +134,8 @@ def _parsear_fecha_espanol(texto: str) -> Optional[datetime]:
 
 
 def _normalizar_nombre(nombre: str) -> str:
-    nombre = nombre.upper().strip()
+    nombre = unicodedata.normalize("NFKD", nombre.upper().strip())
+    nombre = "".join(c for c in nombre if not unicodedata.combining(c))
     nombre = re.sub(r"[^A-Z\s]", "", nombre)
     return re.sub(r"\s+", " ", nombre).strip()
 
@@ -1006,6 +1007,12 @@ _STOP_WORDS_ACTA = {"ANTE", "EN", "EL", "LA", "LOS", "LAS", "DEL", "MUNICIPIO",
                     "CERTIFICADO", "INSCRIPCION", "QUE", "COMPARECIO", "CERTIFICO",
                     "CON", "NUMERO", "FOLIO", "LIBRO", "TOMO", "LUGAR", "SEXO",
                     "FECHA", "DATOS", "PARA"}
+_PALABRAS_ETIQUETA_ACTA = {
+    "NOMBRE", "NOMBRES", "PRIMER", "SEGUNDO", "APELLIDO", "APELLIDOS",
+    "NACIONALIDAD", "CURP", "PERSONA", "REGISTRADA", "FILIACION", "DATOS",
+    "MEXICANA", "MEXICANO", "SEXO", "FECHA", "NACIMIENTO",
+}
+_TERMINADORES_NOMBRE_ACTA = {"MEXICANA", "MEXICANO", "NACIONALIDAD", "CURP", "SEXO", "FECHA"}
 
 
 def _parsear_fecha_de_texto(texto: str) -> Optional[str]:
@@ -1037,20 +1044,42 @@ def _parsear_fecha_de_texto(texto: str) -> Optional[str]:
 
 def _parsear_nombre_de_texto(texto: str) -> Optional[str]:
     """Busca nombre del registrado en un texto OCR."""
+    def limpiar_candidato(raw: str) -> Optional[str]:
+        limpio = _normalizar_nombre(raw)
+        palabras = limpio.split()
+        filtradas = []
+        etiquetas = 0
+        for p in palabras:
+            if p in _TERMINADORES_NOMBRE_ACTA:
+                break
+            if p in _PALABRAS_ETIQUETA_ACTA:
+                etiquetas += 1
+                continue
+            if p in _STOP_WORDS_ACTA:
+                break
+            if len(p) >= 3:
+                filtradas.append(p)
+        if len(filtradas) < 2 or etiquetas >= 2:
+            return None
+        return " ".join(filtradas[:5])
+
+    # En actas mexicanas escaneadas, el valor suele estar en la línea anterior
+    # a las etiquetas "NOMBRE(S) / PRIMER APELLIDO / SEGUNDO APELLIDO".
+    lineas = [ln.strip() for ln in texto.splitlines() if ln.strip()]
+    for idx, linea in enumerate(lineas):
+        linea_norm = _normalizar_nombre(linea)
+        if "NOMBRE" in linea_norm and "APELLIDO" in linea_norm:
+            for prev_idx in range(idx - 1, max(-1, idx - 4), -1):
+                candidato = limpiar_candidato(lineas[prev_idx])
+                if candidato:
+                    return candidato
+
     for pat in _PATRONES_NOMBRE_ACTA:
         m = re.search(pat, texto)
         if m:
-            raw = m.group(1).strip()
-            limpio = _normalizar_nombre(raw)
-            palabras = limpio.split()
-            filtradas = []
-            for p in palabras:
-                if p in _STOP_WORDS_ACTA:
-                    break
-                if len(p) >= 2:
-                    filtradas.append(p)
-            if len(filtradas) >= 2:
-                return " ".join(filtradas[:6])
+            candidato = limpiar_candidato(m.group(1).strip())
+            if candidato:
+                return candidato
     return None
 
 
@@ -1199,6 +1228,7 @@ def validacion_cruzada(
     datos_nss: Optional[Dict[str, Any]],
     datos_fiscal: Optional[Dict[str, Any]],
     datos_acta: Optional[Dict[str, Any]],
+    nombre_candidato_registro: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Realiza la validación cruzada entre todos los documentos.
@@ -1293,7 +1323,17 @@ def validacion_cruzada(
         if not coincide:
             alertas.append("Fecha de nacimiento del CURP no coincide con la del MRZ.")
 
-    nombre_ref = id_frente_nombre or (datos_curp_pdf.get("nombre") if datos_curp_pdf else None)
+    nombre_ref = id_reverso_mrz_nombre or id_frente_nombre or (datos_curp_pdf.get("nombre") if datos_curp_pdf else None)
+
+    if nombre_candidato_registro and nombre_ref:
+        coincide = _nombres_coinciden(nombre_candidato_registro, nombre_ref)
+        comparaciones["nombre_registro_vs_documentos"] = {
+            "registro_candidato": nombre_candidato_registro,
+            "documentos": nombre_ref,
+            "coincide": coincide,
+        }
+        if not coincide:
+            alertas.append("Nombre registrado del candidato no coincide con el nombre leído en los documentos.")
 
     if datos_curp_pdf and datos_curp_pdf.get("nombre") and nombre_ref:
         coincide = _nombres_coinciden(nombre_ref, datos_curp_pdf["nombre"])
@@ -1361,6 +1401,22 @@ def validacion_cruzada(
         conf_fecha = datos_acta.get("confianza_fecha", 0)
         conf_nombre = datos_acta.get("confianza_nombre", 0)
         pasadas = datos_acta.get("pasadas_ocr", 0)
+
+        if datos_acta.get("nombre") and nombre_candidato_registro:
+            coincide = _nombres_coinciden(nombre_candidato_registro, datos_acta["nombre"])
+            comparaciones["nombre_registro_vs_acta"] = {
+                "registro_candidato": nombre_candidato_registro,
+                "acta_nacimiento": datos_acta["nombre"],
+                "coincide": coincide,
+                "confianza_ocr": conf_nombre,
+            }
+            if not coincide and conf_nombre >= 60:
+                alertas.append("Nombre registrado del candidato no coincide con el acta de nacimiento.")
+            elif not coincide:
+                alertas.append(
+                    f"REVISAR: Nombre registrado no coincide claramente con el acta "
+                    f"(confianza OCR: {conf_nombre}%)."
+                )
 
         if datos_acta.get("nombre") and nombre_ref:
             coincide = _nombres_coinciden(nombre_ref, datos_acta["nombre"])

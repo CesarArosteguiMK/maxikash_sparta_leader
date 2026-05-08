@@ -1739,6 +1739,33 @@ class MotosAdjudicadas extends Model
             }
         }
 
+        /**
+         * Registro en adj_dictamen: las listas de 3.- Recuperaci?n (bandeja vs dictaminado) dependen de
+         * tener dictamen al estar en Cierre documentado; sin esta fila la operaci?n queda ??colgada?? en bandeja.
+         */
+        $ahora = $this->fechaHoraCdmx();
+        $this->db->CRUD(
+            "INSERT INTO adj_dictamen
+                (id_operacion, llamada_a, numero, persona_contactada, tipo_contacto,
+                 resultado, dictamen, plataforma, comentarios, id_usuario, fecha_alta)
+             VALUES
+                (:id_operacion, :llamada_a, :numero, :persona_contactada, :tipo_contacto,
+                 :resultado, :dictamen, :plataforma, :comentarios, :id_usuario, :fecha_alta)",
+            [
+                'id_operacion'       => $idOperacion,
+                'llamada_a'          => 'Cartera',
+                'numero'             => '',
+                'persona_contactada' => $nombreUsuario !== '' ? $nombreUsuario : 'Usuario',
+                'tipo_contacto'      => 'Recuperaci?n',
+                'resultado'          => 'Expediente enviado',
+                'dictamen'           => 'Recuperaci?n enviada a Cartera (evidencias y factura completas)',
+                'plataforma'         => 'Sparta',
+                'comentarios'        => $comentarios !== '' ? $comentarios : null,
+                'id_usuario'         => $idUsuario ?: null,
+                'fecha_alta'         => $ahora,
+            ]
+        );
+
         return $this->cambiarEstatus($idOperacion, 'Cierre Documentado', $idUsuario, $nombreUsuario);
     }
 

@@ -1,0 +1,22 @@
+{
+    "destinatarios": [
+        {
+            "email": "__SPARTA_SECRET_REDACTED__.martinez@__SPARTA_SECRET_REDACTED__.mx",
+            "activo": true
+        },
+        {
+            "email": "lazaro.leyva@maxikask.mx",
+            "activo": true
+        },
+        {
+            "email": "cartera.maxi@maxikask.mx",
+            "activo": true
+        },
+        {
+            "email": "__SPARTA_SECRET_REDACTED__@maxikask.mx",
+            "activo": true
+        }
+    ],
+    "updated_at": "2026-05-08T12:18:52-06:00",
+    "updated_by": 1
+}
