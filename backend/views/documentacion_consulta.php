@@ -238,7 +238,7 @@
                                     <div class="watermark-container" style="position: relative; display: inline-block;">
                                         <img
                                             id="imgINEfrente"
-                                            src=""
+                                            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
                                             alt="INE Frente"
                                             class="img-fluid img-zoomable"
                                             style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in; transition: transform 0.3s ease; touch-action: manipulation; display: block; margin: 0 auto; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-user-drag: none; -khtml-user-drag: none; user-drag: none;"
@@ -269,7 +269,7 @@
                                     <div class="watermark-container" style="position: relative; display: inline-block;">
                                         <img
                                             id="imgINEreverso"
-                                            src=""
+                                            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
                                             alt="INE Reverso"
                                             class="img-fluid img-zoomable"
                                             style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: zoom-in; transition: transform 0.3s ease; touch-action: manipulation; display: block; margin: 0 auto; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-user-drag: none; -khtml-user-drag: none; user-drag: none;"
@@ -1171,6 +1171,14 @@
                     return; // Salir inmediatamente, no procesar este overlay
                 }
 
+                // INE (imagen): no dibujar hasta que la foto real tenga píxeles (evita src vacío → URL de la página y spam en consola)
+                if (estaEnModalINE && overlay.classList.contains('watermark-overlay')) {
+                    const ineImg = overlay.closest('.watermark-container')?.querySelector('img');
+                    if (!ineImg || ineImg.naturalWidth < 2 || ineImg.naturalHeight < 2) {
+                        return;
+                    }
+                }
+
                 // Limpiar elementos anteriores si existen
                 const existingLayers = overlay.querySelectorAll('.watermark-layer');
                 existingLayers.forEach(layer => layer.remove());
@@ -1362,8 +1370,10 @@
                 }
 
                 if (width === 0 || height === 0) {
-                    if (typeof console !== 'undefined' && overlay.closest('#documentoImagenContainer')) {
-                        console.warn('[Marca agua EVIDENCIA] Overlay descartado: dimensiones 0. width=', width, 'height=', height, 'img=', img ? { naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: (img.src || '').substring(0, 60) } : 'sin img');
+                    const modalDoc = document.getElementById('modalDocumento');
+                    const modalDocVisible = modalDoc && modalDoc.classList.contains('show');
+                    if (typeof console !== 'undefined' && modalDocVisible && overlay.closest('#documentoImagenContainer')) {
+                        console.warn('[Marca agua EVIDENCIA] Overlay descartado: dimensiones 0. width=', width, 'height=', height, 'img=', img ? { naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: (img.src || '').substring(0, 80) } : 'sin img');
                     }
                     return;
                 }
@@ -1961,8 +1971,8 @@
             const idCredito = typeof window.idCreditoDocumentoActual !== 'undefined' ? window.idCreditoDocumentoActual : '';
             if ((esFAD || esFactura) && puedeDescargar && idCredito) {
                 btn.href = esFAD
-                    ? '/EstadoCuenta/descargarPdfFAD_DOC?id=' + encodeURIComponent(idCredito)
-                    : '/EstadoCuenta/descargarPdfFactura?id=' + encodeURIComponent(idCredito);
+                    ? '/estadocuenta/descargarPdfFAD_DOC?id=' + encodeURIComponent(idCredito)
+                    : '/estadocuenta/descargarPdfFactura?id=' + encodeURIComponent(idCredito);
                 btn.style.display = 'flex';
                 sep.style.display = 'block';
             } else {
@@ -3175,16 +3185,7 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <!-- PDF.js versión local (5.3.31) - Ya cargado en el layout -->
-    <script>
-        // Configurar el worker de PDF.js OBLIGATORIAMENTE antes de usar pdfjsLib.getDocument
-        // Usar versión local (5.3.31)
-        if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
-        } else {
-            console.error('❌ PDF.js no está disponible después de cargar el script');
-        }
-    </script>
+    <!-- PDF.js se importa como ES module en el layout (deferred): no usar pdfjsLib en scripts inline hasta DOMContentLoaded -->
 
     <!-- CSS adicional para mayor protección -->
     <style>
@@ -3256,6 +3257,26 @@
     <script>
         // Protección global del documento para prevenir atajos de teclado
         document.addEventListener('DOMContentLoaded', function() {
+            // PDF.js (pdf.mjs) es type=module y corre después del parseo; en DOMContentLoaded ya debe existir window.pdfjsLib
+            (function configurarWorkerPdfJs() {
+                var workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
+                function trySet() {
+                    if (typeof pdfjsLib !== 'undefined') {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+                        return true;
+                    }
+                    return false;
+                }
+                if (!trySet()) {
+                    var intentos = 0;
+                    var t = setInterval(function() {
+                        if (trySet() || ++intentos > 80) {
+                            clearInterval(t);
+                        }
+                    }, 50);
+                }
+            })();
+
             // Prevenir atajos de teclado globales cuando hay un modal abierto
             document.addEventListener('keydown', function(e) {
                 const modalDocumento = document.getElementById('modalDocumento');
@@ -3408,51 +3429,16 @@
             };
         });
 
-        // Configurar el worker de PDF.js y verificar que esté cargado
         function verificarPDFjs() {
-            if (typeof pdfjsLib === 'undefined') {
-                console.error('PDF.js NO está cargado');
-                return false;
-            }
-            return true;
+            return typeof pdfjsLib !== 'undefined';
         }
 
-        // Verificar inmediatamente después de que se carga el script
-        if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
-        } else {
-            console.warn('PDF.js aún no está cargado, esperando...');
-            // Intentar verificar después de un delay
-            setTimeout(() => {
-                if (verificarPDFjs()) {
-                    pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/vendor/libs/pdf-viewer/pdf.worker.mjs';
-                } else {
-                    console.error('PDF.js no se pudo cargar después de esperar');
-                }
-            }, 1000);
-        }
-
-        // Verificar cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            const estaCargado = verificarPDFjs();
-            if (!estaCargado) {
-                console.warn('⚠️ PDF.js no está cargado. El visor de PDFs no funcionará correctamente.');
-                // Intentar cargar manualmente si falló
-                setTimeout(() => {
-                    if (verificarPDFjs()) {
-                    } else {
-                        console.error('❌ PDF.js no se pudo cargar. Verifique que el CDN esté accesible.');
-                    }
-                }, 2000);
-            }
-        });
-
-        // También verificar después de que la página esté completamente cargada
         window.addEventListener('load', function() {
-            const diagnostico = diagnosticarPDFjs();
+            var diagnostico = diagnosticarPDFjs();
             if (!diagnostico.pdfjsLib) {
-                console.error('❌ PDF.js NO está disponible después de cargar la página completa');
-            } else {
+                console.error('PDF.js no está disponible: compruebe que /assets/vendor/libs/pdf-viewer/pdf.mjs cargue sin error de red o CSP.');
+            } else if (!diagnostico.worker) {
+                console.warn('PDF.js cargado pero workerSrc no configurado.');
             }
         });
 
@@ -4096,7 +4082,7 @@
                     if (body) body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary mb-2" role="status"><span class="visually-hidden">Cargando...</span></div><p class="text-muted mb-0">Cargando videos, por favor espere...</p></div>';
                     const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
                     if (modal) modal.show();
-                    fetch('/EstadoCuenta/extraerVideosDocumento', {
+                    fetch('/estadocuenta/extraerVideosDocumento', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ idCredito: idCredito, pagina: pagina })
