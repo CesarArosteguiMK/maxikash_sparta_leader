@@ -6813,7 +6813,7 @@ class CapHum extends Controller
                 'curp_definitivo' => null,
                 'checks_ok' => 0,
                 'checks_totales' => 0,
-                'alertas' => ['No se pudo completar la verificación automática: ' . $resultadoApi['error']],
+                'alertas' => ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'],
                 'identificacion_frente_score' => null,
                 'identificacion_reverso_score' => null,
                 'comparaciones' => null,
@@ -7590,7 +7590,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => $post,
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 45,
+            CURLOPT_TIMEOUT => 240,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -8383,7 +8383,7 @@ class CapHum extends Controller
                     'curp_definitivo' => null,
                     'checks_ok' => 0,
                     'checks_totales' => 0,
-                    'alertas' => ['No se pudo completar la verificación automática: ' . $err],
+                    'alertas' => ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'],
                     'identificacion_frente_score' => null,
                     'identificacion_reverso_score' => null,
                     'comparaciones' => null,

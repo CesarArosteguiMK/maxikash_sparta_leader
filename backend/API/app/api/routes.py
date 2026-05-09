@@ -871,10 +871,13 @@ async def validar_expediente(
         ocr_r = res_reverso.checks.ocr_campos
         calidad = res_frente.checks.forense.calidad_foto
 
-        datos_curp = await asyncio.to_thread(extraer_datos_curp_pdf, curp_pdf_bytes) if curp_pdf_bytes else None
-        datos_nss = await asyncio.to_thread(extraer_datos_nss_pdf, nss_pdf_bytes) if nss_pdf_bytes else None
-        datos_fiscal = await asyncio.to_thread(extraer_datos_constancia_fiscal, fiscal_pdf_bytes) if fiscal_pdf_bytes else None
-        datos_acta = await asyncio.to_thread(extraer_datos_acta_nacimiento, acta_pdf_bytes) if acta_pdf_bytes else None
+        # Estos PDFs pueden disparar OCR. Ejecutarlos en paralelo evita sumar sus tiempos uno tras otro.
+        datos_curp, datos_nss, datos_fiscal, datos_acta = await asyncio.gather(
+            asyncio.to_thread(extraer_datos_curp_pdf, curp_pdf_bytes) if curp_pdf_bytes else asyncio.sleep(0, result=None),
+            asyncio.to_thread(extraer_datos_nss_pdf, nss_pdf_bytes) if nss_pdf_bytes else asyncio.sleep(0, result=None),
+            asyncio.to_thread(extraer_datos_constancia_fiscal, fiscal_pdf_bytes) if fiscal_pdf_bytes else asyncio.sleep(0, result=None),
+            asyncio.to_thread(extraer_datos_acta_nacimiento, acta_pdf_bytes) if acta_pdf_bytes else asyncio.sleep(0, result=None),
+        )
 
         resultado = validacion_cruzada(
             id_frente_curp=ocr_f.curp.get("valor") if ocr_f.curp else None,
