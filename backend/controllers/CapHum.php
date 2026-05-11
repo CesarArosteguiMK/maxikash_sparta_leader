@@ -8514,11 +8514,11 @@ class CapHum extends Controller
             @set_time_limit(max(900, $timeoutExp * $totalIntentos + 120 + ($maxExtraRetries * 15)));
         }
 
-        $lowSpeedTime = isset($docCfg['validar_expediente_low_speed_time_seconds']) ? (int) $docCfg['validar_expediente_low_speed_time_seconds'] : 90;
-        if ($lowSpeedTime < 20) {
+        $lowSpeedTime = isset($docCfg['validar_expediente_low_speed_time_seconds']) ? (int) $docCfg['validar_expediente_low_speed_time_seconds'] : 0;
+        if ($lowSpeedTime > 0 && $lowSpeedTime < 20) {
             $lowSpeedTime = 20;
         }
-        if ($lowSpeedTime > $timeoutExp - 15) {
+        if ($lowSpeedTime > ($timeoutExp - 15)) {
             $lowSpeedTime = max(20, $timeoutExp - 30);
         }
         $lowSpeedLimit = isset($docCfg['validar_expediente_low_speed_limit_bps']) ? (int) $docCfg['validar_expediente_low_speed_limit_bps'] : 32;
@@ -8528,6 +8528,9 @@ class CapHum extends Controller
         if ($lowSpeedLimit > 4096) {
             $lowSpeedLimit = 4096;
         }
+        // validar-expediente responde al final del OCR/cross-check (no stream),
+        // así que LOW_SPEED suele provocar falsos timeout aunque el proceso siga vivo.
+        $usarLowSpeed = false;
 
         $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
         for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
@@ -8548,16 +8551,19 @@ class CapHum extends Controller
             error_log('CapHum::validarExpedienteApi intento ' . ($attempt + 1) . '/' . $totalIntentos . ' tipo_documento=' . $tipoDocExp . ' archivos_bytes=' . json_encode($diagArchivos));
 
             $ch = curl_init($urlExp);
-            curl_setopt_array($ch, [
+            $curlOpts = [
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => $post,
                 CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => $timeoutExp,
                 CURLOPT_CONNECTTIMEOUT => 15,
-                CURLOPT_LOW_SPEED_TIME => $lowSpeedTime,
-                CURLOPT_LOW_SPEED_LIMIT => $lowSpeedLimit,
-            ]);
+            ];
+            if ($usarLowSpeed) {
+                $curlOpts[CURLOPT_LOW_SPEED_TIME] = $lowSpeedTime;
+                $curlOpts[CURLOPT_LOW_SPEED_LIMIT] = $lowSpeedLimit;
+            }
+            curl_setopt_array($ch, $curlOpts);
             $body = curl_exec($ch);
             $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $curlErr = curl_error($ch);
@@ -8604,7 +8610,9 @@ class CapHum extends Controller
                 if ($curlErrno === 28 || ($curlErr !== '' && stripos($curlErr, 'timed out') !== false)) {
                     $detalle .= ' Timeout total configurado: ' . $timeoutExp . ' s; hasta ' . $totalIntentos . ' intento(s).';
                     $detalle .= ' Si no llegó ningún byte de respuesta, el proceso Python (puerto 8000) suele estar colgado en OCR: reinicie uvicorn y revise logs.';
-                    $detalle .= ' Velocidad mínima: si no hay datos en ' . $lowSpeedTime . ' s, cURL aborta antes (validar_expediente_low_speed_time_seconds en config.ini).';
+                    if ($usarLowSpeed && $lowSpeedTime > 0) {
+                        $detalle .= ' Velocidad mínima: si no hay datos en ' . $lowSpeedTime . ' s, cURL aborta antes (validar_expediente_low_speed_time_seconds en config.ini).';
+                    }
                 }
             }
             if ($attempt < $totalIntentos - 1) {

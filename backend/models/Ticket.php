@@ -470,7 +470,7 @@ class Ticket extends Model
                     }
                 }
 
-                // INSERT con categoria_gestion si la columna existe (ejecutar scripts/sql/alter_ticket_categoria_gestion.sql)
+                // INSERT con categoria_gestion si la columna existe en ticket (esquema actualizado en BD)
                 $params = [
                     'id_ticket'            => $siguienteId,
                     'folio'                => $folio,

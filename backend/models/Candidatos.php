@@ -487,7 +487,7 @@ class Candidatos extends Model
     /**
      * Obtener o crear token único para link de subida de documentos del candidato.
      * Retorna el token (string) para construir la URL.
-     * La columna expira debe existir (ver backend/sql/alter_candidato_documento_token_expira.sql).
+     * La columna expira debe existir en la tabla candidato_documento (enlace de subida de documentos).
      */
     public static function getOrCreateTokenDocumentos($id_candidato)
     {
