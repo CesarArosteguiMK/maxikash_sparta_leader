@@ -4391,6 +4391,17 @@ class CapHum extends Controller
                                         apellidom: candidato.apellidom,
                                         email: candidato.email,
                                         telefono: candidato.telefono,
+                                        id_pais: candidato.id_pais,
+                                        nombre_pais: candidato.nombre_pais,
+                                        id_div_nivel1: candidato.id_div_nivel1,
+                                        nombre_div_nivel1: candidato.nombre_div_nivel1,
+                                        id_div_nivel2: candidato.id_div_nivel2,
+                                        nombre_div_nivel2: candidato.nombre_div_nivel2,
+                                        id_div_nivel3: candidato.id_div_nivel3,
+                                        nombre_div_nivel3: candidato.nombre_div_nivel3,
+                                        domicilio_calle_texto: candidato.domicilio_calle_texto,
+                                        domicilio_num_exterior: candidato.domicilio_num_exterior,
+                                        domicilio_num_interior: candidato.domicilio_num_interior,
                                         id_puesto: candidato.id_puesto,
                                         nombre_puesto: candidato.nombre_puesto,
                                         nombre_departamento: candidato.nombre_departamento,
@@ -4488,6 +4499,14 @@ class CapHum extends Controller
                                 }
 
                                 var id = (c.id || 0).toString();
+                                var paisTexto = c.nombre_pais || "";
+                                var estadoTexto = c.nombre_div_nivel1 || "";
+                                var municipioTexto = c.nombre_div_nivel2 || "";
+                                var coloniaTexto = c.nombre_div_nivel3 || "";
+                                var ubicacionPartes = [paisTexto, estadoTexto, municipioTexto, coloniaTexto].filter(function(v) { return !!v; });
+                                var ubicacion = ubicacionPartes.length ? ubicacionPartes.join(" / ") : "—";
+                                var domicilio = (c.domicilio_calle_texto || "") + (c.domicilio_num_exterior ? " #" + c.domicilio_num_exterior : "") + (c.domicilio_num_interior ? " Int " + c.domicilio_num_interior : "");
+                                if (!domicilio.trim()) domicilio = "—";
                                 var est = c.estatus || "Por evaluar";
                                 var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : (est === "Proceso cerrado" ? "bg-dark" : "bg-secondary"));
 
@@ -4501,6 +4520,8 @@ class CapHum extends Controller
                                     nombre: nombre,
                                     contacto: contacto,
                                     puestoDepto: puestoDeptoHTML.trim(),
+                                    ubicacion: ubicacion,
+                                    domicilio: domicilio,
                                     estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
                                     acciones: acciones
                                 };
@@ -4662,6 +4683,196 @@ class CapHum extends Controller
                 if (input._flatpickr) return;
                 var hoy = new Date().toISOString().slice(0, 10);
                 flatpickr(input, { dateFormat: "Y-m-d", defaultDate: hoy, maxDate: hoy, allowInput: false, clickOpens: true, appendTo: document.body, static: false, locale: (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined });
+            }
+
+            function refreshSelectBuscadorCandidato(selectId) {
+                var el = document.getElementById(selectId);
+                if (!el || !el.classList.contains("js-select-buscador")) return;
+                if (typeof window.jQuery === "undefined" || !window.jQuery.fn.select2) return;
+                var $ = window.jQuery;
+                var $el = $("#" + selectId);
+                var prev = el.value;
+                if ($el.hasClass("select2-hidden-accessible")) {
+                    $el.select2("destroy");
+                }
+                $el.prop("disabled", !!el.disabled);
+                $el.select2({
+                    width: "100%",
+                    dropdownParent: $("#offcanvasAddCandidato"),
+                    minimumResultsForSearch: 0,
+                    language: {
+                        noResults: function () { return "Sin resultados"; },
+                        searching: function () { return "Buscando..."; }
+                    }
+                });
+                $el.prop("disabled", !!el.disabled);
+                if (prev) $el.val(prev).trigger("change.select2");
+            }
+
+            function ocultarSeccionesDomicilioCandidato() {
+                ["estado", "municipio", "colonia", "calle_texto", "num_extint"].forEach(function (k) {
+                    var el = document.getElementById("div_candidato_" + k);
+                    if (el) el.style.display = "none";
+                });
+            }
+
+            function limpiarDomicilioTextoCandidato() {
+                ["candidato_domicilio_calle_texto", "candidato_domicilio_num_exterior", "candidato_domicilio_num_interior"].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.value = "";
+                });
+            }
+
+            function resetCascadaDomicilioCandidato() {
+                var estado = document.getElementById("candidato_id_div_nivel1");
+                var mun = document.getElementById("candidato_id_div_nivel2");
+                var col = document.getElementById("candidato_id_div_nivel3");
+                if (estado) { estado.innerHTML = "<option value=''>Seleccione un estado</option>"; estado.disabled = true; }
+                if (mun) { mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>"; mun.disabled = true; }
+                if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; }
+                ocultarSeccionesDomicilioCandidato();
+                limpiarDomicilioTextoCandidato();
+                if (estado) refreshSelectBuscadorCandidato(estado.id);
+                if (mun) refreshSelectBuscadorCandidato(mun.id);
+                if (col) refreshSelectBuscadorCandidato(col.id);
+            }
+
+            function cargarEstadosCandidato(idPais, done) {
+                var estado = document.getElementById("candidato_id_div_nivel1");
+                if (!estado) { if (done) done(false); return; }
+                estado.innerHTML = "<option value=''>Cargando...</option>";
+                estado.disabled = true;
+                fetch("/caphum/getEstados", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify({ id_pais: idPais })
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    estado.innerHTML = "<option value=''>Seleccione un estado</option>";
+                    var ok = res && res.success && Array.isArray(res.datos) && res.datos.length > 0;
+                    if (ok) {
+                        res.datos.forEach(function(e){
+                            var opt = document.createElement("option");
+                            opt.value = e.id;
+                            opt.textContent = e.nombre || "";
+                            estado.appendChild(opt);
+                        });
+                        estado.disabled = false;
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel1");
+                    if (done) done(ok);
+                }).catch(function(){
+                    estado.innerHTML = "<option value=''>Error al cargar</option>";
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel1");
+                    if (done) done(false);
+                });
+            }
+
+            function cargarMunicipiosCandidato(idEstado, done) {
+                var mun = document.getElementById("candidato_id_div_nivel2");
+                if (!mun) { if (done) done(false); return; }
+                mun.innerHTML = "<option value=''>Cargando...</option>";
+                mun.disabled = true;
+                fetch("/caphum/getMunicipios", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify({ id_estado: idEstado })
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>";
+                    var ok = res && res.success && Array.isArray(res.datos) && res.datos.length > 0;
+                    if (ok) {
+                        res.datos.forEach(function(e){
+                            var opt = document.createElement("option");
+                            opt.value = e.id;
+                            opt.textContent = e.nombre || "";
+                            mun.appendChild(opt);
+                        });
+                        mun.disabled = false;
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel2");
+                    if (done) done(ok);
+                }).catch(function(){
+                    mun.innerHTML = "<option value=''>Error al cargar</option>";
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel2");
+                    if (done) done(false);
+                });
+            }
+
+            function cargarColoniasCandidato(idMunicipio, done) {
+                var col = document.getElementById("candidato_id_div_nivel3");
+                if (!col) { if (done) done(false); return; }
+                col.innerHTML = "<option value=''>Cargando...</option>";
+                col.disabled = true;
+                fetch("/caphum/getColonias", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify({ id_municipio: idMunicipio })
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    col.innerHTML = "<option value=''>Seleccione una colonia</option>";
+                    var ok = res && res.success && Array.isArray(res.datos) && res.datos.length > 0;
+                    if (ok) {
+                        res.datos.forEach(function(e){
+                            var opt = document.createElement("option");
+                            opt.value = e.id;
+                            opt.textContent = e.nombre || "";
+                            col.appendChild(opt);
+                        });
+                        col.disabled = false;
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                    if (done) done(ok);
+                }).catch(function(){
+                    col.innerHTML = "<option value=''>Error al cargar</option>";
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                    if (done) done(false);
+                });
+            }
+
+            function precargarCascadaDomicilioCandidato(c) {
+                var idPais = c && c.id_pais ? String(c.id_pais) : "";
+                var idEstado = c && c.id_div_nivel1 ? String(c.id_div_nivel1) : "";
+                var idMunicipio = c && c.id_div_nivel2 ? String(c.id_div_nivel2) : "";
+                var idColonia = c && c.id_div_nivel3 ? String(c.id_div_nivel3) : "";
+                if (!idPais) {
+                    resetCascadaDomicilioCandidato();
+                    return;
+                }
+                var divEstado = document.getElementById("div_candidato_estado");
+                if (divEstado) divEstado.style.display = "";
+                cargarEstadosCandidato(idPais, function(tieneEstados) {
+                    if (!tieneEstados) return;
+                    var estado = document.getElementById("candidato_id_div_nivel1");
+                    if (!estado) return;
+                    if (idEstado) {
+                        estado.value = idEstado;
+                        refreshSelectBuscadorCandidato("candidato_id_div_nivel1");
+                        var divMunicipio = document.getElementById("div_candidato_municipio");
+                        if (divMunicipio) divMunicipio.style.display = "";
+                        cargarMunicipiosCandidato(idEstado, function(tieneMunicipios) {
+                            if (!tieneMunicipios) return;
+                            var municipio = document.getElementById("candidato_id_div_nivel2");
+                            if (!municipio) return;
+                            if (idMunicipio) {
+                                municipio.value = idMunicipio;
+                                refreshSelectBuscadorCandidato("candidato_id_div_nivel2");
+                                var divColonia = document.getElementById("div_candidato_colonia");
+                                if (divColonia) divColonia.style.display = "";
+                                cargarColoniasCandidato(idMunicipio, function(tieneColonias) {
+                                    if (!tieneColonias) return;
+                                    var colonia = document.getElementById("candidato_id_div_nivel3");
+                                    if (!colonia) return;
+                                    if (idColonia) {
+                                        colonia.value = idColonia;
+                                        refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                                    }
+                                    var calle = document.getElementById("div_candidato_calle_texto");
+                                    var extInt = document.getElementById("div_candidato_num_extint");
+                                    if (calle) calle.style.display = "";
+                                    if (extInt) extInt.style.display = "";
+                                });
+                            }
+                        });
+                    }
+                });
             }
 
             function toggleLegionCandidato() {
@@ -5425,6 +5636,7 @@ class CapHum extends Controller
 
             function abrirModalReenviarPostulacion(idCandidato) {
         candidatoDatosEnvio = null;
+        prepararBloqueLinkDocumentos();
 
         // Intentar obtener datos desde la memoria primero (eager loading)
         var candidato = null;
@@ -5515,6 +5727,17 @@ class CapHum extends Controller
         }
         }
 
+            function prepararBloqueLinkDocumentos() {
+        var bloque = document.getElementById("bloqueLinkDocumentos");
+        var input = document.getElementById("inputUrlDocumentos");
+        if (bloque) bloque.style.display = "block";
+        if (input) {
+            input.value = "";
+            input.placeholder = "Generando enlace...";
+            input.setAttribute("title", "");
+        }
+        }
+
             function buildResumenCandidatoHTML(o) {
         var n = o.nombreCompleto || "—"; var t = o.telefono || "—"; var e = o.email || "—"; var p = o.puesto || "—"; var d = o.departamento || "—";
         return "<div class=\"resumen-row\"><span class=\"resumen-label\">Candidato</span><span class=\"resumen-value\">" + escapeHtml(n) + "</span></div>" +
@@ -5533,8 +5756,24 @@ class CapHum extends Controller
         var bloque = document.getElementById("bloqueLinkDocumentos");
         var input = document.getElementById("inputUrlDocumentos");
         if (!bloque || !input) return;
+        bloque.style.display = "block";
+        input.value = "";
+        input.placeholder = "Generando enlace...";
+        input.setAttribute("title", "");
         fetch("/caphum/getTokenDocumentosCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCandidato }) })
-            .then(function(r){ return r.json(); }).then(function(res){ if (res.success && res.datos && res.datos.url) { input.value = res.datos.url; input.setAttribute("title", res.datos.url); bloque.style.display = "block"; } }).catch(function(){});
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (res && res.success && res.datos && res.datos.url) {
+                    input.value = res.datos.url;
+                    input.setAttribute("title", res.datos.url);
+                    input.placeholder = "";
+                    return;
+                }
+                input.placeholder = "No se pudo obtener el enlace";
+            })
+            .catch(function(){
+                input.placeholder = "No se pudo obtener el enlace";
+            });
         }
 
             function showToastUrl(msg) {
@@ -5582,6 +5821,14 @@ class CapHum extends Controller
             if (form.telefono) form.telefono.value = c.telefono || "";
             if (form.email) form.email.value = c.email || "";
             if (form.id_pais) form.id_pais.value = c.id_pais || "";
+            var selPais = document.getElementById("candidato_id_pais");
+            if (selPais) refreshSelectBuscadorCandidato(selPais.id);
+            if (form.id_div_nivel1) form.id_div_nivel1.value = c.id_div_nivel1 || "";
+            if (form.id_div_nivel2) form.id_div_nivel2.value = c.id_div_nivel2 || "";
+            if (form.id_div_nivel3) form.id_div_nivel3.value = c.id_div_nivel3 || "";
+            if (form.domicilio_calle_texto) form.domicilio_calle_texto.value = c.domicilio_calle_texto || "";
+            if (form.domicilio_num_exterior) form.domicilio_num_exterior.value = c.domicilio_num_exterior || "";
+            if (form.domicilio_num_interior) form.domicilio_num_interior.value = c.domicilio_num_interior || "";
             if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
             if (form.usuario) form.usuario.value = c.usuario || "";
             if (form.contrasena) form.contrasena.value = c.contrasena || "";
@@ -5597,6 +5844,7 @@ class CapHum extends Controller
             selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>";
             selJefe.innerHTML = "<option value=''>—</option>";
             setTimeout(function() { abrirOffcanvasCandidato(); }, 0);
+            precargarCascadaDomicilioCandidato(c);
             if (!c.id_departamento) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
             fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_departamento: c.id_departamento }) })
             .then(function(r){ return r.json(); })
@@ -5627,6 +5875,7 @@ class CapHum extends Controller
             function guardarCandidatoEdicion() {
         var form = document.getElementById("formAgregarCandidato");
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
+        if (!validarDomicilioCandidato()) return;
         var id = candidatoEditId; if (!id) return;
         var data = buildCandidatoPayloadFromForm(); data.id = id;
         fetch("/caphum/actualizarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
@@ -5650,6 +5899,7 @@ class CapHum extends Controller
             function guardarCandidatoAbrirResumen() {
         var form = document.getElementById("formAgregarCandidato");
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
+        if (!validarDomicilioCandidato()) return;
         var data = buildCandidatoPayloadFromForm();
         if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombre y apellido paterno son obligatorios." }); return; }
         var btnSubmit = document.getElementById("btnSubmitCandidato");
@@ -5689,6 +5939,12 @@ class CapHum extends Controller
             email: (form.email && form.email.value.trim()) || "",
             telefono: (form.telefono && form.telefono.value.trim()) || "",
             id_pais: (form.id_pais && form.id_pais.value) || null,
+            id_div_nivel1: (form.id_div_nivel1 && form.id_div_nivel1.value) || null,
+            id_div_nivel2: (form.id_div_nivel2 && form.id_div_nivel2.value) || null,
+            id_div_nivel3: (form.id_div_nivel3 && form.id_div_nivel3.value) || null,
+            domicilio_calle_texto: (form.domicilio_calle_texto && form.domicilio_calle_texto.value.trim()) || null,
+            domicilio_num_exterior: (form.domicilio_num_exterior && form.domicilio_num_exterior.value.trim()) || null,
+            domicilio_num_interior: (form.domicilio_num_interior && form.domicilio_num_interior.value.trim()) || null,
             id_departamento: (form.id_departamento && form.id_departamento.value) || null,
             id_puesto: (form.id_puesto && form.id_puesto.value) || null,
             id_posible_jefe: (form.id_posible_jefe && form.id_posible_jefe.value) || null,
@@ -5698,6 +5954,24 @@ class CapHum extends Controller
             contrasena: (form.contrasena && form.contrasena.value.trim()) || "",
             estatus: "Por evaluar", notas: null, postulacion_enviada: 1
         };
+        }
+
+            function validarDomicilioCandidato() {
+        var paisSel = document.getElementById("candidato_id_pais");
+        var paisTxt = paisSel && paisSel.selectedIndex >= 0 ? String(paisSel.options[paisSel.selectedIndex].textContent || "").toLowerCase() : "";
+        var esMexico = paisTxt.indexOf("mex") >= 0;
+        if (!esMexico) return true;
+        var estado = document.getElementById("candidato_id_div_nivel1");
+        var municipio = document.getElementById("candidato_id_div_nivel2");
+        var colonia = document.getElementById("candidato_id_div_nivel3");
+        var calle = document.getElementById("candidato_domicilio_calle_texto");
+        var ext = document.getElementById("candidato_domicilio_num_exterior");
+        if (!estado || !estado.value) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Selecciona el estado." }); return false; }
+        if (!municipio || !municipio.value) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Selecciona la alcaldía/municipio." }); return false; }
+        if (!colonia || !colonia.value) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Selecciona la colonia." }); return false; }
+        if (!calle || !String(calle.value || "").trim()) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Escribe la calle." }); return false; }
+        if (!ext || !String(ext.value || "").trim()) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Captura el número exterior." }); return false; }
+        return true;
         }
 
             function enviarPostulacionAlCandidato() {
@@ -5761,6 +6035,8 @@ class CapHum extends Controller
                 { data: 'nombre', title: 'Nombre' },
                 { data: 'contacto', title: 'Contacto' },
                 { data: 'puestoDepto', title: 'Puesto / Departamento' },
+                { data: 'ubicacion', title: 'Ubicación' },
+                { data: 'domicilio', title: 'Domicilio' },
                 { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
                 { data: 'acciones', title: 'Acciones', orderable: false }
             ]
@@ -5984,6 +6260,27 @@ class CapHum extends Controller
         var offcanvasEl = document.getElementById("offcanvasAddCandidato");
         if (offcanvasEl) {
             offcanvasEl.addEventListener("show.bs.offcanvas", function() { var btnSubmit = document.getElementById("btnSubmitCandidato"); if (!btnSubmit) return; if (candidatoEditId) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; } else { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; } });
+            offcanvasEl.addEventListener("shown.bs.offcanvas", function() {
+                [
+                    "candidato_id_pais",
+                    "candidato_id_div_nivel1",
+                    "candidato_id_div_nivel2",
+                    "candidato_id_div_nivel3",
+                    "candidato_id_departamento",
+                    "candidato_id_puesto",
+                    "candidato_id_posible_jefe",
+                    "candidato_id_legion"
+                ].forEach(function(id) { refreshSelectBuscadorCandidato(id); });
+                var pais = document.getElementById("candidato_id_pais");
+                var depto = document.getElementById("candidato_id_departamento");
+                var puesto = document.getElementById("candidato_id_puesto");
+                if (pais && pais.value && !document.getElementById("candidato_id_div_nivel1").value) {
+                    pais.dispatchEvent(new Event("change"));
+                }
+                if (depto && depto.value && puesto && puesto.options.length <= 1) {
+                    depto.dispatchEvent(new Event("change"));
+                }
+            });
             offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
                 var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; }
                 var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo Candidato";
@@ -5993,20 +6290,119 @@ class CapHum extends Controller
                 if (divLegion) divLegion.style.display = "none"; if (chkLegion) chkLegion.checked = false; if (selLegion) selLegion.value = "";
                 var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
                 if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+                resetCascadaDomicilioCandidato();
             });
         }
+        var selPaisForm = document.getElementById("candidato_id_pais");
+        if (selPaisForm) selPaisForm.addEventListener("change", function() {
+            resetCascadaDomicilioCandidato();
+            var idPais = this.value;
+            if (!idPais) return;
+            var divEstado = document.getElementById("div_candidato_estado");
+            if (divEstado) divEstado.style.display = "";
+            cargarEstadosCandidato(idPais, function(tieneEstados){
+                if (!tieneEstados) return;
+                var estado = document.getElementById("candidato_id_div_nivel1");
+                if (estado) {
+                    estado.disabled = false;
+                    refreshSelectBuscadorCandidato(estado.id);
+                }
+            });
+        });
+        var selEstadoForm = document.getElementById("candidato_id_div_nivel1");
+        if (selEstadoForm) selEstadoForm.addEventListener("change", function() {
+            var mun = document.getElementById("candidato_id_div_nivel2");
+            var col = document.getElementById("candidato_id_div_nivel3");
+            if (mun) { mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>"; mun.disabled = true; refreshSelectBuscadorCandidato(mun.id); }
+            if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
+            var divMunicipio = document.getElementById("div_candidato_municipio");
+            var divColonia = document.getElementById("div_candidato_colonia");
+            var divCalle = document.getElementById("div_candidato_calle_texto");
+            var divNum = document.getElementById("div_candidato_num_extint");
+            if (divMunicipio) divMunicipio.style.display = "none";
+            if (divColonia) divColonia.style.display = "none";
+            if (divCalle) divCalle.style.display = "none";
+            if (divNum) divNum.style.display = "none";
+            limpiarDomicilioTextoCandidato();
+            var idEstado = this.value;
+            if (!idEstado) return;
+            if (divMunicipio) divMunicipio.style.display = "";
+            cargarMunicipiosCandidato(idEstado, function(tieneMunicipios){
+                if (!tieneMunicipios) return;
+                var s = document.getElementById("candidato_id_div_nivel2");
+                if (s) {
+                    s.disabled = false;
+                    refreshSelectBuscadorCandidato(s.id);
+                }
+            });
+        });
+        var selMunicipioForm = document.getElementById("candidato_id_div_nivel2");
+        if (selMunicipioForm) selMunicipioForm.addEventListener("change", function() {
+            var col = document.getElementById("candidato_id_div_nivel3");
+            if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
+            var divColonia = document.getElementById("div_candidato_colonia");
+            var divCalle = document.getElementById("div_candidato_calle_texto");
+            var divNum = document.getElementById("div_candidato_num_extint");
+            if (divColonia) divColonia.style.display = "none";
+            if (divCalle) divCalle.style.display = "none";
+            if (divNum) divNum.style.display = "none";
+            limpiarDomicilioTextoCandidato();
+            var idMunicipio = this.value;
+            if (!idMunicipio) return;
+            if (divColonia) divColonia.style.display = "";
+            cargarColoniasCandidato(idMunicipio, function(tieneColonias){
+                if (!tieneColonias) return;
+                var s = document.getElementById("candidato_id_div_nivel3");
+                if (s) {
+                    s.disabled = false;
+                    refreshSelectBuscadorCandidato(s.id);
+                }
+            });
+        });
+        var selColoniaForm = document.getElementById("candidato_id_div_nivel3");
+        if (selColoniaForm) selColoniaForm.addEventListener("change", function() {
+            var divCalle = document.getElementById("div_candidato_calle_texto");
+            var divNum = document.getElementById("div_candidato_num_extint");
+            var txtCalle = document.getElementById("candidato_domicilio_calle_texto");
+            var txtExt = document.getElementById("candidato_domicilio_num_exterior");
+            var txtInt = document.getElementById("candidato_domicilio_num_interior");
+            if (!this.value) {
+                if (divCalle) divCalle.style.display = "none";
+                if (divNum) divNum.style.display = "none";
+                if (txtCalle) txtCalle.value = "";
+                if (txtExt) txtExt.value = "";
+                if (txtInt) txtInt.value = "";
+                return;
+            }
+            if (divCalle) divCalle.style.display = "";
+            if (divNum) divNum.style.display = "";
+        });
         var selDeptoForm = document.getElementById("candidato_id_departamento");
         if (selDeptoForm) selDeptoForm.addEventListener("change", function() {
             var idDepto = this.value;
             var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
-            if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+            if (selPuesto) { selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; refreshSelectBuscadorCandidato(selPuesto.id); }
+            if (selJefe) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; refreshSelectBuscadorCandidato(selJefe.id); }
             if (!idDepto) return;
             fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto }) })
-                .then(function(r){ return r.json(); }).then(function(res){ if (res.success && res.datos) res.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || p.puesto_nombre || ""; selPuesto.appendChild(opt); }); });
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (res.success && res.datos) {
+                        res.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || p.puesto_nombre || ""; selPuesto.appendChild(opt); });
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_puesto");
+                })
+                .catch(function(){ refreshSelectBuscadorCandidato("candidato_id_puesto"); });
             if (selJefe) {
                 selJefe.innerHTML = "<option value=''>—</option>";
                 fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: null }) })
-                    .then(function(r){ return r.json(); }).then(function(res){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); }); }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
+                        if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
+                        refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
+                    })
+                    .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
             }
         });
         var selPuestoForm = document.getElementById("candidato_id_puesto");
@@ -6016,7 +6412,13 @@ class CapHum extends Controller
             selJefe.innerHTML = "<option value=''>—</option>"; var idDepto = selDepto.value;
             if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
             fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null }) })
-                .then(function(r){ return r.json(); }).then(function(res){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); }); }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
+                    if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
+                    refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
+                })
+                .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
         });
         var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
         if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });

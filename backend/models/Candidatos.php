@@ -7,6 +7,21 @@ use Core\Database;
 
 class Candidatos extends Model
 {
+    private static function candidatoTokenTieneColumnaExpira(Database $db): bool
+    {
+        try {
+            $row = $db->queryOne(
+                "SELECT COUNT(*) AS c
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'candidato_documento_token'
+                   AND COLUMN_NAME = 'expira'"
+            );
+            return (int) ($row['c'] ?? 0) > 0;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
     private static function storageRoot(): string
     {
         return defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
@@ -41,6 +56,12 @@ class Candidatos extends Model
                 c.apellidom,
                 c.email,
                 c.telefono,
+                c.id_div_nivel1,
+                c.id_div_nivel2,
+                c.id_div_nivel3,
+                c.domicilio_calle_texto,
+                c.domicilio_num_exterior,
+                c.domicilio_num_interior,
                 c.id_puesto,
                 c.id_departamento,
                 c.estatus,
@@ -50,9 +71,17 @@ class Candidatos extends Model
                 c.postulacion_enviada,
                 c.fecha_registro,
                 c.fecha_actualizacion,
+                pais.nombre AS nombre_pais,
+                div1.nombre AS nombre_div_nivel1,
+                div2.nombre AS nombre_div_nivel2,
+                div3.nombre AS nombre_div_nivel3,
                 p.nombre AS nombre_puesto,
                 d.nombre AS nombre_departamento
             FROM candidatos c
+            LEFT JOIN paises pais ON pais.id = c.id_pais
+            LEFT JOIN divisiones_administrativas div1 ON div1.id = c.id_div_nivel1
+            LEFT JOIN divisiones_administrativas div2 ON div2.id = c.id_div_nivel2
+            LEFT JOIN divisiones_administrativas div3 ON div3.id = c.id_div_nivel3
             LEFT JOIN puesto p ON p.id = c.id_puesto
             LEFT JOIN departamento d ON d.id = c.id_departamento
             WHERE 1=1
@@ -102,6 +131,12 @@ class Candidatos extends Model
                 c.email,
                 c.telefono,
                 c.id_pais,
+                c.id_div_nivel1,
+                c.id_div_nivel2,
+                c.id_div_nivel3,
+                c.domicilio_calle_texto,
+                c.domicilio_num_exterior,
+                c.domicilio_num_interior,
                 c.id_puesto,
                 c.id_departamento,
                 c.id_posible_jefe,
@@ -179,12 +214,14 @@ class Candidatos extends Model
         $query = <<<SQL
             INSERT INTO candidatos (
                 nombres, segundo_nombre, apellidop, apellidom,
-                email, telefono, id_pais, id_puesto, id_departamento, id_posible_jefe,
+                email, telefono, id_pais, id_div_nivel1, id_div_nivel2, id_div_nivel3, domicilio_calle_texto, domicilio_num_exterior, domicilio_num_interior,
+                id_puesto, id_departamento, id_posible_jefe,
                 fecha_postulacion, id_legion, usuario, contrasena,
                 postulacion_enviada, fecha_postulacion_enviada, estatus, notas
             ) VALUES (
                 :nombres, :segundo_nombre, :apellidop, :apellidom,
-                :email, :telefono, :id_pais, :id_puesto, :id_departamento, :id_posible_jefe,
+                :email, :telefono, :id_pais, :id_div_nivel1, :id_div_nivel2, :id_div_nivel3, :domicilio_calle_texto, :domicilio_num_exterior, :domicilio_num_interior,
+                :id_puesto, :id_departamento, :id_posible_jefe,
                 :fecha_postulacion, :id_legion, :usuario, :contrasena,
                 :postulacion_enviada, :fecha_postulacion_enviada, :estatus, :notas
             )
@@ -197,6 +234,12 @@ class Candidatos extends Model
             'email' => trim($data['email'] ?? '') ?: null,
             'telefono' => trim($data['telefono'] ?? '') ?: null,
             'id_pais' => !empty($data['id_pais']) ? (int) $data['id_pais'] : null,
+            'id_div_nivel1' => !empty($data['id_div_nivel1']) ? (int) $data['id_div_nivel1'] : null,
+            'id_div_nivel2' => !empty($data['id_div_nivel2']) ? (int) $data['id_div_nivel2'] : null,
+            'id_div_nivel3' => !empty($data['id_div_nivel3']) ? (int) $data['id_div_nivel3'] : null,
+            'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
+            'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
+            'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
             'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
@@ -246,6 +289,12 @@ class Candidatos extends Model
                 email = :email,
                 telefono = :telefono,
                 id_pais = :id_pais,
+                id_div_nivel1 = :id_div_nivel1,
+                id_div_nivel2 = :id_div_nivel2,
+                id_div_nivel3 = :id_div_nivel3,
+                domicilio_calle_texto = :domicilio_calle_texto,
+                domicilio_num_exterior = :domicilio_num_exterior,
+                domicilio_num_interior = :domicilio_num_interior,
                 id_puesto = :id_puesto,
                 id_departamento = :id_departamento,
                 id_posible_jefe = :id_posible_jefe,
@@ -266,6 +315,12 @@ class Candidatos extends Model
             'email' => trim($data['email'] ?? '') ?: null,
             'telefono' => trim($data['telefono'] ?? '') ?: null,
             'id_pais' => !empty($data['id_pais']) ? (int) $data['id_pais'] : null,
+            'id_div_nivel1' => !empty($data['id_div_nivel1']) ? (int) $data['id_div_nivel1'] : null,
+            'id_div_nivel2' => !empty($data['id_div_nivel2']) ? (int) $data['id_div_nivel2'] : null,
+            'id_div_nivel3' => !empty($data['id_div_nivel3']) ? (int) $data['id_div_nivel3'] : null,
+            'domicilio_calle_texto' => trim($data['domicilio_calle_texto'] ?? '') ?: null,
+            'domicilio_num_exterior' => trim($data['domicilio_num_exterior'] ?? '') ?: null,
+            'domicilio_num_interior' => trim($data['domicilio_num_interior'] ?? '') ?: null,
             'id_puesto' => !empty($data['id_puesto']) ? (int) $data['id_puesto'] : null,
             'id_departamento' => !empty($data['id_departamento']) ? (int) $data['id_departamento'] : null,
             'id_posible_jefe' => !empty($data['id_posible_jefe']) ? (int) $data['id_posible_jefe'] : null,
@@ -450,24 +505,33 @@ class Candidatos extends Model
                 return self::resultado(false, 'Candidato no encontrado.', null);
             }
             $expiraMysql = self::calcularExpiraTokenMysqlDesdeCandidato($cand);
-
+            $usaExpira = self::candidatoTokenTieneColumnaExpira($db);
             $row = $db->queryOne(
-                'SELECT token, expira FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1',
+                $usaExpira
+                    ? 'SELECT token, expira FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1'
+                    : 'SELECT token FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1',
                 ['id' => $id_candidato]
             );
             if ($row && !empty($row['token'])) {
                 $expCol = $row['expira'] ?? null;
-                if ($expCol === null || trim((string) $expCol) === '') {
+                if ($usaExpira && ($expCol === null || trim((string) $expCol) === '')) {
                     self::actualizarExpiraTokenDocumentos($id_candidato, $expiraMysql);
                 }
 
                 return self::resultado(true, 'Token existente.', $row['token']);
             }
             $token = bin2hex(random_bytes(32));
-            $db->CRUD(
-                'INSERT INTO candidato_documento_token (id_candidato, token, expira) VALUES (:id_candidato, :token, :expira)',
-                ['id_candidato' => $id_candidato, 'token' => $token, 'expira' => $expiraMysql]
-            );
+            if ($usaExpira) {
+                $db->CRUD(
+                    'INSERT INTO candidato_documento_token (id_candidato, token, expira) VALUES (:id_candidato, :token, :expira)',
+                    ['id_candidato' => $id_candidato, 'token' => $token, 'expira' => $expiraMysql]
+                );
+            } else {
+                $db->CRUD(
+                    'INSERT INTO candidato_documento_token (id_candidato, token) VALUES (:id_candidato, :token)',
+                    ['id_candidato' => $id_candidato, 'token' => $token]
+                );
+            }
 
             return self::resultado(true, 'Token generado.', $token);
         } catch (\Exception $e) {
@@ -487,30 +551,36 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            $usaExpira = self::candidatoTokenTieneColumnaExpira($db);
             $row = $db->queryOne(
-                'SELECT t.id_candidato, t.expira, c.nombres, c.apellidop, c.apellidom, c.email, c.fecha_postulacion_enviada, c.fecha_registro '
-                . 'FROM candidato_documento_token t INNER JOIN candidatos c ON c.id = t.id_candidato WHERE t.token = :token LIMIT 1',
+                $usaExpira
+                    ? ('SELECT t.id_candidato, t.expira, c.nombres, c.apellidop, c.apellidom, c.email, c.fecha_postulacion_enviada, c.fecha_registro '
+                        . 'FROM candidato_documento_token t INNER JOIN candidatos c ON c.id = t.id_candidato WHERE t.token = :token LIMIT 1')
+                    : ('SELECT t.id_candidato, c.nombres, c.apellidop, c.apellidom, c.email, c.fecha_postulacion_enviada, c.fecha_registro '
+                        . 'FROM candidato_documento_token t INNER JOIN candidatos c ON c.id = t.id_candidato WHERE t.token = :token LIMIT 1'),
                 ['token' => $token]
             );
             if (!$row) {
                 return self::resultado(false, 'Enlace no válido o expirado.', null);
             }
             $expiraMysql = $row['expira'] ?? null;
-            if ($expiraMysql === null || trim((string) $expiraMysql) === '') {
+            if ($usaExpira && ($expiraMysql === null || trim((string) $expiraMysql) === '')) {
                 $expiraMysql = self::calcularExpiraTokenMysqlDesdeCandidato($row);
                 self::actualizarExpiraTokenDocumentos((int) $row['id_candidato'], $expiraMysql);
             }
-            $limite = self::parseFechaHoraMexicoCiudad((string) $expiraMysql);
-            $ahora = self::ahoraMexicoCiudadImmutable();
-            if ($limite instanceof \DateTimeImmutable && $ahora > $limite) {
-                $mailCt = self::mailContactoDocumentacion();
+            if ($usaExpira) {
+                $limite = self::parseFechaHoraMexicoCiudad((string) $expiraMysql);
+                $ahora = self::ahoraMexicoCiudadImmutable();
+                if ($limite instanceof \DateTimeImmutable && $ahora > $limite) {
+                    $mailCt = self::mailContactoDocumentacion();
 
-                return self::resultado(
-                    false,
-                    'Este enlace ha vencido. El plazo para subir la documentación finalizó. Si necesita ayuda, escríbanos a '
-                    . $mailCt . '.',
-                    null
-                );
+                    return self::resultado(
+                        false,
+                        'Este enlace ha vencido. El plazo para subir la documentación finalizó. Si necesita ayuda, escríbanos a '
+                        . $mailCt . '.',
+                        null
+                    );
+                }
             }
             unset($row['expira'], $row['fecha_postulacion_enviada'], $row['fecha_registro']);
 

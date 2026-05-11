@@ -178,6 +178,8 @@ $listaJefes = $listaJefes ?? [];
                         <th>Nombre</th>
                         <th>Contacto</th>
                         <th>Puesto / Departamento</th>
+                        <th>Ubicación</th>
+                        <th>Domicilio</th>
                         <th>Estatus</th>
                         <th class="col-acciones-candidatos">Acciones</th>
                     </tr>
@@ -307,16 +309,34 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="mb-2">
                 <label class="form-label">País <span class="text-danger">*</span></label>
-                <select name="id_pais" id="candidato_id_pais" class="form-select" required>
+                <select name="id_pais" id="candidato_id_pais" class="form-select js-select-buscador" required>
                     <option value="">Seleccione un país</option>
                     <?php foreach ($paisesActivos as $p): ?>
                         <option value="<?= (int)($p['id'] ?? 0) ?>"><?= htmlspecialchars($p['nombre'] ?? '') ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
+            <div class="mb-2" id="div_candidato_estado" style="display:none;">
+                <label class="form-label" id="label_candidato_estado">Estado <span class="text-danger">*</span></label>
+                <select id="candidato_id_div_nivel1" name="id_div_nivel1" class="form-select js-select-buscador" disabled>
+                    <option value="">Seleccione un estado</option>
+                </select>
+            </div>
+            <div class="mb-2" id="div_candidato_municipio" style="display:none;">
+                <label class="form-label" id="label_candidato_municipio">Alcaldía / Municipio <span class="text-danger">*</span></label>
+                <select id="candidato_id_div_nivel2" name="id_div_nivel2" class="form-select js-select-buscador" disabled>
+                    <option value="">Seleccione una alcaldía / municipio</option>
+                </select>
+            </div>
+            <div class="mb-2" id="div_candidato_colonia" style="display:none;">
+                <label class="form-label">Colonia <span class="text-danger">*</span></label>
+                <select id="candidato_id_div_nivel3" name="id_div_nivel3" class="form-select js-select-buscador" disabled>
+                    <option value="">Seleccione una colonia</option>
+                </select>
+            </div>
             <div class="mb-2">
                 <label class="form-label">Departamento al que aplica <span class="text-danger">*</span></label>
-                <select name="id_departamento" id="candidato_id_departamento" class="form-select" required>
+                <select name="id_departamento" id="candidato_id_departamento" class="form-select js-select-buscador" required>
                     <option value="">Seleccione departamento</option>
                     <?php foreach ($departamento['datos'] as $d): ?>
                         <option value="<?= (int)($d['id'] ?? 0) ?>"><?= htmlspecialchars($d['nombre'] ?? '') ?></option>
@@ -325,15 +345,29 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="mb-2">
                 <label class="form-label">Puesto solicitado <span class="text-danger">*</span></label>
-                <select name="id_puesto" id="candidato_id_puesto" class="form-select" required>
+                <select name="id_puesto" id="candidato_id_puesto" class="form-select js-select-buscador" required>
                     <option value="">Seleccione puesto</option>
                 </select>
             </div>
             <div class="mb-2">
                 <label class="form-label">Posible jefe <span class="text-danger">*</span></label>
-                <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select" required>
+                <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select js-select-buscador" required>
                     <option value="">Seleccione departamento y puesto primero</option>
                 </select>
+            </div>
+            <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
+                <label class="form-label">Calle <span class="text-danger">*</span></label>
+                <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
+            </div>
+            <div class="row mb-2" id="div_candidato_num_extint" style="display:none;">
+                <div class="col-md-6">
+                    <label class="form-label">No. exterior <span class="text-danger">*</span></label>
+                    <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">No. interior (opcional)</label>
+                    <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
+                </div>
             </div>
             <div class="mb-2">
                 <label class="form-label">Fecha de postulación <span class="text-danger">*</span></label>
@@ -349,7 +383,7 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="mb-2" id="div_candidato_legion" style="display:none;">
                 <label class="form-label">Legión <span class="text-danger">*</span></label>
-                <select name="id_legion" id="candidato_id_legion" class="form-select">
+                <select name="id_legion" id="candidato_id_legion" class="form-select js-select-buscador">
                     <option value="">Seleccione legión</option>
                     <option value="1">Sabueso</option>
                     <option value="2">Heraldo</option>
