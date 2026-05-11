@@ -4740,6 +4740,7 @@ class CapHum extends Controller
                 var errApi = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api) : "";
                 if (errApi) {
                     html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br>" + escHtmlComparaciones(errApi) + "</div>";
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificación contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
@@ -5186,6 +5187,22 @@ class CapHum extends Controller
                 }
             }
 
+            function clearDocModalApiTrace() {
+                var el = document.getElementById("modalDocumentacionCandidatoApiTrace");
+                if (!el) return;
+                el.textContent = "";
+                el.className = "alert alert-secondary small py-2 mb-2 d-none";
+            }
+            function setDocModalApiTrace(message, kind) {
+                var el = document.getElementById("modalDocumentacionCandidatoApiTrace");
+                if (!el) return;
+                if (!message) { clearDocModalApiTrace(); return; }
+                var map = { wait: "alert-info", ok: "alert-success", err: "alert-danger", warn: "alert-warning", neutral: "alert-secondary" };
+                el.className = "alert small py-2 mb-2 " + (map[kind] || map.neutral);
+                el.textContent = message;
+                el.classList.remove("d-none");
+            }
+
             function reintentarVerificacionExpedienteApi() {
                 var modal = document.getElementById("modalDocumentacionCandidato");
                 var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
@@ -5195,9 +5212,32 @@ class CapHum extends Controller
                 if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin\"></i>"; }
                 var fd = new FormData();
                 fd.append("id_candidato", String(idC));
-                fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
-                    .then(function(r) { return r.json(); })
-                    .then(function(res) {
+                var ctrl = new AbortController();
+                var toMs = 960000;
+                var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
+                var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+                setDocModalApiTrace("Consultando al servidor: POST /caphum/verificarExpedienteCandidato (puede tardar varios minutos mientras se habla con la API de documentos)…", "wait");
+                fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
+                    .then(function(r) {
+                        clearTimeout(tid);
+                        var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0) : null;
+                        return r.text().then(function(body) {
+                            var res;
+                            try { res = body ? JSON.parse(body) : {}; } catch (e) {
+                                setDocModalApiTrace("Respuesta no JSON del servidor (HTTP " + r.status + "). " + (ms != null ? "Tiempo: " + ms + " ms." : ""), "err");
+                                throw e;
+                            }
+                            return { r: r, res: res, ms: ms };
+                        });
+                    })
+                    .then(function(box) {
+                        var r = box.r, res = box.res, ms = box.ms;
+                        var linea = "HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + ". ";
+                        if (res && res.success) {
+                            setDocModalApiTrace(linea + (res.mensaje || "Verificación registrada. Actualizando listado…"), "ok");
+                        } else {
+                            setDocModalApiTrace(linea + ((res && res.mensaje) ? res.mensaje : "success=false"), "warn");
+                        }
                         if (typeof Swal !== "undefined") {
                             if (res && res.success) {
                                 Swal.fire({ icon: "success", title: "Verificación", text: res.mensaje || "Listo.", toast: true, position: "top-end", showConfirmButton: false, timer: 2600 });
@@ -5207,13 +5247,17 @@ class CapHum extends Controller
                         }
                         cargarDocumentosModal(idC);
                     })
-                    .catch(function() {
+                    .catch(function(err) {
+                        clearTimeout(tid);
                         if (typeof Swal !== "undefined") {
-                            Swal.fire({ icon: "error", title: "Error", text: "No hubo respuesta del servidor.", toast: true, position: "top-end", showConfirmButton: true });
+                            var msg = (err && err.name === "AbortError") ? "La petición tardó demasiado (" + Math.round(toMs / 1000) + " s). Revise la API o aumente validar_expediente_timeout_seconds en config.ini." : "No hubo respuesta del servidor.";
+                            Swal.fire({ icon: "error", title: "Error", text: msg, toast: true, position: "top-end", showConfirmButton: true });
                         }
+                        setDocModalApiTrace((err && err.name === "AbortError") ? "Tiempo agotado esperando al servidor/API." : ("Error de red o servidor: " + (err && err.message ? err.message : String(err))), "err");
                         cargarDocumentosModal(idC);
                     })
                     .finally(function() {
+                        clearTimeout(tid);
                         if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
                     });
             }
@@ -5234,7 +5278,42 @@ class CapHum extends Controller
                 if (cargando) {
                     cargando.classList.remove("d-none");
                 }
-                fetch("/caphum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
+                var urlList = "/caphum/getDocumentosCandidatoList?id_candidato=" + encodeURIComponent(String(idCandidato));
+                var t0List = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+                if (!opts.fromPoll) {
+                    setDocModalApiTrace("Consultando al servidor: GET " + urlList + " …", "wait");
+                }
+                fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" } }).then(function(r) {
+                    var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0List) : null;
+                    var cacheHdr = r.headers.get("X-Doc-List-Cache") || "";
+                    return r.text().then(function(body) {
+                        var res;
+                        try { res = body ? JSON.parse(body) : {}; } catch (e) {
+                            setDocModalApiTrace("Listado: respuesta no JSON (HTTP " + r.status + "). " + (ms != null ? ms + " ms." : "") + " Revise sesión o error PHP.", "err");
+                            throw e;
+                        }
+                        return { r: r, res: res, ms: ms, cacheHdr: cacheHdr };
+                    });
+                }).then(function(box) {
+                    var r = box.r, res = box.res, ms = box.ms, cacheHdr = box.cacheHdr;
+                    var cacheNote = cacheHdr ? (" · caché listado: " + cacheHdr) : "";
+                    if (!res.success) {
+                        setDocModalApiTrace("Listado: HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + cacheNote + ". " + (res.mensaje || "success=false"), "warn");
+                    } else {
+                        var nDocs = (res.datos && res.datos.documentos) ? res.datos.documentos.length : (res.datos && Array.isArray(res.datos) ? res.datos.length : 0);
+                        var verifPrev = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
+                        var errApi = verifPrev && verifPrev.error_api ? String(verifPrev.error_api).trim() : "";
+                        var baseOk = "Listado: HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + cacheNote + ". JSON OK · " + nDocs + " documento(s).";
+                        if (errApi) {
+                            setDocModalApiTrace(baseOk + " La API devolvió error registrado: " + errApi.slice(0, 220) + (errApi.length > 220 ? "…" : ""), "warn");
+                        } else if (verifPrev) {
+                            setDocModalApiTrace(baseOk + " Verificación en BD recibida.", "ok");
+                        } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
+                            setDocModalApiTrace(baseOk + " Expediente completo: verificación en curso o pendiente; use «Reintentar API» si tarda.", "neutral");
+                        } else {
+                            setDocModalApiTrace(baseOk, "ok");
+                        }
+                    }
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
@@ -5265,19 +5344,15 @@ class CapHum extends Controller
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
                     maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
-                    var btnRe = document.getElementById("btnReintentarVerifExpediente");
-                    if (btnRe) {
-                        if (metricas && metricas.expediente_completo === true) btnRe.classList.remove("d-none");
-                        else btnRe.classList.add("d-none");
+                }).catch(function(err) {
+                    if (!err || (err.name !== "SyntaxError" && err.message && String(err.message).indexOf("JSON") === -1)) {
+                        setDocModalApiTrace("Listado: fallo de red o sin respuesta. " + (err && err.message ? err.message : ""), "err");
                     }
-                }).catch(function() {
                     renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
                     if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                     if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
                     if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                     if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
-                    var btnReCatch = document.getElementById("btnReintentarVerifExpediente");
-                    if (btnReCatch) btnReCatch.classList.add("d-none");
                 });
             }
 
@@ -5305,6 +5380,7 @@ class CapHum extends Controller
                 if (lista) lista.innerHTML = "";
                 if (vacio) vacio.classList.add("d-none");
                 if (cargando) cargando.classList.remove("d-none");
+                clearDocModalApiTrace();
 
                 var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
                 if (bsModal) bsModal.show();
@@ -6829,6 +6905,8 @@ class CapHum extends Controller
         if (function_exists('apcu_fetch')) {
             $cached = @\apcu_fetch($cacheKey);
             if ($cached !== false && is_array($cached) && isset($cached['ts']) && (time() - $cached['ts']) <= $ttl && isset($cached['json'])) {
+                header('X-Doc-List-Cache: hit');
+                header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
                 echo $cached['json'];
                 return;
             }
@@ -6837,6 +6915,8 @@ class CapHum extends Controller
             if (is_file($cacheFile) && (time() - filemtime($cacheFile)) <= $ttl) {
                 $raw = @file_get_contents($cacheFile);
                 if ($raw !== false && $raw !== '') {
+                    header('X-Doc-List-Cache: hit');
+                    header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
                     echo $raw;
                     return;
                 }
@@ -6902,6 +6982,8 @@ class CapHum extends Controller
 
         $json = json_encode(self::respuesta(true, 'OK', $payload));
 
+        header('X-Doc-List-Cache: miss');
+
         if (function_exists('apcu_store')) {
             @\apcu_store($cacheKey, ['ts' => time(), 'json' => $json], $ttl);
         } else {
@@ -6921,7 +7003,7 @@ class CapHum extends Controller
      */
     public function verificarExpedienteCandidato()
     {
-        set_time_limit(300);
+        set_time_limit(1200);
         header('Content-Type: application/json; charset=utf-8');
         $id_candidato = (int) ($_GET['id_candidato'] ?? $_POST['id_candidato'] ?? 0);
         if ($id_candidato <= 0) {
@@ -7685,42 +7767,13 @@ class CapHum extends Controller
     }
 
     /**
-     * Llama a la API validar-expediente (Python).
-     * Acepta: identificacion_pdf (un PDF con frente y reverso) O bien frente y reverso como imágenes.
-     * @param array $rutas ['identificacion_pdf' => ruta] o ['frente' => ruta, 'reverso' => ruta], más curp, nss, etc.
-     * @return array|null Respuesta JSON de la API; null si faltan archivos; ['error' => mensaje] si fallo
+     * Multipart fresco para POST /validar-expediente (no reutilizar CURLFile tras curl_exec).
+     *
+     * @param array<string, mixed> $rutas
+     * @return array<string, mixed>|null
      */
-    private function validarExpedienteApi(array $rutas, $nombreCandidatoRegistro = null)
+    private function construirPostValidarExpedienteMultipart(array $rutas, $nombreCandidatoRegistro)
     {
-        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
-        if (!is_file($configFile)) {
-            return ['error' => 'No se encontró backend/config/config.ini.'];
-        }
-        $config = @parse_ini_file($configFile, true);
-        $apiUrlVerificar = trim($config['doc_verificacion']['api_url'] ?? '');
-        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
-        if ($apiUrlVerificar === '' || $apiKey === '') {
-            return ['error' => 'En config.ini [doc_verificacion] faltan api_url o api_key.'];
-        }
-        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
-
-        // Health-check rápido (3 s máximo) para no esperar 45 s si la API está apagada
-        $healthUrl = rtrim($baseUrl, '/') . '/health';
-        $hc = curl_init($healthUrl);
-        curl_setopt_array($hc, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT_MS => 3000,
-            CURLOPT_CONNECTTIMEOUT_MS => 2000,
-            CURLOPT_NOBODY => false,
-        ]);
-        $hBody = curl_exec($hc);
-        $hCode = curl_getinfo($hc, CURLINFO_HTTP_CODE);
-        $hErr = curl_error($hc);
-        if ($hCode !== 200 || $hBody === false) {
-            return ['error' => 'La API no responde (health-check falló en 3 s). Enciéndela con: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000' . ($hErr ? ' — ' . $hErr : '')];
-        }
-
-        $urlExp = rtrim($baseUrl, '/') . '/validar-expediente';
         $post = [
             'tipo_documento' => 'RESIDENCIA_TEMPORAL',
         ];
@@ -7728,7 +7781,6 @@ class CapHum extends Controller
         if ($nombreCandidatoRegistro !== '') {
             $post['nombre_candidato_registro'] = $nombreCandidatoRegistro;
         }
-
         $usaPdfId = !empty($rutas['identificacion_pdf']) && is_file($rutas['identificacion_pdf']);
         if ($usaPdfId) {
             $post['identificacion_pdf'] = new \CURLFile($rutas['identificacion_pdf'], 'application/pdf', basename($rutas['identificacion_pdf']));
@@ -7748,31 +7800,151 @@ class CapHum extends Controller
                 $post[$formKey] = new \CURLFile($rutas[$pathKey], 'application/pdf', basename($rutas[$pathKey]));
             }
         }
-        $ch = curl_init($urlExp);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $post,
-            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 240,
-            CURLOPT_CONNECTTIMEOUT => 5,
-        ]);
-        $body = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr = curl_error($ch);
-        $curlErrno = curl_errno($ch);
-        if ($curlErrno !== 0 || $body === false) {
-            $mensaje = $curlErr ?: 'Error de conexión (código ' . $curlErrno . ').';
-            return ['error' => 'No se pudo conectar con la API: ' . $mensaje];
+
+        return $post;
+    }
+
+    private function validarExpedienteCurlDebeReintentar(int $curlErrno, int $httpCode): bool
+    {
+        if (in_array($httpCode, [429, 500, 502, 503, 504], true)) {
+            return true;
         }
-        if ($httpCode !== 200 || $body === '') {
-            return ['error' => 'La API respondió con código HTTP ' . $httpCode . '. Revisa los logs de la API.'];
+        if ($curlErrno !== 0) {
+            return in_array($curlErrno, [7, 16, 18, 28, 52, 56], true);
         }
-        $data = json_decode($body, true);
-        if (!is_array($data) || isset($data['error'])) {
-            return ['error' => 'La API devolvió una respuesta inválida.'];
+
+        return false;
+    }
+
+    /**
+     * Llama a la API validar-expediente (Python) con reintentos ante fallos transitorios.
+     * Acepta: identificacion_pdf (un PDF con frente y reverso) O bien frente y reverso como imágenes.
+     * @param array $rutas ['identificacion_pdf' => ruta] o ['frente' => ruta, 'reverso' => ruta], más curp, nss, etc.
+     * @return array|null Respuesta JSON de la API; null si faltan archivos; ['error' => mensaje] si fallo
+     */
+    private function validarExpedienteApi(array $rutas, $nombreCandidatoRegistro = null)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return ['error' => 'No se encontró backend/config/config.ini.'];
         }
-        return $data;
+        $config = @parse_ini_file($configFile, true);
+        $apiUrlVerificar = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrlVerificar === '' || $apiKey === '') {
+            return ['error' => 'En config.ini [doc_verificacion] faltan api_url o api_key.'];
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
+
+        $healthUrl = rtrim($baseUrl, '/') . '/health';
+        $healthOk = false;
+        $hLastErr = '';
+        for ($hi = 0; $hi < 2; $hi++) {
+            if ($hi > 0) {
+                usleep(500000);
+            }
+            $hc = curl_init($healthUrl);
+            curl_setopt_array($hc, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT_MS => 5000,
+                CURLOPT_CONNECTTIMEOUT_MS => 3000,
+                CURLOPT_NOBODY => false,
+            ]);
+            $hBody = curl_exec($hc);
+            $hCode = (int) curl_getinfo($hc, CURLINFO_HTTP_CODE);
+            $hErr = curl_error($hc);
+            curl_close($hc);
+            if ($hCode === 200 && $hBody !== false) {
+                $healthOk = true;
+                break;
+            }
+            $hLastErr = $hErr;
+        }
+        if (!$healthOk) {
+            return ['error' => 'La API no responde (health-check). Revise api_url en config.ini [doc_verificacion] y que el servicio esté en marcha (ej. uvicorn). ' . ($hLastErr !== '' ? $hLastErr : '')];
+        }
+
+        $urlExp = rtrim($baseUrl, '/') . '/validar-expediente';
+        $docCfg = $config['doc_verificacion'] ?? [];
+        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 300;
+        if ($timeoutExp < 90) {
+            $timeoutExp = 90;
+        }
+        if ($timeoutExp > 600) {
+            $timeoutExp = 600;
+        }
+        $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 2;
+        if ($maxExtraRetries < 0) {
+            $maxExtraRetries = 0;
+        }
+        if ($maxExtraRetries > 5) {
+            $maxExtraRetries = 5;
+        }
+        $totalIntentos = 1 + $maxExtraRetries;
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(max(900, $timeoutExp * $totalIntentos + 120 + ($maxExtraRetries * 15)));
+        }
+
+        $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
+        for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
+            if ($attempt > 0) {
+                sleep(min(15, 2 * $attempt + 1));
+            }
+            $post = $this->construirPostValidarExpedienteMultipart($rutas, $nombreCandidatoRegistro);
+            if ($post === null) {
+                return null;
+            }
+            $ch = curl_init($urlExp);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $post,
+                CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => $timeoutExp,
+                CURLOPT_CONNECTTIMEOUT => 15,
+            ]);
+            $body = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
+            $curlErrno = (int) curl_errno($ch);
+            curl_close($ch);
+
+            if (in_array($httpCode, [400, 401, 403, 404, 422], true)) {
+                return ['error' => 'La API respondió con código HTTP ' . $httpCode . '. Revise api_key, archivos o logs de la API.'];
+            }
+
+            $respuestaOk = ($curlErrno === 0 && $httpCode === 200 && $body !== false && $body !== '');
+            if ($respuestaOk) {
+                $data = json_decode($body, true);
+                if (is_array($data) && !isset($data['error'])) {
+                    return $data;
+                }
+                $lastPayloadError = ['error' => 'La API devolvió una respuesta inválida.'];
+
+                return $lastPayloadError;
+            }
+
+            if ($httpCode !== 200 && $httpCode > 0) {
+                $detalle = 'La API respondió con código HTTP ' . $httpCode . '.' . ($curlErr !== '' ? ' ' . $curlErr : '');
+            } else {
+                $mensaje = $curlErr !== '' ? $curlErr : 'Error de conexión (código ' . $curlErrno . ').';
+                $detalle = 'No se pudo conectar con la API: ' . $mensaje;
+                if ($curlErrno === 28 || ($curlErr !== '' && stripos($curlErr, 'timed out') !== false)) {
+                    $detalle .= ' Timeout por solicitud: ' . $timeoutExp . ' s; hasta ' . $totalIntentos . ' intento(s) con pausa. Ajuste validar_expediente_timeout_seconds o validar_expediente_retries en [doc_verificacion].';
+                }
+            }
+            if ($attempt < $totalIntentos - 1) {
+                $detalle .= ' Reintento ' . ($attempt + 2) . '/' . $totalIntentos . '…';
+            }
+            $lastPayloadError = ['error' => $detalle];
+
+            $puedeReintentar = $attempt < $totalIntentos - 1 && $this->validarExpedienteCurlDebeReintentar($curlErrno, $httpCode);
+            if (!$puedeReintentar) {
+                return $lastPayloadError;
+            }
+        }
+
+        return $lastPayloadError;
     }
 
     /**
@@ -8450,7 +8622,7 @@ class CapHum extends Controller
                 }
             }
             ignore_user_abort(true);
-            set_time_limit(300);
+            set_time_limit(1200);
             $idCandBg = (int) $id_candidato;
             register_shutdown_function(function () use ($idCandBg) {
                 error_log('CapHum::subirDocumentos: verificación automática (shutdown) candidato ' . $idCandBg);
@@ -8472,6 +8644,9 @@ class CapHum extends Controller
     private function ejecutarVerificacionBackground($id_candidato)
     {
         try {
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(1200);
+            }
             $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
             $rutasParaValidar = ['identificacion_pdf' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
             $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);

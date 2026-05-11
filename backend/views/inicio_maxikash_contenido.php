@@ -558,6 +558,26 @@ body.dark-mode .inicio-btn-api1click {
   color: #94a3b8;
   padding: 6px 12px 10px;
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.estado-srv-foot-generated { opacity: 0.9; }
+.estado-srv-foot-action {
+  font-size: 11px;
+  font-weight: 600;
+  color: #93c5fd;
+  text-align: right;
+  max-width: 100%;
+  word-break: break-word;
+}
+.estado-srv-foot-action.estado-srv-foot-action--ok { color: #86efac; }
+.estado-srv-foot-action.estado-srv-foot-action--err { color: #fecaca; }
+.estado-srv-foot-action.estado-srv-foot-action--wait { color: #fde68a; }
+.estado-srv-panel.estado-srv-panel--busy {
+  outline: 2px solid rgba(147, 197, 253, 0.45);
+  outline-offset: 2px;
 }
 .estado-srv-ops {
   margin-top: 6px;
@@ -856,7 +876,10 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       <div class="estado-srv-grid" id="estadoSrvGrid">
         <div class="estado-srv-loading">Cargando estado…</div>
       </div>
-      <div class="estado-srv-foot" id="estadoSrvFoot"></div>
+      <div class="estado-srv-foot" id="estadoSrvFoot">
+        <div class="estado-srv-foot-generated" id="estadoSrvFootGenerated"></div>
+        <div class="estado-srv-foot-action" id="estadoSrvFootAction" role="status" aria-live="polite"></div>
+      </div>
     </div>
     <?php endif; ?>
 
@@ -1602,6 +1625,8 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   var grid  = document.getElementById('estadoSrvGrid');
   var summary = document.getElementById('estadoSrvSummary');
   var foot = document.getElementById('estadoSrvFoot');
+  var footGen = document.getElementById('estadoSrvFootGenerated');
+  var footAct = document.getElementById('estadoSrvFootAction');
   var btnRefresh = document.getElementById('estadoSrvBtnRefresh');
   var chkAuto = document.getElementById('estadoSrvAuto');
   var pollTimer = null;
@@ -1644,22 +1669,42 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         });
       });
   }
+  function srvSetActionFoot(text, cls) {
+    if (!footAct) return;
+    footAct.textContent = text || '';
+    footAct.className = 'estado-srv-foot-action' + (cls ? ' ' + cls : '');
+  }
   function srvDoServiceAction(serviceId, serviceName, action) {
     if (serviceCtlBusy) return;
     serviceCtlBusy = true;
-    var msg = action + ' ' + serviceName + '...';
-    if (foot) foot.textContent = msg.charAt(0).toUpperCase() + msg.slice(1);
-    fetchEstado();
-    srvPostJson('/inicio/servicioslocalesaccion', { service: serviceId, action: action })
+    if (panel) panel.classList.add('estado-srv-panel--busy');
+    var msg = action + ' «' + serviceName + '»…';
+    srvSetActionFoot('⏳ Enviando orden: ' + msg, 'estado-srv-foot-action--wait');
+    srvPostJson('/inicio/serviciosLocalesAccion', { service: serviceId, action: action })
       .then(function(data){
-        var m = (data && data.message) ? data.message : ('Acción aplicada en ' + serviceName + '.');
-        if (foot) foot.textContent = m;
+        var m = (data && data.message) ? data.message : 'Orden registrada.';
+        var hint = (data && data.hint_post) ? (' ' + data.hint_post) : '';
+        var ok = data && (data.success === true || data.success === 'true');
+        var estado = data && data.estado;
+        var arriba = estado === 'up';
+        var semi = estado === 'listen_no_http';
+        var line = m + hint;
+        if (arriba) {
+          srvSetActionFoot('✓ ' + line, 'estado-srv-foot-action--ok');
+        } else if (semi) {
+          srvSetActionFoot('⚠ ' + line + ' El proceso escucha en el puerto pero la URL de comprobación no respondió como se espera.', 'estado-srv-foot-action--wait');
+        } else if (!ok) {
+          srvSetActionFoot('⚠ ' + line + ' Si acaba de arrancar, pulse Refrescar o espere el auto-actualizado (cada 5 s).', 'estado-srv-foot-action--err');
+        } else {
+          srvSetActionFoot('ℹ ' + line, 'estado-srv-foot-action--wait');
+        }
       })
       .catch(function(err){
-        if (foot) foot.textContent = 'Error en ' + serviceName + ': ' + (err && err.message ? err.message : String(err));
+        srvSetActionFoot('✗ Error: ' + (err && err.message ? err.message : String(err)), 'estado-srv-foot-action--err');
       })
       .finally(function(){
         serviceCtlBusy = false;
+        if (panel) panel.classList.remove('estado-srv-panel--busy');
         fetchEstado();
       });
   }
@@ -1669,6 +1714,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       grid.innerHTML = '<div class="estado-srv-loading">No se pudo obtener el estado.</div>';
       summary.textContent = '—';
       summary.className = 'estado-srv-summary err';
+      if (footGen) footGen.textContent = 'Generado: —';
       return;
     }
     var s = data.summary || { up:0, down:0, total:0 };
@@ -1713,7 +1759,11 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       html += '</div>';
     });
     grid.innerHTML = html || '<div class="estado-srv-loading">Sin servicios configurados.</div>';
-    foot.textContent = 'Generado: ' + (data.generated_at || '—');
+    if (footGen) {
+      footGen.textContent = 'Generado: ' + (data.generated_at || '—');
+    } else if (foot) {
+      foot.textContent = 'Generado: ' + (data.generated_at || '—');
+    }
   }
 
   function fetchEstado(){
@@ -1735,6 +1785,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         grid.innerHTML = '<div class="estado-srv-loading">Error: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
         summary.textContent = 'ERR';
         summary.className = 'estado-srv-summary err';
+        if (footGen) footGen.textContent = 'Generado: —';
       })
       .finally(function(){ inFlight = false; });
   }

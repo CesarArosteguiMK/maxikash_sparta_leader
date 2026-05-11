@@ -194,11 +194,11 @@ $listaJefes = $listaJefes ?? [];
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalDocumentacionCandidatoLabel"><i class="fa fa-folder-open me-2"></i>Documentación</h5>
-                <button type="button" class="btn btn-sm btn-outline-primary ms-auto me-2 d-none" id="btnReintentarVerifExpediente" title="Volver a ejecutar la verificación contra la API (expediente completo)"><i class="fa fa-sync-alt"></i> Reintentar API</button>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
+                <div id="modalDocumentacionCandidatoApiTrace" class="alert alert-secondary small py-2 mb-2 d-none" role="status" aria-live="polite"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
                 <div class="row g-3 align-items-stretch">
                     <div class="col-lg-8 col-12 d-flex flex-column">

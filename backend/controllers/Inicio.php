@@ -1219,10 +1219,15 @@ class Inicio extends Controller
             $http = $this->serviciosLocalesProbarHttp((string)$srv['url_check'], 1400);
         }
         $estado = ($isListen && $http['ok']) ? 'up' : ($isListen ? 'listen_no_http' : 'down');
+        $st = $http['status'];
+        $stStr = $st === null || $st === '' ? '—' : (string) $st;
+        $hintPost = 'Tras la orden: puerto ' . $port . ' ' . ($isListen ? 'en escucha' : 'sin proceso en escucha')
+            . '. HTTP ' . ($http['ok'] ? 'OK (' . $stStr . ')' : 'sin respuesta esperada (' . $stStr . ').');
 
         echo json_encode([
-            'success' => (bool)$ok,
-            'message' => ucfirst($action) . ' lanzado para ' . $srv['name'],
+            'success' => (bool) $ok,
+            'message' => ucfirst($action) . ' enviado para ' . $srv['name'] . '.',
+            'hint_post' => $hintPost,
             'service' => $serviceId,
             'action'  => $action,
             'estado'  => $estado,

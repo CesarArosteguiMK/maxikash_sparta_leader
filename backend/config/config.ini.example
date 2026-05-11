@@ -28,6 +28,10 @@ ssh_key = /ruta/a/clave_privada
 [doc_verificacion]
 api_url = "http://127.0.0.1:8000/api/v1/verificar"
 api_key = "sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key"
+; POST /validar-expediente (varios PDF). Por solicitud; si la API tarda mucho en OCR, subir (máx. 600).
+validar_expediente_timeout_seconds = 300
+; Reintentos extra tras fallos transitorios (timeout, 502/503/504, conexión). 2 = hasta 3 intentos en total.
+validar_expediente_retries = 2
 
 ; Sonda HTTP del agente Node de correos (Primeros pagos — Lunes). La UI usa esto para el badge "Agente: en línea".
 [correos_primeros_pagos_agent]
