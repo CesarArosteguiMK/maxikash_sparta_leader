@@ -42,6 +42,14 @@ echo.
 rem Si ya está levantada, no hacer nada más.
 netstat -ano 2>nul | findstr ":8000" | findstr "LISTENING" >nul
 if !errorlevel! EQU 0 (
+    set "API_READY=1"
+) else (
+    set "API_READY=0"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 5; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>nul
+    if !errorlevel! EQU 0 set "API_READY=1"
+)
+
+if "!API_READY!"=="1" (
     echo [OK] La API ya esta en marcha en el puerto 8000.
     echo      URL: http://127.0.0.1:8000/docs
     echo.
@@ -140,6 +148,18 @@ set "START_RC=!ERRORLEVEL!"
 
 rem Confirmación final
 netstat -ano 2>nul | findstr ":8000" | findstr "LISTENING" >nul
+if !errorlevel! EQU 0 (
+    echo.
+    echo ============================================================
+    echo   [OK] API levantada correctamente
+    echo   URL:  http://127.0.0.1:8000/docs
+    echo ============================================================
+    echo.
+    ping 127.0.0.1 -n 4 >nul
+    exit /b 0
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 5; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>nul
 if !errorlevel! EQU 0 (
     echo.
     echo ============================================================

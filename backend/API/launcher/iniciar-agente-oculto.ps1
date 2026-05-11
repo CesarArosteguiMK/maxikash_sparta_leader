@@ -76,6 +76,47 @@ function Invoke-ExeCapture {
     }
 }
 
+function Test-ApiReady {
+    try {
+        $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        if ($resp.StatusCode -eq 200) { return $true }
+    } catch {}
+    try {
+        $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+        if ($c) { return $true }
+    } catch {}
+    try {
+        foreach ($line in (netstat -ano 2>$null)) {
+            if ($line -match 'LISTENING' -and $line -match ':8000\s') { return $true }
+        }
+    } catch {}
+    return $false
+}
+
+function Start-UvicornWithCmdFallback {
+    param(
+        [Parameter(Mandatory)] [string] $PyExe,
+        [string[]] $PyArgs = @(),
+        [Parameter(Mandatory)] [string] $ApiDir,
+        [Parameter(Mandatory)] [string] $OutLog,
+        [Parameter(Mandatory)] [string] $ErrLog
+    )
+    $cmdFile = Join-Path $logsDir 'run-uvicorn-hidden.cmd'
+    $argText = ''
+    if ($PyArgs.Count -gt 0) {
+        $argText = (($PyArgs | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' ') + ' '
+    }
+    $lines = @(
+        '@echo off',
+        'cd /d "' + $ApiDir + '"',
+        'set "PYTHONUNBUFFERED=1"',
+        '"' + $PyExe + '" ' + $argText + '-m uvicorn app.main:app --host 0.0.0.0 --port 8000 1>>"' + $OutLog + '" 2>>"' + $ErrLog + '"'
+    )
+    Set-Content -LiteralPath $cmdFile -Value $lines -Encoding ASCII
+    $p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d','/c','start','"SpartaAPI"','/min', $cmdFile) -WindowStyle Hidden -PassThru
+    return $p
+}
+
 Repair-ProcessPathEnvironment
 
 Write-Start ('=' * 50)
@@ -107,16 +148,7 @@ if (-not $pyExe) {
 }
 
 # ---- 3) Si ya hay algo escuchando en 8000, no relanzar ----
-$alreadyListening = $false
-try {
-    $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
-    if ($c) { $alreadyListening = $true }
-} catch {}
-if (-not $alreadyListening) {
-    foreach ($line in (netstat -ano 2>$null)) {
-        if ($line -match 'LISTENING' -and $line -match ':8000\s') { $alreadyListening = $true; break }
-    }
-}
+$alreadyListening = Test-ApiReady
 if ($alreadyListening) {
     Write-Start 'OK: Puerto 8000 ya esta en LISTEN; no se inicia de nuevo.'
     exit 0
@@ -167,9 +199,18 @@ try {
         -RedirectStandardOutput $outLog `
         -RedirectStandardError  $errLog
     Write-Start "OK: uvicorn lanzado (PID $($proc.Id)). stdout=$outLog stderr=$errLog"
+    $usedFallback = $false
 } catch {
-    Write-Start "ERROR: no se pudo lanzar Python: $($_.Exception.Message)"
-    exit 1
+    Write-Start "AVISO: Start-Process no pudo lanzar Python: $($_.Exception.Message)"
+    Write-Start "Intentando arranque alterno con cmd/start..."
+    try {
+        $proc = Start-UvicornWithCmdFallback -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
+        Write-Start "OK: arranque alterno enviado (PID cmd $($proc.Id)). stdout=$outLog stderr=$errLog"
+        $usedFallback = $true
+    } catch {
+        Write-Start "ERROR: no se pudo lanzar Python tampoco con fallback: $($_.Exception.Message)"
+        exit 1
+    }
 }
 
 # ---- 6) Esperar hasta 20s a que 8000 quede LISTENING ----
@@ -177,21 +218,24 @@ $ok = $false
 for ($i = 0; $i -lt 90; $i++) {
     Start-Sleep -Milliseconds 500
     try {
-        $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
-        if ($c) { $ok = $true; break }
-    } catch {}
-    try {
-        foreach ($line in (netstat -ano 2>$null)) {
-            if ($line -match 'LISTENING' -and $line -match ':8000\s') { $ok = $true; break }
-        }
-        if ($ok) { break }
-    } catch {}
-    try {
-        $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-        if ($resp.StatusCode -eq 200) { $ok = $true; break }
+        if (Test-ApiReady) { $ok = $true; break }
     } catch {}
     # Si el proceso murio, no tiene sentido seguir esperando.
-    if ($proc.HasExited) { break }
+    if ($proc -and $proc.HasExited -and -not (Test-ApiReady)) { break }
+}
+
+if (-not $ok -and -not $usedFallback) {
+    Write-Start 'AVISO: primer arranque no quedo listo; intentando fallback cmd/start antes de fallar.'
+    try {
+        $proc = Start-UvicornWithCmdFallback -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
+        Write-Start "OK: fallback enviado (PID cmd $($proc.Id))."
+        for ($i = 0; $i -lt 90; $i++) {
+            Start-Sleep -Milliseconds 500
+            if (Test-ApiReady) { $ok = $true; break }
+        }
+    } catch {
+        Write-Start "AVISO: fallback tambien fallo: $($_.Exception.Message)"
+    }
 }
 
 if (-not $ok) {
