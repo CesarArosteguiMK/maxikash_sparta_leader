@@ -36,6 +36,48 @@ function Write-Start {
     } catch {}
 }
 
+function Repair-ProcessPathEnvironment {
+    try {
+        $currentPath = $env:Path
+        if ([string]::IsNullOrWhiteSpace($currentPath)) {
+            $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+            $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+            $currentPath = (($machinePath, $userPath) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join ';'
+        }
+        [Environment]::SetEnvironmentVariable('PATH', $null, 'Process')
+        [Environment]::SetEnvironmentVariable('Path', $currentPath, 'Process')
+        $env:Path = $currentPath
+    } catch {
+        Write-Start "AVISO: no se pudo normalizar PATH/PATH duplicado: $($_.Exception.Message)"
+    }
+}
+
+function Invoke-ExeCapture {
+    param(
+        [Parameter(Mandatory)] [string] $FilePath,
+        [string[]] $ArgumentList = @(),
+        [string] $WorkDir = $null
+    )
+    $tmpOut = [System.IO.Path]::GetTempFileName()
+    $tmpErr = [System.IO.Path]::GetTempFileName()
+    try {
+        if ($WorkDir) { Push-Location -LiteralPath $WorkDir }
+        & $FilePath @ArgumentList > $tmpOut 2> $tmpErr
+        $exit = $LASTEXITCODE
+        $stdout = (Get-Content -LiteralPath $tmpOut -Raw -ErrorAction SilentlyContinue)
+        $stderr = (Get-Content -LiteralPath $tmpErr -Raw -ErrorAction SilentlyContinue)
+        return [pscustomobject]@{
+            ExitCode = $exit
+            All      = (($stdout -as [string]) + "`n" + ($stderr -as [string]))
+        }
+    } finally {
+        if ($WorkDir) { try { Pop-Location } catch {} }
+        Remove-Item -LiteralPath $tmpOut, $tmpErr -ErrorAction SilentlyContinue
+    }
+}
+
+Repair-ProcessPathEnvironment
+
 Write-Start ('=' * 50)
 Write-Start "Inicio (PID host PowerShell: $PID)"
 Write-Start "ApiDir: $ApiDir"
@@ -85,21 +127,15 @@ $smokeScript = Join-Path $here '_smoke_import.py'
 $smokeOut = ''
 $smokeRc  = 1
 if (Test-Path -LiteralPath $smokeScript) {
-    $tmpO = [System.IO.Path]::GetTempFileName()
-    $tmpE = [System.IO.Path]::GetTempFileName()
     $sArgs = @()
     if ($pyArgs.Count -gt 0) { $sArgs += $pyArgs }
     $sArgs += $smokeScript
     try {
-        $sp = Start-Process -FilePath $pyExe -ArgumentList $sArgs -WorkingDirectory $ApiDir `
-              -NoNewWindow -Wait -PassThru `
-              -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
-        $smokeRc = $sp.ExitCode
-        $smokeOut = ((Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue))
+        $smokeRun = Invoke-ExeCapture -FilePath $pyExe -ArgumentList $sArgs -WorkDir $ApiDir
+        $smokeRc = $smokeRun.ExitCode
+        $smokeOut = $smokeRun.All
     } catch {
         $smokeOut = "Excepcion al lanzar smoke import: $($_.Exception.Message)"
-    } finally {
-        Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
     }
 } else {
     Write-Start "AVISO: no se encontro $smokeScript ; smoke import omitido."
@@ -138,18 +174,28 @@ try {
 
 # ---- 6) Esperar hasta 20s a que 8000 quede LISTENING ----
 $ok = $false
-for ($i = 0; $i -lt 40; $i++) {
+for ($i = 0; $i -lt 90; $i++) {
     Start-Sleep -Milliseconds 500
     try {
         $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
         if ($c) { $ok = $true; break }
+    } catch {}
+    try {
+        foreach ($line in (netstat -ano 2>$null)) {
+            if ($line -match 'LISTENING' -and $line -match ':8000\s') { $ok = $true; break }
+        }
+        if ($ok) { break }
+    } catch {}
+    try {
+        $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+        if ($resp.StatusCode -eq 200) { $ok = $true; break }
     } catch {}
     # Si el proceso murio, no tiene sentido seguir esperando.
     if ($proc.HasExited) { break }
 }
 
 if (-not $ok) {
-    Write-Start 'ERROR: uvicorn no quedo escuchando en :8000 tras 20s.'
+    Write-Start 'ERROR: uvicorn no quedo escuchando en :8000 tras 45s.'
     if ($proc.HasExited) {
         Write-Start "  ProcessExitCode: $($proc.ExitCode)"
     } else {
