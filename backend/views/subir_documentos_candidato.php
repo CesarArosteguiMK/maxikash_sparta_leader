@@ -1128,7 +1128,7 @@ $documentos = [
                             if (el) el.style.display = 'none';
                         } else {
                             var info = res.empresa ? ' (' + res.empresa + ')' : '';
-                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '. Score: ' + (res.score_validacion || '—') + '/100.', false);
+                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.', false);
                             actualizarCheckmark(6, true);
                             var el = document.getElementById('comp-verificado');
                             if (el) el.style.display = 'inline';
@@ -1911,7 +1911,7 @@ $documentos = [
                     compGoIntro();
                     var msg = document.getElementById('mensajeResultado');
                     var info = res.empresa ? ' (' + res.empresa + ')' : '';
-                    if (msg) (window.showResultado || function(){})(msg, null, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '. Score: ' + (res.score_validacion || '—') + '/100.', false);
+                    if (msg) (window.showResultado || function(){})(msg, null, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.', false);
                 }).catch(function(err) {
                     if (window.verificacionPendienteFin) window.verificacionPendienteFin();
                     if (btnUse) { btnUse.disabled = false; btnUse.textContent = 'Usar esta foto'; }

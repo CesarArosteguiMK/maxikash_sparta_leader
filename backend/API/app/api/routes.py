@@ -322,7 +322,7 @@ async def verificar_comprobante(
 
         if check.es_reciente is False:
             resultado = "RECHAZADO"
-            recomendacion = prefijo + f"tiene {check.meses_antiguedad or 0} meses de antigüedad. Se requiere máximo 3 meses."
+            recomendacion = prefijo + "tiene mas de 3 meses de antigüedad. Se requiere máximo 3 meses."
         elif check.es_reciente is None and not check.fecha_documento:
             resultado = "RECHAZADO"
             if any("no se pudo extraer texto" in (a or "").lower() for a in (check.alertas or [])):

@@ -4737,6 +4737,10 @@ class CapHum extends Controller
                     else confianzaClase = "text-danger";
                 }
                 var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small overflow-auto\">";
+                var errApi = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api) : "";
+                if (errApi) {
+                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br>" + escHtmlComparaciones(errApi) + "</div>";
+                }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
@@ -4772,9 +4776,19 @@ class CapHum extends Controller
                 return false;
             }
 
+            /** No mezclar comparaciones de una corrida anterior con un fallo reciente de la API (timeout, health-check, etc.). */
+            function expedienteVerifApiInconsistente(v) {
+                if (!v || typeof v !== "object") return false;
+                if (v.error_api != null && String(v.error_api).trim() !== "") return true;
+                var ct = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
+                var sinScores = (v.identificacion_frente_score == null || v.identificacion_frente_score === "") && (v.identificacion_reverso_score == null || v.identificacion_reverso_score === "");
+                if (ct === 0 && sinScores && hayComparacionesEvaluables(v)) return true;
+                return false;
+            }
+
             function renderComparacionesDocFullWidth(bloqueComp, v) {
                 if (!bloqueComp) return;
-                if (!v || !hayComparacionesEvaluables(v)) {
+                if (!v || expedienteVerifApiInconsistente(v) || !hayComparacionesEvaluables(v)) {
                     bloqueComp.classList.add("d-none");
                     bloqueComp.innerHTML = "";
                     return;
@@ -4883,6 +4897,7 @@ class CapHum extends Controller
 
             function badgeVerificacionDoc(tipoDoc, v) {
                 if (!v || !tipoDoc) return "";
+                if (expedienteVerifApiInconsistente(v)) return "";
                 var t = (tipoDoc + "").trim().toUpperCase();
                 if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
                 if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
@@ -4948,7 +4963,7 @@ class CapHum extends Controller
                 tooltipFiscalHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + tableHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-info-circle text-info\"></i></span>";
             }
             var tooltipIdHtml = "";
-            if ((tipoNorm === "IDENTIFICACIÓN OFICIAL" || tipoNorm === "IDENTIFICACION OFICIAL") && verif && typeof verif === "object") {
+            if ((tipoNorm === "IDENTIFICACIÓN OFICIAL" || tipoNorm === "IDENTIFICACION OFICIAL") && verif && typeof verif === "object" && !expedienteVerifApiInconsistente(verif)) {
                 var tipoDocLabel = "—";
                 if (verif.tipo_documento) {
                     var td = (verif.tipo_documento + "").toUpperCase();
@@ -5171,6 +5186,38 @@ class CapHum extends Controller
                 }
             }
 
+            function reintentarVerificacionExpedienteApi() {
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+                if (!idC) return;
+                var btn = document.getElementById("btnReintentarVerifExpediente");
+                var prevHtml = btn ? btn.innerHTML : "";
+                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin\"></i>"; }
+                var fd = new FormData();
+                fd.append("id_candidato", String(idC));
+                fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (typeof Swal !== "undefined") {
+                            if (res && res.success) {
+                                Swal.fire({ icon: "success", title: "Verificación", text: res.mensaje || "Listo.", toast: true, position: "top-end", showConfirmButton: false, timer: 2600 });
+                            } else {
+                                Swal.fire({ icon: "warning", title: "Verificación", text: (res && res.mensaje) ? res.mensaje : "No se pudo completar.", toast: true, position: "top-end", showConfirmButton: true });
+                            }
+                        }
+                        cargarDocumentosModal(idC);
+                    })
+                    .catch(function() {
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "Error", text: "No hubo respuesta del servidor.", toast: true, position: "top-end", showConfirmButton: true });
+                        }
+                        cargarDocumentosModal(idC);
+                    })
+                    .finally(function() {
+                        if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                    });
+            }
+
             function cargarDocumentosModal(idCandidato, opts) {
                 opts = opts || {};
                 if (!opts.fromPoll) {
@@ -5218,12 +5265,19 @@ class CapHum extends Controller
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
                     maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
+                    var btnRe = document.getElementById("btnReintentarVerifExpediente");
+                    if (btnRe) {
+                        if (metricas && metricas.expediente_completo === true) btnRe.classList.remove("d-none");
+                        else btnRe.classList.add("d-none");
+                    }
                 }).catch(function() {
                     renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
                     if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                     if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
                     if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                     if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
+                    var btnReCatch = document.getElementById("btnReintentarVerifExpediente");
+                    if (btnReCatch) btnReCatch.classList.add("d-none");
                 });
             }
 
@@ -5238,7 +5292,10 @@ class CapHum extends Controller
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
                 var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
                 var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
-                if (modal) modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
+                if (modal) {
+                    modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
+                    modal.dataset.idCandidato = String(idCandidato);
+                }
                 if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
                 if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                 if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
@@ -5609,6 +5666,12 @@ class CapHum extends Controller
         var modalDocPollEl = document.getElementById("modalDocumentacionCandidato");
         if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); });
         document.addEventListener("click", function(e) {
+            if (e.target.closest("#btnReintentarVerifExpediente")) {
+                e.preventDefault();
+                e.stopPropagation();
+                reintentarVerificacionExpedienteApi();
+                return;
+            }
             var btn = e.target.closest(".btn-cerrar-proceso-candidato");
             if (btn) {
                 e.preventDefault();
@@ -6108,6 +6171,8 @@ class CapHum extends Controller
         $ahoraCdmx = self::ahoraMexicoCiudad();
         $limiteFinInst = self::documentacionLimiteFinDesdeReferencia($ahoraCdmx, $diasHabilesLimite);
         $fechaLimite = $limiteFinInst->format('d/m/Y');
+        // Misma fecha/hora límite que indica el correo: el enlace deja de aceptar subidas después (CDMX 23:59:59).
+        CandidatosDAO::actualizarExpiraTokenDocumentos($id, $limiteFinInst->format('Y-m-d H:i:s'));
         $telefono = $c['telefono'] ?? '';
         // Ruta del logo para incrustar en el correo (cid:) — prioridad: logo_correo.png (sin fondo), luego logo___SPARTA_SECRET_REDACTED__.png
         $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
@@ -6781,6 +6846,18 @@ class CapHum extends Controller
         $data = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
         $documentos = $data['documentos'] ?? [];
         $verificacion = $data['verificacion'] ?? null;
+        if (is_array($verificacion)) {
+            $errApi = trim((string) ($verificacion['error_api'] ?? ''));
+            if ($errApi !== '') {
+                $verificacion['comparaciones'] = null;
+            } else {
+                $ct = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : -1;
+                $noScores = empty($verificacion['identificacion_frente_score']) && empty($verificacion['identificacion_reverso_score']);
+                if ($ct === 0 && $noScores && !empty($verificacion['comparaciones']) && is_array($verificacion['comparaciones'])) {
+                    $verificacion['comparaciones'] = null;
+                }
+            }
+        }
 
         $payload = ['documentos' => $documentos];
         if ($verificacion !== null) {
@@ -7133,6 +7210,10 @@ class CapHum extends Controller
                     is_string($fechaEnvioCand) ? $fechaEnvioCand : null,
                     $diasHabilesCfg
                 );
+                $ahoraDel = self::ahoraMexicoCiudad();
+                $refPlazoDel = self::parseFechaHoraMexicoCiudad(is_string($fechaEnvioCand) ? $fechaEnvioCand : null) ?? $ahoraDel;
+                $limiteDelInst = self::documentacionLimiteFinDesdeReferencia($refPlazoDel, $diasHabilesCfg);
+                CandidatosDAO::actualizarExpiraTokenDocumentos($idCand, $limiteDelInst->format('Y-m-d H:i:s'));
 
                 $dirPublicDel = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
                 $rutaLogoInlineDel = null;

@@ -194,6 +194,7 @@ $listaJefes = $listaJefes ?? [];
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalDocumentacionCandidatoLabel"><i class="fa fa-folder-open me-2"></i>Documentación</h5>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-auto me-2 d-none" id="btnReintentarVerifExpediente" title="Volver a ejecutar la verificación contra la API (expediente completo)"><i class="fa fa-sync-alt"></i> Reintentar API</button>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">

@@ -774,18 +774,19 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         var btnMarcarTodas = document.getElementById('navbarNotifMarcarTodas');
         var dropdownEl = document.getElementById('navbarNotifDropdown');
         var notifToggle = document.getElementById('navbarNotifToggle');
-        var soundInterval = null;
         var audioNotif = null;
         var NOTIF_SOUND_URL = '/assets/audio/ring2.mp3';
-        var NOTIF_BEEP_INTERVAL_MS = 1500;
         var NOTIF_SOUND_PLAYED_KEY = 'sparta_notif_sound_played_ids';
         var NOTIF_SOUND_PLAYED_MAX = 100;
+        /** Último id de notificación no leída para la que ya sonó (sesión). Evita repetir cada ~60 s al actualizar el badge. */
+        var NOTIF_SS_LAST_CHIME_MAX_ID = 'sparta_notif_sound_last_chimed_max_unread_id';
 
         function getNotifSoundPlayedIds() {
             try {
                 var raw = localStorage.getItem(NOTIF_SOUND_PLAYED_KEY);
                 var arr = raw ? JSON.parse(raw) : [];
-                return Array.isArray(arr) ? arr : [];
+                if (!Array.isArray(arr)) return [];
+                return arr.map(function(x) { return (Number(x) || 0); }).filter(function(id) { return id > 0; });
             } catch (e) { return []; }
         }
 
@@ -793,8 +794,8 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
             try {
                 var prev = getNotifSoundPlayedIds();
                 var set = {};
-                prev.forEach(function(id){ set[id] = true; });
-                ids.forEach(function(id){ if (id > 0) set[id] = true; });
+                prev.forEach(function(id){ var k = (Number(id) || 0); if (k > 0) set[k] = true; });
+                (ids || []).forEach(function(id){ var k = (Number(id) || 0); if (k > 0) set[k] = true; });
                 var merged = Object.keys(set).map(Number).filter(function(id){ return id > 0; });
                 if (merged.length > NOTIF_SOUND_PLAYED_MAX) merged = merged.slice(-NOTIF_SOUND_PLAYED_MAX);
                 localStorage.setItem(NOTIF_SOUND_PLAYED_KEY, JSON.stringify(merged));
@@ -837,28 +838,37 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         }
 
         function stopNotifSound() {
-            if (soundInterval) {
-                clearInterval(soundInterval);
-                soundInterval = null;
-            }
+            try {
+                if (audioNotif) {
+                    audioNotif.pause();
+                    audioNotif.currentTime = 0;
+                }
+            } catch (e) {}
         }
 
         function startNotifSoundIfUnread(totalNoLeidas, list) {
             if ((totalNoLeidas | 0) <= 0) {
                 stopNotifSound();
+                try { sessionStorage.removeItem(NOTIF_SS_LAST_CHIME_MAX_ID); } catch (e) {}
                 return;
             }
             var idsNoLeidos = (Array.isArray(list) ? list : [])
                 .filter(function(n){ return (n.leida | 0) === 0; })
-                .map(function(n){ return n.id | 0; })
+                .map(function(n){ return (Number(n.id) || 0); })
                 .filter(function(id){ return id > 0; });
-            var played = getNotifSoundPlayedIds();
-            var playedSet = {};
-            played.forEach(function(id){ playedSet[id] = true; });
-            var hayNuevos = idsNoLeidos.some(function(id){ return !playedSet[id]; });
-            if (!hayNuevos) return;
+            if (idsNoLeidos.length === 0) return;
+            var maxUnreadId = Math.max.apply(null, idsNoLeidos);
+            var prevChimedMax = 0;
+            try { prevChimedMax = parseInt(sessionStorage.getItem(NOTIF_SS_LAST_CHIME_MAX_ID) || '0', 10) || 0; } catch (e) {}
+            var subioElMaximoId = maxUnreadId > prevChimedMax;
+            if (!subioElMaximoId) {
+                return;
+            }
             playNotifSound();
             setNotifSoundPlayedIds(idsNoLeidos);
+            try {
+                if (maxUnreadId > 0) sessionStorage.setItem(NOTIF_SS_LAST_CHIME_MAX_ID, String(maxUnreadId));
+            } catch (e) {}
         }
 
         function formatNotifTime(dateStr) {

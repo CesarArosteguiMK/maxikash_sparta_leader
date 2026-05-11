@@ -304,9 +304,135 @@ class Candidatos extends Model
         }
     }
 
+    /** Días hábiles para plazo de documentación (sección [mail] de config.ini). */
+    private static function diasHabilesLimiteDocumentosDesdeIni(): int
+    {
+        $n = 2;
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (is_file($configFile)) {
+            $full = @parse_ini_file($configFile, true);
+            $mailSection = is_array($full['mail'] ?? null) ? $full['mail'] : [];
+            $n = (int) ($mailSection['dias_habiles_limite_documentos'] ?? 2);
+        }
+        return $n >= 1 ? $n : 2;
+    }
+
+    /** Correo de contacto para mensaje de enlace vencido (misma lógica que CapHum::enviarPostulacionCandidato). */
+    private static function mailContactoDocumentacion(): string
+    {
+        $contacto = '';
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (is_file($configFile)) {
+            $full = @parse_ini_file($configFile, true);
+            $mailSection = is_array($full['mail'] ?? null) ? $full['mail'] : [];
+            $contacto = trim($mailSection['mail_contacto'] ?? '');
+            if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+                $contacto = trim($mailSection['smtp_user'] ?? $mailSection['mail_from'] ?? '');
+            }
+        }
+        if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+            $contacto = 'reporteria__SPARTA_SECRET_REDACTED__@gmail.com';
+        }
+
+        return $contacto;
+    }
+
+    private static function zonaMexico(): \DateTimeZone
+    {
+        return new \DateTimeZone('America/Mexico_City');
+    }
+
+    private static function ahoraMexicoCiudadImmutable(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('now', self::zonaMexico());
+    }
+
+    private static function parseFechaHoraMexicoCiudad(?string $mysql): ?\DateTimeImmutable
+    {
+        if ($mysql === null || trim($mysql) === '') {
+            return null;
+        }
+        $tz = self::zonaMexico();
+        $raw = trim($mysql);
+        $dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $raw, $tz);
+        if ($dt !== false) {
+            return $dt;
+        }
+        try {
+            return new \DateTimeImmutable($raw, $tz);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Fin de plazo para documentación: día calendario siguiente en CDMX + N días hábiles (lun–vie), cierre 23:59:59 CDMX.
+     * Misma regla que CapHum::documentacionLimiteFinDesdeReferencia.
+     */
+    private static function documentacionLimiteFinDesdeReferencia(\DateTimeImmutable $referenciaCdmx, int $diasHabiles): \DateTimeImmutable
+    {
+        $tz = self::zonaMexico();
+        $ref = $referenciaCdmx->setTimezone($tz);
+        $d = $ref->setTime(0, 0, 0)->modify('+1 day');
+        $rest = max(1, $diasHabiles);
+        while ($rest > 0) {
+            $n = (int) $d->format('N');
+            if ($n >= 1 && $n <= 5) {
+                $rest--;
+                if ($rest === 0) {
+                    return $d->setTime(23, 59, 59);
+                }
+            }
+            $d = $d->modify('+1 day');
+        }
+
+        return $d->setTime(23, 59, 59);
+    }
+
+    /**
+     * Fecha/hora límite del token (misma base que el correo: referencia = fecha_postulacion_enviada si existe, si no fecha_registro, si no ahora).
+     */
+    public static function calcularExpiraTokenMysqlDesdeCandidato(array $c): string
+    {
+        $dias = self::diasHabilesLimiteDocumentosDesdeIni();
+        $refStr = trim((string) ($c['fecha_postulacion_enviada'] ?? ''));
+        if ($refStr === '') {
+            $refStr = trim((string) ($c['fecha_registro'] ?? ''));
+        }
+        $ref = self::parseFechaHoraMexicoCiudad($refStr !== '' ? $refStr : null);
+        if ($ref === null) {
+            $ref = self::ahoraMexicoCiudadImmutable();
+        }
+
+        return self::documentacionLimiteFinDesdeReferencia($ref, $dias)->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Actualiza la fecha de vencimiento del enlace de documentos (p. ej. al enviar el correo con fecha límite exacta).
+     */
+    public static function actualizarExpiraTokenDocumentos(int $id_candidato, string $expiraYmdHis): bool
+    {
+        $id_candidato = (int) $id_candidato;
+        if ($id_candidato <= 0 || trim($expiraYmdHis) === '') {
+            return false;
+        }
+        try {
+            $db = new Database();
+            $db->CRUD(
+                'UPDATE candidato_documento_token SET expira = :e WHERE id_candidato = :id',
+                ['e' => $expiraYmdHis, 'id' => $id_candidato]
+            );
+
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
     /**
      * Obtener o crear token único para link de subida de documentos del candidato.
      * Retorna el token (string) para construir la URL.
+     * La columna expira debe existir (ver backend/sql/alter_candidato_documento_token_expira.sql).
      */
     public static function getOrCreateTokenDocumentos($id_candidato)
     {
@@ -316,18 +442,33 @@ class Candidatos extends Model
         }
         try {
             $db = new Database();
+            $cand = $db->queryOne(
+                'SELECT id, fecha_postulacion_enviada, fecha_registro FROM candidatos WHERE id = :id LIMIT 1',
+                ['id' => $id_candidato]
+            );
+            if (!$cand) {
+                return self::resultado(false, 'Candidato no encontrado.', null);
+            }
+            $expiraMysql = self::calcularExpiraTokenMysqlDesdeCandidato($cand);
+
             $row = $db->queryOne(
-                "SELECT token FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1",
+                'SELECT token, expira FROM candidato_documento_token WHERE id_candidato = :id LIMIT 1',
                 ['id' => $id_candidato]
             );
             if ($row && !empty($row['token'])) {
+                $expCol = $row['expira'] ?? null;
+                if ($expCol === null || trim((string) $expCol) === '') {
+                    self::actualizarExpiraTokenDocumentos($id_candidato, $expiraMysql);
+                }
+
                 return self::resultado(true, 'Token existente.', $row['token']);
             }
             $token = bin2hex(random_bytes(32));
             $db->CRUD(
-                "INSERT INTO candidato_documento_token (id_candidato, token) VALUES (:id_candidato, :token)",
-                ['id_candidato' => $id_candidato, 'token' => $token]
+                'INSERT INTO candidato_documento_token (id_candidato, token, expira) VALUES (:id_candidato, :token, :expira)',
+                ['id_candidato' => $id_candidato, 'token' => $token, 'expira' => $expiraMysql]
             );
+
             return self::resultado(true, 'Token generado.', $token);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al generar token.', null, $e->getMessage());
@@ -336,6 +477,7 @@ class Candidatos extends Model
 
     /**
      * Obtener id_candidato y datos básicos a partir del token (para la vista pública de subida).
+     * Rechaza tokens vencidos (expira en hora local CDMX, fin de día 23:59:59).
      */
     public static function getCandidatoPorToken($token)
     {
@@ -346,12 +488,32 @@ class Candidatos extends Model
         try {
             $db = new Database();
             $row = $db->queryOne(
-                "SELECT t.id_candidato, c.nombres, c.apellidop, c.apellidom, c.email FROM candidato_documento_token t INNER JOIN candidatos c ON c.id = t.id_candidato WHERE t.token = :token LIMIT 1",
+                'SELECT t.id_candidato, t.expira, c.nombres, c.apellidop, c.apellidom, c.email, c.fecha_postulacion_enviada, c.fecha_registro '
+                . 'FROM candidato_documento_token t INNER JOIN candidatos c ON c.id = t.id_candidato WHERE t.token = :token LIMIT 1',
                 ['token' => $token]
             );
             if (!$row) {
                 return self::resultado(false, 'Enlace no válido o expirado.', null);
             }
+            $expiraMysql = $row['expira'] ?? null;
+            if ($expiraMysql === null || trim((string) $expiraMysql) === '') {
+                $expiraMysql = self::calcularExpiraTokenMysqlDesdeCandidato($row);
+                self::actualizarExpiraTokenDocumentos((int) $row['id_candidato'], $expiraMysql);
+            }
+            $limite = self::parseFechaHoraMexicoCiudad((string) $expiraMysql);
+            $ahora = self::ahoraMexicoCiudadImmutable();
+            if ($limite instanceof \DateTimeImmutable && $ahora > $limite) {
+                $mailCt = self::mailContactoDocumentacion();
+
+                return self::resultado(
+                    false,
+                    'Este enlace ha vencido. El plazo para subir la documentación finalizó. Si necesita ayuda, escríbanos a '
+                    . $mailCt . '.',
+                    null
+                );
+            }
+            unset($row['expira'], $row['fecha_postulacion_enviada'], $row['fecha_registro']);
+
             return self::resultado(true, 'Candidato encontrado.', $row);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al validar enlace.', null, $e->getMessage());
