@@ -4953,6 +4953,9 @@ class CapHum extends Controller
                     else confianzaClase = "text-danger";
                 }
                 var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small overflow-auto\">";
+                if (v.modo_verificacion === "solo_identificacion") {
+                    html += "<div class=\"alert alert-info py-1 px-2 mb-2 small\" role=\"status\"><strong>Modo prueba:</strong> esta corrida solo envió el PDF de identificación a la API (sin CURP, NSS, constancia ni acta).</div>";
+                }
                 var errApi = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api) : "";
                 var checksTotNum = checksTotales != null ? parseInt(checksTotales, 10) : null;
                 var sinPuntuaciones = (scoreFrente == null || scoreFrente === "") && (scoreReverso == null || scoreReverso === "");
@@ -5438,22 +5441,21 @@ class CapHum extends Controller
                 el.classList.remove("d-none");
             }
 
-            function reintentarVerificacionExpedienteApi() {
-                var modal = document.getElementById("modalDocumentacionCandidato");
-                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+            function ejecutarVerificacionExpedienteCandidatoPost(idC, soloIdentificacion, btn) {
                 if (!idC) return;
-                var btn = document.getElementById("btnReintentarVerifExpediente");
                 var prevHtml = btn ? btn.innerHTML : "";
                 if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin\"></i>"; }
                 var fd = new FormData();
                 fd.append("id_candidato", String(idC));
+                if (soloIdentificacion) {
+                    fd.append("solo_identificacion", "1");
+                }
                 var ctrl = new AbortController();
-                // Debe cubrir varios intentos PHP + low-speed abort (~90 s c/u) sin dejar el navegador 16 min colgado.
                 var toMs = 420000;
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-                candidatosDocConsola("info", "verificarExpedienteCandidato · inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs });
-                setDocModalApiTrace("Consultando al servidor: POST /caphum/verificarExpedienteCandidato (puede tardar varios minutos mientras se habla con la API de documentos)…", "wait");
+                candidatosDocConsola("info", "verificarExpedienteCandidato · inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
+                setDocModalApiTrace("Consultando al servidor: POST /caphum/verificarExpedienteCandidato" + (soloIdentificacion ? " (solo PDF de identificación)" : "") + " (puede tardar varios minutos mientras se habla con la API de documentos)…", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -5501,6 +5503,16 @@ class CapHum extends Controller
                         clearTimeout(tid);
                         if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
                     });
+            }
+
+            function reintentarVerificacionExpedienteApi() {
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+                if (!idC) return;
+                var chkSolo = document.getElementById("chkCandidatoVerifSoloIdentificacion");
+                var solo = !!(chkSolo && chkSolo.checked);
+                var btn = document.getElementById("btnReintentarVerifExpediente");
+                ejecutarVerificacionExpedienteCandidatoPost(idC, solo, btn);
             }
 
             function cargarDocumentosModal(idCandidato, opts) {
@@ -5566,7 +5578,7 @@ class CapHum extends Controller
                         candidatosDocConsola("warn", "getDocumentosCandidatoList · success=false (objeto completo)", res);
                     }
                     if (verif && verif.error_api != null && String(verif.error_api).trim() !== "") {
-                        candidatosDocConsola("error", "verificación expediente · error_api guardado en BD", { id_candidato: idCandidato, error_api: String(verif.error_api) });
+                        candidatosDocConsola("warn", "verificación expediente · último intento falló (detalle en BD; use Reintentar verificación si ya corrigió la API)", { id_candidato: idCandidato, error_api: String(verif.error_api) });
                     }
 
                     // Actualizar el Map global con los nuevos datos
@@ -6058,11 +6070,32 @@ class CapHum extends Controller
         document.addEventListener("click", candidatosTableClick);
         var modalDocPollEl = document.getElementById("modalDocumentacionCandidato");
         if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); });
+        ["modalResumenPostulacion", "modalDocumentacionCandidato"].forEach(function(mid) {
+            var m = document.getElementById(mid);
+            if (!m) return;
+            m.addEventListener("hide.bs.modal", function() {
+                var ae = document.activeElement;
+                if (ae && m.contains(ae) && typeof ae.blur === "function") ae.blur();
+            });
+        });
         document.addEventListener("click", function(e) {
             if (e.target.closest("#btnReintentarVerifExpediente")) {
                 e.preventDefault();
                 e.stopPropagation();
                 reintentarVerificacionExpedienteApi();
+                return;
+            }
+            if (e.target.closest("#btnCandidatoValidarSoloIdentificacion")) {
+                e.preventDefault();
+                e.stopPropagation();
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+                if (!idC) {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "info", title: "Candidato", text: "Abre primero el modal de documentación desde la tabla.", toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
+                    return;
+                }
+                var btnUno = document.getElementById("btnCandidatoValidarSoloIdentificacion");
+                ejecutarVerificacionExpedienteCandidatoPost(idC, true, btnUno);
                 return;
             }
             var btn = e.target.closest(".btn-cerrar-proceso-candidato");
@@ -6437,6 +6470,7 @@ class CapHum extends Controller
         self::set("titulo", "Selección de Personal");
         self::set("script", $script);
         self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
+        self::set("mostrarDiagVerificacionDoc", (int) ($_SESSION['usuario_id'] ?? 0) === 1);
         self::set("departamento", $departamento);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
@@ -7299,6 +7333,95 @@ class CapHum extends Controller
     }
 
     /**
+     * Base HTTP de la API Python (…/api/v1) a partir de [doc_verificacion] api_url.
+     * Acepta p.ej. http://127.0.0.1:8000/api/v1/verificar, http://127.0.0.1:8000/verificar o solo host:puerto.
+     */
+    private function normalizarBaseUrlDocVerificacion(string $apiUrl): string
+    {
+        $apiUrl = trim($apiUrl);
+        if ($apiUrl !== '' && ($apiUrl[0] === '"' || $apiUrl[0] === "'")) {
+            $apiUrl = trim($apiUrl, " \t\n\r\0\x0B\"'");
+        }
+        $base = preg_replace('#/verificar\s*$#i', '', $apiUrl);
+        $base = rtrim(trim((string) $base), '/');
+        if ($base === '') {
+            return '';
+        }
+        if (!preg_match('#/api/v1$#i', $base)) {
+            $base .= '/api/v1';
+        }
+
+        return $base;
+    }
+
+    /** POST/GET solo_identificacion=1 solo para usuario de sesión id 1 (diagnóstico; no exponer al resto del módulo). */
+    private function docVerificacionPetitorioSoloIdentificacion(): bool
+    {
+        if ((int) ($_SESSION['usuario_id'] ?? 0) !== 1) {
+            return false;
+        }
+        $v = $_POST['solo_identificacion'] ?? $_GET['solo_identificacion'] ?? '';
+        if ($v === '1' || $v === 1) {
+            return true;
+        }
+        $s = strtolower(trim((string) $v));
+
+        return in_array($s, ['true', 'yes', 'on'], true);
+    }
+
+    /** config.ini [doc_verificacion] validar_expediente_solo_identificacion = 1 */
+    private function docVerificacionIniSoloIdentificacion(): bool
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return false;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $iniVal = strtolower(trim((string) ($config['doc_verificacion']['validar_expediente_solo_identificacion'] ?? '0')));
+
+        return in_array($iniVal, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * @param array<string, mixed> $rutasParaValidar referencia (identificacion_pdf + opcionales)
+     */
+    private function docVerificacionQuitarAdjuntosOpcionalesExpediente(array &$rutasParaValidar): void
+    {
+        foreach (['curp', 'nss', 'constancia_fiscal', 'acta_nacimiento'] as $k) {
+            $rutasParaValidar[$k] = null;
+        }
+    }
+
+    /**
+     * Arma el JSON guardado en candidatos.ultima_verificacion_expediente a partir de la respuesta OK de la API.
+     *
+     * @param array<string, mixed> $resultadoApi
+     * @return array<string, mixed>
+     */
+    private function expedientePayloadDesdeApi(array $resultadoApi, bool $soloIdentificacion): array
+    {
+        $alertaModo = $soloIdentificacion
+            ? ['Modo prueba: solo se envió el PDF de identificación a la API (no se adjuntaron CURP, NSS, constancia fiscal ni acta). Desactive la casilla o validar_expediente_solo_identificacion=0 para verificación completa.']
+            : [];
+
+        return [
+            'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,
+            'foto_rechazada' => $resultadoApi['foto_rechazada'] ?? false,
+            'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
+            'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
+            'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
+            'alertas' => array_merge($alertaModo, $resultadoApi['alertas'] ?? []),
+            'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
+            'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
+            'comparaciones' => $resultadoApi['comparaciones'] ?? null,
+            'nombre_ocr' => $resultadoApi['nombre_ocr'] ?? null,
+            'anio_nacimiento' => $resultadoApi['anio_nacimiento'] ?? null,
+            'tipo_documento' => $resultadoApi['tipo_documento'] ?? null,
+            'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+        ];
+    }
+
+    /**
      * Obtiene configuración de la API de verificación de documentos.
      */
     private function getDocVerificacionConfig()
@@ -7313,8 +7436,7 @@ class CapHum extends Controller
         if ($apiUrl === '' || $apiKey === '') {
             return null;
         }
-        $base = preg_replace('#/verificar\s*$#', '', $apiUrl);
-        $base = trim((string) $base);
+        $base = $this->normalizarBaseUrlDocVerificacion($apiUrl);
         if ($base === '') {
             return null;
         }
@@ -7480,6 +7602,10 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'Falta el documento de identificación oficial (PDF con frente y reverso) para poder verificar.'));
             return;
         }
+        $soloIdentificacion = $this->docVerificacionPetitorioSoloIdentificacion() || $this->docVerificacionIniSoloIdentificacion();
+        if ($soloIdentificacion) {
+            $this->docVerificacionQuitarAdjuntosOpcionalesExpediente($rutasParaValidar);
+        }
         $candidatoRes = CandidatosDAO::getById($id_candidato);
         $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
         $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
@@ -7489,19 +7615,24 @@ class CapHum extends Controller
             return;
         }
         if (!empty($resultadoApi['error'])) {
+            $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
+            if ($soloIdentificacion) {
+                array_unshift($alertasErr, 'Modo «solo identificación» activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
+            }
             $payloadError = [
                 'todo_coincide' => false,
                 'foto_rechazada' => false,
                 'curp_definitivo' => null,
                 'checks_ok' => 0,
                 'checks_totales' => 0,
-                'alertas' => ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'],
+                'alertas' => $alertasErr,
                 'identificacion_frente_score' => null,
                 'identificacion_reverso_score' => null,
                 'comparaciones' => null,
                 'nombre_ocr' => null,
                 'anio_nacimiento' => null,
                 'tipo_documento' => null,
+                'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
@@ -7511,22 +7642,12 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(true, $toast, ['verificacion_expediente' => $payloadError]));
             return;
         }
-        $payload = [
-            'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,
-            'foto_rechazada' => $resultadoApi['foto_rechazada'] ?? false,
-            'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
-            'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
-            'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
-            'alertas' => $resultadoApi['alertas'] ?? [],
-            'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
-            'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
-            'comparaciones' => $resultadoApi['comparaciones'] ?? null,
-            'nombre_ocr' => $resultadoApi['nombre_ocr'] ?? null,
-            'anio_nacimiento' => $resultadoApi['anio_nacimiento'] ?? null,
-            'tipo_documento' => $resultadoApi['tipo_documento'] ?? null,
-        ];
+        $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
         CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payload));
-        echo json_encode(self::respuesta(true, 'Verificación ejecutada. Ya puedes ver los porcentajes y coincidencias.', ['verificacion_expediente' => $payload]));
+        $msgOk = $soloIdentificacion
+            ? 'Verificación (modo prueba: solo identificación) ejecutada. Revise scores; para cruce completo desactive la casilla y vuelva a intentar.'
+            : 'Verificación ejecutada. Ya puedes ver los porcentajes y coincidencias.';
+        echo json_encode(self::respuesta(true, $msgOk, ['verificacion_expediente' => $payload]));
     }
 
     /**
@@ -8333,12 +8454,15 @@ class CapHum extends Controller
             return ['error' => 'No se encontró backend/config/config.ini.'];
         }
         $config = @parse_ini_file($configFile, true);
-        $apiUrlVerificar = trim($config['doc_verificacion']['api_url'] ?? '');
-        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        $apiUrlVerificar = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
+        $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? ''));
         if ($apiUrlVerificar === '' || $apiKey === '') {
             return ['error' => 'En config.ini [doc_verificacion] faltan api_url o api_key.'];
         }
-        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
+        $baseUrl = $this->normalizarBaseUrlDocVerificacion($apiUrlVerificar);
+        if ($baseUrl === '') {
+            return ['error' => 'En config.ini [doc_verificacion] api_url no es una URL válida.'];
+        }
 
         $healthUrl = rtrim($baseUrl, '/') . '/health';
         $healthOk = false;
@@ -8365,7 +8489,7 @@ class CapHum extends Controller
             $hLastErr = $hErr;
         }
         if (!$healthOk) {
-            return ['error' => 'La API no responde (health-check). Revise api_url en config.ini [doc_verificacion] y que el servicio esté en marcha (ej. uvicorn). ' . ($hLastErr !== '' ? $hLastErr : '')];
+            return ['error' => 'La API no responde (health-check en ' . $healthUrl . '). Revise [doc_verificacion] api_url/api_key en backend/config/config.ini, que el agente Python esté en marcha (puerto 8000, ej. backend\\API\\iniciar-agente.bat) y que la clave coincida con la del servicio. ' . ($hLastErr !== '' ? $hLastErr : '')];
         }
 
         $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
@@ -9267,42 +9391,39 @@ class CapHum extends Controller
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
                 return;
             }
+            $soloIdentificacion = $this->docVerificacionIniSoloIdentificacion();
+            if ($soloIdentificacion) {
+                $this->docVerificacionQuitarAdjuntosOpcionalesExpediente($rutasParaValidar);
+                error_log('CapHum::verificacionBackground: modo solo_identificacion (config.ini) candidato ' . $id_candidato);
+            }
             $candidatoRes = CandidatosDAO::getById($id_candidato);
             $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
             $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
             $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro);
             if (is_array($resultadoApi) && !isset($resultadoApi['error'])) {
-                $payload = [
-                    'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,
-                    'foto_rechazada' => $resultadoApi['foto_rechazada'] ?? false,
-                    'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
-                    'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
-                    'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
-                    'alertas' => $resultadoApi['alertas'] ?? [],
-                    'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
-                    'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
-                    'comparaciones' => $resultadoApi['comparaciones'] ?? null,
-                    'nombre_ocr' => $resultadoApi['nombre_ocr'] ?? null,
-                    'anio_nacimiento' => $resultadoApi['anio_nacimiento'] ?? null,
-                    'tipo_documento' => $resultadoApi['tipo_documento'] ?? null,
-                ];
+                $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payload));
                 error_log('CapHum::verificacionBackground: OK para candidato ' . $id_candidato);
             } else {
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
+                $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
+                if ($soloIdentificacion) {
+                    array_unshift($alertasErr, 'Modo «solo identificación» (config.ini): el fallo puede no reproducirse con expediente completo.');
+                }
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
                     'todo_coincide' => false,
                     'foto_rechazada' => false,
                     'curp_definitivo' => null,
                     'checks_ok' => 0,
                     'checks_totales' => 0,
-                    'alertas' => ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'],
+                    'alertas' => $alertasErr,
                     'identificacion_frente_score' => null,
                     'identificacion_reverso_score' => null,
                     'comparaciones' => null,
                     'nombre_ocr' => null,
                     'anio_nacimiento' => null,
                     'tipo_documento' => null,
+                    'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
                     'error_api' => $err,
                 ]));
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
