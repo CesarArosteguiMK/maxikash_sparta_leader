@@ -4160,7 +4160,7 @@ class CapHum extends Controller
                         // Si no es JSON, leer como texto para ver el error
                         return res.text().then(text => {
                             console.error('Respuesta no JSON:', text);
-                            throw new Error('El servidor devolvió una respuesta no válida. Ver consola para más detalles.');
+                            throw new Error('El servidor devolvió una respuesta no válida.');
                         });
                     }
                 })
@@ -4583,7 +4583,7 @@ class CapHum extends Controller
                                 Swal.fire({
                                     icon: "error",
                                     title: "Error",
-                                    text: "Error al procesar los candidatos. Revisa la consola (F12)."
+                                    text: "Error al procesar los candidatos. Intente recargar la página."
                                 });
                             }
                         }
@@ -4967,9 +4967,11 @@ class CapHum extends Controller
                 var sinPuntuaciones = (scoreFrente == null || scoreFrente === "") && (scoreReverso == null || scoreReverso === "");
                 var respuestaVaciaApi = !errApi && checksTotNum === 0 && sinPuntuaciones && alertas.length === 0 && v.todo_coincide !== true;
                 if (errApi) {
-                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-break\">" + escHtmlComparaciones(errApi) + "</span></div>";
+                    candidatosDocConsola("error", "verificación API · error_api (detalle técnico)", errApi);
+                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-muted\">El servicio no respondió a tiempo o hubo un fallo técnico. Capital Humano puede revisar el expediente manualmente.</span></div>";
                 } else if (respuestaVaciaApi) {
-                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>La API contestó sin datos útiles.</strong> No hay scores ni checks en la respuesta guardada. Suele indicar error no tipificado en la API o JSON inesperado; use Reintentar o revise logs Python.</div>";
+                    candidatosDocConsola("warn", "verificación API · respuesta vacía / sin datos útiles (objeto)", v);
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente «Reintentar API» más tarde.</span></div>";
                 }
                 if (errApi || respuestaVaciaApi) {
                     html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificación contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
@@ -5419,7 +5421,7 @@ class CapHum extends Controller
                 }
             }
 
-            /** Registro en consola del navegador (F12 → Consola) para copiar/pegar diagnósticos. Prefijo fijo: [Sparta candidatos · documentación] */
+            /** Registro en consola del navegador para diagnósticos (desarrollo). Prefijo: [Sparta candidatos · documentación] */
             function candidatosDocConsola(nivel, titulo, datos) {
                 try {
                     var fn = console.log;
@@ -5437,13 +5439,27 @@ class CapHum extends Controller
                 el.textContent = "";
                 el.className = "alert alert-secondary small py-2 mb-2 d-none";
             }
-            function setDocModalApiTrace(message, kind) {
+            /** Detalle técnico solo en consola; no mostrar cadenas largas a usuarios finales. */
+            function registrarTrazaDocModalTecnico(titulo, datos) {
+                try {
+                    if (datos !== undefined && datos !== null) {
+                        candidatosDocConsola("info", titulo, datos);
+                    } else {
+                        candidatosDocConsola("info", titulo);
+                    }
+                } catch (e2) {}
+            }
+            /** Mensaje breve en la franja del modal (solo lo que debe ver Capital Humano). */
+            function setDocModalApiTraceUsuario(message, kind) {
                 var el = document.getElementById("modalDocumentacionCandidatoApiTrace");
                 if (!el) return;
-                if (!message) { clearDocModalApiTrace(); return; }
+                if (!message || String(message).trim() === "") {
+                    clearDocModalApiTrace();
+                    return;
+                }
                 var map = { wait: "alert-info", ok: "alert-success", err: "alert-danger", warn: "alert-warning", neutral: "alert-secondary" };
                 el.className = "alert small py-2 mb-2 " + (map[kind] || map.neutral);
-                el.textContent = message;
+                el.textContent = String(message);
                 el.classList.remove("d-none");
             }
 
@@ -5461,7 +5477,8 @@ class CapHum extends Controller
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato · inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
-                setDocModalApiTrace("Consultando al servidor: POST /caphum/verificarExpedienteCandidato" + (soloIdentificacion ? " (solo PDF de identificación)" : "") + " (puede tardar varios minutos mientras se habla con la API de documentos)…", "wait");
+                registrarTrazaDocModalTecnico("verificarExpedienteCandidato · POST (detalle)", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
+                setDocModalApiTraceUsuario("Verificando expediente… Puede tardar varios minutos.", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
                         clearTimeout(tid);
@@ -5470,7 +5487,8 @@ class CapHum extends Controller
                             var res;
                             try { res = body ? JSON.parse(body) : {}; } catch (e) {
                                 candidatosDocConsola("error", "verificarExpedienteCandidato · respuesta no JSON", { id_candidato: idC, http_status: r.status, ms: ms, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
-                                setDocModalApiTrace("Respuesta no JSON del servidor (HTTP " + r.status + "). " + (ms != null ? "Tiempo: " + ms + " ms." : ""), "err");
+                                registrarTrazaDocModalTecnico("verificarExpedienteCandidato · no JSON", { http_status: r.status, ms: ms, parse_error: String(e) });
+                                setDocModalApiTraceUsuario("No se pudo leer la respuesta del servidor. Cierre el recuadro e inténtelo de nuevo.", "err");
                                 throw e;
                             }
                             return { r: r, res: res, ms: ms };
@@ -5481,16 +5499,17 @@ class CapHum extends Controller
                         var linea = "HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + ". ";
                         var nivelCons = res && res.success ? "log" : "warn";
                         candidatosDocConsola(nivelCons, "verificarExpedienteCandidato · respuesta", { id_candidato: idC, http_status: r.status, ms: ms, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
+                        registrarTrazaDocModalTecnico("verificarExpedienteCandidato · respuesta (técnico)", { id_candidato: idC, resumen_http: linea, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
                         if (res && res.success) {
-                            setDocModalApiTrace(linea + (res.mensaje || "Verificación registrada. Actualizando listado…"), "ok");
+                            clearDocModalApiTrace();
                         } else {
-                            setDocModalApiTrace(linea + ((res && res.mensaje) ? res.mensaje : "success=false"), "warn");
+                            setDocModalApiTraceUsuario("No se pudo completar la verificación. Puede intentar «Reintentar API» más tarde.", "warn");
                         }
                         if (typeof Swal !== "undefined") {
                             if (res && res.success) {
                                 Swal.fire({ icon: "success", title: "Verificación", text: res.mensaje || "Listo.", toast: true, position: "top-end", showConfirmButton: false, timer: 2600 });
                             } else {
-                                Swal.fire({ icon: "warning", title: "Verificación", text: (res && res.mensaje) ? res.mensaje : "No se pudo completar.", toast: true, position: "top-end", showConfirmButton: true });
+                                Swal.fire({ icon: "warning", title: "Verificación", text: (res && res.mensaje) ? res.mensaje : "No se pudo completar la verificación.", toast: true, position: "top-end", showConfirmButton: true });
                             }
                         }
                         cargarDocumentosModal(idC);
@@ -5498,11 +5517,12 @@ class CapHum extends Controller
                     .catch(function(err) {
                         clearTimeout(tid);
                         candidatosDocConsola("error", "verificarExpedienteCandidato · error (catch)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack });
+                        registrarTrazaDocModalTecnico("verificarExpedienteCandidato · catch (técnico)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack, timeout_ms: toMs });
                         if (typeof Swal !== "undefined") {
-                            var msg = (err && err.name === "AbortError") ? "La petición tardó demasiado (" + Math.round(toMs / 1000) + " s). Revise la API o aumente validar_expediente_timeout_seconds en config.ini." : "No hubo respuesta del servidor.";
+                            var msg = (err && err.name === "AbortError") ? "La verificación tardó demasiado. Cuando la red o el servidor estén disponibles, use «Reintentar API»." : "No hubo respuesta del servidor. Revise su conexión e inténtelo de nuevo.";
                             Swal.fire({ icon: "error", title: "Error", text: msg, toast: true, position: "top-end", showConfirmButton: true });
                         }
-                        setDocModalApiTrace((err && err.name === "AbortError") ? "Tiempo agotado esperando al servidor/API." : ("Error de red o servidor: " + (err && err.message ? err.message : String(err))), "err");
+                        setDocModalApiTraceUsuario((err && err.name === "AbortError") ? "Tiempo de espera agotado. Use «Reintentar API» más tarde." : "Error de conexión o del servidor.", "err");
                         cargarDocumentosModal(idC);
                     })
                     .finally(function() {
@@ -5540,7 +5560,8 @@ class CapHum extends Controller
                 var urlList = "/caphum/getDocumentosCandidatoList?id_candidato=" + encodeURIComponent(String(idCandidato));
                 var t0List = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 if (!opts.fromPoll) {
-                    setDocModalApiTrace("Consultando al servidor: GET " + urlList + " …", "wait");
+                    clearDocModalApiTrace();
+                    registrarTrazaDocModalTecnico("getDocumentosCandidatoList · GET (técnico)", { id_candidato: idCandidato, url: urlList });
                 }
                 candidatosDocConsola("info", "getDocumentosCandidatoList · inicio", { id_candidato: idCandidato, fromPoll: !!opts.fromPoll, url: urlList });
                 fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" } }).then(function(r) {
@@ -5550,7 +5571,8 @@ class CapHum extends Controller
                         var res;
                         try { res = body ? JSON.parse(body) : {}; } catch (e) {
                             candidatosDocConsola("error", "getDocumentosCandidatoList · JSON inválido", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache: cacheHdr, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
-                            setDocModalApiTrace("Listado: respuesta no JSON (HTTP " + r.status + "). " + (ms != null ? ms + " ms." : "") + " Revise sesión o error PHP.", "err");
+                            registrarTrazaDocModalTecnico("getDocumentosCandidatoList · JSON inválido (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, parse_error: String(e) });
+                            setDocModalApiTraceUsuario("No se pudo cargar la lista de documentos. Cierre el recuadro e inténtelo de nuevo.", "err");
                             throw e;
                         }
                         return { r: r, res: res, ms: ms, cacheHdr: cacheHdr };
@@ -5559,20 +5581,22 @@ class CapHum extends Controller
                     var r = box.r, res = box.res, ms = box.ms, cacheHdr = box.cacheHdr;
                     var cacheNote = cacheHdr ? (" · caché listado: " + cacheHdr) : "";
                     if (!res.success) {
-                        setDocModalApiTrace("Listado: HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + cacheNote + ". " + (res.mensaje || "success=false"), "warn");
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList · success=false (técnico)", { http_status: r.status, ms: ms, cache: cacheHdr, mensaje: res.mensaje || null });
+                        setDocModalApiTraceUsuario("No se pudo obtener la documentación del candidato.", "warn");
                     } else {
                         var nDocs = (res.datos && res.datos.documentos) ? res.datos.documentos.length : (res.datos && Array.isArray(res.datos) ? res.datos.length : 0);
                         var verifPrev = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                         var errApi = verifPrev && verifPrev.error_api ? String(verifPrev.error_api).trim() : "";
                         var baseOk = "Listado: HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + cacheNote + ". JSON OK · " + nDocs + " documento(s).";
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList · resumen (técnico)", { id_candidato: idCandidato, texto: baseOk, error_api: errApi || null, verificacion_en_bd: !!verifPrev, expediente_completo: !!(res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) });
                         if (errApi) {
-                            setDocModalApiTrace(baseOk + " La API devolvió error registrado: " + errApi.slice(0, 220) + (errApi.length > 220 ? "…" : ""), "warn");
+                            clearDocModalApiTrace();
                         } else if (verifPrev) {
-                            setDocModalApiTrace(baseOk + " Verificación en BD recibida.", "ok");
+                            clearDocModalApiTrace();
                         } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
-                            setDocModalApiTrace(baseOk + " Expediente completo: verificación en curso o pendiente; use «Reintentar API» si tarda.", "neutral");
+                            setDocModalApiTraceUsuario("Expediente completo. Si la verificación automática no aparece, use «Reintentar API».", "neutral");
                         } else {
-                            setDocModalApiTrace(baseOk, "ok");
+                            clearDocModalApiTrace();
                         }
                     }
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
@@ -5616,7 +5640,8 @@ class CapHum extends Controller
                 }).catch(function(err) {
                     candidatosDocConsola("error", "getDocumentosCandidatoList · catch", { id_candidato: idCandidato, name: err && err.name, message: err && err.message, stack: err && err.stack });
                     if (!err || (err.name !== "SyntaxError" && err.message && String(err.message).indexOf("JSON") === -1)) {
-                        setDocModalApiTrace("Listado: fallo de red o sin respuesta. " + (err && err.message ? err.message : ""), "err");
+                        registrarTrazaDocModalTecnico("getDocumentosCandidatoList · red/catch (técnico)", { name: err && err.name, message: err && err.message });
+                        setDocModalApiTraceUsuario("No se pudo cargar la documentación. Revise su conexión.", "err");
                     }
                     renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
                     if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
@@ -6008,7 +6033,7 @@ class CapHum extends Controller
             .then(function(o){
                 var res = o.res; candidatoReenviarId = null; candidatoReenviarEmail = null; btn.disabled = false;
                 btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo";
-                if (!res && !o.ok) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "El servidor respondió con " + o.status + ". Compruebe la consola (F12) o que la URL sea correcta." }); return; }
+                if (!res && !o.ok) { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "El servidor respondió con " + o.status + ". Verifique la URL o intente más tarde." }); return; }
                 if (res && res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Listo", text: "Correo de postulación reenviado correctamente." }); getCandidatos(); setTimeout(function() { bootstrap.Modal.getInstance(document.getElementById("modalResumenPostulacion")).hide(); }, 1500); }
                 else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: (res && res.mensaje) ? res.mensaje : "No se pudo enviar el correo." }); }
             }).catch(function(err){ btn.disabled = false; btn.innerHTML = "<i class='bx bx-send me-2'></i> Reenviar postulación por correo"; if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: (err && err.message) ? err.message : "Error de conexión." }); });
@@ -6089,19 +6114,6 @@ class CapHum extends Controller
                 e.preventDefault();
                 e.stopPropagation();
                 reintentarVerificacionExpedienteApi();
-                return;
-            }
-            if (e.target.closest("#btnCandidatoValidarSoloIdentificacion")) {
-                e.preventDefault();
-                e.stopPropagation();
-                var modal = document.getElementById("modalDocumentacionCandidato");
-                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
-                if (!idC) {
-                    if (typeof Swal !== "undefined") Swal.fire({ icon: "info", title: "Candidato", text: "Abre primero el modal de documentación desde la tabla.", toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
-                    return;
-                }
-                var btnUno = document.getElementById("btnCandidatoValidarSoloIdentificacion");
-                ejecutarVerificacionExpedienteCandidatoPost(idC, true, btnUno);
                 return;
             }
             var btn = e.target.closest(".btn-cerrar-proceso-candidato");
@@ -6476,7 +6488,6 @@ class CapHum extends Controller
         self::set("titulo", "Selección de Personal");
         self::set("script", $script);
         self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
-        self::set("mostrarDiagVerificacionDoc", (int) ($_SESSION['usuario_id'] ?? 0) === 1);
         self::set("departamento", $departamento);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
@@ -7642,10 +7653,8 @@ class CapHum extends Controller
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
-            $errTxt = (string) ($resultadoApi['error'] ?? '');
-            $toast = 'Fallo de verificación API (quedó guardado en el expediente). ';
-            $toast .= function_exists('mb_strlen') && mb_strlen($errTxt) > 320 ? mb_substr($errTxt, 0, 320) . '…' : ($errTxt !== '' ? $errTxt : 'Sin detalle.');
-            echo json_encode(self::respuesta(true, $toast, ['verificacion_expediente' => $payloadError]));
+            $mensajeUsuario = 'La verificación automática no pudo completarse. El estado quedó guardado; Capital Humano revisará el expediente.';
+            echo json_encode(self::respuesta(true, $mensajeUsuario, ['verificacion_expediente' => $payloadError]));
             return;
         }
         $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
@@ -11366,7 +11375,7 @@ class CapHum extends Controller
                         // Si no es JSON, leer como texto para ver el error
                         return res.text().then(text => {
                             console.error('Respuesta no JSON:', text);
-                            throw new Error('El servidor devolvió una respuesta no válida. Ver consola para más detalles.');
+                            throw new Error('El servidor devolvió una respuesta no válida.');
                         });
                     }
                 })
