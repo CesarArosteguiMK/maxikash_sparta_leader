@@ -4409,7 +4409,18 @@ window.migBuscarCredito = function () {
 
             if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
                 info.className = 'alert alert-danger d-none';
-                Swal.fire('Crédito no encontrado', respOfertas.mensaje || 'El crédito ingresado no existe o no es elegible.', 'error');
+                if (respOfertas.success && respOfertas.datos && respOfertas.datos.statusCredito === 'Saldado') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Crédito Saldado',
+                        html: 'Este crédito ya se encuentra <strong>saldado</strong>.' +
+                            (respOfertas.datos.fechaLiquidacion ? '<br>Fecha de liquidación: <strong>' + respOfertas.datos.fechaLiquidacion + '</strong>' : '') +
+                            (respOfertas.datos.motivo ? '<br>Motivo: ' + respOfertas.datos.motivo : ''),
+                        confirmButtonColor: '#22c55e'
+                    });
+                } else {
+                    Swal.fire('Crédito no encontrado', respOfertas.mensaje || 'El crédito ingresado no existe o no es elegible.', 'error');
+                }
                 return;
             }
 
@@ -6962,7 +6973,18 @@ window.globoBuscarCredito = function () {
         onSuccess: function (respOfertas) {
             if (!respOfertas.success || !respOfertas.datos || !respOfertas.datos.credito) {
                 info.className = 'alert alert-danger d-none';
-                Swal.fire('Crédito no encontrado', respOfertas.mensaje || 'El crédito ingresado no existe o no es elegible.', 'error');
+                if (respOfertas.success && respOfertas.datos && respOfertas.datos.statusCredito === 'Saldado') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Crédito Saldado',
+                        html: 'Este crédito ya se encuentra <strong>saldado</strong>.' +
+                            (respOfertas.datos.fechaLiquidacion ? '<br>Fecha de liquidación: <strong>' + respOfertas.datos.fechaLiquidacion + '</strong>' : '') +
+                            (respOfertas.datos.motivo ? '<br>Motivo: ' + respOfertas.datos.motivo : ''),
+                        confirmButtonColor: '#22c55e'
+                    });
+                } else {
+                    Swal.fire('Crédito no encontrado', respOfertas.mensaje || 'El crédito ingresado no existe o no es elegible.', 'error');
+                }
                 return;
             }
 
