@@ -4738,8 +4738,15 @@ class CapHum extends Controller
                 }
                 var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small overflow-auto\">";
                 var errApi = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api) : "";
+                var checksTotNum = checksTotales != null ? parseInt(checksTotales, 10) : null;
+                var sinPuntuaciones = (scoreFrente == null || scoreFrente === "") && (scoreReverso == null || scoreReverso === "");
+                var respuestaVaciaApi = !errApi && checksTotNum === 0 && sinPuntuaciones && alertas.length === 0 && v.todo_coincide !== true;
                 if (errApi) {
-                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br>" + escHtmlComparaciones(errApi) + "</div>";
+                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-break\">" + escHtmlComparaciones(errApi) + "</span></div>";
+                } else if (respuestaVaciaApi) {
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>La API contestó sin datos útiles.</strong> No hay scores ni checks en la respuesta guardada. Suele indicar error no tipificado en la API o JSON inesperado; use Reintentar o revise logs Python.</div>";
+                }
+                if (errApi || respuestaVaciaApi) {
                     html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificación contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
@@ -5187,6 +5194,18 @@ class CapHum extends Controller
                 }
             }
 
+            /** Registro en consola del navegador (F12 → Consola) para copiar/pegar diagnósticos. Prefijo fijo: [Sparta candidatos · documentación] */
+            function candidatosDocConsola(nivel, titulo, datos) {
+                try {
+                    var fn = console.log;
+                    if (nivel === "error" && console.error) fn = console.error.bind(console);
+                    else if (nivel === "warn" && console.warn) fn = console.warn.bind(console);
+                    else if (nivel === "info" && console.info) fn = console.info.bind(console);
+                    if (datos !== undefined && datos !== null) fn("[Sparta candidatos · documentación] " + titulo, datos);
+                    else fn("[Sparta candidatos · documentación] " + titulo);
+                } catch (e2) {}
+            }
+
             function clearDocModalApiTrace() {
                 var el = document.getElementById("modalDocumentacionCandidatoApiTrace");
                 if (!el) return;
@@ -5216,6 +5235,7 @@ class CapHum extends Controller
                 var toMs = 960000;
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+                candidatosDocConsola("info", "verificarExpedienteCandidato · inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs });
                 setDocModalApiTrace("Consultando al servidor: POST /caphum/verificarExpedienteCandidato (puede tardar varios minutos mientras se habla con la API de documentos)…", "wait");
                 fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
                     .then(function(r) {
@@ -5224,6 +5244,7 @@ class CapHum extends Controller
                         return r.text().then(function(body) {
                             var res;
                             try { res = body ? JSON.parse(body) : {}; } catch (e) {
+                                candidatosDocConsola("error", "verificarExpedienteCandidato · respuesta no JSON", { id_candidato: idC, http_status: r.status, ms: ms, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
                                 setDocModalApiTrace("Respuesta no JSON del servidor (HTTP " + r.status + "). " + (ms != null ? "Tiempo: " + ms + " ms." : ""), "err");
                                 throw e;
                             }
@@ -5233,6 +5254,8 @@ class CapHum extends Controller
                     .then(function(box) {
                         var r = box.r, res = box.res, ms = box.ms;
                         var linea = "HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + ". ";
+                        var nivelCons = res && res.success ? "log" : "warn";
+                        candidatosDocConsola(nivelCons, "verificarExpedienteCandidato · respuesta", { id_candidato: idC, http_status: r.status, ms: ms, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
                         if (res && res.success) {
                             setDocModalApiTrace(linea + (res.mensaje || "Verificación registrada. Actualizando listado…"), "ok");
                         } else {
@@ -5249,6 +5272,7 @@ class CapHum extends Controller
                     })
                     .catch(function(err) {
                         clearTimeout(tid);
+                        candidatosDocConsola("error", "verificarExpedienteCandidato · error (catch)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack });
                         if (typeof Swal !== "undefined") {
                             var msg = (err && err.name === "AbortError") ? "La petición tardó demasiado (" + Math.round(toMs / 1000) + " s). Revise la API o aumente validar_expediente_timeout_seconds en config.ini." : "No hubo respuesta del servidor.";
                             Swal.fire({ icon: "error", title: "Error", text: msg, toast: true, position: "top-end", showConfirmButton: true });
@@ -5283,12 +5307,14 @@ class CapHum extends Controller
                 if (!opts.fromPoll) {
                     setDocModalApiTrace("Consultando al servidor: GET " + urlList + " …", "wait");
                 }
+                candidatosDocConsola("info", "getDocumentosCandidatoList · inicio", { id_candidato: idCandidato, fromPoll: !!opts.fromPoll, url: urlList });
                 fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" } }).then(function(r) {
                     var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0List) : null;
                     var cacheHdr = r.headers.get("X-Doc-List-Cache") || "";
                     return r.text().then(function(body) {
                         var res;
                         try { res = body ? JSON.parse(body) : {}; } catch (e) {
+                            candidatosDocConsola("error", "getDocumentosCandidatoList · JSON inválido", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache: cacheHdr, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
                             setDocModalApiTrace("Listado: respuesta no JSON (HTTP " + r.status + "). " + (ms != null ? ms + " ms." : "") + " Revise sesión o error PHP.", "err");
                             throw e;
                         }
@@ -5318,6 +5344,14 @@ class CapHum extends Controller
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
 
+                    candidatosDocConsola("log", "getDocumentosCandidatoList · respuesta", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache_listado: cacheHdr || null, success: !!res.success, mensaje: res.mensaje || null, n_documentos: docs.length, metricas: metricas || null, verificacion_resumen: verif ? { error_api: verif.error_api || null, checks_ok: verif.checks_ok, checks_totales: verif.checks_totales, todo_coincide: verif.todo_coincide } : null });
+                    if (!res.success) {
+                        candidatosDocConsola("warn", "getDocumentosCandidatoList · success=false (objeto completo)", res);
+                    }
+                    if (verif && verif.error_api != null && String(verif.error_api).trim() !== "") {
+                        candidatosDocConsola("error", "verificación expediente · error_api guardado en BD", { id_candidato: idCandidato, error_api: String(verif.error_api) });
+                    }
+
                     // Actualizar el Map global con los nuevos datos
                     actualizarDocumentosEnMap(idCandidato, {
                         documentos: docs,
@@ -5345,6 +5379,7 @@ class CapHum extends Controller
                     }
                     maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
                 }).catch(function(err) {
+                    candidatosDocConsola("error", "getDocumentosCandidatoList · catch", { id_candidato: idCandidato, name: err && err.name, message: err && err.message, stack: err && err.stack });
                     if (!err || (err.name !== "SyntaxError" && err.message && String(err.message).indexOf("JSON") === -1)) {
                         setDocModalApiTrace("Listado: fallo de red o sin respuesta. " + (err && err.message ? err.message : ""), "err");
                     }
@@ -7065,7 +7100,10 @@ class CapHum extends Controller
                 'error_api' => $resultadoApi['error'],
             ];
             CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
-            echo json_encode(self::respuesta(true, 'La API falló, pero se registró el resultado para liberar el expediente.', ['verificacion_expediente' => $payloadError]));
+            $errTxt = (string) ($resultadoApi['error'] ?? '');
+            $toast = 'Fallo de verificación API (quedó guardado en el expediente). ';
+            $toast .= function_exists('mb_strlen') && mb_strlen($errTxt) > 320 ? mb_substr($errTxt, 0, 320) . '…' : ($errTxt !== '' ? $errTxt : 'Sin detalle.');
+            echo json_encode(self::respuesta(true, $toast, ['verificacion_expediente' => $payloadError]));
             return;
         }
         $payload = [
@@ -7804,6 +7842,49 @@ class CapHum extends Controller
         return $post;
     }
 
+    /**
+     * Extrae mensaje legible del cuerpo de error de la API (FastAPI suele usar {"detail": ...}).
+     */
+    private function expedienteApiExtraerDetalleRespuesta($body, int $httpCode): string
+    {
+        if ($body === null || $body === false || $body === '') {
+            return '(sin cuerpo de respuesta de la API)';
+        }
+        $trim = trim((string) $body);
+        $dec = json_decode($trim, true);
+        if (is_array($dec)) {
+            if (isset($dec['detail'])) {
+                $d = $dec['detail'];
+                if (is_string($d)) {
+                    return $d;
+                }
+                if (is_array($d)) {
+                    $flat = json_encode($d, JSON_UNESCAPED_UNICODE);
+                    return function_exists('mb_strlen') && mb_strlen($flat) > 650
+                        ? mb_substr($flat, 0, 650) . '…'
+                        : (strlen($flat) > 650 ? substr($flat, 0, 650) . '…' : $flat);
+                }
+            }
+            if (isset($dec['message']) && is_string($dec['message'])) {
+                return $dec['message'];
+            }
+            if (isset($dec['error'])) {
+                $e = $dec['error'];
+                return is_string($e) ? $e : json_encode($e, JSON_UNESCAPED_UNICODE);
+            }
+            $flat = json_encode($dec, JSON_UNESCAPED_UNICODE);
+            return function_exists('mb_strlen') && mb_strlen($flat) > 650
+                ? mb_substr($flat, 0, 650) . '…'
+                : (strlen($flat) > 650 ? substr($flat, 0, 650) . '…' : $flat);
+        }
+        $one = preg_replace('/\s+/', ' ', $trim);
+        if (function_exists('mb_strlen')) {
+            return mb_strlen($one) > 500 ? mb_substr($one, 0, 500) . '…' : $one;
+        }
+
+        return strlen($one) > 500 ? substr($one, 0, 500) . '…' : $one;
+    }
+
     private function validarExpedienteCurlDebeReintentar(int $curlErrno, int $httpCode): bool
     {
         if (in_array($httpCode, [429, 500, 502, 503, 504], true)) {
@@ -7910,7 +7991,9 @@ class CapHum extends Controller
             curl_close($ch);
 
             if (in_array($httpCode, [400, 401, 403, 404, 422], true)) {
-                return ['error' => 'La API respondió con código HTTP ' . $httpCode . '. Revise api_key, archivos o logs de la API.'];
+                $detApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
+
+                return ['error' => 'HTTP ' . $httpCode . ' en validar-expediente. ' . $detApi . ' (Si es 422/400: revise PDF de identificación, peso del archivo o formato; si es 401/403: api_key en config.ini.)'];
             }
 
             $respuestaOk = ($curlErrno === 0 && $httpCode === 200 && $body !== false && $body !== '');
@@ -7919,13 +8002,27 @@ class CapHum extends Controller
                 if (is_array($data) && !isset($data['error'])) {
                     return $data;
                 }
-                $lastPayloadError = ['error' => 'La API devolvió una respuesta inválida.'];
+                if (is_array($data) && isset($data['error'])) {
+                    $msg = is_string($data['error']) ? $data['error'] : json_encode($data['error'], JSON_UNESCAPED_UNICODE);
+                    if (function_exists('mb_strlen') && mb_strlen($msg) > 700) {
+                        $msg = mb_substr($msg, 0, 700) . '…';
+                    } elseif (strlen($msg) > 700) {
+                        $msg = substr($msg, 0, 700) . '…';
+                    }
 
-                return $lastPayloadError;
+                    return ['error' => 'La API respondió 200 pero reportó error en JSON: ' . $msg];
+                }
+                $snippet = is_string($body) ? (function_exists('mb_substr') ? mb_substr(preg_replace('/\s+/', ' ', $body), 0, 400) : substr(preg_replace('/\s+/', ' ', $body), 0, 400)) : '';
+
+                return ['error' => 'La API respondió 200 pero el JSON no tiene el formato esperado de expediente. Fragmento: ' . $snippet];
             }
 
             if ($httpCode !== 200 && $httpCode > 0) {
-                $detalle = 'La API respondió con código HTTP ' . $httpCode . '.' . ($curlErr !== '' ? ' ' . $curlErr : '');
+                $detApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
+                $detalle = 'La API respondió HTTP ' . $httpCode . '. ' . $detApi;
+                if ($curlErr !== '') {
+                    $detalle .= ' · cURL: ' . $curlErr;
+                }
             } else {
                 $mensaje = $curlErr !== '' ? $curlErr : 'Error de conexión (código ' . $curlErrno . ').';
                 $detalle = 'No se pudo conectar con la API: ' . $mensaje;

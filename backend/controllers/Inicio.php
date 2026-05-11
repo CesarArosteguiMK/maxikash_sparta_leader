@@ -1422,6 +1422,12 @@ class Inicio extends Controller
         ];
 
         $interpretacion = [];
+        $patronSinFalloRed = $healthOk && $tcp['ok'] && $gErrno === 0 && $pErrno === 0
+            && in_array($gCode, [200, 204, 301, 302, 303, 307, 308, 400, 401, 403, 404, 405], true)
+            && in_array($pCode, [400, 401, 403, 404, 422], true);
+        if ($patronSinFalloRed) {
+            $interpretacion[] = 'Buenas noticias: en estas pruebas no hay fallo de red ni de ruta. HTTP 405 en GET /validar-expediente (solo POST) y HTTP 400 sin PDF son respuestas esperadas de una API viva; PHP y la API en 127.0.0.1:8000 se entienden en milisegundos.';
+        }
         if (!$healthOk) {
             $interpretacion[] = 'Health falló: la API no respondió 200 en /health (revisar URL base, firewall o que uvicorn esté arriba).';
         }
@@ -1432,7 +1438,7 @@ class Inicio extends Controller
             $interpretacion[] = 'POST mínimo hizo timeout: mismo síntoma que expedientes reales; revisar logs del proceso Python.';
         } elseif ($pCode === 0 && $pErrno !== 0) {
             $interpretacion[] = 'POST mínimo sin HTTP: error de transporte cURL (' . $pErrno . ').';
-        } elseif (in_array($pCode, [400, 401, 403, 404, 422], true)) {
+        } elseif (in_array($pCode, [400, 401, 403, 404, 422], true) && !$patronSinFalloRed) {
             $interpretacion[] = 'POST mínimo obtuvo HTTP ' . $pCode . ': la ruta existe y rechaza el payload vacío (esperado); el canal PHP→API para POST funciona.';
         }
         if ($interpretacion === []) {

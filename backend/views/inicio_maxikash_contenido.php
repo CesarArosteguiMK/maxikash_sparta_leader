@@ -1561,9 +1561,15 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         })
         .then(function (data) {
           outDocVerDiag.textContent = JSON.stringify(data, null, 2);
+          try {
+            console.log('[Sparta inicio · docVerificacionDiagnostico878] resultado JSON (copiar desde Consola o desde el panel)', data);
+          } catch (e) {}
         })
         .catch(function (err) {
           outDocVerDiag.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+          try {
+            console.error('[Sparta inicio · docVerificacionDiagnostico878] fallo', { message: err && err.message, stack: err && err.stack });
+          } catch (e) {}
         })
         .finally(function () {
           docVerDiagBusy = false;
@@ -1772,6 +1778,9 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       })
       .catch(function(err){
         srvSetActionFoot('✗ Error: ' + (err && err.message ? err.message : String(err)), 'estado-srv-foot-action--err');
+        try {
+          console.error('[Sparta inicio · serviciosLocalesAccion]', { serviceId: serviceId, serviceName: serviceName, action: action, message: err && err.message, stack: err && err.stack });
+        } catch (e) {}
       })
       .finally(function(){
         serviceCtlBusy = false;
@@ -1857,6 +1866,9 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         summary.textContent = 'ERR';
         summary.className = 'estado-srv-summary err';
         if (footGen) footGen.textContent = 'Generado: —';
+        try {
+          console.error('[Sparta inicio · serviciosLocalesEstado]', { message: err && err.message, stack: err && err.stack });
+        } catch (e) {}
       })
       .finally(function(){ inFlight = false; });
   }
