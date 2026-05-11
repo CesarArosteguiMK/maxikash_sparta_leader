@@ -1303,7 +1303,13 @@ class Inicio extends Controller
         $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
         $baseUrl = rtrim((string) $baseUrl, '/');
         $healthUrl = $baseUrl . '/health';
-        $validarUrl = $baseUrl . '/validar-expediente';
+        $docSecIni = isset($config['doc_verificacion']) && is_array($config['doc_verificacion']) ? $config['doc_verificacion'] : [];
+        $tipoDiag = strtoupper(trim((string) ($docSecIni['validar_expediente_tipo_documento'] ?? 'INE_NUEVA')));
+        $tiposDiagOk = ['INE_NUEVA', 'INE_ANTERIOR', 'RESIDENCIA_TEMPORAL', 'RESIDENCIA_TEMPORAL_ACUMULATIVA', 'RESIDENCIA_PERMANENTE', 'DESCONOCIDO'];
+        if (!in_array($tipoDiag, $tiposDiagOk, true)) {
+            $tipoDiag = 'INE_NUEVA';
+        }
+        $validarUrl = $baseUrl . '/validar-expediente?' . http_build_query(['tipo_documento' => $tipoDiag]);
         $out['urls'] = [
             'base_resolved' => $baseUrl,
             'health'        => $healthUrl,
@@ -1397,7 +1403,7 @@ class Inicio extends Controller
         ];
 
         $t0 = microtime(true);
-        $postFields = ['tipo_documento' => '__diag878_sin_archivos__'];
+        $postFields = ['tipo_documento' => $tipoDiag];
         $chPost = curl_init($validarUrl);
         curl_setopt_array($chPost, [
             CURLOPT_POST => true,

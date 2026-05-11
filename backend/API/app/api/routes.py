@@ -819,12 +819,25 @@ async def validar_expediente(
     constancia_fiscal: Optional[UploadFile] = File(None, description="PDF constancia de situación fiscal"),
     acta_nacimiento: Optional[UploadFile] = File(None, description="PDF acta de nacimiento"),
     nombre_candidato_registro: Optional[str] = Form(None, description="Nombre registrado del candidato en Sparta Ledger"),
-    tipo_documento: Optional[TipoDocumento] = Query(
-        TipoDocumento.RESIDENCIA_TEMPORAL,
-        description="Tipo de documento de identificación"
+    tipo_documento_query: Optional[TipoDocumento] = Query(
+        None,
+        alias="tipo_documento",
+        description="Tipo de identificación (query). Si no se envía, se usa Form o el valor por defecto.",
+    ),
+    tipo_documento_form: Optional[TipoDocumento] = Form(
+        None,
+        alias="tipo_documento",
+        description="Tipo de identificación (campo form multipart). PHP lo envía con este nombre; coincide con ?tipo_documento= en query.",
     ),
     api_key: str = Depends(verificar_api_key)
 ):
+    # Query tiene prioridad sobre Form; si ambos faltan, mantener default histórico (residencia).
+    tipo_documento = (
+        tipo_documento_query
+        if tipo_documento_query is not None
+        else (tipo_documento_form if tipo_documento_form is not None else TipoDocumento.RESIDENCIA_TEMPORAL)
+    )
+
     # Resolver frente y reverso: desde PDF (páginas 1 y 2) o desde archivos separados
     frente_bytes: Optional[bytes] = None
     reverso_bytes: Optional[bytes] = None

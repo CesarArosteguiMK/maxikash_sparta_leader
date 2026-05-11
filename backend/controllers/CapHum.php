@@ -5232,7 +5232,8 @@ class CapHum extends Controller
                 var fd = new FormData();
                 fd.append("id_candidato", String(idC));
                 var ctrl = new AbortController();
-                var toMs = 960000;
+                // Debe cubrir varios intentos PHP + low-speed abort (~90 s c/u) sin dejar el navegador 16 min colgado.
+                var toMs = 420000;
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato · inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs });
@@ -7810,10 +7811,20 @@ class CapHum extends Controller
      * @param array<string, mixed> $rutas
      * @return array<string, mixed>|null
      */
-    private function construirPostValidarExpedienteMultipart(array $rutas, $nombreCandidatoRegistro)
+    /**
+     * Tipo de identificación para /validar-expediente (debe coincidir con enum TipoDocumento en la API Python).
+     */
+    private function docVerificacionTipoExpediente(array $docCfg): string
+    {
+        $t = strtoupper(trim((string) ($docCfg['validar_expediente_tipo_documento'] ?? 'INE_NUEVA')));
+        $ok = ['INE_NUEVA', 'INE_ANTERIOR', 'RESIDENCIA_TEMPORAL', 'RESIDENCIA_TEMPORAL_ACUMULATIVA', 'RESIDENCIA_PERMANENTE', 'DESCONOCIDO'];
+        return in_array($t, $ok, true) ? $t : 'INE_NUEVA';
+    }
+
+    private function construirPostValidarExpedienteMultipart(array $rutas, $nombreCandidatoRegistro, string $tipoDocumentoIdentidad)
     {
         $post = [
-            'tipo_documento' => 'RESIDENCIA_TEMPORAL',
+            'tipo_documento' => $tipoDocumentoIdentidad,
         ];
         $nombreCandidatoRegistro = trim((string) $nombreCandidatoRegistro);
         if ($nombreCandidatoRegistro !== '') {
@@ -7885,8 +7896,16 @@ class CapHum extends Controller
         return strlen($one) > 500 ? substr($one, 0, 500) . '…' : $one;
     }
 
-    private function validarExpedienteCurlDebeReintentar(int $curlErrno, int $httpCode): bool
+    /**
+     * @param int $bytesDownloaded CURLINFO_SIZE_DOWNLOAD (respuesta del servidor); 0 con timeout = colgado, no sirve reintentar igual.
+     */
+    private function validarExpedienteCurlDebeReintentar(int $curlErrno, int $httpCode, string $curlErr = '', int $bytesDownloaded = -1): bool
     {
+        if ($curlErrno === 28 || ($curlErr !== '' && stripos($curlErr, 'timed out') !== false)) {
+            if ($bytesDownloaded <= 0 && (stripos($curlErr, '0 bytes received') !== false || $httpCode === 0)) {
+                return false;
+            }
+        }
         if (in_array($httpCode, [429, 500, 502, 503, 504], true)) {
             return true;
         }
@@ -7945,8 +7964,9 @@ class CapHum extends Controller
             return ['error' => 'La API no responde (health-check). Revise api_url en config.ini [doc_verificacion] y que el servicio esté en marcha (ej. uvicorn). ' . ($hLastErr !== '' ? $hLastErr : '')];
         }
 
-        $urlExp = rtrim($baseUrl, '/') . '/validar-expediente';
-        $docCfg = $config['doc_verificacion'] ?? [];
+        $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
+        $tipoDocExp = $this->docVerificacionTipoExpediente($docCfg);
+        $urlExp = rtrim($baseUrl, '/') . '/validar-expediente?' . http_build_query(['tipo_documento' => $tipoDocExp]);
         $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 300;
         if ($timeoutExp < 90) {
             $timeoutExp = 90;
@@ -7966,15 +7986,39 @@ class CapHum extends Controller
             @set_time_limit(max(900, $timeoutExp * $totalIntentos + 120 + ($maxExtraRetries * 15)));
         }
 
+        $lowSpeedTime = isset($docCfg['validar_expediente_low_speed_time_seconds']) ? (int) $docCfg['validar_expediente_low_speed_time_seconds'] : 90;
+        if ($lowSpeedTime < 20) {
+            $lowSpeedTime = 20;
+        }
+        if ($lowSpeedTime > $timeoutExp - 15) {
+            $lowSpeedTime = max(20, $timeoutExp - 30);
+        }
+        $lowSpeedLimit = isset($docCfg['validar_expediente_low_speed_limit_bps']) ? (int) $docCfg['validar_expediente_low_speed_limit_bps'] : 32;
+        if ($lowSpeedLimit < 1) {
+            $lowSpeedLimit = 1;
+        }
+        if ($lowSpeedLimit > 4096) {
+            $lowSpeedLimit = 4096;
+        }
+
         $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
         for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
             if ($attempt > 0) {
                 sleep(min(15, 2 * $attempt + 1));
             }
-            $post = $this->construirPostValidarExpedienteMultipart($rutas, $nombreCandidatoRegistro);
+            $post = $this->construirPostValidarExpedienteMultipart($rutas, $nombreCandidatoRegistro, $tipoDocExp);
             if ($post === null) {
                 return null;
             }
+            $diagArchivos = [];
+            foreach ($post as $pk => $pv) {
+                if ($pv instanceof \CURLFile) {
+                    $fn = $pv->getFilename();
+                    $diagArchivos[$pk] = (is_string($fn) && is_file($fn)) ? (int) filesize($fn) : 0;
+                }
+            }
+            error_log('CapHum::validarExpedienteApi intento ' . ($attempt + 1) . '/' . $totalIntentos . ' tipo_documento=' . $tipoDocExp . ' archivos_bytes=' . json_encode($diagArchivos));
+
             $ch = curl_init($urlExp);
             curl_setopt_array($ch, [
                 CURLOPT_POST => true,
@@ -7983,11 +8027,14 @@ class CapHum extends Controller
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => $timeoutExp,
                 CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_LOW_SPEED_TIME => $lowSpeedTime,
+                CURLOPT_LOW_SPEED_LIMIT => $lowSpeedLimit,
             ]);
             $body = curl_exec($ch);
             $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $curlErr = curl_error($ch);
             $curlErrno = (int) curl_errno($ch);
+            $bytesDown = (int) curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
             curl_close($ch);
 
             if (in_array($httpCode, [400, 401, 403, 404, 422], true)) {
@@ -8027,7 +8074,9 @@ class CapHum extends Controller
                 $mensaje = $curlErr !== '' ? $curlErr : 'Error de conexión (código ' . $curlErrno . ').';
                 $detalle = 'No se pudo conectar con la API: ' . $mensaje;
                 if ($curlErrno === 28 || ($curlErr !== '' && stripos($curlErr, 'timed out') !== false)) {
-                    $detalle .= ' Timeout por solicitud: ' . $timeoutExp . ' s; hasta ' . $totalIntentos . ' intento(s) con pausa. Ajuste validar_expediente_timeout_seconds o validar_expediente_retries en [doc_verificacion].';
+                    $detalle .= ' Timeout total configurado: ' . $timeoutExp . ' s; hasta ' . $totalIntentos . ' intento(s).';
+                    $detalle .= ' Si no llegó ningún byte de respuesta, el proceso Python (puerto 8000) suele estar colgado en OCR: reinicie uvicorn y revise logs.';
+                    $detalle .= ' Velocidad mínima: si no hay datos en ' . $lowSpeedTime . ' s, cURL aborta antes (validar_expediente_low_speed_time_seconds en config.ini).';
                 }
             }
             if ($attempt < $totalIntentos - 1) {
@@ -8035,7 +8084,7 @@ class CapHum extends Controller
             }
             $lastPayloadError = ['error' => $detalle];
 
-            $puedeReintentar = $attempt < $totalIntentos - 1 && $this->validarExpedienteCurlDebeReintentar($curlErrno, $httpCode);
+            $puedeReintentar = $attempt < $totalIntentos - 1 && $this->validarExpedienteCurlDebeReintentar($curlErrno, $httpCode, $curlErr, $bytesDown);
             if (!$puedeReintentar) {
                 return $lastPayloadError;
             }
