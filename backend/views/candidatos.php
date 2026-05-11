@@ -2,6 +2,7 @@
 $departamento = $departamento ?? ['datos' => []];
 $paisesActivos = $paisesActivos ?? [];
 $listaJefes = $listaJefes ?? [];
+$mostrarDiagVerificacionDoc = !empty($mostrarDiagVerificacionDoc);
 ?>
 <div class="content-wrapper">
 
@@ -200,6 +201,20 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
+                <?php if ($mostrarDiagVerificacionDoc): ?>
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-info" id="btnCandidatoValidarSoloIdentificacion" title="Llama a la API solo con el PDF de identificación oficial (sin CURP, NSS, constancia ni acta)">
+                        <i class="fa fa-id-card me-1"></i> Validar 1 (solo identificación)
+                    </button>
+                    <span class="text-muted small">Prueba rápida de la API / OCR sin el resto del expediente.</span>
+                </div>
+                <div class="form-check mb-3 border rounded px-3 py-2 bg-body-secondary">
+                    <input class="form-check-input" type="checkbox" value="1" id="chkCandidatoVerifSoloIdentificacion">
+                    <label class="form-check-label small" for="chkCandidatoVerifSoloIdentificacion">
+                        <strong>Prueba / diagnóstico:</strong> al usar «Reintentar API», enviar <em>solo</em> el PDF de identificación oficial (no adjuntar CURP, NSS, constancia fiscal ni acta). Útil para aislar fallos de la API u OCR. Desmarcar para verificación completa.
+                    </label>
+                </div>
+                <?php endif; ?>
                 <div id="modalDocumentacionCandidatoApiTrace" class="alert alert-secondary small py-2 mb-2 d-none" role="status" aria-live="polite"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
                 <div class="row g-3 align-items-stretch">
@@ -334,6 +349,20 @@ $listaJefes = $listaJefes ?? [];
                     <option value="">Seleccione una colonia</option>
                 </select>
             </div>
+            <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
+                <label class="form-label">Calle <span class="text-danger">*</span></label>
+                <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
+            </div>
+            <div class="row mb-2" id="div_candidato_num_extint" style="display:none;">
+                <div class="col-md-6">
+                    <label class="form-label">No. exterior <span class="text-danger">*</span></label>
+                    <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">No. interior (opcional)</label>
+                    <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
+                </div>
+            </div>
             <div class="mb-2">
                 <label class="form-label">Departamento al que aplica <span class="text-danger">*</span></label>
                 <select name="id_departamento" id="candidato_id_departamento" class="form-select js-select-buscador" required>
@@ -354,20 +383,6 @@ $listaJefes = $listaJefes ?? [];
                 <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select js-select-buscador" required>
                     <option value="">Seleccione departamento y puesto primero</option>
                 </select>
-            </div>
-            <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
-                <label class="form-label">Calle <span class="text-danger">*</span></label>
-                <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
-            </div>
-            <div class="row mb-2" id="div_candidato_num_extint" style="display:none;">
-                <div class="col-md-6">
-                    <label class="form-label">No. exterior <span class="text-danger">*</span></label>
-                    <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">No. interior (opcional)</label>
-                    <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
-                </div>
             </div>
             <div class="mb-2">
                 <label class="form-label">Fecha de postulación <span class="text-danger">*</span></label>
