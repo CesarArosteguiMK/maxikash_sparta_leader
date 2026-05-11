@@ -2,7 +2,6 @@
 $departamento = $departamento ?? ['datos' => []];
 $paisesActivos = $paisesActivos ?? [];
 $listaJefes = $listaJefes ?? [];
-$mostrarDiagVerificacionDoc = !empty($mostrarDiagVerificacionDoc);
 ?>
 <div class="content-wrapper">
 
@@ -201,20 +200,6 @@ $mostrarDiagVerificacionDoc = !empty($mostrarDiagVerificacionDoc);
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
-                <?php if ($mostrarDiagVerificacionDoc): ?>
-                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-                    <button type="button" class="btn btn-sm btn-outline-info" id="btnCandidatoValidarSoloIdentificacion" title="Llama a la API solo con el PDF de identificación oficial (sin CURP, NSS, constancia ni acta)">
-                        <i class="fa fa-id-card me-1"></i> Validar 1 (solo identificación)
-                    </button>
-                    <span class="text-muted small">Prueba rápida de la API / OCR sin el resto del expediente.</span>
-                </div>
-                <div class="form-check mb-3 border rounded px-3 py-2 bg-body-secondary">
-                    <input class="form-check-input" type="checkbox" value="1" id="chkCandidatoVerifSoloIdentificacion">
-                    <label class="form-check-label small" for="chkCandidatoVerifSoloIdentificacion">
-                        <strong>Prueba / diagnóstico:</strong> al usar «Reintentar API», enviar <em>solo</em> el PDF de identificación oficial (no adjuntar CURP, NSS, constancia fiscal ni acta). Útil para aislar fallos de la API u OCR. Desmarcar para verificación completa.
-                    </label>
-                </div>
-                <?php endif; ?>
                 <div id="modalDocumentacionCandidatoApiTrace" class="alert alert-secondary small py-2 mb-2 d-none" role="status" aria-live="polite"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
                 <div class="row g-3 align-items-stretch">
