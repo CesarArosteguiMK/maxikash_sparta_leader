@@ -1256,7 +1256,7 @@ class CapHum extends Model
                 CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre,
                 ap.id_puesto
             FROM persona p
-            INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
+            INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
             INNER JOIN puesto pp ON pp.id = ap.id_puesto
             WHERE ap.id_puesto IN ($placeholdersStr)
               AND p.estatus != 'Baja'
@@ -1293,20 +1293,22 @@ class CapHum extends Model
         $id_departamento = (int) $id_departamento;
         $filtroDepto = '';
         if ($id_departamento > 0) {
-            $filtroDepto = " AND p.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE pp_in.departamento_id = $id_departamento)";
+            $filtroDepto = " AND p.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE ap_in.activo = 1 AND pp_in.departamento_id = $id_departamento)";
         }
         $filtroDepto2 = '';
         if ($id_departamento > 0) {
-            $filtroDepto2 = " AND p2.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE pp_in.departamento_id = $id_departamento)";
+            $filtroDepto2 = " AND p2.id IN (SELECT ap_in.id_persona FROM asigna_puesto ap_in INNER JOIN puesto pp_in ON pp_in.id = ap_in.id_puesto WHERE ap_in.activo = 1 AND pp_in.departamento_id = $id_departamento)";
         }
         // Un puesto por persona: si hay departamento, solo puestos de ese departamento y el de mayor rango (menor nivel)
         // Sin departamento: cualquier puesto, desempate por MIN(id_puesto)
         // Con departamento: el puesto de MAYOR nivel (mayor rango) en ese departamento; desempate por MIN(id_puesto)
-        $subqueryPuesto = "SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto GROUP BY id_persona";
+        // Solo asigna_puesto activo (activo=1); si no, filas históricas/inactivas sesgan MAX(nivel) y el título en organigrama.
+        $subqueryPuesto = "SELECT id_persona, MIN(id_puesto) AS id_puesto FROM asigna_puesto WHERE activo = 1 GROUP BY id_persona";
         if ($id_departamento > 0) {
             $subqueryPuesto = "SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto FROM asigna_puesto ap "
                 . "INNER JOIN puesto pp ON pp.id = ap.id_puesto AND pp.departamento_id = $id_departamento "
-                . "INNER JOIN (SELECT ap2.id_persona, MAX(pp2.nivel) AS max_nivel FROM asigna_puesto ap2 INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto AND pp2.departamento_id = $id_departamento GROUP BY ap2.id_persona) sel ON sel.id_persona = ap.id_persona AND pp.nivel = sel.max_nivel "
+                . "INNER JOIN (SELECT ap2.id_persona, MAX(pp2.nivel) AS max_nivel FROM asigna_puesto ap2 INNER JOIN puesto pp2 ON pp2.id = ap2.id_puesto AND pp2.departamento_id = $id_departamento WHERE ap2.activo = 1 GROUP BY ap2.id_persona) sel ON sel.id_persona = ap.id_persona AND pp.nivel = sel.max_nivel "
+                . "WHERE ap.activo = 1 "
                 . "GROUP BY ap.id_persona";
         }
         $filtroPuestoRaiz = $id_departamento > 0 ? " AND pp.departamento_id = $id_departamento" : '';
@@ -1369,7 +1371,7 @@ class CapHum extends Model
                 'nombre_puesto', (
                     SELECT pp.nombre
                     FROM persona p
-                    INNER JOIN asigna_puesto ap ON ap.id_persona = p.id
+                    INNER JOIN asigna_puesto ap ON ap.id_persona = p.id AND ap.activo = 1
                     INNER JOIN puesto pp ON pp.id = ap.id_puesto
                     WHERE p.id = $id_persona $filtroPuestoRaiz
                     $orderPuestoRaiz
@@ -1529,6 +1531,7 @@ class CapHum extends Model
             FROM asigna_puesto ap
             INNER JOIN puesto pp ON pp.id = ap.id_puesto
             WHERE ap.id_persona = :id_persona
+              AND ap.activo = 1
             $filtroDepto
             ORDER BY pp.nombre ASC
         SQL;

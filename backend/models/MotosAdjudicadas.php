@@ -192,10 +192,10 @@ class MotosAdjudicadas extends Model
             "UPDATE adj_operacion SET `{$col}` = :est, fecha_actualizacion = :f WHERE id = :id",
             ['est' => $estado, 'f' => $ahora, 'id' => $idOperacion]
         );
-        $label = $documento === 'dacion' ? 'CONTRATO DACI??N' : 'TARJETA CIRCULACI??N';
+        $label = $documento === 'dacion' ? 'CONTRATO DACIÓN' : 'TARJETA CIRCULACIÓN';
         $this->registrarBitacora(
             $idOperacion,
-            "RECEPCI??N DOC {$label}: " . strtoupper($estado),
+            "RECEPCIÓN DOC {$label}: " . strtoupper($estado),
             $idUsuario,
             $nombreUsuario,
             $ahora
@@ -348,7 +348,7 @@ class MotosAdjudicadas extends Model
 
         $this->registrarBitacora(
             $idOperacion,
-            'RECEPCI??N EN ALMAC??N CONFIRMADA: ' . $ubicacion,
+            'RECEPCIÓN EN ALMACÉN CONFIRMADA: ' . $ubicacion,
             $idUsuario,
             $nombreUsuario,
             $ahora
@@ -1186,7 +1186,7 @@ class MotosAdjudicadas extends Model
         }
         $this->registrarBitacora(
             $idOperacion,
-            'LLEGADA A ALMAC??N REGISTRADA (RECEPCI??N): ' . $ahora,
+            'LLEGADA A ALMACÉN REGISTRADA (RECEPCIÓN): ' . $ahora,
             $idUsuario,
             $nombreUsuario,
             $ahora
@@ -1446,7 +1446,7 @@ class MotosAdjudicadas extends Model
         }
 
         $slotLabel = self::SLOT_LABELS[$slot] ?? strtoupper($slot);
-        $this->registrarBitacora($idOperacion, 'SUBI?? EVIDENCIA EN ' . $slotLabel, $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, 'SUBIÓ EVIDENCIA EN ' . $slotLabel, $idUsuario, $nombreUsuario);
 
         if (in_array($slot, ['doc_dacion_rcpt', 'doc_tarjeta_rcpt'], true)) {
             $this->marcarRecepcionDocumentoRecibidoEnOperacion($idOperacion, $slot);
@@ -1489,21 +1489,57 @@ class MotosAdjudicadas extends Model
     }
 
     // =========================================================================
-    // BIT?CORA
+    // BITÁCORA
     // =========================================================================
+
+    /**
+     * Textos guardados con codificación rota (?? en lugar de tilde) o mezcla legacy + UTF-8.
+     */
+    private function normalizarAdjBitacoraAccionDisplay(string $accion): string
+    {
+        static $map = [
+            'SUBI??'        => 'SUBIÓ',
+            'ENVI??'        => 'ENVIÓ',
+            'VALIDACI??N'   => 'VALIDACIÓN',
+            'DACI??N'       => 'DACIÓN',
+            'RECEPCI??N'    => 'RECEPCIÓN',
+            'ALMAC??N'      => 'ALMACÉN',
+            'CONFIRMACI??N' => 'CONFIRMACIÓN',
+            'CIRCULACI??N'  => 'CIRCULACIÓN',
+            'TAC??METRO'    => 'TACÓMETRO',
+            'RECOLECCI??N'  => 'RECOLECCIÓN',
+            'AGREG??'       => 'AGREGÓ',
+            'ACCI??N'       => 'ACCIÓN',
+            'INSPECCI??N'   => 'INSPECCIÓN',
+            'OD??METRO'     => 'ODÓMETRO',
+            'DA??OS'        => 'DAÑOS',
+            '(F?SICA)'      => '(FÍSICA)',
+        ];
+
+        return str_replace(array_keys($map), array_values($map), $accion);
+    }
 
     private function registrarBitacora(int $idOperacion, string $accion, int $idUsuario, string $nombreUsuario, ?string $fecha = null): void
     {
         if ($idOperacion <= 0) return;
         $fecha = $fecha ?? $this->fechaHoraCdmx();
+        $nom   = trim($nombreUsuario ?: 'SISTEMA');
+        $acc   = $accion;
+        if (function_exists('mb_strtoupper')) {
+            $nom = mb_strtoupper($nom, 'UTF-8');
+            $acc = mb_strtoupper($acc, 'UTF-8');
+        } else {
+            $nom = strtoupper($nom);
+            $acc = strtoupper($acc);
+        }
         $this->db->CRUD(
             "INSERT INTO adj_bitacora (id_operacion, id_usuario, nombre_usuario, accion, fecha_alta)
              VALUES (:id_op, :id_usr, :nombre, :accion, :fecha)",
             [
                 'id_op'  => $idOperacion,
                 'id_usr' => $idUsuario,
-                'nombre' => strtoupper(trim($nombreUsuario ?: 'SISTEMA')),
-                'accion' => strtoupper($accion),
+                'nombre' => $nom,
+                'accion' => $acc,
                 'fecha'  => $fecha,
             ]
         );
@@ -1511,7 +1547,7 @@ class MotosAdjudicadas extends Model
 
     public function obtenerBitacora(int $idOperacion): array
     {
-        return $this->db->queryAll(
+        $rows = $this->db->queryAll(
             "SELECT id, nombre_usuario, accion,
                     DATE_FORMAT(fecha_alta, '%d/%m/%Y %h:%i:%s %p') AS fecha_alta
              FROM adj_bitacora
@@ -1520,6 +1556,12 @@ class MotosAdjudicadas extends Model
              LIMIT 100",
             ['id' => $idOperacion]
         ) ?: [];
+        foreach ($rows as &$r) {
+            $r['accion'] = $this->normalizarAdjBitacoraAccionDisplay((string) ($r['accion'] ?? ''));
+        }
+        unset($r);
+
+        return $rows;
     }
 
     /**
@@ -1604,7 +1646,7 @@ class MotosAdjudicadas extends Model
         } elseif ($repuveEstatus !== null) {
             $estatusEnvioTxt = $repuveEstatus;
         } else {
-            $estatusEnvioTxt = '???';
+            $estatusEnvioTxt = '—';
         }
 
         $scoreIa = null;
@@ -1656,7 +1698,7 @@ class MotosAdjudicadas extends Model
 
         $this->registrarBitacora(
             $idOperacion,
-            'CONFIRMACI??N: Cierre documentado registrado en S2',
+            'CONFIRMACIÓN: Cierre documentado registrado en S2',
             $idUsuario,
             $nombreUsuario
         );
@@ -1678,7 +1720,7 @@ class MotosAdjudicadas extends Model
                 'llamada_a'          => 'Cierre S2',
                 'numero'             => '',
                 'persona_contactada' => $nombreUsuario !== '' ? $nombreUsuario : 'Usuario',
-                'tipo_contacto'      => 'Cierre documentaci?n',
+                'tipo_contacto'      => 'Cierre documentación',
                 'resultado'          => 'Confirmado en S2',
                 'dictamen'           => 'Cierre documentado confirmado en S2',
                 'plataforma'         => 'S2',
@@ -1733,11 +1775,38 @@ class MotosAdjudicadas extends Model
         }
 
         if ($comentarios !== '') {
-            $obs = $this->agregarObservacion($idOperacion, 'Recuperaci?n', 'Cartera', $idUsuario, $comentarios, $nombreUsuario);
+            $obs = $this->agregarObservacion($idOperacion, 'Recuperación', 'Cartera', $idUsuario, $comentarios, $nombreUsuario);
             if (empty($obs['success'])) {
                 return $obs;
             }
         }
+
+        /**
+         * Registro en adj_dictamen: las listas de 3.- Recuperaci?n (bandeja vs dictaminado) dependen de
+         * tener dictamen al estar en Cierre documentado; sin esta fila la operaci?n queda ??colgada?? en bandeja.
+         */
+        $ahora = $this->fechaHoraCdmx();
+        $this->db->CRUD(
+            "INSERT INTO adj_dictamen
+                (id_operacion, llamada_a, numero, persona_contactada, tipo_contacto,
+                 resultado, dictamen, plataforma, comentarios, id_usuario, fecha_alta)
+             VALUES
+                (:id_operacion, :llamada_a, :numero, :persona_contactada, :tipo_contacto,
+                 :resultado, :dictamen, :plataforma, :comentarios, :id_usuario, :fecha_alta)",
+            [
+                'id_operacion'       => $idOperacion,
+                'llamada_a'          => 'Cartera',
+                'numero'             => '',
+                'persona_contactada' => $nombreUsuario !== '' ? $nombreUsuario : 'Usuario',
+                'tipo_contacto'      => 'Recuperación',
+                'resultado'          => 'Expediente enviado',
+                'dictamen'           => 'Recuperación enviada a Cartera (evidencias y factura completas)',
+                'plataforma'         => 'Sparta',
+                'comentarios'        => $comentarios !== '' ? $comentarios : null,
+                'id_usuario'         => $idUsuario ?: null,
+                'fecha_alta'         => $ahora,
+            ]
+        );
 
         return $this->cambiarEstatus($idOperacion, 'Cierre Documentado', $idUsuario, $nombreUsuario);
     }
@@ -1949,14 +2018,23 @@ SQL;
         $op['evidencias'] = $evs;
 
         $op['resumen_evidencia_flujo'] = $this->construirResumenEvidenciaFlujo($evs, $op);
-        $op['validaciones_evidencia_timeline'] = $this->db->queryAll(
+        $timeline = $this->db->queryAll(
             "SELECT nombre_usuario, accion,
                     DATE_FORMAT(fecha_alta, '%d/%m/%Y %h:%i:%s %p') AS fecha_fmt
              FROM adj_bitacora
-             WHERE id_operacion = :id AND accion LIKE '%VALIDACI??N EVIDENCIA%'
+             WHERE id_operacion = :id
+               AND (
+                   accion LIKE '%VALIDACIÓN EVIDENCIA%'
+                   OR accion LIKE '%VALIDACI??N EVIDENCIA%'
+               )
              ORDER BY fecha_alta ASC",
             ['id' => $id]
         ) ?: [];
+        foreach ($timeline as &$tl) {
+            $tl['accion'] = $this->normalizarAdjBitacoraAccionDisplay((string) ($tl['accion'] ?? ''));
+        }
+        unset($tl);
+        $op['validaciones_evidencia_timeline'] = $timeline;
 
         $op['observaciones'] = $this->db->queryAll(
             "SELECT id, etapa, area, id_usuario, texto, DATE_FORMAT(fecha, '%Y-%m-%d %H:%i') AS fecha
@@ -2005,7 +2083,7 @@ SQL;
             ['id' => $idOperacion]
         );
 
-        $this->registrarBitacora($idOperacion, 'ENVI?? EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario);
 
         return ['success' => true];
     }
@@ -2083,38 +2161,38 @@ SQL;
     // =========================================================================
 
     private const SLOT_LABELS = [
-        'rec_tacometro' => 'TAC??METRO (RECOLECCI??N)',
-        'rec_serie'     => 'NO. SERIE (RECOLECCI??N)',
-        'rec_frontal'   => 'FRONTAL (RECOLECCI??N)',
-        'rec_lateral'   => 'LATERAL (RECOLECCI??N)',
-        'fis_vin'       => 'VIN (F?SICA)',
-        'fis_tacometro' => 'TAC??METRO (F?SICA)',
-        'fis_frontal'   => 'FRONTAL (F?SICA)',
-        'fis_lateral'   => 'LATERAL (F?SICA) [LEGACY]',
-        'fis_360'       => 'INSPECCI??N 360? [LEGACY]',
-        'fis_contrato_dacion' => 'CONTRATO DACI??N (F?SICA) [LEGACY]',
-        'fis_dacion_hoja_1' => 'DACI??N HOJA 1 (F?SICA)',
-        'fis_dacion_hoja_2' => 'DACI??N HOJA 2 (F?SICA)',
-        'fis_lateral_der' => 'LATERAL DERECHA (F?SICA)',
-        'fis_trasera' => 'TRASERA (F?SICA)',
-        'fis_lateral_izq' => 'LATERAL IZQUIERDA (F?SICA)',
-        'fis_video_cliente_acuerdo' => 'VIDEO CLIENTE DE ACUERDO (F?SICA)',
-        'fis_360_encendida' => 'VIDEO MOTO 360 ENCENDIDA (F?SICA)',
-        'fis_video_vuelta_prueba' => 'VIDEO VUELTA DE PRUEBA (F?SICA)',
+        'rec_tacometro' => 'TACÓMETRO (RECOLECCIÓN)',
+        'rec_serie'     => 'NO. SERIE (RECOLECCIÓN)',
+        'rec_frontal'   => 'FRONTAL (RECOLECCIÓN)',
+        'rec_lateral'   => 'LATERAL (RECOLECCIÓN)',
+        'fis_vin'       => 'VIN (FÍSICA)',
+        'fis_tacometro' => 'TACÓMETRO (FÍSICA)',
+        'fis_frontal'   => 'FRONTAL (FÍSICA)',
+        'fis_lateral'   => 'LATERAL (FÍSICA) [LEGACY]',
+        'fis_360'       => 'INSPECCIÓN 360° [LEGACY]',
+        'fis_contrato_dacion' => 'CONTRATO DACIÓN (FÍSICA) [LEGACY]',
+        'fis_dacion_hoja_1' => 'DACIÓN HOJA 1 (FÍSICA)',
+        'fis_dacion_hoja_2' => 'DACIÓN HOJA 2 (FÍSICA)',
+        'fis_lateral_der' => 'LATERAL DERECHA (FÍSICA)',
+        'fis_trasera' => 'TRASERA (FÍSICA)',
+        'fis_lateral_izq' => 'LATERAL IZQUIERDA (FÍSICA)',
+        'fis_video_cliente_acuerdo' => 'VIDEO CLIENTE DE ACUERDO (FÍSICA)',
+        'fis_360_encendida' => 'VIDEO MOTO 360 ENCENDIDA (FÍSICA)',
+        'fis_video_vuelta_prueba' => 'VIDEO VUELTA DE PRUEBA (FÍSICA)',
         'doc_repuve'    => 'REPUVE',
         'doc_factura'   => 'FACTURA',
-        'doc_cierre_s2' => 'CONFIRMACI??N CIERRE S2',
-        'doc_dacion_rcpt'   => 'CONTRATO DACI??N (RECEPCI??N ALMAC??N)',
-        'doc_tarjeta_rcpt'  => 'TARJETA CIRCULACI??N (RECEPCI??N ALMAC??N)',
-        'doc_firma_rcpt'    => 'FIRMA RECEPCI??N ALMAC??N',
-        'vista_trs'         => 'VISTA TRASERA (RECEPCI??N ALMAC??N)',
-        'vista_front'       => 'VISTA FRONTAL (RECEPCI??N ALMAC??N)',
-        'lado_izq'          => 'LADO IZQUIERDO (RECEPCI??N ALMAC??N)',
-        'lado_der'          => 'LADO DERECHO (RECEPCI??N ALMAC??N)',
-        'tablero'           => 'TABLERO / OD??METRO (RECEPCI??N ALMAC??N)',
-        'vin'               => 'VIN (RECEPCI??N ALMAC??N)',
-        'danos_vis'         => 'DA??OS VISIBLES (RECEPCI??N ALMAC??N)',
-        'vid_gen'           => 'VIDEO GENERAL 360? (RECEPCI??N ALMAC??N)',
+        'doc_cierre_s2' => 'CONFIRMACIÓN CIERRE S2',
+        'doc_dacion_rcpt'   => 'CONTRATO DACIÓN (RECEPCIÓN ALMACÉN)',
+        'doc_tarjeta_rcpt'  => 'TARJETA CIRCULACIÓN (RECEPCIÓN ALMACÉN)',
+        'doc_firma_rcpt'    => 'FIRMA RECEPCIÓN ALMACÉN',
+        'vista_trs'         => 'VISTA TRASERA (RECEPCIÓN ALMACÉN)',
+        'vista_front'       => 'VISTA FRONTAL (RECEPCIÓN ALMACÉN)',
+        'lado_izq'          => 'LADO IZQUIERDO (RECEPCIÓN ALMACÉN)',
+        'lado_der'          => 'LADO DERECHO (RECEPCIÓN ALMACÉN)',
+        'tablero'           => 'TABLERO / ODÓMETRO (RECEPCIÓN ALMACÉN)',
+        'vin'               => 'VIN (RECEPCIÓN ALMACÉN)',
+        'danos_vis'         => 'DAÑOS VISIBLES (RECEPCIÓN ALMACÉN)',
+        'vid_gen'           => 'VIDEO GENERAL 360° (RECEPCIÓN ALMACÉN)',
     ];
 
     private const RECEPCION_ALMACEN_SLOTS = [
@@ -2122,9 +2200,8 @@ SQL;
         'tablero', 'vin', 'danos_vis', 'vid_gen',
     ];
 
-    /** Fotos/video que s? se dictaminan (aceptar/rechazar) en Atenci?n a clientes. */
+    /** Fotos/video que s? se dictaminan (aceptar/rechazar) en Atenci?n a clientes (solo evidencia f?sica momento 1). */
     private const SLOTS_VALIDACION_ATENCION_MEDIA = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
         'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
         'fis_vin', 'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
         'fis_tacometro', 'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
@@ -2133,10 +2210,18 @@ SQL;
     /** Repuve: solo debe existir PDF subido; no se usa val_atn en Atenci?n. */
     private const SLOT_REPVE_ATENCION = 'doc_repuve';
 
-    /** Slots del expediente de evidencias en pipeline (11; alineado con la vista operaciones_pipeline). */
+    /**
+     * Slots del expediente en pipeline/kanban: recolección + física momento 1 (Mis adjudicaciones) +
+     * momento 2 (Repuve) + momento 3 (Factura).
+     *
+     * @see MADJ_SLOTS_EVIDENCIA_MEDIA (debe mantener el mismo orden lógico de evidencia física)
+     */
     private const SLOTS_PIPELINE_EXPEDIENTE = [
-        'rec_tacometro', 'rec_serie', 'rec_frontal', 'rec_lateral',
-        'fis_vin', 'fis_tacometro', 'fis_frontal', 'fis_lateral', 'fis_360',
+        'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
+        'fis_vin',
+        'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
+        'fis_tacometro',
+        'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
         'doc_repuve', 'doc_factura',
     ];
 
@@ -2225,7 +2310,10 @@ SQL;
 
         $newId = $this->db->lastInsertId();
 
-        $accionBit = 'AGREG?? ACCI??N DE TRAMO: ' . mb_strtoupper(mb_substr($texto, 0, 60)) . (mb_strlen($texto) > 60 ? '???' : '');
+        $pref = 'AGREGÓ ACCIÓN DE TRAMO: ';
+        $tail = mb_strlen($texto, 'UTF-8') > 60 ? '…' : '';
+        $mid  = mb_strtoupper(mb_substr($texto, 0, 60, 'UTF-8'), 'UTF-8');
+        $accionBit = $pref . $mid . $tail;
         $this->registrarBitacora($idOperacion, $accionBit, $idUsuario, $nombreUsuario, $ahora);
 
         return ['success' => true, 'id' => $newId, 'fecha' => $ahora];
@@ -3097,6 +3185,7 @@ EOSQL;
     // Campos en adj_operacion: moto_marca, moto_modelo, moto_anio, moto_color,
     //   moto_no_serie, moto_no_motor, moto_placas,
     //   log_direccion, log_ciudad, log_estado, log_lugar_resguardo, log_lugar_otro, log_telefono,
+    //   responsable_entrega (nombre del responsable de resguardo / ubicación actual),
     //   datos_moto_at, datos_moto_by
     // Migraci?n: 20260430_adj_operacion_datos_moto_logisticos.sql
     // =========================================================================
@@ -3111,6 +3200,7 @@ EOSQL;
         'marca', 'modelo', 'serie', 'num_motor', 'placas',
         'log_direccion', 'log_ciudad',
         'log_estado', 'log_lugar_resguardo', 'log_lugar_otro', 'log_telefono',
+        'responsable_entrega',
     ];
 
     /** ISO 3779 / NHTSA: VIN de 17 caracteres m?x.; sin I, O, Q (motocicletas incluidas). */
@@ -3195,6 +3285,20 @@ EOSQL;
                 if (!preg_match('/^[\p{L}\p{N}\s\'\.\,\-\#\/]+$/u', $otro)) {
                     return '«Indicar cuál» solo puede incluir letras, números y signos básicos.';
                 }
+            }
+        }
+
+        if (array_key_exists('responsable_entrega', $datos)) {
+            $nom = trim((string) $datos['responsable_entrega']);
+            if ($nom === '') {
+                return 'Indica el nombre del responsable de resguardo.';
+            }
+            $len = mb_strlen($nom);
+            if ($len < 2 || $len > 160) {
+                return 'Responsable de resguardo: entre 2 y 160 caracteres.';
+            }
+            if (!preg_match('/^[\p{L}\p{M}\s\.\'\-]+$/u', $nom)) {
+                return 'El nombre del responsable solo puede incluir letras, espacios, punto y guion.';
             }
         }
 
@@ -3287,20 +3391,13 @@ EOSQL;
             $estado = strtoupper(trim((string) ($row['estado'] ?? '')));
             if ($estado === 'COMPLETADO' || $estado === 'ERROR') {
                 $datosMoto = $this->repuveDatosMotoDesdeFila($row);
-                $out = [
-                    'success'      => !empty($datosMoto),
-                    'from_cache'   => true,
-                    'id_credito'   => $idCredito,
-                    'datos_moto'   => $datosMoto,
-                    'repuve'       => [
-                        'estado'       => $estado,
-                        'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
-                        'mensaje'      => (string) ($row['mensaje'] ?? ''),
-                    ],
-                    'message'      => !empty($datosMoto)
-                        ? 'Datos REPUVE cargados desde caché.'
-                        : ((string) ($row['mensaje'] ?? 'No hay datos de vehículo para autocompletar.')),
-                ];
+                $out = $this->repuveConstruirRespuestaConsulta(
+                    $idCredito,
+                    $row,
+                    $datosMoto,
+                    true,
+                    'Datos REPUVE cargados desde caché.'
+                );
                 $out = $this->repuveAdjuntarRespuestasTecnicas($row, $out);
 
                 return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
@@ -3316,20 +3413,13 @@ EOSQL;
                         ['id' => $idCredito]
                     );
                     $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
-                    $out = [
-                        'success'    => !empty($datosMoto),
-                        'from_cache' => true,
-                        'id_credito' => $idCredito,
-                        'datos_moto' => $datosMoto,
-                        'repuve'     => [
-                            'estado'       => (string) (($row['estado'] ?? 'PROCESANDO')),
-                            'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
-                            'mensaje'      => (string) ($row['mensaje'] ?? ''),
-                        ],
-                        'message'    => !empty($datosMoto)
-                            ? 'Datos REPUVE actualizados desde estatus.'
-                            : ((string) ($row['mensaje'] ?? 'Consulta REPUVE sin datos autocompletables.')),
-                    ];
+                    $out = $this->repuveConstruirRespuestaConsulta(
+                        $idCredito,
+                        $row ?: [],
+                        $datosMoto,
+                        true,
+                        'Datos REPUVE actualizados desde estatus.'
+                    );
                     $out = $this->repuveAdjuntarRespuestasTecnicas($row, $out);
 
                     return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
@@ -3428,20 +3518,13 @@ EOSQL;
                 ['id' => $idCredito]
             );
             $datosMoto = $this->repuveDatosMotoDesdeFila($row ?: []);
-            $out = [
-                'success'    => !empty($datosMoto),
-                'from_cache' => false,
-                'id_credito' => $idCredito,
-                'datos_moto' => $datosMoto,
-                'repuve'     => [
-                    'estado'       => (string) (($row['estado'] ?? 'COMPLETADO')),
-                    'message_code' => isset($row['message_code']) ? (int) $row['message_code'] : null,
-                    'mensaje'      => (string) ($row['mensaje'] ?? ''),
-                ],
-                'message'    => !empty($datosMoto)
-                    ? 'Datos REPUVE consultados correctamente.'
-                    : ((string) ($row['mensaje'] ?? 'Consulta REPUVE completada sin datos autocompletables.')),
-            ];
+            $out = $this->repuveConstruirRespuestaConsulta(
+                $idCredito,
+                $row ?: [],
+                $datosMoto,
+                false,
+                'Datos REPUVE consultados correctamente.'
+            );
             $out = $this->repuveAdjuntarRespuestasTecnicas($row ?: [], $out);
 
             return $this->repuveEnriquecerResultado($idCredito, $idUsuario, $out);
@@ -3474,12 +3557,13 @@ EOSQL;
     {
         $result['limite_consultas'] = $this->repuveInfoLimite($idUsuario);
 
+        $dmSync = $result['datos_moto'] ?? [];
         if (
             $idCredito > 0
-            && !empty($result['datos_moto'])
-            && is_array($result['datos_moto'])
+            && is_array($dmSync)
+            && $this->repuveDatosMotoTienenAutocompletadoReal($dmSync)
         ) {
-            $syncErr = $this->repuveSincronizarDatosMotoAOperacion($idCredito, $result['datos_moto'], $idUsuario);
+            $syncErr = $this->repuveSincronizarDatosMotoAOperacion($idCredito, $dmSync, $idUsuario);
             if ($syncErr !== null) {
                 $result['adj_operacion_sync_error'] = $syncErr;
             }
@@ -4204,6 +4288,111 @@ EOSQL;
     }
 
     /**
+     * True si REPUVE aportó al menos un campo útil para autocompletar (no solo el VIN/placa que ya capturó el usuario).
+     */
+    private function repuveDatosMotoTienenAutocompletadoReal(array $datos): bool
+    {
+        foreach (['moto_marca', 'moto_modelo', 'moto_anio', 'moto_placas', 'moto_color', 'moto_no_motor'] as $k) {
+            if (trim((string) ($datos[$k] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Indica fallo del proveedor REPUVE (503, mensajes típicos, código 40, etc.), no “vehículo sin datos”. */
+    private function repuveEsFalloServicioExterno(array $row, string $mensajeTabla): bool
+    {
+        $http = (int) ($row['http_status'] ?? 0);
+        if ($http >= 500) {
+            return true;
+        }
+        $estadoRow = strtoupper(trim((string) ($row['estado'] ?? '')));
+        if ($estadoRow === 'ERROR') {
+            return true;
+        }
+        $mc = isset($row['message_code']) ? (int) $row['message_code'] : null;
+        if ($mc === 40) {
+            return true;
+        }
+        $msgL = strtolower($mensajeTabla);
+        foreach (['temporarily unavailable', 'service unavailable', 'gateway timeout', 'bad gateway', '503'] as $needle) {
+            if ($msgL !== '' && str_contains($msgL, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Arma respuesta JSON unificada tras leer adj_repuve_consulta (evita marcar éxito solo porque el VIN coincide con la consulta).
+     *
+     * @return array<string, mixed>
+     */
+    private function repuveConstruirRespuestaConsulta(
+        int $idCredito,
+        array $row,
+        array $datosMotoCrudos,
+        bool $fromCache,
+        string $mensajeExitoConDatos
+    ): array {
+        $tieneReal = $this->repuveDatosMotoTienenAutocompletadoReal($datosMotoCrudos);
+        $http = (int) ($row['http_status'] ?? 0);
+        $mcRaw = $row['message_code'] ?? null;
+        $mcInt = $mcRaw !== null && $mcRaw !== '' ? (int) $mcRaw : null;
+        $mensajeTabla = trim((string) ($row['mensaje'] ?? ''));
+        $estadoRow = strtoupper(trim((string) ($row['estado'] ?? '')));
+
+        if ($tieneReal) {
+            $tipo = 'datos_ok';
+            $message = $mensajeExitoConDatos;
+            $errorServicio = false;
+            $sinDatos = false;
+        } elseif ($this->repuveEsFalloServicioExterno($row, $mensajeTabla)) {
+            $tipo = 'fallo_servicio';
+            $errorServicio = true;
+            $sinDatos = false;
+            // Mensaje breve para UI (tooltip, alertas). El detalle técnico sigue en `repuve` (http_status, message_code, mensaje).
+            $message = "REPUVE no disponible\n\n"
+                . "El servicio REPUVE no está disponible en este momento. Esto no se debe a la información que usted capturó.\n\n"
+                . 'Complete manualmente los datos que falten. Gracias por su cooperación.';
+        } else {
+            $tipo = 'sin_datos_padron';
+            $errorServicio = false;
+            $sinDatos = true;
+            if ($mensajeTabla !== '') {
+                $message = 'REPUVE completó la consulta pero no devolvió datos del padrón para autocompletar (marca, modelo, año, etc.). Detalle: «'
+                    . $mensajeTabla . '». Verifica el VIN o completa la captura manual.';
+            } else {
+                $message = 'REPUVE completó la consulta sin datos del vehículo para autocompletar. Verifica el VIN o usa captura manual.';
+            }
+            if ($mcInt !== null && $mcInt !== 0) {
+                $message .= ' (código ' . $mcInt . ')';
+            }
+        }
+
+        return [
+            'success'                 => $tieneReal,
+            'from_cache'              => $fromCache,
+            'id_credito'              => $idCredito,
+            'datos_moto'              => $tieneReal ? $datosMotoCrudos : [],
+            'message'                 => $message,
+            'repuve_resultado_tipo'   => $tipo,
+            'repuve_error_servicio'   => $errorServicio,
+            'repuve_sin_datos_padron' => $sinDatos,
+            'repuve'                  => [
+                'estado'         => $estadoRow !== '' ? $estadoRow : (string) ($row['estado'] ?? ''),
+                'message_code'   => $mcInt,
+                'mensaje'        => $mensajeTabla,
+                'http_status'    => $http > 0 ? $http : null,
+                'exito_registro' => ((int) ($row['exito'] ?? 0)) === 1,
+            ],
+        ];
+    }
+
+    /**
      * Extrae datos de motocicleta desde documento FACTURA:
      * VIN (No. serie), No. motor y color.
      */
@@ -4364,6 +4553,7 @@ EOSQL;
             'log_direccion'  => 100, 'log_ciudad'     => 50,
             'log_estado'     => 60,  'log_lugar_resguardo' => 32, 'log_lugar_otro' => 200,
             'log_telefono'   => 10,
+            'responsable_entrega' => 160,
         ];
 
         $setClauses = [];
@@ -4516,7 +4706,7 @@ EOSQL;
         $etiq = $valAtn === 1 ? 'ACEPTADA' : 'RECHAZADA';
         $this->registrarBitacora(
             $idOperacion,
-            'VALIDACI??N EVIDENCIA ' . $etiq . ' (id evidencia ' . $idEvidencia . ')',
+            'VALIDACIÓN EVIDENCIA ' . $etiq . ' (id evidencia ' . $idEvidencia . ')',
             $idUsuario,
             $nombreUsuario
         );
@@ -4524,7 +4714,7 @@ EOSQL;
     }
 
     /**
-     * Listo para enviar a Procesando IA: 9 evidencias media con val_atn = 1 y Repuve con archivo en expediente (no dictamina Repuve).
+     * Listo para enviar a Procesando IA: evidencia f?sica (momento 1) completa con val_atn = 1 y PDF Repuve en expediente.
      */
     public function operacionTieneValidacionAtencionCompleta(int $idOperacion): bool
     {
@@ -4622,7 +4812,7 @@ EOSQL;
                 ['id' => $idOperacion]
             );
         }
-        $this->registrarBitacora($idOperacion, 'ENVI?? EVIDENCIAS VALIDADAS (PROCESANDO IA)', $idUsuario, $nombreUsuario);
+        $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS VALIDADAS (PROCESANDO IA)', $idUsuario, $nombreUsuario);
 
         return ['success' => true];
     }

@@ -4251,6 +4251,42 @@ class CapHum extends Controller
                 window.candidatosDataMap = new Map();
             }
 
+            var docModalPollTimer = null;
+
+            function clearDocModalPoll() {
+                if (docModalPollTimer) {
+                    clearInterval(docModalPollTimer);
+                    docModalPollTimer = null;
+                }
+            }
+
+            function maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts) {
+                opts = opts || {};
+                if (opts.fromPoll) {
+                    return;
+                }
+                clearDocModalPoll();
+                if (!metricas || metricas.expediente_completo !== true || verif) {
+                    return;
+                }
+                var intentos = 0;
+                var maxIntentos = 60;
+                docModalPollTimer = setInterval(function() {
+                    intentos++;
+                    if (intentos > maxIntentos) {
+                        clearDocModalPoll();
+                        var bv = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                        var modalAbierto = document.getElementById("modalDocumentacionCandidato");
+                        if (bv && modalAbierto && modalAbierto.classList.contains("show")) {
+                            bv.classList.remove("d-none");
+                            bv.innerHTML = "<div class=\"alert alert-warning small mb-0\"><i class=\"fa fa-info-circle me-1\"></i>No llegó el resultado de la verificación automática en el tiempo esperado. Cierra el modal y ábrelo de nuevo, o espera unos minutos y actualiza la página.</div>";
+                        }
+                        return;
+                    }
+                    cargarDocumentosModal(idCandidato, { fromPoll: true });
+                }, 3000);
+            }
+
             /* ── KPI Candidatos: contador animado (misma lógica que Gestión kpiAnimateCounter) ── */
             function kpiAnimateCounterCand(el, target, dur, delay) {
                 if (!el) return;
@@ -4361,6 +4397,17 @@ class CapHum extends Controller
                                         apellidom: candidato.apellidom,
                                         email: candidato.email,
                                         telefono: candidato.telefono,
+                                        id_pais: candidato.id_pais,
+                                        nombre_pais: candidato.nombre_pais,
+                                        id_div_nivel1: candidato.id_div_nivel1,
+                                        nombre_div_nivel1: candidato.nombre_div_nivel1,
+                                        id_div_nivel2: candidato.id_div_nivel2,
+                                        nombre_div_nivel2: candidato.nombre_div_nivel2,
+                                        id_div_nivel3: candidato.id_div_nivel3,
+                                        nombre_div_nivel3: candidato.nombre_div_nivel3,
+                                        domicilio_calle_texto: candidato.domicilio_calle_texto,
+                                        domicilio_num_exterior: candidato.domicilio_num_exterior,
+                                        domicilio_num_interior: candidato.domicilio_num_interior,
                                         id_puesto: candidato.id_puesto,
                                         nombre_puesto: candidato.nombre_puesto,
                                         nombre_departamento: candidato.nombre_departamento,
@@ -4458,6 +4505,14 @@ class CapHum extends Controller
                                 }
 
                                 var id = (c.id || 0).toString();
+                                var paisTexto = c.nombre_pais || "";
+                                var estadoTexto = c.nombre_div_nivel1 || "";
+                                var municipioTexto = c.nombre_div_nivel2 || "";
+                                var coloniaTexto = c.nombre_div_nivel3 || "";
+                                var ubicacionPartes = [paisTexto, estadoTexto, municipioTexto, coloniaTexto].filter(function(v) { return !!v; });
+                                var ubicacion = ubicacionPartes.length ? ubicacionPartes.join(" / ") : "—";
+                                var domicilio = (c.domicilio_calle_texto || "") + (c.domicilio_num_exterior ? " #" + c.domicilio_num_exterior : "") + (c.domicilio_num_interior ? " Int " + c.domicilio_num_interior : "");
+                                if (!domicilio.trim()) domicilio = "—";
                                 var est = c.estatus || "Por evaluar";
                                 var estBadge = est === "Validado" ? "bg-success" : (est === "Por evaluar" ? "bg-warning text-dark" : (est === "Proceso cerrado" ? "bg-dark" : "bg-secondary"));
 
@@ -4471,6 +4526,8 @@ class CapHum extends Controller
                                     nombre: nombre,
                                     contacto: contacto,
                                     puestoDepto: puestoDeptoHTML.trim(),
+                                    ubicacion: ubicacion,
+                                    domicilio: domicilio,
                                     estatus: '<span class="badge ' + estBadge + '">' + est + '</span>',
                                     acciones: acciones
                                 };
@@ -4634,6 +4691,201 @@ class CapHum extends Controller
                 flatpickr(input, { dateFormat: "Y-m-d", defaultDate: hoy, maxDate: hoy, allowInput: false, clickOpens: true, appendTo: document.body, static: false, locale: (typeof flatpickr !== "undefined" && flatpickr.l10ns && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined });
             }
 
+            function refreshSelectBuscadorCandidato(selectId) {
+                var el = document.getElementById(selectId);
+                if (!el || !el.classList.contains("js-select-buscador")) return;
+                if (typeof window.jQuery === "undefined" || !window.jQuery.fn.select2) return;
+                var $ = window.jQuery;
+                var $el = $("#" + selectId);
+                var prev = el.value;
+                if ($el.hasClass("select2-hidden-accessible")) {
+                    $el.select2("destroy");
+                }
+                $el.prop("disabled", !!el.disabled);
+                $el.select2({
+                    width: "100%",
+                    dropdownParent: $("#offcanvasAddCandidato"),
+                    minimumResultsForSearch: 0,
+                    language: {
+                        noResults: function () { return "Sin resultados"; },
+                        searching: function () { return "Buscando..."; }
+                    }
+                });
+                $el.prop("disabled", !!el.disabled);
+                if (prev) {
+                    $el.val(prev).trigger("change");
+                }
+            }
+
+            function ocultarSeccionesDomicilioCandidato() {
+                ["estado", "municipio", "colonia", "calle_texto", "num_extint"].forEach(function (k) {
+                    var el = document.getElementById("div_candidato_" + k);
+                    if (el) el.style.display = "none";
+                });
+            }
+
+            function limpiarDomicilioTextoCandidato() {
+                ["candidato_domicilio_calle_texto", "candidato_domicilio_num_exterior", "candidato_domicilio_num_interior"].forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.value = "";
+                });
+            }
+
+            function resetCascadaDomicilioCandidato() {
+                var estado = document.getElementById("candidato_id_div_nivel1");
+                var mun = document.getElementById("candidato_id_div_nivel2");
+                var col = document.getElementById("candidato_id_div_nivel3");
+                if (estado) { estado.innerHTML = "<option value=''>Seleccione un estado</option>"; estado.disabled = true; }
+                if (mun) { mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>"; mun.disabled = true; }
+                if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; }
+                ocultarSeccionesDomicilioCandidato();
+                limpiarDomicilioTextoCandidato();
+                if (estado) refreshSelectBuscadorCandidato(estado.id);
+                if (mun) refreshSelectBuscadorCandidato(mun.id);
+                if (col) refreshSelectBuscadorCandidato(col.id);
+            }
+
+            function cargarEstadosCandidato(idPais, done) {
+                var estado = document.getElementById("candidato_id_div_nivel1");
+                if (!estado) { if (done) done(false); return; }
+                estado.innerHTML = "<option value=''>Cargando...</option>";
+                estado.disabled = true;
+                fetch("/caphum/getEstados", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ id_pais: idPais })
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    estado.innerHTML = "<option value=''>Seleccione un estado</option>";
+                    var ok = res && res.success && Array.isArray(res.datos) && res.datos.length > 0;
+                    if (ok) {
+                        res.datos.forEach(function(e){
+                            var opt = document.createElement("option");
+                            opt.value = e.id;
+                            opt.textContent = e.nombre || "";
+                            estado.appendChild(opt);
+                        });
+                        estado.disabled = false;
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel1");
+                    if (done) done(ok);
+                }).catch(function(){
+                    estado.innerHTML = "<option value=''>Error al cargar</option>";
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel1");
+                    if (done) done(false);
+                });
+            }
+
+            function cargarMunicipiosCandidato(idEstado, done) {
+                var mun = document.getElementById("candidato_id_div_nivel2");
+                if (!mun) { if (done) done(false); return; }
+                mun.innerHTML = "<option value=''>Cargando...</option>";
+                mun.disabled = true;
+                fetch("/caphum/getMunicipios", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ id_estado: idEstado })
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>";
+                    var ok = res && res.success && Array.isArray(res.datos) && res.datos.length > 0;
+                    if (ok) {
+                        res.datos.forEach(function(e){
+                            var opt = document.createElement("option");
+                            opt.value = e.id;
+                            opt.textContent = e.nombre || "";
+                            mun.appendChild(opt);
+                        });
+                        mun.disabled = false;
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel2");
+                    if (done) done(ok);
+                }).catch(function(){
+                    mun.innerHTML = "<option value=''>Error al cargar</option>";
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel2");
+                    if (done) done(false);
+                });
+            }
+
+            function cargarColoniasCandidato(idMunicipio, done) {
+                var col = document.getElementById("candidato_id_div_nivel3");
+                if (!col) { if (done) done(false); return; }
+                col.innerHTML = "<option value=''>Cargando...</option>";
+                col.disabled = true;
+                fetch("/caphum/getColonias", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ id_municipio: idMunicipio })
+                }).then(function(r){ return r.json(); }).then(function(res){
+                    col.innerHTML = "<option value=''>Seleccione una colonia</option>";
+                    var ok = res && res.success && Array.isArray(res.datos) && res.datos.length > 0;
+                    if (ok) {
+                        res.datos.forEach(function(e){
+                            var opt = document.createElement("option");
+                            opt.value = e.id;
+                            opt.textContent = e.nombre || "";
+                            col.appendChild(opt);
+                        });
+                        col.disabled = false;
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                    if (done) done(ok);
+                }).catch(function(){
+                    col.innerHTML = "<option value=''>Error al cargar</option>";
+                    refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                    if (done) done(false);
+                });
+            }
+
+            function precargarCascadaDomicilioCandidato(c) {
+                var idPais = c && c.id_pais ? String(c.id_pais) : "";
+                var idEstado = c && c.id_div_nivel1 ? String(c.id_div_nivel1) : "";
+                var idMunicipio = c && c.id_div_nivel2 ? String(c.id_div_nivel2) : "";
+                var idColonia = c && c.id_div_nivel3 ? String(c.id_div_nivel3) : "";
+                if (!idPais) {
+                    resetCascadaDomicilioCandidato();
+                    return;
+                }
+                var divEstado = document.getElementById("div_candidato_estado");
+                if (divEstado) divEstado.style.display = "";
+                cargarEstadosCandidato(idPais, function(tieneEstados) {
+                    if (!tieneEstados) return;
+                    var estado = document.getElementById("candidato_id_div_nivel1");
+                    if (!estado) return;
+                    if (idEstado) {
+                        estado.value = idEstado;
+                        refreshSelectBuscadorCandidato("candidato_id_div_nivel1");
+                        var divMunicipio = document.getElementById("div_candidato_municipio");
+                        if (divMunicipio) divMunicipio.style.display = "";
+                        cargarMunicipiosCandidato(idEstado, function(tieneMunicipios) {
+                            if (!tieneMunicipios) return;
+                            var municipio = document.getElementById("candidato_id_div_nivel2");
+                            if (!municipio) return;
+                            if (idMunicipio) {
+                                municipio.value = idMunicipio;
+                                refreshSelectBuscadorCandidato("candidato_id_div_nivel2");
+                                var divColonia = document.getElementById("div_candidato_colonia");
+                                if (divColonia) divColonia.style.display = "";
+                                cargarColoniasCandidato(idMunicipio, function(tieneColonias) {
+                                    if (!tieneColonias) return;
+                                    var colonia = document.getElementById("candidato_id_div_nivel3");
+                                    if (!colonia) return;
+                                    if (idColonia) {
+                                        colonia.value = idColonia;
+                                        refreshSelectBuscadorCandidato("candidato_id_div_nivel3");
+                                    }
+                                    var calle = document.getElementById("div_candidato_calle_texto");
+                                    var extInt = document.getElementById("div_candidato_num_extint");
+                                    if (calle) calle.style.display = "";
+                                    if (extInt) extInt.style.display = "";
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
             function toggleLegionCandidato() {
                 var div = document.getElementById("div_candidato_legion"); var chk = document.getElementById("candidato_asignar_legion");
                 div.style.display = chk && chk.checked ? "block" : "none";
@@ -4657,17 +4909,17 @@ class CapHum extends Controller
                 if (!bloqueMetricas || !m) return;
                 bloqueMetricas.classList.remove("d-none");
                 var total = m.total_documentos != null ? m.total_documentos : 0;
-                var requeridos = m.documentos_requeridos != null ? m.documentos_requeridos : 11;
+                var requeridos = m.documentos_requeridos != null ? m.documentos_requeridos : 10;
                 var pct = m.porcentaje != null ? m.porcentaje : (requeridos > 0 ? Math.min(100, Math.round((total / requeridos) * 100)) : 0);
                 var completo = m.expediente_completo === true;
-                var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-chart-pie me-1\"></i>Métricas del expediente</strong></div><div class=\"card-body py-2 small\">";
+                var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-chart-pie me-1\"></i>Métricas del expediente</strong></div><div class=\"card-body py-2 small overflow-auto\">";
                 html += "<p class=\"text-muted mb-2\">Resumen de documentación recibida (cuántos documentos obligatorios ha subido el candidato).</p>";
                 html += "<div class=\"row g-2 align-items-center\">";
-                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Documentos subidos</span><strong class=\"text-primary\">" + total + " de " + requeridos + "</strong></div>";
-                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Avance</span><strong>" + pct + "%</strong>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Documentos subidos</span><strong class=\"text-primary\">" + total + " de " + requeridos + "</strong></div>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Avance</span><strong>" + pct + "%</strong>";
                 if (pct < 100) html += " <div class=\"progress mt-1\" style=\"height:6px;\"><div class=\"progress-bar\" role=\"progressbar\" style=\"width:" + pct + "%\" aria-valuenow=\"" + pct + "\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div></div>";
                 html += "</div>";
-                html += "<div class=\"col-6 col-md-4\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
+                html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Expediente completo</span><strong class=\"" + (completo ? "text-success" : "text-secondary") + "\">" + (completo ? "Sí" : "No") + "</strong></div>";
                 html += "</div></div></div>";
                 bloqueMetricas.innerHTML = html;
             }
@@ -4675,17 +4927,17 @@ class CapHum extends Controller
             function renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato) {
                 if (!bloqueAccionesProceso) return;
                 var validados = metricas && metricas.validados != null ? parseInt(metricas.validados, 10) : 0;
-                var requeridos = metricas && metricas.documentos_requeridos != null ? parseInt(metricas.documentos_requeridos, 10) : 11;
-                if (validados >= requeridos && requeridos >= 11) {
+                var requeridos = metricas && metricas.documentos_requeridos != null ? parseInt(metricas.documentos_requeridos, 10) : 10;
+                if (validados >= requeridos && requeridos >= 10) {
                     bloqueAccionesProceso.classList.remove("d-none");
-                    bloqueAccionesProceso.innerHTML = "<div class=\"card border shadow-none\"><div class=\"card-body py-3\"><p class=\"text-muted small mb-3\">Los 11 documentos han sido validados. Elige una acción:</p><div class=\"d-flex flex-wrap gap-2\"><button type=\"button\" class=\"btn btn-outline-danger btn-cerrar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-times-circle me-1\"></i>Cerrar proceso</button><button type=\"button\" class=\"btn btn-primary btn-continuar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-check-circle me-1\"></i>Continuar proceso</button></div></div></div>";
+                    bloqueAccionesProceso.innerHTML = "<div class=\"w-100 text-start text-lg-end\"><p class=\"text-muted small mb-2 mb-lg-3\">Los 10 documentos han sido validados. Elige una acción:</p><div class=\"d-flex flex-wrap gap-2 justify-content-end\"><button type=\"button\" class=\"btn btn-outline-danger btn-cerrar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-times-circle me-1\"></i>Cerrar proceso</button><button type=\"button\" class=\"btn btn-primary btn-continuar-proceso-candidato\" data-id=\"" + idCandidato + "\"><i class=\"fa fa-check-circle me-1\"></i>Continuar proceso</button></div></div>";
                 } else {
                     bloqueAccionesProceso.classList.add("d-none");
                     bloqueAccionesProceso.innerHTML = "";
                 }
             }
 
-            function renderVerificacionDoc(bloqueVerif, v) {
+            function renderVerificacionApiCard(bloqueVerif, v) {
                 if (!bloqueVerif || !v) return;
                 bloqueVerif.classList.remove("d-none");
                 var scoreFrente = v.identificacion_frente_score != null ? Number(v.identificacion_frente_score) : null;
@@ -4706,49 +4958,183 @@ class CapHum extends Controller
                     else if (confianzaNum >= 50) confianzaClase = "text-warning";
                     else confianzaClase = "text-danger";
                 }
-                var html = "<div class=\"card border shadow-none\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small\">";
+                var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small overflow-auto\">";
+                if (v.modo_verificacion === "solo_identificacion") {
+                    html += "<div class=\"alert alert-info py-1 px-2 mb-2 small\" role=\"status\"><strong>Modo prueba:</strong> esta corrida solo envió el PDF de identificación a la API (sin CURP, NSS, constancia ni acta).</div>";
+                }
+                var errApi = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api) : "";
+                var checksTotNum = checksTotales != null ? parseInt(checksTotales, 10) : null;
+                var sinPuntuaciones = (scoreFrente == null || scoreFrente === "") && (scoreReverso == null || scoreReverso === "");
+                var respuestaVaciaApi = !errApi && checksTotNum === 0 && sinPuntuaciones && alertas.length === 0 && v.todo_coincide !== true;
+                if (errApi) {
+                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br><span class=\"text-break\">" + escHtmlComparaciones(errApi) + "</span></div>";
+                } else if (respuestaVaciaApi) {
+                    html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>La API contestó sin datos útiles.</strong> No hay scores ni checks en la respuesta guardada. Suele indicar error no tipificado en la API o JSON inesperado; use Reintentar o revise logs Python.</div>";
+                }
+                if (errApi || respuestaVaciaApi) {
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificación contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
+                }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
-                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
-                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
-                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
-                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
-                html += "<div class=\"col-6 col-md\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
+                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
+                html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
                 html += "</div>";
-                var lineasComparaciones = [];
-                if (v.comparaciones && typeof v.comparaciones === "object") {
-                    var comp = v.comparaciones;
-                    var labels = { "nombre_frente_vs_reverso": "Nombre en INE = Nombre en reverso", "fecha_nac_curp_vs_mrz": "Fecha nac. (CURP) = Fecha en reverso", "nombre_id_vs_curp_pdf": "Nombre en INE = Nombre en CURP PDF", "curp_vs_fiscal": "CURP = Constancia fiscal", "nombre_vs_fiscal": "Nombre = Constancia fiscal", "curp_vs_nss": "CURP = NSS", "nombre_vs_nss": "Nombre = NSS", "nombre_vs_acta": "Nombre = Acta de nacimiento", "fecha_nac_vs_acta": "Fecha nac. = Acta", "curp_id_vs_documento": "CURP en INE = Otro documento" };
-                    Object.keys(comp).forEach(function(k) {
-                        var c = comp[k];
-                        if (!c || typeof c !== "object") return;
-                        if (c.coincide !== undefined) lineasComparaciones.push((labels[k] || k) + ": " + (c.coincide ? "✔ Coincide" : "✘ No coincide"));
-                        else if (c.es_reciente !== undefined) lineasComparaciones.push("CURP PDF: " + (c.es_reciente ? "Reciente" : (c.meses_antiguedad || "?") + " meses"));
-                    });
-                }
-                var btnId = "";
-                if (lineasComparaciones.length) {
-                    btnId = "btnVerComparaciones_" + (Math.random().toString(36).slice(2, 9));
-                    html += "<div class=\"border-top pt-2 mt-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" id=\"" + btnId + "\" title=\"Ver comparaciones entre documentos\"><i class=\"fa fa-list-ul me-1\"></i>Ver comparaciones entre documentos</button></div>";
-                }
                 if (alertas.length) {
                     html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\"><li class=\"text-warning\">" + alertas.join("</li><li class=\"text-warning\">") + "</li></ul></div>";
                 }
                 html += "</div></div>";
                 bloqueVerif.innerHTML = html;
-                if (lineasComparaciones.length && window.bootstrap && window.bootstrap.Popover) {
-                    var btnComp = document.getElementById(btnId);
-                    if (btnComp) {
-                        var popContent = "<div class=\"text-start small\" style=\"min-width: 280px;\"><p class=\"text-muted mb-2\"><strong>Comparaciones entre documentos</strong><br><span class=\"text-muted\">(que los datos del candidato coincidan en todos)</span></p><ul class=\"list-unstyled mb-0\">" + lineasComparaciones.map(function(l) { var ok = l.indexOf("✔") !== -1 || l.indexOf("Reciente") !== -1; return "<li class=\"py-1 border-bottom border-light\"><i class=\"fa fa-" + (ok ? "check-circle text-success" : "times-circle text-danger") + " me-2\"></i>" + l + "</li>"; }).join("") + "</ul></div>";
-                        new window.bootstrap.Popover(btnComp, { content: popContent, html: true, trigger: "click", placement: "bottom", container: "body" });
-                    }
+            }
+
+            function escHtmlComparaciones(s) {
+                var t = String(s === null || s === undefined ? "" : s);
+                return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            }
+
+            /** Solo mostrar la tarjeta si la API guardó comparaciones reales (objeto con al menos una clave conocida). */
+            function hayComparacionesEvaluables(v) {
+                if (!v || typeof v !== "object") return false;
+                var comp = v.comparaciones;
+                if (!comp || typeof comp !== "object") return false;
+                var conocidas = {
+                    curp_id_vs_documento: 1, nombre_frente_vs_reverso: 1, nombre_registro_vs_documentos: 1, nombre_id_vs_curp_pdf: 1,
+                    fecha_nac_curp_vs_mrz: 1, curp_pdf_frescura: 1, curp_vs_fiscal: 1, nombre_vs_fiscal: 1, curp_vs_nss: 1, nombre_vs_nss: 1,
+                    nombre_vs_acta: 1, fecha_nac_vs_acta: 1, nombre_registro_vs_acta: 1
+                };
+                for (var k in comp) {
+                    if (Object.prototype.hasOwnProperty.call(comp, k) && conocidas[k]) return true;
                 }
+                return false;
+            }
+
+            /** No mezclar comparaciones de una corrida anterior con un fallo reciente de la API (timeout, health-check, etc.). */
+            function expedienteVerifApiInconsistente(v) {
+                if (!v || typeof v !== "object") return false;
+                if (v.error_api != null && String(v.error_api).trim() !== "") return true;
+                var ct = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
+                var sinScores = (v.identificacion_frente_score == null || v.identificacion_frente_score === "") && (v.identificacion_reverso_score == null || v.identificacion_reverso_score === "");
+                if (ct === 0 && sinScores && hayComparacionesEvaluables(v)) return true;
+                return false;
+            }
+
+            function renderComparacionesDocFullWidth(bloqueComp, v) {
+                if (!bloqueComp) return;
+                if (!v || expedienteVerifApiInconsistente(v) || !hayComparacionesEvaluables(v)) {
+                    bloqueComp.classList.add("d-none");
+                    bloqueComp.innerHTML = "";
+                    return;
+                }
+                var comp = v.comparaciones || {};
+                var gruposDef = [
+                    { titulo: "INE", keys: [
+                        { k: "curp_id_vs_documento", label: "CURP en credencial INE (frente)" },
+                        { k: "nombre_frente_vs_reverso", label: "Nombre INE frente vs nombre INE reverso" },
+                        { k: "nombre_id_vs_curp_pdf", label: "Nombre en INE vs nombre en CURP (PDF)" },
+                        { k: "nombre_registro_vs_documentos", label: "Nombre del expediente vs nombre en documentos" }
+                    ]},
+                    { titulo: "CURP", keys: [
+                        { k: "fecha_nac_curp_vs_mrz", label: "Fecha de nacimiento en CURP vs fecha en reverso INE" },
+                        { k: "curp_pdf_frescura", label: "CURP en PDF vigente (no mayor a 3 meses)", kind: "frescura" },
+                        { k: "curp_vs_fiscal", label: "CURP del PDF vs CURP en constancia fiscal" }
+                    ]},
+                    { titulo: "Fiscal / NSS", keys: [
+                        { k: "nombre_vs_fiscal", label: "Nombre en constancia fiscal vs nombre en INE" },
+                        { k: "curp_vs_fiscal", label: "CURP en constancia vs CURP en INE" },
+                        { k: "nombre_vs_nss", label: "Nombre en NSS vs nombre en INE" },
+                        { k: "curp_vs_nss", label: "CURP en NSS vs CURP en INE" }
+                    ]},
+                    { titulo: "Acta", keys: [
+                        { k: "nombre_vs_acta", label: "Nombre en INE vs nombre en acta" },
+                        { k: "fecha_nac_vs_acta", label: "Fecha de nacimiento INE vs fecha en acta" },
+                        { k: "nombre_registro_vs_acta", label: "Nombre del expediente vs nombre en acta" }
+                    ]}
+                ];
+
+                function lineaHtml(entry, def) {
+                    var kind = def.kind || "coincide";
+                    var ok = null;
+                    if (kind === "frescura") {
+                        if (!entry || entry.es_reciente === undefined || entry.es_reciente === null) return "";
+                        ok = entry.es_reciente === true;
+                    } else {
+                        if (!entry || !Object.prototype.hasOwnProperty.call(entry, "coincide")) return "";
+                        if (entry.coincide === true) ok = true;
+                        else if (entry.coincide === false) ok = false;
+                        else {
+                            return "<div class=\"small mb-1\"><span class=\"text-secondary\">—</span> <span class=\"text-muted\">" + escHtmlComparaciones(def.label) + " <span class=\"fst-italic\">(sin evaluar)</span></span></div>";
+                        }
+                    }
+                    var sym = ok ? "<span class=\"text-success\">✓</span>" : "<span class=\"text-danger\">✗</span>";
+                    var txtCls = ok ? "text-muted" : "text-danger";
+                    return "<div class=\"small mb-1\">" + sym + " <span class=\"" + txtCls + "\">" + escHtmlComparaciones(def.label) + "</span></div>";
+                }
+
+                var totalOk = 0, totalLin = 0, algunaTarjeta = false;
+                var tarjetas = [];
+                gruposDef.forEach(function(gr) {
+                    var lineas = [];
+                    var okG = 0, nG = 0, failG = false;
+                    gr.keys.forEach(function(def) {
+                        var entry = comp[def.k];
+                        if (def.kind === "frescura") {
+                            if (!entry || entry.es_reciente === undefined || entry.es_reciente === null) return;
+                            lineas.push(lineaHtml(entry, def));
+                            nG++;
+                            totalLin++;
+                            if (entry.es_reciente === true) { okG++; totalOk++; }
+                            else failG = true;
+                            return;
+                        }
+                        if (!entry || !Object.prototype.hasOwnProperty.call(entry, "coincide")) return;
+                        lineas.push(lineaHtml(entry, def));
+                        if (entry.coincide === true || entry.coincide === false) {
+                            nG++;
+                            totalLin++;
+                            if (entry.coincide === true) { okG++; totalOk++; }
+                            else failG = true;
+                        }
+                    });
+                    if (lineas.length === 0) return;
+                    algunaTarjeta = true;
+                    var scoreTxt = nG > 0 ? (okG + "/" + nG + (okG === nG ? " ✓" : " ✗")) : "—";
+                    var scoreCls = failG ? "text-danger" : "text-success";
+                    var borde = failG ? " border border-danger" : "";
+                    tarjetas.push("<div class=\"col-12 col-md-6 col-xl-3\"><div class=\"card p-2 h-100" + borde + "\"><div class=\"d-flex justify-content-between align-items-center mb-2\"><span class=\"fw-semibold fs-6\">" + escHtmlComparaciones(gr.titulo) + "</span><span class=\"small " + scoreCls + "\">" + escHtmlComparaciones(scoreTxt) + "</span></div>" + lineas.join("") + "</div></div>");
+                });
+
+                if (!algunaTarjeta) {
+                    bloqueComp.classList.add("d-none");
+                    bloqueComp.innerHTML = "";
+                    return;
+                }
+
+                var alertas = Array.isArray(v.alertas) ? v.alertas : [];
+                var html = "<div class=\"card border shadow-none\"><div class=\"card-body py-2 small\">";
+                html += "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2\">";
+                html += "<span class=\"fw-semibold small\">Comparaciones entre documentos</span>";
+                html += "<span>";
+                if (totalLin > 0) html += "<span class=\"badge bg-success me-1\">" + totalOk + "/" + totalLin + " coinciden</span>";
+                if (alertas.length) html += "<span class=\"badge bg-danger\">" + alertas.length + " alerta" + (alertas.length === 1 ? "" : "s") + "</span>";
+                html += "</span></div>";
+                if (alertas.length) {
+                    html += "<div class=\"alert alert-danger py-1 px-2 mb-2\" role=\"alert\"><div class=\"d-flex flex-wrap gap-2 small\">";
+                    alertas.forEach(function(a) { html += "<span>✗ " + escHtmlComparaciones(typeof a === "string" ? a : String(a)) + "</span>"; });
+                    html += "</div></div>";
+                }
+                html += "<div class=\"row g-2 mb-0\">" + tarjetas.join("") + "</div></div></div>";
+                bloqueComp.classList.remove("d-none");
+                bloqueComp.innerHTML = html;
             }
 
             function badgeVerificacionDoc(tipoDoc, v) {
                 if (!v || !tipoDoc) return "";
+                if (expedienteVerifApiInconsistente(v)) return "";
                 var t = (tipoDoc + "").trim().toUpperCase();
                 if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
                 if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
+                if (!hayComparacionesEvaluables(v)) return "";
                 var comp = v.comparaciones || {};
                 if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) { var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento; if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>"; }
                 if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) { var c2 = comp.curp_vs_fiscal || comp.nombre_vs_fiscal; if (c2 && c2.coincide !== undefined) return c2.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
@@ -4757,12 +5143,26 @@ class CapHum extends Controller
                 return "";
             }
 
-            function eliminarDocYRecargarModal(idDoc, idCandidato) {
-                fetch("/caphum/eliminarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }, body: "id=" + idDoc })
+            function eliminarDocYRecargarModal(idDoc, idCandidato, comentario) {
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({
+                        title: "Procesando…",
+                        html: "Eliminando documento, guardando el motivo y notificando al candidato.",
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        didOpen: function() { Swal.showLoading(); }
+                    });
+                }
+                fetch("/caphum/eliminarDocumentoCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" }, body: JSON.stringify({ id: idDoc, comentario: comentario || "" }) })
                 .then(function(r){ return r.json(); }).then(function(res) {
+                    if (typeof Swal !== "undefined") Swal.close();
                     if (res.success) { if (typeof Swal !== "undefined") Swal.fire({ icon: "success", title: "Eliminado", text: res.mensaje || "Documento eliminado." }); cargarDocumentosModal(idCandidato); }
                     else { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo eliminar." }); }
-                }).catch(function() { if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." }); });
+                }).catch(function() {
+                    if (typeof Swal !== "undefined") Swal.close();
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+                });
             }
 
             function renderListaDocumentos(lista, cargando, vacio, datos, verif, idCandidato) {
@@ -4796,7 +5196,7 @@ class CapHum extends Controller
                 tooltipFiscalHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + tableHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-info-circle text-info\"></i></span>";
             }
             var tooltipIdHtml = "";
-            if ((tipoNorm === "IDENTIFICACIÓN OFICIAL" || tipoNorm === "IDENTIFICACION OFICIAL") && verif && typeof verif === "object") {
+            if ((tipoNorm === "IDENTIFICACIÓN OFICIAL" || tipoNorm === "IDENTIFICACION OFICIAL") && verif && typeof verif === "object" && !expedienteVerifApiInconsistente(verif)) {
                 var tipoDocLabel = "—";
                 if (verif.tipo_documento) {
                     var td = (verif.tipo_documento + "").toUpperCase();
@@ -4967,8 +5367,47 @@ class CapHum extends Controller
         lista.querySelectorAll(".btn-eliminar-doc-candidato").forEach(function(btn) {
             btn.addEventListener("click", function() {
                 var idDoc = parseInt(btn.getAttribute("data-id"), 10);
-                if (typeof Swal !== "undefined") { Swal.fire({ title: "¿Eliminar documento?", text: "Se quitará del expediente.", icon: "warning", showCancelButton: true, confirmButtonText: "Sí, eliminar", cancelButtonText: "Cancelar" }).then(function(r) { if (r.isConfirmed) eliminarDocYRecargarModal(idDoc, idCandidato); }); }
-                else if (confirm("¿Eliminar este documento?")) eliminarDocYRecargarModal(idDoc, idCandidato);
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({
+                        title: "Eliminar documento",
+                        html: "Indique el <strong>motivo</strong> que recibirá el candidato por correo (obligatorio).",
+                        input: "textarea",
+                        inputPlaceholder: "Ej. El archivo está ilegible o no corresponde al documento solicitado.",
+                        inputAttributes: { rows: "4", autocapitalize: "sentences" },
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonText: "Eliminar y notificar",
+                        cancelButtonText: "Cancelar",
+                        focusConfirm: false,
+                        scrollbarPadding: false,
+                        inputValidator: function(v) { if (!v || !String(v).trim()) return "Debe escribir un comentario"; },
+                        didOpen: function() {
+                            var cont = document.querySelector(".swal2-container");
+                            if (cont) { cont.style.setProperty("z-index", "12000", "important"); }
+                            var backdrop = document.querySelector(".swal2-container .swal2-backdrop");
+                            if (backdrop) { backdrop.style.setProperty("z-index", "11999", "important"); }
+                            var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                            var modalInst = modalDoc && window.bootstrap && bootstrap.Modal ? bootstrap.Modal.getInstance(modalDoc) : null;
+                            if (modalInst && modalInst._focustrap && typeof modalInst._focustrap.deactivate === "function") {
+                                modalInst._focustrap.deactivate();
+                            }
+                            setTimeout(function() {
+                                var ta = document.querySelector(".swal2-textarea");
+                                if (ta) { ta.focus(); }
+                            }, 50);
+                        },
+                        didClose: function() {
+                            var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                            var modalInst = modalDoc && window.bootstrap && bootstrap.Modal ? bootstrap.Modal.getInstance(modalDoc) : null;
+                            if (modalInst && modalInst._focustrap && typeof modalInst._focustrap.activate === "function") {
+                                modalInst._focustrap.activate();
+                            }
+                        }
+                    }).then(function(r) { if (r.isConfirmed) eliminarDocYRecargarModal(idDoc, idCandidato, String(r.value).trim()); });
+                } else {
+                    var motivo = prompt("Motivo para el candidato (obligatorio):", "");
+                    if (motivo !== null && String(motivo).trim() !== "") eliminarDocYRecargarModal(idDoc, idCandidato, String(motivo).trim());
+                }
             });
         });
         }
@@ -4980,18 +5419,173 @@ class CapHum extends Controller
                 }
             }
 
-            function cargarDocumentosModal(idCandidato) {
+            /** Registro en consola del navegador (F12 → Consola) para copiar/pegar diagnósticos. Prefijo fijo: [Sparta candidatos · documentación] */
+            function candidatosDocConsola(nivel, titulo, datos) {
+                try {
+                    var fn = console.log;
+                    if (nivel === "error" && console.error) fn = console.error.bind(console);
+                    else if (nivel === "warn" && console.warn) fn = console.warn.bind(console);
+                    else if (nivel === "info" && console.info) fn = console.info.bind(console);
+                    if (datos !== undefined && datos !== null) fn("[Sparta candidatos · documentación] " + titulo, datos);
+                    else fn("[Sparta candidatos · documentación] " + titulo);
+                } catch (e2) {}
+            }
+
+            function clearDocModalApiTrace() {
+                var el = document.getElementById("modalDocumentacionCandidatoApiTrace");
+                if (!el) return;
+                el.textContent = "";
+                el.className = "alert alert-secondary small py-2 mb-2 d-none";
+            }
+            function setDocModalApiTrace(message, kind) {
+                var el = document.getElementById("modalDocumentacionCandidatoApiTrace");
+                if (!el) return;
+                if (!message) { clearDocModalApiTrace(); return; }
+                var map = { wait: "alert-info", ok: "alert-success", err: "alert-danger", warn: "alert-warning", neutral: "alert-secondary" };
+                el.className = "alert small py-2 mb-2 " + (map[kind] || map.neutral);
+                el.textContent = message;
+                el.classList.remove("d-none");
+            }
+
+            function ejecutarVerificacionExpedienteCandidatoPost(idC, soloIdentificacion, btn) {
+                if (!idC) return;
+                var prevHtml = btn ? btn.innerHTML : "";
+                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin\"></i>"; }
+                var fd = new FormData();
+                fd.append("id_candidato", String(idC));
+                if (soloIdentificacion) {
+                    fd.append("solo_identificacion", "1");
+                }
+                var ctrl = new AbortController();
+                var toMs = 420000;
+                var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
+                var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+                candidatosDocConsola("info", "verificarExpedienteCandidato · inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
+                setDocModalApiTrace("Consultando al servidor: POST /caphum/verificarExpedienteCandidato" + (soloIdentificacion ? " (solo PDF de identificación)" : "") + " (puede tardar varios minutos mientras se habla con la API de documentos)…", "wait");
+                fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" }, signal: ctrl.signal })
+                    .then(function(r) {
+                        clearTimeout(tid);
+                        var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0) : null;
+                        return r.text().then(function(body) {
+                            var res;
+                            try { res = body ? JSON.parse(body) : {}; } catch (e) {
+                                candidatosDocConsola("error", "verificarExpedienteCandidato · respuesta no JSON", { id_candidato: idC, http_status: r.status, ms: ms, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
+                                setDocModalApiTrace("Respuesta no JSON del servidor (HTTP " + r.status + "). " + (ms != null ? "Tiempo: " + ms + " ms." : ""), "err");
+                                throw e;
+                            }
+                            return { r: r, res: res, ms: ms };
+                        });
+                    })
+                    .then(function(box) {
+                        var r = box.r, res = box.res, ms = box.ms;
+                        var linea = "HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + ". ";
+                        var nivelCons = res && res.success ? "log" : "warn";
+                        candidatosDocConsola(nivelCons, "verificarExpedienteCandidato · respuesta", { id_candidato: idC, http_status: r.status, ms: ms, success: !!(res && res.success), mensaje: res && res.mensaje, datos: res && res.datos });
+                        if (res && res.success) {
+                            setDocModalApiTrace(linea + (res.mensaje || "Verificación registrada. Actualizando listado…"), "ok");
+                        } else {
+                            setDocModalApiTrace(linea + ((res && res.mensaje) ? res.mensaje : "success=false"), "warn");
+                        }
+                        if (typeof Swal !== "undefined") {
+                            if (res && res.success) {
+                                Swal.fire({ icon: "success", title: "Verificación", text: res.mensaje || "Listo.", toast: true, position: "top-end", showConfirmButton: false, timer: 2600 });
+                            } else {
+                                Swal.fire({ icon: "warning", title: "Verificación", text: (res && res.mensaje) ? res.mensaje : "No se pudo completar.", toast: true, position: "top-end", showConfirmButton: true });
+                            }
+                        }
+                        cargarDocumentosModal(idC);
+                    })
+                    .catch(function(err) {
+                        clearTimeout(tid);
+                        candidatosDocConsola("error", "verificarExpedienteCandidato · error (catch)", { id_candidato: idC, name: err && err.name, message: err && err.message, stack: err && err.stack });
+                        if (typeof Swal !== "undefined") {
+                            var msg = (err && err.name === "AbortError") ? "La petición tardó demasiado (" + Math.round(toMs / 1000) + " s). Revise la API o aumente validar_expediente_timeout_seconds en config.ini." : "No hubo respuesta del servidor.";
+                            Swal.fire({ icon: "error", title: "Error", text: msg, toast: true, position: "top-end", showConfirmButton: true });
+                        }
+                        setDocModalApiTrace((err && err.name === "AbortError") ? "Tiempo agotado esperando al servidor/API." : ("Error de red o servidor: " + (err && err.message ? err.message : String(err))), "err");
+                        cargarDocumentosModal(idC);
+                    })
+                    .finally(function() {
+                        clearTimeout(tid);
+                        if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                    });
+            }
+
+            function reintentarVerificacionExpedienteApi() {
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+                if (!idC) return;
+                var chkSolo = document.getElementById("chkCandidatoVerifSoloIdentificacion");
+                var solo = !!(chkSolo && chkSolo.checked);
+                var btn = document.getElementById("btnReintentarVerifExpediente");
+                ejecutarVerificacionExpedienteCandidatoPost(idC, solo, btn);
+            }
+
+            function cargarDocumentosModal(idCandidato, opts) {
+                opts = opts || {};
+                if (!opts.fromPoll) {
+                    clearDocModalPoll();
+                }
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
                 var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
                 var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                var bloqueComp = document.getElementById("modalDocumentacionCandidatoComparaciones");
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
-                fetch("/caphum/getDocumentosCandidatoList?id_candidato=" + idCandidato).then(function(r){ return r.json(); }).then(function(res) {
+                if (cargando) {
+                    cargando.classList.remove("d-none");
+                }
+                var urlList = "/caphum/getDocumentosCandidatoList?id_candidato=" + encodeURIComponent(String(idCandidato));
+                var t0List = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+                if (!opts.fromPoll) {
+                    setDocModalApiTrace("Consultando al servidor: GET " + urlList + " …", "wait");
+                }
+                candidatosDocConsola("info", "getDocumentosCandidatoList · inicio", { id_candidato: idCandidato, fromPoll: !!opts.fromPoll, url: urlList });
+                fetch(urlList, { headers: { "X-Requested-With": "XMLHttpRequest" } }).then(function(r) {
+                    var ms = (typeof performance !== "undefined" && performance.now) ? Math.round(performance.now() - t0List) : null;
+                    var cacheHdr = r.headers.get("X-Doc-List-Cache") || "";
+                    return r.text().then(function(body) {
+                        var res;
+                        try { res = body ? JSON.parse(body) : {}; } catch (e) {
+                            candidatosDocConsola("error", "getDocumentosCandidatoList · JSON inválido", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache: cacheHdr, body_head: body ? String(body).slice(0, 2500) : "", parse_error: String(e) });
+                            setDocModalApiTrace("Listado: respuesta no JSON (HTTP " + r.status + "). " + (ms != null ? ms + " ms." : "") + " Revise sesión o error PHP.", "err");
+                            throw e;
+                        }
+                        return { r: r, res: res, ms: ms, cacheHdr: cacheHdr };
+                    });
+                }).then(function(box) {
+                    var r = box.r, res = box.res, ms = box.ms, cacheHdr = box.cacheHdr;
+                    var cacheNote = cacheHdr ? (" · caché listado: " + cacheHdr) : "";
+                    if (!res.success) {
+                        setDocModalApiTrace("Listado: HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + cacheNote + ". " + (res.mensaje || "success=false"), "warn");
+                    } else {
+                        var nDocs = (res.datos && res.datos.documentos) ? res.datos.documentos.length : (res.datos && Array.isArray(res.datos) ? res.datos.length : 0);
+                        var verifPrev = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
+                        var errApi = verifPrev && verifPrev.error_api ? String(verifPrev.error_api).trim() : "";
+                        var baseOk = "Listado: HTTP " + r.status + (ms != null ? " · " + ms + " ms" : "") + cacheNote + ". JSON OK · " + nDocs + " documento(s).";
+                        if (errApi) {
+                            setDocModalApiTrace(baseOk + " La API devolvió error registrado: " + errApi.slice(0, 220) + (errApi.length > 220 ? "…" : ""), "warn");
+                        } else if (verifPrev) {
+                            setDocModalApiTrace(baseOk + " Verificación en BD recibida.", "ok");
+                        } else if (res.datos && res.datos.metricas && res.datos.metricas.expediente_completo) {
+                            setDocModalApiTrace(baseOk + " Expediente completo: verificación en curso o pendiente; use «Reintentar API» si tarda.", "neutral");
+                        } else {
+                            setDocModalApiTrace(baseOk, "ok");
+                        }
+                    }
                     var docs = (res.datos && res.datos.documentos) ? res.datos.documentos : (res.datos && Array.isArray(res.datos) ? res.datos : []);
                     var verif = (res.datos && res.datos.verificacion_expediente) ? res.datos.verificacion_expediente : null;
                     var metricas = (res.datos && res.datos.metricas) ? res.datos.metricas : null;
+
+                    candidatosDocConsola("log", "getDocumentosCandidatoList · respuesta", { id_candidato: idCandidato, http_status: r.status, ms: ms, cache_listado: cacheHdr || null, success: !!res.success, mensaje: res.mensaje || null, n_documentos: docs.length, metricas: metricas || null, verificacion_resumen: verif ? { error_api: verif.error_api || null, checks_ok: verif.checks_ok, checks_totales: verif.checks_totales, todo_coincide: verif.todo_coincide } : null });
+                    if (!res.success) {
+                        candidatosDocConsola("warn", "getDocumentosCandidatoList · success=false (objeto completo)", res);
+                    }
+                    if (verif && verif.error_api != null && String(verif.error_api).trim() !== "") {
+                        candidatosDocConsola("warn", "verificación expediente · último intento falló (detalle en BD; use Reintentar verificación si ya corrigió la API)", { id_candidato: idCandidato, error_api: String(verif.error_api) });
+                    }
 
                     // Actualizar el Map global con los nuevos datos
                     actualizarDocumentosEnMap(idCandidato, {
@@ -5000,74 +5594,72 @@ class CapHum extends Controller
                         metricas: metricas
                     });
 
+                    if (verif) {
+                        clearDocModalPoll();
+                    }
+
                     renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
                     renderMetricasDoc(bloqueMetricas, metricas);
                     renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
                     if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                     if (verif) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-success small mb-0\"><i class=\"fa fa-check-circle me-1\"></i>Expediente verificado automáticamente. Los resultados se muestran en cada documento.</div>"; }
-                        renderVerificacionDoc(bloqueVerif, verif);
+                        renderVerificacionApiCard(bloqueVerif, verif);
+                        renderComparacionesDocFullWidth(bloqueComp, verif);
                     } else if (metricas && metricas.expediente_completo) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>La verificación automática se está procesando en segundo plano. Los resultados aparecerán aquí cuando estén listos.</div>"; }
+                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso. Esta vista se actualiza sola cada pocos segundos hasta recibir el resultado.</div>"; }
+                        if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
+                    } else {
+                        if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+                        if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
-                }).catch(function() { renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato); if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; } });
+                    maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
+                }).catch(function(err) {
+                    candidatosDocConsola("error", "getDocumentosCandidatoList · catch", { id_candidato: idCandidato, name: err && err.name, message: err && err.message, stack: err && err.stack });
+                    if (!err || (err.name !== "SyntaxError" && err.message && String(err.message).indexOf("JSON") === -1)) {
+                        setDocModalApiTrace("Listado: fallo de red o sin respuesta. " + (err && err.message ? err.message : ""), "err");
+                    }
+                    renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
+                    if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
+                    if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
+                    if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+                    if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
+                });
             }
 
             function abrirModalDocumentacionCandidato(idCandidato, nombreCandidato) {
                 var modal = document.getElementById("modalDocumentacionCandidato");
                 var label = document.getElementById("modalDocumentacionCandidatoNombre");
                 var bloqueVerif = document.getElementById("modalDocumentacionCandidatoVerificacion");
+                var bloqueComp = document.getElementById("modalDocumentacionCandidatoComparaciones");
                 var bloqueMetricas = document.getElementById("modalDocumentacionCandidatoMetricas");
                 var bloqueAccionVerificar = document.getElementById("modalDocumentacionCandidatoAccionVerificar");
                 var bloqueAccionesProceso = document.getElementById("modalDocumentacionCandidatoAccionesProceso");
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
                 var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
                 var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
-                if (modal) modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
+                if (modal) {
+                    modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
+                    modal.dataset.idCandidato = String(idCandidato);
+                }
                 if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
                 if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
+                if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                 if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
                 if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
                 if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                 if (lista) lista.innerHTML = "";
-
-                // Eager Loading: Obtener datos del Map global (sin peticiones de red - INSTANTÁNEO)
-                var docPayload = window.candidatosDataMap && window.candidatosDataMap.get(idCandidato) ? window.candidatosDataMap.get(idCandidato) : null;
-
-                if (docPayload) {
-                    // Datos disponibles instantáneamente desde memoria
-                    if (cargando) cargando.classList.add("d-none");
-                    if (vacio) vacio.classList.add("d-none");
-
-                    var docs = docPayload.documentos || [];
-                    var verif = docPayload.verificacion_expediente || null;
-                    var metricas = docPayload.metricas || null;
-
-                    renderListaDocumentos(lista, cargando, vacio, docs, verif, idCandidato);
-                    renderMetricasDoc(bloqueMetricas, metricas);
-                    renderAccionesProcesoCandidato(bloqueAccionesProceso, metricas, idCandidato);
-                    if (bloqueAccionVerificar) bloqueAccionVerificar.classList.add("d-none");
-                    if (verif) {
-                        if (bloqueVerif) { bloqueVerif.classList.remove("d-none"); bloqueVerif.innerHTML = ""; }
-                        renderVerificacionDoc(bloqueVerif, verif);
-                    } else if (metricas && metricas.expediente_completo && bloqueVerif) {
-                        bloqueVerif.classList.remove("d-none");
-                        bloqueVerif.innerHTML = "<div class=\"alert alert-info small mb-0\"><i class=\"fa fa-hourglass-half me-1\"></i>Verificación en proceso.</div>";
-                    }
-                } else {
-                    // Si no hay datos en memoria (no debería pasar con Eager Loading), mostrar vacío
-                    if (cargando) cargando.classList.add("d-none");
-                    if (vacio) vacio.classList.remove("d-none");
-                    if (lista) lista.innerHTML = "";
-                    if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
-                }
+                if (vacio) vacio.classList.add("d-none");
+                if (cargando) cargando.classList.remove("d-none");
+                clearDocModalApiTrace();
 
                 var bsModal = modal && window.bootstrap && window.bootstrap.Modal ? new window.bootstrap.Modal(modal) : null;
                 if (bsModal) bsModal.show();
+                cargarDocumentosModal(idCandidato);
             }
 
             function abrirModalReenviarPostulacion(idCandidato) {
         candidatoDatosEnvio = null;
+        prepararBloqueLinkDocumentos();
 
         // Intentar obtener datos desde la memoria primero (eager loading)
         var candidato = null;
@@ -5158,6 +5750,17 @@ class CapHum extends Controller
         }
         }
 
+            function prepararBloqueLinkDocumentos() {
+        var bloque = document.getElementById("bloqueLinkDocumentos");
+        var input = document.getElementById("inputUrlDocumentos");
+        if (bloque) bloque.style.display = "block";
+        if (input) {
+            input.value = "";
+            input.placeholder = "Generando enlace...";
+            input.setAttribute("title", "");
+        }
+        }
+
             function buildResumenCandidatoHTML(o) {
         var n = o.nombreCompleto || "—"; var t = o.telefono || "—"; var e = o.email || "—"; var p = o.puesto || "—"; var d = o.departamento || "—";
         return "<div class=\"resumen-row\"><span class=\"resumen-label\">Candidato</span><span class=\"resumen-value\">" + escapeHtml(n) + "</span></div>" +
@@ -5176,8 +5779,24 @@ class CapHum extends Controller
         var bloque = document.getElementById("bloqueLinkDocumentos");
         var input = document.getElementById("inputUrlDocumentos");
         if (!bloque || !input) return;
+        bloque.style.display = "block";
+        input.value = "";
+        input.placeholder = "Generando enlace...";
+        input.setAttribute("title", "");
         fetch("/caphum/getTokenDocumentosCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id: idCandidato }) })
-            .then(function(r){ return r.json(); }).then(function(res){ if (res.success && res.datos && res.datos.url) { input.value = res.datos.url; input.setAttribute("title", res.datos.url); bloque.style.display = "block"; } }).catch(function(){});
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+                if (res && res.success && res.datos && res.datos.url) {
+                    input.value = res.datos.url;
+                    input.setAttribute("title", res.datos.url);
+                    input.placeholder = "";
+                    return;
+                }
+                input.placeholder = "No se pudo obtener el enlace";
+            })
+            .catch(function(){
+                input.placeholder = "No se pudo obtener el enlace";
+            });
         }
 
             function showToastUrl(msg) {
@@ -5225,6 +5844,14 @@ class CapHum extends Controller
             if (form.telefono) form.telefono.value = c.telefono || "";
             if (form.email) form.email.value = c.email || "";
             if (form.id_pais) form.id_pais.value = c.id_pais || "";
+            var selPais = document.getElementById("candidato_id_pais");
+            if (selPais) refreshSelectBuscadorCandidato(selPais.id);
+            if (form.id_div_nivel1) form.id_div_nivel1.value = c.id_div_nivel1 || "";
+            if (form.id_div_nivel2) form.id_div_nivel2.value = c.id_div_nivel2 || "";
+            if (form.id_div_nivel3) form.id_div_nivel3.value = c.id_div_nivel3 || "";
+            if (form.domicilio_calle_texto) form.domicilio_calle_texto.value = c.domicilio_calle_texto || "";
+            if (form.domicilio_num_exterior) form.domicilio_num_exterior.value = c.domicilio_num_exterior || "";
+            if (form.domicilio_num_interior) form.domicilio_num_interior.value = c.domicilio_num_interior || "";
             if (form.id_departamento) form.id_departamento.value = c.id_departamento || "";
             if (form.usuario) form.usuario.value = c.usuario || "";
             if (form.contrasena) form.contrasena.value = c.contrasena || "";
@@ -5240,6 +5867,7 @@ class CapHum extends Controller
             selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>";
             selJefe.innerHTML = "<option value=''>—</option>";
             setTimeout(function() { abrirOffcanvasCandidato(); }, 0);
+            precargarCascadaDomicilioCandidato(c);
             if (!c.id_departamento) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
             fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_departamento: c.id_departamento }) })
             .then(function(r){ return r.json(); })
@@ -5270,6 +5898,7 @@ class CapHum extends Controller
             function guardarCandidatoEdicion() {
         var form = document.getElementById("formAgregarCandidato");
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
+        if (!validarDomicilioCandidato()) return;
         var id = candidatoEditId; if (!id) return;
         var data = buildCandidatoPayloadFromForm(); data.id = id;
         fetch("/caphum/actualizarCandidato", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(data) })
@@ -5293,6 +5922,7 @@ class CapHum extends Controller
             function guardarCandidatoAbrirResumen() {
         var form = document.getElementById("formAgregarCandidato");
         if (!form || !form.checkValidity()) { form.reportValidity(); return; }
+        if (!validarDomicilioCandidato()) return;
         var data = buildCandidatoPayloadFromForm();
         if (!data.nombres || !data.apellidop) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Faltan datos", text: "Nombre y apellido paterno son obligatorios." }); return; }
         var btnSubmit = document.getElementById("btnSubmitCandidato");
@@ -5332,6 +5962,12 @@ class CapHum extends Controller
             email: (form.email && form.email.value.trim()) || "",
             telefono: (form.telefono && form.telefono.value.trim()) || "",
             id_pais: (form.id_pais && form.id_pais.value) || null,
+            id_div_nivel1: (form.id_div_nivel1 && form.id_div_nivel1.value) || null,
+            id_div_nivel2: (form.id_div_nivel2 && form.id_div_nivel2.value) || null,
+            id_div_nivel3: (form.id_div_nivel3 && form.id_div_nivel3.value) || null,
+            domicilio_calle_texto: (form.domicilio_calle_texto && form.domicilio_calle_texto.value.trim()) || null,
+            domicilio_num_exterior: (form.domicilio_num_exterior && form.domicilio_num_exterior.value.trim()) || null,
+            domicilio_num_interior: (form.domicilio_num_interior && form.domicilio_num_interior.value.trim()) || null,
             id_departamento: (form.id_departamento && form.id_departamento.value) || null,
             id_puesto: (form.id_puesto && form.id_puesto.value) || null,
             id_posible_jefe: (form.id_posible_jefe && form.id_posible_jefe.value) || null,
@@ -5341,6 +5977,24 @@ class CapHum extends Controller
             contrasena: (form.contrasena && form.contrasena.value.trim()) || "",
             estatus: "Por evaluar", notas: null, postulacion_enviada: 1
         };
+        }
+
+            function validarDomicilioCandidato() {
+        var paisSel = document.getElementById("candidato_id_pais");
+        var paisTxt = paisSel && paisSel.selectedIndex >= 0 ? String(paisSel.options[paisSel.selectedIndex].textContent || "").toLowerCase() : "";
+        var esMexico = paisTxt.indexOf("mex") >= 0;
+        if (!esMexico) return true;
+        var estado = document.getElementById("candidato_id_div_nivel1");
+        var municipio = document.getElementById("candidato_id_div_nivel2");
+        var colonia = document.getElementById("candidato_id_div_nivel3");
+        var calle = document.getElementById("candidato_domicilio_calle_texto");
+        var ext = document.getElementById("candidato_domicilio_num_exterior");
+        if (!estado || !estado.value) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Selecciona el estado." }); return false; }
+        if (!municipio || !municipio.value) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Selecciona la alcaldía/municipio." }); return false; }
+        if (!colonia || !colonia.value) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Selecciona la colonia." }); return false; }
+        if (!calle || !String(calle.value || "").trim()) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Escribe la calle." }); return false; }
+        if (!ext || !String(ext.value || "").trim()) { if (typeof Swal !== "undefined") Swal.fire({ icon: "warning", title: "Domicilio", text: "Captura el número exterior." }); return false; }
+        return true;
         }
 
             function enviarPostulacionAlCandidato() {
@@ -5404,6 +6058,8 @@ class CapHum extends Controller
                 { data: 'nombre', title: 'Nombre' },
                 { data: 'contacto', title: 'Contacto' },
                 { data: 'puestoDepto', title: 'Puesto / Departamento' },
+                { data: 'ubicacion', title: 'Ubicación' },
+                { data: 'domicilio', title: 'Domicilio' },
                 { data: 'estatus', title: 'Estatus', render: function(d) { return d != null ? d : ''; } },
                 { data: 'acciones', title: 'Acciones', orderable: false }
             ]
@@ -5418,11 +6074,66 @@ class CapHum extends Controller
         var form = document.getElementById("formAgregarCandidato");
         if (form) { form.addEventListener("submit", function(e) { e.preventDefault(); if (candidatoEditId) guardarCandidatoEdicion(); else guardarCandidatoAbrirResumen(); }); }
         document.addEventListener("click", candidatosTableClick);
+        var modalDocPollEl = document.getElementById("modalDocumentacionCandidato");
+        if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); });
+        ["modalResumenPostulacion", "modalDocumentacionCandidato"].forEach(function(mid) {
+            var m = document.getElementById(mid);
+            if (!m) return;
+            m.addEventListener("hide.bs.modal", function() {
+                var ae = document.activeElement;
+                if (ae && m.contains(ae) && typeof ae.blur === "function") ae.blur();
+            });
+        });
         document.addEventListener("click", function(e) {
+            if (e.target.closest("#btnReintentarVerifExpediente")) {
+                e.preventDefault();
+                e.stopPropagation();
+                reintentarVerificacionExpedienteApi();
+                return;
+            }
+            if (e.target.closest("#btnCandidatoValidarSoloIdentificacion")) {
+                e.preventDefault();
+                e.stopPropagation();
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+                if (!idC) {
+                    if (typeof Swal !== "undefined") Swal.fire({ icon: "info", title: "Candidato", text: "Abre primero el modal de documentación desde la tabla.", toast: true, position: "top-end", timer: 2200, showConfirmButton: false });
+                    return;
+                }
+                var btnUno = document.getElementById("btnCandidatoValidarSoloIdentificacion");
+                ejecutarVerificacionExpedienteCandidatoPost(idC, true, btnUno);
+                return;
+            }
             var btn = e.target.closest(".btn-cerrar-proceso-candidato");
-            if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) abrirModalCerrarProceso(parseInt(id, 10)); }
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                var id = btn.getAttribute("data-id");
+                if (!id) return;
+                var idNum = parseInt(id, 10);
+                if (typeof Swal !== "undefined") {
+                    Swal.fire({
+                        title: "¿Estás seguro?",
+                        text: "Podrás indicar el motivo del cierre en el siguiente paso.",
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonText: "Sí, continuar",
+                        cancelButtonText: "Cancelar"
+                    }).then(function(r) {
+                        if (r.isConfirmed) abrirModalCerrarProceso(idNum);
+                    });
+                } else if (confirm("¿Estás seguro de cerrar el proceso de este candidato?")) {
+                    abrirModalCerrarProceso(idNum);
+                }
+                return;
+            }
             btn = e.target.closest(".btn-continuar-proceso-candidato");
-            if (btn) { e.preventDefault(); e.stopPropagation(); var id = btn.getAttribute("data-id"); if (id) ejecutarContinuarProceso(parseInt(id, 10)); }
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                var idC = btn.getAttribute("data-id");
+                if (idC) ejecutarContinuarProceso(parseInt(idC, 10));
+            }
         });
         function abrirModalCerrarProceso(idCandidato) {
             var hid = document.getElementById("cerrarProcesoIdCandidato");
@@ -5487,58 +6198,76 @@ class CapHum extends Controller
             });
         }
         function ejecutarContinuarProceso(idCandidato) {
-            if (typeof Swal === "undefined") {
-                if (confirm("¿Ya RRHH le dio de alta a la nómina del candidato?")) {
-                    fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
-                        .then(function(r){ return r.json(); })
-                        .then(function(res) {
-                            if (res.success) {
-                                var modalDoc = document.getElementById("modalDocumentacionCandidato");
-                                if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
-                                if (typeof getCandidatos === "function") getCandidatos();
-                                alert("Listo. Se envió el correo de bienvenida al candidato con el enlace al Onboarding.");
-                            } else alert(res.mensaje || "Error al dar de alta.");
-                        });
-                } else {
-                    alert("Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso.");
+            function pasoAltaNominaRRHH() {
+                if (typeof Swal === "undefined") {
+                    if (confirm("¿Ya RRHH le dio de alta a la nómina del candidato?")) {
+                        fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                            .then(function(r){ return r.json(); })
+                            .then(function(res) {
+                                if (res.success) {
+                                    var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                                    if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
+                                    if (typeof getCandidatos === "function") getCandidatos();
+                                    alert("Listo. Se envió el correo de bienvenida al candidato con el enlace al Onboarding.");
+                                } else alert(res.mensaje || "Error al dar de alta.");
+                            });
+                    } else {
+                        alert("Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso.");
+                    }
+                    return;
                 }
+                Swal.fire({
+                    title: "¿Ya RRHH le dio de alta a la nómina del candidato?",
+                    icon: "question",
+                    showCancelButton: true,
+                    confirmButtonText: "Sí",
+                    cancelButtonText: "No",
+                    confirmButtonColor: "#198754",
+                    cancelButtonColor: "#6c757d"
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        Swal.fire({ title: "Procesando...", text: "Dando de alta en Gestión y enviando correo de bienvenida.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
+                        fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
+                            .then(function(r){ return r.json(); })
+                            .then(function(res) {
+                                Swal.close();
+                                if (res.success) {
+                                    var modalDoc = document.getElementById("modalDocumentacionCandidato");
+                                    if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
+                                    if (typeof getCandidatos === "function") getCandidatos();
+                                    Swal.fire({ icon: "success", title: "¡Listo!", text: "Bienvenido a MaxiKash. Se envió el correo al candidato con el enlace para entrar al Onboarding. El colaborador ya está dado de alta en Gestión." });
+                                } else {
+                                    Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo dar de alta en Gestión." });
+                                }
+                            })
+                            .catch(function() {
+                                Swal.close();
+                                Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
+                            });
+                    } else {
+                        Swal.fire({
+                            icon: "info",
+                            title: "Alta en nómina requerida",
+                            text: "Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso."
+                        });
+                    }
+                });
+            }
+            if (typeof Swal === "undefined") {
+                if (!confirm("¿Estás seguro de continuar el proceso del candidato?")) return;
+                pasoAltaNominaRRHH();
                 return;
             }
             Swal.fire({
-                title: "¿Ya RRHH le dio de alta a la nómina del candidato?",
+                title: "¿Estás seguro?",
+                text: "Continuarás con el alta en Gestión y el envío de correo al candidato en los pasos siguientes.",
                 icon: "question",
                 showCancelButton: true,
-                confirmButtonText: "Sí",
-                cancelButtonText: "No",
-                confirmButtonColor: "#198754",
-                cancelButtonColor: "#6c757d"
-            }).then(function(result) {
-                if (result.isConfirmed) {
-                    Swal.fire({ title: "Procesando...", text: "Dando de alta en Gestión y enviando correo de bienvenida.", allowOutsideClick: false, allowEscapeKey: false, didOpen: function() { Swal.showLoading(); } });
-                    fetch("/caphum/pasarCandidatoAGestion", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_candidato: idCandidato }) })
-                        .then(function(r){ return r.json(); })
-                        .then(function(res) {
-                            Swal.close();
-                            if (res.success) {
-                                var modalDoc = document.getElementById("modalDocumentacionCandidato");
-                                if (modalDoc && window.bootstrap && window.bootstrap.Modal) { var instDoc = window.bootstrap.Modal.getInstance(modalDoc); if (instDoc) instDoc.hide(); }
-                                if (typeof getCandidatos === "function") getCandidatos();
-                                Swal.fire({ icon: "success", title: "¡Listo!", text: "Bienvenido a MaxiKash. Se envió el correo al candidato con el enlace para entrar al Onboarding. El colaborador ya está dado de alta en Gestión." });
-                            } else {
-                                Swal.fire({ icon: "error", title: "Error", text: res.mensaje || "No se pudo dar de alta en Gestión." });
-                            }
-                        })
-                        .catch(function() {
-                            Swal.close();
-                            Swal.fire({ icon: "error", title: "Error", text: "Error de conexión." });
-                        });
-                } else {
-                    Swal.fire({
-                        icon: "info",
-                        title: "Alta en nómina requerida",
-                        text: "Para continuar el proceso el candidato debe tener alta en nómina por RRHH. Cuando ya le hayan dado de alta, vuelve a hacer clic en Continuar proceso."
-                    });
-                }
+                confirmButtonText: "Sí, continuar",
+                cancelButtonText: "Cancelar"
+            }).then(function(primero) {
+                if (!primero.isConfirmed) return;
+                pasoAltaNominaRRHH();
             });
         }
         var btnAltaNominaNo = document.getElementById("btnConfirmarAltaNominaNo");
@@ -5575,6 +6304,29 @@ class CapHum extends Controller
         var offcanvasEl = document.getElementById("offcanvasAddCandidato");
         if (offcanvasEl) {
             offcanvasEl.addEventListener("show.bs.offcanvas", function() { var btnSubmit = document.getElementById("btnSubmitCandidato"); if (!btnSubmit) return; if (candidatoEditId) { btnSubmit.innerHTML = "<i class=\"bx bx-edit-alt me-1\"></i> Actualizar"; btnSubmit.className = "btn btn-success me-2"; } else { btnSubmit.innerHTML = "<i class=\"bx bx-save me-1\"></i> Guardar"; btnSubmit.className = "btn btn-primary me-2"; } });
+            offcanvasEl.addEventListener("shown.bs.offcanvas", function() {
+                [
+                    "candidato_id_pais",
+                    "candidato_id_div_nivel1",
+                    "candidato_id_div_nivel2",
+                    "candidato_id_div_nivel3",
+                    "candidato_id_departamento",
+                    "candidato_id_puesto",
+                    "candidato_id_posible_jefe",
+                    "candidato_id_legion"
+                ].forEach(function(id) { refreshSelectBuscadorCandidato(id); });
+                var pais = document.getElementById("candidato_id_pais");
+                var depto = document.getElementById("candidato_id_departamento");
+                var puesto = document.getElementById("candidato_id_puesto");
+                if (pais && pais.value && !document.getElementById("candidato_id_div_nivel1").value) {
+                    if (typeof window.jQuery !== "undefined") window.jQuery(pais).trigger("change");
+                    else pais.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+                if (depto && depto.value && puesto && puesto.options.length <= 1) {
+                    if (typeof window.jQuery !== "undefined") window.jQuery(depto).trigger("change");
+                    else depto.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+            });
             offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
                 var form = document.getElementById("formAgregarCandidato"); if (form) { form.reset(); candidatoEditId = null; }
                 var titulo = document.getElementById("offcanvasCandidatoTitulo"); if (titulo) titulo.textContent = "Nuevo Candidato";
@@ -5584,30 +6336,130 @@ class CapHum extends Controller
                 if (divLegion) divLegion.style.display = "none"; if (chkLegion) chkLegion.checked = false; if (selLegion) selLegion.value = "";
                 var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
                 if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+                resetCascadaDomicilioCandidato();
             });
         }
-        var selDeptoForm = document.getElementById("candidato_id_departamento");
-        if (selDeptoForm) selDeptoForm.addEventListener("change", function() {
-            var idDepto = this.value;
+        $(document).off("change.candForm", "#candidato_id_pais").on("change.candForm", "#candidato_id_pais", function() {
+            resetCascadaDomicilioCandidato();
+            var idPais = $(this).val();
+            if (!idPais) return;
+            var divEstado = document.getElementById("div_candidato_estado");
+            if (divEstado) divEstado.style.display = "";
+            cargarEstadosCandidato(idPais, function(tieneEstados){
+                if (!tieneEstados) return;
+                var estado = document.getElementById("candidato_id_div_nivel1");
+                if (estado) {
+                    estado.disabled = false;
+                    refreshSelectBuscadorCandidato(estado.id);
+                }
+            });
+        });
+        $(document).off("change.candForm", "#candidato_id_div_nivel1").on("change.candForm", "#candidato_id_div_nivel1", function() {
+            var mun = document.getElementById("candidato_id_div_nivel2");
+            var col = document.getElementById("candidato_id_div_nivel3");
+            if (mun) { mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>"; mun.disabled = true; refreshSelectBuscadorCandidato(mun.id); }
+            if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
+            var divMunicipio = document.getElementById("div_candidato_municipio");
+            var divColonia = document.getElementById("div_candidato_colonia");
+            var divCalle = document.getElementById("div_candidato_calle_texto");
+            var divNum = document.getElementById("div_candidato_num_extint");
+            if (divMunicipio) divMunicipio.style.display = "none";
+            if (divColonia) divColonia.style.display = "none";
+            if (divCalle) divCalle.style.display = "none";
+            if (divNum) divNum.style.display = "none";
+            limpiarDomicilioTextoCandidato();
+            var idEstado = $(this).val();
+            if (!idEstado) return;
+            if (divMunicipio) divMunicipio.style.display = "";
+            cargarMunicipiosCandidato(idEstado, function(tieneMunicipios){
+                if (!tieneMunicipios) return;
+                var s = document.getElementById("candidato_id_div_nivel2");
+                if (s) {
+                    s.disabled = false;
+                    refreshSelectBuscadorCandidato(s.id);
+                }
+            });
+        });
+        $(document).off("change.candForm", "#candidato_id_div_nivel2").on("change.candForm", "#candidato_id_div_nivel2", function() {
+            var col = document.getElementById("candidato_id_div_nivel3");
+            if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
+            var divColonia = document.getElementById("div_candidato_colonia");
+            var divCalle = document.getElementById("div_candidato_calle_texto");
+            var divNum = document.getElementById("div_candidato_num_extint");
+            if (divColonia) divColonia.style.display = "none";
+            if (divCalle) divCalle.style.display = "none";
+            if (divNum) divNum.style.display = "none";
+            limpiarDomicilioTextoCandidato();
+            var idMunicipio = $(this).val();
+            if (!idMunicipio) return;
+            if (divColonia) divColonia.style.display = "";
+            cargarColoniasCandidato(idMunicipio, function(tieneColonias){
+                if (!tieneColonias) return;
+                var s = document.getElementById("candidato_id_div_nivel3");
+                if (s) {
+                    s.disabled = false;
+                    refreshSelectBuscadorCandidato(s.id);
+                }
+            });
+        });
+        $(document).off("change.candForm", "#candidato_id_div_nivel3").on("change.candForm", "#candidato_id_div_nivel3", function() {
+            var divCalle = document.getElementById("div_candidato_calle_texto");
+            var divNum = document.getElementById("div_candidato_num_extint");
+            var txtCalle = document.getElementById("candidato_domicilio_calle_texto");
+            var txtExt = document.getElementById("candidato_domicilio_num_exterior");
+            var txtInt = document.getElementById("candidato_domicilio_num_interior");
+            var v = $(this).val();
+            if (!v) {
+                if (divCalle) divCalle.style.display = "none";
+                if (divNum) divNum.style.display = "none";
+                if (txtCalle) txtCalle.value = "";
+                if (txtExt) txtExt.value = "";
+                if (txtInt) txtInt.value = "";
+                return;
+            }
+            if (divCalle) divCalle.style.display = "";
+            if (divNum) divNum.style.display = "";
+        });
+        $(document).off("change.candForm", "#candidato_id_departamento").on("change.candForm", "#candidato_id_departamento", function() {
+            var idDepto = $(this).val();
             var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
-            if (selPuesto) selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; if (selJefe) selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>";
+            if (selPuesto) { selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; refreshSelectBuscadorCandidato(selPuesto.id); }
+            if (selJefe) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; refreshSelectBuscadorCandidato(selJefe.id); }
             if (!idDepto) return;
-            fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto }) })
-                .then(function(r){ return r.json(); }).then(function(res){ if (res.success && res.datos) res.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || p.puesto_nombre || ""; selPuesto.appendChild(opt); }); });
+            fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto }) })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    if (res.success && res.datos) {
+                        res.datos.forEach(function(p){ var opt = document.createElement("option"); opt.value = p.id; opt.textContent = p.nombre || p.puesto_nombre || ""; selPuesto.appendChild(opt); });
+                    }
+                    refreshSelectBuscadorCandidato("candidato_id_puesto");
+                })
+                .catch(function(){ refreshSelectBuscadorCandidato("candidato_id_puesto"); });
             if (selJefe) {
                 selJefe.innerHTML = "<option value=''>—</option>";
-                fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: null }) })
-                    .then(function(r){ return r.json(); }).then(function(res){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); }); }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
+                fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto, id_puesto: null }) })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){
+                        selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
+                        if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
+                        refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
+                    })
+                    .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
             }
         });
-        var selPuestoForm = document.getElementById("candidato_id_puesto");
-        if (selPuestoForm) selPuestoForm.addEventListener("change", function() {
-            var idPuesto = this.value; var selDepto = document.getElementById("candidato_id_departamento"); var selJefe = document.getElementById("candidato_id_posible_jefe");
+        $(document).off("change.candForm", "#candidato_id_puesto").on("change.candForm", "#candidato_id_puesto", function() {
+            var idPuesto = $(this).val(); var selDepto = document.getElementById("candidato_id_departamento"); var selJefe = document.getElementById("candidato_id_posible_jefe");
             if (!selJefe || !selDepto) return;
             selJefe.innerHTML = "<option value=''>—</option>"; var idDepto = selDepto.value;
             if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
-            fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null }) })
-                .then(function(r){ return r.json(); }).then(function(res){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); }); }).catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; });
+            fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null }) })
+                .then(function(r){ return r.json(); })
+                .then(function(res){
+                    selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
+                    if (res.success && res.datos && res.datos.length) res.datos.forEach(function(j){ var opt = document.createElement("option"); opt.value = j.id; opt.textContent = (j.nombre_completo || "").trim() || "ID " + j.id; selJefe.appendChild(opt); });
+                    refreshSelectBuscadorCandidato("candidato_id_posible_jefe");
+                })
+                .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
         });
         var btnAddCandidato = document.querySelector("[data-bs-target=\"#offcanvasAddCandidato\"]");
         if (btnAddCandidato) btnAddCandidato.addEventListener("click", function() { candidatoEditId = null; document.getElementById("offcanvasCandidatoTitulo").textContent = "Nuevo Candidato"; });
@@ -5624,6 +6476,7 @@ class CapHum extends Controller
         self::set("titulo", "Selección de Personal");
         self::set("script", $script);
         self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
+        self::set("mostrarDiagVerificacionDoc", (int) ($_SESSION['usuario_id'] ?? 0) === 1);
         self::set("departamento", $departamento);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
@@ -5850,13 +6703,16 @@ class CapHum extends Controller
         }
 
         $asunto = "Documentación requerida — Postulación de " . $nombreCompleto . " para " . $puesto;
-        $diasLimite = 7;
+        $diasHabilesLimite = 2;
         $contacto = '';
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
         if (is_file($configFile)) {
             $full = @parse_ini_file($configFile, true);
             $mailSection = is_array($full['mail'] ?? null) ? $full['mail'] : [];
-            $diasLimite = (int) ($mailSection['dias_limite_documentos'] ?? 7);
+            $diasHabilesLimite = (int) ($mailSection['dias_habiles_limite_documentos'] ?? 2);
+            if ($diasHabilesLimite < 1) {
+                $diasHabilesLimite = 2;
+            }
             $contacto = trim($mailSection['mail_contacto'] ?? '');
         if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
             $contacto = trim($mailSection['smtp_user'] ?? $mailSection['mail_from'] ?? '');
@@ -5868,9 +6724,11 @@ class CapHum extends Controller
         if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
             $contacto = 'lrgonzalez033@gmail.com';
         }
-        $fechaLimiteObj = new \DateTime('now', new \DateTimeZone('America/Mexico_City'));
-        $fechaLimiteObj->modify('+' . $diasLimite . ' days');
-        $fechaLimite = $fechaLimiteObj->format('d/m/Y');
+        $ahoraCdmx = self::ahoraMexicoCiudad();
+        $limiteFinInst = self::documentacionLimiteFinDesdeReferencia($ahoraCdmx, $diasHabilesLimite);
+        $fechaLimite = $limiteFinInst->format('d/m/Y');
+        // Misma fecha/hora límite que indica el correo: el enlace deja de aceptar subidas después (CDMX 23:59:59).
+        CandidatosDAO::actualizarExpiraTokenDocumentos($id, $limiteFinInst->format('Y-m-d H:i:s'));
         $telefono = $c['telefono'] ?? '';
         // Ruta del logo para incrustar en el correo (cid:) — prioridad: logo_correo.png (sin fondo), luego logo___SPARTA_SECRET_REDACTED__.png
         $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
@@ -5951,6 +6809,7 @@ class CapHum extends Controller
 
         $enviado = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInline);
         if ($enviado) {
+            CandidatosDAO::registrarFechaEnvioCorreoPostulacion($id, $ahoraCdmx->format('Y-m-d H:i:s'));
             echo json_encode(self::respuesta(true, "Postulación enviada por correo correctamente.", null));
         } else {
             $msg = $this->enviarCorreoUltimoError ?: "No se pudo enviar el correo. Configure SMTP en backend/config/config.ini, sección [mail] (smtp_host, smtp_user, smtp_pass).";
@@ -6015,15 +6874,24 @@ class CapHum extends Controller
             'NÚMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
         ];
         $documentos_subidos = [];
+        $tipoDocumentoValidadoRh = [];
         $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
         if ($resDocs['success'] && !empty($resDocs['datos'])) {
             foreach ($resDocs['datos'] as $d) {
                 $tipo = trim($d['tipo_documento'] ?? '');
-                if (isset($tiposNombre[$tipo])) {
-                    $documentos_subidos[$tiposNombre[$tipo]] = $d;
+                if (!isset($tiposNombre[$tipo])) {
+                    continue;
+                }
+                $numTipo = $tiposNombre[$tipo];
+                if (!empty((int) ($d['validado'] ?? 0))) {
+                    $tipoDocumentoValidadoRh[$numTipo] = true;
+                }
+                if (!isset($documentos_subidos[$numTipo])) {
+                    $documentos_subidos[$numTipo] = $d;
                 }
             }
         }
+        $this->set('tipo_documento_validado_rh', $tipoDocumentoValidadoRh);
         $expediente_completo = isset($documentos_subidos[1]) && isset($documentos_subidos[2]) && isset($documentos_subidos[3])
             && isset($documentos_subidos[4]) && isset($documentos_subidos[5]) && isset($documentos_subidos[6])
             && isset($documentos_subidos[7]) && isset($documentos_subidos[8]) && isset($documentos_subidos[9])
@@ -6351,22 +7219,237 @@ class CapHum extends Controller
     }
 
     /**
-     * Base URL de la API de verificación (desde config.ini [doc_verificacion] api_url).
-     * Para uso en la vista subir_documentos_candidato (llamadas desde el navegador).
+     * Base URL usada por la vista para validar documentos.
+     * Importante: debe ser mismo origen (PHP) para evitar bloqueos CORS/PNA en navegador.
      */
     private function getApiVerificacionBase()
     {
+        return '/CapHum/docVerificacionProxy';
+    }
+
+    /**
+     * Proxy server-side para la API Python de verificación de documentos.
+     * Evita llamadas directas del navegador a 127.0.0.1 (bloqueadas por CORS/PNA).
+     */
+    public function docVerificacionProxy($endpoint = '')
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            http_response_code(405);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'Método no permitido.']);
+            return;
+        }
+
+        $endpoint = trim((string) $endpoint, " \t\n\r\0\x0B/");
+        if ($endpoint === '') {
+            $endpoint = trim((string) ($_GET['endpoint'] ?? ''), " \t\n\r\0\x0B/");
+        }
+
+        $permitidos = [
+            'verificar',
+            'verificar-calidad',
+            'precheck-identificacion-pdf',
+            'verificar-calidad-identificacion-pdf',
+            'verificar-comprobante',
+            'verificar-curp-documento',
+            'verificar-constancia-fiscal-documento',
+            'verificar-nss-documento',
+            'verificar-estado-cuenta',
+        ];
+        if (!in_array($endpoint, $permitidos, true)) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'Endpoint de verificación no permitido.']);
+            return;
+        }
+
+        $cfg = $this->getDocVerificacionConfig();
+        if ($cfg === null) {
+            http_response_code(503);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'API de verificación no configurada.']);
+            return;
+        }
+
+        $targetUrl = rtrim($cfg['base_url'], '/') . '/' . $endpoint;
+        if (!empty($_SERVER['QUERY_STRING'])) {
+            parse_str((string) $_SERVER['QUERY_STRING'], $queryParams);
+            unset($queryParams['url'], $queryParams['endpoint']);
+            if (!empty($queryParams)) {
+                $targetUrl .= '?' . http_build_query($queryParams);
+            }
+        }
+
+        $postFields = [];
+        foreach ($_FILES as $name => $file) {
+            $tmpName = $file['tmp_name'] ?? '';
+            if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+                continue;
+            }
+            $mime = trim((string) ($file['type'] ?? ''));
+            $filename = basename((string) ($file['name'] ?? 'documento.bin'));
+            $postFields[$name] = new \CURLFile($tmpName, $mime !== '' ? $mime : 'application/octet-stream', $filename);
+        }
+
+        if (empty($postFields)) {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => 'No se recibió archivo para verificar.']);
+            return;
+        }
+
+        $timeout = 60;
+        if ($endpoint === 'verificar-calidad-identificacion-pdf') {
+            // El análisis de PDFs de identificación puede tardar más de 60s.
+            $timeout = 180;
+        }
+
+        $ch = curl_init($targetUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $postFields,
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $cfg['api_key']],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_CONNECTTIMEOUT => 8,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        $contentType = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+
+        if ($body === false) {
+            http_response_code(502);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'mensaje' => $curlErr !== '' ? $curlErr : 'No se pudo conectar con la API de verificación.']);
+            return;
+        }
+
+        if ($httpCode <= 0) {
+            $httpCode = 502;
+        }
+        http_response_code($httpCode);
+        if (stripos($contentType, 'application/json') !== false) {
+            header('Content-Type: application/json; charset=utf-8');
+        } else {
+            header('Content-Type: text/plain; charset=utf-8');
+        }
+        echo $body;
+    }
+
+    /**
+     * Base HTTP de la API Python (…/api/v1) a partir de [doc_verificacion] api_url.
+     * Acepta p.ej. http://127.0.0.1:8000/api/v1/verificar, http://127.0.0.1:8000/verificar o solo host:puerto.
+     */
+    private function normalizarBaseUrlDocVerificacion(string $apiUrl): string
+    {
+        $apiUrl = trim($apiUrl);
+        if ($apiUrl !== '' && ($apiUrl[0] === '"' || $apiUrl[0] === "'")) {
+            $apiUrl = trim($apiUrl, " \t\n\r\0\x0B\"'");
+        }
+        $base = preg_replace('#/verificar\s*$#i', '', $apiUrl);
+        $base = rtrim(trim((string) $base), '/');
+        if ($base === '') {
+            return '';
+        }
+        if (!preg_match('#/api/v1$#i', $base)) {
+            $base .= '/api/v1';
+        }
+
+        return $base;
+    }
+
+    /** POST/GET solo_identificacion=1 solo para usuario de sesión id 1 (diagnóstico; no exponer al resto del módulo). */
+    private function docVerificacionPetitorioSoloIdentificacion(): bool
+    {
+        if ((int) ($_SESSION['usuario_id'] ?? 0) !== 1) {
+            return false;
+        }
+        $v = $_POST['solo_identificacion'] ?? $_GET['solo_identificacion'] ?? '';
+        if ($v === '1' || $v === 1) {
+            return true;
+        }
+        $s = strtolower(trim((string) $v));
+
+        return in_array($s, ['true', 'yes', 'on'], true);
+    }
+
+    /** config.ini [doc_verificacion] validar_expediente_solo_identificacion = 1 */
+    private function docVerificacionIniSoloIdentificacion(): bool
+    {
         $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
         if (!is_file($configFile)) {
-            return 'http://localhost:8000/api/v1';
+            return false;
         }
         $config = @parse_ini_file($configFile, true);
-        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
-        if ($apiUrl === '') {
-            return 'http://localhost:8000/api/v1';
+        $iniVal = strtolower(trim((string) ($config['doc_verificacion']['validar_expediente_solo_identificacion'] ?? '0')));
+
+        return in_array($iniVal, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * @param array<string, mixed> $rutasParaValidar referencia (identificacion_pdf + opcionales)
+     */
+    private function docVerificacionQuitarAdjuntosOpcionalesExpediente(array &$rutasParaValidar): void
+    {
+        foreach (['curp', 'nss', 'constancia_fiscal', 'acta_nacimiento'] as $k) {
+            $rutasParaValidar[$k] = null;
         }
-        $base = preg_replace('#/verificar\s*$#', '', $apiUrl);
-        return $base !== '' ? $base : 'http://localhost:8000/api/v1';
+    }
+
+    /**
+     * Arma el JSON guardado en candidatos.ultima_verificacion_expediente a partir de la respuesta OK de la API.
+     *
+     * @param array<string, mixed> $resultadoApi
+     * @return array<string, mixed>
+     */
+    private function expedientePayloadDesdeApi(array $resultadoApi, bool $soloIdentificacion): array
+    {
+        $alertaModo = $soloIdentificacion
+            ? ['Modo prueba: solo se envió el PDF de identificación a la API (no se adjuntaron CURP, NSS, constancia fiscal ni acta). Desactive la casilla o validar_expediente_solo_identificacion=0 para verificación completa.']
+            : [];
+
+        return [
+            'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,
+            'foto_rechazada' => $resultadoApi['foto_rechazada'] ?? false,
+            'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
+            'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
+            'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
+            'alertas' => array_merge($alertaModo, $resultadoApi['alertas'] ?? []),
+            'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
+            'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
+            'comparaciones' => $resultadoApi['comparaciones'] ?? null,
+            'nombre_ocr' => $resultadoApi['nombre_ocr'] ?? null,
+            'anio_nacimiento' => $resultadoApi['anio_nacimiento'] ?? null,
+            'tipo_documento' => $resultadoApi['tipo_documento'] ?? null,
+            'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+        ];
+    }
+
+    /**
+     * Obtiene configuración de la API de verificación de documentos.
+     */
+    private function getDocVerificacionConfig()
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
+        $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? ''));
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $base = $this->normalizarBaseUrlDocVerificacion($apiUrl);
+        if ($base === '') {
+            return null;
+        }
+        return [
+            'base_url' => $base,
+            'api_key' => $apiKey,
+        ];
     }
 
     /**
@@ -6390,6 +7473,8 @@ class CapHum extends Controller
         if (function_exists('apcu_fetch')) {
             $cached = @\apcu_fetch($cacheKey);
             if ($cached !== false && is_array($cached) && isset($cached['ts']) && (time() - $cached['ts']) <= $ttl && isset($cached['json'])) {
+                header('X-Doc-List-Cache: hit');
+                header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
                 echo $cached['json'];
                 return;
             }
@@ -6398,6 +7483,8 @@ class CapHum extends Controller
             if (is_file($cacheFile) && (time() - filemtime($cacheFile)) <= $ttl) {
                 $raw = @file_get_contents($cacheFile);
                 if ($raw !== false && $raw !== '') {
+                    header('X-Doc-List-Cache: hit');
+                    header('X-Doc-List-Cache-Ttl-Sec: ' . $ttl);
                     echo $raw;
                     return;
                 }
@@ -6407,6 +7494,18 @@ class CapHum extends Controller
         $data = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
         $documentos = $data['documentos'] ?? [];
         $verificacion = $data['verificacion'] ?? null;
+        if (is_array($verificacion)) {
+            $errApi = trim((string) ($verificacion['error_api'] ?? ''));
+            if ($errApi !== '') {
+                $verificacion['comparaciones'] = null;
+            } else {
+                $ct = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : -1;
+                $noScores = empty($verificacion['identificacion_frente_score']) && empty($verificacion['identificacion_reverso_score']);
+                if ($ct === 0 && $noScores && !empty($verificacion['comparaciones']) && is_array($verificacion['comparaciones'])) {
+                    $verificacion['comparaciones'] = null;
+                }
+            }
+        }
 
         $payload = ['documentos' => $documentos];
         if ($verificacion !== null) {
@@ -6451,6 +7550,8 @@ class CapHum extends Controller
 
         $json = json_encode(self::respuesta(true, 'OK', $payload));
 
+        header('X-Doc-List-Cache: miss');
+
         if (function_exists('apcu_store')) {
             @\apcu_store($cacheKey, ['ts' => time(), 'json' => $json], $ttl);
         } else {
@@ -6470,7 +7571,7 @@ class CapHum extends Controller
      */
     public function verificarExpedienteCandidato()
     {
-        set_time_limit(300);
+        set_time_limit(1200);
         header('Content-Type: application/json; charset=utf-8');
         $id_candidato = (int) ($_GET['id_candidato'] ?? $_POST['id_candidato'] ?? 0);
         if ($id_candidato <= 0) {
@@ -6507,31 +7608,52 @@ class CapHum extends Controller
             echo json_encode(self::respuesta(false, 'Falta el documento de identificación oficial (PDF con frente y reverso) para poder verificar.'));
             return;
         }
-        $resultadoApi = $this->validarExpedienteApi($rutasParaValidar);
+        $soloIdentificacion = $this->docVerificacionPetitorioSoloIdentificacion() || $this->docVerificacionIniSoloIdentificacion();
+        if ($soloIdentificacion) {
+            $this->docVerificacionQuitarAdjuntosOpcionalesExpediente($rutasParaValidar);
+        }
+        $candidatoRes = CandidatosDAO::getById($id_candidato);
+        $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
+        $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+        $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro);
         if ($resultadoApi === null) {
             echo json_encode(self::respuesta(false, 'No se pudo enviar el expediente a la API.'));
             return;
         }
         if (!empty($resultadoApi['error'])) {
-            echo json_encode(self::respuesta(false, $resultadoApi['error']));
+            $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
+            if ($soloIdentificacion) {
+                array_unshift($alertasErr, 'Modo «solo identificación» activo: el fallo puede no reproducirse al verificar con todos los PDFs.');
+            }
+            $payloadError = [
+                'todo_coincide' => false,
+                'foto_rechazada' => false,
+                'curp_definitivo' => null,
+                'checks_ok' => 0,
+                'checks_totales' => 0,
+                'alertas' => $alertasErr,
+                'identificacion_frente_score' => null,
+                'identificacion_reverso_score' => null,
+                'comparaciones' => null,
+                'nombre_ocr' => null,
+                'anio_nacimiento' => null,
+                'tipo_documento' => null,
+                'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+                'error_api' => $resultadoApi['error'],
+            ];
+            CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payloadError));
+            $errTxt = (string) ($resultadoApi['error'] ?? '');
+            $toast = 'Fallo de verificación API (quedó guardado en el expediente). ';
+            $toast .= function_exists('mb_strlen') && mb_strlen($errTxt) > 320 ? mb_substr($errTxt, 0, 320) . '…' : ($errTxt !== '' ? $errTxt : 'Sin detalle.');
+            echo json_encode(self::respuesta(true, $toast, ['verificacion_expediente' => $payloadError]));
             return;
         }
-        $payload = [
-            'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,
-            'foto_rechazada' => $resultadoApi['foto_rechazada'] ?? false,
-            'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
-            'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
-            'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
-            'alertas' => $resultadoApi['alertas'] ?? [],
-            'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
-            'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
-            'comparaciones' => $resultadoApi['comparaciones'] ?? null,
-            'nombre_ocr' => $resultadoApi['nombre_ocr'] ?? null,
-            'anio_nacimiento' => $resultadoApi['anio_nacimiento'] ?? null,
-            'tipo_documento' => $resultadoApi['tipo_documento'] ?? null,
-        ];
+        $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
         CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payload));
-        echo json_encode(self::respuesta(true, 'Verificación ejecutada. Ya puedes ver los porcentajes y coincidencias.', ['verificacion_expediente' => $payload]));
+        $msgOk = $soloIdentificacion
+            ? 'Verificación (modo prueba: solo identificación) ejecutada. Revise scores; para cruce completo desactive la casilla y vuelva a intentar.'
+            : 'Verificación ejecutada. Ya puedes ver los porcentajes y coincidencias.';
+        echo json_encode(self::respuesta(true, $msgOk, ['verificacion_expediente' => $payload]));
     }
 
     /**
@@ -6622,14 +7744,39 @@ class CapHum extends Controller
 
     /**
      * Eliminar un documento del expediente. Requiere módulo Candidatos.
-     * POST o GET: id (id del registro candidato_documento).
+     * POST JSON o form: id (id del registro candidato_documento), comentario (obligatorio, motivo visible para el candidato por correo).
      */
     public function eliminarDocumentoCandidato()
     {
         header('Content-Type: application/json; charset=utf-8');
-        $id_doc = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
+        $id_doc = 0;
+        $comentario = '';
+        $ct = $_SERVER['CONTENT_TYPE'] ?? '';
+        if (stripos($ct, 'application/json') !== false) {
+            $raw = file_get_contents('php://input');
+            $body = json_decode($raw, true);
+            if (is_array($body)) {
+                $id_doc = (int) ($body['id'] ?? 0);
+                $comentario = trim((string) ($body['comentario'] ?? ''));
+            }
+        }
+        if ($id_doc <= 0) {
+            $id_doc = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
+        }
+        if ($comentario === '') {
+            $comentario = trim((string) ($_POST['comentario'] ?? ''));
+        }
         if ($id_doc <= 0) {
             echo json_encode(self::respuesta(false, 'ID inválido.'));
+            return;
+        }
+        if ($comentario === '') {
+            echo json_encode(self::respuesta(false, 'Debe escribir un comentario para el candidato (motivo de la eliminación).'));
+            return;
+        }
+        $lenCom = function_exists('mb_strlen') ? mb_strlen($comentario, 'UTF-8') : strlen($comentario);
+        if ($lenCom > 4000) {
+            echo json_encode(self::respuesta(false, 'El comentario es demasiado largo.'));
             return;
         }
         $res = CandidatosDAO::getDocumentoById($id_doc);
@@ -6638,19 +7785,181 @@ class CapHum extends Controller
             return;
         }
         $doc = $res['datos'];
+        $idCand = (int) ($doc['id_candidato'] ?? 0);
+        $tipoDoc = trim((string) ($doc['tipo_documento'] ?? ''));
+        $nombreArch = trim((string) ($doc['nombre_archivo'] ?? ''));
+        $idUsuarioRrhh = (int) ($_SESSION['usuario_id'] ?? 0);
+
+        $logRes = CandidatosDAO::registrarEliminacionDocumentoCandidato(
+            $idCand,
+            $id_doc,
+            $tipoDoc !== '' ? $tipoDoc : null,
+            $nombreArch !== '' ? $nombreArch : null,
+            $comentario,
+            $idUsuarioRrhh > 0 ? $idUsuarioRrhh : null
+        );
+        if (!$logRes['success']) {
+            echo json_encode(self::respuesta(false, $logRes['mensaje'] ?? 'No se pudo registrar el motivo. Revise permisos de BD o ejecute la migración de la tabla candidato_documento_eliminacion.', null, $logRes['error'] ?? null));
+            return;
+        }
+
         $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
         $path = $storageRoot . '/' . trim($doc['ruta_archivo'] ?? '');
         CandidatosDAO::eliminarDocumento($id_doc);
         if ($path !== '' && is_file($path)) {
             @unlink($path);
         }
-        // Limpiar verificación al eliminar un documento (los resultados ya no son válidos)
-        $idCand = (int) ($doc['id_candidato'] ?? 0);
         if ($idCand > 0) {
             CandidatosDAO::updateVerificacionExpediente($idCand, null);
             CandidatosDAO::invalidateDocumentacionCache($idCand);
         }
-        echo json_encode(self::respuesta(true, 'Documento eliminado.'));
+
+        $correoOk = false;
+        $correoIntentado = false;
+        $candRes = CandidatosDAO::getById($idCand);
+        if ($candRes['success'] && !empty($candRes['datos'])) {
+            $c = $candRes['datos'];
+            $nombreCompleto = trim(implode(' ', [
+                $c['nombres'] ?? '',
+                $c['segundo_nombre'] ?? '',
+                $c['apellidop'] ?? '',
+                $c['apellidom'] ?? '',
+            ]));
+            $destino = trim((string) ($c['email'] ?? ''));
+            if ($destino !== '' && filter_var($destino, FILTER_VALIDATE_EMAIL)) {
+                $correoIntentado = true;
+                $labelTipo = $tipoDoc !== '' ? $tipoDoc : 'Documento';
+                $asunto = 'Actualización de su expediente — documento retirado';
+                $htmlCom = nl2br(htmlspecialchars($comentario, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+
+                $base = $this->obtenerBaseUrlApp();
+                $urlDocumentos = '';
+                $resTokDel = CandidatosDAO::getOrCreateTokenDocumentos($idCand);
+                if ($resTokDel['success'] && !empty($resTokDel['datos'])) {
+                    $urlDocumentos = rtrim($base, '/') . '/CapHum/subirDocumentosCandidato/' . $resTokDel['datos'];
+                }
+
+                $diasHabilesCfg = 2;
+                $contacto = '';
+                $configFileMail = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+                if (is_file($configFileMail)) {
+                    $fullMail = @parse_ini_file($configFileMail, true);
+                    $mailSectionDel = is_array($fullMail['mail'] ?? null) ? $fullMail['mail'] : [];
+                    $diasHabilesCfg = (int) ($mailSectionDel['dias_habiles_limite_documentos'] ?? 2);
+                    if ($diasHabilesCfg < 1) {
+                        $diasHabilesCfg = 2;
+                    }
+                    $contacto = trim($mailSectionDel['mail_contacto'] ?? '');
+                    if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+                        $contacto = trim($mailSectionDel['smtp_user'] ?? $mailSectionDel['mail_from'] ?? '');
+                    }
+                }
+                if ($contacto === '' || !filter_var($contacto, FILTER_VALIDATE_EMAIL)) {
+                    $contacto = 'lrgonzalez033@gmail.com';
+                }
+                $fechaEnvioCand = $c['fecha_postulacion_enviada'] ?? null;
+                $textoPlazoRestante = self::textoPlazoRestanteDocumentacionEliminacion(
+                    is_string($fechaEnvioCand) ? $fechaEnvioCand : null,
+                    $diasHabilesCfg
+                );
+                $ahoraDel = self::ahoraMexicoCiudad();
+                $refPlazoDel = self::parseFechaHoraMexicoCiudad(is_string($fechaEnvioCand) ? $fechaEnvioCand : null) ?? $ahoraDel;
+                $limiteDelInst = self::documentacionLimiteFinDesdeReferencia($refPlazoDel, $diasHabilesCfg);
+                CandidatosDAO::actualizarExpiraTokenDocumentos($idCand, $limiteDelInst->format('Y-m-d H:i:s'));
+
+                $dirPublicDel = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
+                $rutaLogoInlineDel = null;
+                if (is_file($dirPublicDel . '/assets/img/logo_correo.png')) {
+                    $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/logo_correo.png');
+                } elseif (is_file($dirPublicDel . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png')) {
+                    $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/logo___SPARTA_SECRET_REDACTED__.png');
+                } elseif (is_file($dirPublicDel . '/assets/img/Logotipo-Maxikash-Outline.webp')) {
+                    $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/Logotipo-Maxikash-Outline.webp');
+                } elseif (is_file($dirPublicDel . '/assets/img/logo.svg')) {
+                    $rutaLogoInlineDel = realpath($dirPublicDel . '/assets/img/logo.svg');
+                }
+                $logoSrcDel = $rutaLogoInlineDel ? 'cid:logo__SPARTA_SECRET_REDACTED__' : (rtrim($base, '/') . '/assets/img/logo_correo.png');
+
+                $bloqueBtnDoc = '';
+                if ($urlDocumentos !== '') {
+                    $bloqueBtnDoc = '<p style="margin:0 0 24px 0;"><a href="' . htmlspecialchars($urlDocumentos) . '" style="display:inline-block; padding: 12px 24px; background-color:#2c5282; color:#ffffff !important; text-decoration:none; font-weight: 600; font-size: 14px; border-radius: 6px;">Abrir enlace para subir documentos</a></p>';
+                }
+
+                $mensajeHtml = '<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Actualización expediente MaxiKash</title>
+</head>
+<body style="margin:0; padding:0; background-color:#e8eef4; font-family: \'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#e8eef4;">
+    <tr>
+      <td align="center" style="padding: 32px 16px;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background-color:#1e3a5f; padding: 24px 12px 24px 32px; border-radius: 8px 8px 0 0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="vertical-align: middle;">
+                    <h1 style="margin:0; color:#ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;">MaxiKash — Capital Humano</h1>
+                    <p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Actualización de expediente</p>
+                  </td>
+                  <td style="vertical-align: middle; text-align: right; width: 160px; padding-left: 16px; padding-right: 8px;">
+                    <img src="' . htmlspecialchars($logoSrcDel) . '" alt="MaxiKash" width="160" height="auto" style="display:block; max-height: 70px; width: auto; height: auto; margin-left: auto; margin-right: 0;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px;">
+              <p style="margin:0 0 16px 0; color:#1a202c; font-size: 16px; line-height: 1.6;">Estimado/a <strong>' . htmlspecialchars($nombreCompleto) . '</strong>,</p>
+              <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Recursos Humanos ha <strong>retirado del sistema</strong> el siguiente documento de su expediente:</p>
+              <p style="margin:0 0 16px 0; color:#2d3748; font-size: 15px; line-height: 1.6;"><strong>' . htmlspecialchars($labelTipo) . '</strong>'
+                    . ($nombreArch !== '' ? ' — archivo: <em>' . htmlspecialchars($nombreArch) . '</em>' : '') . '</p>
+              <p style="margin:0 0 8px 0; color:#2d3748; font-size: 15px; line-height: 1.6;"><strong>Motivo indicado por Recursos Humanos:</strong></p>
+              <div style="margin:0 0 24px 0; padding:12px 14px; background:#f7fafc; border-left:4px solid #2c5282; font-size:15px; line-height:1.6; color:#1a202c;">' . $htmlCom . '</div>
+              <p style="margin:0 0 12px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">' . $textoPlazoRestante . '</p>
+              ' . $bloqueBtnDoc . '
+              <p style="margin:0 0 24px 0; color:#2d3748; font-size: 15px; line-height: 1.6;">Si tiene algún problema con la carga, contáctenos en <a href="mailto:' . htmlspecialchars($contacto) . '" style="color:#2c5282; text-decoration:none;">' . htmlspecialchars($contacto) . '</a>.</p>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                <tr>
+                  <td>
+                    <p style="margin:0 0 4px 0; color:#2d3748; font-size: 15px;">Atentamente,</p>
+                    <p style="margin:0 0 2px 0; color:#1a202c; font-size: 15px; font-weight: 600;">Capital Humano, Cobranza</p>
+                    <p style="margin:0; color:#2c5282; font-size: 15px; font-weight: 600;">MaxiKash</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 32px 24px 32px; background-color:#f7fafc; border-radius: 0 0 8px 8px; border-top: 1px solid #e2e8f0;">
+              <p style="margin:0; color:#718096; font-size: 12px; line-height: 1.5;">Este correo fue generado automáticamente. Por favor <strong>no responda directamente a este mensaje</strong>; para cualquier duda o aclaración utilice el correo de contacto indicado en el mensaje.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>';
+                $correoOk = $this->enviarCorreo($destino, $asunto, $mensajeHtml, $nombreCompleto, $rutaLogoInlineDel);
+            }
+        }
+
+        $msg = 'Documento eliminado.';
+        if ($correoIntentado) {
+            if ($correoOk) {
+                $msg .= ' Se notificó al candidato por correo.';
+            } else {
+                $msg .= ' ' . ($this->enviarCorreoUltimoError ?: 'No se pudo enviar el correo al candidato; verifique SMTP.');
+            }
+        } else {
+            $msg .= ' No hay correo válido del candidato; no se envió notificación.';
+        }
+        echo json_encode(self::respuesta(true, $msg, ['correo_enviado' => $correoOk]));
     }
 
     /**
@@ -7028,46 +8337,30 @@ class CapHum extends Controller
     }
 
     /**
-     * Llama a la API validar-expediente (Python).
-     * Acepta: identificacion_pdf (un PDF con frente y reverso) O bien frente y reverso como imágenes.
-     * @param array $rutas ['identificacion_pdf' => ruta] o ['frente' => ruta, 'reverso' => ruta], más curp, nss, etc.
-     * @return array|null Respuesta JSON de la API; null si faltan archivos; ['error' => mensaje] si fallo
+     * Multipart fresco para POST /validar-expediente (no reutilizar CURLFile tras curl_exec).
+     *
+     * @param array<string, mixed> $rutas
+     * @return array<string, mixed>|null
      */
-    private function validarExpedienteApi(array $rutas)
+    /**
+     * Tipo de identificación para /validar-expediente (debe coincidir con enum TipoDocumento en la API Python).
+     */
+    private function docVerificacionTipoExpediente(array $docCfg): string
     {
-        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
-        if (!is_file($configFile)) {
-            return ['error' => 'No se encontró backend/config/config.ini.'];
-        }
-        $config = @parse_ini_file($configFile, true);
-        $apiUrlVerificar = trim($config['doc_verificacion']['api_url'] ?? '');
-        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
-        if ($apiUrlVerificar === '' || $apiKey === '') {
-            return ['error' => 'En config.ini [doc_verificacion] faltan api_url o api_key.'];
-        }
-        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
+        $t = strtoupper(trim((string) ($docCfg['validar_expediente_tipo_documento'] ?? 'INE_NUEVA')));
+        $ok = ['INE_NUEVA', 'INE_ANTERIOR', 'RESIDENCIA_TEMPORAL', 'RESIDENCIA_TEMPORAL_ACUMULATIVA', 'RESIDENCIA_PERMANENTE', 'DESCONOCIDO'];
+        return in_array($t, $ok, true) ? $t : 'INE_NUEVA';
+    }
 
-        // Health-check rápido (3 s máximo) para no esperar 45 s si la API está apagada
-        $healthUrl = rtrim($baseUrl, '/') . '/health';
-        $hc = curl_init($healthUrl);
-        curl_setopt_array($hc, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT_MS => 3000,
-            CURLOPT_CONNECTTIMEOUT_MS => 2000,
-            CURLOPT_NOBODY => false,
-        ]);
-        $hBody = curl_exec($hc);
-        $hCode = curl_getinfo($hc, CURLINFO_HTTP_CODE);
-        $hErr = curl_error($hc);
-        if ($hCode !== 200 || $hBody === false) {
-            return ['error' => 'La API no responde (health-check falló en 3 s). Enciéndela con: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000' . ($hErr ? ' — ' . $hErr : '')];
-        }
-
-        $urlExp = rtrim($baseUrl, '/') . '/validar-expediente';
+    private function construirPostValidarExpedienteMultipart(array $rutas, $nombreCandidatoRegistro, string $tipoDocumentoIdentidad)
+    {
         $post = [
-            'tipo_documento' => 'RESIDENCIA_TEMPORAL',
+            'tipo_documento' => $tipoDocumentoIdentidad,
         ];
-
+        $nombreCandidatoRegistro = trim((string) $nombreCandidatoRegistro);
+        if ($nombreCandidatoRegistro !== '') {
+            $post['nombre_candidato_registro'] = $nombreCandidatoRegistro;
+        }
         $usaPdfId = !empty($rutas['identificacion_pdf']) && is_file($rutas['identificacion_pdf']);
         if ($usaPdfId) {
             $post['identificacion_pdf'] = new \CURLFile($rutas['identificacion_pdf'], 'application/pdf', basename($rutas['identificacion_pdf']));
@@ -7087,31 +8380,251 @@ class CapHum extends Controller
                 $post[$formKey] = new \CURLFile($rutas[$pathKey], 'application/pdf', basename($rutas[$pathKey]));
             }
         }
-        $ch = curl_init($urlExp);
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $post,
-            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 240,
-            CURLOPT_CONNECTTIMEOUT => 5,
-        ]);
-        $body = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr = curl_error($ch);
-        $curlErrno = curl_errno($ch);
-        if ($curlErrno !== 0 || $body === false) {
-            $mensaje = $curlErr ?: 'Error de conexión (código ' . $curlErrno . ').';
-            return ['error' => 'No se pudo conectar con la API: ' . $mensaje];
+
+        return $post;
+    }
+
+    /**
+     * Extrae mensaje legible del cuerpo de error de la API (FastAPI suele usar {"detail": ...}).
+     */
+    private function expedienteApiExtraerDetalleRespuesta($body, int $httpCode): string
+    {
+        if ($body === null || $body === false || $body === '') {
+            return '(sin cuerpo de respuesta de la API)';
         }
-        if ($httpCode !== 200 || $body === '') {
-            return ['error' => 'La API respondió con código HTTP ' . $httpCode . '. Revisa los logs de la API.'];
+        $trim = trim((string) $body);
+        $dec = json_decode($trim, true);
+        if (is_array($dec)) {
+            if (isset($dec['detail'])) {
+                $d = $dec['detail'];
+                if (is_string($d)) {
+                    return $d;
+                }
+                if (is_array($d)) {
+                    $flat = json_encode($d, JSON_UNESCAPED_UNICODE);
+                    return function_exists('mb_strlen') && mb_strlen($flat) > 650
+                        ? mb_substr($flat, 0, 650) . '…'
+                        : (strlen($flat) > 650 ? substr($flat, 0, 650) . '…' : $flat);
+                }
+            }
+            if (isset($dec['message']) && is_string($dec['message'])) {
+                return $dec['message'];
+            }
+            if (isset($dec['error'])) {
+                $e = $dec['error'];
+                return is_string($e) ? $e : json_encode($e, JSON_UNESCAPED_UNICODE);
+            }
+            $flat = json_encode($dec, JSON_UNESCAPED_UNICODE);
+            return function_exists('mb_strlen') && mb_strlen($flat) > 650
+                ? mb_substr($flat, 0, 650) . '…'
+                : (strlen($flat) > 650 ? substr($flat, 0, 650) . '…' : $flat);
         }
-        $data = json_decode($body, true);
-        if (!is_array($data) || isset($data['error'])) {
-            return ['error' => 'La API devolvió una respuesta inválida.'];
+        $one = preg_replace('/\s+/', ' ', $trim);
+        if (function_exists('mb_strlen')) {
+            return mb_strlen($one) > 500 ? mb_substr($one, 0, 500) . '…' : $one;
         }
-        return $data;
+
+        return strlen($one) > 500 ? substr($one, 0, 500) . '…' : $one;
+    }
+
+    /**
+     * @param int $bytesDownloaded CURLINFO_SIZE_DOWNLOAD (respuesta del servidor); 0 con timeout = colgado, no sirve reintentar igual.
+     */
+    private function validarExpedienteCurlDebeReintentar(int $curlErrno, int $httpCode, string $curlErr = '', int $bytesDownloaded = -1): bool
+    {
+        if ($curlErrno === 28 || ($curlErr !== '' && stripos($curlErr, 'timed out') !== false)) {
+            if ($bytesDownloaded <= 0 && (stripos($curlErr, '0 bytes received') !== false || $httpCode === 0)) {
+                return false;
+            }
+        }
+        if (in_array($httpCode, [429, 500, 502, 503, 504], true)) {
+            return true;
+        }
+        if ($curlErrno !== 0) {
+            return in_array($curlErrno, [7, 16, 18, 28, 52, 56], true);
+        }
+
+        return false;
+    }
+
+    /**
+     * Llama a la API validar-expediente (Python) con reintentos ante fallos transitorios.
+     * Acepta: identificacion_pdf (un PDF con frente y reverso) O bien frente y reverso como imágenes.
+     * @param array $rutas ['identificacion_pdf' => ruta] o ['frente' => ruta, 'reverso' => ruta], más curp, nss, etc.
+     * @return array|null Respuesta JSON de la API; null si faltan archivos; ['error' => mensaje] si fallo
+     */
+    private function validarExpedienteApi(array $rutas, $nombreCandidatoRegistro = null)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return ['error' => 'No se encontró backend/config/config.ini.'];
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrlVerificar = trim((string) ($config['doc_verificacion']['api_url'] ?? ''));
+        $apiKey = trim((string) ($config['doc_verificacion']['api_key'] ?? ''));
+        if ($apiUrlVerificar === '' || $apiKey === '') {
+            return ['error' => 'En config.ini [doc_verificacion] faltan api_url o api_key.'];
+        }
+        $baseUrl = $this->normalizarBaseUrlDocVerificacion($apiUrlVerificar);
+        if ($baseUrl === '') {
+            return ['error' => 'En config.ini [doc_verificacion] api_url no es una URL válida.'];
+        }
+
+        $healthUrl = rtrim($baseUrl, '/') . '/health';
+        $healthOk = false;
+        $hLastErr = '';
+        for ($hi = 0; $hi < 2; $hi++) {
+            if ($hi > 0) {
+                usleep(500000);
+            }
+            $hc = curl_init($healthUrl);
+            curl_setopt_array($hc, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT_MS => 5000,
+                CURLOPT_CONNECTTIMEOUT_MS => 3000,
+                CURLOPT_NOBODY => false,
+            ]);
+            $hBody = curl_exec($hc);
+            $hCode = (int) curl_getinfo($hc, CURLINFO_HTTP_CODE);
+            $hErr = curl_error($hc);
+            curl_close($hc);
+            if ($hCode === 200 && $hBody !== false) {
+                $healthOk = true;
+                break;
+            }
+            $hLastErr = $hErr;
+        }
+        if (!$healthOk) {
+            return ['error' => 'La API no responde (health-check en ' . $healthUrl . '). Revise [doc_verificacion] api_url/api_key en backend/config/config.ini, que el agente Python esté en marcha (puerto 8000, ej. backend\\API\\iniciar-agente.bat) y que la clave coincida con la del servicio. ' . ($hLastErr !== '' ? $hLastErr : '')];
+        }
+
+        $docCfg = is_array($config['doc_verificacion'] ?? null) ? $config['doc_verificacion'] : [];
+        $tipoDocExp = $this->docVerificacionTipoExpediente($docCfg);
+        $urlExp = rtrim($baseUrl, '/') . '/validar-expediente?' . http_build_query(['tipo_documento' => $tipoDocExp]);
+        $timeoutExp = isset($docCfg['validar_expediente_timeout_seconds']) ? (int) $docCfg['validar_expediente_timeout_seconds'] : 300;
+        if ($timeoutExp < 90) {
+            $timeoutExp = 90;
+        }
+        if ($timeoutExp > 600) {
+            $timeoutExp = 600;
+        }
+        $maxExtraRetries = isset($docCfg['validar_expediente_retries']) ? (int) $docCfg['validar_expediente_retries'] : 2;
+        if ($maxExtraRetries < 0) {
+            $maxExtraRetries = 0;
+        }
+        if ($maxExtraRetries > 5) {
+            $maxExtraRetries = 5;
+        }
+        $totalIntentos = 1 + $maxExtraRetries;
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(max(900, $timeoutExp * $totalIntentos + 120 + ($maxExtraRetries * 15)));
+        }
+
+        $lowSpeedTime = isset($docCfg['validar_expediente_low_speed_time_seconds']) ? (int) $docCfg['validar_expediente_low_speed_time_seconds'] : 90;
+        if ($lowSpeedTime < 20) {
+            $lowSpeedTime = 20;
+        }
+        if ($lowSpeedTime > $timeoutExp - 15) {
+            $lowSpeedTime = max(20, $timeoutExp - 30);
+        }
+        $lowSpeedLimit = isset($docCfg['validar_expediente_low_speed_limit_bps']) ? (int) $docCfg['validar_expediente_low_speed_limit_bps'] : 32;
+        if ($lowSpeedLimit < 1) {
+            $lowSpeedLimit = 1;
+        }
+        if ($lowSpeedLimit > 4096) {
+            $lowSpeedLimit = 4096;
+        }
+
+        $lastPayloadError = ['error' => 'No se obtuvo respuesta válida de la API.'];
+        for ($attempt = 0; $attempt < $totalIntentos; $attempt++) {
+            if ($attempt > 0) {
+                sleep(min(15, 2 * $attempt + 1));
+            }
+            $post = $this->construirPostValidarExpedienteMultipart($rutas, $nombreCandidatoRegistro, $tipoDocExp);
+            if ($post === null) {
+                return null;
+            }
+            $diagArchivos = [];
+            foreach ($post as $pk => $pv) {
+                if ($pv instanceof \CURLFile) {
+                    $fn = $pv->getFilename();
+                    $diagArchivos[$pk] = (is_string($fn) && is_file($fn)) ? (int) filesize($fn) : 0;
+                }
+            }
+            error_log('CapHum::validarExpedienteApi intento ' . ($attempt + 1) . '/' . $totalIntentos . ' tipo_documento=' . $tipoDocExp . ' archivos_bytes=' . json_encode($diagArchivos));
+
+            $ch = curl_init($urlExp);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $post,
+                CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => $timeoutExp,
+                CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_LOW_SPEED_TIME => $lowSpeedTime,
+                CURLOPT_LOW_SPEED_LIMIT => $lowSpeedLimit,
+            ]);
+            $body = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
+            $curlErrno = (int) curl_errno($ch);
+            $bytesDown = (int) curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
+            curl_close($ch);
+
+            if (in_array($httpCode, [400, 401, 403, 404, 422], true)) {
+                $detApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
+
+                return ['error' => 'HTTP ' . $httpCode . ' en validar-expediente. ' . $detApi . ' (Si es 422/400: revise PDF de identificación, peso del archivo o formato; si es 401/403: api_key en config.ini.)'];
+            }
+
+            $respuestaOk = ($curlErrno === 0 && $httpCode === 200 && $body !== false && $body !== '');
+            if ($respuestaOk) {
+                $data = json_decode($body, true);
+                if (is_array($data) && !isset($data['error'])) {
+                    return $data;
+                }
+                if (is_array($data) && isset($data['error'])) {
+                    $msg = is_string($data['error']) ? $data['error'] : json_encode($data['error'], JSON_UNESCAPED_UNICODE);
+                    if (function_exists('mb_strlen') && mb_strlen($msg) > 700) {
+                        $msg = mb_substr($msg, 0, 700) . '…';
+                    } elseif (strlen($msg) > 700) {
+                        $msg = substr($msg, 0, 700) . '…';
+                    }
+
+                    return ['error' => 'La API respondió 200 pero reportó error en JSON: ' . $msg];
+                }
+                $snippet = is_string($body) ? (function_exists('mb_substr') ? mb_substr(preg_replace('/\s+/', ' ', $body), 0, 400) : substr(preg_replace('/\s+/', ' ', $body), 0, 400)) : '';
+
+                return ['error' => 'La API respondió 200 pero el JSON no tiene el formato esperado de expediente. Fragmento: ' . $snippet];
+            }
+
+            if ($httpCode !== 200 && $httpCode > 0) {
+                $detApi = $this->expedienteApiExtraerDetalleRespuesta(is_string($body) ? $body : null, $httpCode);
+                $detalle = 'La API respondió HTTP ' . $httpCode . '. ' . $detApi;
+                if ($curlErr !== '') {
+                    $detalle .= ' · cURL: ' . $curlErr;
+                }
+            } else {
+                $mensaje = $curlErr !== '' ? $curlErr : 'Error de conexión (código ' . $curlErrno . ').';
+                $detalle = 'No se pudo conectar con la API: ' . $mensaje;
+                if ($curlErrno === 28 || ($curlErr !== '' && stripos($curlErr, 'timed out') !== false)) {
+                    $detalle .= ' Timeout total configurado: ' . $timeoutExp . ' s; hasta ' . $totalIntentos . ' intento(s).';
+                    $detalle .= ' Si no llegó ningún byte de respuesta, el proceso Python (puerto 8000) suele estar colgado en OCR: reinicie uvicorn y revise logs.';
+                    $detalle .= ' Velocidad mínima: si no hay datos en ' . $lowSpeedTime . ' s, cURL aborta antes (validar_expediente_low_speed_time_seconds en config.ini).';
+                }
+            }
+            if ($attempt < $totalIntentos - 1) {
+                $detalle .= ' Reintento ' . ($attempt + 2) . '/' . $totalIntentos . '…';
+            }
+            $lastPayloadError = ['error' => $detalle];
+
+            $puedeReintentar = $attempt < $totalIntentos - 1 && $this->validarExpedienteCurlDebeReintentar($curlErrno, $httpCode, $curlErr, $bytesDown);
+            if (!$puedeReintentar) {
+                return $lastPayloadError;
+            }
+        }
+
+        return $lastPayloadError;
     }
 
     /**
@@ -7183,7 +8696,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 60,
+            CURLOPT_TIMEOUT => 25,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -7224,7 +8737,7 @@ class CapHum extends Controller
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 45,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_CONNECTTIMEOUT => 8,
         ]);
         $body = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -7270,6 +8783,43 @@ class CapHum extends Controller
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
+        }
+        $data = json_decode($body, true);
+        return is_array($data) ? $data : null;
+    }
+
+    /**
+     * Precheck rápido: confirma que el PDF parezca identificación oficial.
+     */
+    private function precheckIdentificacionPdfApi($rutaPdf)
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (__DIR__ . '/../config/config.ini');
+        if (!is_file($configFile)) {
+            return null;
+        }
+        $config = @parse_ini_file($configFile, true);
+        $apiUrl = trim($config['doc_verificacion']['api_url'] ?? '');
+        $apiKey = trim($config['doc_verificacion']['api_key'] ?? '');
+        if ($apiUrl === '' || $apiKey === '') {
+            return null;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrl);
+        $url = rtrim($baseUrl, '/') . '/precheck-identificacion-pdf';
+        $cfile = new \CURLFile($rutaPdf, 'application/pdf', basename($rutaPdf));
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => ['documento' => $cfile],
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_CONNECTTIMEOUT => 4,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        if ($body === false || $httpCode !== 200) {
+            return ['valido' => false, 'mensaje' => $curlErr ?: 'No se pudo revisar rápidamente la identificación (HTTP ' . $httpCode . ').'];
         }
         $data = json_decode($body, true);
         return is_array($data) ? $data : null;
@@ -7424,6 +8974,23 @@ class CapHum extends Controller
         ];
     }
 
+    /**
+     * Validación rápida local para evitar aceptar archivos renombrados como .pdf.
+     */
+    private function esPdfValidoBasico($rutaArchivo)
+    {
+        if ($rutaArchivo === '' || !is_file($rutaArchivo) || filesize($rutaArchivo) <= 0) {
+            return false;
+        }
+        $fh = @fopen($rutaArchivo, 'rb');
+        if (!$fh) {
+            return false;
+        }
+        $firma = fread($fh, 5);
+        fclose($fh);
+        return $firma === '%PDF-';
+    }
+
     private function subirDocumentosCandidatoProcesar($token)
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -7482,6 +9049,18 @@ class CapHum extends Controller
                 }
             }
         }
+        $mapTipoDocStrToNum = [
+            'SOLICITUD INTERNA' => 1, 'CV O SOLICITUD DE TRABAJO' => 2, 'ACTA DE NACIMIENTO' => 3, 'ACTA DE NACIMIENTO Certificada' => 3,
+            'CURP' => 4, 'IDENTIFICACIÓN OFICIAL' => 5, 'COMPROBANTE DE DOMICILIO' => 6, 'CONSTANCIA DE SITUACION FISCAL' => 7,
+            'NÚMERO DE SEGURIDAD SOCIAL' => 8, 'HOJA DE RETENCION FONACOT O INFONAVIT' => 9, 'ESTADO DE CUENTA' => 10,
+        ];
+        $tipoDocumentoValidadoRh = [];
+        foreach ($listaDocsExistentes as $d) {
+            $tipo = trim($d['tipo_documento'] ?? '');
+            if (isset($mapTipoDocStrToNum[$tipo]) && !empty((int) ($d['validado'] ?? 0))) {
+                $tipoDocumentoValidadoRh[$mapTipoDocStrToNum[$tipo]] = true;
+            }
+        }
         $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
 
         // Envío parcial: solo exigir que venga al menos un archivo nuevo (el candidato puede subir el resto después)
@@ -7503,6 +9082,9 @@ class CapHum extends Controller
         }
 
         for ($i = 1; $i <= 10; $i++) {
+            if (!empty($tipoDocumentoValidadoRh[$i])) {
+                continue;
+            }
             $key = 'archivo_' . $i;
             $fileKey = $key;
             if (!isset($_FILES[$key]) || $_FILES[$key]['error'] !== UPLOAD_ERR_OK || $_FILES[$key]['size'] <= 0) {
@@ -7539,6 +9121,10 @@ class CapHum extends Controller
                 $errores[] = 'IDENTIFICACIÓN OFICIAL: solo se acepta un archivo PDF (con frente y reverso).';
                 continue;
             }
+            if (in_array($i, [3, 4, 5, 6, 7, 8, 10], true) && !$this->esPdfValidoBasico($_FILES[$fileKey]['tmp_name'] ?? '')) {
+                $errores[] = ($tiposDocumento[$i] ?? $key) . ': el archivo no parece ser un PDF válido.';
+                continue;
+            }
             $slug = $slugPorTipo[$i] ?? ('doc_' . $i);
             $nombreArchivo = $slug . '.' . $ext;
             $rutaDestino = $dirExpediente . '/' . $nombreArchivo;
@@ -7551,59 +9137,11 @@ class CapHum extends Controller
 
             $verificacionFiscalJson = null;
             $verificacionCalidadJson = null;
-            if ($i === 7 && $ext === 'pdf') {
-                $apiFiscal = $this->verificarConstanciaFiscalApi($rutaDestino);
-                if ($apiFiscal === null || empty($apiFiscal['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'CONSTANCIA DE SITUACIÓN FISCAL: ' . ($apiFiscal['mensaje'] ?? 'No se pudo verificar el documento.');
-                    continue;
-                }
-                $verificacionFiscalJson = json_encode($apiFiscal);
-            }
-
-            if ($i === 10 && $ext === 'pdf') {
-                $apiEstadoCuenta = $this->verificarEstadoCuentaApi($rutaDestino);
-                if ($apiEstadoCuenta === null || empty($apiEstadoCuenta['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'ESTADO DE CUENTA: ' . ($apiEstadoCuenta['mensaje'] ?? 'No se pudo verificar el documento. Solo se aceptan bancos físicos de México.');
-                    continue;
-                }
-                $verificacionCalidadJson = json_encode($apiEstadoCuenta);
-            }
-
-            if ($i === 8 && $ext === 'pdf') {
-                $apiNss = $this->verificarNssApi($rutaDestino);
-                if ($apiNss === null || empty($apiNss['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'NÚMERO DE SEGURIDAD SOCIAL: ' . ($apiNss['mensaje'] ?? 'Solo se acepta el PDF de vigencia de derechos del IMSS (descargado desde imss.gob.mx).');
-                    continue;
-                }
-                $verificacionCalidadJson = json_encode($apiNss);
-            }
-
-            if ($i === 4 && $ext === 'pdf') {
-                $apiCurp = $this->verificarCurpApi($rutaDestino);
-                if ($apiCurp === null || empty($apiCurp['valido'])) {
-                    @unlink($rutaDestino);
-                    $errores[] = 'CURP: ' . ($apiCurp['mensaje'] ?? 'No se pudo verificar la constancia de CURP. Sube el PDF del RENAPO.');
-                    continue;
-                }
-                $verificacionCalidadJson = json_encode($apiCurp);
-            }
-
-            if ($i === 5 && $ext === 'pdf') {
-                $apiCalidad = $this->verificarCalidadIdentificacionPdfApi($rutaDestino);
-                if ($apiCalidad !== null && is_array($apiCalidad)) {
-                    $verificacionCalidadJson = json_encode($apiCalidad);
-                } else {
-                    // API no disponible o error: guardar nota para revisión manual sin fallar la subida
-                    $verificacionCalidadJson = json_encode([
-                        'aceptado' => true,
-                        'notas' => ['No se pudo conectar con el sistema de revisión. Revisar identificación manualmente.'],
-                        'detalle_frente' => null,
-                        'detalle_reverso' => null,
-                    ]);
-                }
+            if (in_array($i, [4, 5, 7, 8, 10], true)) {
+                $verificacionCalidadJson = json_encode([
+                    'pendiente_revision_backend' => true,
+                    'notas' => ['Documento guardado.'],
+                ]);
             }
 
             // Misma estrategia que carga_documento_persona: solo guardar ruta en BD, archivo en disco (sin BLOB = rápido).
@@ -7736,27 +9274,46 @@ class CapHum extends Controller
             }
         }
         if ($guardados > 0) {
-            echo json_encode(self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', $payload));
+            CandidatosDAO::updateVerificacionExpediente($id_candidato, null);
+            $respuestaSubida = self::respuesta(true, 'Se subieron ' . $guardados . ' documento(s) correctamente.', $payload);
         } else {
-            echo json_encode(self::respuesta(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.'));
+            $respuestaSubida = self::respuesta(false, count($errores) ? implode(', ', $errores) : 'No se envió ningún archivo. Selecciona al menos un documento.');
         }
 
-        // Verificación automática en background: enviar respuesta al cliente y seguir procesando
-        if ($guardados > 0 && $expedienteCompleto) {
+        $jsonRespuesta = json_encode($respuestaSubida);
+        $puedeValidarEnBackground = $guardados > 0;
+
+        // Verificación automática en background: responder primero; el trabajo pesado va en shutdown.
+        // En Apache mod_php no existe fastcgi_finish_request(): si ejecutáramos la verificación aquí,
+        // el POST seguiría bloqueado hasta terminar todas las llamadas a la API (modal "cargando" eterno).
+        if ($puedeValidarEnBackground) {
+            header('Content-Length: ' . strlen($jsonRespuesta));
+            header('Connection: close');
+            echo $jsonRespuesta;
             if (function_exists('fastcgi_finish_request')) {
                 fastcgi_finish_request();
             } else {
-                if (ob_get_level() > 0) ob_end_flush();
+                while (ob_get_level() > 0) {
+                    @ob_end_flush();
+                }
                 flush();
-                if (function_exists('session_write_close')) session_write_close();
+                if (function_exists('session_write_close')) {
+                    session_write_close();
+                }
             }
             ignore_user_abort(true);
-            set_time_limit(300);
-            $verifExistente = CandidatosDAO::getVerificacionExpediente($id_candidato);
-            if (empty($verifExistente)) {
-                error_log('CapHum::subirDocumentos: lanzando verificación automática background para candidato ' . $id_candidato);
-                $this->ejecutarVerificacionBackground($id_candidato);
-            }
+            set_time_limit(1200);
+            $idCandBg = (int) $id_candidato;
+            register_shutdown_function(function () use ($idCandBg) {
+                error_log('CapHum::subirDocumentos: verificación automática (shutdown) candidato ' . $idCandBg);
+                try {
+                    $this->ejecutarVerificacionBackground($idCandBg);
+                } catch (\Throwable $e) {
+                    error_log('CapHum::subirDocumentos: error verificación shutdown candidato ' . $idCandBg . ': ' . $e->getMessage());
+                }
+            });
+        } else {
+            echo $jsonRespuesta;
         }
         exit;
     }
@@ -7767,6 +9324,9 @@ class CapHum extends Controller
     private function ejecutarVerificacionBackground($id_candidato)
     {
         try {
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(1200);
+            }
             $storageRoot = defined('RAIZ') ? (RAIZ . '/storage') : (__DIR__ . '/../storage');
             $rutasParaValidar = ['identificacion_pdf' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
             $resDocs = CandidatosDAO::getDocumentosCandidato($id_candidato);
@@ -7779,36 +9339,99 @@ class CapHum extends Controller
                 if ($rutaRel === '' || !is_file($storageRoot . '/' . $rutaRel)) continue;
                 $pathAbs = $storageRoot . '/' . $rutaRel;
                 $tipo = trim($d['tipo_documento'] ?? '');
-                if ($tipo === 'IDENTIFICACIÓN OFICIAL') $rutasParaValidar['identificacion_pdf'] = $pathAbs;
-                elseif ($tipo === 'CURP') $rutasParaValidar['curp'] = $pathAbs;
-                elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL') $rutasParaValidar['nss'] = $pathAbs;
-                elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') $rutasParaValidar['constancia_fiscal'] = $pathAbs;
-                elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') $rutasParaValidar['acta_nacimiento'] = $pathAbs;
+                $idDoc = (int) ($d['id'] ?? 0);
+                if ($tipo === 'IDENTIFICACIÓN OFICIAL') {
+                    $rutasParaValidar['identificacion_pdf'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'aceptado' => null,
+                            'precheck' => null,
+                            'pendiente_revision_profunda' => true,
+                            'notas' => ['Identificación oficial recibida para revisión de expediente.'],
+                            'detalle_frente' => null,
+                            'detalle_reverso' => null,
+                        ]));
+                    }
+                } elseif ($tipo === 'CURP') {
+                    $rutasParaValidar['curp'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['CURP recibido; re-evaluando contra el expediente.'],
+                        ]));
+                    }
+                } elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL') {
+                    $rutasParaValidar['nss'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
+                        ]));
+                    }
+                } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
+                    $rutasParaValidar['constancia_fiscal'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['Constancia fiscal recibida; re-evaluando contra el expediente.'],
+                        ]));
+                    }
+                } elseif ($tipo === 'ESTADO DE CUENTA') {
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['Estado de cuenta recibido para revisión.'],
+                        ]));
+                    }
+                } elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') {
+                    $rutasParaValidar['acta_nacimiento'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['Acta de nacimiento recibida; re-evaluando contra el expediente.'],
+                        ]));
+                    }
+                }
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
                 return;
             }
-            $resultadoApi = $this->validarExpedienteApi($rutasParaValidar);
+            $soloIdentificacion = $this->docVerificacionIniSoloIdentificacion();
+            if ($soloIdentificacion) {
+                $this->docVerificacionQuitarAdjuntosOpcionalesExpediente($rutasParaValidar);
+                error_log('CapHum::verificacionBackground: modo solo_identificacion (config.ini) candidato ' . $id_candidato);
+            }
+            $candidatoRes = CandidatosDAO::getById($id_candidato);
+            $candidato = ($candidatoRes['success'] && !empty($candidatoRes['datos'])) ? $candidatoRes['datos'] : [];
+            $nombreCandidatoRegistro = trim(($candidato['nombres'] ?? '') . ' ' . ($candidato['apellidop'] ?? '') . ' ' . ($candidato['apellidom'] ?? ''));
+            $resultadoApi = $this->validarExpedienteApi($rutasParaValidar, $nombreCandidatoRegistro);
             if (is_array($resultadoApi) && !isset($resultadoApi['error'])) {
-                $payload = [
-                    'todo_coincide' => $resultadoApi['todo_coincide'] ?? false,
-                    'foto_rechazada' => $resultadoApi['foto_rechazada'] ?? false,
-                    'curp_definitivo' => $resultadoApi['curp_definitivo'] ?? null,
-                    'checks_ok' => $resultadoApi['checks_ok'] ?? 0,
-                    'checks_totales' => $resultadoApi['checks_totales'] ?? 0,
-                    'alertas' => $resultadoApi['alertas'] ?? [],
-                    'identificacion_frente_score' => $resultadoApi['identificacion_frente_score'] ?? null,
-                    'identificacion_reverso_score' => $resultadoApi['identificacion_reverso_score'] ?? null,
-                    'comparaciones' => $resultadoApi['comparaciones'] ?? null,
-                    'nombre_ocr' => $resultadoApi['nombre_ocr'] ?? null,
-                    'anio_nacimiento' => $resultadoApi['anio_nacimiento'] ?? null,
-                    'tipo_documento' => $resultadoApi['tipo_documento'] ?? null,
-                ];
+                $payload = $this->expedientePayloadDesdeApi($resultadoApi, $soloIdentificacion);
                 CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode($payload));
                 error_log('CapHum::verificacionBackground: OK para candidato ' . $id_candidato);
             } else {
                 $err = is_array($resultadoApi) ? ($resultadoApi['error'] ?? 'desconocido') : 'null';
+                $alertasErr = ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'];
+                if ($soloIdentificacion) {
+                    array_unshift($alertasErr, 'Modo «solo identificación» (config.ini): el fallo puede no reproducirse con expediente completo.');
+                }
+                CandidatosDAO::updateVerificacionExpediente($id_candidato, json_encode([
+                    'todo_coincide' => false,
+                    'foto_rechazada' => false,
+                    'curp_definitivo' => null,
+                    'checks_ok' => 0,
+                    'checks_totales' => 0,
+                    'alertas' => $alertasErr,
+                    'identificacion_frente_score' => null,
+                    'identificacion_reverso_score' => null,
+                    'comparaciones' => null,
+                    'nombre_ocr' => null,
+                    'anio_nacimiento' => null,
+                    'tipo_documento' => null,
+                    'modo_verificacion' => $soloIdentificacion ? 'solo_identificacion' : 'completo',
+                    'error_api' => $err,
+                ]));
                 error_log('CapHum::verificacionBackground: error API para candidato ' . $id_candidato . ': ' . $err);
             }
         } catch (\Exception $e) {
@@ -7852,6 +9475,114 @@ class CapHum extends Controller
             $env[$key] = $value;
         }
         return $env;
+    }
+
+    /**
+     * Reloj de referencia en Ciudad de México (IANA). El valor UNIX sigue siendo el del servidor;
+     * si el reloj del servidor está mal, hay que corregirlo en el SO (NTP); aquí solo se fija la zona horaria.
+     */
+    private static function ahoraMexicoCiudad(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City'));
+    }
+
+    /**
+     * Interpreta un datetime guardado en BD como hora local de CDMX (sin conversión desde UTC).
+     */
+    private static function parseFechaHoraMexicoCiudad(?string $mysql): ?\DateTimeImmutable
+    {
+        if ($mysql === null || trim($mysql) === '') {
+            return null;
+        }
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $raw = trim($mysql);
+        $dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $raw, $tz);
+        if ($dt !== false) {
+            return $dt;
+        }
+        try {
+            return new \DateTimeImmutable($raw, $tz);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Fin de plazo para documentación anclado a la fecha/hora del envío del correo de postulación:
+     * día calendario siguiente en CDMX + N días hábiles (lun–vie), cierre 23:59:59 CDMX.
+     */
+    private static function documentacionLimiteFinDesdeReferencia(\DateTimeImmutable $referenciaCdmx, int $diasHabiles): \DateTimeImmutable
+    {
+        $tz = new \DateTimeZone('America/Mexico_City');
+        $ref = $referenciaCdmx->setTimezone($tz);
+        $d = $ref->setTime(0, 0, 0)->modify('+1 day');
+        $rest = max(1, $diasHabiles);
+        while ($rest > 0) {
+            $n = (int) $d->format('N');
+            if ($n >= 1 && $n <= 5) {
+                $rest--;
+                if ($rest === 0) {
+                    return $d->setTime(23, 59, 59);
+                }
+            }
+            $d = $d->modify('+1 day');
+        }
+
+        return $d->setTime(23, 59, 59);
+    }
+
+    /**
+     * Días hábiles (lun–vie) entre dos fechas calendario inclusive (solo la parte fecha, TZ México).
+     */
+    private static function contarDiasHabilesEnRango(\DateTimeImmutable $inicioDia, \DateTimeImmutable $finDia): int
+    {
+        if ($inicioDia > $finDia) {
+            return 0;
+        }
+        $n = 0;
+        for ($d = $inicioDia; $d <= $finDia; $d = $d->modify('+1 day')) {
+            $wd = (int) $d->format('N');
+            if ($wd >= 1 && $wd <= 5) {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * Texto para el correo de documento retirado: plazo según fecha_postulacion_enviada + días hábiles de config.
+     */
+    private static function textoPlazoRestanteDocumentacionEliminacion(?string $fechaPostulacionEnviadaMysql, int $diasHabiles): string
+    {
+        $now = self::ahoraMexicoCiudad();
+        $fechaEnvio = self::parseFechaHoraMexicoCiudad($fechaPostulacionEnviadaMysql);
+        if ($fechaEnvio === null) {
+            return 'Por favor vuelva a cargar el documento correcto usando el mismo enlace de carga lo antes posible.';
+        }
+
+        $limite = self::documentacionLimiteFinDesdeReferencia($fechaEnvio, $diasHabiles);
+        $fechaLimTxt = $limite->format('d/m/Y');
+        $secs = $limite->getTimestamp() - $now->getTimestamp();
+
+        if ($secs <= 0) {
+            return 'El plazo para completar su documentación según su postulación finalizó el <strong>' . htmlspecialchars($fechaLimTxt) . '</strong>. Por favor suba el documento lo antes posible usando el enlace.';
+        }
+
+        $horas = max(1, (int) ceil($secs / 3600));
+        if ($secs <= 48 * 3600) {
+            return 'Le quedan aproximadamente <strong>' . $horas . ' hora' . ($horas === 1 ? '' : 's') . '</strong> para volver a subir el documento dentro del plazo de su postulación (fecha límite: <strong>' . htmlspecialchars($fechaLimTxt) . '</strong>).';
+        }
+
+        $inicioHoy = $now->setTime(0, 0, 0);
+        $finLimiteDia = $limite->setTime(0, 0, 0);
+        $diasHab = self::contarDiasHabilesEnRango($inicioHoy, $finLimiteDia);
+
+        if ($diasHab <= 1) {
+            return 'Le queda <strong>1 día hábil</strong> para volver a subir el documento dentro del plazo de su postulación (fecha límite: <strong>' . htmlspecialchars($fechaLimTxt) . '</strong>).';
+        }
+
+        return 'Le quedan <strong>' . $diasHab . ' días hábiles</strong> para volver a subir el documento dentro del plazo de su postulación (fecha límite: <strong>' . htmlspecialchars($fechaLimTxt) . '</strong>).';
     }
 
     /**

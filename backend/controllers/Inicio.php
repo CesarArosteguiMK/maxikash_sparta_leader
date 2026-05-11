@@ -1104,53 +1104,7 @@ class Inicio extends Controller
             return;
         }
 
-        $servicios = [
-            [
-                'id'   => 'doc_candidato',
-                'name' => 'API documentación candidato (Node)',
-                'port' => 3001,
-                'role' => 'API Node — validación de documentos en alta de candidato',
-                'url_check'   => 'http://127.0.0.1:3001/',
-                'url_browser' => 'http://127.0.0.1:3001/',
-                'hint' => 'Si está caída: backend/API/documentacion-candidato/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'segundometro',
-                'name' => 'Agente Segundómetro (Node)',
-                'port' => 3100,
-                'role' => 'Agente cron de reportes Segundómetro vía SSH',
-                'url_check'   => 'http://127.0.0.1:3100/health',
-                'url_browser' => 'http://127.0.0.1:3100/health',
-                'hint' => 'Si está caída: backend/services/segundometro-agent/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'correos_pp',
-                'name' => 'Agente correos primeros pagos (Node)',
-                'port' => 3110,
-                'role' => 'Genera y envía correos de primeros pagos de cobranza',
-                'url_check'   => 'http://127.0.0.1:3110/health',
-                'url_browser' => 'http://127.0.0.1:3110/health',
-                'hint' => 'Si está caída: backend/services/correos-primeros-pagos-agent/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'gastos_cobranza',
-                'name' => 'Agente Gastos cobranza (Node)',
-                'port' => 3120,
-                'role' => 'Reportes de cobranza, worker EC, lista negra, descargo estatus 3',
-                'url_check'   => 'http://127.0.0.1:3120/health',
-                'url_browser' => 'http://127.0.0.1:3120/health',
-                'hint' => 'Si está caída: backend/services/gastos-cobranza-agent/iniciar-agente.bat',
-            ],
-            [
-                'id'   => 'api_doc_python',
-                'name' => 'API verificación documentos (Python · uvicorn)',
-                'port' => 8000,
-                'role' => 'OCR + verificación documental (FastAPI 1-click)',
-                'url_check'   => 'http://127.0.0.1:8000/docs',
-                'url_browser' => 'http://127.0.0.1:8000/docs',
-                'hint' => 'Si está caída: pulsa el botón «API» (1-click). Logs en backend/API/logs.',
-            ],
-        ];
+        $servicios = $this->serviciosLocalesCatalogo();
 
         $listening = $this->serviciosLocalesPuertosEnListen();
 
@@ -1185,6 +1139,7 @@ class Inicio extends Controller
                 'latency_ms' => $http['ms'],
                 'estado'     => $estado, // up | listen_no_http | down
                 'hint'       => $s['hint'],
+                'can_control'=> true,
             ];
         }
 
@@ -1198,6 +1153,440 @@ class Inicio extends Controller
             ],
             'services'     => $out,
         ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Ejecuta acción sobre un servicio local desde el panel web (usuario 878).
+     * Acciones: iniciar | parar | reiniciar
+     */
+    public function serviciosLocalesAccion()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int)($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado']);
+            return;
+        }
+        if (stripos(PHP_OS, 'WIN') !== 0) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Solo disponible en Windows']);
+            return;
+        }
+
+        $serviceId = trim((string)($_POST['service'] ?? $_GET['service'] ?? ''));
+        $action = trim((string)($_POST['action'] ?? $_GET['action'] ?? ''));
+        if ($serviceId === '' || $action === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Faltan parámetros service/action']);
+            return;
+        }
+        if (!in_array($action, ['iniciar', 'parar', 'reiniciar'], true)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Acción inválida']);
+            return;
+        }
+
+        $byId = [];
+        foreach ($this->serviciosLocalesCatalogo() as $srv) {
+            $byId[$srv['id']] = $srv;
+        }
+        if (!isset($byId[$serviceId])) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Servicio no encontrado']);
+            return;
+        }
+        $srv = $byId[$serviceId];
+        $port = (int)$srv['port'];
+
+        $ok = false;
+        if ($action === 'iniciar') {
+            $ok = $this->serviciosLocalesIniciar($srv);
+            usleep(350000);
+        } elseif ($action === 'parar') {
+            $ok = $this->serviciosLocalesParar($srv);
+            usleep(350000);
+        } else { // reiniciar
+            $this->serviciosLocalesParar($srv);
+            usleep(800000);
+            $ok = $this->serviciosLocalesIniciar($srv);
+            usleep(350000);
+        }
+
+        $listening = $this->serviciosLocalesPuertosEnListen();
+        $isListen = isset($listening[$port]);
+        $http = ['ok' => false, 'status' => null, 'ms' => null];
+        if ($isListen) {
+            $http = $this->serviciosLocalesProbarHttp((string)$srv['url_check'], 1400);
+        }
+        $estado = ($isListen && $http['ok']) ? 'up' : ($isListen ? 'listen_no_http' : 'down');
+        $st = $http['status'];
+        $stStr = $st === null || $st === '' ? '—' : (string) $st;
+        $hintPost = 'Tras la orden: puerto ' . $port . ' ' . ($isListen ? 'en escucha' : 'sin proceso en escucha')
+            . '. HTTP ' . ($http['ok'] ? 'OK (' . $stStr . ')' : 'sin respuesta esperada (' . $stStr . ').');
+
+        echo json_encode([
+            'success' => (bool) $ok,
+            'message' => ucfirst($action) . ' enviado para ' . $srv['name'] . '.',
+            'hint_post' => $hintPost,
+            'service' => $serviceId,
+            'action'  => $action,
+            'estado'  => $estado,
+            'listening' => $isListen,
+            'pid' => $isListen ? ($listening[$port] ?? null) : null,
+            'http_status' => $http['status'],
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Diagnóstico de red/config hacia la API de verificación de expediente (Python),
+     * ejecutado en el mismo servidor que PHP — sin SSH. Solo usuario 878.
+     * GET → JSON: health, TCP, GET/POST cortos a /validar-expediente, timeouts en ini.
+     */
+    public function docVerificacionDiagnostico878()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int) ($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        $payload = $this->docVerificacion878ArmarDiagnostico();
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function docVerificacion878ArmarDiagnostico(): array
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (dirname(__DIR__) . '/config/config.ini');
+        $out = [
+            'success'       => true,
+            'generated_at'  => date('Y-m-d H:i:s'),
+            'config_path'   => $configFile,
+            'config_exists' => is_file($configFile),
+        ];
+        if (!is_file($configFile)) {
+            $out['success'] = false;
+            $out['message'] = 'No existe config.ini en la ruta esperada.';
+            return $out;
+        }
+        $config = @parse_ini_file($configFile, true);
+        if (!is_array($config)) {
+            $out['success'] = false;
+            $out['message'] = 'No se pudo leer config.ini (parse_ini_file).';
+            return $out;
+        }
+        $doc = $config['doc_verificacion'] ?? [];
+        if (!is_array($doc)) {
+            $out['success'] = false;
+            $out['message'] = 'Falta la sección [doc_verificacion] en config.ini.';
+            return $out;
+        }
+        $apiUrlVerificar = trim((string) ($doc['api_url'] ?? ''));
+        $apiKey = trim((string) ($doc['api_key'] ?? ''));
+        $timeoutExp = isset($doc['validar_expediente_timeout_seconds']) ? (int) $doc['validar_expediente_timeout_seconds'] : 300;
+        $retries = isset($doc['validar_expediente_retries']) ? (int) $doc['validar_expediente_retries'] : 2;
+        $out['config'] = [
+            'api_url_length'     => strlen($apiUrlVerificar),
+            'api_url_tail'       => strlen($apiUrlVerificar) > 120 ? ('…' . substr($apiUrlVerificar, -120)) : $apiUrlVerificar,
+            'api_key_hint'       => $this->docVerificacion878EnmascararApiKey($apiKey),
+            'timeout_seconds'    => $timeoutExp,
+            'retries_configured' => $retries,
+            'note'               => 'Misma base URL que CapHum::validarExpedienteApi (se quita /verificar al final si existe).',
+        ];
+        if ($apiUrlVerificar === '' || $apiKey === '') {
+            $out['success'] = false;
+            $out['message'] = 'En [doc_verificacion] faltan api_url o api_key.';
+            return $out;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
+        $baseUrl = rtrim((string) $baseUrl, '/');
+        $healthUrl = $baseUrl . '/health';
+        $docSecIni = isset($config['doc_verificacion']) && is_array($config['doc_verificacion']) ? $config['doc_verificacion'] : [];
+        $tipoDiag = strtoupper(trim((string) ($docSecIni['validar_expediente_tipo_documento'] ?? 'INE_NUEVA')));
+        $tiposDiagOk = ['INE_NUEVA', 'INE_ANTERIOR', 'RESIDENCIA_TEMPORAL', 'RESIDENCIA_TEMPORAL_ACUMULATIVA', 'RESIDENCIA_PERMANENTE', 'DESCONOCIDO'];
+        if (!in_array($tipoDiag, $tiposDiagOk, true)) {
+            $tipoDiag = 'INE_NUEVA';
+        }
+        $validarUrl = $baseUrl . '/validar-expediente?' . http_build_query(['tipo_documento' => $tipoDiag]);
+        $out['urls'] = [
+            'base_resolved' => $baseUrl,
+            'health'        => $healthUrl,
+            'validar'       => $validarUrl,
+        ];
+
+        $healthAttempts = [];
+        $healthOk = false;
+        for ($hi = 0; $hi < 2; $hi++) {
+            if ($hi > 0) {
+                usleep(500000);
+            }
+            $t0 = microtime(true);
+            $hc = curl_init($healthUrl);
+            curl_setopt_array($hc, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT_MS => 8000,
+                CURLOPT_CONNECTTIMEOUT_MS => 4000,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 3,
+            ]);
+            $hBody = curl_exec($hc);
+            $hCode = (int) curl_getinfo($hc, CURLINFO_HTTP_CODE);
+            $hErr = curl_error($hc);
+            $hErrno = (int) curl_errno($hc);
+            curl_close($hc);
+            $ms = (int) round((microtime(true) - $t0) * 1000);
+            $snippet = is_string($hBody) ? substr(preg_replace('/\s+/', ' ', $hBody), 0, 200) : '';
+            $healthAttempts[] = [
+                'attempt'    => $hi + 1,
+                'http_code'  => $hCode,
+                'ms'         => $ms,
+                'curl_errno' => $hErrno,
+                'curl_error' => $hErr !== '' ? $hErr : null,
+                'body_snip'  => $snippet,
+            ];
+            if ($hCode === 200 && $hBody !== false) {
+                $healthOk = true;
+                break;
+            }
+        }
+        $out['health'] = [
+            'ok'       => $healthOk,
+            'attempts' => $healthAttempts,
+        ];
+
+        $pu = parse_url($baseUrl);
+        $host = isset($pu['host']) ? (string) $pu['host'] : '';
+        $scheme = strtolower((string) ($pu['scheme'] ?? 'http'));
+        $port = isset($pu['port']) ? (int) $pu['port'] : ($scheme === 'https' ? 443 : 80);
+        $tcp = ['host' => $host, 'port' => $port, 'ok' => false, 'errno' => null, 'errstr' => null, 'ms' => null];
+        if ($host !== '') {
+            $t0 = microtime(true);
+            $fp = @fsockopen($host, $port, $errno, $errstr, 5);
+            $tcp['ms'] = (int) round((microtime(true) - $t0) * 1000);
+            if ($fp !== false) {
+                $tcp['ok'] = true;
+                fclose($fp);
+            } else {
+                $tcp['errno'] = $errno;
+                $tcp['errstr'] = $errstr;
+            }
+        } else {
+            $tcp['errstr'] = 'No se pudo extraer host de base_resolved.';
+        }
+        $out['tcp_connect'] = $tcp;
+
+        $t0 = microtime(true);
+        $chGet = curl_init($validarUrl);
+        curl_setopt_array($chGet, [
+            CURLOPT_HTTPGET => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 2,
+        ]);
+        $gBody = curl_exec($chGet);
+        $gCode = (int) curl_getinfo($chGet, CURLINFO_HTTP_CODE);
+        $gErr = curl_error($chGet);
+        $gErrno = (int) curl_errno($chGet);
+        curl_close($chGet);
+        $out['get_validar_expediente'] = [
+            'note'       => 'Muchas APIs responden 405 en GET si el endpoint solo acepta POST; indica que el servidor HTTP contestó.',
+            'http_code'  => $gCode,
+            'ms'         => (int) round((microtime(true) - $t0) * 1000),
+            'curl_errno' => $gErrno,
+            'curl_error' => $gErr !== '' ? $gErr : null,
+            'body_snip'  => is_string($gBody) ? substr(preg_replace('/\s+/', ' ', $gBody), 0, 220) : '',
+        ];
+
+        $t0 = microtime(true);
+        $postFields = ['tipo_documento' => $tipoDiag];
+        $chPost = curl_init($validarUrl);
+        curl_setopt_array($chPost, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $postFields,
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 22,
+            CURLOPT_CONNECTTIMEOUT => 8,
+        ]);
+        $pBody = curl_exec($chPost);
+        $pCode = (int) curl_getinfo($chPost, CURLINFO_HTTP_CODE);
+        $pErr = curl_error($chPost);
+        $pErrno = (int) curl_errno($chPost);
+        curl_close($chPost);
+        $out['post_validar_expediente_minimo'] = [
+            'note'       => 'POST sin PDF (solo tipo_documento). Si responde 4xx rápido, la ruta vive; timeout aquí sugiere servicio colgado al leer cuerpo.',
+            'http_code'  => $pCode,
+            'ms'         => (int) round((microtime(true) - $t0) * 1000),
+            'curl_errno' => $pErrno,
+            'curl_error' => $pErr !== '' ? $pErr : null,
+            'body_snip'  => is_string($pBody) ? substr(preg_replace('/\s+/', ' ', $pBody), 0, 320) : '',
+        ];
+
+        $interpretacion = [];
+        $patronSinFalloRed = $healthOk && $tcp['ok'] && $gErrno === 0 && $pErrno === 0
+            && in_array($gCode, [200, 204, 301, 302, 303, 307, 308, 400, 401, 403, 404, 405], true)
+            && in_array($pCode, [400, 401, 403, 404, 422], true);
+        if ($patronSinFalloRed) {
+            $interpretacion[] = 'Buenas noticias: en estas pruebas no hay fallo de red ni de ruta. HTTP 405 en GET /validar-expediente (solo POST) y HTTP 400 sin PDF son respuestas esperadas de una API viva; PHP y la API en 127.0.0.1:8000 se entienden en milisegundos.';
+        }
+        if (!$healthOk) {
+            $interpretacion[] = 'Health falló: la API no respondió 200 en /health (revisar URL base, firewall o que uvicorn esté arriba).';
+        }
+        if (!$tcp['ok'] && $host !== '') {
+            $interpretacion[] = 'TCP a host:puerto falló: PHP en este servidor no abre socket al host configurado (firewall, IP incorrecta o servicio caído).';
+        }
+        if ($pErrno === 28 || ($pErr !== '' && stripos($pErr, 'timed out') !== false)) {
+            $interpretacion[] = 'POST mínimo hizo timeout: mismo síntoma que expedientes reales; revisar logs del proceso Python.';
+        } elseif ($pCode === 0 && $pErrno !== 0) {
+            $interpretacion[] = 'POST mínimo sin HTTP: error de transporte cURL (' . $pErrno . ').';
+        } elseif (in_array($pCode, [400, 401, 403, 404, 422], true) && !$patronSinFalloRed) {
+            $interpretacion[] = 'POST mínimo obtuvo HTTP ' . $pCode . ': la ruta existe y rechaza el payload vacío (esperado); el canal PHP→API para POST funciona.';
+        }
+        if ($interpretacion === []) {
+            $interpretacion[] = 'Revise códigos HTTP y tiempos arriba. Si health y POST mínimo son OK pero el expediente real hace timeout, suele ser OCR/PDFs grandes o un worker único bloqueado.';
+        }
+        $out['interpretacion'] = $interpretacion;
+
+        return $out;
+    }
+
+    private function docVerificacion878EnmascararApiKey(string $k): string
+    {
+        $len = strlen($k);
+        if ($len === 0) {
+            return '(vacía)';
+        }
+        if ($len <= 6) {
+            return '(longitud ' . $len . ', oculta)';
+        }
+
+        return 'longitud ' . $len . ' · sufijo …' . substr($k, -4);
+    }
+
+    /** Catálogo único de servicios locales para estado y acciones. */
+    private function serviciosLocalesCatalogo(): array
+    {
+        $backendRoot = dirname(__DIR__);
+        return [
+            [
+                'id'   => 'doc_candidato',
+                'name' => 'API documentación candidato (Node)',
+                'port' => 3001,
+                'role' => 'API Node — validación de documentos en alta de candidato',
+                'url_check'   => 'http://127.0.0.1:3001/',
+                'url_browser' => 'http://127.0.0.1:3001/',
+                'hint' => 'Si está caída: backend/API/documentacion-candidato/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'documentacion-candidato' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'documentacion-candidato' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+            [
+                'id'   => 'segundometro',
+                'name' => 'Agente Segundómetro (Node)',
+                'port' => 3100,
+                'role' => 'Agente cron de reportes Segundómetro vía SSH',
+                'url_check'   => 'http://127.0.0.1:3100/health',
+                'url_browser' => 'http://127.0.0.1:3100/health',
+                'hint' => 'Si está caída: backend/services/segundometro-agent/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'segundometro-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'segundometro-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+            [
+                'id'   => 'correos_pp',
+                'name' => 'Agente correos primeros pagos (Node)',
+                'port' => 3110,
+                'role' => 'Genera y envía correos de primeros pagos de cobranza',
+                'url_check'   => 'http://127.0.0.1:3110/health',
+                'url_browser' => 'http://127.0.0.1:3110/health',
+                'hint' => 'Si está caída: backend/services/correos-primeros-pagos-agent/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'correos-primeros-pagos-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_bat'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'correos-primeros-pagos-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.bat',
+            ],
+            [
+                'id'   => 'gastos_cobranza',
+                'name' => 'Agente Gastos cobranza (Node)',
+                'port' => 3120,
+                'role' => 'Reportes de cobranza, worker EC, lista negra, descargo estatus 3',
+                'url_check'   => 'http://127.0.0.1:3120/health',
+                'url_browser' => 'http://127.0.0.1:3120/health',
+                'hint' => 'Si está caída: backend/services/gastos-cobranza-agent/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'gastos-cobranza-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'gastos-cobranza-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+            [
+                'id'   => 'api_doc_python',
+                'name' => 'API verificación documentos (Python · uvicorn)',
+                'port' => 8000,
+                'role' => 'OCR + verificación documental (FastAPI 1-click)',
+                'url_check'   => 'http://127.0.0.1:8000/docs',
+                'url_browser' => 'http://127.0.0.1:8000/docs',
+                'hint' => 'Si está caída: backend/API/launcher/iniciar-agente.bat',
+                'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
+                'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
+            ],
+        ];
+    }
+
+    private function serviciosLocalesIniciar(array $srv): bool
+    {
+        $bat = (string)($srv['start_bat'] ?? '');
+        if ($bat === '' || !is_file($bat)) {
+            return false;
+        }
+        $cmd = 'start "" /b cmd /c ""' . str_replace('"', '""', $bat) . '""';
+        @pclose(@popen($cmd, 'r'));
+        return true;
+    }
+
+    private function serviciosLocalesParar(array $srv): bool
+    {
+        $ok = false;
+        $stopPs1 = (string)($srv['stop_ps1'] ?? '');
+        $stopBat = (string)($srv['stop_bat'] ?? '');
+        if ($stopPs1 !== '' && is_file($stopPs1)) {
+            $ps = '"' . str_replace('"', '""', $stopPs1) . '"';
+            $cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -File ' . $ps . ' -Silent';
+            @shell_exec($cmd);
+            $ok = true;
+        } elseif ($stopBat !== '' && is_file($stopBat)) {
+            $cmd = 'cmd /c "' . str_replace('"', '""', $stopBat) . '"';
+            @shell_exec($cmd);
+            $ok = true;
+        }
+        // Fallback: matar proceso dueño del puerto.
+        $port = (int)($srv['port'] ?? 0);
+        if ($port > 0) {
+            $this->serviciosLocalesStopPort($port);
+            $ok = true;
+        }
+        return $ok;
+    }
+
+    private function serviciosLocalesStopPort(int $port): void
+    {
+        if ($port <= 0) {
+            return;
+        }
+        $out = @shell_exec('netstat -ano');
+        if (!is_string($out) || $out === '') {
+            return;
+        }
+        $pids = [];
+        foreach (preg_split('/\r?\n/', $out) as $line) {
+            if (stripos($line, 'LISTENING') === false || strpos($line, ':' . $port) === false) {
+                continue;
+            }
+            if (preg_match('/\sLISTENING\s+(\d+)\s*$/i', trim($line), $m)) {
+                $pids[(int)$m[1]] = true;
+            }
+        }
+        foreach (array_keys($pids) as $pid) {
+            @shell_exec('taskkill /PID ' . (int)$pid . ' /F');
+        }
     }
 
     /** Devuelve [puerto => pid] de los puertos TCP en LISTENING locales. */

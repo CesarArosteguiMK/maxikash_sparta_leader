@@ -1,8 +1,14 @@
 # app/services/barcode_analyzer.py
 """CAPA 5: QR, barcode y PDF417 en documentos."""
+from __future__ import annotations
+
 import numpy as np
 import cv2
 from loguru import logger
+
+from app.core.zbar_local import ensure_local_zbar_dlls
+
+ensure_local_zbar_dlls()
 
 try:
     from pyzbar import pyzbar

@@ -558,7 +558,54 @@ body.dark-mode .inicio-btn-api1click {
   color: #94a3b8;
   padding: 6px 12px 10px;
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
 }
+.estado-srv-foot-generated { opacity: 0.9; }
+.estado-srv-foot-action {
+  font-size: 11px;
+  font-weight: 600;
+  color: #93c5fd;
+  text-align: right;
+  max-width: 100%;
+  word-break: break-word;
+}
+.estado-srv-foot-action.estado-srv-foot-action--ok { color: #86efac; }
+.estado-srv-foot-action.estado-srv-foot-action--err { color: #fecaca; }
+.estado-srv-foot-action.estado-srv-foot-action--wait { color: #fde68a; }
+.estado-srv-panel.estado-srv-panel--busy {
+  outline: 2px solid rgba(147, 197, 253, 0.45);
+  outline-offset: 2px;
+}
+.estado-srv-ops {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.estado-srv-opbtn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(51, 65, 85, 0.9);
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  cursor: pointer;
+  line-height: 1.25;
+}
+.estado-srv-opbtn:hover { background: rgba(71, 85, 105, 0.95); }
+.estado-srv-opbtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.estado-srv-opbtn--danger {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fecaca;
+}
+.estado-srv-opbtn--danger:hover { background: rgba(153, 27, 27, 0.9); }
 
 .api1click-panel {
   position: fixed;
@@ -661,6 +708,39 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   font-size: 10px;
   color: #94a3b8;
   line-height: 1.35;
+}
+.api1doc-diag {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.98);
+}
+.api1doc-diag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.api1doc-diag-hd {
+  flex: 1 1 180px;
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.35;
+  min-width: 0;
+}
+.api1doc-diag-body {
+  margin: 0;
+  padding: 8px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(2, 6, 23, 0.55);
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
 }
 </style>
 
@@ -786,6 +866,13 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         <span class="api1click-badge" id="api1clickBadge">Listo</span>
       </div>
       <p class="api1click-help"><strong>Canal oficial (usuario 878):</strong> diagnóstico, instalación si hace falta y arranque de la API desde aquí — sin ejecutar BAT a mano en el servidor ni depender del PATH. Python/Tesseract dentro de la carpeta de la API los deja soporte/despliegue una vez; el día a día es este botón. Logs (<code>backend/API/logs</code>): Lista → Ver → Copiar o Descargar.</p>
+      <div class="api1doc-diag">
+        <div class="api1doc-diag-row">
+          <button type="button" class="api1click-tbtn" id="btnDocVerDiag878" title="Pruebas desde PHP: health, TCP, GET/POST cortos a validar-expediente (sin PDF). Puede tardar hasta ~45 s.">Diagnóstico expediente API</button>
+          <span class="api1doc-diag-hd">Ejecuta en el <strong>mismo servidor que PHP</strong> las pruebas de <code>config.ini</code> [doc_verificacion] hacia la API Python (sin SSH). Útil si Capital Humano ve timeouts al verificar documentos.</span>
+        </div>
+        <pre class="api1doc-diag-body" id="api1docDiagOutput" role="status" aria-live="polite">Pulse «Diagnóstico expediente API» para ver el resultado JSON (puede tardar ~30–45 s en el peor caso).</pre>
+      </div>
       <div class="api1click-toolbar">
         <select id="api1clickLogSelect" title="Archivos .log en backend/API/logs" aria-label="Seleccionar log">
           <option value="">— Lista de logs (pulsa «Lista» o espera al auto-actualizar) —</option>
@@ -829,7 +916,10 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       <div class="estado-srv-grid" id="estadoSrvGrid">
         <div class="estado-srv-loading">Cargando estado…</div>
       </div>
-      <div class="estado-srv-foot" id="estadoSrvFoot"></div>
+      <div class="estado-srv-foot" id="estadoSrvFoot">
+        <div class="estado-srv-foot-generated" id="estadoSrvFootGenerated"></div>
+        <div class="estado-srv-foot-action" id="estadoSrvFootAction" role="status" aria-live="polite"></div>
+      </div>
     </div>
     <?php endif; ?>
 
@@ -1451,6 +1541,43 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       .catch(function(){ api1SetState('err', 'Error'); if (outApi1) outApi1.textContent = 'Error de red al parar.'; });
   });
 
+  var btnDocVerDiag878 = document.getElementById('btnDocVerDiag878');
+  var outDocVerDiag = document.getElementById('api1docDiagOutput');
+  var docVerDiagBusy = false;
+  if (btnDocVerDiag878 && outDocVerDiag) {
+    btnDocVerDiag878.addEventListener('click', function () {
+      if (docVerDiagBusy) return;
+      docVerDiagBusy = true;
+      btnDocVerDiag878.disabled = true;
+      outDocVerDiag.textContent = 'Ejecutando pruebas en el servidor…';
+      fetch('/inicio/docVerificacionDiagnostico878', { credentials: 'same-origin', headers: api1AjaxHeaders() })
+        .then(function (r) {
+          return r.text().then(function (body) {
+            if (!r.ok) {
+              throw new Error('HTTP ' + r.status + ' — ' + (body.slice(0, 200) || r.statusText));
+            }
+            return api1ParseJsonBody(body, 'docVerificacionDiagnostico878');
+          });
+        })
+        .then(function (data) {
+          outDocVerDiag.textContent = JSON.stringify(data, null, 2);
+          try {
+            console.log('[Sparta inicio · docVerificacionDiagnostico878] resultado JSON (copiar desde Consola o desde el panel)', data);
+          } catch (e) {}
+        })
+        .catch(function (err) {
+          outDocVerDiag.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+          try {
+            console.error('[Sparta inicio · docVerificacionDiagnostico878] fallo', { message: err && err.message, stack: err && err.stack });
+          } catch (e) {}
+        })
+        .finally(function () {
+          docVerDiagBusy = false;
+          btnDocVerDiag878.disabled = false;
+        });
+    });
+  }
+
   function api1SetState(kind, text) {
     if (!badgeApi1) return;
     badgeApi1.className = 'api1click-badge';
@@ -1575,15 +1702,91 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   var grid  = document.getElementById('estadoSrvGrid');
   var summary = document.getElementById('estadoSrvSummary');
   var foot = document.getElementById('estadoSrvFoot');
+  var footGen = document.getElementById('estadoSrvFootGenerated');
+  var footAct = document.getElementById('estadoSrvFootAction');
   var btnRefresh = document.getElementById('estadoSrvBtnRefresh');
   var chkAuto = document.getElementById('estadoSrvAuto');
   var pollTimer = null;
   var inFlight = false;
+  var serviceCtlBusy = false;
 
   function escapeHtml(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
     });
+  }
+  function srvAjaxHeaders() {
+    return { 'X-Requested-With': 'XMLHttpRequest', 'Front-Request': '1' };
+  }
+  function srvParseJsonBody(text, urlHint) {
+    var t = (typeof text === 'string') ? text.trim() : '';
+    if (t === '') return {};
+    try { return JSON.parse(t); }
+    catch (_e) { throw new Error('JSON inválido en ' + urlHint + ': ' + t.slice(0, 180)); }
+  }
+  function srvPostJson(url, bodyObj) {
+    var body = new URLSearchParams();
+    Object.keys(bodyObj || {}).forEach(function(k){
+      body.append(k, bodyObj[k]);
+    });
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: Object.assign({ 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, srvAjaxHeaders()),
+      body: body.toString()
+    })
+      .then(function(r){
+        return r.text().then(function(body){
+          var data = srvParseJsonBody(body, url);
+          if (!r.ok) {
+            var msg = (data && (data.message || data.error)) ? (data.message || data.error) : ('HTTP ' + r.status);
+            throw new Error(msg);
+          }
+          return data || {};
+        });
+      });
+  }
+  function srvSetActionFoot(text, cls) {
+    if (!footAct) return;
+    footAct.textContent = text || '';
+    footAct.className = 'estado-srv-foot-action' + (cls ? ' ' + cls : '');
+  }
+  function srvDoServiceAction(serviceId, serviceName, action) {
+    if (serviceCtlBusy) return;
+    serviceCtlBusy = true;
+    if (panel) panel.classList.add('estado-srv-panel--busy');
+    var msg = action + ' «' + serviceName + '»…';
+    srvSetActionFoot('⏳ Enviando orden: ' + msg, 'estado-srv-foot-action--wait');
+    srvPostJson('/inicio/serviciosLocalesAccion', { service: serviceId, action: action })
+      .then(function(data){
+        var m = (data && data.message) ? data.message : 'Orden registrada.';
+        var hint = (data && data.hint_post) ? (' ' + data.hint_post) : '';
+        var ok = data && (data.success === true || data.success === 'true');
+        var estado = data && data.estado;
+        var arriba = estado === 'up';
+        var semi = estado === 'listen_no_http';
+        var line = m + hint;
+        if (arriba) {
+          srvSetActionFoot('✓ ' + line, 'estado-srv-foot-action--ok');
+        } else if (semi) {
+          srvSetActionFoot('⚠ ' + line + ' El proceso escucha en el puerto pero la URL de comprobación no respondió como se espera.', 'estado-srv-foot-action--wait');
+        } else if (!ok) {
+          srvSetActionFoot('⚠ ' + line + ' Si acaba de arrancar, pulse Refrescar o espere el auto-actualizado (cada 5 s).', 'estado-srv-foot-action--err');
+        } else {
+          srvSetActionFoot('ℹ ' + line, 'estado-srv-foot-action--wait');
+        }
+      })
+      .catch(function(err){
+        srvSetActionFoot('✗ Error: ' + (err && err.message ? err.message : String(err)), 'estado-srv-foot-action--err');
+        try {
+          console.error('[Sparta inicio · serviciosLocalesAccion]', { serviceId: serviceId, serviceName: serviceName, action: action, message: err && err.message, stack: err && err.stack });
+        } catch (e) {}
+      })
+      .finally(function(){
+        serviceCtlBusy = false;
+        if (panel) panel.classList.remove('estado-srv-panel--busy');
+        fetchEstado();
+      });
   }
 
   function renderEstado(data){
@@ -1591,6 +1794,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       grid.innerHTML = '<div class="estado-srv-loading">No se pudo obtener el estado.</div>';
       summary.textContent = '—';
       summary.className = 'estado-srv-summary err';
+      if (footGen) footGen.textContent = 'Generado: —';
       return;
     }
     var s = data.summary || { up:0, down:0, total:0 };
@@ -1622,12 +1826,24 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       } else {
         html += '    <div class="estado-srv-meta">' + escapeHtml(srv.hint || '') + '</div>';
       }
+      if (srv.can_control !== false) {
+        var dis = serviceCtlBusy ? ' disabled' : '';
+        html += '    <div class="estado-srv-ops">';
+        html += '      <button type="button" class="estado-srv-opbtn" data-srv-id="' + escapeHtml(srv.id) + '" data-srv-name="' + escapeHtml(srv.name) + '" data-srv-action="iniciar"' + dis + '>Iniciar</button>';
+        html += '      <button type="button" class="estado-srv-opbtn" data-srv-id="' + escapeHtml(srv.id) + '" data-srv-name="' + escapeHtml(srv.name) + '" data-srv-action="reiniciar"' + dis + '>Reiniciar</button>';
+        html += '      <button type="button" class="estado-srv-opbtn estado-srv-opbtn--danger" data-srv-id="' + escapeHtml(srv.id) + '" data-srv-name="' + escapeHtml(srv.name) + '" data-srv-action="parar"' + dis + '>Parar</button>';
+        html += '    </div>';
+      }
       html += '  </div>';
       html += '  <span class="estado-srv-tag">' + tag + '</span>';
       html += '</div>';
     });
     grid.innerHTML = html || '<div class="estado-srv-loading">Sin servicios configurados.</div>';
-    foot.textContent = 'Generado: ' + (data.generated_at || '—');
+    if (footGen) {
+      footGen.textContent = 'Generado: ' + (data.generated_at || '—');
+    } else if (foot) {
+      foot.textContent = 'Generado: ' + (data.generated_at || '—');
+    }
   }
 
   function fetchEstado(){
@@ -1635,7 +1851,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     inFlight = true;
     fetch('/inicio/serviciosLocalesEstado', {
       credentials: 'same-origin',
-      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Front-Request': '1' }
+      headers: srvAjaxHeaders()
     })
       .then(function(r){
         return r.text().then(function(body){
@@ -1649,6 +1865,10 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         grid.innerHTML = '<div class="estado-srv-loading">Error: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</div>';
         summary.textContent = 'ERR';
         summary.className = 'estado-srv-summary err';
+        if (footGen) footGen.textContent = 'Generado: —';
+        try {
+          console.error('[Sparta inicio · serviciosLocalesEstado]', { message: err && err.message, stack: err && err.stack });
+        } catch (e) {}
       })
       .finally(function(){ inFlight = false; });
   }
@@ -1671,6 +1891,17 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
     }
   });
   if (btnRefresh) btnRefresh.addEventListener('click', fetchEstado);
+  if (grid) {
+    grid.addEventListener('click', function(ev){
+      var btn = ev.target && ev.target.closest ? ev.target.closest('button[data-srv-action]') : null;
+      if (!btn) return;
+      var action = btn.getAttribute('data-srv-action') || '';
+      var serviceId = btn.getAttribute('data-srv-id') || '';
+      var serviceName = btn.getAttribute('data-srv-name') || serviceId;
+      if (!action || !serviceId) return;
+      srvDoServiceAction(serviceId, serviceName, action);
+    });
+  }
   if (chkAuto) {
     chkAuto.addEventListener('change', function(){
       if (this.checked && panel.classList.contains('open')) startAuto();

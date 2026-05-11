@@ -4,8 +4,9 @@ $token = $token ?? '';
 $nombre_candidato = $nombre_candidato ?? '';
 $id_candidato = (int)($id_candidato ?? 0);
 $documentos_subidos = $documentos_subidos ?? [];
+$tipo_documento_validado_rh = $tipo_documento_validado_rh ?? [];
 $expediente_completo = $expediente_completo ?? false;
-$api_verificacion_base = $api_verificacion_base ?? 'http://localhost:8000/api/v1';
+$api_verificacion_base = $api_verificacion_base ?? '/CapHum/docVerificacionProxy';
 $documentos = [
     1  => 'SOLICITUD INTERNA',
     2  => 'CV O SOLICITUD DE TRABAJO',
@@ -197,6 +198,87 @@ $documentos = [
         #mensajeResultado .msg-result-item {
             transition: opacity 0.4s ease;
         }
+        .doc-upload-alert {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(3px);
+        }
+        .doc-upload-alert.is-visible {
+            display: flex;
+        }
+        .doc-upload-alert-card {
+            width: min(92vw, 390px);
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+        .doc-upload-alert-icon {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 0.85rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            color: #ffffff;
+            background: #3182ce;
+        }
+        .doc-upload-alert.is-success .doc-upload-alert-icon {
+            background: #16a34a;
+        }
+        .doc-upload-alert.is-error .doc-upload-alert-icon {
+            background: #dc2626;
+        }
+        .doc-upload-alert-title {
+            margin: 0;
+            color: #1e293b;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .doc-upload-alert-text {
+            margin: 0.6rem 0 0;
+            color: #475569;
+            font-size: 0.93rem;
+            line-height: 1.45;
+        }
+        .doc-upload-spinner {
+            width: 26px;
+            height: 26px;
+            border: 3px solid rgba(255, 255, 255, 0.45);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: doc-upload-spin 0.8s linear infinite;
+        }
+        .doc-upload-alert-actions {
+            display: none;
+            margin-top: 1rem;
+        }
+        .doc-upload-alert.is-success .doc-upload-alert-actions,
+        .doc-upload-alert.is-error .doc-upload-alert-actions {
+            display: block;
+        }
+        .doc-upload-alert-button {
+            border: 0;
+            border-radius: 10px;
+            padding: 0.65rem 1.1rem;
+            background: #2c5282;
+            color: #ffffff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        @keyframes doc-upload-spin {
+            to { transform: rotate(360deg); }
+        }
         .small-text {
             font-size: 0.8rem;
             color: #64748b;
@@ -233,6 +315,17 @@ $documentos = [
         }
         .btn-tomar-foto {
             white-space: nowrap;
+        }
+        .doc-palomita {
+            display: none;
+            margin-left: 0.45rem;
+            color: #2e7d32;
+            font-size: 1.15rem;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        .doc-palomita.visible {
+            display: inline-block;
         }
         /* Modal cámara */
         .modal-camara-overlay {
@@ -471,6 +564,9 @@ $documentos = [
                     $documentosConFoto = [];
                     $docsSoloPdf = [3, 4, 5, 6, 7, 8, 10]; // acta, CURP, identificación, comprobante, constancia fiscal, NSS, estado de cuenta
                     foreach ($documentos as $num => $nombreDoc):
+                        if (!empty($tipo_documento_validado_rh[$num])) {
+                            continue;
+                        }
                         $esSolicitud = ($num === 1);
                         $esCartaAdeudo = ($num === 9);
                         $permiteFoto = in_array($num, $documentosConFoto, true);
@@ -478,7 +574,7 @@ $documentos = [
                         $yaSubido = isset($documentos_subidos[$num]);
                     ?>
                     <div class="form-group" data-doc-num="<?= $num ?>">
-                        <label for="archivo_<?= $num ?>"><?= $num ?>. <?= htmlspecialchars($nombreDoc) ?><?= $num === 5 ? ' <span class="text-muted" style="font-weight:400;">(un solo archivo PDF con frente y reverso)</span>' : '' ?></label>
+                        <label for="archivo_<?= $num ?>"><?= $num ?>. <?= htmlspecialchars($nombreDoc) ?><?= $num === 5 ? ' <span class="text-muted" style="font-weight:400;">(un solo archivo PDF con frente y reverso)</span>' : '' ?><span id="doc-check-<?= (int)$num ?>" class="doc-palomita<?= $yaSubido ? ' visible' : '' ?>"<?= $yaSubido ? ' aria-label="Documento ya recibido"' : ' aria-hidden="true"' ?> title="<?= $yaSubido ? 'Documento ya recibido' : 'Archivo listo' ?>"><i class="fa fa-check-circle" aria-hidden="true"></i></span></label>
                         <?php if ($yaSubido): ?>
                         <div class="doc-ya-subido py-2 px-3 rounded" style="background:#e8f5e9;color:#2e7d32;">
                             <i class="fa fa-check-circle me-1"></i> Ya subido: <?= htmlspecialchars($documentos_subidos[$num]['nombre_archivo'] ?? 'documento') ?>
@@ -510,19 +606,19 @@ $documentos = [
                         <div class="d-flex flex-wrap gap-2 align-items-center">
                             <input type="file" class="form-control-file" id="archivo_<?= $num ?>" name="archivo_<?= $num ?>" accept="<?= $soloPdf ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png' ?>">
                             <?php if ($num === 4): ?>
-                            <span id="curp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> CURP verificado</span>
+                            <span id="curp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> CURP listo</span>
                             <?php endif; ?>
                             <?php if ($num === 5): ?>
-                            <span id="id-verificado-frente" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Identificación verificada</span>
+                            <span id="id-verificado-frente" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> PDF cargado</span>
                             <?php endif; ?>
                             <?php if ($num === 6): ?>
-                            <span id="comp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Comprobante verificado</span>
+                            <span id="comp-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Comprobante listo</span>
                             <?php endif; ?>
                             <?php if ($num === 7): ?>
-                            <span id="fiscal-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Constancia fiscal verificada</span>
+                            <span id="fiscal-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> Constancia fiscal lista</span>
                             <?php endif; ?>
                             <?php if ($num === 8): ?>
-                            <span id="nss-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> NSS verificado</span>
+                            <span id="nss-verificado" class="doc-check-inline" style="display:none;color:#2e7d32;font-weight:600;"><i class="fa fa-check-circle me-1"></i> NSS listo</span>
                             <?php endif; ?>
                             <?php if ($permiteFoto): ?>
                             <input type="file" id="archivo_<?= $num ?>_foto" name="archivo_<?= $num ?>_foto" accept="image/*" capture="environment" class="d-none">
@@ -539,6 +635,16 @@ $documentos = [
                 </form>
                 <div id="mensajeResultado"></div>
             <?php endif; ?>
+        </div>
+    </div>
+    <div id="docUploadAlert" class="doc-upload-alert" role="alertdialog" aria-live="assertive" aria-hidden="true">
+        <div class="doc-upload-alert-card">
+            <div class="doc-upload-alert-icon" id="docUploadAlertIcon"><span class="doc-upload-spinner" aria-hidden="true"></span></div>
+            <h2 class="doc-upload-alert-title" id="docUploadAlertTitle">Procesando documentación</h2>
+            <p class="doc-upload-alert-text" id="docUploadAlertText">Estamos revisando y guardando tus documentos. No cierres esta ventana.</p>
+            <div class="doc-upload-alert-actions">
+                <button type="button" class="doc-upload-alert-button" id="docUploadAlertClose">Entendido</button>
+            </div>
         </div>
     </div>
     <!-- Modal cámara para tomar foto -->
@@ -823,22 +929,77 @@ $documentos = [
                 });
             }
 
+            function precheckIdentificacionPdfAPI(file) {
+                return new Promise(function(resolve, reject) {
+                    var formData = new FormData();
+                    formData.append('documento', file, file.name || 'identificacion.pdf');
+                    fetchWithTimeout(API_BASE + '/precheck-identificacion-pdf', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, 15000)
+                    .then(function(r) {
+                        if (!r.ok) {
+                            return r.json().catch(function() { return {}; }).then(function(body) {
+                                throw new Error((body && (body.detail || body.mensaje)) ? (body.detail || body.mensaje) : 'No se pudo revisar la identificación.');
+                            });
+                        }
+                        return r.json();
+                    })
+                    .then(resolve)
+                    .catch(function(err) {
+                        if (err && err.name === 'AbortError') {
+                            reject(new Error('La revisión rápida tardó demasiado. Intenta con un PDF más claro o ligero.'));
+                        } else {
+                            reject(err);
+                        }
+                    });
+                });
+            }
+
             function actualizarCheckmark(docNum, aprobado) {
-                var label = document.querySelector('label[for="archivo_' + docNum + '"]');
-                if (!label) return;
-                var existing = label.querySelector('.doc-check');
-                if (existing) existing.remove();
-                if (aprobado) {
-                    var check = document.createElement('span');
-                    check.className = 'doc-check';
-                    check.style.cssText = 'color:#2e7d32;margin-left:8px;font-weight:700;';
-                    check.innerHTML = '&#10003; Verificado';
-                    label.appendChild(check);
-                }
+                var el = document.getElementById('doc-check-' + docNum);
+                if (!el) return;
+                if (aprobado) el.classList.add('visible');
+                else el.classList.remove('visible');
             }
 
             var MSG_AUTO_OCULTAR_MS = 10000;
             var verificacionesPendientes = 0;
+
+            function textoPlano(html) {
+                var tmp = document.createElement('div');
+                tmp.innerHTML = html || '';
+                return (tmp.textContent || tmp.innerText || '').trim();
+            }
+
+            function mostrarAlertaDocumento(estado, titulo, texto) {
+                var uploadAlert = document.getElementById('docUploadAlert');
+                var uploadAlertIcon = document.getElementById('docUploadAlertIcon');
+                var uploadAlertTitle = document.getElementById('docUploadAlertTitle');
+                var uploadAlertText = document.getElementById('docUploadAlertText');
+                var uploadAlertClose = document.getElementById('docUploadAlertClose');
+                if (!uploadAlert || !uploadAlertIcon || !uploadAlertTitle || !uploadAlertText) return;
+                uploadAlert.classList.remove('is-success', 'is-error');
+                if (estado === 'success') uploadAlert.classList.add('is-success');
+                if (estado === 'error') uploadAlert.classList.add('is-error');
+                uploadAlertIcon.innerHTML = estado === 'loading'
+                    ? '<span class="doc-upload-spinner" aria-hidden="true"></span>'
+                    : (estado === 'success' ? '<i class="fa fa-check" aria-hidden="true"></i>' : '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>');
+                uploadAlertTitle.textContent = titulo;
+                uploadAlertText.textContent = texto;
+                uploadAlert.classList.add('is-visible');
+                uploadAlert.setAttribute('aria-hidden', 'false');
+                if (uploadAlertClose) {
+                    uploadAlertClose.onclick = function() {
+                        uploadAlert.classList.remove('is-visible', 'is-success', 'is-error');
+                        uploadAlert.setAttribute('aria-hidden', 'true');
+                    };
+                }
+            }
+
+            function cerrarAlertaDocumento() {
+                var uploadAlert = document.getElementById('docUploadAlert');
+                if (!uploadAlert) return;
+                uploadAlert.classList.remove('is-visible', 'is-success', 'is-error');
+                uploadAlert.setAttribute('aria-hidden', 'true');
+            }
 
             function actualizarBotonEnviar() {
                 var btn = document.getElementById('btnEnviar');
@@ -853,6 +1014,7 @@ $documentos = [
                 if (!cont) return null;
                 verificacionesPendientes++;
                 actualizarBotonEnviar();
+                mostrarAlertaDocumento('loading', 'Procesando documento', texto || 'Estamos revisando tu documento. Espera un momento.');
                 var div = document.createElement('div');
                 div.className = 'msg-verificando';
                 div.textContent = texto;
@@ -861,9 +1023,18 @@ $documentos = [
             }
             function showResultado(cont, verificandoDiv, html, esError) {
                 if (!cont) return;
-                verificacionesPendientes--;
+                if (verificandoDiv) {
+                    verificacionesPendientes = Math.max(0, verificacionesPendientes - 1);
+                }
                 actualizarBotonEnviar();
                 if (verificandoDiv && verificandoDiv.parentNode) verificandoDiv.remove();
+                if (verificandoDiv) {
+                    mostrarAlertaDocumento(
+                        esError ? 'error' : 'success',
+                        esError ? 'El documento presentó un problema' : 'Documento procesado',
+                        textoPlano(html) || (esError ? 'No se pudo procesar el documento.' : 'El documento se procesó correctamente.')
+                    );
+                }
                 var div = document.createElement('div');
                 div.className = 'msg-result-item ' + (esError ? 'alert-error' : 'alert-success');
                 div.innerHTML = html;
@@ -883,8 +1054,10 @@ $documentos = [
             window.VERIFICACION_TIMEOUT_MS = VERIFICACION_TIMEOUT_MS;
             window.fetchWithTimeout = fetchWithTimeout;
             window.showResultado = showResultado;
+            window.mostrarAlertaDocumento = mostrarAlertaDocumento;
+            window.cerrarAlertaDocumento = cerrarAlertaDocumento;
             window.verificacionPendienteInicio = function() { verificacionesPendientes++; actualizarBotonEnviar(); };
-            window.verificacionPendienteFin = function() { verificacionesPendientes--; actualizarBotonEnviar(); };
+            window.verificacionPendienteFin = function() { verificacionesPendientes = Math.max(0, verificacionesPendientes - 1); actualizarBotonEnviar(); };
             window.puedeEnviarDocumentos = function() { return verificacionesPendientes === 0; };
 
             function cerrarModal() {
@@ -955,7 +1128,7 @@ $documentos = [
                             if (el) el.style.display = 'none';
                         } else {
                             var info = res.empresa ? ' (' + res.empresa + ')' : '';
-                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '. Score: ' + (res.score_validacion || '—') + '/100.', false);
+                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.', false);
                             actualizarCheckmark(6, true);
                             var el = document.getElementById('comp-verificado');
                             if (el) el.style.display = 'inline';
@@ -964,6 +1137,8 @@ $documentos = [
                     .catch(function(err) {
                         var texto = (err && err.message) ? err.message : 'Verificación no disponible. Revisa tu conexión o intenta de nuevo.';
                         showResultado(msg, verificandoDiv, texto, true);
+                        inputComprobante.value = '';
+                        actualizarCheckmark(6, false);
                         var el = document.getElementById('comp-verificado');
                         if (el) el.style.display = 'none';
                     });
@@ -978,6 +1153,7 @@ $documentos = [
                     if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de CURP en PDF (descargada del RENAPO). No uses constancia fiscal ni otros documentos.', true);
                         inputCURP.value = '';
+                        actualizarCheckmark(4, false);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
@@ -1026,46 +1202,40 @@ $documentos = [
                     var file = this.files && this.files[0];
                     if (!file) return;
                     var ext = (file.name.split('.').pop() || '').toLowerCase();
-                    if (['jpg', 'jpeg', 'png', 'webp'].indexOf(ext) === -1) {
-                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se aceptan imágenes (JPG, PNG) para la identificación oficial. No subas PDF ni otros documentos.', true);
+                    if (ext !== 'pdf') {
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta un archivo PDF para la identificación oficial (con frente y reverso).', true);
                         inputFrente.value = '';
+                        actualizarCheckmark(5, false);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
-                    var verificandoDiv = showVerificando(msg, 'Verificando identificación (frente)...');
-                    var reader = new FileReader();
-                    reader.onload = function() {
-                        var arr = reader.result.split(',');
-                        var mime = (arr[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
-                        var bstr = atob(arr[1] || '');
-                        var u8 = new Uint8Array(bstr.length);
-                        for (var i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
-                        var blob = new Blob([u8], { type: mime });
-                        verificarCalidadDocumentoAPI(blob, 'frente').then(function(res) {
-                            if (!res.ok) {
-                                var textoAlerta = (res.mensaje && res.mensaje.trim()) ? res.mensaje : 'Identificación (frente): calidad de imagen insuficiente. Sube una imagen clara del frente.';
-                                showResultado(msg, verificandoDiv, textoAlerta, true);
-                                inputFrente.value = '';
-                                actualizarCheckmark(5, false);
-                                var el = document.getElementById('id-verificado-frente');
-                                if (el) el.style.display = 'none';
-                                return;
-                            }
-                            idVerificado.front = true;
-                            showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Frente aceptado. La verificación completa se hará al subir.', false);
-                            actualizarCheckmark(5, idVerificado.front && idVerificado.back);
-                            var el = document.getElementById('id-verificado-frente');
-                            if (el) el.style.display = 'inline';
-                        }).catch(function(err) {
-                            var texto = (err && err.message) ? err.message : 'Verificación no disponible. Revisa tu conexión o que la API esté encendida.';
-                            showResultado(msg, verificandoDiv, texto, true);
+                    var verificandoDiv = showVerificando(msg, 'Validando identificación...');
+                    precheckIdentificacionPdfAPI(file).then(function(res) {
+                        var el = document.getElementById('id-verificado-frente');
+                        if (!res || res.valido !== true) {
+                            showResultado(msg, verificandoDiv, (res && res.mensaje) ? res.mensaje : 'El PDF no parece corresponder a una identificación oficial.', true);
                             inputFrente.value = '';
-                            actualizarCheckmark(5, false);
-                            var el = document.getElementById('id-verificado-frente');
+                            idVerificado.front = false;
+                            idVerificado.back = false;
                             if (el) el.style.display = 'none';
-                        });
-                    };
-                    reader.readAsDataURL(file);
+                            actualizarCheckmark(5, false);
+                            return;
+                        }
+                        idVerificado.front = true;
+                        idVerificado.back = true;
+                        if (el) el.style.display = 'inline';
+                        actualizarCheckmark(5, true);
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Identificación oficial detectada.', false);
+                    }).catch(function(err) {
+                        var texto = (err && err.message) ? err.message : 'No se pudo revisar rápidamente la identificación.';
+                        showResultado(msg, verificandoDiv, texto, true);
+                        inputFrente.value = '';
+                        idVerificado.front = false;
+                        idVerificado.back = false;
+                        var el = document.getElementById('id-verificado-frente');
+                        if (el) el.style.display = 'none';
+                        actualizarCheckmark(5, false);
+                    });
                 });
             }
             var inputReversoId = document.getElementById('archivo_5_reverso');
@@ -1127,6 +1297,7 @@ $documentos = [
                     if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de situación fiscal en PDF (descargada del SAT).', true);
                         inputFiscal.value = '';
+                        actualizarCheckmark(7, false);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
@@ -1155,6 +1326,7 @@ $documentos = [
                         var texto = (err && err.message) ? err.message : 'Verificación no disponible. Revisa tu conexión o intenta de nuevo.';
                         showResultado(msg, verificandoDiv, texto, true);
                         inputFiscal.value = '';
+                        actualizarCheckmark(7, false);
                         var elF = document.getElementById('fiscal-verificado');
                         if (elF) elF.style.display = 'none';
                     });
@@ -1169,6 +1341,7 @@ $documentos = [
                     if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
                         showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta constancia de NSS en PDF (descargada del IMSS).', true);
                         inputNSS.value = '';
+                        actualizarCheckmark(8, false);
                         return;
                     }
                     var msg = document.getElementById('mensajeResultado');
@@ -1197,11 +1370,66 @@ $documentos = [
                         var texto = (err && err.message) ? err.message : 'Verificación no disponible. Revisa tu conexión o intenta de nuevo.';
                         showResultado(msg, verificandoDiv, texto, true);
                         inputNSS.value = '';
+                        actualizarCheckmark(8, false);
                         var el = document.getElementById('nss-verificado');
                         if (el) el.style.display = 'none';
                     });
                 });
             }
+
+            var inputEstadoCuenta = document.getElementById('archivo_10');
+            if (inputEstadoCuenta) {
+                inputEstadoCuenta.addEventListener('change', function() {
+                    var file = this.files && this.files[0];
+                    if (!file) return;
+                    if (file.name.split('.').pop().toLowerCase() !== 'pdf') {
+                        showResultado(document.getElementById('mensajeResultado'), null, 'Solo se acepta estado de cuenta en PDF.', true);
+                        inputEstadoCuenta.value = '';
+                        actualizarCheckmark(10, false);
+                        return;
+                    }
+                    var msg = document.getElementById('mensajeResultado');
+                    var verificandoDiv = showVerificando(msg, 'Verificando estado de cuenta...');
+                    var formData = new FormData();
+                    formData.append('documento', file, file.name);
+                    fetchWithTimeout(API_BASE + '/verificar-estado-cuenta', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
+                    .then(function(r) {
+                        if (!r.ok) {
+                            return r.json().catch(function() { return {}; }).then(function(body) {
+                                throw new Error((body && body.mensaje) ? body.mensaje : 'La API respondió con error. Intenta de nuevo.');
+                            });
+                        }
+                        return r.json();
+                    })
+                    .then(function(res) {
+                        if (!res || res.valido !== true) {
+                            showResultado(msg, verificandoDiv, 'Estado de cuenta rechazado: ' + ((res && res.mensaje) ? res.mensaje : 'Solo se aceptan estados de cuenta de bancos físicos en México.'), true);
+                            inputEstadoCuenta.value = '';
+                            actualizarCheckmark(10, false);
+                            return;
+                        }
+                        var banco = res.banco_detectado ? ' (' + res.banco_detectado + ')' : '';
+                        showResultado(msg, verificandoDiv, '<i class="fa fa-check-circle me-1"></i> Estado de cuenta verificado' + banco + '.', false);
+                        actualizarCheckmark(10, true);
+                    })
+                    .catch(function(err) {
+                        var detalle = (err && err.message) ? err.message : 'No se pudo validar en línea.';
+                        var texto = 'No se pudo validar el estado de cuenta en este momento. Puedes continuar con la subida y se revisará en backend. Detalle: ' + detalle;
+                        // Fallback: no bloquear la carga por caída temporal de la API.
+                        showResultado(msg, verificandoDiv, texto, false);
+                        actualizarCheckmark(10, true);
+                    });
+                });
+            }
+
+            [1, 2, 3, 9].forEach(function(n) {
+                var inpSimple = document.getElementById('archivo_' + n);
+                if (!inpSimple) return;
+                inpSimple.addEventListener('change', function() {
+                    var ok = inpSimple.files && inpSimple.files.length > 0;
+                    actualizarCheckmark(n, !!ok);
+                });
+            });
 
             document.getElementById('btnCerrarModalCamara').addEventListener('click', cerrarModal);
             document.getElementById('btnCancelarCamara').addEventListener('click', cerrarModal);
@@ -1683,7 +1911,7 @@ $documentos = [
                     compGoIntro();
                     var msg = document.getElementById('mensajeResultado');
                     var info = res.empresa ? ' (' + res.empresa + ')' : '';
-                    if (msg) (window.showResultado || function(){})(msg, null, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '. Score: ' + (res.score_validacion || '—') + '/100.', false);
+                    if (msg) (window.showResultado || function(){})(msg, null, '<i class="fa fa-check-circle me-1"></i> Comprobante verificado' + info + '.', false);
                 }).catch(function(err) {
                     if (window.verificacionPendienteFin) window.verificacionPendienteFin();
                     if (btnUse) { btnUse.disabled = false; btnUse.textContent = 'Usar esta foto'; }
@@ -1739,33 +1967,38 @@ $documentos = [
             var btn = document.getElementById('btnEnviar');
             var msg = document.getElementById('mensajeResultado');
             var form = document.getElementById('formSubirDocumentos');
+            var uploadAlert = document.getElementById('docUploadAlert');
+            var uploadAlertIcon = document.getElementById('docUploadAlertIcon');
+            var uploadAlertTitle = document.getElementById('docUploadAlertTitle');
+            var uploadAlertText = document.getElementById('docUploadAlertText');
+            var uploadAlertClose = document.getElementById('docUploadAlertClose');
+
+            function mostrarAlertaSubida(estado, titulo, texto) {
+                if (!uploadAlert || !uploadAlertIcon || !uploadAlertTitle || !uploadAlertText) return;
+                uploadAlert.classList.remove('is-success', 'is-error');
+                if (estado === 'success') uploadAlert.classList.add('is-success');
+                if (estado === 'error') uploadAlert.classList.add('is-error');
+                uploadAlertIcon.innerHTML = estado === 'loading'
+                    ? '<span class="doc-upload-spinner" aria-hidden="true"></span>'
+                    : (estado === 'success' ? '<i class="fa fa-check" aria-hidden="true"></i>' : '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>');
+                uploadAlertTitle.textContent = titulo;
+                uploadAlertText.textContent = texto;
+                uploadAlert.classList.add('is-visible');
+                uploadAlert.setAttribute('aria-hidden', 'false');
+            }
+
+            function cerrarAlertaSubida() {
+                if (!uploadAlert) return;
+                uploadAlert.classList.remove('is-visible', 'is-success', 'is-error');
+                uploadAlert.setAttribute('aria-hidden', 'true');
+            }
+
+            if (uploadAlertClose) {
+                uploadAlertClose.onclick = cerrarAlertaSubida;
+            }
+
             if (typeof window.puedeEnviarDocumentos === 'function' && !window.puedeEnviarDocumentos()) {
                 if (msg) (window.showResultado || function(){})(msg, null, 'Espera a que termine la verificación de los documentos antes de subir.', true);
-                return;
-            }
-            function docRequiereVerificacion(inputId, spanId) {
-                var input = document.getElementById(inputId);
-                var span = document.getElementById(spanId);
-                if (!input || !span) return false;
-                if (!input.files || input.files.length === 0) return false;
-                return span.style.display !== 'inline' && span.style.display !== 'inline-block';
-            }
-            if (docRequiereVerificacion('archivo_4', 'curp-verificado')) {
-                if (msg) (window.showResultado || function(){})(msg, null, 'La constancia de CURP debe ser verificada antes de enviar. Solo se acepta constancia CURP del RENAPO.', true);
-                return;
-            }
-            var input5 = document.getElementById('archivo_5');
-            var esPdfId = input5 && input5.files && input5.files.length > 0 && (input5.files[0].name || '').toLowerCase().endsWith('.pdf');
-            if (!esPdfId && docRequiereVerificacion('archivo_5', 'id-verificado-frente')) {
-                if (msg) (window.showResultado || function(){})(msg, null, 'La identificación debe ser verificada antes de enviar. Sube un PDF con frente y reverso de tu INE o residencia.', true);
-                return;
-            }
-            if (docRequiereVerificacion('archivo_7', 'fiscal-verificado')) {
-                if (msg) (window.showResultado || function(){})(msg, null, 'La constancia de situación fiscal debe ser verificada antes de enviar. Solo se acepta constancia del SAT.', true);
-                return;
-            }
-            if (docRequiereVerificacion('archivo_8', 'nss-verificado')) {
-                if (msg) (window.showResultado || function(){})(msg, null, 'La constancia de NSS debe ser verificada antes de enviar. Solo se acepta constancia del IMSS.', true);
                 return;
             }
             // Envío parcial: solo exigir que haya al menos un archivo seleccionado
@@ -1786,8 +2019,9 @@ $documentos = [
                 return;
             }
             btn.disabled = true;
-            btn.textContent = 'Subiendo...';
+            btn.textContent = 'Procesando...';
             msg.innerHTML = '';
+            mostrarAlertaSubida('loading', 'Guardando documentación', 'Estamos guardando tus documentos.');
             var formData = new FormData(form);
             var ctrl = new AbortController();
             var timeoutId = setTimeout(function() { ctrl.abort(); }, 90000);
@@ -1800,7 +2034,9 @@ $documentos = [
                 btn.textContent = 'Subir documentos';
                 msg.innerHTML = '';
                 if (res.success) {
-                    showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> ' + (res.mensaje || 'Documentos subidos correctamente.'), false);
+                    var mensajeOk = res.mensaje || 'Documento(s) cargado(s) correctamente.';
+                    mostrarAlertaSubida('success', 'Documentación cargada', mensajeOk);
+                    showResultado(msg, null, '<i class="fa fa-check-circle me-1"></i> ' + mensajeOk, false);
                     form.reset();
                     var datos = res.datos || {};
                     var docsSubidos = datos.documentos_subidos;
@@ -1844,16 +2080,22 @@ $documentos = [
                         }
                     }
                 } else {
-                    showResultado(msg, null, (res.mensaje || 'Error al subir.'), true);
+                    var mensajeError = res.mensaje || 'El documento presentó un problema y no se pudo cargar.';
+                    mostrarAlertaSubida('error', 'No se pudo cargar la documentación', mensajeError);
+                    showResultado(msg, null, mensajeError, true);
                 }
             }).catch(function(err) {
                 clearTimeout(timeoutId);
                 btn.disabled = false;
                 btn.textContent = 'Subir documentos';
                 if (err && err.name === 'AbortError') {
-                    showResultado(msg, null, 'La subida tardó demasiado. Comprueba tu conexión e intenta de nuevo con menos archivos.', true);
+                    var textoTimeout = 'La subida tardó demasiado. Comprueba tu conexión e intenta de nuevo con menos archivos.';
+                    mostrarAlertaSubida('error', 'Tiempo de espera agotado', textoTimeout);
+                    showResultado(msg, null, textoTimeout, true);
                 } else {
-                    showResultado(msg, null, 'Error de conexión. Intenta de nuevo.', true);
+                    var textoConexion = 'Error de conexión. Intenta de nuevo.';
+                    mostrarAlertaSubida('error', 'No se pudo cargar la documentación', textoConexion);
+                    showResultado(msg, null, textoConexion, true);
                 }
             });
         });

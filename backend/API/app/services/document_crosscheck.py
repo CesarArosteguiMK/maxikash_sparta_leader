@@ -5,7 +5,8 @@ identificación oficial, constancia CURP, constancia fiscal, NSS y acta de nacim
 """
 import re
 import io
-from typing import Optional, Dict, Any, List
+import unicodedata
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 from loguru import logger
 
@@ -133,7 +134,8 @@ def _parsear_fecha_espanol(texto: str) -> Optional[datetime]:
 
 
 def _normalizar_nombre(nombre: str) -> str:
-    nombre = nombre.upper().strip()
+    nombre = unicodedata.normalize("NFKD", nombre.upper().strip())
+    nombre = "".join(c for c in nombre if not unicodedata.combining(c))
     nombre = re.sub(r"[^A-Z\s]", "", nombre)
     return re.sub(r"\s+", " ", nombre).strip()
 
@@ -249,9 +251,328 @@ def extraer_informacion_ingresos_fad(pdf_bytes: bytes) -> Dict[str, Any]:
     return resultado
 
 
+# Palabras / tokens que no son número de motor (CFDI, pedimento, sellos, totales)
+_MOTOR_ETIQUETAS_FALSAS = frozenset({
+    "PEDIMENTO", "PEDIMENTOS", "ENSAMBLE", "FECHA", "ENTRADA", "REPUVE",
+    "SERIAL", "IMPORTACION", "IMPORTACIÓN", "ADUANA", "COVE", "CERTIFICADO",
+    "FACTURA", "FOLIO", "NUMERO", "NÚMERO", "NÚMEROS", "MEXICO", "MÉXICO",
+    "TRANSFERENCIA", "ELECTRONICA", "ELECTRÓNICA", "OBJETO", "IMPUESTO",
+    "SUBTOTAL", "MXN", "USD", "RFC", "SAT", "CFDI", "PLACAS",
+    "VEHICULO", "VEHÍCULO", "MOTOCICLETA", "BAJAJ", "VENTO", "HONDA",
+})
+
+_COLOR_PARTIDO_OCR = (
+    (re.compile(r"(COLOR\s*:\s*)AMARILL\s*\n\s*O(\s*,\s*AÑO)", re.IGNORECASE), r"\1AMARILLO\2"),
+    (re.compile(r"(COLOR\s*:\s*)AMARILL\s*\n\s*A(\s*,\s*AÑO)", re.IGNORECASE), r"\1AMARILLA\2"),
+    (re.compile(r"(COLOR\s*:\s*)ROJ\s*\n\s*O(\s*,\s*AÑO)", re.IGNORECASE), r"\1ROJO\2"),
+    (re.compile(r"(COLOR\s*:\s*)ROJ\s*\n\s*A(\s*,\s*AÑO)", re.IGNORECASE), r"\1ROJA\2"),
+    (re.compile(r"(COLOR\s*:\s*)PLATEAD\s*\n\s*O(\s*,\s*AÑO)", re.IGNORECASE), r"\1PLATEADO\2"),
+    (re.compile(r"(COLOR\s*:\s*)PLATEAD\s*\n\s*A(\s*,\s*AÑO)", re.IGNORECASE), r"\1PLATEADA\2"),
+    (re.compile(r"(COLOR\s*:\s*)BLANC\s*\n\s*O(\s*,\s*AÑO)", re.IGNORECASE), r"\1BLANCO\2"),
+    (re.compile(r"(COLOR\s*:\s*)BLANC\s*\n\s*A(\s*,\s*AÑO)", re.IGNORECASE), r"\1BLANCA\2"),
+)
+
+_MOTOR_LINE_LABEL = re.compile(
+    r"^(NO\.?\s*DE\s*MOTOR|N[ÚU]M(?:ERO)?\s*DE\s*MOTOR)(\s*[:#\-]\s*)?(.*)$",
+    re.IGNORECASE,
+)
+
+_VIN_CHARSET_RE = re.compile(r"^[A-HJ-NPR-Z0-9]+$")
+
+
+def _preprocesar_texto_factura(texto: str) -> Tuple[str, str, List[str]]:
+    """Normaliza Unicode; conserva saltos de línea (tablas CFDI)."""
+    if not texto:
+        return "", "", []
+    t = unicodedata.normalize("NFKC", texto)
+    t = t.replace("\ufb01", "fi").replace("\ufb02", "fl")
+    texto_norm = re.sub(r"[ \t]+", " ", t).replace("\r", "\n")
+    lineas = [ln.strip() for ln in texto_norm.split("\n")]
+    lineas = [ln for ln in lineas if ln]
+    texto_upper = texto_norm.upper()
+    return texto_norm, texto_upper, lineas
+
+
+def _cfdi_recortar_cola_certificado(texto_upper: str) -> str:
+    """Evita tomar VIN/códigos de CADENA ORIGINAL / SELLO / firmas largas."""
+    low = texto_upper.lower()
+    cut = len(texto_upper)
+    for marker in ("cadena original", "sello digital del cfdi"):
+        i = low.find(marker)
+        if i != -1 and i >= 400:
+            cut = min(cut, i)
+    return texto_upper[:cut] if cut < len(texto_upper) else texto_upper
+
+
+def _vin_normalizado_valido(cand: str) -> bool:
+    u = re.sub(r"\s+", "", cand.upper())
+    if len(u) < 8 or len(u) > 17:
+        return False
+    return bool(_VIN_CHARSET_RE.match(u))
+
+
+def _valor_motor_plausible(cand: str, vin: str) -> bool:
+    """Filtra PEDIMENTO y similares; prioriza cadenas tipo KD26B007277."""
+    if not cand:
+        return False
+    u = re.sub(r"\s+", "", cand.upper())
+    if vin and u == vin:
+        return False
+    if u in _MOTOR_ETIQUETAS_FALSAS:
+        return False
+    if len(u) < 4 or len(u) > 24:
+        return False
+    if not re.match(r"^[A-Z0-9\-]+$", u):
+        return False
+    if not re.search(r"\d", u):
+        return False
+    if re.match(r"^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$", u):
+        return False
+    return True
+
+
+def _extraer_vin_robusto(texto_upper_completo: str, lineas: List[str]) -> str:
+    """Etiquetas + VIN de 17 + línea siguiente a SERIAL; ignora cola CFDI."""
+    principal = _cfdi_recortar_cola_certificado(texto_upper_completo)
+    candidatos: List[Tuple[str, int]] = []
+
+    pats_etiqueta = [
+        r"(?:NO\.?\s*DE\s*SERIE|N[ÚU]M(?:ERO)?\s*(?:DE\s*)?SERIE)\s*[:#\-]?\s*([A-HJ-NPR-Z0-9]{8,17})\b",
+        r"(?:NUMERO\s*SERIAL|N[ÚU]M(?:ERO)?\s*SERIAL)\s*[:#\-]?\s*([A-HJ-NPR-Z0-9]{8,17})\b",
+        r"(?:\bVIN\b|\bNIV\b)\s*[:#\-]?\s*([A-HJ-NPR-Z0-9]{8,17})\b",
+        r"(?:CHASIS|CHASSIS)\s*[:#\-]?\s*([A-HJ-NPR-Z0-9]{8,17})\b",
+    ]
+    for pat in pats_etiqueta:
+        for m in re.finditer(pat, principal, re.IGNORECASE):
+            cand = re.sub(r"\s+", "", m.group(1).upper())
+            if _vin_normalizado_valido(cand):
+                candidatos.append((cand, 120))
+
+    for m in re.finditer(r"\b([A-HJ-NPR-Z0-9]{17})\b", principal):
+        cand = m.group(1).upper()
+        candidatos.append((cand, 80))
+
+    lineas_up = [ln.upper() for ln in lineas]
+    etiqueta_serial = re.compile(
+        r"^(NO\.?\s*DE\s*SERIE|N[ÚU]M(?:ERO)?\s*(?:DE\s*)?SERIE|NUMERO\s*SERIAL|N[ÚU]M(?:ERO)?\s*SERIAL|\bVIN\b|\bNIV\b)$",
+        re.IGNORECASE,
+    )
+    for i, ln in enumerate(lineas_up):
+        if etiqueta_serial.match(ln.strip()):
+            for j in range(i + 1, min(i + 6, len(lineas_up))):
+                for tok in re.findall(r"\b([A-HJ-NPR-Z0-9]{8,17})\b", lineas_up[j]):
+                    cand = tok.upper()
+                    if _vin_normalizado_valido(cand):
+                        candidatos.append((cand, 100))
+                        break
+
+    if not candidatos:
+        return ""
+
+    mejor: Dict[str, int] = {}
+    for cand, score in candidatos:
+        mejor[cand] = max(mejor.get(cand, 0), score)
+
+    def _prio(c: str) -> Tuple[int, int]:
+        return (mejor.get(c, 0), len(c))
+
+    return max(mejor.keys(), key=_prio)
+
+
+def _extraer_motor_desde_lineas(lineas: List[str], vin: str) -> str:
+    """Etiqueta NO. MOTOR + valores en líneas siguientes (tablas Vento/CFDI)."""
+    lineas_up = [ln.upper() for ln in lineas]
+    stop_hdr = re.compile(
+        r"^(SUBTOTAL|TOTAL|IVA|CADENA\s+ORIGINAL|SELLO\s+DIGITAL|FORMA\s+DE\s+PAGO|"
+        r"METODO\s+DE\s+PAGO|TIPO\s+DE\s+COMPROBANTE|OBJETO\s+DE\s+IMPUESTO)$",
+        re.IGNORECASE,
+    )
+
+    for i, raw in enumerate(lineas_up):
+        mm = _MOTOR_LINE_LABEL.match(raw.strip())
+        if not mm:
+            continue
+        rest = (mm.group(3) or "").strip()
+        rest_compact = re.sub(r"\s+", "", rest)
+        if rest_compact and _valor_motor_plausible(rest_compact, vin):
+            return rest_compact.upper()
+
+        for j in range(i + 1, min(i + 35, len(lineas_up))):
+            seg = lineas_up[j].strip()
+            if not seg:
+                continue
+            if stop_hdr.match(seg):
+                break
+            if re.match(r"^\$[\d,.]+$", seg) or re.match(r"^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$", seg):
+                continue
+            for token in re.findall(r"\b([A-Z0-9\-]{4,24})\b", seg):
+                if _valor_motor_plausible(token, vin):
+                    return re.sub(r"\s+", "", token).upper()
+    return ""
+
+
+def _extraer_motor_tras_linea_vin(lineas: List[str], vin: str) -> str:
+    """Tabla con fila VIN y motor debajo (CFDI impreso)."""
+    if not vin:
+        return ""
+    vin_compact = vin.replace(" ", "")
+    lineas_up = [ln.upper() for ln in lineas]
+    for i, ln in enumerate(lineas_up):
+        if vin_compact in re.sub(r"\s+", "", ln):
+            for j in range(i + 1, min(i + 12, len(lineas_up))):
+                for tok in re.findall(r"\b([A-Z0-9\-]{6,22})\b", lineas_up[j]):
+                    if _valor_motor_plausible(tok, vin) and tok.upper() != vin.upper():
+                        return re.sub(r"\s+", "", tok).upper()
+    return ""
+
+
+def _extraer_motor_regex(texto_upper: str, vin: str) -> str:
+    pats_motor = [
+        r"(?:NO\.?\s*DE\s*MOTOR|N[ÚU]M(?:ERO)?\s*DE\s*MOTOR)\s*[:#\-]?\s*([A-Z0-9\-]{4,24})(?=\s|$|[,.;])",
+        r"(?:NO\.?\s*DE\s*MOTOR|N[ÚU]M(?:ERO)?\s*DE\s*MOTOR)\s*[:#\-]?\s*\n\s*([A-Z0-9\-]{6,24})\s*(?=\n|$)",
+        r"(?:^|\n)\s*MOTOR\s*[:#\-]?\s*([A-Z0-9\-]{4,24})\s*(?:\n|$)",
+        r"(?:NO\.?\s*MOTOR|MOTOR\s*NO\.?)\s*[:#\-]?\s*([A-Z0-9\-]{4,24})(?=\s|$|[,.;\n])",
+    ]
+    principal = _cfdi_recortar_cola_certificado(texto_upper)
+    for pat in pats_motor:
+        for m in re.finditer(pat, principal, re.IGNORECASE | re.MULTILINE):
+            cand = re.sub(r"\s+", "", m.group(1).upper())
+            if _valor_motor_plausible(cand, vin):
+                return cand
+    return ""
+
+
+def _extraer_motor_fallback_post_vin(texto_upper: str, vin: str) -> str:
+    """Último recurso: tokens alfanuméricos tras el VIN."""
+    if not vin:
+        return ""
+    principal = _cfdi_recortar_cola_certificado(texto_upper)
+    pos = principal.find(vin)
+    if pos < 0:
+        return ""
+    tail = principal[pos + len(vin): pos + len(vin) + 900]
+    patrones = (
+        r"\b([A-Z]{1,10}\d[A-Z0-9\-]{4,19})\b",
+        r"\b(\d{2,4}[A-Z]{2,6}\d{3,10}[A-Z0-9]*)\b",
+        r"\b([A-Z]{2,6}\d{6,12})\b",
+    )
+    for pat in patrones:
+        for m in re.finditer(pat, tail):
+            cand = re.sub(r"\s+", "", m.group(1).upper())
+            if _valor_motor_plausible(cand, vin):
+                return cand
+    return ""
+
+
+def _fusionar_color_generico(texto_upper: str) -> str:
+    """Une COLOR: prefijo + salto + sufijo,, AÑO."""
+    mapa_glue = {
+        ("AMARILL", "O"): "AMARILLO",
+        ("AMARILL", "A"): "AMARILLA",
+        ("PLATEAD", "O"): "PLATEADO",
+        ("PLATEAD", "A"): "PLATEADA",
+        ("CHAMPAN", "Y"): "CHAMPANA",
+        ("CHAMPAN", "O"): "CHAMPANA",
+    }
+    out = texto_upper
+    for (pre, suf), full in mapa_glue.items():
+        rx = re.compile(
+            rf"(COLOR\s*:\s*){pre}\s*\n\s*{suf}(\s*,\s*AÑO)",
+            re.IGNORECASE,
+        )
+        out = rx.sub(r"\1" + full + r"\2", out)
+    return out
+
+
+def _normalizar_color_ocr(color: str) -> str:
+    """Corrige cortes OCR comunes."""
+    if not color:
+        return color
+    low = re.sub(r"\s+", " ", color.strip()).lower()
+    mapa = {
+        "amarill o": "Amarillo",
+        "amarill a": "Amarilla",
+        "amarillo o": "Amarillo",
+        "roj o": "Rojo",
+        "roj a": "Roja",
+        "azul l": "Azul",
+        "platead o": "Plateado",
+        "platead a": "Plateada",
+        "blanc o": "Blanco",
+        "blanc a": "Blanca",
+        "negr o": "Negro",
+        "negr a": "Negra",
+        "verd e": "Verde",
+    }
+    if low in mapa:
+        return mapa[low]
+    low_ns = re.sub(r"\s+", "", low)
+    mapa_ns = {k.replace(" ", ""): v for k, v in mapa.items()}
+    if low_ns in mapa_ns:
+        return mapa_ns[low_ns]
+    return color
+
+
+def _extraer_color_robusto(texto_upper: str) -> str:
+    """COLOR en descripción CFDI, etiqueta COLOR, catálogo (orden por longitud)."""
+    colores_largo_primero = sorted([
+        "PLATEADO", "PLATEADA", "AMARILLO", "AMARILLA", "NARANJA", "GRANATE",
+        "NEGRO", "NEGRA", "BLANCO", "BLANCA", "ROJO", "ROJA", "AZUL",
+        "GRIS", "VERDE", "MORADO", "MORADA", "DORADO", "DORADA", "CHAMPANA",
+        "CAFE", "CAFÉ", "BEIGE", "VINO", "GUINDA", "PLATA",
+    ], key=len, reverse=True)
+
+    def limpiar(valor: str) -> str:
+        return re.sub(r"\s+", " ", valor or "").strip()
+
+    m_desc = re.search(
+        r"(?:MARCA|MODELO|TIPO|MOTOCICLETA)[^\n]{0,220}?\bCOLOR\s*:\s*([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s]{1,42}?)"
+        r"(?=\s*[,;]|\s+AÑO\s|\s+ANIO\s|\n|$)",
+        texto_upper,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if m_desc:
+        cand = limpiar(m_desc.group(1))
+        cand = re.sub(
+            r"\b(MODELO|MARCA|TIPO|SERIE|VIN|MOTOR|AÑO|ANIO|PLACAS|FACTURA|FOLIO)\b.*$",
+            "",
+            cand,
+            flags=re.IGNORECASE,
+        )
+        cand = limpiar(cand)
+        if cand and re.match(r"^[A-ZÁÉÍÓÚÜÑ\s]+$", cand, re.IGNORECASE):
+            return _normalizar_color_ocr(cand.title())
+
+    m_color = re.search(
+        r"(?:\bCOLOR\b)\s*[:#\-]?\s*([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s]{1,42}?)"
+        r"(?=\s*[,.;\n]|\s+(?:AÑO|ANIO|MODELO|MARCA|TIPO|MOTOR|SERIE)\b|$)",
+        texto_upper,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if m_color:
+        cand = limpiar(m_color.group(1))
+        cand = re.sub(
+            r"\b(MODELO|SERIE|VIN|MOTOR|AÑO|ANIO|PLACAS|FACTURA|FOLIO)\b.*$",
+            "",
+            cand,
+            flags=re.IGNORECASE,
+        )
+        cand = limpiar(cand)
+        if cand and re.match(r"^[A-ZÁÉÍÓÚÜÑ\s]+$", cand, re.IGNORECASE):
+            return _normalizar_color_ocr(cand.title())
+
+    tu = texto_upper.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+    for c in colores_largo_primero:
+        if re.search(rf"\b{re.escape(c)}\b", tu):
+            return c.title()
+
+    return ""
+
+
 def extraer_datos_motocicleta_factura(file_bytes: bytes, filename: str = "") -> Dict[str, Any]:
     """
     Extrae VIN, No. de Motor y Color desde FACTURA (PDF o imagen).
+    Pensado para CFDI (Vento, Bajaj, etc.), tablas con encabezados y OCR imperfecto.
     """
     out: Dict[str, Any] = {
         "encontrado": False,
@@ -266,76 +587,34 @@ def extraer_datos_motocicleta_factura(file_bytes: bytes, filename: str = "") -> 
     nombre = (filename or "").lower()
     if nombre.endswith(".pdf"):
         texto = texto_de_pdf_con_ocr(file_bytes, max_paginas=5)
+    elif nombre.endswith((".txt", ".text")):
+        try:
+            texto = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            texto = file_bytes.decode("latin-1", errors="replace")
     else:
         texto = _texto_ocr_imagen(file_bytes) or ""
 
     if not texto:
         return out
 
-    texto_norm = re.sub(r"[ \t]+", " ", texto).replace("\r", "\n")
-    texto_upper = texto_norm.upper()
+    texto_norm, texto_upper, lineas = _preprocesar_texto_factura(texto)
 
-    def limpiar(valor: str) -> str:
-        return re.sub(r"\s+", " ", valor or "").strip()
+    for rx, repl in _COLOR_PARTIDO_OCR:
+        texto_upper = rx.sub(repl, texto_upper)
+    texto_upper = _fusionar_color_generico(texto_upper)
 
-    # VIN / No. serie
-    vin = ""
-    pats_vin = [
-        r"(?:NO\.?\s*DE\s*SERIE|N[ÚU]M(?:ERO)?\s*DE\s*SERIE|VIN|NIV)\s*[:#\-]?\s*([A-HJ-NPR-Z0-9]{8,17})",
-        r"\b([A-HJ-NPR-Z0-9]{17})\b",
-    ]
-    for pat in pats_vin:
-        m = re.search(pat, texto_upper, re.IGNORECASE)
-        if m:
-            cand = re.sub(r"\s+", "", m.group(1).upper())
-            if 8 <= len(cand) <= 17 and re.match(r"^[A-HJ-NPR-Z0-9]+$", cand):
-                vin = cand
-                break
+    vin = _extraer_vin_robusto(texto_upper, lineas)
 
-    # No. motor
-    no_motor = ""
-    pats_motor = [
-        r"(?:NO\.?\s*DE\s*MOTOR|N[ÚU]M(?:ERO)?\s*DE\s*MOTOR|MOTOR)\s*[:#\-]?\s*([A-Z0-9\-]{4,24})",
-    ]
-    for pat in pats_motor:
-        m = re.search(pat, texto_upper, re.IGNORECASE)
-        if m:
-            cand = re.sub(r"\s+", "", m.group(1).upper())
-            if 4 <= len(cand) <= 24 and re.match(r"^[A-Z0-9\-]+$", cand):
-                no_motor = cand
-                break
+    no_motor = _extraer_motor_desde_lineas(lineas, vin)
+    if not no_motor:
+        no_motor = _extraer_motor_tras_linea_vin(lineas, vin)
+    if not no_motor:
+        no_motor = _extraer_motor_regex(texto_upper, vin)
+    if not no_motor:
+        no_motor = _extraer_motor_fallback_post_vin(texto_upper, vin)
 
-    # Color (1): etiqueta explícita
-    color = ""
-    m_color = re.search(
-        r"(?:\bCOLOR\b)\s*[:#\-]?\s*([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s]{1,30})",
-        texto_upper,
-        re.IGNORECASE,
-    )
-    if m_color:
-        cand = limpiar(m_color.group(1))
-        cand = re.sub(
-            r"\b(MODELO|SERIE|VIN|MOTOR|AÑO|ANIO|PLACAS|FACTURA|FOLIO)\b.*$",
-            "",
-            cand,
-            flags=re.IGNORECASE,
-        )
-        cand = limpiar(cand)
-        if cand and re.match(r"^[A-ZÁÉÍÓÚÜÑ\s]+$", cand, re.IGNORECASE):
-            color = cand.title()
-
-    # Color (2): fallback por palabra de color en descripción de unidad
-    if not color:
-        colores_catalogo = [
-            "NEGRO", "NEGRA", "BLANCO", "BLANCA", "ROJO", "ROJA", "AZUL",
-            "GRIS", "PLATA", "PLATEADO", "PLATEADA", "VERDE", "AMARILLO", "AMARILLA",
-            "NARANJA", "MORADO", "MORADA", "DORADO", "DORADA", "CAFE", "CAFÉ",
-            "BEIGE", "VINO", "GUINDA", "GRANATE",
-        ]
-        for c in colores_catalogo:
-            if re.search(rf"\b{re.escape(c)}\b", texto_upper):
-                color = c.title()
-                break
+    color = _extraer_color_robusto(texto_upper)
 
     if vin:
         out["vin"] = vin
@@ -728,6 +1007,12 @@ _STOP_WORDS_ACTA = {"ANTE", "EN", "EL", "LA", "LOS", "LAS", "DEL", "MUNICIPIO",
                     "CERTIFICADO", "INSCRIPCION", "QUE", "COMPARECIO", "CERTIFICO",
                     "CON", "NUMERO", "FOLIO", "LIBRO", "TOMO", "LUGAR", "SEXO",
                     "FECHA", "DATOS", "PARA"}
+_PALABRAS_ETIQUETA_ACTA = {
+    "NOMBRE", "NOMBRES", "PRIMER", "SEGUNDO", "APELLIDO", "APELLIDOS",
+    "NACIONALIDAD", "CURP", "PERSONA", "REGISTRADA", "FILIACION", "DATOS",
+    "MEXICANA", "MEXICANO", "SEXO", "FECHA", "NACIMIENTO",
+}
+_TERMINADORES_NOMBRE_ACTA = {"MEXICANA", "MEXICANO", "NACIONALIDAD", "CURP", "SEXO", "FECHA"}
 
 
 def _parsear_fecha_de_texto(texto: str) -> Optional[str]:
@@ -759,20 +1044,42 @@ def _parsear_fecha_de_texto(texto: str) -> Optional[str]:
 
 def _parsear_nombre_de_texto(texto: str) -> Optional[str]:
     """Busca nombre del registrado en un texto OCR."""
+    def limpiar_candidato(raw: str) -> Optional[str]:
+        limpio = _normalizar_nombre(raw)
+        palabras = limpio.split()
+        filtradas = []
+        etiquetas = 0
+        for p in palabras:
+            if p in _TERMINADORES_NOMBRE_ACTA:
+                break
+            if p in _PALABRAS_ETIQUETA_ACTA:
+                etiquetas += 1
+                continue
+            if p in _STOP_WORDS_ACTA:
+                break
+            if len(p) >= 3:
+                filtradas.append(p)
+        if len(filtradas) < 2 or etiquetas >= 2:
+            return None
+        return " ".join(filtradas[:5])
+
+    # En actas mexicanas escaneadas, el valor suele estar en la línea anterior
+    # a las etiquetas "NOMBRE(S) / PRIMER APELLIDO / SEGUNDO APELLIDO".
+    lineas = [ln.strip() for ln in texto.splitlines() if ln.strip()]
+    for idx, linea in enumerate(lineas):
+        linea_norm = _normalizar_nombre(linea)
+        if "NOMBRE" in linea_norm and "APELLIDO" in linea_norm:
+            for prev_idx in range(idx - 1, max(-1, idx - 4), -1):
+                candidato = limpiar_candidato(lineas[prev_idx])
+                if candidato:
+                    return candidato
+
     for pat in _PATRONES_NOMBRE_ACTA:
         m = re.search(pat, texto)
         if m:
-            raw = m.group(1).strip()
-            limpio = _normalizar_nombre(raw)
-            palabras = limpio.split()
-            filtradas = []
-            for p in palabras:
-                if p in _STOP_WORDS_ACTA:
-                    break
-                if len(p) >= 2:
-                    filtradas.append(p)
-            if len(filtradas) >= 2:
-                return " ".join(filtradas[:6])
+            candidato = limpiar_candidato(m.group(1).strip())
+            if candidato:
+                return candidato
     return None
 
 
@@ -921,6 +1228,7 @@ def validacion_cruzada(
     datos_nss: Optional[Dict[str, Any]],
     datos_fiscal: Optional[Dict[str, Any]],
     datos_acta: Optional[Dict[str, Any]],
+    nombre_candidato_registro: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Realiza la validación cruzada entre todos los documentos.
@@ -1015,7 +1323,17 @@ def validacion_cruzada(
         if not coincide:
             alertas.append("Fecha de nacimiento del CURP no coincide con la del MRZ.")
 
-    nombre_ref = id_frente_nombre or (datos_curp_pdf.get("nombre") if datos_curp_pdf else None)
+    nombre_ref = id_reverso_mrz_nombre or id_frente_nombre or (datos_curp_pdf.get("nombre") if datos_curp_pdf else None)
+
+    if nombre_candidato_registro and nombre_ref:
+        coincide = _nombres_coinciden(nombre_candidato_registro, nombre_ref)
+        comparaciones["nombre_registro_vs_documentos"] = {
+            "registro_candidato": nombre_candidato_registro,
+            "documentos": nombre_ref,
+            "coincide": coincide,
+        }
+        if not coincide:
+            alertas.append("Nombre registrado del candidato no coincide con el nombre leído en los documentos.")
 
     if datos_curp_pdf and datos_curp_pdf.get("nombre") and nombre_ref:
         coincide = _nombres_coinciden(nombre_ref, datos_curp_pdf["nombre"])
@@ -1083,6 +1401,22 @@ def validacion_cruzada(
         conf_fecha = datos_acta.get("confianza_fecha", 0)
         conf_nombre = datos_acta.get("confianza_nombre", 0)
         pasadas = datos_acta.get("pasadas_ocr", 0)
+
+        if datos_acta.get("nombre") and nombre_candidato_registro:
+            coincide = _nombres_coinciden(nombre_candidato_registro, datos_acta["nombre"])
+            comparaciones["nombre_registro_vs_acta"] = {
+                "registro_candidato": nombre_candidato_registro,
+                "acta_nacimiento": datos_acta["nombre"],
+                "coincide": coincide,
+                "confianza_ocr": conf_nombre,
+            }
+            if not coincide and conf_nombre >= 60:
+                alertas.append("Nombre registrado del candidato no coincide con el acta de nacimiento.")
+            elif not coincide:
+                alertas.append(
+                    f"REVISAR: Nombre registrado no coincide claramente con el acta "
+                    f"(confianza OCR: {conf_nombre}%)."
+                )
 
         if datos_acta.get("nombre") and nombre_ref:
             coincide = _nombres_coinciden(nombre_ref, datos_acta["nombre"])

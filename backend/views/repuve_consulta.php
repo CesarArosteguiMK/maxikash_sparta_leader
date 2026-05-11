@@ -149,6 +149,30 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
     @keyframes rep-loading-spin {
         to { transform: rotate(360deg); }
     }
+    @keyframes rep-consultar-pulse {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.42);
+            border-color: #dc2626 !important;
+            color: #b91c1c !important;
+        }
+        50% {
+            box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+            border-color: #ef4444 !important;
+            color: #dc2626 !important;
+        }
+    }
+    #rep-btn-consultar.rep-btn-consultar-fallo {
+        animation: rep-consultar-pulse 1.15s ease-in-out infinite;
+        background: #fff !important;
+        border: 2px solid #dc2626 !important;
+        color: #b91c1c !important;
+    }
+    .tooltip.rep-repuve-tooltip-wide .tooltip-inner {
+        max-width: min(380px, 92vw);
+        text-align: left;
+        font-size: 0.8125rem;
+        white-space: pre-line;
+    }
 </style>
 
 <div class="rep-wrap">
@@ -376,6 +400,42 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
             .replace(/"/g, '&quot;');
     }
 
+    function repDisposeConsultarTooltip() {
+        if (!$consultar || typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+        const inst = bootstrap.Tooltip.getInstance($consultar);
+        if (inst) inst.dispose();
+    }
+
+    function repResetConsultarBtnEstilo() {
+        if (!$consultar) return;
+        repDisposeConsultarTooltip();
+        $consultar.classList.remove('rep-btn-consultar-fallo');
+        $consultar.removeAttribute('data-bs-toggle');
+        $consultar.removeAttribute('data-bs-placement');
+        $consultar.removeAttribute('data-bs-html');
+        $consultar.removeAttribute('title');
+        $consultar.style.background = 'linear-gradient(90deg,var(--rep-dark),var(--rep-color))';
+        $consultar.style.border = 'none';
+        $consultar.style.color = '';
+    }
+
+    function repMarcarConsultarFalloServicio(detalle) {
+        if (!$consultar) return;
+        repResetConsultarBtnEstilo();
+        const txt = (detalle && String(detalle).trim()) ? String(detalle).trim() : 'Servicio REPUVE no disponible.';
+        $consultar.classList.add('rep-btn-consultar-fallo');
+        $consultar.style.background = '#fff';
+        $consultar.style.border = '2px solid #dc2626';
+        $consultar.style.color = '#b91c1c';
+        $consultar.setAttribute('title', txt);
+        $consultar.setAttribute('data-bs-toggle', 'tooltip');
+        $consultar.setAttribute('data-bs-placement', 'top');
+        $consultar.setAttribute('data-bs-html', 'false');
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            new bootstrap.Tooltip($consultar, { container: 'body', customClass: 'rep-repuve-tooltip-wide' });
+        }
+    }
+
     function repBloqueDetalleRepuve(j) {
         let out = '';
         if (j.adj_operacion_sync_error) {
@@ -420,6 +480,7 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
     }
 
     $consultar.addEventListener('click', async function () {
+        repResetConsultarBtnEstilo();
         $msg.innerHTML = '';
         $resWrap.style.display = 'none';
         if (!idCreditoOk) {
@@ -454,8 +515,18 @@ $lrRes = (int) ($limite_repuve['restantes'] ?? max(0, $lrMax - $lrUso));
 
             let cls = j.success ? 'success' : 'warning';
             if (j.repuve && j.repuve.estado === 'PROCESANDO') cls = 'info';
-            const txt = j.message || (j.success ? 'Listo.' : 'Sin datos.');
-            $msg.innerHTML = '<div class="alert alert-' + cls + ' py-2 small mb-0">' + String(txt).replace(/</g, '&lt;') + '</div>'
+            if (j.repuve_error_servicio) {
+                cls = 'danger';
+                repMarcarConsultarFalloServicio(j.message || '');
+            } else {
+                repResetConsultarBtnEstilo();
+            }
+            if (!j.repuve_error_servicio && j.repuve_sin_datos_padron && !j.success) cls = 'warning';
+            let txt = j.message || (j.success ? 'Listo.' : 'Sin datos.');
+            if (j.repuve_error_servicio) {
+                txt = 'REPUVE no disponible. El proveedor respondió con un error. Esto no se debe a sus datos.';
+            }
+            $msg.innerHTML = '<div class="alert alert-' + cls + ' py-1 px-2 small mb-0">' + String(txt).replace(/</g, '&lt;') + '</div>'
                 + repBloqueDetalleRepuve(j);
 
             if (j.datos_moto) {

@@ -2,6 +2,11 @@
 """
 Punto de entrada principal de la API FastAPI.
 """
+# pyzbar debe tener DLLs locales antes de importar rutas/servicios que lo usen.
+from app.core.zbar_local import ensure_local_zbar_dlls
+
+ensure_local_zbar_dlls()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html

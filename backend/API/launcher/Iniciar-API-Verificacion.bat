@@ -69,6 +69,28 @@ if exist "%PORTABLE_PY%" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-python.ps1"
 )
 
+rem ----- Bootstrap zbar: descarga DLL MSYS2 solo dentro de API\tools\zbar\bin -----
+if exist "%~dp0bootstrap-zbar-local.ps1" (
+    echo [0/4] zbar local ^(QR/PDF417^): preparando DLLs en API\tools\zbar\bin...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-zbar-local.ps1" >>"%API_DIR%\logs\bootstrap-zbar.log" 2>&1
+    if errorlevel 1 (
+        rem Si el bootstrap no pudo descargar (por red), pero las DLLs versionadas
+        rem ya funcionan, no mostrar falso aviso: validar pyzbar igual que el doctor.
+        set "ZBAR_OK=0"
+        if exist "%PORTABLE_PY%" if exist "%~dp0_zbar_smoke.py" (
+            pushd "%API_DIR%" >nul
+            "%PORTABLE_PY%" "%~dp0_zbar_smoke.py" >nul 2>&1
+            if not errorlevel 1 set "ZBAR_OK=1"
+            popd >nul
+        )
+        if "!ZBAR_OK!"=="1" (
+            echo       [OK] zbar local ya funciona ^(DLLs dentro de API^).
+        ) else (
+            echo       [AVISO] bootstrap-zbar-local.ps1 fallo. Ver: %API_DIR%\logs\bootstrap-zbar.log
+        )
+    )
+)
+
 echo [1/4] Diagnostico rapido...
 rem Sin -Quiet: asi la salida llega al log web y el panel no parece congelado.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0doctor-api.ps1"

@@ -170,7 +170,7 @@
                             
                             // Si tenemos la URL del archivo directamente, usarla
                             if (data.archivo && data.carpeta) {
-                                imageUrl = `http://98.90.194.116/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=${data.carpeta}/${data.archivo}`;
+                                imageUrl = `http://98.90.194.116:8080/audit-app-0.0.1-SNAPSHOT_1/s3/downloadS3File?fileName=${data.carpeta}/${data.archivo}`;
                             }
                             
                             if (visorImagen) {

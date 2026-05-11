@@ -2,6 +2,7 @@
 $departamento = $departamento ?? ['datos' => []];
 $paisesActivos = $paisesActivos ?? [];
 $listaJefes = $listaJefes ?? [];
+$mostrarDiagVerificacionDoc = !empty($mostrarDiagVerificacionDoc);
 ?>
 <div class="content-wrapper">
 
@@ -178,6 +179,8 @@ $listaJefes = $listaJefes ?? [];
                         <th>Nombre</th>
                         <th>Contacto</th>
                         <th>Puesto / Departamento</th>
+                        <th>Ubicación</th>
+                        <th>Domicilio</th>
                         <th>Estatus</th>
                         <th class="col-acciones-candidatos">Acciones</th>
                     </tr>
@@ -198,14 +201,38 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3" id="modalDocumentacionCandidatoNombre"></p>
-                <div id="modalDocumentacionCandidatoMetricas" class="mb-3 d-none"></div>
-                <div id="modalDocumentacionCandidatoVerificacion" class="mb-3 d-none"></div>
-                <div id="modalDocumentacionCandidatoAccionVerificar" class="mb-3 d-none"></div>
-                <div id="modalDocumentacionCandidatoAccionesProceso" class="mb-3 d-none"></div>
+                <?php if ($mostrarDiagVerificacionDoc): ?>
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-info" id="btnCandidatoValidarSoloIdentificacion" title="Llama a la API solo con el PDF de identificación oficial (sin CURP, NSS, constancia ni acta)">
+                        <i class="fa fa-id-card me-1"></i> Validar 1 (solo identificación)
+                    </button>
+                    <span class="text-muted small">Prueba rápida de la API / OCR sin el resto del expediente.</span>
+                </div>
+                <div class="form-check mb-3 border rounded px-3 py-2 bg-body-secondary">
+                    <input class="form-check-input" type="checkbox" value="1" id="chkCandidatoVerifSoloIdentificacion">
+                    <label class="form-check-label small" for="chkCandidatoVerifSoloIdentificacion">
+                        <strong>Prueba / diagnóstico:</strong> al usar «Reintentar API», enviar <em>solo</em> el PDF de identificación oficial (no adjuntar CURP, NSS, constancia fiscal ni acta). Útil para aislar fallos de la API u OCR. Desmarcar para verificación completa.
+                    </label>
+                </div>
+                <?php endif; ?>
+                <div id="modalDocumentacionCandidatoApiTrace" class="alert alert-secondary small py-2 mb-2 d-none" role="status" aria-live="polite"></div>
                 <div id="modalDocumentacionCandidatoCargando" class="text-center py-4 text-muted">Cargando…</div>
-                <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
-                <div id="modalDocumentacionCandidatoLista" class="list-group"></div>
+                <div class="row g-3 align-items-stretch">
+                    <div class="col-lg-8 col-12 d-flex flex-column">
+                        <div id="modalDocumentacionCandidatoVacio" class="text-center py-4 text-muted d-none">No hay documentos subidos.</div>
+                        <div id="modalDocumentacionCandidatoLista" class="list-group flex-grow-1 h-100 overflow-auto border rounded bg-body-tertiary"></div>
+                    </div>
+                    <div class="col-lg-4 col-12 d-flex flex-column">
+                        <div class="modal-doc-col-stack d-flex flex-column gap-3 flex-grow-1 h-100">
+                            <div id="modalDocumentacionCandidatoMetricas" class="d-none flex-fill"></div>
+                            <div id="modalDocumentacionCandidatoVerificacion" class="d-none flex-fill"></div>
+                            <div id="modalDocumentacionCandidatoAccionVerificar" class="d-none flex-shrink-0"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="modalDocumentacionCandidatoComparaciones" class="mt-3 d-none"></div>
             </div>
+            <div class="modal-footer flex-column align-items-stretch border-top py-3 d-none text-lg-end" id="modalDocumentacionCandidatoAccionesProceso"></div>
         </div>
     </div>
 </div>
@@ -297,16 +324,48 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="mb-2">
                 <label class="form-label">País <span class="text-danger">*</span></label>
-                <select name="id_pais" id="candidato_id_pais" class="form-select" required>
+                <select name="id_pais" id="candidato_id_pais" class="form-select js-select-buscador" required>
                     <option value="">Seleccione un país</option>
                     <?php foreach ($paisesActivos as $p): ?>
                         <option value="<?= (int)($p['id'] ?? 0) ?>"><?= htmlspecialchars($p['nombre'] ?? '') ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
+            <div class="mb-2" id="div_candidato_estado" style="display:none;">
+                <label class="form-label" id="label_candidato_estado">Estado <span class="text-danger">*</span></label>
+                <select id="candidato_id_div_nivel1" name="id_div_nivel1" class="form-select js-select-buscador" disabled>
+                    <option value="">Seleccione un estado</option>
+                </select>
+            </div>
+            <div class="mb-2" id="div_candidato_municipio" style="display:none;">
+                <label class="form-label" id="label_candidato_municipio">Alcaldía / Municipio <span class="text-danger">*</span></label>
+                <select id="candidato_id_div_nivel2" name="id_div_nivel2" class="form-select js-select-buscador" disabled>
+                    <option value="">Seleccione una alcaldía / municipio</option>
+                </select>
+            </div>
+            <div class="mb-2" id="div_candidato_colonia" style="display:none;">
+                <label class="form-label">Colonia <span class="text-danger">*</span></label>
+                <select id="candidato_id_div_nivel3" name="id_div_nivel3" class="form-select js-select-buscador" disabled>
+                    <option value="">Seleccione una colonia</option>
+                </select>
+            </div>
+            <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
+                <label class="form-label">Calle <span class="text-danger">*</span></label>
+                <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
+            </div>
+            <div class="row mb-2" id="div_candidato_num_extint" style="display:none;">
+                <div class="col-md-6">
+                    <label class="form-label">No. exterior <span class="text-danger">*</span></label>
+                    <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">No. interior (opcional)</label>
+                    <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
+                </div>
+            </div>
             <div class="mb-2">
                 <label class="form-label">Departamento al que aplica <span class="text-danger">*</span></label>
-                <select name="id_departamento" id="candidato_id_departamento" class="form-select" required>
+                <select name="id_departamento" id="candidato_id_departamento" class="form-select js-select-buscador" required>
                     <option value="">Seleccione departamento</option>
                     <?php foreach ($departamento['datos'] as $d): ?>
                         <option value="<?= (int)($d['id'] ?? 0) ?>"><?= htmlspecialchars($d['nombre'] ?? '') ?></option>
@@ -315,13 +374,13 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="mb-2">
                 <label class="form-label">Puesto solicitado <span class="text-danger">*</span></label>
-                <select name="id_puesto" id="candidato_id_puesto" class="form-select" required>
+                <select name="id_puesto" id="candidato_id_puesto" class="form-select js-select-buscador" required>
                     <option value="">Seleccione puesto</option>
                 </select>
             </div>
             <div class="mb-2">
                 <label class="form-label">Posible jefe <span class="text-danger">*</span></label>
-                <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select" required>
+                <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select js-select-buscador" required>
                     <option value="">Seleccione departamento y puesto primero</option>
                 </select>
             </div>
@@ -339,7 +398,7 @@ $listaJefes = $listaJefes ?? [];
             </div>
             <div class="mb-2" id="div_candidato_legion" style="display:none;">
                 <label class="form-label">Legión <span class="text-danger">*</span></label>
-                <select name="id_legion" id="candidato_id_legion" class="form-select">
+                <select name="id_legion" id="candidato_id_legion" class="form-select js-select-buscador">
                     <option value="">Seleccione legión</option>
                     <option value="1">Sabueso</option>
                     <option value="2">Heraldo</option>
@@ -828,57 +887,6 @@ body.dark-mode #modalCerrarProcesoCandidato.modal-cerrar-proceso .modal-footer #
     border-color: #bd2130 !important;
     color: #fff !important;
 }
-
-/* Modal Documentación: nitidez y legibilidad (evitar sensación de borroso) */
-#modalDocumentacionCandidato .modal-content {
-    background: #fff !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
-#modalDocumentacionCandidato .modal-body {
-    background: #fff !important;
-    color: #212529;
-}
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista {
-    background: #f8f9fa !important;
-    border-radius: 8px;
-    border: 1px solid rgba(0,0,0,0.08);
-    max-height: 50vh;
-    overflow-y: auto;
-}
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar { width: 10px; }
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-track { background: #e9ecef; border-radius: 5px; }
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-thumb { background: #adb5bd; border-radius: 5px; }
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item {
-    background: #fff !important;
-    border-color: rgba(0,0,0,0.08);
-    border-left-width: 3px;
-}
-#modalDocumentacionCandidato #modalDocumentacionCandidatoLista .btn { opacity: 1; }
-/* Modo oscuro: fondo sólido y contraste para que no se vea borroso */
-body.dark-mode #modalDocumentacionCandidato .modal-content {
-    background: #1e293b !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-}
-body.dark-mode #modalDocumentacionCandidato .modal-body {
-    background: #1e293b !important;
-    color: #e2e8f0;
-}
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista {
-    background: #0f172a !important;
-    border-color: rgba(148, 163, 184, 0.2);
-}
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-track { background: #334155; }
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista::-webkit-scrollbar-thumb { background: #64748b; }
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item {
-    background: #1e293b !important;
-    border-color: rgba(148, 163, 184, 0.15);
-    color: #e2e8f0;
-}
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .list-group-item small.text-muted { color: #94a3b8 !important; }
-body.dark-mode #modalDocumentacionCandidato #modalDocumentacionCandidatoLista .btn { opacity: 1; filter: none; }
 
 /* Modal Resumen Candidato - mejora visual (modo claro y oscuro) */
 .modal-resumen-candidato .modal-content { border-radius: 14px; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }

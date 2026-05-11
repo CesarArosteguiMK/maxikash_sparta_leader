@@ -114,6 +114,29 @@
     }
     .madj-animate { animation: fadeInUp 0.3s ease-out both; }
 
+    /* REPUVE fallo proveedor: detalle en tooltip del botón (evita banner enorme) */
+    @keyframes madj-repuve-btn-pulse {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.42);
+            border-color: #dc2626 !important;
+            color: #b91c1c !important;
+        }
+        50% {
+            box-shadow: 0 0 0 7px rgba(220, 38, 38, 0);
+            border-color: #ef4444 !important;
+            color: #dc2626 !important;
+        }
+    }
+    #madj-btn-consultar-repuve.madj-repuve-btn-fallo {
+        animation: madj-repuve-btn-pulse 1.15s ease-in-out infinite;
+    }
+    .tooltip.madj-repuve-tooltip-wide .tooltip-inner {
+        max-width: min(380px, 92vw);
+        text-align: left;
+        font-size: 0.8125rem;
+        white-space: pre-line;
+    }
+
     /* -- Evidencias -" Secciones --------------------------------------- */
     .madj-ev-section  { margin-bottom: 1rem; }
     .madj-ev-hdr {
@@ -130,13 +153,14 @@
         border: 1px solid #e2e8f0; border-top: none;
         border-radius: 0 0 .5rem .5rem;
         display: grid;
-        grid-template-columns: repeat(6, 150px);
-        justify-content: start;
+        /* 11 ítems → 6 + 5 en pantallas anchas */
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: .625rem;
+        width: 100%;
         overflow: visible;
     }
     .madj-ev-slot {
-        width: 150px; height: 110px;
+        width: 100%; min-width: 0; height: 110px;
         background: #fff; border: 2px dashed #cbd5e1; border-radius: .625rem;
         cursor: pointer; position: relative;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1563,7 +1587,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
         'moto_no_serie', 'moto_no_motor', 'moto_placas',
         'log_lugar_resguardo', 'log_direccion', 'log_ciudad',
-        'log_estado', 'log_telefono',
+        'log_estado', 'responsable_entrega', 'log_telefono',
     ];
 
     function _madjTieneValor(v) {
@@ -1655,6 +1679,20 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             if (!_madjMotoApiMsg) _madjMotoApiMsg = 'Consulta REPUVE en proceso. Intenta nuevamente en unos segundos.';
             return;
         }
+        if (apiResp.repuve_error_servicio) {
+            _madjMotoApiStatus = 'repuve_fallo_servicio';
+            if (!_madjMotoApiMsg) {
+                _madjMotoApiMsg = 'REPUVE no está disponible o respondió con error. Reintenta más tarde o captura manual.';
+            }
+            return;
+        }
+        if (apiResp.repuve_sin_datos_padron || apiResp.repuve_resultado_tipo === 'sin_datos_padron') {
+            _madjMotoApiStatus = 'repuve_sin_datos';
+            if (!_madjMotoApiMsg) {
+                _madjMotoApiMsg = 'REPUVE no devolvió datos del padrón para autocompletar. Verifica el VIN o completa a mano.';
+            }
+            return;
+        }
         if (!apiResp.success || !apiResp.datos_moto) {
             _madjMotoApiStatus = 'error';
             if (!_madjMotoApiMsg) _madjMotoApiMsg = 'No se pudieron recuperar datos autocompletables desde REPUVE.';
@@ -1701,6 +1739,15 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 esc(_madjMotoFacturaMsg || 'Buscando datos en FACTURA para autocompletar No. de motor y color...') +
                 '</div>';
         }
+        if (_madjMotoApiStatus === 'repuve_fallo_servicio') {
+            return '';
+        }
+        if (_madjMotoApiStatus === 'repuve_sin_datos') {
+            return '<div class="alert alert-warning py-2 px-3 mb-2 small">' +
+                '<strong class="d-block mb-1"><i class="fa-solid fa-circle-info me-1"></i>REPUVE: sin datos en el padrón</strong>' +
+                '<span class="d-block">' + esc(_madjMotoApiMsg || 'La consulta terminó pero no hay marca/modelo/etc. para autocompletar.') + '</span>' +
+                '</div>';
+        }
         if (_madjMotoApiStatus === 'loaded') {
             return '<div class="alert alert-success py-2 px-3 mb-2 small">' +
                 '<i class="fa-solid fa-circle-check me-1"></i>Datos base autocompletados (REPUVE/FACTURA). Verifica y completa los campos faltantes.</div>';
@@ -1734,6 +1781,38 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 '</div>';
         }
         return '';
+    }
+
+    function _madjDisposeRepuveBtnTooltip(btn) {
+        if (!btn || typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+        const inst = bootstrap.Tooltip.getInstance(btn);
+        if (inst) inst.dispose();
+    }
+
+    /** Estado visual del botón REPUVE junto al VIN: pulso rojo + tooltip con el mensaje largo del proveedor. */
+    function _madjSyncBotonRepuveAlerta() {
+        const btn = document.getElementById('madj-btn-consultar-repuve');
+        if (!btn) return;
+        _madjDisposeRepuveBtnTooltip(btn);
+        btn.classList.remove('madj-repuve-btn-fallo');
+        if (_madjMotoApiStatus === 'repuve_fallo_servicio') {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-outline-danger', 'madj-repuve-btn-fallo');
+            btn.setAttribute('title', _madjMotoApiMsg || 'REPUVE no disponible. Reintenta más tarde.');
+            btn.setAttribute('data-bs-toggle', 'tooltip');
+            btn.setAttribute('data-bs-placement', 'top');
+            btn.setAttribute('data-bs-html', 'false');
+            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                new bootstrap.Tooltip(btn, { container: 'body', customClass: 'madj-repuve-tooltip-wide' });
+            }
+        } else {
+            btn.classList.add('btn-outline-primary');
+            btn.classList.remove('btn-outline-danger', 'madj-repuve-btn-fallo');
+            btn.removeAttribute('data-bs-toggle');
+            btn.removeAttribute('data-bs-placement');
+            btn.removeAttribute('data-bs-html');
+            btn.removeAttribute('title');
+        }
     }
 
     function _madjAplicarMotoApiEnFormularioSiVacio() {
@@ -1815,6 +1894,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         const labelBtn = '<i class="fa-solid fa-database" aria-hidden="true"></i>';
         const spinBtn = '<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>';
         if (btn) {
+            _madjDisposeRepuveBtnTooltip(btn);
             btn.disabled = true;
             btn.innerHTML = spinBtn;
         }
@@ -1834,13 +1914,26 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 if (!resp || !resp.success) {
                     const msg = (resp && resp.message) ? resp.message : 'No se pudo completar la consulta.';
                     const enProceso = resp && resp.repuve && String(resp.repuve.estado || '').toUpperCase() === 'PROCESANDO';
+                    const falloSrv = resp && resp.repuve_error_servicio;
+                    const sinDatos = resp && (resp.repuve_sin_datos_padron || resp.repuve_resultado_tipo === 'sin_datos_padron');
+                    _madjHidratarMotoApi(resp || {});
+                    _madjSyncBotonRepuveAlerta();
                     if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: enProceso ? 'info' : 'warning',
-                            title: 'REPUVE',
-                            text: msg,
-                            confirmButtonColor: enProceso ? '#696cff' : '#f59e0b',
-                        });
+                        if (falloSrv) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'REPUVE no disponible',
+                                text: 'El proveedor respondió con un error. Esto no se debe a sus datos.',
+                                confirmButtonColor: '#dc2626',
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: enProceso ? 'info' : (sinDatos ? 'warning' : 'warning'),
+                                title: sinDatos ? 'REPUVE sin datos del vehículo' : 'REPUVE',
+                                html: '<p class="text-start small mb-0">' + esc(msg) + '</p>',
+                                confirmButtonColor: enProceso ? '#696cff' : '#f59e0b',
+                            });
+                        }
                     }
                     return;
                 }
@@ -1858,6 +1951,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 }
                 _madjMotoApiData = Object.assign({}, _madjMotoApiData || {}, dm);
                 _madjMotoApiStatus = 'loaded';
+                _madjSyncBotonRepuveAlerta();
                 madjRellenarCamposDatosMotoDesdeObjeto(dm);
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({
@@ -2135,6 +2229,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         if (evidenciasCargadas && !datosDone) {
             _madjAplicarMotoApiEnFormularioSiVacio();
         }
+        _madjSyncBotonRepuveAlerta();
         _madjActualizarBotonEnviar();
     }
 
@@ -2174,6 +2269,13 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         if (color) {
             color.addEventListener('input', function madjColorInput() {
                 color.value = color.value.replace(/[0-9]/g, '');
+            });
+        }
+        const respRg = document.getElementById('madj-datos-responsable_entrega');
+        if (respRg) {
+            respRg.setAttribute('maxlength', '160');
+            respRg.addEventListener('input', function madjRespResguardoInput() {
+                respRg.value = respRg.value.replace(/[0-9]/g, '');
             });
         }
         const lugSel = document.getElementById('madj-datos-log_lugar_resguardo');
@@ -2234,8 +2336,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                                     style="min-width:2.25rem;"
                                     id="madj-btn-consultar-repuve"
                                     onclick="madjConsultarRepuveDesdeFormulario()"
-                                    aria-label="Consultar REPUVE con este VIN"
-                                    title="Consultar REPUVE: usa el VIN capturado y, si el servicio encuentra el vehículo, autocompleta marca, modelo, año, placas y demás datos disponibles.">
+                                    aria-label="Consultar REPUVE con el VIN capturado para autocompletar datos del vehículo si el servicio lo permite">
                                 <i class="fa-solid fa-database" aria-hidden="true"></i>
                             </button>
                         </div>
@@ -2301,7 +2402,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     </div>
                 </div>
                 <div class="row g-2 mt-0">
-                    <div class="col-12 madj-datos-field">
+                    <div class="col-12 col-md-4 madj-datos-field">
                         <label for="madj-datos-log_direccion">Dirección <span class="text-danger">*</span></label>
                         <input type="text" class="form-control form-control-sm" id="madj-datos-log_direccion"
                                placeholder="Calle, número, colonia" maxlength="100" value="${v('log_direccion')}">
@@ -2318,7 +2419,16 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                             ${estadoOptions}
                         </select>
                     </div>
-                    <div class="col-12 col-md-4 madj-datos-field">
+                </div>
+                <div class="row g-2 mt-0">
+                    <div class="col-12 col-md-6 madj-datos-field">
+                        <label for="madj-datos-responsable_entrega">Responsable de Resguardo <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" id="madj-datos-responsable_entrega"
+                               placeholder="Nombre completo" maxlength="160" autocomplete="name"
+                               title="Persona responsable del bien en la ubicación actual (sin números)"
+                               value="${v('responsable_entrega')}">
+                    </div>
+                    <div class="col-12 col-md-6 madj-datos-field">
                         <label for="madj-datos-log_telefono">Teléfono de Contacto <span class="text-danger">*</span></label>
                         <input type="tel" class="form-control form-control-sm" id="madj-datos-log_telefono"
                                placeholder="10 dígitos" maxlength="10" pattern="[0-9]{10}"
@@ -2697,18 +2807,21 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             });
     }
 
-    async function madjEnviarEvidencias() {
-        const confirm = await Swal.fire({
-            title: '¿Enviar evidencias?',
-            html: '<p>Las evidencias pasarán a la <strong>bandeja de entrada de evidencias</strong> para revisión y continuarán su ciclo habitual.</p>' +
-                  '<p class="text-muted small mb-0">Las marcadas como <strong>Por enviar</strong> quedarán como <strong>Enviado</strong>.</p>',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, enviar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#16a34a',
-        });
-        if (!confirm.isConfirmed) return;
+    async function madjEnviarEvidencias(opts) {
+        const options = opts || {};
+        if (!options.skipConfirm) {
+            const confirm = await Swal.fire({
+                title: '¿Enviar evidencias?',
+                html: '<p>Las evidencias pasarán a la <strong>bandeja de entrada de evidencias</strong> para revisión.</p>' +
+                      '<p class="text-muted small mb-0">Las marcadas como <strong>Por enviar</strong> quedarán como <strong>Enviado</strong>.</p>',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-paper-plane me-1"></i>Sí, enviar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#16a34a',
+            });
+            if (!confirm.isConfirmed) return false;
+        }
 
         const btn = document.getElementById('madj-btn-enviar-evidencias');
         if (btn) {
@@ -2758,12 +2871,14 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 timer: 2000,
                 showConfirmButton: false,
             });
+            return true;
         } catch (err) {
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-paper-plane me-1"></i>Enviar evidencias';
             }
             Swal.fire('Error', err.message || 'No se pudieron enviar las evidencias.', 'error');
+            return false;
         }
     }
 
@@ -2776,7 +2891,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             'moto_no_serie', 'moto_no_motor', 'moto_placas',
             'log_lugar_resguardo', 'log_lugar_otro',
             'log_direccion', 'log_ciudad',
-            'log_estado', 'log_telefono',
+            'log_estado', 'responsable_entrega', 'log_telefono',
         ];
 
         let valido = true;
@@ -2889,6 +3004,25 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 return;
             }
 
+            if (c === 'responsable_entrega') {
+                const nom = val.replace(/\s+/g, ' ').trim();
+                if (nom.length < 2 || nom.length > 160) {
+                    el.classList.add('is-invalid');
+                    errores.push('Responsable de resguardo: entre 2 y 160 caracteres (solo letras).');
+                    valido = false;
+                    return;
+                }
+                if (!/^[\p{L}\s.'\-]+$/u.test(nom)) {
+                    el.classList.add('is-invalid');
+                    errores.push('Responsable de resguardo: solo letras, espacios, punto o guion.');
+                    valido = false;
+                    return;
+                }
+                el.classList.remove('is-invalid');
+                datos[c] = nom;
+                return;
+            }
+
             // Validación específica: teléfono exactamente 10 dígitos
             if (c === 'log_telefono') {
                 if (!/^\d{10}$/.test(val)) {
@@ -2945,12 +3079,15 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 _madjDatosMotoGuardados = _madjDatosMotoCompletos(datos);
                 _madjRenderEvModalBody({});
 
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Datos guardados!',
-                    text: 'Usa el botón inferior «Enviar evidencias» para enviarlas a revisión.',
-                    timer: 2600,
-                    showConfirmButton: false,
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardado. Enviando evidencias...';
+                }
+                return madjEnviarEvidencias({ skipConfirm: true }).then(ok => {
+                    if (!ok && btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i>Guardar datos de la motocicleta';
+                    }
                 });
             })
             .catch(err => {

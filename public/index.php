@@ -12,7 +12,7 @@ header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('X-XSS-Protection: 1; mode=block');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://maps.googleapis.com https://*.googleapis.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.youtube.com https://s.ytimg.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://fonts.gstatic.com https://www.gstatic.com https://cdnjs.cloudflare.com; font-src \'self\' data: https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com; img-src \'self\' data: https: blob: http://98.90.194.116 http://uploads; media-src \'self\' data: https: blob: http://98.90.194.116 http://uploads; connect-src \'self\' webpack: https://*.googleapis.com https://*.gstatic.com http://98.90.194.116 https://nominatim.openstreetmap.org https://*.youtube.com http://127.0.0.1:8000 http://localhost:8000; frame-src \'self\' https://www.google.com https://maps.google.com https://*.google.com https://www.youtube.com https://*.youtube.com; frame-ancestors \'self\';');
+header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://maps.googleapis.com https://*.googleapis.com https://www.gstatic.com https://*.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.youtube.com https://s.ytimg.com; style-src \'self\' \'unsafe-inline\' https://fonts.googleapis.com https://fonts.gstatic.com https://www.gstatic.com https://cdnjs.cloudflare.com; font-src \'self\' data: https://fonts.gstatic.com https://www.gstatic.com https://*.gstatic.com; img-src \'self\' data: https: blob: http://98.90.194.116 http://98.90.194.116:8080 http://98.90.194.116:8081 http://uploads; media-src \'self\' data: https: blob: http://98.90.194.116 http://98.90.194.116:8080 http://98.90.194.116:8081 http://uploads; connect-src \'self\' webpack: https://*.googleapis.com https://*.gstatic.com http://98.90.194.116 http://98.90.194.116:8080 http://98.90.194.116:8081 https://nominatim.openstreetmap.org https://*.youtube.com http://127.0.0.1:8000 http://localhost:8000; frame-src \'self\' https://www.google.com https://maps.google.com https://*.google.com https://www.youtube.com https://*.youtube.com; frame-ancestors \'self\';');
 if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
     header('Strict-Transport-Security: max-age=31536000; includeSubDomains; preload');
 }
@@ -213,6 +213,10 @@ $esSubirDocCandidato = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'subirdocumentoscandidato';
 
+$esDocVerificacionProxy = isset($urlSolicitada[0], $urlSolicitada[1])
+    && strtolower($urlSolicitada[0]) === 'caphum'
+    && strtolower($urlSolicitada[1]) === 'docverificacionproxy';
+
 $esDescargarDocCandidato = isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'caphum'
     && strtolower($urlSolicitada[1]) === 'descargardocumentocandidato';
@@ -231,7 +235,7 @@ $esEstadoReportesAgente = isset($urlSolicitada[0], $urlSolicitada[1])
 
 // Importación Excel (XHR espera JSON; si la sesión cayó, el flujo de Login devolvía HTML y el modal mostraba "no es JSON").
 $solicitaImportExcelDespachosSinSesion = !isset($_SESSION['login'])
-    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
     && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'despachos'
@@ -249,7 +253,7 @@ if ($solicitaImportExcelDespachosSinSesion) {
 
 // Tablero Asignación (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «Unexpected token '<'».
 $solicitaJsonAsignacionTableroSinSesion = !isset($_SESSION['login'])
-    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
     && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && (strtolower($urlSolicitada[0]) === 'reporteria' || strtolower($urlSolicitada[0]) === 'analitica')
@@ -265,7 +269,7 @@ if ($solicitaJsonAsignacionTableroSinSesion) {
 
 // CierreCredito (fetch): sin sesión el Login devolvía HTML y response.json() fallaba con «JSON.parse: unexpected character at line 1 column 1».
 $solicitaCierreCreditoAjaxSinSesion = !isset($_SESSION['login'])
-    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato
+    && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato
     && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente
     && isset($urlSolicitada[0], $urlSolicitada[1])
     && strtolower($urlSolicitada[0]) === 'cierrecredito'
@@ -280,7 +284,7 @@ if ($solicitaCierreCreditoAjaxSinSesion) {
     exit;
 }
 
-if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
+if ((!isset($_SESSION['login']) && !$esCrearTicketWhatsApp && !$esSubirDocCandidato && !$esDocVerificacionProxy && !$esDescargarDocCandidato && !$esLlenarSolicitudEnLinea && !$esObtenerPlantillaSolicitudPdf && !$esEstadoReportesAgente) || strtolower($urlSolicitada[0]) === strtolower(LOGIN)) {
     $login = 'Controllers\\' . LOGIN;
     $login = new $login;
 
@@ -327,7 +331,9 @@ $rutasModulos = [
     'estadocuenta/validarcredito' => [1],
     'estadocuenta/getcomplementosestadocuenta' => [1],
     'gestiones/seguimiento' => [3],
-    'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42],     'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
+    'caphum/gestion' => [4], 'caphum/candidatos' => [42], 'caphum/getcandidatos' => [42], 'caphum/getcandidato' => [42], 'caphum/guardarcandidato' => [42], 'caphum/actualizarcandidato' => [42], 'caphum/eliminarcandidato' => [42], 'caphum/enviarpostulacioncandidato' => [42], 'caphum/gettokendocumentoscandidato' => [42], 'caphum/getdocumentoscandidatolist' => [42], 'caphum/verificarexpedientecandidato' => [42], 'caphum/verdocumentocandidato' => [42], 'caphum/eliminardocumentocandidato' => [42], 'caphum/validardocumentocandidato' => [42], 'caphum/cerrarprocesocandidato' => [42], 'caphum/continuarprocesocandidato' => [42], 'caphum/pasarcandidatoagestion' => [42],
+    'caphum/getpuestos' => [42], 'caphum/getjefedirecto' => [4, 5, 42], 'caphum/getestados' => [42], 'caphum/getmunicipios' => [42], 'caphum/getcolonias' => [42], 'caphum/getcalles' => [42],
+    'caphum/bajas' => [13], 'caphum/organigrama' => [5], 'caphum/niveljerarquicocolaborador' => [5], 'caphum/getpuestospersona' => [5],
     'caphum/estadisticas' => [38], 'caphum/getestadisticaspanel' => [38], 'caphum/getestadisticasmovimientodetalle' => [38],
     'reporteria/callcenter' => [6], 'reporteria/resumencallcenter' => [6], 'reporteria/comparativas' => [60], 'reporteria/asignacion' => [61], 'reporteria/asignaciontablero' => [61], 'reporteria/asignaciontablerodos' => [61], 'reporteria/getasignaciontablerojson' => [61], 'reporteria/descargarasignaciontableroexcel' => [61], 'reporteria/descargarasignaciontablerodosexcel' => [61], 'reporteria/comparativasavancesemanal' => [60], 'reporteria/getcomparativasavancesemanaljson' => [60],     'reporteria/primerospagos' => [49, 65, 66, 67, 68],
     'reporteria/primerospagoshistorico' => [68],
@@ -405,6 +411,8 @@ $rutasModulos = [
     'gastoscobranza/ejecutarprocesocronjobgc' => [31],
     'gastoscobranza/descargoestatus3ejecutarydescargar' => [31],
     'gastoscobranza/descargardescargoestatus3' => [31],
+    'gastoscobranza/getdestinatarioscorreo' => [31],
+    'gastoscobranza/setdestinatarioscorreo' => [31],
     'onboarding/index' => [44],
     'onboarding/video' => [44],
     'cierecredito/consulta' => [50],
