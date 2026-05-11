@@ -60,8 +60,10 @@ function Invoke-ExeCapture {
     )
     $tmpOut = [System.IO.Path]::GetTempFileName()
     $tmpErr = [System.IO.Path]::GetTempFileName()
+    $prevEap = $ErrorActionPreference
     try {
         if ($WorkDir) { Push-Location -LiteralPath $WorkDir }
+        $ErrorActionPreference = 'Continue'
         & $FilePath @ArgumentList > $tmpOut 2> $tmpErr
         $exit = $LASTEXITCODE
         $stdout = (Get-Content -LiteralPath $tmpOut -Raw -ErrorAction SilentlyContinue)
@@ -71,6 +73,7 @@ function Invoke-ExeCapture {
             All      = (($stdout -as [string]) + "`n" + ($stderr -as [string]))
         }
     } finally {
+        $ErrorActionPreference = $prevEap
         if ($WorkDir) { try { Pop-Location } catch {} }
         Remove-Item -LiteralPath $tmpOut, $tmpErr -ErrorAction SilentlyContinue
     }
