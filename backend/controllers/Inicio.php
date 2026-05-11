@@ -1237,6 +1237,225 @@ class Inicio extends Controller
         ], JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * Diagnóstico de red/config hacia la API de verificación de expediente (Python),
+     * ejecutado en el mismo servidor que PHP — sin SSH. Solo usuario 878.
+     * GET → JSON: health, TCP, GET/POST cortos a /validar-expediente, timeouts en ini.
+     */
+    public function docVerificacionDiagnostico878()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        if ((int) ($_SESSION['usuario_id'] ?? 0) !== 878) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'No autorizado'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        $payload = $this->docVerificacion878ArmarDiagnostico();
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function docVerificacion878ArmarDiagnostico(): array
+    {
+        $configFile = defined('RAIZ') ? (RAIZ . '/config/config.ini') : (dirname(__DIR__) . '/config/config.ini');
+        $out = [
+            'success'       => true,
+            'generated_at'  => date('Y-m-d H:i:s'),
+            'config_path'   => $configFile,
+            'config_exists' => is_file($configFile),
+        ];
+        if (!is_file($configFile)) {
+            $out['success'] = false;
+            $out['message'] = 'No existe config.ini en la ruta esperada.';
+            return $out;
+        }
+        $config = @parse_ini_file($configFile, true);
+        if (!is_array($config)) {
+            $out['success'] = false;
+            $out['message'] = 'No se pudo leer config.ini (parse_ini_file).';
+            return $out;
+        }
+        $doc = $config['doc_verificacion'] ?? [];
+        if (!is_array($doc)) {
+            $out['success'] = false;
+            $out['message'] = 'Falta la sección [doc_verificacion] en config.ini.';
+            return $out;
+        }
+        $apiUrlVerificar = trim((string) ($doc['api_url'] ?? ''));
+        $apiKey = trim((string) ($doc['api_key'] ?? ''));
+        $timeoutExp = isset($doc['validar_expediente_timeout_seconds']) ? (int) $doc['validar_expediente_timeout_seconds'] : 300;
+        $retries = isset($doc['validar_expediente_retries']) ? (int) $doc['validar_expediente_retries'] : 2;
+        $out['config'] = [
+            'api_url_length'     => strlen($apiUrlVerificar),
+            'api_url_tail'       => strlen($apiUrlVerificar) > 120 ? ('…' . substr($apiUrlVerificar, -120)) : $apiUrlVerificar,
+            'api_key_hint'       => $this->docVerificacion878EnmascararApiKey($apiKey),
+            'timeout_seconds'    => $timeoutExp,
+            'retries_configured' => $retries,
+            'note'               => 'Misma base URL que CapHum::validarExpedienteApi (se quita /verificar al final si existe).',
+        ];
+        if ($apiUrlVerificar === '' || $apiKey === '') {
+            $out['success'] = false;
+            $out['message'] = 'En [doc_verificacion] faltan api_url o api_key.';
+            return $out;
+        }
+        $baseUrl = preg_replace('#/verificar\s*$#', '', $apiUrlVerificar);
+        $baseUrl = rtrim((string) $baseUrl, '/');
+        $healthUrl = $baseUrl . '/health';
+        $validarUrl = $baseUrl . '/validar-expediente';
+        $out['urls'] = [
+            'base_resolved' => $baseUrl,
+            'health'        => $healthUrl,
+            'validar'       => $validarUrl,
+        ];
+
+        $healthAttempts = [];
+        $healthOk = false;
+        for ($hi = 0; $hi < 2; $hi++) {
+            if ($hi > 0) {
+                usleep(500000);
+            }
+            $t0 = microtime(true);
+            $hc = curl_init($healthUrl);
+            curl_setopt_array($hc, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT_MS => 8000,
+                CURLOPT_CONNECTTIMEOUT_MS => 4000,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 3,
+            ]);
+            $hBody = curl_exec($hc);
+            $hCode = (int) curl_getinfo($hc, CURLINFO_HTTP_CODE);
+            $hErr = curl_error($hc);
+            $hErrno = (int) curl_errno($hc);
+            curl_close($hc);
+            $ms = (int) round((microtime(true) - $t0) * 1000);
+            $snippet = is_string($hBody) ? substr(preg_replace('/\s+/', ' ', $hBody), 0, 200) : '';
+            $healthAttempts[] = [
+                'attempt'    => $hi + 1,
+                'http_code'  => $hCode,
+                'ms'         => $ms,
+                'curl_errno' => $hErrno,
+                'curl_error' => $hErr !== '' ? $hErr : null,
+                'body_snip'  => $snippet,
+            ];
+            if ($hCode === 200 && $hBody !== false) {
+                $healthOk = true;
+                break;
+            }
+        }
+        $out['health'] = [
+            'ok'       => $healthOk,
+            'attempts' => $healthAttempts,
+        ];
+
+        $pu = parse_url($baseUrl);
+        $host = isset($pu['host']) ? (string) $pu['host'] : '';
+        $scheme = strtolower((string) ($pu['scheme'] ?? 'http'));
+        $port = isset($pu['port']) ? (int) $pu['port'] : ($scheme === 'https' ? 443 : 80);
+        $tcp = ['host' => $host, 'port' => $port, 'ok' => false, 'errno' => null, 'errstr' => null, 'ms' => null];
+        if ($host !== '') {
+            $t0 = microtime(true);
+            $fp = @fsockopen($host, $port, $errno, $errstr, 5);
+            $tcp['ms'] = (int) round((microtime(true) - $t0) * 1000);
+            if ($fp !== false) {
+                $tcp['ok'] = true;
+                fclose($fp);
+            } else {
+                $tcp['errno'] = $errno;
+                $tcp['errstr'] = $errstr;
+            }
+        } else {
+            $tcp['errstr'] = 'No se pudo extraer host de base_resolved.';
+        }
+        $out['tcp_connect'] = $tcp;
+
+        $t0 = microtime(true);
+        $chGet = curl_init($validarUrl);
+        curl_setopt_array($chGet, [
+            CURLOPT_HTTPGET => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 2,
+        ]);
+        $gBody = curl_exec($chGet);
+        $gCode = (int) curl_getinfo($chGet, CURLINFO_HTTP_CODE);
+        $gErr = curl_error($chGet);
+        $gErrno = (int) curl_errno($chGet);
+        curl_close($chGet);
+        $out['get_validar_expediente'] = [
+            'note'       => 'Muchas APIs responden 405 en GET si el endpoint solo acepta POST; indica que el servidor HTTP contestó.',
+            'http_code'  => $gCode,
+            'ms'         => (int) round((microtime(true) - $t0) * 1000),
+            'curl_errno' => $gErrno,
+            'curl_error' => $gErr !== '' ? $gErr : null,
+            'body_snip'  => is_string($gBody) ? substr(preg_replace('/\s+/', ' ', $gBody), 0, 220) : '',
+        ];
+
+        $t0 = microtime(true);
+        $postFields = ['tipo_documento' => '__diag878_sin_archivos__'];
+        $chPost = curl_init($validarUrl);
+        curl_setopt_array($chPost, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $postFields,
+            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 22,
+            CURLOPT_CONNECTTIMEOUT => 8,
+        ]);
+        $pBody = curl_exec($chPost);
+        $pCode = (int) curl_getinfo($chPost, CURLINFO_HTTP_CODE);
+        $pErr = curl_error($chPost);
+        $pErrno = (int) curl_errno($chPost);
+        curl_close($chPost);
+        $out['post_validar_expediente_minimo'] = [
+            'note'       => 'POST sin PDF (solo tipo_documento). Si responde 4xx rápido, la ruta vive; timeout aquí sugiere servicio colgado al leer cuerpo.',
+            'http_code'  => $pCode,
+            'ms'         => (int) round((microtime(true) - $t0) * 1000),
+            'curl_errno' => $pErrno,
+            'curl_error' => $pErr !== '' ? $pErr : null,
+            'body_snip'  => is_string($pBody) ? substr(preg_replace('/\s+/', ' ', $pBody), 0, 320) : '',
+        ];
+
+        $interpretacion = [];
+        if (!$healthOk) {
+            $interpretacion[] = 'Health falló: la API no respondió 200 en /health (revisar URL base, firewall o que uvicorn esté arriba).';
+        }
+        if (!$tcp['ok'] && $host !== '') {
+            $interpretacion[] = 'TCP a host:puerto falló: PHP en este servidor no abre socket al host configurado (firewall, IP incorrecta o servicio caído).';
+        }
+        if ($pErrno === 28 || ($pErr !== '' && stripos($pErr, 'timed out') !== false)) {
+            $interpretacion[] = 'POST mínimo hizo timeout: mismo síntoma que expedientes reales; revisar logs del proceso Python.';
+        } elseif ($pCode === 0 && $pErrno !== 0) {
+            $interpretacion[] = 'POST mínimo sin HTTP: error de transporte cURL (' . $pErrno . ').';
+        } elseif (in_array($pCode, [400, 401, 403, 404, 422], true)) {
+            $interpretacion[] = 'POST mínimo obtuvo HTTP ' . $pCode . ': la ruta existe y rechaza el payload vacío (esperado); el canal PHP→API para POST funciona.';
+        }
+        if ($interpretacion === []) {
+            $interpretacion[] = 'Revise códigos HTTP y tiempos arriba. Si health y POST mínimo son OK pero el expediente real hace timeout, suele ser OCR/PDFs grandes o un worker único bloqueado.';
+        }
+        $out['interpretacion'] = $interpretacion;
+
+        return $out;
+    }
+
+    private function docVerificacion878EnmascararApiKey(string $k): string
+    {
+        $len = strlen($k);
+        if ($len === 0) {
+            return '(vacía)';
+        }
+        if ($len <= 6) {
+            return '(longitud ' . $len . ', oculta)';
+        }
+
+        return 'longitud ' . $len . ' · sufijo …' . substr($k, -4);
+    }
+
     /** Catálogo único de servicios locales para estado y acciones. */
     private function serviciosLocalesCatalogo(): array
     {

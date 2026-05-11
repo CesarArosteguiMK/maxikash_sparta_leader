@@ -6,9 +6,11 @@
  * Uso:
  *   php enviar_reporte_gc_excel.php /ruta/absoluta/reporte_cobranza_DD-MM-YYYY.xlsx
  *
- * Destinatarios: si GASTOS_GC_REPORTE_MAIL_TO está definida y no vacía, tiene prioridad (correos separados por coma).
- * Si no, usa la lista guardada en Shell Gastos Cobranza → Administrar correos (`backend/storage/config/gastos_cobranza_destinatarios.json`).
- * Si ese archivo no existe o no hay activos, cae al mismo par por defecto que antes en código.
+ * Destinatarios (orden):
+ *   1) Si existe `backend/storage/config/gastos_cobranza_destinatarios.json` con al menos un correo activo
+ *      (Shell → Administrar correos), se usa esa lista (se relee en cada envío; no depende de reiniciar el agente Node).
+ *   2) Si no, y `GASTOS_GC_REPORTE_MAIL_TO` está definida y no vacía (coma), se usan esos correos.
+ *   3) Si no, misma lógica que `Gastoscobranza::destinatariosActivosReporteGcDesdeArchivo()` (archivo + defaults).
  */
 
 declare(strict_types=1);
@@ -82,21 +84,22 @@ if ($xlsx === '' || !is_file($xlsx)) {
 }
 
 /**
- * Destinatarios: si existe GASTOS_GC_REPORTE_MAIL_TO (no vacía), tiene prioridad (despliegues/cron).
- * Si no, la lista guardada desde Shell Gastos Cobranza (`storage/config/gastos_cobranza_destinatarios.json`).
+ * Destinatarios: primero JSON del shell (dinámico); si no aplica, entonces env; si no, archivo+defaults.
  */
-$rawTo = getenv('GASTOS_GC_REPORTE_MAIL_TO');
-$dest = [];
-if ($rawTo !== false && trim($rawTo) !== '') {
-    foreach (explode(',', $rawTo) as $em) {
-        $em = strtolower(trim((string) $em));
-        if ($em !== '') {
-            $dest[] = $em;
+$dest = \Controllers\Gastoscobranza::destinatariosActivosReporteGcSoloDesdeArchivo();
+if (empty($dest)) {
+    $rawTo = getenv('GASTOS_GC_REPORTE_MAIL_TO');
+    if ($rawTo !== false && trim($rawTo) !== '') {
+        foreach (explode(',', $rawTo) as $em) {
+            $em = strtolower(trim((string) $em));
+            if ($em !== '') {
+                $dest[] = $em;
+            }
         }
+        $dest = array_values(array_unique($dest));
+    } else {
+        $dest = \Controllers\Gastoscobranza::destinatariosActivosReporteGcDesdeArchivo();
     }
-    $dest = array_values(array_unique($dest));
-} else {
-    $dest = \Controllers\Gastoscobranza::destinatariosActivosReporteGcDesdeArchivo();
 }
 
 try {

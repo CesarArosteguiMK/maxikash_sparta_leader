@@ -98,6 +98,43 @@ class Gastoscobranza extends Controller
     }
 
     /**
+     * Solo lectura del JSON en disco, sin lista por defecto.
+     * Usado para decidir si el envío del Excel debe ignorar `GASTOS_GC_REPORTE_MAIL_TO`
+     * (lista dinámica desde Shell → Administrar correos).
+     *
+     * @return list<string> emails activos; vacío si no hay archivo, JSON inválido o ningún activo
+     */
+    public static function destinatariosActivosReporteGcSoloDesdeArchivo(): array
+    {
+        $path = RAIZ . '/storage/config/gastos_cobranza_destinatarios.json';
+        if (!is_file($path)) {
+            return [];
+        }
+        $raw = @file_get_contents($path);
+        $json = is_string($raw) ? json_decode($raw, true) : null;
+        if (!is_array($json)) {
+            return [];
+        }
+        $lista = $json['destinatarios'] ?? [];
+        if (!is_array($lista)) {
+            return [];
+        }
+        $tmp = new self();
+        $items = $tmp->normalizarDestinatariosCorreoGc($lista);
+        $activos = [];
+        foreach ($items as $it) {
+            if (!empty($it['activo'])) {
+                $activos[] = $it['email'];
+            }
+        }
+        if (empty($activos)) {
+            return [];
+        }
+
+        return array_values(array_unique($activos));
+    }
+
+    /**
      * @return array{destinatarios:list<array{email:string,activo:bool}>,updated_at:?string}
      */
     private function cargarConfigDestinatariosCorreoGc(): array

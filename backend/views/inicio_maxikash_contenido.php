@@ -709,6 +709,39 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
   color: #94a3b8;
   line-height: 1.35;
 }
+.api1doc-diag {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.98);
+}
+.api1doc-diag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.api1doc-diag-hd {
+  flex: 1 1 180px;
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.35;
+  min-width: 0;
+}
+.api1doc-diag-body {
+  margin: 0;
+  padding: 8px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(2, 6, 23, 0.55);
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+}
 </style>
 
 <div class="inicio-mkx">
@@ -833,6 +866,13 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
         <span class="api1click-badge" id="api1clickBadge">Listo</span>
       </div>
       <p class="api1click-help"><strong>Canal oficial (usuario 878):</strong> diagnóstico, instalación si hace falta y arranque de la API desde aquí — sin ejecutar BAT a mano en el servidor ni depender del PATH. Python/Tesseract dentro de la carpeta de la API los deja soporte/despliegue una vez; el día a día es este botón. Logs (<code>backend/API/logs</code>): Lista → Ver → Copiar o Descargar.</p>
+      <div class="api1doc-diag">
+        <div class="api1doc-diag-row">
+          <button type="button" class="api1click-tbtn" id="btnDocVerDiag878" title="Pruebas desde PHP: health, TCP, GET/POST cortos a validar-expediente (sin PDF). Puede tardar hasta ~45 s.">Diagnóstico expediente API</button>
+          <span class="api1doc-diag-hd">Ejecuta en el <strong>mismo servidor que PHP</strong> las pruebas de <code>config.ini</code> [doc_verificacion] hacia la API Python (sin SSH). Útil si Capital Humano ve timeouts al verificar documentos.</span>
+        </div>
+        <pre class="api1doc-diag-body" id="api1docDiagOutput" role="status" aria-live="polite">Pulse «Diagnóstico expediente API» para ver el resultado JSON (puede tardar ~30–45 s en el peor caso).</pre>
+      </div>
       <div class="api1click-toolbar">
         <select id="api1clickLogSelect" title="Archivos .log en backend/API/logs" aria-label="Seleccionar log">
           <option value="">— Lista de logs (pulsa «Lista» o espera al auto-actualizar) —</option>
@@ -1500,6 +1540,37 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       })
       .catch(function(){ api1SetState('err', 'Error'); if (outApi1) outApi1.textContent = 'Error de red al parar.'; });
   });
+
+  var btnDocVerDiag878 = document.getElementById('btnDocVerDiag878');
+  var outDocVerDiag = document.getElementById('api1docDiagOutput');
+  var docVerDiagBusy = false;
+  if (btnDocVerDiag878 && outDocVerDiag) {
+    btnDocVerDiag878.addEventListener('click', function () {
+      if (docVerDiagBusy) return;
+      docVerDiagBusy = true;
+      btnDocVerDiag878.disabled = true;
+      outDocVerDiag.textContent = 'Ejecutando pruebas en el servidor…';
+      fetch('/inicio/docVerificacionDiagnostico878', { credentials: 'same-origin', headers: api1AjaxHeaders() })
+        .then(function (r) {
+          return r.text().then(function (body) {
+            if (!r.ok) {
+              throw new Error('HTTP ' + r.status + ' — ' + (body.slice(0, 200) || r.statusText));
+            }
+            return api1ParseJsonBody(body, 'docVerificacionDiagnostico878');
+          });
+        })
+        .then(function (data) {
+          outDocVerDiag.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(function (err) {
+          outDocVerDiag.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+        })
+        .finally(function () {
+          docVerDiagBusy = false;
+          btnDocVerDiag878.disabled = false;
+        });
+    });
+  }
 
   function api1SetState(kind, text) {
     if (!badgeApi1) return;

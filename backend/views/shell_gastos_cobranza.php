@@ -179,7 +179,7 @@ $gc_shell_ec_salida_label = isset($gc_shell_ec_salida_label) ? (string) $gc_shel
                                     <span class="sg-tip-btn-face">
                                         <i class="fa fa-users-gear" aria-hidden="true"></i>
                                         <span class="sg-btn-label">Administrar correos</span>
-                                        <span class="sg-tooltip-icon" data-tip="Destinatarios cuando el agente envía el Excel del reporte por correo. Si en el servidor existe la variable GASTOS_GC_REPORTE_MAIL_TO y no está vacía, tiene prioridad sobre esta lista."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+                                        <span class="sg-tooltip-icon" data-tip="Destinatarios cuando el agente envía el Excel del reporte por correo. Esta lista se relee en cada envío (no hace falta reiniciar el agente). Solo si no hay ningún correo activo guardado aquí, se usan correos de la variable GASTOS_GC_REPORTE_MAIL_TO del .env del agente (si está definida) o los valores por defecto del sistema."><i class="fa fa-info-circle" aria-hidden="true"></i></span>
                                     </span>
                                 </button>
                             </div>
