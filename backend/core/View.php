@@ -766,8 +766,15 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
     </script>
 
     <!-- Campana de notificaciones: cargar lista, badge, marcar leídas, sonido -->
+    <?php
+    $__spartaPublicWebBaseNotif = function_exists('sparta_public_web_base') ? sparta_public_web_base() : '';
+    if (!is_string($__spartaPublicWebBaseNotif)) {
+        $__spartaPublicWebBaseNotif = '';
+    }
+    ?>
     <script>
     (function(){
+        var SPARTA_PUBLIC_WEB_BASE = <?= json_encode($__spartaPublicWebBaseNotif, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?> || '';
         var badgeEl = document.getElementById('navbarNotifBadge');
         var iconEl = document.getElementById('navbarNotifIcon');
         var bodyEl = document.getElementById('navbarNotifBody');
@@ -775,11 +782,12 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         var dropdownEl = document.getElementById('navbarNotifDropdown');
         var notifToggle = document.getElementById('navbarNotifToggle');
         var audioNotif = null;
-        var NOTIF_SOUND_URL = '/assets/audio/ring2.mp3';
+        var NOTIF_SOUND_URL = (function(){
+            var b = (typeof SPARTA_PUBLIC_WEB_BASE === 'string' ? SPARTA_PUBLIC_WEB_BASE : '').replace(/\/$/, '');
+            return (b ? b : '') + '/assets/audio/ring2.mp3';
+        })();
         var NOTIF_SOUND_PLAYED_KEY = 'sparta_notif_sound_played_ids';
         var NOTIF_SOUND_PLAYED_MAX = 100;
-        /** Último id de notificación no leída para la que ya sonó (sesión). Evita repetir cada ~60 s al actualizar el badge. */
-        var NOTIF_SS_LAST_CHIME_MAX_ID = 'sparta_notif_sound_last_chimed_max_unread_id';
 
         function getNotifSoundPlayedIds() {
             try {
@@ -802,19 +810,17 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
             } catch (e) {}
         }
         /**
-         * URLs sin query ?url= (pide negocio). public/.htaccess reescribe /ruta → index.php internamente.
+         * Siempre contra la raíz de la app (controlador/método), no relativo al path actual:
+         * en /caphum/candidatos un prefijo /caphum/ rompía la ruta (p. ej. /caphum/notificaciones/listar → HTML, no JSON).
+         * public/.htaccess reescribe /ruta → index.php.
          */
         function notifUrl(path) {
             var p = (path || "").replace(/^\//, "").replace(/\/$/, "");
             if (!p) {
                 p = "notificaciones/listar";
             }
-            var dir = location.pathname.replace(/\/[^/]*$/, "");
-            if (dir === "") {
-                dir = "/";
-            }
-            var pathPart = (dir === "/") ? "/" : (dir.endsWith("/") ? dir : dir + "/");
-            return location.origin + pathPart + p;
+            var base = (typeof SPARTA_PUBLIC_WEB_BASE === "string" ? SPARTA_PUBLIC_WEB_BASE : "").replace(/\/$/, "");
+            return location.origin + (base ? base + "/" : "/") + p;
         }
         if (!badgeEl || !bodyEl) return;
 
@@ -849,7 +855,7 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
         function startNotifSoundIfUnread(totalNoLeidas, list) {
             if ((totalNoLeidas | 0) <= 0) {
                 stopNotifSound();
-                try { sessionStorage.removeItem(NOTIF_SS_LAST_CHIME_MAX_ID); } catch (e) {}
+                try { localStorage.removeItem(NOTIF_SOUND_PLAYED_KEY); } catch (e) {}
                 return;
             }
             var idsNoLeidos = (Array.isArray(list) ? list : [])
@@ -857,18 +863,13 @@ html.dark-mode #statsJerarquia .bg-light{background-color:#334155!important;}
                 .map(function(n){ return (Number(n.id) || 0); })
                 .filter(function(id){ return id > 0; });
             if (idsNoLeidos.length === 0) return;
-            var maxUnreadId = Math.max.apply(null, idsNoLeidos);
-            var prevChimedMax = 0;
-            try { prevChimedMax = parseInt(sessionStorage.getItem(NOTIF_SS_LAST_CHIME_MAX_ID) || '0', 10) || 0; } catch (e) {}
-            var subioElMaximoId = maxUnreadId > prevChimedMax;
-            if (!subioElMaximoId) {
-                return;
-            }
+            var played = getNotifSoundPlayedIds();
+            var playedSet = {};
+            played.forEach(function(id){ var k = (Number(id) || 0); if (k > 0) playedSet[k] = true; });
+            var hayAlgunaNueva = idsNoLeidos.some(function(id){ return !playedSet[id]; });
+            if (!hayAlgunaNueva) return;
             playNotifSound();
             setNotifSoundPlayedIds(idsNoLeidos);
-            try {
-                if (maxUnreadId > 0) sessionStorage.setItem(NOTIF_SS_LAST_CHIME_MAX_ID, String(maxUnreadId));
-            } catch (e) {}
         }
 
         function formatNotifTime(dateStr) {

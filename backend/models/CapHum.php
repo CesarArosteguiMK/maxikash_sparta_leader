@@ -2105,6 +2105,16 @@ class CapHum extends Model
             $usuario_baja  = addslashes($data['usuario_baja']);
             $archivos    = $data['archivos'] ?? [];
 
+            // 0️⃣ Guard de idempotencia: solo bloquear si la persona YA está de baja actualmente.
+            // No se usa baja_persona como guard porque puede tener registros históricos (bajas previas
+            // antes de un reingreso), y esos casos deben permitir una nueva baja.
+            $personaActual = $db->queryOne("
+                SELECT estatus FROM __SPARTA_SECRET_REDACTED__.persona WHERE id = '$id_persona' LIMIT 1
+            ");
+            if ($personaActual && $personaActual['estatus'] === 'Baja') {
+                return self::resultado(false, 'Esta persona ya se encuentra dada de baja en el sistema.');
+            }
+
             // 1️⃣ Insertar la baja en baja_persona
             $db->queryOne("
             INSERT INTO __SPARTA_SECRET_REDACTED__.baja_persona

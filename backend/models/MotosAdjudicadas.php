@@ -17,10 +17,10 @@ class MotosAdjudicadas extends Model
     /** @var null|bool columna adj_operacion.atencion_envio_validado */
     private static $adjOperacionEnvioAtencionCol = null;
 
-    /** @var null|bool columna adj_operacion.fecha_llegada_almacen (migraci?n 20260428_adj_operacion_fecha_llegada_almacen.sql) */
+    /** @var null|bool columna adj_operacion.fecha_llegada_almacen (requiere esquema actualizado en BD) */
     private static $adjOperacionFechaLlegadaAlmacenCol = null;
 
-    /** @var null|bool columnas recepcion_*_estado (migraci?n 20260428_adj_operacion_recepcion_doc_estado.sql) */
+    /** @var null|bool columnas recepcion_*_estado (requiere esquema actualizado en BD) */
     private static $adjOperacionRecepcionDocEstadoCol = null;
 
     /** @var null|bool tabla de caché para resumen S2 en modal de dictámenes */
@@ -44,7 +44,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * true si en adj_evidencia existen val_atn y comentario_atn (migraci?n aplicada).
+     * true si en adj_evidencia existen val_atn y comentario_atn (migración aplicada).
      * Prueba con SELECT directo: information_schema a veces no est? permitido para el usuario MySQL.
      */
     private function adjEvidenciaTieneColumnasAtn(): bool
@@ -97,7 +97,7 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * true si existe adj_operacion.atencion_envio_validado (migraci?n 20260427_adj_operacion_atencion_envio.sql).
+     * true si existe adj_operacion.atencion_envio_validado (requiere esquema actualizado en BD).
      * Se prueba con SELECT directo: information_schema a veces no est? permitido para el usuario MySQL.
      */
     public function adjOperacionTieneColumnaEnvioAtencion(): bool
@@ -173,7 +173,7 @@ class MotosAdjudicadas extends Model
         if (!$this->adjOperacionTieneColumnasRecepcionDocEstado()) {
             return [
                 'success' => false,
-                'message' => 'Falta migraci?n: ejecute backend/migrations/20260428_adj_operacion_recepcion_doc_estado.sql',
+                'message' => 'Falta migración de base de datos: deben existir recepcion_dacion_estado y recepcion_tarjeta_estado en adj_operacion.',
             ];
         }
         $row = $this->db->queryOne(
@@ -235,13 +235,13 @@ class MotosAdjudicadas extends Model
         if (!$this->adjOperacionTieneColumnasRecepcionConfirmacion()) {
             return [
                 'success' => false,
-                'message' => 'Falta migraci?n: ejecute backend/migrations/20260428_adj_operacion_recepcion_confirmacion.sql',
+                'message' => 'Falta migración de base de datos: deben existir las columnas de confirmación de recepción en adj_operacion.',
             ];
         }
         if (!$this->adjOperacionTieneColumnasRecepcionDocEstado()) {
             return [
                 'success' => false,
-                'message' => 'Falta migraci?n de documentos: backend/migrations/20260428_adj_operacion_recepcion_doc_estado.sql',
+                'message' => 'Falta migración de documentos: deben existir recepcion_dacion_estado y recepcion_tarjeta_estado en adj_operacion.',
             ];
         }
         $ubicacion     = trim($ubicacion);
@@ -1129,7 +1129,7 @@ class MotosAdjudicadas extends Model
         if (!$this->adjOperacionTieneColumnaFechaLlegadaAlmacen()) {
             return [
                 'success' => false,
-                'message' => 'Falta migraci?n de base de datos: ejecute backend/migrations/20260428_adj_operacion_fecha_llegada_almacen.sql',
+                'message' => 'Falta migración de base de datos: debe existir la columna fecha_llegada_almacen en adj_operacion.',
             ];
         }
         $row = $this->db->queryOne(
@@ -3187,7 +3187,7 @@ EOSQL;
     //   log_direccion, log_ciudad, log_estado, log_lugar_resguardo, log_lugar_otro, log_telefono,
     //   responsable_entrega (nombre del responsable de resguardo / ubicación actual),
     //   datos_moto_at, datos_moto_by
-    // Migraci?n: 20260430_adj_operacion_datos_moto_logisticos.sql
+    // Datos de moto y logísticos: columnas en adj_operacion (esquema actualizado en BD)
     // =========================================================================
 
     /** Columnas persistibles en adj_operacion para datos de moto (incluye hist?rico marca/modelo/serie/placas). */
@@ -4679,7 +4679,7 @@ EOSQL;
         if (!$this->adjEvidenciaTieneColumnasAtn()) {
             return [
                 'success' => false,
-                'message' => 'Ejecute en MySQL el script backend/migrations/20260227_adj_evidencia_atencion_val.sql (columna val_atn faltante).',
+                'message' => 'Falta migración de base de datos: deben existir las columnas val_atn y comentario_atn en adj_evidencia.',
             ];
         }
         $comentario = mb_substr(trim($comentario), 0, 2000);
