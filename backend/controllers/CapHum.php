@@ -4706,7 +4706,9 @@ class CapHum extends Controller
                     }
                 });
                 $el.prop("disabled", !!el.disabled);
-                if (prev) $el.val(prev).trigger("change.select2");
+                if (prev) {
+                    $el.val(prev).trigger("change");
+                }
             }
 
             function ocultarSeccionesDomicilioCandidato() {
@@ -4745,6 +4747,7 @@ class CapHum extends Controller
                 fetch("/caphum/getEstados", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    credentials: "same-origin",
                     body: JSON.stringify({ id_pais: idPais })
                 }).then(function(r){ return r.json(); }).then(function(res){
                     estado.innerHTML = "<option value=''>Seleccione un estado</option>";
@@ -4775,6 +4778,7 @@ class CapHum extends Controller
                 fetch("/caphum/getMunicipios", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    credentials: "same-origin",
                     body: JSON.stringify({ id_estado: idEstado })
                 }).then(function(r){ return r.json(); }).then(function(res){
                     mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>";
@@ -4805,6 +4809,7 @@ class CapHum extends Controller
                 fetch("/caphum/getColonias", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    credentials: "same-origin",
                     body: JSON.stringify({ id_municipio: idMunicipio })
                 }).then(function(r){ return r.json(); }).then(function(res){
                     col.innerHTML = "<option value=''>Seleccione una colonia</option>";
@@ -6275,10 +6280,12 @@ class CapHum extends Controller
                 var depto = document.getElementById("candidato_id_departamento");
                 var puesto = document.getElementById("candidato_id_puesto");
                 if (pais && pais.value && !document.getElementById("candidato_id_div_nivel1").value) {
-                    pais.dispatchEvent(new Event("change"));
+                    if (typeof window.jQuery !== "undefined") window.jQuery(pais).trigger("change");
+                    else pais.dispatchEvent(new Event("change", { bubbles: true }));
                 }
                 if (depto && depto.value && puesto && puesto.options.length <= 1) {
-                    depto.dispatchEvent(new Event("change"));
+                    if (typeof window.jQuery !== "undefined") window.jQuery(depto).trigger("change");
+                    else depto.dispatchEvent(new Event("change", { bubbles: true }));
                 }
             });
             offcanvasEl.addEventListener("hidden.bs.offcanvas", function() {
@@ -6293,10 +6300,9 @@ class CapHum extends Controller
                 resetCascadaDomicilioCandidato();
             });
         }
-        var selPaisForm = document.getElementById("candidato_id_pais");
-        if (selPaisForm) selPaisForm.addEventListener("change", function() {
+        $(document).off("change.candForm", "#candidato_id_pais").on("change.candForm", "#candidato_id_pais", function() {
             resetCascadaDomicilioCandidato();
-            var idPais = this.value;
+            var idPais = $(this).val();
             if (!idPais) return;
             var divEstado = document.getElementById("div_candidato_estado");
             if (divEstado) divEstado.style.display = "";
@@ -6309,8 +6315,7 @@ class CapHum extends Controller
                 }
             });
         });
-        var selEstadoForm = document.getElementById("candidato_id_div_nivel1");
-        if (selEstadoForm) selEstadoForm.addEventListener("change", function() {
+        $(document).off("change.candForm", "#candidato_id_div_nivel1").on("change.candForm", "#candidato_id_div_nivel1", function() {
             var mun = document.getElementById("candidato_id_div_nivel2");
             var col = document.getElementById("candidato_id_div_nivel3");
             if (mun) { mun.innerHTML = "<option value=''>Seleccione una alcaldía / municipio</option>"; mun.disabled = true; refreshSelectBuscadorCandidato(mun.id); }
@@ -6324,7 +6329,7 @@ class CapHum extends Controller
             if (divCalle) divCalle.style.display = "none";
             if (divNum) divNum.style.display = "none";
             limpiarDomicilioTextoCandidato();
-            var idEstado = this.value;
+            var idEstado = $(this).val();
             if (!idEstado) return;
             if (divMunicipio) divMunicipio.style.display = "";
             cargarMunicipiosCandidato(idEstado, function(tieneMunicipios){
@@ -6336,8 +6341,7 @@ class CapHum extends Controller
                 }
             });
         });
-        var selMunicipioForm = document.getElementById("candidato_id_div_nivel2");
-        if (selMunicipioForm) selMunicipioForm.addEventListener("change", function() {
+        $(document).off("change.candForm", "#candidato_id_div_nivel2").on("change.candForm", "#candidato_id_div_nivel2", function() {
             var col = document.getElementById("candidato_id_div_nivel3");
             if (col) { col.innerHTML = "<option value=''>Seleccione una colonia</option>"; col.disabled = true; refreshSelectBuscadorCandidato(col.id); }
             var divColonia = document.getElementById("div_candidato_colonia");
@@ -6347,7 +6351,7 @@ class CapHum extends Controller
             if (divCalle) divCalle.style.display = "none";
             if (divNum) divNum.style.display = "none";
             limpiarDomicilioTextoCandidato();
-            var idMunicipio = this.value;
+            var idMunicipio = $(this).val();
             if (!idMunicipio) return;
             if (divColonia) divColonia.style.display = "";
             cargarColoniasCandidato(idMunicipio, function(tieneColonias){
@@ -6359,14 +6363,14 @@ class CapHum extends Controller
                 }
             });
         });
-        var selColoniaForm = document.getElementById("candidato_id_div_nivel3");
-        if (selColoniaForm) selColoniaForm.addEventListener("change", function() {
+        $(document).off("change.candForm", "#candidato_id_div_nivel3").on("change.candForm", "#candidato_id_div_nivel3", function() {
             var divCalle = document.getElementById("div_candidato_calle_texto");
             var divNum = document.getElementById("div_candidato_num_extint");
             var txtCalle = document.getElementById("candidato_domicilio_calle_texto");
             var txtExt = document.getElementById("candidato_domicilio_num_exterior");
             var txtInt = document.getElementById("candidato_domicilio_num_interior");
-            if (!this.value) {
+            var v = $(this).val();
+            if (!v) {
                 if (divCalle) divCalle.style.display = "none";
                 if (divNum) divNum.style.display = "none";
                 if (txtCalle) txtCalle.value = "";
@@ -6377,14 +6381,13 @@ class CapHum extends Controller
             if (divCalle) divCalle.style.display = "";
             if (divNum) divNum.style.display = "";
         });
-        var selDeptoForm = document.getElementById("candidato_id_departamento");
-        if (selDeptoForm) selDeptoForm.addEventListener("change", function() {
-            var idDepto = this.value;
+        $(document).off("change.candForm", "#candidato_id_departamento").on("change.candForm", "#candidato_id_departamento", function() {
+            var idDepto = $(this).val();
             var selPuesto = document.getElementById("candidato_id_puesto"); var selJefe = document.getElementById("candidato_id_posible_jefe");
             if (selPuesto) { selPuesto.innerHTML = "<option value=''>Seleccione puesto</option>"; refreshSelectBuscadorCandidato(selPuesto.id); }
             if (selJefe) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; refreshSelectBuscadorCandidato(selJefe.id); }
             if (!idDepto) return;
-            fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto }) })
+            fetch("/caphum/getPuestos", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto }) })
                 .then(function(r){ return r.json(); })
                 .then(function(res){
                     if (res.success && res.datos) {
@@ -6395,7 +6398,7 @@ class CapHum extends Controller
                 .catch(function(){ refreshSelectBuscadorCandidato("candidato_id_puesto"); });
             if (selJefe) {
                 selJefe.innerHTML = "<option value=''>—</option>";
-                fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: null }) })
+                fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto, id_puesto: null }) })
                     .then(function(r){ return r.json(); })
                     .then(function(res){
                         selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";
@@ -6405,13 +6408,12 @@ class CapHum extends Controller
                     .catch(function(){ selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>"; refreshSelectBuscadorCandidato("candidato_id_posible_jefe"); });
             }
         });
-        var selPuestoForm = document.getElementById("candidato_id_puesto");
-        if (selPuestoForm) selPuestoForm.addEventListener("change", function() {
-            var idPuesto = this.value; var selDepto = document.getElementById("candidato_id_departamento"); var selJefe = document.getElementById("candidato_id_posible_jefe");
+        $(document).off("change.candForm", "#candidato_id_puesto").on("change.candForm", "#candidato_id_puesto", function() {
+            var idPuesto = $(this).val(); var selDepto = document.getElementById("candidato_id_departamento"); var selJefe = document.getElementById("candidato_id_posible_jefe");
             if (!selJefe || !selDepto) return;
             selJefe.innerHTML = "<option value=''>—</option>"; var idDepto = selDepto.value;
             if (!idDepto) { selJefe.innerHTML = "<option value=''>Seleccione departamento y puesto primero</option>"; return; }
-            fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null }) })
+            fetch("/caphum/getJefeDirecto", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id_departamento: idDepto, id_puesto: idPuesto || null }) })
                 .then(function(r){ return r.json(); })
                 .then(function(res){
                     selJefe.innerHTML = "<option value=''>Seleccione posible jefe</option>";

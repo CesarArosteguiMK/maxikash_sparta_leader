@@ -334,6 +334,20 @@ $listaJefes = $listaJefes ?? [];
                     <option value="">Seleccione una colonia</option>
                 </select>
             </div>
+            <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
+                <label class="form-label">Calle <span class="text-danger">*</span></label>
+                <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
+            </div>
+            <div class="row mb-2" id="div_candidato_num_extint" style="display:none;">
+                <div class="col-md-6">
+                    <label class="form-label">No. exterior <span class="text-danger">*</span></label>
+                    <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">No. interior (opcional)</label>
+                    <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
+                </div>
+            </div>
             <div class="mb-2">
                 <label class="form-label">Departamento al que aplica <span class="text-danger">*</span></label>
                 <select name="id_departamento" id="candidato_id_departamento" class="form-select js-select-buscador" required>
@@ -354,20 +368,6 @@ $listaJefes = $listaJefes ?? [];
                 <select name="id_posible_jefe" id="candidato_id_posible_jefe" class="form-select js-select-buscador" required>
                     <option value="">Seleccione departamento y puesto primero</option>
                 </select>
-            </div>
-            <div class="mb-2" id="div_candidato_calle_texto" style="display:none;">
-                <label class="form-label">Calle <span class="text-danger">*</span></label>
-                <input type="text" name="domicilio_calle_texto" id="candidato_domicilio_calle_texto" class="form-control" maxlength="180">
-            </div>
-            <div class="row mb-2" id="div_candidato_num_extint" style="display:none;">
-                <div class="col-md-6">
-                    <label class="form-label">No. exterior <span class="text-danger">*</span></label>
-                    <input type="text" name="domicilio_num_exterior" id="candidato_domicilio_num_exterior" class="form-control" maxlength="32">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">No. interior (opcional)</label>
-                    <input type="text" name="domicilio_num_interior" id="candidato_domicilio_num_interior" class="form-control" maxlength="32">
-                </div>
             </div>
             <div class="mb-2">
                 <label class="form-label">Fecha de postulación <span class="text-danger">*</span></label>
