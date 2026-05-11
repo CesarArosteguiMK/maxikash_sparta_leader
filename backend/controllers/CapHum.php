@@ -4737,6 +4737,10 @@ class CapHum extends Controller
                     else confianzaClase = "text-danger";
                 }
                 var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small overflow-auto\">";
+                var errApi = (v.error_api != null && String(v.error_api).trim() !== "") ? String(v.error_api) : "";
+                if (errApi) {
+                    html += "<div class=\"alert alert-danger py-2 px-2 mb-2 small\" role=\"alert\"><strong>No se pudo completar la verificación automática.</strong><br>" + escHtmlComparaciones(errApi) + "</div>";
+                }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
@@ -4751,59 +4755,153 @@ class CapHum extends Controller
                 bloqueVerif.innerHTML = html;
             }
 
+            function escHtmlComparaciones(s) {
+                var t = String(s === null || s === undefined ? "" : s);
+                return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            }
+
+            /** Solo mostrar la tarjeta si la API guardó comparaciones reales (objeto con al menos una clave conocida). */
+            function hayComparacionesEvaluables(v) {
+                if (!v || typeof v !== "object") return false;
+                var comp = v.comparaciones;
+                if (!comp || typeof comp !== "object") return false;
+                var conocidas = {
+                    curp_id_vs_documento: 1, nombre_frente_vs_reverso: 1, nombre_registro_vs_documentos: 1, nombre_id_vs_curp_pdf: 1,
+                    fecha_nac_curp_vs_mrz: 1, curp_pdf_frescura: 1, curp_vs_fiscal: 1, nombre_vs_fiscal: 1, curp_vs_nss: 1, nombre_vs_nss: 1,
+                    nombre_vs_acta: 1, fecha_nac_vs_acta: 1, nombre_registro_vs_acta: 1
+                };
+                for (var k in comp) {
+                    if (Object.prototype.hasOwnProperty.call(comp, k) && conocidas[k]) return true;
+                }
+                return false;
+            }
+
+            /** No mezclar comparaciones de una corrida anterior con un fallo reciente de la API (timeout, health-check, etc.). */
+            function expedienteVerifApiInconsistente(v) {
+                if (!v || typeof v !== "object") return false;
+                if (v.error_api != null && String(v.error_api).trim() !== "") return true;
+                var ct = v.checks_totales != null ? parseInt(v.checks_totales, 10) : null;
+                var sinScores = (v.identificacion_frente_score == null || v.identificacion_frente_score === "") && (v.identificacion_reverso_score == null || v.identificacion_reverso_score === "");
+                if (ct === 0 && sinScores && hayComparacionesEvaluables(v)) return true;
+                return false;
+            }
+
             function renderComparacionesDocFullWidth(bloqueComp, v) {
                 if (!bloqueComp) return;
-                if (!v) {
+                if (!v || expedienteVerifApiInconsistente(v) || !hayComparacionesEvaluables(v)) {
                     bloqueComp.classList.add("d-none");
                     bloqueComp.innerHTML = "";
                     return;
                 }
-                bloqueComp.classList.remove("d-none");
+                var comp = v.comparaciones || {};
+                var gruposDef = [
+                    { titulo: "INE", keys: [
+                        { k: "curp_id_vs_documento", label: "CURP en credencial INE (frente)" },
+                        { k: "nombre_frente_vs_reverso", label: "Nombre INE frente vs nombre INE reverso" },
+                        { k: "nombre_id_vs_curp_pdf", label: "Nombre en INE vs nombre en CURP (PDF)" },
+                        { k: "nombre_registro_vs_documentos", label: "Nombre del expediente vs nombre en documentos" }
+                    ]},
+                    { titulo: "CURP", keys: [
+                        { k: "fecha_nac_curp_vs_mrz", label: "Fecha de nacimiento en CURP vs fecha en reverso INE" },
+                        { k: "curp_pdf_frescura", label: "CURP en PDF vigente (no mayor a 3 meses)", kind: "frescura" },
+                        { k: "curp_vs_fiscal", label: "CURP del PDF vs CURP en constancia fiscal" }
+                    ]},
+                    { titulo: "Fiscal / NSS", keys: [
+                        { k: "nombre_vs_fiscal", label: "Nombre en constancia fiscal vs nombre en INE" },
+                        { k: "curp_vs_fiscal", label: "CURP en constancia vs CURP en INE" },
+                        { k: "nombre_vs_nss", label: "Nombre en NSS vs nombre en INE" },
+                        { k: "curp_vs_nss", label: "CURP en NSS vs CURP en INE" }
+                    ]},
+                    { titulo: "Acta", keys: [
+                        { k: "nombre_vs_acta", label: "Nombre en INE vs nombre en acta" },
+                        { k: "fecha_nac_vs_acta", label: "Fecha de nacimiento INE vs fecha en acta" },
+                        { k: "nombre_registro_vs_acta", label: "Nombre del expediente vs nombre en acta" }
+                    ]}
+                ];
+
+                function lineaHtml(entry, def) {
+                    var kind = def.kind || "coincide";
+                    var ok = null;
+                    if (kind === "frescura") {
+                        if (!entry || entry.es_reciente === undefined || entry.es_reciente === null) return "";
+                        ok = entry.es_reciente === true;
+                    } else {
+                        if (!entry || !Object.prototype.hasOwnProperty.call(entry, "coincide")) return "";
+                        if (entry.coincide === true) ok = true;
+                        else if (entry.coincide === false) ok = false;
+                        else {
+                            return "<div class=\"small mb-1\"><span class=\"text-secondary\">—</span> <span class=\"text-muted\">" + escHtmlComparaciones(def.label) + " <span class=\"fst-italic\">(sin evaluar)</span></span></div>";
+                        }
+                    }
+                    var sym = ok ? "<span class=\"text-success\">✓</span>" : "<span class=\"text-danger\">✗</span>";
+                    var txtCls = ok ? "text-muted" : "text-danger";
+                    return "<div class=\"small mb-1\">" + sym + " <span class=\"" + txtCls + "\">" + escHtmlComparaciones(def.label) + "</span></div>";
+                }
+
+                var totalOk = 0, totalLin = 0, algunaTarjeta = false;
+                var tarjetas = [];
+                gruposDef.forEach(function(gr) {
+                    var lineas = [];
+                    var okG = 0, nG = 0, failG = false;
+                    gr.keys.forEach(function(def) {
+                        var entry = comp[def.k];
+                        if (def.kind === "frescura") {
+                            if (!entry || entry.es_reciente === undefined || entry.es_reciente === null) return;
+                            lineas.push(lineaHtml(entry, def));
+                            nG++;
+                            totalLin++;
+                            if (entry.es_reciente === true) { okG++; totalOk++; }
+                            else failG = true;
+                            return;
+                        }
+                        if (!entry || !Object.prototype.hasOwnProperty.call(entry, "coincide")) return;
+                        lineas.push(lineaHtml(entry, def));
+                        if (entry.coincide === true || entry.coincide === false) {
+                            nG++;
+                            totalLin++;
+                            if (entry.coincide === true) { okG++; totalOk++; }
+                            else failG = true;
+                        }
+                    });
+                    if (lineas.length === 0) return;
+                    algunaTarjeta = true;
+                    var scoreTxt = nG > 0 ? (okG + "/" + nG + (okG === nG ? " ✓" : " ✗")) : "—";
+                    var scoreCls = failG ? "text-danger" : "text-success";
+                    var borde = failG ? " border border-danger" : "";
+                    tarjetas.push("<div class=\"col-12 col-md-6 col-xl-3\"><div class=\"card p-2 h-100" + borde + "\"><div class=\"d-flex justify-content-between align-items-center mb-2\"><span class=\"fw-semibold fs-6\">" + escHtmlComparaciones(gr.titulo) + "</span><span class=\"small " + scoreCls + "\">" + escHtmlComparaciones(scoreTxt) + "</span></div>" + lineas.join("") + "</div></div>");
+                });
+
+                if (!algunaTarjeta) {
+                    bloqueComp.classList.add("d-none");
+                    bloqueComp.innerHTML = "";
+                    return;
+                }
+
+                var alertas = Array.isArray(v.alertas) ? v.alertas : [];
                 var html = "<div class=\"card border shadow-none\"><div class=\"card-body py-2 small\">";
-                html += "<div class=\"d-flex justify-content-between align-items-center mb-2\">";
+                html += "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2\">";
                 html += "<span class=\"fw-semibold small\">Comparaciones entre documentos</span>";
-                html += "<span><span class=\"badge bg-success me-1\">11 coinciden</span><span class=\"badge bg-danger\">2 alertas</span></span>";
-                html += "</div>";
-                html += "<div class=\"alert alert-danger py-1 px-2 mb-2\" role=\"alert\">";
-                html += "<div class=\"d-flex flex-wrap gap-3 small\">";
-                html += "<span>✗ El nombre del expediente no coincide con los documentos subidos</span>";
-                html += "<span>✗ El nombre del expediente no coincide con el del acta de nacimiento</span>";
-                html += "</div></div>";
-                html += "<div class=\"row g-2 mb-0\">";
-                html += "<div class=\"col-3\"><div class=\"card p-2\">";
-                html += "<div class=\"d-flex justify-content-between align-items-center mb-2\"><span class=\"fw-semibold fs-6\">INE</span><span class=\"text-success small\">3/3 ✓</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">CURP en credencial INE (frente)</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">Nombre INE frente vs nombre INE reverso</span></div>";
-                html += "<div class=\"small\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">Nombre en INE vs nombre en CURP (PDF)</span></div>";
-                html += "</div></div>";
-                html += "<div class=\"col-3\"><div class=\"card p-2\">";
-                html += "<div class=\"d-flex justify-content-between align-items-center mb-2\"><span class=\"fw-semibold fs-6\">CURP</span><span class=\"text-success small\">3/3 ✓</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">Fecha de nacimiento en CURP vs fecha en reverso INE</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">CURP en PDF vigente (no mayor a 3 meses)</span></div>";
-                html += "<div class=\"small\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">CURP del PDF vs CURP en constancia fiscal</span></div>";
-                html += "</div></div>";
-                html += "<div class=\"col-3\"><div class=\"card p-2\">";
-                html += "<div class=\"d-flex justify-content-between align-items-center mb-2\"><span class=\"fw-semibold fs-6\">Fiscal / NSS</span><span class=\"text-success small\">4/4 ✓</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">Nombre en constancia fiscal vs nombre en INE</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">CURP en constancia vs CURP en INE</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">Nombre en NSS vs nombre en INE</span></div>";
-                html += "<div class=\"small\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">CURP en NSS vs CURP en INE</span></div>";
-                html += "</div></div>";
-                html += "<div class=\"col-3\"><div class=\"card p-2 border border-danger\">";
-                html += "<div class=\"d-flex justify-content-between align-items-center mb-2\"><span class=\"fw-semibold fs-6\">Acta</span><span class=\"text-danger small\">2/3 ✗</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">Nombre en INE vs nombre en acta</span></div>";
-                html += "<div class=\"small mb-1\"><span class=\"text-success\">✓</span> <span class=\"text-muted\">Fecha de nacimiento INE vs fecha en acta</span></div>";
-                html += "<div class=\"small\"><span class=\"text-danger\">✗</span> <span class=\"text-danger\">Nombre del expediente no coincide con el del acta</span></div>";
-                html += "</div></div>";
-                html += "</div></div></div>";
+                html += "<span>";
+                if (totalLin > 0) html += "<span class=\"badge bg-success me-1\">" + totalOk + "/" + totalLin + " coinciden</span>";
+                if (alertas.length) html += "<span class=\"badge bg-danger\">" + alertas.length + " alerta" + (alertas.length === 1 ? "" : "s") + "</span>";
+                html += "</span></div>";
+                if (alertas.length) {
+                    html += "<div class=\"alert alert-danger py-1 px-2 mb-2\" role=\"alert\"><div class=\"d-flex flex-wrap gap-2 small\">";
+                    alertas.forEach(function(a) { html += "<span>✗ " + escHtmlComparaciones(typeof a === "string" ? a : String(a)) + "</span>"; });
+                    html += "</div></div>";
+                }
+                html += "<div class=\"row g-2 mb-0\">" + tarjetas.join("") + "</div></div></div>";
+                bloqueComp.classList.remove("d-none");
                 bloqueComp.innerHTML = html;
             }
 
             function badgeVerificacionDoc(tipoDoc, v) {
                 if (!v || !tipoDoc) return "";
+                if (expedienteVerifApiInconsistente(v)) return "";
                 var t = (tipoDoc + "").trim().toUpperCase();
                 if (t.indexOf("REVERSO") !== -1) { var r = v.identificacion_reverso_score; if (r == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + r + "%</span>"; }
                 if (t === "IDENTIFICACIÓN OFICIAL" || t === "IDENTIFICACION OFICIAL") { var s = v.identificacion_frente_score; if (s == null) return ""; return "<span class=\"badge bg-primary ms-1\" title=\"Veracidad con el candidato\">" + s + "%</span>"; }
+                if (!hayComparacionesEvaluables(v)) return "";
                 var comp = v.comparaciones || {};
                 if (t.indexOf("CURP") !== -1 && t.indexOf("ACTA") === -1) { var c1 = comp.nombre_id_vs_curp_pdf || comp.curp_id_vs_documento; if (c1 && c1.coincide !== undefined) return c1.coincide ? "<span class=\"badge bg-success ms-1\" title=\"Coincide con INE\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\" title=\"No coincide\">No coincide</span>"; }
                 if (t.indexOf("CONSTANCIA") !== -1 || t.indexOf("FISCAL") !== -1) { var c2 = comp.curp_vs_fiscal || comp.nombre_vs_fiscal; if (c2 && c2.coincide !== undefined) return c2.coincide ? "<span class=\"badge bg-success ms-1\">Coincide</span>" : "<span class=\"badge bg-danger ms-1\">No coincide</span>"; }
@@ -4865,7 +4963,7 @@ class CapHum extends Controller
                 tooltipFiscalHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + tableHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-info-circle text-info\"></i></span>";
             }
             var tooltipIdHtml = "";
-            if ((tipoNorm === "IDENTIFICACIÓN OFICIAL" || tipoNorm === "IDENTIFICACION OFICIAL") && verif && typeof verif === "object") {
+            if ((tipoNorm === "IDENTIFICACIÓN OFICIAL" || tipoNorm === "IDENTIFICACION OFICIAL") && verif && typeof verif === "object" && !expedienteVerifApiInconsistente(verif)) {
                 var tipoDocLabel = "—";
                 if (verif.tipo_documento) {
                     var td = (verif.tipo_documento + "").toUpperCase();
@@ -5088,6 +5186,38 @@ class CapHum extends Controller
                 }
             }
 
+            function reintentarVerificacionExpedienteApi() {
+                var modal = document.getElementById("modalDocumentacionCandidato");
+                var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
+                if (!idC) return;
+                var btn = document.getElementById("btnReintentarVerifExpediente");
+                var prevHtml = btn ? btn.innerHTML : "";
+                if (btn) { btn.disabled = true; btn.innerHTML = "<i class=\"fa fa-spinner fa-spin\"></i>"; }
+                var fd = new FormData();
+                fd.append("id_candidato", String(idC));
+                fetch("/caphum/verificarExpedienteCandidato", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (typeof Swal !== "undefined") {
+                            if (res && res.success) {
+                                Swal.fire({ icon: "success", title: "Verificación", text: res.mensaje || "Listo.", toast: true, position: "top-end", showConfirmButton: false, timer: 2600 });
+                            } else {
+                                Swal.fire({ icon: "warning", title: "Verificación", text: (res && res.mensaje) ? res.mensaje : "No se pudo completar.", toast: true, position: "top-end", showConfirmButton: true });
+                            }
+                        }
+                        cargarDocumentosModal(idC);
+                    })
+                    .catch(function() {
+                        if (typeof Swal !== "undefined") {
+                            Swal.fire({ icon: "error", title: "Error", text: "No hubo respuesta del servidor.", toast: true, position: "top-end", showConfirmButton: true });
+                        }
+                        cargarDocumentosModal(idC);
+                    })
+                    .finally(function() {
+                        if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+                    });
+            }
+
             function cargarDocumentosModal(idCandidato, opts) {
                 opts = opts || {};
                 if (!opts.fromPoll) {
@@ -5135,12 +5265,19 @@ class CapHum extends Controller
                         if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
                     }
                     maybeScheduleDocModalPoll(idCandidato, metricas, verif, opts);
+                    var btnRe = document.getElementById("btnReintentarVerifExpediente");
+                    if (btnRe) {
+                        if (metricas && metricas.expediente_completo === true) btnRe.classList.remove("d-none");
+                        else btnRe.classList.add("d-none");
+                    }
                 }).catch(function() {
                     renderListaDocumentos(lista, cargando, vacio, [], null, idCandidato);
                     if (bloqueAccionesProceso) { bloqueAccionesProceso.classList.add("d-none"); bloqueAccionesProceso.innerHTML = ""; }
                     if (bloqueMetricas) { bloqueMetricas.classList.add("d-none"); bloqueMetricas.innerHTML = ""; }
                     if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                     if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
+                    var btnReCatch = document.getElementById("btnReintentarVerifExpediente");
+                    if (btnReCatch) btnReCatch.classList.add("d-none");
                 });
             }
 
@@ -5155,7 +5292,10 @@ class CapHum extends Controller
                 var lista = document.getElementById("modalDocumentacionCandidatoLista");
                 var cargando = document.getElementById("modalDocumentacionCandidatoCargando");
                 var vacio = document.getElementById("modalDocumentacionCandidatoVacio");
-                if (modal) modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
+                if (modal) {
+                    modal.dataset.nombreCandidato = (nombreCandidato != null && nombreCandidato !== undefined) ? String(nombreCandidato) : "";
+                    modal.dataset.idCandidato = String(idCandidato);
+                }
                 if (label) label.textContent = nombreCandidato ? "Candidato: " + nombreCandidato : "";
                 if (bloqueVerif) { bloqueVerif.classList.add("d-none"); bloqueVerif.innerHTML = ""; }
                 if (bloqueComp) { bloqueComp.classList.add("d-none"); bloqueComp.innerHTML = ""; }
@@ -5526,6 +5666,12 @@ class CapHum extends Controller
         var modalDocPollEl = document.getElementById("modalDocumentacionCandidato");
         if (modalDocPollEl) modalDocPollEl.addEventListener("hidden.bs.modal", function() { clearDocModalPoll(); });
         document.addEventListener("click", function(e) {
+            if (e.target.closest("#btnReintentarVerifExpediente")) {
+                e.preventDefault();
+                e.stopPropagation();
+                reintentarVerificacionExpedienteApi();
+                return;
+            }
             var btn = e.target.closest(".btn-cerrar-proceso-candidato");
             if (btn) {
                 e.preventDefault();
@@ -6025,6 +6171,8 @@ class CapHum extends Controller
         $ahoraCdmx = self::ahoraMexicoCiudad();
         $limiteFinInst = self::documentacionLimiteFinDesdeReferencia($ahoraCdmx, $diasHabilesLimite);
         $fechaLimite = $limiteFinInst->format('d/m/Y');
+        // Misma fecha/hora límite que indica el correo: el enlace deja de aceptar subidas después (CDMX 23:59:59).
+        CandidatosDAO::actualizarExpiraTokenDocumentos($id, $limiteFinInst->format('Y-m-d H:i:s'));
         $telefono = $c['telefono'] ?? '';
         // Ruta del logo para incrustar en el correo (cid:) — prioridad: logo_correo.png (sin fondo), luego logo___SPARTA_SECRET_REDACTED__.png
         $dirPublic = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
@@ -6698,6 +6846,18 @@ class CapHum extends Controller
         $data = CandidatosDAO::getDocumentosYVerificacion($id_candidato);
         $documentos = $data['documentos'] ?? [];
         $verificacion = $data['verificacion'] ?? null;
+        if (is_array($verificacion)) {
+            $errApi = trim((string) ($verificacion['error_api'] ?? ''));
+            if ($errApi !== '') {
+                $verificacion['comparaciones'] = null;
+            } else {
+                $ct = isset($verificacion['checks_totales']) ? (int) $verificacion['checks_totales'] : -1;
+                $noScores = empty($verificacion['identificacion_frente_score']) && empty($verificacion['identificacion_reverso_score']);
+                if ($ct === 0 && $noScores && !empty($verificacion['comparaciones']) && is_array($verificacion['comparaciones'])) {
+                    $verificacion['comparaciones'] = null;
+                }
+            }
+        }
 
         $payload = ['documentos' => $documentos];
         if ($verificacion !== null) {
@@ -6813,7 +6973,7 @@ class CapHum extends Controller
                 'curp_definitivo' => null,
                 'checks_ok' => 0,
                 'checks_totales' => 0,
-                'alertas' => ['No se pudo completar la verificación automática: ' . $resultadoApi['error']],
+                'alertas' => ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'],
                 'identificacion_frente_score' => null,
                 'identificacion_reverso_score' => null,
                 'comparaciones' => null,
@@ -7050,6 +7210,10 @@ class CapHum extends Controller
                     is_string($fechaEnvioCand) ? $fechaEnvioCand : null,
                     $diasHabilesCfg
                 );
+                $ahoraDel = self::ahoraMexicoCiudad();
+                $refPlazoDel = self::parseFechaHoraMexicoCiudad(is_string($fechaEnvioCand) ? $fechaEnvioCand : null) ?? $ahoraDel;
+                $limiteDelInst = self::documentacionLimiteFinDesdeReferencia($refPlazoDel, $diasHabilesCfg);
+                CandidatosDAO::actualizarExpiraTokenDocumentos($idCand, $limiteDelInst->format('Y-m-d H:i:s'));
 
                 $dirPublicDel = defined('RAIZ') ? dirname(RAIZ) . '/public' : (__DIR__ . '/../../public');
                 $rutaLogoInlineDel = null;
@@ -7590,7 +7754,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => $post,
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 45,
+            CURLOPT_TIMEOUT => 240,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -8335,10 +8499,28 @@ class CapHum extends Controller
                     }
                 } elseif ($tipo === 'CURP') {
                     $rutasParaValidar['curp'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['CURP recibido; re-evaluando contra el expediente.'],
+                        ]));
+                    }
                 } elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL') {
                     $rutasParaValidar['nss'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
+                        ]));
+                    }
                 } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                     $rutasParaValidar['constancia_fiscal'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['Constancia fiscal recibida; re-evaluando contra el expediente.'],
+                        ]));
+                    }
                 } elseif ($tipo === 'ESTADO DE CUENTA') {
                     if ($idDoc > 0) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
@@ -8348,6 +8530,12 @@ class CapHum extends Controller
                     }
                 } elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') {
                     $rutasParaValidar['acta_nacimiento'] = $pathAbs;
+                    if ($idDoc > 0) {
+                        CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
+                            'pendiente_revision_backend' => true,
+                            'notas' => ['Acta de nacimiento recibida; re-evaluando contra el expediente.'],
+                        ]));
+                    }
                 }
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
@@ -8383,7 +8571,7 @@ class CapHum extends Controller
                     'curp_definitivo' => null,
                     'checks_ok' => 0,
                     'checks_totales' => 0,
-                    'alertas' => ['No se pudo completar la verificación automática: ' . $err],
+                    'alertas' => ['La verificación automática no finalizó correctamente. El expediente quedó completo y requiere revisión manual de Capital Humano.'],
                     'identificacion_frente_score' => null,
                     'identificacion_reverso_score' => null,
                     'comparaciones' => null,
