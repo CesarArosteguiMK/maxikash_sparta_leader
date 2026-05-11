@@ -2717,6 +2717,10 @@ class CapHum extends Controller
                             formData.append('archivosPDF[]', file);
                         });
 
+                        //  Deshabilitar botón para evitar doble envío
+                        const btnBajaConfirmar = document.querySelector('#modalBajas .btn-danger');
+                        if (btnBajaConfirmar) { btnBajaConfirmar.disabled = true; btnBajaConfirmar.textContent = 'Procesando...'; }
+
                         //  Enviar al controlador
                         fetch('/CapHum/registrarBaja', {
                             method: 'POST',
@@ -2743,6 +2747,7 @@ class CapHum extends Controller
                                     if (typeof getBajas === 'function') getBajas();
                                 });
                             } else {
+                                if (btnBajaConfirmar) { btnBajaConfirmar.disabled = false; btnBajaConfirmar.textContent = 'Confirmar Baja'; }
                                 Swal.fire({
                                     icon: 'error',
                                     title: 'Error',
@@ -2751,6 +2756,7 @@ class CapHum extends Controller
                             }
                         })
                         .catch(error => {
+                            if (btnBajaConfirmar) { btnBajaConfirmar.disabled = false; btnBajaConfirmar.textContent = 'Confirmar Baja'; }
                             console.error("Error:", error);
                             Swal.fire({
                                 icon: 'error',
@@ -10778,7 +10784,7 @@ public function getMunicipios()
         } else {
             echo json_encode([
                 'success' => false,
-                'message' => 'Error al registrar la baja',
+                'message' => $resultado['mensaje'] ?? 'Error al registrar la baja',
                 'error'   => $resultado['error'] ?? null
             ]);
         }
