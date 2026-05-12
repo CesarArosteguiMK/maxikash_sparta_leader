@@ -121,7 +121,7 @@ if errorlevel 1 (
 echo [doctor] OK -- arrancando uvicorn (Ctrl+C para detener).
 echo.
 
-"%PY_EXE%" %PY_ARG% -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+"%PY_EXE%" %PY_ARG% -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
 set "RC=%ERRORLEVEL%"
 
 echo.

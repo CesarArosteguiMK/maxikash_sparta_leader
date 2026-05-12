@@ -190,7 +190,7 @@ def _texto_de_pdf(pdf_bytes: bytes, max_paginas: int = 3) -> str:
             return texto
         # PDF sin capa de texto (escaneado): convertir páginas a imagen y usar OCR
         from app.services.document_crosscheck import pdf_paginas_a_png_bytes
-        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=200)
+        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=200, max_paginas=max_paginas)
         if not imagenes:
             return ""
         for img_bytes in imagenes[:max_paginas]:

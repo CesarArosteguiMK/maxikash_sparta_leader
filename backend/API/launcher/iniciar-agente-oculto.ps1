@@ -113,7 +113,7 @@ function Start-UvicornWithCmdFallback {
         '@echo off',
         'cd /d "' + $ApiDir + '"',
         'set "PYTHONUNBUFFERED=1"',
-        '"' + $PyExe + '" ' + $argText + '-m uvicorn app.main:app --host 0.0.0.0 --port 8000 1>>"' + $OutLog + '" 2>>"' + $ErrLog + '"'
+        '"' + $PyExe + '" ' + $argText + '-m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 1>>"' + $OutLog + '" 2>>"' + $ErrLog + '"'
     )
     Set-Content -LiteralPath $cmdFile -Value $lines -Encoding ASCII
     $p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d','/c','start','"SpartaAPI"','/min', $cmdFile) -WindowStyle Hidden -PassThru
@@ -190,7 +190,7 @@ Write-Start 'OK: smoke import correcto.'
 # ---- 5) Lanzar uvicorn capturando stdout y stderr ----
 $argList = @()
 if ($pyArgs.Count -gt 0) { $argList += $pyArgs }
-$argList += @('-m','uvicorn','app.main:app','--host','0.0.0.0','--port','8000')
+$argList += @('-m','uvicorn','app.main:app','--host','0.0.0.0','--port','8000','--workers','2')
 
 # Truncar logs anteriores (mantener historial seria sumar tamano sin control).
 try { Set-Content -LiteralPath $outLog -Value '' -Encoding UTF8 } catch {}

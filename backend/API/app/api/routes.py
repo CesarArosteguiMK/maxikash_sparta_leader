@@ -398,7 +398,14 @@ async def verificar_nss_documento(
     valido, mensaje = validar_nss(nss_extraido)
     datos_nss = extraer_datos_nss_pdf(file_bytes)
     nombre = datos_nss.get("nombre") if isinstance(datos_nss, dict) else None
-    return {"nss_extraido": nss_extraido, "valido": valido, "mensaje": mensaje, "nombre": nombre}
+    return {
+        "nss_extraido": nss_extraido,
+        "valido": valido,
+        "mensaje": mensaje,
+        "nombre": nombre,
+        "curp": datos_nss.get("curp") if isinstance(datos_nss, dict) else None,
+        "fecha_nacimiento": datos_nss.get("fecha_nacimiento") if isinstance(datos_nss, dict) else None,
+    }
 
 
 @router.post(
@@ -418,15 +425,19 @@ async def verificar_acta_documento(
         raise HTTPException(status_code=400, detail="Documento vacío")
     if es_documento_nss(file_bytes):
         return {"valido": False, "mensaje": "El documento es una constancia de NSS del IMSS. En este campo solo se acepta el acta de nacimiento certificada en PDF."}
-    datos = extraer_datos_acta_nacimiento(file_bytes)
+    inicio = time.time()
+    parece_acta = es_documento_acta_nacimiento(file_bytes)
+    datos = await asyncio.to_thread(extraer_datos_acta_nacimiento, file_bytes, True)
+    parece_acta = parece_acta or bool(datos.get("parece_acta"))
+    tiempo_ms = int((time.time() - inicio) * 1000)
     # Muy flexible: si el extractor obtuvo fecha o nombre (incluso con baja confianza, ej. escaneos/manuscritos), aceptar
     if datos.get("fecha_nacimiento") or datos.get("nombre"):
         return {"valido": True, "mensaje": "Acta de nacimiento verificada.", "nombre": datos.get("nombre"), "fecha_nacimiento": datos.get("fecha_nacimiento")}
     # Si hay texto extraído y coincide con acta por encabezados, aceptar
-    if datos.get("texto_extraido") and es_documento_acta_nacimiento(file_bytes):
+    if datos.get("texto_extraido") and parece_acta:
         return {"valido": True, "mensaje": "Acta de nacimiento verificada.", "nombre": datos.get("nombre"), "fecha_nacimiento": datos.get("fecha_nacimiento")}
     # Documento con texto que parece acta pero no se pudo extraer fecha/nombre (ej. manuscrito muy cerrado)
-    if es_documento_acta_nacimiento(file_bytes):
+    if parece_acta:
         return {"valido": True, "mensaje": "Acta de nacimiento verificada (revisión manual recomendada).", "nombre": None, "fecha_nacimiento": None}
     if datos.get("texto_extraido"):
         return {"valido": False, "mensaje": "No se pudo leer nombre ni fecha en el documento. Sube el PDF del acta certificada (evita imágenes muy borrosas o manuscritas)."}
@@ -701,7 +712,7 @@ async def verificar_calidad_identificacion_pdf(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
 
-    imagenes = pdf_paginas_a_png_bytes(file_bytes, dpi=150)
+    imagenes = pdf_paginas_a_png_bytes(file_bytes, dpi=150, max_paginas=2)
     if not imagenes:
         return {
             "aceptado": True,
@@ -841,11 +852,14 @@ async def validar_expediente(
     # Resolver frente y reverso: desde PDF (páginas 1 y 2) o desde archivos separados
     frente_bytes: Optional[bytes] = None
     reverso_bytes: Optional[bytes] = None
+    tiempos_fase: Dict[str, int] = {}
 
     if identificacion_pdf and identificacion_pdf.filename and identificacion_pdf.filename.lower().endswith(".pdf"):
         pdf_bytes = await identificacion_pdf.read()
         if pdf_bytes and len(pdf_bytes) >= 100:
-            imagenes = await asyncio.to_thread(pdf_paginas_a_png_bytes, pdf_bytes, 150)
+            t_pdf = time.time()
+            imagenes = await asyncio.to_thread(pdf_paginas_a_png_bytes, pdf_bytes, 150, 2)
+            tiempos_fase["pdf_identificacion_a_imagenes_ms"] = int((time.time() - t_pdf) * 1000)
             if imagenes:
                 frente_bytes = imagenes[0]
                 reverso_bytes = imagenes[1] if len(imagenes) > 1 else imagenes[0]
@@ -875,23 +889,28 @@ async def validar_expediente(
     try:
         inicio = time.time()
         service = VerificacionService()
+        t_id = time.time()
         res_frente, res_reverso = await asyncio.gather(
             service.verificar(frente_bytes, tipo_documento),
             service.verificar(reverso_bytes, tipo_documento),
         )
+        tiempos_fase["identificacion_ocr_forense_ms"] = int((time.time() - t_id) * 1000)
 
         ocr_f = res_frente.checks.ocr_campos
         ocr_r = res_reverso.checks.ocr_campos
         calidad = res_frente.checks.forense.calidad_foto
 
         # Estos PDFs pueden disparar OCR. Ejecutarlos en paralelo evita sumar sus tiempos uno tras otro.
+        t_pdfs = time.time()
         datos_curp, datos_nss, datos_fiscal, datos_acta = await asyncio.gather(
             asyncio.to_thread(extraer_datos_curp_pdf, curp_pdf_bytes) if curp_pdf_bytes else asyncio.sleep(0, result=None),
             asyncio.to_thread(extraer_datos_nss_pdf, nss_pdf_bytes) if nss_pdf_bytes else asyncio.sleep(0, result=None),
             asyncio.to_thread(extraer_datos_constancia_fiscal, fiscal_pdf_bytes) if fiscal_pdf_bytes else asyncio.sleep(0, result=None),
             asyncio.to_thread(extraer_datos_acta_nacimiento, acta_pdf_bytes) if acta_pdf_bytes else asyncio.sleep(0, result=None),
         )
+        tiempos_fase["pdfs_datos_ms"] = int((time.time() - t_pdfs) * 1000)
 
+        t_cruce = time.time()
         resultado = validacion_cruzada(
             id_frente_curp=ocr_f.curp.get("valor") if ocr_f.curp else None,
             id_frente_nombre=ocr_f.nombre_ocr,
@@ -905,6 +924,7 @@ async def validar_expediente(
             datos_acta=datos_acta,
             nombre_candidato_registro=nombre_candidato_registro,
         )
+        tiempos_fase["cruce_reglas_ms"] = int((time.time() - t_cruce) * 1000)
 
         tiempo_ms = int((time.time() - inicio) * 1000)
 
@@ -944,6 +964,7 @@ async def validar_expediente(
                 "acta_nacimiento": datos_acta,
             },
             "tiempo_proceso_ms": tiempo_ms,
+            "tiempos_fase_ms": tiempos_fase,
         }
     except Exception as e:
         logger.exception(f"Error en validación de expediente: {e}")
