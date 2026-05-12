@@ -9084,6 +9084,7 @@ class CapHum extends Controller
         }
         $guardados = 0;
         $errores = [];
+        $tiposSubidosEnEstaPeticion = [];
         $permitidos = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
         $rutasParaValidar = ['identificacion_pdf' => null, 'curp' => null, 'nss' => null, 'constancia_fiscal' => null, 'acta_nacimiento' => null];
 
@@ -9200,6 +9201,7 @@ class CapHum extends Controller
             $guardar = CandidatosDAO::guardarDocumento($id_candidato, $nombreOriginal, $rutaRelativa, $tipoNombre, null, null, $verificacionFiscalJson, $verificacionCalidadJson);
             if ($guardar['success']) {
                 $guardados++;
+                $tiposSubidosEnEstaPeticion[$i] = true;
             }
 
             if ($i === 5) {
@@ -9356,10 +9358,12 @@ class CapHum extends Controller
             ignore_user_abort(true);
             set_time_limit(1200);
             $idCandBg = (int) $id_candidato;
-            register_shutdown_function(function () use ($idCandBg) {
+            $tiposBg = array_keys($tiposSubidosEnEstaPeticion);
+            $expedienteCompletoBg = !empty($expedienteCompleto);
+            register_shutdown_function(function () use ($idCandBg, $tiposBg, $expedienteCompletoBg) {
                 error_log('CapHum::subirDocumentos: verificación automática (shutdown) candidato ' . $idCandBg);
                 try {
-                    $this->ejecutarVerificacionBackground($idCandBg);
+                    $this->ejecutarVerificacionBackground($idCandBg, $tiposBg, $expedienteCompletoBg);
                 } catch (\Throwable $e) {
                     error_log('CapHum::subirDocumentos: error verificación shutdown candidato ' . $idCandBg . ': ' . $e->getMessage());
                 }
@@ -9373,7 +9377,28 @@ class CapHum extends Controller
     /**
      * Ejecutar la verificación de expediente contra la API de forma silenciosa (background).
      */
-    private function ejecutarVerificacionBackground($id_candidato)
+    private function tipoDocumentoCandidatoNumero($tipo): int
+    {
+        $t = mb_strtoupper(trim((string) $tipo));
+        $map = [
+            'SOLICITUD INTERNA' => 1,
+            'CV O SOLICITUD DE TRABAJO' => 2,
+            'ACTA DE NACIMIENTO' => 3,
+            'ACTA DE NACIMIENTO CERTIFICADA' => 3,
+            'CURP' => 4,
+            'IDENTIFICACIÓN OFICIAL' => 5,
+            'IDENTIFICACION OFICIAL' => 5,
+            'COMPROBANTE DE DOMICILIO' => 6,
+            'CONSTANCIA DE SITUACION FISCAL' => 7,
+            'NÚMERO DE SEGURIDAD SOCIAL' => 8,
+            'NUMERO DE SEGURIDAD SOCIAL' => 8,
+            'HOJA DE RETENCION FONACOT O INFONAVIT' => 9,
+            'ESTADO DE CUENTA' => 10,
+        ];
+        return $map[$t] ?? 0;
+    }
+
+    private function ejecutarVerificacionBackground($id_candidato, array $tiposSubidos = [], ?bool $expedienteCompleto = null)
     {
         try {
             if (function_exists('set_time_limit')) {
@@ -9386,15 +9411,23 @@ class CapHum extends Controller
                 error_log('CapHum::verificacionBackground: sin documentos para candidato ' . $id_candidato);
                 return;
             }
+            $tiposSubidosSet = array_fill_keys(array_map('intval', $tiposSubidos), true);
+            $limitarARecientes = !empty($tiposSubidosSet);
+            $tiposPresentes = [];
             foreach ($resDocs['datos'] as $d) {
                 $rutaRel = trim($d['ruta_archivo'] ?? '');
                 if ($rutaRel === '' || !is_file($storageRoot . '/' . $rutaRel)) continue;
                 $pathAbs = $storageRoot . '/' . $rutaRel;
                 $tipo = trim($d['tipo_documento'] ?? '');
                 $idDoc = (int) ($d['id'] ?? 0);
+                $tipoNum = $this->tipoDocumentoCandidatoNumero($tipo);
+                if ($tipoNum > 0) {
+                    $tiposPresentes[$tipoNum] = true;
+                }
+                $esReciente = $tipoNum > 0 && (!$limitarARecientes || isset($tiposSubidosSet[$tipoNum]));
                 if ($tipo === 'IDENTIFICACIÓN OFICIAL') {
                     $rutasParaValidar['identificacion_pdf'] = $pathAbs;
-                    if ($idDoc > 0) {
+                    if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
                             'aceptado' => null,
                             'precheck' => null,
@@ -9403,47 +9436,84 @@ class CapHum extends Controller
                             'detalle_frente' => null,
                             'detalle_reverso' => null,
                         ]));
+                        $precheck = $this->precheckIdentificacionPdfApi($pathAbs);
+                        $calidad = $this->verificarCalidadIdentificacionPdfApi($pathAbs);
+                        if (is_array($calidad)) {
+                            $calidad['precheck'] = $precheck;
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($calidad));
+                        } elseif (is_array($precheck)) {
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($precheck));
+                        }
                     }
                 } elseif ($tipo === 'CURP') {
                     $rutasParaValidar['curp'] = $pathAbs;
-                    if ($idDoc > 0) {
+                    if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['CURP recibido; re-evaluando contra el expediente.'],
                         ]));
+                        $resCurp = $this->verificarCurpApi($pathAbs);
+                        if (is_array($resCurp)) {
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resCurp));
+                        }
                     }
                 } elseif ($tipo === 'NÚMERO DE SEGURIDAD SOCIAL') {
                     $rutasParaValidar['nss'] = $pathAbs;
-                    if ($idDoc > 0) {
+                    if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['NSS recibido; re-evaluando contra el expediente.'],
                         ]));
+                        $resNss = $this->verificarNssApi($pathAbs);
+                        if (is_array($resNss)) {
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resNss));
+                        }
                     }
                 } elseif ($tipo === 'CONSTANCIA DE SITUACION FISCAL') {
                     $rutasParaValidar['constancia_fiscal'] = $pathAbs;
-                    if ($idDoc > 0) {
+                    if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Constancia fiscal recibida; re-evaluando contra el expediente.'],
                         ]));
+                        $resFiscal = $this->verificarConstanciaFiscalApi($pathAbs);
+                        if (is_array($resFiscal)) {
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, json_encode($resFiscal), null);
+                        }
                     }
                 } elseif ($tipo === 'ESTADO DE CUENTA') {
-                    if ($idDoc > 0) {
+                    if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Estado de cuenta recibido para revisión.'],
                         ]));
+                        $resEstadoCuenta = $this->verificarEstadoCuentaApi($pathAbs);
+                        if (is_array($resEstadoCuenta)) {
+                            CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode($resEstadoCuenta));
+                        }
                     }
                 } elseif ($tipo === 'ACTA DE NACIMIENTO' || $tipo === 'ACTA DE NACIMIENTO Certificada') {
                     $rutasParaValidar['acta_nacimiento'] = $pathAbs;
-                    if ($idDoc > 0) {
+                    if ($idDoc > 0 && $esReciente) {
                         CandidatosDAO::updateVerificacionDocumento($idDoc, null, json_encode([
                             'pendiente_revision_backend' => true,
                             'notas' => ['Acta de nacimiento recibida; re-evaluando contra el expediente.'],
                         ]));
                     }
                 }
+            }
+            if ($expedienteCompleto === null) {
+                $expedienteCompleto = true;
+                for ($i = 1; $i <= 10; $i++) {
+                    if (empty($tiposPresentes[$i])) {
+                        $expedienteCompleto = false;
+                        break;
+                    }
+                }
+            }
+            if (!$expedienteCompleto) {
+                error_log('CapHum::verificacionBackground: validacion rapida terminada; expediente aun incompleto candidato ' . $id_candidato);
+                return;
             }
             if (!$rutasParaValidar['identificacion_pdf']) {
                 error_log('CapHum::verificacionBackground: falta identificación oficial (PDF) para candidato ' . $id_candidato);
