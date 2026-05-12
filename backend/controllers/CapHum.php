@@ -4958,7 +4958,9 @@ class CapHum extends Controller
                     else if (confianzaNum >= 50) confianzaClase = "text-warning";
                     else confianzaClase = "text-danger";
                 }
-                var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong></div><div class=\"card-body py-2 small overflow-auto\">";
+                var usuarioPuedeRevalidar = (typeof window.miUsuarioId !== "undefined" && parseInt(window.miUsuarioId, 10) === 1);
+                var btnHeaderRevalidar = usuarioPuedeRevalidar ? "<button type=\"button\" class=\"btn btn-xs btn-outline-primary py-0 px-1 btn-reintentar-verif-expediente\" title=\"Volver a validar expediente\"><i class=\"fa fa-sync-alt\"></i></button>" : "";
+                var html = "<div class=\"card border shadow-none h-100\"><div class=\"card-header py-2 bg-light d-flex align-items-center justify-content-between gap-2\"><strong><i class=\"fa fa-shield-alt me-1\"></i>Resultado de la verificación API</strong>" + btnHeaderRevalidar + "</div><div class=\"card-body py-2 small overflow-auto\">";
                 if (v.modo_verificacion === "solo_identificacion") {
                     html += "<div class=\"alert alert-info py-1 px-2 mb-2 small\" role=\"status\"><strong>Modo prueba:</strong> esta corrida solo envió el PDF de identificación a la API (sin CURP, NSS, constancia ni acta).</div>";
                 }
@@ -4974,7 +4976,7 @@ class CapHum extends Controller
                     html += "<div class=\"alert alert-warning py-2 px-2 mb-2 small\" role=\"alert\"><strong>No hubo resultado útil de la verificación automática.</strong><br><span class=\"text-muted\">Intente «Reintentar API» más tarde.</span></div>";
                 }
                 if (errApi || respuestaVaciaApi) {
-                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificación contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
+                    html += "<div class=\"d-grid gap-2 mb-2\"><button type=\"button\" class=\"btn btn-sm btn-outline-primary btn-reintentar-verif-expediente\" id=\"btnReintentarVerifExpediente\" title=\"Volver a ejecutar la verificación contra la API\"><i class=\"fa fa-sync-alt me-1\"></i>Reintentar API</button></div>";
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
@@ -4984,7 +4986,12 @@ class CapHum extends Controller
                 html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : "—")) + "</strong></div>";
                 html += "</div>";
                 if (alertas.length) {
-                    html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\"><li class=\"text-warning\">" + alertas.join("</li><li class=\"text-warning\">") + "</li></ul></div>";
+                    html += "<div class=\"mt-2 pt-2 border-top\"><span class=\"text-muted d-block mb-1\"><strong>Alertas</strong></span><ul class=\"mb-0 ps-3\">";
+                    alertas.forEach(function(a) {
+                        var txt = typeof a === "string" ? a : String(a);
+                        html += "<li class=\"text-warning\">" + escHtmlComparaciones(txt) + "</li>";
+                    });
+                    html += "</ul></div>";
                 }
                 html += "</div></div>";
                 bloqueVerif.innerHTML = html;
@@ -5054,9 +5061,14 @@ class CapHum extends Controller
                     ]}
                 ];
 
+                function esAdvertenciaOcr(entry) {
+                    return !!(entry && (entry.advertencia_ocr === true || String(entry.nota || "").toLowerCase().indexOf("ocr") !== -1));
+                }
+
                 function lineaHtml(entry, def) {
                     var kind = def.kind || "coincide";
                     var ok = null;
+                    var warn = false;
                     if (kind === "frescura") {
                         if (!entry || entry.es_reciente === undefined || entry.es_reciente === null) return "";
                         ok = entry.es_reciente === true;
@@ -5067,9 +5079,10 @@ class CapHum extends Controller
                         else {
                             return "<div class=\"small mb-1\"><span class=\"text-secondary\">—</span> <span class=\"text-muted\">" + escHtmlComparaciones(def.label) + " <span class=\"fst-italic\">(sin evaluar)</span></span></div>";
                         }
+                        warn = ok && esAdvertenciaOcr(entry);
                     }
-                    var sym = ok ? "<span class=\"text-success\">✓</span>" : "<span class=\"text-danger\">✗</span>";
-                    var txtCls = ok ? "text-muted" : "text-danger";
+                    var sym = warn ? "<span class=\"text-warning\">!</span>" : (ok ? "<span class=\"text-success\">✓</span>" : "<span class=\"text-danger\">✗</span>");
+                    var txtCls = warn ? "text-warning" : (ok ? "text-muted" : "text-danger");
                     return "<div class=\"small mb-1\">" + sym + " <span class=\"" + txtCls + "\">" + escHtmlComparaciones(def.label) + "</span></div>";
                 }
 
@@ -5113,16 +5126,25 @@ class CapHum extends Controller
                 }
 
                 var alertas = Array.isArray(v.alertas) ? v.alertas : [];
+                var alertasCriticas = [];
+                var alertasAviso = [];
+                alertas.forEach(function(a) {
+                    var txt = typeof a === "string" ? a : String(a);
+                    if (/^Advertencia OCR:/i.test(txt)) alertasAviso.push(txt);
+                    else alertasCriticas.push(txt);
+                });
                 var html = "<div class=\"card border shadow-none\"><div class=\"card-body py-2 small\">";
                 html += "<div class=\"d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2\">";
                 html += "<span class=\"fw-semibold small\">Comparaciones entre documentos</span>";
                 html += "<span>";
                 if (totalLin > 0) html += "<span class=\"badge bg-success me-1\">" + totalOk + "/" + totalLin + " coinciden</span>";
-                if (alertas.length) html += "<span class=\"badge bg-danger\">" + alertas.length + " alerta" + (alertas.length === 1 ? "" : "s") + "</span>";
+                if (alertasAviso.length) html += "<span class=\"badge bg-warning text-dark me-1\">" + alertasAviso.length + " aviso" + (alertasAviso.length === 1 ? "" : "s") + "</span>";
+                if (alertasCriticas.length) html += "<span class=\"badge bg-danger\">" + alertasCriticas.length + " alerta" + (alertasCriticas.length === 1 ? "" : "s") + "</span>";
                 html += "</span></div>";
-                if (alertas.length) {
-                    html += "<div class=\"alert alert-danger py-1 px-2 mb-2\" role=\"alert\"><div class=\"d-flex flex-wrap gap-2 small\">";
-                    alertas.forEach(function(a) { html += "<span>✗ " + escHtmlComparaciones(typeof a === "string" ? a : String(a)) + "</span>"; });
+                if (alertasAviso.length || alertasCriticas.length) {
+                    html += "<div class=\"alert " + (alertasCriticas.length ? "alert-danger" : "alert-warning") + " py-1 px-2 mb-2\" role=\"alert\"><div class=\"d-flex flex-wrap gap-2 small\">";
+                    alertasAviso.forEach(function(a) { html += "<span>! " + escHtmlComparaciones(a) + "</span>"; });
+                    alertasCriticas.forEach(function(a) { html += "<span>✗ " + escHtmlComparaciones(a) + "</span>"; });
                     html += "</div></div>";
                 }
                 html += "<div class=\"row g-2 mb-0\">" + tarjetas.join("") + "</div></div></div>";
@@ -5247,7 +5269,7 @@ class CapHum extends Controller
                 tooltipCalidadHtml = " <span class=\"ms-1\" data-bs-toggle=\"tooltip\" data-bs-html=\"true\" data-bs-title=\"" + listHtml.replace(/"/g, "&quot;") + "\"><i class=\"fa fa-exclamation-triangle text-warning\" title=\"Notas de revisión\"></i></span>";
             }
             var tooltipEstadoCuentaHtml = "";
-            if ((tipoNorm.indexOf("ESTADO") !== -1 && tipoNorm.indexOf("CUENTA") !== -1) && vc && typeof vc === "object" && (vc.banco_detectado || vc.nombre_propietario)) {
+            if ((tipoNorm.indexOf("ESTADO") !== -1 && tipoNorm.indexOf("CUENTA") !== -1) && vc && typeof vc === "object" && (vc.banco_detectado || vc.nombre_propietario || vc.clabe || vc.clabe_interbancaria || vc.cuenta_clabe)) {
                 var nombreTicketEc = "";
                 try { var modalEc = document.getElementById("modalDocumentacionCandidato"); if (modalEc && modalEc.dataset.nombreCandidato) nombreTicketEc = (modalEc.dataset.nombreCandidato || "").trim(); } catch (e) {}
                 var mismoNombreTicketEc = "—";
@@ -5257,8 +5279,10 @@ class CapHum extends Controller
                     var comunesEc = n1Ec.filter(function(w){ return n2Ec.indexOf(w) !== -1; });
                     mismoNombreTicketEc = comunesEc.length >= 2 ? "Sí" : "No";
                 }
+                var clabeEc = vc.clabe || vc.clabe_interbancaria || vc.cuenta_clabe || "";
                 var filasEc = [
                     ["Nombre del banco", vc.banco_detectado || "—"],
+                    ["CLABE", clabeEc || "—"],
                     ["Nombre del propietario", vc.nombre_propietario || "—"],
                     ["Mismo nombre que el del ticket", mismoNombreTicketEc]
                 ];
@@ -5531,13 +5555,13 @@ class CapHum extends Controller
                     });
             }
 
-            function reintentarVerificacionExpedienteApi() {
+            function reintentarVerificacionExpedienteApi(btnOrigen) {
                 var modal = document.getElementById("modalDocumentacionCandidato");
                 var idC = modal && modal.dataset.idCandidato ? parseInt(modal.dataset.idCandidato, 10) : 0;
                 if (!idC) return;
                 var chkSolo = document.getElementById("chkCandidatoVerifSoloIdentificacion");
                 var solo = !!(chkSolo && chkSolo.checked);
-                var btn = document.getElementById("btnReintentarVerifExpediente");
+                var btn = btnOrigen || document.getElementById("btnReintentarVerifExpediente");
                 ejecutarVerificacionExpedienteCandidatoPost(idC, solo, btn);
             }
 
@@ -6110,10 +6134,11 @@ class CapHum extends Controller
             });
         });
         document.addEventListener("click", function(e) {
-            if (e.target.closest("#btnReintentarVerifExpediente")) {
+            var btnReintentarVerif = e.target.closest(".btn-reintentar-verif-expediente, #btnReintentarVerifExpediente");
+            if (btnReintentarVerif) {
                 e.preventDefault();
                 e.stopPropagation();
-                reintentarVerificacionExpedienteApi();
+                reintentarVerificacionExpedienteApi(btnReintentarVerif);
                 return;
             }
             var btn = e.target.closest(".btn-cerrar-proceso-candidato");

@@ -1270,10 +1270,17 @@ def validacion_cruzada(
             nombre_id = id_frente_nombre
             if _nombres_coinciden(nombre_id, nombre_doc):
                 curp_definitivo = curp_doc
-                curp_fuente = "documento_curp (sobremontado: CURP de ID no coincide pero nombre sí)"
+                curp_fuente = "documento_curp (sobremontado: OCR de ID difiere pero nombre si)"
+                comparaciones["curp_id_vs_documento"]["coincide"] = True
+                comparaciones["curp_id_vs_documento"]["advertencia_ocr"] = True
+                comparaciones["curp_id_vs_documento"]["nota"] = (
+                    "La CURP leida en la identificacion difiere del PDF oficial, "
+                    "pero los nombres coinciden. Se toma la CURP del documento oficial."
+                )
                 alertas.append(
-                    f"CURP de identificación ({id_frente_curp}) difiere del documento CURP ({curp_doc}). "
-                    "Nombres coinciden → se usa el CURP del documento oficial."
+                    f"Advertencia OCR: la CURP leida en identificacion ({id_frente_curp}) "
+                    f"difiere del documento CURP ({curp_doc}). Nombres coinciden; "
+                    "se usa la CURP del documento oficial."
                 )
             else:
                 alertas.append(
