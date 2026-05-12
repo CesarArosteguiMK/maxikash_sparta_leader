@@ -427,7 +427,28 @@ async def verificar_acta_documento(
         return {"valido": False, "mensaje": "El documento es una constancia de NSS del IMSS. En este campo solo se acepta el acta de nacimiento certificada en PDF."}
     inicio = time.time()
     parece_acta = es_documento_acta_nacimiento(file_bytes)
-    datos = await asyncio.to_thread(extraer_datos_acta_nacimiento, file_bytes, True)
+    if parece_acta:
+        tiempo_ms = int((time.time() - inicio) * 1000)
+        return {
+            "valido": True,
+            "mensaje": "Acta de nacimiento verificada.",
+            "nombre": None,
+            "fecha_nacimiento": None,
+            "parece_acta": True,
+            "modo_validacion": "texto_pdf_rapido",
+            "tiempo_ms": tiempo_ms,
+        }
+    try:
+        datos = await asyncio.wait_for(
+            asyncio.to_thread(extraer_datos_acta_nacimiento, file_bytes, True),
+            timeout=35,
+        )
+    except asyncio.TimeoutError:
+        return {
+            "valido": False,
+            "mensaje": "No se pudo leer el acta a tiempo. El PDF parece ser una imagen escaneada pesada; intente nuevamente o revise el documento manualmente.",
+            "timeout": True,
+        }
     parece_acta = parece_acta or bool(datos.get("parece_acta"))
     tiempo_ms = int((time.time() - inicio) * 1000)
     # Muy flexible: si el extractor obtuvo fecha o nombre (incluso con baja confianza, ej. escaneos/manuscritos), aceptar

@@ -3311,6 +3311,9 @@ class Sabueso extends Controller
             ]);
             return;
         }
+        if (!isset($datos['canal_levantamiento']) || trim((string) $datos['canal_levantamiento']) === '') {
+            $datos['canal_levantamiento'] = TicketDAO::CANAL_LEVANTAMIENTO_WEB;
+        }
         $resultado = TicketDAO::crear($datos, $idPersona);
         if ($resultado['success'] ?? false) {
             $idTicket = (int)($resultado['datos']['id_ticket'] ?? 0);
@@ -3485,6 +3488,7 @@ class Sabueso extends Controller
             'categoria_gestion'   => 'plantilla',
             'tipo_categoria'      => $tipo,
             'descripcion_inicial' => $descripcion,
+            'canal_levantamiento' => TicketDAO::CANAL_LEVANTAMIENTO_WEB,
         ], $idPersona);
         if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
             $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
@@ -3520,6 +3524,7 @@ class Sabueso extends Controller
             'contacto_telefono'     => $tel !== '' ? $tel : null,
             'contacto_email'        => $email !== '' ? $email : null,
             'descripcion_inicial'   => $descripcion,
+            'canal_levantamiento'   => TicketDAO::CANAL_LEVANTAMIENTO_WEB,
         ], $idPersona);
         self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
     }
@@ -3549,6 +3554,7 @@ class Sabueso extends Controller
             'descripcion_inicial' => $descripcion,
             'nota'                => $nota !== '' ? $nota : null,
             'url_direccion'       => $urlDireccion !== '' ? $urlDireccion : null,
+            'canal_levantamiento' => TicketDAO::CANAL_LEVANTAMIENTO_WEB,
         ], $idPersona);
         if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
             $this->guardarAdjuntosMultiplesTicketSimple((int) $resultado['datos']['id_ticket'], $idPersona);
@@ -3578,6 +3584,7 @@ class Sabueso extends Controller
             'categoria_gestion'   => 'viaticos',
             'tipo_categoria'      => $tipo,
             'descripcion_inicial' => $descripcion,
+            'canal_levantamiento' => TicketDAO::CANAL_LEVANTAMIENTO_WEB,
         ], $idPersona);
         if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
             $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
@@ -3607,6 +3614,7 @@ class Sabueso extends Controller
             'categoria_gestion'   => 'aplicaciones_de_pago',
             'tipo_categoria'      => $tipo,
             'descripcion_inicial' => $descripcion,
+            'canal_levantamiento' => TicketDAO::CANAL_LEVANTAMIENTO_WEB,
         ], $idPersona);
         if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
             $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
@@ -3636,6 +3644,7 @@ class Sabueso extends Controller
             'categoria_gestion'   => 'credito_problematico',
             'tipo_categoria'      => $tipo,
             'descripcion_inicial' => $descripcion,
+            'canal_levantamiento' => TicketDAO::CANAL_LEVANTAMIENTO_WEB,
         ], $idPersona);
         if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
             $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
@@ -3665,11 +3674,221 @@ class Sabueso extends Controller
             'categoria_gestion'   => 'aclaracion_credito',
             'tipo_categoria'      => $tipo,
             'descripcion_inicial' => $descripcion,
+            'canal_levantamiento' => TicketDAO::CANAL_LEVANTAMIENTO_WEB,
         ], $idPersona);
         if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
             $this->guardarAdjuntoTicketSimple((int)$resultado['datos']['id_ticket'], $idPersona);
         }
         self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * API: solicitud de vacaciones / ausencias. Requiere columnas en ticket (script scripts/alter_ticket_columnas_solicitud_vacaciones.sql).
+     * POST/JSON: tipo_ausencia, fecha_desde, fecha_hasta (Y-m-d o d/m/aaaa); opcional: departamento, quien_cubre, motivo_comentario|motivo,
+     * numero_empleado (opcional): debe ser el de la persona en sesión; la app lo usa para validar/mostrar sin mandar id.
+     * canal_levantamiento (opcional): "web" | "app_movil" | "app"; si no viene, se infiere: app_movil si hay numero_empleado, si no web.
+     * nombre_empleado (opcional, solo si se quiere forzar texto en asunto; por defecto el nombre sale de persona).
+     * id_tipo_ticket, id_origen_ticket (opcional).
+     * Primer adjunto: url_direccion (ruta relativa) y, si existe la columna, solicitud_vacaciones_adjunto_nombre_original (nombre de archivo).
+     */
+    public function guardarTicketSolicitudVacaciones()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $idSesion = (int) ($_SESSION['persona_id'] ?? $_SESSION['usuario_id'] ?? 0);
+        if ($idSesion < 1) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Debe iniciar sesión.']);
+            return;
+        }
+        $ct = isset($_SERVER['CONTENT_TYPE']) ? strtolower((string) $_SERVER['CONTENT_TYPE']) : '';
+        $in = (stripos($ct, 'application/json') !== false)
+            ? (json_decode((string) file_get_contents('php://input'), true) ?: [])
+            : $_POST;
+
+        $numeroEmpleadoReq = isset($in['numero_empleado']) ? trim((string) $in['numero_empleado']) : '';
+        if ($numeroEmpleadoReq !== '') {
+            $porNe = TicketDAO::getPersonaActivaPorNumeroEmpleado($numeroEmpleadoReq);
+            if ($porNe === null) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'No se encontró persona activa con ese número de empleado.']);
+                return;
+            }
+            $idPersona = (int) $porNe['id'];
+            if ($idPersona !== $idSesion) {
+                self::respuestaJSON(['success' => false, 'mensaje' => 'El número de empleado no coincide con el usuario en sesión.']);
+                return;
+            }
+        } else {
+            $idPersona = $idSesion;
+        }
+
+        if (!TicketDAO::esquemaTieneSolicitudVacacionesColumnas()) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'Faltan columnas en la tabla ticket para solicitudes de vacaciones. Ejecute el script scripts/alter_ticket_columnas_solicitud_vacaciones.sql en la base de datos.',
+            ]);
+            return;
+        }
+
+        $tipoRaw = isset($in['tipo_ausencia']) ? trim((string) $in['tipo_ausencia']) : '';
+        $mapClaves = [
+            'vacaciones'           => 'Vacaciones',
+            'permiso_personal'     => 'Permiso personal',
+            'permiso personal'     => 'Permiso personal',
+            'medico'               => 'Médico',
+            'médico'               => 'Médico',
+            'incapacidad'          => 'Incapacidad',
+            'vacacion'             => 'Vacaciones',
+        ];
+        $tipoNorm = strtolower(preg_replace('/\s+/', ' ', str_replace('_', ' ', $tipoRaw)));
+        $tipoCategoria = $mapClaves[$tipoNorm] ?? ($tipoRaw !== '' ? $tipoRaw : '');
+        if ($tipoCategoria === '') {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'El tipo de ausencia es obligatorio.']);
+            return;
+        }
+
+        $fd = isset($in['fecha_desde']) ? trim((string) $in['fecha_desde']) : '';
+        $fh = isset($in['fecha_hasta']) ? trim((string) $in['fecha_hasta']) : '';
+        $ymdDesde = self::parsearFechaCampoTicketVacaciones($fd);
+        $ymdHasta = self::parsearFechaCampoTicketVacaciones($fh);
+        if ($ymdDesde === null || $ymdHasta === null) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'Las fechas desde y hasta son obligatorias y deben tener formato válido (DD/MM/AAAA o AAAA-MM-DD).']);
+            return;
+        }
+        if (strcmp($ymdDesde, $ymdHasta) > 0) {
+            self::respuestaJSON(['success' => false, 'mensaje' => 'La fecha desde no puede ser posterior a la fecha hasta.']);
+            return;
+        }
+
+        $quienCubre = isset($in['quien_cubre']) ? trim((string) $in['quien_cubre']) : '';
+        $motivo = isset($in['motivo_comentario']) ? trim((string) $in['motivo_comentario']) : '';
+        if ($motivo === '' && isset($in['motivo'])) {
+            $motivo = trim((string) $in['motivo']);
+        }
+        $depto = isset($in['departamento']) ? trim((string) $in['departamento']) : '';
+        $nombreEmpleadoUi = isset($in['nombre_empleado']) ? trim((string) $in['nombre_empleado']) : '';
+        $nombreSesion = trim((string) ($_SESSION['usuario_nombre'] ?? ''));
+        $nombreCreador = $nombreEmpleadoUi !== '' ? $nombreEmpleadoUi : TicketDAO::getNombrePersona($idPersona);
+        if ($nombreCreador === '') {
+            $nombreCreador = $nombreSesion !== '' ? $nombreSesion : ('ID ' . $idPersona);
+        }
+
+        $asunto = 'Solicitud de vacaciones — ' . $nombreCreador;
+        if (strlen($asunto) > 255) {
+            $asunto = substr($asunto, 0, 252) . '...';
+        }
+
+        $canalIn = isset($in['canal_levantamiento']) ? strtolower(trim((string) $in['canal_levantamiento'])) : '';
+        if ($canalIn === 'app') {
+            $canalIn = TicketDAO::CANAL_LEVANTAMIENTO_APP_MOVIL;
+        }
+        if (in_array($canalIn, [TicketDAO::CANAL_LEVANTAMIENTO_WEB, TicketDAO::CANAL_LEVANTAMIENTO_APP_MOVIL], true)) {
+            $canalLevantamiento = $canalIn;
+        } elseif ($numeroEmpleadoReq !== '') {
+            $canalLevantamiento = TicketDAO::CANAL_LEVANTAMIENTO_APP_MOVIL;
+        } else {
+            $canalLevantamiento = TicketDAO::CANAL_LEVANTAMIENTO_WEB;
+        }
+
+        $payload = [
+            'categoria_gestion'                    => 'solicitud_vacaciones',
+            'prefijo_folio'                        => 'VAC',
+            'asunto'                               => $asunto,
+            'tipo_categoria'                       => $tipoCategoria,
+            'descripcion_inicial'                  => 'Registro de solicitud de vacaciones o ausencia laboral.',
+            'nota'                                 => $motivo !== '' ? $motivo : null,
+            'solicitud_vacaciones_departamento'    => $depto !== '' ? $depto : null,
+            'solicitud_vacaciones_fecha_desde'     => $ymdDesde,
+            'solicitud_vacaciones_fecha_hasta'     => $ymdHasta,
+            'solicitud_vacaciones_quien_cubre'     => $quienCubre !== '' ? $quienCubre : null,
+            'canal_levantamiento'                  => $canalLevantamiento,
+        ];
+        $idTipoIn = isset($in['id_tipo_ticket']) ? (int) $in['id_tipo_ticket'] : 0;
+        $idOrigenIn = isset($in['id_origen_ticket']) ? (int) $in['id_origen_ticket'] : 0;
+        if ($idTipoIn > 0) {
+            $payload['id_tipo_ticket'] = $idTipoIn;
+        }
+        if ($idOrigenIn > 0) {
+            $payload['id_origen_ticket'] = $idOrigenIn;
+        }
+
+        $resultado = TicketDAO::crearTicketSimple($payload, $idPersona);
+        if (($resultado['success'] ?? false) && !empty($resultado['datos']['id_ticket'])) {
+            $this->guardarAdjuntosSolicitudVacacionesUrlPrincipal((int) $resultado['datos']['id_ticket'], $idPersona);
+        }
+        self::respuestaJSON(['success' => $resultado['success'] ?? false, 'mensaje' => $resultado['mensaje'] ?? '', 'datos' => $resultado['datos'] ?? null]);
+    }
+
+    /**
+     * Primer archivo válido → ticket.url_direccion; archivos adicionales → ticket_evidencia.
+     */
+    private function guardarAdjuntosSolicitudVacacionesUrlPrincipal(int $idTicket, int $idPersona): void
+    {
+        if (empty($_FILES['adjunto']['tmp_name'])) {
+            return;
+        }
+        $tmps = $_FILES['adjunto']['tmp_name'];
+        $names = $_FILES['adjunto']['name'] ?? [];
+        if (!is_array($tmps)) {
+            $tmps = [$tmps];
+            $names = [is_string($names) ? $names : ''];
+        }
+        $dir = sparta_uploads_join('sabueso_evidencias');
+        \Core\SecureUpload::ensureDir($dir);
+        $principalHecho = false;
+        foreach ($tmps as $i => $tmp) {
+            if (empty($tmp) || !is_uploaded_file($tmp)) {
+                continue;
+            }
+            if (!\Core\SecureUpload::validateMime($tmp, \Core\SecureUpload::MIME_PDF_OR_IMAGES)) {
+                continue;
+            }
+            $mime = \Core\SecureUpload::getMimeType($tmp);
+            $ext = $mime ? \Core\SecureUpload::extensionFromMime($mime) : 'bin';
+            $nombreArchivo = 't' . $idTicket . '_' . \Core\SecureUpload::generateSafeFilename($ext);
+            if (!move_uploaded_file($tmp, $dir . '/' . $nombreArchivo)) {
+                continue;
+            }
+            $rutaRelativa = 'sabueso_evidencias/' . $nombreArchivo;
+            $nombreOriginal = isset($names[$i]) ? trim((string) $names[$i]) : $nombreArchivo;
+            if (!$principalHecho) {
+                TicketDAO::actualizarUrlDireccionTicket($idTicket, $rutaRelativa, $nombreOriginal);
+                $principalHecho = true;
+            } else {
+                TicketDAO::guardarEvidencia($idTicket, $idPersona, $rutaRelativa, $nombreOriginal);
+            }
+        }
+    }
+
+    /**
+     * @return string|null Y-m-d
+     */
+    private static function parsearFechaCampoTicketVacaciones(string $s): ?string
+    {
+        $s = trim($s);
+        if ($s === '') {
+            return null;
+        }
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
+            $y = (int) $m[1];
+            $mo = (int) $m[2];
+            $d = (int) $m[3];
+            if (!checkdate($mo, $d, $y)) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+        if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $s, $m)) {
+            $d = (int) $m[1];
+            $mo = (int) $m[2];
+            $y = (int) $m[3];
+            if (!checkdate($mo, $d, $y)) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+        }
+
+        return null;
     }
 
     /**
@@ -3797,6 +4016,9 @@ class Sabueso extends Controller
 
         $datos['id_origen_ticket'] = $idOrigenWhatsApp;
         $datos['categoria_gestion'] = 'sabueso';
+        if (!isset($datos['canal_levantamiento']) || trim((string) $datos['canal_levantamiento']) === '') {
+            $datos['canal_levantamiento'] = TicketDAO::CANAL_LEVANTAMIENTO_WEB;
+        }
         $idCredito = isset($datos['id_credito']) && $datos['id_credito'] !== '' && $datos['id_credito'] !== null
             ? (int)$datos['id_credito'] : 0;
         if ($idCredito < 1) {

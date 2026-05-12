@@ -5,18 +5,18 @@
             "activo": true
         },
         {
-            "email": "lazaro.leyva@maxikask.mx",
+            "email": "__SPARTA_SECRET_REDACTED__@__SPARTA_SECRET_REDACTED__.mx",
             "activo": true
         },
         {
-            "email": "cartera.maxi@maxikask.mx",
+            "email": "cartera.maxi@__SPARTA_SECRET_REDACTED__.mx",
             "activo": true
         },
         {
-            "email": "__SPARTA_SECRET_REDACTED__@maxikask.mx",
+            "email": "lazaro.leyva@__SPARTA_SECRET_REDACTED__.mx",
             "activo": true
         }
     ],
-    "updated_at": "2026-05-08T12:18:52-06:00",
+    "updated_at": "2026-05-12T11:43:31-06:00",
     "updated_by": 1
 }
