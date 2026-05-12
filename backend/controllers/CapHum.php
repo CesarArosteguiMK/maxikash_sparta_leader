@@ -4984,8 +4984,6 @@ class CapHum extends Controller
                 }
                 html += "<div class=\"row g-2 mb-2 align-items-center\">";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Confianza</span><strong class=\"fs-6 " + confianzaClase + "\">" + confianzaTexto + "</strong></div>";
-                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Frente</span><strong class=\"text-primary\">" + (scoreFrente != null ? scoreFrente + "%" : "—") + "</strong></div>";
-                html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Reverso</span><strong class=\"text-primary\">" + (scoreReverso != null ? scoreReverso + "%" : "—") + "</strong></div>";
                 html += "<div class=\"col-6\"><span class=\"text-muted d-block\">Checks</span><strong>" + (checksOk != null && checksTotales != null ? checksOk + "/" + checksTotales : "—") + "</strong></div>";
                 html += "<div class=\"col-12\"><span class=\"text-muted d-block\">Coinciden</span><strong class=\"" + (todoCoincide ? "text-success" : (v.todo_coincide === false ? "text-danger" : "text-secondary")) + "\">" + (v.todo_coincide === true ? "Sí" : (v.todo_coincide === false ? "No" : (verificacionEnProceso ? "En proceso" : "—"))) + "</strong></div>";
                 html += "</div>";
@@ -5372,6 +5370,13 @@ class CapHum extends Controller
             lista.appendChild(item);
         });
         lista.querySelectorAll("[data-bs-toggle=\"tooltip\"]").forEach(function(el) { if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) { new bootstrap.Tooltip(el); } });
+        function mensajeActaAmigable(mensaje) {
+            mensaje = String(mensaje || "");
+            if (/timed out|timeout|operation timed out|couldn'?t connect|failed to connect/i.test(mensaje)) {
+                return "La validacion del acta tardo mas de lo esperado. El documento quedo guardado; puedes intentar de nuevo en unos segundos.";
+            }
+            return mensaje || "Proceso terminado.";
+        }
         lista.querySelectorAll(".btn-validar-acta-candidato").forEach(function(btn) {
             btn.addEventListener("click", function() {
                 var idDoc = parseInt(btn.getAttribute("data-id"), 10);
@@ -5384,6 +5389,7 @@ class CapHum extends Controller
                     .then(function(res) {
                         btn.disabled = false;
                         btn.innerHTML = prevHtml;
+                        res.mensaje = mensajeActaAmigable(res.mensaje);
                         if (typeof Swal !== "undefined") {
                             Swal.fire({ icon: res.success ? "success" : "warning", title: "Validación de acta", text: res.mensaje || "Proceso terminado.", timer: res.success ? 2600 : undefined, showConfirmButton: !res.success });
                         }
@@ -9012,6 +9018,9 @@ class CapHum extends Controller
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
+            if (stripos((string) $curlErr, 'timed out') !== false || stripos((string) $curlErr, 'timeout') !== false) {
+                return ['valido' => false, 'mensaje' => 'La validacion del acta tardo mas de lo esperado. El documento quedo guardado; puedes intentar de nuevo en unos segundos.'];
+            }
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
         $data = json_decode($body, true);
@@ -9048,7 +9057,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 25,
+            CURLOPT_TIMEOUT => 60,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
