@@ -592,6 +592,7 @@ class Ticket extends Model
                     }
                 }
                 self::persistirCanalLevantamientoPostInsert($db, $siguienteId, is_array($datos) ? $datos : [], $catRaw);
+                self::persistirEstatusNullSiColumnaExiste($db, $siguienteId);
                 $db->commit();
 
                 return self::resultado(true, 'Ticket creado correctamente.', ['folio' => $folio, 'id_ticket' => $siguienteId]);
@@ -762,6 +763,28 @@ class Ticket extends Model
                 return;
             }
             error_log('persistirCanalLevantamientoPostInsert: ' . $msg);
+        }
+    }
+
+    /**
+     * Tras INSERT: Sabueso / Validación (y categorías levantadas vía crear / crearTicketSimple) no usan estatus por ahora → NULL explícito.
+     */
+    private static function persistirEstatusNullSiColumnaExiste(Database $db, int $idTicket): void
+    {
+        if ($idTicket < 1) {
+            return;
+        }
+        try {
+            $db->CRUD(
+                'UPDATE ticket SET estatus = NULL WHERE id_ticket = :id',
+                ['id' => $idTicket]
+            );
+        } catch (\Exception $e) {
+            $msg = $e->getMessage();
+            if (self::esErrorMysqlColumnaDesconocida($msg, 'estatus')) {
+                return;
+            }
+            error_log('persistirEstatusNullSiColumnaExiste: ' . $msg);
         }
     }
 
@@ -1023,6 +1046,7 @@ class Ticket extends Model
             }
             self::persistirColumnasSolicitudVacacionesPostInsert($db, $siguienteId, $datos, $catRaw);
             self::persistirCanalLevantamientoPostInsert($db, $siguienteId, $datos, $catRaw);
+            self::persistirEstatusNullSiColumnaExiste($db, $siguienteId);
             $db->commit();
             return self::resultado(true, 'Ticket registrado correctamente.', ['id_ticket' => $siguienteId, 'folio' => $folio]);
         } catch (\Exception $e) {
