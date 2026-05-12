@@ -13,6 +13,12 @@ class Ticket extends Model
     /** Evidencias subidas desde el panel Sabueso (dictamen / rastreo). */
     public const TIPO_ORIGEN_DICTAMEN_SABUESO = 'dictamen_sabueso';
 
+    /** Ticket levantado desde la web (sesión / id persona). */
+    public const CANAL_LEVANTAMIENTO_WEB = 'web';
+
+    /** Ticket levantado desde app móvil (identificación típica por numero_empleado en request). */
+    public const CANAL_LEVANTAMIENTO_APP_MOVIL = 'app_movil';
+
     /**
      * Tiempo Sabueso/tickets: toda fecha/hora que se escribe en BD en este módulo debe ser hora CDMX
      * (America/Mexico_City), no la del reloj del servidor ni NOW()/CURDATE() en SQL al insertar/actualizar.
@@ -64,6 +70,37 @@ class Ticket extends Model
             }
         }
         $selColsNotaUrl = $tieneNotaUrl ? "t.nota, t.url_direccion, " : "";
+        $tieneColsSolVac = false;
+        if ($tieneCategoriaGestion) {
+            try {
+                $colSv = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'solicitud_vacaciones_departamento' LIMIT 1");
+                $tieneColsSolVac = !empty($colSv);
+            } catch (\Exception $e) {
+                $tieneColsSolVac = false;
+            }
+        }
+        $tieneColAdjNomSolVac = false;
+        if ($tieneColsSolVac) {
+            try {
+                $colAn = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'solicitud_vacaciones_adjunto_nombre_original' LIMIT 1");
+                $tieneColAdjNomSolVac = !empty($colAn);
+            } catch (\Exception $e) {
+                $tieneColAdjNomSolVac = false;
+            }
+        }
+        $selColsSolVac = $tieneColsSolVac
+            ? 't.solicitud_vacaciones_departamento, t.solicitud_vacaciones_fecha_desde, t.solicitud_vacaciones_fecha_hasta, t.solicitud_vacaciones_quien_cubre'
+                . ($tieneColAdjNomSolVac ? ', t.solicitud_vacaciones_adjunto_nombre_original' : '')
+                . ', '
+            : '';
+        $tieneCanalLevantamiento = false;
+        try {
+            $colCanal = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = 'canal_levantamiento' LIMIT 1");
+            $tieneCanalLevantamiento = !empty($colCanal);
+        } catch (\Exception $e) {
+            $tieneCanalLevantamiento = false;
+        }
+        $selCanalLevantamiento = $tieneCanalLevantamiento ? 't.canal_levantamiento, ' : '';
         $tieneColQuienAsigno = false;
         try {
             $colQ = $db->queryOne("SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asignacion_ticket' AND COLUMN_NAME = 'id_persona_quien_asigno' LIMIT 1");
@@ -99,6 +136,8 @@ class Ticket extends Model
             $selCategoria .
             $selColsCategoria .
             $selColsNotaUrl .
+            $selColsSolVac .
+            $selCanalLevantamiento .
             "tt.nombre AS tipo_ticket_nombre, et.nombre AS estado_ticket_nombre, pt.nombre AS prioridad_nombre, ot.nombre AS origen_nombre, " .
             "CONCAT(TRIM(IFNULL(p.nombres, '')), ' ', TRIM(IFNULL(p.apellidop, ''))) AS creador_nombre, " .
             "at.id_persona_asignada, CONCAT(TRIM(IFNULL(pa.nombres, '')), ' ', TRIM(IFNULL(pa.apellidop, ''))) AS asignado_nombre, " .
@@ -380,6 +419,8 @@ class Ticket extends Model
      * Obligatorios: tipo, origen, id_credito, descripción.
      * Prioridad: siempre Alta (se ignora id_prioridad del cliente).
      * Fecha vencimiento: siempre 24 h después de fecha_creacion (se ignora fecha_vencimiento del cliente).
+     * Opcionales (misma tabla que crearTicketSimple / app de tickets): tipo_categoria, asunto,
+     * prioridad_categoria, contacto_telefono, contacto_email, nota, url_direccion.
      * Usa transacciones y reintentos para evitar condiciones de carrera y IDs duplicados.
      */
     public static function crear($datos, $idPersonaCreador)
@@ -407,6 +448,29 @@ class Ticket extends Model
         }
         $categoriaGestion = $catRaw;
 
+        $tipoCategoria = isset($datos['tipo_categoria']) ? trim((string)$datos['tipo_categoria']) : null;
+        if ($tipoCategoria !== null && strlen($tipoCategoria) > 150) {
+            $tipoCategoria = substr($tipoCategoria, 0, 150);
+        }
+        $asunto = isset($datos['asunto']) ? trim((string)$datos['asunto']) : null;
+        if ($asunto !== null && strlen($asunto) > 255) {
+            $asunto = substr($asunto, 0, 255);
+        }
+        $prioridadCat = isset($datos['prioridad_categoria']) ? trim((string)$datos['prioridad_categoria']) : null;
+        if ($prioridadCat !== null && strlen($prioridadCat) > 50) {
+            $prioridadCat = substr($prioridadCat, 0, 50);
+        }
+        $contactoTel = isset($datos['contacto_telefono']) ? trim((string)$datos['contacto_telefono']) : null;
+        if ($contactoTel !== null && strlen($contactoTel) > 50) {
+            $contactoTel = substr($contactoTel, 0, 50);
+        }
+        $contactoEmail = isset($datos['contacto_email']) ? trim((string)$datos['contacto_email']) : null;
+        if ($contactoEmail !== null && strlen($contactoEmail) > 100) {
+            $contactoEmail = substr($contactoEmail, 0, 100);
+        }
+        $nota = isset($datos['nota']) ? trim((string)$datos['nota']) : null;
+        $urlDireccion = isset($datos['url_direccion']) ? trim((string)$datos['url_direccion']) : null;
+
         // Prioridad siempre Alta (no editable desde el formulario)
         $rowPrioridad = $db->queryOne(
             "SELECT id_prioridad FROM prioridad_ticket WHERE LOWER(TRIM(nombre)) = 'alta' LIMIT 1"
@@ -430,6 +494,14 @@ class Ticket extends Model
         $now = self::ahoraCdmx();
         // Vencimiento siempre 24 h después de la creación (CDMX)
         $fechaVenc = self::cdmxNowImmutable()->modify('+24 hours')->format('Y-m-d H:i:s');
+
+        // INSERT con degradado si faltan columnas en BD (misma lógica que crearTicketSimple)
+        $sqlConCatNotaUrl = 'INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, categoria_gestion, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, nota, url_direccion, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :categoria_gestion, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :nota, :url_direccion, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)';
+        $sqlSinCatNotaUrl = 'INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, nota, url_direccion, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :nota, :url_direccion, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)';
+        $sqlConCat = 'INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, categoria_gestion, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :categoria_gestion, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)';
+        $sqlSinCat = 'INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, tipo_categoria, asunto, prioridad_categoria, contacto_telefono, contacto_email, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :tipo_categoria, :asunto, :prioridad_categoria, :contacto_telefono, :contacto_email, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)';
+        $sqlConCatSinCols = 'INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, categoria_gestion, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :categoria_gestion, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)';
+        $sqlSinCatSinCols = 'INSERT INTO ticket (id_ticket, folio, id_tipo_ticket, id_estado_ticket, id_prioridad, id_origen_ticket, id_credito, descripcion_inicial, fecha_creacion, fecha_vencimiento, id_persona_creador, activo) VALUES (:id_ticket, :folio, :id_tipo_ticket, :id_estado_ticket, :id_prioridad, :id_origen_ticket, :id_credito, :descripcion_inicial, :fecha_creacion, :fecha_vencimiento, :id_persona_creador, 1)';
 
         // Intentar crear el ticket con reintentos para evitar condiciones de carrera
         $maxIntentos = 3;
@@ -519,6 +591,7 @@ class Ticket extends Model
                         throw $eIns;
                     }
                 }
+                self::persistirCanalLevantamientoPostInsert($db, $siguienteId, is_array($datos) ? $datos : [], $catRaw);
                 $db->commit();
 
                 return self::resultado(true, 'Ticket creado correctamente.', ['folio' => $folio, 'id_ticket' => $siguienteId]);
@@ -546,12 +619,186 @@ class Ticket extends Model
         return self::resultado(false, 'Error al crear el ticket: se agotaron los intentos.', null);
     }
 
+    private static function ticketColumnaExiste(Database $db, string $columnName): bool
+    {
+        try {
+            $row = $db->queryOne(
+                "SELECT 1 AS ok FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket' AND COLUMN_NAME = :c LIMIT 1",
+                ['c' => $columnName]
+            );
+
+            return !empty($row);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    private static function ticketTieneColumnasSolicitudVacaciones(Database $db): bool
+    {
+        foreach (['solicitud_vacaciones_departamento', 'solicitud_vacaciones_fecha_desde', 'solicitud_vacaciones_fecha_hasta', 'solicitud_vacaciones_quien_cubre'] as $c) {
+            if (!self::ticketColumnaExiste($db, $c)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** MySQL 1054 / SQLSTATE 42S22; mensajes en inglés o español. */
+    private static function esErrorMysqlColumnaDesconocida(string $msg, string $nombreColumna): bool
+    {
+        if (stripos($msg, $nombreColumna) === false) {
+            return false;
+        }
+        if (strpos($msg, '1054') !== false) {
+            return true;
+        }
+        if (stripos($msg, '42S22') !== false) {
+            return true;
+        }
+        if (stripos($msg, 'Unknown column') !== false) {
+            return true;
+        }
+        if (stripos($msg, 'desconocid') !== false) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @return '' si no debe persistirse canal; si no, {@see CANAL_LEVANTAMIENTO_WEB} o {@see CANAL_LEVANTAMIENTO_APP_MOVIL}
+     */
+    private static function resolverCanalLevantamientoNormalizado(array $datos, string $catRaw): string
+    {
+        $raw = '';
+        if (array_key_exists('canal_levantamiento', $datos) && $datos['canal_levantamiento'] !== null) {
+            $raw = strtolower(trim((string) $datos['canal_levantamiento']));
+        }
+        if ($raw === '' && $catRaw === 'solicitud_vacaciones') {
+            $raw = self::CANAL_LEVANTAMIENTO_WEB;
+        }
+        if ($raw === '') {
+            return '';
+        }
+        if ($raw === 'app') {
+            $raw = self::CANAL_LEVANTAMIENTO_APP_MOVIL;
+        }
+        if (in_array($raw, [self::CANAL_LEVANTAMIENTO_WEB, self::CANAL_LEVANTAMIENTO_APP_MOVIL], true)) {
+            return $raw;
+        }
+
+        return $catRaw === 'solicitud_vacaciones' ? self::CANAL_LEVANTAMIENTO_WEB : '';
+    }
+
+    /**
+     * Tras INSERT en crearTicketSimple: columnas dedicadas solicitud_vacaciones (requiere ALTER en BD).
+     */
+    private static function persistirColumnasSolicitudVacacionesPostInsert(Database $db, int $idTicket, array $datos, string $catRaw): void
+    {
+        if ($catRaw !== 'solicitud_vacaciones' || $idTicket < 1) {
+            return;
+        }
+        if (!self::ticketTieneColumnasSolicitudVacaciones($db)) {
+            return;
+        }
+        $depto = isset($datos['solicitud_vacaciones_departamento']) ? trim((string) $datos['solicitud_vacaciones_departamento']) : '';
+        $depto = $depto === '' ? null : mb_substr($depto, 0, 200);
+        $qc = isset($datos['solicitud_vacaciones_quien_cubre']) ? trim((string) $datos['solicitud_vacaciones_quien_cubre']) : '';
+        $qc = $qc === '' ? null : mb_substr($qc, 0, 255);
+        $fd = isset($datos['solicitud_vacaciones_fecha_desde']) ? trim((string) $datos['solicitud_vacaciones_fecha_desde']) : '';
+        $fh = isset($datos['solicitud_vacaciones_fecha_hasta']) ? trim((string) $datos['solicitud_vacaciones_fecha_hasta']) : '';
+        $fdSql = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fd) ? $fd : null;
+        $fhSql = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fh) ? $fh : null;
+        $canal = self::resolverCanalLevantamientoNormalizado($datos, $catRaw);
+        $paramsBase = ['depto' => $depto, 'fd' => $fdSql, 'fh' => $fhSql, 'qc' => $qc, 'id' => $idTicket, 'cat' => 'solicitud_vacaciones'];
+        try {
+            if ($canal !== '') {
+                try {
+                    $db->CRUD(
+                        'UPDATE ticket SET solicitud_vacaciones_departamento = :depto, solicitud_vacaciones_fecha_desde = :fd, solicitud_vacaciones_fecha_hasta = :fh, solicitud_vacaciones_quien_cubre = :qc, canal_levantamiento = :canal '
+                        . 'WHERE id_ticket = :id AND LOWER(TRIM(COALESCE(categoria_gestion, \'\'))) = :cat',
+                        array_merge($paramsBase, ['canal' => $canal])
+                    );
+
+                    return;
+                } catch (\Exception $eCanal) {
+                    if (!self::esErrorMysqlColumnaDesconocida($eCanal->getMessage(), 'canal_levantamiento')) {
+                        throw $eCanal;
+                    }
+                }
+            }
+            $db->CRUD(
+                'UPDATE ticket SET solicitud_vacaciones_departamento = :depto, solicitud_vacaciones_fecha_desde = :fd, solicitud_vacaciones_fecha_hasta = :fh, solicitud_vacaciones_quien_cubre = :qc '
+                . 'WHERE id_ticket = :id AND LOWER(TRIM(COALESCE(categoria_gestion, \'\'))) = :cat',
+                $paramsBase
+            );
+        } catch (\Exception $e) {
+            error_log('persistirColumnasSolicitudVacacionesPostInsert: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Tras INSERT: indica si el ticket se registró desde web o app móvil (columna canal_levantamiento).
+     * Valores: {@see CANAL_LEVANTAMIENTO_WEB}, {@see CANAL_LEVANTAMIENTO_APP_MOVIL}.
+     */
+    private static function persistirCanalLevantamientoPostInsert(Database $db, int $idTicket, array $datos, string $catRaw): void
+    {
+        if ($idTicket < 1) {
+            return;
+        }
+        $raw = self::resolverCanalLevantamientoNormalizado($datos, $catRaw);
+        if ($raw === '') {
+            return;
+        }
+        try {
+            $db->CRUD(
+                'UPDATE ticket SET canal_levantamiento = :canal WHERE id_ticket = :id',
+                ['canal' => $raw, 'id' => $idTicket]
+            );
+        } catch (\Exception $e) {
+            $msg = $e->getMessage();
+            if (self::esErrorMysqlColumnaDesconocida($msg, 'canal_levantamiento')) {
+                return;
+            }
+            error_log('persistirCanalLevantamientoPostInsert: ' . $msg);
+        }
+    }
+
+    /**
+     * True si la tabla ticket tiene las columnas de solicitud de vacaciones (tras ejecutar el ALTER SQL).
+     */
+    public static function esquemaTieneSolicitudVacacionesColumnas(): bool
+    {
+        try {
+            $db = new Database();
+            return self::ticketTieneColumnasSolicitudVacaciones($db);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /** Útil para UI/API: si el ticket se levantó desde app móvil (vs web). */
+    public static function ticketCanalIndicaAppMovil(?string $canal): bool
+    {
+        $c = strtolower(trim((string) $canal));
+
+        return $c === self::CANAL_LEVANTAMIENTO_APP_MOVIL || $c === 'app';
+    }
+
     /**
      * Crea un ticket "simple" (por categoría: plantilla, viáticos, validaciones, etc.) sin crédito obligatorio.
      * Se guarda en la misma tabla ticket con categoria_gestion y id_credito NULL.
      * $datos: categoria_gestion (obligatorio), descripcion_inicial (obligatorio), id_credito (opcional),
      *         tipo_categoria (opcional), asunto (opcional), prioridad_categoria (opcional), contacto_telefono (opcional), contacto_email (opcional),
      *         nota (opcional), url_direccion (opcional; se guarda completa, sin recortar).
+     *         prefijo_folio (opcional): prefijo de 3 caracteres A–Z para folio PREFIJO-NNNN (por defecto TCK).
+     *         fecha_vencimiento (opcional): Y-m-d H:i:s, Y-m-d o d/m/Y; si es solo fecha, fin de día 23:59:59 CDMX.
+     *         id_tipo_ticket / id_origen_ticket (opcional): si existen y están activos en catálogo, sustituyen al primer registro por defecto.
+     *         solicitud_vacaciones_departamento, solicitud_vacaciones_fecha_desde, solicitud_vacaciones_fecha_hasta (Y-m-d), solicitud_vacaciones_quien_cubre:
+     *         opcionales; solo se guardan si categoria_gestion = solicitud_vacaciones y existen las columnas en ticket (script alter_ticket_columnas_solicitud_vacaciones.sql).
+     *         Si la categoría es otra, esas claves en $datos se ignoran (no se escriben en BD).
+     *         canal_levantamiento (opcional): "web" | "app_movil" (o "app"); si existe la columna en ticket, se guarda tras el INSERT para cualquier categoría.
      * Retorna { success, mensaje, datos: { id_ticket, folio } }.
      */
     public static function crearTicketSimple(array $datos, $idPersonaCreador)
@@ -565,6 +812,15 @@ class Ticket extends Model
         $catRaw = strtolower(preg_replace('/[^a-z0-9_]/', '', str_replace([' ', '-'], '_', $catRaw)));
         if ($catRaw === '') {
             return self::resultado(false, 'La categoría de gestión es obligatoria.', null);
+        }
+        if ($catRaw !== 'solicitud_vacaciones') {
+            unset(
+                $datos['solicitud_vacaciones_departamento'],
+                $datos['solicitud_vacaciones_fecha_desde'],
+                $datos['solicitud_vacaciones_fecha_hasta'],
+                $datos['solicitud_vacaciones_quien_cubre'],
+                $datos['solicitud_vacaciones_adjunto_nombre_original']
+            );
         }
         if ($descripcion === '') {
             return self::resultado(false, 'La descripción es obligatoria.', null);
@@ -607,6 +863,27 @@ class Ticket extends Model
             $idTipo = (int) $rowTipo['id_tipo_ticket'];
             $idOrigen = (int) $rowOrigen['id_origen_ticket'];
 
+            $idTipoReq = isset($datos['id_tipo_ticket']) ? (int) $datos['id_tipo_ticket'] : 0;
+            if ($idTipoReq > 0) {
+                $chkTipo = $db->queryOne(
+                    "SELECT id_tipo_ticket FROM tipo_ticket WHERE id_tipo_ticket = :id AND (activo = 1 OR activo IS NULL) LIMIT 1",
+                    ['id' => $idTipoReq]
+                );
+                if (!empty($chkTipo['id_tipo_ticket'])) {
+                    $idTipo = (int) $chkTipo['id_tipo_ticket'];
+                }
+            }
+            $idOrigenReq = isset($datos['id_origen_ticket']) ? (int) $datos['id_origen_ticket'] : 0;
+            if ($idOrigenReq > 0) {
+                $chkOrigen = $db->queryOne(
+                    "SELECT id_origen_ticket FROM origen_ticket WHERE id_origen_ticket = :id AND (activo = 1 OR activo IS NULL) LIMIT 1",
+                    ['id' => $idOrigenReq]
+                );
+                if (!empty($chkOrigen['id_origen_ticket'])) {
+                    $idOrigen = (int) $chkOrigen['id_origen_ticket'];
+                }
+            }
+
             $rowPrioridad = $db->queryOne("SELECT id_prioridad FROM prioridad_ticket WHERE LOWER(TRIM(nombre)) = 'alta' LIMIT 1");
             if (!$rowPrioridad) {
                 $rowPrioridad = $db->queryOne("SELECT id_prioridad FROM prioridad_ticket WHERE LOWER(TRIM(nombre)) LIKE '%alta%' LIMIT 1");
@@ -620,13 +897,24 @@ class Ticket extends Model
 
             $now = self::ahoraCdmx();
             $fechaVenc = self::cdmxNowImmutable()->modify('+24 hours')->format('Y-m-d H:i:s');
+            $fechaVencOverride = self::resolverFechaVencimientoTicketOpcional($datos['fecha_vencimiento'] ?? null);
+            if ($fechaVencOverride !== null) {
+                $fechaVenc = $fechaVencOverride;
+            }
+
+            $prefijoFolio = self::normalizarPrefijoFolio($datos['prefijo_folio'] ?? 'TCK');
+            $subFolioStart = strlen($prefijoFolio) + 2;
 
             $db->beginTransaction();
             $maxRow = $db->queryOne("SELECT MAX(id_ticket) AS max_id FROM ticket FOR UPDATE");
             $siguienteId = ($maxRow && isset($maxRow['max_id']) && $maxRow['max_id'] !== null ? (int) $maxRow['max_id'] : 0) + 1;
-            $maxFolioRow = $db->queryOne("SELECT MAX(CAST(SUBSTRING(folio, 5) AS UNSIGNED)) AS max_num FROM ticket WHERE folio LIKE 'TCK-%' FOR UPDATE");
+            $patFolio = $prefijoFolio . '-%';
+            $maxFolioRow = $db->queryOne(
+                'SELECT MAX(CAST(SUBSTRING(folio, ' . (int) $subFolioStart . ') AS UNSIGNED)) AS max_num FROM ticket WHERE folio LIKE :pat_folio FOR UPDATE',
+                ['pat_folio' => $patFolio]
+            );
             $num = ($maxFolioRow && isset($maxFolioRow['max_num']) && $maxFolioRow['max_num'] !== null ? (int) $maxFolioRow['max_num'] : 0) + 1;
-            $folio = 'TCK-' . str_pad((string) $num, 4, '0', STR_PAD_LEFT);
+            $folio = $prefijoFolio . '-' . str_pad((string) $num, 4, '0', STR_PAD_LEFT);
 
             $paramsBase = [
                 'id_ticket'             => $siguienteId,
@@ -733,6 +1021,8 @@ class Ticket extends Model
                     throw $e;
                 }
             }
+            self::persistirColumnasSolicitudVacacionesPostInsert($db, $siguienteId, $datos, $catRaw);
+            self::persistirCanalLevantamientoPostInsert($db, $siguienteId, $datos, $catRaw);
             $db->commit();
             return self::resultado(true, 'Ticket registrado correctamente.', ['id_ticket' => $siguienteId, 'folio' => $folio]);
         } catch (\Exception $e) {
@@ -1051,6 +1341,39 @@ class Ticket extends Model
             return $row ? trim($row['nombre']) : '';
         } catch (\Exception $e) {
             return '';
+        }
+    }
+
+    /**
+     * Persona activa por número de empleado (misma lógica que login: estatus Activo).
+     * Usado por la app móvil que identifica al solicitante con numero_empleado en lugar de id.
+     *
+     * @return array{id: int, nombre: string, numero_empleado: string}|null
+     */
+    public static function getPersonaActivaPorNumeroEmpleado(string $numeroEmpleado): ?array
+    {
+        $ne = trim($numeroEmpleado);
+        if ($ne === '') {
+            return null;
+        }
+        try {
+            $db = new Database();
+            $row = $db->queryOne(
+                'SELECT p.id, TRIM(CONCAT(TRIM(IFNULL(p.nombres, \'\')), \' \', TRIM(IFNULL(p.apellidop, \'\')))) AS nombre, TRIM(p.numero_empleado) AS numero_empleado '
+                . 'FROM persona p WHERE TRIM(p.numero_empleado) = :ne AND p.estatus = \'Activo\' LIMIT 1',
+                ['ne' => $ne]
+            );
+            if (!$row || (int) ($row['id'] ?? 0) < 1) {
+                return null;
+            }
+
+            return [
+                'id'               => (int) $row['id'],
+                'nombre'           => trim((string) ($row['nombre'] ?? '')),
+                'numero_empleado'  => trim((string) ($row['numero_empleado'] ?? '')),
+            ];
+        } catch (\Exception $e) {
+            return null;
         }
     }
 
@@ -2080,6 +2403,35 @@ class Ticket extends Model
             return self::resultado(true, 'Evidencia guardada.', ['id' => $lastId['id'] ?? null]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al guardar evidencia.', null, $e->getMessage());
+        }
+    }
+
+    /**
+     * Actualiza url_direccion del ticket (ruta relativa bajo uploads, p. ej. sabueso_evidencias/...).
+     * Si existe la columna solicitud_vacaciones_adjunto_nombre_original y se pasa $nombreOriginalAdjunto, también la rellena.
+     */
+    public static function actualizarUrlDireccionTicket(int $idTicket, string $rutaRelativa, ?string $nombreOriginalAdjunto = null)
+    {
+        $tid = (int) $idTicket;
+        $ruta = trim($rutaRelativa);
+        if ($tid < 1 || $ruta === '') {
+            return self::resultado(false, 'Datos inválidos.', null);
+        }
+        try {
+            $db = new Database();
+            $nom = $nombreOriginalAdjunto !== null ? trim($nombreOriginalAdjunto) : '';
+            if ($nom !== '' && self::ticketColumnaExiste($db, 'solicitud_vacaciones_adjunto_nombre_original')) {
+                $nom = mb_substr($nom, 0, 300);
+                $db->CRUD(
+                    'UPDATE ticket SET url_direccion = :ruta, solicitud_vacaciones_adjunto_nombre_original = :nom WHERE id_ticket = :id',
+                    ['ruta' => $ruta, 'nom' => $nom, 'id' => $tid]
+                );
+            } else {
+                $db->CRUD('UPDATE ticket SET url_direccion = :ruta WHERE id_ticket = :id', ['ruta' => $ruta, 'id' => $tid]);
+            }
+            return self::resultado(true, 'Ruta actualizada.', null);
+        } catch (\Exception $e) {
+            return self::resultado(false, 'Error al actualizar url_direccion.', null, $e->getMessage());
         }
     }
 
@@ -5479,6 +5831,58 @@ public static function getNombresClienteParaReporte(array $idsCredito): array
             error_log('reconsultarPagoSemanaReporteSemanal error: ' . $e->getMessage());
             return ['success' => false, 'mensaje' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Prefijo de folio para crearTicketSimple (solo letras A–Z, máx. 6; por defecto TCK).
+     */
+    private static function normalizarPrefijoFolio($valor): string
+    {
+        $s = strtoupper(preg_replace('/[^A-Z]/', '', (string) $valor));
+        if ($s === '' || strlen($s) > 6) {
+            return 'TCK';
+        }
+
+        return $s;
+    }
+
+    /**
+     * Interpreta fecha_vencimiento opcional: datetime completo, Y-m-d o d/m/Y (fin de día 23:59:59 CDMX).
+     */
+    private static function resolverFechaVencimientoTicketOpcional($valor): ?string
+    {
+        if ($valor === null) {
+            return null;
+        }
+        $s = trim((string) $valor);
+        if ($s === '') {
+            return null;
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $s)) {
+            return $s;
+        }
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $s, $m)) {
+            $y = (int) $m[1];
+            $mo = (int) $m[2];
+            $d = (int) $m[3];
+            if (!checkdate($mo, $d, $y)) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d-%02d 23:59:59', $y, $mo, $d);
+        }
+        if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $s, $m)) {
+            $d = (int) $m[1];
+            $mo = (int) $m[2];
+            $y = (int) $m[3];
+            if (!checkdate($mo, $d, $y)) {
+                return null;
+            }
+
+            return sprintf('%04d-%02d-%02d 23:59:59', $y, $mo, $d);
+        }
+
+        return null;
     }
 
     /**
