@@ -4245,6 +4245,7 @@ class CapHum extends Controller
             var candidatoReenviarEmail = null;
             var candidatoDatosEnvio = null;
             var candidatosFiltrosLlenos = false;
+            window.miUsuarioId = Number(window.miUsuarioId || 0);
 
             // Eager Loading: Map global con todos los candidatos y sus documentos precargados
             if (!window.candidatosDataMap) {
@@ -6506,6 +6507,9 @@ class CapHum extends Controller
         </script>
         HTML;
 
+        $miUsuarioId = (int) ($_SESSION['usuario_id'] ?? 0);
+        $script = '<script>window.miUsuarioId = ' . json_encode($miUsuarioId) . ';</script>' . "\n" . $script;
+
         $departamento = CapHumDAO::getConsultaDepartamentoGestor($_SESSION['usuario_id']);
         $modulos = $_SESSION['modulos'] ?? [];
         $puedeGestionarCandidatos = in_array(42, $modulos);
@@ -6515,6 +6519,7 @@ class CapHum extends Controller
         self::set("puedeGestionarCandidatos", $puedeGestionarCandidatos);
         self::set("departamento", $departamento);
         self::set("paisesActivos", \Models\Paises::getPaisesActivos());
+        self::set("miUsuarioId", $miUsuarioId);
         self::set("listaJefes", CapHumDAO::getListaPersonasParaJefe());
         self::render("candidatos");
     }
