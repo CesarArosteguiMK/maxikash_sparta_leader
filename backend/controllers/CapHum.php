@@ -5473,7 +5473,7 @@ class CapHum extends Controller
                     fd.append("solo_identificacion", "1");
                 }
                 var ctrl = new AbortController();
-                var toMs = 420000;
+                var toMs = 780000;
                 var tid = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, toMs);
                 var t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
                 candidatosDocConsola("info", "verificarExpedienteCandidato · inicio POST", { id_candidato: idC, url: "/caphum/verificarExpedienteCandidato", timeout_ms: toMs, solo_identificacion: !!soloIdentificacion });
@@ -8442,7 +8442,7 @@ class CapHum extends Controller
     private function validarExpedienteCurlDebeReintentar(int $curlErrno, int $httpCode, string $curlErr = '', int $bytesDownloaded = -1): bool
     {
         if ($curlErrno === 28 || ($curlErr !== '' && stripos($curlErr, 'timed out') !== false)) {
-            if ($bytesDownloaded <= 0 && (stripos($curlErr, '0 bytes received') !== false || $httpCode === 0)) {
+            if ($bytesDownloaded <= 0 && ($httpCode === 0 || $httpCode === 100 || stripos($curlErr, '0 bytes received') !== false)) {
                 return false;
             }
         }
@@ -8569,10 +8569,15 @@ class CapHum extends Controller
             $curlOpts = [
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => $post,
-                CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
+                CURLOPT_HTTPHEADER => [
+                    'X-API-Key: ' . $apiKey,
+                    'Expect:',
+                ],
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => $timeoutExp,
                 CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_FORBID_REUSE => true,
             ];
             if ($usarLowSpeed) {
                 $curlOpts[CURLOPT_LOW_SPEED_TIME] = $lowSpeedTime;

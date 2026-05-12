@@ -1472,6 +1472,10 @@ class Inicio extends Controller
     private function serviciosLocalesCatalogo(): array
     {
         $backendRoot = dirname(__DIR__);
+        $browserHost = (string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '127.0.0.1');
+        $browserHost = preg_replace('/:\d+$/', '', $browserHost) ?: '127.0.0.1';
+        $browserBase = 'http://' . $browserHost;
+        $apiDocBrowserUrl = 'http://' . $browserHost . ':8000/docs';
         return [
             [
                 'id'   => 'doc_candidato',
@@ -1479,7 +1483,7 @@ class Inicio extends Controller
                 'port' => 3001,
                 'role' => 'API Node — validación de documentos en alta de candidato',
                 'url_check'   => 'http://127.0.0.1:3001/',
-                'url_browser' => 'http://127.0.0.1:3001/',
+                'url_browser' => $browserBase . ':3001/',
                 'hint' => 'Si está caída: backend/API/documentacion-candidato/iniciar-agente.bat',
                 'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'documentacion-candidato' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'documentacion-candidato' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
@@ -1490,7 +1494,7 @@ class Inicio extends Controller
                 'port' => 3100,
                 'role' => 'Agente cron de reportes Segundómetro vía SSH',
                 'url_check'   => 'http://127.0.0.1:3100/health',
-                'url_browser' => 'http://127.0.0.1:3100/health',
+                'url_browser' => $browserBase . ':3100/health',
                 'hint' => 'Si está caída: backend/services/segundometro-agent/iniciar-agente.bat',
                 'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'segundometro-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'segundometro-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
@@ -1501,7 +1505,7 @@ class Inicio extends Controller
                 'port' => 3110,
                 'role' => 'Genera y envía correos de primeros pagos de cobranza',
                 'url_check'   => 'http://127.0.0.1:3110/health',
-                'url_browser' => 'http://127.0.0.1:3110/health',
+                'url_browser' => $browserBase . ':3110/health',
                 'hint' => 'Si está caída: backend/services/correos-primeros-pagos-agent/iniciar-agente.bat',
                 'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'correos-primeros-pagos-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
                 'stop_bat'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'correos-primeros-pagos-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.bat',
@@ -1512,7 +1516,7 @@ class Inicio extends Controller
                 'port' => 3120,
                 'role' => 'Reportes de cobranza, worker EC, lista negra, descargo estatus 3',
                 'url_check'   => 'http://127.0.0.1:3120/health',
-                'url_browser' => 'http://127.0.0.1:3120/health',
+                'url_browser' => $browserBase . ':3120/health',
                 'hint' => 'Si está caída: backend/services/gastos-cobranza-agent/iniciar-agente.bat',
                 'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'gastos-cobranza-agent' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'services' . DIRECTORY_SEPARATOR . 'gastos-cobranza-agent' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',
@@ -1523,7 +1527,7 @@ class Inicio extends Controller
                 'port' => 8000,
                 'role' => 'OCR + verificación documental (FastAPI 1-click)',
                 'url_check'   => 'http://127.0.0.1:8000/docs',
-                'url_browser' => 'http://127.0.0.1:8000/docs',
+                'url_browser' => $apiDocBrowserUrl,
                 'hint' => 'Si está caída: backend/API/launcher/iniciar-agente.bat',
                 'start_bat' => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'iniciar-agente.bat',
                 'stop_ps1'  => $backendRoot . DIRECTORY_SEPARATOR . 'API' . DIRECTORY_SEPARATOR . 'launcher' . DIRECTORY_SEPARATOR . 'cerrar-agente.ps1',

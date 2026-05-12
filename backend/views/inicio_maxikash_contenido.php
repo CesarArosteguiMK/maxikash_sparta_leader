@@ -912,7 +912,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
           <button type="button" class="estado-srv-tbtn" id="estadoSrvBtnRefresh" title="Refrescar ahora">Refrescar</button>
         </span>
       </div>
-      <p class="estado-srv-help">Verde = puerto en LISTEN y respondiendo HTTP. Amarillo = en LISTEN pero no responde HTTP (arrancando o caído de fachada). Rojo = puerto no abierto.</p>
+      <p class="estado-srv-help">Verde = el servidor lo ve arriba por prueba interna. Los enlaces abren con el IP del servidor; si no cargan desde tu navegador, falta exponer ese puerto en firewall/red.</p>
       <div class="estado-srv-grid" id="estadoSrvGrid">
         <div class="estado-srv-loading">Cargando estado…</div>
       </div>
