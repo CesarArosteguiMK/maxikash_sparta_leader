@@ -239,6 +239,9 @@ $documentos = [
         .doc-upload-alert.is-error .doc-upload-alert-icon {
             background: #dc2626;
         }
+        .doc-upload-alert.is-warning .doc-upload-alert-icon {
+            background: #f59e0b;
+        }
         .doc-upload-alert-title {
             margin: 0;
             color: #1e293b;
@@ -264,7 +267,8 @@ $documentos = [
             margin-top: 1rem;
         }
         .doc-upload-alert.is-success .doc-upload-alert-actions,
-        .doc-upload-alert.is-error .doc-upload-alert-actions {
+        .doc-upload-alert.is-error .doc-upload-alert-actions,
+        .doc-upload-alert.is-warning .doc-upload-alert-actions {
             display: block;
         }
         .doc-upload-alert-button {
@@ -845,17 +849,45 @@ $documentos = [
             var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 120000; // 2 min: OCR + analizadores pueden tardar
             var VERIFICACION_CALIDAD_TIMEOUT_MS = 20000; // 20 s para revisión ligera (solo calidad de imagen)
 
+            function crearErrorTimeout(timeoutMs) {
+                var err = new Error('Tiempo de espera agotado.');
+                err.name = 'TimeoutError';
+                err.esTimeout = true;
+                err.timeoutMs = timeoutMs;
+                return err;
+            }
+
+            function esErrorTimeoutOAbort(err) {
+                var nombre = err && err.name ? String(err.name) : '';
+                var mensaje = err && err.message ? String(err.message) : String(err || '');
+                return !!(err && err.esTimeout) ||
+                    nombre === 'AbortError' ||
+                    nombre === 'TimeoutError' ||
+                    /signal is aborted|aborted without reason|abort/i.test(mensaje);
+            }
+
+            function mensajeTecnicoSeguro(err) {
+                if (esErrorTimeoutOAbort(err)) {
+                    return 'Tiempo de espera agotado.';
+                }
+                return (err && err.message) ? err.message : 'No se pudo completar la operacion.';
+            }
+
             function fetchWithTimeout(url, options, timeoutMs) {
                 timeoutMs = timeoutMs || VERIFICACION_TIMEOUT_MS;
                 var ctrl = new AbortController();
-                var id = setTimeout(function() { ctrl.abort(); }, timeoutMs);
+                var timeoutErr = null;
+                var id = setTimeout(function() {
+                    timeoutErr = crearErrorTimeout(timeoutMs);
+                    try { ctrl.abort(timeoutErr); } catch (e) { ctrl.abort(); }
+                }, timeoutMs);
                 var opts = Object.assign({}, options, { signal: ctrl.signal });
                 return fetch(url, opts).then(function(r) {
                     clearTimeout(id);
                     return r;
                 }, function(err) {
                     clearTimeout(id);
-                    throw err;
+                    throw timeoutErr || err;
                 });
             }
 
@@ -871,7 +903,7 @@ $documentos = [
                     })
                     .then(resolve)
                     .catch(function(err) {
-                        if (err && err.name === 'AbortError') {
+                        if (esErrorTimeoutOAbort(err)) {
                             reject(new Error('Verificación tardó demasiado. Revisa tu conexión o que la API esté encendida e intenta de nuevo.'));
                         } else {
                             reject(err);
@@ -900,7 +932,7 @@ $documentos = [
                     })
                     .then(resolve)
                     .catch(function(err) {
-                        if (err && err.name === 'AbortError') {
+                        if (esErrorTimeoutOAbort(err)) {
                             reject(new Error('Verificación tardó demasiado. Revisa tu conexión o que la API esté encendida e intenta de nuevo.'));
                         } else {
                             reject(err);
@@ -920,7 +952,7 @@ $documentos = [
                     })
                     .then(resolve)
                     .catch(function(err) {
-                        if (err && err.name === 'AbortError') {
+                        if (esErrorTimeoutOAbort(err)) {
                             reject(new Error('Verificación tardó demasiado. Revisa tu conexión o que la API esté encendida e intenta de nuevo.'));
                         } else {
                             reject(err);
@@ -944,7 +976,7 @@ $documentos = [
                     })
                     .then(resolve)
                     .catch(function(err) {
-                        if (err && err.name === 'AbortError') {
+                        if (esErrorTimeoutOAbort(err)) {
                             reject(new Error('La revisión rápida tardó demasiado. Intenta con un PDF más claro o ligero.'));
                         } else {
                             reject(err);
@@ -976,9 +1008,10 @@ $documentos = [
                 var uploadAlertText = document.getElementById('docUploadAlertText');
                 var uploadAlertClose = document.getElementById('docUploadAlertClose');
                 if (!uploadAlert || !uploadAlertIcon || !uploadAlertTitle || !uploadAlertText) return;
-                uploadAlert.classList.remove('is-success', 'is-error');
+                uploadAlert.classList.remove('is-success', 'is-error', 'is-warning');
                 if (estado === 'success') uploadAlert.classList.add('is-success');
                 if (estado === 'error') uploadAlert.classList.add('is-error');
+                if (estado === 'warning') uploadAlert.classList.add('is-warning');
                 uploadAlertIcon.innerHTML = estado === 'loading'
                     ? '<span class="doc-upload-spinner" aria-hidden="true"></span>'
                     : (estado === 'success' ? '<i class="fa fa-check" aria-hidden="true"></i>' : '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>');
@@ -997,7 +1030,7 @@ $documentos = [
             function cerrarAlertaDocumento() {
                 var uploadAlert = document.getElementById('docUploadAlert');
                 if (!uploadAlert) return;
-                uploadAlert.classList.remove('is-visible', 'is-success', 'is-error');
+                uploadAlert.classList.remove('is-visible', 'is-success', 'is-error', 'is-warning');
                 uploadAlert.setAttribute('aria-hidden', 'true');
             }
 
@@ -1053,6 +1086,9 @@ $documentos = [
             window.API_KEY = API_KEY;
             window.VERIFICACION_TIMEOUT_MS = VERIFICACION_TIMEOUT_MS;
             window.fetchWithTimeout = fetchWithTimeout;
+            window.crearErrorTimeout = crearErrorTimeout;
+            window.esErrorTimeoutOAbort = esErrorTimeoutOAbort;
+            window.mensajeTecnicoSeguro = mensajeTecnicoSeguro;
             window.showResultado = showResultado;
             window.mostrarAlertaDocumento = mostrarAlertaDocumento;
             window.cerrarAlertaDocumento = cerrarAlertaDocumento;
@@ -1413,8 +1449,10 @@ $documentos = [
                         actualizarCheckmark(10, true);
                     })
                     .catch(function(err) {
-                        var detalle = (err && err.message) ? err.message : 'No se pudo validar en línea.';
-                        var texto = 'No se pudo validar el estado de cuenta en este momento. Puedes continuar con la subida y se revisará en backend. Detalle: ' + detalle;
+                        var detalle = mensajeTecnicoSeguro(err);
+                        var texto = esErrorTimeoutOAbort(err)
+                            ? 'Estado de cuenta recibido. La validacion tardo mas de lo esperado, pero puedes continuar con la subida; se revisara en backend.'
+                            : 'No se pudo validar el estado de cuenta en este momento. Puedes continuar con la subida y se revisara en backend. Detalle: ' + detalle;
                         // Fallback: no bloquear la carga por caída temporal de la API.
                         showResultado(msg, verificandoDiv, texto, false);
                         actualizarCheckmark(10, true);
@@ -1975,9 +2013,10 @@ $documentos = [
 
             function mostrarAlertaSubida(estado, titulo, texto) {
                 if (!uploadAlert || !uploadAlertIcon || !uploadAlertTitle || !uploadAlertText) return;
-                uploadAlert.classList.remove('is-success', 'is-error');
+                uploadAlert.classList.remove('is-success', 'is-error', 'is-warning');
                 if (estado === 'success') uploadAlert.classList.add('is-success');
                 if (estado === 'error') uploadAlert.classList.add('is-error');
+                if (estado === 'warning') uploadAlert.classList.add('is-warning');
                 uploadAlertIcon.innerHTML = estado === 'loading'
                     ? '<span class="doc-upload-spinner" aria-hidden="true"></span>'
                     : (estado === 'success' ? '<i class="fa fa-check" aria-hidden="true"></i>' : '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>');
@@ -1989,7 +2028,7 @@ $documentos = [
 
             function cerrarAlertaSubida() {
                 if (!uploadAlert) return;
-                uploadAlert.classList.remove('is-visible', 'is-success', 'is-error');
+                uploadAlert.classList.remove('is-visible', 'is-success', 'is-error', 'is-warning');
                 uploadAlert.setAttribute('aria-hidden', 'true');
             }
 
@@ -2024,7 +2063,11 @@ $documentos = [
             mostrarAlertaSubida('loading', 'Guardando documentación', 'Estamos guardando tus documentos.');
             var formData = new FormData(form);
             var ctrl = new AbortController();
-            var timeoutId = setTimeout(function() { ctrl.abort(); }, 90000);
+            var uploadTimeoutErr = null;
+            var timeoutId = setTimeout(function() {
+                uploadTimeoutErr = (typeof crearErrorTimeout === 'function') ? crearErrorTimeout(180000) : new Error('Tiempo de espera agotado.');
+                try { ctrl.abort(uploadTimeoutErr); } catch (e) { ctrl.abort(); }
+            }, 180000);
             fetch(window.location.href, {
                 method: 'POST',
                 body: formData,
@@ -2088,12 +2131,13 @@ $documentos = [
                 clearTimeout(timeoutId);
                 btn.disabled = false;
                 btn.textContent = 'Subir documentos';
-                if (err && err.name === 'AbortError') {
-                    var textoTimeout = 'La subida tardó demasiado. Comprueba tu conexión e intenta de nuevo con menos archivos.';
-                    mostrarAlertaSubida('error', 'Tiempo de espera agotado', textoTimeout);
-                    showResultado(msg, null, textoTimeout, true);
+                var errFinal = uploadTimeoutErr || err;
+                if (typeof esErrorTimeoutOAbort === 'function' && esErrorTimeoutOAbort(errFinal)) {
+                    var textoTimeout = 'La subida tardo mas de lo esperado. Revisa el listado en unos segundos; si el archivo se recibio, aparecera como cargado y se revisara en backend.';
+                    mostrarAlertaSubida('warning', 'Subida en revision', textoTimeout);
+                    showResultado(msg, null, textoTimeout, false);
                 } else {
-                    var textoConexion = 'Error de conexión. Intenta de nuevo.';
+                    var textoConexion = 'Error de conexion. Intenta de nuevo.';
                     mostrarAlertaSubida('error', 'No se pudo cargar la documentación', textoConexion);
                     showResultado(msg, null, textoConexion, true);
                 }
