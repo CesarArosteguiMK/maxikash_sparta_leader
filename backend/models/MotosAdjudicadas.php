@@ -32,6 +32,9 @@ class MotosAdjudicadas extends Model
     /** Campa?a Legacy: MOTOS ADJUDICADAS AUTORIZADAS. */
     private const LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS = 427;
 
+    /** Usuario Legacy fijo para tasks de motos adjudicadas autorizadas. */
+    private const LEGACY_USER_MOTOS_ADJ_AUTORIZADAS = 2;
+
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
         'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
@@ -812,14 +815,6 @@ class MotosAdjudicadas extends Model
                 ];
             }
 
-            $currentUserId = $this->resolverLegacyUserIdPorPersona($idPersonaResponsable);
-            if ($currentUserId <= 0) {
-                $currentUserId = $this->resolverLegacyUserIdDesdeUltimoDictamenMoto($idCredito);
-            }
-            if ($currentUserId <= 0) {
-                return ['success' => false, 'message' => 'No se encontro usuario Legacy para asignar el task.'];
-            }
-
             $datos = $this->obtenerDatosTaskLegacyMotoAutorizada($idCredito, $datosDictamen);
             $ahora = $this->fechaHoraCdmx();
             $legacyDb->CRUD(
@@ -831,7 +826,7 @@ class MotosAdjudicadas extends Model
                      :form_data, :form_answered, :status, NULL, :created_at, :updated_at)',
                 [
                     'campaign_id'     => $campaignId,
-                    'current_user_id' => $currentUserId,
+                    'current_user_id' => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
                     'client_name'     => $datos['client_name'],
                     'credit_number'   => (string) $idCredito,
                     'address'         => $datos['address'],
@@ -855,61 +850,6 @@ class MotosAdjudicadas extends Model
             ];
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'No se pudo crear el task Legacy: ' . $e->getMessage()];
-        }
-    }
-
-    private function resolverLegacyUserIdPorPersona(int $idPersona): int
-    {
-        if ($idPersona <= 0) {
-            return 0;
-        }
-        try {
-            $persona = $this->db->queryOne(
-                'SELECT TRIM(COALESCE(numero_empleado, \'\')) AS numero_empleado
-                 FROM persona
-                 WHERE id = :id
-                 LIMIT 1',
-                ['id' => $idPersona]
-            );
-            $numeroEmpleado = trim((string) ($persona['numero_empleado'] ?? ''));
-            if ($numeroEmpleado === '') {
-                return 0;
-            }
-            $legacyDb = new DatabaseLegacy();
-            $user = $legacyDb->queryOne(
-                'SELECT id
-                 FROM users
-                 WHERE TRIM(COALESCE(external_id, \'\')) = :external_id
-                   AND deleted_at IS NULL
-                 ORDER BY id DESC
-                 LIMIT 1',
-                ['external_id' => $numeroEmpleado]
-            );
-
-            return (int) ($user['id'] ?? 0);
-        } catch (\Throwable $e) {
-            return 0;
-        }
-    }
-
-    private function resolverLegacyUserIdDesdeUltimoDictamenMoto(int $idCredito): int
-    {
-        try {
-            $legacyDb = new DatabaseLegacy();
-            $row = $legacyDb->queryOne(
-                'SELECT COALESCE(t.current_user_id, d.user_id, 0) AS user_id
-                 FROM dictums d
-                 INNER JOIN tasks t ON t.id = d.task_id
-                 WHERE CAST(t.credit_number AS UNSIGNED) = :id_credito
-                   AND d.opciondictamen_id = 13
-                 ORDER BY d.id DESC
-                 LIMIT 1',
-                ['id_credito' => $idCredito]
-            );
-
-            return (int) ($row['user_id'] ?? 0);
-        } catch (\Throwable $e) {
-            return 0;
         }
     }
 
