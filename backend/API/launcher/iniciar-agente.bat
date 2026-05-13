@@ -35,7 +35,10 @@ if not "%RC%"=="0" goto :failed
 rem Confirmar que efectivamente quedo escuchando
 ping 127.0.0.1 -n 2 >nul
 netstat -ano 2>nul | findstr ":8000" | findstr "LISTENING" >nul
-if !errorlevel! NEQ 0 goto :failed
+if !errorlevel! NEQ 0 (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 4; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>nul
+    if !errorlevel! NEQ 0 goto :failed
+)
 
 echo API verificacion documentos iniciada: http://127.0.0.1:8000  ^(docs: /docs^)
 echo Log de arranque: %API_DIR%\logs\api_oculto_startup.log

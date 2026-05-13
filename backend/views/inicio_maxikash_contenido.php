@@ -912,7 +912,7 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
           <button type="button" class="estado-srv-tbtn" id="estadoSrvBtnRefresh" title="Refrescar ahora">Refrescar</button>
         </span>
       </div>
-      <p class="estado-srv-help">Verde = puerto en LISTEN y respondiendo HTTP. Amarillo = en LISTEN pero no responde HTTP (arrancando o caído de fachada). Rojo = puerto no abierto.</p>
+      <p class="estado-srv-help">Verde = PHP en el servidor pudo hablar con el servicio por <code>127.0.0.1</code>. Eso es lo que necesita Capital Humano. Abrir <code>34.51.95.211:8000</code> desde tu navegador es una prueba externa aparte y depende del firewall.</p>
       <div class="estado-srv-grid" id="estadoSrvGrid">
         <div class="estado-srv-loading">Cargando estado…</div>
       </div>
@@ -1812,9 +1812,9 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       var lat = (srv.latency_ms != null) ? (srv.latency_ms + ' ms') : '—';
       var status = (srv.http_status != null) ? srv.http_status : '—';
       var pid = srv.pid ? (' · PID ' + srv.pid) : '';
-      var browseLink = srv.url_browser
+      var browseLine = srv.url_browser
         ? '<a href="' + escapeHtml(srv.url_browser) + '" target="_blank" rel="noopener">' + escapeHtml(srv.url_browser) + '</a>'
-        : '';
+        : '<span>' + escapeHtml(srv.browser_note || 'Prueba interna del servidor; sin enlace externo necesario.') + '</span>';
       html += '<div class="estado-srv-card ' + cls + '">';
       html += '  <span class="dot"></span>';
       html += '  <div>';
@@ -1822,7 +1822,8 @@ body.dark-mode .api1click-tbtn--danger { color: #fecaca; }
       html += '    <div class="estado-srv-meta">Puerto <strong>' + srv.port + '</strong>' + pid + ' · HTTP ' + escapeHtml(status) + ' · ' + escapeHtml(lat) + '</div>';
       html += '    <div class="estado-srv-meta">' + escapeHtml(srv.role || '') + '</div>';
       if (cls === 'up') {
-        html += '    <div class="estado-srv-meta">' + browseLink + '</div>';
+        html += '    <div class="estado-srv-meta">Check interno: <code>' + escapeHtml(srv.url_check || '') + '</code></div>';
+        html += '    <div class="estado-srv-meta">' + browseLine + '</div>';
       } else {
         html += '    <div class="estado-srv-meta">' + escapeHtml(srv.hint || '') + '</div>';
       }

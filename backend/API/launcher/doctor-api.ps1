@@ -80,6 +80,38 @@ function Err     { param([string] $M) Out-Log "[ERR ] $M" 'Red';    $Script:HasE
 function Fix     { param([string] $M) Out-Log "[FIX ] $M" 'Magenta'; $null = $Script:FixesApplied.Add($M) }
 function Rec     { param([string] $M) $null = $Script:Recommended.Add($M); Out-Log "       -> $M" 'DarkYellow' }
 
+function Invoke-ExeCapture {
+    param(
+        [Parameter(Mandatory)] [string] $FilePath,
+        [string[]] $ArgumentList = @(),
+        [string] $WorkDir = $null
+    )
+    $tmpOut = [System.IO.Path]::GetTempFileName()
+    $tmpErr = [System.IO.Path]::GetTempFileName()
+    $prevDir = (Get-Location).Path
+    $prevEap = $ErrorActionPreference
+    try {
+        if ($WorkDir) { Push-Location -LiteralPath $WorkDir }
+        $ErrorActionPreference = 'Continue'
+        & $FilePath @ArgumentList > $tmpOut 2> $tmpErr
+        $exit = $LASTEXITCODE
+        $stdout = (Get-Content -LiteralPath $tmpOut -Raw -ErrorAction SilentlyContinue)
+        $stderr = (Get-Content -LiteralPath $tmpErr -Raw -ErrorAction SilentlyContinue)
+        return [pscustomobject]@{
+            ExitCode = $exit
+            StdOut   = ($stdout -as [string])
+            StdErr   = ($stderr -as [string])
+            All      = (($stdout -as [string]) + "`n" + ($stderr -as [string]))
+        }
+    } finally {
+        $ErrorActionPreference = $prevEap
+        if ($WorkDir) {
+            try { Pop-Location } catch { Set-Location -LiteralPath $prevDir }
+        }
+        Remove-Item -LiteralPath $tmpOut, $tmpErr -ErrorAction SilentlyContinue
+    }
+}
+
 function Test-PythonStdlibSano {
     # Devuelve $true si _socket y ssl cargan (Python no esta corrupto/incompleto).
     param([Parameter(Mandatory)][string]$PyExe, [string[]]$PyArgs = @())
@@ -147,8 +179,6 @@ function Invoke-PyCapture {
         [Parameter(Mandatory)] [string] $Code,
         [string] $WorkDir = $null
     )
-    $tmpOut = [System.IO.Path]::GetTempFileName()
-    $tmpErr = [System.IO.Path]::GetTempFileName()
     $tmpScript = [System.IO.Path]::GetTempFileName() + '.py'
     $prevPyPath = $env:PYTHONPATH
     try {
@@ -163,28 +193,10 @@ function Invoke-PyCapture {
         $argList = @()
         if ($PyArgs.Count -gt 0) { $argList += $PyArgs }
         $argList += $tmpScript
-        $spArgs = @{
-            FilePath               = $PyExe
-            ArgumentList           = $argList
-            NoNewWindow            = $true
-            Wait                   = $true
-            PassThru               = $true
-            RedirectStandardOutput = $tmpOut
-            RedirectStandardError  = $tmpErr
-        }
-        if ($WorkDir) { $spArgs.WorkingDirectory = $WorkDir }
-        $p = Start-Process @spArgs
-        $stdout = (Get-Content -LiteralPath $tmpOut -Raw -ErrorAction SilentlyContinue)
-        $stderr = (Get-Content -LiteralPath $tmpErr -Raw -ErrorAction SilentlyContinue)
-        return [pscustomobject]@{
-            ExitCode = $p.ExitCode
-            StdOut   = ($stdout -as [string])
-            StdErr   = ($stderr -as [string])
-            All      = (($stdout -as [string]) + "`n" + ($stderr -as [string]))
-        }
+        return (Invoke-ExeCapture -FilePath $PyExe -ArgumentList $argList -WorkDir $WorkDir)
     } finally {
         $env:PYTHONPATH = $prevPyPath
-        Remove-Item -LiteralPath $tmpOut, $tmpErr, $tmpScript -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $tmpScript -ErrorAction SilentlyContinue
     }
 }
 
@@ -297,23 +309,19 @@ if (-not $pyExe) {
     # warnings por _pth en stderr y rompen la lectura inline).
     $pyVer = $null
     try {
-        $tmpVO = [System.IO.Path]::GetTempFileName()
-        $tmpVE = [System.IO.Path]::GetTempFileName()
-        $verArgs = @()
-        if ($pyArgs.Count -gt 0) { $verArgs += $pyArgs }
-        $verArgs += @('-c', 'import sys,platform; print(platform.python_version()+"|"+sys.executable+"|"+platform.architecture()[0])')
-        $pVer = Start-Process -FilePath $pyExe -ArgumentList $verArgs `
-            -Wait -PassThru -NoNewWindow `
-            -RedirectStandardOutput $tmpVO -RedirectStandardError $tmpVE
-        if ($pVer.ExitCode -eq 0) {
-            $rawVer = Get-Content -LiteralPath $tmpVO -Raw -ErrorAction SilentlyContinue
+        $verCode = @"
+import sys, platform
+print(platform.python_version() + '|' + sys.executable + '|' + platform.architecture()[0])
+"@
+        $verRun = Invoke-PyCapture -PyExe $pyExe -PyArgs $pyArgs -Code $verCode
+        if ($verRun.ExitCode -eq 0) {
+            $rawVer = $verRun.StdOut
             if ($rawVer) {
                 foreach ($ln in ($rawVer -split "`r?`n")) {
                     if ($ln -match '^\d+\.\d+\.\d+\|') { $pyVer = $ln.Trim(); break }
                 }
             }
         }
-        Remove-Item -LiteralPath $tmpVO, $tmpVE -ErrorAction SilentlyContinue
     } catch {}
     if ($pyVer) {
         $parts = $pyVer.Split('|')
@@ -337,17 +345,12 @@ if (-not $pyExe) {
 
     $chkPy = Join-Path $here '_check_standard_python.py'
     if (Test-Path -LiteralPath $chkPy) {
-        $tmpO = [System.IO.Path]::GetTempFileName()
-        $tmpE = [System.IO.Path]::GetTempFileName()
         $chkArgs = @()
         if ($pyArgs.Count -gt 0) { $chkArgs += $pyArgs }
         $chkArgs += $chkPy
-        $pChk = Start-Process -FilePath $pyExe -ArgumentList $chkArgs -WorkingDirectory $ApiDir `
-            -Wait -PassThru -NoNewWindow `
-            -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
-        $chkOut = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
-        Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
-        if ($pChk.ExitCode -eq 2) {
+        $chkRun = Invoke-ExeCapture -FilePath $pyExe -ArgumentList $chkArgs -WorkDir $ApiDir
+        $chkOut = $chkRun.All
+        if ($chkRun.ExitCode -eq 2) {
             $Script:PythonFreeThreading = $true
             Err "Python FREE-THREADING (sin GIL / Py_GIL_DISABLED): incompatible con compilacion wheel de PyMuPDF y otros."
             foreach ($ln in (($chkOut -split "`r?`n") | Where-Object { $_.Trim() -ne '' })) {
@@ -499,20 +502,10 @@ if ($pyExe) {
     # de verdad sobre como se importa la app.
     $smokePy = Join-Path $here '_smoke_import.py'
     if (Test-Path -LiteralPath $smokePy) {
-        $tmpO = [System.IO.Path]::GetTempFileName()
-        $tmpE = [System.IO.Path]::GetTempFileName()
         $sArgs = @()
         if ($pyArgs.Count -gt 0) { $sArgs += $pyArgs }
         $sArgs += $smokePy
-        $p = Start-Process -FilePath $pyExe -ArgumentList $sArgs -WorkingDirectory $ApiDir `
-             -NoNewWindow -Wait -PassThru `
-             -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
-        $r = [pscustomobject]@{
-            ExitCode = $p.ExitCode
-            StdOut   = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue)
-            StdErr   = (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
-        }
-        Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
+        $r = Invoke-ExeCapture -FilePath $pyExe -ArgumentList $sArgs -WorkDir $ApiDir
     } else {
         $code = @"
 import traceback, sys
@@ -637,18 +630,13 @@ if ($pyExe) {
     if (-not (Test-Path -LiteralPath $smokeZbar)) {
         Warn "Falta launcher\_zbar_smoke.py; no se puede validar pyzbar automaticamente."
     } else {
-        $tmpZOut = [System.IO.Path]::GetTempFileName()
-        $tmpZErr = [System.IO.Path]::GetTempFileName()
         $szArgs = @()
         if ($pyArgs.Count -gt 0) { $szArgs += $pyArgs }
         $szArgs += $smokeZbar
-        $pZ = Start-Process -FilePath $pyExe -ArgumentList $szArgs `
-            -WorkingDirectory $ApiDir -NoNewWindow -Wait -PassThru `
-            -RedirectStandardOutput $tmpZOut -RedirectStandardError $tmpZErr
-        $zOut = (Get-Content -LiteralPath $tmpZOut -Raw -ErrorAction SilentlyContinue)
-        $zErr = (Get-Content -LiteralPath $tmpZErr -Raw -ErrorAction SilentlyContinue)
-        Remove-Item -LiteralPath $tmpZOut, $tmpZErr -ErrorAction SilentlyContinue
-        if ($pZ.ExitCode -eq 0) {
+        $zRun = Invoke-ExeCapture -FilePath $pyExe -ArgumentList $szArgs -WorkDir $ApiDir
+        $zOut = $zRun.StdOut
+        $zErr = $zRun.StdErr
+        if ($zRun.ExitCode -eq 0) {
             Ok "pyzbar OK (DLL dentro de API -> copia a site-packages\pyzbar)."
         } else {
             Warn "pyzbar no carga; QR/PDF417 fallaran hasta tener DLLs locales."
@@ -660,17 +648,12 @@ if ($pyExe) {
                 Info "(-Fix) Intentando bootstrap-zbar-local.ps1 ..."
                 try {
                     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here 'bootstrap-zbar-local.ps1')
-                    $tmpZOut2 = [System.IO.Path]::GetTempFileName()
-                    $tmpZErr2 = [System.IO.Path]::GetTempFileName()
-                    $pZ2 = Start-Process -FilePath $pyExe -ArgumentList $szArgs `
-                        -WorkingDirectory $ApiDir -NoNewWindow -Wait -PassThru `
-                        -RedirectStandardOutput $tmpZOut2 -RedirectStandardError $tmpZErr2
-                    if ($pZ2.ExitCode -eq 0) {
+                    $zRun2 = Invoke-ExeCapture -FilePath $pyExe -ArgumentList $szArgs -WorkDir $ApiDir
+                    if ($zRun2.ExitCode -eq 0) {
                         Fix "pyzbar OK tras bootstrap local."
                     } else {
                         Warn "pyzbar sigue sin cargar tras bootstrap (red o permisos?)."
                     }
-                    Remove-Item -LiteralPath $tmpZOut2, $tmpZErr2 -ErrorAction SilentlyContinue
                 } catch {
                     Warn "No se pudo ejecutar bootstrap-zbar-local.ps1 automaticamente."
                 }
@@ -752,7 +735,27 @@ try {
 Section '13. Test HTTP a localhost:8000 (si esta arriba)'
 try {
     $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/docs' -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop
-    if ($resp.StatusCode -eq 200) { Ok "GET /docs respondio 200 (API operativa)." }
+    if ($resp.StatusCode -eq 200) {
+        Ok "GET /docs respondio 200 (API operativa)."
+        $cleanSummary = New-Object System.Collections.Generic.List[string]
+        foreach ($s in $Script:Summary) {
+            if ($s -match 'Puerto 8000 ya esta en uso') { continue }
+            $cleanSummary.Add($s) | Out-Null
+        }
+        $Script:Summary = $cleanSummary
+        $cleanRec = New-Object System.Collections.Generic.List[string]
+        foreach ($r in $Script:Recommended) {
+            if ($r -match 'cerrar-agente\.bat') { continue }
+            $cleanRec.Add($r) | Out-Null
+        }
+        $Script:Recommended = $cleanRec
+        $Script:HasErrors = $false
+        $Script:HasWarnings = $false
+        foreach ($s in $Script:Summary) {
+            if ($s.StartsWith('[ERR ]')) { $Script:HasErrors = $true }
+            elseif ($s.StartsWith('[WARN]')) { $Script:HasWarnings = $true }
+        }
+    }
     else { Warn "GET /docs respondio $($resp.StatusCode)" }
 } catch {
     Info "API no responde en /docs (normal si aun no se ha arrancado)."
@@ -782,12 +785,9 @@ if ($InstallMissing -and $Script:PythonFreeThreading) {
     $pipLog = Join-Path $LogsDir "doctor-pip-$stamp.log"
     foreach ($pkg in $missing) {
         Out-Log "  pip install $pkg ..." 'Magenta'
-        $proc = Start-Process -FilePath $pyExe -ArgumentList (@($pyArgs) + @('-m','pip','install','--no-input',$pkg)) `
-                -NoNewWindow -Wait -PassThru `
-                -RedirectStandardOutput "$pipLog.out" -RedirectStandardError "$pipLog.err"
-        Get-Content "$pipLog.out" -ErrorAction SilentlyContinue | Add-Content -LiteralPath $pipLog -Encoding UTF8
-        Get-Content "$pipLog.err" -ErrorAction SilentlyContinue | Add-Content -LiteralPath $pipLog -Encoding UTF8
-        Remove-Item "$pipLog.out","$pipLog.err" -ErrorAction SilentlyContinue
+        $proc = Invoke-ExeCapture -FilePath $pyExe -ArgumentList (@($pyArgs) + @('-m','pip','install','--no-input',$pkg)) -WorkDir $ApiDir
+        Add-Content -LiteralPath $pipLog -Value $proc.StdOut -Encoding UTF8
+        Add-Content -LiteralPath $pipLog -Value $proc.StdErr -Encoding UTF8
         if ($proc.ExitCode -eq 0) { Fix "Instalado $pkg" }
         else { Err "Fallo pip install $pkg (vea $pipLog)" }
     }
@@ -832,6 +832,7 @@ except Exception as e:
     foreach ($s in $Script:Summary) {
         $skip = $false
         if ($s -match 'Falta paquete:|Import fallo:') { $skip = $true }
+        if ($s -match 'Fallo pip install') { $skip = $true }
         if ($s -match 'La app NO se puede importar')  { $skip = $true }
         if (-not $skip) { $cleanSummary.Add($s) | Out-Null }
     }
@@ -863,16 +864,11 @@ except Exception as e:
         # Re-correr smoke import si estaba fallando
         $smokePy = Join-Path $here '_smoke_import.py'
         if (Test-Path -LiteralPath $smokePy) {
-            $tmpO = [System.IO.Path]::GetTempFileName()
-            $tmpE = [System.IO.Path]::GetTempFileName()
             $sArgs = @()
             if ($pyArgs.Count -gt 0) { $sArgs += $pyArgs }
             $sArgs += $smokePy
-            $pSmoke = Start-Process -FilePath $pyExe -ArgumentList $sArgs `
-                -WorkingDirectory $ApiDir -NoNewWindow -Wait -PassThru `
-                -RedirectStandardOutput $tmpO -RedirectStandardError $tmpE
-            $smokeOut = (Get-Content -LiteralPath $tmpO -Raw -ErrorAction SilentlyContinue) + "`n" + (Get-Content -LiteralPath $tmpE -Raw -ErrorAction SilentlyContinue)
-            Remove-Item -LiteralPath $tmpO, $tmpE -ErrorAction SilentlyContinue
+            $smokeRun = Invoke-ExeCapture -FilePath $pyExe -ArgumentList $sArgs -WorkDir $ApiDir
+            $smokeOut = $smokeRun.All
             if ($smokeOut -match 'SMOKE_OK') {
                 Ok "Smoke import 'from app.main import app' OK tras auto-fix."
             } else {

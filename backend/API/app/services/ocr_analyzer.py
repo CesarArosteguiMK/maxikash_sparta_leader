@@ -226,6 +226,16 @@ class OCRAnalyzer:
         texto = pytesseract.image_to_string(img, config=f"--oem 3 --psm {psm} -l {lang}")
         return texto.upper()
 
+    def _texto_tiene_senales_id(self, texto: str) -> bool:
+        t = (texto or "").upper()
+        if len(t.strip()) < 60:
+            return False
+        compacto = re.sub(r"\s+", "", t)
+        if re.search(r"[A-Z0-9]{4}[0-9OIL]{6}[HM][A-Z0-9]{7}", compacto):
+            return True
+        senales = ("CURP", "NOMBRE", "DOMICILIO", "INSTITUTO NACIONAL", "CREDENCIAL", "ELECTOR", "MEX<", "IDMEX", "INM")
+        return any(s in t for s in senales)
+
     def _extraer_mejor_texto(self, image_bytes: bytes) -> str:
         """Extrae texto con varias variantes de imagen y PSM para maximizar detección (CURP, clave, etc.).
         Incluye pipeline denoise+CLAHE+umbral para documentos de identidad y PSM 7/12 (línea única / texto disperso)."""
@@ -233,13 +243,13 @@ class OCRAnalyzer:
         textos = []
         # Variantes estándar + PSM 6,3,4,11
         for v in self._variants(img_cv):
-            for psm in (6, 3, 4, 11):
+            for psm in (6, 11):
                 t = self._extraer_texto_psm(v, psm)
                 if t.strip():
                     textos.append(t)
         # Variantes optimizadas para ID (denoise+CLAHE+umbral) + PSM 7 (línea) y 12 (disperso)
         for v in self._variants_documento_id(img_cv):
-            for psm in (7, 12):
+            for psm in (12,):
                 t = self._extraer_texto_psm(v, psm)
                 if t.strip():
                     textos.append(t)

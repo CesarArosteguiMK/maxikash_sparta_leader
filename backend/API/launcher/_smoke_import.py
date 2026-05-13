@@ -8,6 +8,11 @@ muere en silencio).
 import os
 import sys
 import traceback
+import warnings
+
+# Para el launcher solo importa si la app carga o no carga. Una advertencia
+# de FastAPI/Pydantic no debe impedir que uvicorn arranque.
+warnings.simplefilter("ignore", Warning)
 
 # Cuando el script vive en launcher\, asegurar que la carpeta API este en sys.path.
 _THIS = os.path.dirname(os.path.abspath(__file__))

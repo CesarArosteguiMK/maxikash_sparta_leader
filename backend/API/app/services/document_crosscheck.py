@@ -28,8 +28,10 @@ except ImportError:
 from app.utils.curp_validator import validar_curp, extraer_datos_curp
 from app.core.config import get_settings
 
+_RAPIDOCR_ENGINE_DC = None
 
-def pdf_paginas_a_png_bytes(pdf_bytes: bytes, dpi: int = 150) -> List[bytes]:
+
+def pdf_paginas_a_png_bytes(pdf_bytes: bytes, dpi: int = 150, max_paginas: Optional[int] = None) -> List[bytes]:
     """Convierte cada página del PDF a bytes PNG. Para uso en verificación de ID oficial."""
     if not PYMUPDF_AVAILABLE:
         return []
@@ -38,7 +40,9 @@ def pdf_paginas_a_png_bytes(pdf_bytes: bytes, dpi: int = 150) -> List[bytes]:
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         out = []
-        for page in doc:
+        for i, page in enumerate(doc):
+            if max_paginas is not None and i >= max_paginas:
+                break
             pix = page.get_pixmap(dpi=dpi)
             out.append(pix.tobytes("png"))
         doc.close()
@@ -48,18 +52,28 @@ def pdf_paginas_a_png_bytes(pdf_bytes: bytes, dpi: int = 150) -> List[bytes]:
         return []
 
 
-def _texto_ocr_imagen(image_png_bytes: bytes) -> Optional[str]:
-    """Extrae texto de una imagen PNG: RapidOCR si está disponible, si no Tesseract."""
+def _get_rapidocr_dc():
+    """Carga RapidOCR una sola vez; instanciarlo por imagen vuelve lenta la validacion."""
+    global _RAPIDOCR_ENGINE_DC
+    if _RAPIDOCR_ENGINE_DC is not None:
+        return _RAPIDOCR_ENGINE_DC if _RAPIDOCR_ENGINE_DC is not False else None
     try:
         try:
             from rapidocr_onnxruntime import RapidOCR
         except ImportError:
-            try:
-                from rapidocr import RapidOCR
-            except ImportError:
-                RapidOCR = None
-        if RapidOCR is not None:
-            engine = RapidOCR()
+            from rapidocr import RapidOCR
+        _RAPIDOCR_ENGINE_DC = RapidOCR()
+        return _RAPIDOCR_ENGINE_DC
+    except Exception:
+        _RAPIDOCR_ENGINE_DC = False
+        return None
+
+
+def _texto_ocr_imagen(image_png_bytes: bytes) -> Optional[str]:
+    """Extrae texto de una imagen PNG: RapidOCR si está disponible, si no Tesseract."""
+    try:
+        engine = _get_rapidocr_dc()
+        if engine is not None:
             out = engine(image_png_bytes)
             result = out[0] if isinstance(out, (list, tuple)) and len(out) > 0 else out
             if not result:
@@ -95,7 +109,7 @@ def texto_de_pdf_con_ocr(pdf_bytes: bytes, max_paginas: int = 3) -> str:
         doc.close()
         if texto.strip():
             return texto
-        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=200)
+        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=200, max_paginas=max_paginas)
         if not imagenes:
             return ""
         for img_bytes in imagenes[:max_paginas]:
@@ -715,6 +729,24 @@ def es_documento_acta_nacimiento(pdf_bytes: bytes) -> bool:
     return False
 
 
+def _texto_parece_acta_nacimiento(texto: str) -> bool:
+    """True si un texto OCR parece acta/certificado de nacimiento."""
+    t = (texto or "").upper()
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    if not t:
+        return False
+    if "ACTA DE NACIMIENTO" in t or "CERTIFICADO DE NACIMIENTO" in t:
+        return True
+    if ("ACTA" in t or "CERTIFICADO" in t or "REGISTRO CIVIL" in t) and "NACIMIENTO" in t:
+        return True
+    if ("INSCRIPCION" in t or "INSCRITO" in t or "SE INSCRIBE" in t) and "NACIMIENTO" in t:
+        return True
+    if "NACIDO" in t and ("REGISTRO" in t or "ACTA" in t or "LIBRO" in t or "FOLIO" in t):
+        return True
+    return False
+
+
 def extraer_datos_curp_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
     """Extrae nombre, CURP y fecha de emisión de la constancia CURP (PDF RENAPO).
     Estructura del PDF RENAPO:
@@ -987,6 +1019,27 @@ def _ocr_multi_pasada(img_cv: np.ndarray, lang: str = "spa") -> List[str]:
     return textos
 
 
+def _ocr_acta_rapida(img_cv: np.ndarray, lang: str = "spa") -> List[str]:
+    """OCR corto para el boton de acta: pocas pasadas, suficiente para validar sin esperar minutos."""
+    textos = []
+    h, w = img_cv.shape[:2]
+    if w > 1800:
+        scale = 1800 / w
+        img_cv = cv2.resize(img_cv, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    for cfg in ({"nombre": "clahe_psm6", "psm": 6}, {"nombre": "otsu_psm6", "psm": 6}):
+        try:
+            procesada = _preprocesar_imagen(img_cv, cfg["nombre"])
+            txt = pytesseract.image_to_string(
+                Image.fromarray(procesada),
+                config=f"--oem 3 --psm {cfg['psm']} -l {lang}"
+            )
+            if txt.strip():
+                textos.append(txt.upper())
+        except Exception:
+            continue
+    return textos
+
+
 _PATRONES_FECHA_NACIMIENTO = [
     r"(?:NACI[OÓ]|FECHA\s*DE\s*NACIMIENTO|NACIDO|BORN)[^0-9]{0,30}(\d{1,2})\s*(?:DE\s+)?([A-ZÁÉÍÓÚ]+)\s*(?:DE\s+)?(\d{4})",
     r"(?:NACI[OÓ]|NACIDO|BORN)\s*(?:EL\s*)?(?:D[IÍ]A\s*)?(\d{1,2})\s*DE\s*([A-ZÁÉÍÓÚ]+)\s*DE\s*(\d{4})",
@@ -1098,7 +1151,7 @@ def _votar_mejor(candidatos: List[str], total_pasadas: int) -> tuple:
     return ganador, confianza
 
 
-def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
+def extraer_datos_acta_nacimiento(pdf_bytes: bytes, modo_rapido: bool = False) -> Dict[str, Any]:
     """Extrae nombre y fecha de nacimiento del acta de nacimiento.
     Usa OCR multi-pasada con votación: ejecuta múltiples estrategias de
     preprocesamiento, extrae fechas/nombres de cada una, y el valor con
@@ -1107,6 +1160,7 @@ def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
     resultado = {
         "nombre": None, "fecha_nacimiento": None, "texto_extraido": False,
         "confianza_fecha": 0, "confianza_nombre": 0, "pasadas_ocr": 0,
+        "parece_acta": False,
     }
 
     if not PYMUPDF_AVAILABLE:
@@ -1119,7 +1173,10 @@ def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
         imagenes_cv: List[np.ndarray] = []
         texto_digital = ""
 
-        for page in doc:
+        max_paginas = 1 if modo_rapido else doc.page_count
+        for i, page in enumerate(doc):
+            if i >= max_paginas:
+                break
             txt = page.get_text()
             if txt.strip() and len(txt.strip()) > 30:
                 texto_digital += txt + "\n"
@@ -1131,7 +1188,7 @@ def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
 
             imgs = page.get_images(full=True)
             if not imgs:
-                pix = page.get_pixmap(dpi=300)
+                pix = page.get_pixmap(dpi=170 if modo_rapido else 300)
                 img_bytes_raw = pix.tobytes("png")
                 nparr = np.frombuffer(img_bytes_raw, np.uint8)
                 img_cv = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -1149,7 +1206,11 @@ def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
                     if img_cv is None:
                         continue
                     h, w = img_cv.shape[:2]
-                    if w < 1200:
+                    if modo_rapido and w > 1800:
+                        scale = 1800 / w
+                        img_cv = cv2.resize(img_cv, None, fx=scale, fy=scale,
+                                            interpolation=cv2.INTER_AREA)
+                    elif w < 1200:
                         scale = max(1400 / w, 2.0)
                         img_cv = cv2.resize(img_cv, None, fx=scale, fy=scale,
                                             interpolation=cv2.INTER_CUBIC)
@@ -1164,6 +1225,7 @@ def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
 
     if texto_digital.strip() and len(texto_digital.strip()) > 50:
         resultado["texto_extraido"] = True
+        resultado["parece_acta"] = _texto_parece_acta_nacimiento(texto_digital)
         fecha = _parsear_fecha_de_texto(texto_digital.upper())
         nombre = _parsear_nombre_de_texto(texto_digital.upper())
         if fecha:
@@ -1180,10 +1242,12 @@ def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
 
     fechas_candidatas: List[str] = []
     nombres_candidatos: List[str] = []
+    textos_ocr: List[str] = []
     total_pasadas = 0
 
     for img_cv in imagenes_cv:
-        textos = _ocr_multi_pasada(img_cv)
+        textos = _ocr_acta_rapida(img_cv) if modo_rapido else _ocr_multi_pasada(img_cv)
+        textos_ocr.extend(textos)
         total_pasadas += len(textos)
 
         for txt in textos:
@@ -1196,6 +1260,7 @@ def extraer_datos_acta_nacimiento(pdf_bytes: bytes) -> Dict[str, Any]:
 
     resultado["texto_extraido"] = True
     resultado["pasadas_ocr"] = total_pasadas
+    resultado["parece_acta"] = _texto_parece_acta_nacimiento("\n".join(textos_ocr))
     logger.info(
         f"Acta nacimiento multi-pasada: {total_pasadas} pasadas, "
         f"{len(fechas_candidatas)} fechas, {len(nombres_candidatos)} nombres"
@@ -1270,11 +1335,14 @@ def validacion_cruzada(
             nombre_id = id_frente_nombre
             if _nombres_coinciden(nombre_id, nombre_doc):
                 curp_definitivo = curp_doc
-                curp_fuente = "documento_curp (sobremontado: CURP de ID no coincide pero nombre sí)"
-                alertas.append(
-                    f"CURP de identificación ({id_frente_curp}) difiere del documento CURP ({curp_doc}). "
-                    "Nombres coinciden → se usa el CURP del documento oficial."
+                curp_fuente = "documento_curp (sobremontado: OCR de ID difiere pero nombre si)"
+                comparaciones["curp_id_vs_documento"]["coincide"] = True
+                comparaciones["curp_id_vs_documento"]["advertencia_ocr"] = True
+                comparaciones["curp_id_vs_documento"]["nota"] = (
+                    "La CURP leida en la identificacion difiere del PDF oficial, "
+                    "pero los nombres coinciden. Se toma la CURP del documento oficial."
                 )
+                # No se agrega a alertas: queda resuelto usando el PDF oficial cuando el nombre coincide.
             else:
                 alertas.append(
                     f"CURP de identificación ({id_frente_curp}) difiere del documento CURP ({curp_doc}) "

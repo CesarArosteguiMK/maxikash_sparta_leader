@@ -61,7 +61,7 @@ class VerificacionService:
 
         # Rechazar si el documento subido no es identificación (comprobante, constancia fiscal, CURP, NSS, acta)
         try:
-            texto_ocr = await asyncio.to_thread(self.ocr_analyzer.extraer_texto_raw, image_bytes)
+            texto_ocr = await asyncio.to_thread(self.ocr_analyzer.extraer_texto_rapido, image_bytes)
             msg_no_id = self.comprobante_analyzer.parece_que_no_es_identificacion(texto_ocr or "")
             if msg_no_id:
                 tiempo_ms = int((time.time() - inicio) * 1000)

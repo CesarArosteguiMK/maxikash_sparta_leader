@@ -190,7 +190,7 @@ def _texto_de_pdf(pdf_bytes: bytes, max_paginas: int = 3) -> str:
             return texto
         # PDF sin capa de texto (escaneado): convertir páginas a imagen y usar OCR
         from app.services.document_crosscheck import pdf_paginas_a_png_bytes
-        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=200)
+        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=200, max_paginas=max_paginas)
         if not imagenes:
             return ""
         for img_bytes in imagenes[:max_paginas]:
@@ -292,6 +292,24 @@ def _extraer_nombre_propietario(texto: str) -> Optional[str]:
     return None
 
 
+def _extraer_clabe(texto: str) -> Optional[str]:
+    """Extrae una CLABE interbancaria de 18 digitos cuando el PDF la muestra."""
+    if not texto or len(texto.strip()) < 20:
+        return None
+
+    patrones = [
+        r"(?:CLABE\s*(?:INTERBANCARIA)?|CUENTA\s*CLABE)\s*[:#\-]?\s*([0-9\s\-]{18,30})",
+        r"\b([0-9]{3}[\s\-]?[0-9]{3}[\s\-]?[0-9]{11,12})\b",
+        r"\b([0-9][0-9\s\-]{16,28}[0-9])\b",
+    ]
+    for pat in patrones:
+        for m in re.finditer(pat, texto, re.IGNORECASE):
+            digitos = re.sub(r"\D+", "", m.group(1))
+            if len(digitos) == 18:
+                return digitos
+    return None
+
+
 def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
     """
     Valida un PDF de estado de cuenta.
@@ -299,6 +317,7 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         valido: bool
         banco_detectado: str | None
         nombre_propietario: str | None
+        clabe: str | None
         es_banco_fisico: bool
         tiene_datos_titular: bool
         mensaje: str
@@ -307,6 +326,7 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
         "valido": False,
         "banco_detectado": None,
         "nombre_propietario": None,
+        "clabe": None,
         "es_banco_fisico": False,
         "tiene_datos_titular": False,
         "mensaje": "",
@@ -324,6 +344,7 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
     resultado["banco_detectado"] = banco
     resultado["es_banco_fisico"] = es_fisico
     resultado["nombre_propietario"] = _extraer_nombre_propietario(texto)
+    resultado["clabe"] = _extraer_clabe(texto)
 
     # Debe parecer estado de cuenta (mención típica) O tener banco físico detectado (OCR puede no leer la etiqueta)
     es___SPARTA_SECRET_REDACTED__ = bool(
