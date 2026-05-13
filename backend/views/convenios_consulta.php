@@ -2146,9 +2146,9 @@ function congelarModulo(convenio) {
 
     amort.forEach(function (fila) {
         if (fila.estatus_pago === 'pagado') {
-            montoPagado += parseFloat(fila.capital || 0);
+            montoPagado += parseFloat(fila.pago_semanal || 0);
         } else if (fila.estatus_pago === 'parcial') {
-            montoPagado += parseFloat(fila.monto_pagado || 0);
+            montoPagado += parseFloat(fila.monto_pagado || 0) + parseFloat(fila.monto_secundario || 0);
         }
     });
 
