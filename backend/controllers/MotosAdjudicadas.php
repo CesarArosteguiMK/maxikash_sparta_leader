@@ -307,6 +307,11 @@ class MotosAdjudicadas extends Controller
         } elseif ($aplicaRaw === 1 || $aplicaRaw === '1' || $aplicaRaw === true) {
             $aplica = 1;
         }
+        $datosTaskLegacy = [
+            'lat'          => $body['lat'] ?? null,
+            'lng'          => $body['lng'] ?? null,
+            'lugar_aprox'  => trim((string) ($body['lugar_aprox'] ?? '')),
+        ];
 
         $idPersonaResponsable = 0;
         $adj                  = new AdjudicacionDAO();
@@ -350,8 +355,11 @@ class MotosAdjudicadas extends Controller
                     }
                     $result['asignacion'] = $asig;
                     if (!empty($asig['success'])) {
+                        $taskLegacy = $this->model->crearTaskLegacyMotoAutorizada($idCredito, $idPersonaResponsable, $datosTaskLegacy);
+                        $result['task_legacy'] = $taskLegacy;
                         $result['message'] = 'Seguimiento guardado. '
                             . ($asig['message'] ?? 'Crédito asignado correctamente; aparecerá en Mis adjudicaciones del responsable.');
+                        $result['message'] .= ' ' . ($taskLegacy['message'] ?? 'Task legacy procesado.');
                     } else {
                         $result['message'] = 'Seguimiento guardado. '
                             . ($asig['message'] ?? 'No se pudo completar la asignación.');
