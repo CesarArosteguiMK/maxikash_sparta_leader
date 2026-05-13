@@ -1,7 +1,8 @@
 <style>
     #chart-container {
         width: 100%;
-        max-height: 680px;
+        min-height: 720px;
+        max-height: none;
         display: flex;
         flex-direction: column;
         position: relative;
@@ -51,23 +52,17 @@
         border-color: rgba(148, 163, 184, 0.35);
         background: rgba(15, 23, 42, 0.42);
     }
-    #chart-container > #organigrama-historial-puestos {
-        position: absolute;
-        left: 10px;
-        top: 46px;
-        z-index: 5;
-        margin: 0;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
-    }
-    body.dark-mode #chart-container > #organigrama-historial-puestos {
-        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
-    }
     #chart-container .organigrama-chart-scroll {
         flex: 1;
-        min-height: 260px;
+        min-height: 620px;
         overflow: auto;
         position: relative;
         z-index: 1;
+    }
+    #chart {
+        width: max-content;
+        min-width: 100%;
+        margin: 0 auto;
     }
     @media (max-width: 991.98px) {
         #chart-container .organigrama-titulo-linea {
@@ -115,6 +110,8 @@
         border-radius: 8px;
         font-size: 0.9rem;
         max-width: 320px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+        margin-bottom: 1rem;
     }
     #organigrama-historial-puestos .historial-titulo {
         font-weight: 600;
@@ -144,7 +141,7 @@
     body.dark-mode #organigrama-historial-puestos .historial-linea { border-bottom-color: rgba(255, 255, 255, 0.08); }
 
     #chart {
-        transform-origin: top left; /* El zoom se hace desde la esquina superior izquierda */
+        transform-origin: top center;
         transition: transform 0.2s;  /* Suaviza el zoom */
     }
 
@@ -333,8 +330,8 @@
 
 <h4 class="mb-4" id="organigramaEasterTitle">Organigrama por Departamento</h4>
 
-<div class="card">
-    <div class="card-body">
+<div class="card min-vh-100">
+    <div class="card-body p-4">
         <!-- Fila 1: Departamento, Persona (máx rango), Puesto (si tiene varios), Nivel 1 (dinámico) -->
         <div class="row mb-3 align-items-end">
             <div class="col-md-3 mb-3">
@@ -362,9 +359,16 @@
 
         <div id="resultado" class="mt-2"></div>
 
-        <div class="zoom-controls">
-            <button id="zoom-out">-</button>
-            <button id="zoom-in">+</button>
+        <div class="d-flex justify-content-start align-items-center gap-2 mb-2">
+            <span class="badge bg-label-secondary text-secondary">Zoom</span>
+            <div class="btn-group shadow-sm" role="group" aria-label="Controles de zoom del organigrama">
+                <button type="button" id="zoom-out" class="btn btn-outline-secondary btn-sm" title="Alejar">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <button type="button" id="zoom-in" class="btn btn-outline-primary btn-sm" title="Acercar">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Cuadro del organigrama: título + historial fijos debajo, luego chart (scroll/zoom). El historial no se mueve con el diagrama. -->
@@ -1274,9 +1278,9 @@
             actualizarHistorialPuestos();
             document.getElementById("btnGuardarOrganigrama").disabled = true;
             try {
-                scale = 1;
+                scale = window.innerWidth < 768 ? 0.65 : 0.82;
                 var chartLimpiar = document.getElementById("chart");
-                if (chartLimpiar) chartLimpiar.style.transform = "scale(1)";
+                if (chartLimpiar) chartLimpiar.style.transform = `scale(${scale})`;
             } catch (eLim) {}
         });
 
@@ -1446,12 +1450,26 @@
                 var idSafe = escapeIdForAttr(r.id);
                 var nombreSafe = escapeHtml(r.nombre != null ? r.nombre : '');
                 var puestoSafe = r.puesto ? escapeHtml(normalizarPuesto(r.puesto)) : '';
+                var tipoEstado = r.tipo_estado || '';
+                var estadoLabel = r.estado_label ? escapeHtml(r.estado_label) : '';
+                var wrapperClass = 'org-nombre';
+                var estadoAttr = tipoEstado ? ' data-org-estado="' + escapeHtml(tipoEstado) + '"' : '';
+                var badgeHtml = '';
+                if (tipoEstado === 'vacante') {
+                    wrapperClass += ' org-estado-vacante text-dark';
+                    badgeHtml = '<div class="badge text-bg-warning rounded-1 mt-1">Vacante</div>';
+                } else if (tipoEstado === 'ausencia') {
+                    wrapperClass += ' org-estado-ausencia text-dark';
+                    badgeHtml = '<div class="badge bg-white text-danger rounded-1 mt-1">' + (estadoLabel || 'Ausencia') + '</div>';
+                }
+                var puedeAbrir = tipoEstado !== 'vacante';
                 data.addRow([
                     {
                         v: String(r.id),
-                        f: '<div class="org-nombre" style="font-weight:bold;cursor:pointer;color:#2a6ebb" onclick="abrirModal(\'' + idSafe + '\')">' +
+                        f: '<div class="' + wrapperClass + '"' + estadoAttr + ' style="font-weight:bold;cursor:pointer;color:#2a6ebb" ' + (puedeAbrir ? 'onclick="abrirModal(\'' + idSafe + '\')"' : '') + '>' +
                             nombreSafe +
                             (puestoSafe ? '<div class="org-puesto">' + puestoSafe + '</div>' : '') +
+                            badgeHtml +
                             '</div>',
                         p: { collapsed: r.jefe !== null }
                     },
@@ -1460,37 +1478,82 @@
             });
 
             const chart = new google.visualization.OrgChart(container);
+
+            function aplicarColorEstadoNodos() {
+                container.querySelectorAll('.org-estado-vacante, .org-estado-ausencia').forEach(function (el) {
+                    var node = el.closest('.google-visualization-orgchart-node');
+                    if (!node) return;
+                    var esVacante = el.classList.contains('org-estado-vacante');
+                    var esAusencia = el.classList.contains('org-estado-ausencia');
+                    node.style.setProperty('background-image', 'none', 'important');
+                    node.style.setProperty('background', 'transparent', 'important');
+                    node.querySelectorAll('div, table, tbody, tr, td').forEach(function (child) {
+                        if (child.classList.contains('badge')) return;
+                        child.style.setProperty('background', 'transparent', 'important');
+                        child.style.setProperty('background-image', 'none', 'important');
+                    });
+
+                    if (esVacante) {
+                        node.classList.add('bg-warning-subtle', 'border', 'border-warning', 'text-dark');
+                        node.style.setProperty('background-color', 'var(--bs-warning-bg-subtle)', 'important');
+                    } else if (esAusencia) {
+                        node.classList.add('bg-label-danger', 'border', 'border-danger-subtle', 'text-dark');
+                        node.style.setProperty('background-color', 'color-mix(in sRGB, var(--bs-paper-bg) var(--bs-bg-label-tint-amount), var(--bs-danger))', 'important');
+                    }
+                });
+            }
+
+            google.visualization.events.addListener(chart, 'ready', () => {
+                aplicarColorEstadoNodos();
+                ajustarEscalaChart();
+            });
+
             chart.draw(data, {
                 allowHtml: true,
                 allowCollapse: true
             });
 
-            google.visualization.events.addListener(chart, 'ready', () => {
-                ajustarEscalaChart();
-            });
+            setTimeout(aplicarColorEstadoNodos, 50);
+            setTimeout(aplicarColorEstadoNodos, 250);
         }
 
         /* ============================= */
         /*   ESCALA Y SCROLL             */
         /* ============================= */
         function ajustarEscalaChart() {
-            const container = document.getElementById("chart-container");
             const chartDiv = document.getElementById("chart");
+            const escala = window.innerWidth < 768 ? 0.65 : 0.82;
 
             chartDiv.style.transform = 'scale(1)'; // reset
-
-            const anchoChart = chartDiv.scrollWidth;
-            const anchoContenedor = container.clientWidth;
-
-            let escala = 1;
-            if (anchoChart > anchoContenedor) {
-                escala = anchoContenedor / anchoChart;
-                escala = Math.max(escala, 0.2); // no bajar del 50%
-            }
-
             chartDiv.style.transform = `scale(${escala})`;
-            chartDiv.style.transformOrigin = 'top left';
+            chartDiv.style.transformOrigin = 'top center';
+            if (typeof scale !== 'undefined') scale = escala;
+            centrarOrganigrama();
         }
+
+        function centrarOrganigrama() {
+            const scroll = document.querySelector("#chart-container .organigrama-chart-scroll");
+            const chartDiv = document.getElementById("chart");
+            if (!scroll || !chartDiv) return;
+            const tabla = chartDiv.querySelector("table");
+            if (tabla) tabla.classList.add("mx-auto");
+            requestAnimationFrame(function () {
+                const nodoRaiz = chartDiv.querySelector(".google-visualization-orgchart-node .org-nombre")?.closest(".google-visualization-orgchart-node");
+                if (!nodoRaiz) {
+                    scroll.scrollLeft = 0;
+                    return;
+                }
+                const scrollRect = scroll.getBoundingClientRect();
+                const nodoRect = nodoRaiz.getBoundingClientRect();
+                const centroNodo = nodoRect.left + (nodoRect.width / 2);
+                const ajusteVisual = Math.min(90, scroll.clientWidth * 0.06);
+                const centroScroll = scrollRect.left + (scroll.clientWidth / 2) + ajusteVisual;
+                const destino = scroll.scrollLeft + centroNodo - centroScroll;
+                const maxScroll = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
+                scroll.scrollLeft = Math.max(0, Math.min(maxScroll, destino));
+            });
+        }
+        window.centrarOrganigrama = centrarOrganigrama;
 
         depSearchSelect = new SearchableSelect(document.getElementById("depSelect"));
 
@@ -1498,18 +1561,22 @@
 
     });
 
-    let scale = 1; // escala inicial
+    let scale = window.innerWidth < 768 ? 0.65 : 0.82; // escala inicial
     const chart = document.getElementById('chart');
     const STEP = 0.01; // paso más pequeño
 
     document.getElementById('zoom-in').addEventListener('click', () => {
-        scale += STEP;
+        scale = Math.min(1.4, scale + 0.05);
         chart.style.transform = `scale(${scale})`;
+        chart.style.transformOrigin = 'top center';
+        if (window.centrarOrganigrama) window.centrarOrganigrama();
     });
 
     document.getElementById('zoom-out').addEventListener('click', () => {
-        scale = Math.max(0.1, scale - STEP);
+        scale = Math.max(0.45, scale - 0.05);
         chart.style.transform = `scale(${scale})`;
+        chart.style.transformOrigin = 'top center';
+        if (window.centrarOrganigrama) window.centrarOrganigrama();
     });
 
 </script>
@@ -1581,5 +1648,3 @@
     }
 })();
 </script>
-
-
