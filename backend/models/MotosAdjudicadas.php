@@ -823,7 +823,7 @@ class MotosAdjudicadas extends Model
                      form_data, form_answered, status, deleted_at, created_at, updated_at)
                  VALUES
                     (:campaign_id, :current_user_id, :client_name, :credit_number, :address, :lat, :lng,
-                     :form_data, :form_answered, :status, NULL, :created_at, :updated_at)',
+                     :form_data, :form_answered, :status, NULL, :created_at, NULL)',
                 [
                     'campaign_id'     => $campaignId,
                     'current_user_id' => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
@@ -836,12 +836,28 @@ class MotosAdjudicadas extends Model
                     'form_answered'   => 0,
                     'status'          => 1,
                     'created_at'      => $ahora,
-                    'updated_at'      => $ahora,
                 ]
             );
 
             $row = $legacyDb->queryOne('SELECT LAST_INSERT_ID() AS id');
             $taskId = (int) ($row['id'] ?? 0);
+            if ($taskId <= 0) {
+                return ['success' => false, 'message' => 'Task creado, pero no se pudo obtener su ID.'];
+            }
+
+            $legacyDb->CRUD(
+                'INSERT INTO task_user_assignments
+                    (task_id, user_id, assigned_at, unassigned_at, created_at, updated_at)
+                 VALUES
+                    (:task_id, :user_id, :assigned_at, NULL, :created_at, :updated_at)',
+                [
+                    'task_id'     => $taskId,
+                    'user_id'     => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
+                    'assigned_at' => $ahora,
+                    'created_at'  => $ahora,
+                    'updated_at'  => $ahora,
+                ]
+            );
 
             return [
                 'success' => true,
