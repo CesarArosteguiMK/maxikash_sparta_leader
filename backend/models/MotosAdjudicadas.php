@@ -33,7 +33,7 @@ class MotosAdjudicadas extends Model
     private const LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS = 427;
 
     /** Usuario Legacy fijo para tasks de motos adjudicadas autorizadas. */
-    private const LEGACY_USER_MOTOS_ADJ_AUTORIZADAS = 2;
+    private const LEGACY_USER_MOTOS_ADJ_AUTORIZADAS = 1160;
 
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
@@ -807,11 +807,24 @@ class MotosAdjudicadas extends Model
                 ]
             );
             if ($dup && (int) ($dup['id'] ?? 0) > 0) {
+                $taskId = (int) $dup['id'];
+                $ahora = $this->fechaHoraCdmx();
+                $legacyDb->CRUD(
+                    'UPDATE tasks
+                     SET current_user_id = :user_id
+                     WHERE id = :task_id',
+                    [
+                        'user_id' => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
+                        'task_id' => $taskId,
+                    ]
+                );
+                $this->asegurarAsignacionTaskLegacy($legacyDb, $taskId, $ahora);
+
                 return [
                     'success'   => true,
                     'duplicate' => true,
-                    'task_id'   => (int) $dup['id'],
-                    'message'   => 'Ya existia task en la campana MOTOS ADJUDICADAS AUTORIZADAS.',
+                    'task_id'   => $taskId,
+                    'message'   => 'Ya existia task en la campana MOTOS ADJUDICADAS AUTORIZADAS; asignacion Legacy verificada.',
                 ];
             }
 
@@ -823,7 +836,7 @@ class MotosAdjudicadas extends Model
                      form_data, form_answered, status, deleted_at, created_at, updated_at)
                  VALUES
                     (:campaign_id, :current_user_id, :client_name, :credit_number, :address, :lat, :lng,
-                     :form_data, :form_answered, :status, NULL, :created_at, NULL)',
+                     :form_data, NULL, :status, NULL, :created_at, :updated_at)',
                 [
                     'campaign_id'     => $campaignId,
                     'current_user_id' => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
@@ -833,9 +846,9 @@ class MotosAdjudicadas extends Model
                     'lat'             => $datos['lat'],
                     'lng'             => $datos['lng'],
                     'form_data'       => $this->formDataLegacyMotoAutorizada(),
-                    'form_answered'   => 0,
-                    'status'          => 1,
+                    'status'          => 0,
                     'created_at'      => $ahora,
+                    'updated_at'      => $ahora,
                 ]
             );
 
@@ -845,19 +858,7 @@ class MotosAdjudicadas extends Model
                 return ['success' => false, 'message' => 'Task creado, pero no se pudo obtener su ID.'];
             }
 
-            $legacyDb->CRUD(
-                'INSERT INTO task_user_assignments
-                    (task_id, user_id, assigned_at, unassigned_at, created_at, updated_at)
-                 VALUES
-                    (:task_id, :user_id, :assigned_at, NULL, :created_at, :updated_at)',
-                [
-                    'task_id'     => $taskId,
-                    'user_id'     => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
-                    'assigned_at' => $ahora,
-                    'created_at'  => $ahora,
-                    'updated_at'  => $ahora,
-                ]
-            );
+            $this->asegurarAsignacionTaskLegacy($legacyDb, $taskId, $ahora);
 
             return [
                 'success' => true,
@@ -867,6 +868,44 @@ class MotosAdjudicadas extends Model
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'No se pudo crear el task Legacy: ' . $e->getMessage()];
         }
+    }
+
+    private function asegurarAsignacionTaskLegacy(DatabaseLegacy $legacyDb, int $taskId, string $fecha): void
+    {
+        if ($taskId <= 0) {
+            return;
+        }
+
+        $asignacion = $legacyDb->queryOne(
+            'SELECT id
+             FROM task_user_assignments
+             WHERE task_id = :task_id
+               AND user_id = :user_id
+               AND unassigned_at IS NULL
+             ORDER BY id DESC
+             LIMIT 1',
+            [
+                'task_id' => $taskId,
+                'user_id' => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
+            ]
+        );
+        if ($asignacion && (int) ($asignacion['id'] ?? 0) > 0) {
+            return;
+        }
+
+        $legacyDb->CRUD(
+            'INSERT INTO task_user_assignments
+                (task_id, user_id, assigned_at, unassigned_at, created_at, updated_at)
+             VALUES
+                (:task_id, :user_id, :assigned_at, NULL, :created_at, :updated_at)',
+            [
+                'task_id'     => $taskId,
+                'user_id'     => self::LEGACY_USER_MOTOS_ADJ_AUTORIZADAS,
+                'assigned_at' => $fecha,
+                'created_at'  => $fecha,
+                'updated_at'  => $fecha,
+            ]
+        );
     }
 
     /**
@@ -945,8 +984,7 @@ class MotosAdjudicadas extends Model
     private function formDataLegacyMotoAutorizada(): string
     {
         $json = '[{"type":"select","required":false,"label":"¿Tiene llave física?","className":"form-control","name":"tiene_llave_fisica","editable":true,"section":"questions","conditional":false,"uuid":"dfcd6ca6-f1ae-4807-a462-3d9c346f0b16","typeApp":"select","values":[{"label":"Sí","value":"si","selected":true},{"label":"No","value":"no","selected":false}],"value":""},{"type":"select","required":false,"label":"¿Tiene tarjeta de circulación en físico?","className":"form-control","name":"tiene_tarjeta_de_circulacion_en_fisico","editable":true,"section":"questions","conditional":false,"uuid":"5446560b-ac6a-4827-9c6b-cc3c74954a40","typeApp":"select","values":[{"label":"Sí","value":"si","selected":true},{"label":"No","value":"no","selected":false}],"value":""},{"type":"select","required":false,"label":"¿La moto tiene placa física ?","className":"form-control","name":"la_moto_tiene_placa_fisica","editable":true,"section":"questions","conditional":false,"uuid":"b07276c9-cc0c-42ac-b38c-adfefc42913e","typeApp":"select","values":[{"label":"Sí","value":"si","selected":true},{"label":"No","value":"no","selected":false}],"value":""},{"type":"textarea","required":true,"label":"Marca","className":"form-control","name":"marca","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"0d57879b-69c0-41f1-bb7c-cfe1833aa1aa","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Modelo","className":"form-control","name":"modelo","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"7f896bdd-3c9c-40e8-8c13-4b3925b1c8bc","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Año","className":"form-control","name":"ano","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"0743a74d-9c7e-4512-a5ed-9cd8a5ad60b8","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Color","className":"form-control","name":"color","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"5dfd8e41-7468-4ea4-a9dc-293a357f8294","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"No. de Serie (VIN","className":"form-control","name":"no_de_serie_vin","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"c692709e-6f49-434f-bdbb-85d0186098a7","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"No. de Motor","className":"form-control","name":"no_de_motor","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"46d9e3a1-7ee4-4230-836a-a22f7e2524fd","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Placas","className":"form-control","name":"placas","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"b2f01f91-b1fa-4c0a-a0ca-5e22f3233587","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Kilometraje","className":"form-control","name":"kilometraje","subtype":"textarea","editable":true,"section":"questions","conditional":false,"uuid":"2fdcef10-973b-408e-a0f0-46aceef4afab","typeApp":"textarea","value":""},{"type":"select","label":"¿Dónde resguardaras la moto?","uuid":"73eddd54-4de5-4054-babd-5f5766b18703","editable":true,"section":"questions","required":false,"className":"form-control","name":"donde_resguardaras_la_moto","conditional":false,"typeApp":"select","values":[{"label":"CEDIS Maxikash","value":"cedis-__SPARTA_SECRET_REDACTED__","selected":true},{"label":"Centro de acopio","value":"centro-de-acopio","selected":false},{"label":"Agencia ","value":"agencia","selected":false},{"label":"Otro","value":"otro","selected":false}],"value":""},{"type":"textarea","label":"Estado de lugar de resguardo (Ejemplo Ciudad de México, Veracruz, Oaxaca, etc.)","uuid":"3666bb60-bb6b-460e-9bbf-ddea362801af","editable":true,"section":"questions","required":true,"className":"form-control","name":"estado_de_lugar_de_resguardo_ejemplo_ciudad_de_mex","subtype":"textarea","conditional":false,"typeApp":"textarea","value":""},{"type":"textarea","label":"Ciudad / Municipio de lugar de Resguardo","uuid":"68bea6ea-8e99-4588-b20a-dcc2c959e8fb","editable":true,"section":"questions","required":true,"className":"form-control","name":"ciudad_municipio_de_lugar_de_resguardo","subtype":"textarea","conditional":false,"typeApp":"textarea","value":""},{"type":"textarea","label":"Calle y número de lugar de resguardo","uuid":"f7de67b6-27bd-4bf9-9839-0f76c349fb72","editable":true,"section":"questions","required":true,"className":"form-control","name":"calle_y_numero_de_lugar_de_resguardo","subtype":"textarea","conditional":false,"typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Responsable de Resguardo","className":"form-control","name":"responsable_de_resguardo","subtype":"textarea","editable":true,"section":"questions","conditional":false,"uuid":"688c766b-d427-4c65-bef3-66e07ba1a931","typeApp":"textarea","value":""},{"type":"number","required":true,"label":"Teléfono de contacto","className":"form-control","name":"telefono_de_contacto","subtype":"number","editable":true,"section":"questions","conditional":false,"uuid":"6ffb46d9-a417-4370-b531-efb5167f56fd","typeApp":"number","value":""},{"type":"text","label":"Foto de Tacómetro&nbsp; (Legible y visible el kilometraje)","uuid":"c90bb291-0701-4d2a-a18e-8d53b5fbbb27","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_de_tacometro_legible_y_visible_el_kilometraje","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto de Número de Serie (foto legible donde se lea la serie de 17 dígitos)","uuid":"a0e34323-191e-40a9-9f47-0e03338be6a3","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_de_numero_de_serie_foto_legible_donde_se_lea_","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto frontal de la moto (la foto debe estar visible toda la parte frontal y centrada)","uuid":"f8efc9e4-3d18-4abc-b222-2e8324844bd7","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_frontal_de_la_moto_la_foto_debe_estar_visible","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto trasera de la moto (la foto debe ser visible toda la parte trasera y centrada, se debe ver el espejo y la llanta)","uuid":"abb8ebb0-713e-4f3a-8223-539c8bebd687","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_trasera_de_la_moto_la_foto_debe_ser_visible_t","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto lateral izquierda de la moto (foto legible de preferencia agachado y centrada para poder ver toda la moto)","uuid":"a572d294-6fee-495c-a9c2-52e5f1ead6d9","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_lateral_izquierda_de_la_moto_foto_legible_de_","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto lateral derecha de la moto (foto legible de preferencia agachado y centrada para poder ver toda la moto)","uuid":"750b170c-8afe-4a4f-bbb5-a7cc68541255","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_lateral_derecha_de_la_moto_foto_legible_de_pr","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Inspección 360 de Moto (el video debe evidenciar el funcionamiento eléctrico y debe estar enfocada a toda la unidad)","uuid":"086f9488-15c5-4695-99cf-26184524f739","editable":true,"section":"questions","required":true,"className":"form-control","name":"inspeccion_360_de_moto_el_video_debe_evidenciar_el","subtype":"text","conditional":false,"typeApp":"video","value":""},{"type":"select","required":true,"label":"Dictamen","className":"form-control","name":"dictamen","editable":false,"section":"customer","conditional":false,"uuid":"","typeApp":"select","values":[{"label":"Atendido","value":0,"selected":true}],"value":null}]';
-        $decoded = json_decode($json, true);
-        return is_array($decoded) ? json_encode($decoded) : $json;
+        return json_encode($json) ?: $json;
     }
 
     private function filaCacheS2TieneResumenFinanciero(array $r): bool
