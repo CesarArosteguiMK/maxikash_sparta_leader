@@ -215,6 +215,7 @@ SQL;
     public function obtenerRecibidos(): array
     {
         $ma = new MotosAdjudicadas();
+        $ma->sincronizarDictumsAppPendientes();
         $tieneEnvio = $ma->adjOperacionTieneColumnaEnvioAtencion();
 
         $where = $tieneEnvio

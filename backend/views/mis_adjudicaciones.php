@@ -1608,6 +1608,18 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         return true;
     }
 
+    function _madjTieneDatosMotoGuardados(datos) {
+        if (!datos || typeof datos !== 'object') return false;
+        return [
+            'moto_marca', 'moto_modelo', 'moto_anio', 'moto_color',
+            'moto_no_serie', 'moto_no_motor', 'moto_placas',
+            'log_lugar_resguardo', 'log_lugar_otro', 'log_direccion',
+            'log_ciudad', 'log_estado', 'responsable_entrega', 'log_telefono',
+        ].some(function (k) {
+            return _madjTieneValor(datos[k]);
+        });
+    }
+
     function _madjNormalizarEstatus(estatus) {
         const v = String(estatus || 'recibido').trim().toLowerCase();
         return MADJ_EV_VALID_ESTATUS.has(v) ? v : null;
@@ -2144,6 +2156,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     function _madjRenderEvModalBody(det) {
         const evidenciasCargadas = _madjEvidenciasSlotsCompletos();
         const datosDone = _madjDatosMotoGuardados && _madjDatosMotoCompletos(_madjDatosMotoData || {});
+        const tieneDatosMoto = _madjTieneDatosMotoGuardados(_madjDatosMotoData || {});
+        const puedeVerDatosMoto = evidenciasCargadas || tieneDatosMoto;
 
         if (_madjActiveCreditId) {
             _madjSetProgressCredito(_madjActiveCreditId, _madjContarEvidencias());
@@ -2157,7 +2171,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 <div class="madj-step-num">${evidenciasCargadas ? '<i class="fa-solid fa-check" style="font-size:.55rem;"></i>' : '1'}</div>
                 <span>Evidencias Fotográficas</span>
             </div>
-            <div class="madj-step-item ${datosDone ? 'done' : (evidenciasCargadas ? 'active' : '')}">
+            <div class="madj-step-item ${datosDone ? 'done' : (puedeVerDatosMoto ? 'active' : '')}">
                 <div class="madj-step-num">${datosDone ? '<i class="fa-solid fa-check" style="font-size:.55rem;"></i>' : '2'}</div>
                 <span>Datos de la Moto</span>
             </div>
@@ -2184,7 +2198,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         MADJ_EV_SECTIONS.forEach(sec => { html += _madjRenderEvSection(sec); });
 
         // ── Paso 2: datos moto / logísticos (tras completar evidencias) ──
-        if (!evidenciasCargadas) {
+        if (!puedeVerDatosMoto) {
             html += `
             <div class="madj-paso2-locked mt-3">
                 <i class="fa-solid fa-lock madj-lock-icon"></i>
@@ -2205,7 +2219,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                 <button type="button" class="btn btn-sm btn-outline-secondary"
                         style="font-size:.7rem;padding:.2rem .5rem;"
                         onclick="madjEditarDatosMoto()">
-                    <i class="fa-solid fa-pen-to-square me-1"></i>Editar
+                    <i class="fa-solid fa-eye me-1"></i>Ver / editar
                 </button>
             </div>`;
         } else {
@@ -2226,7 +2240,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
         body.innerHTML = html;
         madjSanearDomUrls(body);
         _madjBindDatosMotoConstraints();
-        if (evidenciasCargadas && !datosDone) {
+        if (puedeVerDatosMoto && !datosDone) {
             _madjAplicarMotoApiEnFormularioSiVacio();
         }
         _madjSyncBotonRepuveAlerta();
@@ -3215,4 +3229,3 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
     if (document.readyState !== 'loading') madjCargar();
 })();
 </script>
-
