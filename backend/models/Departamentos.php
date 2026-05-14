@@ -18,6 +18,9 @@ class Departamentos extends Model
                 SELECT 
                     d.id AS departamento_id,
                     d.nombre AS departamento_nombre,
+                    d.id_departamento_organizacional,
+                    COALESCE(dorg.nombre, 'Sin departamento') AS departamento_organizacional_nombre,
+                    COALESCE(dorg.activo, 1) AS departamento_organizacional_activo,
                     COUNT(DISTINCT p.id) AS total_puestos,
                     COUNT(DISTINCT a.id_persona) AS total_personas,
                     d.activo, d.img_url,
@@ -25,11 +28,12 @@ class Departamentos extends Model
                     COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
                     COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais
                 FROM departamento d
+                LEFT JOIN departamento_organizacional dorg ON dorg.id = d.id_departamento_organizacional
                 LEFT JOIN puesto p ON p.departamento_id = d.id
                 LEFT JOIN asigna_puesto a ON a.id_puesto = p.id
                 LEFT JOIN paises pa ON pa.id = d.id_pais
-                GROUP BY d.id, d.nombre, d.id_pais, pa.nombre, pa.codigo_iso
-                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), d.nombre;
+                GROUP BY d.id, d.nombre, d.id_departamento_organizacional, dorg.nombre, dorg.activo, d.id_pais, pa.nombre, pa.codigo_iso
+                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), departamento_organizacional_nombre, d.nombre;
             ");
             $datos = is_array($r) ? $r : [];
 
@@ -39,6 +43,103 @@ class Departamentos extends Model
                 "datos" => $datos
             ]);
 
+        } catch (\Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "Error al procesar la solicitud.",
+                "datos" => [],
+                "error" => $e->getMessage()
+            ]);
+        }
+
+        exit;
+    }
+
+    public static function getConsultaDepartamentosOrganizacionales()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $db = new Database();
+            $r = $db->queryAll(
+                "
+                SELECT
+                    dorg.id,
+                    dorg.nombre,
+                    dorg.activo,
+                    dorg.id_pais,
+                    COALESCE(pa.nombre, 'Sin país') AS nombre_pais,
+                    COALESCE(pa.codigo_iso, 'xx') AS codigo_iso_pais,
+                    COUNT(DISTINCT d.id) AS total_areas
+                FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional dorg
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.paises pa ON pa.id = dorg.id_pais
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.departamento d ON d.id_departamento_organizacional = dorg.id
+                GROUP BY dorg.id, dorg.nombre, dorg.activo, dorg.id_pais, pa.nombre, pa.codigo_iso
+                ORDER BY FIELD(pa.codigo_iso, 'mx', 'gt', 'co'), dorg.nombre
+                "
+            );
+
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Departamentos organizacionales encontrados.",
+                "datos" => is_array($r) ? $r : []
+            ]);
+        } catch (\Exception $e) {
+            echo json_encode([
+                "success" => false,
+                "mensaje" => "Error al procesar la solicitud.",
+                "datos" => [],
+                "error" => $e->getMessage()
+            ]);
+        }
+
+        exit;
+    }
+
+    public static function InsertDepartamentoOrganizacional($nombre, $id_pais = 1)
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            $db = new Database();
+            $id_pais = (int) $id_pais;
+            if ($id_pais < 1) $id_pais = 1;
+
+            $nombre = trim((string) $nombre);
+            if ($nombre === '') {
+                echo json_encode([
+                    "success" => false,
+                    "mensaje" => "El nombre del departamento es requerido.",
+                    "datos" => []
+                ]);
+                exit;
+            }
+
+            $existe = $db->queryOne(
+                "SELECT id FROM __SPARTA_SECRET_REDACTED__.departamento_organizacional
+                 WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais",
+                ['nombre' => $nombre, 'id_pais' => $id_pais]
+            );
+
+            if ($existe) {
+                echo json_encode([
+                    "success" => false,
+                    "mensaje" => "Ya existe un departamento llamado \"{$nombre}\" en el país seleccionado.",
+                    "datos" => []
+                ]);
+                exit;
+            }
+
+            $db->CRUD(
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento_organizacional (nombre, activo, id_pais) VALUES (:nombre, 1, :id_pais)",
+                ['nombre' => $nombre, 'id_pais' => $id_pais]
+            );
+
+            echo json_encode([
+                "success" => true,
+                "mensaje" => "Departamento insertado correctamente.",
+                "datos" => []
+            ]);
         } catch (\Exception $e) {
             echo json_encode([
                 "success" => false,
@@ -249,7 +350,7 @@ class Departamentos extends Model
         exit; // <- Muy importante: evita que se imprima algo extra
     }
 
-    public static function InsertDepartamento($nombre, $id_pais = 1)
+    public static function InsertDepartamento($nombre, $id_pais = 1, $id_departamento_organizacional = null)
     {
         header('Content-Type: application/json; charset=utf-8');
 
@@ -257,12 +358,24 @@ class Departamentos extends Model
             $db = new Database();
             $id_pais = (int) $id_pais;
             if ($id_pais < 1) $id_pais = 1;
+            $id_departamento_organizacional = $id_departamento_organizacional !== null && $id_departamento_organizacional !== ''
+                ? (int) $id_departamento_organizacional
+                : null;
 
             $nombre = trim($nombre);
             if (empty($nombre)) {
                 echo json_encode([
                     "success" => false,
-                    "mensaje" => "El nombre del departamento es requerido.",
+                    "mensaje" => "El nombre del área es requerido.",
+                    "datos" => []
+                ]);
+                exit;
+            }
+
+            if (!$id_departamento_organizacional) {
+                echo json_encode([
+                    "success" => false,
+                    "mensaje" => "El departamento organizacional es requerido.",
                     "datos" => []
                 ]);
                 exit;
@@ -270,8 +383,8 @@ class Departamentos extends Model
 
             $existe = $db->queryOne(
                 "SELECT id FROM __SPARTA_SECRET_REDACTED__.departamento 
-                 WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais",
-                ['nombre' => $nombre, 'id_pais' => $id_pais]
+                 WHERE LOWER(TRIM(nombre)) = LOWER(:nombre) AND id_pais = :id_pais AND id_departamento_organizacional = :id_departamento_organizacional",
+                ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_departamento_organizacional' => $id_departamento_organizacional]
             );
 
             if ($existe) {
@@ -279,20 +392,20 @@ class Departamentos extends Model
                 $paisNombre = $pais['nombre'] ?? 'el país seleccionado';
                 echo json_encode([
                     "success" => false,
-                    "mensaje" => "Ya existe un departamento llamado \"{$nombre}\" en {$paisNombre}.",
+                    "mensaje" => "Ya existe un área llamada \"{$nombre}\" en {$paisNombre}.",
                     "datos" => []
                 ]);
                 exit;
             }
 
             $db->CRUD(
-                "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento (id, nombre, activo, img_url, id_pais) VALUES (null, :nombre, 1, NULL, :id_pais)",
-                ['nombre' => $nombre, 'id_pais' => $id_pais]
+                "INSERT INTO __SPARTA_SECRET_REDACTED__.departamento (id, nombre, activo, img_url, id_pais, id_departamento_organizacional) VALUES (null, :nombre, 1, NULL, :id_pais, :id_departamento_organizacional)",
+                ['nombre' => $nombre, 'id_pais' => $id_pais, 'id_departamento_organizacional' => $id_departamento_organizacional]
             );
 
             echo json_encode([
                 "success" => true,
-                "mensaje" => "Departamento insertado correctamente.",
+                "mensaje" => "Área insertada correctamente.",
                 "datos" => []
             ]);
 
