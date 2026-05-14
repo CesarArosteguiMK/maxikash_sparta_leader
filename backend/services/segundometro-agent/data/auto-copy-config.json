@@ -13,15 +13,15 @@
     "00:05"
   ],
   "lastRunBySlot": {
-    "fallback_20:40": "2026-05-12",
-    "fallback_00:05": "2026-05-13",
-    "fallback_07:40": "2026-05-13",
-    "fallback_09:40": "2026-05-13",
+    "fallback_20:40": "2026-05-13",
+    "fallback_00:05": "2026-05-14",
+    "fallback_07:40": "2026-05-14",
+    "fallback_09:40": "2026-05-14",
     "fallback_11:40": "2026-05-13",
     "fallback_13:40": "2026-05-13",
     "fallback_14:40": "2026-05-13",
     "fallback_16:40": "2026-05-13",
-    "fallback_18:40": "2026-05-12"
+    "fallback_18:40": "2026-05-13"
   },
   "lastRunResult": null,
   "pruebaEjecutarEn": null,

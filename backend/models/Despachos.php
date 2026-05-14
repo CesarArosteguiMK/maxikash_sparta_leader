@@ -702,11 +702,20 @@ public function asignarCredito($idPersona, $idCredito, $idCelula = 1)
     $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
 
     if (!$despacho) {
-        // Si no existe registro en despachos, crearlo automáticamente
-        $queryInsert = "INSERT INTO despachos (id_persona, estatus, fecha_alta) VALUES (:idPersona, 'Activo', NOW())";
-        $insertado = $this->db->CRUD($queryInsert, ['idPersona' => $idPersona]);
-        if (!$insertado) {
-            return false;
+        // Si no existe registro activo, verificar si hay uno inactivo para reactivarlo
+        $queryAny = "SELECT id FROM despachos WHERE id_persona = :idPersona LIMIT 1";
+        $despachoExistente = $this->db->queryOne($queryAny, ['idPersona' => $idPersona]);
+        if ($despachoExistente) {
+            $this->db->CRUD(
+                "UPDATE despachos SET estatus = 'Activo', fecha_alta = NOW() WHERE id_persona = :idPersona",
+                ['idPersona' => $idPersona]
+            );
+        } else {
+            $queryInsert = "INSERT INTO despachos (id_persona, estatus, fecha_alta) VALUES (:idPersona, 'Activo', NOW())";
+            $insertado = $this->db->CRUD($queryInsert, ['idPersona' => $idPersona]);
+            if (!$insertado) {
+                return false;
+            }
         }
         $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersona]);
         if (!$despacho) {
@@ -967,10 +976,19 @@ SQL;
         $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersonaInt]);
 
         if (!$despacho) {
-            $queryInsert = "INSERT INTO despachos (id_persona, estatus, fecha_alta) VALUES (:idPersona, 'Activo', NOW())";
-            $insertado = $this->db->CRUD($queryInsert, ['idPersona' => $idPersonaInt]);
-            if (!$insertado) {
-                return ['success' => false, 'message' => 'No se pudo crear/obtener el despacho activo para el id_persona seleccionado.'];
+            $queryAny = "SELECT id FROM despachos WHERE id_persona = :idPersona LIMIT 1";
+            $despachoExistente = $this->db->queryOne($queryAny, ['idPersona' => $idPersonaInt]);
+            if ($despachoExistente) {
+                $this->db->CRUD(
+                    "UPDATE despachos SET estatus = 'Activo', fecha_alta = NOW() WHERE id_persona = :idPersona",
+                    ['idPersona' => $idPersonaInt]
+                );
+            } else {
+                $queryInsert = "INSERT INTO despachos (id_persona, estatus, fecha_alta) VALUES (:idPersona, 'Activo', NOW())";
+                $insertado = $this->db->CRUD($queryInsert, ['idPersona' => $idPersonaInt]);
+                if (!$insertado) {
+                    return ['success' => false, 'message' => 'No se pudo crear/obtener el despacho activo para el id_persona seleccionado.'];
+                }
             }
             $despacho = $this->db->queryOne($queryDespacho, ['idPersona' => $idPersonaInt]);
         }

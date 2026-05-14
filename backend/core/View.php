@@ -161,6 +161,7 @@ function getMenu(): string
                 ['label' => '3.-Cartera', 'url' => '/AtencionClientes/cierreDocumentacion', 'modulos' => [72]],
                 ['label' => '4.- Recepción',      'url' => '/AtencionClientes/recepcion',             'modulos' => [73]],
                 ['label' => 'Retenciones',    'url' => '/AtencionClientes/consulta',                'modulos' => [69]],
+                ['label' => 'Tracking Recolección', 'url' => '/TrackingRecoleccion/index',          'modulos' => [74]],
             ],
         ],
         'Tickets' => [

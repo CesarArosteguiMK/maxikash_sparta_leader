@@ -3537,19 +3537,27 @@ class Reporteria extends Controller
                     return arr
                         .map((v) => (typeof v === 'string' ? { email: v, activo: true } : v))
                         .filter((v) => v && v.email)
-                        .filter((v) => v.activo !== false)
-                        .map((v) => String(v.email || '').trim())
-                        .filter(Boolean);
+                        .map((v) => ({
+                            email: String(v.email || '').trim().toLowerCase(),
+                            activo: v.activo !== false,
+                        }))
+                        .filter((v) => v.email);
                 };
                 const parseEmails = (raw) => (raw || '')
                     .split(/[,\s;]+/)
                     .map(v => v.trim().toLowerCase())
                     .filter(Boolean);
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                let prefillEmails = '';
+                const escapeHtml = (raw) => String(raw ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+                let prefillItems = [];
                 try {
                     const list = await obtenerDestinatariosConfigurados();
-                    prefillEmails = list.join(', ');
+                    prefillItems = list;
                 } catch (e) {
                     if (typeof Swal !== 'undefined') {
                         await Swal.fire({ icon: 'warning', title: 'Destinatarios', text: e?.message || 'No se pudo cargar la lista guardada.' });
@@ -3558,47 +3566,112 @@ class Reporteria extends Controller
 
                 if (typeof Swal !== 'undefined') {
                     const res = await Swal.fire({
-                        title: 'Enviar reporte por correo',
+                        title: 'Administrar correos',
                         html: `
+                            <p class="text-muted small mb-3 mt-0 text-center">(Primeros pagos)</p>
                             <div class="text-start">
-                                <label class="form-label mb-1">Destinatarios</label>
-                                <input id="swal-emails" class="swal2-input" value="${prefillEmails.replace(/"/g, '&quot;')}" placeholder="correo1@dominio.com, correo2@dominio.com" style="width:100%;margin:.2rem 0 .8rem 0;">
-                                <div id="swal-emails-preview" class="small text-muted" style="min-height:20px;margin:-.2rem 0 .8rem 0;"></div>
-                                <label class="form-label mb-1">Asunto</label>
-                                <input id="swal-asunto" class="swal2-input" value="${defaultAsunto}" style="width:100%;margin:.2rem 0 0 0;">
+                                <label class="form-label mb-2 fw-semibold">Destinatarios</label>
+                                <div id="swal-emails-lista" class="rounded-3 border bg-light p-2 overflow-auto" style="max-height:220px;"></div>
+                                <div class="input-group input-group-sm mt-3">
+                                    <input id="swal-emails-new" class="form-control" placeholder="nuevo@dominio.com">
+                                    <button id="swal-emails-add" type="button" class="btn btn-primary">
+                                        <i class="fa fa-plus me-1"></i>Agregar
+                                    </button>
+                                </div>
+                                <div id="swal-emails-preview" class="small mt-2"></div>
                             </div>`,
-                        confirmButtonText: 'Enviar',
+                        confirmButtonText: 'Guardar',
                         showCancelButton: true,
                         cancelButtonText: 'Cancelar',
                         focusConfirm: false,
                         didOpen: () => {
-                            const input = document.getElementById('swal-emails');
+                            const listaEl = document.getElementById('swal-emails-lista');
+                            const input = document.getElementById('swal-emails-new');
+                            const btnAdd = document.getElementById('swal-emails-add');
                             const preview = document.getElementById('swal-emails-preview');
+                            let items = [...prefillItems];
                             const refreshPreview = () => {
-                                const emails = [...new Set(parseEmails(input?.value || ''))];
+                                const total = items.length;
+                                const activos = items.filter((x) => x.activo).length;
                                 if (!preview) return;
-                                if (!emails.length) {
-                                    preview.textContent = 'Sin correos detectados.';
+                                if (!total) {
+                                    preview.innerHTML = '<span class="text-warning fw-semibold">Debes agregar al menos un correo.</span>';
                                     return;
                                 }
-                                const invalidos = emails.filter(e => !emailRegex.test(e));
-                                if (invalidos.length) {
-                                    preview.innerHTML = `<span class="text-danger">Correos inválidos: ${invalidos.join(', ')}</span>`;
+                                if (!activos) {
+                                    preview.innerHTML = '<span class="text-warning fw-semibold">Activa al menos un correo para envio.</span>';
                                     return;
                                 }
-                                preview.innerHTML = `<span class="text-success">${emails.length} correo(s):</span> ${emails.join(', ')}`;
+                                preview.innerHTML = `<span class="badge bg-success-subtle text-success">Activos: ${activos}</span> <span class="badge bg-primary-subtle text-primary ms-1">Total: ${total}</span>`;
                             };
-                            refreshPreview();
-                            input?.addEventListener('input', refreshPreview);
+                            const render = () => {
+                                if (!listaEl) return;
+                                if (!items.length) {
+                                    listaEl.innerHTML = '<div class="text-muted small py-2 px-1">Sin correos. Agrega uno para comenzar.</div>';
+                                } else {
+                                    listaEl.innerHTML = items.map((it, ix) => `
+                                        <div class="d-flex align-items-center gap-2 py-2 px-2 mb-1 rounded-2 border bg-white">
+                                            <div class="form-check form-switch m-0 flex-grow-1 d-flex align-items-center gap-2">
+                                                <input class="form-check-input me-1" type="checkbox" role="switch" id="ppsendmail_${ix}" ${it.activo ? 'checked' : ''} data-ix="${ix}">
+                                                <label class="form-check-label small fw-medium ${it.activo ? '' : 'text-muted'}" for="ppsendmail_${ix}">${escapeHtml(it.email)}</label>
+                                                <span class="badge ${it.activo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'} ms-2">${it.activo ? 'Activo' : 'Inactivo'}</span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" data-del="${ix}" title="Quitar">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    `).join('');
+                                }
+                                refreshPreview();
+                            };
+                            listaEl?.addEventListener('click', (ev) => {
+                                const btnDel = ev.target?.closest ? ev.target.closest('[data-del]') : null;
+                                const del = btnDel?.getAttribute ? btnDel.getAttribute('data-del') : null;
+                                if (del == null) return;
+                                const i = Number(del);
+                                if (!Number.isFinite(i)) return;
+                                items.splice(i, 1);
+                                render();
+                            });
+                            listaEl?.addEventListener('change', (ev) => {
+                                const t = ev.target;
+                                if (!t?.getAttribute) return;
+                                const ix = Number(t.getAttribute('data-ix'));
+                                if (!Number.isFinite(ix) || !items[ix]) return;
+                                items[ix].activo = !!t.checked;
+                                render();
+                            });
+                            btnAdd?.addEventListener('click', () => {
+                                const email = String(input?.value || '').trim().toLowerCase();
+                                if (!email) return;
+                                if (!emailRegex.test(email)) {
+                                    if (preview) preview.innerHTML = `<span class="text-danger">Correo invalido: ${escapeHtml(email)}</span>`;
+                                    return;
+                                }
+                                if (items.some((x) => x.email === email)) {
+                                    if (preview) preview.innerHTML = '<span class="text-warning">Ese correo ya existe.</span>';
+                                    return;
+                                }
+                                items.push({ email, activo: true });
+                                if (input) input.value = '';
+                                render();
+                            });
+                            input?.addEventListener('keydown', (ev) => {
+                                if (ev.key === 'Enter') {
+                                    ev.preventDefault();
+                                    btnAdd?.click();
+                                }
+                            });
+                            window.__ppSendMailItemsRef = () => items;
+                            render();
                         },
                         preConfirm: () => {
-                            const emails = document.getElementById('swal-emails')?.value?.trim() || '';
-                            const asuntoVal = document.getElementById('swal-asunto')?.value?.trim() || defaultAsunto;
-                            if (!emails) {
+                            const items = (typeof window.__ppSendMailItemsRef === 'function') ? window.__ppSendMailItemsRef() : [];
+                            if (!Array.isArray(items) || !items.length) {
                                 Swal.showValidationMessage('Escribe al menos un destinatario.');
                                 return false;
                             }
-                            const lista = [...new Set(parseEmails(emails))];
+                            const lista = [...new Set(items.filter((x) => x.activo).map((x) => String(x.email || '').trim().toLowerCase()).filter(Boolean))];
                             const invalidos = lista.filter(e => !emailRegex.test(e));
                             if (!lista.length) {
                                 Swal.showValidationMessage('Escribe al menos un destinatario válido.');
@@ -3608,12 +3681,24 @@ class Reporteria extends Controller
                                 Swal.showValidationMessage(`Corrige correos inválidos: ${invalidos.join(', ')}`);
                                 return false;
                             }
-                            return { emails: lista.join(','), asunto: asuntoVal };
+                            return { destinatarios: items };
                         }
                     });
+                    try { delete window.__ppSendMailItemsRef; } catch (e) {}
                     if (!res.isConfirmed || !res.value) return;
-                    destinatariosRaw = res.value.emails;
-                    asunto = res.value.asunto;
+                    try {
+                        const r = await fetch('/analitica/setPrimerosPagosDestinatariosCorreo', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ destinatarios: res.value.destinatarios }),
+                        });
+                        const d = await r.json();
+                        if (!d?.success) throw new Error(d?.mensaje || 'No se pudo guardar.');
+                        Swal.fire({ icon: 'success', title: 'Guardado', text: 'Destinatarios actualizados correctamente.' });
+                    } catch (e) {
+                        Swal.fire({ icon: 'error', title: 'Error', text: e?.message || 'No se pudo guardar la lista.' });
+                    }
+                    return;
                 } else {
                     destinatariosRaw = window.prompt('Destinatarios (separados por coma):', '') || '';
                     if (!destinatariosRaw.trim()) return;
