@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Migración: Módulo de Tracking y Planeación de Rutas para Recolección de Motos Adjudicadas
 -- Esquema destino : __SPARTA_SECRET_REDACTED__
--- Fecha           : 2025
+-- Fecha           : 2026
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -75,3 +75,14 @@ CREATE TABLE IF NOT EXISTS `asigna_horas_tracking_usuarios` (
     UNIQUE KEY `ux_tracking_usr` (`id_ruta`, `id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   COMMENT='Usuarios responsables de recolección por ruta';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migración 2026-05: Agregar columnas de hora de salida del tráiler
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE `asigna_horas_tracking`
+    ADD COLUMN `hora_inicial` TIME NULL
+        COMMENT 'Hora original de salida del tráiler (primer registro)'
+        AFTER `fecha_programada`,
+    ADD COLUMN `act_hora_1` TIME NULL
+        COMMENT 'Hora actualizada por el gestor (primer cambio sobre hora_inicial)'
+        AFTER `hora_inicial`;
