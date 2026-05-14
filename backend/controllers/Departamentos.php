@@ -403,6 +403,8 @@ class Departamentos extends Controller
            ===================================================== */
 
         const getDepartamentos = () => {
+          window.departamentoOrganizacionActivo = null;
+          actualizarBotonAccionOrganizacion();
           http.request({
             endpoint: "/departamentos/getDepartamentos",
             onSuccess: (resp) => {
@@ -424,9 +426,22 @@ class Departamentos extends Controller
                   const grouped = {};
                   resp.datos.forEach(d => {
                     const iso = d.codigo_iso_pais || 'xx';
-                    if (!grouped[iso]) grouped[iso] = [];
-                    grouped[iso].push(d);
+                    const orgId = d.id_departamento_organizacional || 'sin_departamento';
+                    if (!grouped[iso]) grouped[iso] = {};
+                    if (!grouped[iso][orgId]) {
+                      grouped[iso][orgId] = {
+                        id: orgId,
+                        nombre: d.departamento_organizacional_nombre || 'Sin departamento',
+                        activo: Number(d.departamento_organizacional_activo) === 1,
+                        id_pais: d.id_pais,
+                        nombre_pais: d.nombre_pais || '',
+                        codigo_iso: iso,
+                        areas: []
+                      };
+                    }
+                    grouped[iso][orgId].areas.push(d);
                   });
+                  window.departamentosOrganizacionData = grouped;
 
                   const paisesActivos = (respPaises.success && respPaises.datos) ? respPaises.datos : [];
 
@@ -444,39 +459,37 @@ class Departamentos extends Controller
 
                   paisesOrdenados.forEach((pais) => {
                     const iso = pais.codigo_iso || 'xx';
-                    const deps = grouped[iso] || [];
+                    const departamentosOrg = Object.values(grouped[iso] || {});
                     const gradient = gradientes[iso] || 'linear-gradient(135deg, #6c757d, #495057)';
 
-                    let cardsHTML = '';
-                    deps.forEach(d => {
-                      const nombreSafe = (d.departamento_nombre || '').replace(/'/g, "\\'");
-                      cardsHTML += `
-                      <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
-                        <div class="card h-100 rounded-3 dept-card">
-                          <div class="row h-100 g-0">
-                            <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
-                              <h5 class="mb-2">${d.departamento_nombre}</h5>
-                              <p class="mb-0 text-muted small">Puestos: <strong>${d.total_puestos ?? 0}</strong></p>
-                              <p class="mb-0 text-muted small">Personal: <strong>${d.total_personas ?? 0}</strong></p>
-                              <p class="mb-3 text-muted small">Estado: <strong>${Number(d.activo) === 1 ? 'Activo' : 'Inactivo'}</strong></p>
-                              <div class="d-flex justify-content-between align-items-center">
+                    let bodyContent = '';
+                    departamentosOrg.forEach(depOrg => {
+                      bodyContent += `
+                        <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+                          <div class="card h-100 rounded-3 dept-card">
+                            <div class="row h-100 g-0">
+                              <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
+                                <h5 class="mb-2">Departamento ${depOrg.nombre}</h5>
+                                <p class="mb-0 text-muted small">Áreas: <strong>${depOrg.areas.length}</strong></p>
+                                <p class="mb-3 text-muted small">Estado: <strong>${depOrg.activo ? 'Activo' : 'Inactivo'}</strong></p>
                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
-                                   onclick="abrirModalDepartamento(${d.departamento_id}, '${nombreSafe}')">
-                                  Editar
+                                   onclick="abrirDepartamentoOrganizacional('${iso}', '${depOrg.id}')">
+                                  Entrar
                                 </button>
                               </div>
-                            </div>
-                            <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
-                              <img src="${d.img_url ?? imgUrl}" class="img-fluid" width="120" alt="${d.departamento_nombre}">
+                              <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
+                                <img src="${imgUrl}" class="img-fluid" width="120" alt="${depOrg.nombre}">
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>`;
+                        </div>`;
                     });
 
-                    const bodyContent = deps.length > 0
-                      ? `<div class="row g-4">${cardsHTML}</div>`
-                      : `<div class="text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay departamentos registrados en ${pais.nombre}.</div>`;
+                    if (!bodyContent) {
+                      bodyContent = `<div class="text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay departamentos registrados en ${pais.nombre}.</div>`;
+                    }
+
+                    bodyContent = renderDepartamentosPais(iso, pais.nombre, departamentosOrg, imgUrl);
 
                     const accordionItem = `
                     <div class="accordion-item mb-3">
@@ -487,13 +500,13 @@ class Departamentos extends Controller
                                 style="background: ${gradient}; color: #fff; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
                           <span class="fi fi-${iso} fis me-3" style="font-size: 1.5rem; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);"></span>
                           <span class="me-auto">${pais.nombre}</span>
-                          <span class="badge">${deps.length} depto${deps.length !== 1 ? 's' : ''}</span>
+                          <span class="badge">${departamentosOrg.length} depto${departamentosOrg.length !== 1 ? 's' : ''}</span>
                         </button>
                       </h2>
                       <div id="collapse-${iso}" class="accordion-collapse collapse"
                            aria-labelledby="heading-${iso}" data-bs-parent="#departamentosAccordion">
                         <div class="accordion-body">
-                          ${bodyContent}
+                          <div id="org-body-${iso}"><div class="row g-4">${bodyContent}</div></div>
                         </div>
                       </div>
                     </div>`;
@@ -510,11 +523,198 @@ class Departamentos extends Controller
           });
         };
 
+        function escapeHtml(value) {
+          return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        }
+
+        function escapeJs(value) {
+          return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        function actualizarBotonAccionOrganizacion() {
+          const btn = document.getElementById('btnAccionOrganizacion') || document.querySelector('button[onclick="abrirModalNuevoDepartamento()"]');
+          if (!btn) return;
+
+          if (window.departamentoOrganizacionActivo) {
+            btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nueva Area';
+            return;
+          }
+
+          btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nuevo Departamento';
+        }
+
+        function renderDepartamentosPais(iso, nombrePais, departamentosOrg, imgUrl) {
+          if (!departamentosOrg.length) {
+            return `<div class="col-12 text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay departamentos registrados en ${escapeHtml(nombrePais)}.</div>`;
+          }
+
+          let cardsHTML = '';
+          departamentosOrg.forEach(depOrg => {
+            const totalPuestos = depOrg.areas.reduce((sum, area) => sum + Number(area.total_puestos || 0), 0);
+            const totalPersonas = depOrg.areas.reduce((sum, area) => sum + Number(area.total_personas || 0), 0);
+            cardsHTML += `
+              <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+                <div class="card h-100 rounded-3 dept-card">
+                  <div class="row h-100 g-0">
+                    <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
+                      <h5 class="mb-2">Departamento ${escapeHtml(depOrg.nombre)}</h5>
+                      <p class="mb-0 text-muted small">Areas: <strong>${depOrg.areas.length}</strong></p>
+                      <p class="mb-0 text-muted small">Puestos: <strong>${totalPuestos}</strong></p>
+                      <p class="mb-3 text-muted small">Personal: <strong>${totalPersonas}</strong></p>
+                      <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
+                         onclick="abrirDepartamentoOrganizacional('${escapeJs(iso)}', '${escapeJs(depOrg.id)}')">
+                        Entrar
+                      </button>
+                    </div>
+                    <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
+                      <img src="${imgUrl}" class="img-fluid" width="120" alt="${escapeHtml(depOrg.nombre)}">
+                    </div>
+                  </div>
+                </div>
+              </div>`;
+          });
+          return cardsHTML;
+        }
+
+        function abrirDepartamentoOrganizacional(iso, orgId) {
+          const depOrg = window.departamentosOrganizacionData?.[iso]?.[orgId];
+          const body = document.getElementById(`org-body-${iso}`);
+          if (!depOrg || !body) return;
+          window.departamentoOrganizacionActivo = depOrg;
+          actualizarBotonAccionOrganizacion();
+
+          let cardsHTML = '';
+          depOrg.areas.forEach(d => {
+            const nombreSafe = escapeJs(d.departamento_nombre || '');
+            const imagen = d.img_url || 'https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/lady-with-laptop-light.png';
+            cardsHTML += `
+              <div class="col-xl-3 col-lg-6 col-md-6 mb-4">
+                <div class="card h-100 rounded-3 dept-card">
+                  <div class="row h-100 g-0">
+                    <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
+                      <h5 class="mb-2">${escapeHtml(d.departamento_nombre)}</h5>
+                      <p class="mb-0 text-muted small">Puestos: <strong>${d.total_puestos ?? 0}</strong></p>
+                      <p class="mb-0 text-muted small">Personal: <strong>${d.total_personas ?? 0}</strong></p>
+                      <p class="mb-3 text-muted small">Estado: <strong>${Number(d.activo) === 1 ? 'Activo' : 'Inactivo'}</strong></p>
+                      <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
+                         onclick="abrirModalDepartamento(${d.departamento_id}, '${nombreSafe}')">
+                        Editar
+                      </button>
+                    </div>
+                    <div class="col-sm-4 d-flex align-items-center justify-content-center p-1">
+                      <img src="${imagen}" class="img-fluid" width="120" alt="${escapeHtml(d.departamento_nombre)}">
+                    </div>
+                  </div>
+                </div>
+              </div>`;
+          });
+
+          if (!cardsHTML) {
+            cardsHTML = '<div class="col-12 text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay areas registradas en este departamento.</div>';
+          }
+
+          body.innerHTML = `
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+              <div>
+                <h5 class="mb-0">Departamento ${escapeHtml(depOrg.nombre)}</h5>
+                <p class="text-muted mb-0">Areas registradas en ${escapeHtml(depOrg.nombre_pais || '')}</p>
+              </div>
+              <button type="button" class="btn btn-outline-secondary" onclick="getDepartamentos()">
+                <i class="fa fa-arrow-left me-2"></i>Volver
+              </button>
+            </div>
+            <div class="row g-4">${cardsHTML}</div>`;
+        }
+
+        function cargarDepartamentosOrganizacionalesModal(idPais) {
+          const select = document.getElementById('addDepartamentoOrganizacionalId');
+          if (!select) return;
+          select.innerHTML = '<option value="">-- Selecciona un departamento --</option>';
+          select.classList.remove('is-invalid');
+          const error = document.getElementById('errorDepartamentoOrganizacional');
+          if (error) error.style.display = 'none';
+
+          http.request({
+            endpoint: "/departamentos/getDepartamentosOrganizacionales",
+            onSuccess: (resp) => {
+              const datos = resp.success && Array.isArray(resp.datos) ? resp.datos : [];
+              const filtrados = datos.filter(d => !idPais || String(d.id_pais || '') === String(idPais));
+              filtrados.forEach(d => {
+                select.insertAdjacentHTML('beforeend', `<option value="${d.id}">${d.nombre}</option>`);
+              });
+              if (filtrados.length === 1) {
+                select.value = String(filtrados[0].id);
+              }
+            }
+          });
+        }
+
+        function configurarModalDepartamento(modo, opciones = {}) {
+          const modalEl = document.getElementById('addDepartamentoModal');
+          const form = document.getElementById('addDepartamentoForm');
+          const input = document.getElementById('modalNombreDepartamento');
+          const modoInput = document.getElementById('addDepartamentoModo');
+          const contextPais = document.getElementById('addDepartamentoContextPaisId');
+          const contextOrg = document.getElementById('addDepartamentoContextOrgId');
+          const selectPais = document.getElementById('addDepartamentoPaisId');
+          const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
+          const paisGroup = selectPais?.closest('.col-12');
+          const orgGroup = selectOrg?.closest('.col-12');
+          const title = modalEl?.querySelector('.modal-body .text-center h4');
+          const help = modalEl?.querySelector('.modal-body .text-center p');
+          const nombreLabel = modalEl?.querySelector('label[for="modalNombreDepartamento"]');
+
+          if (form) form.reset();
+          if (input) input.classList.remove('is-invalid');
+          if (selectPais) selectPais.classList.remove('is-invalid');
+          if (selectOrg) selectOrg.classList.remove('is-invalid');
+          ['errorNombre', 'errorPais', 'errorDepartamentoOrganizacional'].forEach(id => {
+            const err = document.getElementById(id);
+            if (err) err.style.display = 'none';
+          });
+
+          if (modoInput) modoInput.value = modo;
+          if (contextPais) contextPais.value = opciones.idPais || '';
+          if (contextOrg) contextOrg.value = opciones.idOrg || '';
+
+          if (modo === 'area') {
+            if (title) title.innerHTML = 'Agregar nueva &aacute;rea';
+            if (help) help.textContent = `Se agregara al departamento ${opciones.nombreOrg || ''}.`;
+            if (nombreLabel) nombreLabel.innerHTML = 'Nombre del &Aacute;rea *';
+            if (input) input.placeholder = 'Ej. Call Center, Campo 1-7, Despachos...';
+            if (paisGroup) paisGroup.style.display = 'none';
+            if (orgGroup) orgGroup.style.display = 'none';
+          } else {
+            if (title) title.textContent = 'Agregar nuevo departamento';
+            if (help) help.textContent = 'Selecciona el pais y escribe el nombre del departamento';
+            if (nombreLabel) nombreLabel.textContent = 'Nombre del Departamento *';
+            if (input) input.placeholder = 'Ej. Cobranza, Operaciones, Administracion...';
+            if (paisGroup) paisGroup.style.display = '';
+            if (orgGroup) orgGroup.style.display = 'none';
+          }
+        }
+
         function abrirModalNuevoDepartamento() {
+          if (window.departamentoOrganizacionActivo) {
+            const depOrg = window.departamentoOrganizacionActivo;
+            abrirModalNuevaArea(depOrg.id_pais, depOrg.id, depOrg.nombre);
+            return;
+          }
+
           const select = document.getElementById('addDepartamentoPaisId');
+          const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
+          configurarModalDepartamento('departamento');
           select.innerHTML = '<option value="">-- Selecciona un país --</option>';
+          if (selectOrg) selectOrg.innerHTML = '<option value="">-- Selecciona un departamento --</option>';
           select.classList.remove('is-invalid');
           document.getElementById('errorPais').style.display = 'none';
+          const errorOrg = document.getElementById('errorDepartamentoOrganizacional');
+          if (errorOrg) errorOrg.style.display = 'none';
 
           http.request({
             endpoint: "/departamentos/getPaisesActivos",
@@ -527,6 +727,7 @@ class Departamentos extends Controller
                   );
                 });
               }
+              cargarDepartamentosOrganizacionalesModal(select.value || '');
               const modal = new bootstrap.Modal(document.getElementById('addDepartamentoModal'));
               modal.show();
             },
@@ -537,7 +738,16 @@ class Departamentos extends Controller
           });
         }
 
+        function abrirModalNuevaArea(idPais, idOrg, nombreOrg) {
+          configurarModalDepartamento('area', { idPais, idOrg, nombreOrg });
+          const modal = new bootstrap.Modal(document.getElementById('addDepartamentoModal'));
+          modal.show();
+        }
+
         $(document).ready(() => {
+          window.getDepartamentos = getDepartamentos;
+          window.departamentoOrganizacionActivo = null;
+          actualizarBotonAccionOrganizacion();
           getDepartamentos();
         });
 
@@ -611,11 +821,21 @@ class Departamentos extends Controller
               e.preventDefault();
 
               const selectPais = document.getElementById('addDepartamentoPaisId');
+              const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
               const input = document.getElementById('modalNombreDepartamento');
               const nombre = input.value.trim();
-              const idPais = selectPais.value;
+              const modo = document.getElementById('addDepartamentoModo')?.value || 'departamento';
+              const idPais = modo === 'area'
+                ? (document.getElementById('addDepartamentoContextPaisId')?.value || '')
+                : selectPais.value;
+              const idDepartamentoOrganizacional = modo === 'departamento'
+                ? 'departamento'
+                : modo === 'area'
+                ? (document.getElementById('addDepartamentoContextOrgId')?.value || '')
+                : (selectOrg ? selectOrg.value : '');
               const errorNombre = document.getElementById('errorNombre');
               const errorPais = document.getElementById('errorPais');
+              const errorOrg = document.getElementById('errorDepartamentoOrganizacional');
 
               let valid = true;
 
@@ -629,8 +849,20 @@ class Departamentos extends Controller
                 selectPais.classList.remove('is-invalid');
               }
 
+              if (!idDepartamentoOrganizacional) {
+                if (errorOrg) {
+                  errorOrg.textContent = 'Debes seleccionar un departamento';
+                  errorOrg.style.display = 'block';
+                }
+                if (selectOrg) selectOrg.classList.add('is-invalid');
+                valid = false;
+              } else {
+                if (errorOrg) errorOrg.style.display = 'none';
+                if (selectOrg) selectOrg.classList.remove('is-invalid');
+              }
+
               if (!nombre) {
-                errorNombre.textContent = 'El nombre del departamento es requerido';
+                errorNombre.textContent = modo === 'departamento' ? 'El nombre del departamento es requerido' : 'El nombre del area es requerido';
                 errorNombre.style.display = 'block';
                 input.classList.add('is-invalid');
                 valid = false;
@@ -646,10 +878,17 @@ class Departamentos extends Controller
               submitBtn.disabled = true;
               submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i>Guardando...';
 
+              const endpoint = modo === 'departamento'
+                ? "/departamentos/InsertDepartamentoOrganizacional"
+                : "/departamentos/InsertDepartamento";
+              const requestData = modo === 'departamento'
+                ? { nombre, id_pais: idPais }
+                : { nombre, id_pais: idPais, id_departamento_organizacional: idDepartamentoOrganizacional };
+
               http.request({
-                endpoint: "/departamentos/InsertDepartamento",
+                endpoint,
                 method: "POST",
-                data: { nombre, id_pais: idPais },
+                data: requestData,
                 onSuccess: (resp) => {
                   if (resp.success) {
                     const modal = bootstrap.Modal.getInstance(document.getElementById('addDepartamentoModal'));
@@ -658,7 +897,7 @@ class Departamentos extends Controller
                     getDepartamentos();
                     Swal.fire({
                       icon: 'success',
-                      title: 'Departamento creado',
+                      title: modo === 'departamento' ? 'Departamento creado' : 'Area creada',
                       text: resp.mensaje,
                       timer: 2000,
                       showConfirmButton: false
@@ -695,6 +934,16 @@ class Departamentos extends Controller
               selectPais.addEventListener('change', function() {
                 this.classList.remove('is-invalid');
                 document.getElementById('errorPais').style.display = 'none';
+                cargarDepartamentosOrganizacionalesModal(this.value || '');
+              });
+            }
+
+            const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
+            if (selectOrg) {
+              selectOrg.addEventListener('change', function() {
+                this.classList.remove('is-invalid');
+                const err = document.getElementById('errorDepartamentoOrganizacional');
+                if (err) err.style.display = 'none';
               });
             }
 
@@ -702,8 +951,12 @@ class Departamentos extends Controller
               form.reset();
               document.getElementById('errorNombre').style.display = 'none';
               document.getElementById('errorPais').style.display = 'none';
+              const errorOrg = document.getElementById('errorDepartamentoOrganizacional');
+              if (errorOrg) errorOrg.style.display = 'none';
               document.getElementById('modalNombreDepartamento').classList.remove('is-invalid');
               document.getElementById('addDepartamentoPaisId').classList.remove('is-invalid');
+              const selectOrgReset = document.getElementById('addDepartamentoOrganizacionalId');
+              if (selectOrgReset) selectOrgReset.classList.remove('is-invalid');
               const submitBtn = form.querySelector('button[type="submit"]');
               submitBtn.disabled = false;
               submitBtn.innerHTML = '<i class="fa fa-save me-2"></i>Guardar';
@@ -722,6 +975,11 @@ class Departamentos extends Controller
     public function getDepartamentos()
     {
         self::respuestaJSON(DepartamentosDAO::getConsultaDepartamentos());
+    }
+
+    public function getDepartamentosOrganizacionales()
+    {
+        self::respuestaJSON(DepartamentosDAO::getConsultaDepartamentosOrganizacionales());
     }
 
     public function InsertPuesto()
@@ -774,7 +1032,15 @@ class Departamentos extends Controller
     {
         $nombre = $_POST['nombre'] ?? null;
         $id_pais = $_POST['id_pais'] ?? 1;
-        self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre, $id_pais));
+        $id_departamento_organizacional = $_POST['id_departamento_organizacional'] ?? null;
+        self::respuestaJSON(DepartamentosDAO::InsertDepartamento($nombre, $id_pais, $id_departamento_organizacional));
+    }
+
+    public function InsertDepartamentoOrganizacional()
+    {
+        $nombre = $_POST['nombre'] ?? null;
+        $id_pais = $_POST['id_pais'] ?? 1;
+        self::respuestaJSON(DepartamentosDAO::InsertDepartamentoOrganizacional($nombre, $id_pais));
     }
 
     public function UpdateNombreDepartamento()

@@ -163,7 +163,23 @@
         -webkit-backdrop-filter: blur(6px);
     }
 
-    /* Tarjetas de departamentos dentro de acordeones */
+    .org-departamento-block {
+        border: 1px solid rgba(99, 102, 241, 0.14);
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.6);
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .org-departamento-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        color: #2f3f50;
+    }
+
+    /* Tarjetas de áreas dentro de acordeones */
     #departamentosAccordion .dept-card {
         background: rgba(255, 255, 255, 0.88) !important;
         backdrop-filter: blur(10px);
@@ -279,8 +295,8 @@
 
 
 <div class="d-flex justify-content-between align-items-center mb-1">
-    <h4 class="mb-0">Departamentos Registrados</h4>
-    <button type="button" class="btn btn-primary" onclick="abrirModalNuevoDepartamento()">
+    <h4 class="mb-0">Organización</h4>
+    <button type="button" class="btn btn-primary" id="btnAccionOrganizacion" onclick="abrirModalNuevoDepartamento()">
         <i class="fa fa-plus-circle me-2"></i>Nuevo Departamento
     </button>
 </div>
@@ -289,7 +305,7 @@
     <div class="accordion" id="departamentosAccordion">
         <div class="text-center py-5">
             <i class="fa fa-spinner fa-spin fa-2x text-muted"></i>
-            <p class="text-muted mt-2">Cargando departamentos...</p>
+            <p class="text-muted mt-2">Cargando organización...</p>
         </div>
     </div>
 
@@ -305,12 +321,22 @@
                     <p class="text-muted mb-0">Selecciona el país y escribe el nombre del departamento</p>
                 </div>
                 <form id="addDepartamentoForm" class="row g-4" onsubmit="return false" novalidate="novalidate">
+                    <input type="hidden" id="addDepartamentoModo" value="departamento">
+                    <input type="hidden" id="addDepartamentoContextPaisId" value="">
+                    <input type="hidden" id="addDepartamentoContextOrgId" value="">
                     <div class="col-12">
                         <label class="form-label w-100" for="addDepartamentoPaisId">País *</label>
                         <select id="addDepartamentoPaisId" class="form-select" required>
                             <option value="">-- Selecciona un país --</option>
                         </select>
                         <div class="invalid-feedback" id="errorPais" style="display: none;"></div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label w-100" for="addDepartamentoOrganizacionalId">Departamento *</label>
+                        <select id="addDepartamentoOrganizacionalId" class="form-select" required>
+                            <option value="">-- Selecciona un departamento --</option>
+                        </select>
+                        <div class="invalid-feedback" id="errorDepartamentoOrganizacional" style="display: none;"></div>
                     </div>
                     <div class="col-12">
                         <label class="form-label w-100" for="modalNombreDepartamento">Nombre del Departamento *</label>
@@ -323,7 +349,7 @@
                                 name="modalNombreDepartamento" 
                                 class="form-control" 
                                 type="text" 
-                                placeholder="Ej. Cobranza, Call Center, Ventas..." 
+                                placeholder="Ej. Cobranza, Operaciones, Administracion..."
                                 required
                                 maxlength="30"
                                 oninput="sanitizarInputNombre(this)"
@@ -346,7 +372,7 @@
     </div>
 </div>
 
-    <!-- Modal Detalle Departamento -->
+    <!-- Modal Detalle Área -->
     <div class="modal fade" id="modalDetalleDepartamento" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
@@ -379,7 +405,7 @@
 
 
                         <p class="text-muted mb-0">
-                            Puestos registrados en el departamento
+                            Puestos registrados en el área
                         </p>
                     </div>
 

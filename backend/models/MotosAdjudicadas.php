@@ -30,7 +30,7 @@ class MotosAdjudicadas extends Model
     private const REPUVE_CONSULTAS_MAX_DIA = 5;
 
     /** Campa?a Legacy: MOTOS ADJUDICADAS AUTORIZADAS. */
-    private const LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS = 427;
+    private const LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS = 432;
 
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
