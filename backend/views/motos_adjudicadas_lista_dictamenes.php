@@ -1154,9 +1154,6 @@ if (!isset($google_maps_api_key_js)) {
                     return;
                 }
                 var textoExito = (data && data.message) || 'Seguimiento guardado.';
-                if (data && data.task_legacy && data.task_legacy.task_id) {
-                    alert('Task ID obtenido: ' + data.task_legacy.task_id);
-                }
                 var advAsig =
                     data &&
                     data.asignacion &&
