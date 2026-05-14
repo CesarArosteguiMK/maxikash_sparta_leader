@@ -312,6 +312,69 @@
         border-top-color: rgba(255, 255, 255, 0.08);
     }
 
+    #modalBajas .modal-bajas-dialog {
+        max-width: min(1260px, calc(100vw - 2rem));
+    }
+    #modalBajas .modal-bajas-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 420px;
+        gap: 0.85rem;
+        align-items: stretch;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        overflow: visible;
+    }
+    #modalBajas .baja-main-panel,
+    #modalBajas .baja-side-panel {
+        background: #fff;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+    }
+    #modalBajas .baja-main-panel {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        border-radius: 0.85rem;
+        overflow: hidden;
+    }
+    #modalBajas .baja-side-panel {
+        border-radius: 0.85rem;
+        overflow: hidden;
+        min-height: 100%;
+    }
+    #modalBajas .baja-subordinados-box {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        border: 0;
+        border-radius: 0;
+        background: #f8fafc;
+        padding: 1rem;
+    }
+    @media (max-width: 575.98px) {
+        #modalBajas .modal-bajas-dialog {
+            max-width: calc(100vw - 1rem);
+        }
+        #modalBajas .modal-bajas-shell {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (min-width: 576px) and (max-width: 991.98px) {
+        #modalBajas .modal-bajas-shell {
+            grid-template-columns: 1fr;
+        }
+    }
+    body.dark-mode #modalBajas .baja-main-panel,
+    body.dark-mode #modalBajas .baja-side-panel {
+        background: rgba(30, 41, 59, 0.95) !important;
+        border-color: #475569 !important;
+    }
+    body.dark-mode #modalBajas .baja-subordinados-box {
+        background: rgba(30, 41, 59, 0.72) !important;
+        border-color: #475569 !important;
+    }
+
     #modalEditPerfil .nav-tabs-custom .nav-link:hover {
         color: #495057;
         background-color: #f8f9fa;
@@ -2598,6 +2661,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         <div class="offcanvas-body p-6">
             <form id="addNewUserForm" onsubmit="return false">
 
+                <div class="mb-3">
+                    <label class="form-label d-block">Tipo de registro *</label>
+                    <div class="btn-group w-100" role="group" aria-label="Tipo de registro">
+                        <input type="radio" class="btn-check" name="add_tipo_registro" id="add_tipo_persona" value="persona" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="add_tipo_persona">
+                            <i class="fa fa-user me-1"></i>Persona
+                        </label>
+                        <input type="radio" class="btn-check" name="add_tipo_registro" id="add_tipo_vacante" value="vacante" autocomplete="off">
+                        <label class="btn btn-outline-warning" for="add_tipo_vacante">
+                            <i class="fa fa-briefcase me-1"></i>Vacante
+                        </label>
+                    </div>
+                </div>
+
                 <div class="col-md-5 d-none">
                     <div class="mb-2">
                         <label class="form-label">Número de Empleado *</label>
@@ -2605,37 +2682,37 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </div>
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">Nombre *</label>
                     <input type="text" id="add_nombres" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">Segundo Nombre (Opcional)</label>
                     <input type="text" id="add_segundo_nombre" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">Apellido Paterno *</label>
                     <input type="text" id="add_apellidop" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">Apellido Materno *</label>
                     <input type="text" id="add_apellidom" class="form-control" oninput="this.value = this.value.replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ\s]/g, '').replace(/^\s+/, '').replace(/\s{2,}/g, ' ').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">CURP *</label>
                     <input type="text" id="add_curp" class="form-control" maxlength="18" placeholder="18 caracteres" autocomplete="off" required style="text-transform: uppercase;" oninput="this.value = this.value.toUpperCase().replace(/[^A-ZÑ0-9]/g, '')" onblur="this.value = this.value.trim()">
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">Teléfono *</label>
                     <input type="text" id="add_telefono" class="form-control phone-mask" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onblur="validarTelefono('add_telefono')" maxlength="10">
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">País (Sede) *</label>
                     <select id="add_id_pais" class="form-select js-select-buscador">
                         <option value="">Seleccione un país</option>
@@ -2647,37 +2724,37 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </select>
                 </div>
 
-                <div class="mb-2" id="div_add_estado" style="display:none;">
+                <div class="mb-2 add-persona-only" id="div_add_estado" style="display:none;">
     <label class="form-label" id="label_add_estado">Estado *</label>
     <select id="add_id_div_nivel1" class="form-select js-select-buscador" disabled>
         <option value="">Seleccione un estado</option>
     </select>
 </div>
 
-<div class="mb-2" id="div_add_municipio" style="display:none;">
+<div class="mb-2 add-persona-only" id="div_add_municipio" style="display:none;">
     <label class="form-label" id="label_add_municipio">Municipio *</label>
     <select id="add_id_div_nivel2" class="form-select js-select-buscador" disabled>
         <option value="">Seleccione un municipio</option>
     </select>
 </div>
 
-<div class="mb-2" id="div_add_colonia" style="display:none;">
+<div class="mb-2 add-persona-only" id="div_add_colonia" style="display:none;">
     <label class="form-label">Colonia</label>
     <select id="add_id_div_nivel3" class="form-select js-select-buscador" disabled>
         <option value="">Seleccione una colonia</option>
     </select>
 </div>
-<div class="mb-2" id="div_add_calle" style="display:none;">
+<div class="mb-2 add-persona-only" id="div_add_calle" style="display:none;">
     <label class="form-label">Calle</label>
     <select id="add_id_div_nivel4" class="form-select js-select-buscador" disabled>
         <option value="">Seleccione una calle</option>
     </select>
 </div>
-<div class="mb-2" id="div_add_calle_texto" style="display:none;">
+<div class="mb-2 add-persona-only" id="div_add_calle_texto" style="display:none;">
     <label class="form-label">Calle</label>
     <input type="text" id="add_domicilio_calle_texto" class="form-control" maxlength="180">
 </div>
-<div class="row mb-2" id="div_add_num_extint" style="display:none;">
+<div class="row mb-2 add-persona-only" id="div_add_num_extint" style="display:none;">
     <div class="col-md-6">
         <label class="form-label">No. exterior *</label>
         <input type="text" id="add_domicilio_num_exterior" class="form-control" maxlength="32">
@@ -2687,7 +2764,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         <input type="text" id="add_domicilio_num_interior" class="form-control" maxlength="32">
     </div>
 </div>
-<div class="mb-2" id="div_add_cp" style="display:none;">
+<div class="mb-2 add-persona-only" id="div_add_cp" style="display:none;">
     <label class="form-label">Código postal</label>
     <input type="text" id="add_codigo_postal" class="form-control" maxlength="10" readonly>
 </div>
@@ -2718,14 +2795,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </select>
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">Fecha de ingreso <span class="text-danger">*</span></label>
                     <div class="fecha-acta-wrapper" id="fecha_acta_wrapper">
                         <input type="text" id="add_fecha_ingreso" class="form-control" placeholder="YYYY-MM-DD">
                     </div>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-3 add-persona-only">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="add_asignar_legion" onchange="toggleSelectLegion()">
                         <label class="form-check-label" for="add_asignar_legion">
@@ -2734,7 +2811,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </div>
                 </div>
 
-                <div class="mb-2" id="div_select_legion" style="display: none;">
+                <div class="mb-2 add-persona-only" id="div_select_legion" style="display: none;">
                     <label class="form-label">Legión *</label>
                     <select id="add_id_legion" class="form-select js-select-buscador">
                         <option value="">Seleccione una legión</option>
@@ -2746,12 +2823,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     </select>
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 add-persona-only">
                     <label class="form-label">Usuario *</label>
                     <input type="text" id="add_usuario" class="form-control" maxlength="10" oninput="this.value = this.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()" onblur="this.value = this.value.trim()" style="text-transform: uppercase;">
                 </div>
 
-                <div class="mb-7">
+                <div class="mb-7 add-persona-only">
                     <label class="form-label">Contraseña *</label>
                     <input type="text" id="add_contrasena" class="form-control" maxlength="15" oninput="this.value = this.value.replace(/^\s+/, '').replace(/\s{2,}/g, ' ')" onblur="this.value = this.value.trim()">
                 </div>
@@ -2768,8 +2845,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       ======================== -->
     <!-- Modal RFC -->
     <div class="modal fade" id="modalBajas" tabindex="-1" aria-labelledby="modalRFCLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-bajas-dialog">
+            <div class="modal-content modal-bajas-shell">
+                <div class="baja-main-panel">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalRFCLabel">Registro de Baja</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -2832,6 +2910,71 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                     <button type="button" class="btn btn-danger" onclick="confirmarBaja()">
                         Confirmar Baja
                     </button>
+                </div>
+                </div>
+
+                <div class="baja-side-panel">
+                    <div class="baja-subordinados-box">
+                        <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+                            <div>
+                                <div class="fw-semibold">Destino de los subordinados</div>
+                                <div class="small text-muted">Define que pasara con el equipo</div>
+                            </div>
+                            <span id="bajaSubordinadosCount" class="badge bg-warning-subtle text-warning-emphasis rounded-pill">0</span>
+                        </div>
+
+                        <div id="bajaReasignacionWrap" style="display: none;">
+                            <div class="d-grid gap-2">
+                                <label class="border rounded-3 p-3 bg-body d-flex gap-2 align-items-start mb-0">
+                                    <input class="form-check-input mt-1" type="radio" name="bajaModoReasignacion" id="bajaModoVacante" value="vacante" checked>
+                                    <span>
+                                        <span class="fw-semibold d-block">Vacante</span>
+                                        <span class="small text-muted">Quedan sin jefe asignado temporalmente.</span>
+                                    </span>
+                                </label>
+                                <label class="border rounded-3 p-3 bg-body d-flex gap-2 align-items-start mb-0">
+                                    <input class="form-check-input mt-1" type="radio" name="bajaModoReasignacion" id="bajaModoSustituto" value="sustituto">
+                                    <span>
+                                        <span class="fw-semibold d-block">Sustituto</span>
+                                        <span class="small text-muted">Pasaran al jefe sustituto elegido.</span>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div id="bajaVacanteResumen" class="alert alert-warning bg-warning-subtle border border-warning-subtle text-warning-emphasis small mt-3 mb-0" role="alert">
+                                <div class="fw-semibold">Se registrara como vacante</div>
+                                <div id="bajaVacantesMismoPuesto" class="mt-2"></div>
+                            </div>
+
+                            <div id="bajaSubordinadosDetalleWrap" class="mt-3 d-none">
+                                <div class="card border bg-body shadow-sm">
+                                    <div class="card-header bg-body py-2 d-flex align-items-center justify-content-between gap-2">
+                                        <div class="fw-semibold small">Personas a reasignar</div>
+                                        <input type="search" id="bajaBuscarSubordinado" class="form-control form-control-sm w-50" placeholder="Buscar...">
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div id="bajaSubordinadosLista" class="list-group list-group-flush small overflow-auto" style="max-height: 220px;">
+                                            Selecciona una persona para cargar sus subordinados.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="bajaSustitutoWrap" class="mt-3" style="display: none;">
+                                    <label for="bajaSustitutoId" class="form-label"><strong>Jefe destino:</strong></label>
+                                    <div class="d-grid gap-2">
+                                        <select id="bajaSustitutoId" class="form-select form-select-lg js-select-buscador">
+                                            <option value="">Cargando personas...</option>
+                                        </select>
+                                        <button type="button" id="bajaAplicarJefeSeleccionados" class="btn btn-outline-primary">
+                                            Aplicar
+                                        </button>
+                                    </div>
+                                    <div id="bajaResumenAsignacionesJefe" class="mt-2"></div>
+                                    <small class="text-muted">Selecciona personas, elige un jefe destino y aplica la asignacion.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -6977,6 +7120,7 @@ function ocultarBloquesDomicilio(prefix) {
     window.getDropdownParentSelectorForSelectId = function (selectId) {
         if (!selectId) return '#offcanvasEditUser';
         if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
+        if (selectId === 'bajaSustitutoId') return '#modalBajas';
         if (selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterTransaction' || selectId === 'FilterMultiplePuestos') {
             return null;
         }

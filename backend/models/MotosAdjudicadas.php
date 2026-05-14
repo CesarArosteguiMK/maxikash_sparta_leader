@@ -29,6 +29,9 @@ class MotosAdjudicadas extends Model
     /** M?ximo de consultas REPUVE nuevas (POST a Nubarium) por usuario y d?a natural CDMX. */
     private const REPUVE_CONSULTAS_MAX_DIA = 5;
 
+    /** Campa?a Legacy: MOTOS ADJUDICADAS AUTORIZADAS. */
+    private const LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS = 427;
+
     /** Slots de evidencias fotogr?ficas (Mis adjudicaciones); debe coincidir con la vista y el resumen SQL. */
     private const MADJ_SLOTS_EVIDENCIA_MEDIA = [
         'fis_dacion_hoja_1', 'fis_dacion_hoja_2',
@@ -36,6 +39,17 @@ class MotosAdjudicadas extends Model
         'fis_frontal', 'fis_lateral_der', 'fis_trasera', 'fis_lateral_izq',
         'fis_tacometro',
         'fis_video_cliente_acuerdo', 'fis_360_encendida', 'fis_video_vuelta_prueba',
+    ];
+
+    /** Mapeo del formulario de la app (dictums.form_response) a slots de Mis adjudicaciones. */
+    private const DICTUM_APP_EVIDENCIA_SLOTS = [
+        'foto_de_tacometro_legible_y_visible_el_kilometraje' => 'fis_tacometro',
+        'foto_de_numero_de_serie_foto_legible_donde_se_lea_' => 'fis_vin',
+        'foto_frontal_de_la_moto_la_foto_debe_estar_visible' => 'fis_frontal',
+        'foto_trasera_de_la_moto_la_foto_debe_ser_visible_t' => 'fis_trasera',
+        'foto_lateral_izquierda_de_la_moto_foto_legible_de_' => 'fis_lateral_izq',
+        'foto_lateral_derecha_de_la_moto_foto_legible_de_pr' => 'fis_lateral_der',
+        'inspeccion_360_de_moto_el_video_debe_evidenciar_el' => 'fis_360_encendida',
     ];
 
     public function __construct()
@@ -773,10 +787,253 @@ class MotosAdjudicadas extends Model
     }
 
     /**
-     * Fila de caché con resumen S2 real (no solo nombre guardado en la misma tabla).
+     * Crea el task Legacy para la campana MOTOS ADJUDICADAS AUTORIZADAS.
      *
-     * @param array<string,mixed> $r
+     * @return array{success:bool, message:string, task_id?:int, duplicate?:bool}
      */
+    public function crearTaskLegacyMotoAutorizada(int $idCredito, int $idPersonaUsuarioAlta = 0, array $datosDictamen = []): array
+    {
+        if ($idCredito <= 0) {
+            return ['success' => false, 'message' => 'Credito invalido para crear task legacy.'];
+        }
+
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $campaignId = self::LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS;
+            $legacyUserId = $this->resolverLegacyUserIdPorPersona($idPersonaUsuarioAlta);
+            if ($legacyUserId <= 0) {
+                return ['success' => false, 'message' => 'No se encontro usuario Legacy para quien guarda el seguimiento.'];
+            }
+
+            $dup = $legacyDb->queryOne(
+                'SELECT id
+                 FROM tasks
+                 WHERE campaign_id = :campaign_id
+                   AND credit_number = :credit_number
+                   AND deleted_at IS NULL
+                 ORDER BY id DESC
+                 LIMIT 1',
+                [
+                    'campaign_id'   => $campaignId,
+                    'credit_number' => (string) $idCredito,
+                ]
+            );
+            if ($dup && (int) ($dup['id'] ?? 0) > 0) {
+                $taskId = (int) $dup['id'];
+                $ahora = $this->fechaHoraCdmx();
+                $legacyDb->CRUD(
+                    'UPDATE tasks
+                     SET current_user_id = :user_id
+                     WHERE id = :task_id',
+                    [
+                        'user_id' => $legacyUserId,
+                        'task_id' => $taskId,
+                    ]
+                );
+                $this->asegurarAsignacionTaskLegacy($legacyDb, $taskId, $legacyUserId, $ahora);
+
+                return [
+                    'success'   => true,
+                    'duplicate' => true,
+                    'task_id'   => $taskId,
+                    'message'   => 'Ya existia task en la campana MOTOS ADJUDICADAS AUTORIZADAS; asignacion Legacy verificada.',
+                ];
+            }
+
+            $datos = $this->obtenerDatosTaskLegacyMotoAutorizada($idCredito, $datosDictamen);
+            $ahora = $this->fechaHoraCdmx();
+            $legacyDb->CRUD(
+                'INSERT INTO tasks
+                    (campaign_id, current_user_id, client_name, credit_number, address, lat, lng,
+                     form_data, form_answered, status, deleted_at, created_at, updated_at)
+                 VALUES
+                    (:campaign_id, :current_user_id, :client_name, :credit_number, :address, :lat, :lng,
+                     :form_data, NULL, :status, NULL, :created_at, :updated_at)',
+                [
+                    'campaign_id'     => $campaignId,
+                    'current_user_id' => $legacyUserId,
+                    'client_name'     => $datos['client_name'],
+                    'credit_number'   => (string) $idCredito,
+                    'address'         => $datos['address'],
+                    'lat'             => $datos['lat'],
+                    'lng'             => $datos['lng'],
+                    'form_data'       => $this->formDataLegacyMotoAutorizada(),
+                    'status'          => 0,
+                    'created_at'      => $ahora,
+                    'updated_at'      => $ahora,
+                ]
+            );
+
+            $row = $legacyDb->queryOne('SELECT LAST_INSERT_ID() AS id');
+            $taskId = (int) ($row['id'] ?? 0);
+            if ($taskId <= 0) {
+                return ['success' => false, 'message' => 'Task creado, pero no se pudo obtener su ID.'];
+            }
+
+            $this->asegurarAsignacionTaskLegacy($legacyDb, $taskId, $legacyUserId, $ahora);
+
+            return [
+                'success' => true,
+                'task_id' => $taskId,
+                'message' => 'Task creado en campana MOTOS ADJUDICADAS AUTORIZADAS.',
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'No se pudo crear el task Legacy: ' . $e->getMessage()];
+        }
+    }
+
+    private function resolverLegacyUserIdPorPersona(int $idPersona): int
+    {
+        if ($idPersona <= 0) {
+            return 0;
+        }
+        try {
+            $persona = $this->db->queryOne(
+                'SELECT TRIM(COALESCE(numero_empleado, \'\')) AS numero_empleado
+                 FROM persona
+                 WHERE id = :id
+                 LIMIT 1',
+                ['id' => $idPersona]
+            );
+            $numeroEmpleado = trim((string) ($persona['numero_empleado'] ?? ''));
+            if ($numeroEmpleado === '') {
+                return 0;
+            }
+
+            $legacyDb = new DatabaseLegacy();
+            $user = $legacyDb->queryOne(
+                'SELECT id
+                 FROM users
+                 WHERE TRIM(COALESCE(external_id, \'\')) = :external_id
+                   AND deleted_at IS NULL
+                 ORDER BY id DESC
+                 LIMIT 1',
+                ['external_id' => $numeroEmpleado]
+            );
+
+            return (int) ($user['id'] ?? 0);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    private function asegurarAsignacionTaskLegacy(DatabaseLegacy $legacyDb, int $taskId, int $legacyUserId, string $fecha): void
+    {
+        if ($taskId <= 0 || $legacyUserId <= 0) {
+            return;
+        }
+
+        $asignacion = $legacyDb->queryOne(
+            'SELECT id
+             FROM task_user_assignments
+             WHERE task_id = :task_id
+               AND user_id = :user_id
+               AND unassigned_at IS NULL
+             ORDER BY id DESC
+             LIMIT 1',
+            [
+                'task_id' => $taskId,
+                'user_id' => $legacyUserId,
+            ]
+        );
+        if ($asignacion && (int) ($asignacion['id'] ?? 0) > 0) {
+            return;
+        }
+
+        $legacyDb->CRUD(
+            'INSERT INTO task_user_assignments
+                (task_id, user_id, assigned_at, unassigned_at, created_at, updated_at)
+             VALUES
+                (:task_id, :user_id, :assigned_at, NULL, :created_at, :updated_at)',
+            [
+                'task_id'     => $taskId,
+                'user_id'     => $legacyUserId,
+                'assigned_at' => $fecha,
+                'created_at'  => $fecha,
+                'updated_at'  => $fecha,
+            ]
+        );
+    }
+
+    /**
+     * @return array{client_name:string,address:string,lat:?string,lng:?string}
+     */
+    private function obtenerDatosTaskLegacyMotoAutorizada(int $idCredito, array $datosDictamen = []): array
+    {
+        $out = [
+            'client_name' => 'Credito #' . $idCredito,
+            'address'     => '',
+            'lat'         => null,
+            'lng'         => null,
+        ];
+
+        $latDictamen = trim((string) ($datosDictamen['lat'] ?? ''));
+        $lngDictamen = trim((string) ($datosDictamen['lng'] ?? ''));
+        $lugarAprox  = trim((string) ($datosDictamen['lugar_aprox'] ?? ''));
+        if ($latDictamen !== '' && is_numeric($latDictamen)) {
+            $out['lat'] = $latDictamen;
+        }
+        if ($lngDictamen !== '' && is_numeric($lngDictamen)) {
+            $out['lng'] = $lngDictamen;
+        }
+        if ($lugarAprox !== '') {
+            $out['address'] = $lugarAprox;
+        }
+
+        try {
+            $sky = $this->db->queryOne(
+                'SELECT
+                    TRIM(COALESCE(nombre_completo_cliente, nombre_cliente, \'\')) AS nombre,
+                    TRIM(COALESCE(direccion_actual, direccion, direccion_ine, direccion_geo, \'\')) AS direccion,
+                    latitud,
+                    longitud
+                 FROM base_clientes
+                 WHERE id_credito = :id
+                 ORDER BY fecha_dispositivo DESC, id DESC
+                 LIMIT 1',
+                ['id' => $idCredito]
+            );
+            if ($sky) {
+                $nom = trim((string) ($sky['nombre'] ?? ''));
+                $dir = trim((string) ($sky['direccion'] ?? ''));
+                if ($nom !== '') {
+                    $out['client_name'] = $nom;
+                }
+                if ($dir !== '') {
+                    $out['address'] = $out['address'] !== '' ? $out['address'] : $dir;
+                }
+                $lat = trim((string) ($sky['latitud'] ?? ''));
+                $lng = trim((string) ($sky['longitud'] ?? ''));
+                $out['lat'] = $out['lat'] !== null ? $out['lat'] : ($lat !== '' ? $lat : null);
+                $out['lng'] = $out['lng'] !== null ? $out['lng'] : ($lng !== '' ? $lng : null);
+            }
+        } catch (\Throwable $e) {}
+
+        if ($out['client_name'] === 'Credito #' . $idCredito || $out['address'] === '') {
+            try {
+                $adjModel = new AdjudicacionModel();
+                $api = $adjModel->buscarCreditoPorId($idCredito);
+                $c = !empty($api['success']) && is_array($api['credito'] ?? null) ? $api['credito'] : [];
+                $nomApi = trim((string) ($c['nombre_cliente'] ?? ''));
+                $dirApi = trim((string) ($c['direccion'] ?? ''));
+                if ($nomApi !== '' && strcasecmp($nomApi, 'Sin nombre') !== 0) {
+                    $out['client_name'] = $nomApi;
+                }
+                if ($out['address'] === '' && $dirApi !== '') {
+                    $out['address'] = $dirApi;
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        return $out;
+    }
+
+    private function formDataLegacyMotoAutorizada(): string
+    {
+        $json = '[{"type":"select","required":false,"label":"¿Tiene llave física?","className":"form-control","name":"tiene_llave_fisica","editable":true,"section":"questions","conditional":false,"uuid":"dfcd6ca6-f1ae-4807-a462-3d9c346f0b16","typeApp":"select","values":[{"label":"Sí","value":"si","selected":true},{"label":"No","value":"no","selected":false}],"value":""},{"type":"select","required":false,"label":"¿Tiene tarjeta de circulación en físico?","className":"form-control","name":"tiene_tarjeta_de_circulacion_en_fisico","editable":true,"section":"questions","conditional":false,"uuid":"5446560b-ac6a-4827-9c6b-cc3c74954a40","typeApp":"select","values":[{"label":"Sí","value":"si","selected":true},{"label":"No","value":"no","selected":false}],"value":""},{"type":"select","required":false,"label":"¿La moto tiene placa física ?","className":"form-control","name":"la_moto_tiene_placa_fisica","editable":true,"section":"questions","conditional":false,"uuid":"b07276c9-cc0c-42ac-b38c-adfefc42913e","typeApp":"select","values":[{"label":"Sí","value":"si","selected":true},{"label":"No","value":"no","selected":false}],"value":""},{"type":"textarea","required":true,"label":"Marca","className":"form-control","name":"marca","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"0d57879b-69c0-41f1-bb7c-cfe1833aa1aa","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Modelo","className":"form-control","name":"modelo","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"7f896bdd-3c9c-40e8-8c13-4b3925b1c8bc","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Año","className":"form-control","name":"ano","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"0743a74d-9c7e-4512-a5ed-9cd8a5ad60b8","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Color","className":"form-control","name":"color","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"5dfd8e41-7468-4ea4-a9dc-293a357f8294","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"No. de Serie (VIN","className":"form-control","name":"no_de_serie_vin","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"c692709e-6f49-434f-bdbb-85d0186098a7","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"No. de Motor","className":"form-control","name":"no_de_motor","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"46d9e3a1-7ee4-4230-836a-a22f7e2524fd","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Placas","className":"form-control","name":"placas","subtype":"textarea","editable":true,"section":"customer","conditional":false,"uuid":"b2f01f91-b1fa-4c0a-a0ca-5e22f3233587","typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Kilometraje","className":"form-control","name":"kilometraje","subtype":"textarea","editable":true,"section":"questions","conditional":false,"uuid":"2fdcef10-973b-408e-a0f0-46aceef4afab","typeApp":"textarea","value":""},{"type":"select","label":"¿Dónde resguardaras la moto?","uuid":"73eddd54-4de5-4054-babd-5f5766b18703","editable":true,"section":"questions","required":false,"className":"form-control","name":"donde_resguardaras_la_moto","conditional":false,"typeApp":"select","values":[{"label":"CEDIS Maxikash","value":"cedis-__SPARTA_SECRET_REDACTED__","selected":true},{"label":"Centro de acopio","value":"centro-de-acopio","selected":false},{"label":"Agencia ","value":"agencia","selected":false},{"label":"Otro","value":"otro","selected":false}],"value":""},{"type":"textarea","label":"Estado de lugar de resguardo (Ejemplo Ciudad de México, Veracruz, Oaxaca, etc.)","uuid":"3666bb60-bb6b-460e-9bbf-ddea362801af","editable":true,"section":"questions","required":true,"className":"form-control","name":"estado_de_lugar_de_resguardo_ejemplo_ciudad_de_mex","subtype":"textarea","conditional":false,"typeApp":"textarea","value":""},{"type":"textarea","label":"Ciudad / Municipio de lugar de Resguardo","uuid":"68bea6ea-8e99-4588-b20a-dcc2c959e8fb","editable":true,"section":"questions","required":true,"className":"form-control","name":"ciudad_municipio_de_lugar_de_resguardo","subtype":"textarea","conditional":false,"typeApp":"textarea","value":""},{"type":"textarea","label":"Calle y número de lugar de resguardo","uuid":"f7de67b6-27bd-4bf9-9839-0f76c349fb72","editable":true,"section":"questions","required":true,"className":"form-control","name":"calle_y_numero_de_lugar_de_resguardo","subtype":"textarea","conditional":false,"typeApp":"textarea","value":""},{"type":"textarea","required":true,"label":"Responsable de Resguardo","className":"form-control","name":"responsable_de_resguardo","subtype":"textarea","editable":true,"section":"questions","conditional":false,"uuid":"688c766b-d427-4c65-bef3-66e07ba1a931","typeApp":"textarea","value":""},{"type":"number","required":true,"label":"Teléfono de contacto","className":"form-control","name":"telefono_de_contacto","subtype":"number","editable":true,"section":"questions","conditional":false,"uuid":"6ffb46d9-a417-4370-b531-efb5167f56fd","typeApp":"number","value":""},{"type":"text","label":"Foto de Tacómetro&nbsp; (Legible y visible el kilometraje)","uuid":"c90bb291-0701-4d2a-a18e-8d53b5fbbb27","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_de_tacometro_legible_y_visible_el_kilometraje","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto de Número de Serie (foto legible donde se lea la serie de 17 dígitos)","uuid":"a0e34323-191e-40a9-9f47-0e03338be6a3","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_de_numero_de_serie_foto_legible_donde_se_lea_","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto frontal de la moto (la foto debe estar visible toda la parte frontal y centrada)","uuid":"f8efc9e4-3d18-4abc-b222-2e8324844bd7","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_frontal_de_la_moto_la_foto_debe_estar_visible","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto trasera de la moto (la foto debe ser visible toda la parte trasera y centrada, se debe ver el espejo y la llanta)","uuid":"abb8ebb0-713e-4f3a-8223-539c8bebd687","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_trasera_de_la_moto_la_foto_debe_ser_visible_t","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto lateral izquierda de la moto (foto legible de preferencia agachado y centrada para poder ver toda la moto)","uuid":"a572d294-6fee-495c-a9c2-52e5f1ead6d9","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_lateral_izquierda_de_la_moto_foto_legible_de_","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Foto lateral derecha de la moto (foto legible de preferencia agachado y centrada para poder ver toda la moto)","uuid":"750b170c-8afe-4a4f-bbb5-a7cc68541255","editable":true,"section":"questions","required":true,"className":"form-control","name":"foto_lateral_derecha_de_la_moto_foto_legible_de_pr","subtype":"text","conditional":false,"typeApp":"photo","value":""},{"type":"text","label":"Inspección 360 de Moto (el video debe evidenciar el funcionamiento eléctrico y debe estar enfocada a toda la unidad)","uuid":"086f9488-15c5-4695-99cf-26184524f739","editable":true,"section":"questions","required":true,"className":"form-control","name":"inspeccion_360_de_moto_el_video_debe_evidenciar_el","subtype":"text","conditional":false,"typeApp":"video","value":""},{"type":"select","required":true,"label":"Dictamen","className":"form-control","name":"dictamen","editable":false,"section":"customer","conditional":false,"uuid":"","typeApp":"select","values":[{"label":"Atendido","value":0,"selected":true}],"value":null}]';
+        return json_encode($json) ?: $json;
+    }
+
     private function filaCacheS2TieneResumenFinanciero(array $r): bool
     {
         $pj = isset($r['payload_json']) ? trim((string) $r['payload_json']) : '';
@@ -2281,6 +2538,354 @@ SQL;
         return ['success' => true];
     }
 
+    public function sincronizarDictumsAppPendientes(): void
+    {
+        try {
+            $rows = $this->db->queryAll(
+                "SELECT ao.id AS id_operacion, ao.id_credito
+                 FROM adj_operacion ao
+                 INNER JOIN (
+                     SELECT aop.id_credito, MAX(aop.id) AS id_max
+                     FROM adj_operacion aop
+                     INNER JOIN asigna_creditos_adjudicacion aca
+                         ON aca.id_credito = aop.id_credito AND aca.estatus = '1'
+                     WHERE aop.estatus IN ('en_transito', 'Recibido')
+                     GROUP BY aop.id_credito
+                 ) ult ON ult.id_max = ao.id AND ult.id_credito = ao.id_credito
+                 ORDER BY ao.fecha_actualizacion DESC
+                 LIMIT 300"
+            ) ?: [];
+
+            foreach ($rows as $row) {
+                $this->sincronizarDictumAppCreditoOperacion(
+                    (int) ($row['id_credito'] ?? 0),
+                    (int) ($row['id_operacion'] ?? 0),
+                    0,
+                    'APP MOVIL'
+                );
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    private function sincronizarDictumsAppParaPersona(int $idPersona): void
+    {
+        if ($idPersona <= 0) {
+            return;
+        }
+
+        try {
+            $rows = $this->db->queryAll(
+                "SELECT ao.id AS id_operacion, ao.id_credito
+                 FROM adj_operacion ao
+                 INNER JOIN (
+                     SELECT aop.id_credito, MAX(aop.id) AS id_max
+                     FROM adj_operacion aop
+                     INNER JOIN asigna_creditos_adjudicacion aca
+                         ON aca.id_credito = aop.id_credito AND aca.estatus = '1'
+                     INNER JOIN personal_adjudicacion pa
+                         ON pa.id = aca.id_personal_adj AND pa.id_persona = :idPersona
+                     GROUP BY aop.id_credito
+                 ) ult ON ult.id_max = ao.id AND ult.id_credito = ao.id_credito",
+                ['idPersona' => $idPersona]
+            ) ?: [];
+
+            foreach ($rows as $row) {
+                $this->sincronizarDictumAppCreditoOperacion(
+                    (int) ($row['id_credito'] ?? 0),
+                    (int) ($row['id_operacion'] ?? 0),
+                    $idPersona,
+                    'APP MOVIL'
+                );
+            }
+        } catch (\Throwable $e) {
+            // La sincronizacion es auxiliar; la bandeja no debe romper si Legacy no responde.
+        }
+    }
+
+    private function sincronizarDictumsAppParaCreditos(array $idsCreditos): void
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $idsCreditos), fn($v) => $v > 0)));
+        if ($ids === []) {
+            return;
+        }
+
+        $ph = [];
+        $params = [];
+        foreach ($ids as $i => $id) {
+            $k = 'id' . $i;
+            $ph[] = ':' . $k;
+            $params[$k] = $id;
+        }
+
+        try {
+            $rows = $this->db->queryAll(
+                "SELECT ao.id AS id_operacion, ao.id_credito
+                 FROM adj_operacion ao
+                 INNER JOIN (
+                     SELECT id_credito, MAX(id) AS id_max
+                     FROM adj_operacion
+                     WHERE id_credito IN (" . implode(',', $ph) . ")
+                     GROUP BY id_credito
+                 ) ult ON ult.id_max = ao.id AND ult.id_credito = ao.id_credito",
+                $params
+            ) ?: [];
+
+            foreach ($rows as $row) {
+                $this->sincronizarDictumAppCreditoOperacion(
+                    (int) ($row['id_credito'] ?? 0),
+                    (int) ($row['id_operacion'] ?? 0),
+                    0,
+                    'APP MOVIL'
+                );
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    private function sincronizarDictumAppCreditoOperacion(int $idCredito, int $idOperacion, int $idUsuario = 0, string $nombreUsuario = 'APP MOVIL'): void
+    {
+        if ($idCredito <= 0 || $idOperacion <= 0) {
+            return;
+        }
+
+        try {
+            $legacyDb = new DatabaseLegacy();
+            $dictum = $legacyDb->queryOne(
+                "SELECT d.id, d.form_response, d.created_at
+                 FROM dictums d
+                 INNER JOIN tasks t ON t.id = d.task_id
+                 WHERE t.campaign_id = :campaign_id
+                   AND TRIM(CAST(t.credit_number AS CHAR)) = :credit_number
+                   AND d.form_response IS NOT NULL
+                   AND TRIM(CAST(d.form_response AS CHAR)) <> ''
+                 ORDER BY d.id DESC
+                 LIMIT 1",
+                [
+                    'campaign_id' => self::LEGACY_CAMPAIGN_MOTOS_ADJ_AUTORIZADAS,
+                    'credit_number' => (string) $idCredito,
+                ]
+            );
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if (!$dictum || empty($dictum['form_response'])) {
+            return;
+        }
+
+        $campos = $this->normalizarFormResponseDictumApp((string) $dictum['form_response']);
+        if ($campos === []) {
+            return;
+        }
+
+        $datosMoto = $this->extraerDatosMotoDesdeDictumApp($campos);
+        if ($datosMoto !== []) {
+            $this->guardarDatosMoto($idOperacion, $datosMoto, $idUsuario, 'REPUVE', false);
+        }
+
+        $ahora = $this->fechaHoraCdmx();
+        $evidenciasGuardadas = 0;
+        foreach (self::DICTUM_APP_EVIDENCIA_SLOTS as $nombreCampo => $slot) {
+            $url = $this->valorCampoDictumApp($campos, $nombreCampo);
+            if ($url === '' || !preg_match('#^https?://#i', $url)) {
+                continue;
+            }
+            $this->upsertEvidenciaDictumApp($idOperacion, $slot, $url, $idUsuario, $ahora);
+            $evidenciasGuardadas++;
+        }
+
+        if ($evidenciasGuardadas <= 0) {
+            return;
+        }
+
+        $this->db->CRUD(
+            "UPDATE adj_operacion
+             SET estatus = CASE
+                    WHEN estatus IN ('en_transito', 'Recibido') THEN 'Recibido'
+                    ELSE estatus
+                 END,
+                 fecha_actualizacion = :fecha
+             WHERE id = :id",
+            ['fecha' => $ahora, 'id' => $idOperacion]
+        );
+
+        if (!$this->existeBitacoraOperacion($idOperacion, '%AL PIPELINE%')) {
+            $this->registrarBitacora($idOperacion, 'ENVIÓ EVIDENCIAS AL PIPELINE', $idUsuario, $nombreUsuario, $ahora);
+        }
+    }
+
+    private function normalizarFormResponseDictumApp(string $raw): array
+    {
+        $valor = trim($raw);
+        for ($i = 0; $i < 3; $i++) {
+            $decoded = json_decode($valor, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return [];
+            }
+            if (is_string($decoded)) {
+                $valor = $decoded;
+                continue;
+            }
+            if (is_array($decoded) && count($decoded) === 1 && isset($decoded[0]) && is_string($decoded[0])) {
+                $valor = $decoded[0];
+                continue;
+            }
+            if (!is_array($decoded)) {
+                return [];
+            }
+
+            $campos = [];
+            foreach ($decoded as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $name = trim((string) ($item['name'] ?? ''));
+                if ($name !== '') {
+                    $campos[$name] = $item;
+                }
+            }
+            return $campos;
+        }
+
+        return [];
+    }
+
+    private function valorCampoDictumApp(array $campos, string $name, bool $usarLabelSeleccionado = false): string
+    {
+        if (!isset($campos[$name]) || !is_array($campos[$name])) {
+            return '';
+        }
+
+        $campo = $campos[$name];
+        $valor = $campo['value'] ?? null;
+        if (is_scalar($valor) && trim((string) $valor) !== '') {
+            return trim((string) $valor);
+        }
+
+        $values = $campo['values'] ?? [];
+        if (is_array($values)) {
+            foreach ($values as $opt) {
+                if (!is_array($opt) || empty($opt['selected'])) {
+                    continue;
+                }
+                $key = $usarLabelSeleccionado ? 'label' : 'value';
+                $sel = $opt[$key] ?? ($opt['value'] ?? $opt['label'] ?? '');
+                return is_scalar($sel) ? trim((string) $sel) : '';
+            }
+        }
+
+        return '';
+    }
+
+    private function extraerDatosMotoDesdeDictumApp(array $campos): array
+    {
+        $map = [
+            'marca' => ['moto_marca'],
+            'modelo' => ['moto_modelo'],
+            'ano' => ['moto_anio'],
+            'color' => ['moto_color'],
+            'no_de_serie_vin' => ['moto_no_serie'],
+            'no_de_motor' => ['moto_no_motor'],
+            'placas' => ['moto_placas'],
+            'kilometraje' => ['moto_kilometraje'],
+            'estado_de_lugar_de_resguardo_ejemplo_ciudad_de_mex' => ['log_estado'],
+            'ciudad_municipio_de_lugar_de_resguardo' => ['log_ciudad'],
+            'calle_y_numero_de_lugar_de_resguardo' => ['log_direccion'],
+            'responsable_de_resguardo' => ['responsable_entrega'],
+            'telefono_de_contacto' => ['log_telefono'],
+        ];
+
+        $datos = [];
+        foreach ($map as $nombreCampo => $cols) {
+            $valor = $this->valorCampoDictumApp($campos, $nombreCampo);
+            if ($valor === '') {
+                continue;
+            }
+            foreach ($cols as $col) {
+                $datos[$col] = $valor;
+            }
+        }
+
+        $lugar = strtolower($this->valorCampoDictumApp($campos, 'donde_resguardaras_la_moto'));
+        $lugarLabel = $this->valorCampoDictumApp($campos, 'donde_resguardaras_la_moto', true);
+        if ($lugar !== '' || $lugarLabel !== '') {
+            $datos['log_lugar_resguardo'] = ($lugar === 'cedis-__SPARTA_SECRET_REDACTED__') ? 'sucursal' : 'otro';
+            $datos['log_lugar_otro'] = $lugarLabel !== '' ? $lugarLabel : $lugar;
+        }
+
+        return $datos;
+    }
+
+    private function upsertEvidenciaDictumApp(int $idOperacion, string $slot, string $url, int $idUsuario, string $fecha): void
+    {
+        $tipo = $this->tipoEvidenciaPorUrl($url);
+        $old = $this->db->queryOne(
+            'SELECT id, url, estatus FROM adj_evidencia WHERE id_operacion = :id AND slot = :slot LIMIT 1',
+            ['id' => $idOperacion, 'slot' => $slot]
+        );
+
+        if ($old) {
+            $urlAnterior = trim((string) ($old['url'] ?? ''));
+            if ($urlAnterior === trim($url)) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                     SET estatus = 'recibido'
+                     WHERE id_operacion = :id AND slot = :slot AND estatus <> 'recibido'",
+                    ['id' => $idOperacion, 'slot' => $slot]
+                );
+                return;
+            }
+
+            if ($this->adjEvidenciaTieneColumnasAtn()) {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                     SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido',
+                         val_atn = NULL, comentario_atn = NULL
+                     WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $url, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
+                );
+            } else {
+                $this->db->CRUD(
+                    "UPDATE adj_evidencia
+                     SET tipo = :tipo, url = :url, fecha_alta = :fecha, estatus = 'recibido'
+                     WHERE id_operacion = :id AND slot = :slot",
+                    ['tipo' => $tipo, 'url' => $url, 'fecha' => $fecha, 'id' => $idOperacion, 'slot' => $slot]
+                );
+            }
+            return;
+        }
+
+        $this->db->CRUD(
+            "INSERT INTO adj_evidencia (id_operacion, tipo, slot, url, fecha_alta, alta, estatus)
+             VALUES (:id, :tipo, :slot, :url, :fecha, :alta, 'recibido')",
+            ['id' => $idOperacion, 'tipo' => $tipo, 'slot' => $slot, 'url' => $url, 'fecha' => $fecha, 'alta' => $idUsuario ?: 0]
+        );
+    }
+
+    private function tipoEvidenciaPorUrl(string $url): string
+    {
+        $path = strtolower((string) parse_url($url, PHP_URL_PATH));
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if ($ext === 'mp4' || strpos($path, '/videos/') !== false) {
+            return 'video';
+        }
+        if ($ext === 'pdf') {
+            return 'pdf';
+        }
+        return 'image';
+    }
+
+    private function existeBitacoraOperacion(int $idOperacion, string $like): bool
+    {
+        $row = $this->db->queryOne(
+            'SELECT 1 AS ok FROM adj_bitacora WHERE id_operacion = :id AND accion LIKE :accion LIMIT 1',
+            ['id' => $idOperacion, 'accion' => $like]
+        );
+
+        return (bool) ($row && (int) ($row['ok'] ?? 0) === 1);
+    }
+
     // =========================================================================
     // AGREGAR OBSERVACI??N
     // =========================================================================
@@ -2348,6 +2953,8 @@ SQL;
      */
     public function obtenerMisAdjudicaciones(int $idPersona, bool $incluirMorosidad = true): array
     {
+        $this->sincronizarDictumsAppParaPersona($idPersona);
+
         $slots    = self::MADJ_SLOTS_EVIDENCIA_MEDIA;
         $slotPh   = [];
         $params   = ['idPersona' => $idPersona, 'idPersonaUlt' => $idPersona];
@@ -3099,6 +3706,7 @@ EOSQL;
         if (empty($ids)) {
             return [];
         }
+        $this->sincronizarDictumsAppParaCreditos($ids);
 
         $slotsPermitidos = self::MADJ_SLOTS_EVIDENCIA_MEDIA;
 
@@ -4633,6 +5241,7 @@ EOSQL;
         );
 
         if ($op) {
+            $this->sincronizarDictumAppCreditoOperacion($idCredito, (int) $op['id'], $idUsuario, 'APP MOVIL');
             $detalle = $this->obtenerDetalle((int) $op['id']);
             return ['success' => true, 'detalle' => $detalle];
         }
@@ -4656,6 +5265,7 @@ EOSQL;
         $this->db->CRUD("INSERT INTO adj_operacion ({$cols}) VALUES ({$ph})", $campos);
 
         $newId   = (int) $this->db->lastInsertId();
+        $this->sincronizarDictumAppCreditoOperacion($idCredito, $newId, $idUsuario, 'APP MOVIL');
         $detalle = $this->obtenerDetalle($newId);
 
         return ['success' => true, 'detalle' => $detalle, 'creado' => true];

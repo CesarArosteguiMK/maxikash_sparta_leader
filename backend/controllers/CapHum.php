@@ -2335,6 +2335,322 @@ class CapHum extends Controller
                 });
             }
 
+            let bajaSubordinadosActuales = [];
+            let bajaPersonasSustitutoActuales = [];
+            let bajaVacantesMismoPuestoActuales = [];
+            let bajaAsignacionesJefe = {};
+
+            function bajaEscapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function resetBajaReasignacion() {
+                bajaSubordinadosActuales = [];
+                bajaPersonasSustitutoActuales = [];
+                bajaVacantesMismoPuestoActuales = [];
+                bajaAsignacionesJefe = {};
+                const count = document.getElementById('bajaSubordinadosCount');
+                const lista = document.getElementById('bajaSubordinadosLista');
+                const vacantesMismoPuesto = document.getElementById('bajaVacantesMismoPuesto');
+                const buscarSubordinado = document.getElementById('bajaBuscarSubordinado');
+                const resumenAsignaciones = document.getElementById('bajaResumenAsignacionesJefe');
+                const wrap = document.getElementById('bajaReasignacionWrap');
+                const sustitutoWrap = document.getElementById('bajaSustitutoWrap');
+                const sustituto = document.getElementById('bajaSustitutoId');
+                const modoVacante = document.getElementById('bajaModoVacante');
+                if (sustituto && typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+                    const $sustituto = window.jQuery(sustituto);
+                    if ($sustituto.hasClass('select2-hidden-accessible')) $sustituto.select2('destroy');
+                }
+                if (count) count.textContent = '0';
+                if (lista) lista.innerHTML = '<div class="list-group-item text-muted">Cargando subordinados...</div>';
+                if (vacantesMismoPuesto) vacantesMismoPuesto.innerHTML = '';
+                if (buscarSubordinado) buscarSubordinado.value = '';
+                if (resumenAsignaciones) resumenAsignaciones.innerHTML = '';
+                if (wrap) wrap.style.display = 'none';
+                if (sustitutoWrap) sustitutoWrap.style.display = 'none';
+                if (sustituto) sustituto.innerHTML = '<option value="">Cargando personas...</option>';
+                if (modoVacante) modoVacante.checked = true;
+                actualizarVistaReasignacionBaja();
+            }
+
+            function actualizarVistaReasignacionBaja() {
+                const modoSeleccionado = document.querySelector('input[name="bajaModoReasignacion"]:checked');
+                const modo = modoSeleccionado ? modoSeleccionado.value : 'vacante';
+                const detalleSubordinados = document.getElementById('bajaSubordinadosDetalleWrap');
+                const vacanteResumen = document.getElementById('bajaVacanteResumen');
+                const sustitutoWrap = document.getElementById('bajaSustitutoWrap');
+                const count = document.getElementById('bajaSubordinadosCount');
+
+                if (detalleSubordinados) detalleSubordinados.classList.toggle('d-none', modo !== 'sustituto');
+                if (vacanteResumen) vacanteResumen.classList.toggle('d-none', modo !== 'vacante');
+                if (sustitutoWrap) sustitutoWrap.style.display = modo === 'sustituto' ? 'block' : 'none';
+                if (count) {
+                    count.textContent = modo === 'vacante'
+                        ? String(bajaVacantesMismoPuestoActuales.length)
+                        : String(Math.max(0, bajaSubordinadosActuales.length - Object.keys(bajaAsignacionesJefe).length));
+                }
+            }
+
+            function renderBajaSubordinados(subordinados) {
+                bajaSubordinadosActuales = Array.isArray(subordinados) ? subordinados : [];
+                const count = document.getElementById('bajaSubordinadosCount');
+                const lista = document.getElementById('bajaSubordinadosLista');
+                const wrap = document.getElementById('bajaReasignacionWrap');
+                if (!lista || !wrap) return;
+
+                if (!bajaSubordinadosActuales.length) {
+                    lista.innerHTML = '<div class="list-group-item text-muted">Esta persona no tiene subordinados directos activos.</div>';
+                    wrap.style.display = 'none';
+                    return;
+                }
+
+                lista.innerHTML = bajaSubordinadosActuales.map(function (s) {
+                    const nombre = bajaEscapeHtml(s.nombre_completo || ('ID ' + s.id));
+                    const puesto = bajaEscapeHtml(s.nombre_puesto || 'Sin puesto');
+                    const departamento = bajaEscapeHtml(s.nombre_departamento || 'Sin departamento');
+                    const externalId = bajaEscapeHtml(s.numero_empleado || s.id);
+                    const textoBusqueda = bajaEscapeHtml((externalId + ' ' + nombre + ' ' + puesto + ' ' + departamento).toLowerCase());
+                    return '<label class="list-group-item d-flex align-items-start gap-2 bg-transparent baja-subordinado-row mb-0" data-search="' + textoBusqueda + '">'
+                        + '<input class="form-check-input mt-1 baja-subordinado-check" type="checkbox" value="' + bajaEscapeHtml(s.id) + '" checked>'
+                        + '<span class="min-w-0 d-block">'
+                        + '<span class="badge bg-label-secondary text-secondary rounded-pill mb-1">#' + externalId + '</span>'
+                        + '<span class="fw-semibold text-body text-truncate d-block">' + nombre + '</span>'
+                        + '<span class="text-muted text-truncate d-block">' + puesto + ' - ' + departamento + '</span>'
+                        + '<span class="badge bg-label-secondary text-secondary rounded-pill mt-1 baja-jefe-asignado" data-subordinado-id="' + bajaEscapeHtml(s.id) + '">Sin jefe destino</span>'
+                        + '</span>'
+                        + '</label>';
+                }).join('');
+                wrap.style.display = 'block';
+                actualizarVistaReasignacionBaja();
+                filtrarBajaSubordinados();
+            }
+
+            function renderBajaSustitutos(personas, idPersonaBaja) {
+                const personasUnicas = [];
+                const vistos = new Set();
+                (Array.isArray(personas) ? personas : []).forEach(function (p) {
+                    if (!p || p.id == null) return;
+                    const id = String(p.id);
+                    if (vistos.has(id)) return;
+                    vistos.add(id);
+                    personasUnicas.push(p);
+                });
+                bajaPersonasSustitutoActuales = personasUnicas;
+                const select = document.getElementById('bajaSustitutoId');
+                if (!select) return;
+                if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+                    const $select = window.jQuery(select);
+                    if ($select.hasClass('select2-hidden-accessible')) $select.select2('destroy');
+                }
+                select.innerHTML = '<option value="">Selecciona sustituto</option>';
+                bajaPersonasSustitutoActuales.forEach(function (p) {
+                    if (String(p.id) === String(idPersonaBaja)) return;
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = (p.nombre_completo || ('ID ' + p.id)) + (p.nombre_puesto ? ' - ' + p.nombre_puesto : '');
+                    select.appendChild(opt);
+                });
+                if (typeof window.refreshSelectBuscador === 'function') window.refreshSelectBuscador('bajaSustitutoId');
+            }
+
+            function getNombreBajaSustituto(idPersona) {
+                const persona = bajaPersonasSustitutoActuales.find(function (p) {
+                    return String(p.id) === String(idPersona);
+                });
+                return persona ? (persona.nombre_completo || ('ID ' + persona.id)) : ('ID ' + idPersona);
+            }
+
+            function actualizarBadgesAsignacionJefe() {
+                document.querySelectorAll('.baja-jefe-asignado').forEach(function (badge) {
+                    const idSubordinado = badge.dataset.subordinadoId;
+                    const jefeId = bajaAsignacionesJefe[idSubordinado];
+                    const row = badge.closest('.baja-subordinado-row');
+                    const check = row ? row.querySelector('.baja-subordinado-check') : null;
+                    if (!jefeId) {
+                        badge.className = 'badge bg-label-secondary text-secondary rounded-pill mt-1 baja-jefe-asignado';
+                        badge.textContent = 'Sin jefe destino';
+                        if (row) row.classList.remove('bg-light');
+                        if (check) check.disabled = false;
+                        return;
+                    }
+                    badge.className = 'badge bg-label-primary text-primary rounded-pill mt-1 baja-jefe-asignado';
+                    badge.textContent = 'Jefe: ' + getNombreBajaSustituto(jefeId);
+                    if (row) row.classList.add('bg-light');
+                    if (check) {
+                        check.checked = false;
+                        check.disabled = true;
+                    }
+                });
+                renderResumenAsignacionesJefe();
+                actualizarVistaReasignacionBaja();
+            }
+
+            function renderResumenAsignacionesJefe() {
+                const cont = document.getElementById('bajaResumenAsignacionesJefe');
+                if (!cont) return;
+                const grupos = {};
+                Object.keys(bajaAsignacionesJefe).forEach(function (idSubordinado) {
+                    const jefeId = bajaAsignacionesJefe[idSubordinado];
+                    if (!jefeId) return;
+                    if (!grupos[jefeId]) grupos[jefeId] = [];
+                    grupos[jefeId].push(idSubordinado);
+                });
+
+                const idsJefe = Object.keys(grupos);
+                if (!idsJefe.length) {
+                    cont.innerHTML = '<div class="badge bg-label-secondary text-secondary rounded-pill">Sin grupos asignados</div>';
+                    return;
+                }
+
+                cont.innerHTML = '<div class="d-flex flex-column gap-1">'
+                    + idsJefe.map(function (jefeId) {
+                        return '<div class="d-flex justify-content-between align-items-center gap-2 rounded border bg-body px-2 py-1 small">'
+                            + '<span class="text-truncate">' + bajaEscapeHtml(getNombreBajaSustituto(jefeId)) + '</span>'
+                            + '<span class="d-flex align-items-center gap-1 flex-shrink-0">'
+                            + '<span class="badge bg-primary rounded-pill">' + grupos[jefeId].length + '</span>'
+                            + '<button type="button" class="btn btn-sm btn-outline-danger px-2 py-0 baja-quitar-asignacion" data-jefe-id="' + bajaEscapeHtml(jefeId) + '" title="Quitar asignacion">'
+                            + '<i class="fa-solid fa-xmark"></i>'
+                            + '</button>'
+                            + '</span>'
+                            + '</div>';
+                    }).join('')
+                    + '</div>';
+            }
+
+            function quitarAsignacionJefeBaja(jefeId) {
+                Object.keys(bajaAsignacionesJefe).forEach(function (idSubordinado) {
+                    if (String(bajaAsignacionesJefe[idSubordinado]) === String(jefeId)) {
+                        delete bajaAsignacionesJefe[idSubordinado];
+                    }
+                });
+                actualizarBadgesAsignacionJefe();
+            }
+
+            function aplicarJefeASeleccionadosBaja() {
+                const select = document.getElementById('bajaSustitutoId');
+                const jefeId = select ? select.value : '';
+                if (!jefeId) {
+                    Swal.fire('Atencion', 'Selecciona un jefe destino.', 'warning');
+                    return;
+                }
+
+                const seleccionados = Array.from(document.querySelectorAll('.baja-subordinado-check:checked'));
+                if (!seleccionados.length) {
+                    Swal.fire('Atencion', 'Selecciona al menos una persona para asignar jefe.', 'warning');
+                    return;
+                }
+
+                seleccionados.forEach(function (chk) {
+                    bajaAsignacionesJefe[chk.value] = jefeId;
+                });
+                actualizarBadgesAsignacionJefe();
+                const input = document.getElementById('bajaBuscarSubordinado');
+                if (input) input.value = '';
+                filtrarBajaSubordinados();
+            }
+
+            function renderBajaVacantesMismoPuesto(vacantes, puestoBaja) {
+                bajaVacantesMismoPuestoActuales = Array.isArray(vacantes) ? vacantes : [];
+                const cont = document.getElementById('bajaVacantesMismoPuesto');
+                if (!cont) return;
+
+                const puesto = puestoBaja && puestoBaja.nombre_puesto ? bajaEscapeHtml(puestoBaja.nombre_puesto) : 'este puesto';
+                if (!bajaVacantesMismoPuestoActuales.length) {
+                    cont.innerHTML = '<div class="badge bg-label-secondary text-secondary rounded-pill">No hay vacantes activas para ' + puesto + '</div>';
+                    actualizarVistaReasignacionBaja();
+                    return;
+                }
+
+                cont.innerHTML = '<div class="fw-semibold mb-2">Vacantes activas para ' + puesto + '</div>'
+                    + '<div class="list-group list-group-flush rounded border bg-body">'
+                    + bajaVacantesMismoPuestoActuales.map(function (v, idx) {
+                        const departamento = bajaEscapeHtml(v.nombre_departamento || 'Sin departamento');
+                        const jefe = bajaEscapeHtml(v.nombre_jefe || 'Sin jefe asignado');
+                        return '<label class="list-group-item small bg-transparent d-flex align-items-start gap-2 mb-0">'
+                            + '<input class="form-check-input mt-1 baja-vacante-check" type="checkbox" value="' + bajaEscapeHtml(v.id) + '"' + (idx === 0 ? ' checked' : '') + '>'
+                            + '<span class="min-w-0 d-block">'
+                            + '<span class="fw-semibold text-body d-block">Vacante #' + bajaEscapeHtml(v.id) + '</span>'
+                            + '<span class="text-muted text-truncate d-block">' + departamento + '</span>'
+                            + '<span class="text-muted text-truncate d-block">Jefe: ' + jefe + '</span>'
+                            + '</span>'
+                            + '</label>';
+                    }).join('')
+                    + '</div>';
+                actualizarVistaReasignacionBaja();
+            }
+
+            function filtrarBajaSubordinados() {
+                const input = document.getElementById('bajaBuscarSubordinado');
+                const filtro = input ? input.value.trim().toLowerCase() : '';
+                document.querySelectorAll('#bajaSubordinadosLista .baja-subordinado-row').forEach(function (row) {
+                    row.classList.toggle('d-none', filtro !== '' && !(row.dataset.search || '').includes(filtro));
+                });
+            }
+
+            function cargarDatosReasignacionBaja(idPersona) {
+                resetBajaReasignacion();
+                fetch('/CapHum/getDatosReasignacionBaja', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ idPersona: idPersona })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) {
+                        renderBajaSubordinados([]);
+                        return;
+                    }
+                    renderBajaSubordinados(data.datos && data.datos.subordinados ? data.datos.subordinados : []);
+                    renderBajaSustitutos(data.datos && data.datos.personas ? data.datos.personas : [], idPersona);
+                    renderBajaVacantesMismoPuesto(
+                        data.datos && data.datos.vacantes_mismo_puesto ? data.datos.vacantes_mismo_puesto : [],
+                        data.datos && data.datos.puesto_baja ? data.datos.puesto_baja : null
+                    );
+                })
+                .catch(err => {
+                    console.error('Error al cargar reasignacion de baja:', err);
+                    renderBajaSubordinados([]);
+                });
+            }
+
+            document.addEventListener('change', function (ev) {
+                if (!ev.target) return;
+                if (ev.target.name === 'bajaModoReasignacion') {
+                    actualizarVistaReasignacionBaja();
+                    return;
+                }
+                if (ev.target.classList && ev.target.classList.contains('baja-vacante-check') && ev.target.checked) {
+                    document.querySelectorAll('.baja-vacante-check').forEach(function (chk) {
+                        if (chk !== ev.target) chk.checked = false;
+                    });
+                }
+                if (ev.target.classList && ev.target.classList.contains('baja-subordinado-check') && !ev.target.checked) {
+                    delete bajaAsignacionesJefe[ev.target.value];
+                    actualizarBadgesAsignacionJefe();
+                }
+            });
+
+            document.addEventListener('input', function (ev) {
+                if (ev.target && ev.target.id === 'bajaBuscarSubordinado') filtrarBajaSubordinados();
+            });
+
+            document.addEventListener('click', function (ev) {
+                if (ev.target && ev.target.id === 'bajaAplicarJefeSeleccionados') aplicarJefeASeleccionadosBaja();
+                const quitar = ev.target && ev.target.closest ? ev.target.closest('.baja-quitar-asignacion') : null;
+                if (quitar) {
+                    quitarAsignacionJefeBaja(quitar.dataset.jefeId);
+                }
+            });
+
             function baja_gestor(id) {
                     if (!id) {
                         Swal.fire("Error", "ID inválido", "error");
@@ -2351,6 +2667,7 @@ class CapHum extends Controller
                     if (spanBaja) spanBaja.textContent = "No se ha seleccionado ningún archivo";
                     archivosSeleccionados = [];
                     document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> ";
+                    resetBajaReasignacion();
 
                     fetch('/CapHum/getDetallesPerfil', {
                         method: 'POST',
@@ -2373,6 +2690,8 @@ class CapHum extends Controller
                         document.getElementById("edit_id").value = persona.id;
                         // Concatenar el nombre completo en el <p id="gestor">
                         document.getElementById("gestor").innerHTML = "<strong>Gestor:</strong> " + persona.nombres + " " + persona.apellidop + " " + persona.apellidom;
+
+                        cargarDatosReasignacionBaja(persona.id);
 
                         $("#modalBajas").modal("show");
                     })
@@ -2674,6 +2993,25 @@ class CapHum extends Controller
                 const idGestor = document.getElementById("edit_id").value;
                 const motivoSelect = document.getElementById("motivoBaja").value;
                 const descripcion = document.getElementById("motivoBajaDescripcion").value;
+                const tieneSubordinados = bajaSubordinadosActuales.length > 0;
+                const modoReasignacionEl = document.querySelector('input[name="bajaModoReasignacion"]:checked');
+                const modoReasignacion = tieneSubordinados && modoReasignacionEl ? modoReasignacionEl.value : 'sin_subordinados';
+                const sustitutoSelect = document.getElementById("bajaSustitutoId");
+                const sustitutoId = sustitutoSelect ? sustitutoSelect.value : "";
+                const subordinadosSeleccionados = modoReasignacion === 'sustituto'
+                    ? Object.keys(bajaAsignacionesJefe)
+                    : Array.from(document.querySelectorAll('.baja-subordinado-check:checked')).map(chk => chk.value);
+                const vacanteSeleccionada = document.querySelector('.baja-vacante-check:checked');
+                const vacanteExistenteId = vacanteSeleccionada ? vacanteSeleccionada.value : "";
+                const asignacionesJefe = {};
+                Object.keys(bajaAsignacionesJefe).forEach(function (idSubordinado) {
+                    if (bajaAsignacionesJefe[idSubordinado]) {
+                        asignacionesJefe[idSubordinado] = bajaAsignacionesJefe[idSubordinado];
+                    }
+                });
+                const pendientesAsignacion = modoReasignacion === 'sustituto'
+                    ? bajaSubordinadosActuales.length - Object.keys(bajaAsignacionesJefe).length
+                    : 0;
 
                 // Validaciones
                 if (!motivoSelect) {
@@ -2690,6 +3028,15 @@ class CapHum extends Controller
                         icon: 'warning',
                         title: 'Atención',
                         text: 'Debes escribir la descripción de la baja.'
+                    });
+                    return;
+                }
+
+                if (modoReasignacion === 'sustituto' && pendientesAsignacion > 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atencion',
+                        text: 'Aun quedan ' + pendientesAsignacion + ' persona(s) sin jefe destino.'
                     });
                     return;
                 }
@@ -2711,6 +3058,11 @@ class CapHum extends Controller
                         formData.append("idGestor", idGestor);
                         formData.append("motivo", motivoSelect);
                         formData.append("descripcion", descripcion);
+                        formData.append("modo_reasignacion", modoReasignacion);
+                        formData.append("sustituto_id", sustitutoId);
+                        formData.append("subordinados_seleccionados", JSON.stringify(subordinadosSeleccionados));
+                        formData.append("asignaciones_jefe", JSON.stringify(asignacionesJefe));
+                        formData.append("vacante_existente_id", vacanteExistenteId);
 
                         // 📎 Archivos múltiples (AQUÍ ESTÁ EL CAMBIO)
                         archivosSeleccionados.forEach(file => {
@@ -3230,7 +3582,31 @@ class CapHum extends Controller
                 }, 200);
             }
 
+            function getTipoRegistroAdd() {
+                const seleccionado = document.querySelector('input[name="add_tipo_registro"]:checked');
+                return seleccionado ? seleccionado.value : 'persona';
+            }
+
+            function aplicarTipoRegistroAdd() {
+                const esVacante = getTipoRegistroAdd() === 'vacante';
+                document.querySelectorAll('#offcanvasAddUser .add-persona-only').forEach(function (el) {
+                    el.style.display = esVacante ? 'none' : '';
+                });
+                const titulo = document.querySelector('#offcanvasAddUser .offcanvas-title');
+                if (titulo) titulo.textContent = esVacante ? 'Registrar Nueva Vacante' : 'Registrar Nuevo Usuario';
+                const btn = document.querySelector('#offcanvasAddUser button.btn-primary');
+                if (btn) btn.textContent = esVacante ? 'Guardar vacante' : 'Guardar';
+            }
+
+            document.addEventListener('change', function (ev) {
+                if (ev.target && ev.target.name === 'add_tipo_registro') aplicarTipoRegistroAdd();
+            });
+            document.addEventListener('DOMContentLoaded', aplicarTipoRegistroAdd);
+            if (document.readyState !== 'loading') aplicarTipoRegistroAdd();
+
             function guardarGestor() {
+                const tipoRegistro = getTipoRegistroAdd();
+                const esVacante = tipoRegistro === 'vacante';
                 const nombres = document.getElementById('add_nombres').value.trim();
                 const segundo_nombre = document.getElementById('add_segundo_nombre').value.trim();
                 const apellidop = document.getElementById('add_apellidop').value.trim();
@@ -3256,6 +3632,42 @@ class CapHum extends Controller
                 const domicilio_num_exterior = document.getElementById('add_domicilio_num_exterior')?.value?.trim() || null;
                 const domicilio_num_interior = document.getElementById('add_domicilio_num_interior')?.value?.trim() || null;
                 const codigo_postal = document.getElementById('add_codigo_postal')?.value?.trim() || null;
+
+                if (esVacante) {
+                    if (!departamento_id) return Swal.fire('Error', 'Debe seleccionar un departamento', 'error');
+                    if (!id_puesto) return Swal.fire('Error', 'Debe seleccionar un puesto', 'error');
+                    if (id_jefe && isNaN(id_jefe)) return Swal.fire('Error', 'Jefe invalido', 'error');
+
+                    fetch('/CapHum/getInsertarGestor', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            tipo_registro: 'vacante',
+                            departamento_id,
+                            id_puesto,
+                            id_jefe: id_jefe || null
+                        })
+                    })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Error HTTP');
+                        return res.json();
+                    })
+                    .then(data => {
+                        if (!data.success) {
+                            return Swal.fire({ icon: 'error', title: 'Error', text: data.mensaje || 'No se pudo registrar la vacante' });
+                        }
+                        Swal.fire('Exito', data.mensaje || 'Vacante registrada correctamente', 'success')
+                            .then(() => location.reload());
+                    })
+                    .catch(err => {
+                        console.error('Error al registrar vacante:', err);
+                        Swal.fire('Error', 'No se pudo registrar la vacante', 'error');
+                    });
+                    return;
+                }
 
                 //  Validaciones obligatorias (todos los campos)
                 if (!nombres) return Swal.fire('Error', 'Los nombres son obligatorios', 'error');
@@ -12224,6 +12636,22 @@ class CapHum extends Controller
         self::respuestaJSON($detalles);
     }
 
+    public function getDatosReasignacionBaja()
+    {
+        $input = json_decode(file_get_contents("php://input"), true) ?: [];
+        $idPersona = isset($input['idPersona']) ? (int) $input['idPersona'] : 0;
+
+        if ($idPersona <= 0) {
+            self::respuestaJSON([
+                'success' => false,
+                'mensaje' => 'ID de persona no recibido'
+            ]);
+            return;
+        }
+
+        self::respuestaJSON(CapHumDAO::getDatosReasignacionBaja($idPersona));
+    }
+
     public function forzarCierreSesionUsuario()
     {
         if (empty($_SESSION['usuario_id'])) {
@@ -12740,6 +13168,42 @@ public function getMunicipios()
         }
 
         // 3️⃣ Devolver JSON
+        $idsRows = array_values(array_filter(array_map(function ($r) {
+            return isset($r['id']) && is_numeric($r['id']) ? (int)$r['id'] : 0;
+        }, $rows)));
+        $metaOrg = CapHumDAO::getMetaOrganigrama($idsRows, $id_departamento);
+        if (!empty($metaOrg['success']) && !empty($metaOrg['datos'])) {
+            $ausencias = $metaOrg['datos']['ausencias'] ?? [];
+            foreach ($rows as &$rowOrg) {
+                $rid = isset($rowOrg['id']) && is_numeric($rowOrg['id']) ? (int)$rowOrg['id'] : 0;
+                if ($rid > 0 && isset($ausencias[$rid])) {
+                    $rowOrg['tipo_estado'] = 'ausencia';
+                    $rowOrg['estado_label'] = $ausencias[$rid]['razon_nombre'] ?? 'Ausencia';
+                }
+            }
+            unset($rowOrg);
+
+            $idsExistentes = [];
+            foreach ($rows as $rOrg) {
+                $idsExistentes[(string)($rOrg['id'] ?? '')] = true;
+            }
+            foreach (($metaOrg['datos']['vacantes'] ?? []) as $vac) {
+                $jefeVac = !empty($vac['id_jefe']) ? (string)$vac['id_jefe'] : $idRaiz;
+                if (!isset($idsExistentes[$jefeVac])) continue;
+                $idVacante = 'vacante-' . (int)$vac['id'];
+                if (isset($idsExistentes[$idVacante])) continue;
+                $idsExistentes[$idVacante] = true;
+                $rows[] = [
+                    'id' => $idVacante,
+                    'nombre' => 'Vacante',
+                    'puesto' => $vac['nombre_puesto'] ?? 'Sin puesto',
+                    'jefe' => $jefeVac,
+                    'tipo_estado' => 'vacante',
+                    'estado_label' => 'Vacante',
+                ];
+            }
+        }
+
         header('Content-Type: application/json');
         echo json_encode([
             "success" => true,
@@ -12805,6 +13269,32 @@ public function getMunicipios()
         }
 
         // Validaciones básicas (todos los campos de registro obligatorios; id_jefe puede estar vacío si es máximo rango)
+        $tipoRegistro = strtolower(trim((string)($data['tipo_registro'] ?? 'persona')));
+        if ($tipoRegistro === 'vacante') {
+            foreach (['departamento_id' => 'Departamento', 'id_puesto' => 'Puesto'] as $field => $nombre) {
+                if (empty($data[$field])) {
+                    echo json_encode(['success' => false, 'mensaje' => "El campo \"$nombre\" es obligatorio"]);
+                    return;
+                }
+            }
+
+            $resVacante = CapHumDAO::crearVacantePersonal([
+                'id_departamento' => (int)$data['departamento_id'],
+                'id_puesto' => (int)$data['id_puesto'],
+                'id_jefe' => !empty($data['id_jefe']) ? (int)$data['id_jefe'] : null,
+                'origen' => 'manual',
+                'creado_por' => $_SESSION['usuario_id'] ?? null,
+            ]);
+
+            echo json_encode([
+                'success' => !empty($resVacante['success']),
+                'mensaje' => $resVacante['mensaje'] ?? (!empty($resVacante['success']) ? 'Vacante registrada correctamente' : 'No se pudo registrar la vacante'),
+                'datos' => $resVacante['datos'] ?? null,
+                'error' => $resVacante['error'] ?? null,
+            ]);
+            return;
+        }
+
         $requiredFields = ['nombres', 'apellidop', 'apellidom', 'curp', 'telefono', 'fecha_ingreso', 'id_puesto', 'departamento_id', 'usuario', 'contrasena'];
         $nombresCampos = [
             'nombres' => 'Nombres',
@@ -12929,6 +13419,15 @@ public function getMunicipios()
         $idGestor    = $_POST['idGestor'] ?? null;
         $motivo      = $_POST['motivo'] ?? null;
         $descripcion = $_POST['descripcion'] ?? null;
+        $modoReasignacion = $_POST['modo_reasignacion'] ?? 'sin_subordinados';
+        $sustitutoId = $_POST['sustituto_id'] ?? null;
+        $subordinadosSeleccionadosRaw = $_POST['subordinados_seleccionados'] ?? '[]';
+        $subordinadosSeleccionados = json_decode($subordinadosSeleccionadosRaw, true);
+        if (!is_array($subordinadosSeleccionados)) $subordinadosSeleccionados = [];
+        $asignacionesJefeRaw = $_POST['asignaciones_jefe'] ?? '{}';
+        $asignacionesJefe = json_decode($asignacionesJefeRaw, true);
+        if (!is_array($asignacionesJefe)) $asignacionesJefe = [];
+        $vacanteExistenteId = $_POST['vacante_existente_id'] ?? null;
 
         //  Validaciones obligatorias
         if (empty($idGestor)) {
@@ -12989,7 +13488,12 @@ public function getMunicipios()
             'descripcion' => $descripcion,
             'archivos'    => $rutasPDF, // 👈 ahora es un arreglo
             'fecha_baja'  => date('Y-m-d H:i:s'),
-            'usuario_baja' => $_SESSION['usuario_id']
+            'usuario_baja' => $_SESSION['usuario_id'],
+            'modo_reasignacion' => $modoReasignacion,
+            'sustituto_id' => $sustitutoId,
+            'subordinados_seleccionados' => $subordinadosSeleccionados,
+            'asignaciones_jefe' => $asignacionesJefe,
+            'vacante_existente_id' => $vacanteExistenteId
         ];
 
         //  Llamar al modelo / DAO

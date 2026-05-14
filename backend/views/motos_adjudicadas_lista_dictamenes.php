@@ -1023,6 +1023,14 @@ if (!isset($google_maps_api_key_js)) {
         }
         var com = String(ta.value || '').trim();
         var aplicaStr = String(selAplica.value || '').trim();
+        var lugarAproxEl = document.getElementById('madjDetalleRevGeo');
+        var lugarAprox = lugarAproxEl ? String(lugarAproxEl.value || '').trim() : '';
+        if (
+            lugarAprox === 'Obteniendo denominaciÃ³n del lugarâ€¦' ||
+            lugarAprox === 'No se pudo obtener el nombre del lugar automÃ¡ticamente.'
+        ) {
+            lugarAprox = '';
+        }
         if (aplicaStr !== '0' && aplicaStr !== '1') {
             if (swalOk) {
                 Swal.fire({
@@ -1105,6 +1113,9 @@ if (!isset($google_maps_api_key_js)) {
                 id_credito: idCredito,
                 comentarios: com,
                 aplica: parseInt(aplicaStr, 10),
+                lat: ses && ses.lat != null ? ses.lat : null,
+                lng: ses && ses.lng != null ? ses.lng : null,
+                lugar_aprox: lugarAprox,
                 gestor_manual: !!(ses && ses.gestorManualElegido),
                 id_persona_responsable:
                     ses &&
