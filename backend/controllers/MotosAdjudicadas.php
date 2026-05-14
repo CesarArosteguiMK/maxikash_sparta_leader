@@ -355,7 +355,7 @@ class MotosAdjudicadas extends Controller
                     }
                     $result['asignacion'] = $asig;
                     if (!empty($asig['success'])) {
-                        $taskLegacy = $this->model->crearTaskLegacyMotoAutorizada($idCredito, $idUsuarioAlta, $datosTaskLegacy);
+                        $taskLegacy = $this->model->crearTaskLegacyMotoAutorizada($idCredito, $idPersonaResponsable, $datosTaskLegacy);
                         $result['task_legacy'] = $taskLegacy;
                         $result['message'] = 'Seguimiento guardado. '
                             . ($asig['message'] ?? 'Crédito asignado correctamente; aparecerá en Mis adjudicaciones del responsable.');

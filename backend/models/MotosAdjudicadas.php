@@ -2953,6 +2953,7 @@ SQL;
      */
     public function obtenerMisAdjudicaciones(int $idPersona, bool $incluirMorosidad = true): array
     {
+        $this->asegurarOperacionesParaAsignacionesActivas($idPersona);
         $this->sincronizarDictumsAppParaPersona($idPersona);
 
         $slots    = self::MADJ_SLOTS_EVIDENCIA_MEDIA;
@@ -2980,6 +2981,7 @@ SQL;
                 DATE_FORMAT(aca.fecha_alta, '%Y-%m-%d %H:%i')          AS fecha_asignacion,
                 DATE_FORMAT(aca.fecha_baja, '%Y-%m-%d %H:%i')          AS fecha_desasignacion,
                 COALESCE(NULLIF(TRIM(ult_op.nombre_cliente), ''), '???') AS nombre_cliente,
+                TRIM(CONCAT_WS(' ', per_resp.nombres, per_resp.apellidop)) AS responsable_nombre,
                 TRIM(CONCAT_WS(' ', per_alta.nombres, per_alta.apellidop)) AS asignado_por,
                 aca.id                                                  AS id_asignacion,
                 COALESCE(madj_ev.total, 0)                              AS madj_ev_total,
@@ -2987,6 +2989,7 @@ SQL;
                 COALESCE(madj_ev.rechazo_atn, 0)                        AS madj_ev_rechazo_atn
             FROM asigna_creditos_adjudicacion aca
             INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+            INNER JOIN persona per_resp ON per_resp.id = pa.id_persona
             LEFT JOIN persona per_alta ON per_alta.id = aca.alta
             INNER JOIN (
                 SELECT ao.id, ao.id_credito, ao.nombre_cliente, ao.estatus
@@ -3070,6 +3073,50 @@ SQL;
             'creditos'           => $creditos,
             'resumen_evidencias' => $resumenEvidencias,
         ];
+    }
+
+    private function asegurarOperacionesParaAsignacionesActivas(int $idPersona): void
+    {
+        if ($idPersona <= 0) {
+            return;
+        }
+
+        try {
+            $rows = $this->db->queryAll(
+                "SELECT aca.id_credito,
+                        COALESCE(NULLIF(TRIM(ao.nombre_cliente), ''), CONCAT('Crédito #', aca.id_credito)) AS nombre_cliente
+                 FROM asigna_creditos_adjudicacion aca
+                 INNER JOIN personal_adjudicacion pa ON pa.id = aca.id_personal_adj
+                 LEFT JOIN adj_operacion ao ON ao.id = (
+                     SELECT ao2.id
+                     FROM adj_operacion ao2
+                     WHERE ao2.id_credito = aca.id_credito
+                     ORDER BY ao2.id DESC
+                     LIMIT 1
+                 )
+                 WHERE pa.id_persona = :idPersona
+                   AND aca.estatus = '1'
+                   AND ao.id IS NULL
+                 ORDER BY aca.fecha_alta DESC
+                 LIMIT 50",
+                ['idPersona' => $idPersona]
+            ) ?: [];
+
+            foreach ($rows as $row) {
+                $idCredito = (int) ($row['id_credito'] ?? 0);
+                if ($idCredito <= 0) {
+                    continue;
+                }
+                $datosCredito = $this->obtenerDatosTaskLegacyMotoAutorizada($idCredito);
+                $nombreCliente = trim((string) ($datosCredito['client_name'] ?? ''));
+                $this->obtenerOCrearOperacion(
+                    $idCredito,
+                    $nombreCliente !== '' ? $nombreCliente : trim((string) ($row['nombre_cliente'] ?? '')),
+                    $idPersona
+                );
+            }
+        } catch (\Throwable $e) {
+        }
     }
 
     /**
