@@ -1467,7 +1467,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             const asignacionHtml = `
                 <div class="madj-asignacion-wrap">
                     <span class="madj-asignacion-fecha">${esc(c.fecha_asignacion || '-"')}</span>
-                    <span class="madj-asignacion-por">${esc(c.asignado_por || 'Sistema')}</span>
+                    <span class="madj-asignacion-por">Responsable: ${esc(c.responsable_nombre || 'Sin responsable')}</span>
+                    <span class="madj-asignacion-por">Asignó: ${esc(c.asignado_por || 'Sistema')}</span>
                 </div>`;
 
             const _isSent = _madjSentCreditos.has(String(c.id_credito));
@@ -1503,7 +1504,7 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
                     { data: 1, title: 'Cliente' },
                     { data: 2, title: 'Bucket' },
                     { data: 3, title: 'Estado' },
-                    { data: 4, title: 'Asignación' },
+                    { data: 4, title: 'Asignación / Responsable' },
                     { data: 5, title: 'Acciones', orderable: false, searchable: false, className: 'text-center' },
                 ]
             });
@@ -2603,7 +2604,8 @@ $madjPublicPath = function_exists('sparta_public_web_base') ? sparta_public_web_
             return `
             <div class="madj-mcard">
                 <div class="madj-mcard-nombre">${nombre}</div>
-                <div class="madj-mcard-id">#${esc(String(c.id_credito))} &bull; ${esc(c.asignado_por || 'Sistema')}</div>
+                <div class="madj-mcard-id">#${esc(String(c.id_credito))} &bull; Resp: ${esc(c.responsable_nombre || 'Sin responsable')}</div>
+                <div class="madj-mcard-id">Asignó: ${esc(c.asignado_por || 'Sistema')}</div>
                 <div class="madj-mcard-meta">
                     ${bucketBadge}
                     <span class="badge ${esActivo ? 'bg-success' : 'bg-secondary'}">${esActivo ? 'Activo' : 'Inactivo'}</span>

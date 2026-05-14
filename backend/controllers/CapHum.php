@@ -68,6 +68,9 @@ class CapHum extends Controller
 
                     // Guardar en variable global para otros usos
                     window.usuariosData = usuariosConsolidados;
+                    if (typeof window.sincronizarUsuariosGestion === 'function') {
+                        window.sincronizarUsuariosGestion(usuariosConsolidados);
+                    }
 
                     // ==========================================
                     // MAPEAR DATOS CON SOPORTE PARA MÚLTIPLES PUESTOS
@@ -177,6 +180,11 @@ class CapHum extends Controller
                     // Actualizar DataTable
                     const tabla = $('#historialUsuarios').DataTable();
                     tabla.clear().rows.add(datos).draw();
+                    if (typeof aplicarFiltros === 'function') {
+                        const hayFiltrosActivos = ['UserRole', 'UserPlan', 'FilterTransaction', 'FilterMultiplePuestos']
+                            .some(id => document.getElementById(id)?.value);
+                        if (hayFiltrosActivos) aplicarFiltros();
+                    }
                 }
             });
         };
