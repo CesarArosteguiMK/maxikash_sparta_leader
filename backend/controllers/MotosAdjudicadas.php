@@ -382,6 +382,9 @@ class MotosAdjudicadas extends Controller
             } elseif (!empty($result['success'])) {
                 $result['message'] = 'Seguimiento guardado.';
             }
+            if (!empty($result['success'])) {
+                $result['message'] = 'Seguimiento guardado.';
+            }
             echo json_encode($result, JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
