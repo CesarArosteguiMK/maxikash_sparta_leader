@@ -328,21 +328,6 @@ class TrackingRecoleccion extends Model
             return ['success' => false, 'message' => 'Hay créditos duplicados en la ruta.'];
         }
 
-        // RN-10: al menos un crédito debe tener suficiente info de ubicación para el mapa
-        $hayUbicacion = false;
-        foreach ($creditos as $det) {
-            if (
-                (!empty($det['latitud']) && !empty($det['longitud']))
-                || !empty(trim((string) ($det['direccion'] ?? '')))
-            ) {
-                $hayUbicacion = true;
-                break;
-            }
-        }
-        if (!$hayUbicacion) {
-            return ['success' => false, 'message' => 'Al menos un crédito requiere dirección o coordenadas para mostrar la ruta en el mapa.'];
-        }
-
         $ahora        = date('Y-m-d H:i:s');
         $estatusRuta  = ($modo === 'borrador') ? 'borrador' : 'enviada';
 

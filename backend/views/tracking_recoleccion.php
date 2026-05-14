@@ -22,11 +22,17 @@ body.dark-mode {
 
 /* ── Cabecera del módulo ── */
 .track-header {
-    background: linear-gradient(135deg, var(--track-color) 0%, var(--track-color-dark) 100%);
-    color: #fff;
+    background: var(--track-bg-card);
+    border: 1px solid var(--track-border);
+    color: var(--track-color-dark);
     border-radius: .75rem;
     padding: 1.25rem 1.5rem;
     margin-bottom: 1.25rem;
+}
+body.dark-mode .track-header {
+    background: linear-gradient(135deg, var(--track-color) 0%, var(--track-color-dark) 100%);
+    border-color: transparent;
+    color: #fff;
 }
 .track-header h4 { margin: 0; font-weight: 700; letter-spacing: .5px; }
 .track-header .track-subtitle { opacity: .85; font-size: .85rem; margin-top: .2rem; }
@@ -80,13 +86,26 @@ body.dark-mode .track-filters { background: #1e2d2c; }
 #modalRegistrarRuta .modal-header .btn-close { filter: invert(1); }
 
 /* ── Tabs del modal ── */
-.track-tabs .nav-link { color: var(--track-color-dark); border-radius: .5rem .5rem 0 0; }
-.track-tabs .nav-link.active {
-    background: var(--track-color);
-    color: #fff;
-    border-color: var(--track-color);
+.track-tabs .nav-link,
+.track-tabs .nav-link:link,
+.track-tabs .nav-link:visited,
+.track-tabs .nav-link:hover,
+.track-tabs .nav-link:focus {
+    color: var(--track-color-dark) !important;
+    border-radius: .5rem .5rem 0 0;
 }
-body.dark-mode .track-tabs .nav-link { color: var(--track-color); }
+.track-tabs .nav-link.active {
+    background: var(--track-color) !important;
+    color: #fff !important;
+    border-color: var(--track-color) !important;
+}
+body.dark-mode .track-tabs .nav-link,
+body.dark-mode .track-tabs .nav-link:link,
+body.dark-mode .track-tabs .nav-link:visited,
+body.dark-mode .track-tabs .nav-link:hover,
+body.dark-mode .track-tabs .nav-link:focus {
+    color: var(--track-color) !important;
+}
 
 /* ── Lista de créditos en modal (sortable) ── */
 .track-credito-row {
@@ -160,6 +179,16 @@ body.dark-mode .track-summary-chip { background: #134e4a; color: #5eead4; }
 .select2-container .select2-selection--multiple {
     min-height: 38px;
     border-color: #ced4da !important;
+}
+
+/* ── Botón pin ubicación en fila de crédito ── */
+.btn-pin-ubicacion {
+    flex-shrink: 0;
+}
+.btn-pin-ubicacion.tiene-pin {
+    color: var(--track-color-dark);
+    border-color: var(--track-color);
+    background: var(--track-color-light);
 }
 </style>
 
@@ -440,6 +469,45 @@ body.dark-mode .track-summary-chip { background: #134e4a; color: #5eead4; }
                 <div class="text-center py-4">
                     <div class="spinner-border" style="color:var(--track-color);"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     Modal — Seleccionar ubicación en mapa (map picker)
+══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalMapPicker" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:var(--track-color-dark);color:#fff;">
+                <h6 class="modal-title mb-0">
+                    <i class="fa-solid fa-map-pin me-2"></i>
+                    Seleccionar ubicación en el mapa
+                </h6>
+                <button type="button" class="btn-close" id="btnCerrarMapPicker" style="filter:invert(1);"></button>
+            </div>
+            <div class="modal-body p-2">
+                <p class="small text-muted mb-2 px-1">
+                    <i class="fa-solid fa-circle-info me-1"></i>
+                    Haz clic en el mapa para colocar el pin de la ubicación del crédito
+                    <strong id="mapPickerCreditoLabel"></strong>.
+                </p>
+                <div id="mapPickerContainer" style="width:100%;height:420px;border-radius:.5rem;overflow:hidden;border:1px solid var(--track-border);"></div>
+                <div class="mt-2 px-1 d-flex align-items-center gap-2 flex-wrap">
+                    <span class="small text-muted" id="mapPickerCoordsLabel">
+                        <i class="fa-solid fa-crosshairs me-1"></i>Sin selección
+                    </span>
+                </div>
+            </div>
+            <div class="modal-footer py-2 d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancelarMapPicker">
+                    <i class="fa-solid fa-xmark me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-sm" id="btnConfirmarMapPicker"
+                        style="background:var(--track-color);color:#fff;" disabled>
+                    <i class="fa-solid fa-check me-1"></i>Confirmar ubicación
+                </button>
             </div>
         </div>
     </div>
@@ -934,6 +1002,9 @@ function _trkRenderListaCreditos() {
     _trk.creditosEnRuta.forEach((c, idx) => {
         const modelo = [c.moto_marca, c.moto_modelo].filter(Boolean).join(' ') || '—';
         const badgeConf = CONF_LABEL[c.estatus_confirmacion_gestor] || CONF_LABEL['pendiente'];
+        const tienePin = c.latitud_manual && c.longitud_manual;
+        const pinClass = tienePin ? 'btn-pin-ubicacion tiene-pin' : 'btn-pin-ubicacion';
+        const pinTitle = tienePin ? 'Ubicación manual asignada (clic para cambiar)' : 'Asignar ubicación en mapa';
         const html = `
         <div class="track-credito-row" data-id="${c.id_credito}">
             <i class="fa-solid fa-grip-vertical drag-handle"></i>
@@ -946,6 +1017,9 @@ function _trkRenderListaCreditos() {
                 </span>
             </div>
             ${badgeConf}
+            <button class="btn btn-sm btn-outline-secondary ${pinClass}" data-id="${c.id_credito}" title="${pinTitle}" style="font-size:.72rem;padding:.15rem .4rem;">
+                <i class="fa-solid fa-map-pin"></i>
+            </button>
             <select class="form-select form-select-sm py-0 ms-1 select-conf-gestor"
                     style="max-width:130px;font-size:.75rem;"
                     data-id="${c.id_credito}">
@@ -964,6 +1038,11 @@ function _trkRenderListaCreditos() {
     // Eventos
     $list.find('.btn-remove-cred').off('click').on('click', function () {
         _trkQuitarCredito($(this).data('id'));
+    });
+    $list.find('.btn-pin-ubicacion').off('click').on('click', function () {
+        const id = $(this).data('id');
+        const cred = _trk.creditosEnRuta.find(c => String(c.id_credito) === String(id));
+        if (cred) _trkAbrirMapPicker(cred);
     });
     $list.find('.select-conf-gestor').off('change').on('change', function () {
         const id  = $(this).data('id');
@@ -1037,6 +1116,15 @@ function _trkRenderizarMapa() {
         window._trkMapCallback = () => _trkDibujarMapa(creditos);
     } else if (typeof google !== 'undefined' && google.maps) {
         _trkDibujarMapa(creditos);
+    } else {
+        // El script ya está cargando (desde el picker); esperar
+        const waitForMaps = setInterval(() => {
+            if (typeof google !== 'undefined' && google.maps) {
+                clearInterval(waitForMaps);
+                _trkDibujarMapa(creditos);
+            }
+        }, 150);
+        setTimeout(() => clearInterval(waitForMaps), 10000);
     }
 }
 
@@ -1118,6 +1206,184 @@ function _trkDibujarMapa(creditos) {
         }
     };
     processNext(0);
+}
+
+// ─── Map Picker (Plan B: clic en mapa para asignar coords) ──────────────────
+const _trkPicker = {
+    modal:        null,
+    mapInstance:  null,
+    marker:       null,
+    creditoId:    null,
+    selectedLat:  null,
+    selectedLng:  null,
+};
+
+function _trkAbrirMapPicker(cred) {
+    if (!window._trackGoogleMapsKey) {
+        Swal.fire({ icon: 'warning', title: 'Sin API Key', text: 'Google Maps no está disponible (falta API key).', confirmButtonText: 'Aceptar' });
+        return;
+    }
+
+    _trkPicker.creditoId   = cred.id_credito;
+    _trkPicker.selectedLat = null;
+    _trkPicker.selectedLng = null;
+
+    // Etiqueta en el modal
+    document.getElementById('mapPickerCreditoLabel').textContent =
+        ` — #${cred.id_credito} ${cred.nombre_cliente ? '(' + cred.nombre_cliente + ')' : ''}`;
+    document.getElementById('mapPickerCoordsLabel').innerHTML =
+        '<i class="fa-solid fa-crosshairs me-1"></i>Sin selección';
+    document.getElementById('btnConfirmarMapPicker').disabled = true;
+
+    // Mostrar modal
+    if (!_trkPicker.modal) {
+        _trkPicker.modal = new bootstrap.Modal(document.getElementById('modalMapPicker'));
+        document.getElementById('btnCerrarMapPicker').addEventListener('click',  () => _trkPicker.modal.hide());
+        document.getElementById('btnCancelarMapPicker').addEventListener('click', () => _trkPicker.modal.hide());
+        document.getElementById('btnConfirmarMapPicker').addEventListener('click', _trkConfirmarMapPicker);
+    }
+    _trkPicker.modal.show();
+
+    // Inicializar mapa después de que el modal sea visible (necesario para que el div tenga dimensiones)
+    document.getElementById('modalMapPicker').addEventListener('shown.bs.modal', _trkInicializarMapPicker, { once: true });
+}
+
+function _trkInicializarMapPicker() {
+    const cred = _trk.creditosEnRuta.find(c => String(c.id_credito) === String(_trkPicker.creditoId));
+    if (!cred) return;
+
+    // Centro: coordenadas manuales existentes > coords del crédito > GDL
+    let centerLat = 20.6597, centerLng = -103.3496;
+    if (cred.latitud_manual && cred.longitud_manual) {
+        centerLat = parseFloat(cred.latitud_manual);
+        centerLng = parseFloat(cred.longitud_manual);
+    } else if (cred.latitud && cred.longitud) {
+        centerLat = parseFloat(cred.latitud);
+        centerLng = parseFloat(cred.longitud);
+    }
+
+    const pickerDiv = document.getElementById('mapPickerContainer');
+
+    const initMap = () => {
+        if (!_trkPicker.mapInstance) {
+            _trkPicker.mapInstance = new google.maps.Map(pickerDiv, {
+                zoom: 15,
+                center: { lat: centerLat, lng: centerLng },
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false,
+            });
+
+            _trkPicker.mapInstance.addListener('click', (e) => {
+                const lat = e.latLng.lat();
+                const lng = e.latLng.lng();
+                _trkPicker.selectedLat = lat;
+                _trkPicker.selectedLng = lng;
+
+                if (!_trkPicker.marker) {
+                    _trkPicker.marker = new google.maps.Marker({
+                        map: _trkPicker.mapInstance,
+                        position: e.latLng,
+                        draggable: true,
+                        animation: google.maps.Animation.DROP,
+                        title: 'Ubicación seleccionada',
+                    });
+                    _trkPicker.marker.addListener('dragend', (ev) => {
+                        _trkPicker.selectedLat = ev.latLng.lat();
+                        _trkPicker.selectedLng = ev.latLng.lng();
+                        _trkActualizarLabelCoordsicker();
+                    });
+                } else {
+                    _trkPicker.marker.setPosition(e.latLng);
+                }
+
+                _trkActualizarLabelCoordsicker();
+                document.getElementById('btnConfirmarMapPicker').disabled = false;
+            });
+        } else {
+            // Reusar mapa: re-centrar y limpiar marcador anterior
+            _trkPicker.mapInstance.setCenter({ lat: centerLat, lng: centerLng });
+            _trkPicker.mapInstance.setZoom(15);
+            if (_trkPicker.marker) {
+                _trkPicker.marker.setMap(null);
+                _trkPicker.marker = null;
+            }
+        }
+
+        // Si ya tenía coords manuales, mostrar marcador previo
+        if (cred.latitud_manual && cred.longitud_manual) {
+            const prevPos = { lat: parseFloat(cred.latitud_manual), lng: parseFloat(cred.longitud_manual) };
+            _trkPicker.marker = new google.maps.Marker({
+                map: _trkPicker.mapInstance,
+                position: prevPos,
+                draggable: true,
+                animation: google.maps.Animation.DROP,
+                title: 'Ubicación guardada',
+            });
+            _trkPicker.selectedLat = prevPos.lat;
+            _trkPicker.selectedLng = prevPos.lng;
+            _trkPicker.marker.addListener('dragend', (ev) => {
+                _trkPicker.selectedLat = ev.latLng.lat();
+                _trkPicker.selectedLng = ev.latLng.lng();
+                _trkActualizarLabelCoordsicker();
+            });
+            _trkActualizarLabelCoordsicker();
+            document.getElementById('btnConfirmarMapPicker').disabled = false;
+        }
+
+        google.maps.event.trigger(_trkPicker.mapInstance, 'resize');
+    };
+
+    if (typeof google !== 'undefined' && google.maps) {
+        initMap();
+    } else if (_trk.mapLoaded) {
+        // El script ya está cargando (desde el mapa de ruta); esperar a que esté listo
+        const waitForMaps = setInterval(() => {
+            if (typeof google !== 'undefined' && google.maps) {
+                clearInterval(waitForMaps);
+                initMap();
+            }
+        }, 150);
+        setTimeout(() => clearInterval(waitForMaps), 10000);
+    } else {
+        // Cargar Maps si aún no está
+        const script = document.createElement('script');
+        script.src   = `https://maps.googleapis.com/maps/api/js?key=${window._trackGoogleMapsKey}&libraries=geometry&callback=_trkMapPickerReady`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+        window._trkMapPickerReady = initMap;
+        _trk.mapLoaded = true;
+    }
+}
+
+function _trkActualizarLabelCoordsicker() {
+    const lat = _trkPicker.selectedLat;
+    const lng = _trkPicker.selectedLng;
+    if (lat === null || lng === null) return;
+    document.getElementById('mapPickerCoordsLabel').innerHTML =
+        `<i class="fa-solid fa-location-dot me-1" style="color:var(--track-color);"></i>` +
+        `Lat: <strong>${lat.toFixed(6)}</strong> &nbsp; Lng: <strong>${lng.toFixed(6)}</strong>`;
+}
+
+function _trkConfirmarMapPicker() {
+    const lat = _trkPicker.selectedLat;
+    const lng = _trkPicker.selectedLng;
+    if (lat === null || lng === null) return;
+
+    const cred = _trk.creditosEnRuta.find(c => String(c.id_credito) === String(_trkPicker.creditoId));
+    if (cred) {
+        cred.latitud_manual  = lat;
+        cred.longitud_manual = lng;
+        // Sobrescribir también las props que usa el mapa de ruta
+        cred.latitud  = lat;
+        cred.longitud = lng;
+        _trk.haychangios = true;
+    }
+
+    _trkPicker.modal.hide();
+    _trkRenderListaCreditos();
+    _trkRenderizarMapa();
 }
 
 // ─── Guardar ruta ────────────────────────────────────────
