@@ -155,6 +155,19 @@ class TrackingRecoleccion extends Controller
     }
 
     /**
+     * GET /TrackingRecoleccion/obtenerBorradores
+     */
+    public function obtenerBorradores()
+    {
+        try {
+            $model = new TrackingModel();
+            self::respuestaJSON(self::respuesta(true, null, $model->obtenerBorradores()));
+        } catch (\Throwable $e) {
+            self::respuestaJSON(self::respuesta(false, 'Error al obtener borradores.', null, $e->getMessage()));
+        }
+    }
+
+    /**
      * GET /TrackingRecoleccion/obtenerDetalleRuta?id_ruta=N
      */
     public function obtenerDetalleRuta()

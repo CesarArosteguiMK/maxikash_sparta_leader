@@ -122,12 +122,12 @@ class TrackingRecoleccion extends Model
         // Excluir estatus terminales
         $where[] = "ao.estatus NOT IN ('cancelado','Cancelado','Cartera','concluida')";
 
-        // RN-04: excluir créditos ya en una ruta activa (enviada / en_proceso)
+        // RN-04: excluir créditos ya en una ruta activa (borrador / enviada / en_proceso)
         $where[] = "ao.id_credito NOT IN (
             SELECT COALESCE(atd.id_credito, 0)
             FROM asigna_horas_tracking_detalle atd
             INNER JOIN asigna_horas_tracking atr ON atr.id_ruta = atd.id_ruta
-            WHERE atr.estatus_ruta IN ('enviada','en_proceso')
+            WHERE atr.estatus_ruta IN ('borrador','enviada','en_proceso')
               AND atd.id_credito IS NOT NULL
         )";
 
@@ -331,6 +331,23 @@ class TrackingRecoleccion extends Model
         $ahora        = date('Y-m-d H:i:s');
         $estatusRuta  = ($modo === 'borrador') ? 'borrador' : 'enviada';
 
+        // Validar y normalizar hora de salida (formato HH:MM)
+        $horaRaw = trim((string) ($data['hora_salida'] ?? ''));
+        $horaFmt = null;
+        if ($horaRaw !== '') {
+            // Acepta H:MM, HH:MM, HH:MM:SS
+            if (preg_match('/^(\d{1,2}):(\d{2})(:\d{2})?$/', $horaRaw, $m)) {
+                $h = (int) $m[1];
+                $min = (int) $m[2];
+                if ($h >= 0 && $h <= 23 && $min >= 0 && $min <= 59) {
+                    $horaFmt = sprintf('%02d:%02d:00', $h, $min);
+                }
+            }
+            if ($horaFmt === null) {
+                return ['success' => false, 'message' => 'El formato de hora no es válido.'];
+            }
+        }
+
         try {
             $this->db->beginTransaction();
 
@@ -348,21 +365,46 @@ class TrackingRecoleccion extends Model
                     $this->db->rollback();
                     return ['success' => false, 'message' => 'La ruta no puede modificarse en su estado actual.'];
                 }
+                // Leer hora_inicial actual para decidir si se actualiza
+                $horaActual = $this->db->queryOne(
+                    'SELECT hora_inicial FROM asigna_horas_tracking WHERE id_ruta = :id LIMIT 1',
+                    ['id' => $idRuta]
+                );
+                $horaInicialActual = $horaActual['hora_inicial'] ?? null;
+
+                // Determinar qué columnas de hora actualizar
+                $setHora = '';
+                $horaParams = [];
+                if ($horaFmt !== null) {
+                    if ($horaInicialActual === null) {
+                        // Primera vez: guardar como hora_inicial
+                        $setHora = ', hora_inicial = :hi';
+                        $horaParams['hi'] = $horaFmt;
+                    } elseif ($horaFmt !== $horaInicialActual) {
+                        // Cambio de hora: guardar en act_hora_1
+                        $setHora = ', act_hora_1 = :ah1';
+                        $horaParams['ah1'] = $horaFmt;
+                    }
+                }
+
                 $this->db->CRUD(
-                    'UPDATE asigna_horas_tracking
+                    "UPDATE asigna_horas_tracking
                      SET nombre_ruta = :n, estado = :e, municipio = :m,
                          fecha_programada = :f, estatus_ruta = :er,
-                         fecha_actualizacion = :fa
-                     WHERE id_ruta = :id',
-                    [
-                        'n'  => $nombre,
-                        'e'  => $estado,
-                        'm'  => $municipio,
-                        'f'  => $fechaStr,
-                        'er' => $estatusRuta,
-                        'fa' => $ahora,
-                        'id' => $idRuta,
-                    ]
+                         fecha_actualizacion = :fa{$setHora}
+                     WHERE id_ruta = :id",
+                    array_merge(
+                        [
+                            'n'  => $nombre,
+                            'e'  => $estado,
+                            'm'  => $municipio,
+                            'f'  => $fechaStr,
+                            'er' => $estatusRuta,
+                            'fa' => $ahora,
+                            'id' => $idRuta,
+                        ],
+                        $horaParams
+                    )
                 );
                 // Limpiar y reinsertar detalle y usuarios
                 $this->db->CRUD('DELETE FROM asigna_horas_tracking_detalle WHERE id_ruta = :id', ['id' => $idRuta]);
@@ -370,13 +412,14 @@ class TrackingRecoleccion extends Model
             } else {
                 $this->db->CRUD(
                     'INSERT INTO asigna_horas_tracking
-                         (nombre_ruta, estado, municipio, fecha_programada, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
-                     VALUES (:n, :e, :m, :f, :er, :cp, :fc, :fa)',
+                         (nombre_ruta, estado, municipio, fecha_programada, hora_inicial, estatus_ruta, creado_por, fecha_creacion, fecha_actualizacion)
+                     VALUES (:n, :e, :m, :f, :hi, :er, :cp, :fc, :fa)',
                     [
                         'n'  => $nombre,
                         'e'  => $estado,
                         'm'  => $municipio,
                         'f'  => $fechaStr,
+                        'hi' => $horaFmt,
                         'er' => $estatusRuta,
                         'cp' => $idUsuario ?: null,
                         'fc' => $ahora,
@@ -460,6 +503,9 @@ class TrackingRecoleccion extends Model
             $params['municipio']  = $municipio;
         }
 
+        // Excluir rutas borrador (tienen su propia pestaña)
+        $where[] = "atr.estatus_ruta != 'borrador'";
+
         $sql = 'SELECT
             atr.id_ruta,
             atr.nombre_ruta,
@@ -470,6 +516,8 @@ class TrackingRecoleccion extends Model
             atr.estatus_ruta,
             atr.creado_por,
             DATE_FORMAT(atr.fecha_creacion, \'%d/%m/%Y %H:%i\') AS fecha_creacion_fmt,
+            TIME_FORMAT(atr.hora_inicial, \'%H:%i\') AS hora_inicial,
+            TIME_FORMAT(atr.act_hora_1,   \'%H:%i\') AS act_hora_1,
             COUNT(atd.id_detalle) AS total_creditos,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
             SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
@@ -484,6 +532,47 @@ class TrackingRecoleccion extends Model
         try {
             $rutas = $this->db->queryAll($sql, $params) ?: [];
             // Enriquecer con usuarios responsables (compacto: nombres concatenados)
+            foreach ($rutas as &$r) {
+                $r['usuarios_responsables'] = $this->obtenerNombresUsuariosRuta((int) $r['id_ruta']);
+            }
+            unset($r);
+            return $rutas;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene únicamente las rutas con estatus 'borrador'.
+     * Misma estructura de columnas que obtenerRutas().
+     */
+    public function obtenerBorradores(): array
+    {
+        $sql = 'SELECT
+            atr.id_ruta,
+            atr.nombre_ruta,
+            atr.estado,
+            atr.municipio,
+            DATE_FORMAT(atr.fecha_programada, \'%d/%m/%Y\') AS fecha_programada_fmt,
+            atr.fecha_programada,
+            atr.estatus_ruta,
+            atr.creado_por,
+            DATE_FORMAT(atr.fecha_creacion, \'%d/%m/%Y %H:%i\') AS fecha_creacion_fmt,
+            TIME_FORMAT(atr.hora_inicial, \'%H:%i\') AS hora_inicial,
+            TIME_FORMAT(atr.act_hora_1,   \'%H:%i\') AS act_hora_1,
+            COUNT(atd.id_detalle) AS total_creditos,
+            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'confirmado\'  THEN 1 ELSE 0 END) AS confirmados,
+            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'rechazado\'   THEN 1 ELSE 0 END) AS rechazados,
+            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'pendiente\'   THEN 1 ELSE 0 END) AS pendientes,
+            SUM(CASE WHEN atd.estatus_confirmacion_gestor = \'en_revision\' THEN 1 ELSE 0 END) AS en_revision
+        FROM asigna_horas_tracking atr
+        LEFT JOIN asigna_horas_tracking_detalle atd ON atd.id_ruta = atr.id_ruta
+        WHERE atr.estatus_ruta = \'borrador\'
+        GROUP BY atr.id_ruta
+        ORDER BY atr.fecha_creacion DESC';
+
+        try {
+            $rutas = $this->db->queryAll($sql) ?: [];
             foreach ($rutas as &$r) {
                 $r['usuarios_responsables'] = $this->obtenerNombresUsuariosRuta((int) $r['id_ruta']);
             }
