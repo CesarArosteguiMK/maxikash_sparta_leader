@@ -67,6 +67,52 @@ class Adjudicacion extends Model
         return sprintf('ADJ-%s-%04d', $anio, $siguiente);
     }
 
+    private function resolverNombreClienteOperacion(int $idCredito): string
+    {
+        $fallback = "CrÃ©dito #{$idCredito}";
+
+        try {
+            $sky = $this->db->queryOne(
+                "SELECT TRIM(COALESCE(nombre_completo_cliente, nombre_cliente, '')) AS nombre
+                 FROM base_clientes
+                 WHERE id_credito = :id
+                 ORDER BY fecha_dispositivo DESC, id DESC
+                 LIMIT 1",
+                ['id' => $idCredito]
+            );
+            $nombre = trim((string) ($sky['nombre'] ?? ''));
+            if ($nombre !== '') {
+                return $nombre;
+            }
+        } catch (\Throwable $e) {
+        }
+
+        try {
+            $s2 = $this->dbSeg->queryOne(
+                "SELECT Nombre_cliente FROM tbl_segundometro_semana WHERE Id_credito = :id LIMIT 1",
+                ['id' => $idCredito]
+            );
+            $nombre = trim((string) ($s2['Nombre_cliente'] ?? ''));
+            if ($nombre !== '') {
+                return $nombre;
+            }
+
+            $s2 = $this->dbSeg->queryOne(
+                "SELECT MAX(Nombre_cliente) AS Nombre_cliente
+                 FROM tbl_segundometro_histo
+                 WHERE Id_credito = :id",
+                ['id' => $idCredito]
+            );
+            $nombre = trim((string) ($s2['Nombre_cliente'] ?? ''));
+            if ($nombre !== '') {
+                return $nombre;
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return $fallback;
+    }
+
     /**
      * Crea adj_operacion en etapa Evidencias (en_transito) o solo actualiza fecha si ya existe.
      * No fuerza estatus hacia atrás: el flujo inicia en Mis adjudicaciones / evidencias, no en Retenciones.
@@ -110,6 +156,8 @@ class Adjudicacion extends Model
         } catch (\Exception $e) {
             // Si S2 no responde, se crea con nombre mínimo para no frenar el flujo.
         }
+
+        $nombreCliente = $this->resolverNombreClienteOperacion($idCredito);
 
         $this->db->CRUD(
             "INSERT INTO adj_operacion
@@ -265,6 +313,7 @@ class Adjudicacion extends Model
         if ($activa) {
             // Ya está asignado (quizás al mismo responsable u otro)
             if ((int) $activa['id_personal_adj'] === $idPersonalAdj) {
+                $this->asegurarOperacionTrasAsignacionCredito($idCredito, $usuarioAlta, $fechaAlta);
                 return ['success' => false, 'message' => 'Este crédito ya está asignado a este responsable.'];
             }
             return ['success' => false, 'message' => 'Este crédito ya está asignado a otro responsable. Libérelo primero.'];
