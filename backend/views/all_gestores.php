@@ -352,6 +352,31 @@
         background: #f8fafc;
         padding: 1rem;
     }
+    #modalBajas #bajaSustitutoWrap,
+    #modalBajas #bajaSustitutoWrap .d-grid,
+    #modalBajas #bajaSustitutoId,
+    #modalBajas #bajaAplicarJefeSeleccionados,
+    #modalBajas #bajaSustitutoWrap .select2,
+    #modalBajas #bajaSustitutoWrap .select2-container {
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+    #modalBajas #bajaSustitutoId {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #modalBajas #bajaSustitutoWrap .select2-selection__rendered {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 1.75rem;
+    }
+    #modalBajas #bajaSustitutoWrap .select2-selection {
+        overflow: hidden;
+    }
     @media (max-width: 575.98px) {
         #modalBajas .modal-bajas-dialog {
             max-width: calc(100vw - 1rem);
@@ -2995,7 +3020,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
                                 <div id="bajaSustitutoWrap" class="mt-3" style="display: none;">
                                     <label for="bajaSustitutoId" class="form-label"><strong>Jefe destino:</strong></label>
-                                    <div class="d-grid gap-2">
+                                    <div class="d-grid gap-2 w-100 overflow-hidden">
                                         <select id="bajaSustitutoId" class="form-select form-select-lg js-select-buscador">
                                             <option value="">Cargando personas...</option>
                                         </select>
@@ -5715,12 +5740,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
         actualizarIndicadores(usuariosConsolidados);
-
-<<<<<<< HEAD
-        // CONJUNTOS para almacenar valores únicos (evita duplicados)
         const departamentos = new Set();
         const puestos = new Set();
         const estatus = new Set();
+
+        // CONJUNTOS para almacenar valores únicos (evita duplicados)
 
         // Iterar los datos y extraer valores únicos
         resp.datos.forEach(persona => {
@@ -5831,10 +5855,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             aplicarFiltros();
           });
         }
-=======
         vincularEventosFiltrosGestion();
         actualizarOpcionesFiltrosGestion('init');
->>>>>>> 46b70e762d02e23a9351bd283581c05dfed848c9
 
         if (typeof window.refreshSelectBuscador === 'function') {
           window.refreshSelectBuscador('UserRole');

@@ -586,6 +586,70 @@ class Empresa extends Model
     // ══════════════════════════════════════════════════════════════
     private const CORTE_ACTUAL_CACHE_TTL = 300;
 
+    private static function columnasCorteMoraHastaAhora(): array
+    {
+        $diasNombre = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+        $ordenDias = [
+            'Lunes'     => 1, 'Martes'    => 2, 'Miercoles' => 3,
+            'Jueves'    => 4, 'Viernes'   => 5, 'Sabado'    => 6,
+            'Domingo'   => 7,
+        ];
+        $slots = [2350, 2030, 1830, 1630, 1430, 1330, 1130, 930, 730];
+        $hoy = $diasNombre[(int)date('w')];
+        $horaActual = (int)date('H') * 100 + (int)date('i');
+        $pesoHoy = $ordenDias[$hoy] ?? 1;
+        $cols = [];
+
+        for ($pesoDia = $pesoHoy; $pesoDia >= 1; $pesoDia--) {
+            $dia = array_search($pesoDia, $ordenDias, true);
+            if ($dia === false) {
+                continue;
+            }
+            foreach ($slots as $slot) {
+                if ($pesoDia === $pesoHoy && $slot > $horaActual) {
+                    continue;
+                }
+                $hh = str_pad((string)floor($slot / 100), 2, '0', STR_PAD_LEFT);
+                $mm = str_pad((string)($slot % 100), 2, '0', STR_PAD_LEFT);
+                $cols[] = "Dias_mora_{$dia}_{$hh}_{$mm}";
+            }
+        }
+
+        return $cols;
+    }
+
+    private static function getCorteActualConDatosParaLunes(string $lunes): ?string
+    {
+        $cols = self::columnasCorteMoraHastaAhora();
+        if ($cols === []) {
+            return null;
+        }
+
+        $select = [];
+        foreach ($cols as $i => $col) {
+            if (!preg_match('/^[A-Za-z0-9_]+$/', $col)) {
+                continue;
+            }
+            $select[] = "SUM(CASE WHEN `{$col}` IS NOT NULL THEN 1 ELSE 0 END) AS c{$i}";
+        }
+        if ($select === []) {
+            return null;
+        }
+
+        $db = new DatabaseSegundometro();
+        $row = $db->queryOne(
+            'SELECT ' . implode(', ', $select) . ' FROM tbl_segundometro_semana WHERE DATE(Fecha_primer_vencimiento) = :lunes',
+            ['lunes' => $lunes]
+        ) ?: [];
+
+        foreach ($cols as $i => $col) {
+            if ((int)($row['c' . $i] ?? 0) > 0) {
+                return $col;
+            }
+        }
+
+        return null;
+    }
 
     public static function getCorteActual(): ?string
     {
@@ -759,7 +823,15 @@ class Empresa extends Model
             return self::getVencimientosPrimerosPagosDesdeMegaReporte();
         }
 
-        $corteCol = self::getCorteActual();
+        // Lunes de cierre (misma lógica que en SQL: días desde el último lunes)
+        $dow   = (int)date('w');
+        $dias  = ($dow + 6) % 7;
+        $lunes = date('Y-m-d', strtotime("-$dias days"));
+        if ($offsetSemanas !== 0) {
+            $lunes = date('Y-m-d', strtotime($lunes . ' +' . (int)$offsetSemanas . ' weeks'));
+        }
+
+        $corteCol = self::getCorteActualConDatosParaLunes($lunes) ?: self::getCorteActual();
         if (!$corteCol) {
             return [
                 'success'        => false,
@@ -768,14 +840,6 @@ class Empresa extends Model
                 'lunes_pasado'   => null,
                 'corte_actual'   => null,
             ];
-        }
-
-        // Lunes de cierre (misma lógica que en SQL: días desde el último lunes)
-        $dow   = (int)date('w');
-        $dias  = ($dow + 6) % 7;
-        $lunes = date('Y-m-d', strtotime("-$dias days"));
-        if ($offsetSemanas !== 0) {
-            $lunes = date('Y-m-d', strtotime($lunes . ' +' . (int)$offsetSemanas . ' weeks'));
         }
 
         $bucketCorteSQL = "
