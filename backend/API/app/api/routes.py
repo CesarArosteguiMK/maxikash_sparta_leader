@@ -555,7 +555,7 @@ async def verificar___SPARTA_SECRET_REDACTED__(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
     from app.services.__SPARTA_SECRET_REDACTED___analyzer import validar___SPARTA_SECRET_REDACTED___pdf
-    resultado = validar___SPARTA_SECRET_REDACTED___pdf(file_bytes)
+    resultado = await asyncio.to_thread(validar___SPARTA_SECRET_REDACTED___pdf, file_bytes)
     return resultado
 
 
