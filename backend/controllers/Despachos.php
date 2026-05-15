@@ -220,11 +220,11 @@ public function AsignarCredito()
             return;
         }
 
-        // Validar que id_celula sea válido (1=Despacho, 2=Gestión Call Center)
-        if ($idCelula === null || !in_array($idCelula, [1, 2])) {
+        // Validar que id_celula sea válido (1=Despacho, 2=Gestión Call Center, 3=Campo)
+        if ($idCelula === null || !in_array($idCelula, [1, 2, 3])) {
             echo json_encode([
                 'success' => false,
-                'message' => 'Tipo de célula no válido. Debe ser 1 (Despacho) o 2 (Gestión Call Center)'
+                'message' => 'Tipo de célula no válido. Debe ser 1 (Despacho), 2 (Gestión Call Center) o 3 (Campo)'
             ]);
             return;
         }

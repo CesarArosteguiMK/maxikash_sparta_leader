@@ -775,6 +775,94 @@ body.dark-mode .cc-amort-table tr.pendiente td { background: rgba(185,28,28,.1);
 #tablaConveniosTodos_wrapper .dataTables_filter { padding-right: .75rem; }
 #tablaConveniosTodos_wrapper .dataTables_info   { padding-left: .75rem; }
 #tablaConveniosTodos_wrapper .dataTables_paginate { padding-right: .75rem; }
+
+/* ── Botones de vista En Proceso (dark mode) ── */
+body.dark-mode .ep-view-btn          { background: #1e293b; border-color: #334155; color: #94a3b8; }
+body.dark-mode .ep-view-btn:hover    { background: #334155; border-color: #475569; color: #cbd5e1; }
+body.dark-mode .ep-view-btn.active   { background: rgba(59,130,246,.18); border-color: #3b82f6; color: #93c5fd; }
+/* ── Lista compacta (dark mode) ── */
+body.dark-mode .ep-list-row  { background: #1e293b; border-color: #334155; }
+body.dark-mode .ep-lr-id     { color: #93c5fd; }
+body.dark-mode .ep-lr-name   { color: #cbd5e1; }
+body.dark-mode .ep-lr-prod   { color: #64748b; }
+body.dark-mode .ep-lr-total  { color: #34d399; }
+/* ── Bloque Datos crédito S2 ── */
+.cc-s2-block {
+    margin-top:.6rem; padding:.45rem .65rem;
+    background: linear-gradient(135deg,#f0f9ff,#e0f2fe);
+    border: 1px solid #bae6fd; border-radius:.45rem; font-size:.78rem;
+}
+.cc-s2-block-title {
+    font-weight:700; color:#0369a1; margin-bottom:.3rem;
+    font-size:.7rem; text-transform:uppercase; letter-spacing:.05em;
+}
+.cc-s2-label  { color: #64748b; }
+.cc-s2-value  { color: #0f172a; }
+.cc-s2-total  { color: #059669; }
+.cc-s2-empty  { display:flex; align-items:center; gap:.4rem; color:#64748b; font-size:.76rem; }
+.cc-s2-footer { margin-top:.35rem; font-size:.68rem; color:#94a3b8; text-align:right; }
+body.dark-mode .cc-s2-block       { background: linear-gradient(135deg,rgba(3,105,161,.15),rgba(14,165,233,.08)); border-color: #1e4e6e; }
+body.dark-mode .cc-s2-block-title { color: #38bdf8; }
+body.dark-mode .cc-s2-label       { color: #94a3b8; }
+body.dark-mode .cc-s2-value       { color: #e2e8f0; }
+body.dark-mode .cc-s2-total       { color: #34d399; }
+body.dark-mode .cc-s2-empty       { color: #64748b; }
+/* ── Dark mode: labels y filas resumen ── */
+body.dark-mode .cc-conv-details .cc-detail-row .cc-lbl { color: #64748b; }
+body.dark-mode .cc-resumen-aplicacion .cc-res-title   { color: #60a5fa; }
+body.dark-mode .cc-resumen-aplicacion .cc-res-row     { color: #94a3b8; }
+body.dark-mode .cc-resumen-aplicacion .cc-res-row.total { color: #e2e8f0; border-color: #334155; }
+/* ── Badges estado docs (vista lista En Proceso) ── */
+.cc-badge-listo     { background:#dcfce7; color:#15803d; font-size:.7rem; }
+.cc-badge-docs-pend { background:#fef9c3; color:#854d0e; font-size:.7rem; }
+body.dark-mode .cc-badge-listo     { background:rgba(21,128,61,.2);  color:#4ade80; }
+body.dark-mode .cc-badge-docs-pend { background:rgba(133,77,14,.2); color:#fbbf24; }
+/* ── Iconos docs inline (vista lista) ── */
+.cc-doc-icon-ok      { font-size:.75rem; color:#16a34a; }
+.cc-doc-icon-missing { font-size:.75rem; color:#dc2626; }
+.cc-doc-icon-partial { font-size:.75rem; color:#d97706; }
+.cc-doc-icon-none    { font-size:.75rem; color:#94a3b8; }
+body.dark-mode .cc-doc-icon-ok      { color:#4ade80; }
+body.dark-mode .cc-doc-icon-missing { color:#f87171; }
+body.dark-mode .cc-doc-icon-partial { color:#fbbf24; }
+/* ── Detalle cierre: valores coloreados y título sección ── */
+.cc-det-danger       { font-size:1rem; font-weight:700; color:#dc2626; }
+.cc-det-success      { font-size:1rem; font-weight:700; color:#16a34a; }
+.cc-det-primary      { font-size:1rem; font-weight:700; color:#1d4ed8; }
+.cc-det-secondary    { font-size:1rem; font-weight:700; color:#475569; }
+.cc-det-section-title { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#1d4ed8; margin-bottom:.5rem; }
+body.dark-mode .cc-det-danger        { color:#f87171; }
+body.dark-mode .cc-det-success       { color:#34d399; }
+body.dark-mode .cc-det-primary       { color:#60a5fa; }
+body.dark-mode .cc-det-secondary     { color:#94a3b8; }
+body.dark-mode .cc-det-section-title { color:#60a5fa; }
+/* ── Panel de detalle En Proceso ── */
+.cc-ep-detail-panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:.75rem; padding:1.1rem 1.25rem; height:100%; }
+body.dark-mode .cc-ep-detail-panel { background:#0f172a; border-color:#334155; }
+/* ── Vo.Bo validated banner ── */
+.cc-vobo-ok-banner { display:flex; align-items:center; gap:.4rem; margin-top:.5rem; background:#dcfce7; border:1px solid #86efac; border-radius:.4rem; padding:.3rem .65rem; font-size:.78rem; color:#166534; }
+body.dark-mode .cc-vobo-ok-banner { background:rgba(21,128,61,.15); border-color:#4ade80; color:#4ade80; }
+/* ── Envío previo fallido banner ── */
+.cc-envio-fallido-banner { display:flex; align-items:center; gap:.4rem; margin-top:.5rem; background:#fef9c3; border:1px solid #fde68a; border-radius:.4rem; padding:.3rem .65rem; font-size:.78rem; color:#854d0e; }
+body.dark-mode .cc-envio-fallido-banner { background:rgba(133,77,14,.15); border-color:#fbbf24; color:#fbbf24; }
+/* ── Texto registrado por (detail panel) ── */
+.cc-det-registered-by { margin-bottom:.75rem; font-size:.8rem; color:#64748b; }
+body.dark-mode .cc-det-registered-by { color:#94a3b8; }
+/* ── Badge "NUEVO!" para convenios recién creados ── */
+@keyframes cc-nuevo-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(16,185,129,.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(16,185,129,0); }
+    100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+.cc-badge-nuevo {
+    display:inline-flex; align-items:center; gap:.28rem;
+    background:linear-gradient(135deg,#10b981,#059669);
+    color:#fff; font-size:.65rem; font-weight:800; letter-spacing:.05em;
+    padding:.18rem .52rem; border-radius:9999px; vertical-align:middle;
+    animation: cc-nuevo-pulse 1.5s ease-in-out infinite;
+    text-transform:uppercase; flex-shrink:0;
+}
+body.dark-mode .cc-badge-nuevo { background:linear-gradient(135deg,#059669,#047857); }
 </style>
 
 <!-- ══════════════════════════════════════
@@ -1407,6 +1495,15 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         return `<span class="cc-age-badge ${cls}"><i class="fa-solid ${icon}"></i>${label}</span>`;
     }
 
+    /** Retorna true si el convenio fue creado hace menos de 30 minutos */
+    function _isNew(fechaAlta) {
+        if (!fechaAlta) return false;
+        const iso  = fechaAlta.replace(' ', 'T') + (fechaAlta.includes('T') || fechaAlta.endsWith('Z') ? '' : 'Z');
+        const base = new Date(iso);
+        if (isNaN(base)) return false;
+        return (Date.now() - base.getTime()) < 30 * 60 * 1000;
+    }
+
     /**
      * Línea de tiempo de los 4 momentos del flujo de cierre.
      * M1: fecha_alta convenio_cliente (acuerdo firmado)
@@ -1935,21 +2032,22 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
         const cuerpo = s2Disponible
             ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem .5rem;">
-                <div><span style="color:#64748b;">Semana acuerdo:</span> <strong style="color:#0f172a;">${semana}</strong></div>
-                <div><span style="color:#64748b;">Monto otorgado:</span> <strong style="color:#0f172a;">${montoStr}</strong></div>
-                <div><span style="color:#64748b;">Cuotas:</span> <strong style="color:#0f172a;">${cuotasStr}</strong></div>
-                <div><span style="color:#64748b;">Total pagado:</span> <strong style="color:#059669;">${totalStr}</strong></div>
+                <div><span class="cc-s2-label">Semana acuerdo:</span> <strong class="cc-s2-value">${semana}</strong></div>
+                <div><span class="cc-s2-label">Monto otorgado:</span> <strong class="cc-s2-value">${montoStr}</strong></div>
+                <div><span class="cc-s2-label">Cuotas:</span> <strong class="cc-s2-value">${cuotasStr}</strong></div>
+                <div><span class="cc-s2-label">Total pagado:</span> <strong class="cc-s2-total">${totalStr}</strong></div>
                </div>`
-            : `<div style="display:flex;align-items:center;gap:.4rem;color:#64748b;font-size:.76rem;">
+            : `<div class="cc-s2-empty">
                 <i class="fa-solid fa-clock" style="color:#94a3b8;"></i>
                 <span>Datos aún no disponibles en Segundometro</span>
                </div>`;
 
-        return `<div style="margin-top:.6rem;padding:.45rem .65rem;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:.45rem;font-size:.78rem;">
-            <div style="font-weight:700;color:#0369a1;margin-bottom:.3rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">
+        return `<div class="cc-s2-block">
+            <div class="cc-s2-block-title">
                 <i class="fa-solid fa-chart-line me-1"></i>Datos crédito
             </div>
             ${cuerpo}
+            <div class="cc-s2-footer">Datos validados en S2</div>
         </div>`;
     }
 
@@ -1985,6 +2083,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             <div class="cc-conv-card-header">
                 <span class="cc-credito-id">
                     Crédito: ${esc(r.id_credito)}
+                    ${_isNew(r.fecha_alta) ? '<span class="cc-badge-nuevo"><i class="fa-solid fa-star"></i>Nuevo</span>' : ''}
                     <small>${esc(r.nombre_cliente)}</small>
                 </span>
                 <span style="color:#fff; font-size:.82rem; font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;">
@@ -2258,7 +2357,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
             </div>
             ${_s2InfoHtml(r)}
             ${parseInt(r.vobo_validado_direccion || 0) === 1 ? `
-            <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#dcfce7;border:1px solid #86efac;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#166534;">
+            <div class="cc-vobo-ok-banner">
                 <i class="fa-solid fa-circle-check"></i>
                 <span>Validado por dirección de cobranza${r.vobo_fecha_validacion ? ' · ' + fmtFecha(r.vobo_fecha_validacion) : ''}</span>
             </div>` : ''}
@@ -2276,18 +2375,18 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         const todoListo = pdfOk && compOk;
 
         const estadoBadge = todoListo
-            ? `<span class="badge" style="background:#dcfce7;color:#15803d;font-size:.7rem;"><i class="fa-solid fa-circle-check me-1"></i>Listo</span>`
-            : `<span class="badge" style="background:#fef9c3;color:#854d0e;font-size:.7rem;"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs pendientes</span>`;
+            ? `<span class="badge cc-badge-listo"><i class="fa-solid fa-circle-check me-1"></i>Listo</span>`
+            : `<span class="badge cc-badge-docs-pend"><i class="fa-solid fa-triangle-exclamation me-1"></i>Docs pendientes</span>`;
 
         const pdfIcon = pdfOk
-            ? `<span style="font-size:.75rem;color:#16a34a;" title="PDF adjunto"><i class="fa-solid fa-file-pdf"></i></span>`
-            : `<span style="font-size:.75rem;color:#dc2626;" title="Sin PDF"><i class="fa-solid fa-file-pdf"></i></span>`;
+            ? `<span class="cc-doc-icon-ok" title="PDF adjunto"><i class="fa-solid fa-file-pdf"></i></span>`
+            : `<span class="cc-doc-icon-missing" title="Sin PDF"><i class="fa-solid fa-file-pdf"></i></span>`;
 
         const compIcon = numTot === 0
-            ? `<span style="font-size:.75rem;color:#94a3b8;" title="Sin comprobantes"><i class="fa-solid fa-receipt"></i></span>`
+            ? `<span class="cc-doc-icon-none" title="Sin comprobantes"><i class="fa-solid fa-receipt"></i></span>`
             : compOk
-                ? `<span style="font-size:.75rem;color:#16a34a;" title="Comprobantes ${numCon}/${numTot}"><i class="fa-solid fa-receipt"></i> ${numCon}/${numTot}</span>`
-                : `<span style="font-size:.75rem;color:#d97706;" title="Comprobantes ${numCon}/${numTot}"><i class="fa-solid fa-receipt"></i> ${numCon}/${numTot}</span>`;
+                ? `<span class="cc-doc-icon-ok" title="Comprobantes ${numCon}/${numTot}"><i class="fa-solid fa-receipt"></i> ${numCon}/${numTot}</span>`
+                : `<span class="cc-doc-icon-partial" title="Comprobantes ${numCon}/${numTot}"><i class="fa-solid fa-receipt"></i> ${numCon}/${numTot}</span>`;
 
         const pdfLink = pdfOk
             ? `<a href="${esc(r.pdf_adjunto)}" target="_blank" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;padding:.2rem .5rem;"><i class="fa-solid fa-eye"></i></a>`
@@ -2301,6 +2400,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 <span class="ep-lr-prod">${esc(r.nombre_producto)}</span>
             </div>
             <div class="ep-lr-meta">
+                ${_isNew(r.fecha_alta) ? '<span class="cc-badge-nuevo"><i class="fa-solid fa-star"></i>Nuevo</span>' : ''}
                 ${_celulaBadge(r)}
                 ${estadoBadge}
                 <span class="ep-lr-total">${fmtN(r.total_a_pagar)}</span>
@@ -2364,7 +2464,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 <!-- Cabecera -->
                 <div class="cc-conv-card-header" style="flex-direction:column;align-items:stretch;gap:.3rem;">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
-                        <span class="cc-credito-id" style="flex:0 0 auto;">#${esc(r.id_credito)}</span>
+                        <span class="cc-credito-id" style="flex:0 0 auto;">#${esc(r.id_credito)}${_isNew(r.fecha_alta) ? ' <span class="cc-badge-nuevo"><i class="fa-solid fa-star"></i>Nuevo</span>' : ''}</span>
                         <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0;">
                             ${_celulaBadge(r)}
                             <button class="cc-btn-descartar" onclick="ccDescartar(${r.id})"
@@ -2409,12 +2509,12 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                         </div>
                         ${_s2InfoHtml(r)}
                         ${parseInt(r.vobo_validado_direccion || 0) === 1 ? `
-                        <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#dcfce7;border:1px solid #86efac;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#166534;">
+                        <div class="cc-vobo-ok-banner">
                             <i class="fa-solid fa-badge-check"></i>
                             <span>Validado por dirección de cobranza${r.vobo_fecha_validacion ? ' · ' + fmtFecha(r.vobo_fecha_validacion) : ''}</span>
                         </div>` : ''}
                         ${r.fecha_envio_cartera ? `
-                        <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#fef9c3;border:1px solid #fde68a;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#854d0e;">
+                        <div class="cc-envio-fallido-banner">
                             <i class="fa-solid fa-triangle-exclamation"></i>
                             <span>Envío previo fallido — correo no notificado</span>
                         </div>` : ''}
@@ -2832,7 +2932,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
                 newDetailCol.className = colDetail;
                 newDetailCol.dataset.openId = String(id);
                 newDetailCol.innerHTML = `
-                    <div class="ep-detail-enter" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:.75rem;padding:1.1rem 1.25rem;height:100%;">
+                    <div class="ep-detail-enter cc-ep-detail-panel">
                         <div class="cc-side-panel-header">
                             <span class="cc-sp-title"><i class="fa-solid fa-table-list me-1"></i>Detalle del cierre</span>
                             <button class="cc-side-panel-close" onclick="ccToggleDetalle(${id})" title="Cerrar panel">
@@ -2984,20 +3084,20 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1rem;">
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Adeudo original</div>
-                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}</div>
+                <div class="cc-det-danger">${fmtN(conv.adeudo_total_original)}</div>
                 ${conv.base_calculo ? '<div style="font-size:.7rem;color:#6b7a90;margin-top:2px;">Calculado sobre: ' + (conv.base_calculo === 'saldo_total_capital' ? 'Capital' : conv.base_calculo === 'adeudo_total' ? 'Total' : conv.base_calculo === 'interes' ? 'Interés' : conv.base_calculo) + '</div>' : ''}
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
-                <div style="font-size:1rem;font-weight:700;color:#16a34a;">- ${fmtN(conv.descuento_monto)}</div>
+                <div class="cc-det-success">- ${fmtN(conv.descuento_monto)}</div>
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Total a pagar</div>
-                <div style="font-size:1rem;font-weight:700;color:#1d4ed8;">${fmtN(conv.total_a_pagar)}</div>
+                <div class="cc-det-primary">${fmtN(conv.total_a_pagar)}</div>
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Pago semanal</div>
-                <div style="font-size:1rem;font-weight:700;color:#475569;">${fmtN(conv.pago_semanal)}</div>
+                <div class="cc-det-secondary">${fmtN(conv.pago_semanal)}</div>
             </div>
         </div>`;
 
@@ -3029,7 +3129,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         }
 
         const tablaAmort = `
-        <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d4ed8;margin-bottom:.5rem;">
+        <div class="cc-det-section-title">
             <i class="fa-solid fa-table-list me-1"></i>Tabla de amortización
         </div>
         <div style="overflow-x:auto;">
@@ -3233,7 +3333,7 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
 
         // ── Registrado por ──
         const altaHtml = conv.usuario_alta
-            ? `<div style="margin-bottom:.75rem;font-size:.8rem;color:#64748b;">
+            ? `<div class="cc-det-registered-by">
                    <i class="fa-solid fa-user-pen me-1"></i>
                    <span style="font-weight:600;">Registrado por:</span> ${esc(conv.usuario_alta)}
                </div>`
@@ -3244,24 +3344,24 @@ window.__CC_PESTANAS_PERM__ = <?= json_encode([
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.75rem;margin-bottom:1rem;">
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Adeudo original</div>
-                <div style="font-size:1rem;font-weight:700;color:#dc2626;">${fmtN(conv.adeudo_total_original)}${conv.base_calculo ? ' <span style="font-size:.72rem;color:#6b7a90;font-weight:400;">(Calculado sobre ' + (conv.base_calculo === 'saldo_total_capital' ? 'Capital' : conv.base_calculo === 'adeudo_total' ? 'Total' : conv.base_calculo === 'interes' ? 'Interés' : conv.base_calculo) + ')</span>' : ''}</div>
+                <div class="cc-det-danger">${fmtN(conv.adeudo_total_original)}${conv.base_calculo ? ' <span style="font-size:.72rem;color:#6b7a90;font-weight:400;">(Calculado sobre ' + (conv.base_calculo === 'saldo_total_capital' ? 'Capital' : conv.base_calculo === 'adeudo_total' ? 'Total' : conv.base_calculo === 'interes' ? 'Interés' : conv.base_calculo) + ')</span>' : ''}</div>
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Descuento (${esc(conv.porcentaje_descuento)}%)</div>
-                <div style="font-size:1rem;font-weight:700;color:#16a34a;">- ${fmtN(conv.descuento_monto)}</div>
+                <div class="cc-det-success">- ${fmtN(conv.descuento_monto)}</div>
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Total a pagar</div>
-                <div style="font-size:1rem;font-weight:700;color:#1d4ed8;">${fmtN(conv.total_a_pagar)}</div>
+                <div class="cc-det-primary">${fmtN(conv.total_a_pagar)}</div>
             </div>
             <div class="cc-resumen-aplicacion" style="margin:0;">
                 <div class="cc-res-title">Pago semanal</div>
-                <div style="font-size:1rem;font-weight:700;color:#475569;">${fmtN(conv.pago_semanal)}</div>
+                <div class="cc-det-secondary">${fmtN(conv.pago_semanal)}</div>
             </div>
         </div>
         ${rowData ? _s2InfoHtml(rowData) : ''}
         ${rowData && parseInt(rowData.vobo_validado_direccion || 0) === 1 ? `
-        <div style="display:flex;align-items:center;gap:.4rem;margin-top:.5rem;background:#dcfce7;border:1px solid #86efac;border-radius:.4rem;padding:.3rem .65rem;font-size:.78rem;color:#166534;">
+        <div class="cc-vobo-ok-banner">
             <i class="fa-solid fa-circle-check"></i>
             <span>Validado por dirección de cobranza${rowData.vobo_fecha_validacion ? ' · ' + fmtFecha(rowData.vobo_fecha_validacion) : ''}</span>
         </div>` : ''}`;

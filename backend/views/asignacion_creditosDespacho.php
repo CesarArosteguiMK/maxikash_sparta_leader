@@ -438,6 +438,12 @@
                 Gestión Call Center
             </label>
         </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="id_celula" id="radioCampo" value="3">
+            <label class="form-check-label" for="radioCampo" style="cursor: pointer;">
+                Campo
+            </label>
+        </div>
     </div>
 </div>
 

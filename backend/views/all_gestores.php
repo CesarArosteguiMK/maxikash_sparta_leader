@@ -5650,10 +5650,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           });
 
           //  Agregar listener para ACTUALIZAR PUESTOS cuando cambia departamento
-          selectDepartamento.addEventListener('change', (e) => {
-            actualizarPuestosSegunDepartamento(e.target.value);
+          window.jQuery('#UserRole').on('change', function(e) {
+            actualizarPuestosSegunDepartamento(this.value);
             // Agregar feedback visual
-            aplicarFeedbackVisualFiltro(e.target);
+            aplicarFeedbackVisualFiltro(this);
             aplicarFiltros();
           });
         }
@@ -5677,8 +5677,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           });
 
           // Agregar listener para filtrar en tiempo real
-          selectPuesto.addEventListener('change', (e) => {
-            aplicarFeedbackVisualFiltro(e.target);
+          window.jQuery('#UserPlan').on('change', function(e) {
+            aplicarFeedbackVisualFiltro(this);
             aplicarFiltros();
           });
         }
@@ -5701,8 +5701,8 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           });
 
           //  Agregar listener para filtrar en tiempo real
-          selectEstatus.addEventListener('change', (e) => {
-            aplicarFeedbackVisualFiltro(e.target);
+          window.jQuery('#FilterTransaction').on('change', function(e) {
+            aplicarFeedbackVisualFiltro(this);
             aplicarFiltros();
           });
         }
@@ -5713,9 +5713,9 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         const selectMultiplePuestos = document.getElementById('FilterMultiplePuestos');
         if (selectMultiplePuestos) {
           // Agregar listener para filtrar en tiempo real
-          selectMultiplePuestos.addEventListener('change', (e) => {
-            e.target.dataset.autoContexto = '0';
-            aplicarFeedbackVisualFiltro(e.target);
+          window.jQuery('#FilterMultiplePuestos').on('change', function(e) {
+            this.dataset.autoContexto = '0';
+            aplicarFeedbackVisualFiltro(this);
             aplicarFiltros();
           });
         }
