@@ -12330,8 +12330,9 @@ class CapHum extends Controller
 
     public function getUsuarios()
     {
-        $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
-        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
+        $modulos = $_SESSION['modulos'] ?? [];
+        $puedeVerGestionPersonal = in_array(4, $modulos);
+        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], !$puedeVerGestionPersonal);
         $usuarios = $resultado['datos'] ?? [];
 
 

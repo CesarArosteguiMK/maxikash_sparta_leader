@@ -151,6 +151,12 @@ class CapHum extends Model
               {$sqlExP}AND (
                     aj.id_jefe = $id_gestor_sesion
                     OR aj.id_jefe IS NULL
+                    OR NOT EXISTS (
+                        SELECT 1
+                        FROM persona jefe_activo
+                        WHERE jefe_activo.id = aj.id_jefe
+                          AND jefe_activo.estatus != 'Baja'
+                    )
                   )
 
             UNION ALL

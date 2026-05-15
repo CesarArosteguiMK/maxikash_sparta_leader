@@ -297,7 +297,7 @@
 <div class="d-flex justify-content-between align-items-center mb-1">
     <h4 class="mb-0">Organización</h4>
     <button type="button" class="btn btn-primary" id="btnAccionOrganizacion" onclick="abrirModalNuevoDepartamento()">
-        <i class="fa fa-plus-circle me-2"></i>Nuevo Departamento
+        <i class="fa fa-plus-circle me-2"></i>Nueva Área
     </button>
 </div>
 <p class="mb-4 text-muted">Departamentos agrupados por país. Haz clic en un acordeón para expandir o colapsar.</p>
@@ -317,8 +317,8 @@
             <div class="modal-body">
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 <div class="text-center mb-4">
-                    <h4 class="mb-2">Agregar nuevo departamento</h4>
-                    <p class="text-muted mb-0">Selecciona el país y escribe el nombre del departamento</p>
+                    <h4 class="mb-2">Agregar nueva área</h4>
+                    <p class="text-muted mb-0">Selecciona el país y escribe el nombre del área.</p>
                 </div>
                 <form id="addDepartamentoForm" class="row g-4" onsubmit="return false" novalidate="novalidate">
                     <input type="hidden" id="addDepartamentoModo" value="departamento">
@@ -332,14 +332,14 @@
                         <div class="invalid-feedback" id="errorPais" style="display: none;"></div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label w-100" for="addDepartamentoOrganizacionalId">Departamento *</label>
+                        <label class="form-label w-100" for="addDepartamentoOrganizacionalId">Área *</label>
                         <select id="addDepartamentoOrganizacionalId" class="form-select" required>
-                            <option value="">-- Selecciona un departamento --</option>
+                            <option value="">-- Selecciona un área --</option>
                         </select>
                         <div class="invalid-feedback" id="errorDepartamentoOrganizacional" style="display: none;"></div>
                     </div>
                     <div class="col-12">
-                        <label class="form-label w-100" for="modalNombreDepartamento">Nombre del Departamento *</label>
+                        <label class="form-label w-100" for="modalNombreDepartamento">Nombre del Área *</label>
                         <div class="input-group input-group-merge">
                             <span class="input-group-text">
                                 <i class="fa fa-building"></i>
@@ -349,7 +349,7 @@
                                 name="modalNombreDepartamento" 
                                 class="form-control" 
                                 type="text" 
-                                placeholder="Ej. Cobranza, Operaciones, Administracion..."
+                                placeholder="Ej. Cobranza, Comercial, Administración de Finanzas..."
                                 required
                                 maxlength="30"
                                 oninput="sanitizarInputNombre(this)"
