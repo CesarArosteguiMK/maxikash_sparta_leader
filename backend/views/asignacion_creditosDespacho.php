@@ -454,6 +454,7 @@
 </div>
 
 
+
                 <!-- Información del Despacho con diseño tipo labels -->
                 <div id="info-despacho-container" style="display: none;">
                     <hr class="my-3">
@@ -1884,19 +1885,19 @@ function asignarCreditoDelStack(idCredito) {
         return;
     }
 
-    // ✅ Obtener el tipo de célula seleccionada (Despacho=1, Gestión Call Center=2)
+    // ✅ Obtener el tipo de célula seleccionada (Despacho=1, Gestión Call Center=2, Campo=3)
     const radioSeleccionado = document.querySelector('input[name="id_celula"]:checked');
 
     // ✅ Validación más robusta
     if (!radioSeleccionado) {
-        Swal.fire('Advertencia', 'Seleccione el tipo de gestión (Despacho o Call Center)', 'warning');
+        Swal.fire('Advertencia', 'Seleccione el tipo de gestión (Despacho, Call Center o Campo)', 'warning');
         return;
     }
 
     const idCelula = parseInt(radioSeleccionado.value);
 
-    // ✅ Validar que el valor sea válido (1 o 2)
-    if (idCelula !== 1 && idCelula !== 2) {
+    // ✅ Validar que el valor sea válido (1, 2 o 3)
+    if (idCelula !== 1 && idCelula !== 2 && idCelula !== 3) {
         Swal.fire('Error', 'Tipo de gestión no válido', 'error');
         return;
     }
