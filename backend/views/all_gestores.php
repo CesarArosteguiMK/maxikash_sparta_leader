@@ -702,9 +702,6 @@
         align-items: center;
         gap: 0.375rem;
         transition: all 0.3s ease;
-        max-width: 100%;
-        white-space: normal;
-        line-height: 1.15;
     }
 
     .badge-puesto-principal:hover {
@@ -727,40 +724,6 @@
         align-items: center;
         gap: 0.25rem;
         transition: all 0.3s ease;
-        max-width: 100%;
-        white-space: normal;
-        line-height: 1.15;
-    }
-
-    #historialUsuarios td {
-        vertical-align: top;
-    }
-
-    .gestion-puestos-lista {
-        max-height: 142px;
-        overflow-y: auto;
-        padding-right: 0.25rem;
-    }
-
-    .gestion-puestos-lista::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .gestion-puestos-lista::-webkit-scrollbar-thumb {
-        background: rgba(100, 116, 139, 0.35);
-        border-radius: 999px;
-    }
-
-    .gestion-puesto-item {
-        gap: 0.2rem !important;
-    }
-
-    .select2-container--open {
-        z-index: 1065;
-    }
-
-    #gestionPersonalFiltros .select2-container {
-        width: 100% !important;
     }
 
     .badge-puesto-secundario:hover {
@@ -836,6 +799,46 @@
     .btn-with-indicator {
         position: relative;
         overflow: visible !important;
+    }
+
+    #historialUsuarios td {
+        vertical-align: top;
+    }
+
+    #historialUsuarios .badge-puesto-principal,
+    #historialUsuarios .badge-puesto-secundario,
+    #historialUsuarios .badge-multipuesto-indicator,
+    #historialUsuarios .btn-ver-mas-puestos,
+    #historialUsuarios .indicator-multiples-puestos,
+    #historialUsuarios .btn-with-indicator {
+        animation: none !important;
+        transform: none !important;
+        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease !important;
+        will-change: auto !important;
+    }
+
+    #historialUsuarios .badge-puesto-principal:hover,
+    #historialUsuarios .badge-puesto-secundario:hover,
+    #historialUsuarios .btn-ver-mas-puestos:hover {
+        transform: none !important;
+    }
+
+    #historialUsuarios .badge-puesto-principal,
+    #historialUsuarios .badge-puesto-secundario {
+        max-width: 100%;
+        white-space: normal;
+        line-height: 1.2;
+    }
+
+    #historialUsuarios .badge-puesto-principal,
+    #historialUsuarios .badge-puesto-secundario,
+    #historialUsuarios .badge-multipuesto-indicator {
+        background-image: none !important;
+    }
+
+    #historialUsuarios .btn-with-indicator {
+        overflow: visible !important;
+        transform: none !important;
     }
 
     /* ==========================================
@@ -2089,29 +2092,23 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         <!-- =======================
              FILTROS
         ======================== -->
-        <div class="card-header border-bottom overflow-visible" id="gestionPersonalFiltros">
+        <div class="card-header border-bottom">
             <h5 class="card-title mb-0">Filtros de búsqueda</h5>
 
             <div class="row pt-4 g-6">
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <select id="UserRole" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Departamento</option>
                     </select>
                 </div>
 
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <select id="UserPlan" class="form-select text-capitalize js-select-buscador">
                         <option value="">Selecciona Puesto</option>
                     </select>
                 </div>
 
-                <div class="col-md-3">
-                    <select id="FilterTransaction" class="form-select text-capitalize js-select-buscador">
-                        <option value="">Selecciona Estatus</option>
-                    </select>
-                </div>
-
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <select id="FilterMultiplePuestos" class="form-select text-capitalize js-select-buscador">
                         <option value="">Todos los usuarios</option>
                         <option value="multiples">Múltiples puestos</option>
@@ -5392,23 +5389,19 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * ==========================================
    * UserRole = Departamento
    * UserPlan = Puesto
-   * FilterTransaction = Estatus
-   *
    * Datos provenientes de: /CapHum/getUsuarios
    */
 
   // Variable global para almacenar todos los usuarios
   let usuariosData = [];
+  let actualizandoFiltrosGestion = false;
 
   function normalizarValorFiltro(valor) {
-    return String(valor || '').trim().toLowerCase();
-  }
-
-  function obtenerUsuariosGestionBase() {
-    if (Array.isArray(usuariosData) && usuariosData.length) {
-      return usuariosData;
-    }
-    return Array.isArray(window.usuariosData) ? window.usuariosData : [];
+    return String(valor || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
   }
 
   function obtenerPuestosUsuario(persona) {
@@ -5441,95 +5434,213 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     });
   }
 
-  function obtenerPuestosCoincidentes(persona, departamento, puesto) {
-    const dep = normalizarValorFiltro(departamento);
-    const pst = normalizarValorFiltro(puesto);
-    const puestos = obtenerPuestosUsuario(persona).filter(p => {
-      const coincideDepartamento = !dep || normalizarValorFiltro(p.nombre_departamento) === dep;
-      const coincidePuesto = !pst || normalizarValorFiltro(p.nombre_puesto) === pst;
-      return coincideDepartamento && coincidePuesto;
+  function usuarioCumpleFiltrosBase(persona, departamento, puesto) {
+    if (!usuarioTieneDepartamento(persona, departamento)) {
+      return false;
+    }
+
+    if (!usuarioTienePuesto(persona, puesto, departamento)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function usuarioCumpleTipoPuesto(persona, tipoPuesto) {
+    const tienePuestos = persona && persona.puestos && persona.puestos.length > 1;
+    if (tipoPuesto === 'multiples') return tienePuestos;
+    if (tipoPuesto === 'unico') return !tienePuestos;
+    return true;
+  }
+
+  function ordenarValoresFiltro(valores) {
+    return Array.from(valores).sort((a, b) => String(a).localeCompare(String(b), 'es', { sensitivity: 'base' }));
+  }
+
+  function actualizarOpcionesSelectFiltro(selectId, valores, placeholder) {
+    const select = document.getElementById(selectId);
+    if (!select) return '';
+
+    const valorActual = select.value;
+    const valoresOrdenados = ordenarValoresFiltro(valores);
+
+    select.innerHTML = '';
+    const optionDefault = document.createElement('option');
+    optionDefault.value = '';
+    optionDefault.textContent = placeholder;
+    select.appendChild(optionDefault);
+
+    valoresOrdenados.forEach(valor => {
+      const option = document.createElement('option');
+      option.value = valor;
+      option.textContent = valor;
+      select.appendChild(option);
     });
-    return puestos.length ? puestos : obtenerPuestosUsuario(persona);
+
+    select.value = valoresOrdenados.includes(valorActual) ? valorActual : '';
+
+    if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+      window.jQuery(select).trigger('change.select2');
+    }
+
+    return select.value;
   }
 
-  function usuarioTieneMultiplesPuestosEnContexto(persona, departamento, puesto) {
-    return obtenerPuestosCoincidentes(persona, departamento, puesto).length > 1;
-  }
+  function obtenerDepartamentosDisponibles(tipoPuesto, puestoSeleccionado) {
+    const departamentos = new Set();
 
-  function prepararUsuariosParaTablaGestion(usuarios, departamento, puesto) {
-    if (!departamento && !puesto) return usuarios;
-    return usuarios.map(persona => {
-      const puestosContexto = obtenerPuestosCoincidentes(persona, departamento, puesto);
-      const principal = puestosContexto[0] || {};
-      return {
-        ...persona,
-        puestos: puestosContexto,
-        id_puesto: principal.id_puesto ?? persona.id_puesto,
-        nombre_puesto: principal.nombre_puesto ?? persona.nombre_puesto,
-        id_departamento: principal.id_departamento ?? persona.id_departamento,
-        nombre_departamento: principal.nombre_departamento ?? persona.nombre_departamento
-      };
+    usuariosData.forEach(persona => {
+      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (puestoSeleccionado && !usuarioTienePuesto(persona, puestoSeleccionado, '')) return;
+
+      obtenerPuestosUsuario(persona).forEach(puesto => {
+        if (puesto.nombre_departamento && puesto.nombre_departamento !== 'Sin departamento') {
+          departamentos.add(puesto.nombre_departamento);
+        }
+      });
     });
+
+    return departamentos;
   }
 
-  function actualizarFiltroMultiplePuestosGestion(usuariosContexto, valorActual, departamento, puesto, refrescarSelect = true) {
+  function obtenerPuestosDisponibles(tipoPuesto, departamentoSeleccionado) {
+    const puestos = new Set();
+
+    usuariosData.forEach(persona => {
+      if (!usuarioCumpleTipoPuesto(persona, tipoPuesto)) return;
+      if (departamentoSeleccionado && !usuarioTieneDepartamento(persona, departamentoSeleccionado)) return;
+
+      obtenerPuestosUsuario(persona).forEach(puesto => {
+        const coincideDepartamento = !departamentoSeleccionado ||
+          normalizarValorFiltro(puesto.nombre_departamento) === normalizarValorFiltro(departamentoSeleccionado);
+
+        if (coincideDepartamento && puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
+          puestos.add(puesto.nombre_puesto);
+        }
+      });
+    });
+
+    return puestos;
+  }
+
+  function actualizarFiltroMultiplePuestos(datosBase, autoSeleccionar = true) {
     const selectMultiple = document.getElementById('FilterMultiplePuestos');
-    if (!selectMultiple) return valorActual || '';
+    if (!selectMultiple) return '';
 
-    const usuariosMultiples = usuariosContexto.filter(u => usuarioTieneMultiplesPuestosEnContexto(u, departamento, puesto)).length;
-    const usuariosUnicos = usuariosContexto.length - usuariosMultiples;
-    const opcionMultiples = selectMultiple.querySelector('option[value="multiples"]');
-    const opcionUnico = selectMultiple.querySelector('option[value="unico"]');
+    const datos = Array.isArray(datosBase) ? datosBase : usuariosData;
+    const usuariosMultiples = datos.filter(u => u.puestos && u.puestos.length > 1).length;
+    const usuariosUnicos = datos.length - usuariosMultiples;
+    const options = selectMultiple.querySelectorAll('option');
 
-    if (opcionMultiples) {
-      opcionMultiples.textContent = `Multiples puestos (${usuariosMultiples})`;
-      opcionMultiples.disabled = usuariosMultiples === 0;
-    }
-    if (opcionUnico) {
-      opcionUnico.textContent = `Unico puesto (${usuariosUnicos})`;
-      opcionUnico.disabled = usuariosUnicos === 0;
+    if (options[1]) {
+      options[1].textContent = `Múltiples puestos (${usuariosMultiples})`;
+      options[1].disabled = usuariosMultiples === 0;
     }
 
-    const fueAutomatico = selectMultiple.dataset.autoContexto === '1';
-    let nuevoValor = valorActual || '';
-    if (fueAutomatico && usuariosMultiples > 0 && usuariosUnicos > 0) {
-      nuevoValor = '';
+    if (options[2]) {
+      options[2].textContent = `Único puesto (${usuariosUnicos})`;
+      options[2].disabled = usuariosUnicos === 0;
     }
-    if (nuevoValor === 'multiples' && usuariosMultiples === 0) nuevoValor = '';
-    if (nuevoValor === 'unico' && usuariosUnicos === 0) nuevoValor = '';
 
-    let nuevoAutomatico = false;
-    if (!nuevoValor) {
+    let valorActual = selectMultiple.value;
+    const valorInvalido =
+      (valorActual === 'multiples' && usuariosMultiples === 0) ||
+      (valorActual === 'unico' && usuariosUnicos === 0);
+
+    if (valorInvalido) {
+      selectMultiple.value = '';
+      valorActual = '';
+    }
+
+    if (autoSeleccionar && !valorActual) {
       if (usuariosMultiples === 0 && usuariosUnicos > 0) {
-        nuevoValor = 'unico';
-        nuevoAutomatico = true;
+        selectMultiple.value = 'unico';
       } else if (usuariosUnicos === 0 && usuariosMultiples > 0) {
-        nuevoValor = 'multiples';
-        nuevoAutomatico = true;
+        selectMultiple.value = 'multiples';
       }
     }
 
-    selectMultiple.value = nuevoValor;
-    selectMultiple.dataset.autoContexto = nuevoAutomatico || (fueAutomatico && !!nuevoValor && (usuariosMultiples === 0 || usuariosUnicos === 0)) ? '1' : '0';
-    aplicarFeedbackVisualFiltro(selectMultiple);
-    if (refrescarSelect && typeof window.refreshSelectBuscador === 'function') {
-      window.refreshSelectBuscador('FilterMultiplePuestos');
+    if (typeof window.jQuery !== 'undefined' && window.jQuery.fn.select2) {
+      window.jQuery(selectMultiple).trigger('change.select2');
     }
-    return nuevoValor;
+
+    return selectMultiple.value;
   }
 
+  function actualizarOpcionesFiltrosGestion(origen = '') {
+    if (actualizandoFiltrosGestion) return;
+    actualizandoFiltrosGestion = true;
 
-  window.sincronizarUsuariosGestion = function (usuarios) {
-    usuariosData = Array.isArray(usuarios) ? usuarios : [];
-    window.usuariosData = usuariosData;
-  };
+    const selectDepartamento = document.getElementById('UserRole');
+    const selectPuesto = document.getElementById('UserPlan');
+    const selectMultiple = document.getElementById('FilterMultiplePuestos');
 
-  function cerrarDropdownsFiltrosGestion() {
-    if (typeof window.jQuery === 'undefined' || !window.jQuery.fn.select2) return;
-    ['UserRole', 'UserPlan', 'FilterTransaction', 'FilterMultiplePuestos'].forEach(id => {
-      const $el = window.jQuery('#' + id);
-      if ($el.length && $el.hasClass('select2-hidden-accessible')) {
-        $el.select2('close');
+    const autoTipo = origen !== 'FilterMultiplePuestos';
+    let tipoPuesto = selectMultiple?.value || '';
+    let departamento = selectDepartamento?.value || '';
+    let puesto = selectPuesto?.value || '';
+
+    departamento = actualizarOpcionesSelectFiltro(
+      'UserRole',
+      obtenerDepartamentosDisponibles(tipoPuesto, puesto),
+      'Selecciona Departamento'
+    );
+
+    puesto = actualizarOpcionesSelectFiltro(
+      'UserPlan',
+      obtenerPuestosDisponibles(tipoPuesto, departamento),
+      'Selecciona Puesto'
+    );
+
+    const datosBase = usuariosData.filter(persona =>
+      usuarioCumpleFiltrosBase(persona, departamento, puesto)
+    );
+    tipoPuesto = actualizarFiltroMultiplePuestos(datosBase, autoTipo);
+
+    if (autoTipo) {
+      departamento = actualizarOpcionesSelectFiltro(
+        'UserRole',
+        obtenerDepartamentosDisponibles(tipoPuesto, puesto),
+        'Selecciona Departamento'
+      );
+
+      actualizarOpcionesSelectFiltro(
+        'UserPlan',
+        obtenerPuestosDisponibles(tipoPuesto, departamento),
+        'Selecciona Puesto'
+      );
+    }
+
+    ['UserRole', 'UserPlan', 'FilterMultiplePuestos'].forEach(id => {
+      const filtro = document.getElementById(id);
+      if (filtro) aplicarFeedbackVisualFiltro(filtro);
+    });
+
+    actualizandoFiltrosGestion = false;
+  }
+
+  function manejarCambioFiltroGestion(event) {
+    if (actualizandoFiltrosGestion) return;
+    const filtro = event.currentTarget;
+    if (!filtro) return;
+
+    actualizarOpcionesFiltrosGestion(filtro.id);
+    aplicarFiltros();
+  }
+
+  function vincularEventosFiltrosGestion() {
+    const filtros = ['UserRole', 'UserPlan', 'FilterMultiplePuestos'];
+
+    filtros.forEach(id => {
+      const filtro = document.getElementById(id);
+      if (!filtro) return;
+
+      if (typeof window.jQuery !== 'undefined') {
+        window.jQuery(filtro)
+          .off('change.gestionPersonalFiltros')
+          .on('change.gestionPersonalFiltros', manejarCambioFiltroGestion);
+      } else {
+        filtro.onchange = manejarCambioFiltroGestion;
       }
     });
   }
@@ -5598,13 +5709,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
         const usuariosConsolidados = consolidarUsuarios(resp.datos);
 
         // Guardar los datos consolidados globalmente
-        window.sincronizarUsuariosGestion(usuariosConsolidados);
+        usuariosData = usuariosConsolidados;
 
         // ==========================================
         // ACTUALIZAR INDICADORES (KPIs)
         // ==========================================
         actualizarIndicadores(usuariosConsolidados);
 
+<<<<<<< HEAD
         // CONJUNTOS para almacenar valores únicos (evita duplicados)
         const departamentos = new Set();
         const puestos = new Set();
@@ -5719,11 +5831,14 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
             aplicarFiltros();
           });
         }
+=======
+        vincularEventosFiltrosGestion();
+        actualizarOpcionesFiltrosGestion('init');
+>>>>>>> 46b70e762d02e23a9351bd283581c05dfed848c9
 
         if (typeof window.refreshSelectBuscador === 'function') {
           window.refreshSelectBuscador('UserRole');
           window.refreshSelectBuscador('UserPlan');
-          window.refreshSelectBuscador('FilterTransaction');
           window.refreshSelectBuscador('FilterMultiplePuestos');
         }
       },
@@ -5742,9 +5857,12 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   function filtrarMultipuestos() {
     const selectMultiple = document.getElementById('FilterMultiplePuestos');
     if (selectMultiple) {
+      const optionMultiples = selectMultiple.querySelector('option[value="multiples"]');
+      if (optionMultiples && optionMultiples.disabled) return;
+
       selectMultiple.value = 'multiples';
-      selectMultiple.dataset.autoContexto = '0';
       aplicarFeedbackVisualFiltro(selectMultiple);
+      actualizarOpcionesFiltrosGestion('FilterMultiplePuestos');
       aplicarFiltros();
 
       // Scroll suave hacia la tabla
@@ -5768,14 +5886,16 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     usuario.puestos.forEach((puesto, index) => {
       const esPrincipal = index === 0;
       const iconoPuesto = esPrincipal ? '⭐' : '📎';
-      const claseBadge = esPrincipal ? 'badge-puesto-principal' : 'badge-puesto-secundario';
+      const claseBadge = esPrincipal
+        ? 'badge text-white badge-puesto-principal'
+        : 'badge bg-success badge-puesto-secundario';
 
       puestosHTML += `
         <div class="d-flex flex-column" style="gap: 0.25rem;">
           <small class="departamento-label">
             <i class="fa fa-building"></i>${puesto.nombre_departamento}
           </small>
-          <span class="badge ${claseBadge}" style="width: 100%;">
+          <span class="${claseBadge}" style="${esPrincipal ? 'background-color: var(--bs-blue); ' : ''}width: 100%;">
             <span style="font-size: 0.9rem;">${iconoPuesto}</span>
             <i class="fa fa-briefcase"></i>
             ${puesto.nombre_puesto}
@@ -5825,7 +5945,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
       // Extraer todos los puestos únicos
       const todosPuestos = new Set();
-      obtenerUsuariosGestionBase().forEach(persona => {
+      usuariosData.forEach(persona => {
         obtenerPuestosUsuario(persona).forEach(puesto => {
           if (puesto.nombre_puesto && puesto.nombre_puesto !== 'Sin puesto') {
             todosPuestos.add(puesto.nombre_puesto);
@@ -5857,7 +5977,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
     // Extraer SOLO los puestos del departamento seleccionado
     const puestosDelDepartamento = new Set();
-    obtenerUsuariosGestionBase().forEach(persona => {
+    usuariosData.forEach(persona => {
       obtenerPuestosUsuario(persona).forEach(puesto => {
         if (normalizarValorFiltro(puesto.nombre_departamento) === normalizarValorFiltro(departamentoSeleccionado) &&
             puesto.nombre_puesto &&
@@ -5895,69 +6015,35 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * Filtra la tabla según los valores seleccionados
    */
   function aplicarFiltros() {
-    cerrarDropdownsFiltrosGestion();
-
     // Obtener valores seleccionados
-    const departamentoSeleccionado = document.getElementById('UserRole').value;
-    const puestoSeleccionado = document.getElementById('UserPlan').value;
-    const estatusSeleccionado = document.getElementById('FilterTransaction').value;
-    const multiplePuestosSeleccionado = document.getElementById('FilterMultiplePuestos').value;
-    const fuenteUsuarios = obtenerUsuariosGestionBase();
-    window.gestionPersonalFiltrosActivos = {
-      departamento: departamentoSeleccionado,
-      puesto: puestoSeleccionado,
-      estatus: estatusSeleccionado,
-      multiples: multiplePuestosSeleccionado
-    };
+    const departamentoSeleccionado = document.getElementById('UserRole')?.value || '';
+    const puestoSeleccionado = document.getElementById('UserPlan')?.value || '';
+    let multiplePuestosSeleccionado = document.getElementById('FilterMultiplePuestos')?.value || '';
+
+      const datosBase = usuariosData.filter(persona =>
+        usuarioCumpleFiltrosBase(persona, departamentoSeleccionado, puestoSeleccionado)
+      );
 
     // Filtrar datos
-    const datosBaseContexto = fuenteUsuarios.filter(persona => {
-      // Filtro DEPARTAMENTO
-      if (!usuarioTieneDepartamento(persona, departamentoSeleccionado)) {
-        return false;
-      }
-
-      // Filtro PUESTO
-      if (!usuarioTienePuesto(persona, puestoSeleccionado, departamentoSeleccionado)) {
-        return false;
-      }
-
-      // Filtro ESTATUS
-      if (estatusSeleccionado && normalizarValorFiltro(persona.estatus) !== normalizarValorFiltro(estatusSeleccionado)) {
-        return false;
-      }
-
+    const datosFiltrados = datosBase.filter(persona => {
       // Filtro MÚLTIPLES PUESTOS
+      if (multiplePuestosSeleccionado) {
+        if (!usuarioCumpleTipoPuesto(persona, multiplePuestosSeleccionado)) {
+          return false;
+        }
+      }
+
       return true;
     });
 
-    // Actualizar contadores en el filtro de múltiples puestos
-    const usuariosMultiples = datosBaseContexto.filter(u => usuarioTieneMultiplesPuestosEnContexto(u, departamentoSeleccionado, puestoSeleccionado)).length;
-    const usuariosUnicos = datosBaseContexto.length - usuariosMultiples;
+    // Actualizar tabla con datos filtrados
+    actualizarTabla(datosFiltrados);
 
-    // Actualizar el texto del select con los contadores
-    const selectMultiple = document.getElementById('FilterMultiplePuestos');
-    if (selectMultiple) {
-      const options = selectMultiple.querySelectorAll('option');
-      if (options[1]) options[1].textContent = `Múltiples puestos (${usuariosMultiples})`;
-      if (options[2]) options[2].textContent = `Único puesto (${usuariosUnicos})`;
-    }
-
-    const multiplePuestosFinal = actualizarFiltroMultiplePuestosGestion(datosBaseContexto, multiplePuestosSeleccionado, departamentoSeleccionado, puestoSeleccionado);
-    const datosFiltrados = datosBaseContexto.filter(persona => {
-      if (!multiplePuestosFinal) return true;
-      const tienePuestos = usuarioTieneMultiplesPuestosEnContexto(persona, departamentoSeleccionado, puestoSeleccionado);
-      if (multiplePuestosFinal === 'multiples' && !tienePuestos) return false;
-      if (multiplePuestosFinal === 'unico' && tienePuestos) return false;
-      return true;
-    });
-    const datosTabla = prepararUsuariosParaTablaGestion(datosFiltrados, departamentoSeleccionado, puestoSeleccionado);
-
-    actualizarTabla(datosTabla);
+    // Actualizar indicadores con datos filtrados
     try {
-      actualizarIndicadores(datosTabla);
-    } catch (err) {
-      console.warn('No se pudieron actualizar los indicadores de Gestion de personal:', err);
+      actualizarIndicadores(datosFiltrados);
+    } catch (error) {
+      console.error('Error al actualizar indicadores de filtros:', error);
     }
   }
 
@@ -5979,28 +6065,50 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     const datosFormateados = datos.map(p => {
       const nombreCompleto = [p.nombres, p.segundo_nombre, p.apellidop, p.apellidom].filter(x => x).join(' ');
       const tienePuestos = p.puestos && p.puestos.length > 1;
+      const vistaMultiplesActiva = document.getElementById('FilterMultiplePuestos')?.value === 'multiples';
 
       // Generar badges para múltiples puestos con JERARQUÍA VISUAL
       let puestosHTML = '';
-      if (tienePuestos) {
+      if (tienePuestos && vistaMultiplesActiva) {
+        const puestoPrincipal = p.puestos[0] || {};
+        puestosHTML = `
+          <div class="d-flex flex-column align-items-start gap-1" style="max-width: 360px;">
+            <small class="departamento-label mb-0">
+              <i class="fa fa-building"></i>${puestoPrincipal.nombre_departamento || p.nombre_departamento || 'Sin departamento'}
+            </small>
+            <span class="badge text-white d-inline-flex align-items-center gap-2 text-wrap text-start px-2 py-2 shadow-sm"
+                  style="background-color: var(--bs-blue);"
+                  title="Puesto principal: ${puestoPrincipal.nombre_puesto || p.nombre_puesto || 'Sin puesto'}">
+              <i class="fa fa-briefcase"></i>
+              <span>${puestoPrincipal.nombre_puesto || p.nombre_puesto || 'Sin puesto'}</span>
+              <small class="fw-bold opacity-75">(Principal)</small>
+            </span>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-semibold" onclick="expandirPuestos(${p.id})" title="Ver todos los puestos">
+              <i class="fa fa-layer-group me-1"></i>${p.puestos.length} puestos asignados
+            </button>
+          </div>
+        `;
+      } else if (tienePuestos) {
         const totalPuestos = p.puestos.length;
-        const mostrarDirecto = totalPuestos <= 4;
-        const puestosVisible = mostrarDirecto ? p.puestos : p.puestos.slice(0, 4);
+        const mostrarDirecto = totalPuestos <= 3;
+        const puestosVisible = mostrarDirecto ? p.puestos : p.puestos.slice(0, 2);
 
-        puestosHTML = '<div class="gestion-puestos-lista d-flex flex-column gap-1">';
+        puestosHTML = '<div class="d-flex flex-column gap-2">';
 
         puestosVisible.forEach((puesto, index) => {
           const esPrincipal = index === 0;
-          const colorBadge = obtenerColorDepartamento(puesto.nombre_departamento);
           const iconoPuesto = esPrincipal ? '⭐' : '📎';
-          const claseBadge = esPrincipal ? 'badge-puesto-principal' : 'badge-puesto-secundario';
+          const claseBadge = esPrincipal
+            ? 'badge text-white badge-puesto-principal'
+            : 'badge bg-success badge-puesto-secundario';
 
           puestosHTML += `
-            <div class="gestion-puesto-item d-flex flex-column">
+            <div class="d-flex flex-column" style="gap: 0.25rem;">
               <small class="departamento-label">
                 <i class="fa fa-building"></i>${puesto.nombre_departamento}
               </small>
-              <span class="badge ${claseBadge}"
+              <span class="${claseBadge}"
+                    style="${esPrincipal ? 'background-color: var(--bs-blue);' : ''}"
                     title="${esPrincipal ? 'Puesto Principal' : 'Puesto Secundario'}: ${puesto.nombre_puesto}">
                 <span style="font-size: 0.9rem;">${iconoPuesto}</span>
                 <i class="fa fa-briefcase"></i>
@@ -6013,7 +6121,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
         // Botón "ver más" si hay más de 3 puestos
         if (!mostrarDirecto) {
-          const puestosRestantes = totalPuestos - 4;
+          const puestosRestantes = totalPuestos - 2;
           puestosHTML += `
             <button class="btn-ver-mas-puestos" onclick="expandirPuestos(${p.id})"
                     title="Ver ${puestosRestantes} puesto(s) más">
@@ -6058,7 +6166,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
               <i class="fa fa-key"></i>
               ${p.usuario}
           </small>
-          ${tienePuestos ? `<span class="badge badge-multipuesto-indicator mt-1"><i class="fa fa-layer-group me-1"></i>${p.puestos.length} Puestos Asignados</span>` : ''}
+          ${tienePuestos ? `<span class="badge bg-success badge-multipuesto-indicator mt-1"><i class="fa fa-layer-group me-1"></i>${p.puestos.length} Puestos Asignados</span>` : ''}
         `.trim(),
         departamento: `
           ${sedeHTML}
@@ -6176,7 +6284,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    * ==========================================
    */
   function inicializarFeedbackFiltros() {
-    const filtros = ['UserRole', 'UserPlan', 'FilterTransaction', 'FilterMultiplePuestos'];
+    const filtros = ['UserRole', 'UserPlan', 'FilterMultiplePuestos'];
     filtros.forEach(id => {
       const filtro = document.getElementById(id);
       if (filtro && filtro.value) {
@@ -7055,7 +7163,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
     // Obtener filtros activos
     const departamento = document.getElementById('UserRole').value || '';
     const puesto = document.getElementById('UserPlan').value || '';
-    const estatus = document.getElementById('FilterTransaction').value || '';
 
     // Generar mensaje dinámico según filtros
     let mensajeFiltros = 'Se descargará un archivo Excel con ';
@@ -7063,7 +7170,6 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
 
     if (departamento) detallesFiltros.push(`Departamento: <strong>${departamento}</strong>`);
     if (puesto) detallesFiltros.push(`Puesto: <strong>${puesto}</strong>`);
-    if (estatus) detallesFiltros.push(`Estatus: <strong>${estatus}</strong>`);
 
     if (detallesFiltros.length > 0) {
       mensajeFiltros = 'Se descargará un archivo Excel filtrado por:<br><br>' + detallesFiltros.join('<br>');
@@ -7308,8 +7414,8 @@ function ocultarBloquesDomicilio(prefix) {
         if (!selectId) return '#offcanvasEditUser';
         if (selectId.indexOf('add_') === 0) return '#offcanvasAddUser';
         if (selectId === 'bajaSustitutoId') return '#modalBajas';
-        if (selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterTransaction' || selectId === 'FilterMultiplePuestos') {
-            return '#gestionPersonalFiltros';
+        if (selectId === 'UserRole' || selectId === 'UserPlan' || selectId === 'FilterMultiplePuestos') {
+            return null;
         }
         return '#offcanvasEditUser';
     };

@@ -411,6 +411,9 @@ class Departamentos extends Controller
               http.request({
                 endpoint: "/departamentos/getPaisesActivos",
                 onSuccess: (respPaises) => {
+                  http.request({
+                    endpoint: "/departamentos/getDepartamentosOrganizacionales",
+                    onSuccess: (respOrg) => {
                   const container = document.getElementById('departamentosAccordion');
                   if (!container) return;
                   container.innerHTML = '';
@@ -424,7 +427,26 @@ class Departamentos extends Controller
                   };
 
                   const grouped = {};
-                  resp.datos.forEach(d => {
+                  const departamentosOrganizacionales = (respOrg.success && Array.isArray(respOrg.datos)) ? respOrg.datos : [];
+                  departamentosOrganizacionales.forEach(dep => {
+                    const iso = dep.codigo_iso_pais || 'xx';
+                    const orgId = dep.id || 'sin_departamento';
+                    if (!grouped[iso]) grouped[iso] = {};
+                    if (!grouped[iso][orgId]) {
+                      grouped[iso][orgId] = {
+                        id: orgId,
+                        nombre: dep.nombre || 'Sin departamento',
+                        activo: Number(dep.activo) === 1,
+                        id_pais: dep.id_pais,
+                        nombre_pais: dep.nombre_pais || '',
+                        codigo_iso: iso,
+                        areas: []
+                      };
+                    }
+                  });
+
+                  const areas = (resp.success && Array.isArray(resp.datos)) ? resp.datos : [];
+                  areas.forEach(d => {
                     const iso = d.codigo_iso_pais || 'xx';
                     const orgId = d.id_departamento_organizacional || 'sin_departamento';
                     if (!grouped[iso]) grouped[iso] = {};
@@ -517,6 +539,8 @@ class Departamentos extends Controller
                   if (container.innerHTML === '') {
                     container.innerHTML = '<div class="text-center text-muted py-5">No hay países activos ni departamentos registrados.</div>';
                   }
+                    }
+                  });
                 }
               });
             }
