@@ -29,8 +29,8 @@ if (empty($vencimientos_vista_simple)) {
 $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
 ?>
     <!-- ── Header ── -->
-    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-        <div>
+    <div class="d-flex align-items-center mb-3 flex-wrap gap-2 gap-lg-3">
+        <div class="me-auto">
             <h4 class="mb-0">
                 <i class="fa fa-calendar-week text-primary me-2"></i>
                 <?= htmlspecialchars($vencimientos_titulo_card ?? 'Primeros pagos — Lunes de Cierre', ENT_QUOTES, 'UTF-8'); ?>
@@ -42,7 +42,7 @@ $vlEsUsuarioRoot = (int)($_SESSION['usuario_id'] ?? 0) === 1;
             </p>
             <?php endif; ?>
         </div>
-        <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
+        <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap ms-auto text-end" style="flex:1 1 520px;">
             <?php if (!empty($vencimientos_vista_simple)): ?>
                 <button type="button" id="btnDescargarExcelPrimerosPagosSemana"
                         class="btn btn-success btn-sm shadow-sm px-3 d-inline-flex align-items-center">

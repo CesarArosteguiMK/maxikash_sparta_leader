@@ -2215,6 +2215,8 @@ class Reporteria extends Controller
                 let s = String(v).trim();
                 if (!s) return '';
                 s = s.replace(/\s+/g, ' ');
+                const low = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                if (low.includes('current')) return 'a) Current';
                 const mapa = {
                     'Current': 'a) Current',
                     'current': 'a) Current',
