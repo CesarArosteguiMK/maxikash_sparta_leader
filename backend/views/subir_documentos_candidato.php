@@ -846,6 +846,7 @@ $documentos = [
             var API_KEY = 'sparta-__SPARTA_SECRET_REDACTED__-doc-verificacion-key';
             var idVerificado = { front: false, back: false };
             var VERIFICACION_TIMEOUT_MS = 30000;
+            var VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS = 150000;
             var VERIFICACION_IDENTIFICACION_TIMEOUT_MS = 120000; // 2 min: OCR + analizadores pueden tardar
             var VERIFICACION_CALIDAD_TIMEOUT_MS = 20000; // 20 s para revisión ligera (solo calidad de imagen)
 
@@ -1342,7 +1343,11 @@ $documentos = [
                     formData.append('documento', file, file.name);
                     fetchWithTimeout(API_BASE + '/verificar-constancia-fiscal-documento', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
                     .then(function(r) {
-                        if (!r.ok) throw new Error('La API respondió con error. Intenta de nuevo.');
+                        if (!r.ok) {
+                            return r.json().catch(function() { return {}; }).then(function(body) {
+                                throw new Error((body && body.mensaje) ? body.mensaje : 'No se pudo completar la revision automatica. Intenta de nuevo.');
+                            });
+                        }
                         return r.json();
                     })
                     .then(function(res) {
@@ -1359,7 +1364,9 @@ $documentos = [
                         actualizarCheckmark(7, true);
                     })
                     .catch(function(err) {
-                        var texto = (err && err.message) ? err.message : 'Verificación no disponible. Revisa tu conexión o intenta de nuevo.';
+                        var texto = esErrorTimeoutOAbort(err)
+                            ? 'La revision automatica de la constancia tardo mas de lo esperado. Intenta de nuevo con el PDF original del SAT o una copia mas clara.'
+                            : ((err && err.message) ? err.message : 'No se pudo completar la revision automatica. Intenta de nuevo en unos minutos.');
                         showResultado(msg, verificandoDiv, texto, true);
                         inputFiscal.value = '';
                         actualizarCheckmark(7, false);
@@ -1428,7 +1435,7 @@ $documentos = [
                     var verificandoDiv = showVerificando(msg, 'Verificando estado de cuenta...');
                     var formData = new FormData();
                     formData.append('documento', file, file.name);
-                    fetchWithTimeout(API_BASE + '/verificar-estado-cuenta', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_TIMEOUT_MS)
+                    fetchWithTimeout(API_BASE + '/verificar-estado-cuenta', { method: 'POST', headers: { 'X-API-Key': API_KEY }, body: formData }, VERIFICACION_ESTADO_CUENTA_TIMEOUT_MS)
                     .then(function(r) {
                         if (!r.ok) {
                             return r.json().catch(function() { return {}; }).then(function(body) {
@@ -1449,10 +1456,9 @@ $documentos = [
                         actualizarCheckmark(10, true);
                     })
                     .catch(function(err) {
-                        var detalle = mensajeTecnicoSeguro(err);
                         var texto = esErrorTimeoutOAbort(err)
-                            ? 'Estado de cuenta recibido. La validacion tardo mas de lo esperado, pero puedes continuar con la subida; se revisara en backend.'
-                            : 'No se pudo validar el estado de cuenta en este momento. Puedes continuar con la subida y se revisara en backend. Detalle: ' + detalle;
+                            ? 'Estado de cuenta recibido. La revision automatica esta tardando mas de lo normal; un asesor lo revisara.'
+                            : 'Estado de cuenta recibido. La revision automatica no esta disponible en este momento; un asesor lo revisara.';
                         // Fallback: no bloquear la carga por caída temporal de la API.
                         showResultado(msg, verificandoDiv, texto, false);
                         actualizarCheckmark(10, true);
@@ -2133,7 +2139,7 @@ $documentos = [
                 btn.textContent = 'Subir documentos';
                 var errFinal = uploadTimeoutErr || err;
                 if (typeof esErrorTimeoutOAbort === 'function' && esErrorTimeoutOAbort(errFinal)) {
-                    var textoTimeout = 'La subida tardo mas de lo esperado. Revisa el listado en unos segundos; si el archivo se recibio, aparecera como cargado y se revisara en backend.';
+                    var textoTimeout = 'La subida tardo mas de lo esperado. Revisa el listado en unos segundos; si el archivo se recibio, aparecera como cargado y nuestro equipo lo revisara.';
                     mostrarAlertaSubida('warning', 'Subida en revision', textoTimeout);
                     showResultado(msg, null, textoTimeout, false);
                 } else {

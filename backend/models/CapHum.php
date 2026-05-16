@@ -2465,8 +2465,51 @@ class CapHum extends Model
                 }
             }
 
-            if (!empty($subordinadosActivos) && $modoReasignacion === 'vacante') {
+            $puestoVacante = null;
+            $idJefeVacante = null;
+            if ($modoReasignacion === 'vacante') {
                 self::asegurarTablaVacantesPersonal($db);
+
+                $puestoVacante = $db->queryOne("
+                    SELECT ap.id_puesto, pp.departamento_id
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                    WHERE ap.id_persona = :id_persona
+                      AND ap.activo = 1
+                    ORDER BY pp.nivel DESC, ap.id ASC
+                    LIMIT 1
+                ", ['id_persona' => (int) $id_persona]);
+
+                $jefeVacante = $db->queryOne("
+                    SELECT id_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                    WHERE id_persona = :id_persona
+                    ORDER BY id DESC
+                    LIMIT 1
+                ", ['id_persona' => (int)$id_persona]);
+                $idJefeVacante = !empty($jefeVacante['id_jefe']) ? (int)$jefeVacante['id_jefe'] : null;
+
+                if (empty($puestoVacante['id_puesto']) || empty($puestoVacante['departamento_id'])) {
+                    return self::resultado(false, 'No se pudo crear la vacante porque la persona no tiene un puesto activo asignado.');
+                }
+
+                if (!$vacanteExistenteId) {
+                    $vacanteActiva = $db->queryOne("
+                        SELECT id
+                        FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
+                        WHERE id_puesto = :id_puesto
+                          AND id_departamento = :id_departamento
+                          AND estatus = 'Activa'
+                        ORDER BY id ASC
+                        LIMIT 1
+                    ", [
+                        'id_puesto' => (int)$puestoVacante['id_puesto'],
+                        'id_departamento' => (int)$puestoVacante['departamento_id'],
+                    ]);
+                    if (!empty($vacanteActiva['id'])) {
+                        $vacanteExistenteId = (int)$vacanteActiva['id'];
+                    }
+                }
             }
 
             $db->beginTransaction();
@@ -2517,6 +2560,21 @@ class CapHum extends Model
             WHERE id_persona = '$id_persona' AND estatus = 'Activo'
         ");
 
+            if ($modoReasignacion === 'vacante' && !$vacanteExistenteId) {
+                $db->CRUD("
+                    INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
+                        (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
+                    VALUES
+                        (:id_departamento, :id_puesto, :id_jefe, :id_persona_baja, 'baja', 'Activa', :creado_por)
+                ", [
+                    'id_departamento' => (int)$puestoVacante['departamento_id'],
+                    'id_puesto' => (int)$puestoVacante['id_puesto'],
+                    'id_jefe' => $idJefeVacante,
+                    'id_persona_baja' => (int)$id_persona,
+                    'creado_por' => (int)$usuario_baja,
+                ]);
+            }
+
             if (!empty($subordinadosActivos)) {
                 $idsSubordinadosReasignar = array_values(array_map(function ($row) {
                     return (int)$row['id_persona'];
@@ -2554,39 +2612,6 @@ class CapHum extends Model
                         ", $paramsGrupo);
                     }
                 } else {
-                    $puestoVacante = $db->queryOne("
-                        SELECT ap.id_puesto, pp.departamento_id
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
-                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
-                        WHERE ap.id_persona = :id_persona
-                          AND ap.activo = 1
-                        ORDER BY pp.nivel DESC, ap.id ASC
-                        LIMIT 1
-                    ", ['id_persona' => (int) $id_persona]);
-                    $jefeVacante = $db->queryOne("
-                        SELECT id_jefe
-                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
-                        WHERE id_persona = :id_persona
-                        ORDER BY id DESC
-                        LIMIT 1
-                    ", ['id_persona' => (int)$id_persona]);
-                    $idJefeVacante = !empty($jefeVacante['id_jefe']) ? (int)$jefeVacante['id_jefe'] : null;
-
-                    if (!$vacanteExistenteId && !empty($puestoVacante['id_puesto']) && !empty($puestoVacante['departamento_id'])) {
-                        $db->CRUD("
-                            INSERT INTO __SPARTA_SECRET_REDACTED__.vacantes_personal
-                                (id_departamento, id_puesto, id_jefe, id_persona_baja, origen, estatus, creado_por)
-                            VALUES
-                                (:id_departamento, :id_puesto, :id_jefe, :id_persona_baja, 'baja', 'Activa', :creado_por)
-                        ", [
-                            'id_departamento' => (int)$puestoVacante['departamento_id'],
-                            'id_puesto' => (int)$puestoVacante['id_puesto'],
-                            'id_jefe' => $idJefeVacante,
-                            'id_persona_baja' => (int)$id_persona,
-                            'creado_por' => (int)$usuario_baja,
-                        ]);
-                    }
-
                     $db->CRUD("
                         UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
                         SET id_jefe = NULL

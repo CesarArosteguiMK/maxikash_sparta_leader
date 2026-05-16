@@ -2995,7 +2995,9 @@ class CapHum extends Controller
                 const descripcion = document.getElementById("motivoBajaDescripcion").value;
                 const tieneSubordinados = bajaSubordinadosActuales.length > 0;
                 const modoReasignacionEl = document.querySelector('input[name="bajaModoReasignacion"]:checked');
-                const modoReasignacion = tieneSubordinados && modoReasignacionEl ? modoReasignacionEl.value : 'sin_subordinados';
+                const modoReasignacion = modoReasignacionEl
+                    ? modoReasignacionEl.value
+                    : (tieneSubordinados ? 'vacante' : 'sin_subordinados');
                 const sustitutoSelect = document.getElementById("bajaSustitutoId");
                 const sustitutoId = sustitutoSelect ? sustitutoSelect.value : "";
                 const subordinadosSeleccionados = modoReasignacion === 'sustituto'
@@ -3041,13 +3043,26 @@ class CapHum extends Controller
                     return;
                 }
 
+                const sinVacantesActivasParaPuesto = !Array.isArray(bajaVacantesMismoPuestoActuales)
+                    || bajaVacantesMismoPuestoActuales.length === 0;
+                const crearVacanteAutomatica = modoReasignacion === 'vacante' && sinVacantesActivasParaPuesto;
+                const tituloConfirmacion = crearVacanteAutomatica
+                    ? 'Confirmar baja y crear vacante'
+                    : '¿Confirmar baja?';
+                const mensajeConfirmacion = crearVacanteAutomatica
+                    ? '<div class="text-start">'
+                        + '<p>Se dará de baja a esta persona.</p>'
+                        + '<p class="mb-0">No hay una vacante activa para este puesto. Al confirmar, el sistema creará una vacante nueva automáticamente para conservar esa posición disponible.</p>'
+                        + '</div>'
+                    : 'Esta acción no se puede deshacer.';
+
                 // Confirmación antes de enviar
                 Swal.fire({
-                    title: '¿Confirmar baja?',
-                    text: "Esta acción no se puede deshacer.",
+                    title: tituloConfirmacion,
+                    html: mensajeConfirmacion,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Sí, dar de baja',
+                    confirmButtonText: 'Sí, confirmar baja',
                     cancelButtonText: 'Cancelar',
                     reverseButtons: true
                 }).then((result) => {
@@ -9431,7 +9446,7 @@ class CapHum extends Controller
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
             if (stripos((string) $curlErr, 'timed out') !== false || stripos((string) $curlErr, 'timeout') !== false) {
-                return ['valido' => false, 'mensaje' => 'La validacion del acta tardo mas de lo esperado. El documento quedo guardado; puedes intentar de nuevo en unos segundos.'];
+                return ['valido' => false, 'mensaje' => 'La validacion de la constancia fiscal tardo mas de lo esperado. El documento quedo guardado; puedes intentar de nuevo en unos segundos.'];
             }
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -9469,7 +9484,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 60,
+            CURLOPT_TIMEOUT => 150,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
