@@ -139,7 +139,7 @@ class CapHum extends Controller
                                 ${puestosHTML}
                                 <hr class="my-2">
                                 <small class="text-muted d-flex align-items-center gap-1">
-                                    <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
+                                    <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
                                 </small>
                             `.trim(),
                             estatus: p.estatus,
@@ -3014,6 +3014,8 @@ class CapHum extends Controller
                 const pendientesAsignacion = modoReasignacion === 'sustituto'
                     ? bajaSubordinadosActuales.length - Object.keys(bajaAsignacionesJefe).length
                     : 0;
+                const tieneVacantesActivasParaPuesto = Array.isArray(bajaVacantesMismoPuestoActuales)
+                    && bajaVacantesMismoPuestoActuales.length > 0;
 
                 // Validaciones
                 if (!motivoSelect) {
@@ -3039,6 +3041,15 @@ class CapHum extends Controller
                         icon: 'warning',
                         title: 'Atencion',
                         text: 'Aun quedan ' + pendientesAsignacion + ' persona(s) sin jefe destino.'
+                    });
+                    return;
+                }
+
+                if (modoReasignacion === 'vacante' && tieneVacantesActivasParaPuesto && !vacanteExistenteId) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Selecciona una vacante',
+                        text: 'Ya existe una vacante activa para este puesto. Selecciona la vacante disponible antes de confirmar la baja.'
                     });
                     return;
                 }
@@ -10859,7 +10870,7 @@ class CapHum extends Controller
                             </small>
                             <hr class="my-2">
                             <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
+                                <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
                             </small>
                         `.trim(),
                         estatus: p.estatus,
@@ -12357,6 +12368,8 @@ class CapHum extends Controller
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
                 'nombre_jefe' => $p['nombre_jefe'] ?? '',
+                'id_vacante_jefe' => $p['id_vacante_jefe'] ?? null,
+                'nombre_vacante_jefe' => $p['nombre_vacante_jefe'] ?? '',
                 'nombres' => $p['nombres'] ?? '',
                 'segundo_nombre' => $p['segundo_nombre'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
@@ -13203,12 +13216,14 @@ public function getMunicipios()
             foreach ($rows as $rOrg) {
                 $idsExistentes[(string)($rOrg['id'] ?? '')] = true;
             }
+            $vacantesAgregadas = [];
             foreach (($metaOrg['datos']['vacantes'] ?? []) as $vac) {
                 $jefeVac = !empty($vac['id_jefe']) ? (string)$vac['id_jefe'] : $idRaiz;
                 if (!isset($idsExistentes[$jefeVac])) continue;
                 $idVacante = 'vacante-' . (int)$vac['id'];
                 if (isset($idsExistentes[$idVacante])) continue;
                 $idsExistentes[$idVacante] = true;
+                $vacantesAgregadas[(int)$vac['id']] = $idVacante;
                 $rows[] = [
                     'id' => $idVacante,
                     'nombre' => 'Vacante',
@@ -13216,6 +13231,21 @@ public function getMunicipios()
                     'jefe' => $jefeVac,
                     'tipo_estado' => 'vacante',
                     'estado_label' => 'Vacante',
+                ];
+            }
+            foreach (($metaOrg['datos']['subordinados_vacante'] ?? []) as $subVac) {
+                $idVacanteJefe = (int)($subVac['id_vacante_jefe'] ?? 0);
+                if ($idVacanteJefe <= 0 || !isset($vacantesAgregadas[$idVacanteJefe])) continue;
+
+                $idSubordinado = (string)($subVac['id'] ?? '');
+                if ($idSubordinado === '' || isset($idsExistentes[$idSubordinado])) continue;
+
+                $idsExistentes[$idSubordinado] = true;
+                $rows[] = [
+                    'id' => $idSubordinado,
+                    'nombre' => $subVac['nombre'] ?? '',
+                    'puesto' => $subVac['nombre_puesto'] ?? 'Sin puesto',
+                    'jefe' => $vacantesAgregadas[$idVacanteJefe],
                 ];
             }
         }

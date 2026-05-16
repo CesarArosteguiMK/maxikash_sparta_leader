@@ -56,11 +56,17 @@ class CapHum extends Model
             END AS nombre_departamento,
 
             aj.id_jefe,
+            aj.id_vacante_jefe,
 
             CASE
                 WHEN pj.id IS NULL THEN 'Sin jefe'
                 ELSE CONCAT_WS(' ', pj.nombres, pj.segundo_nombre, pj.apellidop, pj.apellidom)
             END AS nombre_jefe,
+
+            CASE
+                WHEN vj.id IS NULL THEN NULL
+                ELSE CONCAT('Vacante #', vj.id, ' - ', COALESCE(pvj.nombre, 'Sin puesto'))
+            END AS nombre_vacante_jefe,
 
             p.estatus,
             CASE
@@ -90,7 +96,7 @@ class CapHum extends Model
                ON pais.id = p.id_pais
 
         LEFT JOIN (
-            SELECT a.id_persona, a.id_jefe
+            SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
             FROM asigna_jefe a
             INNER JOIN (
                 SELECT id_persona, MAX(id) AS mid
@@ -101,6 +107,12 @@ class CapHum extends Model
 
         LEFT JOIN persona pj
                ON pj.id = aj.id_jefe
+
+        LEFT JOIN vacantes_personal vj
+               ON vj.id = aj.id_vacante_jefe
+
+        LEFT JOIN puesto pvj
+               ON pvj.id = vj.id_puesto
 
         WHERE p.estatus != 'Baja'
         {$sqlExP}
@@ -132,6 +144,11 @@ class CapHum extends Model
                 d.id AS id_departamento,
                 d.nombre AS nombre_departamento,
                 aj.id_jefe,
+                aj.id_vacante_jefe,
+                CASE
+                    WHEN vj.id IS NULL THEN NULL
+                    ELSE CONCAT('Vacante #', vj.id, ' - ', COALESCE(pvj.nombre, 'Sin puesto'))
+                END AS nombre_vacante_jefe,
                 p.estatus,
                 COALESCE(pais.id, 0) AS id_pais,
                 COALESCE(pais.nombre, 'Sin país') AS nombre_pais,
@@ -147,6 +164,10 @@ class CapHum extends Model
             LEFT JOIN asigna_jefe aj
                    ON p.id = aj.id_persona
                   AND (aj.fecha_fin IS NULL OR aj.fecha_fin >= CURDATE())
+            LEFT JOIN vacantes_personal vj
+                   ON vj.id = aj.id_vacante_jefe
+            LEFT JOIN puesto pvj
+                   ON pvj.id = vj.id_puesto
             WHERE p.estatus != 'Baja'
               {$sqlExP}AND (
                     aj.id_jefe = $id_gestor_sesion
@@ -175,6 +196,11 @@ class CapHum extends Model
                 d2.id AS id_departamento,
                 d2.nombre AS nombre_departamento,
                 aj2.id_jefe,
+                aj2.id_vacante_jefe,
+                CASE
+                    WHEN vj2.id IS NULL THEN NULL
+                    ELSE CONCAT('Vacante #', vj2.id, ' - ', COALESCE(pvj2.nombre, 'Sin puesto'))
+                END AS nombre_vacante_jefe,
                 p2.estatus,
                 COALESCE(pais2.id, 0) AS id_pais,
                 COALESCE(pais2.nombre, 'Sin país') AS nombre_pais,
@@ -190,6 +216,10 @@ class CapHum extends Model
             LEFT JOIN asigna_jefe aj2
                    ON p2.id = aj2.id_persona
                   AND (aj2.fecha_fin IS NULL OR aj2.fecha_fin >= CURDATE())
+            LEFT JOIN vacantes_personal vj2
+                   ON vj2.id = aj2.id_vacante_jefe
+            LEFT JOIN puesto pvj2
+                   ON pvj2.id = vj2.id_puesto
             JOIN Jerarquia j
                  ON aj2.id_jefe = j.id
             WHERE p2.estatus != 'Baja'
@@ -205,6 +235,7 @@ class CapHum extends Model
 
         try {
             $db = new Database();
+            self::asegurarAsignaJefeSoportaVacante($db);
             $r = $db->queryAll($query);
             return self::resultado(true, 'Departamentos encontrados.', $r);
         } catch (\Exception $e) {
@@ -222,6 +253,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarTablaVacantesPersonal($db);
+            self::asegurarAsignaJefeSoportaVacante($db);
 
             $puestosPersona = $db->queryAll("
                 SELECT
@@ -355,6 +387,36 @@ class CapHum extends Model
         ");
     }
 
+    private static function asegurarAsignaJefeSoportaVacante(Database $db): void
+    {
+        $columna = $db->queryOne("
+            SELECT IS_NULLABLE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'asigna_jefe'
+              AND COLUMN_NAME = 'id_jefe'
+            LIMIT 1
+        ");
+
+        if ($columna && strtoupper((string)$columna['IS_NULLABLE']) !== 'YES') {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.asigna_jefe MODIFY id_jefe INT NULL");
+        }
+
+        $columnaVacante = $db->queryOne("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'asigna_jefe'
+              AND COLUMN_NAME = 'id_vacante_jefe'
+            LIMIT 1
+        ");
+
+        if (!$columnaVacante) {
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.asigna_jefe ADD COLUMN id_vacante_jefe INT NULL AFTER id_jefe");
+            $db->CRUD("ALTER TABLE __SPARTA_SECRET_REDACTED__.asigna_jefe ADD INDEX idx_vacante_jefe (id_vacante_jefe)");
+        }
+    }
+
     public static function crearVacantePersonal($data)
     {
         try {
@@ -398,6 +460,7 @@ class CapHum extends Model
         try {
             $db = new Database();
             self::asegurarTablaVacantesPersonal($db);
+            self::asegurarAsignaJefeSoportaVacante($db);
 
             $ids = [];
             foreach ((array)$idsPersonas as $id) {
@@ -459,9 +522,44 @@ class CapHum extends Model
                 ORDER BY v.fecha_creacion ASC
             ", $paramsVac);
 
+            $subordinadosVacante = $db->queryAll("
+                SELECT
+                    aj.id_vacante_jefe,
+                    p.id,
+                    CONCAT_WS(' ', p.nombres, p.segundo_nombre, p.apellidop, p.apellidom) AS nombre,
+                    COALESCE(pp.nombre, 'Sin puesto') AS nombre_puesto
+                FROM (
+                    SELECT a.id_persona, a.id_jefe, a.id_vacante_jefe
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_jefe a
+                    INNER JOIN (
+                        SELECT id_persona, MAX(id) AS mid
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_jefe
+                        GROUP BY id_persona
+                    ) m ON m.id_persona = a.id_persona AND m.mid = a.id
+                ) aj
+                INNER JOIN __SPARTA_SECRET_REDACTED__.vacantes_personal v
+                        ON v.id = aj.id_vacante_jefe
+                       AND v.estatus = 'Activa'
+                INNER JOIN __SPARTA_SECRET_REDACTED__.persona p
+                        ON p.id = aj.id_persona
+                       AND p.estatus != 'Baja'
+                LEFT JOIN (
+                    SELECT ap.id_persona, MIN(ap.id_puesto) AS id_puesto
+                    FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                    WHERE COALESCE(ap.activo, 1) = 1
+                    GROUP BY ap.id_persona
+                ) ap_sel ON ap_sel.id_persona = p.id
+                LEFT JOIN __SPARTA_SECRET_REDACTED__.puesto pp
+                       ON pp.id = ap_sel.id_puesto
+                WHERE aj.id_vacante_jefe IS NOT NULL
+                  $whereDepto
+                ORDER BY p.nombres ASC, p.apellidop ASC
+            ", $paramsVac);
+
             return self::resultado(true, 'Meta de organigrama encontrada.', [
                 'ausencias' => $ausencias,
                 'vacantes' => $vacantes,
+                'subordinados_vacante' => $subordinadosVacante,
             ]);
         } catch (\Exception $e) {
             return self::resultado(false, 'Error al obtener meta de organigrama.', null, $e->getMessage());
@@ -2467,18 +2565,31 @@ class CapHum extends Model
 
             $puestoVacante = null;
             $idJefeVacante = null;
+            $vacanteDestinoId = null;
             if ($modoReasignacion === 'vacante') {
                 self::asegurarTablaVacantesPersonal($db);
+                self::asegurarAsignaJefeSoportaVacante($db);
 
                 $puestoVacante = $db->queryOne("
                     SELECT ap.id_puesto, pp.departamento_id
                     FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
                     INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
                     WHERE ap.id_persona = :id_persona
-                      AND ap.activo = 1
+                      AND COALESCE(ap.activo, 1) = 1
                     ORDER BY pp.nivel DESC, ap.id ASC
                     LIMIT 1
                 ", ['id_persona' => (int) $id_persona]);
+
+                if (empty($puestoVacante['id_puesto']) || empty($puestoVacante['departamento_id'])) {
+                    $puestoVacante = $db->queryOne("
+                        SELECT ap.id_puesto, pp.departamento_id
+                        FROM __SPARTA_SECRET_REDACTED__.asigna_puesto ap
+                        INNER JOIN __SPARTA_SECRET_REDACTED__.puesto pp ON pp.id = ap.id_puesto
+                        WHERE ap.id_persona = :id_persona
+                        ORDER BY COALESCE(ap.activo, 0) DESC, pp.nivel DESC, ap.id DESC
+                        LIMIT 1
+                    ", ['id_persona' => (int) $id_persona]);
+                }
 
                 $jefeVacante = $db->queryOne("
                     SELECT id_jefe
@@ -2499,7 +2610,7 @@ class CapHum extends Model
                         FROM __SPARTA_SECRET_REDACTED__.vacantes_personal
                         WHERE id_puesto = :id_puesto
                           AND id_departamento = :id_departamento
-                          AND estatus = 'Activa'
+                          AND UPPER(TRIM(estatus)) = 'ACTIVA'
                         ORDER BY id ASC
                         LIMIT 1
                     ", [
@@ -2507,7 +2618,7 @@ class CapHum extends Model
                         'id_departamento' => (int)$puestoVacante['departamento_id'],
                     ]);
                     if (!empty($vacanteActiva['id'])) {
-                        $vacanteExistenteId = (int)$vacanteActiva['id'];
+                        return self::resultado(false, 'Ya existe una vacante activa para este puesto. Seleccione esa vacante antes de confirmar la baja.');
                     }
                 }
             }
@@ -2573,6 +2684,17 @@ class CapHum extends Model
                     'id_persona_baja' => (int)$id_persona,
                     'creado_por' => (int)$usuario_baja,
                 ]);
+                $vacanteDestinoId = $db->lastInsertId();
+            } elseif ($modoReasignacion === 'vacante') {
+                $vacanteDestinoId = (int)$vacanteExistenteId;
+                $db->CRUD("
+                    UPDATE __SPARTA_SECRET_REDACTED__.vacantes_personal
+                    SET id_jefe = :id_jefe
+                    WHERE id = :id_vacante
+                ", [
+                    'id_jefe' => $idJefeVacante,
+                    'id_vacante' => $vacanteDestinoId,
+                ]);
             }
 
             if (!empty($subordinadosActivos)) {
@@ -2614,10 +2736,13 @@ class CapHum extends Model
                 } else {
                     $db->CRUD("
                         UPDATE __SPARTA_SECRET_REDACTED__.asigna_jefe
-                        SET id_jefe = NULL
+                        SET id_jefe = NULL,
+                            id_vacante_jefe = :id_vacante_jefe
                         WHERE id_jefe = :id_persona
                           AND id_persona IN (" . implode(',', $phSubordinados) . ")
-                    ", $paramsSubordinados);
+                    ", array_merge($paramsSubordinados, [
+                        'id_vacante_jefe' => $vacanteDestinoId ?: null,
+                    ]));
                 }
             }
 

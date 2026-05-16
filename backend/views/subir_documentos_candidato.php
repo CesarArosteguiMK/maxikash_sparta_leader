@@ -1353,7 +1353,8 @@ $documentos = [
                     .then(function(res) {
                         var el = document.getElementById('fiscal-verificado');
                         if (res.valido !== true) {
-                            showResultado(msg, verificandoDiv, 'Constancia fiscal rechazada: ' + (res.mensaje || 'El documento no es una constancia de situación fiscal del SAT.') + '.', true);
+                            var prefijo = res.timeout ? '' : 'Constancia fiscal rechazada: ';
+                            showResultado(msg, verificandoDiv, prefijo + (res.mensaje || 'El documento no es una constancia de situación fiscal del SAT.') + '.', true);
                             inputFiscal.value = '';
                             if (el) el.style.display = 'none';
                             actualizarCheckmark(7, false);

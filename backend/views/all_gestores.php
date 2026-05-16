@@ -2979,7 +2979,10 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
                                 <div class="fw-semibold">Destino de los subordinados</div>
                                 <div class="small text-muted">Define que pasara con el equipo</div>
                             </div>
-                            <span id="bajaSubordinadosCount" class="badge bg-warning-subtle text-warning-emphasis rounded-pill">0</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="bajaSubordinadosCount" class="badge bg-warning-subtle text-warning-emphasis rounded-pill">0</span>
+                                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
                         </div>
 
                         <div id="bajaReasignacionWrap" style="display: none;">
@@ -6195,7 +6198,7 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
           ${puestosHTML}
           <hr class="my-2">
           <small class="text-muted d-flex align-items-center gap-1">
-              <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
+              <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
           </small>
         `.trim(),
         estatus: p.estatus,
@@ -6710,6 +6713,11 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
    */
   function eliminarPuesto(index) {
     const puestoEliminado = puestosUsuarioActual.splice(index, 1)[0];
+    const eliminoPrincipal = index === 0;
+
+    if (eliminoPrincipal && puestosUsuarioActual.length > 0) {
+      actualizarPuestoPrincipalDesdeLista(puestosUsuarioActual[0]);
+    }
 
     // Si queda solo un puesto, ocultar el panel de gestión
     if (puestosUsuarioActual.length === 1) {
@@ -6717,6 +6725,46 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
       mostrarContenedorPuestos(false);
     } else {
       renderizarListaPuestos();
+    }
+  }
+
+  function actualizarPuestoPrincipalDesdeLista(puesto) {
+    if (!puesto) return;
+
+    const selDepto = document.getElementById('edit_departamento_id');
+    const selPuesto = document.getElementById('edit_id_puesto');
+    let idDepartamento = puesto.id_departamento || puesto.departamento_id || '';
+    const idPuesto = puesto.id_puesto || puesto.puesto_id || '';
+
+    if (!idDepartamento && selDepto && puesto.nombre_departamento) {
+      for (let i = 0; i < selDepto.options.length; i++) {
+        if ((selDepto.options[i].textContent || '').trim() === String(puesto.nombre_departamento).trim()) {
+          idDepartamento = selDepto.options[i].value;
+          break;
+        }
+      }
+    }
+
+    if (!idDepartamento || !idPuesto) return;
+
+    if (selDepto) {
+      selDepto.value = String(idDepartamento);
+      if (typeof window.refreshSelectBuscador === 'function') {
+        window.refreshSelectBuscador('edit_departamento_id');
+      }
+    }
+
+    if (typeof cargarPuestosCombo === 'function') {
+      cargarPuestosCombo(idDepartamento, idPuesto);
+    } else if (selPuesto) {
+      selPuesto.value = String(idPuesto);
+      if (typeof window.refreshSelectBuscador === 'function') {
+        window.refreshSelectBuscador('edit_id_puesto');
+      }
+    }
+
+    if (typeof cargarComboJefeDirecto === 'function') {
+      cargarComboJefeDirecto(idDepartamento, null, idPuesto);
     }
   }
 
@@ -7167,6 +7215,20 @@ window.todosDepartamentosBackend = <?= json_encode(($departamento['datos'] ?? []
   }
 
   function obtenerPuestosParaGuardar() {
+    const listaDesdeEstado = (puestosUsuarioActual || [])
+      .filter(p => p && p.id_puesto)
+      .map(p => ({ id_puesto: p.id_puesto }));
+
+    if (listaDesdeEstado.length) {
+      const vistos = new Set();
+      return listaDesdeEstado.filter(p => {
+        const id = String(p.id_puesto);
+        if (vistos.has(id)) return false;
+        vistos.add(id);
+        return true;
+      });
+    }
+
     const principalId = document.getElementById('edit_id_puesto') && document.getElementById('edit_id_puesto').value;
     const principal = principalId ? [{ id_puesto: principalId }] : [];
     const otros = (puestosUsuarioActual || [])

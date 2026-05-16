@@ -35,7 +35,7 @@ Write-Host ('---')
 $p8000 = Join-Path $here 'cerrar-agente.ps1'
 if (Test-Path -LiteralPath $p8000) {
     try {
-        & $p8000 -Silent
+        & $p8000
         Write-Host '[OK] Intentado liberar puerto 8000 (cerrar-agente).'
     } catch {
         Write-Host '[WARN] cerrar-agente: ' + $_.Exception.Message
@@ -61,15 +61,28 @@ function Invoke-TaskKillTree([int]$ProcessId, [string]$Label) {
         $p = Start-Process -FilePath $exe `
             -ArgumentList @('/F', '/T', '/PID', $ProcessId.ToString()) `
             -Wait -PassThru -WindowStyle Hidden -NoNewWindow -ErrorAction SilentlyContinue
-        [void]$killedPids.Add($ProcessId, $true)
-        Write-Host "[OK] $Label PID=$ProcessId (taskkill /T)"
+        if ($p -and $p.ExitCode -eq 0) {
+            [void]$killedPids.Add($ProcessId, $true)
+            Write-Host "[OK] $Label PID=$ProcessId (taskkill /T)"
+            return
+        } else {
+            $ec = if ($p) { $p.ExitCode } else { 'sin-proceso' }
+            Write-Host "[WARN] No se pudo terminar PID $ProcessId ($Label). taskkill exit=$ec"
+        }
     } catch {
         Write-Host "[WARN] No se pudo terminar PID $ProcessId ($Label)."
+    }
+    try {
+        Stop-Process -Id $ProcessId -Force -ErrorAction Stop
+        [void]$killedPids.Add($ProcessId, $true)
+        Write-Host "[OK] $Label PID=$ProcessId (Stop-Process fallback)"
+    } catch {
+        Write-Host "[WARN] Stop-Process fallback fallo PID $ProcessId ($Label): $($_.Exception.Message)"
     }
 }
 
 # 2) cmd.exe lanzando nuestros .bat
-$hintsCmd = @('web-api-1click-runner.bat', 'Iniciar-API-Verificacion.bat', 'instalar-agente.bat', 'Diagnosticar-API.bat', 'Diagnosticar-api.bat')
+$hintsCmd = @('web-api-1click-runner.bat', 'Iniciar-API-Verificacion.bat', 'iniciar-agente-foreground.bat', 'instalar-agente.bat', 'Diagnosticar-API.bat', 'Diagnosticar-api.bat')
 Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" -ErrorAction SilentlyContinue |
     Where-Object {
         $cl = $_.CommandLine
@@ -106,6 +119,29 @@ foreach ($nm in $pyNames) {
         ForEach-Object { Invoke-TaskKillTree -ProcessId ([int]$_.ProcessId) -Label "Python ($nm)" }
 }
 
+# 5) Fallback para entornos donde PHP/PowerShell no puede leer Win32_Process/CommandLine:
+# matar solo python.exe cuyo ejecutable vive dentro de esta carpeta API (venv o tools\PythonPortable).
+Get-Process -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.ProcessName -match '^python' -and
+        $_.Path -and
+        (Contains-ApiPath $_.Path)
+    } |
+    ForEach-Object { Invoke-TaskKillTree -ProcessId ([int]$_.Id) -Label 'Python API por ruta' }
+
+# 6) Confirmacion visible para el panel web.
+$still8000 = $false
+foreach ($line in (netstat -ano 2>$null)) {
+    if ($line -match 'LISTENING' -and $line -match ':8000\s') {
+        $still8000 = $true
+        Write-Host ('[WARN] Puerto 8000 sigue en LISTEN: ' + $line.Trim())
+    }
+}
+
 Write-Host '---'
+if ($still8000) {
+    Write-Host '__FIN_PARAR__:1'
+    exit 1
+}
 Write-Host '__FIN_PARAR__:0'
 exit 0
