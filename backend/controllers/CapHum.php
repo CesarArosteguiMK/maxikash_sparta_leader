@@ -13216,14 +13216,24 @@ public function getMunicipios()
             foreach ($rows as $rOrg) {
                 $idsExistentes[(string)($rOrg['id'] ?? '')] = true;
             }
+            $vacantesConSubordinadosVisibles = [];
+            foreach (($metaOrg['datos']['subordinados_vacante'] ?? []) as $subVac) {
+                $idVacanteJefe = (int)($subVac['id_vacante_jefe'] ?? 0);
+                $idSubordinado = (string)($subVac['id'] ?? '');
+                if ($idVacanteJefe > 0 && $idSubordinado !== '' && !isset($idsExistentes[$idSubordinado])) {
+                    $vacantesConSubordinadosVisibles[$idVacanteJefe] = true;
+                }
+            }
             $vacantesAgregadas = [];
             foreach (($metaOrg['datos']['vacantes'] ?? []) as $vac) {
+                $idVacanteReal = (int)$vac['id'];
+                if (empty($vacantesConSubordinadosVisibles[$idVacanteReal])) continue;
                 $jefeVac = !empty($vac['id_jefe']) ? (string)$vac['id_jefe'] : $idRaiz;
                 if (!isset($idsExistentes[$jefeVac])) continue;
-                $idVacante = 'vacante-' . (int)$vac['id'];
+                $idVacante = 'vacante-' . $idVacanteReal;
                 if (isset($idsExistentes[$idVacante])) continue;
                 $idsExistentes[$idVacante] = true;
-                $vacantesAgregadas[(int)$vac['id']] = $idVacante;
+                $vacantesAgregadas[$idVacanteReal] = $idVacante;
                 $rows[] = [
                     'id' => $idVacante,
                     'nombre' => 'Vacante',
