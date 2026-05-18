@@ -25,7 +25,9 @@ class Database
                 $usuario,
                 $password,
                 [
-                    PDO::ATTR_PERSISTENT => true,            // ← AGREGAR ESTA LÍNEA
+                    // Evita reutilizar conexiones muertas: MySQL puede cerrar una conexión persistente
+                    // y provocar "MySQL server has gone away" en la primera consulta del request.
+                    PDO::ATTR_PERSISTENT => false,
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     // Evita cuelgues largos de conexión remota: si la base no responde, falla rápido.

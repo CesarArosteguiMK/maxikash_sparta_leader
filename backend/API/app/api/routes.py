@@ -480,11 +480,24 @@ async def verificar_constancia_fiscal_documento(
     file_bytes = await documento.read()
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
-    if es_documento_nss(file_bytes):
-        return {"valido": False, "mensaje": "El documento es la constancia de NSS del IMSS. En este campo solo se acepta la constancia de situación fiscal del SAT (descargada del portal del SAT)."}
-    if not es_documento_constancia_fiscal(file_bytes):
+    inicio = time.time()
+    try:
+        datos = await asyncio.wait_for(
+            asyncio.to_thread(extraer_datos_constancia_fiscal, file_bytes),
+            timeout=60,
+        )
+    except asyncio.TimeoutError:
+        return {
+            "valido": False,
+            "mensaje": "No se pudo leer la constancia a tiempo. Intenta subir el PDF original del SAT o una copia escaneada más clara.",
+            "timeout": True,
+            "tiempo_ms": int((time.time() - inicio) * 1000),
+        }
+
+    if not datos.get("parece_constancia_fiscal"):
+        if await asyncio.to_thread(es_documento_nss, file_bytes):
+            return {"valido": False, "mensaje": "El documento es la constancia de NSS del IMSS. En este campo solo se acepta la constancia de situación fiscal del SAT (descargada del portal del SAT)."}
         return {"valido": False, "mensaje": "El documento no es una constancia de situación fiscal del SAT. Sube el PDF descargado del portal del SAT."}
-    datos = extraer_datos_constancia_fiscal(file_bytes)
 
     # Vigencia: máximo 2 meses desde "Lugar y Fecha de Emisión"
     meses = datos.get("meses_antiguedad")
@@ -536,6 +549,7 @@ async def verificar_constancia_fiscal_documento(
         "vigencia_ok": True,
         "actividad_asalariado": True,
         "regimen_sueldos_salarios": True,
+        "tiempo_ms": int((time.time() - inicio) * 1000),
     }
 
 
@@ -555,7 +569,7 @@ async def verificar___SPARTA_SECRET_REDACTED__(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Documento vacío")
     from app.services.__SPARTA_SECRET_REDACTED___analyzer import validar___SPARTA_SECRET_REDACTED___pdf
-    resultado = validar___SPARTA_SECRET_REDACTED___pdf(file_bytes)
+    resultado = await asyncio.to_thread(validar___SPARTA_SECRET_REDACTED___pdf, file_bytes)
     return resultado
 
 

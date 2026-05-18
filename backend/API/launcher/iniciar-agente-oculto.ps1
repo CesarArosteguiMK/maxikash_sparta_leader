@@ -104,18 +104,28 @@ function Start-UvicornWithCmdFallback {
         [Parameter(Mandatory)] [string] $OutLog,
         [Parameter(Mandatory)] [string] $ErrLog
     )
+    $PyExe = ([string]::Join('', @($PyExe)) -replace '[\r\n]+', '').Trim()
+    $ApiDir = ([string]::Join('', @($ApiDir)) -replace '[\r\n]+', '').Trim()
+    $OutLog = ([string]::Join('', @($OutLog)) -replace '[\r\n]+', '').Trim()
+    $ErrLog = ([string]::Join('', @($ErrLog)) -replace '[\r\n]+', '').Trim()
+    $foregroundBat = Join-Path $here 'iniciar-agente-foreground.bat'
+    if (Test-Path -LiteralPath $foregroundBat) {
+        return Start-Process -FilePath 'cmd.exe' `
+            -ArgumentList @('/d', '/c', ('"' + $foregroundBat + '"')) `
+            -WorkingDirectory $ApiDir `
+            -WindowStyle Hidden `
+            -PassThru
+    }
     $cmdFile = Join-Path $logsDir 'run-uvicorn-hidden.cmd'
     $argText = ''
     if ($PyArgs.Count -gt 0) {
         $argText = (($PyArgs | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' ') + ' '
     }
-    $lines = @(
-        '@echo off',
-        'cd /d "' + $ApiDir + '"',
-        'set "PYTHONUNBUFFERED=1"',
-        '"' + $PyExe + '" ' + $argText + '-m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 1>>"' + $OutLog + '" 2>>"' + $ErrLog + '"'
-    )
-    Set-Content -LiteralPath $cmdFile -Value $lines -Encoding ASCII
+    $cmdText = "@echo off`r`n"
+    $cmdText += "cd /d ""$ApiDir""`r`n"
+    $cmdText += "set ""PYTHONUNBUFFERED=1""`r`n"
+    $cmdText += """$PyExe"" $argText-m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 1>>""$OutLog"" 2>>""$ErrLog""`r`n"
+    Set-Content -LiteralPath $cmdFile -Value $cmdText -Encoding ASCII
     $p = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d','/c','start','"SpartaAPI"','/min', $cmdFile) -WindowStyle Hidden -PassThru
     return $p
 }
@@ -197,23 +207,12 @@ try { Set-Content -LiteralPath $outLog -Value '' -Encoding UTF8 } catch {}
 try { Set-Content -LiteralPath $errLog -Value '' -Encoding UTF8 } catch {}
 
 try {
-    $proc = Start-Process -FilePath $pyExe -ArgumentList $argList -WorkingDirectory $ApiDir `
-        -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput $outLog `
-        -RedirectStandardError  $errLog
-    Write-Start "OK: uvicorn lanzado (PID $($proc.Id)). stdout=$outLog stderr=$errLog"
-    $usedFallback = $false
+    $proc = Start-UvicornWithCmdFallback -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
+    Write-Start "OK: arranque enviado por cmd dedicado (PID cmd $($proc.Id)). stdout=$outLog stderr=$errLog"
+    $usedFallback = $true
 } catch {
-    Write-Start "AVISO: Start-Process no pudo lanzar Python: $($_.Exception.Message)"
-    Write-Start "Intentando arranque alterno con cmd/start..."
-    try {
-        $proc = Start-UvicornWithCmdFallback -PyExe $pyExe -PyArgs $pyArgs -ApiDir $ApiDir -OutLog $outLog -ErrLog $errLog
-        Write-Start "OK: arranque alterno enviado (PID cmd $($proc.Id)). stdout=$outLog stderr=$errLog"
-        $usedFallback = $true
-    } catch {
-        Write-Start "ERROR: no se pudo lanzar Python tampoco con fallback: $($_.Exception.Message)"
-        exit 1
-    }
+    Write-Start "ERROR: no se pudo lanzar Python con cmd dedicado: $($_.Exception.Message)"
+    exit 1
 }
 
 # ---- 6) Esperar hasta 20s a que 8000 quede LISTENING ----

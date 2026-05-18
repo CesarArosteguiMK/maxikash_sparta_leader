@@ -27,11 +27,27 @@ if ($pids.Count -eq 0) {
 }
 
 $killed = $false
+$failed = @()
 foreach ($procId in @($pids)) {
+    $taskkill = Join-Path ${env:SystemRoot} 'System32\taskkill.exe'
+    if (Test-Path -LiteralPath $taskkill) {
+        try {
+            $p = Start-Process -FilePath $taskkill `
+                -ArgumentList @('/F', '/T', '/PID', $procId.ToString()) `
+                -Wait -PassThru -WindowStyle Hidden -ErrorAction Stop
+            if ($p.ExitCode -eq 0) {
+                $killed = $true
+                continue
+            }
+            $failed += "PID $procId taskkill exit=$($p.ExitCode)"
+        } catch {}
+    }
     try {
         Stop-Process -Id $procId -Force -ErrorAction Stop
         $killed = $true
-    } catch {}
+    } catch {
+        $failed += "PID $procId Stop-Process: $($_.Exception.Message)"
+    }
 }
 
 if (-not $Silent) {
@@ -39,6 +55,9 @@ if (-not $Silent) {
         Write-Host "Listo: se detuvo el proceso en el puerto $port."
     } else {
         Write-Host "No habia ningun proceso escuchando en el puerto $port."
+    }
+    foreach ($f in $failed) {
+        Write-Host "[WARN] $f"
     }
 }
 

@@ -11,6 +11,7 @@ Valida PDF de estado de cuenta bancario.
 """
 import re
 import io
+import unicodedata
 from typing import Optional, Dict, Any, List, Tuple
 from loguru import logger
 
@@ -22,6 +23,85 @@ except ImportError:
 
 # RapidOCR opcional para PDFs escaneados (sin texto extraíble)
 _RAPIDOCR_EC: Any = None
+
+
+def _normalizar_texto_busqueda(texto: str) -> str:
+    """Normaliza texto para busquedas tolerantes a acentos, OCR y mojibake."""
+    if not texto:
+        return ""
+    partes = [texto]
+    try:
+        reparado = texto.encode("latin1", errors="ignore").decode("utf-8", errors="ignore")
+        if reparado and reparado != texto:
+            partes.append(reparado)
+    except Exception:
+        pass
+    unido = "\n".join(partes)
+    unido = unicodedata.normalize("NFKD", unido)
+    unido = "".join(c for c in unido if not unicodedata.combining(c))
+    unido = unido.upper()
+    unido = re.sub(r"[^\w\s:/#.\-]", " ", unido, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", unido).strip()
+
+
+def _compactar_texto_busqueda(texto: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", "", _normalizar_texto_busqueda(texto))
+
+
+def _configurar_tesseract_ec(pytesseract_mod: Any) -> None:
+    try:
+        from app.core.config import get_settings
+        cmd = getattr(get_settings(), "tesseract_cmd", None)
+        if cmd:
+            pytesseract_mod.pytesseract.tesseract_cmd = cmd
+    except Exception as e:
+        logger.debug(f"No se pudo configurar Tesseract __SPARTA_SECRET_REDACTED__: {e}")
+
+
+def _score_texto_ocr_estado(texto: str) -> int:
+    if not texto:
+        return 0
+    normal = _normalizar_texto_busqueda(texto)
+    compacto = _compactar_texto_busqueda(texto)
+    score = sum(1 for c in compacto if c.isalnum())
+    senales = (
+        "ESTADODECUENTA", "RESUMENDECUENTA", "CLABE", "CUENTACLABE",
+        "NUMERODECUENTA", "DATOSDECLIENTE", "TITULAR", "DOMICILIO",
+        "BBVA", "BANORTE", "SANTANDER", "CITIBANAMEX", "BANAMEX",
+        "SCOTIABANK", "HSBC", "BANCOPPEL", "BANCOAZTECA",
+    )
+    score += sum(250 for s in senales if s in compacto)
+    score += sum(50 for s in ("ESTADO DE CUENTA", "RESUMEN DE CUENTA", "CLABE INTERBANCARIA") if s in normal)
+    return score
+
+
+def _texto_tiene_senales___SPARTA_SECRET_REDACTED__(texto: str) -> bool:
+    if not texto or len(_compactar_texto_busqueda(texto)) < 80:
+        return False
+    normal = _normalizar_texto_busqueda(texto)
+    compacto = _compactar_texto_busqueda(texto)
+    return bool(
+        re.search(r"ESTADO\s+DE\s+CUENTA|RESUMEN\s+DE\s+CUENTA|STATE\s+OF\s+ACCOUNT", normal)
+        or "ESTADODECUENTA" in compacto
+        or "RESUMENDECUENTA" in compacto
+        or "CLABEINTERBANCARIA" in compacto
+        or "CUENTACLABE" in compacto
+        or ("CLABE" in compacto and re.search(r"\d{18}", compacto))
+    )
+
+
+def _texto_nativo_es_util(texto: str) -> bool:
+    """Decide si la capa de texto del PDF basta o si conviene forzar OCR."""
+    compacto = _compactar_texto_busqueda(texto)
+    if len(compacto) < 350:
+        return False
+    normal = _normalizar_texto_busqueda(texto)
+    if re.search(r"CAMSCANNER|ESCANEADO|SCANNED|SCANNER", normal) and not _texto_tiene_senales___SPARTA_SECRET_REDACTED__(texto):
+        return False
+    banco, es_fisico = _detectar_banco(texto)
+    if banco and (es_fisico or _texto_tiene_senales___SPARTA_SECRET_REDACTED__(texto)):
+        return True
+    return _texto_tiene_senales___SPARTA_SECRET_REDACTED__(texto)
 
 def _get_rapidocr_ec():
     global _RAPIDOCR_EC
@@ -42,29 +122,102 @@ def _get_rapidocr_ec():
 
 def _texto_ocr_imagen(image_png_bytes: bytes) -> Optional[str]:
     """Extrae texto de una imagen PNG: RapidOCR o Tesseract."""
+    textos: List[str] = []
     engine = _get_rapidocr_ec()
     if engine:
         try:
             out = engine(image_png_bytes)
             result = out[0] if isinstance(out, (list, tuple)) and len(out) > 0 else out
             if not result:
-                return None
+                result = []
             lineas = [str(item[1]).strip() for item in result if isinstance(item, (list, tuple)) and len(item) >= 2 and item[1]]
             if not lineas:
                 lineas = [item.strip() for item in result if isinstance(item, str)]
-            return "\n".join(lineas) if lineas else None
+            texto_rapid = "\n".join(lineas) if lineas else ""
+            if texto_rapid.strip():
+                textos.append(texto_rapid)
+            if _score_texto_ocr_estado(texto_rapid) >= 500:
+                return texto_rapid
         except Exception as e:
             logger.debug(f"RapidOCR __SPARTA_SECRET_REDACTED__: {e}")
     try:
         import pytesseract
         from PIL import Image
+        _configurar_tesseract_ec(pytesseract)
         img = Image.open(io.BytesIO(image_png_bytes))
         if img.mode != "RGB":
             img = img.convert("RGB")
-        return pytesseract.image_to_string(img, config="--oem 3 --psm 3 -l spa+eng").strip() or None
+
+        variantes: List[Any] = []
+        try:
+            import cv2
+            import numpy as np
+
+            img_cv = cv2.imdecode(np.frombuffer(image_png_bytes, np.uint8), cv2.IMREAD_COLOR)
+            if img_cv is not None:
+                h, w = img_cv.shape[:2]
+                if w < 1800:
+                    scale = 1800 / max(w, 1)
+                    img_cv = cv2.resize(img_cv, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+                elif w > 3000:
+                    scale = 2600 / max(w, 1)
+                    img_cv = cv2.resize(img_cv, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+                gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+                try:
+                    gray = cv2.bilateralFilter(gray, 7, 55, 55)
+                except Exception:
+                    pass
+                clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8)).apply(gray)
+                _, otsu = cv2.threshold(clahe, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                adaptive = cv2.adaptiveThreshold(
+                    clahe, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 25, 9
+                )
+                kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+                sharpen = cv2.filter2D(clahe, -1, kernel)
+                variantes = [
+                    Image.fromarray(clahe),
+                    Image.fromarray(sharpen),
+                    Image.fromarray(otsu),
+                    Image.fromarray(adaptive),
+                ]
+        except Exception as e:
+            logger.debug(f"Preprocesado OCR __SPARTA_SECRET_REDACTED__ no disponible: {e}")
+
+        if not variantes:
+            variantes = [img]
+
+        mejor = ""
+        mejor_score = 0
+        for variante in variantes:
+            for psm in (6, 11, 3):
+                texto = pytesseract.image_to_string(variante, config=f"--oem 3 --psm {psm} -l spa+eng").strip()
+                score = _score_texto_ocr_estado(texto)
+                if texto:
+                    textos.append(texto)
+                if score > mejor_score:
+                    mejor = texto
+                    mejor_score = score
+
+        # Si la pagina salio girada y no hubo suficiente texto, probar rotaciones simples.
+        if mejor_score < 120:
+            for angle in (90, 270, 180):
+                rotada = img.rotate(angle, expand=True)
+                texto = pytesseract.image_to_string(rotada, config="--oem 3 --psm 6 -l spa+eng").strip()
+                score = _score_texto_ocr_estado(texto)
+                if texto:
+                    textos.append(texto)
+                if score > mejor_score:
+                    mejor = texto
+                    mejor_score = score
+
+        if mejor.strip():
+            return mejor
+        unido = "\n".join(t for t in textos if t and t.strip())
+        return unido.strip() or None
     except Exception as e:
         logger.debug(f"Tesseract __SPARTA_SECRET_REDACTED__: {e}")
-        return None
+        unido = "\n".join(t for t in textos if t and t.strip())
+        return unido.strip() or None
 
 
 # Bancos físicos permitidos (México). Coincidencia por nombre o patrones en el texto.
@@ -97,6 +250,39 @@ BANCOS_DIGITALES_PATRONES: List[str] = [
     r"\bFAMSO\b", r"\bALBO\b", r"\bVEXI\b",
     r"\bBAIT\b", r"\bCUENCA\b", r"\bMANDARINA\b",
 ]
+
+BANCOS_FISICOS_COMPACTOS: Dict[str, List[str]] = {
+    "BBVA": ["BBVA", "BANCOBBVA", "BBVABANCOMER", "BANCOMER"],
+    "Banorte": ["BANORTE", "BANCOBANORTE", "GRUPOFINANCIEROBANORTE"],
+    "Santander": ["SANTANDER", "BANCOSANTANDER"],
+    "Citibanamex": ["CITIBANAMEX", "CITIBANCO", "CITIBANAMEXBANCO", "BANAMEX", "CITIBANAMEX"],
+    "Scotiabank": ["SCOTIABANK", "SCOTIAINVERLAT"],
+    "HSBC": ["HSBC", "BANCOHSBC"],
+    "Banco Azteca": ["BANCOAZTECA", "AZTECA"],
+    "Banco del Bienestar": ["BANCODELBIENESTAR", "BIENESTAR"],
+    "Bancoppel": ["BANCOPPEL", "BANCOCOPPEL"],
+    "Afirme": ["AFIRME", "BANCOAFIRME"],
+    "Banregio": ["BANREGIO", "BANCOBANREGIO"],
+    "Inbursa": ["INBURSA", "BANCOINBURSA"],
+    "Banco Regional": ["BANCOREGIONAL", "REGIONALBANCO"],
+    "Mifel": ["MIFEL", "BANCOMIFEL"],
+}
+
+BANCOS_DIGITALES_COMPACTOS: Dict[str, List[str]] = {
+    "Nu Banco": ["NUBANCO", "NUBANK", "NUBANCOMEXICO"],
+    "Uala": ["UALA", "UALABANCO"],
+    "Klar": ["KLAR", "KLARFINANCIERA"],
+    "Stori": ["STORI", "STORICARD"],
+    "RappiCard": ["RAPPICARD", "RAPPIPAY"],
+    "Mercado Pago": ["MERCADOPAGO"],
+    "DiDi Pay": ["DIDIPAY", "DIDICASH"],
+    "Famsa": ["FAMSO"],
+    "Albo": ["ALBO"],
+    "Vexi": ["VEXI"],
+    "Bait": ["BAIT"],
+    "Cuenca": ["CUENCA"],
+    "Mandarina": ["MANDARINA"],
+}
 
 # Patrones que sugieren "hoja de datos del titular" (nombre, dirección, CLABE, cuenta).
 PATRONES_DATOS_TITULAR: List[str] = [
@@ -141,7 +327,7 @@ NO_ES_NOMBRE: List[str] = [
     "ESTADO DE CUENTA", "RESUMEN DE", "TARJETA DE", "NUMERO DE CUENTA",
     "CLABE", "DOMICILIO", "RFC", "CURP", "SALDO", "TOTAL", "SUBTOTAL",
     "BANCO", "BANCOMER", "BBVA", "SANTANDER", "BANORTE",
-    "REPRESENTACION", "PROPORCIONEN", "MECANISMO", "TRANS", "TRAVES", "DE LA", "DEL ",
+    "COMERCIAL", "REPRESENTACION", "PROPORCIONEN", "MECANISMO", "TRANS", "TRAVES", "DE LA", "DEL ",
 ]
 
 
@@ -186,18 +372,22 @@ def _texto_de_pdf(pdf_bytes: bytes, max_paginas: int = 3) -> str:
                 break
             texto += page.get_text() + "\n"
         doc.close()
-        if texto.strip():
+        if texto.strip() and _texto_nativo_es_util(texto):
             return texto
         # PDF sin capa de texto (escaneado): convertir páginas a imagen y usar OCR
         from app.services.document_crosscheck import pdf_paginas_a_png_bytes
-        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=200, max_paginas=max_paginas)
+        dpi = 240 if len(_compactar_texto_busqueda(texto)) < 900 else 200
+        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=dpi, max_paginas=max_paginas)
         if not imagenes:
-            return ""
+            return texto
+        texto_ocr = ""
         for img_bytes in imagenes[:max_paginas]:
             t = _texto_ocr_imagen(img_bytes)
             if t:
-                texto += t + "\n"
-        return texto
+                texto_ocr += t + "\n"
+        if texto.strip() and texto_ocr.strip():
+            return texto + "\n" + texto_ocr
+        return texto_ocr or texto
     except Exception as e:
         logger.warning(f"__SPARTA_SECRET_REDACTED___analyzer: error leyendo PDF: {e}")
         return ""
@@ -208,17 +398,27 @@ def _detectar_banco(texto: str) -> Tuple[Optional[str], bool]:
     Detecta nombre del banco y si es físico (True) o digital (False).
     Returns (nombre_banco, es_fisico). Si no detecta, (None, False).
     """
+    texto_norm = _normalizar_texto_busqueda(texto)
+    texto_compacto = _compactar_texto_busqueda(texto)
+
     # Primero comprobar si es banco digital (rechazar)
     for pat in BANCOS_DIGITALES_PATRONES:
-        m = re.search(pat, texto, re.IGNORECASE)
+        m = re.search(pat, texto_norm, re.IGNORECASE)
         if m:
             nombre = m.group(0).strip() if m else "Banco digital"
             return (nombre, False)
+    for nombre, aliases in BANCOS_DIGITALES_COMPACTOS.items():
+        if any(alias in texto_compacto for alias in aliases):
+            return (nombre, False)
+
     # Luego buscar banco físico
     for banco in BANCOS_FISICOS_PATRONES:
         for pat in banco["patrones"]:
-            if re.search(pat, texto, re.IGNORECASE):
+            if re.search(pat, texto_norm, re.IGNORECASE):
                 return (banco["nombre"], True)
+    for nombre, aliases in BANCOS_FISICOS_COMPACTOS.items():
+        if any(alias in texto_compacto for alias in aliases):
+            return (nombre, True)
     return (None, False)
 
 
@@ -226,10 +426,20 @@ def _tiene_datos_titular(texto: str) -> bool:
     """Indica si el texto incluye sección típica de datos del titular (nombre, dirección, CLABE/cuenta)."""
     if not texto or len(texto.strip()) < 50:
         return False
+    texto_norm = _normalizar_texto_busqueda(texto)
+    texto_compacto = _compactar_texto_busqueda(texto)
     coincidencias = 0
     for pat in PATRONES_DATOS_TITULAR:
-        if re.search(pat, texto, re.IGNORECASE):
+        if re.search(pat, texto_norm, re.IGNORECASE):
             coincidencias += 1
+    senales_compactas = (
+        "DATOSDECLIENTE", "NOMBREDELTITULAR", "TITULARDECUENTA", "TITULARCUENTA",
+        "CLABEINTERBANCARIA", "CUENTACLABE", "NUMERODECUENTA", "NOCUENTA",
+        "DOMICILIO", "DIRECCION", "RFC", "CURP",
+    )
+    coincidencias += sum(1 for s in senales_compactas if s in texto_compacto)
+    if "CLABE" in texto_compacto and re.search(r"\d{18}", texto_compacto):
+        coincidencias += 1
     return coincidencias >= 2
 
 
@@ -296,6 +506,8 @@ def _extraer_clabe(texto: str) -> Optional[str]:
     """Extrae una CLABE interbancaria de 18 digitos cuando el PDF la muestra."""
     if not texto or len(texto.strip()) < 20:
         return None
+    texto_norm = _normalizar_texto_busqueda(texto)
+    texto_compacto = _compactar_texto_busqueda(texto)
 
     patrones = [
         r"(?:CLABE\s*(?:INTERBANCARIA)?|CUENTA\s*CLABE)\s*[:#\-]?\s*([0-9\s\-]{18,30})",
@@ -303,10 +515,14 @@ def _extraer_clabe(texto: str) -> Optional[str]:
         r"\b([0-9][0-9\s\-]{16,28}[0-9])\b",
     ]
     for pat in patrones:
-        for m in re.finditer(pat, texto, re.IGNORECASE):
+        for m in re.finditer(pat, texto_norm, re.IGNORECASE):
             digitos = re.sub(r"\D+", "", m.group(1))
             if len(digitos) == 18:
                 return digitos
+    for pat in (r"CLABE(?:INTERBANCARIA)?([0-9]{18})", r"CUENTACLABE([0-9]{18})"):
+        m = re.search(pat, texto_compacto)
+        if m:
+            return m.group(1)
     return None
 
 
@@ -338,6 +554,7 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
             "Si es escaneado, instale RapidOCR: pip install rapidocr-onnxruntime, o Tesseract."
         )
         return resultado
+    texto_norm = _normalizar_texto_busqueda(texto)
 
     # Siempre intentar extraer banco y propietario para mostrar en tooltip
     banco, es_fisico = _detectar_banco(texto)
@@ -348,7 +565,8 @@ def validar___SPARTA_SECRET_REDACTED___pdf(pdf_bytes: bytes) -> Dict[str, Any]:
 
     # Debe parecer estado de cuenta (mención típica) O tener banco físico detectado (OCR puede no leer la etiqueta)
     es___SPARTA_SECRET_REDACTED__ = bool(
-        re.search(r"ESTADO\s+DE\s+CUENTA|STATE\s+OF\s+ACCOUNT|RESUMEN\s+DE\s+CUENTA", texto, re.IGNORECASE)
+        re.search(r"ESTADO\s+DE\s+CUENTA|STATE\s+OF\s+ACCOUNT|RESUMEN\s+DE\s+CUENTA", texto_norm, re.IGNORECASE)
+        or _texto_tiene_senales___SPARTA_SECRET_REDACTED__(texto)
         or (es_fisico and banco)
     )
     if not es___SPARTA_SECRET_REDACTED__:

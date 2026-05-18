@@ -719,6 +719,13 @@ class Inicio extends Controller
             $content .= "Puede usar «Desbloquear panel» y pulsar API de nuevo (el .bat del servidor puede seguir un rato).\r\n";
         }
 
+        if (!$completed && $this->apiDocOneClickApiEstaArriba()) {
+            $completed = true;
+            $exitCode = 0;
+            $content .= "\r\n\r\n[OK PANEL] La API ya responde en http://127.0.0.1:8000/api/v1/health.\r\n";
+            $content .= "El log no tiene marca __FIN__, pero el servicio esta levantado; se libera el panel.\r\n";
+        }
+
         echo json_encode([
             'success' => true,
             'has_log' => true,
@@ -749,7 +756,25 @@ class Inicio extends Controller
         if ($this->apiDocOneClickDetectFatalBatchError($tail)) {
             return ['is_running' => false, 'log_file' => $logPath];
         }
+        if ($this->apiDocOneClickApiEstaArriba()) {
+            return ['is_running' => false, 'log_file' => $logPath, 'api_ready' => true];
+        }
         return ['is_running' => true, 'log_file' => $logPath];
+    }
+
+    private function apiDocOneClickApiEstaArriba(): bool
+    {
+        $ctx = stream_context_create([
+            'http' => [
+                'timeout' => 2,
+                'ignore_errors' => true,
+            ],
+        ]);
+        $body = @file_get_contents('http://127.0.0.1:8000/api/v1/health', false, $ctx);
+        if (!is_string($body) || $body === '') {
+            return false;
+        }
+        return stripos($body, '"status"') !== false && stripos($body, '"ok"') !== false;
     }
 
     /**

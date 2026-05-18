@@ -491,7 +491,7 @@ class Departamentos extends Controller
                           <div class="card h-100 rounded-3 dept-card">
                             <div class="row h-100 g-0">
                               <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
-                                <h5 class="mb-2">Departamento ${depOrg.nombre}</h5>
+                                <h5 class="mb-2">${depOrg.nombre}</h5>
                                 <p class="mb-0 text-muted small">Áreas: <strong>${depOrg.areas.length}</strong></p>
                                 <p class="mb-3 text-muted small">Estado: <strong>${depOrg.activo ? 'Activo' : 'Inactivo'}</strong></p>
                                 <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
@@ -522,7 +522,9 @@ class Departamentos extends Controller
                                 style="background: ${gradient}; color: #fff; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
                           <span class="fi fi-${iso} fis me-3" style="font-size: 1.5rem; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);"></span>
                           <span class="me-auto">${pais.nombre}</span>
-                          <span class="badge">${departamentosOrg.length} depto${departamentosOrg.length !== 1 ? 's' : ''}</span>
+                          <span class="badge org-count-badge" id="org-count-badge-${iso}" data-areas-count="${departamentosOrg.length}">
+                            ${departamentosOrg.length} ${departamentosOrg.length === 1 ? 'área' : 'áreas'}
+                          </span>
                         </button>
                       </h2>
                       <div id="collapse-${iso}" class="accordion-collapse collapse"
@@ -565,11 +567,11 @@ class Departamentos extends Controller
           if (!btn) return;
 
           if (window.departamentoOrganizacionActivo) {
-            btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nueva Area';
+            btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nuevo Departamento';
             return;
           }
 
-          btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nuevo Departamento';
+          btn.innerHTML = '<i class="fa fa-plus-circle me-2"></i>Nueva Área';
         }
 
         function renderDepartamentosPais(iso, nombrePais, departamentosOrg, imgUrl) {
@@ -586,8 +588,8 @@ class Departamentos extends Controller
                 <div class="card h-100 rounded-3 dept-card">
                   <div class="row h-100 g-0">
                     <div class="col-sm-8 d-flex flex-column justify-content-center p-3">
-                      <h5 class="mb-2">Departamento ${escapeHtml(depOrg.nombre)}</h5>
-                      <p class="mb-0 text-muted small">Areas: <strong>${depOrg.areas.length}</strong></p>
+                      <h5 class="mb-2">${escapeHtml(depOrg.nombre)}</h5>
+                      <p class="mb-0 text-muted small">Áreas: <strong>${depOrg.areas.length}</strong></p>
                       <p class="mb-0 text-muted small">Puestos: <strong>${totalPuestos}</strong></p>
                       <p class="mb-3 text-muted small">Personal: <strong>${totalPersonas}</strong></p>
                       <button type="button" class="btn btn-sm btn-outline-primary fw-semibold text-uppercase"
@@ -611,6 +613,11 @@ class Departamentos extends Controller
           if (!depOrg || !body) return;
           window.departamentoOrganizacionActivo = depOrg;
           actualizarBotonAccionOrganizacion();
+          const badge = document.getElementById(`org-count-badge-${iso}`);
+          if (badge) {
+            const totalDepartamentos = depOrg.areas.length;
+            badge.textContent = `${totalDepartamentos} ${totalDepartamentos === 1 ? 'depto' : 'depts'}`;
+          }
 
           let cardsHTML = '';
           depOrg.areas.forEach(d => {
@@ -639,14 +646,14 @@ class Departamentos extends Controller
           });
 
           if (!cardsHTML) {
-            cardsHTML = '<div class="col-12 text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay areas registradas en este departamento.</div>';
+            cardsHTML = '<div class="col-12 text-center text-muted py-4"><i class="fa fa-inbox fa-2x mb-2 d-block"></i>No hay áreas registradas en este departamento.</div>';
           }
 
           body.innerHTML = `
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
               <div>
-                <h5 class="mb-0">Departamento ${escapeHtml(depOrg.nombre)}</h5>
-                <p class="text-muted mb-0">Areas registradas en ${escapeHtml(depOrg.nombre_pais || '')}</p>
+                <h5 class="mb-0">${escapeHtml(depOrg.nombre)}</h5>
+                <p class="text-muted mb-0">Departamentos registrados en ${escapeHtml(depOrg.nombre_pais || '')}</p>
               </div>
               <button type="button" class="btn btn-outline-secondary" onclick="getDepartamentos()">
                 <i class="fa fa-arrow-left me-2"></i>Volver
@@ -658,7 +665,7 @@ class Departamentos extends Controller
         function cargarDepartamentosOrganizacionalesModal(idPais) {
           const select = document.getElementById('addDepartamentoOrganizacionalId');
           if (!select) return;
-          select.innerHTML = '<option value="">-- Selecciona un departamento --</option>';
+          select.innerHTML = '<option value="">-- Selecciona un área --</option>';
           select.classList.remove('is-invalid');
           const error = document.getElementById('errorDepartamentoOrganizacional');
           if (error) error.style.display = 'none';
@@ -707,17 +714,17 @@ class Departamentos extends Controller
           if (contextOrg) contextOrg.value = opciones.idOrg || '';
 
           if (modo === 'area') {
-            if (title) title.innerHTML = 'Agregar nueva &aacute;rea';
-            if (help) help.textContent = `Se agregara al departamento ${opciones.nombreOrg || ''}.`;
-            if (nombreLabel) nombreLabel.innerHTML = 'Nombre del &Aacute;rea *';
+            if (title) title.textContent = 'Agregar nuevo departamento';
+            if (help) help.textContent = `Se agregará al área ${opciones.nombreOrg || ''}.`;
+            if (nombreLabel) nombreLabel.textContent = 'Nombre del Departamento *';
             if (input) input.placeholder = 'Ej. Call Center, Campo 1-7, Despachos...';
             if (paisGroup) paisGroup.style.display = 'none';
             if (orgGroup) orgGroup.style.display = 'none';
           } else {
-            if (title) title.textContent = 'Agregar nuevo departamento';
-            if (help) help.textContent = 'Selecciona el pais y escribe el nombre del departamento';
-            if (nombreLabel) nombreLabel.textContent = 'Nombre del Departamento *';
-            if (input) input.placeholder = 'Ej. Cobranza, Operaciones, Administracion...';
+            if (title) title.textContent = 'Agregar nueva área';
+            if (help) help.textContent = 'Selecciona el país y escribe el nombre del área.';
+            if (nombreLabel) nombreLabel.textContent = 'Nombre del Área *';
+            if (input) input.placeholder = 'Ej. Cobranza, Comercial, Administración de Finanzas...';
             if (paisGroup) paisGroup.style.display = '';
             if (orgGroup) orgGroup.style.display = 'none';
           }
@@ -734,7 +741,7 @@ class Departamentos extends Controller
           const selectOrg = document.getElementById('addDepartamentoOrganizacionalId');
           configurarModalDepartamento('departamento');
           select.innerHTML = '<option value="">-- Selecciona un país --</option>';
-          if (selectOrg) selectOrg.innerHTML = '<option value="">-- Selecciona un departamento --</option>';
+          if (selectOrg) selectOrg.innerHTML = '<option value="">-- Selecciona un área --</option>';
           select.classList.remove('is-invalid');
           document.getElementById('errorPais').style.display = 'none';
           const errorOrg = document.getElementById('errorDepartamentoOrganizacional');
@@ -875,7 +882,7 @@ class Departamentos extends Controller
 
               if (!idDepartamentoOrganizacional) {
                 if (errorOrg) {
-                  errorOrg.textContent = 'Debes seleccionar un departamento';
+                  errorOrg.textContent = 'Debes seleccionar un área';
                   errorOrg.style.display = 'block';
                 }
                 if (selectOrg) selectOrg.classList.add('is-invalid');
@@ -886,7 +893,7 @@ class Departamentos extends Controller
               }
 
               if (!nombre) {
-                errorNombre.textContent = modo === 'departamento' ? 'El nombre del departamento es requerido' : 'El nombre del area es requerido';
+                errorNombre.textContent = modo === 'departamento' ? 'El nombre del área es requerido' : 'El nombre del departamento es requerido';
                 errorNombre.style.display = 'block';
                 input.classList.add('is-invalid');
                 valid = false;
@@ -921,7 +928,7 @@ class Departamentos extends Controller
                     getDepartamentos();
                     Swal.fire({
                       icon: 'success',
-                      title: modo === 'departamento' ? 'Departamento creado' : 'Area creada',
+                      title: modo === 'departamento' ? 'Área creada' : 'Departamento creado',
                       text: resp.mensaje,
                       timer: 2000,
                       showConfirmButton: false

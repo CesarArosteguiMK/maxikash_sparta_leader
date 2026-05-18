@@ -170,13 +170,13 @@ body.dark-mode .pai-hero-mascot-floating {
             <div class="row gy-6 mb-6 gx-0 pai-hero-paneles-row">
                 <?php
                 /** Solo estos paneles están operativos; el resto muestra lazo «Próximamente» (como en Levantar ticket). */
-                $panelesActivosAhora = ['sabueso_paneladmin', 'sabueso_panel_validaciones'];
+                $panelesActivosAhora = ['sabueso_paneladmin', 'sabueso_panel_validaciones', 'sabueso_panel_viaticos'];
                 $descripciones = [
                     'sabueso_paneladmin' => 'Todos los tickets Sabueso, asignación, dictámenes y seguimiento.',
                     'sabueso_panel_validaciones' => 'Tickets de validación de domicilio y validaciones. Ver y gestionar solicitudes.',
                     'sabueso_panel_plantilla' => 'Tickets de plantilla. Ver y gestionar solicitudes.',
                     'sabueso_panel_atencioncliente' => 'Tickets de atención al cliente. Ver y gestionar solicitudes.',
-                    'sabueso_panel_viaticos' => 'Tickets de viáticos. Ver y gestionar solicitudes de viáticos.',
+                    'sabueso_panel_viaticos' => 'Tickets de ausencias. Ver solicitudes levantadas desde la app y su detalle.',
                     'sabueso_panel_aplicacionespago' => 'Tickets de aplicaciones de pago. Ver y gestionar solicitudes.',
                     'sabueso_panel_creditoproblematico' => 'Tickets de crédito problemático. Ver y gestionar solicitudes.',
                     'sabueso_panel_aclaracioncredito' => 'Tickets de aclaración de crédito. Ver y gestionar solicitudes.',

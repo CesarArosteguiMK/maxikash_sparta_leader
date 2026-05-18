@@ -79,22 +79,37 @@ if exist "%PORTABLE_PY%" (
 
 rem ----- Bootstrap zbar: descarga DLL MSYS2 solo dentro de API\tools\zbar\bin -----
 if exist "%~dp0bootstrap-zbar-local.ps1" (
-    echo [0/4] zbar local ^(QR/PDF417^): preparando DLLs en API\tools\zbar\bin...
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0bootstrap-zbar-local.ps1" >>"%API_DIR%\logs\bootstrap-zbar.log" 2>&1
-    if errorlevel 1 (
-        rem Si el bootstrap no pudo descargar (por red), pero las DLLs versionadas
-        rem ya funcionan, no mostrar falso aviso: validar pyzbar igual que el doctor.
-        set "ZBAR_OK=0"
-        if exist "%PORTABLE_PY%" if exist "%~dp0_zbar_smoke.py" (
-            pushd "%API_DIR%" >nul
-            "%PORTABLE_PY%" "%~dp0_zbar_smoke.py" >nul 2>&1
-            if not errorlevel 1 set "ZBAR_OK=1"
-            popd >nul
-        )
-        if "!ZBAR_OK!"=="1" (
-            echo       [OK] zbar local ya funciona ^(DLLs dentro de API^).
-        ) else (
-            echo       [AVISO] bootstrap-zbar-local.ps1 fallo. Ver: %API_DIR%\logs\bootstrap-zbar.log
+    set "ZBAR_OK=0"
+    set "ZBAR_PY=%PORTABLE_PY%"
+    if not exist "!ZBAR_PY!" if exist "%API_DIR%\tools\python312\python.exe" set "ZBAR_PY=%API_DIR%\tools\python312\python.exe"
+    if not exist "!ZBAR_PY!" if exist "%API_DIR%\venv\Scripts\python.exe" set "ZBAR_PY=%API_DIR%\venv\Scripts\python.exe"
+    if exist "!ZBAR_PY!" if exist "%~dp0_zbar_smoke.py" (
+        pushd "%API_DIR%" >nul
+        "!ZBAR_PY!" "%~dp0_zbar_smoke.py" >nul 2>&1
+        if not errorlevel 1 set "ZBAR_OK=1"
+        popd >nul
+    )
+    if "!ZBAR_OK!"=="1" (
+        echo [0/4] zbar local ^(QR/PDF417^): OK, no requiere bootstrap.
+    ) else (
+        echo [0/4] zbar local ^(QR/PDF417^): preparando DLLs en API\tools\zbar\bin...
+        echo       Timeout defensivo: 180 segundos. Si la red del servidor no responde, el panel no quedara colgado.
+        set "ZBAR_BOOTSTRAP=%~dp0bootstrap-zbar-local.ps1"
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$env:ZBAR_BOOTSTRAP) -NoNewWindow -PassThru; if (-not $p.WaitForExit(180000)) { try { $p.Kill() } catch {}; Write-Host '[zbar] TIMEOUT: bootstrap supero 180 segundos.'; exit 124 }; exit $p.ExitCode" >>"%API_DIR%\logs\bootstrap-zbar.log" 2>&1
+        if errorlevel 1 (
+            set "ZBAR_OK=0"
+            if exist "!ZBAR_PY!" if exist "%~dp0_zbar_smoke.py" (
+                pushd "%API_DIR%" >nul
+                "!ZBAR_PY!" "%~dp0_zbar_smoke.py" >nul 2>&1
+                if not errorlevel 1 set "ZBAR_OK=1"
+                popd >nul
+            )
+            if "!ZBAR_OK!"=="1" (
+                echo       [OK] zbar local ya funciona ^(DLLs dentro de API^).
+            ) else (
+                echo       [AVISO] zbar no quedo listo o se agoto el tiempo. Ver: %API_DIR%\logs\bootstrap-zbar.log
+                echo       Continuando: la API puede levantar; solo QR/PDF417 podria fallar hasta reparar zbar.
+            )
         )
     )
 )

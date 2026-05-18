@@ -139,7 +139,7 @@ class CapHum extends Controller
                                 ${puestosHTML}
                                 <hr class="my-2">
                                 <small class="text-muted d-flex align-items-center gap-1">
-                                    <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
+                                    <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
                                 </small>
                             `.trim(),
                             estatus: p.estatus,
@@ -2995,7 +2995,9 @@ class CapHum extends Controller
                 const descripcion = document.getElementById("motivoBajaDescripcion").value;
                 const tieneSubordinados = bajaSubordinadosActuales.length > 0;
                 const modoReasignacionEl = document.querySelector('input[name="bajaModoReasignacion"]:checked');
-                const modoReasignacion = tieneSubordinados && modoReasignacionEl ? modoReasignacionEl.value : 'sin_subordinados';
+                const modoReasignacion = modoReasignacionEl
+                    ? modoReasignacionEl.value
+                    : (tieneSubordinados ? 'vacante' : 'sin_subordinados');
                 const sustitutoSelect = document.getElementById("bajaSustitutoId");
                 const sustitutoId = sustitutoSelect ? sustitutoSelect.value : "";
                 const subordinadosSeleccionados = modoReasignacion === 'sustituto'
@@ -3012,6 +3014,8 @@ class CapHum extends Controller
                 const pendientesAsignacion = modoReasignacion === 'sustituto'
                     ? bajaSubordinadosActuales.length - Object.keys(bajaAsignacionesJefe).length
                     : 0;
+                const tieneVacantesActivasParaPuesto = Array.isArray(bajaVacantesMismoPuestoActuales)
+                    && bajaVacantesMismoPuestoActuales.length > 0;
 
                 // Validaciones
                 if (!motivoSelect) {
@@ -3041,13 +3045,35 @@ class CapHum extends Controller
                     return;
                 }
 
+                if (modoReasignacion === 'vacante' && tieneVacantesActivasParaPuesto && !vacanteExistenteId) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Selecciona una vacante',
+                        text: 'Ya existe una vacante activa para este puesto. Selecciona la vacante disponible antes de confirmar la baja.'
+                    });
+                    return;
+                }
+
+                const sinVacantesActivasParaPuesto = !Array.isArray(bajaVacantesMismoPuestoActuales)
+                    || bajaVacantesMismoPuestoActuales.length === 0;
+                const crearVacanteAutomatica = modoReasignacion === 'vacante' && sinVacantesActivasParaPuesto;
+                const tituloConfirmacion = crearVacanteAutomatica
+                    ? 'Confirmar baja y crear vacante'
+                    : '¿Confirmar baja?';
+                const mensajeConfirmacion = crearVacanteAutomatica
+                    ? '<div class="text-start">'
+                        + '<p>Se dará de baja a esta persona.</p>'
+                        + '<p class="mb-0">No hay una vacante activa para este puesto. Al confirmar, el sistema creará una vacante nueva automáticamente para conservar esa posición disponible.</p>'
+                        + '</div>'
+                    : 'Esta acción no se puede deshacer.';
+
                 // Confirmación antes de enviar
                 Swal.fire({
-                    title: '¿Confirmar baja?',
-                    text: "Esta acción no se puede deshacer.",
+                    title: tituloConfirmacion,
+                    html: mensajeConfirmacion,
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Sí, dar de baja',
+                    confirmButtonText: 'Sí, confirmar baja',
                     cancelButtonText: 'Cancelar',
                     reverseButtons: true
                 }).then((result) => {
@@ -9423,7 +9449,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
+            CURLOPT_TIMEOUT => 70,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -9431,7 +9457,7 @@ class CapHum extends Controller
         $curlErr = curl_error($ch);
         if ($body === false || $httpCode !== 200) {
             if (stripos((string) $curlErr, 'timed out') !== false || stripos((string) $curlErr, 'timeout') !== false) {
-                return ['valido' => false, 'mensaje' => 'La validacion del acta tardo mas de lo esperado. El documento quedo guardado; puedes intentar de nuevo en unos segundos.'];
+                return ['valido' => false, 'mensaje' => 'La validacion de la constancia fiscal tardo mas de lo esperado. El documento quedo guardado; puedes intentar de nuevo en unos segundos.'];
             }
             return ['valido' => false, 'mensaje' => $curlErr ?: 'La API no respondió correctamente (HTTP ' . $httpCode . ').'];
         }
@@ -9469,7 +9495,7 @@ class CapHum extends Controller
             CURLOPT_POSTFIELDS => ['documento' => $cfile],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 60,
+            CURLOPT_TIMEOUT => 150,
             CURLOPT_CONNECTTIMEOUT => 5,
         ]);
         $body = curl_exec($ch);
@@ -10844,7 +10870,7 @@ class CapHum extends Controller
                             </small>
                             <hr class="my-2">
                             <small class="text-muted d-flex align-items-center gap-1">
-                                <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe || 'Sin jefe'}</strong>
+                                <i class="fa fa-user"></i>Jefe: <strong class="ms-1">${p.nombre_jefe && p.nombre_jefe !== 'Sin jefe' ? p.nombre_jefe : (p.nombre_vacante_jefe || 'Sin jefe')}</strong>
                             </small>
                         `.trim(),
                         estatus: p.estatus,
@@ -12330,8 +12356,9 @@ class CapHum extends Controller
 
     public function getUsuarios()
     {
-        $tieneDepartamento = in_array(10, $_SESSION['modulos'] ?? []);
-        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], $tieneDepartamento);
+        $modulos = $_SESSION['modulos'] ?? [];
+        $puedeVerGestionPersonal = in_array(4, $modulos);
+        $resultado = CapHumDAO::getConsultaGestoresAll($_SESSION['usuario_id'], !$puedeVerGestionPersonal);
         $usuarios = $resultado['datos'] ?? [];
 
 
@@ -12341,6 +12368,8 @@ class CapHum extends Controller
                 'id' => $p['id'] ?? '',
                 'numero_empleado' => $p['numero_empleado'] ?? '',
                 'nombre_jefe' => $p['nombre_jefe'] ?? '',
+                'id_vacante_jefe' => $p['id_vacante_jefe'] ?? null,
+                'nombre_vacante_jefe' => $p['nombre_vacante_jefe'] ?? '',
                 'nombres' => $p['nombres'] ?? '',
                 'segundo_nombre' => $p['segundo_nombre'] ?? '',
                 'apellidop' => $p['apellidop'] ?? '',
@@ -13187,12 +13216,24 @@ public function getMunicipios()
             foreach ($rows as $rOrg) {
                 $idsExistentes[(string)($rOrg['id'] ?? '')] = true;
             }
+            $vacantesConSubordinadosVisibles = [];
+            foreach (($metaOrg['datos']['subordinados_vacante'] ?? []) as $subVac) {
+                $idVacanteJefe = (int)($subVac['id_vacante_jefe'] ?? 0);
+                $idSubordinado = (string)($subVac['id'] ?? '');
+                if ($idVacanteJefe > 0 && $idSubordinado !== '' && !isset($idsExistentes[$idSubordinado])) {
+                    $vacantesConSubordinadosVisibles[$idVacanteJefe] = true;
+                }
+            }
+            $vacantesAgregadas = [];
             foreach (($metaOrg['datos']['vacantes'] ?? []) as $vac) {
+                $idVacanteReal = (int)$vac['id'];
+                if (empty($vacantesConSubordinadosVisibles[$idVacanteReal])) continue;
                 $jefeVac = !empty($vac['id_jefe']) ? (string)$vac['id_jefe'] : $idRaiz;
                 if (!isset($idsExistentes[$jefeVac])) continue;
-                $idVacante = 'vacante-' . (int)$vac['id'];
+                $idVacante = 'vacante-' . $idVacanteReal;
                 if (isset($idsExistentes[$idVacante])) continue;
                 $idsExistentes[$idVacante] = true;
+                $vacantesAgregadas[$idVacanteReal] = $idVacante;
                 $rows[] = [
                     'id' => $idVacante,
                     'nombre' => 'Vacante',
@@ -13200,6 +13241,21 @@ public function getMunicipios()
                     'jefe' => $jefeVac,
                     'tipo_estado' => 'vacante',
                     'estado_label' => 'Vacante',
+                ];
+            }
+            foreach (($metaOrg['datos']['subordinados_vacante'] ?? []) as $subVac) {
+                $idVacanteJefe = (int)($subVac['id_vacante_jefe'] ?? 0);
+                if ($idVacanteJefe <= 0 || !isset($vacantesAgregadas[$idVacanteJefe])) continue;
+
+                $idSubordinado = (string)($subVac['id'] ?? '');
+                if ($idSubordinado === '' || isset($idsExistentes[$idSubordinado])) continue;
+
+                $idsExistentes[$idSubordinado] = true;
+                $rows[] = [
+                    'id' => $idSubordinado,
+                    'nombre' => $subVac['nombre'] ?? '',
+                    'puesto' => $subVac['nombre_puesto'] ?? 'Sin puesto',
+                    'jefe' => $vacantesAgregadas[$idVacanteJefe],
                 ];
             }
         }

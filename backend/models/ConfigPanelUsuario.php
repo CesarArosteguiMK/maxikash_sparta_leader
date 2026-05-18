@@ -35,8 +35,8 @@ class ConfigPanelUsuario extends Model
             'url' => '/atencioncliente/paneladmin',
         ],
         'sabueso_panel_viaticos' => [
-            'label' => 'Viáticos',
-            'icon' => 'fa-solid fa-receipt',
+            'label' => 'Ausencias',
+            'icon' => 'fa-solid fa-calendar-xmark',
             'url' => '/viaticos/paneladmin',
         ],
         'sabueso_panel_aplicacionespago' => [

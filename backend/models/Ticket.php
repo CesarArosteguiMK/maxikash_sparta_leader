@@ -239,8 +239,12 @@ class Ticket extends Model
         if (!$soloDelUsuario && $tieneCategoriaGestion && $filtroCategoria !== '') {
             $catVal = strtolower(preg_replace('/[^a-z0-9_]/', '', str_replace([' ', '-'], '_', $filtroCategoria)));
             if ($catVal !== '') {
-                $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = :filtro_categoria_gestion)";
-                $params['filtro_categoria_gestion'] = $catVal;
+                if ($catVal === 'ausencia') {
+                    $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') IN ('ausencia', 'solicitud_vacaciones'))";
+                } else {
+                    $extraWhere[] = "(COALESCE(NULLIF(TRIM(t.categoria_gestion),''), 'sabueso') = :filtro_categoria_gestion)";
+                    $params['filtro_categoria_gestion'] = $catVal;
+                }
             }
         }
         if (!empty($extraWhere)) {

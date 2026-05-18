@@ -6,6 +6,7 @@ identificación oficial, constancia CURP, constancia fiscal, NSS y acta de nacim
 import re
 import io
 import unicodedata
+from functools import lru_cache
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 from loguru import logger
@@ -147,11 +148,83 @@ def _parsear_fecha_espanol(texto: str) -> Optional[datetime]:
         return None
 
 
+def _parsear_fecha_sat_emision(texto: str) -> Optional[datetime]:
+    """Extrae fecha de emision SAT aun cuando OCR pegue palabras o parta lineas."""
+    fecha = _parsear_fecha_espanol(texto)
+    if fecha:
+        return fecha
+    compacto = _compactar_texto_sat(texto)
+    if not compacto:
+        return None
+    idx = compacto.find("FECHADEEMISION")
+    ventana = compacto[idx:idx + 450] if idx >= 0 else compacto[:700]
+    meses = {k.upper(): v for k, v in MESES_ES.items()}
+    for mes_nombre, mes_num in meses.items():
+        m = re.search(rf"(\d{{1,2}})DE{mes_nombre}DE[A-Z]{{0,20}}?(\d{{4}})", ventana)
+        if not m:
+            continue
+        try:
+            return datetime(int(m.group(2)), mes_num, int(m.group(1)))
+        except ValueError:
+            return None
+    return None
+
+
 def _normalizar_nombre(nombre: str) -> str:
     nombre = unicodedata.normalize("NFKD", nombre.upper().strip())
     nombre = "".join(c for c in nombre if not unicodedata.combining(c))
     nombre = re.sub(r"[^A-Z\s]", "", nombre)
     return re.sub(r"\s+", " ", nombre).strip()
+
+
+def _normalizar_texto_sat(texto: str) -> str:
+    if not texto:
+        return ""
+    texto = unicodedata.normalize("NFKD", texto.upper())
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    texto = texto.replace("Ã", "A").replace("Ã‰", "E").replace("Ã", "I").replace("Ã“", "O").replace("Ãš", "U")
+    return re.sub(r"\s+", " ", texto).strip()
+
+
+def _compactar_texto_sat(texto: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", "", _normalizar_texto_sat(texto))
+
+
+def _texto_parece_constancia_fiscal(texto: str) -> bool:
+    normal = _normalizar_texto_sat(texto)
+    compacto = _compactar_texto_sat(texto)
+    if not compacto:
+        return False
+    return bool(
+        "CONSTANCIADESITUACIONFISCAL" in compacto
+        or "CEDULADEIDENTIFICACIONFISCAL" in compacto
+        or ("SERVICIODEADMINISTRACIONTRIBUTARIA" in compacto and "RFC" in compacto)
+        or ("HACIENDA" in normal and "RFC" in compacto and "CURP" in compacto)
+    )
+
+
+@lru_cache(maxsize=8)
+def _texto_constancia_fiscal_pdf(pdf_bytes: bytes, max_paginas: int = 2) -> str:
+    """Texto para CSF: usa capa nativa si sirve; si no, OCR rapido a baja resolucion."""
+    texto = _texto_de_pdf(pdf_bytes)
+    if _texto_parece_constancia_fiscal(texto):
+        return texto
+    if not PYMUPDF_AVAILABLE or not pdf_bytes or len(pdf_bytes) < 100:
+        return texto or ""
+    texto_ocr = ""
+    for dpi in (120, 100):
+        imagenes = pdf_paginas_a_png_bytes(pdf_bytes, dpi=dpi, max_paginas=max_paginas)
+        if not imagenes:
+            continue
+        partes: List[str] = []
+        for img_bytes in imagenes:
+            t = _texto_ocr_imagen(img_bytes)
+            if t:
+                partes.append(t)
+        texto_ocr = "\n".join(partes).strip()
+        if _texto_parece_constancia_fiscal(texto_ocr):
+            return texto_ocr
+    return texto_ocr or texto or ""
 
 
 def _nombres_coinciden(n1: str, n2: str) -> bool:
@@ -645,6 +718,8 @@ def es_documento_nss(pdf_bytes: bytes) -> bool:
     """True si el PDF es uno de los tres formatos aceptados del IMSS: (1) vigencia de derechos,
     (2) constancia de asignación/homoclave NSS, (3) constancia de semanas cotizadas. No acepta la tarjeta NSS (imprimir/recortar).
     """
+    if _texto_parece_constancia_fiscal(_texto_de_pdf(pdf_bytes)):
+        return False
     t = texto_de_pdf_con_ocr(pdf_bytes).upper()
     t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
     if not t:
@@ -693,15 +768,7 @@ def es_documento_curp(pdf_bytes: bytes) -> bool:
 
 def es_documento_constancia_fiscal(pdf_bytes: bytes) -> bool:
     """True si el PDF es constancia de situación fiscal (SAT)."""
-    t = _texto_de_pdf(pdf_bytes).upper()
-    t = t.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
-    if not t:
-        return False
-    if "CONSTANCIA DE SITUACION FISCAL" in t:
-        return True
-    if "CEDULA DE IDENTIFICACION FISCAL" in t:
-        return True
-    return False
+    return _texto_parece_constancia_fiscal(_texto_constancia_fiscal_pdf(pdf_bytes))
 
 
 def es_documento_acta_nacimiento(pdf_bytes: bytes) -> bool:
@@ -886,31 +953,51 @@ def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
         "vigencia_ok": None,
         "actividad_economica_asalariado": False,
         "regimen_sueldos_salarios": False,
+        "parece_constancia_fiscal": False,
     }
     if not PYMUPDF_AVAILABLE:
         return resultado
+    texto = _texto_constancia_fiscal_pdf(pdf_bytes)
+    resultado["parece_constancia_fiscal"] = _texto_parece_constancia_fiscal(texto)
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        texto = ""
+        texto_nativo = ""
         for page in doc:
-            texto += page.get_text() + "\n"
+            texto_nativo += page.get_text() + "\n"
         doc.close()
+        if not texto.strip():
+            texto = texto_nativo
+            resultado["parece_constancia_fiscal"] = _texto_parece_constancia_fiscal(texto)
     except Exception:
-        return resultado
+        if not texto.strip():
+            return resultado
 
     lineas = [ln.strip() for ln in texto.split("\n")]
     texto_upper = texto.upper()
-    texto_norm = texto_upper.replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+    texto_norm = _normalizar_texto_sat(texto_upper)
+    texto_compacto = _compactar_texto_sat(texto_upper)
 
     curp_m = re.search(r"CURP:\s*\n?\s*([A-Z0-9]{18})", texto, re.IGNORECASE)
     if curp_m:
         cand = curp_m.group(1).upper()
         if validar_curp(cand)[0]:
             resultado["curp"] = cand
+    if not resultado["curp"]:
+        for m in re.finditer(r"[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{2}", texto_compacto):
+            cand = m.group(0).upper()
+            if validar_curp(cand)[0]:
+                resultado["curp"] = cand
+                break
 
     rfc_m = re.search(r"RFC:\s*\n?\s*([A-Z0-9]{12,13})", texto, re.IGNORECASE)
     if rfc_m:
         resultado["rfc"] = rfc_m.group(1).upper()
+    if not resultado["rfc"]:
+        m = re.search(r"RFC([A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3})", texto_compacto)
+        if not m:
+            m = re.search(r"\b([A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3})\b", texto_norm)
+        if m:
+            resultado["rfc"] = m.group(1).upper()
 
     nombre_val = apellido1 = apellido2 = None
     for i, ln in enumerate(lineas):
@@ -934,7 +1021,7 @@ def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
     if partes:
         resultado["nombre"] = _normalizar_nombre(" ".join(partes))
 
-    fecha = _parsear_fecha_espanol(texto)
+    fecha = _parsear_fecha_sat_emision(texto)
     if fecha:
         resultado["fecha_emision"] = fecha.strftime("%d/%m/%Y")
         hoy = datetime.now()
@@ -945,11 +1032,11 @@ def extraer_datos_constancia_fiscal(pdf_bytes: bytes) -> Dict[str, Any]:
         resultado["vigencia_ok"] = meses <= 2.0
 
     # Actividad Económica: debe decir "Asalariado" (tabla Actividades Económicas, normalmente pág 2)
-    if "ASALARIADO" in texto_norm:
+    if "ASALARIADO" in texto_norm or "ASALARIADO" in texto_compacto:
         resultado["actividad_economica_asalariado"] = True
 
     # Régimen: debe incluir "Régimen de Sueldos y Salarios e Ingresos Asimilados a Salarios"
-    if "SUELDOS Y SALARIOS" in texto_norm or "SUELDOS Y SALARIOS E INGRESOS ASIMILADOS" in texto_norm:
+    if "SUELDOS Y SALARIOS" in texto_norm or "SUELDOS Y SALARIOS E INGRESOS ASIMILADOS" in texto_norm or "SUELDOSYSALARIOS" in texto_compacto:
         resultado["regimen_sueldos_salarios"] = True
 
     return resultado
